@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type Item, planOf, steerOf, wantOf } from "./board";
+import { type Item, planOf, steerOf, steersOf, wantOf } from "./board";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
 import {
@@ -292,6 +292,65 @@ test("his changes are steers, Life's own writes are not, and Life never writes o
   expect(planOf(wantOf(steered, "Atlas stuck"), his, his, T0).reopen).toBe(
     true
   );
+});
+
+test("Life's own subtasks are never steers: in Reminders' order, dropped from Atlas's list, or on a closed task; his are", () => {
+  const [a, b, c] = ["Verify the link", "Redesign the day", "Publish it"];
+  const claim = own("update", 5, {
+    claim: true,
+    deadline: at(60),
+    note: "on it",
+    state: "working",
+    steps: [a, b, c].map((title) => ({ done: false, title })),
+  });
+  const claimed = task([claim]);
+  const first = planOf(wantOf(claimed, null), look(), undefined, T0).look;
+  // Reminders lists the subtasks Life added in its own order.
+  const read = look({
+    ...first,
+    steps: { [c]: false, [a]: false, [b]: false },
+  });
+  const steers = (t: Task, item = read) =>
+    steersOf([t], { [ASK]: first }, new Map([[ASK, item]]));
+  expect(steers(claimed)).toEqual([]);
+  // Atlas drops a and c from its full list while working: they stay, unchanged, and are no steer.
+  const dropped = task([
+    claim,
+    own("update", 7, {
+      deadline: at(60),
+      note: "narrowed",
+      state: "working",
+      steps: [{ done: true, title: b }],
+    }),
+  ]);
+  const next = planOf(wantOf(dropped, null), read, first, T0).look;
+  expect(
+    steerOf(next, { ...next, steps: { [c]: false, [b]: true, [a]: false } })
+      .changes
+  ).toEqual({});
+  // Atlas closes it with a new list: no steer, even for a change, and none for a deleted item.
+  const done = task([
+    claim,
+    own("update", 7, {
+      outcome: "split",
+      state: "done",
+      steps: [{ done: true, title: "Split it" }],
+    }),
+  ]);
+  const his = look({
+    ...read,
+    steps: { ...read.steps, "Call the agency": false },
+  });
+  expect(steers(done)).toEqual([]);
+  expect(steers(done, his)).toEqual([]);
+  expect(steersOf([done], { [ASK]: first }, new Map())).toEqual([]);
+  // His own subtask on an open task is a steer; so is a deleted item.
+  expect(steers(dropped, his)).toEqual([
+    [ASK, { changes: { steps: his.steps }, note: "" }],
+  ]);
+  expect(steersOf([dropped], { [ASK]: first }, new Map())).toEqual([
+    [ASK, { changes: { deleted: true }, note: "" }],
+  ]);
 });
 
 const TEXT = "# Atlas: the playbook";
