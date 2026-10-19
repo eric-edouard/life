@@ -167,6 +167,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const repos = await phase.step("repos", () => mapRepos());
     // Every source is read once and handed to each step.
     phase.at = "gather";
+    const watcher = readHealth();
     const evidence = await gather(windowStart(now, days));
     const found = await phase.step("moments", () =>
       moments({ days, evidence })
@@ -196,7 +197,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       paged,
       repos,
       retired,
-      watcher: readHealth(),
+      watcher,
     });
   } catch (e) {
     failure = phase.failed(e);

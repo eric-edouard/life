@@ -162,7 +162,7 @@ export function openStore(dir = WATCH) {
   }
   const db = new Database(file);
   db.run("pragma journal_mode = wal");
-  // The watcher and the nightly may poll at the same time.
+  // The watcher writes while the memory steps read.
   db.run("pragma busy_timeout = 5000");
   db.run(`create table if not exists conversations (
     id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
