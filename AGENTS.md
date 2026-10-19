@@ -150,7 +150,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   from `~/Life/truth`; first names alone, places, project names, `.env` values and git history are on you. His
   domain in Life's own addresses (sender, connector, LaunchAgent labels) is infrastructure, kept on purpose.
   lifelog's check runs `scripts/scrub-check.ts` by this path with git pathspecs as arguments: keep both.
-- **Backups**: `src/backup.ts` (LaunchAgent `backup`, 05:00; by hand only from `~/Work/life`) snapshots with restic into
+- **Backups**: `src/backup.ts` (the `memory-nightly` tick, once the night is done: once a day, 3 tries, `backupDue`; by hand only from `~/Work/life`) snapshots with restic into
   `~/Library/Mobile Documents/com~apple~CloudDocs/Life backup/restic`; the password is in the Keychain
   (`RESTIC_PASSWORD_COMMAND="security find-generic-password -s life-restic -w"`) and his password manager.
   It holds what its `restic backup` lists, `~/Life` cloned under the lock (the one reader that takes it). Restore:

@@ -1,5 +1,5 @@
 // Installs (or replaces) a LaunchAgent that runs `bun src/cli.ts <args>` in this checkout:
-// `bun scripts/install.ts <archive|backup|watch|memory-nightly>`. Safe to repeat; run it from the checkout that should run it.
+// `bun scripts/install.ts <archive|watch|memory-nightly>`. Safe to repeat; run it from the checkout that should run it.
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -8,14 +8,9 @@ const ALWAYS_ON =
 
 // `when` is the plist's scheduling keys. The archive and the watcher stay on; the nightly starts every 30 minutes and
 // memory/guard.ts lets it run the night once, after 02:00,
-// and a midday pass once after 13:00 and once after 19:00. The backup runs at 05:00, or at wake when the Mac slept then.
+// a midday pass once after 13:00 and once after 19:00, and the backup once the night is done.
 const JOBS: Record<string, { args: string[]; log: string; when: string }> = {
   archive: { args: ["archive"], log: "life-archive.log", when: ALWAYS_ON },
-  backup: {
-    args: ["backup"],
-    log: "life-backup.log",
-    when: "<key>StartCalendarInterval</key><dict><key>Hour</key><integer>5</integer><key>Minute</key><integer>0</integer></dict>",
-  },
   "memory-nightly": {
     args: ["memory", "nightly"],
     log: "life-memory.log",

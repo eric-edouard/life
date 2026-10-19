@@ -11,7 +11,7 @@ import { ARCHIVE, archiveDb } from "./sources/archived";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT } from "./truth";
 
-// The daily restic snapshot to iCloud Drive (AGENTS.md, "Backups"). A failed run waits for the next day's.
+// The daily restic snapshot to iCloud Drive (AGENTS.md, "Backups"), run by the nightly's tick (`backupDue`).
 const STAGING = join(dirname(ARCHIVE), "backup-staging");
 const STATUS = join(ROOT, "derived", "backup.json");
 const env = {
@@ -88,7 +88,7 @@ export async function backup() {
     error: missed.join("; ") || undefined,
   };
   writeFileSync(STATUS, `${JSON.stringify(status)}\n`);
-  // The launchd log keeps every run's errors; the status only the last.
+  // The nightly's launchd log keeps every run's errors; the status only the last.
   console.error(new Date().toISOString(), status.error ?? "ok");
   return Number(missed.length > 0);
 }

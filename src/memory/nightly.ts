@@ -1,9 +1,10 @@
 import { checks } from "../actions";
-import { backupLine } from "../backup";
+import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
 import type { Action } from "../schema";
 import { extract } from "./extract";
 import {
+  backupDue,
   decide,
   locked,
   lockedSince,
@@ -71,7 +72,8 @@ function coded(day: string, rec: RunRecord) {
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (guard.ts), and
- * only the 3rd failure of a day sends the failure email.
+ * only the 3rd failure of a day sends the failure email. A tick that skips the night runs the midday pass, then the
+ * daily backup when it is due (`backupDue`).
  */
 export async function nightly(days: number, force = false) {
   const now = new Date();
@@ -86,7 +88,13 @@ export async function nightly(days: number, force = false) {
   await locked(() => noteZone(now));
   const day = localDate(now.toISOString());
   if (!force && decide(now.getHours(), day, readState()) === "skip") {
-    return midday(now);
+    const code = await midday(now);
+    if (!backupDue(now.getHours(), day, readState(), readState("backup"))) {
+      return code;
+    }
+    const backedUp = await backup();
+    recordState(day, backedUp === 0, "backup");
+    return Math.max(code, backedUp);
   }
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once.
   return (await locked(() => runNight(days, now, day, force))) ?? Number(force);
