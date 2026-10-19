@@ -30,17 +30,16 @@ When he says something matters or doesn't, also append a label to `memory/labels
 against them). His word beats the memory. `bun life memory unresolved` shows what Life inferred before you ask him anything.
 
 When he asks you to change a reminder, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
-`src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why. He talks to Instinct himself.
+`src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why.
 `act` refuses an add whose title an open reminder has (`duplicateOf`, every caller), and a timed `due` always alerts
 at that time. Deep work on his life is Atlas's, his ChatGPT agent: hand it over with `bun life ask '<his words>'`.
-Life no longer acts on what it hears: he says "hey Atlas, …" and Atlas gets the ask as a task (`docs/atlas.md`).
 
 ## Answering about his life
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
 - `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (each hit gives a conversation id and a turn) and the chat messages (90 days) and note versions (any age) holding all the words (newest 100, two around each; a long one as its lines holding a word).
-- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog and never stored; chat and mail units from the archive).
+- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
 - `day <YYYY-MM-DD>` (what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name]` (the last moments with them too; `person me`: his own page, his goals first, then his views, health and what he's dealing with; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers), `area <name>`, `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
 - `repos [project|area|repo]` (CLI only, not a connector tool): his code repos by project, where each is and the last 30 days of commits; his map is `Project.repos` in `truth/`, Life's guesses are marked inferred. Read a project's first repo (its main entry point) before working in it. Which mailbox sends what: `~/Work/CLAUDE.md`. Commits are also units (`source git`, one per repo and day): `search`, `day` and `fetch` show them.
@@ -53,15 +52,14 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge
   the same text.
-- **He is the center, not one more person.** His own page (`pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
+- **He is the center, not one more person.** His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
   projection of the observations like every page, so its shape changes at the cost of rebuilding one page; his goals
   are only in `truth/me.md` (`truth.me.goals`), shown first on `person me`. Nothing about him is stored in
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
   Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
-  only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (its `instinct` lines, emails to Instinct,
-  and its heard requests with `timing`, both until 19 Oct, still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
+  only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, and one lifelog gives to someone
@@ -69,7 +67,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
-  inherits its words; never a task without his words. It is claimed in the same call, so it sends no `ask` event.
+  inherits its words; never a task without his words. It is claimed in the same call, so it sends no `ask` event. An ask line's
+  `instruction.quote` keeps his words whole (clipped at 50,000 characters): the one place memory stores more than a short quote of his speech.
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
   `update`s through the connector's `task` (the write rules are `refusal`, behind the playbook's seal in `written`; one
@@ -77,7 +76,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   rule: past its deadline, an open one 30 min after it was recorded; 30 min apart, only after the last was delivered,
   until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
   `ask` events with `nudge` or `steer` (one event name: a second would replace the subscription). Task lines stay out of
-  the Actions section and `day`; the nightly lists every open task.
+  the Actions section and `day`; the nightly lists every open task and those closed in the last day.
 - **The board, his Reminders list `Atlas`, is a projection of the ledger** (`src/board.ts`, `tick`, each minute in the
   watcher): it writes no ledger line but his steers and never goes through `act`. An item is found by the task id on
   its notes' first line. Life owns its notes, section and the subtasks made from Atlas's `steps` (added when missing,
@@ -134,7 +133,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   null and absent field lifelog's contract allows (`apps/server/openapi.json`; `lifelog.test.ts` checks them when
   `~/Work/lifelog` is there), so a contract-valid page never stops the watcher.
 - **Memory data is append-only and expensive:** never hand-edit `memory/` (except appending owner corrections or
-  labels; `actions.jsonl` is `act`'s and `ask`'s) or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
+  labels; `actions.jsonl` is `act`'s and the tasks') or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
   must never move. A change to how unit ids are made ships an old→new map applied to `memory/labels.jsonl` and
   `memory/statements.jsonl` (`units`). Code
   rewrites only `units/` and `moments/<day>.jsonl` (the day's moments, model-owned, read again with the day).
@@ -167,7 +166,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   him like a failed action and passed over; with no live subscription asks wait, unsent and unalerted, until Atlas
   subscribes again with its cursor; the nightly's Actions section lists every ask either way). Its startup line `actions: remctl ready` in `~/Library/Logs/life-watch.log` is the check that launchd
   can reach remctl (the connector's `reminders` acts from the watcher).
-- The watcher also checks the public connector every 5 min (`life.ericedouard.com`, only while the Mac is online); it restarts `com.eric.cloudflared` on the 2nd failure in a row and emails once if that fails (`bun life status` shows it).
+- The watcher also checks the public connector every 5 min (`life.ericedouard.com`, only while the Mac is online); it restarts `com.eric.cloudflared` on the 2nd failure in a row and emails on the 3rd (`bun life status` shows it).
 - `bun life act --check` says whether remctl can act now (read-only). remctl works through its signed Capability
   Host, only by absolute path (`~/bin/remctl`, not on launchd's PATH), and a read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.

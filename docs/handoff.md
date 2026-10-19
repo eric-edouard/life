@@ -13,10 +13,9 @@ encrypted backup. This file says what is true now.
 - The goal now: **a knowledge map of what's going on in the owner's life**, meaning the people around him, his
   projects, and the chronology, built from every source. Actions only on top of it, and only on his clear request (next line).
 - 15 Oct: the map is reliable enough, so Life acts again, but only on his clear words: Apple Reminders, every action
-  logged (`memory/actions.jsonl`), never on anyone else's words. 19 Oct: the Instinct emails and the deep tasks (Codex
-  research, a phone session) were removed: he talks to Instinct himself, and his ChatGPT agent Atlas does the deep work,
-  reading Life through the connector. The same day Life stopped acting on what it hears: he says "hey Atlas, …", and
-  Life hands the ask to Atlas as an MCP event (below, "Atlas").
+  logged (`memory/actions.jsonl`), never on anyone else's words. 19 Oct: Life stopped acting on what it hears: he says
+  "hey Atlas, …", and Life hands the ask to his ChatGPT agent Atlas as an MCP event (below, "Atlas"), which does the
+  deep work, reading Life through the connector.
 
 ## The split (decided by the owner, 13 Oct)
 
@@ -28,7 +27,7 @@ encrypted backup. This file says what is true now.
 | Acts? | Never | Only on his clear request: Reminders (15 Oct) |
 
 - Life reads lifelog through its REST API with the device token (`src/sources/lifelog.ts`). It keeps chapter
-  titles, summaries and turn refs, never transcript text. Exact quotes are fetched on demand.
+  titles, summaries and turn refs, no transcript text but an ask's words (AGENTS.md). Exact quotes are fetched on demand.
 - Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge). For
   anything else it needs from lifelog, write an ask for a lifelog session.
 - Memory does **not** move into lifelog (rejected 13 Oct): memory about one person comes from voice, chats and mail
@@ -45,8 +44,8 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
 | Job | What it does |
 |---|---|
 | `archive` (KeepAlive) | Every 5 s copies WhatsApp (and media) and Beeper's LINE, Telegram and Instagram into `~/Library/Application Support/Life/archive/`, so messages deleted for everyone survive, and each new version of every Apple Note (`notes.sqlite`), opening any of the three apps that is closed, hidden. The only copy: never touch its files. |
-| `watch` (KeepAlive) | Long-polls lifelog's change feed, folds each page into `derived/watch/lifelog.sqlite`, then rewrites the lifelog units and the search index. Skips the sync while the nightly holds its lock (`~/Life/.nightly.lock`, shared by every worktree) and catches up after. Also hears "hey Atlas": 40 s after his last new turn in a conversation, `hear` (`hear.ts`) records its asks, and each loop `deliver` (`events.ts`) pushes the undelivered ones to Atlas. `bun life status` reads `derived/watch/health.json`; 15 minutes without a good poll emails the owner once, and once more on recovery. |
-| `memory-nightly` (every 30 min) | A guard (`derived/memory/nightly.json`) lets it run once a day after 02:00, 3 tries; `--force` for hand runs. The same tick also runs a **midday** pass at the first tick after 13:00 and after 19:00 (`bun life memory midday`: moments + extract of today's lifelog conversations that are summarized and quiet for an hour, then the index; same lock, no pages/commit/email, a failure only logs). All steps look back 7 days (lifelog re-summarizes units days later). Reads lifelog as the watcher's store holds it (only the watcher polls, so every turn is heard; the report says when it is not polling). Maps the repos (new ones only), then moments (who the unknown people are too), extract, pages, index, one commit "Memory: <date>" in `~/Life` (the data repo, never pushed), and one report email, saying which days it read and counting as new only the observations whose source line was first cited since the last good night (`newSince`: a re-read announces nothing again), midday runs included (HTML with a plain-text alternative, `report.ts`, with an Actions section: the last 24 h and any remctl problem, and a Code section: yesterday's commits by project, the repos the step just guessed as possible new projects). The first failing step stops it: non-zero exit, nothing committed, a failure email after the 3rd try. Once the night is done for the day (ok or 3 tries), or from 06:00, the same or a later tick runs the **backup** (`backupDue`, its own guard state `derived/memory/backup.json`, 3 tries): `src/backup.ts`, the daily restic snapshot to iCloud Drive, and on Sundays forget, prune and check; status in `derived/backup.json` and a "Last backup" line in the next report. Key and restore: AGENTS.md. At high effort the moments step takes about 3-5 minutes per day it reads (a prompt change re-reads the window: about 40 minutes); each day is read again when one of its units changes, so about 3 times (13:00, 19:00, the night). |
+| `watch` (KeepAlive) | Long-polls lifelog's change feed, folds each page into `derived/watch/lifelog.sqlite`, then rewrites the lifelog units and the search index. Skips the sync while the nightly holds its lock (`~/Life/.nightly.lock`, shared by every worktree) and catches up after. Also hears "hey Atlas": 40 s after his last new turn in a conversation, `hear` (`hear.ts`) records its asks, and each loop `deliver` (`events.ts`) pushes the undelivered asks, nudges and steers to Atlas and `tick` (`board.ts`) chases and mirrors his tasks. `bun life status` reads `derived/watch/health.json`; 15 minutes without a good poll emails the owner once, and once more on recovery. |
+| `memory-nightly` (every 30 min) | A guard (`derived/memory/nightly.json`) lets it run once a day after 02:00, 3 tries; `--force` for hand runs. The same tick also runs a **midday** pass at the first tick after 13:00 and after 19:00 (`bun life memory midday`: moments + extract of today's lifelog conversations that are summarized and quiet for an hour, then the index; same lock, no pages/commit/email, a failure only logs). All steps look back 7 days (lifelog re-summarizes units days later). Reads lifelog as the watcher's store holds it (only the watcher polls, so every turn is heard; the report says when it is not polling). Maps the repos (new ones only), then moments (who the unknown people are too), extract, pages, index, one commit "Memory: <date>" in `~/Life` (the data repo, never pushed), and one report email, saying which days it read and counting as new only the observations whose source line was first cited since the last good night (`newSince`: a re-read announces nothing again), midday runs included (HTML with a plain-text alternative, `report.ts`, with an Actions section: the last 24 h and any remctl problem, an Atlas tasks section: every open task and those closed in the last day, and a Code section: yesterday's commits by project, the repos the step just guessed as possible new projects). The first failing step stops it: non-zero exit, nothing committed, a failure email after the 3rd try. Once the night is done for the day (ok or 3 tries), or from 06:00, the same or a later tick runs the **backup** (`backupDue`, its own guard state `derived/memory/backup.json`, 3 tries): `src/backup.ts`, the daily restic snapshot to iCloud Drive, and on Sundays forget, prune and check; status in `derived/backup.json` and a "Last backup" line in the next report. Key and restore: AGENTS.md. At high effort the moments step takes about 3-5 minutes per day it reads (a prompt change re-reads the window: about 40 minutes); each day is read again when one of its units changes, so about 3 times (13:00, 19:00, the night). |
 
 - **Model calls** go through `src/llm.ts` (`askOnce`): `claude -p` or the pinned native `codex` (0.162.1, model
   gpt-6.1-sol), switched with `bun life engine claude|codex`, fast and main tiers. Both run in an empty temp folder, so
@@ -57,33 +56,30 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   day of units across every channel in time order, appends a verdict per unit to `memory/verdicts.jsonl` and writes
   what happened or is planned (`memory/moments/`); extract reads each moment's units together and writes quote-checked observations (and retires
   earlier facts the moment shows are no longer true), the same moments call writes who the day's unknown people are to `memory/people-inferred.jsonl` (used at once by the
-  resolver), `repos` writes `memory/repos-inferred.jsonl` (the same for code repos: his map is `Project.repos` in truth/), pages (`page.ts` pure, `pages.ts` orchestration) rewrite 34 people and area pages with every line cited,
+  resolver), `repos` writes `memory/repos-inferred.jsonl` (the same for code repos: his map is `Project.repos` in truth/), pages (`page.ts` pure, `pages.ts` orchestration) rewrite the people and area pages with every line cited,
   no churn and 800 words at most (his own page 2,000). One area vocabulary, `truth/areas.yaml`. Lifelog units are one per chapter, id from
   lifelog's chapter id; an id-map is shipped with any change to how unit ids are made.
 - **Read path** (`bun life memory ...`): the commands are listed in AGENTS.md ("Answering about his life"). Code:
-  `search.ts` (index and pages), `raw.ts` (words fetched on demand, never written to disk). Text is redacted; ids are not.
+  `search.ts` (index and pages), `raw.ts` (words fetched on demand, not stored but in an ask's quote). Text is redacted; ids are not.
 - **Self-sustaining:** the owner never runs `bun life ...` or reviews a queue. His word arrives in conversation and is
   recorded with `bun life memory correct` (`memory/corrections.jsonl`); conflicts between observations are settled by
   extraction, from the moment's evidence, and recorded as supersessions.
 - **Connector** (`src/mcp.ts`, `https://life.ericedouard.com/mcp`): Life's one MCP server for Claude and ChatGPT, the CLI's
-  read functions as seven tools, four JSON reads for a dashboard (`status`, `runs`, `changes`, `claim`: `docs/dashboard.md`), plus `tasks`, `open_reminders`, `correct` (annotated so clients ask first), `reminders` and `task` (writes, not destructive: Atlas uses them unattended), and one MCP event, `ask`. The watcher serves it on 127.0.0.1:46200 (`serveConnector`, `src/server.ts`), reached through
-  the Cloudflare tunnel (`~/.cloudflared/config.yml`, proxied CNAME `life`). The Pendant's double press "Ask Life" and its
-  Telegram answers were removed on 15 Oct: the connector replaces them. Its rules are in AGENTS.md; auth, tools and the wave icon are in the code,
-  and in `derived/log` each call is an `mcp.call` (who asked, the arguments, what surfaced: `tool` in `src/mcp.ts`), each
+  read functions as seven tools, four JSON reads for a dashboard (`status`, `runs`, `changes`, `claim`: `docs/dashboard.md`), plus `tasks` (it also returns Atlas's playbook and the seal `task` needs), `open_reminders`, `correct` (annotated so clients ask first), `reminders` and `task` (writes, not destructive: Atlas uses them unattended), and one MCP event, `ask`. The watcher serves it on 127.0.0.1:46200 (`serveConnector`, `src/server.ts`), reached through
+  the Cloudflare tunnel (`~/.cloudflared/config.yml`, proxied CNAME `life`). Its rules are in AGENTS.md; auth, tools and the wave icon are in the code,
+  and in `derived/log` each call is an `mcp.call` (who asked, the arguments, what surfaced: `tool` in `src/mcp.ts`; a refused request too, with `refused`), each
   forwarded correction a `lifelog.write`. Off when `LIFE_OWNER_SUB` is unset. The same server serves the check page (`/check/`, `src/check.ts`): the truth benchmark's statements, one tap or swipe each, behind the same lifelog sign-in.
-- A Telegram bot exists and its token is parked in `.env`; nothing uses it.
+- A Telegram bot's token and an `INSTINCT_KEY` are parked in `.env`; nothing uses them.
 - **Removed on 14 Oct** (the old history in the backup has it, see the "Nuke" commit): the SwiftUI app, the Railway server, the Telegram bot's
   cards, brief, gate, agents, logins and the calendar, notes, reminders, contacts and whereabouts sources. The owner
   deleted the Railway project on 14 Oct (purged 16 Oct). The `life-vault-<signer>` Keychain items and
   `~/Library/Application Support/Life/Chrome` are his to delete.
 
-- **Actions** (`src/actions.ts` the only writer): `act` changes his Reminders when he asks in a Claude session
+- **Actions** (`src/actions.ts` the only writer on his request): `act` changes his Reminders when he asks in a Claude session
   (`bun life act '<json>'`, `--check`) or a chat (the connector's `reminders`), and logs it. `act` records as a
   duplicate an add whose title an open reminder has (`duplicateOf`, every caller). A timed due always gets an alarm at
   that time; several doses a day are one daily reminder per time, ending with remctl's JSON recurrence. Reminders
-  through `~/bin/remctl`. A failed action is emailed at once with his words. Until 19 Oct a model chain heard requests
-  in his speech and acted (`intent.ts`, prompts `intent-screen.v2` and `intent.v6`:
-  the old history in the backup has them); Atlas replaced it.
+  through `~/bin/remctl`. A failed action is emailed at once with his words.
 - **Atlas** (19 Oct; its playbook, returned by `tasks` with a seal `task` checks: `docs/atlas.md`): his ChatGPT agent, with
   Life's connector, its cloud computer and his Mac's terminal. "Hey Atlas" anywhere in one of his turns (`hear.ts`, no
   model) makes an ask: that turn and his following ones until another speaker or a 15 s pause, with the conversation
@@ -92,9 +88,9 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   (`events.ts`, OpenAI's spec: `events/subscribe` with a verified callback on OpenAI's hosts, Standard Webhooks
   signatures, the ledger line as the replay cursor, `derived/events.json`). Latency is lifelog's: words arrive a
   median 211 s after speech (p90 4.7 h), then 40 s of quiet, then the next loop.
-  Every ask is a task until Atlas closes it done or dropped (`tasks.ts`, its board `board.ts`): Atlas reports with `task`, Life nudges it
-  past a deadline and shows every task on the Reminders list `Atlas` (made 19 Oct, with its sections), where his own
-  changes steer Atlas. Rules and states: AGENTS.md and the playbook.
+  Every ask is a task until Atlas closes it done or dropped (`tasks.ts`, its board `board.ts`): Atlas reports with `task` (also
+  making a task from his chat words, or a split), Life nudges it past a deadline and shows every task on the Reminders
+  list `Atlas` (made 19 Oct, with its sections), where his own changes steer Atlas. Rules and states: AGENTS.md and the playbook.
 
 ## Evals
 
@@ -112,14 +108,14 @@ a moment.
 
 - From the debt review of PR #1: one identity resolver (eric-edouard/life#2), one rule for which inferred person
   counts (#3), split `units.ts` (#4), a run
-  record for the eval's model calls (#6).
+  record for the eval's model calls (#6); `gh issue list` has the rest.
 - The owner's 13–18 Oct feedback, ranked, with its progress grid: `~/Life/docs/roadmap.md`.
 - **The owner model (18 Oct):** his own page has Views, values and habits (never ages, his own words only), Health
   (ages at 60 days) and Now, 2,000 words; his goals are in `truth/me.md`. For the event rebuild (step 3): a claim
   carries **who it is about** apart from who it mentions (`about`, from `memory-extract.v3`; `homeOf` goes by it),
   and conditional speech stays as such (`modality`, never a page line). Still open: a type for a belief or value.
   Extraction should also decide that an unnamed voice in a recording where nobody
-  else is identified is his (`speaker: person:me`; until 19 Oct `presume` did this for requests): then code can hold views lines to
+  else is identified is his (`speaker: person:me`): then code can hold views lines to
   his words (`speaker === OWNER` in `checkReply`), which only the prompt asks today. The 55 earlier conversations about his views (triage 0-1 before
   `memory-triage.v3.2`) were not re-judged: the rebuild re-reads them.
 
