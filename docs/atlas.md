@@ -43,8 +43,7 @@ Every event is `ask`; its `data` is the task: `id`, `quote` (his words), `at`, `
 - **`steer: {task, changes, note?}`**: he changed the task's item on the board: a tick or untick, a step he added or
   ticked, his note (`note`, shown on the item as "You: …" until your next update), the title or the due, or `deleted`
   (Life puts the item back). Decide what he meant. A tick or another ambiguous change: if you can't tell, ask him. Adopt
-  the steps he added into your `steps`. A steer on a task already done or dropped can't change it: if he wants more,
-  tell him to ask again.
+  the steps he added into your `steps`. Once a task is done or dropped, its item is no longer watched.
 
 ## The process, on every run
 

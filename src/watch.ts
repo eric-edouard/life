@@ -251,11 +251,12 @@ export async function watch(): Promise<number> {
           }
         });
       }
-      await tick().catch((e: Error) =>
-        log("run.error", { error: e.message, step: "tasks.tick" })
-      );
+      // Delivery first: a slow Reminders host holds up the board, never an ask.
       await deliver().catch((e: Error) =>
         log("run.error", { error: e.message, step: "events.deliver" })
+      );
+      await tick().catch((e: Error) =>
+        log("run.error", { error: e.message, step: "tasks.tick" })
       );
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
       // each poll), `dirty` keeps the sync due.

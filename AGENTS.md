@@ -78,9 +78,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   writes no ledger line and never goes through `act`. An item is found by the task id on its notes' first line.
   `derived/board.json` holds, per task, what Life last wrote (`wrote`) and how the item looked after (`seen`): Life
   writes a field only when what it wants differs from what it wrote, and whatever differs from `seen` is his change, a
-  steer, so his edits are never overwritten (Life manages only the subtasks it made from `steps`). A lost snapshot is a
-  fresh baseline. `escalation` moves an item to "Needs you" with a due of now, once per incident; when that write fails
-  he is emailed. Sections Needs you / Working / Open exist (made by hand on 19 Oct: remctl has no section-create).
+  steer, so his edits are never overwritten (Life manages only the subtasks it made from `steps`). Only open tasks'
+  items are watched; a lost or unreadable snapshot is a fresh baseline. `escalation` moves an item to "Needs you" with a due of now, once per incident; when that write fails
+  he is emailed. Sections Needs you / Working / Open exist (made by hand on 19 Oct, once: the code only assigns them).
 - **Atlas is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
   asks; nothing else Life reads ever does. Its playbook (`docs/atlas.md`, the one source: the connector's instructions,
