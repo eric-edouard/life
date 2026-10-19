@@ -94,7 +94,7 @@ async function ratedRun() {
           {
             fact: s.text,
             id: s.claim,
-            outdated: answer === "outdated",
+            outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
             true: answer !== "false",
             units: s.units,
           },
