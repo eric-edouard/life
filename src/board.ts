@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  add,
   alarmArgs,
   BOARD,
   partial,
@@ -9,6 +10,7 @@ import {
   reminderArgs,
 } from "./actions";
 import { deliveredLines, subscribed } from "./events";
+import { WAKE } from "./hear";
 import { log } from "./log";
 import { readJson } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
@@ -19,7 +21,6 @@ import {
   nudge,
   standing,
   type Task,
-  TO_WAKE,
   taskLine,
   tasksOf,
 } from "./tasks";
@@ -35,12 +36,15 @@ const MIN = 60_000;
 /** How each watched item looked after Life's last pass (mode 600: his words). */
 const SNAPSHOT = join(ROOT, "derived", "board.json");
 const NEEDS = "Needs you";
+/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
+const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
 
-/** An item as Life reads it; `steps` and `subIds`: its subtasks by title. */
+/** An item as Life reads it; `steps` and `subIds`: its subtasks by title; `made`: the ones Life added (snapshot only). */
 export interface Item {
   completed: boolean;
   due: string | null;
   id: number;
+  made?: string[];
   notes: string;
   section: string;
   steps: Record<string, boolean>;
@@ -50,10 +54,8 @@ export interface Item {
 
 /** What a task's item should say: notes (id, his words, state, latest note, his own note until Atlas's next update). */
 export function wantOf(t: Task, cause: string | null) {
-  const { deadline, end, since, state, steps } = standing(t);
-  const his = t.lines.findLast(
-    (l) => l.kind === "steer" && l.at > since && l.after.note
-  );
+  const { deadline, end, state, steers, steps, word } = standing(t);
+  const his = steers.findLast((l) => l.after.note);
   const { quote } = t.ask.instruction;
   const until = !closed(state) && deadline && `until ${localTime(deadline)}`;
   const line = [state, until, end.on && `on ${end.on}`, cause];
@@ -61,7 +63,7 @@ export function wantOf(t: Task, cause: string | null) {
     t.ask.id,
     clip(quote, 1000),
     line.filter(Boolean).join(" · "),
-    end.note ?? end.question ?? end.outcome ?? end.reason,
+    word,
     his && `You: ${his.after.note}`,
   ];
   const low = t.ask.after.confidence === "low" ? " (to confirm)" : "";
@@ -86,21 +88,22 @@ export function planOf(w: Want, it: Item, seen: Item | undefined, now: number) {
     ? new Date(now).toLocaleString("sv-SE").slice(0, 16)
     : undefined;
   const titles = Object.keys(w.steps);
-  const add = titles.filter((x) => !(x in it.steps));
+  // A step Life added and he removed stays removed.
+  const made = seen?.made ?? [];
+  const adds = titles.filter((x) => !(x in it.steps || made.includes(x)));
   const ticks = titles.filter((x) => w.steps[x] && it.steps[x] === false);
   const { priv, pub } = reminderArgs({
     due: calm ? null : due,
     notes: w.notes === it.notes ? undefined : w.notes,
     section: w.section === it.section ? undefined : w.section,
-    subtasks: add.map((title) => ({ title })),
+    subtasks: adds.map((title) => ({ title })),
   });
   const reopen = alert && it.completed;
   const steps = [
-    ...add.map((x): [string, boolean] => [x, false]),
+    ...adds.map((x): [string, boolean] => [x, false]),
     ...ticks.map((x): [string, boolean] => [x, true]),
   ];
   return {
-    add,
     done: [
       ...(w.completed && !it.completed ? [it.id] : []),
       ...ticks.map((x) => it.subIds[x]),
@@ -110,6 +113,7 @@ export function planOf(w: Want, it: Item, seen: Item | undefined, now: number) {
       ...it,
       completed: w.completed || (it.completed && !reopen),
       due: calm ? null : (due ?? it.due),
+      made: [...made, ...adds],
       notes: w.notes,
       section: w.section,
       steps: { ...it.steps, ...Object.fromEntries(steps) },
@@ -137,21 +141,15 @@ export function steerOf(seen: Item, look: Item) {
 }
 
 const taskOf = (r: Reminder) => r.notes?.split("\n")[0] ?? "";
-interface Sub {
-  completed: boolean;
-  id: number;
-  title: string;
-}
 
 /** The board's items of these tasks, by task id. */
 async function readBoard(tasks: Set<string>) {
   const rows = await remctl<Reminder[]>(["show", BOARD, "--completed"]);
   const read = async (r: Reminder): Promise<[string, Item]> => {
-    const { subtasks } = await remctl<{ subtasks: Sub[] }>([
-      "subtasks",
-      `${r.id}`,
-    ]);
-    const by = <T>(f: (x: Sub) => T) =>
+    const { subtasks } = await remctl<{
+      subtasks: { completed: boolean; id: number; title: string }[];
+    }>(["subtasks", `${r.id}`]);
+    const by = <T>(f: (x: (typeof subtasks)[number]) => T) =>
       Object.fromEntries(subtasks.map((x) => [x.title, f(x)]));
     const item: Item = {
       completed: r.completed,
@@ -171,8 +169,8 @@ async function readBoard(tasks: Set<string>) {
 
 /**
  * Brings a task's item in line (a closed task with no item gets none; a new one is added with the task id in its
- * notes, so a failed pass finds it again): how it looks after. A failed private write (section, steps) is only
- * partial: the next pass tries again. When a write fails while he is needed and the item doesn't show it yet, he is
+ * notes, so a failed pass finds it again): how it looks after, or none when unsure (a failed private write: the next
+ * pass starts from a fresh baseline). When a write fails while he is needed and the item doesn't show it yet, he is
  * emailed, once per incident.
  */
 async function mirror(
@@ -202,10 +200,7 @@ async function mirror(
     const half = partial(r);
     if (half) {
       log("run.error", { error: half, step: "tasks.board", task });
-      const kept = Object.entries(p.look.steps).filter(
-        ([x]) => !p.add.includes(x)
-      );
-      return { ...p.look, steps: Object.fromEntries(kept) };
+      return;
     }
     return p.look;
   } catch (e) {
@@ -221,10 +216,9 @@ async function mirror(
 }
 
 async function added({ notes, title }: Want): Promise<Item> {
-  const flags = [`--list=${BOARD}`, `--notes=${notes}`, "--", title];
-  const { numericId } = await remctl(["add", ...flags]);
+  const { after } = await add({ kind: "add", list: BOARD, notes, title });
   const blank = { completed: false, due: null, section: "", steps: {} };
-  return { ...blank, id: Number(numericId), notes, subIds: {}, title };
+  return { ...blank, id: Number(after.id), notes, subIds: {}, title };
 }
 
 let last = 0;

@@ -259,8 +259,7 @@ export function nextEvent(lines: string[], from: number) {
         ...(a === ask ? {} : { [a.kind]: { ...a.after, task: ask.id } }),
       };
       return {
-        // A nudge or steer that could not be delivered is reported with its task's words.
-        action: ask,
+        action: a,
         cursor,
         event: {
           cursor: String(cursor),
@@ -351,9 +350,14 @@ export async function deliver() {
     }
     const error = `Atlas did not receive it (callback ${status || "unreachable"})`;
     log("run.error", { error, event: event.eventId, step: "events.deliver" });
-    if (after.subscription && after.delivered === cursor) {
+    // A nudge or steer passed over needs no mail: escalation brings the task to him.
+    if (
+      after.subscription &&
+      after.delivered === cursor &&
+      action.kind === "ask"
+    ) {
       await sendReport(
-        `action/${event.eventId}`,
+        `action/${action.id}`,
         actionFailedReport({ ...action, error })
       );
     }

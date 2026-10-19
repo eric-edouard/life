@@ -143,7 +143,7 @@ export const partial = (r: Record<string, unknown>) =>
     : undefined;
 
 /** A new reminder. */
-async function add(c: Change): Promise<Done> {
+export async function add(c: Change): Promise<Done> {
   const { priv, pub } = reminderArgs(c);
   const r = await remctl([
     "add",
@@ -243,7 +243,7 @@ export function duplicateOf(c: Change, open?: Reminder[]) {
 }
 
 /** The record of an action already done (or asked) with this id: the same words act once, unless that try failed. */
-const recorded = async (id: string) =>
+export const recorded = async (id: string) =>
   (await readActions()).find((x) => x.id === id && x.result !== "failed");
 
 /**

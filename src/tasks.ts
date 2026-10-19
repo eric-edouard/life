@@ -1,8 +1,7 @@
-import { appendFileSync } from "node:fs";
 import { z } from "zod";
-import { actionId } from "./actions";
+import { actionId, recorded } from "./actions";
 import { deliveredLines, parse } from "./events";
-import { ACTIONS, appendJsonl, linesOf, readActions } from "./memory/ledger";
+import { ACTIONS, appendJsonl, linesOf } from "./memory/ledger";
 import { clip } from "./memory/units";
 import { Action, type Instruction, type TASK_LINES } from "./schema";
 
@@ -14,13 +13,6 @@ const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 /** An unclaimed ask is nudged 30 min after it was recorded (Atlas picks events up 5 to 22 min late), nudges as far apart. */
 const NUDGE_MS = 30 * MIN;
-
-/** "hey Atlas": the two words in this order, whatever the case and the punctuation around or between them. */
-export const WAKE = /\bhey\W+atlas\b/i;
-export const TO_WAKE = new RegExp(
-  String.raw`^.*?${WAKE.source}[\s\p{P}]*`,
-  "isu"
-);
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -35,7 +27,7 @@ export async function ask(
   why: string
 ) {
   const id = actionId(instruction.ref, "ask", "");
-  const old = readActions().find((a) => a.id === id);
+  const old = await recorded(id);
   if (old) {
     return old;
   }
@@ -52,34 +44,32 @@ export async function ask(
     target: "atlas",
     why,
   };
-  await appendJsonl(ACTIONS, Action, [action]);
+  appendJsonl(ACTIONS, Action, [action]);
   return action;
 }
 
-/**
- * Appends one of a task's own lines synchronously, so nothing runs between reading the ledger and the line it allows:
- * two runs cannot both claim a task, and a nudge never misses an update.
- */
+/** Appends one of a task's own lines (synchronous: two runs cannot both claim a task). */
 export function taskLine(
   task: string,
   kind: (typeof TASK_LINES)[number],
   after: Action["after"],
   now: number
 ) {
-  const line: Action = {
-    after,
-    at: iso(now),
-    id: actionId(`${task}@${iso(now)}`, kind, ""),
-    kind,
-    madeBy: kind === "update" ? "connector" : "watch",
-    result: "ok",
-    schemaVersion: 1,
-    target: task,
-    why: { nudge: "late", steer: "he changed the board", update: "Atlas" }[
-      kind
-    ],
-  };
-  appendFileSync(ACTIONS, `${JSON.stringify(Action.parse(line))}\n`);
+  appendJsonl(ACTIONS, Action, [
+    {
+      after,
+      at: iso(now),
+      id: actionId(`${task}@${iso(now)}`, kind, ""),
+      kind,
+      madeBy: kind === "update" ? "connector" : "watch",
+      result: "ok",
+      schemaVersion: 1,
+      target: task,
+      why: { nudge: "late", steer: "he changed the board", update: "Atlas" }[
+        kind
+      ],
+    },
+  ]);
 }
 
 export interface Task {
@@ -138,9 +128,13 @@ export function standing(t: Task, now = Date.now()) {
     nudges: nudges.length,
     since,
     state,
+    /** His steers since Atlas's last update. */
+    steers: t.lines.filter((l) => l.kind === "steer" && l.at > since),
     steps: (updates.findLast((u) => u.after.steps)?.after.steps ??
       []) as Step[],
     unanswered,
+    /** Atlas's last word: the outcome or reason once closed. */
+    word: end.outcome ?? end.reason ?? end.question ?? end.note,
   };
 }
 
@@ -244,22 +238,20 @@ export function taskList(now = Date.now()) {
   return tasksOf().flatMap((t) => {
     const s = standing(t, now);
     const h = Math.floor((now - Date.parse(t.ask.at)) / HOUR);
-    const steers = t.lines.filter((l) => l.kind === "steer" && l.at > s.since);
     if (closed(s.state) && now - Date.parse(s.since) > DAY) {
       return [];
     }
-    const { end } = s;
     return {
       age: h < 48 ? `${h} h` : `${Math.floor(h / 24)} d`,
       confidence: t.ask.after.confidence,
       deadline: s.deadline,
       extensions: s.extensions,
       id: t.ask.id,
-      note: end.note ?? end.question ?? end.outcome ?? end.reason,
+      note: s.word,
       nudges: s.nudges,
-      quote: t.ask.instruction.quote,
+      quote: clip(t.ask.instruction.quote, 300),
       state: s.state,
-      steers: steers.map((l) => ({ at: l.at, ...l.after })),
+      steers: s.steers.map((l) => ({ at: l.at, ...l.after })),
       steps: s.steps,
     };
   });
