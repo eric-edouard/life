@@ -39,12 +39,12 @@ const AskData = z.object({
   ref: z.string().describe("Where the words are: a turn or session:<at>"),
   steer: z
     .object({
-      changes: z.array(z.string()),
+      changes: z.record(z.string(), z.unknown()),
       note: z.string().optional(),
       task: z.string(),
     })
     .optional()
-    .describe("He changed the task's item on his board. Not a new ask"),
+    .describe("He changed its item on his board (the new values). Not an ask"),
   turns: z.array(z.int()).optional().describe("Their turn numbers"),
 });
 

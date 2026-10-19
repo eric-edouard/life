@@ -1,19 +1,8 @@
 import { expect, test } from "bun:test";
+import { type Item, planOf, steerOf, wantOf } from "./board";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
-import {
-  escalation,
-  type Face,
-  nudgeWhy,
-  planOf,
-  refusal,
-  standing,
-  steerOf,
-  steersOf,
-  type Task,
-  tasksOf,
-  wantOf,
-} from "./tasks";
+import { escalation, refusal, standing, type Task, tasksOf } from "./tasks";
 
 const T0 = Date.parse("2026-10-19T10:00:00.000Z");
 const MIN = 60_000;
@@ -63,7 +52,7 @@ test("the ledger as tasks: each ask gets its own lines in order, with what was d
   ].map((a) => JSON.stringify(a));
   const [t, ...rest] = tasksOf(lines, 3);
   expect(rest).toEqual([]);
-  expect(t?.lines.map((l) => [l.a.kind, l.delivered])).toEqual([
+  expect(t?.lines.map((l) => [l.kind, l.delivered])).toEqual([
     ["update", true],
     ["nudge", false],
   ]);
@@ -120,25 +109,27 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
 
 test("an open task is due 30 min after it was recorded, a claimed one at its own deadline", () => {
   expect(standing(task([])).deadline).toBe(at(30));
-  expect(nudgeWhy(task([]), T0 + 29 * MIN)).toBeNull();
-  expect(nudgeWhy(task([]), T0 + 30 * MIN)).toBe(
+  expect(standing(task([]), T0 + 29 * MIN).nudge).toBeNull();
+  expect(standing(task([]), T0 + 30 * MIN).nudge).toBe(
     "not claimed 30 min after the ask"
   );
   const working = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
   ]);
-  expect(nudgeWhy(working, T0 + 30 * MIN)).toBeNull();
-  expect(nudgeWhy(working, T0 + 61 * MIN)).toBe("working past its deadline");
+  expect(standing(working, T0 + 30 * MIN).nudge).toBeNull();
+  expect(standing(working, T0 + 61 * MIN).nudge).toBe(
+    "working past its deadline"
+  );
 });
 
 test("nudges are 30 min apart, only after the last one was delivered, and stop after 3 delivered ones go unanswered", () => {
   const one = [own("nudge", 15, { why: "x" })];
-  expect(nudgeWhy(task(one), T0 + 44 * MIN)).toBeNull();
-  expect(nudgeWhy(task(one), T0 + 45 * MIN)).not.toBeNull();
-  expect(nudgeWhy(task(one, 1), T0 + 90 * MIN)).toBeNull();
+  expect(standing(task(one), T0 + 44 * MIN).nudge).toBeNull();
+  expect(standing(task(one), T0 + 45 * MIN).nudge).not.toBeNull();
+  expect(standing(task(one, 1), T0 + 90 * MIN).nudge).toBeNull();
   const three = [15, 45, 75].map((m) => own("nudge", m, { why: "x" }));
   expect(standing(task(three)).unanswered).toBe(3);
-  expect(nudgeWhy(task(three), T0 + 200 * MIN)).toBeNull();
+  expect(standing(task(three), T0 + 200 * MIN).nudge).toBeNull();
   // An undelivered nudge does not count.
   expect(standing(task(three, 1)).unanswered).toBe(2);
   // An update answers them.
@@ -184,132 +175,104 @@ test("he is asked to look when Atlas is stuck, waits on him over an hour, a task
   expect(escalation(done, now, false)).toBeNull();
 });
 
-const look = (over: Partial<Face> = {}): Face => ({
+const look = (over: Partial<Item> = {}): Item => ({
   completed: false,
   due: null,
+  id: 1,
   notes: "",
   section: "",
   steps: {},
+  subIds: {},
   title: "Atlas: x",
   ...over,
 });
 
-test("the mirror writes only what Life wants changed: notes, section, due when he is needed, Life's steps added then ticked, close when done", () => {
-  const steps = [
-    { done: true, title: "Find three flats" },
-    { done: false, title: "Book visits" },
-  ];
-  const working = task([
+const working = (more: Action[] = []) =>
+  task([
     own("update", 5, {
       deadline: at(60),
       note: "searching",
       state: "working",
-      steps,
+      steps: [
+        { done: true, title: "Find three flats" },
+        { done: false, title: "Book visits" },
+      ],
     }),
+    ...more,
   ]);
-  const want = wantOf(working, null, T0, undefined);
+
+test("the board gets Life's fields: notes, section, Atlas's steps added then ticked, Needs you with a due while he is needed, a tick when done", () => {
+  const want = wantOf(working(), null);
   expect(want.notes.split("\n")[0]).toBe(ASK);
   expect(want.notes).toContain("searching");
-  expect(want.section).toBe("Working");
-  const wrote = { ...want, section: "Open", steps: {} };
-  const first = planOf(want, wrote, look(), {});
-  expect(first.flags).toEqual(["--private", "--section=Working"]);
-  expect(first.add).toEqual(["Find three flats", "Book visits"]);
-  expect(first.tick).toEqual([]);
-  // Next pass: the subtasks exist, so the done one is ticked, once.
-  const seen = look({
-    steps: { "Book visits": false, "Find three flats": false },
-  });
-  const second = planOf(want, first.wrote, seen, {
-    "Book visits": 8,
-    "Find three flats": 7,
-  });
-  expect(second.flags).toEqual([]);
-  expect(second.tick).toEqual([7]);
-  expect(planOf(want, second.wrote, second.seen, {}).tick).toEqual([]);
-  // He is needed: Needs you with a due of now, kept until the cause ends, then cleared.
-  const needed = wantOf(working, "Atlas stuck", T0, second.wrote);
-  const alert = planOf(needed, second.wrote, second.seen, {});
-  expect(alert.flags).toContain(`--due=${needed.due}`);
+  const blank = look({ notes: want.notes, section: "Open" });
+  const first = planOf(want, blank, undefined, T0);
+  expect(first.flags).toEqual([
+    "--private",
+    "--section=Working",
+    '--subtask={"title":"Find three flats"}',
+    '--subtask={"title":"Book visits"}',
+  ]);
+  // Next pass: the subtasks exist, so the done one is ticked; then nothing is left to write.
+  const steps = { "Book visits": false, "Find three flats": false };
+  const subIds = { "Book visits": 8, "Find three flats": 7 };
+  const made = { ...first.look, steps, subIds };
+  const second = planOf(want, made, first.look, T0);
+  expect([second.flags, second.add, second.done]).toEqual([[], [], [7]]);
+  const ticked = second.look;
+  expect(planOf(want, ticked, ticked, T0).done).toEqual([]);
+  // He is needed: Needs you with a due of now, kept while the cause lasts, cleared when it ends.
+  const needed = wantOf(working(), "Atlas stuck");
+  const alert = planOf(needed, ticked, ticked, T0);
+  expect(alert.flags).toContain(`--due=${alert.look.due}`);
   expect(alert.flags).toContain("--section=Needs you");
-  expect(wantOf(working, "Atlas stuck", T0 + 9 * MIN, alert.wrote).due).toBe(
-    needed.due
-  );
-  expect(planOf(want, alert.wrote, alert.seen, {}).flags).toContain(
-    "--due=clear"
-  );
+  const later = planOf(needed, alert.look, alert.look, T0 + 9 * MIN);
+  expect(later.flags).toEqual([]);
+  expect(planOf(want, alert.look, alert.look, T0).flags).toEqual([
+    `--notes=${want.notes}`,
+    "--due=clear",
+    "--alarm=clear",
+    "--private",
+    "--section=Working",
+  ]);
   const done = task([own("update", 5, { outcome: "booked", state: "done" })]);
-  expect(
-    planOf(wantOf(done, null, T0), second.wrote, second.seen, {}).finish
-  ).toBe("done");
+  expect(planOf(wantOf(done, null), ticked, ticked, T0).done).toEqual([1]);
 });
 
-test("his changes are steers, Life's own writes are not, and Life never writes over them", () => {
-  const working = task([
-    own("update", 5, {
-      deadline: at(60),
-      note: "searching",
-      state: "working",
-      steps: [{ done: false, title: "Book visits" }],
-    }),
-  ]);
-  const want = wantOf(working, null, T0);
-  const p = planOf(
-    want,
-    { ...want, notes: "old", steps: {} },
-    look({ notes: "old" }),
-    {}
-  );
-  // The board after Life's write shows what Life expected: no steer.
-  const after = { ...p.seen };
-  expect(steerOf(p.seen, after).changes).toEqual([]);
+test("his changes are steers, Life's own writes are not, and Life never writes over his tick, title, due or subtasks", () => {
+  const want = wantOf(working(), null);
+  const p = planOf(want, look({ notes: "old" }), undefined, T0);
+  const after = {
+    ...p.look,
+    steps: { "Book visits": false, "Find three flats": true },
+  };
+  expect(steerOf(after, after).changes).toEqual({});
+  const steps = { ...after.steps, "Call the agency": false };
   const his = look({
     ...after,
     completed: true,
+    due: "2026-10-20 09:00",
     notes: `${after.notes}\nask the agency first`,
-    steps: { ...after.steps, "Call the agency": false },
+    steps,
+    title: "Atlas: flats",
   });
-  const steer = steerOf(p.seen, his);
-  expect(steer.changes).toEqual([
-    "ticked",
-    "notes: ask the agency first",
-    "added step: Call the agency",
-  ]);
+  const steer = steerOf(after, his);
+  expect(steer.changes).toEqual({
+    completed: true,
+    due: "2026-10-20 09:00",
+    notes: his.notes,
+    steps,
+    title: "Atlas: flats",
+  });
   expect(steer.note).toBe("ask the agency first");
-  // Nothing Life wants changed: his tick, note and step stay.
-  const next = planOf(want, p.wrote, his, {});
-  expect([next.flags, next.add, next.tick, next.finish]).toEqual([
-    [],
-    [],
-    [],
-    null,
-  ]);
-  // His note shows as his until Atlas's next update.
-  const steered = task([
-    own("update", 5, { deadline: at(60), note: "searching", state: "working" }),
-    own("steer", 7, { changes: steer.changes, note: steer.note }),
-  ]);
-  expect(wantOf(steered, null, T0).notes).toEndWith(
-    "You: ask the agency first"
-  );
+  // His note shows as his until Atlas's next update; nothing else of his is written over.
+  const steered = working([own("steer", 7, steer)]);
+  const next = planOf(wantOf(steered, null), his, his, T0);
+  expect(wantOf(steered, null).notes).toEndWith("You: ask the agency first");
+  expect(next.flags).toEqual([`--notes=${wantOf(steered, null).notes}`]);
+  expect([next.add, next.done, next.reopen]).toEqual([[], [], false]);
   // His tick is not undone, until Life asks him to look.
-  expect(
-    planOf(wantOf(steered, "Atlas stuck", T0), p.wrote, his, {}).finish
-  ).toBe("undone");
-});
-
-test("a steer is recorded for his changes and for an item he deleted, none for an unchanged item or a lost snapshot", () => {
-  const seen = look({ notes: "x" });
-  const shot = { id: 1, seen, wrote: seen };
-  const item = (face: Face, id = 1) => ({ face, id, subIds: {} });
-  const steers = (items: [string, ReturnType<typeof item>][]) =>
-    steersOf({ [ASK]: shot }, new Map(items)).map((l) => l.after.changes);
-  expect(steers([[ASK, item(seen)]])).toEqual([]);
-  expect(steers([[ASK, item({ ...seen, completed: true })]])).toEqual([
-    ["ticked"],
-  ]);
-  expect(steers([])).toEqual([["deleted"]]);
-  // Another item under the same task (his snapshot was of an older one): a baseline, no steer.
-  expect(steers([[ASK, item({ ...seen, completed: true }, 2)]])).toEqual([]);
-  expect(steersOf({}, new Map([[ASK, item(seen)]]))).toEqual([]);
+  expect(planOf(wantOf(steered, "Atlas stuck"), his, his, T0).reopen).toBe(
+    true
+  );
 });

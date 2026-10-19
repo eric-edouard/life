@@ -62,25 +62,29 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
   only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (its `instinct` lines, emails to Instinct,
   and its heard requests with `timing`, both until 19 Oct, still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
-  the tasks' mirror below, written only by `tasks.ts`.
+  the tasks' board below, written only by `src/board.ts`.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, and one lifelog gives to someone
   else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`).
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
-  `update`s through the connector's `task` (the write rules are `refusal`; one claim; a chain serializes writes),
-  Life's `nudge`s (`nudgeWhy`, the one rule: past its deadline, an open one 30 min after it was recorded; 30 min apart,
-  only after the last was delivered, until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
+  `update`s through the connector's `task` (the write rules are `refusal`; one claim; `taskLine` appends synchronously,
+  so nothing runs between reading the ledger and the line it allows), Life's `nudge`s (`standing(...).nudge`, the one
+  rule: past its deadline, an open one 30 min after it was recorded; 30 min apart, only after the last was delivered,
+  until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
   `ask` events with `nudge` or `steer` (one event name: a second would replace the subscription). Task lines stay out of
   the Actions section and `day`; the nightly lists every open task.
-- **The board, his Reminders list `Atlas`, is a projection of the ledger** (`tick`, each minute in the watcher): it
-  writes no ledger line and never goes through `act`. An item is found by the task id on its notes' first line.
-  `derived/board.json` holds, per task, what Life last wrote (`wrote`) and how the item looked after (`seen`): Life
-  writes a field only when what it wants differs from what it wrote, and whatever differs from `seen` is his change, a
-  steer, so his edits are never overwritten (Life manages only the subtasks it made from `steps`). Only open tasks'
-  items are watched; a lost or unreadable snapshot is a fresh baseline. `escalation` moves an item to "Needs you" with a due of now, once per incident; when that write fails
-  he is emailed. Sections Needs you / Working / Open exist (made by hand on 19 Oct, once: the code only assigns them).
+- **The board, his Reminders list `Atlas`, is a projection of the ledger** (`src/board.ts`, `tick`, each minute in the
+  watcher): it writes no ledger line but his steers and never goes through `act`. An item is found by the task id on
+  its notes' first line. Life owns its notes, section and the subtasks made from Atlas's `steps` (added when missing,
+  ticked when done) and brings them in line each pass; it ticks the item once when the task closes, and `escalation`
+  moves it to "Needs you" with a due of now (bringing back his tick), cleared when the cause ends. The title, the due,
+  his tick and his own subtasks are his. `derived/board.json` holds how each item looked after Life's last pass: what
+  differs now is his change, a steer (the changed fields' new values; his new note lines show as "You: …" until
+  Atlas's next update). Only open tasks' items are watched; a lost or unreadable snapshot is a fresh baseline. When a
+  write fails while he is needed he is emailed, once per incident. Sections Needs you / Working / Open exist (made by
+  hand on 19 Oct, once: the code only assigns them).
 - **Atlas is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
   asks; nothing else Life reads ever does. Its playbook (`docs/atlas.md`, the one source: the connector's instructions,
@@ -182,7 +186,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
-`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update`, `tick`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who a name, handle or ref is goes through
+`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); the memory steps get their units only from `gather` (`units.ts`: every channel, in time

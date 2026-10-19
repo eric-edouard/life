@@ -55,7 +55,7 @@ test("a timed due alerts at its time, unless the reminder already has alarms (re
 
 test("an add repeats an open reminder with the same title, whatever the case and accents; nothing else is a duplicate", () => {
   const add = { kind: "add", title: "Dîner avec Gaston" } as const;
-  const open = [{ id: 9, title: " dîner AVEC gaston" }];
+  const open = [{ completed: false, id: 9, title: " dîner AVEC gaston" }];
   expect(duplicateOf(add, open)).toBe("reminder:9");
   expect(
     duplicateOf({ ...add, title: "Dîner avec Jérôme" }, open)

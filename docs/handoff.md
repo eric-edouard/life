@@ -93,7 +93,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   (`events.ts`, OpenAI's spec: `events/subscribe` with a verified callback on OpenAI's hosts, Standard Webhooks
   signatures, the ledger line as the replay cursor, `derived/events.json`). Latency is lifelog's: words arrive a
   median 211 s after speech (p90 4.7 h), then 40 s of quiet, then the next loop.
-  Every ask is a task until Atlas closes it done or dropped (`tasks.ts`): Atlas reports with `task`, Life nudges it
+  Every ask is a task until Atlas closes it done or dropped (`tasks.ts`, its board `board.ts`): Atlas reports with `task`, Life nudges it
   past a deadline and shows every task on the Reminders list `Atlas` (made 19 Oct, with its sections), where his own
   changes steer Atlas. Rules and states: AGENTS.md and the playbook.
 

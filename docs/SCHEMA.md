@@ -240,7 +240,8 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
   with no `instruction` and the task's (its ask's) id as `target`: `update` (Atlas, the connector's `task`: `after` is
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
   `reason`, `steps` [{title, done}], `claim`), `nudge` (Life: `after.why`, the task was past its deadline) and `steer`
-  (he changed its item on the board: `after.changes`, and `note`, his new note lines). Id: `act_` + 12 hex over
+  (he changed its item on the board: `after.changes`, the changed fields' new values among `completed`, `title`, `due`,
+  `notes`, `steps` {title: done}, or `deleted`; and `note`, his new note lines). Id: `act_` + 12 hex over
   `<task>@<at> | kind`.
 - `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask) or, until 19 Oct, `mailto:<address>`.
   `before` / `after`: the reminder's fields before, and what was written; never an email body or a transcript. An ask's
