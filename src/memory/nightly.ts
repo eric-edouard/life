@@ -92,7 +92,11 @@ export async function nightly(days: number, force = false) {
     if (!backupDue(now.getHours(), day, readState(), readState("backup"))) {
       return code;
     }
-    const backedUp = await backup();
+    // A throw (a missing binary) counts as a try too, so the 3-try limit holds.
+    const backedUp = await backup().catch((e: Error) => {
+      console.error(e.message);
+      return 1;
+    });
     recordState(day, backedUp === 0, "backup");
     return Math.max(code, backedUp);
   }
