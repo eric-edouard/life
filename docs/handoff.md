@@ -100,7 +100,7 @@ questions, the same on 9, worse on 1 (a read-path gap, not memory).
 
 The truth benchmark (step T): after any pipeline change, `bun scripts/eval.ts --ratings` scores the memory against his
 ratings (recorded in `memory/scores.jsonl`). The first score is near-perfect by design (a false hides its own claim, a
-true is judged against itself): only a score after a re-read (a prompt or code change, then a nightly) means anything. It holds the lock through its
+true is judged against itself, an outdated one counts as true and held, unjudged, and apart as a closure Life missed): only a score after a re-read (a prompt or code change, then a nightly) means anything. It holds the lock through its
 judge calls: not near 02:00, 13:00 or 19:00. To trace a false to its step: `bun life memory claim <obs_id>`, `day` for
 a moment.
 

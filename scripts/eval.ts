@@ -76,7 +76,7 @@ const judge = async (
  * `--ratings`: the statements he rated true or false, judged against what the memory holds now of the same units, 30
  * at a time, all under the lock (one snapshot; the score is saved or the run fails). A false hides only its own claim
  * id, so a re-read that says it again is restated; a true still held is its own claim, so for trues the score says
- * whether they survived. A statement none of whose units exist any more (a chapter re-cut) can't be judged: it is
+ * whether they survived. An outdated one (true then, retired by his answer) is a true one held, not judged (`tally`). A statement none of whose units exist any more (a chapter re-cut) can't be judged: it is
  * listed apart and left out of the score.
  */
 async function ratedRun() {
@@ -89,15 +89,24 @@ async function ratedRun() {
   const live = liveUnits(units);
   const rated = statements.flatMap((s) => {
     const answer = ratings.get(s.claim)?.answer;
-    return answer === "true" || answer === "false"
-      ? [{ fact: s.text, id: s.claim, true: answer === "true", units: s.units }]
+    return answer && answer !== "skip"
+      ? [
+          {
+            fact: s.text,
+            id: s.claim,
+            outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
+            true: answer !== "false",
+            units: s.units,
+          },
+        ]
       : [];
   });
   const { gone = [], judged = [] } = Object.groupBy(rated, (f) =>
     f.units.some((u) => live.has(u)) ? "judged" : "gone"
   );
   const grades: z.infer<typeof Grades>["grades"] = [];
-  await inBatches(chunks(judged, PER_CALL), DIR, async (part, dir) => {
+  const asked = judged.filter((f) => !f.outdated);
+  await inBatches(chunks(asked, PER_CALL), DIR, async (part, dir) => {
     const near = new Set(part.flatMap((f) => f.units));
     const seen = lines(claims, (c) => c.units.some((u) => near.has(u)));
     grades.push(...(await judge(part, seen, dir)));
@@ -160,7 +169,7 @@ const rows = result.facts.map((f) => {
 });
 console.log(
   [
-    `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded.`,
+    `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
     ...result.note,
     "",
     "| fact | is | memory | result | claims | why |",

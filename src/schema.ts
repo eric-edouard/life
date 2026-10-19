@@ -518,7 +518,7 @@ export type Statement = z.infer<typeof Statement>;
 /** memory/ratings.jsonl: his answers on the check page, the latest per claim counting; null is an undo (docs/SCHEMA.md). */
 export const Rating = z
   .object({
-    answer: z.enum(["true", "false", "skip"]).nullable(),
+    answer: z.enum(["true", "false", "outdated", "skip"]).nullable(),
     at: isoDateTime,
     claim: z.union([ObservationId, MomentId]),
     schemaVersion: z.literal(1),
@@ -534,6 +534,7 @@ export const Score = z
     gone: z.int().min(0),
     held: z.int().min(0),
     missed: z.int().min(0),
+    outdated: z.int().min(0).default(0),
     rated: z.int().min(0),
     restated: z.int().min(0),
     run: z.string(),

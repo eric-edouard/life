@@ -10,7 +10,12 @@ import {
 import { CHECK_CLIENT, ISSUER, ORIGIN, ownerTokens, RESOURCE } from "./auth";
 import { createCheck } from "./check";
 import { changeFeed } from "./memory/feed";
-import { RATINGS, readCorrections } from "./memory/ledger";
+import {
+  RATINGS,
+  ratedOutdated,
+  readCorrections,
+  readRatings,
+} from "./memory/ledger";
 
 const SESSION_COOKIE =
   /^__Host-life=.+; Path=\/; Max-Age=3600; Secure; HttpOnly; SameSite=Lax$/;
@@ -64,8 +69,13 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
   );
   const ok = await get("/check/statements", await session());
   expect(ok.status).toBe(200);
-  const { groups } = (await ok.json()) as { groups: { name: string }[] };
+  const { groups } = (await ok.json()) as {
+    groups: { name: string; statements: { asOf: string }[] }[];
+  };
   expect(groups.map((g) => g.name)).toEqual(["Events"]);
+  // Each card says when its claim dates from: the made-up statement's day, with its year unless it is this one's.
+  const year = new Date().getFullYear() === 2026 ? "" : " 2026";
+  expect(groups[0]?.statements[0]?.asOf).toBe(`12 Oct${year}`);
   expect(await check.handle(new Request(`${ORIGIN}/mcp`))).toBeNull();
 });
 
@@ -94,7 +104,7 @@ test("sign-in: PKCE with a state cookie; only the owner's token becomes the sess
   issued = "owner";
 });
 
-test("an answer must come from Life's own page and name a statement; a false hides its claim until he takes it back", async () => {
+test("an answer must come from Life's own page and name a statement; a false hides its claim and an outdated retires it, until he takes it back", async () => {
   const post = async (origin: string, body: object) =>
     get("/check/answer", await session(), {
       body: JSON.stringify(body),
@@ -122,9 +132,19 @@ test("an answer must come from Life's own page and name a statement; a false hid
   expect(await wrong()).toBe(true);
   expect((await post(ORIGIN, { answer: null, claim })).status).toBe(204);
   expect(await wrong()).toBe(false);
+  // Outdated: closed as history (a retirement, ledger.test.ts), not wrong.
+  const closed = () =>
+    ratedOutdated(readRatings()).find((r) => r.observation === claim)?.why ??
+    null;
+  expect((await post(ORIGIN, { answer: "outdated", claim })).status).toBe(204);
+  expect([await wrong(), closed()]).toEqual([false, "rated outdated"]);
+  expect((await post(ORIGIN, { answer: null, claim })).status).toBe(204);
+  expect(closed()).toBe(null);
   const feed = await changeFeed({ types: ["rating"] });
   expect(feed.items.map((i) => i.type)).toEqual([
     "rating.false",
+    "rating.undone",
+    "rating.outdated",
     "rating.undone",
   ]);
 });

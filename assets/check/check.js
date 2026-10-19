@@ -1,15 +1,29 @@
 // Life's truth check: the statements by group; each answer is saved at once (memory/ratings.jsonl).
 
-// A deck of items to judge one at a time, generic (items {id, text, note} in, verdicts out): swipe or tap right for
-// true, left for false, Skip, Undo. Keys: → ← ↓ and Backspace. onVerdict(id, "true" | "false" | "skip" | null: undo).
-const KEYS = { ArrowDown: "skip", ArrowLeft: "false", ArrowRight: "true" };
+// A deck of items to judge one at a time, generic: items {id, text, note} and verdicts in, onVerdict(id, value | null:
+// undo) out. A verdict is {value, label, key, swipe?, main?}: its button, its key, a swipe that way ("left", "right",
+// "up") judge it; main ones get the big buttons. Undo is a button and Backspace.
+const AWAY = { left: [-1, 0], right: [1, 0], up: [0, -1] };
 
-export function deck(root, onVerdict) {
-  root.innerHTML = `<div class="stage"></div><div class="actions">
-<button class="false" data-verdict="false">False</button><button class="true" data-verdict="true">True</button>
-<button class="quiet" data-undo disabled>Undo</button><button class="quiet" data-verdict="skip">Skip</button></div>`;
+export function deck(root, verdicts, onVerdict) {
+  const button = (v) =>
+    `<button class="${v.main ? "main" : "quiet"}" data-verdict="${v.value}">${v.label}</button>`;
+  root.innerHTML = `<div class="stage"></div><div class="actions">${verdicts
+    .filter((v) => v.main)
+    .map(button)
+    .join("")}</div>
+<div class="actions"><button class="quiet" data-undo disabled>Undo</button>${verdicts
+    .filter((v) => !v.main)
+    .map(button)
+    .join("")}</div>`;
   const stage = root.querySelector(".stage");
   const undoButton = root.querySelector("[data-undo]");
+  // The verdict whose way is within 45° of the drag.
+  const bySwipe = (x, y) =>
+    verdicts.find(({ swipe }) => {
+      const [a, b] = AWAY[swipe] ?? [0, 0];
+      return a * x + b * y > Math.hypot(x, y) * Math.SQRT1_2;
+    });
   let queue = [];
   const done = [];
   let flying = null; // the card on its way out, settled at once by a quicker answer, an undo or a load
@@ -27,23 +41,27 @@ export function deck(root, onVerdict) {
     el.lastChild.textContent = item.text;
     let start = null;
     el.onpointerdown = (e) => {
-      start = { t: e.timeStamp, x: e.clientX };
+      start = { t: e.timeStamp, x: e.clientX, y: e.clientY };
       el.setPointerCapture(e.pointerId);
       el.classList.add("dragging");
     };
-    el.onpointermove = (e) => start && lean(el, e.clientX - start.x);
+    el.onpointermove = (e) =>
+      start && lean(el, e.clientX - start.x, e.clientY - start.y);
     const end = (e) => {
-      const dx = e.clientX - start.x;
-      const quick = Math.abs(dx) / (e.timeStamp - start.t + 1) > 0.6;
+      const [dx, dy] = [e.clientX - start.x, e.clientY - start.y];
+      const far = Math.hypot(dx, dy);
+      const quick = far / (e.timeStamp - start.t + 1) > 0.6;
       start = null;
       el.classList.remove("dragging");
+      const v = bySwipe(dx, dy);
       if (
         e.type === "pointerup" &&
-        (Math.abs(dx) > el.offsetWidth * 0.28 || quick)
+        v &&
+        (far > el.offsetWidth * 0.28 || quick)
       ) {
-        judge(dx > 0 ? "true" : "false");
+        judge(v.value);
       } else {
-        lean(el, 0);
+        lean(el, 0, 0);
       }
     };
     el.onpointerup = end;
@@ -51,10 +69,10 @@ export function deck(root, onVerdict) {
     stage.append(el);
   }
 
-  function lean(el, dx) {
-    el.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`;
-    el.dataset.lean = dx > 0 ? "true" : "false";
-    el.style.setProperty("--lean", Math.min(1, Math.abs(dx) / 100));
+  function lean(el, dx, dy) {
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 18}deg)`;
+    el.dataset.lean = bySwipe(dx, dy)?.value ?? "";
+    el.style.setProperty("--lean", Math.min(1, Math.hypot(dx, dy) / 100));
   }
 
   function judge(verdict) {
@@ -72,7 +90,10 @@ export function deck(root, onVerdict) {
       }
     };
     flying = settle;
-    lean(el, { false: -1, skip: 0, true: 1 }[verdict] * window.innerWidth);
+    const [x, y] = AWAY[verdicts.find((v) => v.value === verdict).swipe] ?? [
+      0, 0,
+    ];
+    lean(el, x * window.innerWidth, y * window.innerHeight);
     el.classList.add("gone");
     el.ontransitionend = (e) => e.propertyName === "transform" && settle();
     setTimeout(settle, 400); // reduced motion: no transition to wait for
@@ -100,9 +121,9 @@ export function deck(root, onVerdict) {
     if (e.target.closest("select, input, textarea")) {
       return; // the keys belong to the control
     }
-    const verdict = KEYS[e.key];
+    const verdict = verdicts.find((v) => v.key === e.key);
     if (verdict) {
-      judge(verdict);
+      judge(verdict.value);
     } else if (e.key === "Backspace") {
       undo();
     }
@@ -121,15 +142,7 @@ let groups = [];
 
 const left = (g) => g.statements.filter((s) => s.answer === null);
 const note = (s) =>
-  [
-    s.source,
-    new Date(s.date).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    }),
-    s.kind !== "fact" && s.kind,
-  ]
+  [`as of ${s.asOf}`, s.source, s.kind !== "fact" && s.kind]
     .filter(Boolean)
     .join(" · ");
 
@@ -179,7 +192,33 @@ function pick(current) {
   $("bar").value = done(current) / current.statements.length;
 }
 
-const load = deck($("deck"), (claim, answer) => {
+// Outdated: true when Life recorded it, not anymore (a closure kept as history, never "false").
+const VERDICTS = [
+  {
+    key: "ArrowLeft",
+    label: "False",
+    main: true,
+    swipe: "left",
+    value: "false",
+  },
+  {
+    key: "ArrowUp",
+    label: "Outdated",
+    main: true,
+    swipe: "up",
+    value: "outdated",
+  },
+  {
+    key: "ArrowRight",
+    label: "True",
+    main: true,
+    swipe: "right",
+    value: "true",
+  },
+  { key: "ArrowDown", label: "Skip", value: "skip" },
+];
+
+const load = deck($("deck"), VERDICTS, (claim, answer) => {
   const s = byClaim.get(claim);
   s.answer = answer;
   keep([...pending(), { answer, claim }]);

@@ -11,15 +11,16 @@ const MARKS = {
 
 /**
  * Each fact's grade (the judge names it by its id) and mark, and the counts: `held` true facts the memory states, `missed` true facts it doesn't, `contradicted` true facts it contradicts,
- * `restated` false facts it states (again), `ungraded` facts the judge left out (never read as absent).
+ * `restated` false facts it states (again), `ungraded` facts the judge left out (never read as absent). An `outdated`
+ * fact (true then, not anymore) is a true one held, not judged, and counted apart: Life should have closed it itself.
  */
 export function tally<
   G extends { fact: string; grade: (typeof GRADES)[number] },
->(facts: { id: string; true: boolean }[], list: G[]) {
+>(facts: { id: string; outdated?: boolean; true: boolean }[], list: G[]) {
   const grades = new Map(list.map((g) => [g.fact, g]));
   const marks = new Map(
     facts.map((f) => {
-      const grade = grades.get(f.id)?.grade;
+      const grade = f.outdated ? "stated" : grades.get(f.id)?.grade;
       return [f.id, grade ? MARKS[`${f.true}`][grade] : "ungraded"] as const;
     })
   );
@@ -30,6 +31,7 @@ export function tally<
       contradicted: count(true, "WRONG"),
       held: count(true, "ok"),
       missed: count(true, "miss"),
+      outdated: facts.filter((f) => f.outdated).length,
       restated: count(false, "WRONG"),
       trues: facts.filter((f) => f.true).length,
       ungraded: [...marks.values()].filter((m) => m === "ungraded").length,
