@@ -1,0 +1,357 @@
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { appendFile, mkdir, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import type { z } from "zod";
+import {
+  Action,
+  Correction,
+  Extracted,
+  FileEntry,
+  InferredPerson,
+  MemoryLabel,
+  Moment,
+  Observation,
+  Rating,
+  RepoGuess,
+  Statement,
+  Supersession,
+  Unit,
+  Unresolved,
+  Verdict,
+} from "../schema";
+import { DATA, ROOT } from "../truth";
+
+// memory/ on disk: every path, one JSON Lines reader and appender, the readers of the ledgers and what they say of an
+// observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
+
+const MEMORY = join(DATA, "memory");
+/** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
+export const runId = (d: Date) => d.toISOString().replaceAll(":", "-");
+const RUN_TIME = /T(\d\d)-(\d\d)-(\d\d)/;
+/** The first `n` hex of a hash of `s`: how ids and content hashes are made. */
+export const digest = (algo: string, s: string | Buffer, n: number) =>
+  createHash(algo).update(s).digest("hex").slice(0, n);
+/** Each key's last item in `list`: how every ledger's "latest line wins" is read. */
+export const latestBy = <T>(list: T[], key: (x: T) => string) =>
+  new Map(list.map((x) => [key(x), x]));
+/** The start instant of a run id. */
+export const runAt = (run: string) => run.replace(RUN_TIME, "T$1:$2:$3");
+
+/** Runs and the search index: generated, rebuildable, not in git. */
+export const OUT = join(ROOT, "derived", "memory");
+
+export const UNITS = join(MEMORY, "units");
+export const OBSERVATIONS = join(MEMORY, "observations");
+export const PAGES = join(MEMORY, "pages");
+export const MOMENTS = join(MEMORY, "moments");
+export const EXTRACTED = join(MEMORY, "extracted.jsonl");
+export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");
+export const SUPERSESSIONS = join(MEMORY, "supersessions.jsonl");
+export const CORRECTIONS = join(MEMORY, "corrections.jsonl");
+export const ZONES = join(MEMORY, "zones.jsonl");
+export const INFERRED = join(MEMORY, "people-inferred.jsonl");
+export const REPOS_INFERRED = join(MEMORY, "repos-inferred.jsonl");
+export const ACTIONS = join(MEMORY, "actions.jsonl");
+const LABELS = join(MEMORY, "labels.jsonl");
+const VERDICTS = join(MEMORY, "verdicts.jsonl");
+export const FILES = join(MEMORY, "files.jsonl");
+export const STATEMENTS = join(MEMORY, "statements.jsonl");
+export const RATINGS = join(MEMORY, "ratings.jsonl");
+export const SCORES = join(MEMORY, "scores.jsonl");
+
+/**
+ * A file's complete lines (none when it is missing): a line still being appended, with no newline yet, waits for the
+ * next read. Synchronous, so the source readers can show what memory/files.jsonl says of their files.
+ */
+export function linesOf(path: string) {
+  const all = (existsSync(path) ? readFileSync(path, "utf8") : "").split("\n");
+  all.pop();
+  return all;
+}
+
+export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
+  linesOf(path)
+    .filter(Boolean)
+    .map((l) => schema.parse(JSON.parse(l)));
+
+/** A small JSON state file, or undefined when it is missing or unreadable. */
+export function readJson<T>(path: string): T | undefined {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Appends validated rows, one per line. */
+export async function appendJsonl<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  rows: T[]
+) {
+  if (rows.length > 0) {
+    await mkdir(join(path, ".."), { recursive: true });
+    await appendFile(
+      path,
+      rows.map((r) => `${JSON.stringify(schema.parse(r))}\n`).join("")
+    );
+  }
+}
+
+/** The files of a folder with that extension, by name (observations/: one `.jsonl` per month). */
+export const filesIn = async (dir: string, ext = ".jsonl") =>
+  (await readdir(dir).catch(() => [] as string[]))
+    .filter((n) => n.endsWith(ext))
+    .sort();
+
+/** Every `.jsonl` file of a folder, by name. */
+const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
+  (await filesIn(dir)).flatMap((n) => rowsOf(join(dir, n), schema));
+
+/** Every unit in memory/units/, oldest day first. */
+export const readUnits = () => readFolder(UNITS, Unit);
+
+export const readObservations = () => readFolder(OBSERVATIONS, Observation);
+
+/** Every moment line in memory/moments/, oldest day first. */
+export const readMoments = () => readFolder(MOMENTS, Moment);
+
+/** The first and last day a moment covers: its start (else the day that read it) to its end (else its start). */
+export const daysOf = (m: Moment) =>
+  [
+    (m.start ?? m.day).slice(0, 10),
+    (m.end ?? m.start ?? m.day).slice(0, 10),
+  ] as const;
+
+/** Each moment as it stands: its line from the latest day that read it, with the units (and copies) of every day's line, in day order; never one the owner said is wrong or unimportant (a moment is on no page: any such correction hides it). */
+export const momentsNow = (lines: Moment[], corrections: Correction[]) =>
+  [...Map.groupBy(lines, (m) => m.id).values()].flatMap((ls) => {
+    const m = ls.at(-1) as Moment;
+    const all = (k: "copies" | "units") => [
+      ...new Set(ls.flatMap((l) => l[k])),
+    ];
+    return hiding(corrections, m.id).length > 0
+      ? []
+      : [{ ...m, copies: all("copies"), units: all("units") }];
+  });
+
+/** Each unit's latest extraction: its last line in extracted.jsonl. */
+export const latestExtractions = (ledger: Extracted[]) =>
+  latestBy(ledger, (e) => e.unit);
+
+/** The units an observation can stand on: in memory/units and not dropped by a code rule. */
+export const liveUnits = (units: Unit[]) =>
+  new Set(units.flatMap((u) => (u.drop ? [] : [u.id])));
+
+/**
+ * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), or
+ * the unit has none: a unit read again, under another content hash or another prompt version, leaves its older facts
+ * in the ledger, replaced; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
+ */
+export function isCurrent(
+  { latest, live }: Pick<Standing, "latest" | "live">,
+  o: Observation
+) {
+  const l = latest.get(o.unit);
+  return (
+    live.has(o.unit) &&
+    (!l || (l.unitHash === o.madeBy.unitHash && l.run === o.madeBy.run))
+  );
+}
+
+/**
+ * Whether an observation is new since `at` (none: all are): no observation of `all` made by then cites its source line
+ * (the exact message or transcript turn). A re-read (a prompt bump, a re-summarized chapter) cites the same lines, so
+ * nothing in it is new; a chat-day that grew, or a lifelog job transcribed again, has new lines.
+ */
+export function newSince(all: Observation[], at?: string) {
+  const run = at ? runId(new Date(at)) : "";
+  const cited = new Set(
+    all.flatMap((o) => (o.madeBy.run <= run ? [o.source.ref] : []))
+  );
+  return (o: Observation) => !cited.has(o.source.ref);
+}
+
+/**
+ * Observations a newer one replaced (memory/supersessions.jsonl): id -> the first replacement recorded whose newer
+ * observation is still current (a replacement re-read away no longer retires anything).
+ */
+export const retiredBy = (list: Supersession[], current: Set<string>) => {
+  const out = new Map<string, Supersession>();
+  for (const s of list) {
+    if (current.has(s.by) && !out.has(s.observation)) {
+      out.set(s.observation, s);
+    }
+  }
+  return out;
+};
+
+/** The owner's answers on the check page: the latest for each claim (null: taken back). */
+export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.claim);
+
+export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
+
+/** The claims his latest answer calls false, as `wrong` corrections: an undo or a later answer lifts one. */
+export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
+  [...latest.values()]
+    .filter((r) => r.answer === "false")
+    .map(({ at, claim }) => ({
+      at,
+      kind: "wrong",
+      note: "rated false",
+      observations: [claim],
+      schemaVersion: 1,
+    }));
+
+/** What the owner said: memory/corrections.jsonl, then the claims he rated false on the check page (`ratedFalse`). */
+export function readCorrections(): Correction[] {
+  return [...rowsOf(CORRECTIONS, Correction), ...ratedFalse(readRatings())];
+}
+
+/** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
+export interface Standing {
+  corrections: Correction[];
+  latest: Map<string, Extracted>;
+  live: Set<string>;
+  retired: Map<string, Supersession>;
+}
+
+/** The extraction, unit and supersession ledgers, with the corrections (and the observations) the caller already holds. */
+export async function readStanding(
+  corrections: Correction[],
+  read: Observation[] | Promise<Observation[]> = readObservations()
+): Promise<Standing> {
+  const [units, observations] = await Promise.all([readUnits(), read]);
+  const extracted = rowsOf(EXTRACTED, Extracted);
+  const supersessions = rowsOf(SUPERSESSIONS, Supersession);
+  const c = { latest: latestExtractions(extracted), live: liveUnits(units) };
+  const current = new Set(
+    observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
+  );
+  return { corrections, ...c, retired: retiredBy(supersessions, current) };
+}
+
+/** A correction that hides observations (`wrong`, `not-important`): everywhere, or on its `page` only. */
+export const hides = (c: Correction) =>
+  c.kind === "wrong" || c.kind === "not-important" ? c : null;
+
+/** The owner's corrections hiding `id`: everywhere (no page), or on a page. */
+export const hiding = (corrections: Correction[], id: string) =>
+  corrections.flatMap((c) => {
+    const h = hides(c);
+    return h?.observations.includes(id) ? [h] : [];
+  });
+
+/**
+ * Where an observation stands: the one rule the index, the pages and the dashboard go by. First match wins: `hidden`
+ * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
+ * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it: still indexed, with `by`, and still cited on a page, never new
+ * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
+ * its quote checked against the source: `active` does not mean verified.
+ */
+export function stateOf(o: Observation, s: Standing) {
+  const hid = hiding(s.corrections, o.id);
+  const everywhere = hid.find((c) => !c.page);
+  if (everywhere) {
+    const { at, kind, note } = everywhere;
+    return {
+      at,
+      correction: kind,
+      note: note ?? null,
+      state: "hidden" as const,
+    };
+  }
+  if (!s.live.has(o.unit)) {
+    return { state: "gone" as const };
+  }
+  if (!isCurrent(s, o)) {
+    const l = s.latest.get(o.unit);
+    return {
+      at: l?.at ?? null,
+      by: l?.run ?? null,
+      state: "replaced" as const,
+    };
+  }
+  const hiddenOn = hid.flatMap((c) => (c.page ? [c.page] : []));
+  const r = s.retired.get(o.id);
+  if (r) {
+    const { at, by, page, validTo, why } = r;
+    return {
+      at,
+      by,
+      hiddenOn,
+      page,
+      state: "retired" as const,
+      validTo,
+      why,
+    };
+  }
+  return { hiddenOn, state: "active" as const };
+}
+type State = ReturnType<typeof stateOf>;
+
+/** Whether an observation in that state shows: in the index (no page), or on `page`. */
+export const shows = (s: State, page?: string) =>
+  (s.state === "active" || s.state === "retired") &&
+  !(page && s.hiddenOn.includes(page));
+
+/** The observations that show in the index: neither hidden everywhere nor replaced. */
+export const shownOf = (list: Observation[], standing: Standing) =>
+  list.filter((o) => shows(stateOf(o, standing)));
+
+/** Stamps and checks what the owner said (the CLI's `correct` and the connector's) and appends it; throws when invalid. */
+export async function recordCorrection(said: unknown) {
+  const correction = Correction.parse({
+    at: new Date().toISOString(),
+    schemaVersion: 1,
+    ...(said as object),
+  });
+  await appendJsonl(CORRECTIONS, Correction, [correction]);
+  return correction;
+}
+
+/** The truth benchmark: every statement, in the order it was drawn. */
+export const readStatements = () => rowsOf(STATEMENTS, Statement);
+
+/** Appends the owner's answer to one statement's claim (the check page); null takes his last one back. */
+export const recordRating = (claim: string, answer: Rating["answer"]) =>
+  appendJsonl(RATINGS, Rating, [
+    { answer, at: new Date().toISOString(), claim, schemaVersion: 1 },
+  ]);
+
+export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
+
+export const readActions = () => rowsOf(ACTIONS, Action);
+
+export const readInferred = () => rowsOf(INFERRED, InferredPerson);
+
+/** Life's repo guesses: the latest record for each repo wins. */
+export const readRepoGuesses = () => [
+  ...latestBy(rowsOf(REPOS_INFERRED, RepoGuess), (g) => g.repo).values(),
+];
+
+/** The owner's labels: the latest one for each unit wins. */
+export const readLabels = () => [
+  ...latestBy(rowsOf(LABELS, MemoryLabel), (l) => l.unitId).values(),
+];
+
+/** What Life read off each file a message carried: the latest line for each ref wins. */
+export const readFiles = () => latestBy(rowsOf(FILES, FileEntry), (e) => e.ref);
+
+/** Verdicts by unit and content: the latest line for each (unit, hash) wins. */
+export type Verdicts = Map<string, Verdict>;
+export const verdictKey = (unit: string, hash: string) => `${unit}|${hash}`;
+
+export const readVerdicts = (): Verdicts =>
+  latestBy(rowsOf(VERDICTS, Verdict), (v) => verdictKey(v.unit, v.hash));
+
+export const appendVerdicts = (list: Verdict[]) =>
+  appendJsonl(VERDICTS, Verdict, list);
+
+/**
+ * The one way to ask what the verdicts made of a unit: the verdict on its current content, or undefined when it has none
+ * (not judged yet, judged on older content, or dropped by a code rule).
+ */
+export const verdictOf = (verdicts: Verdicts, u: Unit) =>
+  u.drop ? undefined : verdicts.get(verdictKey(u.id, u.hash));

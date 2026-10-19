@@ -1,0 +1,219 @@
+import { readdir } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import {
+  type Area,
+  AreasFile,
+  type Chat,
+  ChatsFile,
+  INFERRED_PREFIX,
+  PeopleFile,
+  type Person,
+  Project,
+  type SourceEvent,
+} from "./schema";
+
+export const ROOT = join(import.meta.dir, "..");
+/** `bun test` sets NODE_ENV=test: tests never touch the real log or data. */
+export const TEST = process.env.NODE_ENV === "test";
+/** His data: a local git repo of its own (memory/ and truth/), never pushed. Tests read made-up data. */
+export const DATA = TEST
+  ? join(ROOT, "src", "test-data")
+  : (process.env.LIFE_DATA ?? join(homedir(), "Life"));
+const ME = "me";
+/** The owner's own entry in truth/people.yaml. */
+export function ownerIn(people: Person[]): Person {
+  const me = people.find((p) => p.id === ME);
+  if (!me) {
+    throw new Error(`truth/people.yaml has no "${ME}"`);
+  }
+  return me;
+}
+/** The owner as an entity ref: the center of his memory. */
+export const OWNER = `person:${ME}`;
+/** The people other than the owner among an observation's entity refs. */
+export const othersIn = (entities: string[]) =>
+  entities.filter((e) => e.startsWith("person:") && e !== OWNER);
+/** The first paragraph of truth/me.md. */
+const ABOUT = /^# Me\n\n(.+(?:\n.+)*)/;
+/** truth/me.md's goals: the block under `## Goals`, his words in his priority order. */
+const GOALS = /(?:^|\n)## Goals\n([\s\S]*?)(?=\n## |$)/;
+/** The projects a goal serves: the ids in backticks it names. */
+const PROJECT_ID = /`([a-z0-9-]+)`/g;
+const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
+
+export interface Truth {
+  areas: Area[];
+  chats: Chat[];
+  /** truth/me.md, read once: all of it, its first paragraph and his goals. */
+  me: { about?: string; goals?: string; text: string };
+  people: Person[];
+  projects: (Project & { notes: string })[];
+}
+
+export const readMe = (text: string): Truth["me"] => ({
+  about: text.match(ABOUT)?.[1]?.replaceAll("\n", " "),
+  goals: text.match(GOALS)?.[1]?.trim(),
+  text,
+});
+
+async function yaml(path: string): Promise<unknown> {
+  return Bun.YAML.parse(await Bun.file(path).text());
+}
+
+function frontmatter(text: string, path: string) {
+  const [, head, body] = text.match(FRONTMATTER) ?? [];
+  if (head === undefined) {
+    throw new Error(`${path}: missing --- frontmatter ---`);
+  }
+  return { body: (body ?? "").trim(), data: Bun.YAML.parse(head) };
+}
+
+export async function loadTruth(): Promise<Truth> {
+  const dir = join(DATA, "truth");
+  const { people } = PeopleFile.parse(await yaml(join(dir, "people.yaml")));
+  const { chats } = ChatsFile.parse(await yaml(join(dir, "chats.yaml")));
+  const { areas } = AreasFile.parse(await yaml(join(dir, "areas.yaml")));
+  const names = (await readdir(join(dir, "projects")))
+    .filter((n) => n.endsWith(".md"))
+    .sort();
+  const projects = await Promise.all(
+    names.map(async (name) => {
+      const path = join(dir, "projects", name);
+      const { data, body } = frontmatter(await Bun.file(path).text(), path);
+      return { ...Project.parse(data), notes: body };
+    })
+  );
+  const me = readMe(await Bun.file(join(dir, "me.md")).text());
+  return { areas, chats, me, people, projects };
+}
+
+/** Every handle a person has, normalized the way senders are looked up: emails lower-cased. */
+export function handlesOf(p: Person): string[] {
+  const { whatsapp, phone, email, lifelog, telegram } = p.handles;
+  return [
+    ...whatsapp,
+    ...phone,
+    ...email.map((h) => h.toLowerCase()),
+    ...(lifelog ? [lifelog] : []),
+    ...(telegram ? [telegram] : []),
+  ];
+}
+
+/** Index of every handle in the map to the person who owns it. */
+export const handleIndex = (people: Person[]): Map<string, string> =>
+  new Map(people.flatMap((p) => handlesOf(p).map((h) => [h, p.id])));
+
+/** The person behind an event's sender, or null when the sender isn't on the map yet. */
+export function resolveSender(
+  event: SourceEvent,
+  index: Map<string, string>
+): string | null {
+  if (event.fromMe) {
+    return ME;
+  }
+  return (
+    index.get(event.sender) ?? index.get(event.sender.toLowerCase()) ?? null
+  );
+}
+
+function checkPeople(people: Person[], issues: string[]): Set<string> {
+  const ids = new Set<string>();
+  const owner = new Map<string, string>();
+  for (const p of people) {
+    if (ids.has(p.id)) {
+      issues.push(`person ${p.id} is listed twice`);
+    }
+    ids.add(p.id);
+    if (p.id.startsWith(INFERRED_PREFIX)) {
+      issues.push(
+        `person ${p.id}: "${INFERRED_PREFIX}" ids are Life's inferred people`
+      );
+    }
+    for (const h of new Set(handlesOf(p))) {
+      const other = owner.get(h);
+      if (other && other !== p.id) {
+        issues.push(`${h} belongs to both ${other} and ${p.id}`);
+      }
+      owner.set(h, p.id);
+    }
+  }
+  if (!ids.has(ME)) {
+    issues.push(`people.yaml needs the owner as id "${ME}"`);
+  }
+  return ids;
+}
+
+function checkRepos(projects: Truth["projects"], issues: string[]) {
+  const owner = new Map<string, string>();
+  for (const p of projects) {
+    for (const r of p.repos) {
+      const other = owner.get(r);
+      if (other && other !== p.id) {
+        issues.push(`repo ${r} belongs to both ${other} and ${p.id}`);
+      }
+      owner.set(r, p.id);
+    }
+  }
+}
+
+function checkGoals(
+  goals: string | undefined,
+  projects: Set<string>,
+  issues: string[]
+) {
+  if (!goals) {
+    issues.push("me.md has no ## Goals: every model call would miss them");
+  }
+  for (const [, id = ""] of (goals ?? "").matchAll(PROJECT_ID)) {
+    if (!projects.has(id)) {
+      issues.push(`a goal in me.md names unknown project ${id}`);
+    }
+  }
+}
+
+/** Empty means the map is consistent: every reference points at something that exists. */
+export function integrity({
+  areas,
+  people,
+  chats,
+  me,
+  projects,
+}: Truth): string[] {
+  const issues: string[] = [];
+  const personIds = checkPeople(people, issues);
+  const projectIds = new Set(projects.map((p) => p.id));
+  const chatIds = new Set<string>();
+  for (const c of chats) {
+    if (chatIds.has(c.id)) {
+      issues.push(`chat ${c.id} is listed twice`);
+    }
+    chatIds.add(c.id);
+  }
+  const areaIds = new Set<string>();
+  for (const a of areas) {
+    if (areaIds.has(a.id)) {
+      issues.push(`area ${a.id} is listed twice`);
+    }
+    areaIds.add(a.id);
+  }
+  checkRepos(projects, issues);
+  for (const p of projects) {
+    if (!areaIds.has(p.area)) {
+      issues.push(`project ${p.id} names unknown area ${p.area}`);
+    }
+    for (const m of p.people.filter((id) => !personIds.has(id))) {
+      issues.push(`project ${p.id} names unknown person ${m}`);
+    }
+    for (const c of p.chats.filter((id) => !chatIds.has(id))) {
+      issues.push(`project ${p.id} names unknown chat ${c}`);
+    }
+  }
+  for (const p of people) {
+    for (const pr of p.projects.filter((id) => !projectIds.has(id))) {
+      issues.push(`person ${p.id} names unknown project ${pr}`);
+    }
+  }
+  checkGoals(me.goals, projectIds, issues);
+  return issues;
+}
