@@ -2,7 +2,16 @@ import { expect, test } from "bun:test";
 import { type Item, planOf, steerOf, wantOf } from "./board";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
-import { escalation, refusal, standing, type Task, tasksOf } from "./tasks";
+import {
+  escalation,
+  refusal,
+  sealed,
+  standing,
+  type Task,
+  tasksOf,
+  type Update,
+  written,
+} from "./tasks";
 
 const T0 = Date.parse("2026-10-19T10:00:00.000Z");
 const MIN = 60_000;
@@ -283,4 +292,85 @@ test("his changes are steers, Life's own writes are not, and Life never writes o
   expect(planOf(wantOf(steered, "Atlas stuck"), his, his, T0).reopen).toBe(
     true
   );
+});
+
+const TEXT = "# Atlas: the playbook";
+const { seal } = sealed(T0, TEXT);
+const claiming = {
+  claim: true,
+  deadline: at(60),
+  note: "on it",
+  seal,
+  state: "working",
+} as const;
+const write = (u: Update, lines: Action[] = [], now = T0) =>
+  written(
+    u,
+    tasksOf([asked, ...lines].map((a) => JSON.stringify(a))),
+    now,
+    TEXT
+  );
+
+test("a write needs the seal of the current playbook: refused when stale or missing, with the text and the new seal", () => {
+  expect(write({ ...claiming, task: ASK }).answer).toBe(`${ASK}: working`);
+  expect(
+    write({ ...claiming, task: ASK }).lines[0]?.after.playbook
+  ).toHaveLength(12);
+  // The previous window's seal still holds; older ones and a changed text do not.
+  expect(
+    write({ ...claiming, deadline: at(400), task: ASK }, [], T0 + 6 * 60 * MIN)
+      .answer
+  ).toBe(`${ASK}: working`);
+  for (const [u, now] of [
+    [{ ...claiming, task: ASK }, T0 + 13 * 60 * MIN],
+    [{ ...claiming, seal: undefined, task: ASK }, T0],
+  ] as const) {
+    expect(() => write(u, [], now)).toThrow(sealed(now, TEXT).seal);
+    expect(() => write(u, [], now)).toThrow(TEXT);
+  }
+  expect(() => written({ ...claiming, task: ASK }, [], T0, `${TEXT}!`)).toThrow(
+    "Not the current seal"
+  );
+});
+
+test("his words in a chat make a task, claimed at once, once per message and part; never without his words", () => {
+  const chat = {
+    ...claiming,
+    at: at(-5),
+    said: "book the dentist and the vet",
+    title: "dentist",
+  };
+  const { answer, lines } = write(chat);
+  const [made, claim] = lines;
+  expect(made).toMatchObject({
+    after: { confidence: "high", title: "dentist" },
+    instruction: { at: at(-5), quote: chat.said, ref: `chat:${at(-5)}` },
+    madeBy: "connector",
+  });
+  expect(claim).toMatchObject({ after: { claim: true }, target: made?.id });
+  expect(answer).toBe(`${made?.id}: working`);
+  // A retry finds it; another part of the same message is another task.
+  expect(write(chat, lines)).toEqual({
+    answer: `${made?.id}: already a task`,
+    lines: [],
+  });
+  expect(write({ ...chat, title: "vet" }, lines).lines).toHaveLength(2);
+  expect(() => write({ ...claiming, at: at(-5) })).toThrow(
+    "name one of task, said"
+  );
+  expect(() => write({ ...chat, at: undefined })).toThrow("said needs at");
+  expect(() => write({ ...chat, at: at(5) })).toThrow("said needs at");
+});
+
+test("a split inherits its parent's words, one level only, and never takes new ones", () => {
+  const split = { ...claiming, parent: ASK, title: "Book visits" };
+  const [child] = write(split).lines;
+  expect(child?.instruction).toEqual(asked.instruction);
+  expect(child?.after).toMatchObject({ parent: ASK, title: "Book visits" });
+  expect(() => write({ ...split, said: "new words" })).toThrow("name one of");
+  expect(() => write({ ...split, title: undefined })).toThrow(
+    "a split needs title"
+  );
+  const grand = { ...claiming, parent: child?.id, title: "Call" };
+  expect(() => write(grand, write(split).lines)).toThrow("a split needs title");
 });

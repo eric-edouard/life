@@ -1,5 +1,4 @@
 import { afterAll, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -276,16 +275,18 @@ test("server/discover offers events and events/list one event, ask; a subscribe 
   expect(res.status).toBe(401);
 });
 
-test("the server is named Life, carries its icons, and its instructions end with Atlas's playbook", async () => {
+test("the server is named Life, carries its icons, and its instructions open with the pointer to Atlas's playbook, not a copy", async () => {
   const { json } = await rpc(await token(), "initialize", {
     capabilities: {},
     clientInfo: { name: "test", version: "1" },
     protocolVersion: "2025-06-18",
   });
   expect(json.result.serverInfo).toMatchObject({ name: "Life", title: "Life" });
-  expect(json.result.instructions).toEndWith(
-    readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
+  const { instructions } = json.result;
+  expect(instructions).toStartWith(
+    "Atlas: call `tasks` first; its `playbook` field is your instructions."
   );
+  expect(instructions).not.toContain("# Atlas: the playbook");
   expect(
     json.result.serverInfo.icons.map((i: { src: string }) => i.src)
   ).toEqual([

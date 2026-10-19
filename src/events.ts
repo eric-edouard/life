@@ -36,7 +36,9 @@ const AskData = z.object({
     .optional()
     .describe("Life's nudge: the task is past its deadline. Not a new ask"),
   quote: z.string().describe("His words, from the wake turn on"),
-  ref: z.string().describe("Where the words are: a turn or session:<at>"),
+  ref: z
+    .string()
+    .describe("Where the words are: a turn, session:<at> or chat:<at>"),
   steer: z
     .object({
       changes: z.record(z.string(), z.unknown()),
@@ -248,7 +250,9 @@ export function nextEvent(lines: string[], from: number) {
       a?.kind === "nudge" || a?.kind === "steer"
         ? lines.map(parse).find((x) => x?.id === a.target)
         : a;
-    if (a && ask?.kind === "ask" && ask.instruction) {
+    // An ask Atlas made from a chat is already its own: only its nudges and steers go out.
+    const own = a === ask && a?.madeBy === "connector";
+    if (a && ask?.kind === "ask" && ask.instruction && !own) {
       const cursor = from + k + 1;
       const data: z.infer<typeof AskData> = {
         ...ask.instruction,
