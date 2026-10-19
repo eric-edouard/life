@@ -19,7 +19,7 @@ import { when } from "./zones";
 // too), one per claim, grouped by the page the claim lives on so the owner rates one context at a time.
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
-const plain = (t: string) =>
+export const plain = (t: string) =>
   `${when(t.slice(0, 10)).date}${t.startsWith(String(new Date().getFullYear())) ? "" : ` ${t.slice(0, 4)}`}${t.slice(10)}`;
 
 /** A moment in plain words: "Happened: Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé; told Dad." */

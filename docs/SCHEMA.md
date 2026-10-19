@@ -269,17 +269,20 @@ where a later run's claims about the same thing are). The draw is spread over gr
 ## ratings.jsonl
 
 The owner's answers to the statements, append-only, from the check page (`https://life.ericedouard.com/check`,
-`src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `skip` or null (he took his last
-answer back). The latest line for a claim is his answer. A `false` hides the claim as a `wrong` correction would
+`src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
+recorded it, not anymore), `skip` or null (he took his last answer back). The latest line for a claim is his answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
-lifts a `wrong` he said in conversation (`corrections.jsonl`). A skipped statement is not asked again.
+lifts a `wrong` he said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would
+(`ratedOutdated`, `by` the claim itself, `why` `rated outdated`, `validTo` the answer's day), after extraction's own; on a
+moment it changes nothing. A skipped statement is not asked again.
 
 ## scores.jsonl
 
 How the memory scored against his ratings, one line per run of `bun scripts/eval.ts --ratings` with something to judge,
-append-only: `{schemaVersion: 1, run, at, rated, trues, held, missed, contradicted, restated, ungraded, gone}`: of `rated`
+append-only: `{schemaVersion: 1, run, at, rated, trues, held, missed, contradicted, restated, ungraded, outdated, gone}`: of `rated`
 statements judged (`trues` of them true), `held` true ones the memory still states, `missed` true ones it no longer states, `contradicted` true ones it
-contradicts, `restated` false ones it says again, `ungraded` ones the judge left out; `gone` rated statements were not
+contradicts, `restated` false ones it says again, `ungraded` ones the judge left out; `outdated` ones (counted true and held, not judged: closures Life
+missed; absent before 19 Oct); `gone` rated statements were not
 judged because none of their units is live any more (a re-cut chapter, or a unit a code rule now drops).
 
 ## supersessions.jsonl

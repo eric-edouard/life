@@ -122,9 +122,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly
   cookie, checked by `ownerTokens` on every request): never serve anything of his before that check. A `false` is a
-  `wrong` correction (`readCorrections` folds the ratings in), so an undo lifts it. Like `correct`, an answer is
+  `wrong` correction (`readCorrections` folds the ratings in), an `outdated` (true then, not anymore) a retirement
+  (`readStanding`: closed as history, never wrong), so an undo lifts either. Like `correct`, an answer is
   appended without the lock (his own words, one line, never while waiting on the nightly). Its swipe deck
-  (`deck` in `assets/check/check.js`) stays generic: items in, verdicts out.
+  (`deck` in `assets/check/check.js`) stays generic: items and a list of verdicts in, verdicts out.
 - **The archive is the only live copy of deleted messages and of old note versions** (the backup keeps snapshots). Never move, wipe or migrate its files (a new table is allowed
   with the owner's OK, never a rewrite of existing rows), and keep `com.ericedouard.life.archive` running. App stores
   are opened read-only. The archive keeps the apps it copies from running (`app` in `STORES`): a closed one is opened
@@ -139,7 +140,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   rewrites only `units/` and `moments/<day>.jsonl` (the day's moments, model-owned, read again with the day).
 - **Facts are read by moment** (`moments.ts`, then `extract.ts`): one call per day reads every unit of the day from
   every channel in time order, judges each and finds what happened; extraction reads a moment's units together, with
-  earlier facts as a reading to correct, never as evidence, and is the only step that retires an observation.
+  earlier facts as a reading to correct, never as evidence, and is the only step that retires an observation (besides his `outdated` answers).
   A moment is all its days' lines (`momentsNow`); a unit shared by several moments is read with the one whose reading
   reaches furthest, and on a tie the smallest. Measure a change to either with `bun scripts/eval.ts ~/Life/docs/evals/events-2026-10-16.json` (`events-2026-10-18.md` there)
   and against his ratings with `bun scripts/eval.ts --ratings`.
