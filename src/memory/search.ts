@@ -6,6 +6,7 @@ import { redact } from "../redact";
 import {
   type Action,
   INFERRED_USE_AT,
+  isTaskLine,
   KEEP_AT,
   type Moment,
   type Observation,
@@ -460,7 +461,9 @@ export function dayLines(
 
 export async function day(date: string) {
   const names = lifelogNames(await loadTruth());
-  const actions = (await readActions()).filter((a) => localDate(a.at) === date);
+  const actions = (await readActions()).filter(
+    (a) => !isTaskLine(a) && localDate(a.at) === date
+  );
   const moments = await momentsWhere((m) => {
     const [first, last] = daysOf(m);
     return first <= date && date <= last;

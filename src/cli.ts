@@ -1,10 +1,11 @@
-import { Asked, actAsked, ask, checks, requested } from "./actions";
+import { Asked, actAsked, checks, requested } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { readEngine, setEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
 import { actionLine } from "./memory/report";
 import { Engine } from "./schema";
+import { ask } from "./tasks";
 import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
 
