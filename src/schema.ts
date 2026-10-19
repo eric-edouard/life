@@ -126,7 +126,7 @@ export const Action = z
       "instinct",
       ...TASK_LINES,
     ]),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": "hey Atlas" heard in his speech.
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard, a nudge, a steer).
     madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
     result: z.enum(["ok", "failed", "duplicate"]),
     schemaVersion: z.literal(1),

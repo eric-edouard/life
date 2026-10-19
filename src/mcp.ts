@@ -32,8 +32,8 @@ import { ROOT } from "./truth";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; the Cloudflare tunnel forwards
 // life.ericedouard.com to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
-// no second implementation. Life reads; it forwards the owner's explicit corrections (`correct`) and, on his explicit request in a
-// chat, changes his Reminders (`reminders`, through `act`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
+// no second implementation. Life reads; it forwards the owner's explicit corrections (`correct`), on his explicit request in a
+// chat changes his Reminders (`reminders`, through `act`) and records Atlas's updates to its tasks (`task`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
 // Auth: a Bearer JWT that lifelog's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
