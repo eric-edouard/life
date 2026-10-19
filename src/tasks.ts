@@ -22,12 +22,10 @@ const iso = (ms: number) => new Date(ms).toISOString();
 /** Atlas's playbook, read from its one source on every call: `tasks` returns it, `task` refuses a write without its seal. */
 const playbook = () => readFileSync(join(ROOT, "docs", "atlas.md"), "utf8");
 const WINDOW = 6 * HOUR;
-/** The playbook's revision, on each of Atlas's updates: which text it wrote under. */
-const revision = (text: string) => digest("sha256", text, 12);
 /** The playbook and its seal: a hash of the text and its 6 h window, so a seal recalled from memory dies within 12 h. */
 export const sealed = (now = Date.now(), text = playbook()) => ({
   playbook: text,
-  seal: digest("sha256", `${revision(text)}@${Math.floor(now / WINDOW)}`, 16),
+  seal: digest("sha256", `${text}@${Math.floor(now / WINDOW)}`, 16),
 });
 
 /**
@@ -242,18 +240,29 @@ export function refusal(t: Task | undefined, u: Update, now: number) {
 }
 
 /** The task `u` makes: from his words in a chat, or a split of an open task (its words, never new ones); throws why not. */
-function made(
-  u: Update,
-  tasks: Task[],
-  now: number
-): Parameters<typeof askLine> {
+function made(u: Update, tasks: Task[], now: number) {
   const p = taskOf(tasks, u.parent);
-  if (p && u.title && !p.ask.after.parent && !closed(standing(p, now).state)) {
+  if (p) {
+    const { state } = standing(p, now);
+    if (!u.title) {
+      throw new Error("a split needs title");
+    }
+    if (p.ask.after.parent || closed(state)) {
+      throw new Error(
+        `only an open task that is no split part splits: ${p.ask.id} is ${p.ask.after.parent ? "a part" : state}`
+      );
+    }
     const after = { ...p.ask.after, parent: p.ask.id, title: u.title };
-    return [p.ask.instruction, after, "connector", "split by Atlas", now];
+    return askLine(
+      p.ask.instruction,
+      after,
+      "connector",
+      "split by Atlas",
+      now
+    );
   }
   if (u.parent) {
-    throw new Error("a split needs title and an open task that is no split");
+    throw new Error(`no task ${u.parent}`);
   }
   const sent = Date.parse(u.at ?? "");
   if (!(sent <= now + MIN && sent > now - 7 * DAY)) {
@@ -262,7 +271,7 @@ function made(
   // His message's instant, normalized: the same message makes the same id whatever the offset it was given in.
   const chat = requested("connector", `${u.said}`, iso(sent));
   const after = { confidence: "high", title: u.title };
-  return [chat, after, "connector", "asked Atlas in a chat", now];
+  return askLine(chat, after, "connector", "asked Atlas in a chat", now);
 }
 
 /**
@@ -290,7 +299,7 @@ export function written(
       "name one of task (no at, no title), said (a new task) or parent (a split)"
     );
   }
-  const fresh = task ? undefined : askLine(...made(u, tasks, now));
+  const fresh = task ? undefined : made(u, tasks, now);
   if (fresh && taskOf(tasks, fresh.id)) {
     return { answer: `${fresh.id}: already a task`, lines: [] };
   }
@@ -303,12 +312,7 @@ export function written(
   if (u.state === "waiting-eric") {
     after.deadline ??= iso(now + DAY);
   }
-  const line = lineOf(
-    id,
-    "update",
-    { ...after, playbook: revision(text) },
-    now
-  );
+  const line = lineOf(id, "update", after, now);
   return { answer: `${id}: ${u.state}`, lines: fresh ? [fresh, line] : [line] };
 }
 

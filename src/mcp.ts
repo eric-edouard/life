@@ -1,14 +1,9 @@
 import { join } from "node:path";
-import {
-  type AuthInfo,
-  createMcpHandler,
-  McpServer,
-} from "@modelcontextprotocol/server";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { Asked, actAsked, openReminders } from "./actions";
 import {
   ISSUER,
-  NO_TOKEN,
   ORIGIN,
   RESOURCE,
   type Refused,
@@ -25,7 +20,7 @@ import {
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
 import { lifeStatus, runs } from "./memory/history";
-import { json, recordCorrection } from "./memory/ledger";
+import { recordCorrection } from "./memory/ledger";
 import { placesOf } from "./memory/places";
 import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
@@ -155,48 +150,15 @@ const cut = (args: unknown) =>
   );
 
 /** Who asked, on every `mcp.call` line: the OAuth client and the User-Agent's product. */
-const who = (req?: Request, auth?: AuthInfo | Refused) => ({
+const who = (req?: Request, client?: string) => ({
   agent: req?.headers.get("user-agent")?.split(" ")[0]?.slice(0, 100),
-  client: auth && "clientId" in auth ? auth.clientId : undefined,
+  client,
 });
 
-/**
- * Logs a request Life answered with an error outside its tools, as `tool()` logs a call: a token refused (its body is
- * never read), or an error the SDK or a handler answered (an unknown method or tool, invalid arguments, a refused
- * subscribe, an internal error), with the tool or method.
- */
-async function logRefused(
-  req: Request,
-  auth: AuthInfo | Refused,
-  asked: Promise<string>,
-  res: Pick<Response, "status" | "text">
-) {
-  const out = await res.text();
-  const answered = json<{
-    error?: { message: string };
-    result?: { content?: { text?: string }[]; isError?: boolean };
-  }>(out.slice(out.indexOf("{")));
-  const words = answered.result?.content?.[0]?.text;
-  const invalid =
-    answered.result?.isError && words?.startsWith("Input validation error");
-  const why =
-    "refusal" in auth
-      ? `${auth.refusal}: ${auth.why}`
-      : (answered.error?.message ?? (invalid ? words : undefined));
-  if (why) {
-    const { method, params } = json<{
-      method?: string;
-      params?: { name?: string };
-    }>(await asked);
-    log("mcp.call", {
-      ...who(req, auth),
-      error: true,
-      refused: clip(why, 300),
-      status: res.status,
-      tool: params?.name ?? method,
-    });
-  }
-}
+/** The schema clients see, but every call reaches `tool()`, which validates it: invalid arguments are logged like any call. */
+const unchecked = (s: z.ZodObject) => ({
+  "~standard": { ...s["~standard"], validate: (value: unknown) => ({ value }) },
+});
 
 /** Registers one tool. Each call logs who asked (OAuth client, User-Agent product), the arguments, and what surfaced without its text: length, cited ids, error. */
 function tool<S extends z.ZodObject>(
@@ -209,13 +171,25 @@ function tool<S extends z.ZodObject>(
 ) {
   server.registerTool(
     name,
-    { annotations, description, inputSchema: inputSchema as z.ZodObject },
+    {
+      annotations,
+      description,
+      inputSchema: unchecked(inputSchema) as unknown as z.ZodObject,
+    },
     async (args, ctx) => {
       const started = Date.now();
-      const result = await answer(() => run(args as z.infer<S>));
+      const parsed = inputSchema.safeParse(args);
+      const result = await answer(() => {
+        if (!parsed.success) {
+          throw new Error(
+            `Invalid arguments: ${z.prettifyError(parsed.error)}`
+          );
+        }
+        return run(parsed.data as z.infer<S>);
+      });
       const body = result.content.map((c) => c.text).join("");
       log("mcp.call", {
-        ...who(ctx.http?.req, ctx.http?.authInfo),
+        ...who(ctx.http?.req, ctx.http?.authInfo?.clientId),
         args: cut(args),
         chars: body.length,
         error: result.isError,
@@ -428,23 +402,25 @@ const text = (
  * for any other path (the caller serves those).
  */
 export function createMcp(verify: Verify) {
-  const handler = createMcpHandler(buildServer);
-  /** The owner's token (its OAuth client, for the log), or why the request is refused. */
-  async function authorize(req: Request): Promise<AuthInfo | Refused> {
+  // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
+  const handler = createMcpHandler(buildServer, {
+    onerror: (e) =>
+      log("mcp.call", { error: true, refused: clip(e.message, 300) }),
+  });
+  /** The owner's token (its OAuth client, for the log), or why the request is refused; with the token either way. */
+  async function authorize(req: Request) {
     const header = req.headers.get("authorization") ?? "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-    const whose = await verify(token);
-    return "refusal" in whose ? whose : { ...whose, token };
+    return { ...(await verify(token)), token };
   }
   /** The 401 or 403 that answers a refused token. */
-  const denied = ({ refusal, why }: Refused) =>
+  const denied = ({ refusal, token }: Refused & { token: string }) =>
     refusal === "forbidden"
       ? text("forbidden", 403)
       : text("unauthorized", 401, {
-          "WWW-Authenticate":
-            why === NO_TOKEN
-              ? CHALLENGE
-              : `${CHALLENGE}, error="invalid_token"`,
+          "WWW-Authenticate": token
+            ? `${CHALLENGE}, error="invalid_token"`
+            : CHALLENGE,
         });
 
   async function handle(req: Request): Promise<Response | null> {
@@ -461,21 +437,15 @@ export function createMcp(verify: Verify) {
     switch (pathname) {
       case "/mcp": {
         const auth = await authorize(req);
-        // Only the owner's body is read for the log; a refused one never is.
-        const asked =
-          "refusal" in auth
-            ? Promise.resolve("")
-            : req
-                .clone()
-                .text()
-                .catch(() => "");
-        const res =
-          "refusal" in auth
-            ? denied(auth)
-            : await handler.fetch(req, { authInfo: auth });
-        // Read from a copy after the answer goes out, so a stream is never held back.
-        logRefused(req, auth, asked, res.clone()).catch(() => undefined);
-        return res;
+        if (!("refusal" in auth)) {
+          return handler.fetch(req, { authInfo: auth });
+        }
+        // A refused token is logged, never its body; none at all is OAuth discovery or a probe.
+        if (auth.token) {
+          const refused = clip(`${auth.refusal}: ${auth.why}`, 300);
+          log("mcp.call", { ...who(req), error: true, refused });
+        }
+        return denied(auth);
       }
       case "/.well-known/oauth-protected-resource":
       case "/.well-known/oauth-protected-resource/mcp":

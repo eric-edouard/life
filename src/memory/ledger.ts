@@ -75,15 +75,6 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
 
-/** A JSON text, or {} when it is none. */
-export const json = <T>(s: string) => {
-  try {
-    return JSON.parse(s) as T;
-  } catch {
-    return {} as T;
-  }
-};
-
 /** A small JSON state file, or undefined when it is missing or unreadable. */
 export function readJson<T>(path: string): T | undefined {
   try {

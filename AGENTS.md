@@ -73,8 +73,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
   `update`s through the connector's `task` (the write rules are `refusal`, behind the playbook's seal in `written`; one
-  claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows; each
-  update records the playbook's `revision`), Life's `nudge`s (`standing(...).nudge`, the one
+  claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows), Life's `nudge`s (`standing(...).nudge`, the one
   rule: past its deadline, an open one 30 min after it was recorded; 30 min apart, only after the last was delivered,
   until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
   `ask` events with `nudge` or `steer` (one event name: a second would replace the subscription). Task lines stay out of
@@ -117,8 +116,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
   updates, through `update`). `correct` is annotated destructive so clients ask first; `reminders` and `task` are not
   (nothing they do is lost: a remove goes to Recently Deleted), so Atlas uses them unattended. Never add a tool that sends or edits anything else. One MCP event, `ask`
-  (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. Every request refused before a tool
-  runs (its token, or the SDK's own error) is logged as `mcp.call` with `refused`, by `logRefused`, like a call; a refused token's body is never read. Every request
+  (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. A refused token (not a missing one,
+  never its body), the SDK's own rejections (`onerror`) and invalid arguments (`tool()` validates them itself) are
+  logged as `mcp.call` with `error`; nothing reads a response back. Every request
   needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`).
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly

@@ -10,7 +10,6 @@ export const SCOPE = "life:read";
 /** The check page's public client at lifelog (PKCE, no secret), registered once on 19 Oct for /check/callback. */
 export const CHECK_CLIENT = "PycFqBLbqFmixRgErpQfyYLIGNsvHzoQ";
 
-export const NO_TOKEN = "no token";
 const refused = (refusal: "forbidden" | "invalid", why: string) => ({
   refusal,
   why,
@@ -45,7 +44,7 @@ export function ownerTokens({
       }
       return { clientId: String(payload.client_id), scopes };
     } catch (e) {
-      return refused("invalid", token ? (e as Error).message : NO_TOKEN);
+      return refused("invalid", (e as Error).message);
     }
   };
 }
