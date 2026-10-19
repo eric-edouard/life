@@ -16,6 +16,7 @@ import {
   latestRatings,
   newSince,
   ratedFalse,
+  ratedOutdated,
   retiredBy,
   type Standing,
   shownOf,
@@ -269,4 +270,38 @@ test("a claim he rated false is hidden as wrong until an undo or a later answer 
   expect(
     wrong.flatMap((c) => (c.kind === "wrong" ? c.observations : []))
   ).toEqual(["obs_a", "mom_e"]);
+});
+
+test("a claim he rated outdated is retired by itself, as history, not wrong; an undo lifts it, extraction's retirement wins", () => {
+  const rate = (claim: string, answer: Rating["answer"]) =>
+    ({ answer, at: "2026-10-19T08:00:00Z", claim, schemaVersion: 1 }) as Rating;
+  const x = obs("obs_a", "u_1", "h1");
+  const standing = (ratings: Rating[], first: Supersession[] = []) =>
+    ({
+      corrections: [],
+      latest: new Map(),
+      live: new Set(["u_1"]),
+      retired: retiredBy(
+        [...first, ...ratedOutdated(latestRatings(ratings))],
+        new Set(["obs_a", "obs_b"])
+      ),
+    }) as Standing;
+  const outdated = standing([rate("obs_a", "outdated")]);
+  expect(stateOf(x, outdated)).toEqual({
+    at: "2026-10-19T08:00:00Z",
+    by: "obs_a",
+    hiddenOn: [],
+    page: undefined,
+    state: "retired",
+    validTo: "2026-10-19",
+    why: "rated outdated",
+  });
+  expect(ratedFalse(latestRatings([rate("obs_a", "outdated")]))).toEqual([]);
+  expect(
+    stateOf(x, standing([rate("obs_a", "outdated"), rate("obs_a", null)])).state
+  ).toBe("active");
+  const closed = { by: "obs_b", observation: "obs_a" } as Supersession;
+  expect(
+    stateOf(x, standing([rate("obs_a", "outdated")], [closed]))
+  ).toMatchObject({ by: "obs_b", state: "retired" });
 });

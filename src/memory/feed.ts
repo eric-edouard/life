@@ -574,7 +574,9 @@ export async function claim(id: string) {
             : []),
         ]
       : [],
-    replaces: [...ctx.retired.values()].filter((s) => s.by === id),
+    replaces: [...ctx.retired.values()].filter(
+      (s) => s.by === id && s.observation !== id
+    ),
     speaker: {
       ...who,
       filed: o.speaker,

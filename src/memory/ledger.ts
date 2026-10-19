@@ -172,12 +172,15 @@ export function newSince(all: Observation[], at?: string) {
   return (o: Observation) => !cited.has(o.source.ref);
 }
 
+/** A supersession as `stateOf` reads it: a line of supersessions.jsonl, or a claim he rated outdated (`ratedOutdated`). */
+type Retirement = Omit<Supersession, "madeBy">;
+
 /**
  * Observations a newer one replaced (memory/supersessions.jsonl): id -> the first replacement recorded whose newer
  * observation is still current (a replacement re-read away no longer retires anything).
  */
-export const retiredBy = (list: Supersession[], current: Set<string>) => {
-  const out = new Map<string, Supersession>();
+export const retiredBy = (list: Retirement[], current: Set<string>) => {
+  const out = new Map<string, Retirement>();
   for (const s of list) {
     if (current.has(s.by) && !out.has(s.observation)) {
       out.set(s.observation, s);
@@ -203,6 +206,26 @@ export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
       schemaVersion: 1,
     }));
 
+/**
+ * The claims his latest answer calls outdated (true then, not anymore), retired as extraction retires a fact later
+ * evidence closed: kept as history, not wrong. `by` is the claim itself; an undo or a later answer lifts one.
+ */
+export const ratedOutdated = (latest: Map<string, Rating>): Retirement[] =>
+  [...latest.values()].flatMap(({ answer, at, claim }) =>
+    answer === "outdated"
+      ? [
+          {
+            at,
+            by: claim,
+            observation: claim,
+            schemaVersion: 1,
+            validTo: at.slice(0, 10),
+            why: "rated outdated",
+          },
+        ]
+      : []
+  );
+
 /** What the owner said: memory/corrections.jsonl, then the claims he rated false on the check page (`ratedFalse`). */
 export function readCorrections(): Correction[] {
   return [...rowsOf(CORRECTIONS, Correction), ...ratedFalse(readRatings())];
@@ -213,10 +236,10 @@ export interface Standing {
   corrections: Correction[];
   latest: Map<string, Extracted>;
   live: Set<string>;
-  retired: Map<string, Supersession>;
+  retired: Map<string, Retirement>;
 }
 
-/** The extraction, unit and supersession ledgers, with the corrections (and the observations) the caller already holds. */
+/** The extraction, unit and supersession ledgers (with the claims he rated outdated after them), with the corrections (and the observations) the caller already holds. */
 export async function readStanding(
   corrections: Correction[],
   read: Observation[] | Promise<Observation[]> = readObservations()
@@ -228,7 +251,8 @@ export async function readStanding(
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
   );
-  return { corrections, ...c, retired: retiredBy(supersessions, current) };
+  const retirements = [...supersessions, ...ratedOutdated(readRatings())];
+  return { corrections, ...c, retired: retiredBy(retirements, current) };
 }
 
 /** A correction that hides observations (`wrong`, `not-important`): everywhere, or on its `page` only. */

@@ -82,7 +82,7 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line | (`record.error` starting `partial:` on an ok add that lost a field) |
 | `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech |
 | `action.update` / `action.nudge` / `action.steer` | a task's line in `actions.jsonl` (`record.target`: the task) | `record.after` (`docs/SCHEMA.md`) |
-| `rating.true` / `rating.false` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim) | |
+| `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
 Filters: `types` (types or prefixes: `observation`, `correction`, `action.failed`…), `about` (`person:<id>`,
@@ -91,7 +91,7 @@ reach: every match is still returned, page by page.
 
 - **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its
   unit no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced`
-  (its unit was read again; the newer extraction counts), `retired` (superseded: `by`, `why`; still indexed, still
+  (its unit was read again; the newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when he rated it outdated; still indexed, still
   cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is hidden on (pages
   carry salience 2+ only). It is the rule the index and the pages go by (`stateOf`, `src/memory/ledger.ts`), so it
   says what they show. An observation is a model's reading of the source with its quote checked against it: `active`
