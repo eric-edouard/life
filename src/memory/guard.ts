@@ -114,12 +114,13 @@ export function nextMidday(now: Date, last: string | undefined) {
 }
 
 /** A scheduled job's state (`nightly`, `backup`). */
-const stateFile = (job: string) => join(OUT, `${job}.json`);
+type Job = "nightly" | "backup";
+const stateFile = (job: Job) => join(OUT, `${job}.json`);
 const MIDDAY = join(OUT, "midday.json");
 /** In the data repo, not in derived/: every worktree shares one lock with production. */
 export const LOCK = join(DATA, ".nightly.lock");
 
-export const readState = (job = "nightly") =>
+export const readState = (job: Job = "nightly") =>
   readJson<NightState>(stateFile(job));
 export const readMidday = () => readJson<string>(MIDDAY);
 
@@ -130,7 +131,7 @@ export function recordMidday() {
 }
 
 /** Records the outcome of a night (or of a `job`'s run); a new day starts at zero attempts. */
-export function recordState(day: string, ok: boolean, job = "nightly") {
+export function recordState(day: string, ok: boolean, job: Job = "nightly") {
   const prev = readState(job);
   const attempts = prev?.date === day ? prev.attempts : 0;
   const state: NightState = {

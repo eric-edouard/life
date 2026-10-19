@@ -40,7 +40,14 @@ export function backupLine(now: Date, s = readJson<Status>(STATUS)) {
 export async function backup() {
   const missed: string[] = [];
   const run = async (cmd: string[]) => {
-    const r = await exec(cmd, { env, timeout: 3_600_000 });
+    // A program that cannot start (not on PATH) is a miss like any other, so the status says why.
+    const r = await exec(cmd, { env, timeout: 3_600_000 }).catch(
+      (e: Error) => ({
+        code: -1,
+        stderr: e.message,
+        stdout: "",
+      })
+    );
     if (r.code !== 0) {
       const what = cmd.slice(0, 3).join(" ");
       missed.push(`${what}: ${r.stderr.trim().slice(-300)}`);
