@@ -1,6 +1,9 @@
 // Running other programs: one process to its end, or one git command.
 
-/** Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any. */
+/**
+ * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
+ * A program that cannot start (not on PATH) exits -1 with the reason, like any failure.
+ */
 export async function exec(
   cmd: string[],
   o: {
@@ -10,14 +13,19 @@ export async function exec(
     timeout?: number;
   } = {}
 ) {
-  const proc = Bun.spawn(cmd, {
-    cwd: o.cwd,
-    env: o.env,
-    stderr: "pipe",
-    stdin: o.stdin === undefined ? undefined : new Blob([o.stdin]),
-    stdout: "pipe",
-    timeout: o.timeout ?? 60_000,
-  });
+  let proc: Bun.Subprocess<Blob | undefined, "pipe", "pipe">;
+  try {
+    proc = Bun.spawn(cmd, {
+      cwd: o.cwd,
+      env: o.env,
+      stderr: "pipe",
+      stdin: o.stdin === undefined ? undefined : new Blob([o.stdin]),
+      stdout: "pipe",
+      timeout: o.timeout ?? 60_000,
+    });
+  } catch (e) {
+    return { code: -1, killed: null, stderr: (e as Error).message, stdout: "" };
+  }
   const [stdout, stderr, code] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
