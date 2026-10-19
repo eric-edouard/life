@@ -1,0 +1,6 @@
+# A made-up map for tests (DATA is src/test-data while `bun test` runs).
+schemaVersion: 1
+people:
+  - id: me
+    name: Test Owner
+    handles: { email: [owner@example.com] }

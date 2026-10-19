@@ -1,0 +1,170 @@
+// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings`: grades what Life's memory holds about a few days against facts
+// checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`claimsNow`, the words the owner rates);
+// a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--ratings` grades the statements the owner rated
+// (memory/ratings.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
+import { join } from "node:path";
+import { z } from "zod";
+import { askOnce, llmFor } from "../src/llm";
+import { locked } from "../src/memory/guard";
+import {
+  appendJsonl,
+  liveUnits,
+  OUT,
+  readRatings,
+  readStatements,
+  readUnits,
+  runId,
+  SCORES,
+} from "../src/memory/ledger";
+import { chunks, inBatches } from "../src/memory/run";
+import { type Claim, claimsNow } from "../src/memory/statements";
+import { GRADES, tally } from "../src/memory/tally";
+import { Score } from "../src/schema";
+
+const Facts = z.object({
+  facts: z.array(
+    z.object({ fact: z.string(), id: z.string(), true: z.boolean() })
+  ),
+  from: z.iso.date(),
+  to: z.iso.date(),
+});
+const ClaimLine = z.object({
+  date: z.string(),
+  id: z.string(),
+  text: z.string(),
+});
+const Grades = z.object({
+  grades: z.array(
+    z.object({
+      claims: z.array(z.string()).default([]),
+      fact: z.string(),
+      grade: z.enum(GRADES),
+      why: z.string().default(""),
+    })
+  ),
+});
+
+/** The claims `keep` keeps, as the judge reads them. */
+const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
+  claims.flatMap((c) =>
+    keep(c) ? [{ date: c.date, id: c.claim, text: c.text }] : []
+  );
+
+type Fact = z.infer<typeof Facts>["facts"][number];
+const run = runId(new Date());
+const DIR = join(OUT, "evals", run);
+/** Rated statements per judge call. */
+const PER_CALL = 30;
+
+/** The judge's grades of `facts` against `claims`: one call, its input and reply kept in `dir`. */
+const judge = async (
+  facts: Fact[],
+  claims: z.infer<typeof ClaimLine>[],
+  dir: string
+) =>
+  Grades.parse(
+    await askOnce({
+      dir,
+      input: { claims, facts: facts.map(({ fact, id }) => ({ fact, id })) },
+      llm: await llmFor("main"),
+      prompt: "eval-judge.v1",
+      run,
+    })
+  ).grades;
+
+/**
+ * `--ratings`: the statements he rated true or false, judged against what the memory holds now of the same units, 30
+ * at a time, all under the lock (one snapshot; the score is saved or the run fails). A false hides only its own claim
+ * id, so a re-read that says it again is restated; a true still held is its own claim, so for trues the score says
+ * whether they survived. A statement none of whose units exist any more (a chapter re-cut) can't be judged: it is
+ * listed apart and left out of the score.
+ */
+async function ratedRun() {
+  const [statements, ratings, claims, units] = await Promise.all([
+    readStatements(),
+    readRatings(),
+    claimsNow(),
+    readUnits(),
+  ]);
+  const live = liveUnits(units);
+  const rated = statements.flatMap((s) => {
+    const answer = ratings.get(s.claim)?.answer;
+    return answer === "true" || answer === "false"
+      ? [{ fact: s.text, id: s.claim, true: answer === "true", units: s.units }]
+      : [];
+  });
+  const { gone = [], judged = [] } = Object.groupBy(rated, (f) =>
+    f.units.some((u) => live.has(u)) ? "judged" : "gone"
+  );
+  const grades: z.infer<typeof Grades>["grades"] = [];
+  await inBatches(chunks(judged, PER_CALL), DIR, async (part, dir) => {
+    const near = new Set(part.flatMap((f) => f.units));
+    const seen = lines(claims, (c) => c.units.some((u) => near.has(u)));
+    grades.push(...(await judge(part, seen, dir)));
+  });
+  const t = tally(judged, grades);
+  if (judged.length > 0) {
+    await appendJsonl(SCORES, Score, [
+      {
+        ...t.counts,
+        at: new Date().toISOString(),
+        gone: gone.length,
+        rated: judged.length,
+        run,
+        schemaVersion: 1,
+      },
+    ]);
+  }
+  return {
+    facts: judged,
+    note: gone.map((f) => `- units gone, not judged: ${f.id} ${f.fact}`),
+    t,
+    title: `${judged.length} rated statements, against the claims of their units (score in memory/scores.jsonl)`,
+  };
+}
+
+/** `<facts.json> [claims.jsonl]`: hand-checked facts against the window's claims, or a candidate pipeline's. */
+async function factsRun(factsPath: string, claimsPath?: string) {
+  const { facts, from, to } = Facts.parse(await Bun.file(factsPath).json());
+  const claims = claimsPath
+    ? (await Bun.file(claimsPath).text())
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => ClaimLine.parse(JSON.parse(l)))
+    : lines(await claimsNow(), (c) => c.date >= from && c.date <= to);
+  return {
+    facts,
+    note: [],
+    t: tally(facts, await judge(facts, claims, DIR)),
+    title: `${claims.length} claims, ${from} to ${to}`,
+  };
+}
+
+const [mode, claimsFile] = process.argv.slice(2);
+if (!mode) {
+  throw new Error(
+    "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings"
+  );
+}
+const result =
+  mode === "--ratings"
+    ? await locked(ratedRun)
+    : await factsRun(mode, claimsFile);
+if (!result) {
+  throw new Error("a run holds the lock: score when it is done");
+}
+const { t } = result;
+const rows = result.facts.map((f) => {
+  const g = t.grades.get(f.id);
+  return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.claims.join(" ") ?? ""} | ${g?.why ?? ""} |`;
+});
+console.log(
+  [
+    `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded.`,
+    ...result.note,
+    "",
+    "| fact | is | memory | result | claims | why |",
+    "|---|---|---|---|---|---|",
+    ...rows,
+  ].join("\n")
+);

@@ -1,0 +1,146 @@
+# Dashboard reads
+
+Four read-only tools on Life's connector (`/mcp`) let a private dashboard show whether Life works, what it ran, every
+change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code:
+`bun life memory status | runs | changes | claim`. Code: `src/memory/history.ts` (status, runs) and
+`src/memory/feed.ts` (changes, claim). They run no model, write nothing, log nothing and send nothing (a test checks
+the code), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again the way `fetch`
+reads it (to show who sent the line). Every answer is JSON (text content, and `structuredContent` for clients that take
+it) and carries `observedAt`, the server's time.
+
+Auth is the connector's, unchanged: lifelog's JWT for `https://life.ericedouard.com/mcp`, `life:read`, `sub` =
+`LIFE_OWNER_SUB`. Without it: 401; another user: 403. The four tools are annotated read-only.
+
+## status
+
+Is Life working, how fresh is its memory, what runs next. Four clocks, kept apart:
+
+| Field | Clock | From |
+|---|---|---|
+| `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
+| `capture.archive.{whatsapp,beeper,notes}` | last write to Life's archive (a new message or note version), not a health check | file times |
+| `capture.lastTriage` | the last run that judged units (the moments step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
+| `extraction` | midday (13:00, 19:00) and nightly | derived/log, `memory.extract` |
+| `consolidation` | pages, nightly only (or a hand run) | derived/log, `memory.pages` |
+| `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
+
+- `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, or `unknown` (no health file). `connector`:
+  the watcher's 5-minute public check as recorded (`result` `ok`, `fail` or `offline`, not judged; `failures` in a
+  row; `checkedAt`), null when never checked.
+- `extraction`, `consolidation`, `nightly`, `midday` each give `latest`, `lastOk`, `lastFailed` (whole run records, see
+  `runs`) within the last `lookbackDays` (7) of logs; null means none recorded in that time, not success.
+- `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else `idle`.
+- `nightly.state`: the guard's record (`date`, `status`, `attempts` of `maxAttempts`, `okAt`); `midday.slotSpentAt`:
+  when the last midday started. **A spent slot is not a success**: read `midday.lastOk` / `lastFailed`.
+- `nightly.next`, `midday.next`: `{earliest, latest, why}`. launchd ticks every 30 min, so a run is expected between
+  the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures today: no
+  more tries until tomorrow", "today's night succeeded", "the next slot". Not a countdown.
+- `timeZone`: the Mac's, which every schedule follows.
+
+## runs
+
+Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it
+is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`
+and the steps `memory.repos|files|moments|extract|pages` (`memory.triage` and `memory.infer` until 18 Oct); until 19 Oct the watcher's hearings were `memory.intent`,
+`memory.intent-screen`).
+
+A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
+`outcome`, `input` (what it started with: `days`, `prompt`, `model`), `window` (`{from, to}`, the local days its
+sources were read for), `result` (the step's counters as it logged them: `calls`, `failed`, `cached`, `reused`,
+`added`, `read` per source, `agreement`…), `errors`. A sweep lists its steps in `children`; a step names its `sweep`.
+
+`outcome`: `ok`; `failed` (it ended with failures, or a sweep's `outcome: failed` with `failedAt`, the phase that
+stopped it); `running` (no end yet, and it started after the lock was taken); `unfinished` (no end and nothing holds
+the lock: interrupted, or killed). Old errors with no run id are their own entries (`startedAt` null), or join the
+sweep they fell in.
+
+Each run in the list is whole; what a step wrote is `changes` with its `run` (its `id` as given, or the bare run id). A
+sweep writes nothing itself: open its `children`.
+
+```json
+{"id":"memory.extract/2026-10-16T11-12-49.565Z","step":"memory.extract","outcome":"ok",
+ "startedAt":"2026-10-16T11:12:49.565Z","endedAt":"2026-10-16T11:13:16.894Z","window":{"from":"2026-10-16","to":"2026-10-16"},
+ "input":{"days":1,"prompt":"memory-extract.v2"},"result":{"calls":1,"failed":0,"read":3,"cached":0,"added":7},"errors":[]}
+```
+
+## changes
+
+Every change to the memory, past a cursor: `{items, count, remaining, cursor, observedAt}`. `count` is the items
+returned; `remaining` the matching items past the new cursor (same filters). Keep the last cursor to refresh: a
+refresh from it returns only what was appended since (about 40 ms).
+
+Every item: `id` (stable: `observations/2026-10#1234`, `corrections#24`, `page:<sha>:<path>`), `type`, `record`
+(the ledger line as written; a page change: its `sha`, `path`, `subject`), `recordedAt` (when Life recorded it; for an
+observation, the start of the run that wrote it), `happenedAt` (when it happened in his life: the cited line, his
+request; null for Life's own acts), `run` and `about`. By type:
+
+| `type` | One item per | Also |
+|---|---|---|
+| `observation.extracted` | line of `observations/*.jsonl` | `status` |
+| `observation.superseded` | supersession | |
+| `correction.<kind>` | owner correction | `reflected` |
+| `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
+| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line | (`record.error` starting `partial:` on an ok add that lost a field) |
+| `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech |
+| `rating.true` / `rating.false` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim) | |
+| `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
+
+Filters: `types` (types or prefixes: `observation`, `correction`, `action.failed`…), `about` (`person:<id>`,
+`area:<id>`, `project:<id>`), `run`, `since` (recorded at or after). A filter narrows the items, never the cursor's
+reach: every match is still returned, page by page.
+
+- **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its
+  unit no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced`
+  (its unit was read again; the newer extraction counts), `retired` (superseded: `by`, `why`; still indexed, still
+  cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is hidden on (pages
+  carry salience 2+ only). It is the rule the index and the pages go by (`stateOf`, `src/memory/ledger.ts`), so it
+  says what they show. An observation is a model's reading of the source with its quote checked against it: `active`
+  is not "verified", and `confidence` is the model's own.
+- **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and
+  `not-important` (the observations are gone from the index and from the pages) and `keep-mine` (the line is on its
+  page). `null`: does not apply, no index, or an identity correction (not tracked). A correction is recorded at once; it shows after the next index (minutes) and
+  the next pages run (the night).
+
+**Cursor.** Opaque; it counts the complete lines read from each source (corrections, supersessions, inferred, actions, ratings,
+each month of observations, then page commits). The ledgers are append-only, so a line never moves: a page ends
+exactly where it stopped, a line appended to any source meanwhile is picked up, none twice, and a line still being
+written waits for the next read. Items come source by source; sort by `recordedAt` to show them. A cursor past the end
+of a ledger (one shrank, which the rules forbid) is an error, never a silent restart. Page changes are counted in
+`git log` order of the data repo (`~/Life`): amending or rebasing a commit that touched `memory/pages` would shift
+them silently.
+
+## claim
+
+One observation with its evidence: `observation` (the version that counts: the latest extraction, else the last line),
+`status`, `versions` (every line of it in the ledger, with run and status), `unit` (id, source, conversation or chat
+key, title), `read` (how to open the source with the existing readers: `{tool: "fetch", id}`, and for a chat
+`{tool: "chats", chat, from, to}`; these redact secrets), `speaker` (`filed` at extraction with its readable `name`;
+`handle`, the cited message's sender read again from its chat-day, as `fetch` and extraction see it; `now`, who that
+is with today's map and corrections, so a mapping corrected since shows here),
+`entities` (as resolved today, each `filed` or not, an inferred person with its `confidence`), `corrections` (that hide
+it, or about its speaker's handle), `replaces` (the observations it retired; if it was retired, `status` says by
+what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededBy`).
+
+## What is not covered
+
+- Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now moments, extract, infer,
+  pages) are complete from 14 Oct. derived/log is never rotated.
+- No record of each index rebuild (only the file's time) or of the archive's health (only its last write).
+- `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page (none when extraction retired it);
+  a correction's page or people. Not the entities of the observations a correction or supersession names.
+- Page changes appear once committed (the nightly commits them); an uncommitted hand run of `pages` does not show.
+- Units are not in the feed (they are rewritten, not appended): read them with `day`, `search`, `fetch`.
+
+## ChatGPT Sites
+
+Checked 16 Oct 2026 against learn.chatgpt.com (Data and connections, Publish and share, the enterprise page); the Help
+Center articles on supported connections returned 403. What is stated: a Site reads connected data with **each
+visitor's own connection and permissions**; plugin use must be enabled in the workspace, and the Site private to it;
+when a connector returns a cursor, Sites fetches the next page with a "Load more" action; Sites manages caching. What is
+**not** stated: whether a custom MCP connector added by URL (like Life's) is eligible, which plans allow it, size
+limits, or whether structured output is used. So end-to-end compatibility is unverified: it needs a test in the
+owner's workspace.
+
+What holds either way: only the owner's token passes, so other workspace members get 403 even if the Site is shared,
+and nothing is copied into a shared cache by Life. Live reads need the Mac online; a Site that keeps a last-known
+snapshot must date it and mark it stale, and where it is stored is a separate decision.
