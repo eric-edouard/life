@@ -68,7 +68,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
-  `at`; `ref` `chat:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
+  `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
   inherits its words; never a task without his words. It is claimed in the same call, so it sends no `ask` event.
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
@@ -117,7 +117,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
   updates, through `update`). `correct` is annotated destructive so clients ask first; `reminders` and `task` are not
   (nothing they do is lost: a remove goes to Recently Deleted), so Atlas uses them unattended. Never add a tool that sends or edits anything else. One MCP event, `ask`
-  (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. Every request
+  (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. Every request refused before a tool
+  runs (its token, or the SDK's own error) is logged as `mcp.call` with `refused`, by `refusal`, like a call. Every request
   needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`).
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly
@@ -192,7 +193,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
-`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who a name, handle or ref is goes through
+`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); the memory steps get their units only from `gather` (`units.ts`: every channel, in time

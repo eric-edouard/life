@@ -214,6 +214,51 @@ test("a call logs who asked, the arguments, and what surfaced without its text",
   });
 });
 
+test("a request refused before any tool runs is logged with why, the method, the tool and who asked", async () => {
+  const refused = async (auth: string | null, method: string, params = {}) => {
+    await rpc(auth, method, params);
+    await Bun.sleep(5);
+    return linesOf(
+      join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`)
+    )
+      .map((l) => JSON.parse(l))
+      .findLast((l) => l.kind === "mcp.call");
+  };
+  const bearer = await token();
+  const asker = { agent: "openai-mcp/1.0.0", error: true, kind: "mcp.call" };
+  expect(
+    await refused(bearer, "tools/call", { arguments: {}, name: "nope" })
+  ).toMatchObject({
+    ...asker,
+    client: "chatgpt-client",
+    method: "tools/call",
+    refused: "Tool nope not found",
+    tool: "nope",
+  });
+  expect(
+    (
+      await refused(bearer, "tools/call", {
+        arguments: { id: 5 },
+        name: "claim",
+      })
+    ).refused
+  ).toStartWith("Input validation error");
+  expect((await refused(bearer, "bogus/method")).refused).toBe(
+    "Method not found"
+  );
+  expect(await refused(null, "tools/list")).toMatchObject({
+    ...asker,
+    refused: "invalid: no token",
+    status: 401,
+  });
+  expect(
+    (await refused(await token({ sub: "someone-else" }), "tools/list")).refused
+  ).toBe("forbidden: not the owner");
+  expect((await refused(await token({}, -60), "tools/list")).refused).toContain(
+    "exp"
+  );
+});
+
 test("reminders takes no instinct kind and needs his words: refused before anything acts", async () => {
   const bearer = await token();
   const calls = await Promise.all(

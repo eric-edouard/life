@@ -174,10 +174,10 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
       return null;
     }
     const whose = await verify(cookieOf(req, SESSION) ?? "");
-    if (whose === "forbidden") {
-      return plain("forbidden", 403);
-    }
-    if (whose === "invalid") {
+    if (typeof whose !== "object") {
+      if (whose.startsWith("forbidden")) {
+        return plain("forbidden", 403);
+      }
       return pathname === "/check/" ? login() : plain("sign in again", 401);
     }
     return owned(req, pathname);

@@ -344,22 +344,24 @@ test("his words in a chat make a task, claimed at once, once per message and par
   const [made, claim] = lines;
   expect(made).toMatchObject({
     after: { confidence: "high", title: "dentist" },
-    instruction: { at: at(-5), quote: chat.said, ref: `chat:${at(-5)}` },
+    instruction: { at: at(-5), quote: chat.said, ref: `connector:${at(-5)}` },
     madeBy: "connector",
   });
   expect(claim).toMatchObject({ after: { claim: true }, target: made?.id });
   expect(answer).toBe(`${made?.id}: working`);
-  // A retry finds it; another part of the same message is another task.
-  expect(write(chat, lines)).toEqual({
+  // A retry finds it, whatever the offset of its time; another part of the same message is another task.
+  const retry = { ...chat, at: "2026-10-19T16:55:00.000+07:00" };
+  expect(write(retry, lines)).toEqual({
     answer: `${made?.id}: already a task`,
     lines: [],
   });
   expect(write({ ...chat, title: "vet" }, lines).lines).toHaveLength(2);
-  expect(() => write({ ...claiming, at: at(-5) })).toThrow(
-    "name one of task, said"
-  );
+  expect(() => write({ ...claiming, at: at(-5) })).toThrow("name one of task");
   expect(() => write({ ...chat, at: undefined })).toThrow("said needs at");
   expect(() => write({ ...chat, at: at(5) })).toThrow("said needs at");
+  expect(() => write({ ...claiming, task: ASK, title: "x" })).toThrow(
+    "name one of"
+  );
 });
 
 test("a split inherits its parent's words, one level only, and never takes new ones", () => {
@@ -367,6 +369,8 @@ test("a split inherits its parent's words, one level only, and never takes new o
   const [child] = write(split).lines;
   expect(child?.instruction).toEqual(asked.instruction);
   expect(child?.after).toMatchObject({ parent: ASK, title: "Book visits" });
+  const [t] = tasksOf([JSON.stringify(child)]);
+  expect(t && wantOf(t, null).title).toBe("Atlas: Book visits");
   expect(() => write({ ...split, said: "new words" })).toThrow("name one of");
   expect(() => write({ ...split, title: undefined })).toThrow(
     "a split needs title"

@@ -6,7 +6,8 @@ import { ROOT, TEST } from "./truth";
 // One structured event log for everything Life does, so any failure can be traced afterwards:
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
 // error messages. Never message text or quotes (those live in the sources and memory/), with two exceptions:
-// `mcp.call` logs the client's question (its arguments, strings clipped to 200 chars), never the answer's text, and
+// `mcp.call` logs the client's question (its arguments, strings clipped to 200 chars) and why a request was refused
+// before any tool ran, never the answer's text, and
 // `lifelog.write` logs the correction it forwards and lifelog's answer.
 
 export const LOG_DIR = TEST

@@ -45,7 +45,8 @@ export const Change = z.object({
 export type Change = z.infer<typeof Change>;
 type Done = Pick<Action, "after" | "before" | "error" | "target">;
 
-const parse = <T>(s: string) => {
+/** A JSON text, or {} when it is none. */
+export const json = <T>(s: string) => {
   try {
     return JSON.parse(s) as T;
   } catch {
@@ -63,7 +64,7 @@ export async function remctl<T = Record<string, unknown>>(args: string[]) {
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },
   });
-  const out = parse<T & { status?: string }>(r.stdout);
+  const out = json<T & { status?: string }>(r.stdout);
   if (r.code === 0 || out.status === "partial") {
     return out;
   }
