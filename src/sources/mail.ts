@@ -130,8 +130,6 @@ function accountNames(path: string) {
 interface Part {
   body: string; // raw bytes as latin1
   headers: Map<string, string>;
-  // Every header in order, repeats kept: the first Authentication-Results is the receiving server's.
-  list: [string, string][];
 }
 
 function splitPart(raw: string): Part {
@@ -148,7 +146,7 @@ function splitPart(raw: string): Part {
       ]);
     }
   }
-  return { body, headers: new Map(list), list };
+  return { body, headers: new Map(list) };
 }
 
 const EXTENDED = /^([^']*)'[^']*'(.*)$/;

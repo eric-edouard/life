@@ -32,6 +32,9 @@ const RUN_TIME = /T(\d\d)-(\d\d)-(\d\d)/;
 /** The first `n` hex of a hash of `s`: how ids and content hashes are made. */
 export const digest = (algo: string, s: string | Buffer, n: number) =>
   createHash(algo).update(s).digest("hex").slice(0, n);
+/** Each key's last item in `list`: how every ledger's "latest line wins" is read. */
+export const latestBy = <T>(list: T[], key: (x: T) => string) =>
+  new Map(list.map((x) => [key(x), x]));
 /** The start instant of a run id. */
 export const runAt = (run: string) => run.replace(RUN_TIME, "T$1:$2:$3");
 
@@ -133,7 +136,7 @@ export const momentsNow = (lines: Moment[], corrections: Correction[]) =>
 
 /** Each unit's latest extraction: its last line in extracted.jsonl. */
 export const latestExtractions = (ledger: Extracted[]) =>
-  new Map(ledger.map((e) => [e.unit, e]));
+  latestBy(ledger, (e) => e.unit);
 
 /** The units an observation can stand on: in memory/units and not dropped by a code rule. */
 export const liveUnits = (units: Unit[]) =>
@@ -183,8 +186,7 @@ export const retiredBy = (list: Supersession[], current: Set<string>) => {
 };
 
 /** The owner's answers on the check page: the latest for each claim (null: taken back). */
-export const latestRatings = (list: Rating[]) =>
-  new Map(list.map((r) => [r.claim, r]));
+export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.claim);
 
 export const readRatings = async () =>
   latestRatings(await readJsonl(RATINGS, Rating));
@@ -333,33 +335,25 @@ export const readInferred = () => readJsonl(INFERRED, InferredPerson);
 /** Life's repo guesses: the latest record for each repo wins. */
 export async function readRepoGuesses() {
   const guesses = await readJsonl(REPOS_INFERRED, RepoGuess);
-  return [...new Map(guesses.map((g) => [g.repo, g])).values()];
+  return [...latestBy(guesses, (g) => g.repo).values()];
 }
 
 /** The owner's labels: the latest one for each unit wins. */
-export async function readLabels() {
-  const latest = new Map<string, MemoryLabel>();
-  for (const l of await readJsonl(LABELS, MemoryLabel)) {
-    latest.set(l.unitId, l);
-  }
-  return [...latest.values()];
-}
+export const readLabels = async () => [
+  ...latestBy(await readJsonl(LABELS, MemoryLabel), (l) => l.unitId).values(),
+];
 
 /** What Life read off each file a message carried: the latest line for each ref wins. */
-export const readFiles = () =>
-  new Map(rowsOf(FILES, FileEntry).map((e) => [e.ref, e]));
+export const readFiles = () => latestBy(rowsOf(FILES, FileEntry), (e) => e.ref);
 
 /** Verdicts by unit and content: the latest line for each (unit, hash) wins. */
 export type Verdicts = Map<string, Verdict>;
 export const verdictKey = (unit: string, hash: string) => `${unit}|${hash}`;
 
-export async function readVerdicts(): Promise<Verdicts> {
-  const out: Verdicts = new Map();
-  for (const v of await readJsonl(VERDICTS, Verdict)) {
-    out.set(verdictKey(v.unit, v.hash), v);
-  }
-  return out;
-}
+export const readVerdicts = async (): Promise<Verdicts> =>
+  latestBy(await readJsonl(VERDICTS, Verdict), (v) =>
+    verdictKey(v.unit, v.hash)
+  );
 
 export const appendVerdicts = (list: Verdict[]) =>
   appendJsonl(VERDICTS, Verdict, list);

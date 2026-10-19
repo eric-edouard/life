@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   INFERRED_PREFIX,
@@ -8,7 +7,7 @@ import {
   PageSection,
 } from "../schema";
 import { OWNER, othersIn, type Truth } from "../truth";
-import { type Standing, shows, stateOf } from "./ledger";
+import { digest, type Standing, shows, stateOf } from "./ledger";
 import { daysBefore, within } from "./units";
 
 // The pure parts of stage 3 (memory-pipeline §3.5): a page's file format, where each observation lives, the owner's
@@ -94,8 +93,7 @@ export const perSection = <T>() =>
     T[]
   >;
 
-export const lineHash = (line: string) =>
-  createHash("sha1").update(line.trim()).digest("hex").slice(0, 10);
+export const lineHash = (line: string) => digest("sha1", line.trim(), 10);
 
 export function renderLine(key: Key, l: PageLine) {
   const cites = ` [${l.cites.join(", ")}]`;

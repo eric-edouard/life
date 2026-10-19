@@ -1,15 +1,10 @@
-import {
-  createHash,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { log } from "./log";
-import { ACTIONS, linesOf } from "./memory/ledger";
+import { ACTIONS, digest, linesOf } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { Action } from "./schema";
 import { ROOT } from "./truth";
@@ -171,10 +166,7 @@ export const resumeAt = (
  */
 export async function subscribe(p: z.infer<typeof Subscribe>) {
   const now = Date.now();
-  const id = `sub_${createHash("sha256")
-    .update(JSON.stringify([p.delivery.url, p.name, p.arguments]))
-    .digest("hex")
-    .slice(0, 24)}`;
+  const id = `sub_${digest("sha256", JSON.stringify([p.delivery.url, p.name, p.arguments]), 24)}`;
   const cached = readState().subscription;
   const sub: Subscription = {
     id,

@@ -2,7 +2,8 @@
 
 Life was reset on 14 Oct into a read-only memory and rebuilt over the 15th; later that day it started acting, on his clear requests only (below). This is **not a full spec**: the rules are
 in `AGENTS.md`, the record formats in `docs/SCHEMA.md`, the sources in `docs/sources.md`; his feedback,
-roadmap, evals and research notes in `~/Life/docs/`. History is in git: this file says what is true now.
+roadmap, evals and research notes in `~/Life/docs/`. This repo starts on 19 Oct; the older history is in the
+encrypted backup. This file says what is true now.
 
 ## Why the reset
 
@@ -72,7 +73,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   and in `derived/log` each call is an `mcp.call` (who asked, the arguments, what surfaced: `tool` in `src/mcp.ts`), each
   forwarded correction a `lifelog.write`. Off when `LIFE_OWNER_SUB` is unset. The same server serves the check page (`/check/`, `src/check.ts`): the truth benchmark's statements, one tap or swipe each, behind the same lifelog sign-in.
 - A Telegram bot exists and its token is parked in `.env`; nothing uses it.
-- **Removed on 14 Oct** (git has it, see the "Nuke" commit): the SwiftUI app, the Railway server, the Telegram bot's
+- **Removed on 14 Oct** (the old history in the backup has it, see the "Nuke" commit): the SwiftUI app, the Railway server, the Telegram bot's
   cards, brief, gate, agents, logins and the calendar, notes, reminders, contacts and whereabouts sources. The owner
   deleted the Railway project on 14 Oct (purged 16 Oct). The `life-vault-<signer>` Keychain items and
   `~/Library/Application Support/Life/Chrome` are his to delete.
@@ -83,7 +84,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   that time; several doses a day are one daily reminder per time, ending with remctl's JSON recurrence. Reminders
   through `~/bin/remctl`. A failed action is emailed at once with his words. Until 19 Oct a model chain heard requests
   in his speech and acted (`intent.ts`, prompts `intent-screen.v2` and `intent.v6`:
-  git has them); Atlas replaced it.
+  the old history in the backup has them); Atlas replaced it.
 - **Atlas** (19 Oct; brief for the owner to paste into his ChatGPT dot: `docs/atlas.md`): his ChatGPT agent, with
   Life's connector, its cloud computer and his Mac's terminal. "Hey Atlas" anywhere in one of his turns (`hear.ts`, no
   model) makes an ask: that turn and his following ones until another speaker or a 15 s pause, with the conversation
@@ -107,6 +108,9 @@ a moment.
 
 ## Open
 
+- From the debt review of PR #1: one identity resolver (eric-edouard/life#2), one rule for which inferred person
+  counts (#3), split `units.ts` (#4), the nightly's own lifelog polling that can swallow a "hey Atlas" (#5), a run
+  record for the eval's model calls (#6).
 - The owner's 13–18 Oct feedback, ranked, with its progress grid: `~/Life/docs/roadmap.md`.
 - **The owner model (18 Oct):** his own page has Views, values and habits (never ages, his own words only), Health
   (ages at 60 days) and Now, 2,000 words; his goals are in `truth/me.md`. For the event rebuild (step 3): a claim

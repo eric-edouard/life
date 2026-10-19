@@ -11,13 +11,13 @@ import {
 } from "./health";
 import { hear } from "./hear";
 import { log } from "./log";
-import { isLocked } from "./memory/guard";
+import { isLocked, locked } from "./memory/guard";
 import { publicReport, sendReport, watchReport } from "./memory/report";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
-import { codeAt } from "./proc";
+import { codeAt, exec } from "./proc";
 import { serveConnector } from "./server";
-import { openStore, poll } from "./sources/lifelog";
+import { openStore, poll, type Store } from "./sources/lifelog";
 import { ROOT } from "./truth";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
@@ -149,12 +149,12 @@ async function checkPublic(prev: PublicState): Promise<PublicState> {
     console.log(
       `${new Date().toISOString()} public connector down twice: restarting the tunnel`
     );
-    await Bun.spawn([
+    await exec([
       "launchctl",
       "kickstart",
       "-k",
       `gui/${process.getuid?.()}/com.eric.cloudflared`,
-    ]).exited;
+    ]);
   } else if (action === "alert") {
     await say(true);
   } else if (action === "recovered") {
@@ -188,6 +188,21 @@ async function notify(health: Health, send: "down" | "up" | null) {
 /** A commit changed src/ or prompts/ and no hearing waits: exit, launchd starts the new code (old code lost a request on 15 Oct by reading a renamed prompt). */
 const restartDue = (running: string, pending: Pending) =>
   pending.size === 0 && codeAt(ROOT) !== running;
+
+/** Rebuilds the lifelog units and the index holding the lock; false, nothing done, when another run holds it. */
+async function syncUnits(store: Store, cursor: string) {
+  const n = await locked(async () => {
+    const built = await syncLifelogUnits(store);
+    await reindex();
+    return built;
+  });
+  if (n) {
+    console.log(
+      `${new Date().toISOString()} cursor ${cursor}: ${n.added} built, ${n.changed} updated, ${n.removed} removed`
+    );
+  }
+  return n !== null;
+}
 
 export async function watch(): Promise<number> {
   const started = new Date();
@@ -237,14 +252,10 @@ export async function watch(): Promise<number> {
       await deliver().catch((e: Error) =>
         log("run.error", { error: e.message, step: "events.deliver" })
       );
-      // The nightly rewrites the same unit files and index: wait for it, `dirty` keeps the sync due.
+      // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
+      // each poll), `dirty` keeps the sync due.
       if (dirty && !more && !isLocked()) {
-        const n = await syncLifelogUnits(store);
-        await reindex();
-        dirty = false;
-        console.log(
-          `${new Date().toISOString()} cursor ${page.cursor}: ${n.added} built, ${n.changed} updated, ${n.removed} removed`
-        );
+        dirty = !(await syncUnits(store, page.cursor));
       }
       result = { cursor: page.cursor };
     } catch (e) {
