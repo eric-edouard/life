@@ -5,7 +5,7 @@ import {
   McpServer,
 } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { Asked, actAsked, openReminders } from "./actions";
+import { Asked, actAsked, json, openReminders } from "./actions";
 import { ISSUER, ORIGIN, RESOURCE, SCOPE, type Verify } from "./auth";
 import {
   ASK_EVENT,
@@ -146,6 +146,50 @@ const cut = (args: unknown) =>
     JSON.stringify(args, (_, v) => (typeof v === "string" ? clip(v, 200) : v))
   );
 
+/** Who asked, on every `mcp.call` line: the OAuth client and the User-Agent's product. */
+const who = (req?: Request, auth?: AuthInfo | string) => ({
+  agent: req?.headers.get("user-agent")?.split(" ")[0],
+  client: typeof auth === "object" ? auth.clientId : undefined,
+});
+
+/**
+ * Logs a request refused before any tool ran, as `tool()` logs a call: a token refused, or the SDK's own error (an
+ * unknown method or tool, invalid arguments, an internal error), with the method and the tool.
+ */
+async function refusal(
+  req: Request,
+  auth: AuthInfo | string,
+  asked: Promise<string>,
+  res: Pick<Response, "status" | "text">
+) {
+  const out = await res.text();
+  const answered = json<{
+    error?: { message: string };
+    result?: { content?: { text?: string }[]; isError?: boolean };
+  }>(out.slice(out.indexOf("{")));
+  const words = answered.result?.content?.[0]?.text;
+  const invalid =
+    answered.result?.isError && words?.startsWith("Input validation error");
+  const why =
+    typeof auth === "string"
+      ? auth
+      : (answered.error?.message ?? (invalid ? words : undefined));
+  if (why) {
+    const { method, params } = json<{
+      method?: string;
+      params?: { name?: string };
+    }>(await asked);
+    log("mcp.call", {
+      ...who(req, auth),
+      error: true,
+      method,
+      refused: clip(why, 300),
+      status: res.status,
+      tool: params?.name,
+    });
+  }
+}
+
 /** Registers one tool. Each call logs who asked (OAuth client, User-Agent product), the arguments, and what surfaced without its text: length, cited ids, error. */
 function tool<S extends z.ZodObject>(
   server: McpServer,
@@ -163,10 +207,9 @@ function tool<S extends z.ZodObject>(
       const result = await answer(() => run(args as z.infer<S>));
       const body = result.content.map((c) => c.text).join("");
       log("mcp.call", {
-        agent: ctx.http?.req?.headers.get("user-agent")?.split(" ")[0],
+        ...who(ctx.http?.req, ctx.http?.authInfo),
         args: cut(args),
         chars: body.length,
-        client: ctx.http?.authInfo?.clientId,
         error: result.isError,
         ids: [...new Set(body.match(IDS))].slice(0, 50),
         ms: Date.now() - started,
@@ -378,23 +421,23 @@ const text = (
  */
 export function createMcp(verify: Verify) {
   const handler = createMcpHandler(buildServer);
-  /** The 401 or 403 that answers the request, or the owner's token (its OAuth client, for the log). */
-  async function authorize(req: Request): Promise<Response | AuthInfo> {
+  /** The owner's token (its OAuth client, for the log), or why the request is refused. */
+  async function authorize(req: Request): Promise<AuthInfo | string> {
     const header = req.headers.get("authorization") ?? "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     const whose = await verify(token);
-    if (typeof whose === "object") {
-      return { ...whose, token };
-    }
-    if (whose === "forbidden") {
-      return text("forbidden", 403);
-    }
-    return text("unauthorized", 401, {
-      "WWW-Authenticate": token
-        ? `${CHALLENGE}, error="invalid_token"`
-        : CHALLENGE,
-    });
+    return typeof whose === "object" ? { ...whose, token } : whose;
   }
+  /** The 401 or 403 that answers a refused token. */
+  const denied = (why: string) =>
+    why.startsWith("forbidden")
+      ? text("forbidden", 403)
+      : text("unauthorized", 401, {
+          "WWW-Authenticate":
+            why === "invalid: no token"
+              ? CHALLENGE
+              : `${CHALLENGE}, error="invalid_token"`,
+        });
 
   async function handle(req: Request): Promise<Response | null> {
     const { pathname } = new URL(req.url);
@@ -409,10 +452,15 @@ export function createMcp(verify: Verify) {
     }
     switch (pathname) {
       case "/mcp": {
+        const asked = req.clone().text();
         const auth = await authorize(req);
-        return auth instanceof Response
-          ? auth
-          : handler.fetch(req, { authInfo: auth });
+        const res =
+          typeof auth === "string"
+            ? denied(auth)
+            : await handler.fetch(req, { authInfo: auth });
+        // Read from a copy after the answer goes out, so a stream is never held back.
+        refusal(req, auth, asked, res.clone()).catch(() => undefined);
+        return res;
       }
       case "/.well-known/oauth-protected-resource":
       case "/.well-known/oauth-protected-resource/mcp":

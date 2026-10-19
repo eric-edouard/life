@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { actionId, recorded } from "./actions";
+import { actionId, requested } from "./actions";
 import { deliveredLines, parse } from "./events";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
 import { clip } from "./memory/units";
@@ -55,15 +55,14 @@ const askLine = (
     why,
   }) satisfies Action;
 
-/** Records one ask for Atlas (the watcher delivers it). The same ref asks once. */
-export async function ask(...a: Parameters<typeof askLine>) {
+/** Records one ask for Atlas (the watcher delivers it). The same ref and title ask once. */
+export function ask(...a: Parameters<typeof askLine>) {
   const action = askLine(...a);
-  const old = await recorded(action.id);
-  if (old) {
-    return old;
+  const old = tasksOf().find((t) => t.ask.id === action.id)?.ask;
+  if (!old) {
+    appendJsonl(ACTIONS, Action, [action]);
   }
-  appendJsonl(ACTIONS, Action, [action]);
-  return action;
+  return old ?? action;
 }
 
 const lineOf = (
@@ -248,10 +247,11 @@ function made(
     throw new Error("a split needs title and an open task that is no split");
   }
   const sent = Date.parse(u.at ?? "");
-  if (!(sent <= now && sent > now - 7 * DAY)) {
+  if (!(sent <= now + MIN && sent > now - 7 * DAY)) {
     throw new Error("said needs at: when he sent it, in the last 7 days");
   }
-  const chat = { at: `${u.at}`, quote: `${u.said}`, ref: `chat:${u.at}` };
+  // His message's instant, normalized: the same message makes the same id whatever the offset it was given in.
+  const chat = requested("connector", `${u.said}`, iso(sent));
   const after = { confidence: "high", title: u.title };
   return [chat, after, "connector", "asked Atlas in a chat", now];
 }
@@ -273,8 +273,13 @@ export function written(
     );
   }
   const { at, parent, said, seal, task, title, ...after } = u;
-  if ([task, said, parent].filter(Boolean).length !== 1) {
-    throw new Error("name one of task, said (a new task) or parent (a split)");
+  if (
+    [task, said, parent].filter(Boolean).length !== 1 ||
+    (task && (at || title))
+  ) {
+    throw new Error(
+      "name one of task (no at, no title), said (a new task) or parent (a split)"
+    );
   }
   const fresh = task ? undefined : askLine(...made(u, tasks, now));
   if (fresh && tasks.some((x) => x.ask.id === fresh.id)) {

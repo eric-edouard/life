@@ -231,22 +231,24 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
 (`src/tasks.ts`: his asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
-- `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: no title): the same words act or ask
+- `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none): the same words act or ask
   once; a failed try may rerun.
 - `instruction`: his words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<date>`,
-  `connector:<date>` or `session:<at>` (an ask from `bun life ask`) (until 19 Oct also `imessage:<guid>`: Instinct's
+  `connector:<date>` (a chat; for a task Atlas made, the instant he sent the message) or `session:<at>` (an ask from
+  `bun life ask`) (until 19 Oct also `imessage:<guid>`: Instinct's
   reply that closed a tracked request). `at`: when he said it.
 - `kind`: `add`, `edit`, `done`, `remove`, `ask`; `instinct` (one email to Instinct) until 19 Oct. A task's own lines,
   with no `instruction` and the task's (its ask's) id as `target`: `update` (Atlas, the connector's `task`: `after` is
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
-  `reason`, `steps` [{title, done}], `claim`), `nudge` (Life: `after.why`, the task was past its deadline) and `steer`
+  `reason`, `steps` [{title, done}], `claim`, `playbook`: the revision it was written under), `nudge` (Life: `after.why`, the task was past its deadline) and `steer`
   (he changed its item on the board: `after.changes`, the changed fields' new values among `completed`, `title`, `due`,
   `notes`, `steps` {title: done}, or `deleted`; and `note`, his new note lines). Id: `act_` + 12 hex over
   `<task>@<at> | kind`.
 - `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask) or, until 19 Oct, `mailto:<address>`.
   `before` / `after`: the reminder's fields before, and what was written; never an email body or a transcript. An ask's
   `after`: `confidence` (`high`: lifelog says he spoke, or a session; `low`: no speaker), and for speech `conversation`
-  and `turns` (the turn numbers, as `fetch --from-turn` counts them).
+  and `turns` (the turn numbers, as `fetch --from-turn` counts them); for a task Atlas made, `title` (one part of
+  his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats).
 - `timing` (until 19 Oct, a request heard in his speech): `arrived`, `heard`, `modelMs`, `actMs`.
 - Until 19 Oct an `add` could start a deep task (Codex research, then a phone session): its `after.task` is the
   action id, and the `edit` with `instruction.ref` `<ref>#task` holds the session's link or why the research failed.

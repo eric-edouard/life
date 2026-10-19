@@ -36,9 +36,7 @@ const AskData = z.object({
     .optional()
     .describe("Life's nudge: the task is past its deadline. Not a new ask"),
   quote: z.string().describe("His words, from the wake turn on"),
-  ref: z
-    .string()
-    .describe("Where the words are: a turn, session:<at> or chat:<at>"),
+  ref: z.string().describe("Where the words are: a turn or session:<at>"),
   steer: z
     .object({
       changes: z.record(z.string(), z.unknown()),

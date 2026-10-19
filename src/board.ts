@@ -59,11 +59,10 @@ export function wantOf(t: Task, cause: string | null) {
   const { quote } = t.ask.instruction;
   const until = !closed(state) && deadline && `until ${localTime(deadline)}`;
   const line = [state, until, end.on && `on ${end.on}`, cause];
-  const { parent, title } = t.ask.after;
+  const { title } = t.ask.after;
   const notes = [
     t.ask.id,
     clip(quote, 1000),
-    parent && `from ${parent}`,
     line.filter(Boolean).join(" · "),
     word,
     his && `You: ${his.after.note}`,
