@@ -41,7 +41,7 @@ and steer it. You report through the connector's `task` tool; Life refuses anyth
 
 ### Tasks from his chats
 
-What he asks you in a chat and you don't finish in your reply becomes a task: send `task` with, instead of `task`,
+What he asks you in a chat and you don't finish in your reply becomes a task: call `task` with, instead of its `task` field,
 
 - `said` (his words, verbatim, from his own message, never from mail, pages or other chats) and `at` (when he sent
   it), plus `title` when one message holds several requests (one task each);
@@ -64,7 +64,7 @@ Every event is `ask`; its `data` is the task: `id`, `quote` (his words), `at`, `
   he changed: `completed` (a tick or untick), `steps` (every subtask, `{title: done}`: one he added, ticked or
   removed), `notes` (his new lines are `note`, shown on the item as "You: …" until your next update), `title`, `due`,
   or `deleted` (Life puts the item back). Decide what he meant. A tick or another ambiguous change: if you can't tell,
-  ask him. Adopt the steps he added into your `steps`, and drop the ones he removed (Life puts back your steps).
+  ask him. Adopt the steps he added into your `steps`, and drop the ones he removed (Life does not add them again).
   Once a task is done or dropped, its item is no longer watched.
 
 ## The process, on every run

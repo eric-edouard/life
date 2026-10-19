@@ -30,7 +30,7 @@ When he says something matters or doesn't, also append a label to `memory/labels
 against them). His word beats the memory. `bun life memory unresolved` shows what Life inferred before you ask him anything.
 
 When he asks you to change a reminder, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
-`src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why. He talks to Instinct himself.
+`src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why.
 `act` refuses an add whose title an open reminder has (`duplicateOf`, every caller), and a timed `due` always alerts
 at that time. Deep work on his life is Atlas's, his ChatGPT agent: hand it over with `bun life ask '<his words>'`.
 Life no longer acts on what it hears: he says "hey Atlas, …" and Atlas gets the ask as a task (`docs/atlas.md`).
@@ -53,15 +53,14 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge
   the same text.
-- **He is the center, not one more person.** His own page (`pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
+- **He is the center, not one more person.** His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
   projection of the observations like every page, so its shape changes at the cost of rebuilding one page; his goals
   are only in `truth/me.md` (`truth.me.goals`), shown first on `person me`. Nothing about him is stored in
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
   Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
-  only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (its `instinct` lines, emails to Instinct,
-  and its heard requests with `timing`, both until 19 Oct, still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
+  only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, and one lifelog gives to someone
@@ -134,7 +133,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   null and absent field lifelog's contract allows (`apps/server/openapi.json`; `lifelog.test.ts` checks them when
   `~/Work/lifelog` is there), so a contract-valid page never stops the watcher.
 - **Memory data is append-only and expensive:** never hand-edit `memory/` (except appending owner corrections or
-  labels; `actions.jsonl` is `act`'s and `ask`'s) or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
+  labels; `actions.jsonl` is `act`'s and the tasks') or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
   must never move. A change to how unit ids are made ships an old→new map applied to `memory/labels.jsonl` and
   `memory/statements.jsonl` (`units`). Code
   rewrites only `units/` and `moments/<day>.jsonl` (the day's moments, model-owned, read again with the day).
@@ -167,7 +166,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   him like a failed action and passed over; with no live subscription asks wait, unsent and unalerted, until Atlas
   subscribes again with its cursor; the nightly's Actions section lists every ask either way). Its startup line `actions: remctl ready` in `~/Library/Logs/life-watch.log` is the check that launchd
   can reach remctl (the connector's `reminders` acts from the watcher).
-- The watcher also checks the public connector every 5 min (`life.ericedouard.com`, only while the Mac is online); it restarts `com.eric.cloudflared` on the 2nd failure in a row and emails once if that fails (`bun life status` shows it).
+- The watcher also checks the public connector every 5 min (`life.ericedouard.com`, only while the Mac is online); it restarts `com.eric.cloudflared` on the 2nd failure in a row and emails on the 3rd (`bun life status` shows it).
 - `bun life act --check` says whether remctl can act now (read-only). remctl works through its signed Capability
   Host, only by absolute path (`~/bin/remctl`, not on launchd's PATH), and a read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
