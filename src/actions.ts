@@ -183,9 +183,6 @@ async function add(c: Change): Promise<Done> {
 
 async function edit(c: Change): Promise<Done> {
   const before = await info(c.target);
-  if (before.list === BOARD) {
-    throw new Error(ON_BOARD);
-  }
   const changed = changedFields(c, before);
   let id = c.target;
   // A move can clone and delete, which gives the reminder a new id.
@@ -212,9 +209,6 @@ async function edit(c: Change): Promise<Done> {
 /** Ticks a reminder off, or removes it (to Recently Deleted). */
 async function finish(c: Change): Promise<Done> {
   const before = await info(c.target);
-  if (before.list === BOARD) {
-    throw new Error(ON_BOARD);
-  }
   const done = c.kind === "done";
   await remctl(
     done ? ["done", `${c.target}`] : ["delete", `${c.target}`, "--force"]
@@ -263,7 +257,9 @@ const recorded = async (id: string) =>
  */
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
-  if (c.list === BOARD) {
+  // Refused before anything is recorded; a target it cannot read fails as usual, below.
+  const on = c.target && (await info(c.target).catch(() => undefined))?.list;
+  if (c.list === BOARD || on === BOARD) {
     throw new Error(ON_BOARD);
   }
   const id = actionId(instruction.ref, c.kind, c.title);

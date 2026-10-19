@@ -147,6 +147,17 @@ test("nudges are 30 min apart, only after the last one was delivered, and stop a
     own("update", 80, { deadline: at(90), note: "a", state: "working" }),
   ]);
   expect(standing(answered).unanswered).toBe(0);
+  // An extension is an update that moved the deadline later, whatever its offset.
+  const later = task([
+    own("update", 5, { deadline: at(60), note: "a", state: "working" }),
+    own("update", 6, {
+      deadline: "2026-10-19T12:30:00+01:00",
+      note: "b",
+      state: "working",
+    }),
+    own("update", 7, { deadline: at(60), note: "c", state: "working" }),
+  ]);
+  expect(standing(later).extensions).toBe(1);
 });
 
 test("he is asked to look when Atlas is stuck, waits on him over an hour, a task is a week old, or Atlas isn't subscribed", () => {

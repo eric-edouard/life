@@ -1,10 +1,16 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { actionId, alarmArgs, BOARD, type Reminder, remctl } from "./actions";
 import { deliveredLines, parse, subscribed } from "./events";
 import { log } from "./log";
-import { ACTIONS, appendJsonl, linesOf, readActions } from "./memory/ledger";
+import {
+  ACTIONS,
+  appendJsonl,
+  linesOf,
+  readActions,
+  readJson,
+} from "./memory/ledger";
 import { sendReport, taskAlertReport } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { Action, type Instruction, type TASK_LINES } from "./schema";
@@ -97,7 +103,12 @@ export function standing(t: Task) {
     deadline: last
       ? (last.after.deadline as string | undefined)
       : new Date(Date.parse(t.ask.at) + OPEN_MS).toISOString(),
-    extensions: Math.max(0, updates.filter((u) => u.after.deadline).length - 1),
+    // An update that moved the deadline later.
+    extensions: updates.filter(
+      (u, i) =>
+        Date.parse(`${u.after.deadline}`) >
+        Date.parse(`${updates[i - 1]?.after.deadline}`)
+    ).length,
     last,
     nudges,
     since,
@@ -401,7 +412,8 @@ export function wantOf(
       his && `You: ${his.a.after.note}`,
     ]
       .filter(Boolean)
-      .join("\n"),
+      .join("\n")
+      .trim(),
     section: cause ? "Needs you" : SECTIONS[s.state],
     steps: Object.fromEntries(s.steps.map((x) => [x.title, x.done])),
     title: titleOf(t),
@@ -611,7 +623,7 @@ async function mirror(
   }
 }
 
-/** His changes since Life's last pass, as steer lines: a changed item, or a deleted one (it comes back). */
+/** His changes since Life's last pass, as steer lines: a changed item, or a deleted one (it comes back). Only open tasks are watched. */
 export function steersOf(
   shots: Record<string, Shot>,
   items: Map<string, Item>
@@ -627,8 +639,7 @@ export function steersOf(
   });
 }
 
-const readShots = (): Record<string, Shot> =>
-  existsSync(SNAPSHOT) ? JSON.parse(readFileSync(SNAPSHOT, "utf8")) : {};
+const readShots = () => readJson<Record<string, Shot>>(SNAPSHOT) ?? {};
 
 let last = { at: 0, lines: 0 };
 /**
@@ -671,7 +682,8 @@ export async function tick(now = Date.now()) {
       escalation(t, now, live),
       now
     );
-    if (shot) {
+    // A closed task's item, once ticked, is no longer watched: nothing he does there can change it.
+    if (shot && !shot.wrote.completed) {
       next[t.ask.id] = shot;
     }
   }
