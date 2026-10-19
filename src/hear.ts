@@ -86,8 +86,7 @@ export async function hear(store: Store, conversation: string, from: string) {
     })
   );
   for (const a of asksIn(turns, from)) {
-    // biome-ignore lint/performance/noAwaitInLoops: one ledger line at a time
-    await ask(
+    ask(
       { at: a.at, quote: a.quote, ref: a.ref },
       { confidence: a.confidence, conversation, turns: a.turns },
       "watch",

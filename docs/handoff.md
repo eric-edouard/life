@@ -84,7 +84,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   through `~/bin/remctl`. A failed action is emailed at once with his words. Until 19 Oct a model chain heard requests
   in his speech and acted (`intent.ts`, prompts `intent-screen.v2` and `intent.v6`:
   the old history in the backup has them); Atlas replaced it.
-- **Atlas** (19 Oct; its playbook, the connector's instructions and his subscription's automation instructions: `docs/atlas.md`): his ChatGPT agent, with
+- **Atlas** (19 Oct; its playbook, returned by `tasks` with a seal `task` checks: `docs/atlas.md`): his ChatGPT agent, with
   Life's connector, its cloud computer and his Mac's terminal. "Hey Atlas" anywhere in one of his turns (`hear.ts`, no
   model) makes an ask: that turn and his following ones until another speaker or a 15 s pause, with the conversation
   and turn numbers; an unattributed turn makes a `low` confidence ask, someone else's none. `bun life ask '<words>'`
@@ -140,7 +140,7 @@ a moment.
 - **Actions, still open:** the connector approval test in Claude, and his rounds on the Reminders structure (Life reads
   lists and sections at run time, so no code waits on them).
 - **Atlas, still open:** his test that a scheduled Atlas run can use the Mac with no approval prompt, then: rescan the
-  connector in ChatGPT (for `tasks`, `task`, `open_reminders` and the new instructions), set `docs/atlas.md` as the `ask` subscription's automation instructions, ask it to subscribe to `ask`, and `bun life ask "run date
+  connector in ChatGPT (for `tasks`, `task`, `open_reminders` and the new instructions), paste the bootstrap sentence (`docs/atlas.md`, "Set up once") as the dot's, the `ask` subscription's and the daily review's instructions, ask it to subscribe to `ask`, and `bun life ask "run date
   on my Mac and message me the result"`. Not built: tagging what Atlas sends from his accounts (read back as his words),
   "Atlas" in lifelog's transcription vocabulary and better speaker ids (lifelog's session), a mail fallback if MCP
   Events fail on his plan.

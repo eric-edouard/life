@@ -45,6 +45,7 @@ const AskData = z.object({
     })
     .optional()
     .describe("He changed its item on his board (the new values). Not an ask"),
+  title: z.string().optional().describe("The part of his words it is"),
   turns: z.array(z.int()).optional().describe("Their turn numbers"),
 });
 
@@ -248,13 +249,16 @@ export function nextEvent(lines: string[], from: number) {
       a?.kind === "nudge" || a?.kind === "steer"
         ? lines.map(parse).find((x) => x?.id === a.target)
         : a;
-    if (a && ask?.kind === "ask" && ask.instruction) {
+    // An ask Atlas made from a chat is already its own: only its nudges and steers go out.
+    const own = a === ask && a?.madeBy === "connector";
+    if (a && ask?.kind === "ask" && ask.instruction && !own) {
       const cursor = from + k + 1;
       const data: z.infer<typeof AskData> = {
         ...ask.instruction,
         confidence: ask.after.confidence === "low" ? "low" : "high",
         conversation: ask.after.conversation as string | undefined,
         id: ask.id,
+        title: ask.after.title as string | undefined,
         turns: ask.after.turns as number[] | undefined,
         ...(a === ask ? {} : { [a.kind]: { ...a.after, task: ask.id } }),
       };

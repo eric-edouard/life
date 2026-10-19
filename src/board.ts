@@ -59,6 +59,7 @@ export function wantOf(t: Task, cause: string | null) {
   const { quote } = t.ask.instruction;
   const until = !closed(state) && deadline && `until ${localTime(deadline)}`;
   const line = [state, until, end.on && `on ${end.on}`, cause];
+  const { title } = t.ask.after;
   const notes = [
     t.ask.id,
     clip(quote, 1000),
@@ -73,7 +74,7 @@ export function wantOf(t: Task, cause: string | null) {
     notes: notes.filter(Boolean).join("\n").trim(),
     section: cause ? NEEDS : section,
     steps: Object.fromEntries(steps.map((x) => [x.title, x.done])),
-    title: `Atlas${low}: ${clip(quote.replace(TO_WAKE, "") || quote, 80)}`,
+    title: `Atlas${low}: ${clip((title as string | undefined) ?? (quote.replace(TO_WAKE, "") || quote), 80)}`,
   };
 }
 type Want = ReturnType<typeof wantOf>;
