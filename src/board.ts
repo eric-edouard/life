@@ -99,25 +99,30 @@ export function planOf(w: Want, it: Item, seen: Item | undefined, now: number) {
     subtasks: adds.map((title) => ({ title })),
   });
   const reopen = alert && it.completed;
-  const steps = [
-    ...adds.map((x): [string, boolean] => [x, false]),
-    ...ticks.map((x): [string, boolean] => [x, true]),
-  ];
+  const ticked = ticks.map((x): [string, boolean] => [x, true]);
+  const fresh = adds.map((x): [string, boolean] => [x, false]);
+  const look = {
+    ...it,
+    completed: w.completed || (it.completed && !reopen),
+    due: calm ? null : (due ?? it.due),
+    made: [...made, ...adds],
+    notes: w.notes,
+    section: w.section,
+    steps: { ...it.steps, ...Object.fromEntries([...fresh, ...ticked]) },
+  };
   return {
     done: [
       ...(w.completed && !it.completed ? [it.id] : []),
       ...ticks.map((x) => it.subIds[x]),
     ],
     flags: [...pub, ...(calm ? ["--alarm=clear"] : alarmArgs(due)), ...priv],
-    look: {
-      ...it,
-      completed: w.completed || (it.completed && !reopen),
-      due: calm ? null : (due ?? it.due),
-      made: [...made, ...adds],
-      notes: w.notes,
-      section: w.section,
-      steps: { ...it.steps, ...Object.fromEntries(steps) },
+    // When the private write (section, new steps) fails: the rest landed, the new steps did not.
+    kept: {
+      ...look,
+      made,
+      steps: { ...it.steps, ...Object.fromEntries(ticked) },
     },
+    look,
     reopen,
   };
 }
@@ -169,8 +174,8 @@ async function readBoard(tasks: Set<string>) {
 
 /**
  * Brings a task's item in line (a closed task with no item gets none; a new one is added with the task id in its
- * notes, so a failed pass finds it again): how it looks after, or none when unsure (a failed private write: the next
- * pass starts from a fresh baseline). When a write fails while he is needed and the item doesn't show it yet, he is
+ * notes, so a failed pass finds it again): how it looks after (a failed private write: its steps as read, and the
+ * next pass tries again). When a write fails while he is needed and the item doesn't show it yet, he is
  * emailed, once per incident.
  */
 async function mirror(
@@ -200,7 +205,7 @@ async function mirror(
     const half = partial(r);
     if (half) {
       log("run.error", { error: half, step: "tasks.board", task });
-      return;
+      return p.kept;
     }
     return p.look;
   } catch (e) {
@@ -211,7 +216,7 @@ async function mirror(
       const a = { ...t.ask, after: { title: cause }, error };
       await sendReport(`atlas/${key}`, actionFailedReport(a));
     }
-    return item;
+    return item && { ...item, made: seen?.made };
   }
 }
 
