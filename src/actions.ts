@@ -10,7 +10,8 @@ import { Action } from "./schema";
 // The only code that writes outside Life, always on the owner's clear request: Apple Reminders through remctl (its
 // signed host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
 // by email when it failed. Nothing here reads his words: the callers (the CLI, the connector) decide that he asked.
-// The ledger also holds his asks for Atlas (`ask`), which the watcher delivers as MCP events (src/events.ts).
+// The ledger also holds his asks for Atlas (`ask`), which the watcher delivers as MCP events (src/events.ts); each ask
+// gets a reminder on Atlas's board (the list `BOARD`), which Atlas closes through the connector's `reminders`.
 
 const REMCTL = join(homedir(), "bin", "remctl");
 /** How long a list's own sorter takes to place a new reminder (read-after-write lags about 2 s). */
@@ -315,11 +316,28 @@ export function actAsked(
 
 /** An ask's words are clipped so its event stays far under the 256 KiB a webhook may carry; Atlas fetches the rest. */
 const ASK_MAX = 50_000;
+/** Atlas's board: the Reminders list where each ask gets its reminder, and Atlas's ledger of what it owes him. */
+export const BOARD = "Atlas";
+/** "hey Atlas": the two words in this order, whatever the case and the punctuation around or between them. */
+export const WAKE = /\bhey\W+atlas\b/i;
+/** Everything up to the wake and the spaces and punctuation after it. */
+const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
+
+/** An ask's reminder on the board: his words after the wake (all of them from a session), the ask id and his words in the notes. */
+export function card(id: string, quote: string, confidence: unknown): Change {
+  return {
+    kind: "add",
+    list: BOARD,
+    notes: clip(`${id}\n${quote}`, 2000),
+    title: `Atlas${confidence === "low" ? " (to confirm)" : ""}: ${clip(quote.replace(TO_WAKE, "") || quote, 80)}`,
+  };
+}
 
 /**
  * Records one ask for Atlas (the watcher delivers it): his words, where they are (`ref`: the wake turn, or the session)
- * and `after` (`confidence`, and for speech its `conversation` and `turns`). The same ref asks once: the old record
- * comes back.
+ * and `after` (`confidence`, and for speech its `conversation` and `turns`). Its reminder goes on the board first,
+ * through `act`, and the ask keeps its `target` as `after.reminder` (none when the add failed: that was emailed to him).
+ * The same ref asks once: the old record comes back.
  */
 export async function ask(
   instruction: Action["instruction"],
@@ -332,11 +350,19 @@ export async function ask(
   if (old) {
     return old;
   }
+  const said = { ...instruction, quote: clip(instruction.quote, ASK_MAX) };
+  const board = await act({
+    change: card(id, said.quote, after.confidence),
+    instruction: said,
+    madeBy,
+    why: `on Atlas's board for ${id}`,
+  });
   const action: Action = {
-    after,
+    after:
+      board.result === "failed" ? after : { ...after, reminder: board.target },
     at: new Date().toISOString(),
     id,
-    instruction: { ...instruction, quote: clip(instruction.quote, ASK_MAX) },
+    instruction: said,
     kind: "ask",
     madeBy,
     result: "ok",
@@ -349,19 +375,32 @@ export async function ask(
 }
 
 interface Reminder {
+  displayDate?: string | null;
   id: number;
+  list?: string;
+  notes?: string | null;
+  section?: string | null;
   title: string;
 }
 
-/** Every open top-level reminder: what an add's title is checked against. */
-async function openReminders() {
-  const lists = await remctl<{ id: number; isGroup: boolean }[]>(["lists"]);
+/** Every open top-level reminder, of one list or all: what an add's title is checked against, and the connector's `open_reminders`. */
+export async function openReminders(list?: string) {
+  const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
+    ["lists"]
+  );
   const open = await Promise.all(
     lists
-      .filter((l) => !l.isGroup)
+      .filter((l) => !l.isGroup && (list === undefined || l.title === list))
       .map((l) => remctl<Reminder[]>(["show", "--list-id", `${l.id}`]))
   );
-  return open.flat();
+  return open.flat().map((r) => ({
+    due: r.displayDate,
+    id: r.id,
+    list: r.list,
+    notes: r.notes,
+    section: r.section,
+    title: r.title,
+  }));
 }
 
 /** Whether remctl can act right now (read-only: nothing is written). The problems, none when it is ready. */

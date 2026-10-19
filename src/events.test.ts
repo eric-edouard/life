@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   nextEvent,
+  playbook,
   resumeAt,
   type State,
   Subscribe,
@@ -49,14 +50,19 @@ const line = (over: Parameters<typeof action>[0]) =>
   JSON.stringify(action(over));
 const ask = (id: string) =>
   line({
-    after: { confidence: "low", conversation: "c1", turns: [3, 4] },
+    after: {
+      confidence: "low",
+      conversation: "c1",
+      reminder: "reminder:42",
+      turns: [3, 4],
+    },
     id,
     kind: "ask",
     madeBy: "watch",
     target: "atlas",
   });
 
-test("the replay cursor is the ledger line after each ask; other actions are passed over", () => {
+test("the replay cursor is the ledger line after each ask, which carries its board reminder and the playbook; other actions are passed over", () => {
   const lines = [
     line({}),
     ask("act_00000000000a"),
@@ -71,14 +77,17 @@ test("the replay cursor is the ledger line after each ask; other actions are pas
       confidence: "low",
       conversation: "c1",
       id: "act_00000000000a",
+      playbook: playbook(),
       quote: "write that down in the to-dos",
       ref: "job-1:3@2026-10-15T09:59:00.000Z",
+      reminder: "reminder:42",
       turns: [3, 4],
     },
     eventId: "act_00000000000a",
     name: "ask",
     timestamp: "2026-10-15T09:59:00.000Z",
   });
+  expect(first?.event.data.playbook).toContain("## Your board");
   expect(nextEvent(lines, 2)?.cursor).toBe(4);
   expect(nextEvent(lines, 4)).toBeNull();
   // A subscriber's cursor wins (never past the end); a refresh without one keeps its place; a new one starts now.

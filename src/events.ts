@@ -31,8 +31,13 @@ const AskData = z.object({
     .describe("low: nobody was named as the speaker; confirm with him first"),
   conversation: z.string().optional().describe("The recording, for `fetch`"),
   id: z.string().describe("The ask's id in Life's actions ledger"),
+  playbook: z.string().describe("How Atlas works: follow it on every run"),
   quote: z.string().describe("His words, from the wake turn on"),
   ref: z.string().describe("Where the words are: a turn or session:<at>"),
+  reminder: z
+    .string()
+    .optional()
+    .describe("Its reminder on the board, reminder:<id>; none: add one"),
   turns: z.array(z.int()).optional().describe("Their turn numbers"),
 });
 
@@ -44,6 +49,10 @@ export const ASK_EVENT = {
   name: "ask",
   payloadSchema: z.toJSONSchema(AskData),
 };
+
+/** Atlas's playbook (docs/atlas.md), read fresh for every ask and every connector session: its one source. */
+export const playbook = () =>
+  readFileSync(join(ROOT, "docs", "atlas.md"), "utf8");
 
 const Secret = z.string().refine((s) => {
   const key = s.startsWith("whsec_") ? Buffer.from(s.slice(6), "base64") : [];
@@ -231,6 +240,8 @@ export function nextEvent(lines: string[], from: number) {
         confidence: a.after.confidence === "low" ? "low" : "high",
         conversation: a.after.conversation as string | undefined,
         id: a.id,
+        playbook: playbook(),
+        reminder: a.after.reminder as string | undefined,
         turns: a.after.turns as number[] | undefined,
       };
       return {
