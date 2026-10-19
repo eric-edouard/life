@@ -222,6 +222,7 @@ test("the board gets Life's fields: notes, section, Atlas's steps added then tic
   // A step Life added and he removed stays removed.
   const removed = { ...made, steps: { "Find three flats": false } };
   expect(planOf(want, removed, second.look, T0).flags).toEqual([]);
+  expect(planOf(want, removed, second.kept, T0).flags).toEqual([]);
   const ticked = second.look;
   expect(planOf(want, ticked, ticked, T0).done).toEqual([]);
   // He is needed: Needs you with a due of now, kept while the cause lasts, cleared when it ends.
@@ -231,6 +232,10 @@ test("the board gets Life's fields: notes, section, Atlas's steps added then tic
   expect(alert.flags).toContain("--section=Needs you");
   const later = planOf(needed, alert.look, alert.look, T0 + 9 * MIN);
   expect(later.flags).toEqual([]);
+  // A failed private write is tried again next pass, without a new alert.
+  const retry = planOf(needed, ticked, alert.kept, T0 + MIN).flags;
+  expect(retry).toContain("--section=Needs you");
+  expect(retry.filter((f) => f.startsWith("--due"))).toEqual([]);
   expect(planOf(want, alert.look, alert.look, T0).flags).toEqual([
     `--notes=${want.notes}`,
     "--due=clear",
