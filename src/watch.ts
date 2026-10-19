@@ -18,6 +18,7 @@ import { syncLifelogUnits } from "./memory/units";
 import { codeAt, exec } from "./proc";
 import { serveConnector } from "./server";
 import { openStore, poll, type Store } from "./sources/lifelog";
+import { tick } from "./tasks";
 import { ROOT } from "./truth";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
@@ -25,7 +26,8 @@ import { ROOT } from "./truth";
 // derived/watch/health.json (`bun life status`); after 15 minutes without a poll it emails once, and once on recovery.
 // Every 5 minutes, while the Mac is online, it also checks the public connector end to end (see `publicCheck`).
 // It also hears "hey Atlas": 40 s after his last new turn in a conversation, `hear` records its asks, and every loop
-// `deliver` pushes the asks not yet delivered to Atlas (src/events.ts).
+// `tick` chases Atlas's tasks and mirrors them on his board (src/tasks.ts); `deliver` pushes the asks, nudges and
+// steers not yet delivered to Atlas (src/events.ts).
 
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
@@ -249,6 +251,9 @@ export async function watch(): Promise<number> {
           }
         });
       }
+      await tick().catch((e: Error) =>
+        log("run.error", { error: e.message, step: "tasks.tick" })
+      );
       await deliver().catch((e: Error) =>
         log("run.error", { error: e.message, step: "events.deliver" })
       );

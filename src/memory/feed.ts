@@ -364,13 +364,16 @@ function itemOf(
     const run = typeof a.madeBy === "string" ? null : a.madeBy.run;
     return {
       about: [],
-      happenedAt: a.instruction.at,
+      happenedAt: a.instruction?.at ?? a.at,
       id,
       record: a,
       recordedAt: a.at,
       run,
-      // An ask is handed to Atlas, not done by Life: it has no outcome of its own.
-      type: a.kind === "ask" ? "action.ask" : `action.${a.result}`,
+      // An ask is handed to Atlas, not done by Life, and its task's lines are Atlas's or Life's chasing: no outcome of their own.
+      type:
+        a.instruction && a.kind !== "ask"
+          ? `action.${a.result}`
+          : `action.${a.kind}`,
     };
   }
   if (source === "ratings") {
