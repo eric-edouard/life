@@ -11,9 +11,16 @@ export const SCOPE = "life:read";
 export const CHECK_CLIENT = "PycFqBLbqFmixRgErpQfyYLIGNsvHzoQ";
 
 /**
- * Whose a token is: the owner's OAuth client and scopes when lifelog's OAuth server issued it for Life (`life:read`) to the owner, else why
- * not: `forbidden: …` when it is valid but someone else's or another scope, `invalid: …` otherwise. The one check behind /mcp and the check page.
+ * Whose a token is: the owner's OAuth client and scopes when lifelog's OAuth server issued it for Life (`life:read`) to the owner, else a
+ * `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `invalid` otherwise. The one check behind /mcp and the check page.
  */
+export const NO_TOKEN = "no token";
+const refused = (refusal: "forbidden" | "invalid", why: string) => ({
+  refusal,
+  why,
+});
+export type Refused = ReturnType<typeof refused>;
+
 export function ownerTokens({
   jwks,
   now = Date.now,
@@ -32,14 +39,13 @@ export function ownerTokens({
         issuer: ISSUER,
       });
       const scopes = String(payload.scope ?? "").split(" ");
-      if (payload.sub !== ownerSub) {
-        return "forbidden: not the owner";
+      if (payload.sub !== ownerSub || !scopes.includes(SCOPE)) {
+        const why = payload.sub === ownerSub ? `no ${SCOPE}` : "not the owner";
+        return refused("forbidden", why);
       }
-      return scopes.includes(SCOPE)
-        ? { clientId: String(payload.client_id), scopes }
-        : `forbidden: no ${SCOPE}`;
+      return { clientId: String(payload.client_id), scopes };
     } catch (e) {
-      return token ? `invalid: ${(e as Error).message}` : "invalid: no token";
+      return refused("invalid", token ? (e as Error).message : NO_TOKEN);
     }
   };
 }

@@ -1,7 +1,13 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
+import {
+  ACTIONS,
+  appendJsonl,
+  digest,
+  json,
+  readActions,
+} from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
 import { exec } from "./proc";
@@ -44,15 +50,6 @@ export const Change = z.object({
 });
 export type Change = z.infer<typeof Change>;
 type Done = Pick<Action, "after" | "before" | "error" | "target">;
-
-/** A JSON text, or {} when it is none. */
-export const json = <T>(s: string) => {
-  try {
-    return JSON.parse(s) as T;
-  } catch {
-    return {} as T;
-  }
-};
 
 /**
  * One remctl call (`args[0]` is the command), its JSON. A partial add (created, a private step failed) comes back too;
