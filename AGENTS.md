@@ -66,11 +66,15 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, and one lifelog gives to someone
   else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
-  `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`).
+  `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
+  records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
+  `at`; `ref` `chat:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
+  inherits its words; never a task without his words. It is claimed in the same call, so it sends no `ask` event.
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
-  `update`s through the connector's `task` (the write rules are `refusal`; one claim; `taskLine` appends synchronously,
-  so nothing runs between reading the ledger and the line it allows), Life's `nudge`s (`standing(...).nudge`, the one
+  `update`s through the connector's `task` (the write rules are `refusal`, behind the playbook's seal in `written`; one
+  claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows; each
+  update records the playbook's `revision`), Life's `nudge`s (`standing(...).nudge`, the one
   rule: past its deadline, an open one 30 min after it was recorded; 30 min apart, only after the last was delivered,
   until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
   `ask` events with `nudge` or `steer` (one event name: a second would replace the subscription). Task lines stay out of
@@ -87,9 +91,11 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   hand on 19 Oct, once: the code only assigns them).
 - **Atlas is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
-  asks; nothing else Life reads ever does. Its playbook (`docs/atlas.md`, the one source: the connector's instructions,
-  read fresh, which he also sets as the subscription's automation instructions; events carry data only) has it confirm
-  a low-confidence ask with him first and change reminders only through the connector's `reminders`.
+  asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
+  `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
+  answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions
+  one line in their first 512 characters; events carry data only. It has Atlas confirm a low-confidence ask with him
+  first and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`). His Apple Notes are memory only, never his words for
   actions.
@@ -103,7 +109,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   anyone's words or request.
 - **The only sends are the nightly report and the alerts (the watcher's feed, the public connector, a failed action or an ask
   whose delivery failed, an Atlas task that needs him when its board item could not say so, a run holding the lock over 3 h), by
-  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask, nudge or steer to the one subscriber,
+  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made), nudge or steer to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
   acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,
