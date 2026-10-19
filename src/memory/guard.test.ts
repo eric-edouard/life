@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
 import {
+  backupDue,
   decide,
   LOCK,
   locked,
@@ -25,6 +26,18 @@ test("the guard runs only after 02:00, once a day, three tries at most", () => {
   expect(decide(5, day, st("failed", 2))).toBe("run");
   expect(decide(5, day, st("failed", 3))).toBe("skip");
   expect(decide(5, day, st("ok", 0, "2026-10-14"))).toBe("run");
+});
+
+test("the backup is due once the night is done for the day, once a day, three tries at most", () => {
+  expect(backupDue(1, day, undefined, undefined)).toBe(false);
+  expect(backupDue(3, day, undefined, undefined)).toBe(false); // the night has not run
+  expect(backupDue(3, day, st("failed", 1), undefined)).toBe(false); // the night retries first
+  expect(backupDue(3, day, st("ok"), undefined)).toBe(true);
+  expect(backupDue(3, day, st("failed", 3), undefined)).toBe(true); // the night gave up: back up anyway
+  expect(backupDue(3, day, st("ok"), st("ok"))).toBe(false);
+  expect(backupDue(4, day, st("ok"), st("failed", 2))).toBe(true);
+  expect(backupDue(4, day, st("ok"), st("failed", 3))).toBe(false);
+  expect(backupDue(3, day, st("ok"), st("ok", 0, "2026-10-14"))).toBe(true);
 });
 
 test("a midday run is due at the first tick after 13:00 and after 19:00, once each", () => {

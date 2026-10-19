@@ -40,6 +40,14 @@ export function decide(
     : "run";
 }
 
+/** The backup's turn on a tick: once the night is done for the day (ok or out of tries), then `decide`'s rule on its own state. */
+export const backupDue = (
+  hour: number,
+  day: string,
+  night: NightState | undefined,
+  backup: NightState | undefined
+) => decide(hour, day, night) === "skip" && decide(hour, day, backup) === "run";
+
 /** The hours of the midday runs (moments and extract of the day so far, no pages, no commit, no email). */
 const MIDDAYS = [13, 19];
 
@@ -105,12 +113,14 @@ export function nextMidday(now: Date, last: string | undefined) {
   );
 }
 
-const STATE = join(OUT, "nightly.json");
+/** A scheduled job's state (`nightly`, `backup`). */
+const stateFile = (job: string) => join(OUT, `${job}.json`);
 const MIDDAY = join(OUT, "midday.json");
 /** In the data repo, not in derived/: every worktree shares one lock with production. */
 export const LOCK = join(DATA, ".nightly.lock");
 
-export const readState = () => readJson<NightState>(STATE);
+export const readState = (job = "nightly") =>
+  readJson<NightState>(stateFile(job));
 export const readMidday = () => readJson<string>(MIDDAY);
 
 /** Marks a midday slot as used, failed or not: a failed run waits for the next slot, the nightly reports. */
@@ -119,9 +129,9 @@ export function recordMidday() {
   writeFileSync(MIDDAY, JSON.stringify(new Date().toISOString()));
 }
 
-/** Records the outcome of a night; a new day starts at zero attempts. */
-export function recordState(day: string, ok: boolean): NightState {
-  const prev = readState();
+/** Records the outcome of a night (or of a `job`'s run); a new day starts at zero attempts. */
+export function recordState(day: string, ok: boolean, job = "nightly") {
+  const prev = readState(job);
   const attempts = prev?.date === day ? prev.attempts : 0;
   const state: NightState = {
     attempts: ok ? attempts : attempts + 1,
@@ -131,7 +141,7 @@ export function recordState(day: string, ok: boolean): NightState {
     status: ok ? "ok" : "failed",
   };
   mkdirSync(OUT, { recursive: true });
-  writeFileSync(STATE, `${JSON.stringify(state)}\n`);
+  writeFileSync(stateFile(job), `${JSON.stringify(state)}\n`);
   return state;
 }
 
