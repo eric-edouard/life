@@ -4,7 +4,7 @@ Four read-only tools on Life's connector (`/mcp`) let a private dashboard show w
 change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code:
 `bun life memory status | runs | changes | claim`. Code: `src/memory/history.ts` (status, runs) and
 `src/memory/feed.ts` (changes, claim). They run no model, write nothing, log nothing and send nothing (a test checks
-the code), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again the way `fetch`
+the code; the connector logs each call as `mcp.call`), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again the way `fetch`
 reads it (to show who sent the line). Every answer is JSON (text content, and `structuredContent` for clients that take
 it) and carries `observedAt`, the server's time.
 
@@ -41,8 +41,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it
 is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`
-and the steps `memory.repos|files|moments|extract|pages` (`memory.triage` and `memory.infer` until 18 Oct); until 19 Oct the watcher's hearings were `memory.intent`,
-`memory.intent-screen`).
+and the steps `memory.repos|files|moments|extract|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
 `outcome`, `input` (what it started with: `days`, `prompt`, `model`), `window` (`{from, to}`, the local days its
