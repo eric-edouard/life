@@ -371,6 +371,13 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(child?.after).toMatchObject({ parent: ASK, title: "Book visits" });
   const [t] = tasksOf([JSON.stringify(child)]);
   expect(t && wantOf(t, null).title).toBe("Atlas: Book visits");
+  // A split's id comes from its parent: it never meets a sibling made from the same message, nor its parent.
+  const chat = { ...claiming, at: at(-5), said: "dentist and vet" };
+  const dentist = write({ ...chat, title: "dentist" }).lines;
+  const of = { ...claiming, parent: dentist[0]?.id };
+  const vet = write({ ...of, title: "vet" }, dentist).lines[0]?.id;
+  expect(vet).not.toBe(write({ ...chat, title: "vet" }, dentist).lines[0]?.id);
+  expect(write({ ...of, title: "Dentist" }, dentist).lines).toHaveLength(2);
   expect(() => write({ ...split, said: "new words" })).toThrow("name one of");
   expect(() => write({ ...split, title: undefined })).toThrow(
     "a split needs title"

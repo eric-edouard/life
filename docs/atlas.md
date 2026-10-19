@@ -48,7 +48,7 @@ What he asks you in a chat and you don't finish in your reply becomes a task: se
 - or `parent` (an open task) and `title` to split it: the part inherits the parent's words. A part is not split again.
 
 The same update claims it (`claim: true` and a state, as above), so the run that made it owns it. The same message and title
-make one task: a retry answers "already a task". No `ask` event comes for it; its nudges and steers do.
+make one task: a retry with the same `at` answers "already a task". No `ask` event comes for it; its nudges and steers do.
 
 ## Events
 
