@@ -1,11 +1,9 @@
-import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { ACTIONS, appendJsonl, readActions } from "./memory/ledger";
+import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { clip, normalize } from "./memory/units";
-import { localDate } from "./memory/zones";
 import { exec } from "./proc";
 import { Action } from "./schema";
 
@@ -71,10 +69,7 @@ async function remctl<T = Record<string, unknown>>(args: string[]) {
 }
 
 export const actionId = (ref: string, kind: string, title: string) =>
-  `act_${createHash("sha1")
-    .update(`${ref}|${kind}|${normalize(title)}`)
-    .digest("hex")
-    .slice(0, 12)}`;
+  `act_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
 
 /** A timed reminder alerts at its time, as one made in Reminders does: EventKit adds no alarm by itself. */
 const alarmAt = (due?: string | null) => (due?.includes(":") ? due : undefined);
@@ -303,18 +298,19 @@ export async function act(a: Act): Promise<Action> {
   return action;
 }
 
-/** `act` for a request that comes from a client, not from his recorded speech: the instruction is `said` with the time now. */
+/** The instruction of a request a client makes, not his recorded speech: his words, the time now, and a ref of its own, so each request acts. */
+export const requested = (
+  madeBy: string,
+  quote: string,
+  at = new Date().toISOString()
+) => ({ at, quote, ref: `${madeBy}:${at}` });
+
+/** `act` for a request that comes from a client (`requested`). */
 export function actAsked(
   { said, why, ...change }: Asked,
   madeBy: "connector" | "session"
 ) {
-  const at = new Date().toISOString();
-  return act({
-    change,
-    instruction: { at, quote: said, ref: `${madeBy}:${localDate(at)}` },
-    madeBy,
-    why,
-  });
+  return act({ change, instruction: requested(madeBy, said), madeBy, why });
 }
 
 /** An ask's words are clipped so its event stays far under the 256 KiB a webhook may carry; Atlas fetches the rest. */

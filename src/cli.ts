@@ -1,4 +1,4 @@
-import { Asked, actAsked, ask, checks } from "./actions";
+import { Asked, actAsked, ask, checks, requested } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { readEngine, setEngine } from "./llm";
@@ -42,9 +42,8 @@ const commands: Record<string, () => Promise<number>> = {
       console.error("usage: bun life ask '<words>'");
       return 2;
     }
-    const at = new Date().toISOString();
     const done = await ask(
-      { at, quote: words, ref: `session:${at}` },
+      requested("session", words),
       { confidence: "high" },
       "session",
       "asked in a Claude session"

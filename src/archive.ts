@@ -375,21 +375,18 @@ export const STORES = [
     copy: archiveOnce,
     media: "media",
     name: "whatsapp",
-    open,
   },
   {
     app: "Beeper Desktop",
     copy: archiveBeeperOnce,
     media: "''",
     name: "beeper",
-    open: openBeeper,
   },
   {
     app: "Notes",
     copy: archiveNotesOnce,
     media: "''",
     name: "notes",
-    open: openNotes,
   },
 ];
 
@@ -423,7 +420,13 @@ async function keepAppsOpen() {
   );
 }
 
-function deletedIn(db: Database, media: string, since: string) {
+/** The deleted messages one store kept since `since`, opened read-only: the archive is their only copy. */
+function deletedIn(name: string, media: string, since: string) {
+  const path = archiveDb(name);
+  if (!existsSync(path)) {
+    return [];
+  }
+  const db = new Database(path, { readonly: true });
   try {
     return db
       .query<
@@ -446,9 +449,9 @@ function deletedIn(db: Database, media: string, since: string) {
 
 function printDeleted(days: number) {
   const since = new Date(Date.now() - days * 864e5).toISOString();
-  const rows = STORES.flatMap((s) =>
-    deletedIn(s.open(ARCHIVE), s.media, since)
-  ).sort((a, b) => a.at.localeCompare(b.at));
+  const rows = STORES.flatMap((s) => deletedIn(s.name, s.media, since)).sort(
+    (a, b) => a.at.localeCompare(b.at)
+  );
   for (const r of rows) {
     const media = r.media ? ` [${join(ARCHIVE, "media", r.media)}]` : "";
     console.log(

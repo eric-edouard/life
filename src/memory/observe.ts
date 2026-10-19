@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   type Correction,
@@ -11,6 +10,7 @@ import {
   type Unit,
 } from "../schema";
 import { othersIn } from "../truth";
+import { digest } from "./ledger";
 import { areaOf, normalize } from "./units";
 import { resolver, UNKNOWN } from "./who";
 import { localDate, zoneAt } from "./zones";
@@ -148,10 +148,7 @@ const observationId = (
   quote: string,
   text: string
 ) =>
-  `obs_${createHash("sha1")
-    .update([unit, type, normalize(quote), normalize(text)].join("|"))
-    .digest("hex")
-    .slice(0, 12)}`;
+  `obs_${digest("sha1", [unit, type, normalize(quote), normalize(text)].join("|"), 12)}`;
 
 export interface Reject {
   quote?: string;

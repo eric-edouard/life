@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   decide,
+  locked,
   middayDue,
   type NightState,
   nextMidday,
@@ -57,4 +58,11 @@ test("the next windows: earliest and expected by the next tick, with why", () =>
   expect(nextMidday(at(13, 10), undefined).earliest).toBe(iso(at(13, 10)));
   expect(nextMidday(at(14), iso(at(13, 5))).earliest).toBe(iso(at(19)));
   expect(nextMidday(at(20), iso(at(19, 5))).earliest).toBe(iso(at(13, 0, 16)));
+});
+
+test("two runs at once: exactly one takes the lock, the other gets null without running", async () => {
+  const run = () => locked(() => Bun.sleep(20).then(() => "ran"));
+  const got = await Promise.all([run(), run()]);
+  expect(got.filter((g) => g === null)).toHaveLength(1);
+  expect(got).toContain("ran");
 });

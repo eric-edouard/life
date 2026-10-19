@@ -5,6 +5,7 @@ import {
   changedFields,
   duplicateOf,
   reminderArgs,
+  requested,
 } from "./actions";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {
@@ -67,6 +68,14 @@ test("the same words asking for the same thing get the same id, whatever the cas
   const id = actionId("job:1@t", "add", "Appeler le plombier");
   expect(actionId("job:1@t", "add", "  appelér le PLOMBIER ")).toBe(id);
   expect(actionId("job:2@t", "add", "Appeler le plombier")).not.toBe(id);
+});
+
+test("two requests the same day for the same edit both act: each has a ref of its own", () => {
+  const id = (at: string) =>
+    actionId(requested("session", "rename it", at).ref, "edit", "Same title");
+  expect(id("2026-10-19T09:00:00.000Z")).not.toBe(
+    id("2026-10-19T15:00:00.000Z")
+  );
 });
 
 test("an edit changes the title and list only when they differ, and every other field that is set", () => {

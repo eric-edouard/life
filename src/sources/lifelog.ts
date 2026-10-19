@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite";
-import { randomUUID } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -10,6 +9,7 @@ import {
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "../log";
+import { digest } from "../memory/ledger";
 import { ROOT } from "../truth";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
@@ -615,7 +615,10 @@ export const Fix = z.object({
 });
 type Fix = z.infer<typeof Fix>;
 
-/** Who a voice is, as lifelog takes it: a person, "unknown" or "media", or a new person (the id is ours, so a replay makes nobody twice). */
+/**
+ * Who a voice is, as lifelog takes it: a person, "unknown" or "media", or a new person. The new person's id is ours and
+ * comes from the voice and the name (a v5-shaped UUID, as lifelog wants), so a replay makes nobody twice.
+ */
 function speakerTarget(a: Fix) {
   if (a.to) {
     return SPECIAL.has(a.to)
@@ -623,7 +626,9 @@ function speakerTarget(a: Fix) {
       : { kind: "person", personId: a.to };
   }
   if (a.newName) {
-    return { id: randomUUID(), kind: "new", name: a.newName };
+    const h = digest("sha1", `${a.jobId}|${a.label}|${a.newName}`, 32);
+    const id = `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20)}`;
+    return { id, kind: "new", name: a.newName };
   }
   throw new Error("speaker needs: to or newName");
 }

@@ -156,14 +156,27 @@ export function lockedSince(): Date | null {
 /** True while a run holds the lock: the watcher then leaves memory/ and the index alone. */
 export const isLocked = () => lockedSince() !== null;
 
+/** Creates the lock file, atomically ("wx"): one left by a dead process is cleared and the lock taken once more. */
+function take(retry = true): boolean {
+  try {
+    writeFileSync(LOCK, String(process.pid), { flag: "wx" });
+    return true;
+  } catch {
+    if (!retry || isLocked()) {
+      return false;
+    }
+    rmSync(LOCK, { force: true });
+    return take(false);
+  }
+}
+
 /** Runs `run` holding the lock, so nothing else writes memory/ meanwhile; `null`, without running, when a run holds it. */
 export async function locked<T>(run: () => Promise<T>) {
-  if (isLocked()) {
+  mkdirSync(OUT, { recursive: true });
+  if (!take()) {
     console.error("another run is still going");
     return null;
   }
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(LOCK, String(process.pid));
   try {
     return await run();
   } finally {
