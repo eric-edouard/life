@@ -40,13 +40,16 @@ export function decide(
     : "run";
 }
 
-/** The backup's turn on a tick: once the night is done for the day (ok or out of tries), then `decide`'s rule on its own state. */
+/** The backup's turn on a tick: once the night is done for the day (ok or out of tries) or from 06:00 (a night stuck or
+ * never recorded must not cost the day's backup), then `decide`'s rule on its own state. */
 export const backupDue = (
   hour: number,
   day: string,
   night: NightState | undefined,
   backup: NightState | undefined
-) => decide(hour, day, night) === "skip" && decide(hour, day, backup) === "run";
+) =>
+  (decide(hour, day, night) === "skip" || hour >= 6) &&
+  decide(hour, day, backup) === "run";
 
 /** The hours of the midday runs (moments and extract of the day so far, no pages, no commit, no email). */
 const MIDDAYS = [13, 19];

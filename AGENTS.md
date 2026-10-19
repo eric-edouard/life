@@ -145,7 +145,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 ## Gotchas
 
-- `bun life memory nightly` is started every 30 min by launchd and a guard (`derived/memory/nightly.json`) runs it once a day after 02:00, up to 3 tries; run it by hand with `--force`. The same tick runs `bun life memory midday` at the first tick after 13:00 and after 19:00 (the moments of today, extract of its closed lifelog conversations, then the index; no pages, commit or email, a failure only logs; the nightly commits and its report counts what the midday runs found), and the backup once the night is done (`backupDue`, its tries in `derived/memory/backup.json`; the snapshot's outcome stays in `derived/backup.json`). Everything looks back 7 days. A failed call or an unreadable source fails the whole night: non-zero
+- `bun life memory nightly` is started every 30 min by launchd and a guard (`derived/memory/nightly.json`) runs it once a day after 02:00, up to 3 tries; run it by hand with `--force`. The same tick runs `bun life memory midday` at the first tick after 13:00 and after 19:00 (the moments of today, extract of its closed lifelog conversations, then the index; no pages, commit or email, a failure only logs; the nightly commits and its report counts what the midday runs found), and the backup once the night is done or from 06:00 (`backupDue`, its tries in `derived/memory/backup.json`; the snapshot's outcome stays in `derived/backup.json`). Everything looks back 7 days. A failed call or an unreadable source fails the whole night: non-zero
   exit, nothing committed, and a failure email after the 3rd failed try. Its Actions section and the files step
   (`describeFiles`: a failed call leaves its files tags until the next run) never fail the night.
 - Codex is pinned in `package.json` and run as its native binary, because the other `codex` installs on this Mac reject
@@ -171,7 +171,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   from `~/Life/truth`; first names alone, places, project names, `.env` values and git history are on you. His
   domain in Life's own addresses (sender, connector, LaunchAgent labels) is infrastructure, kept on purpose.
   lifelog's check runs `scripts/scrub-check.ts` by this path with git pathspecs as arguments: keep both.
-- **Backups**: `src/backup.ts` (the `memory-nightly` tick, once the night is done: once a day, 3 tries, `backupDue`; by hand only from `~/Work/life`) snapshots with restic into
+- **Backups**: `src/backup.ts` (the `memory-nightly` tick, once the night is done or from 06:00: once a day, 3 tries, `backupDue`; by hand only from `~/Work/life`) snapshots with restic into
   `~/Library/Mobile Documents/com~apple~CloudDocs/Life backup/restic`; the password is in the Keychain
   (`RESTIC_PASSWORD_COMMAND="security find-generic-password -s life-restic -w"`) and his password manager.
   It holds what its `restic backup` lists, `~/Life` cloned under the lock (the one reader that takes it). Restore:
