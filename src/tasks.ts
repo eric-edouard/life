@@ -58,7 +58,7 @@ const askLine = (
 /** Records one ask for Atlas (the watcher delivers it). The same ref and title ask once. */
 export function ask(...a: Parameters<typeof askLine>) {
   const action = askLine(...a);
-  const old = tasksOf().find((t) => t.ask.id === action.id)?.ask;
+  const old = taskOf(tasksOf(), action.id)?.ask;
   if (!old) {
     appendJsonl(ACTIONS, Action, [action]);
   }
@@ -104,6 +104,10 @@ export function tasksOf(lines = linesOf(ACTIONS), delivered = 0) {
   }
   return [...tasks.values()];
 }
+
+/** The task with this id: one lookup for the ask, `task`'s writes and a split's parent. */
+const taskOf = (tasks: Task[], id?: string) =>
+  tasks.find((t) => t.ask.id === id);
 
 export const closed = (s: State) => s === "done" || s === "dropped";
 
@@ -238,7 +242,7 @@ function made(
   tasks: Task[],
   now: number
 ): Parameters<typeof askLine> {
-  const p = tasks.find((t) => t.ask.id === u.parent);
+  const p = taskOf(tasks, u.parent);
   if (p && u.title && !p.ask.after.parent && !closed(standing(p, now).state)) {
     const after = { ...p.ask.after, parent: p.ask.id, title: u.title };
     return [p.ask.instruction, after, "connector", "split by Atlas", now];
@@ -282,13 +286,11 @@ export function written(
     );
   }
   const fresh = task ? undefined : askLine(...made(u, tasks, now));
-  if (fresh && tasks.some((x) => x.ask.id === fresh.id)) {
+  if (fresh && taskOf(tasks, fresh.id)) {
     return { answer: `${fresh.id}: already a task`, lines: [] };
   }
   const id = fresh?.id ?? `${task}`;
-  const t = fresh
-    ? { ask: fresh, lines: [] }
-    : tasks.find((x) => x.ask.id === id);
+  const t = fresh ? { ask: fresh, lines: [] } : taskOf(tasks, id);
   const why = refusal(t, u, now);
   if (why) {
     throw new Error(why);

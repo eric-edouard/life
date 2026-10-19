@@ -5,8 +5,16 @@ import {
   McpServer,
 } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { Asked, actAsked, json, openReminders } from "./actions";
-import { ISSUER, ORIGIN, RESOURCE, SCOPE, type Verify } from "./auth";
+import { Asked, actAsked, openReminders } from "./actions";
+import {
+  ISSUER,
+  NO_TOKEN,
+  ORIGIN,
+  RESOURCE,
+  type Refused,
+  SCOPE,
+  type Verify,
+} from "./auth";
 import {
   ASK_EVENT,
   Subscribe,
@@ -17,7 +25,7 @@ import {
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
 import { lifeStatus, runs } from "./memory/history";
-import { recordCorrection } from "./memory/ledger";
+import { json, recordCorrection } from "./memory/ledger";
 import { placesOf } from "./memory/places";
 import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
@@ -147,18 +155,19 @@ const cut = (args: unknown) =>
   );
 
 /** Who asked, on every `mcp.call` line: the OAuth client and the User-Agent's product. */
-const who = (req?: Request, auth?: AuthInfo | string) => ({
-  agent: req?.headers.get("user-agent")?.split(" ")[0],
-  client: typeof auth === "object" ? auth.clientId : undefined,
+const who = (req?: Request, auth?: AuthInfo | Refused) => ({
+  agent: req?.headers.get("user-agent")?.split(" ")[0]?.slice(0, 100),
+  client: auth && "clientId" in auth ? auth.clientId : undefined,
 });
 
 /**
- * Logs a request refused before any tool ran, as `tool()` logs a call: a token refused, or the SDK's own error (an
- * unknown method or tool, invalid arguments, an internal error), with the method and the tool.
+ * Logs a request Life answered with an error outside its tools, as `tool()` logs a call: a token refused (its body is
+ * never read), or an error the SDK or a handler answered (an unknown method or tool, invalid arguments, a refused
+ * subscribe, an internal error), with the tool or method.
  */
-async function refusal(
+async function logRefused(
   req: Request,
-  auth: AuthInfo | string,
+  auth: AuthInfo | Refused,
   asked: Promise<string>,
   res: Pick<Response, "status" | "text">
 ) {
@@ -171,8 +180,8 @@ async function refusal(
   const invalid =
     answered.result?.isError && words?.startsWith("Input validation error");
   const why =
-    typeof auth === "string"
-      ? auth
+    "why" in auth
+      ? `${auth.refusal}: ${auth.why}`
       : (answered.error?.message ?? (invalid ? words : undefined));
   if (why) {
     const { method, params } = json<{
@@ -182,10 +191,9 @@ async function refusal(
     log("mcp.call", {
       ...who(req, auth),
       error: true,
-      method,
       refused: clip(why, 300),
       status: res.status,
-      tool: params?.name,
+      tool: params?.name ?? method,
     });
   }
 }
@@ -422,19 +430,19 @@ const text = (
 export function createMcp(verify: Verify) {
   const handler = createMcpHandler(buildServer);
   /** The owner's token (its OAuth client, for the log), or why the request is refused. */
-  async function authorize(req: Request): Promise<AuthInfo | string> {
+  async function authorize(req: Request): Promise<AuthInfo | Refused> {
     const header = req.headers.get("authorization") ?? "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     const whose = await verify(token);
-    return typeof whose === "object" ? { ...whose, token } : whose;
+    return "refusal" in whose ? whose : { ...whose, token };
   }
   /** The 401 or 403 that answers a refused token. */
-  const denied = (why: string) =>
-    why.startsWith("forbidden")
+  const denied = ({ refusal, why }: Refused) =>
+    refusal === "forbidden"
       ? text("forbidden", 403)
       : text("unauthorized", 401, {
           "WWW-Authenticate":
-            why === "invalid: no token"
+            why === NO_TOKEN
               ? CHALLENGE
               : `${CHALLENGE}, error="invalid_token"`,
         });
@@ -452,14 +460,15 @@ export function createMcp(verify: Verify) {
     }
     switch (pathname) {
       case "/mcp": {
-        const asked = req.clone().text();
         const auth = await authorize(req);
+        // Only the owner's body is read for the log; a refused one never is.
+        const asked = "why" in auth ? Promise.resolve("") : req.clone().text();
         const res =
-          typeof auth === "string"
+          "why" in auth
             ? denied(auth)
             : await handler.fetch(req, { authInfo: auth });
         // Read from a copy after the answer goes out, so a stream is never held back.
-        refusal(req, auth, asked, res.clone()).catch(() => undefined);
+        logRefused(req, auth, asked, res.clone()).catch(() => undefined);
         return res;
       }
       case "/.well-known/oauth-protected-resource":

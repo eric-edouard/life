@@ -118,7 +118,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   updates, through `update`). `correct` is annotated destructive so clients ask first; `reminders` and `task` are not
   (nothing they do is lost: a remove goes to Recently Deleted), so Atlas uses them unattended. Never add a tool that sends or edits anything else. One MCP event, `ask`
   (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. Every request refused before a tool
-  runs (its token, or the SDK's own error) is logged as `mcp.call` with `refused`, by `refusal`, like a call. Every request
+  runs (its token, or the SDK's own error) is logged as `mcp.call` with `refused`, by `logRefused`, like a call; a refused token's body is never read. Every request
   needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`).
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly

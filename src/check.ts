@@ -108,7 +108,7 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
       .safeParse(res.ok ? await res.json() : null);
     if (
       !token.success ||
-      typeof (await verify(token.data.access_token)) !== "object"
+      "refusal" in (await verify(token.data.access_token))
     ) {
       return plain("Not signed in as the owner.", 403);
     }
@@ -174,8 +174,8 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
       return null;
     }
     const whose = await verify(cookieOf(req, SESSION) ?? "");
-    if (typeof whose !== "object") {
-      if (whose.startsWith("forbidden")) {
+    if ("refusal" in whose) {
+      if (whose.refusal === "forbidden") {
         return plain("forbidden", 403);
       }
       return pathname === "/check/" ? login() : plain("sign in again", 401);

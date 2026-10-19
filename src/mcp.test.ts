@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -231,7 +232,6 @@ test("a request refused before any tool runs is logged with why, the method, the
   ).toMatchObject({
     ...asker,
     client: "chatgpt-client",
-    method: "tools/call",
     refused: "Tool nope not found",
     tool: "nope",
   });
@@ -246,17 +246,39 @@ test("a request refused before any tool runs is logged with why, the method, the
   expect((await refused(bearer, "bogus/method")).refused).toBe(
     "Method not found"
   );
-  expect(await refused(null, "tools/list")).toMatchObject({
+  const anonymous = await refused(null, "tools/list");
+  expect(anonymous).toMatchObject({
     ...asker,
     refused: "invalid: no token",
     status: 401,
   });
+  // A refused token's body is never read.
+  expect(anonymous).not.toHaveProperty("tool");
   expect(
     (await refused(await token({ sub: "someone-else" }), "tools/list")).refused
   ).toBe("forbidden: not the owner");
   expect((await refused(await token({}, -60), "tools/list")).refused).toContain(
     "exp"
   );
+});
+
+test("tasks hands out the playbook, docs/atlas.md, with its seal; task refuses another seal with both", async () => {
+  const bearer = await token();
+  const { json } = await rpc(bearer, "tools/call", {
+    arguments: {},
+    name: "tasks",
+  });
+  const { playbook, seal } = json.result.structuredContent;
+  expect(playbook).toBe(
+    readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
+  );
+  const refused = await rpc(bearer, "tools/call", {
+    arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
+    name: "task",
+  });
+  const [answer] = refused.json.result.content;
+  expect(answer.text).toContain(seal);
+  expect(answer.text).toContain(playbook);
 });
 
 test("reminders takes no instinct kind and needs his words: refused before anything acts", async () => {
