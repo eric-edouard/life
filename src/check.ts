@@ -10,6 +10,7 @@ import {
   type Verify,
 } from "./auth";
 import { readRatings, readStatements, recordRating } from "./memory/ledger";
+import { plain as asOf } from "./memory/statements";
 import { readPeople } from "./memory/who";
 import { Rating } from "./schema";
 import { ROOT } from "./truth";
@@ -125,7 +126,7 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
       return new Response(Bun.file(join(ASSETS, file)), { headers: HEADERS });
     }
     if (pathname === "/check/statements" && req.method === "GET") {
-      // By group, the biggest first, each statement with his current answer.
+      // By group, the biggest first, each statement with his current answer and the day it was said (`asOf`).
       const [statements, ratings, { names }] = await Promise.all([
         readStatements(),
         readRatings(),
@@ -138,6 +139,7 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
           statements: list.map((s) => ({
             ...s,
             answer: ratings.get(s.claim)?.answer ?? null,
+            asOf: asOf(s.date),
           })),
         }))
         .toSorted((a, b) => b.statements.length - a.statements.length);

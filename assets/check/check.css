@@ -62,12 +62,13 @@ progress::-webkit-progress-value {
 }
 #deck {
   display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 16px;
+  grid-template-rows: 1fr auto auto;
+  gap: 10px;
   min-height: 0;
 }
 .stage {
   position: relative;
+  margin-bottom: 6px;
 }
 article {
   position: absolute;
@@ -91,6 +92,9 @@ article[data-lean="true"] {
 article[data-lean="false"] {
   border-color: rgb(from var(--signal) r g b / var(--lean));
 }
+article[data-lean="outdated"] {
+  border-color: rgb(from var(--text-2) r g b / var(--lean));
+}
 .dragging {
   transition: none;
 }
@@ -104,7 +108,8 @@ article[data-lean="false"] {
 }
 .actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   gap: 10px;
 }
 button {
@@ -115,20 +120,24 @@ button {
   border: 0;
   border-radius: 20px;
 }
-.true,
-.false {
+.main {
   height: 68px;
 }
-.true {
+[data-verdict="true"] {
   color: var(--bg);
   background: var(--text);
 }
-.false {
+[data-verdict="false"] {
   color: var(--on-signal);
   background: var(--signal);
 }
+[data-verdict="outdated"] {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
 button:disabled,
-#deck:not(:has(article)) :is(.true, .false, [data-verdict="skip"]) {
+#deck:not(:has(article)) [data-verdict] {
   visibility: hidden;
 }
 @media (prefers-reduced-motion: reduce) {

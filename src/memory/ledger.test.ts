@@ -16,6 +16,7 @@ import {
   latestRatings,
   newSince,
   ratedFalse,
+  ratedOutdated,
   retiredBy,
   type Standing,
   shownOf,
@@ -81,7 +82,7 @@ test("new since the last good night means a line first cited since: a re-read is
 
 // Where each observation stands, as the index, a page and the dashboard see it. The fixture covers every rule: hidden
 // everywhere, hidden on one page, an id written again by a re-extraction, retired (the first supersession wins),
-// retired and hidden on a page, a unit never extracted, a unit gone.
+// retired and hidden on a page, a unit never extracted, a unit gone, a claim he rated outdated (retired by itself).
 const JEROME = "person:jerome";
 const line = (id: string, unit: string, unitHash = "h1", run = "r1") =>
   ({
@@ -106,6 +107,7 @@ const fixture = {
     line("R", "u_2", "h2", "r2"),
     line("L", "u_9"),
     line("G", "u_8"),
+    line("O", "u_1"),
   ],
   live: new Set(["u_1", "u_2", "u_9"]),
   retired: new Map<string, Supersession>(
@@ -124,6 +126,13 @@ const fixture = {
         why: "w",
       } as Supersession,
     ])
+  ).set(
+    "O",
+    ratedOutdated(
+      latestRatings([
+        { answer: "outdated", at: "2026-10-19T08:00:00Z", claim: "O" },
+      ] as Rating[])
+    )[0] as Supersession
   ),
 };
 
@@ -135,6 +144,7 @@ test("the index, the pages and the dashboard agree on where each observation sta
     { id: "D", superseded_by: null, valid_to: null },
     { id: "E", superseded_by: "F", valid_to: "2026-10-01" },
     { id: "L", superseded_by: null, valid_to: null },
+    { id: "O", superseded_by: "O", valid_to: "2026-10-19" },
     { id: "R", superseded_by: "F", valid_to: "2026-10-01" },
   ]);
   // On Jérôme's page: what it may cite, and whether it can be new there (a retired one only stays cited).
@@ -143,6 +153,7 @@ test("the index, the pages and the dashboard agree on where each observation sta
     ["D", "new"],
     ["E", "cited"],
     ["L", "new"],
+    ["O", "cited"],
   ]);
   // A line he deleted from the page this run hides its observation there before the ledger has it.
   const deleted = {
@@ -151,7 +162,12 @@ test("the index, the pages and the dashboard agree on where each observation sta
     observations: ["A"],
     page: JEROME,
   } as Correction;
-  expect(onPage(JEROME, [deleted]).map(([id]) => id)).toEqual(["D", "E", "L"]);
+  expect(onPage(JEROME, [deleted]).map(([id]) => id)).toEqual([
+    "D",
+    "E",
+    "L",
+    "O",
+  ]);
   expect(onPage("area:home")).toEqual([
     ["A", "new"],
     ["C", "new"],
@@ -159,6 +175,7 @@ test("the index, the pages and the dashboard agree on where each observation sta
     ["E", "cited"],
     ["R", "cited"],
     ["L", "new"],
+    ["O", "cited"],
   ]);
   expect(dashboard).toEqual([
     "A active",
@@ -170,6 +187,7 @@ test("the index, the pages and the dashboard agree on where each observation sta
     `R retired F hiddenOn ${JEROME}`,
     "L active",
     "G gone",
+    "O retired O",
   ]);
 });
 
@@ -269,4 +287,38 @@ test("a claim he rated false is hidden as wrong until an undo or a later answer 
   expect(
     wrong.flatMap((c) => (c.kind === "wrong" ? c.observations : []))
   ).toEqual(["obs_a", "mom_e"]);
+});
+
+test("a claim he rated outdated is retired by itself, as history, not wrong; an undo lifts it, extraction's retirement wins", () => {
+  const rate = (claim: string, answer: Rating["answer"]) =>
+    ({ answer, at: "2026-10-19T08:00:00Z", claim, schemaVersion: 1 }) as Rating;
+  const x = obs("obs_a", "u_1", "h1");
+  const standing = (ratings: Rating[], first: Supersession[] = []) =>
+    ({
+      corrections: [],
+      latest: new Map(),
+      live: new Set(["u_1"]),
+      retired: retiredBy(
+        [...first, ...ratedOutdated(latestRatings(ratings))],
+        new Set(["obs_a", "obs_b"])
+      ),
+    }) as Standing;
+  const outdated = standing([rate("obs_a", "outdated")]);
+  expect(stateOf(x, outdated)).toEqual({
+    at: "2026-10-19T08:00:00Z",
+    by: "obs_a",
+    hiddenOn: [],
+    page: undefined,
+    state: "retired",
+    validTo: "2026-10-19",
+    why: "rated outdated",
+  });
+  expect(ratedFalse(latestRatings([rate("obs_a", "outdated")]))).toEqual([]);
+  expect(
+    stateOf(x, standing([rate("obs_a", "outdated"), rate("obs_a", null)])).state
+  ).toBe("active");
+  const closed = { by: "obs_b", observation: "obs_a" } as Supersession;
+  expect(
+    stateOf(x, standing([rate("obs_a", "outdated")], [closed]))
+  ).toMatchObject({ by: "obs_b", state: "retired" });
 });

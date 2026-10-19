@@ -348,7 +348,8 @@ export async function extract(opts: { days: number; evidence: Evidence }) {
   const shown = known.flatMap((o) => {
     const s = stateOf(o, standing);
     if (s.state === "retired") {
-      return [{ by: unitOf.get(s.by), o }];
+      // One he rated outdated (retired by itself) is closed for good.
+      return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
     }
     return s.state === "active" ? [{ o }] : [];
   });
