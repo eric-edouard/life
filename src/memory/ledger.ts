@@ -176,8 +176,8 @@ export function newSince(all: Observation[], at?: string) {
 type Retirement = Omit<Supersession, "madeBy">;
 
 /**
- * Observations a newer one replaced (memory/supersessions.jsonl): id -> the first replacement recorded whose newer
- * observation is still current (a replacement re-read away no longer retires anything).
+ * Observations a newer one replaced (memory/supersessions.jsonl), or he rated outdated (`by` itself): id -> the first
+ * retirement recorded whose `by` is still current (a replacement re-read away no longer retires anything).
  */
 export const retiredBy = (list: Retirement[], current: Set<string>) => {
   const out = new Map<string, Retirement>();
@@ -220,7 +220,7 @@ export const ratedOutdated = (latest: Map<string, Rating>): Retirement[] =>
             by: claim,
             observation: claim,
             schemaVersion: 1,
-            validTo: at.slice(0, 10), // its UTC day: an upper bound (zones.ts imports this file)
+            validTo: at.slice(0, 10), // his answer's UTC day (a local day needs zones.ts, which imports this file)
             why: "rated outdated",
           },
         ]
@@ -270,7 +270,7 @@ export const hiding = (corrections: Correction[], id: string) =>
 /**
  * Where an observation stands: the one rule the index, the pages and the dashboard go by. First match wins: `hidden`
  * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
- * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it: still indexed, with `by`, and still cited on a page, never new
+ * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he rated it outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
  * its quote checked against the source: `active` does not mean verified.
  */
