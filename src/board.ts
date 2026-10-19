@@ -130,11 +130,12 @@ export function planOf(w: Want, it: Item, seen: Item | undefined, now: number) {
 
 const KEYS = ["completed", "title", "due", "notes", "steps"] as const;
 
-/** His changes between how Life left an item and how it looks now (their new values), and his note's new lines. */
+/**
+ * His changes between how Life left an item and how it looks now (their new values), and his note's new lines. Steps
+ * compare in any order: Reminders lists subtasks in its own.
+ */
 export function steerOf(seen: Item, look: Item) {
-  const changed = KEYS.filter(
-    (k) => JSON.stringify(seen[k]) !== JSON.stringify(look[k])
-  );
+  const changed = KEYS.filter((k) => !Bun.deepEquals(seen[k], look[k]));
   const before = new Set(seen.notes.split("\n"));
   const note = look.notes
     .split("\n")
@@ -144,6 +145,24 @@ export function steerOf(seen: Item, look: Item) {
     changes: Object.fromEntries(changed.map((k) => [k, look[k]])),
     note,
   };
+}
+
+/** His steers, by task: what differs from how Life left each open task's item (a deleted item is one). */
+export function steersOf(
+  tasks: Task[],
+  shots: Record<string, Item>,
+  items: Map<string, Item>
+) {
+  return tasks.flatMap((t) => {
+    const [seen, item] = [shots[t.ask.id], items.get(t.ask.id)];
+    const steer = item
+      ? item.id === seen?.id && steerOf(seen, item)
+      : seen && { changes: { deleted: true }, note: "" };
+    const his = steer && !closed(standing(t).state);
+    return his && Object.keys(steer.changes).length
+      ? [[t.ask.id, steer] as const]
+      : [];
+  });
 }
 
 const taskOf = (r: Reminder) => r.notes?.split("\n")[0] ?? "";
@@ -244,14 +263,8 @@ export async function tick(now = Date.now()) {
   const watched = () =>
     tasks().filter((t) => t.ask.id in shots || !closed(standing(t).state));
   const items = await readBoard(new Set(watched().map((t) => t.ask.id)));
-  for (const [task, seen] of Object.entries(shots)) {
-    const item = items.get(task);
-    const steer = item
-      ? item.id === seen.id && steerOf(seen, item)
-      : { changes: { deleted: true }, note: "" };
-    if (steer && Object.keys(steer.changes).length > 0) {
-      taskLine(task, "steer", steer, now);
-    }
+  for (const [task, steer] of steersOf(tasks(), shots, items)) {
+    taskLine(task, "steer", steer, now);
   }
   const live = subscribed(now);
   const next: Record<string, Item> = {};
