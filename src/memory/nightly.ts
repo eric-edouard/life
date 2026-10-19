@@ -1,7 +1,8 @@
 import { checks } from "../actions";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
-import type { Action } from "../schema";
+import { type Action, isTaskLine } from "../schema";
+import { taskList } from "../tasks";
 import { extract } from "./extract";
 import {
   backupDue,
@@ -29,7 +30,7 @@ import {
 import { codeOn, mapRepos } from "./repos";
 import { commitMemory, phases, type RunRecord, record } from "./run";
 import { reindex } from "./search";
-import { daysBefore, gather, windowStart } from "./units";
+import { clip, daysBefore, gather, localTime, windowStart } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { localDate, noteZone } from "./zones";
 
@@ -47,16 +48,25 @@ const DAY_MS = 24 * 3_600_000;
 async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
   let actions: Action[] = [];
+  let tasks: ReturnType<typeof taskList> = [];
   try {
     actions = readActions();
+    tasks = taskList(now.getTime());
   } catch (e) {
     const { message } = e as Error;
     problems.push(`actions.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
+  // A task's own lines (Atlas's updates, nudges, steers) are its rows, not actions.
   return {
-    actions: actions.filter((a) => Date.parse(a.at) >= now.getTime() - DAY_MS),
+    actions: actions.filter(
+      (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
+    ),
     problems,
+    tasks: tasks.map((t) => ({
+      name: `${t.state} · ${t.age}`,
+      relation: `${clip(t.quote, 120)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.nudges} nudges, ${t.extensions} extensions`,
+    })),
   };
 }
 
