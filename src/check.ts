@@ -10,7 +10,7 @@ import {
   type Verify,
 } from "./auth";
 import { readRatings, readStatements, recordRating } from "./memory/ledger";
-import { plain as said } from "./memory/statements";
+import { plain as asOf } from "./memory/statements";
 import { readPeople } from "./memory/who";
 import { Rating } from "./schema";
 import { ROOT } from "./truth";
@@ -139,7 +139,7 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
           statements: list.map((s) => ({
             ...s,
             answer: ratings.get(s.claim)?.answer ?? null,
-            asOf: said(s.date),
+            asOf: asOf(s.date),
           })),
         }))
         .toSorted((a, b) => b.statements.length - a.statements.length);

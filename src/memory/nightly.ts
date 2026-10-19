@@ -176,7 +176,9 @@ async function whatIsNew(since: string) {
       )
     ),
     observed: fresh.length,
-    retired: [...standing.retired.values()].filter((s) => ids.has(s.by)).length,
+    retired: [...standing.retired.values()].filter(
+      (s) => ids.has(s.by) && s.by !== s.observation
+    ).length,
   };
 }
 

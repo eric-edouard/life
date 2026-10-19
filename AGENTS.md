@@ -123,7 +123,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly
   cookie, checked by `ownerTokens` on every request): never serve anything of his before that check. A `false` is a
   `wrong` correction (`readCorrections` folds the ratings in), an `outdated` (true then, not anymore) a retirement
-  (`readStanding`: closed as history, never wrong), so an undo lifts either. Like `correct`, an answer is
+  (`readStanding`, `by` the claim itself: closed as history, never wrong), so an undo lifts either. Like `correct`, an answer is
   appended without the lock (his own words, one line, never while waiting on the nightly). Its swipe deck
   (`deck` in `assets/check/check.js`) stays generic: items and a list of verdicts in, verdicts out.
 - **The archive is the only live copy of deleted messages and of old note versions** (the backup keeps snapshots). Never move, wipe or migrate its files (a new table is allowed
