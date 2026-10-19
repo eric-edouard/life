@@ -18,13 +18,12 @@ export function deck(root, verdicts, onVerdict) {
     .join("")}</div>`;
   const stage = root.querySelector(".stage");
   const undoButton = root.querySelector("[data-undo]");
-  const way = (x, y) => {
-    if (Math.abs(x) > Math.abs(y)) {
-      return x > 0 ? "right" : "left";
-    }
-    return y < 0 ? "up" : "down";
-  };
-  const bySwipe = (x, y) => verdicts.find((v) => v.swipe === way(x, y));
+  // The verdict whose way is within 45° of the drag.
+  const bySwipe = (x, y) =>
+    verdicts.find(({ swipe }) => {
+      const [a, b] = AWAY[swipe] ?? [0, 0];
+      return a * x + b * y > Math.hypot(x, y) * Math.SQRT1_2;
+    });
   let queue = [];
   const done = [];
   let flying = null; // the card on its way out, settled at once by a quicker answer, an undo or a load

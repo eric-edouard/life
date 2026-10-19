@@ -208,7 +208,8 @@ export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
 
 /**
  * The claims his latest answer calls outdated (true then, not anymore), retired as extraction retires a fact later
- * evidence closed: kept as history, not wrong. `by` is the claim itself; an undo or a later answer lifts one.
+ * evidence closed: kept as history, not wrong. `by` is the claim itself (no successor: readers of `by` skip it); an
+ * undo or a later answer lifts one.
  */
 export const ratedOutdated = (latest: Map<string, Rating>): Retirement[] =>
   [...latest.values()].flatMap(({ answer, at, claim }) =>
@@ -219,7 +220,7 @@ export const ratedOutdated = (latest: Map<string, Rating>): Retirement[] =>
             by: claim,
             observation: claim,
             schemaVersion: 1,
-            validTo: at.slice(0, 10),
+            validTo: at.slice(0, 10), // its UTC day: an upper bound (zones.ts imports this file)
             why: "rated outdated",
           },
         ]
