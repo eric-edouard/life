@@ -7,14 +7,15 @@ import { normalize } from "./memory/units";
 import { exec } from "./proc";
 import { Action, type Instruction } from "./schema";
 
-// The only code that writes outside Life, always on the owner's clear request: Apple Reminders through remctl (its
-// signed host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
+// What Life writes outside itself on the owner's clear request: Apple Reminders through remctl (its signed host,
+// `--json`); the tasks' board (src/tasks.ts) is the one other writer, a projection through the same `remctl`. Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
 // by email when it failed. Nothing here reads his words: the callers (the CLI, the connector) decide that he asked.
 // The ledger also holds Atlas's tasks (src/tasks.ts), whose board in the list `BOARD` no `act` may touch.
 
 const REMCTL = join(homedir(), "bin", "remctl");
 /** Atlas's board: Life's projection of its tasks (src/tasks.ts), never changed through `act`. */
 export const BOARD = "Atlas";
+const ON_BOARD = `the list ${BOARD} is Atlas's board: change a task with \`task\``;
 /** How long a list's own sorter takes to place a new reminder (read-after-write lags about 2 s). */
 const SORTER_MS = 3000;
 
@@ -182,6 +183,9 @@ async function add(c: Change): Promise<Done> {
 
 async function edit(c: Change): Promise<Done> {
   const before = await info(c.target);
+  if (before.list === BOARD) {
+    throw new Error(ON_BOARD);
+  }
   const changed = changedFields(c, before);
   let id = c.target;
   // A move can clone and delete, which gives the reminder a new id.
@@ -208,6 +212,9 @@ async function edit(c: Change): Promise<Done> {
 /** Ticks a reminder off, or removes it (to Recently Deleted). */
 async function finish(c: Change): Promise<Done> {
   const before = await info(c.target);
+  if (before.list === BOARD) {
+    throw new Error(ON_BOARD);
+  }
   const done = c.kind === "done";
   await remctl(
     done ? ["done", `${c.target}`] : ["delete", `${c.target}`, "--force"]
@@ -234,7 +241,10 @@ interface Act {
 }
 
 /** The open reminder an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. */
-export function duplicateOf(c: Change, open?: Reminder[]) {
+export function duplicateOf(
+  c: Change,
+  open?: Pick<Reminder, "id" | "title">[]
+) {
   const same =
     c.kind === "add"
       ? open?.find((r) => normalize(r.title) === normalize(c.title))
@@ -253,10 +263,8 @@ const recorded = async (id: string) =>
  */
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
-  if (c.list === BOARD || (c.target && (await info(c.target)).list === BOARD)) {
-    throw new Error(
-      `the list ${BOARD} is Atlas's board: change a task with \`task\``
-    );
+  if (c.list === BOARD) {
+    throw new Error(ON_BOARD);
   }
   const id = actionId(instruction.ref, c.kind, c.title);
   const old = await recorded(id);
@@ -320,7 +328,9 @@ export function actAsked(
   return act({ change, instruction: requested(madeBy, said), madeBy, why });
 }
 
-interface Reminder {
+/** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */
+export interface Reminder {
+  completed: boolean;
   displayDate?: string | null;
   id: number;
   list?: string;

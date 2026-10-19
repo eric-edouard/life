@@ -9,6 +9,7 @@ import {
   refusal,
   standing,
   steerOf,
+  steersOf,
   type Task,
   tasksOf,
   wantOf,
@@ -73,31 +74,41 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   const open = task([]);
   const deadline = at(120);
   const ok = { deadline, note: "on it", state: "working", task: ASK } as const;
-  expect(refusal(open, { ...ok, claim: true }, now)).toBeNull();
+  const claim = { ...ok, claim: true };
+  expect(refusal(open, claim, now)).toBeNull();
+  // The first update must be the claim, so two runs never both take the task.
+  expect(refusal(open, ok, now)).toBe(
+    "the first update claims the task: claim: true"
+  );
   expect(refusal(undefined, ok, now)).toBe(`no task ${ASK}`);
-  expect(refusal(open, { ...ok, note: undefined }, now)).toBe(
+  expect(refusal(open, { ...claim, note: undefined }, now)).toBe(
     "working needs note"
   );
-  expect(refusal(open, { ...ok, deadline: at(0) }, now)).toBe(
+  expect(refusal(open, { ...claim, deadline: at(0) }, now)).toBe(
     "the deadline is past"
   );
-  expect(refusal(open, { ...ok, deadline: at(25 * 60) }, now)).toBe(
+  expect(refusal(open, { ...claim, deadline: at(25 * 60) }, now)).toBe(
     "a working deadline is at most 24 h ahead"
   );
-  expect(refusal(open, { state: "done", task: ASK }, now)).toBe(
+  expect(refusal(open, { claim: true, state: "done", task: ASK }, now)).toBe(
     "done needs outcome"
   );
   expect(
     refusal(
       open,
-      { question: "which flat?", state: "waiting-eric", task: ASK },
+      {
+        claim: true,
+        question: "which flat?",
+        state: "waiting-eric",
+        task: ASK,
+      },
       now
     )
   ).toBeNull();
   const claimed = task([
     own("update", 1, { deadline, note: "a", state: "working" }),
   ]);
-  expect(refusal(claimed, { ...ok, claim: true }, now)).toBe(
+  expect(refusal(claimed, claim, now)).toBe(
     "already claimed: the task is working"
   );
   expect(refusal(claimed, ok, now)).toBeNull();
@@ -274,4 +285,20 @@ test("his changes are steers, Life's own writes are not, and Life never writes o
   expect(
     planOf(wantOf(steered, "Atlas stuck", T0), p.wrote, his, {}).finish
   ).toBe("undone");
+});
+
+test("a steer is recorded for his changes and for an item he deleted, none for an unchanged item or a lost snapshot", () => {
+  const seen = look({ notes: "x" });
+  const shot = { id: 1, seen, wrote: seen };
+  const item = (face: Face, id = 1) => ({ face, id, subIds: {} });
+  const steers = (items: [string, ReturnType<typeof item>][]) =>
+    steersOf({ [ASK]: shot }, new Map(items)).map((l) => l.after.changes);
+  expect(steers([[ASK, item(seen)]])).toEqual([]);
+  expect(steers([[ASK, item({ ...seen, completed: true })]])).toEqual([
+    ["ticked"],
+  ]);
+  expect(steers([])).toEqual([["deleted"]]);
+  // Another item under the same task (his snapshot was of an older one): a baseline, no steer.
+  expect(steers([[ASK, item({ ...seen, completed: true }, 2)]])).toEqual([]);
+  expect(steersOf({}, new Map([[ASK, item(seen)]]))).toEqual([]);
 });

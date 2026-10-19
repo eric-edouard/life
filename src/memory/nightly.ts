@@ -1,7 +1,7 @@
 import { checks } from "../actions";
 import { backupLine } from "../backup";
 import { readHealth } from "../health";
-import type { Action } from "../schema";
+import { type Action, isTaskLine } from "../schema";
 import { taskRows } from "../tasks";
 import { extract } from "./extract";
 import {
@@ -59,7 +59,7 @@ async function acted(now: Date, rec: RunRecord) {
   // A task's own lines (Atlas's updates, nudges, steers) are its rows, not actions.
   return {
     actions: actions.filter(
-      (a) => a.instruction && Date.parse(a.at) >= now.getTime() - DAY_MS
+      (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
     ),
     problems,
     tasks,

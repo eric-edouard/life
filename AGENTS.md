@@ -60,7 +60,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
   Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
-  only code that does it), which logs every action in `memory/actions.jsonl` (its `instinct` lines, emails to Instinct,
+  only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (its `instinct` lines, emails to Instinct,
   and its heard requests with `timing`, both until 19 Oct, still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' mirror below, written only by `tasks.ts`.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
@@ -99,7 +99,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   anyone's words or request.
 - **The only sends are the nightly report and the alerts (the watcher's feed, the public connector, a failed action or an ask
   whose delivery failed, a run holding the lock over 3 h), by
-  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask to the one subscriber,
+  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask, nudge or steer to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
   acts only on his explicit request in the chat:** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,

@@ -147,6 +147,9 @@ export const Action = z
   .strict();
 export type Action = z.infer<typeof Action>;
 export type Instruction = NonNullable<Action["instruction"]>;
+/** A task's own line (Atlas's update, Life's nudge, his steer), not something done on his request: the one test. */
+export const isTaskLine = (a: Action) =>
+  (TASK_LINES as readonly string[]).includes(a.kind);
 
 /** Where a unit or an observation comes from. */
 const SourceName = z.enum([
