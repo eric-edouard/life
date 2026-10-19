@@ -1,4 +1,3 @@
-import { ask, WAKE } from "./actions";
 import {
   type ChapterTurn,
   readTranscript,
@@ -6,6 +5,7 @@ import {
   turnRef,
   turnsBetween,
 } from "./sources/lifelog";
+import { ask, WAKE } from "./tasks";
 
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.

@@ -2,6 +2,7 @@ import { checks } from "../actions";
 import { backupLine } from "../backup";
 import { readHealth } from "../health";
 import type { Action } from "../schema";
+import { taskRows } from "../tasks";
 import { extract } from "./extract";
 import {
   decide,
@@ -46,16 +47,22 @@ const DAY_MS = 24 * 3_600_000;
 async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
   let actions: Action[] = [];
+  let tasks: ReturnType<typeof taskRows> = [];
   try {
     actions = readActions();
+    tasks = taskRows(now.getTime());
   } catch (e) {
     const { message } = e as Error;
     problems.push(`actions.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
+  // A task's own lines (Atlas's updates, nudges, steers) are its rows, not actions.
   return {
-    actions: actions.filter((a) => Date.parse(a.at) >= now.getTime() - DAY_MS),
+    actions: actions.filter(
+      (a) => a.instruction && Date.parse(a.at) >= now.getTime() - DAY_MS
+    ),
     problems,
+    tasks,
   };
 }
 

@@ -3,17 +3,18 @@ import { join } from "node:path";
 import { z } from "zod";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
-import { clip, normalize } from "./memory/units";
+import { normalize } from "./memory/units";
 import { exec } from "./proc";
-import { Action } from "./schema";
+import { Action, type Instruction } from "./schema";
 
 // The only code that writes outside Life, always on the owner's clear request: Apple Reminders through remctl (its
 // signed host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
 // by email when it failed. Nothing here reads his words: the callers (the CLI, the connector) decide that he asked.
-// The ledger also holds his asks for Atlas (`ask`), which the watcher delivers as MCP events (src/events.ts); each ask
-// gets a reminder on Atlas's board (the list `BOARD`), which Atlas closes through the connector's `reminders`.
+// The ledger also holds Atlas's tasks (src/tasks.ts), whose board in the list `BOARD` no `act` may touch.
 
 const REMCTL = join(homedir(), "bin", "remctl");
+/** Atlas's board: Life's projection of its tasks (src/tasks.ts), never changed through `act`. */
+export const BOARD = "Atlas";
 /** How long a list's own sorter takes to place a new reminder (read-after-write lags about 2 s). */
 const SORTER_MS = 3000;
 
@@ -57,7 +58,7 @@ const parse = <T>(s: string) => {
  * anything else that fails throws remctl's own words. Read-after-write lags about 2 s: never verify with a read at once.
  * Killed after a minute (exec's default), so a stuck Reminders host cannot hold the queue.
  */
-async function remctl<T = Record<string, unknown>>(args: string[]) {
+export async function remctl<T = Record<string, unknown>>(args: string[]) {
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },
@@ -227,7 +228,7 @@ export type Asked = z.infer<typeof Asked>;
 
 interface Act {
   change: Change;
-  instruction: Action["instruction"];
+  instruction: Instruction;
   madeBy: Action["madeBy"];
   why: string;
 }
@@ -252,6 +253,11 @@ const recorded = async (id: string) =>
  */
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
+  if (c.list === BOARD || (c.target && (await info(c.target)).list === BOARD)) {
+    throw new Error(
+      `the list ${BOARD} is Atlas's board: change a task with \`task\``
+    );
+  }
   const id = actionId(instruction.ref, c.kind, c.title);
   const old = await recorded(id);
   if (old) {
@@ -312,66 +318,6 @@ export function actAsked(
   madeBy: "connector" | "session"
 ) {
   return act({ change, instruction: requested(madeBy, said), madeBy, why });
-}
-
-/** An ask's words are clipped so its event stays far under the 256 KiB a webhook may carry; Atlas fetches the rest. */
-const ASK_MAX = 50_000;
-/** Atlas's board: the Reminders list where each ask gets its reminder, and Atlas's ledger of what it owes him. */
-export const BOARD = "Atlas";
-/** "hey Atlas": the two words in this order, whatever the case and the punctuation around or between them. */
-export const WAKE = /\bhey\W+atlas\b/i;
-/** Everything up to the wake and the spaces and punctuation after it. */
-const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
-
-/** An ask's reminder on the board: his words after the wake (all of them from a session), the ask id and his words in the notes. */
-export function card(id: string, quote: string, confidence: unknown): Change {
-  return {
-    kind: "add",
-    list: BOARD,
-    notes: clip(`${id}\n${quote}`, 2000),
-    title: `Atlas${confidence === "low" ? " (to confirm)" : ""}: ${clip(quote.replace(TO_WAKE, "") || quote, 80)}`,
-  };
-}
-
-/**
- * Records one ask for Atlas (the watcher delivers it): his words, where they are (`ref`: the wake turn, or the session)
- * and `after` (`confidence`, and for speech its `conversation` and `turns`). Its reminder goes on the board first,
- * through `act`, and the ask keeps its `target` as `after.reminder` (none when the add failed: that was emailed to him).
- * The same ref asks once: the old record comes back.
- */
-export async function ask(
-  instruction: Action["instruction"],
-  after: Action["after"],
-  madeBy: "session" | "watch",
-  why: string
-) {
-  const id = actionId(instruction.ref, "ask", "");
-  const old = await recorded(id);
-  if (old) {
-    return old;
-  }
-  const said = { ...instruction, quote: clip(instruction.quote, ASK_MAX) };
-  const board = await act({
-    change: card(id, said.quote, after.confidence),
-    instruction: said,
-    madeBy,
-    why: `on Atlas's board for ${id}`,
-  });
-  const action: Action = {
-    after:
-      board.result === "failed" ? after : { ...after, reminder: board.target },
-    at: new Date().toISOString(),
-    id,
-    instruction: said,
-    kind: "ask",
-    madeBy,
-    result: "ok",
-    schemaVersion: 1,
-    target: "atlas",
-    why,
-  };
-  await appendJsonl(ACTIONS, Action, [action]);
-  return action;
 }
 
 interface Reminder {

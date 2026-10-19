@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -132,7 +133,7 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
 });
 
-test("tools/list: twelve read-only tools; `correct` asks for approval, `reminders` writes but undoes, so Atlas runs unattended", async () => {
+test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders` and `task` write but are not destructive, so Atlas runs unattended", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -153,8 +154,10 @@ test("tools/list: twelve read-only tools; `correct` asks for approval, `reminder
     "runs",
     "search",
     "status",
+    "task",
+    "tasks",
   ]);
-  const writes = ["correct", "reminders"];
+  const writes = ["correct", "reminders", "task"];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
@@ -255,7 +258,6 @@ test("server/discover offers events and events/list one event, ask; a subscribe 
     "at",
     "confidence",
     "id",
-    "playbook",
     "quote",
     "ref",
   ]);
@@ -274,13 +276,16 @@ test("server/discover offers events and events/list one event, ask; a subscribe 
   expect(res.status).toBe(401);
 });
 
-test("the server is named Life and carries its icons", async () => {
+test("the server is named Life, carries its icons, and its instructions end with Atlas's playbook", async () => {
   const { json } = await rpc(await token(), "initialize", {
     capabilities: {},
     clientInfo: { name: "test", version: "1" },
     protocolVersion: "2025-06-18",
   });
   expect(json.result.serverInfo).toMatchObject({ name: "Life", title: "Life" });
+  expect(json.result.instructions).toEndWith(
+    readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
+  );
   expect(
     json.result.serverInfo.icons.map((i: { src: string }) => i.src)
   ).toEqual([

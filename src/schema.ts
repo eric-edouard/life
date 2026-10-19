@@ -100,8 +100,10 @@ export type MadeBy = z.infer<typeof MadeBy>;
 /**
  * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
- * for Atlas (`kind` ask, `target` atlas) has `after` {confidence, conversation?, turns?}.
+ * for Atlas (`kind` ask, `target` atlas) has `after` {confidence, conversation?, turns?}: it is a task (src/tasks.ts),
+ * whose `TASK_LINES` have no `instruction` and its id as `target`: Atlas's updates, Life's nudges, his steers.
  */
+export const TASK_LINES = ["update", "nudge", "steer"] as const;
 export const Action = z
   .object({
     after: z.record(z.string(), z.unknown()),
@@ -112,14 +114,23 @@ export const Action = z
     id: z.string().regex(/^act_[0-9a-f]{12}$/),
     instruction: z
       .object({ at: isoDateTime, quote: z.string(), ref: z.string() })
-      .strict(),
+      .strict()
+      .optional(),
     // "instinct": an email to Instinct, until 19 Oct.
-    kind: z.enum(["add", "edit", "done", "remove", "ask", "instinct"]),
+    kind: z.enum([
+      "add",
+      "edit",
+      "done",
+      "remove",
+      "ask",
+      "instinct",
+      ...TASK_LINES,
+    ]),
     // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": "hey Atlas" heard in his speech.
     madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
     result: z.enum(["ok", "failed", "duplicate"]),
     schemaVersion: z.literal(1),
-    // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask) or "mailto:<address>" (Instinct, until 19 Oct).
+    // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask), a task's id (its lines) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
     // Until 19 Oct, for a request heard in his speech: where the time went (spoke = instruction.at).
     timing: z
@@ -135,6 +146,7 @@ export const Action = z
   })
   .strict();
 export type Action = z.infer<typeof Action>;
+export type Instruction = NonNullable<Action["instruction"]>;
 
 /** Where a unit or an observation comes from. */
 const SourceName = z.enum([
