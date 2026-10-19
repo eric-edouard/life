@@ -7,7 +7,7 @@ import type { describeFiles } from "./files";
 import type { moments } from "./moments";
 import type { pages } from "./pages";
 import type { mapRepos } from "./repos";
-import { count, time } from "./units";
+import { count, localTime, time } from "./units";
 import { localDate, when } from "./zones";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
@@ -42,7 +42,7 @@ export interface Night {
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: midday runs' included. */
   retired: number;
-  /** The watcher's health (`readHealth`): the night reads lifelog's units from its store as it stands. */
+  /** The watcher's health (`readHealth`) when the night read its store, as it stood. */
   watcher: Health | null;
 }
 
@@ -109,7 +109,7 @@ export function successReport(day: string, ms: number, n: Night) {
       notes: [
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
         `Verdicts agree with your labels ${percent(a.agreement)} of the time (${a.labeled} labels)`,
-        `Lifelog: ${n.watcher && polling(n.watcher) ? "the watcher is polling" : `the watcher is NOT POLLING (last good poll ${n.watcher?.lastOkAt ? time(n.watcher.lastOkAt) : "never"}), so its store, read as it stands, may lag`}`,
+        `Lifelog: ${n.watcher && polling(n.watcher) ? "the watcher is polling" : `the watcher is NOT POLLING (last good poll ${n.watcher?.lastOkAt ? localTime(n.watcher.lastOkAt) : "never"}), so its store, read as it stands, may lag`}`,
         `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.backup,

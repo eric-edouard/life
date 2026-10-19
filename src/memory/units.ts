@@ -621,6 +621,8 @@ export async function writeUnits(dates: string[], units: Unit[]) {
  * Makes the lifelog units in memory/units/ the ones the store gives (what the watcher does after a page). A day's file
  * is rewritten only when its lifelog units differ; other sources' units in it stay. Returns how many units were built,
  * changed and removed.
+ * ponytail: `gather` (moments) applies the `duplicate` rule to the window's units of every source, this to all lifelog
+ * units, so a lifelog unit repeating one from before the window may flip between the two writers; one writer settles it.
  */
 export async function syncLifelogUnits(store: Store) {
   const truth = await loadTruth();

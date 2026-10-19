@@ -131,6 +131,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   the model, and the only `node` on launchd's PATH is an old x86_64 one in `/usr/local/bin` (so `scripts/check.ts`
   runs its npm tools with `bun x --bun`).
 - Lifelog units come from the store `bun life watch` keeps (`derived/watch/`, always on; `bun life status`), one per chapter id.
+  Only the watcher calls `poll`: a page folded in anywhere else would never be heard (#5).
   When a commit changes `src/` or `prompts/` (`codeAt`), the watcher exits once no hearing is pending, the archive
   after its pass, and launchd restarts each on the new code.
 - The watcher also hears "hey Atlas" (`hear`) and delivers the asks (`deliver`, `derived/events.json`, mode 600: the
