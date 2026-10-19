@@ -124,7 +124,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 ## Gotchas
 
-- `bun life memory nightly` is started every 30 min by launchd and a guard (`derived/memory/nightly.json`) runs it once a day after 02:00, up to 3 tries; run it by hand with `--force`. The same tick runs `bun life memory midday` at the first tick after 13:00 and after 19:00 (the moments of today, extract of its closed lifelog conversations, then the index; no pages, commit or email, a failure only logs; the nightly commits and its report counts what the midday runs found). Everything looks back 7 days. A failed call or an unreadable source fails the whole night: non-zero
+- `bun life memory nightly` is started every 30 min by launchd and a guard (`derived/memory/nightly.json`) runs it once a day after 02:00, up to 3 tries; run it by hand with `--force`. The same tick runs `bun life memory midday` at the first tick after 13:00 and after 19:00 (the moments of today, extract of its closed lifelog conversations, then the index; no pages, commit or email, a failure only logs; the nightly commits and its report counts what the midday runs found), and the backup once the night is done (`backupDue`, its tries in `derived/memory/backup.json`; the snapshot's outcome stays in `derived/backup.json`). Everything looks back 7 days. A failed call or an unreadable source fails the whole night: non-zero
   exit, nothing committed, and a failure email after the 3rd failed try. Its Actions section and the files step
   (`describeFiles`: a failed call leaves its files tags until the next run) never fail the night.
 - Codex is pinned in `package.json` and run as its native binary, because the other `codex` installs on this Mac reject

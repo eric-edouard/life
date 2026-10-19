@@ -99,8 +99,13 @@ export async function nightly(days: number, force = false) {
   ) {
     return code;
   }
-  const backedUp = await backup();
-  recordState(day, backedUp === 0, "backup");
+  // Recorded even when it throws, so a day never tries more than 3 times.
+  let backedUp = 1;
+  try {
+    backedUp = await backup();
+  } finally {
+    recordState(day, backedUp === 0, "backup");
+  }
   return Math.max(code, backedUp);
 }
 
