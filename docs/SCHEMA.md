@@ -9,7 +9,7 @@ which model and which prompt version (`prompts/<name>.md` in the code repo) did 
 
 The raw material stays in its own app (lifelog, Messages, Beeper, Mail). These files hold ids, refs, hashes,
 metadata, lifelog's own chapter summaries, short model verdicts and, in observations, short verbatim quotes; never
-whole transcripts or message bodies.
+whole transcripts or message bodies (but an ask's words, `actions.jsonl`).
 
 ## Words used below
 
@@ -231,8 +231,8 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
 (`src/tasks.ts`: his asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
-- `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split's
-  `ref` is its parent's id): the same words act or ask once; a failed try may rerun.
+- `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
+  parent's id instead of `ref`): the same words act or ask once; a failed try may rerun.
 - `instruction`: his words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
   act` or `ask`) or `connector:<at>` (a chat; for a task Atlas made, the instant he sent the message). `at`: when he said it.
 - `kind`: `add`, `edit`, `done`, `remove`, `ask`. A task's own lines,
@@ -243,7 +243,7 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
   `notes`, `steps` {title: done}, or `deleted`; and `note`, his new note lines). Id: `act_` + 12 hex over
   `<task>@<at> | kind`.
 - `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask) or a task's id (its lines).
-  `before` / `after`: the reminder's fields before, and what was written; never an email body or a transcript. An ask's
+  `before` / `after`: the reminder's fields before, and what was written; never a transcript. An ask's
   `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker), and for speech `conversation`
   and `turns` (the turn numbers, as `fetch --from-turn` counts them); for a task Atlas made, `title` (one part of
   his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats).

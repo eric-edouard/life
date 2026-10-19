@@ -33,14 +33,13 @@ When he asks you to change a reminder, use `bun life act '<json>'` (kinds, field
 `src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why.
 `act` refuses an add whose title an open reminder has (`duplicateOf`, every caller), and a timed `due` always alerts
 at that time. Deep work on his life is Atlas's, his ChatGPT agent: hand it over with `bun life ask '<his words>'`.
-Life no longer acts on what it hears: he says "hey Atlas, …" and Atlas gets the ask as a task (`docs/atlas.md`).
 
 ## Answering about his life
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
 - `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (each hit gives a conversation id and a turn) and the chat messages (90 days) and note versions (any age) holding all the words (newest 100, two around each; a long one as its lines holding a word).
-- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog and never stored; chat and mail units from the archive).
+- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
 - `day <YYYY-MM-DD>` (what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name]` (the last moments with them too; `person me`: his own page, his goals first, then his views, health and what he's dealing with; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers), `area <name>`, `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
 - `repos [project|area|repo]` (CLI only, not a connector tool): his code repos by project, where each is and the last 30 days of commits; his map is `Project.repos` in `truth/`, Life's guesses are marked inferred. Read a project's first repo (its main entry point) before working in it. Which mailbox sends what: `~/Work/CLAUDE.md`. Commits are also units (`source git`, one per repo and day): `search`, `day` and `fetch` show them.
@@ -68,7 +67,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
-  inherits its words; never a task without his words. It is claimed in the same call, so it sends no `ask` event.
+  inherits its words; never a task without his words. It is claimed in the same call, so it sends no `ask` event. An ask line's
+  `instruction.quote` keeps his words whole (clipped at 50,000 characters): the one place memory stores more than a short quote of his speech.
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
   `update`s through the connector's `task` (the write rules are `refusal`, behind the playbook's seal in `written`; one
@@ -76,7 +76,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   rule: past its deadline, an open one 30 min after it was recorded; 30 min apart, only after the last was delivered,
   until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
   `ask` events with `nudge` or `steer` (one event name: a second would replace the subscription). Task lines stay out of
-  the Actions section and `day`; the nightly lists every open task.
+  the Actions section and `day`; the nightly lists every open task and those closed in the last day.
 - **The board, his Reminders list `Atlas`, is a projection of the ledger** (`src/board.ts`, `tick`, each minute in the
   watcher): it writes no ledger line but his steers and never goes through `act`. An item is found by the task id on
   its notes' first line. Life owns its notes, section and the subtasks made from Atlas's `steps` (added when missing,

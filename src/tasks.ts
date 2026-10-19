@@ -8,7 +8,7 @@ import { clip } from "./memory/units";
 import { Action, type Instruction, type TASK_LINES } from "./schema";
 import { ROOT } from "./truth";
 
-// Atlas's tasks: each ask (his "hey Atlas", or `bun life ask`) is a task in memory/actions.jsonl until Atlas closes it
+// Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
 // done or dropped. Its own lines: Atlas's updates (the connector's `task`), Life's nudges and his steers (src/board.ts).
 
 const MIN = 60_000;
