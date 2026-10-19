@@ -28,10 +28,11 @@ test("the guard runs only after 02:00, once a day, three tries at most", () => {
   expect(decide(5, day, st("ok", 0, "2026-10-14"))).toBe("run");
 });
 
-test("the backup is due once the night is done for the day, once a day, three tries at most", () => {
+test("the backup is due once the night is done for the day or from 06:00, once a day, three tries at most", () => {
   expect(backupDue(1, day, undefined, undefined)).toBe(false);
   expect(backupDue(3, day, undefined, undefined)).toBe(false); // the night has not run
   expect(backupDue(3, day, st("failed", 1), undefined)).toBe(false); // the night retries first
+  expect(backupDue(6, day, undefined, undefined)).toBe(true); // the night never finished: back up anyway
   expect(backupDue(3, day, st("ok"), undefined)).toBe(true);
   expect(backupDue(3, day, st("failed", 3), undefined)).toBe(true); // the night gave up: back up anyway
   expect(backupDue(3, day, st("ok"), st("ok"))).toBe(false);
