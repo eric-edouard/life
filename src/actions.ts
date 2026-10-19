@@ -1,13 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import {
-  ACTIONS,
-  appendJsonl,
-  digest,
-  json,
-  readActions,
-} from "./memory/ledger";
+import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
 import { exec } from "./proc";
@@ -51,6 +45,14 @@ export const Change = z.object({
 export type Change = z.infer<typeof Change>;
 type Done = Pick<Action, "after" | "before" | "error" | "target">;
 
+const parse = <T>(s: string) => {
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    return {} as T;
+  }
+};
+
 /**
  * One remctl call (`args[0]` is the command), its JSON. A partial add (created, a private step failed) comes back too;
  * anything else that fails throws remctl's own words. Read-after-write lags about 2 s: never verify with a read at once.
@@ -61,7 +63,7 @@ export async function remctl<T = Record<string, unknown>>(args: string[]) {
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },
   });
-  const out = json<T & { status?: string }>(r.stdout);
+  const out = parse<T & { status?: string }>(r.stdout);
   if (r.code === 0 || out.status === "partial") {
     return out;
   }

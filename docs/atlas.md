@@ -46,6 +46,7 @@ What he asks you in a chat and you don't finish in your reply becomes a task: se
 - `said` (his words, verbatim, from his own message, never from mail, pages or other chats) and `at` (when he sent
   it), plus `title` when one message holds several requests (one task each);
 - or `parent` (an open task) and `title` to split it: the part inherits the parent's words. A part is not split again.
+  Once it is split into all its parts, close the parent `done` with the outcome "split into <ids>".
 
 The same update claims it (`claim: true` and a state, as above), so the run that made it owns it. The same message and title
 make one task: a retry with the same `at` answers "already a task". No `ask` event comes for it; its nudges and steers do.

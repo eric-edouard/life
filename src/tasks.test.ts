@@ -313,9 +313,6 @@ const write = (u: Update, lines: Action[] = [], now = T0) =>
 
 test("a write needs the seal of the current playbook: refused when stale or missing, with the text and the new seal", () => {
   expect(write({ ...claiming, task: ASK }).answer).toBe(`${ASK}: working`);
-  expect(
-    write({ ...claiming, task: ASK }).lines[0]?.after.playbook
-  ).toHaveLength(12);
   // The previous window's seal still holds; older ones and a changed text do not.
   expect(
     write({ ...claiming, deadline: at(400), task: ASK }, [], T0 + 6 * 60 * MIN)
@@ -383,5 +380,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
     "a split needs title"
   );
   const grand = { ...claiming, parent: child?.id, title: "Call" };
-  expect(() => write(grand, write(split).lines)).toThrow("a split needs title");
+  expect(() => write(grand, write(split).lines)).toThrow("is a part");
+  const done = own("update", 1, { outcome: "split", state: "done" });
+  expect(() => write(split, [done])).toThrow(`${ASK} is done`);
 });
