@@ -67,7 +67,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   recorded with `bun life memory correct` (`memory/corrections.jsonl`); conflicts between observations are settled by
   extraction, from the moment's evidence, and recorded as supersessions.
 - **Connector** (`src/mcp.ts`, `https://life.ericedouard.com/mcp`): Life's one MCP server for Claude and ChatGPT, the CLI's
-  read functions as seven tools, four JSON reads for a dashboard (`status`, `runs`, `changes`, `claim`: `docs/dashboard.md`), plus `correct` and `reminders` (annotated so clients ask first), and one MCP event, `ask`. The watcher serves it on 127.0.0.1:46200 (`serveConnector`, `src/server.ts`), reached through
+  read functions as seven tools, four JSON reads for a dashboard (`status`, `runs`, `changes`, `claim`: `docs/dashboard.md`), plus `tasks`, `open_reminders`, `correct` (annotated so clients ask first), `reminders` and `task` (writes, not destructive: Atlas uses them unattended), and one MCP event, `ask`. The watcher serves it on 127.0.0.1:46200 (`serveConnector`, `src/server.ts`), reached through
   the Cloudflare tunnel (`~/.cloudflared/config.yml`, proxied CNAME `life`). The Pendant's double press "Ask Life" and its
   Telegram answers were removed on 15 Oct: the connector replaces them. Its rules are in AGENTS.md; auth, tools and the wave icon are in the code,
   and in `derived/log` each call is an `mcp.call` (who asked, the arguments, what surfaced: `tool` in `src/mcp.ts`), each
@@ -85,7 +85,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   through `~/bin/remctl`. A failed action is emailed at once with his words. Until 19 Oct a model chain heard requests
   in his speech and acted (`intent.ts`, prompts `intent-screen.v2` and `intent.v6`:
   the old history in the backup has them); Atlas replaced it.
-- **Atlas** (19 Oct; brief for the owner to paste into his ChatGPT dot: `docs/atlas.md`): his ChatGPT agent, with
+- **Atlas** (19 Oct; its playbook, the connector's instructions and his subscription's automation instructions: `docs/atlas.md`): his ChatGPT agent, with
   Life's connector, its cloud computer and his Mac's terminal. "Hey Atlas" anywhere in one of his turns (`hear.ts`, no
   model) makes an ask: that turn and his following ones until another speaker or a 15 s pause, with the conversation
   and turn numbers; an unattributed turn makes a `low` confidence ask, someone else's none. `bun life ask '<words>'`
@@ -93,6 +93,9 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   (`events.ts`, OpenAI's spec: `events/subscribe` with a verified callback on OpenAI's hosts, Standard Webhooks
   signatures, the ledger line as the replay cursor, `derived/events.json`). Latency is lifelog's: words arrive a
   median 211 s after speech (p90 4.7 h), then 40 s of quiet, then the next loop.
+  Every ask is a task until Atlas closes it done or dropped (`tasks.ts`, its board `board.ts`): Atlas reports with `task`, Life nudges it
+  past a deadline and shows every task on the Reminders list `Atlas` (made 19 Oct, with its sections), where his own
+  changes steer Atlas. Rules and states: AGENTS.md and the playbook.
 
 ## Evals
 
@@ -138,7 +141,7 @@ a moment.
 - **Actions, still open:** the connector approval test in Claude, and his rounds on the Reminders structure (Life reads
   lists and sections at run time, so no code waits on them).
 - **Atlas, still open:** his test that a scheduled Atlas run can use the Mac with no approval prompt, then: rescan the
-  connector in ChatGPT, paste `docs/atlas.md` into the dot, ask it to subscribe to `ask`, and `bun life ask "run date
+  connector in ChatGPT (for `tasks`, `task`, `open_reminders` and the new instructions), set `docs/atlas.md` as the `ask` subscription's automation instructions, ask it to subscribe to `ask`, and `bun life ask "run date
   on my Mac and message me the result"`. Not built: tagging what Atlas sends from his accounts (read back as his words),
   "Atlas" in lifelog's transcription vocabulary and better speaker ids (lifelog's session), a mail fallback if MCP
   Events fail on his plan.

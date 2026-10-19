@@ -82,6 +82,7 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
 | `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line | (`record.error` starting `partial:` on an ok add that lost a field) |
 | `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech |
+| `action.update` / `action.nudge` / `action.steer` | a task's line in `actions.jsonl` (`record.target`: the task) | `record.after` (`docs/SCHEMA.md`) |
 | `rating.true` / `rating.false` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 

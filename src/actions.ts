@@ -3,16 +3,18 @@ import { join } from "node:path";
 import { z } from "zod";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
-import { clip, normalize } from "./memory/units";
+import { normalize } from "./memory/units";
 import { exec } from "./proc";
-import { Action } from "./schema";
+import { Action, type Instruction } from "./schema";
 
-// The only code that writes outside Life, always on the owner's clear request: Apple Reminders through remctl (its
-// signed host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
+// The only code that writes outside Life on the owner's clear request: Apple Reminders through remctl (its signed
+// host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
 // by email when it failed. Nothing here reads his words: the callers (the CLI, the connector) decide that he asked.
-// The ledger also holds his asks for Atlas (`ask`), which the watcher delivers as MCP events (src/events.ts).
+// The ledger also holds Atlas's tasks (src/tasks.ts), whose board, the list `BOARD`, no `act` may touch.
 
 const REMCTL = join(homedir(), "bin", "remctl");
+/** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
+export const BOARD = "Atlas";
 /** How long a list's own sorter takes to place a new reminder (read-after-write lags about 2 s). */
 const SORTER_MS = 3000;
 
@@ -56,7 +58,7 @@ const parse = <T>(s: string) => {
  * anything else that fails throws remctl's own words. Read-after-write lags about 2 s: never verify with a read at once.
  * Killed after a minute (exec's default), so a stuck Reminders host cannot hold the queue.
  */
-async function remctl<T = Record<string, unknown>>(args: string[]) {
+export async function remctl<T = Record<string, unknown>>(args: string[]) {
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },
@@ -135,13 +137,13 @@ async function info(target: number | undefined) {
   return Object.fromEntries(KEEP.flatMap((k) => (k in r ? [[k, r[k]]] : [])));
 }
 
-const partial = (r: { status?: string; message?: unknown; error?: unknown }) =>
+export const partial = (r: Record<string, unknown>) =>
   r.status === "partial"
     ? `partial: ${r.message ?? r.error ?? "a private step failed"}`
     : undefined;
 
 /** A new reminder. */
-async function add(c: Change): Promise<Done> {
+export async function add(c: Change): Promise<Done> {
   const { priv, pub } = reminderArgs(c);
   const r = await remctl([
     "add",
@@ -226,7 +228,7 @@ export type Asked = z.infer<typeof Asked>;
 
 interface Act {
   change: Change;
-  instruction: Action["instruction"];
+  instruction: Instruction;
   madeBy: Action["madeBy"];
   why: string;
 }
@@ -241,7 +243,7 @@ export function duplicateOf(c: Change, open?: Reminder[]) {
 }
 
 /** The record of an action already done (or asked) with this id: the same words act once, unless that try failed. */
-const recorded = async (id: string) =>
+export const recorded = async (id: string) =>
   (await readActions()).find((x) => x.id === id && x.result !== "failed");
 
 /**
@@ -251,6 +253,11 @@ const recorded = async (id: string) =>
  */
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
+  // Refused before anything is recorded; a target it cannot read fails as usual, below.
+  const on = c.target && (await info(c.target).catch(() => undefined))?.list;
+  if (c.list === BOARD || on === BOARD) {
+    throw new Error(`the list ${BOARD} is Atlas's board: use \`task\``);
+  }
   const id = actionId(instruction.ref, c.kind, c.title);
   const old = await recorded(id);
   if (old) {
@@ -313,52 +320,24 @@ export function actAsked(
   return act({ change, instruction: requested(madeBy, said), madeBy, why });
 }
 
-/** An ask's words are clipped so its event stays far under the 256 KiB a webhook may carry; Atlas fetches the rest. */
-const ASK_MAX = 50_000;
-
-/**
- * Records one ask for Atlas (the watcher delivers it): his words, where they are (`ref`: the wake turn, or the session)
- * and `after` (`confidence`, and for speech its `conversation` and `turns`). The same ref asks once: the old record
- * comes back.
- */
-export async function ask(
-  instruction: Action["instruction"],
-  after: Action["after"],
-  madeBy: "session" | "watch",
-  why: string
-) {
-  const id = actionId(instruction.ref, "ask", "");
-  const old = await recorded(id);
-  if (old) {
-    return old;
-  }
-  const action: Action = {
-    after,
-    at: new Date().toISOString(),
-    id,
-    instruction: { ...instruction, quote: clip(instruction.quote, ASK_MAX) },
-    kind: "ask",
-    madeBy,
-    result: "ok",
-    schemaVersion: 1,
-    target: "atlas",
-    why,
-  };
-  await appendJsonl(ACTIONS, Action, [action]);
-  return action;
-}
-
-interface Reminder {
+/** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */
+export interface Reminder {
+  completed: boolean;
+  dueDate?: string;
   id: number;
+  notes?: string;
+  section?: string;
   title: string;
 }
 
-/** Every open top-level reminder: what an add's title is checked against. */
-async function openReminders() {
-  const lists = await remctl<{ id: number; isGroup: boolean }[]>(["lists"]);
+/** Every open top-level reminder, of one list or all: what an add's title is checked against, and the connector's `open_reminders`. */
+export async function openReminders(list?: string) {
+  const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
+    ["lists"]
+  );
   const open = await Promise.all(
     lists
-      .filter((l) => !l.isGroup)
+      .filter((l) => !l.isGroup && (list === undefined || l.title === list))
       .map((l) => remctl<Reminder[]>(["show", "--list-id", `${l.id}`]))
   );
   return open.flat();

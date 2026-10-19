@@ -49,14 +49,18 @@ const line = (over: Parameters<typeof action>[0]) =>
   JSON.stringify(action(over));
 const ask = (id: string) =>
   line({
-    after: { confidence: "low", conversation: "c1", turns: [3, 4] },
+    after: {
+      confidence: "low",
+      conversation: "c1",
+      turns: [3, 4],
+    },
     id,
     kind: "ask",
     madeBy: "watch",
     target: "atlas",
   });
 
-test("the replay cursor is the ledger line after each ask; other actions are passed over", () => {
+test("the replay cursor is the ledger line after each ask, carrying data only; other actions are passed over", () => {
   const lines = [
     line({}),
     ask("act_00000000000a"),
@@ -119,4 +123,27 @@ test("a delivery moves on after a 2xx or a 413, retries others with a growing pa
     delivered: 2,
   });
   expect(settle(s, 410, 2, now)).toEqual({ attempts: 0, delivered: 1 });
+});
+
+test("a nudge or a steer goes out as its task's ask, with its own event id and the nudge or steer", () => {
+  const nudge = line({
+    after: { why: "not claimed 30 min after the ask" },
+    at: "2026-10-15T10:20:00.000Z",
+    id: "act_00000000000c",
+    instruction: undefined,
+    kind: "nudge",
+    madeBy: "watch",
+    target: "act_00000000000a",
+  });
+  const event = nextEvent([ask("act_00000000000a"), nudge], 1)?.event;
+  expect(event?.eventId).toBe("act_00000000000c");
+  expect(event?.timestamp).toBe("2026-10-15T10:20:00.000Z");
+  expect(event?.data).toMatchObject({
+    id: "act_00000000000a",
+    nudge: {
+      task: "act_00000000000a",
+      why: "not claimed 30 min after the ask",
+    },
+    quote: "write that down in the to-dos",
+  });
 });
