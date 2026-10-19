@@ -1,0 +1,235 @@
+import { Database } from "bun:sqlite";
+import { expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  emlxPart,
+  emlxSnippet,
+  mailAccounts,
+  mailRoot,
+  readMail,
+} from "./mail";
+
+const emlx = (message: string) => {
+  const bytes = Buffer.from(message.replace(/\n/g, "\r\n"), "utf8");
+  return Buffer.concat([
+    Buffer.from(`${bytes.length}\n`),
+    bytes,
+    Buffer.from('<?xml version="1.0"?><plist><dict/></plist>'),
+  ]);
+};
+
+const ALTERNATIVE = `From: Ana <ana@example.com>
+Subject: Devis
+Content-Type: multipart/alternative; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Bonjour, voici le devis pour la cuisine. Ca co=C3=BBte 1 200 =E2=82=AC, livr=
+=C3=A9 lundi.
+--b1
+Content-Type: text/html; charset="utf-8"
+
+<p>HTML version</p>
+--b1--
+`;
+
+const HTML_ONLY = `Subject: Receipt
+Content-Type: multipart/mixed; boundary=outer
+
+--outer
+Content-Type: multipart/alternative; boundary=inner
+
+--inner
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: BASE64
+
+--inner
+Content-Type: TEXT/HTML; charset=utf-8
+Content-Transfer-Encoding: BASE64
+
+${Buffer.from("<html><head><style>p{color:red}</style></head><body><p>Paid&nbsp;&amp; done</p><p>Thanks</p></body></html>").toString("base64")}
+--inner--
+--outer
+Content-Type: application/zip
+Content-Disposition: attachment; filename=a.zip
+Content-Transfer-Encoding: base64
+
+UEsDBA==
+--outer--
+`;
+
+// A PDF inside the .emlx, a photo whose name is RFC 2047-encoded that a partial .emlx left out (Mail keeps it in its
+// Attachments folder), and two names RFC 2231 wrote: percent-encoded, and split in two.
+const WITH_FILES = `Subject: Plans
+Content-Type: multipart/mixed; boundary="m"
+
+--m
+Content-Type: text/plain; charset="utf-8"
+
+Les plans.
+--m
+Content-Type: application/pdf; name="plan.pdf"
+Content-Disposition: attachment; filename="plan.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0=
+--m
+Content-Type: image/jpeg; name="=?UTF-8?Q?vue_=C3=A9t=C3=A9.jpg?="
+Content-Disposition: inline; filename="=?UTF-8?Q?vue_=C3=A9t=C3=A9.jpg?="
+Content-Transfer-Encoding: base64
+
+--m
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename*=utf-8''R%C3%A9cap%20Commande.pdf
+
+%PDF
+--m
+Content-Type: application/pdf
+Content-Disposition: attachment; filename*0="Devis_cuisine_";
+ filename*1="final.pdf"
+
+%PDF
+--m--
+`;
+
+test("text/plain is preferred and quoted-printable decoded", () => {
+  expect(emlxSnippet(emlx(ALTERNATIVE))).toBe(
+    "Bonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
+  );
+});
+
+test("an empty text/plain falls back to stripped base64 HTML", () => {
+  expect(emlxSnippet(emlx(HTML_ONLY))).toBe("Paid & done\nThanks");
+});
+
+test("readMail reads every account, dedupes, skips junk and knows the owner", () => {
+  const base = mkdtempSync(join(tmpdir(), "mail-"));
+  const root = join(base, "V10");
+  mkdirSync(join(root, "MailData"), { recursive: true });
+  const db = new Database(join(root, "MailData", "Envelope Index"));
+  db.run(`create table messages (ROWID integer primary key, global_message_id integer, sender integer,
+            subject_prefix text, subject integer, date_received integer, mailbox integer,
+            deleted integer default 0, conversation_id integer default 0,
+            list_id_hash integer default 0, unsubscribe_type integer)`);
+  db.run("create table subjects (ROWID integer primary key, subject text)");
+  db.run(
+    "create table addresses (ROWID integer primary key, address text, comment text)"
+  );
+  db.run("create table mailboxes (ROWID integer primary key, url text)");
+  db.run("create table labels (message_id integer, mailbox_id integer)");
+  db.run(
+    "create table message_global_data (ROWID integer primary key, message_id_header text)"
+  );
+  const acct = "AAAA-1111";
+  db.run(`insert into mailboxes values (1, 'imap://${acct}/INBOX'),
+            (2, 'imap://${acct}/%5BGmail%5D/Sent%20Mail'), (3, 'imap://${acct}/Junk'),
+            (4, 'imap://${acct}/%5BGmail%5D/All%20Mail')`);
+  db.run("insert into subjects values (1, 'Devis'), (2, 'Big prize')");
+  db.run(
+    "insert into addresses values (1, 'Ana@Example.com', 'Ana'), (2, 'Me@Mine.test', '')"
+  );
+  db.run(
+    "insert into message_global_data values (10, '<abc@example.com>'), (11, null), (14, '<files@example.com>')"
+  );
+  const t = Date.parse("2026-10-09T08:00:00Z") / 1000;
+  db.run(`insert into messages values
+            (1001, 10, 1, null, 1, ${t}, 1, 0, 7, 0, null),
+            (1002, 10, 1, null, 1, ${t}, 4, 0, 7, 0, null),
+            (1003, 11, 2, 'Re: ', 1, ${t + 60}, 4, 0, 7, 0, 2),
+            (1004, 12, 1, null, 2, ${t + 120}, 3, 0, 8, 0, null),
+            (5, 13, 1, null, 1, ${t - 864_000}, 1, 0, 9, 0, null),
+            (1006, 14, 1, null, 2, ${t + 180}, 1, 0, 10, 0, null)`);
+  db.run("insert into labels values (1003, 2)");
+  db.close();
+  const dir = join(root, acct, "INBOX.mbox", "STORE", "Data", "1", "Messages");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "1001.emlx"), emlx(ALTERNATIVE));
+  writeFileSync(join(dir, "1006.emlx"), emlx(WITH_FILES));
+  const saved = join(dir, "..", "Attachments", "1006", "3");
+  mkdirSync(saved, { recursive: true });
+  writeFileSync(join(saved, "vue été.jpg"), "bytes");
+
+  expect(mailRoot(base)).toBe(root);
+  expect(mailAccounts(root, join(base, "none.sqlite"))).toEqual([
+    { addresses: ["me@mine.test"], id: acct, name: acct },
+  ]);
+  const events = readMail(
+    new Date("2026-10-08T00:00:00Z"),
+    root,
+    join(base, "none.sqlite")
+  );
+  expect(events).toEqual([
+    {
+      at: "2026-10-09T08:00:00.000Z",
+      bulk: false,
+      chat: "mail:7",
+      chatName: "Devis",
+      files: [],
+      fromMe: false,
+      id: "mail:abc@example.com",
+      sender: "ana@example.com",
+      source: "mail",
+      text: "Devis\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi.",
+    },
+    {
+      at: "2026-10-09T08:01:00.000Z",
+      bulk: true,
+      chat: "mail:7",
+      chatName: "Devis",
+      files: [],
+      fromMe: true,
+      id: "mail:11",
+      sender: "me@mine.test",
+      source: "mail",
+      text: "Re: Devis",
+    },
+    {
+      at: "2026-10-09T08:03:00.000Z",
+      bulk: false,
+      chat: "mail:10",
+      chatName: "Big prize",
+      files: [
+        {
+          mime: "application/pdf",
+          name: "plan.pdf",
+          path: join(dir, "1006.emlx"),
+          ref: "mail:files@example.com#2",
+        },
+        {
+          mime: "image/jpeg",
+          name: "vue été.jpg",
+          path: join(saved, "vue été.jpg"),
+          ref: "mail:files@example.com#3",
+        },
+        {
+          mime: "application/pdf",
+          name: "Récap Commande.pdf",
+          path: join(dir, "1006.emlx"),
+          ref: "mail:files@example.com#4",
+        },
+        {
+          mime: "application/pdf",
+          name: "Devis_cuisine_final.pdf",
+          path: join(dir, "1006.emlx"),
+          ref: "mail:files@example.com#5",
+        },
+      ],
+      fromMe: false,
+      id: "mail:files@example.com",
+      sender: "ana@example.com",
+      source: "mail",
+      text: "Big prize\nLes plans.",
+    },
+  ]);
+  // A file inside the .emlx is read back by its part number; a part that is not there is nothing.
+  expect(
+    emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#2")?.toString()
+  ).toBe("%PDF-");
+  expect(
+    emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#9")
+  ).toBeUndefined();
+});

@@ -1,0 +1,82 @@
+import { redact } from "../redact";
+import {
+  conversationsBetween,
+  openStore,
+  type Stay,
+  visits,
+  whereAt,
+  withStore,
+} from "../sources/lifelog";
+import { asData } from "./raw";
+import { clip, dayRange, localTime, time } from "./units";
+
+// `bun life memory places`, and the connector's `places`: where the owner was (lifelog's stays, from the iPhone's
+// location history), each stay with the titles of the conversations recorded during it, joined here from Life's store.
+// Coordinates come from the asker: Life does no geocoding.
+
+const MAX = 200;
+const TITLES = 5;
+
+export interface PlacesQuery {
+  /** An ISO instant (the stay at that moment) or a YYYY-MM-DD date (that day's stays). */
+  at?: string;
+  from?: string;
+  latitude?: number;
+  longitude?: number;
+  /** A place name, or part of one. */
+  place?: string;
+  radiusM?: number;
+  to?: string;
+}
+
+const where = (s: Stay) =>
+  `${s.place ?? "unnamed place"} (${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)})`;
+
+/** The stays for a question, newest first; null when it names nothing to look for. */
+export async function placesOf(
+  q: PlacesQuery,
+  read = { visits, where: whereAt },
+  open = openStore
+) {
+  const located = q.latitude !== undefined && q.longitude !== undefined;
+  if (!(q.at || q.place || located)) {
+    return null;
+  }
+  const range = dayRange(q.from, q.to);
+  const stays = (
+    q.at
+      ? await read.where(q.at)
+      : await read.visits({
+          from: range.from,
+          latitude: q.latitude,
+          longitude: q.longitude,
+          place: q.place,
+          radiusM: q.radiusM,
+          to: range.to,
+        })
+  ).slice(0, MAX);
+  const now = new Date().toISOString();
+  return withStore(
+    (store) =>
+      asData([
+        `Stays (${stays.length}${stays.length === MAX ? ", the newest; narrow the dates for more" : ""}; newest first; \`fetch <id>\` for a recorded conversation):`,
+        ...stays.flatMap((s) => {
+          const left = s.leftAt ?? now;
+          const during = conversationsBetween(store, s.arrivedAt, left);
+          return [
+            `- ${localTime(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "now"} ${redact(where(s))}`,
+            ...during
+              .slice(0, TITLES)
+              .map(
+                (c) =>
+                  `    ${c.id} ${time(c.start_at)} ${clip(redact(c.title), 80)}`
+              ),
+            ...(during.length > TITLES
+              ? [`    (${during.length - TITLES} more conversations)`]
+              : []),
+          ];
+        }),
+      ]),
+    open
+  );
+}
