@@ -180,7 +180,7 @@ async function logRefused(
   const invalid =
     answered.result?.isError && words?.startsWith("Input validation error");
   const why =
-    "why" in auth
+    "refusal" in auth
       ? `${auth.refusal}: ${auth.why}`
       : (answered.error?.message ?? (invalid ? words : undefined));
   if (why) {
@@ -462,9 +462,15 @@ export function createMcp(verify: Verify) {
       case "/mcp": {
         const auth = await authorize(req);
         // Only the owner's body is read for the log; a refused one never is.
-        const asked = "why" in auth ? Promise.resolve("") : req.clone().text();
+        const asked =
+          "refusal" in auth
+            ? Promise.resolve("")
+            : req
+                .clone()
+                .text()
+                .catch(() => "");
         const res =
-          "why" in auth
+          "refusal" in auth
             ? denied(auth)
             : await handler.fetch(req, { authInfo: auth });
         // Read from a copy after the answer goes out, so a stream is never held back.

@@ -44,7 +44,12 @@ const askLine = (
   ({
     after,
     at: iso(now),
-    id: actionId(instruction.ref, "ask", `${after.title ?? ""}`),
+    // A split's id comes from its parent, so it never meets its parent's or a sibling's.
+    id: actionId(
+      `${after.parent ?? instruction.ref}`,
+      "ask",
+      `${after.title ?? ""}`
+    ),
     // Clipped so its event stays far under the 256 KiB a webhook may carry; Atlas fetches the rest.
     instruction: { ...instruction, quote: clip(instruction.quote, 50_000) },
     kind: "ask",

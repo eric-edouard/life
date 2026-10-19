@@ -130,6 +130,10 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
     )
   );
   expect(statuses).toEqual(refused.map(([, status]) => status));
+  const expired = (await rpc(await token({}, -60), "tools/list")).res;
+  expect(expired.headers.get("www-authenticate")).toBe(
+    `${CHALLENGE}, error="invalid_token"`
+  );
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
 });
 

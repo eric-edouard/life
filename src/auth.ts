@@ -10,10 +10,6 @@ export const SCOPE = "life:read";
 /** The check page's public client at lifelog (PKCE, no secret), registered once on 19 Oct for /check/callback. */
 export const CHECK_CLIENT = "PycFqBLbqFmixRgErpQfyYLIGNsvHzoQ";
 
-/**
- * Whose a token is: the owner's OAuth client and scopes when lifelog's OAuth server issued it for Life (`life:read`) to the owner, else a
- * `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `invalid` otherwise. The one check behind /mcp and the check page.
- */
 export const NO_TOKEN = "no token";
 const refused = (refusal: "forbidden" | "invalid", why: string) => ({
   refusal,
@@ -21,6 +17,10 @@ const refused = (refusal: "forbidden" | "invalid", why: string) => ({
 });
 export type Refused = ReturnType<typeof refused>;
 
+/**
+ * Whose a token is: the owner's OAuth client and scopes when lifelog's OAuth server issued it for Life (`life:read`) to the owner, else a
+ * `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `invalid` otherwise. The one check behind /mcp and the check page.
+ */
 export function ownerTokens({
   jwks,
   now = Date.now,
