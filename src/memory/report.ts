@@ -287,17 +287,6 @@ export const actionFailedReport = (a: Action) =>
     verdict: "FAILED",
   });
 
-/** An Atlas task that needs him, when its board item could not say so. */
-export const taskAlertReport = (title: string, cause: string, error: string) =>
-  alert(new Date().toISOString(), "Atlas", {
-    failure: { error, step: "the Atlas board" },
-    notes: [cause, "Details: bun life memory day, or the connector's tasks"],
-    preheader: cause.slice(0, 140),
-    stats: [],
-    subject: `${cause.split(":")[0]}: ${title}`,
-    verdict: "NEEDS YOU",
-  });
-
 /** One line saying what an action did and on which of his words: the nightly's Actions section and `day`. */
 export function actionLine(a: Action) {
   const was = a.before?.title ?? a.target;

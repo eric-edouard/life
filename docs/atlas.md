@@ -40,15 +40,18 @@ Every event is `ask`; its `data` is the task: `id`, `quote` (his words), `at`, `
 - **`nudge: {task, why}`**: Life's chase, the task is past its deadline (an unclaimed one 30 min after it was recorded).
   Three unanswered nudges, a `waiting-eric` over an hour, a task open a week, or no live subscription move its item to
   "Needs you" with an alert on his phone.
-- **`steer: {task, changes, note?}`**: he changed the task's item on the board: a tick or untick, a step he added or
-  ticked, his note (`note`, shown on the item as "You: …" until your next update), the title or the due, or `deleted`
-  (Life puts the item back). Decide what he meant. A tick or another ambiguous change: if you can't tell, ask him. Adopt
-  the steps he added into your `steps`. Once a task is done or dropped, its item is no longer watched.
+- **`steer: {task, changes, note?}`**: he changed the task's item on the board. `changes` holds the new values of what
+  he changed: `completed` (a tick or untick), `steps` (every subtask, `{title: done}`: one he added, ticked or
+  removed), `notes` (his new lines are `note`, shown on the item as "You: …" until your next update), `title`, `due`,
+  or `deleted` (Life puts the item back). Decide what he meant. A tick or another ambiguous change: if you can't tell,
+  ask him. Adopt the steps he added into your `steps`, and drop the ones he removed (Life puts back your steps).
+  Once a task is done or dropped, its item is no longer watched.
 
 ## The process, on every run
 
-1. Read `tasks` first (the board: each open task's state, deadline, steps, last note and his unread steers; `tasks`
-   with an `id` gives one task's whole history).
+1. Read `tasks` first (the board: each open task, and those closed in the last day, with its state, deadline, steps,
+   last note and his steers since your last update). A task's whole history: `changes` with types `action.update`,
+   `action.nudge`, `action.steer` (`record.target` is the task).
 2. Handle the steers and the overdue tasks first, then the new ask. Revisit a task on every nudge or steer, but don't
    force every task forward on every event.
 3. After a missed deadline, find out what happened before you redo anything. Never repeat an effect (a mail, a booking,

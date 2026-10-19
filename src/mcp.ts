@@ -25,7 +25,7 @@ import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
-import { board, Update, update } from "./tasks";
+import { taskList, Update, update } from "./tasks";
 import { ROOT } from "./truth";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; the Cloudflare tunnel forwards
@@ -337,16 +337,16 @@ function buildServer() {
   tool(
     server,
     "tasks",
-    "Atlas's board (JSON): each open task (an ask of his) with its state, deadline, steps, last note and his unread steers. With `id`, one task's whole history.",
-    z.object({ id: z.string().optional().describe("A task's id") }),
-    async ({ id }) => board(id)
+    "Atlas's board (JSON): each open task (an ask of his), and those closed in the last day, with its state, deadline, steps, last note and his steers since your last update. A task's whole history: `changes` with types action.update, action.nudge, action.steer.",
+    z.object({}),
+    async () => ({ tasks: taskList() })
   );
   tool(
     server,
     "task",
     "Atlas reports on a task: working (claim: true the first time; deadline at most 24 h ahead, note, on), waiting-eric (question, deadline), done (outcome) or dropped (reason); steps: the full list every time. Refused when the rules say no.",
     Update,
-    update,
+    async (u) => update(u),
     REVERSIBLE
   );
   // The SDK's types predate events; it advertises the capability as given on server/discover.

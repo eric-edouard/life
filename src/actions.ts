@@ -7,15 +7,14 @@ import { normalize } from "./memory/units";
 import { exec } from "./proc";
 import { Action, type Instruction } from "./schema";
 
-// What Life writes outside itself on the owner's clear request: Apple Reminders through remctl (its signed host,
-// `--json`); the tasks' board (src/tasks.ts) is the one other writer, a projection through the same `remctl`. Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
+// The only code that writes outside Life on the owner's clear request: Apple Reminders through remctl (its signed
+// host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
 // by email when it failed. Nothing here reads his words: the callers (the CLI, the connector) decide that he asked.
-// The ledger also holds Atlas's tasks (src/tasks.ts), whose board in the list `BOARD` no `act` may touch.
+// The ledger also holds Atlas's tasks (src/tasks.ts), whose board, the list `BOARD`, no `act` may touch.
 
 const REMCTL = join(homedir(), "bin", "remctl");
-/** Atlas's board: Life's projection of its tasks (src/tasks.ts), never changed through `act`. */
+/** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
 export const BOARD = "Atlas";
-const ON_BOARD = `the list ${BOARD} is Atlas's board: change a task with \`task\``;
 /** How long a list's own sorter takes to place a new reminder (read-after-write lags about 2 s). */
 const SORTER_MS = 3000;
 
@@ -138,7 +137,7 @@ async function info(target: number | undefined) {
   return Object.fromEntries(KEEP.flatMap((k) => (k in r ? [[k, r[k]]] : [])));
 }
 
-const partial = (r: { status?: string; message?: unknown; error?: unknown }) =>
+export const partial = (r: Record<string, unknown>) =>
   r.status === "partial"
     ? `partial: ${r.message ?? r.error ?? "a private step failed"}`
     : undefined;
@@ -235,10 +234,7 @@ interface Act {
 }
 
 /** The open reminder an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. */
-export function duplicateOf(
-  c: Change,
-  open?: Pick<Reminder, "id" | "title">[]
-) {
+export function duplicateOf(c: Change, open?: Reminder[]) {
   const same =
     c.kind === "add"
       ? open?.find((r) => normalize(r.title) === normalize(c.title))
@@ -260,7 +256,7 @@ export async function act(a: Act): Promise<Action> {
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
   const on = c.target && (await info(c.target).catch(() => undefined))?.list;
   if (c.list === BOARD || on === BOARD) {
-    throw new Error(ON_BOARD);
+    throw new Error(`the list ${BOARD} is Atlas's board: use \`task\``);
   }
   const id = actionId(instruction.ref, c.kind, c.title);
   const old = await recorded(id);
@@ -327,11 +323,10 @@ export function actAsked(
 /** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */
 export interface Reminder {
   completed: boolean;
-  displayDate?: string | null;
+  dueDate?: string;
   id: number;
-  list?: string;
-  notes?: string | null;
-  section?: string | null;
+  notes?: string;
+  section?: string;
   title: string;
 }
 
@@ -345,14 +340,7 @@ export async function openReminders(list?: string) {
       .filter((l) => !l.isGroup && (list === undefined || l.title === list))
       .map((l) => remctl<Reminder[]>(["show", "--list-id", `${l.id}`]))
   );
-  return open.flat().map((r) => ({
-    due: r.displayDate,
-    id: r.id,
-    list: r.list,
-    notes: r.notes,
-    section: r.section,
-    title: r.title,
-  }));
+  return open.flat();
 }
 
 /** Whether remctl can act right now (read-only: nothing is written). The problems, none when it is ready. */
