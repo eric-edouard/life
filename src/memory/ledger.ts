@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { appendFile, mkdir, readdir } from "node:fs/promises";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { z } from "zod";
 import {
@@ -84,15 +84,14 @@ export function readJson<T>(path: string): T | undefined {
   }
 }
 
-/** Appends validated rows, one per line. */
-export async function appendJsonl<T>(
-  path: string,
-  schema: z.ZodType<T>,
-  rows: T[]
-) {
+/**
+ * Appends validated rows, one per line. Synchronous, so nothing runs between a read of the file and the line it allows
+ * (an Atlas task's claim).
+ */
+export function appendJsonl<T>(path: string, schema: z.ZodType<T>, rows: T[]) {
   if (rows.length > 0) {
-    await mkdir(join(path, ".."), { recursive: true });
-    await appendFile(
+    mkdirSync(join(path, ".."), { recursive: true });
+    appendFileSync(
       path,
       rows.map((r) => `${JSON.stringify(schema.parse(r))}\n`).join("")
     );

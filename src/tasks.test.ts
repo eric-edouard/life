@@ -218,7 +218,10 @@ test("the board gets Life's fields: notes, section, Atlas's steps added then tic
   const subIds = { "Book visits": 8, "Find three flats": 7 };
   const made = { ...first.look, steps, subIds };
   const second = planOf(want, made, first.look, T0);
-  expect([second.flags, second.add, second.done]).toEqual([[], [], [7]]);
+  expect([second.flags, second.done]).toEqual([[], [7]]);
+  // A step Life added and he removed stays removed.
+  const removed = { ...made, steps: { "Find three flats": false } };
+  expect(planOf(want, removed, second.look, T0).flags).toEqual([]);
   const ticked = second.look;
   expect(planOf(want, ticked, ticked, T0).done).toEqual([]);
   // He is needed: Needs you with a due of now, kept while the cause lasts, cleared when it ends.
@@ -270,7 +273,7 @@ test("his changes are steers, Life's own writes are not, and Life never writes o
   const next = planOf(wantOf(steered, null), his, his, T0);
   expect(wantOf(steered, null).notes).toEndWith("You: ask the agency first");
   expect(next.flags).toEqual([`--notes=${wantOf(steered, null).notes}`]);
-  expect([next.add, next.done, next.reopen]).toEqual([[], [], false]);
+  expect([next.done, next.reopen]).toEqual([[], false]);
   // His tick is not undone, until Life asks him to look.
   expect(planOf(wantOf(steered, "Atlas stuck"), his, his, T0).reopen).toBe(
     true
