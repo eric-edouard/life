@@ -618,26 +618,22 @@ export async function writeUnits(dates: string[], units: Unit[]) {
 }
 
 /**
- * Makes the lifelog units in memory/units/ from `since`'s day on the ones the store gives (what the watcher does after a
- * page, and what the nightly checks). A day's file is rewritten only when its lifelog units differ; other sources'
- * units in it stay. Returns how many units were built, changed and removed.
- * ponytail: the `duplicate` rule sees only units from `since` on, so a unit repeating one from before it may flip
- * between the watcher (everything) and the nightly (its window); the next sync of either settles it.
+ * Makes the lifelog units in memory/units/ the ones the store gives (what the watcher does after a page). A day's file
+ * is rewritten only when its lifelog units differ; other sources' units in it stay. Returns how many units were built,
+ * changed and removed.
+ * ponytail: `gather` (moments) applies the `duplicate` rule to the window's units of every source, this to all lifelog
+ * units, so a lifelog unit repeating one from before the window may flip between the two writers; one writer settles it.
  */
-export async function syncLifelogUnits(store: Store, since = new Date(0)) {
+export async function syncLifelogUnits(store: Store) {
   const truth = await loadTruth();
-  const from = localDate(since.toISOString());
-  // A conversation going at `since` also has chapters of the day before: that day's file is left alone.
   const want = applyRules(
     lifelogUnits(
-      readConversations(store, since, lifelogNames(truth)),
+      readConversations(store, new Date(0), lifelogNames(truth)),
       nameIndex(truth.people)
     )
-  )
-    .map((b) => Unit.parse(b.unit))
-    .filter((u) => u.date >= from);
+  ).map((b) => Unit.parse(b.unit));
   const all = await readUnits();
-  const have = all.filter((u) => u.source === "lifelog" && u.date >= from);
+  const have = all.filter((u) => u.source === "lifelog");
   const json = (units: Unit[]) =>
     new Map(units.map((u) => [u.id, JSON.stringify(u)]));
   const [had, wants] = [json(have), json(want)];

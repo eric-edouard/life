@@ -10,8 +10,7 @@ import { ROOT } from "../truth";
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: conversations, chapter
 // titles and summaries, and for every turn only who spoke and when, never its text) and builds units from that store.
-// The watcher (src/watch.ts) and the nightly (`catchUp`) both go through `poll`: a turn the nightly folds in first is
-// never heard by the watcher (eric-edouard/life#5).
+// Only the watcher (src/watch.ts) calls `poll`: a page folded in anywhere else would never be heard (eric-edouard/life#5).
 
 const WAIT_MARGIN_S = 30;
 
@@ -163,7 +162,7 @@ export function openStore(dir = WATCH) {
   }
   const db = new Database(file);
   db.run("pragma journal_mode = wal");
-  // The watcher and the nightly may poll at the same time.
+  // The watcher writes while the memory steps read.
   db.run("pragma busy_timeout = 5000");
   db.run(`create table if not exists conversations (
     id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
@@ -308,18 +307,6 @@ export async function poll(store: Store, wait: number) {
       conversation: t.conversationId,
     })),
   };
-}
-
-/** Reads the feed to its end. Returns whether anything changed. */
-export async function catchUp(store: Store) {
-  let changed = false;
-  for (let more = true; more; ) {
-    // biome-ignore lint/performance/noAwaitInLoops: sequential cursor paging
-    const page = await poll(store, 0);
-    changed ||= page.changed;
-    ({ more } = page);
-  }
-  return changed;
 }
 
 const nameOf = (
