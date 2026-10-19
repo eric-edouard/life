@@ -100,7 +100,7 @@ export type MadeBy = z.infer<typeof MadeBy>;
 /**
  * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
- * for Atlas (`kind` ask, `target` atlas) has `after` {confidence, conversation?, turns?}: it is a task (src/tasks.ts),
+ * for Atlas (`kind` ask, `target` atlas) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (src/tasks.ts),
  * whose `TASK_LINES` have no `instruction` and its id as `target`: Atlas's updates, Life's nudges, his steers.
  */
 export const TASK_LINES = ["update", "nudge", "steer"] as const;

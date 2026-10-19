@@ -146,4 +146,13 @@ test("a nudge or a steer goes out as its task's ask, with its own event id and t
     },
     quote: "write that down in the to-dos",
   });
+  // A task Atlas made from a chat is not sent back to it as an ask; its nudges are.
+  const own = line({
+    id: "act_00000000000a",
+    kind: "ask",
+    madeBy: "connector",
+    target: "atlas",
+  });
+  expect(nextEvent([own], 0)).toBeNull();
+  expect(nextEvent([own, nudge], 0)?.event.eventId).toBe("act_00000000000c");
 });

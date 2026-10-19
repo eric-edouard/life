@@ -37,20 +37,20 @@ const commands: Record<string, () => Promise<number>> = {
   /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`. */
   archive: () => archiveCommand(process.argv.slice(3)),
   /** Hands work to Atlas from a Claude session: `ask '<his words>'` records an ask, which the watcher delivers. */
-  async ask() {
+  ask() {
     const words = process.argv.slice(3).join(" ").trim();
     if (words.length < 3) {
       console.error("usage: bun life ask '<words>'");
-      return 2;
+      return Promise.resolve(2);
     }
-    const done = await ask(
+    const done = ask(
       requested("session", words),
       { confidence: "high" },
       "session",
       "asked in a Claude session"
     );
     console.log(`${done.id}: ${actionLine(done)}`);
-    return 0;
+    return Promise.resolve(0);
   },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (src/backup.ts). */
   backup,

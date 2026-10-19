@@ -295,7 +295,7 @@ export function actionLine(a: Action) {
     .join(", ");
   const kinds: Partial<Record<Action["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
-    ask: `to Atlas${a.after.confidence === "low" ? " (low confidence)" : ""}`,
+    ask: `to Atlas${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
     done: `done “${was}”`,
     edit: a.after.title
       ? `“${was}” → “${a.after.title}”`

@@ -130,6 +130,10 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
     )
   );
   expect(statuses).toEqual(refused.map(([, status]) => status));
+  const expired = (await rpc(await token({}, -60), "tools/list")).res;
+  expect(expired.headers.get("www-authenticate")).toBe(
+    `${CHALLENGE}, error="invalid_token"`
+  );
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
 });
 
@@ -157,6 +161,14 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
     "task",
     "tasks",
   ]);
+  // Clients see each tool's real schema, though `tool()` validates the arguments itself.
+  const claim = json.result.tools.find(
+    (t: { name: string }) => t.name === "claim"
+  );
+  expect(claim.inputSchema).toMatchObject({
+    properties: { id: { type: "string" } },
+    required: ["id"],
+  });
   const writes = ["correct", "reminders", "task"];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
@@ -215,6 +227,78 @@ test("a call logs who asked, the arguments, and what surfaced without its text",
   });
 });
 
+const logged = () =>
+  linesOf(join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`))
+    .map((l) => JSON.parse(l))
+    .filter((l) => l.kind === "mcp.call");
+
+test("a refused token, invalid arguments and the SDK's own rejections are logged; a request with no token is not", async () => {
+  const last = async (auth: string | null, method: string, params = {}) => {
+    await rpc(auth, method, params);
+    return logged().at(-1);
+  };
+  const bearer = await token();
+  const asker = { agent: "openai-mcp/1.0.0", error: true };
+  expect(
+    await last(bearer, "tools/call", { arguments: { id: 5 }, name: "claim" })
+  ).toMatchObject({ ...asker, client: "chatgpt-client", tool: "claim" });
+  expect(
+    await last(await token({ sub: "someone-else" }), "tools/list")
+  ).toMatchObject({ ...asker, refused: "forbidden: not the owner" });
+  expect((await last(await token({}, -60), "tools/list")).refused).toContain(
+    "exp"
+  );
+  const before = logged().length;
+  await rpc(null, "tools/list");
+  expect(logged()).toHaveLength(before);
+  // A 2026-07-28 call missing its Mcp-Name header is refused by the SDK before any tool.
+  await modern("tools/call", { arguments: {}, name: "claim" });
+  expect(logged().at(-1)?.refused).toContain("name-header-missing");
+});
+
+test("a streamed request (subscriptions/listen) answers at once: nothing waits on its stream", async () => {
+  const method = "subscriptions/listen";
+  const res = await connector.handle(
+    new Request(RESOURCE, {
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method,
+        params: { _meta: META, notifications: {} },
+      }),
+      headers: {
+        accept: "application/json, text/event-stream",
+        authorization: `Bearer ${await token()}`,
+        "content-type": "application/json",
+        "mcp-method": method,
+        "mcp-protocol-version": "2026-07-28",
+      },
+      method: "POST",
+    })
+  );
+  expect(res?.headers.get("content-type")).toContain("text/event-stream");
+  await res?.body?.cancel();
+});
+
+test("tasks hands out the playbook, docs/atlas.md, with its seal; task refuses another seal with both", async () => {
+  const bearer = await token();
+  const { json } = await rpc(bearer, "tools/call", {
+    arguments: {},
+    name: "tasks",
+  });
+  const { playbook, seal } = json.result.structuredContent;
+  expect(playbook).toBe(
+    readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
+  );
+  const refused = await rpc(bearer, "tools/call", {
+    arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
+    name: "task",
+  });
+  const [answer] = refused.json.result.content;
+  expect(answer.text).toContain(seal);
+  expect(answer.text).toContain(playbook);
+});
+
 test("reminders takes no instinct kind and needs his words: refused before anything acts", async () => {
   const bearer = await token();
   const calls = await Promise.all(
@@ -230,19 +314,17 @@ test("reminders takes no instinct kind and needs his words: refused before anyth
   }
 });
 
+const META = {
+  "io.modelcontextprotocol/clientCapabilities": {},
+  "io.modelcontextprotocol/clientInfo": { name: "chatgpt", version: "1" },
+  "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+};
 /** A call as a 2026-07-28 client makes it: the version header and the per-request envelope. */
 const modern = async (method: string, params: object = {}) =>
   rpc(
     await token(),
     method,
-    {
-      ...params,
-      _meta: {
-        "io.modelcontextprotocol/clientCapabilities": {},
-        "io.modelcontextprotocol/clientInfo": { name: "chatgpt", version: "1" },
-        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-      },
-    },
+    { ...params, _meta: META },
     { "mcp-method": method, "mcp-protocol-version": "2026-07-28" }
   );
 
@@ -276,16 +358,18 @@ test("server/discover offers events and events/list one event, ask; a subscribe 
   expect(res.status).toBe(401);
 });
 
-test("the server is named Life, carries its icons, and its instructions end with Atlas's playbook", async () => {
+test("the server is named Life, carries its icons, and its instructions open with the pointer to Atlas's playbook, not a copy", async () => {
   const { json } = await rpc(await token(), "initialize", {
     capabilities: {},
     clientInfo: { name: "test", version: "1" },
     protocolVersion: "2025-06-18",
   });
   expect(json.result.serverInfo).toMatchObject({ name: "Life", title: "Life" });
-  expect(json.result.instructions).toEndWith(
-    readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
+  const { instructions } = json.result;
+  expect(instructions).toStartWith(
+    "Atlas: call `tasks` first; its `playbook` field is your instructions."
   );
+  expect(instructions).not.toContain("# Atlas: the playbook");
   expect(
     json.result.serverInfo.icons.map((i: { src: string }) => i.src)
   ).toEqual([
