@@ -1,10 +1,11 @@
 import { checks } from "../actions";
-import { backupLine } from "../backup";
+import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
 import { extract } from "./extract";
 import {
+  backupDue,
   decide,
   locked,
   lockedSince,
@@ -81,7 +82,8 @@ function coded(day: string, rec: RunRecord) {
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (guard.ts), and
- * only the 3rd failure of a day sends the failure email.
+ * only the 3rd failure of a day sends the failure email. A tick that skips the night runs the midday pass. Then the
+ * daily backup, when it is due (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
   const now = new Date();
@@ -95,11 +97,26 @@ export async function nightly(days: number, force = false) {
   // Each tick is a fresh process: the place to notice he moved (only the Mac's own zone counts, never a TZ variable).
   await locked(() => noteZone(now));
   const day = localDate(now.toISOString());
-  if (!force && decide(now.getHours(), day, readState()) === "skip") {
-    return midday(now);
+  // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
+  const code =
+    !force && decide(now.getHours(), day, readState()) === "skip"
+      ? await midday(now)
+      : ((await locked(() => runNight(days, now, day, force))) ??
+        Number(force));
+  if (
+    force ||
+    !backupDue(now.getHours(), day, readState(), readState("backup"))
+  ) {
+    return code;
   }
-  // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once.
-  return (await locked(() => runNight(days, now, day, force))) ?? Number(force);
+  // Recorded even when it throws, so a day never tries more than 3 times.
+  let backedUp = 1;
+  try {
+    backedUp = await backup();
+  } finally {
+    recordState(day, backedUp === 0, "backup");
+  }
+  return Math.max(code, backedUp);
 }
 
 /**

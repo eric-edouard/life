@@ -94,11 +94,7 @@ const words = (s: string) =>
 
 /** A program's output, or nothing when it failed or is missing (logged): the file stays a tag, and is tried again. */
 async function run(cmd: string[]) {
-  const r = await exec(cmd).catch((e: Error) => ({
-    code: 1,
-    stderr: e.message,
-    stdout: "",
-  }));
+  const r = await exec(cmd);
   if (r.code !== 0) {
     log("file.read", { cmd: cmd[0], error: r.stderr.trim().slice(-200) });
     return;
