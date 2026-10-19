@@ -75,8 +75,14 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
 
-export const readJsonl = <T>(path: string, schema: z.ZodType<T>) =>
-  Promise.resolve(rowsOf(path, schema));
+/** A small JSON state file, or undefined when it is missing or unreadable. */
+export function readJson<T>(path: string): T | undefined {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
 
 /** Appends validated rows, one per line. */
 export async function appendJsonl<T>(
@@ -100,12 +106,8 @@ export const filesIn = async (dir: string, ext = ".jsonl") =>
     .sort();
 
 /** Every `.jsonl` file of a folder, by name. */
-const readFolder = async <T>(dir: string, schema: z.ZodType<T>) => {
-  const files = await filesIn(dir);
-  return (
-    await Promise.all(files.map((n) => readJsonl(join(dir, n), schema)))
-  ).flat();
-};
+const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
+  (await filesIn(dir)).flatMap((n) => rowsOf(join(dir, n), schema));
 
 /** Every unit in memory/units/, oldest day first. */
 export const readUnits = () => readFolder(UNITS, Unit);
@@ -188,8 +190,7 @@ export const retiredBy = (list: Supersession[], current: Set<string>) => {
 /** The owner's answers on the check page: the latest for each claim (null: taken back). */
 export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.claim);
 
-export const readRatings = async () =>
-  latestRatings(await readJsonl(RATINGS, Rating));
+export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
 
 /** The claims his latest answer calls false, as `wrong` corrections: an undo or a later answer lifts one. */
 export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
@@ -204,12 +205,8 @@ export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
     }));
 
 /** What the owner said: memory/corrections.jsonl, then the claims he rated false on the check page (`ratedFalse`). */
-export async function readCorrections(): Promise<Correction[]> {
-  const [said, ratings] = await Promise.all([
-    readJsonl(CORRECTIONS, Correction),
-    readRatings(),
-  ]);
-  return [...said, ...ratedFalse(ratings)];
+export function readCorrections(): Correction[] {
+  return [...rowsOf(CORRECTIONS, Correction), ...ratedFalse(readRatings())];
 }
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
@@ -225,12 +222,9 @@ export async function readStanding(
   corrections: Correction[],
   read: Observation[] | Promise<Observation[]> = readObservations()
 ): Promise<Standing> {
-  const [extracted, supersessions, units, observations] = await Promise.all([
-    readJsonl(EXTRACTED, Extracted),
-    readJsonl(SUPERSESSIONS, Supersession),
-    readUnits(),
-    read,
-  ]);
+  const [units, observations] = await Promise.all([readUnits(), read]);
+  const extracted = rowsOf(EXTRACTED, Extracted);
+  const supersessions = rowsOf(SUPERSESSIONS, Supersession);
   const c = { latest: latestExtractions(extracted), live: liveUnits(units) };
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
@@ -318,7 +312,7 @@ export async function recordCorrection(said: unknown) {
 }
 
 /** The truth benchmark: every statement, in the order it was drawn. */
-export const readStatements = () => readJsonl(STATEMENTS, Statement);
+export const readStatements = () => rowsOf(STATEMENTS, Statement);
 
 /** Appends the owner's answer to one statement's claim (the check page); null takes his last one back. */
 export const recordRating = (claim: string, answer: Rating["answer"]) =>
@@ -326,21 +320,20 @@ export const recordRating = (claim: string, answer: Rating["answer"]) =>
     { answer, at: new Date().toISOString(), claim, schemaVersion: 1 },
   ]);
 
-export const readUnresolved = () => readJsonl(UNRESOLVED, Unresolved);
+export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
 
-export const readActions = () => readJsonl(ACTIONS, Action);
+export const readActions = () => rowsOf(ACTIONS, Action);
 
-export const readInferred = () => readJsonl(INFERRED, InferredPerson);
+export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 
 /** Life's repo guesses: the latest record for each repo wins. */
-export async function readRepoGuesses() {
-  const guesses = await readJsonl(REPOS_INFERRED, RepoGuess);
-  return [...latestBy(guesses, (g) => g.repo).values()];
-}
+export const readRepoGuesses = () => [
+  ...latestBy(rowsOf(REPOS_INFERRED, RepoGuess), (g) => g.repo).values(),
+];
 
 /** The owner's labels: the latest one for each unit wins. */
-export const readLabels = async () => [
-  ...latestBy(await readJsonl(LABELS, MemoryLabel), (l) => l.unitId).values(),
+export const readLabels = () => [
+  ...latestBy(rowsOf(LABELS, MemoryLabel), (l) => l.unitId).values(),
 ];
 
 /** What Life read off each file a message carried: the latest line for each ref wins. */
@@ -350,10 +343,8 @@ export const readFiles = () => latestBy(rowsOf(FILES, FileEntry), (e) => e.ref);
 export type Verdicts = Map<string, Verdict>;
 export const verdictKey = (unit: string, hash: string) => `${unit}|${hash}`;
 
-export const readVerdicts = async (): Promise<Verdicts> =>
-  latestBy(await readJsonl(VERDICTS, Verdict), (v) =>
-    verdictKey(v.unit, v.hash)
-  );
+export const readVerdicts = (): Verdicts =>
+  latestBy(rowsOf(VERDICTS, Verdict), (v) => verdictKey(v.unit, v.hash));
 
 export const appendVerdicts = (list: Verdict[]) =>
   appendJsonl(VERDICTS, Verdict, list);

@@ -20,9 +20,9 @@ import {
   EXTRACTED,
   momentsNow,
   OBSERVATIONS,
-  readJsonl,
   readMoments,
   readVerdicts,
+  rowsOf,
   SUPERSESSIONS,
   stateOf,
   UNRESOLVED,
@@ -336,7 +336,7 @@ export async function extract(opts: { days: number; evidence: Evidence }) {
   const { kept, pending, stale } = toExtract(
     inWindow,
     verdicts,
-    await readJsonl(EXTRACTED, Extracted)
+    rowsOf(EXTRACTED, Extracted)
   );
   const people = await readPeople();
   const { corrections, inferred, resolve } = people;

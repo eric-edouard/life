@@ -1,5 +1,6 @@
 import { checks } from "../actions";
 import { backupLine } from "../backup";
+import type { Action } from "../schema";
 import { catchUp, withStore } from "../sources/lifelog";
 import { extract } from "./extract";
 import {
@@ -64,11 +65,14 @@ const DAY_MS = 24 * 3_600_000;
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
-  const actions = await readActions().catch((e: Error) => {
-    problems.push(`actions.jsonl: ${e.message}`);
-    rec.error(e.message, { step: "memory.nightly.actions" });
-    return [];
-  });
+  let actions: Action[] = [];
+  try {
+    actions = readActions();
+  } catch (e) {
+    const { message } = e as Error;
+    problems.push(`actions.jsonl: ${message}`);
+    rec.error(message, { step: "memory.nightly.actions" });
+  }
   return {
     actions: actions.filter((a) => Date.parse(a.at) >= now.getTime() - DAY_MS),
     problems,

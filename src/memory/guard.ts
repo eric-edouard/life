@@ -8,7 +8,7 @@ import {
 import { uptime } from "node:os";
 import { join } from "node:path";
 import { DATA } from "../truth";
-import { OUT } from "./ledger";
+import { OUT, readJson } from "./ledger";
 
 // launchd starts the nightly every 30 minutes; this guard decides whether a start does anything.
 
@@ -109,15 +109,6 @@ const STATE = join(OUT, "nightly.json");
 const MIDDAY = join(OUT, "midday.json");
 /** In the data repo, not in derived/: every worktree shares one lock with production. */
 export const LOCK = join(DATA, ".nightly.lock");
-
-/** A small JSON state file, or undefined when it is missing or unreadable. */
-export function readJson<T>(path: string): T | undefined {
-  try {
-    return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return undefined;
-  }
-}
 
 export const readState = () => readJson<NightState>(STATE);
 export const readMidday = () => readJson<string>(MIDDAY);

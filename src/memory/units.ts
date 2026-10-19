@@ -460,10 +460,8 @@ export function applyRules(built: Built[]) {
 export const windowStart = (now: Date, days: number) =>
   dayStart(daysBefore(localDate(now.toISOString()), days - 1));
 
-const SOURCE_TIMEOUT_MS = 90_000;
-
 /**
- * Reads one source. A broken or slow one is logged and named in `failed`, and gives no rows: the caller must not
+ * Reads one source. A broken one is logged and named in `failed`, and gives no rows: the caller must not
  * mistake that for a quiet day (a unit file rebuilt without that source's units would lose them).
  */
 export async function safely<T>(
@@ -473,15 +471,9 @@ export async function safely<T>(
 ): Promise<T[]> {
   const started = performance.now();
   const ms = () => Math.round(performance.now() - started);
-  let timer: Timer | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`timed out after ${SOURCE_TIMEOUT_MS / 1000}s`)),
-      SOURCE_TIMEOUT_MS
-    );
-  });
   try {
-    const rows = await Promise.race([Promise.resolve().then(read), timeout]);
+    // ponytail: no timeout, every reader is synchronous (a timer could not fire); a hung source holds the run.
+    const rows = await read();
     log("source.read", { count: rows.length, ms: ms(), ok: true, source });
     return rows;
   } catch (e) {
@@ -493,8 +485,6 @@ export async function safely<T>(
     });
     failed.push(source);
     return [];
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -636,13 +626,16 @@ export async function writeUnits(dates: string[], units: Unit[]) {
  */
 export async function syncLifelogUnits(store: Store, since = new Date(0)) {
   const truth = await loadTruth();
+  const from = localDate(since.toISOString());
+  // A conversation going at `since` also has chapters of the day before: that day's file is left alone.
   const want = applyRules(
     lifelogUnits(
       readConversations(store, since, lifelogNames(truth)),
       nameIndex(truth.people)
     )
-  ).map((b) => Unit.parse(b.unit));
-  const from = localDate(since.toISOString());
+  )
+    .map((b) => Unit.parse(b.unit))
+    .filter((u) => u.date >= from);
   const all = await readUnits();
   const have = all.filter((u) => u.source === "lifelog" && u.date >= from);
   const json = (units: Unit[]) =>

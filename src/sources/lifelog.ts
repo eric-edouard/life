@@ -1,15 +1,9 @@
 import { Database } from "bun:sqlite";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "../log";
-import { digest } from "../memory/ledger";
+import { digest, readJson } from "../memory/ledger";
 import { ROOT } from "../truth";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
@@ -202,12 +196,8 @@ export async function withStore<T>(
 const DIGITS = /^\d+$/;
 
 export function readCursor(store: Store) {
-  try {
-    const { cursor } = JSON.parse(readFileSync(store.cursor, "utf8"));
-    return DIGITS.test(cursor) ? (cursor as string) : "0";
-  } catch {
-    return "0";
-  }
+  const cursor = readJson<{ cursor?: string }>(store.cursor)?.cursor;
+  return cursor && DIGITS.test(cursor) ? cursor : "0";
 }
 
 /** A live conversation (`c`) of the kinds Life reads: not replaced or retired (see `successor`), not a note or a call. */
@@ -349,7 +339,7 @@ interface TurnRow {
 }
 
 /**
- * The live conversations that started since `since` and have words to summarize (silent ones and the owner's
+ * The live conversations still going at `since` or after it (one that spans midnight keeps its chapters after) and have words to summarize (silent ones and the owner's
  * dictation have none), with their chapters, oldest first. A retired conversation is gone: its successor's chapters come
  * through the feed. `byId`: lifelog person id -> the name on the map.
  */
@@ -362,7 +352,7 @@ export function readConversations(
   if (!db.query("select 1 from conversations limit 1").get()) {
     throw new Error("the lifelog store is empty: run `bun life watch`");
   }
-  const live = `from conversations c where ${LIVE} and c.start_at >= ?`;
+  const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
