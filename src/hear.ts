@@ -3,6 +3,7 @@ import {
   type ChapterTurn,
   readTranscript,
   type Store,
+  turnRef,
   turnsBetween,
 } from "./sources/lifelog";
 
@@ -79,7 +80,7 @@ export async function hear(store: Store, conversation: string, from: string) {
   const turns = all.map(
     (t): Turn => ({
       at: t.at,
-      ref: `${t.jobId}:${t.turnIndex}@${t.at}`,
+      ref: turnRef(t.jobId, t.turnIndex, t.at),
       text: words.get(t.jobId)?.[t.turnIndex]?.text ?? "",
       who: whose(t),
     })

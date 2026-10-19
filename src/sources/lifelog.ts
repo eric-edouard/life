@@ -16,7 +16,8 @@ import { ROOT } from "../truth";
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: conversations, chapter
 // titles and summaries, and for every turn only who spoke and when, never its text) and builds units from that store.
-// The watcher (src/watch.ts) and the nightly both go through `poll`.
+// The watcher (src/watch.ts) and the nightly (`catchUp`) both go through `poll`: a turn the nightly folds in first is
+// never heard by the watcher (eric-edouard/life#5).
 
 const WAIT_MARGIN_S = 30;
 
@@ -209,6 +210,12 @@ export function readCursor(store: Store) {
   }
 }
 
+/** A live conversation (`c`) of the kinds Life reads: not replaced or retired (see `successor`), not a note or a call. */
+const LIVE = "c.successor is null and c.kind in ('conversation', 'imported')";
+/** A transcript turn's ref, the `<job>:<turn>@<instant>` every reader cites. */
+export const turnRef = (job: string, turn: number, at: string) =>
+  `${job}:${turn}@${at}`;
+
 /** The stored successor: null while live; "" when retired with none (lifelog dropped it), so `successor is null` stays "live". */
 const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
@@ -355,8 +362,7 @@ export function readConversations(
   if (!db.query("select 1 from conversations limit 1").get()) {
     throw new Error("the lifelog store is empty: run `bun life watch`");
   }
-  const live =
-    "from conversations c where c.successor is null and c.kind in ('conversation', 'imported') and c.start_at >= ?";
+  const live = `from conversations c where ${LIVE} and c.start_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
@@ -400,7 +406,7 @@ export function readConversations(
             ),
           ],
           ...(first
-            ? { ref: `${first.job_id}:${first.turn_index}@${first.start_at}` }
+            ? { ref: turnRef(first.job_id, first.turn_index, first.start_at) }
             : {}),
           start: c.start_at,
           summary: c.summary,
@@ -506,7 +512,7 @@ export function conversationsWith(
   return store.db
     .query<{ id: string; start_at: string; title: string }, [string, number]>(
       `select c.id, c.start_at, c.title from conversations c
-        where c.successor is null and c.kind in ('conversation', 'imported')
+        where ${LIVE}
           and c.id in (select conversation_id from turns where person_id in (select value from json_each(?)))
         order by c.start_at desc limit ?`
     )
@@ -571,8 +577,8 @@ export async function visits(q: Record<string, string | number | undefined>) {
 export function conversationsBetween(store: Store, from: string, to: string) {
   return store.db
     .query<{ id: string; start_at: string; title: string }, [string, string]>(
-      `select id, start_at, title from conversations
-        where successor is null and kind in ('conversation', 'imported') and start_at < ?1 and end_at > ?2
+      `select id, start_at, title from conversations c
+        where ${LIVE} and c.start_at < ?1 and c.end_at > ?2
         order by start_at`
     )
     .all(to, from);

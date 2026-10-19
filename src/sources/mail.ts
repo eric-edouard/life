@@ -332,11 +332,6 @@ export function emlxPart(emlx: string, ref: string) {
   );
 }
 
-/** A plain-text snippet of an .emlx file: a byte-length line, the RFC 822 message, then a plist. */
-export function emlxSnippet(file: Buffer): string {
-  return snippetOf(splitPart(rfc822(file)));
-}
-
 function snippetOf(message: Part) {
   const text = textOf(message)?.text ?? "";
   return text

@@ -5,6 +5,7 @@ import { extract } from "./extract";
 import {
   decide,
   locked,
+  lockedSince,
   MAX_ATTEMPTS,
   middayDue,
   readMidday,
@@ -16,7 +17,13 @@ import { newSince, readActions } from "./ledger";
 import { moments } from "./moments";
 import { placed } from "./page";
 import { pages } from "./pages";
-import { failureReport, type Mail, sendReport, successReport } from "./report";
+import {
+  failureReport,
+  lockReport,
+  type Mail,
+  sendReport,
+  successReport,
+} from "./report";
 import { codeOn, mapRepos } from "./repos";
 import { commitMemory, phases, type RunRecord, record } from "./run";
 import { reindex } from "./search";
@@ -29,6 +36,8 @@ import { localDate, noteZone } from "./zones";
  * lifelog units lifelog re-summarizes a few days later (their new hash needs a new verdict).
  */
 export const DAYS = 7;
+/** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
+const STUCK_MS = 3 * 3_600_000;
 
 /**
  * Catches the lifelog store up with the server (the watcher keeps it current; this covers a watcher that was down), then
@@ -82,6 +91,13 @@ function coded(day: string, rec: RunRecord) {
  */
 export async function nightly(days: number, force = false) {
   const now = new Date();
+  const held = lockedSince();
+  if (held && now.getTime() - held.getTime() > STUCK_MS) {
+    await sendReport(
+      `lock/${held.toISOString()}`,
+      lockReport(held.toISOString())
+    );
+  }
   // Each tick is a fresh process: the place to notice he moved (only the Mac's own zone counts, never a TZ variable).
   await locked(() => noteZone(now));
   const day = localDate(now.toISOString());
@@ -177,9 +193,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       extract({ days, evidence })
     );
     const { facts, observed, retired } = await whatIsNew(since);
-    const paged = await phase.step("pages", () =>
-      pages({ commit: false, rebuild: false })
-    );
+    const paged = await phase.step("pages", () => pages({ rebuild: false }));
     phase.at = "index";
     await reindex();
     phase.at = "actions";

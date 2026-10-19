@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
+import { utimesSync, writeFileSync } from "node:fs";
 import {
   decide,
+  LOCK,
   locked,
   middayDue,
   type NightState,
@@ -65,4 +67,12 @@ test("two runs at once: exactly one takes the lock, the other gets null without 
   const got = await Promise.all([run(), run()]);
   expect(got.filter((g) => g === null)).toHaveLength(1);
   expect(got).toContain("ran");
+});
+
+test("a lock left by a dead pid, or from before the boot (its pid reused), is taken over", async () => {
+  writeFileSync(LOCK, "999999"); // above macOS's highest pid: never alive
+  expect(await locked(async () => "ran")).toBe("ran");
+  writeFileSync(LOCK, String(process.pid)); // alive, but written before the boot
+  utimesSync(LOCK, new Date(0), new Date(0));
+  expect(await locked(async () => "ran")).toBe("ran");
 });

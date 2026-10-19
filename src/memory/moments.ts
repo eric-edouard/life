@@ -15,7 +15,7 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
-import type { Truth } from "../truth";
+import { OWNER, type Truth } from "../truth";
 import {
   appendJsonl,
   appendVerdicts,
@@ -41,12 +41,13 @@ import {
   type Built,
   daysBefore,
   type Evidence,
+  head,
   localTime,
   normalizeTopics,
   windowStart,
   writeUnits,
 } from "./units";
-import { readPeople } from "./who";
+import { readPeople, UNKNOWN } from "./who";
 import { localDate } from "./zones";
 
 // `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
@@ -57,9 +58,8 @@ import { localDate } from "./zones";
 // Extraction then reads a moment's units together (extract.ts). Units are written here too (units.ts builds them).
 
 const MOMENTS_PROMPT = "memory-moments.v3";
-// ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped at TEXT_MAX); split the day
+// ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped by `head`); split the day
 // into halves with the moments of the first as `earlier` if a day ever outgrows the model's context.
-const TEXT_MAX = 1500;
 const TOPICS_SHOWN = 40;
 /** A moment of an earlier day is shown to the next days until the day after it ends (a plan: after its date). */
 const CARRY_DAYS = 1;
@@ -175,9 +175,9 @@ function personOf(
 ) {
   const link = linkOf(ref, ctx.people, ctx.resolve);
   if ("ref" in link) {
-    return link.ref === "person:me" ? null : link.ref;
+    return link.ref === OWNER ? null : link.ref;
   }
-  return "surface" in link ? `unknown:${link.surface}` : null;
+  return "surface" in link ? `${UNKNOWN}${link.surface}` : null;
 }
 
 /**
@@ -383,7 +383,7 @@ export async function moments(opts: { days: number; evidence: Evidence }) {
             people: unit.people,
             source: unit.source,
             start: localTime(unit.start),
-            text: text.slice(0, TEXT_MAX),
+            text: head(text),
             title: unit.title,
           })),
           unknown: [...unknown].map(([key, seen]) => ({
@@ -407,7 +407,7 @@ export async function moments(opts: { days: number; evidence: Evidence }) {
         at: step.now.toISOString(),
         madeBy,
         projects,
-        read: (b) => b.text.slice(0, TEXT_MAX),
+        read: (b) => head(b.text),
         taken,
         unknown,
       });

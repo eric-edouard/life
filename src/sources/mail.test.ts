@@ -3,13 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  emlxPart,
-  emlxSnippet,
-  mailAccounts,
-  mailRoot,
-  readMail,
-} from "./mail";
+import { emlxPart, mailAccounts, mailRoot, readMail } from "./mail";
 
 const emlx = (message: string) => {
   const bytes = Buffer.from(message.replace(/\n/g, "\r\n"), "utf8");
@@ -96,16 +90,7 @@ Content-Disposition: attachment; filename*0="Devis_cuisine_";
 --m--
 `;
 
-test("text/plain is preferred and quoted-printable decoded", () => {
-  expect(emlxSnippet(emlx(ALTERNATIVE))).toBe(
-    "Bonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
-  );
-});
-
-test("an empty text/plain falls back to stripped base64 HTML", () => {
-  expect(emlxSnippet(emlx(HTML_ONLY))).toBe("Paid & done\nThanks");
-});
-
+// Also: text/plain is preferred and quoted-printable decoded (Devis); an empty text/plain falls back to stripped base64 HTML.
 test("readMail reads every account, dedupes, skips junk and knows the owner", () => {
   const base = mkdtempSync(join(tmpdir(), "mail-"));
   const root = join(base, "V10");
@@ -142,13 +127,15 @@ test("readMail reads every account, dedupes, skips junk and knows the owner", ()
             (1003, 11, 2, 'Re: ', 1, ${t + 60}, 4, 0, 7, 0, 2),
             (1004, 12, 1, null, 2, ${t + 120}, 3, 0, 8, 0, null),
             (5, 13, 1, null, 1, ${t - 864_000}, 1, 0, 9, 0, null),
-            (1006, 14, 1, null, 2, ${t + 180}, 1, 0, 10, 0, null)`);
+            (1006, 14, 1, null, 2, ${t + 180}, 1, 0, 10, 0, null),
+            (1007, 15, 1, null, 2, ${t + 240}, 1, 0, 11, 0, null)`);
   db.run("insert into labels values (1003, 2)");
   db.close();
   const dir = join(root, acct, "INBOX.mbox", "STORE", "Data", "1", "Messages");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "1001.emlx"), emlx(ALTERNATIVE));
   writeFileSync(join(dir, "1006.emlx"), emlx(WITH_FILES));
+  writeFileSync(join(dir, "1007.emlx"), emlx(HTML_ONLY));
   const saved = join(dir, "..", "Attachments", "1006", "3");
   mkdirSync(saved, { recursive: true });
   writeFileSync(join(saved, "vue été.jpg"), "bytes");
@@ -162,7 +149,8 @@ test("readMail reads every account, dedupes, skips junk and knows the owner", ()
     root,
     join(base, "none.sqlite")
   );
-  expect(events).toEqual([
+  expect(events.at(-1)?.text).toBe("Big prize\nPaid & done\nThanks");
+  expect(events.slice(0, -1)).toEqual([
     {
       at: "2026-10-09T08:00:00.000Z",
       bulk: false,

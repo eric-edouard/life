@@ -212,7 +212,7 @@ const ctx = {
     "project:bakery",
   ]),
   madeBy,
-  people,
+  resolve: resolver(people),
   sources: new Map([[source.unit.id, source]]),
 };
 const obs = (over: Record<string, unknown>) => ({

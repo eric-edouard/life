@@ -247,6 +247,22 @@ export function publicReport(down: boolean, at: string) {
   });
 }
 
+/** The nightly's alert: a run has held the lock over 3 hours, so no night or midday can start. */
+export const lockReport = (since: string) =>
+  alert(since, "Life nightly", {
+    failure: {
+      error: "a run has held the lock for over 3 hours",
+      step: "the lock",
+    },
+    notes: [
+      "No night or midday starts while it holds it. Details: derived/log, and the pid in ~/Life/.nightly.lock",
+    ],
+    preheader: `A run has held the lock since ${time(since)}.`,
+    stats: [{ label: "held since", value: time(since) }],
+    subject: "a run is stuck holding the lock",
+    verdict: "STUCK",
+  });
+
 /** The alert for an action that failed: his words are in it, so he can do the thing by hand. */
 export const actionFailedReport = (a: Action) =>
   alert(a.at, "Life action", {

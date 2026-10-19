@@ -33,7 +33,7 @@ export function extractJson(text: string): unknown {
   }
 }
 
-/** What a step needs: repos is fast, infer and pages main, moments and extract deep (~/Life/docs/evals/events-2026-10-18.md). */
+/** What a step needs: repos and files fast, pages main, moments and extract deep (~/Life/docs/evals/events-2026-10-18.md). */
 export type Tier = "fast" | "main" | "deep";
 
 /** The engine, model and (codex) reasoning effort one run uses. */

@@ -1,18 +1,15 @@
 import { z } from "zod";
 import {
-  type Correction,
-  type InferredPerson,
   type MadeBy,
   MemoryType,
   Modality,
   type Observation,
-  type Person,
   type Unit,
 } from "../schema";
 import { othersIn } from "../truth";
 import { digest } from "./ledger";
 import { areaOf, normalize } from "./units";
-import { resolver, UNKNOWN } from "./who";
+import { UNKNOWN } from "./who";
 import { localDate, zoneAt } from "./zones";
 
 // The pure parts of stage 2 (memory-pipeline §3.3, §3.4): what the extractor may return, the quote check, entity
@@ -297,18 +294,16 @@ export function parseObservations(
   ctx: {
     areas: Map<string, string>;
     candidates: Set<string>;
-    corrections?: Correction[];
-    inferred?: InferredPerson[];
     madeBy: MadeBy;
-    people: Person[];
     prior?: Map<string, Observation>;
+    /** Who a name or handle is (`readPeople`'s, as `parseDay` takes it). */
+    resolve: (surface: string) => string | null;
     sources: Map<string, Source>;
   }
 ) {
   const list = z
     .object({ observations: z.array(z.unknown()) })
     .parse(reply).observations;
-  const resolve = resolver(ctx.people, ctx.inferred, ctx.corrections);
   const observations: Observation[] = [];
   const rejects: Reject[] = [];
   const unresolved: { observation: string; surface: string; unit: string }[] =
@@ -330,7 +325,7 @@ export function parseObservations(
       o,
       id,
       ctx.candidates,
-      resolve
+      ctx.resolve
     );
     rejects.push(...linked.rejects);
     unresolved.push(...linked.unresolved);
