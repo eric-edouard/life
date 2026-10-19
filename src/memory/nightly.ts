@@ -1,7 +1,7 @@
 import { checks } from "../actions";
 import { backupLine } from "../backup";
+import { readHealth } from "../health";
 import type { Action } from "../schema";
-import { catchUp, withStore } from "../sources/lifelog";
 import { extract } from "./extract";
 import {
   decide,
@@ -28,7 +28,7 @@ import {
 import { codeOn, mapRepos } from "./repos";
 import { commitMemory, phases, type RunRecord, record } from "./run";
 import { reindex } from "./search";
-import { daysBefore, gather, syncLifelogUnits, windowStart } from "./units";
+import { daysBefore, gather, windowStart } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { localDate, noteZone } from "./zones";
 
@@ -39,26 +39,6 @@ import { localDate, noteZone } from "./zones";
 export const DAYS = 7;
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * 3_600_000;
-
-/**
- * Catches the lifelog store up with the server (the watcher keeps it current; this covers a watcher that was down), then
- * makes the lifelog units of the window match it. A gap it can fill is filled and counted, never a failure. A server it
- * cannot reach is noted, and the night goes on with what the store holds; an empty store throws.
- */
-const reconcileLifelog = (days: number, rec: RunRecord) =>
-  withStore(async (store) => {
-    const error = await catchUp(store).then(
-      () => undefined,
-      (e: Error) => {
-        rec.error(e.message, { step: "memory.nightly.lifelog" });
-        return e.message;
-      }
-    );
-    return {
-      ...(await syncLifelogUnits(store, windowStart(new Date(), days))),
-      ...(error ? { error } : {}),
-    };
-  });
 
 const DAY_MS = 24 * 3_600_000;
 
@@ -88,7 +68,7 @@ function coded(day: string, rec: RunRecord) {
 }
 
 /**
- * Lifelog check, repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
+ * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (guard.ts), and
  * only the 3rd failure of a day sends the failure email.
@@ -184,11 +164,10 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   let mail: Mail;
   let failure: ReturnType<typeof phase.failed> | undefined;
   try {
-    phase.at = "lifelog";
-    const lifelog = await reconcileLifelog(days, rec);
     const repos = await phase.step("repos", () => mapRepos());
     // Every source is read once and handed to each step.
     phase.at = "gather";
+    const watcher = readHealth();
     const evidence = await gather(windowStart(now, days));
     const found = await phase.step("moments", () =>
       moments({ days, evidence })
@@ -213,12 +192,12 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       facts,
       files: evidence.files,
       from: daysBefore(day, days - 1),
-      lifelog,
       moments: found,
       observed,
       paged,
       repos,
       retired,
+      watcher,
     });
   } catch (e) {
     failure = phase.failed(e);

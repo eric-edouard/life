@@ -98,7 +98,6 @@ const night = (facts: number) =>
       read: 2,
     },
     from: "2026-10-12",
-    lifelog: { added: 2, changed: 1, checked: 40, removed: 0 },
     moments: {
       agreement: { agreement: 0.75, labeled: 40 },
       model: "codex/m (high)",
@@ -115,6 +114,7 @@ const night = (facts: number) =>
     },
     repos: { suggestions: [] },
     retired: 1,
+    watcher: { lastOkAt: new Date().toISOString() },
   }) as unknown as Night;
 
 test("the success email includes every fact, counts pages and lists models once", () => {
@@ -299,5 +299,11 @@ test("the success email says the window it read and counts the new observations"
   // A failed files call or a missing tool is told here, never a failed night.
   expect(text).toContain(
     "Files: 4 described, 2 read by code, 1 copied; 1 call failed (a file still not described stays a tag until the next night); not on PATH: pdftotext"
+  );
+  // The night reads lifelog from the watcher's store as it stands: a stopped watcher is said here.
+  expect(text).toContain("Lifelog: the watcher is polling");
+  (n as { watcher: null }).watcher = null;
+  expect(successReport("2026-10-18", 1000, n).text).toContain(
+    "the watcher is NOT POLLING (last good poll never)"
   );
 });

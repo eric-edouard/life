@@ -1,3 +1,4 @@
+import { type Health, polling } from "../health";
 import { log } from "../log";
 import type { Action } from "../schema";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
@@ -6,7 +7,7 @@ import type { describeFiles } from "./files";
 import type { moments } from "./moments";
 import type { pages } from "./pages";
 import type { mapRepos } from "./repos";
-import { count, type syncLifelogUnits, time } from "./units";
+import { count, localTime, time } from "./units";
 import { localDate, when } from "./zones";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
@@ -33,8 +34,6 @@ export interface Night {
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
-  /** Lifelog units checked against the store at the start of the night; `error`: the server could not be reached. */
-  lifelog: Result<typeof syncLifelogUnits> & { error?: string };
   /** The days whose moments were read again, and how many moments they hold. */
   moments: Result<typeof moments>;
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): midday runs' included. */
@@ -43,6 +42,8 @@ export interface Night {
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: midday runs' included. */
   retired: number;
+  /** The watcher's health (`readHealth`) when the night read its store, as it stood. */
+  watcher: Health | null;
 }
 
 const duration = (ms: number) =>
@@ -108,7 +109,7 @@ export function successReport(day: string, ms: number, n: Night) {
       notes: [
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
         `Verdicts agree with your labels ${percent(a.agreement)} of the time (${a.labeled} labels)`,
-        `Lifelog: ${n.lifelog.checked} units checked, ${n.lifelog.added} built, ${n.lifelog.changed} updated, ${n.lifelog.removed} removed${n.lifelog.error ? `; server not reached (${n.lifelog.error}), used what the watcher holds` : ""}`,
+        `Lifelog: ${n.watcher && polling(n.watcher) ? "the watcher is polling" : `the watcher is NOT POLLING (last good poll ${n.watcher?.lastOkAt ? localTime(n.watcher.lastOkAt) : "never"}), so its store, read as it stands, may lag`}`,
         `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.backup,
@@ -214,7 +215,7 @@ export function watchReport(down: boolean, since: string, error: string) {
     failure: down ? { error, step: "the lifelog feed" } : null,
     notes: [
       down
-        ? "No successful poll since the time above. New chapters are not reaching the units; the nightly catches up from the saved cursor."
+        ? "No successful poll since the time above. New chapters are not reaching the units; they catch up from the saved cursor once it polls again."
         : "Polling again from the saved cursor; nothing was lost.",
       "Details: bun life status, and ~/Library/Logs/life-watch.log",
     ],
