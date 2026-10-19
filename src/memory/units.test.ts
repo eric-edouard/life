@@ -1,7 +1,15 @@
 import { expect, test } from "bun:test";
-import type { Person, SourceEvent } from "../schema";
-import type { LifelogConversation } from "../sources/lifelog";
+import { existsSync, rmSync } from "node:fs";
+import type { Person, SourceEvent, Unit } from "../schema";
+import {
+  chapter,
+  conversation as feedConversation,
+  lifelogStore,
+  page,
+} from "../sources/fixtures";
+import { apply, type LifelogConversation } from "../sources/lifelog";
 import { LIFE_MAIL } from "./email";
+import { readUnits, UNITS } from "./ledger";
 import {
   applyRules,
   dayRange,
@@ -13,8 +21,10 @@ import {
   oneToOne,
   personRef,
   repoUnits,
+  syncLifelogUnits,
   unitId,
   windowStart,
+  writeUnits,
 } from "./units";
 import { cutAt, dayStart, zoneAt } from "./zones";
 
@@ -459,4 +469,53 @@ test("topics are lower case, singular where trivial, dashed, at most three, no r
     normalizeTopics(["family money", "Families", "news", "Taxes"])
   ).toEqual(["family-money", "family", "news"]);
   expect(normalizeTopics(null)).toEqual([]);
+});
+
+test("a lifelog chapter that moves to another day leaves its old day's file; other sources' units in that file stay", async () => {
+  expect(existsSync(UNITS)).toBe(false); // test data has no units: this test makes and removes them
+  const chat: Unit = {
+    date: "2026-10-14",
+    end: "2026-10-14T09:00:00.000Z",
+    hash: "0123456789abcdef",
+    id: "u_00000000000a",
+    key: "120@g.us",
+    people: [],
+    refs: ["whatsapp:120@g.us/1"],
+    schemaVersion: 1,
+    source: "whatsapp",
+    start: "2026-10-14T09:00:00.000Z",
+    stats: { chars: 40, fromMe: 1, items: 1 },
+    title: "Team",
+  };
+  const store = lifelogStore();
+  const on = (day: string) =>
+    page({
+      chapters: [chapter("a", `${day}T10:00:00.000Z`, `${day}T10:05:00.000Z`)],
+      conversations: [
+        feedConversation("c1", {
+          endAt: `${day}T10:10:00.000Z`,
+          startAt: `${day}T10:00:00.000Z`,
+        }),
+      ],
+    });
+  const days = async () =>
+    Object.fromEntries(
+      Map.groupBy(await readUnits(), (u) => u.date)
+        .entries()
+        .map(([d, us]) => [d, us.map((u) => u.source)])
+    );
+  try {
+    await writeUnits([chat.date], [chat]);
+    apply(store, on("2026-10-14"));
+    await syncLifelogUnits(store);
+    expect(await days()).toEqual({ "2026-10-14": ["whatsapp", "lifelog"] });
+    apply(store, on("2026-10-15"));
+    expect(await syncLifelogUnits(store)).toMatchObject({ changed: 1 });
+    expect(await days()).toEqual({
+      "2026-10-14": ["whatsapp"],
+      "2026-10-15": ["lifelog"],
+    });
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+  }
 });

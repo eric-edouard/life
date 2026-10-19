@@ -23,7 +23,7 @@ import {
 import { DATA, ROOT } from "../truth";
 
 // memory/ on disk: every path, one JSON Lines reader and appender, the readers of the ledgers and what they say of an
-// observation (`stateOf`: where it stands). Reading only; the steps that write decide what to write.
+// observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
 
 const MEMORY = join(DATA, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
@@ -70,7 +70,7 @@ export function linesOf(path: string) {
   return all;
 }
 
-const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
+export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
   linesOf(path)
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));

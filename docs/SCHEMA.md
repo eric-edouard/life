@@ -184,7 +184,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 One Markdown page per person (everyone in `truth/people.yaml` who has an observation, the owner included: `people/me.md`, and
 inferred people with five observations about them alone at salience 2 or more) and per area of `truth/areas.yaml` (the file is named by the
 area's id; an inferred person's id starts with `inf-`). Rewritten nightly by `bun life memory pages` from the previous
-version and the observations extracted since; git keeps every version ("Pages: <date>" commits).
+version and the observations extracted since; git keeps every version (the nightly's "Memory: <date>" commits).
 
 Frontmatter (each value is JSON, which is YAML): `schemaVersion` 1, `page` (`person:<id>` or `area:<id>`), `name`, `built` (when written),
 `seen` (the newest extraction run, `madeBy.run`, the page has read), `madeBy` (engine, model, prompt, run) and

@@ -31,8 +31,8 @@ import { dayStart, localDate, wall } from "./zones";
 // code, nothing judged yet. A unit's id is stable (same chapter or day -> same id); its hash changes when its content
 // does, so a verdict is reused only while the content is unchanged.
 
-/** What the moments model reads for a unit. Never stored in memory/: it may hold message text. */
-const TEXT_MAX = 2400;
+/** How much of a unit's text the moments model reads (`head`). */
+const TEXT_MAX = 1500;
 const SHORT_CHARS = 12;
 const OTP_MAX = 200;
 const PAREN = /\(.*?\)/g;
@@ -76,6 +76,7 @@ export interface Message {
 
 export interface Built {
   messages: Message[];
+  /** The whole text (the model reads its `head`). Never stored in memory/: it may hold message text. */
   text: string;
   unit: Unit;
 }
@@ -193,7 +194,8 @@ export function personRef(name: string, index: Map<string, string | null>) {
   return id ? `person:${id}` : `unknown:${name}`;
 }
 
-const head = (text: string) =>
+/** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
+export const head = (text: string) =>
   text.length <= TEXT_MAX
     ? text
     : `${text.slice(0, TEXT_MAX / 2)}\n…\n${text.slice(-TEXT_MAX / 2)}`;
@@ -307,7 +309,7 @@ function chatDay(list: SourceEvent[], handles: Map<string, string>): Built {
       text: e.text,
       who: who[i] ?? null,
     })),
-    text: head(`${title}\n${lines.join("\n")}`),
+    text: `${title}\n${lines.join("\n")}`,
     unit: {
       date: localDate(first.at),
       end: last.at,

@@ -1,6 +1,6 @@
-import { readFileSync, readlinkSync, statSync } from "node:fs";
+import { readlinkSync, statSync } from "node:fs";
 import { Zone } from "../schema";
-import { appendJsonl, ZONES } from "./ledger";
+import { appendJsonl, rowsOf, ZONES } from "./ledger";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, the Mac's zone from each `from` on, and the wall clock
 // there. Local days and times come from here, never from the zone of the process reading them, so a day read again
@@ -12,13 +12,10 @@ let cache = { list: [] as { from: number; tz: string }[], mtime: -1 };
 function zones() {
   const mtime = statSync(ZONES).mtimeMs;
   if (mtime !== cache.mtime) {
-    const list = readFileSync(ZONES, "utf8")
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => {
-        const z = Zone.parse(JSON.parse(l));
-        return { from: Date.parse(z.from), tz: z.tz };
-      });
+    const list = rowsOf(ZONES, Zone).map((z) => ({
+      from: Date.parse(z.from),
+      tz: z.tz,
+    }));
     cache = { list, mtime };
   }
   return cache.list;

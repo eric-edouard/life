@@ -5,6 +5,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { uptime } from "node:os";
 import { join } from "node:path";
 import { DATA } from "../truth";
 import { OUT } from "./ledger";
@@ -143,11 +144,12 @@ export function recordState(day: string, ok: boolean): NightState {
   return state;
 }
 
-/** When the run holding the lock took it, or null when none holds it. */
+/** When the run holding the lock took it, or null when none holds it (its pid is dead, or it predates the boot: a pid is reused). */
 export function lockedSince(): Date | null {
   try {
+    const since = statSync(LOCK).mtime;
     process.kill(Number(readFileSync(LOCK, "utf8")), 0);
-    return statSync(LOCK).mtime;
+    return since.getTime() >= Date.now() - uptime() * 1000 ? since : null;
   } catch {
     return null; // no lock, or a stale pid
   }
@@ -156,7 +158,7 @@ export function lockedSince(): Date | null {
 /** True while a run holds the lock: the watcher then leaves memory/ and the index alone. */
 export const isLocked = () => lockedSince() !== null;
 
-/** Creates the lock file, atomically ("wx"): one left by a dead process is cleared and the lock taken once more. */
+/** Creates the lock file, atomically ("wx"): a stale one (see `lockedSince`) is cleared and the lock taken once more. */
 function take(retry = true): boolean {
   try {
     writeFileSync(LOCK, String(process.pid), { flag: "wx" });

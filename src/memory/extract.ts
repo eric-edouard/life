@@ -43,7 +43,7 @@ import {
   windowStart,
   within,
 } from "./units";
-import { observationsNow, readPeople } from "./who";
+import { observationsNow, readPeople, UNKNOWN } from "./who";
 import { localDate } from "./zones";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (salience >= KEEP_AT, i.e. 2, moments.ts),
@@ -475,11 +475,9 @@ export async function extract(opts: { days: number; evidence: Evidence }) {
       const parsed = parseObservations(json, {
         areas: areaLookup(truth.areas),
         candidates,
-        corrections,
-        inferred,
         madeBy,
-        people: truth.people,
         prior: new Map(prior.map((o) => [o.id, o])),
+        resolve,
         sources: new Map(sources.map((x) => [x.unit.id, x])),
       });
       observations.push(...parsed.observations);
@@ -517,12 +515,12 @@ export async function extract(opts: { days: number; evidence: Evidence }) {
   });
   // Names lifelog gave a voice that the map doesn't know.
   for (const { unit } of finished) {
-    for (const p of unit.people.filter((x) => x.startsWith("unknown:"))) {
+    for (const p of unit.people.filter((x) => x.startsWith(UNKNOWN))) {
       unresolved.push({
         at,
         date: unit.date,
         schemaVersion: 1,
-        surface: p.slice("unknown:".length),
+        surface: p.slice(UNKNOWN.length),
         unit: unit.id,
         via: "speaker",
       });
@@ -558,7 +556,6 @@ export async function extract(opts: { days: number; evidence: Evidence }) {
     cached: kept.length - pending.length,
     kept: kept.length,
     moments: groups.filter((g) => g.moment).length,
-    observations: observations.length,
     read: finished.length,
     rejects: rejects.length,
     retired: retired.length,

@@ -5,6 +5,7 @@ import {
   type ChapterTurn,
   openStore,
   readTranscript,
+  turnRef,
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
@@ -28,7 +29,7 @@ import {
   SEARCHED,
   time,
 } from "./units";
-import { type People, readPeople } from "./who";
+import { type People, readPeople, UNKNOWN } from "./who";
 import { localDate } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
@@ -91,7 +92,7 @@ export function chatLines(
     return {
       at: m.at,
       ref: m.id,
-      speaker: speaker ?? `unknown:${m.sender}`,
+      speaker: speaker ?? `${UNKNOWN}${m.sender}`,
       ...(!speaker && name ? { speakerName: name } : {}),
       text: redact(m.text),
     };
@@ -112,10 +113,10 @@ export function voiceLines(
     return [
       {
         at: t.at,
-        ref: `${t.jobId}:${t.turnIndex}@${t.at}`,
+        ref: turnRef(t.jobId, t.turnIndex, t.at),
         speaker: t.name
           ? personRef(t.name, names)
-          : `unknown:${turn.speakerId ?? "speaker"}`,
+          : `${UNKNOWN}${turn.speakerId ?? "speaker"}`,
         text: redact(turn.text),
       },
     ];

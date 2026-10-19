@@ -18,7 +18,7 @@ const SORTER_MS = 3000;
 
 const Due = z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/);
 
-/** What to do, as the model, the connector and the CLI all say it. */
+/** What to do, as the connector and the CLI both say it. */
 export const Change = z.object({
   // With a time it alerts then; null clears it (edit only).
   due: Due.nullish(),

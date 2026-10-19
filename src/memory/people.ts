@@ -3,6 +3,7 @@ import { INFERRED_PREFIX, type InferredPerson, type MadeBy } from "../schema";
 import { digest } from "./ledger";
 import { locate } from "./observe";
 import { areaOf, type Built, CHATS, slugOf } from "./units";
+import { UNKNOWN } from "./who";
 
 // Who the people not on the map are: what the moments call is asked about a day, and its answer checked (every quote
 // must be in a unit it read). No disk, network or clock.
@@ -108,8 +109,8 @@ export function unknownIn(units: Built[], known: (s: string) => boolean) {
       }
     }
     for (const p of b.unit.people) {
-      if (p.startsWith("unknown:")) {
-        add(p.slice("unknown:".length), b);
+      if (p.startsWith(UNKNOWN)) {
+        add(p.slice(UNKNOWN.length), b);
       }
     }
   }

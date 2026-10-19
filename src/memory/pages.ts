@@ -44,7 +44,7 @@ import {
   settle,
   wordsOf,
 } from "./page";
-import { begin, commitMemory, inBatches, refContext, type Step } from "./run";
+import { begin, inBatches, refContext, type Step } from "./run";
 import { daysBefore, slugOf, within } from "./units";
 import { observationsNow, readPeople } from "./who";
 
@@ -447,12 +447,11 @@ function oftenBy(units: Unit[], verdicts: Verdicts, day: string) {
 }
 
 interface PagesOptions {
-  commit?: boolean;
   only?: string;
   rebuild?: boolean;
 }
 
-/** `bun life memory pages`. Its callers hold the memory lock (`locked`, guard.ts). */
+/** `bun life memory pages`. Its callers hold the memory lock (`locked`, guard.ts); the nightly commits what it writes. */
 export async function pages(opts: PagesOptions) {
   const step = await begin("pages", "main", { prompt: PAGES_PROMPT });
   const { now, today: day } = step;
@@ -513,9 +512,6 @@ export async function pages(opts: PagesOptions) {
     Correction,
     built.flatMap((b) => b.corrections)
   );
-  if (opts.commit !== false) {
-    commitMemory(["memory/pages", "memory/corrections.jsonl"], `Pages: ${day}`);
-  }
   return {
     ...step.end({
       corrections: built.reduce((n, b) => n + b.corrections.length, 0),

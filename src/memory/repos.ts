@@ -27,6 +27,7 @@ import { topTopics } from "./moments";
 import { asData } from "./raw";
 import { begin, chunks, inBatches, meContext } from "./run";
 import { areaLookup, areaOf, clip, lineCounts } from "./units";
+import { localDate } from "./zones";
 
 // `bun life memory repos --scan` and the nightly's first step: which project each code repo of the owner's belongs to. His
 // map is `Project.repos` in truth/; for the repos it doesn't list, the fast-tier model guesses from what the repo says
@@ -243,7 +244,7 @@ export async function reposOf(filter?: string) {
     map,
     ownerIn(truth.people)
   )) {
-    const day = e.at.slice(0, 10);
+    const day = localDate(e.at);
     const seen = active.get(e.chat);
     active.set(e.chat, {
       last: seen && seen.last > day ? seen.last : day,
