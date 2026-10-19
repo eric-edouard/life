@@ -1,0 +1,25 @@
+{
+  "name": "life",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "bun scripts/check.ts",
+    "fix": "bun x --bun ultracite fix",
+    "life": "bun src/cli.ts",
+    "prepare": "git config core.hooksPath .githooks"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
+    "@openai/codex": "0.162.1",
+    "jose": "^6.2.12",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@types/bun": "^1.4.2",
+    "fallow": "3.32.0",
+    "typescript": "^6",
+    "ultracite": "7.12.2"
+  },
+  "packageManager": "bun@1.4.2"
+}
