@@ -259,7 +259,8 @@ export function nextEvent(lines: string[], from: number) {
         ...(a === ask ? {} : { [a.kind]: { ...a.after, task: ask.id } }),
       };
       return {
-        action: a,
+        // A nudge or steer that could not be delivered is reported with its task's words.
+        action: ask,
         cursor,
         event: {
           cursor: String(cursor),
@@ -277,17 +278,16 @@ export function nextEvent(lines: string[], from: number) {
 /** Lines of the actions ledger delivered (or passed over), for the tasks' nudges. */
 export const deliveredLines = () => readState().delivered;
 /** Whether Atlas holds a subscription that has not expired (a retry may wait). */
-export const subscribed = (now: number) =>
-  Date.parse(readState().subscription?.refreshBefore ?? "") >= now;
+const current = (s: State, now: number) =>
+  Date.parse(s.subscription?.refreshBefore ?? "") >= now;
+export const subscribed = (now: number) => current(readState(), now);
 
 /** Nothing goes out without a live subscription or while a retry waits. */
 const live = (
   s: State,
   now: number
 ): s is State & { subscription: Subscription } =>
-  !!s.subscription &&
-  Date.parse(s.subscription.refreshBefore) >= now &&
-  !(Date.parse(s.retryAt ?? "") > now);
+  current(s, now) && !!s.subscription && !(Date.parse(s.retryAt ?? "") > now);
 
 /**
  * What one delivery's HTTP status (0: unreachable) does: a 2xx or a 413 (never retried) moves past the event, a 410
@@ -353,7 +353,7 @@ export async function deliver() {
     log("run.error", { error, event: event.eventId, step: "events.deliver" });
     if (after.subscription && after.delivered === cursor) {
       await sendReport(
-        `action/${action.id}`,
+        `action/${event.eventId}`,
         actionFailedReport({ ...action, error })
       );
     }

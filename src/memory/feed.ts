@@ -6,6 +6,7 @@ import {
   Correction,
   INFERRED_USE_AT,
   InferredPerson,
+  isTaskLine,
   Observation,
   ObservationId,
   Rating,
@@ -371,9 +372,9 @@ function itemOf(
       run,
       // An ask is handed to Atlas, not done by Life, and its task's lines are Atlas's or Life's chasing: no outcome of their own.
       type:
-        a.instruction && a.kind !== "ask"
-          ? `action.${a.result}`
-          : `action.${a.kind}`,
+        isTaskLine(a) || a.kind === "ask"
+          ? `action.${a.kind}`
+          : `action.${a.result}`,
     };
   }
   if (source === "ratings") {
@@ -410,7 +411,7 @@ export interface ChangeFilter {
   run?: string;
   /** Recorded at or after this ISO instant. */
   since?: string;
-  /** Types or type prefixes: observation, observation.superseded, correction, identity, action, action.ask, action.failed, rating, page. */
+  /** Types or type prefixes: observation, observation.superseded, correction, identity, action, action.ask, action.update, action.nudge, action.steer, action.failed, rating, page. */
   types?: string[];
 }
 

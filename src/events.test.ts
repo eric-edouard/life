@@ -137,6 +137,10 @@ test("a nudge or a steer goes out as its task's ask, with its own event id and t
   });
   const event = nextEvent([ask("act_00000000000a"), nudge], 1)?.event;
   expect(event?.eventId).toBe("act_00000000000c");
+  // Not delivered, it is reported to him with his words: the task's ask.
+  expect(nextEvent([ask("act_00000000000a"), nudge], 1)?.action.id).toBe(
+    "act_00000000000a"
+  );
   expect(event?.timestamp).toBe("2026-10-15T10:20:00.000Z");
   expect(event?.data).toMatchObject({
     id: "act_00000000000a",

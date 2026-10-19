@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { actionId, alarmArgs, BOARD, remctl } from "./actions";
+import { actionId, alarmArgs, BOARD, type Reminder, remctl } from "./actions";
 import { deliveredLines, parse, subscribed } from "./events";
 import { log } from "./log";
 import { ACTIONS, appendJsonl, linesOf, readActions } from "./memory/ledger";
@@ -150,7 +150,7 @@ export const Update = z.object({
   claim: z
     .boolean()
     .optional()
-    .describe("true when this `working` claims an open task"),
+    .describe("true on the first update: it claims the open task"),
   deadline: Instant.optional().describe("ISO with an offset"),
   note: Text.optional(),
   on: z.string().max(200).optional().describe("What or whom it waits for"),
@@ -186,8 +186,10 @@ export function refusal(t: Task | undefined, u: Update, now: number) {
   if (closed(state)) {
     return `the task is ${state}: no update after that`;
   }
-  if (u.claim && state !== "open") {
-    return `already claimed: the task is ${state}`;
+  if (Boolean(u.claim) !== (state === "open")) {
+    return state === "open"
+      ? "the first update claims the task: claim: true"
+      : `already claimed: the task is ${state}`;
   }
   if (missing.length > 0) {
     return `${u.state} needs ${missing.join(" and ")}`;
@@ -222,11 +224,22 @@ const taskLine = (
 
 let writing = Promise.resolve();
 /**
- * Records Atlas's update when the rules allow it; throws why not. One at a time (ponytail: a chain in this process,
- * the watcher's, where the connector runs), so two runs cannot both claim a task.
+ * Runs the task writes one at a time, each on the ledger as it stands then, so two runs cannot both claim a task and a
+ * nudge never follows a claim it did not see (ponytail: a chain in this process, the watcher's, where the connector
+ * and `tick` run; `bun life ask` only appends asks).
  */
+function serial<T>(write: () => Promise<T>) {
+  const run = writing.then(write);
+  writing = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
+/** Records Atlas's update when the rules allow it; throws why not. */
 export function update(u: Update, now = Date.now()) {
-  const run = writing.then(async () => {
+  return serial(async () => {
     const { task, ...after } = u;
     const why = refusal(
       tasksOf(linesOf(ACTIONS), 0).find((t) => t.ask.id === task),
@@ -251,11 +264,6 @@ export function update(u: Update, now = Date.now()) {
     ]);
     return `${task}: ${u.state}`;
   });
-  writing = run.then(
-    () => undefined,
-    () => undefined
-  );
-  return run;
 }
 
 /**
@@ -490,21 +498,13 @@ export function planOf(
 const dueFlags = (due: string | null) =>
   due ? [`--due=${due}`, ...alarmArgs(due)] : ["--due=clear", "--alarm=clear"];
 
-interface Row {
-  completed: boolean;
-  displayDate?: string | null;
-  id: number;
-  notes?: string | null;
-  section?: string | null;
-  title: string;
-}
 interface Subtasks {
   subtasks: { completed: boolean; id: number; title: string }[];
 }
 
 /** The board's items by task id; subtasks only for open tasks' items (a closed one's keep what Life saw). */
 async function readBoard(open: Set<string>, shots: Record<string, Shot>) {
-  const rows = await remctl<Row[]>(["show", BOARD, "--completed"]);
+  const rows = await remctl<Reminder[]>(["show", BOARD, "--completed"]);
   const items = await Promise.all(
     rows.map(async (r): Promise<[string, Item]> => {
       const task = r.notes?.split("\n")[0] ?? "";
@@ -611,14 +611,30 @@ async function mirror(
   }
 }
 
+/** His changes since Life's last pass, as steer lines: a changed item, or a deleted one (it comes back). */
+export function steersOf(
+  shots: Record<string, Shot>,
+  items: Map<string, Item>
+) {
+  return Object.entries(shots).flatMap(([task, shot]) => {
+    const item = items.get(task);
+    const steer = item
+      ? item.id === shot.id && steerOf(shot.seen, item.face)
+      : { changes: ["deleted"], note: "" };
+    return steer && steer.changes.length > 0
+      ? [taskLine(task, "steer", steer, "watch", "he changed the board")]
+      : [];
+  });
+}
+
 const readShots = (): Record<string, Shot> =>
   existsSync(SNAPSHOT) ? JSON.parse(readFileSync(SNAPSHOT, "utf8")) : {};
 
 let last = { at: 0, lines: 0 };
 /**
- * The watcher's pass, each minute or when the ledger grew: his changes on the board become steers, tasks past their
- * deadline get nudges (both delivered as ask events), then the board is brought in line with the ledger. A lost
- * snapshot is a fresh baseline: no steer that pass.
+ * The watcher's pass, each minute or when the ledger grew: first the chase (nudges, from the ledger alone, so a
+ * Reminders outage stops none), then the board: his changes become steers (a deleted item too: it comes back), and
+ * every item is brought in line with the ledger. A lost snapshot is a fresh baseline: no steer that pass.
  */
 export async function tick(now = Date.now()) {
   const grew = linesOf(ACTIONS).length;
@@ -626,26 +642,24 @@ export async function tick(now = Date.now()) {
     return;
   }
   last = { at: now, lines: grew };
+  await serial(() =>
+    appendJsonl(
+      ACTIONS,
+      Action,
+      tasksOf(linesOf(ACTIONS), deliveredLines()).flatMap((t) => {
+        const why = nudgeWhy(t, now);
+        return why ? [taskLine(t.ask.id, "nudge", { why }, "watch", why)] : [];
+      })
+    )
+  );
   const shots = readShots();
-  const before = tasksOf(linesOf(ACTIONS), deliveredLines());
   const open = new Set(
-    before.filter((t) => !closed(standing(t).state)).map((t) => t.ask.id)
+    tasksOf(linesOf(ACTIONS), 0)
+      .filter((t) => !closed(standing(t).state))
+      .map((t) => t.ask.id)
   );
   const items = await readBoard(open, shots);
-  const lines = before.flatMap((t) => {
-    const item = items.get(t.ask.id);
-    const shot = shots[t.ask.id];
-    const steer =
-      item && shot?.id === item.id ? steerOf(shot.seen, item.face) : null;
-    const why = nudgeWhy(t, now);
-    return [
-      ...(steer?.changes.length
-        ? [taskLine(t.ask.id, "steer", steer, "watch", "he changed the board")]
-        : []),
-      ...(why ? [taskLine(t.ask.id, "nudge", { why }, "watch", why)] : []),
-    ];
-  });
-  await appendJsonl(ACTIONS, Action, lines);
+  await serial(() => appendJsonl(ACTIONS, Action, steersOf(shots, items)));
   const live = subscribed(now);
   const next: Record<string, Shot> = {};
   for (const t of tasksOf(linesOf(ACTIONS), deliveredLines())) {
