@@ -6,6 +6,7 @@ import {
   Correction,
   INFERRED_USE_AT,
   InferredPerson,
+  isTaskLine,
   Observation,
   ObservationId,
   Rating,
@@ -364,13 +365,16 @@ function itemOf(
     const run = typeof a.madeBy === "string" ? null : a.madeBy.run;
     return {
       about: [],
-      happenedAt: a.instruction.at,
+      happenedAt: a.instruction?.at ?? a.at,
       id,
       record: a,
       recordedAt: a.at,
       run,
-      // An ask is handed to Atlas, not done by Life: it has no outcome of its own.
-      type: a.kind === "ask" ? "action.ask" : `action.${a.result}`,
+      // An ask is handed to Atlas, not done by Life, and its task's lines are Atlas's or Life's chasing: no outcome of their own.
+      type:
+        isTaskLine(a) || a.kind === "ask"
+          ? `action.${a.kind}`
+          : `action.${a.result}`,
     };
   }
   if (source === "ratings") {
@@ -407,7 +411,7 @@ export interface ChangeFilter {
   run?: string;
   /** Recorded at or after this ISO instant. */
   since?: string;
-  /** Types or type prefixes: observation, observation.superseded, correction, identity, action, action.ask, action.failed, rating, page. */
+  /** Types or type prefixes: observation, observation.superseded, correction, identity, action, action.ask, action.update, action.nudge, action.steer, action.failed, rating, page. */
   types?: string[];
 }
 

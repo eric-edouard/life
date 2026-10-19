@@ -30,9 +30,21 @@ const AskData = z.object({
     .enum(["high", "low"])
     .describe("low: nobody was named as the speaker; confirm with him first"),
   conversation: z.string().optional().describe("The recording, for `fetch`"),
-  id: z.string().describe("The ask's id in Life's actions ledger"),
+  id: z.string().describe("The task's id: its ask in Life's actions ledger"),
+  nudge: z
+    .object({ task: z.string(), why: z.string() })
+    .optional()
+    .describe("Life's nudge: the task is past its deadline. Not a new ask"),
   quote: z.string().describe("His words, from the wake turn on"),
   ref: z.string().describe("Where the words are: a turn or session:<at>"),
+  steer: z
+    .object({
+      changes: z.record(z.string(), z.unknown()),
+      note: z.string().optional(),
+      task: z.string(),
+    })
+    .optional()
+    .describe("He changed its item on his board (the new values). Not an ask"),
   turns: z.array(z.int()).optional().describe("Their turn numbers"),
 });
 
@@ -220,18 +232,31 @@ export function unsubscribe(p: z.infer<typeof Unsubscribe>) {
   return {};
 }
 
-/** The next ask in the ledger at or after line `from`, as its event (its cursor: the line after it), or null. */
+/** One ledger line, null for a blank one. */
+export const parse = (line: string) =>
+  line ? Action.parse(JSON.parse(line)) : null;
+
+/**
+ * The next event in the ledger at or after line `from` (its cursor: the line after it), or null: an ask, or a nudge or
+ * steer of a task, sent as its task's ask with `nudge` or `steer` (one event name: a second would replace the
+ * subscription).
+ */
 export function nextEvent(lines: string[], from: number) {
   for (const [k, line] of lines.slice(from).entries()) {
-    const a = line ? Action.parse(JSON.parse(line)) : null;
-    if (a?.kind === "ask") {
+    const a = parse(line);
+    const ask =
+      a?.kind === "nudge" || a?.kind === "steer"
+        ? lines.map(parse).find((x) => x?.id === a.target)
+        : a;
+    if (a && ask?.kind === "ask" && ask.instruction) {
       const cursor = from + k + 1;
       const data: z.infer<typeof AskData> = {
-        ...a.instruction,
-        confidence: a.after.confidence === "low" ? "low" : "high",
-        conversation: a.after.conversation as string | undefined,
-        id: a.id,
-        turns: a.after.turns as number[] | undefined,
+        ...ask.instruction,
+        confidence: ask.after.confidence === "low" ? "low" : "high",
+        conversation: ask.after.conversation as string | undefined,
+        id: ask.id,
+        turns: ask.after.turns as number[] | undefined,
+        ...(a === ask ? {} : { [a.kind]: { ...a.after, task: ask.id } }),
       };
       return {
         action: a,
@@ -241,7 +266,7 @@ export function nextEvent(lines: string[], from: number) {
           data,
           eventId: a.id,
           name: "ask",
-          timestamp: a.instruction.at,
+          timestamp: a === ask ? ask.instruction.at : a.at,
         },
       };
     }
@@ -249,14 +274,19 @@ export function nextEvent(lines: string[], from: number) {
   return null;
 }
 
+/** Lines of the actions ledger delivered (or passed over), for the tasks' nudges. */
+export const deliveredLines = () => readState().delivered;
+/** Whether Atlas holds a subscription that has not expired (a retry may wait). */
+const current = (s: State, now: number) =>
+  Date.parse(s.subscription?.refreshBefore ?? "") >= now;
+export const subscribed = (now: number) => current(readState(), now);
+
 /** Nothing goes out without a live subscription or while a retry waits. */
 const live = (
   s: State,
   now: number
 ): s is State & { subscription: Subscription } =>
-  !!s.subscription &&
-  Date.parse(s.subscription.refreshBefore) >= now &&
-  !(Date.parse(s.retryAt ?? "") > now);
+  current(s, now) && !!s.subscription && !(Date.parse(s.retryAt ?? "") > now);
 
 /**
  * What one delivery's HTTP status (0: unreachable) does: a 2xx or a 413 (never retried) moves past the event, a 410
@@ -320,7 +350,12 @@ export async function deliver() {
     }
     const error = `Atlas did not receive it (callback ${status || "unreachable"})`;
     log("run.error", { error, event: event.eventId, step: "events.deliver" });
-    if (after.subscription && after.delivered === cursor) {
+    // A nudge or steer passed over needs no mail: escalation brings the task to him.
+    if (
+      after.subscription &&
+      after.delivered === cursor &&
+      action.kind === "ask"
+    ) {
       await sendReport(
         `action/${action.id}`,
         actionFailedReport({ ...action, error })

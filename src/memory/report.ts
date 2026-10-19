@@ -22,7 +22,11 @@ type Result<T extends (...args: never[]) => Promise<unknown>> = Awaited<
 /** What a finished night produced, step by step. */
 export interface Night {
   /** Life's actions of the last 24 h, and what keeps it from acting (a remctl check that failed). */
-  acted: { actions: Action[]; problems: string[] };
+  acted: {
+    actions: Action[];
+    problems: string[];
+    tasks: { name: string; relation: string }[];
+  };
   /** The last backup (`backupLine`). */
   backup: string;
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
@@ -128,6 +132,7 @@ export function successReport(day: string, ms: number, n: Night) {
           ],
           title: "Actions",
         },
+        { kind: "pairs", list: n.acted.tasks, title: "Atlas tasks" },
         {
           kind: "pairs",
           list: [
@@ -269,7 +274,7 @@ export const actionFailedReport = (a: Action) =>
   alert(a.at, "Life action", {
     failure: { error: a.error ?? "", step: `${a.kind} ${a.target}` },
     notes: [
-      `You said: “${a.instruction.quote}”`,
+      `You said: “${a.instruction?.quote}”`,
       `Do it by hand, after a look at what is already there. Details: derived/log, memory/actions.jsonl (${a.id})`,
     ],
     preheader:
@@ -288,7 +293,7 @@ export function actionLine(a: Action) {
   const changed = Object.entries(a.after)
     .map(([k, v]) => `${k} ${v}`)
     .join(", ");
-  const what = {
+  const kinds: Partial<Record<Action["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
     ask: `to Atlas${a.after.confidence === "low" ? " (low confidence)" : ""}`,
     done: `done “${was}”`,
@@ -298,13 +303,14 @@ export function actionLine(a: Action) {
     // Until 19 Oct Life also emailed Instinct; those lines stay in actions.jsonl.
     instinct: `to Instinct: “${a.after.subject}”`,
     remove: `removed “${was}”`,
-  }[a.kind];
+  };
+  const what = kinds[a.kind] ?? a.kind;
   const outcome = {
     duplicate: ` duplicate of #${a.target.split(":")[1]}`,
     failed: ` FAILED: ${a.error}`,
     ok: "",
   }[a.result];
-  return `${what} ← “${a.instruction.quote}”${outcome}`;
+  return `${what} ← “${a.instruction?.quote}”${outcome}`;
 }
 
 export type Mail = ReturnType<typeof compose> & {
