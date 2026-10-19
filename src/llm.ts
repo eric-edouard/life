@@ -1,11 +1,11 @@
 // What every model step shares: run one headless call on the owner's engine, `claude -p` or `codex exec`, getting back
 // its JSON reply, with no tools.
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "./log";
-import { readJson } from "./memory/ledger";
 import { exec } from "./proc";
 import { Engine } from "./schema";
 import { ROOT } from "./truth";
@@ -75,10 +75,11 @@ const CODEX_OFF =
     " "
   );
 
-export function readEngine(): Engine {
-  const settings = readJson(SETTINGS);
-  return settings === undefined ? "claude" : Settings.parse(settings).engine;
-}
+/** The engine he chose; a corrupt settings file throws, never a silent switch of engine (his transcripts go where he said). */
+export const readEngine = (path = SETTINGS): Engine =>
+  existsSync(path)
+    ? Settings.parse(JSON.parse(readFileSync(path, "utf8"))).engine
+    : "claude";
 
 export async function setEngine(engine: Engine) {
   await Bun.write(SETTINGS, `${JSON.stringify({ engine })}\n`);
