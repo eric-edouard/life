@@ -155,11 +155,13 @@ export function steersOf(
 ) {
   return tasks.flatMap((t) => {
     const [seen, item] = [shots[t.ask.id], items.get(t.ask.id)];
+    if (!seen || closed(standing(t).state)) {
+      return [];
+    }
     const steer = item
-      ? item.id === seen?.id && steerOf(seen, item)
-      : seen && { changes: { deleted: true }, note: "" };
-    const his = steer && !closed(standing(t).state);
-    return his && Object.keys(steer.changes).length
+      ? item.id === seen.id && steerOf(seen, item)
+      : { changes: { deleted: true }, note: "" };
+    return steer && Object.keys(steer.changes).length
       ? [[t.ask.id, steer] as const]
       : [];
   });

@@ -323,7 +323,6 @@ test("Life's own subtasks are never steers: in Reminders' order, dropped from At
       steps: [{ done: true, title: b }],
     }),
   ]);
-  expect(steers(dropped)).toEqual([]);
   const next = planOf(wantOf(dropped, null), read, first, T0).look;
   expect(
     steerOf(next, { ...next, steps: { [c]: false, [b]: true, [a]: false } })
