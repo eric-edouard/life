@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { readJson } from "./memory/guard";
+import { readJson } from "./memory/ledger";
 import { WATCH } from "./sources/lifelog";
 
 // The watcher's health record (derived/watch/health.json): written by the watcher after every poll, read by

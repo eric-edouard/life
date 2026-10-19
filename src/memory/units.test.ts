@@ -519,3 +519,31 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
     rmSync(UNITS, { force: true, recursive: true });
   }
 });
+
+test("a conversation from 23:40 to 00:30 at the window start keeps its 00:10 chapter; the day before is left alone", async () => {
+  // Berlin, UTC+2: 23:40 on the 14th is 21:40Z, the window starts at 00:00 on the 15th (22:00Z).
+  const store = lifelogStore();
+  apply(
+    store,
+    page({
+      chapters: [
+        chapter("a", "2026-10-14T21:40:00.000Z", "2026-10-14T22:10:00.000Z"),
+        chapter("b", "2026-10-14T22:10:00.000Z", "2026-10-14T22:30:00.000Z"),
+      ],
+      conversations: [
+        feedConversation("c1", {
+          endAt: "2026-10-14T22:30:00.000Z",
+          startAt: "2026-10-14T21:40:00.000Z",
+        }),
+      ],
+    })
+  );
+  try {
+    await syncLifelogUnits(store, dayStart("2026-10-15"));
+    expect((await readUnits()).map((u) => [u.date, u.start, u.source])).toEqual(
+      [["2026-10-15", "2026-10-14T22:10:00.000Z", "lifelog"]]
+    );
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+  }
+});

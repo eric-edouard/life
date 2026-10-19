@@ -226,7 +226,7 @@ const indexed = () =>
 /** What decides where an observation stands and whether a correction shows yet: the small ledgers, the pages, the index. */
 async function readContext() {
   const [standing, inferred, pages] = await Promise.all([
-    readCorrections().then(readStanding),
+    readStanding(readCorrections()),
     readInferred(),
     readPages(),
   ]);

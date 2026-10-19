@@ -5,6 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "./log";
+import { readJson } from "./memory/ledger";
 import { exec } from "./proc";
 import { Engine } from "./schema";
 import { ROOT } from "./truth";
@@ -74,11 +75,9 @@ const CODEX_OFF =
     " "
   );
 
-export async function readEngine(): Promise<Engine> {
-  const file = Bun.file(SETTINGS);
-  return (await file.exists())
-    ? Settings.parse(await file.json()).engine
-    : "claude";
+export function readEngine(): Engine {
+  const settings = readJson(SETTINGS);
+  return settings === undefined ? "claude" : Settings.parse(settings).engine;
 }
 
 export async function setEngine(engine: Engine) {

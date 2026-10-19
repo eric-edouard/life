@@ -18,7 +18,8 @@ import { readImessage } from "../sources/imessage";
 import { apply } from "../sources/lifelog";
 import { readNotes } from "../sources/notes";
 import { readWhatsapp } from "../sources/whatsapp";
-import { chatHits, chatsOf, fetchOf } from "./raw";
+import { OWNER } from "../truth";
+import { chatHits, chatsOf, fetchOf, voiceLines } from "./raw";
 import { LIFE_CHAT, localTime, time } from "./units";
 
 const words = ["Allo", "Salut", "", "Fin"];
@@ -263,4 +264,27 @@ test("search finds a note of any age by any of its words, a long one shown by it
   ).join("\n");
   expect(recent).toContain(`la vitre ${89 * 86_400}`);
   expect(recent).not.toContain("80 x 120");
+});
+
+test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another unnamed one stays unknown", () => {
+  const jobs = new Map([
+    [
+      "job-1",
+      [
+        { speakerId: "speaker_0", text: "Salut" },
+        { speakerId: "speaker_1", text: "Allo" },
+      ],
+    ],
+  ]);
+  const t = (turnIndex: number, owner: boolean) => ({
+    at: "2026-10-14T10:00:00.000Z",
+    jobId: "job-1",
+    name: null,
+    owner,
+    personId: null,
+    turnIndex,
+  });
+  expect(
+    voiceLines([t(0, true), t(1, false)], jobs, new Map()).map((l) => l.speaker)
+  ).toEqual([OWNER, "unknown:speaker_1"]);
 });

@@ -9,7 +9,7 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { handleIndex, handlesOf, ownerIn } from "../truth";
+import { handleIndex, handlesOf, OWNER, ownerIn } from "../truth";
 import { readRepoGuesses, readUnits } from "./ledger";
 import type { Line } from "./observe";
 import {
@@ -99,7 +99,7 @@ export function chatLines(
   });
 }
 
-/** The lines of recorded turns, each cited `jobId:turnIndex@capturedAt`; a turn with no words is left out. */
+/** The lines of recorded turns, each cited `jobId:turnIndex@capturedAt`; a turn with no words is left out, an unnamed one lifelog says is his is the owner's. */
 export function voiceLines(
   turns: ChapterTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
@@ -110,13 +110,14 @@ export function voiceLines(
     if (!turn?.text.trim()) {
       return [];
     }
+    const unnamed = t.owner
+      ? OWNER
+      : `${UNKNOWN}${turn.speakerId ?? "speaker"}`;
     return [
       {
         at: t.at,
         ref: turnRef(t.jobId, t.turnIndex, t.at),
-        speaker: t.name
-          ? personRef(t.name, names)
-          : `${UNKNOWN}${turn.speakerId ?? "speaker"}`,
+        speaker: t.name ? personRef(t.name, names) : unnamed,
         text: redact(turn.text),
       },
     ];
