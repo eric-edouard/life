@@ -1,4 +1,4 @@
-import { ask } from "./actions";
+import { ask, WAKE } from "./actions";
 import {
   type ChapterTurn,
   readTranscript,
@@ -10,8 +10,6 @@ import {
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
 
-/** The two words in this order, whatever the case and the punctuation around or between them. */
-const WAKE = /\bhey\W+atlas\b/i;
 /** A pause longer than this between two of his turns (start to start: lifelog gives no end) closes the ask. */
 const GAP_MS = 15_000;
 

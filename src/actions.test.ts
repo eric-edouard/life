@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import {
   actionId,
   alarmArgs,
+  BOARD,
+  card,
   changedFields,
   duplicateOf,
   reminderArgs,
@@ -94,4 +96,21 @@ test("an edit changes the title and list only when they differ, and every other 
     list: "Travel",
     title: "Same",
   });
+});
+
+test("an ask's board reminder: his words after the wake as the title (to confirm when low), the ask id and all his words in the notes", () => {
+  const quote = "Bon, hey Atlas, écris au plombier pour jeudi";
+  expect(card("act_00000000000a", quote, "high")).toEqual({
+    kind: "add",
+    list: BOARD,
+    notes: `act_00000000000a\n${quote}`,
+    title: "Atlas: écris au plombier pour jeudi",
+  });
+  expect(card("act_00000000000a", quote, "low").title).toBe(
+    "Atlas (to confirm): écris au plombier pour jeudi"
+  );
+  // A session's ask has no wake: all his words; a long one is clipped.
+  const long = card("act_00000000000b", "find me a flat ".repeat(20), "high");
+  expect(long.title.startsWith("Atlas: find me a flat find")).toBe(true);
+  expect(long.title.length).toBeLessThanOrEqual(88);
 });

@@ -132,7 +132,7 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
 });
 
-test("tools/list: eleven read-only tools; `correct` and `reminders` ask for approval", async () => {
+test("tools/list: twelve read-only tools; `correct` asks for approval, `reminders` writes but undoes, so Atlas runs unattended", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -146,6 +146,7 @@ test("tools/list: eleven read-only tools; `correct` and `reminders` ask for appr
     "correct",
     "day",
     "fetch",
+    "open_reminders",
     "person",
     "places",
     "reminders",
@@ -162,7 +163,7 @@ test("tools/list: eleven read-only tools; `correct` and `reminders` ask for appr
   }
   for (const name of writes) {
     expect(tools.find((t) => t.name === name)?.annotations).toMatchObject({
-      destructiveHint: true,
+      destructiveHint: name === "correct",
       openWorldHint: false,
       readOnlyHint: false,
     });
@@ -254,6 +255,7 @@ test("server/discover offers events and events/list one event, ask; a subscribe 
     "at",
     "confidence",
     "id",
+    "playbook",
     "quote",
     "ref",
   ]);
