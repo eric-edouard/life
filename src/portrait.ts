@@ -20,6 +20,8 @@ const PAGE_HEADERS = {
   "content-security-policy":
     "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'",
   "content-type": "text/html; charset=utf-8",
+  // With no-referrer, browsers post the form with `Origin: null` and the origin check refuses it.
+  "referrer-policy": "same-origin",
   "x-robots-tag": "noindex",
 };
 
