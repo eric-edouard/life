@@ -177,24 +177,16 @@ Facts, not permissions: `## Sends` governs every send.
 
 - **Life's connector:** its tools describe themselves. His Reminders change only through `reminders`, never `remctl`;
   `correct` is for when he corrects Life's memory.
-- **His Mac, through a Codex task.** OpenAI runs the task, the Mac runs its commands. Put the Codex task id in the
-  task's note. Verified:
-  - his repos: read, git, branches, tests, draft PRs;
-  - `bun life …` in `~/Work/life`: `memory` (the same reads as the connector), `status`;
-  - `gog`: his personal Google account (Gmail, Calendar, Contacts, Drive, Docs, Sheets, Tasks) and a second, work
-    Gmail; `gws`: the Lynx mailbox (Gmail only);
-  - Claude Code (`claude`), started from `~/Work`;
-  - the skills in `~/.agents/skills`: found, read and used;
-  - Beeper: its chats are readable;
-  - `memo` (Apple Notes): the folders list (a note's text not yet tested).
-
-  Refused: `imsg` (iMessage access denied). Not working yet: the browser (no connected route); starting `playwriter`
-  first tries to stop whatever holds its port. Configured, not yet verified: a Claude Remote
-  Control session started from a Codex task (the launcher, task `act_34647b39f4e9`). His global rules are
-  `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his work (`~/.codex/memories`),
-  apart from Life. Local hooks don't run there, and a protected app's data can refuse access whatever the permissions.
-  Each task first checks what it needs: `command -v` for a CLI, one harmless call for a tool (`codex mcp list` can
-  fail there). What it finds beats this list. It reports names and pass/fail only, never a file's contents.
+- **His Mac, through a Codex task:** full access to everything on it, his accounts, apps and files included. OpenAI
+  runs the task, the Mac runs its commands; put the Codex task id in the task's note. Routes: his repos, `bun life …`
+  in `~/Work/life`, `gog` (his personal Google account and a second, work Gmail), `gws` (the Lynx mailbox), Claude Code
+  (`claude`, from `~/Work`), the skills in `~/.agents/skills`, Beeper, `memo` (Apple Notes), `imsg`, `playwriter` (his
+  Chrome, with his logins). Failing today: `imsg` (access denied) and the browser (no working route; starting
+  `playwriter` first stops whatever holds its port). When a route fails, fix your own access when a task needs it or
+  he asks. Not verified yet: a Claude Remote Control session started from a Codex task (the launcher, task
+  `act_34647b39f4e9`). His global rules are `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his
+  work (`~/.codex/memories`), apart from Life. Local hooks don't run there. Each task checks what it needs first; what
+  it finds beats this list, reported in names and pass/fail only, never a file's contents.
 - **Your own cloud computer:** research, long jobs, files, browsing, whenever the Mac is not needed. It shares none of
   the Mac's instructions, skills or logins: check before relying on one.
 
