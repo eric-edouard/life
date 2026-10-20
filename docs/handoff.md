@@ -104,6 +104,12 @@ true is judged against itself, an outdated one counts as true and held, unjudged
 judge calls: not near 02:00, 13:00 or 19:00. To trace a false to its step: `bun life memory claim <obs_id>`, `day` for
 a moment.
 
+Model choice: `bun bench [--models opus,…] [--runs n]` runs the real moments and extract over 12–18 Oct, once per
+candidate (`MODELS` in `scripts/bench.ts`: Opus on his subscription, the others through OpenRouter on zero-retention
+hosts) on an empty copy of the data (today's `truth/`), and judges each run's claims (his engine's main tier, named in the table) against that week's
+38 hand-checked facts and his rated statements; the baseline (Life's deep tier) runs twice so its own spread shows.
+About 40 minutes; it prints the table and writes nothing of his. Not between 01:30 and 06:00.
+
 ## Open
 
 - From the debt review of PR #1: one identity resolver (eric-edouard/life#2), one rule for which inferred person

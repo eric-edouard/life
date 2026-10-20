@@ -82,14 +82,17 @@ export const Project = z
   .strict();
 export type Project = z.infer<typeof Project>;
 
-/** The model runner behind a step (src/llm.ts). */
+/** The model runner he chooses for every step (src/llm.ts, `bun life engine`). */
 export const Engine = z.enum(["claude", "codex"]);
 export type Engine = z.infer<typeof Engine>;
+/** What can run one call: his engines, and OpenRouter for the bench alone (`llmOverride`, only on a copy of his data). */
+export const Runner = z.enum([...Engine.options, "openrouter"]);
+export type Runner = z.infer<typeof Runner>;
 
 /** Who made a model's output: engine and model (switching engines re-runs nothing), the prompt version, the run. */
 export const MadeBy = z
   .object({
-    engine: Engine.default("claude"),
+    engine: Runner.default("claude"),
     model: z.string(),
     prompt: z.string(),
     run: z.string(),

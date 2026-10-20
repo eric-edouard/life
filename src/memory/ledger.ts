@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { z } from "zod";
 import {
   Action,
@@ -44,6 +50,12 @@ export const OUT = join(ROOT, "derived", "memory");
 export const UNITS = join(MEMORY, "units");
 export const OBSERVATIONS = join(MEMORY, "observations");
 export const PAGES = join(MEMORY, "pages");
+
+/** The file of a person's or an area's page. */
+export const pagePath = (ref: string) =>
+  ref.startsWith("person:")
+    ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
+    : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
 export const MOMENTS = join(MEMORY, "moments");
 export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");
@@ -75,6 +87,12 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
   linesOf(path)
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
+
+/** Writes a small JSON state file (a guard's, the backfill's), its folder made if missing. */
+export function writeJson(path: string, value: unknown) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value)}\n`);
+}
 
 /** A small JSON state file, or undefined when it is missing or unreadable. */
 export function readJson<T>(path: string): T | undefined {
@@ -338,6 +356,26 @@ export async function recordCorrection(said: unknown) {
 
 /** The truth benchmark: every statement, in the order it was drawn. */
 export const readStatements = () => rowsOf(STATEMENTS, Statement);
+
+/** His rated statements (skips aside) as facts: a false one false, a true or outdated one (true then) true. */
+export function ratedFacts() {
+  const ratings = readRatings();
+  return readStatements().flatMap((s) => {
+    const answer = ratings.get(s.claim)?.answer;
+    return answer && answer !== "skip"
+      ? [
+          {
+            date: s.date,
+            fact: s.text,
+            id: s.claim,
+            outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
+            true: answer !== "false",
+            units: s.units,
+          },
+        ]
+      : [];
+  });
+}
 
 /** Appends the owner's answer to one statement's claim (the check page); null takes his last one back. */
 export const recordRating = (claim: string, answer: Rating["answer"]) =>

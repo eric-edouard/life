@@ -18,6 +18,7 @@ import {
   applyRules,
   dayRange,
   LIFE_CHAT,
+  lastDays,
   lifelogUnits,
   messageUnits,
   nameIndex,
@@ -27,10 +28,9 @@ import {
   repoUnits,
   syncLifelogUnits,
   unitId,
-  windowStart,
   writeUnits,
 } from "./units";
-import { cutAt, dayStart, zoneAt } from "./zones";
+import { cutAt, dayStart, firstZoneDay, zoneAt } from "./zones";
 
 const people = [
   {
@@ -390,14 +390,20 @@ test("a repo-day is a unit: commits and lines in the title, the subjects as summ
   expect(b?.unit.refs).toEqual(["git:photo-app/1", "git:photo-app/3"]);
 });
 
-test("the window starts at local midnight where he was, so every day in it is whole", () => {
+test("a window is whole local days where he was, today included", () => {
   // 11 Oct in Berlin; 5 Oct began in Jakarta (UTC+7).
-  const start = windowStart(new Date("2026-10-11T12:30:00Z"), 7);
-  expect(start.toISOString()).toBe("2026-10-04T17:00:00.000Z");
+  const w = lastDays(new Date("2026-10-11T12:30:00Z"), 7);
+  expect(w).toEqual({ from: "2026-10-05", to: "2026-10-11" });
+  expect(dayStart(w.from).toISOString()).toBe("2026-10-04T17:00:00.000Z");
 });
 
-test("his zone at an instant is the latest record before it, the first one before them all", () => {
-  expect(zoneAt("2020-01-01T00:00:00Z")).toBe("Asia/Jakarta");
+test("his zone at an instant is the latest record before it, the first one before them all, in time order", () => {
+  // Lisbon from 2019 is the file's last line: his past, told after the newer records.
+  expect(zoneAt("2018-01-01T00:00:00Z")).toBe("Europe/Lisbon");
+  // A backfill may not start before it.
+  expect(firstZoneDay()).toBe("2019-01-01");
+  expect(zoneAt("2020-01-01T00:00:00Z")).toBe("Europe/Lisbon");
+  expect(zoneAt("2026-08-02T00:00:00Z")).toBe("Asia/Jakarta");
   expect(zoneAt("2026-10-06T16:59:59Z")).toBe("Asia/Jakarta");
   expect(zoneAt("2026-10-06T17:00:00Z")).toBe("Europe/Berlin");
   expect(zoneAt("2030-01-01T00:00:00Z")).not.toBe("Asia/Jakarta");

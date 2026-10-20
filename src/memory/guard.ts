@@ -8,7 +8,8 @@ import {
 import { uptime } from "node:os";
 import { join } from "node:path";
 import { DATA } from "../truth";
-import { OUT, readJson } from "./ledger";
+import { OUT, readJson, writeJson } from "./ledger";
+import { daysBefore, type Window } from "./units";
 
 // launchd starts the nightly every 30 minutes; this guard decides whether a start does anything.
 
@@ -116,6 +117,63 @@ export function nextMidday(now: Date, last: string | undefined) {
   );
 }
 
+/**
+ * The backfill's range (`bun life memory backfill`): the next local day to read, the last one, how many times its week
+ * failed, and how many weeks `day` read.
+ */
+export interface Backfill {
+  day?: string;
+  failures: number;
+  next: string;
+  to: string;
+  weeks?: number;
+}
+const BACKFILL = join(OUT, "backfill.json");
+export const readBackfill = () => readJson<Backfill>(BACKFILL);
+export function recordBackfill(b: Backfill) {
+  writeJson(BACKFILL, b);
+}
+
+/** Weeks a day reads at most: about an hour of deep calls each, so his subscriptions keep room for him. */
+const WEEKS_A_DAY = 4;
+
+/**
+ * The week a backfill reads next on `day`: seven days from `next`, never past `to`; none before `day`'s own night
+ * went through (`night`: a week never pushes the night back), once it is done, stopped after MAX_ATTEMPTS failures of
+ * one week, or `day` read its WEEKS_A_DAY.
+ */
+export function backfillWeek(
+  b: Backfill | undefined,
+  day: string,
+  night: NightState | undefined
+): Window | null {
+  if (
+    !b ||
+    night?.date !== day ||
+    night.status !== "ok" ||
+    b.next > b.to ||
+    b.failures >= MAX_ATTEMPTS ||
+    (b.day === day && (b.weeks ?? 0) >= WEEKS_A_DAY)
+  ) {
+    return null;
+  }
+  const end = daysBefore(b.next, -6);
+  return { from: b.next, to: end < b.to ? end : b.to };
+}
+
+/** The range after `week` was read on `day`: moved past it when it went through, one more failure when it did not. */
+export function afterWeek(
+  b: Backfill,
+  week: Window,
+  ok: boolean,
+  day: string
+): Backfill {
+  const weeks = (b.day === day ? (b.weeks ?? 0) : 0) + 1;
+  return ok
+    ? { day, failures: 0, next: daysBefore(week.to, -1), to: b.to, weeks }
+    : { ...b, day, failures: b.failures + 1, weeks };
+}
+
 /** A scheduled job's state (`nightly`, `backup`). */
 type Job = "nightly" | "backup";
 const stateFile = (job: Job) => join(OUT, `${job}.json`);
@@ -129,8 +187,7 @@ export const readMidday = () => readJson<string>(MIDDAY);
 
 /** Marks a midday slot as used, failed or not: a failed run waits for the next slot, the nightly reports. */
 export function recordMidday() {
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(MIDDAY, JSON.stringify(new Date().toISOString()));
+  writeJson(MIDDAY, new Date().toISOString());
 }
 
 /** Records the outcome of a night (or of a `job`'s run); a new day starts at zero attempts. */
@@ -144,8 +201,7 @@ export function recordState(day: string, ok: boolean, job: Job = "nightly") {
     okAt: ok ? new Date().toISOString() : prev?.okAt,
     status: ok ? "ok" : "failed",
   };
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(stateFile(job), `${JSON.stringify(state)}\n`);
+  writeJson(stateFile(job), state);
   return state;
 }
 
