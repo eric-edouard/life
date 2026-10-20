@@ -1,4 +1,5 @@
 import { checks } from "../actions";
+import { archiveLine } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
 import { type Action, isTaskLine } from "../schema";
@@ -276,6 +277,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     commitMemory(["memory", "truth"], `Memory: ${day}`);
     mail = successReport(day, rec.ms(), {
       acted: report,
+      archive: await archiveLine(since),
       backup: backupLine(now),
       code: commits,
       extracted,

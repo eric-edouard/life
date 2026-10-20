@@ -1,9 +1,11 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { log, logDays, logEvents } from "./log";
+import { archiveFailedReport, sendReport } from "./memory/report";
+import { localTime } from "./memory/units";
 import { codeAt, exec } from "./proc";
-import { ARCHIVE, archiveDb } from "./sources/archived";
+import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
 import { fromAppleS, toAppleS } from "./sources/imessage";
 import { listNotes, NOTES, noteVersion } from "./sources/notes";
 import { ROOT } from "./truth";
@@ -13,14 +15,6 @@ import { ROOT } from "./truth";
 // The only copy of what an app wiped is one taken while it existed. The apps' stores are opened read-only; only the
 // archive is written (whatsapp.sqlite, beeper.sqlite, notes.sqlite). Query the deleted ones with `archive deleted`.
 
-export const WHATSAPP = join(
-  homedir(),
-  "Library/Group Containers/group.net.whatsapp.WhatsApp.shared"
-);
-export const BEEPER = join(
-  homedir(),
-  "Library/Application Support/BeeperTexts"
-);
 const LOCAL = /^local-/;
 // WhatsApp lets senders delete for everyone for about 60 hours; edits and late media downloads fit in a week too.
 const WINDOW_S = 7 * 86_400;
@@ -460,6 +454,52 @@ function printDeleted(days: number) {
   }
 }
 
+// A store failing since its first failed pass (logged once) until its next good one: an incident. He is emailed once
+// an hour in, since what is deleted meanwhile is lost (18 Oct: Beeper's store would not open for 5 hours, unseen).
+const ALERT_MS = 3_600_000;
+const failing = new Map<string, { mailed: boolean; since: string }>();
+
+/** What a failed pass of `name` at `now` calls for: logging a new incident, emailing him an hour in (once), or nothing. */
+export function incident(name: string, now: Date, state = failing) {
+  const f = state.get(name);
+  if (!f) {
+    state.set(name, { mailed: false, since: now.toISOString() });
+    return "start";
+  }
+  if (f.mailed || now.getTime() - Date.parse(f.since) < ALERT_MS) {
+    return null;
+  }
+  f.mailed = true;
+  return "mail";
+}
+
+async function failed(name: string, error: string) {
+  const what = incident(name, new Date());
+  if (what === "start") {
+    log("run.error", { error, step: `archive.${name}` });
+  }
+  const since = failing.get(name)?.since;
+  if (what === "mail" && since) {
+    await sendReport(
+      `archive/${name}/${since}`,
+      archiveFailedReport(name, since, error)
+    );
+  }
+}
+
+/** The nightly's line on the archive: each incident that started since `since` (an ISO instant), from derived/log. */
+export async function archiveLine(since: string) {
+  const started = (await logDays())
+    .filter((n) => n.slice(0, 10) >= since.slice(0, 10))
+    .flatMap((n) =>
+      logEvents<{ at: string; error: string; step: string }>(n, "run.error")
+    )
+    .filter((e) => e.step.startsWith("archive.") && e.at >= since)
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map((e) => `${e.step.slice(8)} from ${localTime(e.at)}: ${e.error}`);
+  return `Archive: ${started.length > 0 ? `FAILED: ${started.join("; ")}` : "no failure"}`;
+}
+
 /**
  * `archive` runs until a commit changes the code (the LaunchAgent starts it again), `archive --once` once,
  * `archive deleted [days]` prints deleted messages.
@@ -474,18 +514,20 @@ export async function archiveCommand(args: string[]): Promise<number> {
     for (const { copy, name } of STORES) {
       try {
         const added = copy();
+        failing.delete(name);
         if (added > 0) {
           console.log(`${new Date().toISOString()} archived ${added} ${name}`);
         }
       } catch (error) {
         console.error(new Date().toISOString(), name, error);
+        // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop, the stores one at a time
+        await failed(name, (error as Error).message);
       }
     }
     if (args.includes("--once")) {
       return 0;
     }
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
-    // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
   }
   console.log(`${new Date().toISOString()} new code: restarting`);

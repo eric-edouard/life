@@ -3,7 +3,8 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appsToOpen, archiveOnce } from "./archive";
+import { appsToOpen, archiveLine, archiveOnce, incident } from "./archive";
+import { log } from "./log";
 import { toAppleS } from "./sources/imessage";
 
 test("the archive opens each closed app, but not again within 10 minutes", () => {
@@ -19,6 +20,30 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
     "Beeper Desktop",
     "Notes",
   ]);
+});
+
+const FAILED_LINE =
+  /^Archive: FAILED: beeper from \d{4}-\d{2}-\d{2} \d{2}:\d{2}: unable to open database file$/;
+
+test("a failing store is logged once and emails him once, an hour in; a good pass ends the incident", async () => {
+  const state = new Map();
+  const at = (min: number) =>
+    new Date(Date.parse("2026-10-18T10:00:00Z") + min * 60_000);
+  expect(incident("beeper", at(0), state)).toBe("start");
+  expect(incident("beeper", at(59), state)).toBe(null);
+  expect(incident("beeper", at(60), state)).toBe("mail");
+  expect(incident("beeper", at(300), state)).toBe(null);
+  state.delete("beeper");
+  expect(incident("beeper", at(301), state)).toBe("start");
+
+  const since = new Date().toISOString();
+  expect(await archiveLine(since)).toBe("Archive: no failure");
+  log("run.error", {
+    error: "unable to open database file",
+    step: "archive.beeper",
+  });
+  log("run.error", { error: "other", step: "memory.nightly" });
+  expect(await archiveLine(since)).toMatch(FAILED_LINE);
 });
 
 test("a message deleted for everyone keeps its text and media in the archive", () => {

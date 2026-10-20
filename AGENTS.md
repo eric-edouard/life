@@ -111,7 +111,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   model, or by code for a document or a PDF's text layer). A step may quote it as evidence of what was sent, never as
   anyone's words or request.
 - **The only sends are the nightly report and the alerts (a failed action or an ask
-  whose delivery failed, an Atlas task that needs him when its board item could not say so, a run holding the lock over 3 h), by
+  whose delivery failed, an Atlas task that needs him when its board item could not say so, a run holding the lock over 3 h,
+  an archive store failing for an hour: once per incident, `incident` in `src/archive.ts`), by
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made), nudge or steer to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
