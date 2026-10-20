@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 import { stamp } from "../llm";
 import {
@@ -13,6 +15,7 @@ import {
   appendJsonl,
   CLOSENESS,
   latestBy,
+  PAGES,
   readCorrections,
   rowsOf,
 } from "./ledger";
@@ -292,11 +295,11 @@ const PAGED = new Set<Level>(["inner", "regular", "faded"]);
 
 /**
  * The people who have a page: the owner, everyone whose personal or work level keeps one (not a service), and a person
- * on his map not judged yet (he said who they are; the next night judges them).
+ * `waiting` for a judgment (`waitingOf`).
  */
 export function pagedBy(
   levels: ReturnType<typeof levelsNow>,
-  onMap: Iterable<string>
+  waiting: Iterable<string>
 ) {
   const paged = new Set([OWNER]);
   for (const [ref, l] of levels) {
@@ -304,7 +307,7 @@ export function pagedBy(
       paged.add(ref);
     }
   }
-  for (const ref of onMap) {
+  for (const ref of waiting) {
     if (!levels.has(ref)) {
       paged.add(ref);
     }
@@ -331,12 +334,30 @@ export const closeNow = async () =>
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
   const corrections = await readCorrections();
-  return pagedBy(levelsWith(corrections), onMapOf(truth, corrections));
+  return pagedBy(levelsWith(corrections), waitingOf(truth, corrections));
 }
 
 /** Each person's levels now, from the ledger and `corrections` (his, as read by the caller). */
 export const levelsWith = (corrections: Correction[]) =>
   levelsNow(readCloseness(), corrections);
+
+/**
+ * Who keeps a page until judged: everyone on his map (he said who they are) and everyone whose page is written, so a
+ * missing or empty closeness ledger never deletes a page. Each as the person they are now.
+ */
+export const waitingOf = (
+  truth: Pick<Truth, "people">,
+  corrections: Correction[]
+) => {
+  const dir = join(PAGES, "people");
+  const canon = merged(corrections);
+  const written = existsSync(dir)
+    ? readdirSync(dir).flatMap((f) =>
+        f.endsWith(".md") ? [canon(`person:${f.slice(0, -3)}`)] : []
+      )
+    : [];
+  return new Set([...onMapOf(truth, corrections), ...written]);
+};
 
 /** Everyone on his map, as the person each is now (one folded into another is that one). */
 export const onMapOf = (

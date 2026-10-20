@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { mkdir, rm } from "node:fs/promises";
+import { dirname } from "node:path";
 import { type Closeness, Correction, type SourceEvent } from "../schema";
 import {
   chapter,
@@ -14,11 +16,13 @@ import {
   dueFor,
   levelsNow,
   pagedBy,
+  pagedNow,
   parseLevels,
   personallyClose,
   tally,
   voiceDays,
 } from "./closeness";
+import { pagePath } from "./ledger";
 
 const msg = (
   chat: string,
@@ -275,4 +279,15 @@ test("a closeness correction names a personal or a work level", () => {
     true
   );
   expect(Correction.safeParse(base).success).toBe(false);
+});
+
+test("a written page stays until its person is judged: no closeness ledger deletes no page", async () => {
+  const path = pagePath("person:inf-new");
+  await mkdir(dirname(path), { recursive: true });
+  await Bun.write(path, "# New\n");
+  try {
+    expect(await pagedNow({ people: [] })).toContain("person:inf-new");
+  } finally {
+    await rm(path);
+  }
 });

@@ -12,7 +12,7 @@ import {
   type Unit,
 } from "../schema";
 import { DATA, OWNER, type Truth } from "../truth";
-import { levelsWith, onMapOf, pagedBy, personallyClose } from "./closeness";
+import { levelsWith, pagedBy, personallyClose, waitingOf } from "./closeness";
 import {
   appendJsonl,
   CORRECTIONS,
@@ -135,7 +135,7 @@ async function targets(
   standing: Standing
 ) {
   const levels = levelsWith(standing.corrections);
-  const paged = pagedBy(levels, onMapOf(truth, standing.corrections));
+  const paged = pagedBy(levels, waitingOf(truth, standing.corrections));
   const close = personallyClose(levels);
   const { homes } = placed(observations, truth, paged);
   const newest = (ref: string) =>
