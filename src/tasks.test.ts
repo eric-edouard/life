@@ -103,6 +103,14 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
       now
     )
   ).toBeNull();
+  // A duplicate ask is claimed and dropped in one update.
+  expect(
+    refusal(
+      open,
+      { claim: true, reason: "same as t1", state: "dropped", task: ASK },
+      now
+    )
+  ).toBeNull();
   const claimed = task([
     own("update", 1, { deadline, note: "a", state: "working" }),
   ]);
