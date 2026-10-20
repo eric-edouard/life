@@ -2,7 +2,7 @@ import { checks } from "./actions";
 import { tick } from "./board";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
-import { hear } from "./hear";
+import { hear, speechIn } from "./hear";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
 import { reindex } from "./memory/search";
@@ -16,13 +16,19 @@ import { ROOT } from "./truth";
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
-// It also hears "hey Atlas": 40 s after his last new turn in a conversation, `hear` records its asks, and every loop
-// `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
+// It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks;
+// every loop `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
 // steers not yet delivered to Atlas (src/events.ts).
 
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
-const QUIET_MS = 40_000;
+/**
+ * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
+ * it have settled, an unnamed turn once lifelog could name him, open speech once the next recording is usually in.
+ * ponytail: a recording later than that ends the ask before it (`asksIn` starts at a wake); joining it to the open
+ * ask would need a ledger line that extends an ask.
+ */
+const WAIT_MS = { complete: 5000, open: 60_000, unnamed: 40_000 };
 /** A replay of the store (after a restart or an outage) never acts on speech older than a week. */
 const RECENT_MS = 7 * 24 * 3_600_000;
 
@@ -51,7 +57,7 @@ export type Pending = Map<string, { at: number; from: string; tries: number }>;
 /** A hearing whose words could not be fetched is tried again this many times, then logged lost (a restart waits on it). */
 const TRIES = 5;
 
-/** Folds turns into `pending`, each conversation due 40 s after its last one arrived; speech older than a week is left out, and logged. */
+/** Folds turns into `pending`, each conversation due after its last one arrived (`dueAt`); speech older than a week is left out, and logged. */
 function fold(
   pending: Pending,
   turns: { at: string; conversation: string }[],
@@ -74,17 +80,27 @@ function fold(
   }
 }
 
+/** Where a conversation's speech stands (`speechIn`). */
+type Speech = (conversation: string, from: string) => keyof typeof WAIT_MS;
+
+/** When a pending conversation is due: `WAIT_MS` after its last turn arrived, by where its speech stands. */
+const dueAt = (
+  [conversation, p]: [string, { at: number; from: string }],
+  speech: Speech
+) => p.at + WAIT_MS[speech(conversation, p.from)];
+
 /**
- * Folds the turns of one poll into `pending` and takes out the conversations quiet for 40 s (measured on arrival, not
- * on speech time), ready for `hear`. ponytail: `pending` lives in memory; a restart inside the 40 s drops those turns.
+ * Folds the turns of one poll into `pending` and takes out the conversations due (`dueAt`, measured on arrival, not on
+ * speech time), ready for `hear`. ponytail: `pending` lives in memory; a restart inside the wait drops those turns.
  */
 export function hearings(
   pending: Pending,
   turns: { at: string; conversation: string }[],
-  now: number
+  now: number,
+  speech: Speech
 ) {
   fold(pending, turns, now);
-  const due = [...pending].filter(([, p]) => now - p.at >= QUIET_MS);
+  const due = [...pending].filter((e) => dueAt(e, speech) <= now);
   for (const [conversation] of due) {
     pending.delete(conversation);
   }
@@ -94,6 +110,15 @@ export function hearings(
     tries,
   }));
 }
+
+/** Seconds the next poll may hold: until the first pending conversation could be due, a minute at most. */
+export const holdFor = (pending: Pending, now: number, speech: Speech) =>
+  Math.min(
+    WAIT_S,
+    ...[...pending].map((e) =>
+      Math.max(1, Math.ceil((dueAt(e, speech) - now) / 1000))
+    )
+  );
 
 /** A commit changed src/ or prompts/ and no hearing waits: exit, launchd starts the new code (old code lost a request on 15 Oct by reading a renamed prompt). */
 const restartDue = (running: string, pending: Pending) =>
@@ -131,6 +156,8 @@ export async function watch(): Promise<number> {
     )
   );
   const pending: Pending = new Map();
+  const speech: Speech = (conversation, from) =>
+    speechIn(store, conversation, from);
   let health = readHealth();
   // Units follow the store even if the last run stopped between the two.
   let dirty = true;
@@ -140,13 +167,16 @@ export async function watch(): Promise<number> {
     let result: { cursor: string } | { error: string };
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
-      const page = await poll(store, more ? 0 : WAIT_S);
+      const page = await poll(
+        store,
+        more ? 0 : holdFor(pending, Date.now(), speech)
+      );
       ({ more } = page);
       dirty ||= page.changed;
-      for (const h of hearings(pending, page.owner, Date.now())) {
+      for (const h of hearings(pending, page.owner, Date.now(), speech)) {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         await hear(store, h.conversation, h.from).catch((e: Error) => {
-          // Words not fetched: heard again after the next quiet 40 s, never read as silence.
+          // Words not fetched: heard again after the next wait, never read as silence.
           const lost = h.tries + 1 >= TRIES;
           log("run.error", { error: e.message, lost, step: "watch.hear" });
           if (!lost) {

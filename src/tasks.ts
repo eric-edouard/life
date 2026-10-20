@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
 import { deliveredLines, parse } from "./events";
+import { LOG_DIR, logDays, logEvents } from "./log";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
 import { clip } from "./memory/units";
 import { Action, type Instruction, type TASK_LINES } from "./schema";
@@ -37,7 +38,8 @@ const askLine = (
   after: Action["after"],
   madeBy: "connector" | "session" | "watch",
   why: string,
-  now = Date.now()
+  now = Date.now(),
+  timing?: Action["timing"]
 ) =>
   ({
     after,
@@ -55,6 +57,7 @@ const askLine = (
     result: "ok",
     schemaVersion: 1,
     target: "atlas",
+    ...(timing ? { timing } : {}),
     why,
   }) satisfies Action;
 
@@ -113,6 +116,50 @@ const taskOf = (tasks: Task[], id?: string) =>
   tasks.find((t) => t.ask.id === id);
 
 export const closed = (s: State) => s === "done" || s === "dropped";
+
+/**
+ * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, lifelog's feed had all
+ * of them, Life recorded the ask, Atlas got it (the `event.sent` log), claimed it and closed it; null where unknown
+ * (not speech, not yet, or before 20 Oct). A split's parts are left out: they share their parent's times.
+ */
+export async function timings(
+  from = "",
+  to = "9999",
+  tasks = tasksOf(),
+  dir = LOG_DIR
+) {
+  // Oldest first, the first delivery kept: a retry after a lost answer is not when Atlas got it.
+  const sent = new Map<string, string>();
+  const days = (await logDays(dir))
+    .filter((n) => n >= from.slice(0, 10))
+    .reverse();
+  for (const e of days.flatMap((n) => logEvents(n, "event.sent", dir))) {
+    sent.set(`${e.event}`, sent.get(`${e.event}`) ?? e.at);
+  }
+  return tasks
+    .filter((t) => !t.ask.after.parent && t.ask.at >= from && t.ask.at < to)
+    .map(({ ask: a, lines }) => {
+      const updates = lines.filter((l) => l.kind === "update");
+      return {
+        id: a.id,
+        madeBy: a.madeBy,
+        // In order (an array: the formatter sorts object keys).
+        moments: [
+          ["spoke", a.instruction.at],
+          ["ended", a.timing?.ended ?? null],
+          ["arrived", a.timing?.arrived ?? null],
+          ["recorded", a.at],
+          ["delivered", sent.get(a.id) ?? null],
+          ["claimed", updates[0]?.at ?? null],
+          [
+            "closed",
+            updates.find((u) => closed(u.after.state as State))?.at ?? null,
+          ],
+        ] as [string, string | null][],
+        quote: a.instruction.quote,
+      };
+    });
+}
 
 /**
  * Where a task stands: its last update (`end`), deadline (an open one's: 30 min after it was recorded), steps; `nudge`:

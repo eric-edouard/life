@@ -246,12 +246,14 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An ask's
   `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker), and for speech `conversation`
   and `turns` (the turn numbers, as `fetch --from-turn` counts them); for a task Atlas made, `title` (one part of
-  his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats).
+  his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
+  ask's `timing`: `ended` (his last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
+  `instruction.at`, `at` and the `event.sent` log line it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once) or
   `duplicate` (an open reminder had the title; nothing written). `madeBy`: `session` (a Claude session), `connector` (a
   chat, Atlas's updates) or `watch` (the watcher: a "hey Atlas" heard, a nudge, a steer).
-- Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` and a model as
-  `madeBy`; they still parse.
+- Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
+  `modelMs` and `actMs`, and a model as `madeBy`; they still parse.
 
 ## statements.jsonl
 
