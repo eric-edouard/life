@@ -13,7 +13,7 @@ import { TEST } from "./truth";
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
 
 /**
- * "hey Atlas" as lifelog may write it (`LIFE_MISHEARD` in `.env`, 3 of 18 by 20 Oct): a real name people he knows go
+ * "hey Atlas" as lifelog may write it (`LIFE_MISHEARD` in `.env`): a real name people he knows go
  * by, so that one wakes only on his own turn, as `low` (Atlas confirms with him first).
  */
 const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
