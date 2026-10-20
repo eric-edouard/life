@@ -142,7 +142,10 @@ async function call(
     signal: AbortSignal.timeout(timeoutS * 1000),
   });
   if (!res.ok) {
-    throw new Error(`lifelog ${method} ${path.split("?")[0]}: ${res.status}`);
+    throw Object.assign(
+      new Error(`lifelog ${method} ${path.split("?")[0]}: ${res.status}`),
+      { status: res.status }
+    );
   }
   return (await res.json()) as unknown;
 }
