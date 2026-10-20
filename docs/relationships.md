@@ -61,7 +61,9 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
       empties the section; a page that loses Between us moves its lines to History.
 - [x] **5. Pages at midday.**
 - Steps 6 and 7 are off (the owner, 20 Oct: the backfill would take days of his subscriptions). Memory starts
-  6 Sept 2026; the backfill command stays for a later, cheaper run.
+  6 Sept 2026; the backfill command stays for a later, cheaper run. Scoped and parked the same day
+  (`~/Life/docs/backfill-scope-2026-10-20.md`): 62 weeks with no voice, Sol on his subscription while the Mac is on
+  power, no Railway, a one-month pilot first; nothing built until he picks it up.
 - [ ] **6. Pilot:** one month of backfill, every channel; measure cost, new inferred people, eval.
 - [ ] **7. Backfill** July 2025 to September 2026, oldest month first.
 
