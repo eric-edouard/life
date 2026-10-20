@@ -7,6 +7,7 @@ import {
   Observation,
   SEARCHABLE_AT,
   Supersession,
+  type Unit,
   Unresolved,
 } from "../schema";
 import {
@@ -19,10 +20,12 @@ import { closeNow } from "./closeness";
 import {
   appendJsonl,
   EXTRACTED,
+  latestBy,
   momentsNow,
   OBSERVATIONS,
   readMoments,
   readVerdicts,
+  rereadAt,
   rowsOf,
   SUPERSESSIONS,
   stateOf,
@@ -200,21 +203,38 @@ export function byDays<T extends Group & { sources: Source[] }>(
   });
 }
 
+/** The people the model reads a unit as, in one order (lifelog lists a chapter's speakers as they come). */
+export const readWith = (unit: Unit) => unit.people.toSorted();
+
 /**
  * The units to read: kept (salience >= KEEP_AT) on their current content, and not yet extracted by this prompt
- * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl).
+ * from that same content and people (the cache: unit content hash + prompt version, from memory/extracted.jsonl).
+ * A unit whose people are someone else since it was read (`truth/` changed who a handle or name is, an unknown one
+ * included: `readWith`, the people the model reads), or that the owner said was read wrong after it was (`rereads`, his `reread` corrections),
+ * is read again and its earlier observations replaced. A ledger line from before `people` was recorded counts as
+ * read as today. Folds, `this-is` and inferred names need no new reading: the readers file observations as of today.
  */
 export function toExtract(
   built: Built[],
   verdicts: Verdicts,
   ledger: Extracted[],
-  prompt = EXTRACT_PROMPT
+  prompt = EXTRACT_PROMPT,
+  rereads = new Map<string, string>()
 ) {
-  const done = new Set(
-    ledger.flatMap((e) =>
-      e.prompt === prompt ? [`${e.unit}|${e.unitHash}`] : []
-    )
+  // The latest reading of each unit's content by this prompt.
+  const done = latestBy(
+    ledger.filter((e) => e.prompt === prompt),
+    (e) => `${e.unit}|${e.unitHash}`
   );
+  const readAs = ({ unit }: Built) => {
+    const e = done.get(`${unit.id}|${unit.hash}`);
+    const since = rereads.get(unit.id);
+    return (
+      !!e &&
+      !(since && Date.parse(since) > Date.parse(e.at)) &&
+      (!e.people || e.people.join() === readWith(unit).join())
+    );
+  };
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
   for (const b of built) {
@@ -229,9 +249,7 @@ export function toExtract(
       kept.push({ b, reason: v.reason });
     }
   }
-  const pending = kept.filter(
-    ({ b }) => !done.has(`${b.unit.id}|${b.unit.hash}`)
-  );
+  const pending = kept.filter(({ b }) => !readAs(b));
   return { kept, pending, stale };
 }
 
@@ -343,17 +361,19 @@ export async function extract(evidence: Evidence) {
       (b.unit.source === "lifelog" && closed.has(b.unit.key))
   );
   const verdicts = await readVerdicts();
-  const { kept, pending, stale } = toExtract(
-    inWindow,
-    verdicts,
-    rowsOf(EXTRACTED, Extracted)
-  );
   const people = await readPeople();
   const { corrections, inferred, resolve } = people;
   const [written, { observations: known, standing }] = await Promise.all([
     readMoments(),
     observationsNow(people),
   ]);
+  const { kept, pending, stale } = toExtract(
+    inWindow,
+    verdicts,
+    rowsOf(EXTRACTED, Extracted),
+    EXTRACT_PROMPT,
+    rereadAt(corrections)
+  );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
     const s = stateOf(o, standing);
@@ -551,6 +571,7 @@ export async function extract(evidence: Evidence) {
     [...finished, ...copies].map(({ unit }) => ({
       at,
       observations: perUnit.get(unit.id) ?? 0,
+      people: readWith(unit),
       prompt: EXTRACT_PROMPT,
       run: step.run,
       schemaVersion: 1 as const,

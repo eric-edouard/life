@@ -131,9 +131,13 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 
 ## extracted.jsonl
 
-Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, at}`, one
-line per unit and run, `observations` being how many it kept (often 0). A unit is read again only when its
-`unitHash` or the prompt version changes, and only the latest extraction of a unit counts: observations from an older one are ignored
+Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, people, at}`, one
+line per unit and run, `observations` being how many it kept (often 0), `people` the unit's people as the model read them
+(sorted; absent before 21 Oct 2026, read as today). A unit is read again when its `unitHash` or the prompt version
+changes, when its people are someone else since (`truth/` changed who a handle or name is, an unknown name now
+known included), or when a `reread` correction names it after its last reading. Either takes effect when the unit's day
+is next read: the night reads the last 7 days, `backfill` older ones. Folds, `this-is` and inferred names need no new
+reading: readers file observations as of today. Only the latest extraction of a unit counts: observations from an older one are ignored
 (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
 re-cut, Life's own mail).
 
@@ -194,6 +198,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
+| `reread` | `units: [u_…]` | Those units were read wrong (a fact under the wrong person, say): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
 | `closeness` | `person`, `personal` and/or `work` (a level) | His word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
