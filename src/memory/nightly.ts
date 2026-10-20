@@ -215,7 +215,6 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const commits = await coded(day, rec);
     phase.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
-    listed = facts.map((f) => f.id);
     mail = successReport(day, rec.ms(), {
       acted: report,
       backup: backupLine(now),
@@ -231,6 +230,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       retired,
       watcher,
     });
+    listed = facts.map((f) => f.id);
   } catch (e) {
     failure = phase.failed(e);
     mail = failureReport(day, rec.ms(), failure.failedAt, failure.error);
