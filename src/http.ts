@@ -1,10 +1,10 @@
 // How Life's server answers (`mcp.ts`, `check.ts`, `portrait.ts`), the one place for it: never cached, never framed,
-// no referrer.
+// no referrer to other sites. Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 
 export const HEADERS = {
   "cache-control": "no-store",
   "content-security-policy": "default-src 'self'; frame-ancestors 'none'",
-  "referrer-policy": "no-referrer",
+  "referrer-policy": "same-origin",
   "x-content-type-options": "nosniff",
 };
 
