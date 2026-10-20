@@ -93,10 +93,11 @@ When he says something didn't work ("hey Atlas, this didn't work: …", or the s
 (`parent`, `title`):
 
 - **"Practical: …"** is yours, like any task: get him what he still needs (the call, the booking, the reminder).
-- **"Audit: …"** is engineering, and Claude's: start Claude Code from `~/Work` with a Codex task, normal permissions,
-  and hand it his words, the task id, the `conversation` and `turns`, and `docs/audits.md` in `~/Work/life`, its
-  process. Put the Codex task id in the note. The audit reads and proposes, never changes anything; close the part
-  `done` once its report reaches him, with where it is.
+- **"Audit: …"** is engineering, and Claude's: start Claude Code from `~/Work` with a Codex task, as a Remote Control
+  session in normal permission mode (never bypass), and hand it his words, the task id, the `conversation` and
+  `turns` (for a chat: his `said` and `at`), and `docs/audits.md` in `~/Work/life`, its process. Put the Codex task
+  id and the session's link in the note. The audit changes no code, memory or reminders; close the part `done` once
+  its report reaches him, with where it is.
 
 ## His plan and the weekly review
 
