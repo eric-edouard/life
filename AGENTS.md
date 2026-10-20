@@ -79,17 +79,15 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `update`s through the connector's `task` (the write rules are `refusal`, behind the playbook's seal in `written`; one
   claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows), Life's `nudge`s (`standing(...).nudge`, the one
   rule: past its deadline, an open one 30 min after it was recorded; 30 min apart, only after the last was delivered,
-  until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
-  `ask` events with `nudge` or `steer` (one event name: a second would replace the subscription). Task lines stay out of
+  until 3 delivered go unanswered); `steer` lines (his board changes, until 20 Oct) only parse. Nudges go out as
+  `ask` events with `nudge` (one event name: a second would replace the subscription). Task lines stay out of
   the Actions section and `day`; the nightly lists every open task and those closed in the last day.
-- **The board, his Reminders list `Atlas`, is a projection of the ledger** (`src/board.ts`, `tick`, each minute in the
-  watcher): it writes no ledger line but his steers and never goes through `act`. An item is found by the task id on
-  its notes' first line. Life owns its notes, section and the subtasks made from Atlas's `steps` (added when missing,
-  ticked when done) and brings them in line each pass; it ticks the item once when the task closes, and `escalation`
-  moves it to "Needs you" with a due of now (bringing back his tick), cleared when the cause ends. The title, the due,
-  his tick and his own subtasks are his. `derived/board.json` holds how each item looked after Life's last pass: what
-  differs now is his change, a steer (the changed fields' new values; his new note lines show as "You: …" until
-  Atlas's next update). Only open tasks' items are watched; a lost or unreadable snapshot is a fresh baseline. When a
+- **The board, his Reminders list `Atlas`, is a one-way projection of the ledger, his receipt** (`src/board.ts`, `tick`,
+  each minute in the watcher): it writes no ledger line, reads nothing back as his (no steers: they once forged his
+  voice) and never goes through `act`. An item is found by the task id on its notes' first line. Life brings its notes
+  and section in line each pass; it ticks the item once when the task closes, and `escalation` moves it to "Needs you"
+  with a due of now (bringing back his tick), cleared when the cause ends (`derived/board.json`: how Life left each
+  item, for that). Only open tasks' items are watched; a lost or unreadable snapshot is a fresh baseline. When a
   write fails while he is needed he is emailed, once per incident. Sections Needs you / Working / Open exist (made by
   hand on 19 Oct, once: the code only assigns them).
 - **Atlas is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and chat.db, and send
@@ -114,7 +112,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   whose delivery failed, an Atlas task that needs him when its board item could not say so, a run holding the lock over 3 h,
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
   while it lasts, `archiveFailing` in `src/archive.ts`), by
-  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made), nudge or steer to the one subscriber,
+  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) or nudge to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
   acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,
@@ -187,7 +185,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   a minute of speech (lifelog's `durationSeconds`) as closed on 30 s of silence, lifelog's `cutter.ts` rule. If lifelog
   changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet
   waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low.
-- The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks, nudges and steers (`deliver`, `derived/events.json`, mode 600: the
+- The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks and nudges (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
   him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent and unalerted, until Atlas
   subscribes again with its cursor; the nightly's Actions section lists every ask either way). Its startup line `actions: remctl ready` in `~/Library/Logs/life-watch.log` is the check that launchd

@@ -68,7 +68,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems.push(`actions.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
-  // A task's own lines (Atlas's updates, nudges, steers) are its rows, not actions.
+  // A task's own lines (Atlas's updates, nudges) are its rows, not actions.
   return {
     actions: actions.filter(
       (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS

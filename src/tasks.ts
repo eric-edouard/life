@@ -10,7 +10,8 @@ import { Action, type Instruction, type TASK_LINES } from "./schema";
 import { ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
-// done or dropped. Its own lines: Atlas's updates (the connector's `task`), Life's nudges and his steers (src/board.ts).
+// done or dropped. Its own lines: Atlas's updates (the connector's `task`) and Life's nudges (his steers, until 20 Oct, are
+// only history).
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -73,7 +74,7 @@ export function ask(...a: Parameters<typeof askLine>) {
 
 const lineOf = (
   task: string,
-  kind: (typeof TASK_LINES)[number],
+  kind: Exclude<(typeof TASK_LINES)[number], "steer">,
   after: Action["after"],
   now: number
 ): Action => ({
@@ -85,7 +86,7 @@ const lineOf = (
   result: "ok",
   schemaVersion: 1,
   target: task,
-  why: { nudge: "late", steer: "he changed the board", update: "Atlas" }[kind],
+  why: { nudge: "late", update: "Atlas" }[kind],
 });
 
 /** Appends one of a task's own lines (synchronous: two runs cannot both claim a task). */
@@ -196,8 +197,6 @@ export function standing(t: Task, now = Date.now()) {
     nudges: nudges.length,
     since,
     state,
-    /** His steers since Atlas's last update. */
-    steers: t.lines.filter((l) => l.kind === "steer" && l.at > since),
     steps: (updates.findLast((u) => u.after.steps)?.after.steps ??
       []) as Step[],
     unanswered,
@@ -371,8 +370,8 @@ export function update(u: Update, now = Date.now()) {
 }
 
 /**
- * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (with his steers
- * since Atlas's last update; it cuts the closed rows short).
+ * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (it cuts the
+ * closed rows short).
  */
 export function taskList(now = Date.now()) {
   return tasksOf().flatMap((t) => {
@@ -392,7 +391,6 @@ export function taskList(now = Date.now()) {
       parent: t.ask.after.parent,
       quote: clip(t.ask.instruction.quote, 300),
       state: s.state,
-      steers: s.steers.map((l) => ({ at: l.at, ...l.after })),
       steps: s.steps,
       title: t.ask.after.title,
     };
