@@ -7,6 +7,7 @@ import {
   ORIGIN,
   RESOURCE,
   SCOPE,
+  UNREACHABLE,
   type Verify,
 } from "./auth";
 import { readRatings, readStatements, recordRating } from "./memory/ledger";
@@ -107,11 +108,14 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
     const token = z
       .object({ access_token: z.string(), expires_in: z.number() })
       .safeParse(res.ok ? await res.json() : null);
-    if (
-      !token.success ||
-      "refusal" in (await verify(token.data.access_token))
-    ) {
+    if (!token.success) {
       return plain("Not signed in as the owner.", 403);
+    }
+    const whose = await verify(token.data.access_token);
+    if ("refusal" in whose) {
+      return whose.refusal === "unreachable"
+        ? plain(UNREACHABLE, 503)
+        : plain("Not signed in as the owner.", 403);
     }
     return redirect("/check/", [
       cookie(SESSION, token.data.access_token, token.data.expires_in),
@@ -179,6 +183,9 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
     if ("refusal" in whose) {
       if (whose.refusal === "forbidden") {
         return plain("forbidden", 403);
+      }
+      if (whose.refusal === "unreachable") {
+        return plain(UNREACHABLE, 503);
       }
       return pathname === "/check/" ? login() : plain("sign in again", 401);
     }
