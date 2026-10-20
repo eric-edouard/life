@@ -14,6 +14,7 @@ import {
   appendJsonl,
   CORRECTIONS,
   PAGES,
+  pagePath,
   readUnits,
   readVerdicts,
   type Standing,
@@ -60,12 +61,6 @@ const BUDGET = 90_000;
 const HOLD_MAX = 1500;
 /** "Often talk about" counts the topics of the units of this many days. */
 const OFTEN_DAYS = 90;
-
-const pagePath = (ref: string) =>
-  ref.startsWith("person:")
-    ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
-    : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
-
 interface Target {
   hold: string;
   name: string;

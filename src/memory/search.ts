@@ -28,6 +28,7 @@ import {
   momentsNow,
   OUT,
   PAGES,
+  pagePath,
   readActions,
   readCorrections,
   readMoments,
@@ -53,7 +54,13 @@ import {
   slugOf,
   time,
 } from "./units";
-import { namedLike, nearNames, observationsNow, readPeople } from "./who";
+import {
+  meant,
+  namedLike,
+  nearNames,
+  observationsNow,
+  readPeople,
+} from "./who";
 import { dayStart, localDate } from "./zones";
 
 // The read path, as `bun life memory search|person|area` (src/memory/command.ts): short cited results from the pages
@@ -69,7 +76,6 @@ import { dayStart, localDate } from "./zones";
 
 export const INDEX = join(OUT, "index.sqlite");
 const LIMIT = 12;
-const PERSON = /^person:/;
 
 /** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
 export const momentLine = (m: Moment) =>
@@ -233,20 +239,6 @@ export function readIndex<T>(
 function withIndex(lines: (db: Database) => string[]) {
   const out = readIndex(lines);
   return out === null ? NOT_BUILT : asData(out);
-}
-
-/**
- * Who a name means: who it resolves to (handles, his corrections, names, as everywhere), else the first person going
- * by it; `same`, everyone going by it, that one first. A name nothing resolves means no one (never a part of a name).
- */
-export function meant<
-  T extends { aliases: string[]; id: string; name: string },
->(name: string, people: T[], resolve: (s: string) => string | null) {
-  const resolved = resolve(name)?.replace(PERSON, "");
-  const same = namedLike(name, people).toSorted(
-    (a, b) => Number(b.id === resolved) - Number(a.id === resolved)
-  );
-  return { known: resolved ?? same[0]?.id, same };
 }
 
 /** A page, whole, with when it was built, when it has one; then the observations `rows` finds for it. */
@@ -439,18 +431,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
       return pages.length > 0 ? pages : ["(no people pages yet)"];
     });
   }
-  const { canon, inferred, refOf, resolve, truth } = await readPeople();
-  const people = [
-    ...truth.people,
-    ...new Map(
-      inferred
-        .filter((p) => canon(`person:${p.id}`) === `person:${p.id}`)
-        .map((p) => [p.id, { ...p, aliases: p.surfaces }])
-    ).values(),
-  ];
-  const { known, same } = meant(name, people, resolve);
+  const folks = await readPeople();
+  const { refOf, truth } = folks;
+  const { all: people, known, same } = meant(name, folks);
   // The person's own page, by its id: never one whose file name only holds the name.
-  const file = known && Bun.file(join(PAGES, "people", `${known}.md`));
+  const file = known && Bun.file(pagePath(`person:${known}`));
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
   const id = known ?? slugOf(name);
@@ -864,18 +849,12 @@ export function buildIndex(
   return unique.size;
 }
 
-/** A unit with who it is with as of today (`refOf`: a name since resolved, a person folded into another), once each. */
-export const withPeopleNow = (unit: Unit, refOf: (ref: string) => string) => ({
-  ...unit,
-  people: [...new Set(unit.people.map(refOf))],
-});
-
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
 export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
-  // Who a unit is with as of today (a name since resolved, a person folded into another), as observations and moments.
   const units = (await readUnits()).map((unit) => ({
-    unit: withPeopleNow(unit, people.refOf),
+    // Who a unit is with as of today (`refOf`); the table keeps each once.
+    unit: { ...unit, people: unit.people.map(people.refOf) },
     verdict: verdictOf(verdicts, unit),
   }));
   const { observations, standing } = await observationsNow(people);
