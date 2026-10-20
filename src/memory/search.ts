@@ -441,9 +441,13 @@ export async function person(name?: string, o: { before?: string } = {}) {
   ];
   // Who the name is (handles, his corrections, then names), as everywhere; the names it matches list the candidates.
   const resolved = resolve(name)?.replace(PERSON, "");
-  const same = namedLike(name, people);
-  const found = await findPage("people", resolved ?? same[0]?.id ?? name);
-  const id = found?.id ?? resolved ?? same[0]?.id ?? slugOf(name);
+  // The candidates, the one shown first; a name nothing resolves opens no page (never a guess by part of a name).
+  const same = namedLike(name, people).toSorted(
+    (a, b) => Number(b.id === resolved) - Number(a.id === resolved)
+  );
+  const known = resolved ?? same[0]?.id;
+  const found = known ? await findPage("people", known) : null;
+  const id = known ?? slugOf(name);
   const ref = `person:${id}`;
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
   // Pages go by whole local days: a day is never cut between two answers.
@@ -454,12 +458,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor map: the lifelog speakers it is part of.
-      const known = !!(found || same[0] || resolved);
       const voices = speakers(store);
       const heard = known
         ? []
         : voices.filter((s) => normalize(s.name).includes(normalize(name)));
-      if (!known && heard.length === 0) {
+      if (!(known || heard.length > 0)) {
         return noOne(name, people, voices);
       }
       const ids = lifelog ? [lifelog] : heard.map((s) => s.id);
@@ -480,7 +483,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
           kind: "moment" as const,
           line: momentLine(m),
         })),
-        ...conversationsWith(store, ids, -1).map((c) => ({
+        ...conversationsWith(store, ids).map((c) => ({
           day: localDate(c.start_at),
           kind: "conversation" as const,
           line: `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`,
@@ -858,8 +861,9 @@ export function buildIndex(
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
 export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
+  // Who a unit is with as of today (a name since resolved, a person folded into another), as observations and moments.
   const units = (await readUnits()).map((unit) => ({
-    unit,
+    unit: { ...unit, people: [...new Set(unit.people.map(people.refOf))] },
     verdict: verdictOf(verdicts, unit),
   }));
   const { observations, standing } = await observationsNow(people);
