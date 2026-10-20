@@ -66,7 +66,7 @@ const judge = async (
     await askOnce({
       dir,
       input: { claims, facts: facts.map(({ fact, id }) => ({ fact, id })) },
-      llm: await llmFor("main"),
+      llm: llmFor("main"),
       prompt: "eval-judge.v1",
       run,
     })

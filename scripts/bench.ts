@@ -1,16 +1,18 @@
 // `bun bench [--models opus,…] [--runs n]`: how well candidate models do Life's deep steps (moments, then extract)
-// on one fixed week, against what Life runs (its deep tier, `llmFor`). Each run is the real pipeline on its own
-// throwaway copy of the data (empty memory, today's truth/), read with one model through `LIFE_LLM`, in a throwaway
-// worktree of this code so nothing shows in his runs; Life's main tier then grades its claims against the week's
+// on one fixed week, against what Life runs (its deep tier, `llmOf`). Each run is the real pipeline on its own
+// throwaway copy of the data (empty memory, today's truth/), read with one model through `LIFE_LLM`, in its own
+// throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier then grades its claims against the week's
 // hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
+import { readdirSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { llmFor, llmSpec } from "../src/llm";
+import { llmOf, llmSpec, readEngine } from "../src/llm";
+import { LOG_DIR } from "../src/log";
 import { extract } from "../src/memory/extract";
 import { locked } from "../src/memory/guard";
-import { ratedFacts } from "../src/memory/ledger";
+import { linesOf, ratedFacts } from "../src/memory/ledger";
 import { moments } from "../src/memory/moments";
 import { claimsNow } from "../src/memory/statements";
 import type { tally } from "../src/memory/tally";
@@ -63,11 +65,21 @@ async function readWeek() {
         .map((c) => JSON.stringify({ date: c.date, id: c.claim, text: c.text }))
         .join("\n")
     );
+    // This worktree's log holds this run alone so far: its calls' cost (codex reports none).
+    const costs = readdirSync(LOG_DIR)
+      .flatMap((f) => linesOf(join(LOG_DIR, f)))
+      .map((l) => JSON.parse(l) as { costUsd?: number; kind: string })
+      .flatMap((l) =>
+        l.kind === "model.run" && l.costUsd !== undefined ? [l.costUsd] : []
+      );
     return {
       calls: m.calls + e.calls,
       claims: claims.length,
+      cost:
+        costs.length > 0
+          ? `$${costs.reduce((a, b) => a + b, 0).toFixed(2)}`
+          : "subscription",
       failed: m.failed + e.failed,
-      runs: [m.run, e.run],
     };
   });
   if (!done) {
@@ -90,57 +102,36 @@ async function run(code: string, data: string, llm: string, args: string[]) {
   return JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "");
 }
 
-/** What a run's model calls cost, from the worktree's log; codex reports none (his subscription). */
-async function cost(code: string, runs: string[]) {
-  const dir = join(code, "derived", "log");
-  const costs = (
-    await Promise.all(
-      [...new Bun.Glob("*.jsonl").scanSync(dir)].map((f) =>
-        Bun.file(join(dir, f)).text()
-      )
-    )
-  )
-    .join("\n")
-    .split("\n")
-    .filter(Boolean)
-    .map(
-      (l) => JSON.parse(l) as { costUsd?: number; kind: string; run: string }
-    )
-    .filter((l) => l.kind === "model.run" && runs.includes(l.run))
-    .flatMap((l) => (l.costUsd === undefined ? [] : [l.costUsd]));
-  return costs.length > 0
-    ? `$${costs.reduce((a, b) => a + b, 0).toFixed(2)}`
-    : "subscription";
-}
-
 async function bench(models: string[], runs: number) {
-  const hour = new Date().getHours() + new Date().getMinutes() / 60;
-  if (hour >= 1.5 && hour < 6) {
-    throw new Error("the nightly runs from 01:30 to 06:00: bench after it");
-  }
-  const named: Record<string, string> = {
-    ...MODELS,
-    [BASELINE]: llmSpec(await llmFor("deep")),
-  };
-  const judge = llmSpec(await llmFor("main"));
   const main = dirname(
     resolve(
       ROOT,
       git(ROOT, ["rev-parse", "--git-common-dir"]).stdout.toString().trim()
     )
   );
+  // What Life runs is the main checkout's setting, wherever the bench is run from.
+  const engine = readEngine(join(main, "derived", "settings.json"));
+  const named: Record<string, string> = {
+    ...MODELS,
+    [BASELINE]: llmSpec(llmOf(engine, "deep")),
+  };
+  const judge = llmSpec(llmOf(engine, "main"));
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
-  const code = join(tmp, "code");
   const base = join(tmp, "base");
-  try {
-    git(ROOT, ["worktree", "add", "--detach", code, "HEAD"]);
-    await mkdir(join(code, "derived"), { recursive: true });
-    await symlink(join(main, "node_modules"), join(code, "node_modules"));
-    await symlink(join(main, ".env"), join(code, ".env"));
+  const worktrees: string[] = [];
+  /** This code at HEAD in `dir`, with the main checkout's dependencies, .env and lifelog store. */
+  const checkout = async (dir: string) => {
+    worktrees.push(dir);
+    git(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]);
+    await mkdir(join(dir, "derived"), { recursive: true });
+    await symlink(join(main, "node_modules"), join(dir, "node_modules"));
+    await symlink(join(main, ".env"), join(dir, ".env"));
     await symlink(
       join(main, "derived", "watch"),
-      join(code, "derived", "watch")
+      join(dir, "derived", "watch")
     );
+  };
+  try {
     await mkdir(join(base, "memory"), { recursive: true });
     for (const p of SEED) {
       // biome-ignore lint/performance/noAwaitInLoops: five small copies
@@ -165,7 +156,9 @@ async function bench(models: string[], runs: number) {
     );
     const rows = await Promise.all(
       plan.map(async (p) => {
-        const data = join(tmp, p.label);
+        const code = join(tmp, p.label, "code");
+        const data = join(tmp, p.label, "data");
+        await checkout(code);
         await exec(["cp", "-cR", base, data]);
         const started = performance.now();
         try {
@@ -182,15 +175,14 @@ async function bench(models: string[], runs: number) {
               claims,
               "--json",
             ]) as Promise<Counts>;
-          const [held, stated] = await Promise.all([
-            graded(FACTS),
-            graded(ratedFile),
-          ]);
+          // One after the other: an eval's run folder is named by the millisecond it starts.
+          const held = await graded(FACTS);
+          const stated = await graded(ratedFile);
           return {
             ...p,
             calls: read.calls as number,
             claims: read.claims as number,
-            cost: await cost(code, read.runs),
+            cost: read.cost as string,
             failed: read.failed as number,
             held,
             minutes,
@@ -203,7 +195,9 @@ async function bench(models: string[], runs: number) {
     );
     console.log(table(rows, { facts, judge, rated: rated.length }));
   } finally {
-    git(ROOT, ["worktree", "remove", "--force", code]);
+    for (const dir of worktrees) {
+      git(ROOT, ["worktree", "remove", "--force", dir]);
+    }
     await rm(tmp, { force: true, recursive: true });
   }
 }
