@@ -1,11 +1,11 @@
 import { parseArgs } from "node:util";
 import { extract } from "./extract";
 import { changeFeed, claim } from "./feed";
-import { locked } from "./guard";
+import { locked, recordBackfill } from "./guard";
 import { lifeStatus, runs } from "./history";
 import { recordCorrection } from "./ledger";
 import { moments } from "./moments";
-import { DAYS, midday, nightly } from "./nightly";
+import { midday, nightly } from "./nightly";
 import { pages } from "./pages";
 import { placesOf } from "./places";
 import { chatsOf, fetchOf } from "./raw";
@@ -20,7 +20,8 @@ import {
   unresolved,
 } from "./search";
 import { addStatements } from "./statements";
-import { gather, windowStart } from "./units";
+import { DAYS, gather, lastDays } from "./units";
+import { firstZoneDay } from "./zones";
 
 // The memory command line: parses the arguments and calls the steps.
 
@@ -72,11 +73,9 @@ const step =
 
 type Handler = (values: Values, rest: string[]) => Promise<number>;
 
-/** A hand-run step's window and its evidence, gathered once for it (a sweep gathers once for all its steps). */
-const gathered = async (v: Values, fallback: number) => {
-  const days = Number(v.days ?? fallback);
-  return { days, evidence: await gather(windowStart(new Date(), days)) };
-};
+/** A hand-run step's evidence: its last `--days` days, gathered once for it (a sweep gathers once for all its steps). */
+const gathered = (v: Values) =>
+  gather(lastDays(new Date(), Number(v.days ?? DAYS)));
 
 const scan = step(() => mapRepos());
 
@@ -108,6 +107,27 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 const HANDLERS: Record<string, Handler> = {
   area: (_values, rest) => printed(rest.length > 0 ? area(words(rest)) : null),
+  backfill(v) {
+    if (
+      !(v.from && v.to && DAY.test(v.from) && DAY.test(v.to) && v.from <= v.to)
+    ) {
+      return Promise.resolve(usage());
+    }
+    // His zones must cover it first: a past zone can't be added once memory has units of its days (SCHEMA.md).
+    if (v.from < firstZoneDay()) {
+      console.error(
+        `record his zones from ${v.from} first (memory/zones.jsonl starts on ${firstZoneDay()})`
+      );
+      return Promise.resolve(1);
+    }
+    // The ticks read it, a week each, when no night or midday run is due (nightly.ts); not while a week runs.
+    const { from, to } = v;
+    return locked(() => {
+      recordBackfill({ failures: 0, next: from, to });
+      console.log(`backfill set: ${from} to ${to}, a few weeks a day`);
+      return Promise.resolve(0);
+    }).then((code) => code ?? 1);
+  },
   changes: (v) =>
     json(
       changeFeed({
@@ -130,7 +150,7 @@ const HANDLERS: Record<string, Handler> = {
     }
   },
   day: (_values, [date = ""]) => printed(DAY.test(date) ? day(date) : null),
-  extract: step(async (v) => extract(await gathered(v, DAYS))),
+  extract: step(async (v) => extract(await gathered(v))),
   fetch: (values, [id]) =>
     printed(
       id ? fetchOf(id, count(values["from-turn"]), count(values.limit)) : null
@@ -140,7 +160,7 @@ const HANDLERS: Record<string, Handler> = {
     return 0;
   },
   midday: (values) => midday(new Date(), values.force),
-  moments: step(async (v) => moments(await gathered(v, DAYS))),
+  moments: step(async (v) => moments(await gathered(v))),
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
   person: (values, rest) => printed(person(words(rest) || undefined, values)),
@@ -177,7 +197,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory moments [--days 7] | extract [--days 7] | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory moments [--days 7] | extract [--days 7] | backfill --from d --to d | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }
