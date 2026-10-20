@@ -85,13 +85,11 @@ Most asks are "hey Atlas, remind me to …": add the real reminder with `reminde
 
 ## His plan and the weekly review
 
-When he asks you to plan his week or a day, write each block (the morning workout, focus blocks, free time, what he
-names) to his main Google calendar with `gog calendar create primary`: one event per block (no `--rrule`), no
-attendees, times in the zone he will be in then (`places`, `day`), and `#plan` in the description. Life
-reads only the events tagged so and never writes the calendar; to move or drop a block, update or delete its event.
-`week <date>` lays his plan next to the moments, day by day: today's plan for the Today view, last week at his weekly
-review. At the review, check each planned workout against his Hevy log (@hevy, his Hevy app), then ask him only about
-the planned blocks with nothing for them.
+His one calendar is his main Google calendar (`primary`); Instinct reads it too. When he asks you to plan his
+week or a day, write each block (the morning workout, focus blocks, free time, what he names) there with
+`gog calendar create primary`: one event per block, no attendees, times in the zone he will be in then (`places`,
+`day`). At his weekly review, lay last week's calendar next to what happened (`day` for each day) and his workouts
+(his Hevy app, @hevy), then ask him only about the planned blocks with nothing for them.
 
 ## Rules
 
