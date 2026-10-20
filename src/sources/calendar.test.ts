@@ -17,7 +17,7 @@ function calendarFixture(
   const db = new Database(path);
   db.run("create table Calendar (ROWID integer primary key, external_id text)");
   db.run(
-    "create table CalendarItem (summary text, description text, start_date real, end_date real, all_day integer, calendar_id integer, status integer, hidden integer)"
+    "create table CalendarItem (summary text, description text, start_date real, end_date real, all_day integer, calendar_id integer, status integer, hidden integer, has_attendees integer)"
   );
   db.run(
     `insert into Calendar values (1, '/caldav/v2/${encodeURIComponent(ACCOUNT)}/events/'), (2, '/caldav/v2/shared%40group.calendar.google.com/events/')`
@@ -31,7 +31,7 @@ function calendarFixture(
     status = 1,
     allDay = 0,
   ] of items) {
-    db.run("insert into CalendarItem values (?, ?, ?, ?, ?, ?, ?, 0)", [
+    db.run("insert into CalendarItem values (?, ?, ?, ?, ?, ?, ?, 0, ?)", [
       title,
       description,
       apple(start),
@@ -39,13 +39,14 @@ function calendarFixture(
       allDay,
       calendar,
       status,
+      title.startsWith("Invite") ? 1 : 0,
     ]);
   }
   db.close();
   return path;
 }
 
-test("the plan is his main calendar's #plan blocks in the range, by start: not his other events, a shared calendar's or a cancelled one", () => {
+test("the plan is his main calendar's #plan blocks in the range, by start: not his other events, an invitation, a shared calendar's or a cancelled one", () => {
   const path = calendarFixture([
     ["Focus", "#plan", "2026-10-14T07:00:00Z", "2026-10-14T10:00:00Z"],
     [
@@ -85,6 +86,12 @@ test("the plan is his main calendar's #plan blocks in the range, by start: not h
       3,
     ],
     ["Next week", "#plan", "2026-10-21T07:00:00Z", "2026-10-21T08:00:00Z"],
+    [
+      "Invite: team #planning",
+      "#plan",
+      "2026-10-14T09:00:00Z",
+      "2026-10-14T09:30:00Z",
+    ],
   ]);
   const plan = readPlan(
     new Date("2026-10-12T00:00:00Z"),
