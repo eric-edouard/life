@@ -245,6 +245,14 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
     new Set(["person:dad"])
   ).map((d) => d.ref);
   expect(due).toEqual(["person:bob", "person:dad", "person:eli"]);
+  // A written page waits: judged with nothing counted.
+  expect(
+    dueFor(
+      [{ ref: "person:inf-x", t: t(0) }],
+      new Map(),
+      new Set(["person:inf-x"])
+    )
+  ).toHaveLength(1);
   // Nothing counted: no first or last day, not today.
   expect(tally(new Map(), "2026-10-20")).toMatchObject({
     first: null,

@@ -173,7 +173,7 @@ How close each person is to the owner, written by the nightly's `closeness` step
 counts, for everyone over the last 3 years, the days a 1:1 chat went both ways, the days a mail thread did (apart:
 mostly work; never a group nor a mailing list) and the days they spoke in his recordings (lifelog's speakers, live
 conversations), weighted by how recent (`recent` halves every 30 days, `lasting` every 365); the model judges those
-counts with who they are on his map (everyone on it is judged, counts or not; close family is close whatever the
+counts with who they are on his map (everyone on it, and anyone with a page, is judged, counts or not; close family is close whatever the
 counts, the prompt's rule). `counts` is what it judged, rounded, so a person is asked about again only when their counts
 move or the prompt changes. The latest record per person wins (a person folded into another: the kept one's); his
 `closeness` correction wins over it. No model output feeds the counts. Model-owned: who has a page follows it at once.
