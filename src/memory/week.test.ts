@@ -25,7 +25,7 @@ const moment = (over: Partial<Moment>): Moment => ({
   ...over,
 });
 
-test("each day lays the plan next to the workouts and the moments, in his zone then (Berlin), an all-day block on its own day", () => {
+test("each day lays the plan next to the moments, in his zone then (Berlin), an all-day block on its own day", () => {
   const lines = weekLines(
     ["2026-10-14", "2026-10-15"],
     [
@@ -42,29 +42,18 @@ test("each day lays the plan next to the workouts and the moments, in his zone t
         title: "Free time",
       },
     ],
-    [
-      {
-        end: "2026-10-14T06:10:00.000Z",
-        start: "2026-10-14T05:20:00.000Z",
-        title: "Push",
-      },
-    ],
     [moment({})]
   );
   expect(lines).toEqual([
     "## 2026-10-14",
     "Plan (his calendar):",
     "- 07:00–08:00 Workout",
-    "Workouts (Hevy):",
-    "- 07:20–08:10 Push",
     "Moments:",
     "- mom_000000000001 2026-10-14 09:00 Coffee with Bastien (happened) [u_000000000001]",
     "",
     "## 2026-10-15",
     "Plan (his calendar):",
     "- all day Free time",
-    "Workouts (Hevy):",
-    "  none logged",
     "Moments:",
     "  none",
     "",
@@ -75,11 +64,9 @@ test("a source that gave nothing says why, never reads as an empty day; any date
   const lines = weekLines(
     ["2026-10-14"],
     "unreadable: no such table: Calendar",
-    "not connected (HEVY_API_KEY is not set in .env)",
     []
   );
   expect(lines).toContain("  unreadable: no such table: Calendar");
-  expect(lines).toContain("  not connected (HEVY_API_KEY is not set in .env)");
   expect(lines).not.toContain("  no plan");
   const sunday = await week("2026-10-18");
   expect(sunday).toContain("The week of 2026-10-12");
@@ -101,7 +88,6 @@ test("a block over several days shows on each of them, not on the day it ends at
         title: "Weekend off",
       },
     ],
-    [],
     []
   );
   expect(lines.filter((l) => l === "- all day Weekend off")).toHaveLength(2);

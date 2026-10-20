@@ -253,7 +253,7 @@ function buildServer() {
   tool(
     server,
     "week",
-    `The week (Monday to Sunday) holding a date, day by day: his plan (the blocks tagged ${PLAN_TAG} on his calendar), his Hevy workouts and the moments. For the weekly review of plan against what happened, and for today's plan.`,
+    `The week (Monday to Sunday) holding a date, day by day: his plan (the blocks tagged ${PLAN_TAG} on his calendar) and the moments; his workouts are in Hevy, not here. For the weekly review of plan against what happened, and for today's plan.`,
     z.object({ date: Day }),
     ({ date }) => week(date)
   );
