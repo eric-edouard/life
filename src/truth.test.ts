@@ -135,7 +135,7 @@ test("tests read made-up data, and it is a consistent map", async () => {
   expect(DATA.startsWith(tmpdir())).toBe(true);
   expect(readdirSync(DATA).sort()).toEqual(readdirSync(FIXTURES).sort());
   expect(integrity(await loadTruth())).toEqual([]);
-  expect(() => commitMemory(["memory"], "t")).toThrow("git commit failed");
+  expect(() => commitMemory(["memory"], "t")).toThrow("not a repo of its own");
 });
 
 test("me.md's goals are the block under Goals; its first paragraph is who he is", () => {
