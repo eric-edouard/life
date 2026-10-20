@@ -45,13 +45,6 @@ Everything is in the memory CLI (`bun life memory ...`); the connector's tools a
 - `day <YYYY-MM-DD>` (what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name]` (the last moments with them too; `person me`: his own page, his goals first, then his views, health and what he's dealing with; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers), `area <name>`, `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
 - `repos [project|area|repo]` (CLI only, not a connector tool): his code repos by project, where each is and the last 30 days of commits; his map is `Project.repos` in `truth/`, Life's guesses are marked inferred. Read a project's first repo (its main entry point) before working in it. Which mailbox sends what: `~/Work/CLAUDE.md`. Commits are also units (`source git`, one per repo and day): `search`, `day` and `fetch` show them.
-- `week <YYYY-MM-DD>`: Monday to Sunday of that date's week, day by day: his plan (the events tagged `#plan` on his
-  main Google calendar, which Atlas writes on his word; read from the Mac's Calendar database, `LIFE_CALENDAR` in
-  `.env`) and the moments. Read at the call, never stored; Life writes no calendar. His workouts are in Hevy, which
-  Atlas reads through its own Hevy app at the review: Life reads no Hevy, so neither its memory, `week`, the nightly
-  nor a Claude session sees a workout he never spoke or wrote about. Nothing is matched: the reader judges plan
-  against what happened. His `#plan` blocks (his word) and the moments Life reads as planned (inferred) stay apart:
-  never merge one into the other.
 - `chats --who <name|handle> | --chat <id> [--from d --to d]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, 7 days and 200 messages at most.
 
 Use the CLI; read a source directly only if it is unavailable: `~/Library/Application Support/Life/archive/` (`whatsapp.sqlite`,
@@ -119,7 +112,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made), nudge or steer to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
-  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** fourteen read-only tools (`tasks`; `week`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,
+  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,
   `claim`, are the dashboard's JSON reads, `src/memory/history.ts` and `feed.ts`, contracts in `docs/dashboard.md`); `correct` (lifelog writes all go through the
   table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
   updates, through `update`). `correct` is annotated destructive so clients ask first; `reminders` and `task` are not
@@ -190,7 +183,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
 - Secrets live in `.env` (gitignored): never print or commit them.
 - **Nothing of his is committed here**, in code, tests, prompts or docs: tests use made-up people, phones and places;
-  his material goes to `~/Life/docs/`, a setting of his to `.env` (`LIFE_MAIL_TO`, `LIFE_CHAT`, `LIFE_CALENDAR`). The `scrub` step of
+  his material goes to `~/Life/docs/`, a setting of his to `.env` (`LIFE_MAIL_TO`, `LIFE_CHAT`). The `scrub` step of
   `bun run check` catches the tracked files that hold a full name, alias, surname, phone, email, handle or chat id
   from `~/Life/truth`; first names alone, places, project names, `.env` values and git history are on you. His
   domain in Life's own addresses (sender, connector, LaunchAgent labels) is infrastructure, kept on purpose.
