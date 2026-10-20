@@ -454,16 +454,48 @@ function printDeleted(days: number) {
   }
 }
 
-// A store failing since its first failed pass (logged once) until its next good one: an incident. He is emailed once
-// an hour in, since what is deleted meanwhile is lost (18 Oct: Beeper's store would not open for 5 hours, unseen).
+// A store failing since its first failed pass until its next good one is an incident, logged at both ends
+// (`archive.<store>`: run.error, run.end). The log is its only record, so a restart (each commit) or the night reads it
+// whole. He is emailed once an hour in, since what is deleted meanwhile is lost (18 Oct: Beeper's store would not open
+// for 5 hours, unseen).
 const ALERT_MS = 3_600_000;
-const failing = new Map<string, { mailed: boolean; since: string }>();
+const LOOKBACK_DAYS = 7;
+
+type Incidents = Map<string, { mailed: boolean; since: string }>;
+interface LogLine {
+  at: string;
+  error?: string;
+  kind: string;
+  step: string;
+}
+
+/** The archive's incident lines of the last 7 days, oldest first. */
+const incidentLines = async () =>
+  (await logDays())
+    .slice(0, LOOKBACK_DAYS)
+    .reverse()
+    .flatMap((n) => logEvents<LogLine>(n, "run."))
+    .filter((e) => e.step.startsWith("archive."));
+
+/** The incidents still open at the end of `lines`, by store. */
+export function openIncidents(lines: LogLine[]): Incidents {
+  const incidents: Incidents = new Map();
+  for (const e of lines) {
+    const name = e.step.slice("archive.".length);
+    if (e.kind === "run.error") {
+      incidents.set(name, { mailed: false, since: e.at });
+    } else {
+      incidents.delete(name);
+    }
+  }
+  return incidents;
+}
 
 /** What a failed pass of `name` at `now` calls for: logging a new incident, emailing him an hour in (once), or nothing. */
-export function incident(name: string, now: Date, state = failing) {
-  const f = state.get(name);
+export function incident(name: string, now: Date, incidents: Incidents) {
+  const f = incidents.get(name);
   if (!f) {
-    state.set(name, { mailed: false, since: now.toISOString() });
+    incidents.set(name, { mailed: false, since: now.toISOString() });
     return "start";
   }
   if (f.mailed || now.getTime() - Date.parse(f.since) < ALERT_MS) {
@@ -473,13 +505,14 @@ export function incident(name: string, now: Date, state = failing) {
   return "mail";
 }
 
-async function failed(name: string, error: string) {
-  const what = incident(name, new Date());
+async function failed(name: string, error: string, incidents: Incidents) {
+  const what = incident(name, new Date(), incidents);
   if (what === "start") {
     log("run.error", { error, step: `archive.${name}` });
   }
-  const since = failing.get(name)?.since;
+  const since = incidents.get(name)?.since;
   if (what === "mail" && since) {
+    // Keyed by the incident's start, so a restart's second try is the same email.
     await sendReport(
       `archive/${name}/${since}`,
       archiveFailedReport(name, since, error)
@@ -487,17 +520,22 @@ async function failed(name: string, error: string) {
   }
 }
 
-/** The nightly's line on the archive: each incident that started since `since` (an ISO instant), from derived/log. */
+/** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
 export async function archiveLine(since: string) {
-  const started = (await logDays())
-    .filter((n) => n.slice(0, 10) >= since.slice(0, 10))
-    .flatMap((n) =>
-      logEvents<{ at: string; error: string; step: string }>(n, "run.error")
-    )
-    .filter((e) => e.step.startsWith("archive.") && e.at >= since)
-    .sort((a, b) => a.at.localeCompare(b.at))
-    .map((e) => `${e.step.slice(8)} from ${localTime(e.at)}: ${e.error}`);
-  return `Archive: ${started.length > 0 ? `FAILED: ${started.join("; ")}` : "no failure"}`;
+  const lines = await incidentLines();
+  const incidents = openIncidents(lines);
+  const listed = lines
+    .filter((e) => e.kind === "run.error")
+    .flatMap((e) => {
+      const name = e.step.slice("archive.".length);
+      const still = incidents.get(name)?.since === e.at;
+      return e.at >= since || still
+        ? [
+            `${name} from ${localTime(e.at)}${still ? ", still failing" : ""}: ${e.error}`,
+          ]
+        : [];
+    });
+  return `Archive: ${listed.length > 0 ? `FAILED: ${listed.join("; ")}` : "no failure"}`;
 }
 
 /**
@@ -510,18 +548,21 @@ export async function archiveCommand(args: string[]): Promise<number> {
     return 0;
   }
   const running = codeAt(ROOT);
+  const incidents = openIncidents(await incidentLines());
   while (codeAt(ROOT) === running) {
     for (const { copy, name } of STORES) {
       try {
         const added = copy();
-        failing.delete(name);
+        if (incidents.delete(name)) {
+          log("run.end", { outcome: "ok", step: `archive.${name}` });
+        }
         if (added > 0) {
           console.log(`${new Date().toISOString()} archived ${added} ${name}`);
         }
       } catch (error) {
         console.error(new Date().toISOString(), name, error);
         // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop, the stores one at a time
-        await failed(name, (error as Error).message);
+        await failed(name, (error as Error).message, incidents);
       }
     }
     if (args.includes("--once")) {

@@ -3,7 +3,13 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appsToOpen, archiveLine, archiveOnce, incident } from "./archive";
+import {
+  appsToOpen,
+  archiveLine,
+  archiveOnce,
+  incident,
+  openIncidents,
+} from "./archive";
 import { log } from "./log";
 import { toAppleS } from "./sources/imessage";
 
@@ -22,28 +28,39 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
   ]);
 });
 
-const FAILED_LINE =
-  /^Archive: FAILED: beeper from \d{4}-\d{2}-\d{2} \d{2}:\d{2}: unable to open database file$/;
+const LINE =
+  /^Archive: FAILED: beeper from [\d-]+ [\d:]+, still failing: no db$/;
 
-test("a failing store is logged once and emails him once, an hour in; a good pass ends the incident", async () => {
-  const state = new Map();
+test("a failing store is logged once and emails him once, an hour in; a good pass ends the incident", () => {
+  const open = new Map();
   const at = (min: number) =>
     new Date(Date.parse("2026-10-18T10:00:00Z") + min * 60_000);
-  expect(incident("beeper", at(0), state)).toBe("start");
-  expect(incident("beeper", at(59), state)).toBe(null);
-  expect(incident("beeper", at(60), state)).toBe("mail");
-  expect(incident("beeper", at(300), state)).toBe(null);
-  state.delete("beeper");
-  expect(incident("beeper", at(301), state)).toBe("start");
+  expect(incident("beeper", at(0), open)).toBe("start");
+  expect(incident("beeper", at(59), open)).toBe(null);
+  expect(incident("beeper", at(60), open)).toBe("mail");
+  expect(incident("beeper", at(300), open)).toBe(null);
+  open.delete("beeper");
+  expect(incident("beeper", at(301), open)).toBe("start");
+});
 
-  const since = new Date().toISOString();
-  expect(await archiveLine(since)).toBe("Archive: no failure");
-  log("run.error", {
-    error: "unable to open database file",
-    step: "archive.beeper",
-  });
+test("an incident is read back from the log: open until its run.end, listed by the night while open", async () => {
+  const step = "archive.beeper";
+  log("run.error", { error: "no db", step });
   log("run.error", { error: "other", step: "memory.nightly" });
-  expect(await archiveLine(since)).toMatch(FAILED_LINE);
+  // The night after it started: still listed, as still failing.
+  await Bun.sleep(2);
+  const since = new Date().toISOString();
+  expect(await archiveLine(since)).toMatch(LINE);
+  const start = { at: "2026-10-18T10:00:00.000Z", kind: "run.error", step };
+  expect(openIncidents([start]).get("beeper")?.since).toBe(start.at);
+  log("run.end", { outcome: "ok", step });
+  expect(await archiveLine(since)).toBe("Archive: no failure");
+  expect(
+    openIncidents([
+      start,
+      { at: "2026-10-18T11:00:00.000Z", kind: "run.end", step },
+    ]).size
+  ).toBe(0);
 });
 
 test("a message deleted for everyone keeps its text and media in the archive", () => {

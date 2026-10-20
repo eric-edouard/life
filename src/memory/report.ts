@@ -195,10 +195,7 @@ export function failureReport(
       "Nothing was committed; the next run resumes where this one stopped.",
       `Details: derived/log/${day}.jsonl`,
     ],
-    preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`.slice(
-      0,
-      140
-    ),
+    preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`,
     stats: [
       { label: "stopped at", value: step },
       { label: "after", value: duration(ms) },
@@ -245,11 +242,7 @@ export const actionFailedReport = (a: Action) =>
       `You said: “${a.instruction?.quote}”`,
       `Do it by hand, after a look at what is already there. Details: derived/log, memory/actions.jsonl (${a.id})`,
     ],
-    preheader:
-      `Could not ${a.kind} “${a.after.title ?? a.target}”: ${a.error}`.slice(
-        0,
-        140
-      ),
+    preheader: `Could not ${a.kind} “${a.after.title ?? a.target}”: ${a.error}`,
     stats: [{ label: "at", value: time(a.at) }],
     subject: `could not ${a.kind}: ${a.after.title ?? a.target}`,
     verdict: "FAILED",
@@ -266,11 +259,7 @@ export const archiveFailedReport = (
     notes: [
       "Messages deleted and note versions replaced meanwhile are lost until it copies again. Details: ~/Library/Logs/life-archive.log, derived/log",
     ],
-    preheader:
-      `The archive has not copied ${name} since ${time(since)}: ${error}`.slice(
-        0,
-        140
-      ),
+    preheader: `The archive has not copied ${name} since ${time(since)}: ${error}`,
     stats: [{ label: "failing since", value: time(since) }],
     subject: `the archive cannot copy ${name}`,
     verdict: "FAILING",
