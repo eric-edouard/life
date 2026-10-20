@@ -374,7 +374,11 @@ export async function chatsOf(
     const hay = ` ${normalize(`${e.chat} ${e.chatName ?? ""} ${e.fromMe ? "" : e.sender}`)} `;
     return needles.some((n) => hay.includes(` ${n} `));
   });
-  const page = shown.slice(-PAGE);
+  // The latest PAGE, less the messages sharing the instant of the first one left out: `before` is exclusive, so they
+  // go to the next page whole.
+  const edge = shown.at(-PAGE - 1)?.at;
+  const page = shown.slice(-PAGE).filter((e) => e.at !== edge);
+  const cut = shown.length - page.length;
   return asData([
     `${localDate(start.toISOString())} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`,
     ...(o.from
@@ -383,9 +387,9 @@ export async function chatsOf(
           `(no \`from\`: ${days.whatsapp} days; give \`from\` to read further back)`,
         ]),
     ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
-    ...(shown.length > PAGE
+    ...(cut > 0
       ? [
-          `(${shown.length - PAGE} earlier not shown: the same call with \`before\` ${page[0]?.at})`,
+          `(${cut} earlier not shown: the same call with \`before\` ${page[0]?.at})`,
         ]
       : []),
     ...chatLinesOf(page, people),

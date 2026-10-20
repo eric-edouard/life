@@ -52,7 +52,7 @@ import {
   slugOf,
   time,
 } from "./units";
-import { observationsNow, readPeople } from "./who";
+import { namedLike, nearNames, observationsNow, readPeople } from "./who";
 import { dayStart, localDate } from "./zones";
 
 // The read path, as `bun life memory search|person|area` (src/memory/command.ts): short cited results from the pages
@@ -68,6 +68,7 @@ import { dayStart, localDate } from "./zones";
 
 export const INDEX = join(OUT, "index.sqlite");
 const LIMIT = 12;
+const PERSON = /^person:/;
 
 /** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
 export const momentLine = (m: Moment) =>
@@ -307,17 +308,6 @@ export async function search(words: string, o: Days = {}) {
   ]);
 }
 
-/** Who goes by this name (or id): the people on the map and the ones Life inferred, by name or alias. */
-export function namedLike<
-  T extends { aliases: string[]; id: string; name: string },
->(name: string, people: T[]) {
-  return people.filter(
-    (p) =>
-      p.id === name ||
-      [p.name, ...p.aliases].some((n) => normalize(n) === normalize(name))
-  );
-}
-
 /** One line per person who goes by the name, with relation and observation count; only when more than one does. */
 export function candidateLines(
   name: string,
@@ -368,50 +358,6 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
       (p) =>
         `- ${p.id}: ${p.name}${p.at ? ` (last seen ${localDate(p.at)})` : ""}`
     );
-}
-
-/** Levenshtein distance between two strings. */
-function distance(a: string, b: string) {
-  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
-  for (let i = 1; i <= a.length; i += 1) {
-    const next = [i];
-    for (let j = 1; j <= b.length; j += 1) {
-      next[j] = Math.min(
-        (row[j] ?? 0) + 1,
-        (next[j - 1] ?? 0) + 1,
-        (row[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1)
-      );
-    }
-    row = next;
-  }
-  return row[b.length] ?? 0;
-}
-
-/**
- * Who a name no one goes by may mean: the people whose name or alias, or one of its words, is an edit or two from it
- * (one for a name of four letters or fewer), nearest first, five at most. A misheard or misspelled name, never a guess
- * picked for the caller.
- */
-export function nearNames<
-  T extends { aliases: string[]; id: string; name: string },
->(name: string, people: T[]) {
-  const q = normalize(name);
-  const max = q.length <= 4 ? 1 : 2;
-  const best = new Map<string, { d: number; p: T }>();
-  for (const p of people) {
-    for (const n of [p.name, ...p.aliases].map(normalize)) {
-      for (const w of new Set([n, ...n.split(" ")])) {
-        const d = distance(q, w);
-        if (d <= max && d < (best.get(p.id)?.d ?? max + 1)) {
-          best.set(p.id, { d, p });
-        }
-      }
-    }
-  }
-  return [...best.values()]
-    .sort((a, b) => a.d - b.d || a.p.name.localeCompare(b.p.name))
-    .slice(0, 5)
-    .map(({ p }) => p);
 }
 
 /**
@@ -478,7 +424,7 @@ export function coverageLines(db: Database, ref: string, moments: Moment[]) {
   for (const r of db
     .query<{ m: string; n: number }, [string]>(
       `select substr(o.date, 1, 7) as m, count(*) as n from links l join observations o on o.id = l.observation
-       where l.entity = ? and ${CURRENT} group by m`
+       where l.entity = ? and o.salience >= ${KEEP_AT} and ${CURRENT} group by m`
     )
     .all(ref)) {
     month(r.m).observations = r.n;
@@ -521,7 +467,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
       return pages.length > 0 ? pages : ["(no people pages yet)"];
     });
   }
-  const { canon, inferred, refOf, truth } = await readPeople();
+  const { canon, inferred, refOf, resolve, truth } = await readPeople();
   const people = [
     ...truth.people,
     ...new Map(
@@ -531,8 +477,10 @@ export async function person(name?: string, o: { before?: string } = {}) {
     ).values(),
   ];
   const same = namedLike(name, people);
-  const found = await findPage("people", same[0]?.id ?? name);
-  const id = found?.id ?? same[0]?.id ?? slugOf(name);
+  // A handle, or a name he said is someone (`this-is`): who it resolves to.
+  const resolved = resolve(name)?.replace(PERSON, "");
+  const found = await findPage("people", same[0]?.id ?? resolved ?? name);
+  const id = found?.id ?? same[0]?.id ?? resolved ?? slugOf(name);
   const ref = `person:${id}`;
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
   // Pages go by whole local days: a day is never cut between two answers.
@@ -548,13 +496,14 @@ export async function person(name?: string, o: { before?: string } = {}) {
   );
   return withStore((store) =>
     withIndex((db) => {
-      const heard =
-        found || same.length > 0
-          ? []
-          : speakers(store).filter((s) =>
-              normalize(s.name).includes(normalize(name))
-            );
-      if (!found && same.length === 0 && heard.length === 0) {
+      // A name on no page nor map: the lifelog speakers it is part of.
+      const known = !!(found || same[0] || resolved);
+      const heard = known
+        ? []
+        : speakers(store).filter((s) =>
+            normalize(s.name).includes(normalize(name))
+          );
+      if (!known && heard.length === 0) {
         return noOne(name, people, speakers(store));
       }
       const observations = newestDays(
@@ -707,10 +656,7 @@ export async function day(date: string) {
   const actions = (await readActions()).filter(
     (a) => !isTaskLine(a) && localDate(a.at) === date
   );
-  const moments = await momentsWhere((m) => {
-    const [first, last] = daysOf(m);
-    return first <= date && date <= last;
-  });
+  const moments = await momentsWhere(inDays({ from: date, to: date }));
   return withStore((store) =>
     withIndex((db) =>
       dayLines(

@@ -4,18 +4,14 @@ The plan and its decisions, the source of truth for this work (agreed with the o
 its own PR; tick it here when merged. His own material (which people, the evals with their real names) stays in
 `~/Life/docs/`, never here.
 
-## The problem (as found on 20 Oct, before step 1)
+## The problem
 
-Asked "what is my arc and dynamic with <a close friend>?", Life answered with the last week's logistics. Why, verified
-in the code:
+Asked "what is my arc and dynamic with <a close friend>?", Life answered with the last week's logistics (20 Oct). What
+still causes it once the read path stopped narrowing quietly (step 1):
 
 - **No home for what lasts.** A person's page has only Now (a line ages into History after 21 days) and History (30
   lines, 800 words). "He is my best friend" or a boundary he set ages out like a booking. Only the owner's own page has
   a section that never ages (Views).
-- **The read path narrows quietly.** `person` shows the live lines only (not What I hold, History, Often talk about) and
-  the newest 12 observations with no way to page back; `search` applies `from`/`to` to voice and chats only; `chats`
-  with `who` and `from` reads 7 days (without `from`, 90), clamping an explicit range without saying so; a name it
-  can't place answers "(none)", the same as a known person with nothing.
 - **Old facts can't be corrected by evidence.** Extraction shows a moment the earlier facts of its people from the 14
   days before it only (`priorFor`), so only a recent fact can be retired by a later one.
 - **Memory starts on 6 Sep 2026,** but the archive holds WhatsApp from July 2025 and iMessage from 2015.
@@ -47,7 +43,7 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
 
 ## Steps
 
-- [ ] **1. Honest read path** (no data change): `person` shows the whole page and when it was built, what its evidence
+- [x] **1. Honest read path** (no data change): `person` shows the whole page and when it was built, what its evidence
       covers (by source, first and last), a month-by-month timeline, and pages back through every observation and
       moment linked to the person (`before`); `search` applies `from`/`to` to every section; `chats` honors `from`/`to`,
       says when it cuts, and pages back (`before`); a name no one goes by answers so and lists near names.
