@@ -27,6 +27,7 @@ import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { week } from "./memory/week";
+import { PLAN_TAG } from "./sources/calendar";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
 import { sealed, taskList, Update, update } from "./tasks";
 import { ROOT } from "./truth";
@@ -252,7 +253,7 @@ function buildServer() {
   tool(
     server,
     "week",
-    "The week (Monday to Sunday) holding a date, day by day: his plan (the blocks tagged #plan on his calendar), his Hevy workouts and the moments. For the weekly review of plan against what happened, and for today's plan.",
+    `The week (Monday to Sunday) holding a date, day by day: his plan (the blocks tagged ${PLAN_TAG} on his calendar), his Hevy workouts and the moments. For the weekly review of plan against what happened, and for today's plan.`,
     z.object({ date: Day }),
     ({ date }) => week(date)
   );
