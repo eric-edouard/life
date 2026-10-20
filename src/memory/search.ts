@@ -22,7 +22,7 @@ import {
   turnOffset,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth } from "../truth";
+import { loadTruth, OWNER } from "../truth";
 import {
   daysOf,
   momentsNow,
@@ -559,17 +559,21 @@ const linkedCount = (db: Database, id: string) =>
 const SUMMARY = 200;
 
 /**
- * The lines of `day`: what happened (its moments, planned ones included), the day's conversations with their chapters,
- * its chat and mail units, its key observations, then what Life changed for him.
+ * The lines of `day`: what is due that day (`dueOn`), what happened (its moments, planned ones included), the day's
+ * conversations with their chapters, its chat and mail units, its key observations, then what Life changed for him.
  */
 export function dayLines(
   conversations: LifelogConversation[],
   units: UnitRow[],
   facts: string[] = [],
   actions: Action[] = [],
-  moments: Moment[] = []
+  moments: Moment[] = [],
+  due: string[] = []
 ) {
   return [
+    ...(due.length > 0
+      ? ["Due (his own open to-dos and promises for this day):", ...due, ""]
+      : []),
     ...(moments.length > 0
       ? ["What happened (moments):", ...moments.map(momentLine), ""]
       : []),
@@ -622,11 +626,25 @@ export async function day(date: string) {
           .all(date)
           .map(line),
         actions,
-        moments
+        moments,
+        dueOn(db, date)
       )
     )
   );
 }
+
+/**
+ * His open loops due on `date`: the to-dos and promises he said about himself that must not be forgotten (salience 3),
+ * not retired. Atlas's morning list reads them (docs/atlas.md); copies of one loop are merged there, not here.
+ */
+export const dueOn = (db: Database, date: string) =>
+  db
+    .query<Row, [string, string, string]>(
+      `select ${COLUMNS} from observations o where o."when" = ? and o.type in ('todo', 'promise') and o.speaker = ?
+       and o.about = ? and o.salience = 3 and ${CURRENT} order by o.at`
+    )
+    .all(date, OWNER, OWNER)
+    .map(line);
 
 /** `bun life memory area <id or name>`: an area's page and latest observations. */
 export async function area(name: string) {
@@ -739,7 +757,7 @@ const INDEX_SCHEMA = `
 create table observations (
   id text primary key, unit text, date text, at text, type text, area text, salience integer, confidence real,
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
-  superseded_by text);
+  superseded_by text, about text);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
 create table links (observation text, entity text, primary key (observation, entity));
 create index links_entity on links (entity);
@@ -792,7 +810,7 @@ export function buildIndex(
       db.prepare(
         `insert or ignore into ${table} values (${new Array(n).fill("?").join(", ")})`
       );
-    const row = insert("observations", 17);
+    const row = insert("observations", 18);
     const text = insert("search", 3);
     const link = insert("links", 2);
     const unitRow = insert("units", 8);
@@ -818,7 +836,8 @@ export function buildIndex(
         o.validFrom,
         retired?.validTo ?? o.validTo,
         o.when,
-        retired?.by ?? null
+        retired?.by ?? null,
+        o.about ?? null
       );
       text.run(o.id, o.text, o.quote);
       for (const e of o.entities) {
