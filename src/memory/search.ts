@@ -254,12 +254,12 @@ export function withSpans(text: string, dateOf: (id: string) => string[]) {
   let body = bodyOf(text);
   for (const l of parsed ? generated(parsed).bond : []) {
     const days = l.cites.flatMap(dateOf).toSorted();
-    const line = renderLine("bond", l);
+    const rendered = renderLine("bond", l);
     body = body.replace(
-      line,
+      rendered,
       days.length > 0
-        ? `${line} (since ${days[0]} · last evidence ${days.at(-1)})`
-        : line
+        ? `${rendered} (since ${days[0]} · last evidence ${days.at(-1)})`
+        : rendered
     );
   }
   return body;
