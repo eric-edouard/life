@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { askOnce, extractJson, llmOverride, readEngine } from "./llm";
@@ -104,12 +104,13 @@ test("openrouter: pinned, zero retention, no fallback; another host, a cut reply
     reply = { ...reply, provider: "Novita" };
     await expect(ask()).rejects.toThrow("served by Novita");
     // Refused, yet billed: its cost is in the log.
-    const logged = readdirSync(LOG_DIR).flatMap((f) =>
-      readFileSync(join(LOG_DIR, f), "utf8").trim().split("\n")
+    const today = join(
+      LOG_DIR,
+      `${new Date().toISOString().slice(0, 10)}.jsonl`
     );
-    expect(logged.findLast((l) => l.includes("served by Novita"))).toContain(
-      '"costUsd":0.01'
-    );
+    const last = readFileSync(today, "utf8").trim().split("\n").at(-1);
+    expect(last).toContain("served by Novita");
+    expect(last).toContain('"costUsd":0.01');
     reply = { ...reply, finish: "length", provider: "DeepInfra" };
     await expect(ask()).rejects.toThrow("stopped (length)");
     reply = { ...reply, status: 429 };

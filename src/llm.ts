@@ -199,14 +199,15 @@ interface Call {
   llm: Llm;
   system: string;
 }
-/** A runner's reply: its text, and what the log records of the call besides the time. */
+/**
+ * A runner's reply: its text, and what the log records of the call besides the time. `refusal`: it answered, but the
+ * answer is not used (still logged with what it cost).
+ */
 interface Answer {
   fields?: Record<string, unknown>;
+  refusal?: string;
   text: string;
 }
-/** A call that answered but is refused: what it cost is still logged. */
-const refused = (message: string, fields: Answer["fields"]) =>
-  Object.assign(new Error(message), { fields });
 
 /**
  * A CLI run to its end in an empty folder outside the repo (inside it, claude loads the project's auto-memory and
@@ -271,13 +272,13 @@ async function askClaude({ dir, images, input, llm, system }: Call) {
     turns: res.num_turns,
     usage: res.usage,
   };
-  if (res.is_error) {
-    throw refused(
-      `claude reported an error: ${res.result.slice(-300)}`,
-      fields
-    );
-  }
-  return { fields, text: res.result };
+  return {
+    fields,
+    refusal: res.is_error
+      ? `claude reported an error: ${res.result.slice(-300)}`
+      : undefined,
+    text: res.result,
+  };
 }
 
 async function askCodex({ dir, images, input, llm, system }: Call) {
@@ -355,6 +356,8 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
     },
     method: "POST",
     signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+    // Bun's 5-minute idle timer would cut a long call that sends nothing until it is done.
+    timeout: false,
   });
   const text = await res.text();
   await Bun.write(join(dir, "openrouter.json"), text);
@@ -368,16 +371,19 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
     host: reply.provider,
     usage: reply.usage,
   };
-  if (slug(reply.provider) !== slug(host)) {
-    throw refused(
-      `openrouter: served by ${reply.provider}, not ${host}`,
-      fields
-    );
-  }
-  if (choice?.finish_reason !== "stop" || !choice.message.content) {
-    throw refused(`openrouter: stopped (${choice?.finish_reason})`, fields);
-  }
-  return { fields, text: choice.message.content };
+  const refusal =
+    slug(reply.provider) === slug(host)
+      ? undefined
+      : `openrouter: served by ${reply.provider}, not ${host}`;
+  return {
+    fields,
+    refusal:
+      refusal ??
+      (choice?.finish_reason === "stop" && choice.message.content
+        ? undefined
+        : `openrouter: stopped (${choice?.finish_reason})`),
+    text: choice?.message.content ?? "",
+  };
 }
 
 const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
@@ -424,13 +430,16 @@ export async function askOnce(opts: {
       system,
     });
     ({ fields } = answer);
+    if (answer.refusal) {
+      throw new Error(answer.refusal);
+    }
     const json = extractJson(answer.text);
     log("model.run", { ...made, ...fields, ms: ms(), ok: true });
     return json;
   } catch (e) {
     log("model.run", {
       ...made,
-      ...(fields ?? (e as { fields?: Answer["fields"] }).fields),
+      ...fields,
       error: (e as Error).message,
       ms: ms(),
       ok: false,
