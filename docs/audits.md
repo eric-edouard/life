@@ -36,7 +36,8 @@ finding needs. Sections, in order:
 8. **Cause**: proven, or the observability that is missing. Never one dressed as the other.
 9. **Coverage**: the tools used, the caps hit, what was unavailable. Where to look: what an agent read is its
    `mcp.call` lines in `derived/log` (the OAuth `client` that writes `task` is Atlas's; another is a chat or an app);
-   what a nightly report listed is its run's `listed` (the connector's `runs`).
+   what a nightly report listed is its run's `listed` (the connector's `runs`); what the board ticked done or
+   reopened on his `Atlas` list is its `board.write` lines (task, item, ids).
 10. **Adversarial pass**: what it found and how each point was settled.
 11. **Proposal**: a bounded fix, its regression case, success criteria.
 
