@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { askOnce, describeLlm, llmFor, type Tier } from "../llm";
+import { askOnce, llmFor, llmSpec, type Tier } from "../llm";
 import { log } from "../log";
 import { git } from "../proc";
 import { INFERRED_USE_AT, type InferredPerson } from "../schema";
@@ -83,8 +83,8 @@ export async function begin(
   tier: Tier,
   fields: Record<string, unknown>
 ) {
-  const llm = await llmFor(tier);
-  const model = describeLlm(llm);
+  const llm = llmFor(tier);
+  const model = llmSpec(llm);
   const rec = record(`memory.${step}`, { ...fields, model });
   const { now, run } = rec;
   const dir = join(OUT, "runs", `${step}-${run}`);
