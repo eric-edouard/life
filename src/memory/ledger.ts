@@ -289,7 +289,8 @@ export function rereadAt(corrections: Correction[]) {
   for (const c of corrections) {
     if (c.kind === "reread") {
       for (const unit of c.units) {
-        at.set(unit, c.at > (at.get(unit) ?? "") ? c.at : (at.get(unit) ?? ""));
+        // The ledger is in time order: the latest word on a unit wins.
+        at.set(unit, c.at);
       }
     }
   }

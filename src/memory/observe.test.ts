@@ -11,7 +11,7 @@ import {
   type Unit,
   type Unresolved,
 } from "../schema";
-import { peopleNow, toExtract } from "./extract";
+import { toExtract } from "./extract";
 import { ledger, unit, verdict } from "./fixtures";
 import { rereadAt } from "./ledger";
 import { locate, parseObservations, type Source } from "./observe";
@@ -412,9 +412,13 @@ test("identity is part of the cache: a unit read as someone else, or that he sai
     ledgerLines: ReturnType<typeof readLine>[],
     rereads: [string, string][] = []
   ) =>
-    toExtract([built(sam)], verdicts, ledgerLines, "memory-extract.v1", {
-      rereads: new Map(rereads),
-    }).pending.length;
+    toExtract(
+      [built(sam)],
+      verdicts,
+      ledgerLines,
+      "memory-extract.v1",
+      new Map(rereads)
+    ).pending.length;
   // Read as Sam, now Lou: read again; once read as Lou, cached.
   expect(pending([readLine(["person:sam"])])).toBe(1);
   expect(pending([readLine(["person:sam"]), readLine(["person:lou"])])).toBe(0);
@@ -428,22 +432,32 @@ test("identity is part of the cache: a unit read as someone else, or that he sai
       [[sam.id, "2026-10-21T00:00:00.000Z"]]
     )
   ).toBe(0);
-});
-
-test("a unit's people as of today: folds applied, deduplicated, in one order", () => {
-  const u = unit({ people: ["person:zed", "person:inf-sam", "person:sam"] });
+  // Instants, not strings: his word at 04:00+02:00 is 02:00Z, the same instant as the reading, so it is settled.
   expect(
-    peopleNow(u, (r) => (r === "person:inf-sam" ? "person:sam" : r))
-  ).toEqual(["person:sam", "person:zed"]);
+    pending(
+      [readLine(["person:lou"], "2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-22T04:00:00+02:00"]]
+    )
+  ).toBe(0);
+  // Order is not identity: the same people listed differently stay cached.
+  const twoOf = unit({ id: sam.id, people: ["person:lou", "person:ann"] });
+  expect(
+    toExtract(
+      [built(twoOf)],
+      ledger([verdict(twoOf, { salience: 3 })]),
+      [{ ...readLine(["person:ann", "person:lou"]), unitHash: twoOf.hash }],
+      "memory-extract.v1"
+    ).pending.length
+  ).toBe(0);
 });
 
-test("his reread corrections: the latest word on each unit", () => {
+test("his reread corrections: the latest word on each unit (the ledger is in time order)", () => {
   const word = (ids: string[], when: string) =>
     ({ at: when, kind: "reread", schemaVersion: 1, units: ids }) as Correction;
   const at = rereadAt([
+    word(["u_00000000001b"], "2026-10-20T00:00:00.000Z"),
     word(["u_00000000001a", "u_00000000001b"], "2026-10-21T00:00:00.000Z"),
     word(["u_00000000001a"], "2026-10-22T00:00:00.000Z"),
-    word(["u_00000000001b"], "2026-10-20T00:00:00.000Z"),
   ]);
   expect(at.get("u_00000000001a")).toBe("2026-10-22T00:00:00.000Z");
   expect(at.get("u_00000000001b")).toBe("2026-10-21T00:00:00.000Z");

@@ -202,29 +202,20 @@ export function byDays<T extends Group & { sources: Source[] }>(
   });
 }
 
-/** Who a unit's people are as of today, sorted: what extraction read it as (`refOf`: folds, names since resolved). */
-export const peopleNow = (unit: Unit, refOf: (ref: string) => string) =>
-  [...new Set(unit.people.map(refOf))].sort();
-
 /**
  * The units to read: kept (salience >= KEEP_AT) on their current content, and not yet extracted by this prompt
  * from that same content and people (the cache: unit content hash + prompt version, from memory/extracted.jsonl).
- * A unit whose people resolve to someone else since it was read (`peopleOf`), or that the owner said was read wrong
- * after it was (`rereads`, his `reread` corrections), is read again and its earlier observations replaced. A ledger
- * line from before `people` was recorded counts as read as today.
+ * A unit whose people are someone else since it was read (`truth/` changed who a handle or name is: `peopleOf`, the
+ * people the model reads), or that the owner said was read wrong after it was (`rereads`, his `reread` corrections),
+ * is read again and its earlier observations replaced. A ledger line from before `people` was recorded counts as
+ * read as today. Folds and names resolved since need no new reading: the readers file observations as of today.
  */
 export function toExtract(
   built: Built[],
   verdicts: Verdicts,
   ledger: Extracted[],
   prompt = EXTRACT_PROMPT,
-  {
-    peopleOf = (u: Unit) => u.people,
-    rereads = new Map<string, string>(),
-  }: {
-    peopleOf?: (u: Unit) => string[];
-    rereads?: Map<string, string>;
-  } = {}
+  rereads = new Map<string, string>()
 ) {
   // The latest reading of each unit's content by this prompt.
   const done = new Map<string, Extracted>();
@@ -233,11 +224,14 @@ export function toExtract(
       done.set(`${e.unit}|${e.unitHash}`, e);
     }
   }
+  // The people the model reads a unit as, in one order (lifelog lists a chapter's speakers as they come).
+  const peopleOf = (u: Unit) => u.people.toSorted();
   const readAs = ({ unit }: Built) => {
     const e = done.get(`${unit.id}|${unit.hash}`);
+    const since = rereads.get(unit.id);
     return (
       !!e &&
-      (rereads.get(unit.id) ?? "") <= e.at &&
+      !(since && Date.parse(since) > Date.parse(e.at)) &&
       (!e.people || e.people.join() === peopleOf(unit).join())
     );
   };
@@ -368,8 +362,7 @@ export async function extract(evidence: Evidence) {
   );
   const verdicts = await readVerdicts();
   const people = await readPeople();
-  const { corrections, inferred, refOf, resolve } = people;
-  const peopleOf = (u: Unit) => peopleNow(u, refOf);
+  const { corrections, inferred, resolve } = people;
   const [written, { observations: known, standing }] = await Promise.all([
     readMoments(),
     observationsNow(people),
@@ -379,7 +372,7 @@ export async function extract(evidence: Evidence) {
     verdicts,
     rowsOf(EXTRACTED, Extracted),
     EXTRACT_PROMPT,
-    { peopleOf, rereads: rereadAt(corrections) }
+    rereadAt(corrections)
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
@@ -578,7 +571,7 @@ export async function extract(evidence: Evidence) {
     [...finished, ...copies].map(({ unit }) => ({
       at,
       observations: perUnit.get(unit.id) ?? 0,
-      people: peopleOf(unit),
+      people: unit.people.toSorted(),
       prompt: EXTRACT_PROMPT,
       run: step.run,
       schemaVersion: 1 as const,
