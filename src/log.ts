@@ -1,7 +1,8 @@
-import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { linesOf } from "./memory/ledger";
 import { ROOT, TEST } from "./truth";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
@@ -42,8 +43,7 @@ export const logEvents = <T = Record<string, unknown> & { at: string }>(
   kind: string,
   dir = LOG_DIR
 ) =>
-  readFileSync(join(dir, name), "utf8")
-    .split("\n")
+  linesOf(join(dir, name))
     .filter((l) => l.includes(`"kind":"${kind}`))
     .map((l) => JSON.parse(l) as T);
 
