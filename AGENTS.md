@@ -47,9 +47,11 @@ Everything is in the memory CLI (`bun life memory ...`); the connector's tools a
 - `repos [project|area|repo]` (CLI only, not a connector tool): his code repos by project, where each is and the last 30 days of commits; his map is `Project.repos` in `truth/`, Life's guesses are marked inferred. Read a project's first repo (its main entry point) before working in it. Which mailbox sends what: `~/Work/CLAUDE.md`. Commits are also units (`source git`, one per repo and day): `search`, `day` and `fetch` show them.
 - `week <YYYY-MM-DD>`: Monday to Sunday of that date's week, day by day: his plan (the events tagged `#plan` on his
   main Google calendar, which Atlas writes on his word; read from the Mac's Calendar database, `LIFE_CALENDAR` in
-  `.env`), his Hevy workouts (its API, `HEVY_API_KEY`) and the moments. Read at the call, never stored; Life writes
-  neither the calendar nor Hevy. Nothing is matched: the reader judges plan against what happened. His `#plan` blocks
-  (his word) and the moments Life reads as planned (inferred) stay apart: never merge one into the other.
+  `.env`) and the moments. Read at the call, never stored; Life writes no calendar. His workouts are in Hevy, which
+  Atlas reads through its own Hevy app at the review: Life reads no Hevy, so neither its memory, `week`, the nightly
+  nor a Claude session sees a workout he never spoke or wrote about. Nothing is matched: the reader judges plan
+  against what happened. His `#plan` blocks (his word) and the moments Life reads as planned (inferred) stay apart:
+  never merge one into the other.
 - `chats --who <name|handle> | --chat <id> [--from d --to d]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, 7 days and 200 messages at most.
 
 Use the CLI; read a source directly only if it is unavailable: `~/Library/Application Support/Life/archive/` (`whatsapp.sqlite`,

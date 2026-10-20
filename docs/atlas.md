@@ -89,8 +89,9 @@ When he asks you to plan his week or a day, write each block (the morning workou
 names) to his main Google calendar with `gog calendar create primary`: one event per block (no `--rrule`), no
 attendees, times in the zone he will be in then (`places`, `day`), and `#plan` in the description. Life
 reads only the events tagged so and never writes the calendar; to move or drop a block, update or delete its event.
-`week <date>` lays his plan next to his Hevy workouts and the moments, day by day: today's plan for the Today view, last
-week at his weekly review, where you ask him only about the planned blocks with nothing for them.
+`week <date>` lays his plan next to the moments, day by day: today's plan for the Today view, last week at his weekly
+review. At the review, check each planned workout against his Hevy log (@hevy, his Hevy app), then ask him only about
+the planned blocks with nothing for them.
 
 ## Rules
 
