@@ -1,4 +1,4 @@
-// The nightly report as an HTML email in the owner's Ledger brand, by its email adapter (AGENTS.md): paper page, one
+// The nightly report as an HTML email in the owner's Ledger brand (AGENTS.md): paper page, one
 // white card, serif to read, mono to count; tables and inline styles only, no web fonts, no images, no links, no
 // tracking. Light only.
 
@@ -46,8 +46,8 @@ export interface Digest {
 }
 
 const SERIF = "'Source Serif 4',Georgia,serif";
-const MONO = "'IBM Plex Mono',Menlo,Consolas,monospace";
-// Ledger's tokens (tokens.json); a tint is its status hue at 11% on white, as its chips. ok fails contrast as text, so
+const MONO = "'IBM Plex Mono',ui-monospace,Menlo,monospace";
+// Ledger's tokens (tokens.css); a tint is its status hue at 11% on white, as its chips. ok fails contrast as text, so
 // status hues only mark (a stripe, a dot) and the words beside them stay ink.
 const C = {
   bad: "#c4382c",
