@@ -85,7 +85,7 @@ export type Project = z.infer<typeof Project>;
 /** The model runner he chooses for every step (src/llm.ts, `bun life engine`). */
 export const Engine = z.enum(["claude", "codex"]);
 export type Engine = z.infer<typeof Engine>;
-/** What can run one call: his engines, and OpenRouter for the bench alone (`llmOverride`, never on his data). */
+/** What can run one call: his engines, and OpenRouter for the bench alone (`llmOverride`, only on a copy of his data). */
 export const Runner = z.enum([...Engine.options, "openrouter"]);
 export type Runner = z.infer<typeof Runner>;
 
