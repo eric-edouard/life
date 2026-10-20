@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { type Item, planOf, steerOf, steersOf, wantOf } from "./board";
+import { log } from "./log";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
 import {
@@ -9,6 +10,7 @@ import {
   standing,
   type Task,
   tasksOf,
+  timings,
   type Update,
   written,
 } from "./tasks";
@@ -442,4 +444,46 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(() => write(grand, write(split).lines)).toThrow("is a part");
   const done = own("update", 1, { outcome: "split", state: "done" });
   expect(() => write(split, [done])).toThrow(`${ASK} is done`);
+});
+
+test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", () => {
+  const before = new Date().toISOString();
+  log("event.sent", { event: ASK, ms: 300 });
+  const heard = {
+    ...asked,
+    timing: { arrived: at(-1), ended: at(-2) },
+  } satisfies Action;
+  const part = action({
+    after: { confidence: "high", parent: ASK, title: "a part" },
+    at: at(1),
+    id: "act_00000000000b",
+    kind: "ask",
+    target: "atlas",
+  });
+  const lines = [
+    heard,
+    part,
+    own("update", 5, { claim: true, state: "working" }),
+    own("update", 9, { outcome: "sent", state: "done" }),
+  ].map((a) => JSON.stringify(a));
+  const [t, ...rest] = timings(at(-60), at(60), tasksOf(lines));
+  expect(rest).toEqual([]);
+  const moments = Object.fromEntries(t?.moments ?? []);
+  expect(moments).toMatchObject({
+    arrived: at(-1),
+    claimed: at(5),
+    closed: at(9),
+    ended: at(-2),
+    recorded: at(0),
+  });
+  expect((moments.delivered ?? "") >= before).toBe(true);
+  expect(t?.moments.map(([m]) => m)).toEqual([
+    "spoke",
+    "ended",
+    "arrived",
+    "recorded",
+    "delivered",
+    "claimed",
+    "closed",
+  ]);
 });

@@ -1,4 +1,10 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ROOT, TEST } from "./truth";
@@ -16,6 +22,7 @@ export const LOG_DIR = TEST
 
 type LogKind =
   | "email.sent"
+  | "event.sent"
   | "file.read"
   | "lifelog.write"
   | "mcp.call"
@@ -24,6 +31,16 @@ type LogKind =
   | "run.end"
   | "run.error"
   | "source.read";
+
+/** Every event of one kind logged on `from`'s UTC day or later, oldest first. */
+export function logged(kind: LogKind, from = "", dir = LOG_DIR) {
+  return (existsSync(dir) ? readdirSync(dir) : [])
+    .filter((n) => n.endsWith(".jsonl") && n >= from.slice(0, 10))
+    .sort()
+    .flatMap((n) => readFileSync(join(dir, n), "utf8").split("\n"))
+    .filter((l) => l.includes(`"kind":"${kind}"`))
+    .map((l) => JSON.parse(l) as Record<string, unknown> & { at: string });
+}
 
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   const at = new Date().toISOString();

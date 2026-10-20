@@ -1,3 +1,4 @@
+import { parseArgs } from "node:util";
 import { Asked, actAsked, checks, requested } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
@@ -5,7 +6,7 @@ import { readEngine, setEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
 import { actionLine } from "./memory/report";
 import { Engine } from "./schema";
-import { ask } from "./tasks";
+import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
 
@@ -50,6 +51,45 @@ const commands: Record<string, () => Promise<number>> = {
       "asked in a Claude session"
     );
     console.log(`${done.id}: ${actionLine(done)}`);
+    return Promise.resolve(0);
+  },
+  /**
+   * Where each ask's time went: `asks [--from <date>] [--to <date>]`, one line per ask, in the order recorded, each moment as
+   * the time since the one before it (src/tasks.ts `timings`).
+   */
+  asks() {
+    const { values } = parseArgs({
+      args: process.argv.slice(3),
+      options: { from: { type: "string" }, to: { type: "string" } },
+    });
+    const since = (a: string, b: string) => {
+      const s = Math.round((Date.parse(b) - Date.parse(a)) / 1000);
+      return s < 60
+        ? `${s}s`
+        : `${Math.floor(s / 60)}m${`${s % 60}`.padStart(2, "0")}s`;
+    };
+    for (const { id, madeBy, moments, quote } of timings(
+      values.from,
+      values.to
+    )) {
+      const [[, spoke] = [], ...rest] = moments;
+      let prev = spoke ?? "";
+      const hops = rest.flatMap(([moment, at]) => {
+        const hop = at ? [`${moment} +${since(prev, at)}`] : [];
+        prev = at ?? prev;
+        return hop;
+      });
+      const words = JSON.stringify(quote.slice(0, 60));
+      console.log(
+        [
+          spoke?.replace("T", " ").slice(0, 19),
+          id,
+          madeBy,
+          ...hops,
+          words,
+        ].join("  ")
+      );
+    }
     return Promise.resolve(0);
   },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (src/backup.ts). */

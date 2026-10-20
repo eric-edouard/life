@@ -32,15 +32,19 @@ test("only the two words “hey Atlas”, in order, wake it, whatever the case a
 });
 
 const AT = Date.parse("2026-10-19T10:00:00.000Z");
-const turn = (s: number, who: Turn["who"], text: string): Turn => ({
-  at: new Date(AT + s * 1000).toISOString(),
+const iso = (s: number) => new Date(AT + s * 1000).toISOString();
+/** A turn spoken at `s` s, lasting `long` s, brought by the feed 60 s after it started. */
+const turn = (s: number, who: Turn["who"], text: string, long = 0): Turn => ({
+  at: iso(s),
+  end: iso(s + long),
   ref: `job:${s}@x`,
+  seen: iso(s + 60),
   text,
   who,
 });
 
 test("a turn is his, someone else's when lifelog named anyone (by id or name), else nobody's", () => {
-  const t = { at: "", jobId: "j", turnIndex: 0 };
+  const t = { at: "", end: null, jobId: "j", seen: null, turnIndex: 0 };
   expect(whose({ ...t, name: "Me", owner: true, personId: "p0" })).toBe("me");
   expect(whose({ ...t, name: "Ana", owner: false, personId: null })).toBe(
     "other"
@@ -96,6 +100,19 @@ test("an ask runs over his following turns until another speaker, a 15 s pause o
   expect(
     asksIn(turns, "2026-10-19T10:01:40.000Z").map((a) => a.turns[0])
   ).toEqual([6, 9]);
+});
+
+test("the pause is measured from a turn's end; the ask keeps when its last turn ended and when all of it arrived", () => {
+  const [ask] = asksIn(
+    [
+      turn(0, "me", "hey Atlas, plan the week:", 30),
+      turn(40, "me", "Monday is the dentist", 3),
+      turn(70, "me", "after a long pause"),
+    ],
+    ""
+  );
+  expect(ask?.turns).toEqual([0, 1]);
+  expect(ask?.timing).toEqual({ arrived: iso(100), ended: iso(43) });
 });
 
 test("a failed word fetch throws, so the watcher hears it again: never read as silence", async () => {

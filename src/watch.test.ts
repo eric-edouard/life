@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import type { Health } from "./health";
-import { afterPoll, hearings, type Pending, publicCheck } from "./watch";
+import {
+  afterPoll,
+  hearings,
+  holdFor,
+  type Pending,
+  publicCheck,
+} from "./watch";
 
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
@@ -61,27 +67,33 @@ test("the public check ignores an offline Mac, heals on the 2nd failure, alerts 
   expect(run(true, true)).toBe("none");
 });
 
-test("a conversation is heard once, 40 s after his last turn arrived, from his earliest turn; old speech is never heard", () => {
+test("a conversation is heard once, 10 s after his last turn arrived (40 s while one has no speaker), from his earliest turn; old speech is never heard", () => {
   const pending: Pending = new Map();
   const t = (s: number) => new Date(at(0).getTime() + s * 1000);
   const turn = (conversation: string, s: number) => ({
     at: t(s).toISOString(),
     conversation,
   });
-  expect(
-    hearings(pending, [turn("a", 0), turn("b", 5)], t(10).getTime())
-  ).toEqual([]);
-  expect(hearings(pending, [], t(49).getTime())).toEqual([]);
-  expect(hearings(pending, [turn("a", 45)], t(50).getTime())).toEqual([
-    { conversation: "b", from: t(5).toISOString(), tries: 0 },
-  ]);
-  // A turn of "a" arrived at 50 s: its quiet restarted.
-  expect(hearings(pending, [], t(89).getTime())).toEqual([]);
-  expect(hearings(pending, [], t(90).getTime())).toEqual([
+  const unnamed = (conversation: string) => conversation === "b";
+  const heard = (turns: ReturnType<typeof turn>[], s: number) =>
+    hearings(pending, turns, t(s).getTime(), unnamed);
+  expect(heard([turn("a", 0), turn("b", 5)], 10)).toEqual([]);
+  expect(holdFor(pending, t(10).getTime())).toBe(10);
+  expect(heard([], 19)).toEqual([]);
+  // A turn of "a" arrived at 20 s: its quiet restarted.
+  expect(heard([turn("a", 15)], 20)).toEqual([]);
+  expect(heard([], 29)).toEqual([]);
+  expect(heard([], 30)).toEqual([
     { conversation: "a", from: t(0).toISOString(), tries: 0 },
   ]);
-  expect(hearings(pending, [], t(999).getTime())).toEqual([]);
+  // "b" has a turn with no speaker: it waits 40 s.
+  expect(heard([], 49)).toEqual([]);
+  expect(heard([], 50)).toEqual([
+    { conversation: "b", from: t(5).toISOString(), tries: 0 },
+  ]);
+  expect(heard([], 999)).toEqual([]);
+  expect(holdFor(pending, t(999).getTime())).toBe(60);
   const old = { at: "2026-10-13T10:00:00.000Z", conversation: "c" };
-  expect(hearings(pending, [old], t(0).getTime())).toEqual([]);
+  expect(heard([old], 0)).toEqual([]);
   expect(pending.size).toBe(0);
 });
