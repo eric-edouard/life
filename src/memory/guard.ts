@@ -8,7 +8,7 @@ import {
 import { uptime } from "node:os";
 import { join } from "node:path";
 import { DATA } from "../truth";
-import { OUT, readJson } from "./ledger";
+import { OUT, readJson, writeJson } from "./ledger";
 import { daysBefore, type Window } from "./units";
 
 // launchd starts the nightly every 30 minutes; this guard decides whether a start does anything.
@@ -131,8 +131,7 @@ export interface Backfill {
 const BACKFILL = join(OUT, "backfill.json");
 export const readBackfill = () => readJson<Backfill>(BACKFILL);
 export function recordBackfill(b: Backfill) {
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(BACKFILL, `${JSON.stringify(b)}\n`);
+  writeJson(BACKFILL, b);
 }
 
 /** Weeks a day reads at most: about an hour of deep calls each, so his subscriptions keep room for him. */
@@ -188,8 +187,7 @@ export const readMidday = () => readJson<string>(MIDDAY);
 
 /** Marks a midday slot as used, failed or not: a failed run waits for the next slot, the nightly reports. */
 export function recordMidday() {
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(MIDDAY, JSON.stringify(new Date().toISOString()));
+  writeJson(MIDDAY, new Date().toISOString());
 }
 
 /** Records the outcome of a night (or of a `job`'s run); a new day starts at zero attempts. */
@@ -203,8 +201,7 @@ export function recordState(day: string, ok: boolean, job: Job = "nightly") {
     okAt: ok ? new Date().toISOString() : prev?.okAt,
     status: ok ? "ok" : "failed",
   };
-  mkdirSync(OUT, { recursive: true });
-  writeFileSync(stateFile(job), `${JSON.stringify(state)}\n`);
+  writeJson(stateFile(job), state);
   return state;
 }
 
