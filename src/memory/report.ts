@@ -242,7 +242,7 @@ export const taskReport = (a: Action, title: string, cause: string) =>
       `You said: “${a.instruction?.quote}”`,
       `Its task: ${a.id} (Life's \`tasks\`; memory/actions.jsonl).`,
     ],
-    preheader: `${cause}: ${title}`.slice(0, 140),
+    preheader: `${cause}: ${title}`,
     stats: [{ label: "asked", value: time(a.at) }],
     subject: `Atlas: ${title} (${cause.split(":")[0]})`,
     verdict: "NEEDS YOU",

@@ -19,6 +19,7 @@ import {
   Unsubscribe,
   unsubscribe,
 } from "./events";
+import { titleOf } from "./hear";
 import { text } from "./http";
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
@@ -383,7 +384,7 @@ function buildServer() {
               note: clip(t.note ?? "", 200),
               state: t.state,
               // A spoken ask has no title: its words name it.
-              title: t.title ?? clip(t.quote, 120),
+              title: titleOf(t),
             }
           : t
       ),

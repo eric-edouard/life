@@ -2,6 +2,7 @@ import { checks } from "../actions";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
+import { titleOf } from "../hear";
 import { runEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
@@ -38,14 +39,7 @@ import {
 import { codeOn, mapRepos } from "./repos";
 import { commitMemory, phases, type RunRecord, record } from "./run";
 import { reindex } from "./search";
-import {
-  clip,
-  daysBefore,
-  gather,
-  lastDays,
-  localTime,
-  type Window,
-} from "./units";
+import { daysBefore, gather, lastDays, localTime, type Window } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { dayStart, localDate, noteZone } from "./zones";
 
@@ -76,7 +70,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems,
     tasks: tasks.map((t) => ({
       name: `${t.state} · ${t.age}`,
-      relation: `${clip(t.quote, 120)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.extensions} extensions`,
+      relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.extensions} extensions`,
     })),
   };
 }

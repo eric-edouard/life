@@ -182,7 +182,12 @@ export function standing(t: Task) {
   };
 }
 
+/** Closed over a day ago: out of the lists, and its board item left to him. */
+export const settled = (s: { since: string; state: State }, now: number) =>
+  closed(s.state) && now - Date.parse(s.since) > DAY;
+
 const WEEK = "stuck for 7 days";
+const LAPSE = "Atlas isn't receiving asks";
 
 /**
  * Why he must look at a task now, or null: every task, chat ones too. Atlas isn't subscribed, waits on him over an
@@ -194,7 +199,7 @@ export function escalation(t: Task, now: number, live: boolean) {
     return null;
   }
   if (!live) {
-    return "Atlas isn't receiving asks";
+    return LAPSE;
   }
   if (state === "waiting-eric" && now - Date.parse(since) > HOUR) {
     return `Atlas needs you: ${end.question}`;
@@ -215,7 +220,11 @@ export const alerts = (tasks: Task[], now: number, live: boolean) =>
   tasks.flatMap((t) => {
     const cause = escalation(t, now, live);
     const since = cause === WEEK ? "" : standing(t).since;
-    const key = `task/${t.ask.id}/${cause?.split(":")[0]}/${since}`;
+    // A lapsed subscription is one email a day, not one per open task.
+    const key =
+      cause === LAPSE
+        ? `lapse/${iso(now).slice(0, 10)}`
+        : `task/${t.ask.id}/${cause?.split(":")[0]}/${since}`;
     return cause ? [{ cause, key, t }] : [];
   });
 
@@ -373,7 +382,7 @@ export function taskList(now = Date.now()) {
   return tasksOf().flatMap((t) => {
     const s = standing(t);
     const h = Math.floor((now - Date.parse(t.ask.at)) / HOUR);
-    if (closed(s.state) && now - Date.parse(s.since) > DAY) {
+    if (settled(s, now)) {
       return [];
     }
     return {
@@ -387,7 +396,7 @@ export function taskList(now = Date.now()) {
       quote: clip(t.ask.instruction.quote, 300),
       state: s.state,
       steps: s.steps,
-      title: t.ask.after.title,
+      title: t.ask.after.title as string | undefined,
     };
   });
 }

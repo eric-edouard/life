@@ -1,3 +1,4 @@
+import { clip } from "./memory/units";
 import {
   type ChapterTurn,
   readTranscript,
@@ -22,6 +23,12 @@ export const WAKE = new RegExp(
   String.raw`\bhey\W+(atlas${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
   "i"
 );
+/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
+const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
+/** A task's name: its title, else his words from "hey Atlas" on. */
+export const titleOf = (t: { quote: string; title?: string }) =>
+  clip(t.title ?? (t.quote.replace(TO_WAKE, "") || t.quote), 80);
+
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;
 /** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */

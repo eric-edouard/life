@@ -7,11 +7,11 @@ import {
   reminderArgs,
 } from "./actions";
 import { subscribed } from "./events";
-import { WAKE } from "./hear";
+import { titleOf } from "./hear";
 import { log } from "./log";
 import { sendReport, taskReport } from "./memory/report";
 import { clip, localTime } from "./memory/units";
-import { alerts, closed, standing, type Task, tasksOf } from "./tasks";
+import { alerts, closed, settled, standing, type Task, tasksOf } from "./tasks";
 
 // Atlas's board, his Reminders list `BOARD`: a one-way projection of the tasks (src/tasks.ts), never through `act`, that
 // writes no ledger line and reads nothing back as his. One item per task, found by the task id on its notes' first
@@ -19,17 +19,12 @@ import { alerts, closed, standing, type Task, tasksOf } from "./tasks";
 // closes: his receipt that he was heard. What needs him (`escalation`, src/tasks.ts) is emailed by `chase`, never shown here.
 
 const MIN = 60_000;
-const DAY = 24 * 60 * MIN;
-/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
-const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
-
-/** A task's name: its title, else his words from "hey Atlas" on. */
-const titleOf = (t: Task) =>
-  clip(
-    (t.ask.after.title as string | undefined) ??
-      (t.ask.instruction.quote.replace(TO_WAKE, "") || t.ask.instruction.quote),
-    80
-  );
+/** A task's name, as the board and the email show it. */
+const nameOf = (t: Task) =>
+  titleOf({
+    quote: t.ask.instruction.quote,
+    title: t.ask.after.title as string | undefined,
+  });
 
 /** An item as Life reads it. */
 export interface Item {
@@ -56,7 +51,7 @@ export function wantOf(t: Task) {
     completed: closed(state),
     notes: notes.filter(Boolean).join("\n").trim(),
     section: state === "open" ? "Open" : "Working",
-    title: `Atlas${low}: ${titleOf(t)}`,
+    title: `Atlas${low}: ${nameOf(t)}`,
   };
 }
 type Want = ReturnType<typeof wantOf>;
@@ -136,7 +131,7 @@ async function added({ notes, title }: Want): Promise<Item> {
 async function chase(tasks: Task[], now: number) {
   for (const { cause, key, t } of alerts(tasks, now, subscribed(now))) {
     // biome-ignore lint/performance/noAwaitInLoops: one email at a time
-    await sendReport(key, taskReport(t.ask, titleOf(t), cause));
+    await sendReport(key, taskReport(t.ask, nameOf(t), cause));
   }
 }
 
@@ -157,8 +152,7 @@ export async function tick(now = Date.now()) {
     const item = items.get(t.ask.id);
     const s = standing(t);
     // A task closed over a day ago is left alone: he may have unticked its item.
-    const settled = closed(s.state) && now - Date.parse(s.since) > DAY;
-    if (!(settled || (item?.completed && closed(s.state)))) {
+    if (!(settled(s, now) || (item?.completed && closed(s.state)))) {
       // biome-ignore lint/performance/noAwaitInLoops: one item at a time
       await mirror(t, item);
     }
