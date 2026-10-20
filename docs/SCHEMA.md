@@ -273,7 +273,7 @@ where a later run's claims about the same thing are). The draw is spread over gr
 
 The owner's answers to the statements, append-only, from the check page (`https://life.ericedouard.com/check`,
 `src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (the button "True, but over": true when Life
-recorded it, not anymore; not offered on a moment that happened), `skip` or null (he took his last answer back). The latest line for a claim is his answer. A `false` hides the claim as a `wrong` correction would
+recorded it, not anymore; not offered on a moment), `skip` or null (he took his last answer back). The latest line for a claim is his answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
 lifts a `wrong` he said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would
 (`ratedOutdated`, `by` the claim itself, `why` `rated outdated`, `validTo` the answer's UTC day), after extraction's own; on a

@@ -85,6 +85,9 @@ export function deck(root, verdicts, onVerdict) {
 
   function judge(verdict) {
     flying?.();
+    if (!offered().some((v) => v.value === verdict)) {
+      return; // a quick second answer reaches the next card, which may not offer it
+    }
     const el = stage.firstChild;
     if (!el) {
       return;
@@ -200,8 +203,8 @@ function pick(current) {
   $("bar").value = done(current) / current.statements.length;
 }
 
-// True, but over (`outdated`): true when Life recorded it, not anymore (a closure kept as history, never "false"); a
-// moment that happened can't be over, so its card doesn't offer it (its text is `momentText`'s, statements.ts).
+// True, but over (`outdated`): true when Life recorded it, not anymore (a closure kept as history, never "false"); not
+// offered on a moment, which has no closed state.
 const VERDICTS = [
   {
     key: "ArrowLeft",
@@ -256,7 +259,7 @@ function open(g, first) {
         id: s.claim,
         note: note(s),
         text: s.text,
-        without: s.text.startsWith("Happened: ") ? ["outdated"] : [],
+        without: s.kind === "moment" ? ["outdated"] : [],
       }))
   );
 }
