@@ -1,4 +1,5 @@
-// What the pages behind a sign-in (`check.ts`, `portrait.ts`) answer with: never cached, never framed, no referrer.
+// How Life's server answers (`mcp.ts`, `check.ts`, `portrait.ts`), the one place for it: never cached, never framed,
+// no referrer.
 
 export const HEADERS = {
   "cache-control": "no-store",

@@ -40,11 +40,13 @@ export function createPortrait(
   page = PAGE,
   now = Date.now
 ) {
+  if (!password) {
+    return { handle: async (_req: Request): Promise<Response | null> => null };
+  }
+  const key = password;
   let fails: number[] = [];
   const sign = (exp: string) =>
-    createHmac("sha256", password ?? "")
-      .update(`me:${exp}`)
-      .digest("base64url");
+    createHmac("sha256", key).update(`me:${exp}`).digest("base64url");
   const same = (a: string, b: string) =>
     a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
@@ -63,17 +65,11 @@ export function createPortrait(
     );
     fails = fails.filter((t) => now() - t < FAILS_WINDOW_MS);
     if (fails.length >= FAILS_ALLOWED) {
-      return new Response(form("Too many tries, wait a minute."), {
-        headers: PAGE_HEADERS,
-        status: 429,
-      });
+      return text(form("Too many tries, wait a minute."), 429, PAGE_HEADERS);
     }
-    if (!same(sign(given), sign(password ?? ""))) {
+    if (!same(sign(given), sign(key))) {
       fails.push(now());
-      return new Response(form("Wrong password."), {
-        headers: PAGE_HEADERS,
-        status: 401,
-      });
+      return text(form("Wrong password."), 401, PAGE_HEADERS);
     }
     const exp = String(Math.floor(now() / 1000) + SESSION_S);
     return redirect("/me", [cookie(SESSION, `${exp}.${sign(exp)}`, SESSION_S)]);
@@ -81,14 +77,14 @@ export function createPortrait(
 
   async function handle(req: Request): Promise<Response | null> {
     const { pathname } = new URL(req.url);
-    if (!password || pathname !== "/me") {
+    if (pathname !== "/me") {
       return null;
     }
     if (req.method === "POST") {
       return login(req);
     }
     if (!signedIn(req)) {
-      return new Response(form(), { headers: PAGE_HEADERS });
+      return text(form(), 200, PAGE_HEADERS);
     }
     const file = Bun.file(page);
     return (await file.exists())
