@@ -24,13 +24,13 @@ import { DATA, ROOT } from "../src/truth";
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(DATA, "docs/evals/events-2026-10-16.json");
 /** Short names for `--models` (an `engine/model/effort` works too). */
+// Benched 20 Oct and dropped: MiMo V2.6 Pro (at high it spends the whole token budget reasoning, at medium its host
+// errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). DeepSeek Flash is on Parasail:
+// DeepInfra rate-limits it upstream.
 const MODELS: Record<string, string> = {
   "deepseek-flash":
-    "openrouter/deepseek/deepseek-v4.1-flash-1017@deepinfra/high",
-  // DeepInfra caps this one at 16k output tokens, too few for a day's moments.
-  "deepseek-pro": "openrouter/deepseek/deepseek-v4-pro-0813@novita/high",
+    "openrouter/deepseek/deepseek-v4.1-flash-1017@parasail/high",
   glm: "openrouter/z-ai/glm-5.3@z-ai/high",
-  mimo: "openrouter/xiaomi/mimo-v2.6-pro@deepinfra/high",
   opus: "claude/opus/medium",
 };
 /** What Life runs, always benched, at least twice so its own spread shows. */
