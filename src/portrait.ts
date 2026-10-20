@@ -4,9 +4,10 @@ import { ORIGIN } from "./auth";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
 import { DATA } from "./truth";
 
-// The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data, never
-// in this repo): /me is index.html, /me/<name> is <name>.html. Behind a password (LIFE_PORTRAIT_PASSWORD in .env). Signing in sets a cookie holding its expiry signed
-// with the password, so changing the password signs every browser out. Nothing of his answers before that check.
+// The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data,
+// never in this repo): /me is index.html, /me/<name> is <name>.html. Behind a password (LIFE_PORTRAIT_PASSWORD in
+// .env). Signing in sets a cookie holding its expiry signed with the password, so changing the password signs every
+// browser out. Nothing of his answers before that check.
 
 const SESSION = "__Host-life-me";
 const SESSION_S = 30 * 24 * 3600;
