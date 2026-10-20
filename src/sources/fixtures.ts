@@ -106,7 +106,7 @@ export function whatsappFixture() {
     }
     wa.run(
       "insert into ZWAMESSAGE values (?, ?, ?, 0, ?, ?, ?, 1, 1, '120@g.us', null)",
-      [pk, id, type, now / 1000 - 978_307_200 - agoS, text, media ? pk : null]
+      [pk, id, type, toAppleS(now) - agoS, text, media ? pk : null]
     );
   };
   return { add, dir, now, source, wa };
