@@ -13,12 +13,15 @@ const Workout = z.object({
   title: z.string(),
 });
 const Page = z.object({
-  events: z.array(
-    z.union([
-      z.object({ type: z.literal("updated"), workout: Workout }),
-      z.object({ id: z.string(), type: z.literal("deleted") }),
-    ])
-  ),
+  // An empty feed comes as `{"workouts": []}`, without `events` (seen 20 Oct, against Hevy's own spec).
+  events: z
+    .array(
+      z.union([
+        z.object({ type: z.literal("updated"), workout: Workout }),
+        z.object({ id: z.string(), type: z.literal("deleted") }),
+      ])
+    )
+    .default([]),
   page_count: z.int(),
 });
 
