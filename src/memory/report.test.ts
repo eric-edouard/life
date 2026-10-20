@@ -85,6 +85,7 @@ const night = (facts: number) =>
     code: [],
     extracted: { added: 2, model: "codex/m (high)", read: 3, retired: 1 },
     facts: Array.from({ length: facts }, (_, i) => ({
+      id: `obs_${i}`,
       page: "Shop",
       text: `fact ${i}`,
     })),
@@ -230,6 +231,7 @@ test("the Code section lists yesterday's rows and this night's new repos", () =>
 test("the HTML email escapes everything that comes from data", () => {
   const n = night(1);
   n.facts[0] = {
+    id: "obs_0",
     page: "<b>Pg</b>",
     text: `<script>alert("x")</script> & co`,
   };

@@ -92,6 +92,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
       error: "offline",
     }),
     ev("run.end", "memory.nightly", "2026-10-15T00:34:00.000Z", {
+      listed: ["obs_000000000001"],
       outcome: "ok",
       run: id(night),
     }),
@@ -120,6 +121,8 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
     children: [`memory.moments/${id(triage)}`],
     errors: [{ error: "offline", step: "memory.nightly.actions" }],
     outcome: "ok",
+    // What the night's report listed, for an audit (docs/audits.md).
+    result: { listed: ["obs_000000000001"] },
   });
   expect(by("memory.moments")).toMatchObject({
     outcome: "ok",

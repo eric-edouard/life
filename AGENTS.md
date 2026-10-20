@@ -176,7 +176,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   after its pass, and launchd restarts each on the new code.
 - The watcher hears a conversation once its speech is complete (`speechIn`, `hear.ts`): it reads a recording of under
   a minute of speech (lifelog's `durationSeconds`) as closed on 30 s of silence, lifelog's `cutter.ts` rule. If lifelog
-  changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it.
+  changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet
+  waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low.
 - The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks, nudges and steers (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
   him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent and unalerted, until Atlas
