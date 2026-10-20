@@ -247,7 +247,7 @@ function entity(text: string | null, rows: (meta?: PageMeta) => string[]) {
     ...(text && meta
       ? [
           `(page built ${meta.built.slice(0, 16).replace("T", " ")} UTC: newer observations are below, not on it yet)`,
-          bodyOf(text),
+          redact(bodyOf(text)),
           "",
         ]
       : []),
@@ -383,71 +383,56 @@ export function newestDays<T>(
   };
 }
 
+/** One thing of a person's timeline: its day, which list it shows in, and its line. */
+interface Dated {
+  day: string;
+  kind: "conversation" | "moment" | "observation";
+  line: string;
+}
+
+const total = (rows: { n: number }[]) => rows.reduce((a, r) => a + r.n, 0);
+
 /**
  * What Life holds about someone, by source and by month, and what it can't hold, so a short answer never reads as
- * "nothing happened". `moments` are all the moments with them.
+ * "nothing happened". `timeline`: everything the person's answer pages through.
  */
-export function coverageLines(db: Database, ref: string, moments: Moment[]) {
+export function coverageLines(db: Database, ref: string, timeline: Dated[]) {
   const start = db
     .query<{ d: string | null }, []>("select min(date) as d from units")
     .get()?.d;
-  const sources = db
+  const units = db
     .query<
-      { first: string; last: string; n: number; source: string },
+      { first: string; last: string; m: string; n: number; source: string },
       [string]
     >(
-      `select u.source, count(*) as n, min(u.date) as first, max(u.date) as last from unit_people p
-       join units u on u.id = p.unit where p.person = ? group by u.source order by n desc`
+      `select substr(u.date, 1, 7) as m, u.source, count(*) as n, min(u.date) as first, max(u.date) as last
+       from unit_people p join units u on u.id = p.unit where p.person = ? group by m, u.source`
     )
     .all(ref);
-  const months = new Map<
-    string,
-    { moments: number; observations: number; units: Map<string, number> }
-  >();
-  const month = (m: string) => {
-    const was = months.get(m);
-    if (was) {
-      return was;
-    }
-    const fresh = { moments: 0, observations: 0, units: new Map() };
-    months.set(m, fresh);
-    return fresh;
-  };
-  for (const r of db
-    .query<{ m: string; n: number; source: string }, [string]>(
-      `select substr(u.date, 1, 7) as m, u.source, count(*) as n from unit_people p
-       join units u on u.id = p.unit where p.person = ? group by m, u.source`
-    )
-    .all(ref)) {
-    month(r.m).units.set(r.source, r.n);
-  }
-  for (const r of db
-    .query<{ m: string; n: number }, [string]>(
-      `select substr(o.date, 1, 7) as m, count(*) as n from links l join observations o on o.id = l.observation
-       where l.entity = ? and o.salience >= ${KEEP_AT} and ${CURRENT} group by m`
-    )
-    .all(ref)) {
-    month(r.m).observations = r.n;
-  }
-  for (const m of moments) {
-    month(daysOf(m)[0].slice(0, 7)).moments += 1;
-  }
+  const sources = [...Map.groupBy(units, (u) => u.source)].sort(
+    (a, b) => total(b[1]) - total(a[1])
+  );
+  const monthOf = (d: string) => d.slice(0, 7);
+  const byMonth = Map.groupBy(units, (u) => u.m);
+  const dated = Map.groupBy(timeline, (t) => monthOf(t.day));
+  const months = [...new Set([...byMonth.keys(), ...dated.keys()])].sort();
+  const count = (m: string, kind: Dated["kind"]) =>
+    (dated.get(m) ?? []).filter((t) => t.kind === kind).length;
   return [
     `What Life holds about them (its memory starts on ${start ?? "?"}; older chats are only in the archive: \`chats\` with \`who\` and \`from\`):`,
     ...sources.map(
-      (s) => `- ${s.source}: ${s.n} units, ${s.first} to ${s.last}`
+      ([s, rows]) =>
+        `- ${s}: ${total(rows)} units, ${rows.map((r) => r.first).sort()[0]} to ${rows
+          .map((r) => r.last)
+          .sort()
+          .at(-1)}`
     ),
     "By month:",
-    ...[...months]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([m, x]) => {
-        const units = [...x.units.values()].reduce((a, b) => a + b, 0);
-        const by = [...x.units]
-          .sort((a, b) => b[1] - a[1])
-          .map(([s, n]) => `${s} ${n}`)
-          .join(", ");
-        return `- ${m}: ${units} units${by ? ` (${by})` : ""}, ${x.observations} observations, ${x.moments} moments`;
-      }),
+    ...months.map((m) => {
+      const here = (byMonth.get(m) ?? []).toSorted((a, b) => b.n - a.n);
+      const by = here.map((r) => `${r.source} ${r.n}`).join(", ");
+      return `- ${m}: ${total(here)} units${by ? ` (${by})` : ""}, ${count(m, "observation")} observations, ${count(m, "moment")} moments`;
+    }),
     "Not in Life: calls, and time together that wasn't recorded.",
   ];
 }
@@ -485,84 +470,83 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
-  const all = await momentsWhere((m) =>
+  const moments = await momentsWhere((m) =>
     m.people.some((p) => refOf(p.ref) === ref)
-  );
-  const moments = newestDays(
-    all.toReversed(),
-    (m) => daysOf(m)[0],
-    LIMIT,
-    before
   );
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor map: the lifelog speakers it is part of.
       const known = !!(found || same[0] || resolved);
+      const voices = speakers(store);
       const heard = known
         ? []
-        : speakers(store).filter((s) =>
-            normalize(s.name).includes(normalize(name))
-          );
+        : voices.filter((s) => normalize(s.name).includes(normalize(name)));
       if (!known && heard.length === 0) {
-        return noOne(name, people, speakers(store));
+        return noOne(name, people, voices);
       }
-      const observations = newestDays(
-        latest(
+      const ids = lifelog ? [lifelog] : heard.map((s) => s.id);
+      // One timeline, newest first, paged once: observations, moments and recorded conversations.
+      const timeline: Dated[] = [
+        ...latest(
           db,
           "join links l on l.observation = o.id where l.entity = ?",
           ref,
           -1
-        ),
-        (r) => r.date,
-        LIMIT,
+        ).map((r) => ({
+          day: r.date,
+          kind: "observation" as const,
+          line: line(r),
+        })),
+        ...moments.toReversed().map((m) => ({
+          day: daysOf(m)[0],
+          kind: "moment" as const,
+          line: momentLine(m),
+        })),
+        ...conversationsWith(store, ids, -1).map((c) => ({
+          day: localDate(c.start_at),
+          kind: "conversation" as const,
+          line: `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`,
+        })),
+      ].toSorted((a, b) => b.day.localeCompare(a.day));
+      const { next, taken } = newestDays(
+        timeline,
+        (t) => t.day,
+        PAGE_ITEMS,
         before
       );
-      const ids = lifelog ? [lifelog] : heard.map((s) => s.id);
-      const conversations = newestDays(
-        conversationsWith(store, ids, -1),
-        (c) => localDate(c.start_at),
-        LIMIT,
-        before
-      );
-      const obsLines = observations.taken.map(line);
-      // The latest of the days the lists would page back from: none skips anything (one may repeat).
-      const next = [observations.next, moments.next, conversations.next]
-        .filter((d): d is string => !!d)
-        .sort()
-        .at(-1);
+      const lines = (kind: Dated["kind"]) =>
+        taken.filter((t) => t.kind === kind).map((t) => t.line);
+      const obsLines = lines("observation");
       return [
         ...candidateLines(name, same, (who) => linkedCount(db, who)),
         ...(before
-          ? [
-              `Before ${before}:`,
-              "Observations:",
-              ...(obsLines.length > 0 ? obsLines : ["(none)"]),
-            ]
+          ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
               ...entity(found?.text ?? null, () => obsLines),
               "",
-              ...coverageLines(db, ref, all),
+              ...coverageLines(db, ref, timeline),
             ]),
-        ...momentLines(moments.taken),
-        ...recorded(
-          conversations.taken,
-          heard.map((s) => s.name)
-        ),
+        ...section("Moments with them:", lines("moment").toReversed()),
+        ...section(recordedTitle(heard), lines("conversation")),
         "",
-        olderLine(next),
+        next
+          ? `Older: the same call with \`before\` ${next}.`
+          : "(nothing older)",
       ];
     })
   );
 }
 
-/** The moments with someone, oldest first. */
-const momentLines = (newestFirst: Moment[]) =>
-  newestFirst.length > 0
-    ? ["", "Moments with them:", ...newestFirst.toReversed().map(momentLine)]
-    : [];
+/** `heard`: the lifelog speakers a name on no page nor map was found among. */
+const recordedTitle = (heard: { name: string }[]) =>
+  `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
 
-const olderLine = (next?: string) =>
-  next ? `Older: the same call with \`before\` ${next}.` : "(nothing older)";
+/** How many things of a person's timeline an answer shows, its last day taken whole. */
+const PAGE_ITEMS = 24;
+
+const orNone = (lines: string[]) => (lines.length > 0 ? lines : ["(none)"]);
+const section = (title: string, lines: string[]) =>
+  lines.length > 0 ? ["", title, ...lines] : [];
 
 /** A name no one goes by: says so, with the names near it (lifelog's speakers too, but one already on the list is that person). */
 function noOne(
@@ -593,22 +577,6 @@ const linkedCount = (db: Database, id: string) =>
       `select count(*) as n from links l join observations o on o.id = l.observation where l.entity = ? and ${CURRENT}`
     )
     .get(`person:${id}`)?.n ?? 0;
-
-/** Recorded conversations with someone, newest first; `heard`: the lifelog speaker names they were found by. */
-function recorded(
-  conversations: { id: string; start_at: string; title: string }[],
-  heard: string[]
-) {
-  return conversations.length > 0
-    ? [
-        "",
-        `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard)].join(", ")}` : ""} (\`fetch <id>\`):`,
-        ...conversations.map(
-          (c) => `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`
-        ),
-      ]
-    : [];
-}
 
 const SUMMARY = 200;
 
