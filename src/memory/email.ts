@@ -184,7 +184,7 @@ export function renderHtml(d: Digest) {
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
 <title>Life ${esc(d.date)}</title></head>
 <body style="margin:0;padding:0;background:${C.bg}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${C.bg}">${esc(d.preheader)}${"&zwnj;&nbsp;".repeat(60)}</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${C.bg}">${esc(d.preheader.slice(0, 140))}${"&zwnj;&nbsp;".repeat(60)}</div>
 <table ${TABLE} style="background:${C.bg}"><tr><td align="center" style="padding:28px 12px 32px">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
 <tr><td style="padding:0 4px 20px">

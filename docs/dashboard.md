@@ -127,7 +127,8 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 
 - Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now moments, extract, infer,
   pages) are complete from 14 Oct. derived/log is never rotated.
-- No record of each index rebuild (only the file's time) or of the archive's health (only its last write).
+- No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
+  `run.error` when one starts, `run.end` when it ends), not in `status`.
 - `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page (none when extraction retired it);
   a correction's page or people. Not the entities of the observations a correction or supersession names.
 - Page changes appear once committed (the nightly commits them); an uncommitted hand run of `pages` does not show.

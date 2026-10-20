@@ -1,6 +1,8 @@
 import { checks } from "../actions";
+import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
+import { runEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
@@ -26,6 +28,7 @@ import { moments } from "./moments";
 import { placed } from "./page";
 import { pages } from "./pages";
 import {
+  archiveFailedReport,
   failureReport,
   lockReport,
   type Mail,
@@ -48,6 +51,7 @@ import { dayStart, localDate, noteZone } from "./zones";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * 3_600_000;
+const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
@@ -85,6 +89,24 @@ function coded(day: string, rec: RunRecord) {
   });
 }
 
+/** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
+export async function archiveLine(since: string) {
+  const lines = await runEvents(ARCHIVE_LOOKBACK);
+  const still = new Set(openIncidents(lines).values());
+  const listed = lines
+    .filter(
+      (e) =>
+        e.kind === "run.error" &&
+        e.step.startsWith("archive.") &&
+        (e.at >= since || still.has(e))
+    )
+    .map(
+      (e) =>
+        `${e.step.slice("archive.".length)} from ${localTime(e.at)}${still.has(e) ? ", still failing" : ""}: ${String(e.error)}`
+    );
+  return `Archive: ${listed.length > 0 ? `FAILED: ${listed.join("; ")}` : "no failure"}`;
+}
+
 /**
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
@@ -100,6 +122,14 @@ export async function nightly(days: number, force = false) {
     await sendReport(
       `lock/${held.toISOString()}`,
       lockReport(held.toISOString())
+    );
+  }
+  // Each store failing for an hour: one email per incident (the key; Resend forgets a key after 24 h, so again daily while it lasts).
+  for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
+    // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
+    await sendReport(
+      `archive/${name}/${e.at}`,
+      archiveFailedReport(name, e.at, String(e.error))
     );
   }
   // Each tick is a fresh process: the place to notice he moved (only the Mac's own zone counts, never a TZ variable).
@@ -272,10 +302,12 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     phase.at = "actions";
     const report = await acted(now, rec);
     const commits = await coded(day, rec);
+    const archive = await archiveLine(since);
     phase.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
     mail = successReport(day, rec.ms(), {
       acted: report,
+      archive,
       backup: backupLine(now),
       code: commits,
       extracted,
