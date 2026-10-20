@@ -93,8 +93,10 @@ happened.
 - `text`: the claim, in English, self-contained, one short sentence with one fact: name who (use the person's name,
   his first name for him), what, and when as an absolute date when there is one ("<his first name> will find a glazier to replace the
   shop's broken pane (120 x 60 cm, 4 mm)."; "Anne-Sophie is in Nantes from 3 Mar."). No "he", "they", "tomorrow" or
-  "this shop" without saying whose. Two facts make two observations. Never mention phone numbers, ids or whether
-  someone is on the map.
+  "this shop" without saying whose. Two facts make two observations. Keep a view as it was held: its hedge and what it
+  is set against ("I think he's careless, not dishonest as Paul believes" is "<his first name> thinks Marc is careless
+  rather than dishonest, unlike Paul", never "<his first name> thinks Marc is careless"). Never mention phone numbers,
+  ids or whether someone is on the map.
 - `quote`: the evidence, copied **exactly** from one or two adjacent lines' text, in the original language: same
   words, same spelling, same filler words and repetitions ("euh", "du coup", "il faut que, il faut que"), no
   translation, no "…" to skip words, no `[n] HH:MM who:` prefix. At least a few words, at most about 300

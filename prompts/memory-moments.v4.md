@@ -189,6 +189,9 @@ sister's instead) is one moment with the latest version.
 - `people`: everyone the units show taking part, as `{ref, role}`: `ref` a person ref from `people` (or
   `unknown:<name as written>`), `role` one of `with` (takes part), `told` (the owner talks or writes to them about the moment
   without them taking part), `organizer`. People only talked about are not listed. The owner is implied; do not list him.
+  List someone only when the words show them taking part, never because they are in the day's other units; a lifelog
+  speaker name is lifelog's guess at a voice, sometimes one name for several voices, so trust it only when the words
+  agree. When you can't tell who takes part, list no one and say so in the title ("with family, unclear who").
 - `units`: the ids of today's units that are evidence for it.
 - `importance`: 1 ordinary (a coffee, a routine call), 2 worth remembering in a month (a family visit, a trip, a
   meeting that decided something), 3 a landmark (a move, a breakup, a birth, a big purchase). Rank within the day: most

@@ -57,7 +57,7 @@ import { localDate } from "./zones";
 // who the day's unknown handles and names are (memory/people-inferred.jsonl).
 // Extraction then reads a moment's units together (extract.ts). Units are written here too (units.ts builds them).
 
-const MOMENTS_PROMPT = "memory-moments.v3";
+const MOMENTS_PROMPT = "memory-moments.v4";
 // ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped by `head`); split the day
 // into halves with the moments of the first as `earlier` if a day ever outgrows the model's context.
 const TOPICS_SHOWN = 40;

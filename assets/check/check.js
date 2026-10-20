@@ -1,7 +1,7 @@
 // Life's truth check: the statements by group; each answer is saved at once (memory/ratings.jsonl).
 
-// A deck of items to judge one at a time, generic: items {id, text, note} and verdicts in, onVerdict(id, value | null:
-// undo) out. A verdict is {value, label, key, swipe?, main?}: its button, its key, a swipe that way ("left", "right",
+// A deck of items to judge one at a time, generic: items {id, text, note, without?} and verdicts in, onVerdict(id, value |
+// null: undo) out; `without` lists the verdict values an item doesn't offer. A verdict is {value, label, key, swipe?, main?}: its button, its key, a swipe that way ("left", "right",
 // "up") judge it; main ones get the big buttons. Undo is a button and Backspace.
 const AWAY = { left: [-1, 0], right: [1, 0], up: [0, -1] };
 
@@ -19,8 +19,10 @@ export function deck(root, verdicts, onVerdict) {
   const stage = root.querySelector(".stage");
   const undoButton = root.querySelector("[data-undo]");
   // The verdict whose way is within 45° of the drag.
+  const offered = () =>
+    verdicts.filter((v) => !queue[0]?.without?.includes(v.value));
   const bySwipe = (x, y) =>
-    verdicts.find(({ swipe }) => {
+    offered().find(({ swipe }) => {
       const [a, b] = AWAY[swipe] ?? [0, 0];
       return a * x + b * y > Math.hypot(x, y) * Math.SQRT1_2;
     });
@@ -34,6 +36,9 @@ export function deck(root, verdicts, onVerdict) {
     stage.replaceChildren();
     if (!item) {
       return;
+    }
+    for (const b of root.querySelectorAll("[data-verdict]")) {
+      b.hidden = item.without?.includes(b.dataset.verdict) ?? false;
     }
     const el = document.createElement("article");
     el.innerHTML = `<p class="note"></p><p class="text"></p>`;
@@ -121,7 +126,7 @@ export function deck(root, verdicts, onVerdict) {
     if (e.target.closest("select, input, textarea")) {
       return; // the keys belong to the control
     }
-    const verdict = verdicts.find((v) => v.key === e.key);
+    const verdict = offered().find((v) => v.key === e.key);
     if (verdict) {
       judge(verdict.value);
     } else if (e.key === "Backspace") {
@@ -192,7 +197,8 @@ function pick(current) {
   $("bar").value = done(current) / current.statements.length;
 }
 
-// Outdated: true when Life recorded it, not anymore (a closure kept as history, never "false").
+// True, but over (`outdated`): true when Life recorded it, not anymore (a closure kept as history, never "false"); a
+// moment that happened can't be over, so its card doesn't offer it (its text is `momentText`'s, statements.ts).
 const VERDICTS = [
   {
     key: "ArrowLeft",
@@ -203,7 +209,7 @@ const VERDICTS = [
   },
   {
     key: "ArrowUp",
-    label: "Outdated",
+    label: "True, but over",
     main: true,
     swipe: "up",
     value: "outdated",
@@ -243,7 +249,12 @@ function open(g, first) {
   load(
     left(g)
       .toSorted((a, b) => (b.claim === first) - (a.claim === first))
-      .map((s) => ({ id: s.claim, note: note(s), text: s.text }))
+      .map((s) => ({
+        id: s.claim,
+        note: note(s),
+        text: s.text,
+        without: s.text.startsWith("Happened: ") ? ["outdated"] : [],
+      }))
   );
 }
 $("group").onchange = () => open(groups.find((g) => g.id === $("group").value));
