@@ -10,6 +10,7 @@ import {
   type Unit,
 } from "../schema";
 import { OWNER, type Truth } from "../truth";
+import { pagedNow } from "./closeness";
 import {
   appendJsonl,
   CORRECTIONS,
@@ -132,7 +133,8 @@ async function targets(
   truth: Truth,
   inferred: InferredPerson[]
 ) {
-  const { homes, paged } = placed(observations, truth);
+  const paged = await pagedNow(truth);
+  const { homes } = placed(observations, truth, paged);
   const newest = (ref: string) =>
     (homes.get(ref) ?? [])
       .map((h) => h.o)

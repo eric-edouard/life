@@ -1,11 +1,5 @@
 import { z } from "zod";
-import {
-  INFERRED_PREFIX,
-  KEEP_AT,
-  MadeBy,
-  type Observation,
-  PageSection,
-} from "../schema";
+import { KEEP_AT, MadeBy, type Observation, PageSection } from "../schema";
 import { OWNER, othersIn, type Truth } from "../truth";
 import { digest, type Standing, shows, stateOf } from "./ledger";
 import { daysBefore } from "./units";
@@ -42,13 +36,6 @@ const hasSection = (l: Layout, key: Key) =>
 const HISTORY_MAX = 30;
 /** Words kept free for History when the live sections are long: their oldest lines move there beyond this. */
 const HISTORY_ROOM = 150;
-/**
- * An inferred person gets a page from this many observations about them alone (salience 2+). The identity is the
- * model's guess, so it has to show up in a handful of separate exchanges before it earns a page; fewer stay on the
- * area pages. A person in truth/ always has one: the owner said who they are.
- */
-const INFERRED_PAGE_AT = 5;
-
 const HOLD = "What I hold";
 const OFTEN = "Often talk about";
 const CITES = / ?\[(obs_[0-9a-f]{12}(?:, obs_[0-9a-f]{12})*)\]$/;
@@ -264,41 +251,18 @@ export function homeOf(
   return o.area ? `area:${o.area}` : null;
 }
 
-/** The people who have a page: everyone in truth/ (empty pages are not written), and inferred people with enough to say. */
-export function pagedPeople(
-  observations: Pick<Observation, "entities" | "salience">[],
-  truth: Pick<Truth, "people">
-) {
-  const paged = new Set(truth.people.map((p) => `person:${p.id}`));
-  const about = new Map<string, number>();
-  for (const o of observations) {
-    const people = othersIn(o.entities);
-    const [only] = people;
-    if (
-      o.salience >= KEEP_AT &&
-      people.length === 1 &&
-      only?.startsWith(`person:${INFERRED_PREFIX}`)
-    ) {
-      about.set(only, (about.get(only) ?? 0) + 1);
-    }
-  }
-  for (const [ref, n] of about) {
-    if (n >= INFERRED_PAGE_AT) {
-      paged.add(ref);
-    }
-  }
-  return paged;
-}
-
-/** The page lines by home page (`homeOf`), and who has a page. A conditional claim (a hypothesis, a quote, an AI's text read aloud) stays searchable, never a page line. */
+/**
+ * The page lines by home page (`homeOf`), given who has a page (`paged`: the closeness levels, `pagedNow`). A
+ * conditional claim (a hypothesis, a quote, an AI's text read aloud) stays searchable, never a page line.
+ */
 export function placed(
   observations: (Observation & { unmapped: boolean })[],
-  truth: Pick<Truth, "people" | "projects">
+  truth: Pick<Truth, "projects">,
+  paged: ReadonlySet<string>
 ) {
   const lines = observations.filter(
     (o) => o.salience >= KEEP_AT && o.modality !== "conditional"
   );
-  const paged = pagedPeople(lines, truth);
   const homes = Map.groupBy(
     lines.flatMap((o) => {
       const home = homeOf(o, truth, paged);
