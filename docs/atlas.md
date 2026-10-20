@@ -96,9 +96,10 @@ When he says something didn't work ("hey Atlas, this didn't work: …", or the s
 - **"Audit: …"** is engineering, and Claude's. Its brief: his words, the task id, the `conversation` and `turns`
   (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Claude runs as a Remote
   Control session he can answer from his phone, with `--permission-mode default` (his own default is `auto`), never
-  bypass. No launch from a Codex task is verified yet (the launcher: task `act_34647b39f4e9`): until one is, put the
-  part in `waiting-eric` with the brief ready for him to paste into a Claude session. Put the session's link in the
-  note, and close the part `done` once the report reaches him, with where it is.
+  bypass. No Remote Control launch from a Codex task is verified yet (the launcher: task `act_34647b39f4e9`): until
+  one is, put the part in `waiting-eric` with the brief ready for him to paste into a Claude session, and ask him for
+  its link. Put the link in the note. Close the part `done` once you have read its report, the audit file in
+  `~/Life/docs/audits/` (with a Codex task), with its path.
 
 ## His plan and the weekly review
 
