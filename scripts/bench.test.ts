@@ -26,7 +26,7 @@ const row = (label: string, model: string, held?: number) => ({
         stated: counts(90),
       }),
 });
-const about = { facts: 38, judge: "codex/x/medium", rated: 99 };
+const about = { facts: 38, rated: 99 };
 
 test("bench table: within the baseline's spread (or 3) is a tie; no baseline is said so", () => {
   const t = table(
