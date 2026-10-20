@@ -14,7 +14,7 @@ export const toAppleNs = (date: Date) =>
   BigInt(Math.floor(date.getTime() / 1000) - APPLE_EPOCH_S) * 1_000_000_000n;
 export const fromAppleNs = (ns: number | bigint) =>
   new Date(Number(BigInt(ns) / 1_000_000n) + APPLE_EPOCH_S * 1000);
-// Notes, Calendar and WhatsApp store seconds since 2001-01-01; `ms` is a JavaScript time.
+// Notes and WhatsApp store seconds since 2001-01-01; `ms` is a JavaScript time.
 export const fromAppleS = (s: number) => new Date((s + APPLE_EPOCH_S) * 1000);
 export const toAppleS = (ms: number) => ms / 1000 - APPLE_EPOCH_S;
 
