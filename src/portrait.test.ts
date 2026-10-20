@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ORIGIN } from "./auth";
@@ -8,6 +8,10 @@ import { createPortrait } from "./portrait";
 const dir = await mkdtemp(join(tmpdir(), "portrait-"));
 await writeFile(join(dir, "index.html"), "<h1>Someone, as Life knows him</h1>");
 await writeFile(join(dir, "sam.html"), "<h1>A friend</h1>");
+await mkdir(join(dir, "sam"));
+await writeFile(join(dir, "sam", "hello.json"), '{"words":[]}');
+await writeFile(join(dir, "sam", "hello.m4a"), "not really audio");
+await writeFile(join(dir, "sam", "notes.md"), "research");
 afterAll(() => rm(dir, { force: true, recursive: true }));
 
 let clock = 1_800_000_000_000;
@@ -94,6 +98,26 @@ test("a person's page: the form keeps its path through sign-in, then /me/<name> 
   expect(
     await portrait.handle(new Request(`${ORIGIN}/me/Sam.html`))
   ).toBeNull();
+});
+
+test("a page's clips and the player: behind the password, typed, and nothing else in the folder", async () => {
+  clock += 3_600_000;
+  expect((await get("", "/me/sam/hello.m4a")).status).toBe(401);
+  const cookie = session(await login("open sesame"));
+  const audio = await get(cookie, "/me/sam/hello.m4a");
+  expect(audio.headers.get("content-type")).toBe("audio/mp4");
+  expect(
+    (await get(cookie, "/me/sam/hello.json")).headers.get("content-type")
+  ).toBe("application/json");
+  const player = await get(cookie, "/me/player.js");
+  expect(player.headers.get("content-type")).toContain("text/javascript");
+  expect(await player.text()).toContain("figure.clip");
+  expect(
+    await portrait.handle(new Request(`${ORIGIN}/me/sam/notes.md`))
+  ).toBeNull();
+  expect(
+    (await get(cookie, "/me")).headers.get("content-security-policy")
+  ).toContain("media-src 'self'");
 });
 
 test("off without a password, and other paths are not its own", async () => {
