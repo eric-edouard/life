@@ -28,7 +28,9 @@ const AskData = z.object({
   at: z.string().describe("When he spoke (or asked), ISO"),
   confidence: z
     .enum(["high", "low"])
-    .describe("low: nobody was named as the speaker; confirm with him first"),
+    .describe(
+      "low: nobody was named as the speaker, or his own wake misheard as a name; confirm with him first"
+    ),
   conversation: z.string().optional().describe("The recording, for `fetch`"),
   id: z.string().describe("The task's id: its ask in Life's actions ledger"),
   nudge: z
