@@ -30,7 +30,7 @@ test("a watcher that never succeeded counts its lag from its start", () => {
   expect(first.lastOkAt).toBeNull();
 });
 
-test("a conversation is heard once its speech is complete: 5 s after his last turn arrived, 40 s while a turn has no speaker, 60 s while the next recording may go on; old speech is never heard", () => {
+test("a conversation is heard once its speech is complete: 5 s after his last turn arrived, 60 s while the next recording may go on; old speech is never heard", () => {
   const pending: Pending = new Map();
   const t = (s: number) => new Date(at(0).getTime() + s * 1000);
   const turn = (conversation: string, s: number) => ({
@@ -38,10 +38,10 @@ test("a conversation is heard once its speech is complete: 5 s after his last tu
     conversation,
   });
   const speech = (conversation: string) =>
-    (({ a: "complete", b: "unnamed" }) as const)[conversation] ?? "open";
+    conversation === "a" ? ("complete" as const) : ("open" as const);
   const heard = (turns: ReturnType<typeof turn>[], s: number) =>
     hearings(pending, turns, t(s).getTime(), speech);
-  expect(heard([turn("a", 0), turn("b", 5), turn("c", 6)], 10)).toEqual([]);
+  expect(heard([turn("a", 0), turn("c", 6)], 10)).toEqual([]);
   expect(holdFor(pending, t(10).getTime(), speech)).toBe(5);
   // Rounded up, and never less than a second.
   expect(holdFor(pending, t(11.8).getTime(), speech)).toBe(4);
@@ -52,11 +52,7 @@ test("a conversation is heard once its speech is complete: 5 s after his last tu
   ]);
   // A turn of "c" arrived at 40 s: its wait restarted.
   expect(heard([turn("c", 30)], 40)).toEqual([]);
-  expect(heard([], 49)).toEqual([]);
-  expect(heard([], 50)).toEqual([
-    { conversation: "b", from: t(5).toISOString(), tries: 0 },
-  ]);
-  expect(holdFor(pending, t(50).getTime(), speech)).toBe(50);
+  expect(holdFor(pending, t(40).getTime(), speech)).toBe(60);
   expect(heard([], 99)).toEqual([]);
   expect(heard([], 100)).toEqual([
     { conversation: "c", from: t(6).toISOString(), tries: 0 },
