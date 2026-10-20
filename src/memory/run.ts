@@ -158,7 +158,13 @@ export function meContext(truth: Truth) {
  * The owner, his areas, the people on his map (with those Life inferred) and his projects, as the moments, extract and
  * pages prompts name them: the refs a reply may use.
  */
-export function refContext(truth: Truth, inferred: InferredPerson[]) {
+export function refContext(
+  truth: Truth,
+  inferred: InferredPerson[],
+  close: ReadonlySet<string>
+) {
+  // `close`: close to him personally (`personallyClose`), so what is between them weighs more.
+  const flag = (ref: string) => (close.has(ref) ? { close: true } : {});
   return {
     ...meContext(truth),
     people: [
@@ -167,6 +173,7 @@ export function refContext(truth: Truth, inferred: InferredPerson[]) {
         name: p.name,
         ref: `person:${p.id}`,
         relation: p.relation,
+        ...flag(`person:${p.id}`),
       })),
       ...inferred
         .filter((p) => p.confidence >= INFERRED_USE_AT)
@@ -175,6 +182,7 @@ export function refContext(truth: Truth, inferred: InferredPerson[]) {
           name: p.name,
           ref: `person:${p.id}`,
           relation: `${p.relation} (inferred)`,
+          ...flag(`person:${p.id}`),
         })),
     ],
     projects: truth.projects.map((p) => ({

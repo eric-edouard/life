@@ -16,6 +16,9 @@ export type Key = z.infer<typeof PageSection>;
  * Views and Health.
  */
 const SECTION: Record<Key, { ages?: number; title: string }> = {
+  // What lasts between him and someone close (the relationship, agreements, boundaries, turning points): a line leaves
+  // when it is done, replaced, or a year goes by with nothing newer behind it.
+  bond: { ages: 365, title: "Between us" },
   health: { ages: 60, title: "Health" },
   history: { title: "History" },
   now: { ages: 21, title: "Now" },
@@ -24,11 +27,21 @@ const SECTION: Record<Key, { ages?: number; title: string }> = {
 const SECTIONS = PageSection.options.map((key) => ({ key, ...SECTION[key] }));
 const LIVE = SECTIONS.filter((s) => s.key !== "history");
 
-/** What a page has: its live sections and words ("What I hold" included). The owner's page has more of both. */
-export const layoutOf = (ref: string) =>
-  ref === OWNER
-    ? { live: LIVE, words: 2000 }
+/**
+ * What a page has: its live sections and words ("What I hold" included). The owner's page has Views and Health; the
+ * page of someone close to him personally (`close`: their closeness level) has Between us and more words.
+ */
+export const layoutOf = (ref: string, close = false) => {
+  if (ref === OWNER) {
+    return { live: LIVE.filter((s) => s.key !== "bond"), words: 2000 };
+  }
+  return close
+    ? {
+        live: LIVE.filter((s) => s.key === "bond" || s.key === "now"),
+        words: 1100,
+      }
     : { live: LIVE.filter((s) => s.key === "now"), words: 800 };
+};
 export type Layout = ReturnType<typeof layoutOf>;
 const hasSection = (l: Layout, key: Key) =>
   key === "history" || l.live.some((s) => s.key === key);
@@ -164,6 +177,7 @@ export const wordsOf = (text: string) =>
 
 export function renderPage(opts: {
   hold: string;
+  layout: Layout;
   meta: Omit<PageMeta, "lines">;
   /** Lines of "Often talk about" (person pages), computed by code. */
   often?: string[];
@@ -173,7 +187,7 @@ export function renderPage(opts: {
 }) {
   const lines: PageMeta["lines"] = {};
   const body = [`# ${opts.title}`, "", `## ${HOLD}`, "", opts.hold.trim(), ""];
-  const layout = layoutOf(opts.meta.page);
+  const { layout } = opts;
   for (const { key, title } of SECTIONS.filter((s) =>
     hasSection(layout, s.key)
   )) {
@@ -474,10 +488,11 @@ export function assemble(
   opts: { fixed: number; layout: Layout; today: string }
 ): Sections {
   const out = perSection<PageLine>();
-  for (const { key } of opts.layout.live) {
+  for (const { key } of LIVE) {
     for (const l of settled[key]) {
       const h = lineHash(renderLine(key, l));
-      if (m.done.includes(h)) {
+      // A section the page no longer has (he is no longer close) leaves its lines in History.
+      if (m.done.includes(h) || !hasSection(opts.layout, key)) {
         out.history.push(dated(l, k));
       } else {
         out[key].push(m.rewrite.get(h) ?? l);

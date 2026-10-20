@@ -264,7 +264,9 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
     },
   ];
   expect(
-    priorFor(group, shown, new Set([U1, U2, U3]), "now").map((x) => x.id)
+    priorFor(group, shown, new Set([U1, U2, U3]), "now", new Set()).map(
+      (x) => x.id
+    )
   ).toEqual([
     "written-now",
     "same",
@@ -275,6 +277,20 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
     "retired-by-reread",
   ]);
   expect(
-    priorFor(group, shown, new Set([U1, U2]), "now").map((x) => x.id)
+    priorFor(group, shown, new Set([U1, U2]), "now", new Set()).map((x) => x.id)
   ).toEqual(["written-now", "same", "crowding", "near", "his", "retired-here"]);
+  // Someone close: what is between them is shown from up to a year back, after the recent facts.
+  const bond = [
+    ...shown,
+    { o: o("bond", { date: "2026-03-01", type: "person" }) },
+    { o: o("bond-too-old", { date: "2025-09-01", type: "person" }) },
+  ];
+  expect(
+    priorFor(group, bond, new Set([U1, U2]), "now", new Set(["person:bastien"]))
+      .map((x) => x.id)
+      .at(-1)
+  ).toBe("bond");
+  expect(
+    priorFor(group, bond, new Set([U1, U2]), "now", new Set()).map((x) => x.id)
+  ).not.toContain("bond");
 });

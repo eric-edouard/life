@@ -288,8 +288,7 @@ export function levelsNow(
 }
 
 /** The levels that keep a page: the close, and the once close (their page stays as their history). */
-const CLOSE = new Set<Level>(["inner", "regular"]);
-const PAGED = new Set<Level>([...CLOSE, "faded"]);
+const PAGED = new Set<Level>(["inner", "regular", "faded"]);
 
 /**
  * The people who have a page: the owner, everyone whose personal or work level keeps one (not a service), and a person
@@ -313,6 +312,22 @@ export function pagedBy(
   return paged;
 }
 
+/**
+ * The people close to him personally, now or once (`faded`), not a service: their page has Between us, and the models
+ * weigh what is between them. Once close counts, so a backfill reads an ex's days as close ones and a night's dip
+ * never empties the section; its lines age out after a year.
+ */
+export const personallyClose = (levels: ReturnType<typeof levelsNow>) =>
+  new Set(
+    [...levels].flatMap(([ref, l]) =>
+      !l.service && PAGED.has(l.personal) ? [ref] : []
+    )
+  );
+
+/** Who is close to him personally now (`personallyClose` over the ledger and his corrections). */
+export const closeNow = async () =>
+  personallyClose(levelsWith(await readCorrections()));
+
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
   const corrections = await readCorrections();
@@ -324,7 +339,10 @@ export const levelsWith = (corrections: Correction[]) =>
   levelsNow(readCloseness(), corrections);
 
 /** Everyone on his map, as the person each is now (one folded into another is that one). */
-const onMapOf = (truth: Pick<Truth, "people">, corrections: Correction[]) => {
+export const onMapOf = (
+  truth: Pick<Truth, "people">,
+  corrections: Correction[]
+) => {
   const canon = merged(corrections);
   return new Set(truth.people.map((p) => canon(`person:${p.id}`)));
 };

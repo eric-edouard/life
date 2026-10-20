@@ -74,6 +74,7 @@ const sections = (): Sections =>
 const page = (s = sections(), owner: { section: "now"; text: string }[] = []) =>
   renderPage({
     hold: "> **Hans** · builder",
+    layout: PLAIN,
     meta: {
       built: "2026-10-11T02:00:00.000Z",
       madeBy: {
@@ -395,7 +396,13 @@ test("what changed counts lines added, moved to History and removed; a reader ge
   expect(bodyOf(page())).toContain("Steel supports");
   expect(bodyOf(page())).toContain("## History");
   expect(bodyOf(page())).not.toContain("schemaVersion");
-  expect(perSection()).toEqual({ health: [], history: [], now: [], views: [] });
+  expect(perSection()).toEqual({
+    bond: [],
+    health: [],
+    history: [],
+    now: [],
+    views: [],
+  });
 });
 
 // --- Jean's own page ---------------------------------------------------------------------------------------------
@@ -516,6 +523,7 @@ test("his page renders its sections in order and reads back; other pages keep No
   });
   const text = renderPage({
     hold: "> Jean.",
+    layout: OWNED,
     meta: {
       built: "2026-10-18T02:00:00.000Z",
       madeBy: {
@@ -552,4 +560,39 @@ test("his page renders its sections in order and reads back; other pages keep No
   );
   expect(page()).not.toContain("## Views");
   expect(page()).not.toContain("## Health");
+  expect(page()).not.toContain("## Between us");
+  expect(text).not.toContain("## Between us");
+});
+
+test("a close person's page has Between us before Now; once not close, its lines go to History", () => {
+  const close = layoutOf("person:hans", true);
+  const s = of({
+    bond: [{ cites: [A], text: "Hans and Jean agreed to keep money apart." }],
+    now: [{ cites: [B], text: "The handover is expected around 17 Oct." }],
+  });
+  const text = renderPage({
+    hold: "> Hans.",
+    layout: close,
+    meta: {
+      built: "2026-10-18T02:00:00.000Z",
+      madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
+      name: "Hans",
+      page: "person:hans",
+      schemaVersion: 1,
+      seen: "r",
+    },
+    owner: [],
+    sections: s,
+    title: "Hans",
+  });
+  expect(text.indexOf("## Between us")).toBeLessThan(text.indexOf("## Now"));
+  const parsed = parsePage(text);
+  expect(parsed && generated(parsed)).toEqual(s);
+  const k = known([obs(A, "2026-10-01"), obs(B, "2026-10-14")]);
+  const none = { add: [], done: [], past: [], rejects: [], rewrite: new Map() };
+  const after = assemble(s, none, k, { fixed: 0, layout: PLAIN, today: TODAY });
+  expect(after.bond).toEqual([]);
+  expect(after.history.map((l) => l.text)).toEqual([
+    "Hans and Jean agreed to keep money apart.",
+  ]);
 });

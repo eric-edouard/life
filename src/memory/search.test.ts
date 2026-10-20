@@ -12,6 +12,7 @@ import {
   turn,
 } from "../sources/fixtures";
 import { apply, readConversations } from "../sources/lifelog";
+import { layoutOf, perSection, renderPage } from "./page";
 import { holdsAll } from "./raw";
 import {
   buildIndex,
@@ -22,6 +23,7 @@ import {
   momentLine,
   readIndex,
   matches as searchMatches,
+  withSpans,
 } from "./search";
 import { newestDays } from "./units";
 import { meant, namedLike, nearNames } from "./who";
@@ -355,5 +357,38 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
   ]);
   expect(dayLines([], [], [], [], [], lines)[0]).toBe(
     "Due (his own open to-dos and promises for this day):"
+  );
+});
+
+test("a Between us line shows the days of its first and latest evidence", () => {
+  const text = renderPage({
+    hold: "> Ana.",
+    layout: layoutOf("person:ana", true),
+    meta: {
+      built: "2026-10-18T02:00:00.000Z",
+      madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
+      name: "Ana",
+      page: "person:ana",
+      schemaVersion: 1,
+      seen: "r",
+    },
+    owner: [],
+    sections: {
+      ...perSection(),
+      bond: [
+        {
+          cites: ["obs_aaaaaaaaaaaa", "obs_bbbbbbbbbbbb"],
+          text: "Ana and Jean agreed to keep money apart.",
+        },
+      ],
+    },
+    title: "Ana",
+  });
+  const day: Record<string, string> = {
+    obs_aaaaaaaaaaaa: "2026-03-01",
+    obs_bbbbbbbbbbbb: "2026-09-12",
+  };
+  expect(withSpans(text, (id) => (day[id] ? [day[id]] : []))).toContain(
+    "agreed to keep money apart. [obs_aaaaaaaaaaaa, obs_bbbbbbbbbbbb] (since 2026-03-01 · last evidence 2026-09-12)"
   );
 });

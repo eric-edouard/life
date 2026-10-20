@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git } from "../proc";
-import { renderPage } from "./page";
+import { layoutOf, renderPage } from "./page";
 import { changedSinceCommit, removeOrphans } from "./pages";
 
 test("pages no target claims are deleted, the others stay", async () => {
@@ -35,6 +35,7 @@ test("what changed is counted against the last commit, so a midday rewrite shows
   const page = (name: string, lines: string[]) =>
     renderPage({
       hold: "",
+      layout: layoutOf(`person:${name.toLowerCase()}`),
       meta: {
         built: "2026-10-20T00:00:00.000Z",
         madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
@@ -45,6 +46,7 @@ test("what changed is counted against the last commit, so a midday rewrite shows
       },
       owner: [],
       sections: {
+        bond: [],
         health: [],
         history: [],
         now: lines.map((text) => ({ cites: ["obs_aaaaaaaaaaaa"], text })),
