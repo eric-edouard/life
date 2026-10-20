@@ -27,6 +27,7 @@ import { DAYS, gather, lastDays } from "./units";
 const OPTIONS = {
   about: { type: "string" },
   at: { type: "string" },
+  before: { type: "string" },
   chat: { type: "string" },
   cursor: { type: "string" },
   days: { type: "string" },
@@ -149,7 +150,7 @@ const HANDLERS: Record<string, Handler> = {
   moments: step(async (v) => moments(await gathered(v))),
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),
-  person: (_values, rest) => printed(person(words(rest) || undefined)),
+  person: (values, rest) => printed(person(words(rest) || undefined, values)),
   places: (v) =>
     printed(
       placesOf({
@@ -183,7 +184,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory moments [--days 7] | extract [--days 7] | backfill --from d --to d | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory moments [--days 7] | extract [--days 7] | backfill --from d --to d | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }
