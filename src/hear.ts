@@ -53,12 +53,8 @@ export function asksIn(turns: Turn[], from: string) {
         quote: span.map((s) => s.text.trim()).join(" "),
         ref: t.ref,
         timing: {
-          arrived:
-            span
-              .map((s) => s.seen)
-              .sort()
-              .at(-1) ?? t.seen,
-          ended: span.at(-1)?.end ?? t.end,
+          arrived: span.reduce((a, s) => (s.seen > a ? s.seen : a), t.seen),
+          ended: span.reduce((_, s) => s.end, t.end),
         },
         turns: span.map((_, k) => i + k),
       },

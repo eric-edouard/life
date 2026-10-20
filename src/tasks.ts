@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
 import { deliveredLines, parse } from "./events";
-import { logged } from "./log";
+import { logDays, logEvents } from "./log";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
 import { clip } from "./memory/units";
 import { Action, type Instruction, type TASK_LINES } from "./schema";
@@ -122,9 +122,12 @@ export const closed = (s: State) => s === "done" || s === "dropped";
  * of them, Life recorded the ask, Atlas got it (the `event.sent` log), claimed it and closed it; null where unknown
  * (not speech, not yet, or before 20 Oct). A split's parts are left out: they share their parent's times.
  */
-export function timings(from = "", to = "9999", tasks = tasksOf()) {
+export async function timings(from = "", to = "9999", tasks = tasksOf()) {
   const sent = new Map(
-    logged("event.sent", from).map((e) => [`${e.event}`, e.at])
+    (await logDays())
+      .filter((n) => n >= from.slice(0, 10))
+      .flatMap((n) => logEvents(n, "event.sent"))
+      .map((e) => [`${e.event}`, e.at])
   );
   return tasks
     .filter((t) => !t.ask.after.parent && t.ask.at >= from && t.ask.at < to)

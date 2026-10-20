@@ -78,7 +78,7 @@ test("a conversation is heard once, 10 s after his last turn arrived (40 s while
   const heard = (turns: ReturnType<typeof turn>[], s: number) =>
     hearings(pending, turns, t(s).getTime(), unnamed);
   expect(heard([turn("a", 0), turn("b", 5)], 10)).toEqual([]);
-  expect(holdFor(pending, t(10).getTime())).toBe(10);
+  expect(holdFor(pending, t(10).getTime(), unnamed)).toBe(10);
   expect(heard([], 19)).toEqual([]);
   // A turn of "a" arrived at 20 s: its quiet restarted.
   expect(heard([turn("a", 15)], 20)).toEqual([]);
@@ -86,13 +86,14 @@ test("a conversation is heard once, 10 s after his last turn arrived (40 s while
   expect(heard([], 30)).toEqual([
     { conversation: "a", from: t(0).toISOString(), tries: 0 },
   ]);
-  // "b" has a turn with no speaker: it waits 40 s.
+  // "b" has a turn with no speaker: it waits 40 s, and the poll holds until then.
+  expect(holdFor(pending, t(30).getTime(), unnamed)).toBe(20);
   expect(heard([], 49)).toEqual([]);
   expect(heard([], 50)).toEqual([
     { conversation: "b", from: t(5).toISOString(), tries: 0 },
   ]);
   expect(heard([], 999)).toEqual([]);
-  expect(holdFor(pending, t(999).getTime())).toBe(60);
+  expect(holdFor(pending, t(999).getTime(), unnamed)).toBe(60);
   const old = { at: "2026-10-13T10:00:00.000Z", conversation: "c" };
   expect(heard([old], 0)).toEqual([]);
   expect(pending.size).toBe(0);

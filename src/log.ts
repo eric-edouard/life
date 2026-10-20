@@ -1,10 +1,5 @@
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-} from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ROOT, TEST } from "./truth";
@@ -32,15 +27,25 @@ type LogKind =
   | "run.error"
   | "source.read";
 
-/** Every event of one kind logged on `from`'s UTC day or later, oldest first. */
-export function logged(kind: LogKind, from = "", dir = LOG_DIR) {
-  return (existsSync(dir) ? readdirSync(dir) : [])
-    .filter((n) => n.endsWith(".jsonl") && n >= from.slice(0, 10))
+const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
+
+/** derived/log's files, newest first (named by UTC day). */
+export const logDays = async (dir = LOG_DIR) =>
+  (await readdir(dir).catch(() => [] as string[]))
+    .filter((n) => LOG_FILE.test(n))
     .sort()
-    .flatMap((n) => readFileSync(join(dir, n), "utf8").split("\n"))
-    .filter((l) => l.includes(`"kind":"${kind}"`))
-    .map((l) => JSON.parse(l) as Record<string, unknown> & { at: string });
-}
+    .reverse();
+
+/** One day's events whose kind starts with `kind` (`run.`, `event.sent`). */
+export const logEvents = <T = Record<string, unknown> & { at: string }>(
+  name: string,
+  kind: string,
+  dir = LOG_DIR
+) =>
+  readFileSync(join(dir, name), "utf8")
+    .split("\n")
+    .filter((l) => l.includes(`"kind":"${kind}`))
+    .map((l) => JSON.parse(l) as T);
 
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   const at = new Date().toISOString();

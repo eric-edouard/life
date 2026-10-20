@@ -114,6 +114,15 @@ function fold(
   }
 }
 
+/** A turn of a conversation from `from` on has no speaker yet. */
+type Unnamed = (conversation: string, from: string) => boolean;
+
+/** When a pending conversation is due: 10 s after its last turn arrived, 40 s while one has no speaker. */
+const dueAt = (
+  [conversation, p]: [string, { at: number; from: string }],
+  unnamed: Unnamed
+) => p.at + (unnamed(conversation, p.from) ? UNNAMED_MS : QUIET_MS);
+
 /**
  * Folds the turns of one poll into `pending` and takes out the conversations quiet for 10 s, or 40 s while `unnamed`
  * says a turn there from `from` on has no speaker (measured on arrival, not on speech time), ready for `hear`.
@@ -123,12 +132,10 @@ export function hearings(
   pending: Pending,
   turns: { at: string; conversation: string }[],
   now: number,
-  unnamed: (conversation: string, from: string) => boolean
+  unnamed: Unnamed
 ) {
   fold(pending, turns, now);
-  const due = [...pending].filter(
-    ([c, p]) => now - p.at >= (unnamed(c, p.from) ? UNNAMED_MS : QUIET_MS)
-  );
+  const due = [...pending].filter((e) => dueAt(e, unnamed) <= now);
   for (const [conversation] of due) {
     pending.delete(conversation);
   }
@@ -140,17 +147,18 @@ export function hearings(
 }
 
 /** Seconds the next poll may hold: until the first pending conversation could be due, a minute at most. */
-export const holdFor = (pending: Pending, now: number) =>
+export const holdFor = (pending: Pending, now: number, unnamed: Unnamed) =>
   Math.min(
     WAIT_S,
-    ...[...pending.values()].map((p) =>
-      Math.max(1, Math.ceil((p.at + QUIET_MS - now) / 1000))
+    ...[...pending].map((e) =>
+      Math.max(1, Math.ceil((dueAt(e, unnamed) - now) / 1000))
     )
   );
 
-/** A turn of the conversation from `from` on has no speaker yet. */
-const unnamedIn = (store: Store) => (conversation: string, from: string) =>
-  turnsBetween(store, conversation, from).some((t) => whose(t) === "unknown");
+const unnamedIn =
+  (store: Store): Unnamed =>
+  (conversation, from) =>
+    turnsBetween(store, conversation, from).some((t) => whose(t) === "unknown");
 
 const reach = (url: string, method: string) =>
   fetch(url, { method, signal: AbortSignal.timeout(10_000) }).catch(() => null);
@@ -243,6 +251,7 @@ export async function watch(): Promise<number> {
     )
   );
   const pending: Pending = new Map();
+  const unnamed = unnamedIn(store);
   let health = readHealth();
   // Units follow the store even if the last run stopped between the two.
   let dirty = true;
@@ -252,15 +261,13 @@ export async function watch(): Promise<number> {
     let result: { cursor: string } | { error: string };
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
-      const page = await poll(store, more ? 0 : holdFor(pending, Date.now()));
+      const page = await poll(
+        store,
+        more ? 0 : holdFor(pending, Date.now(), unnamed)
+      );
       ({ more } = page);
       dirty ||= page.changed;
-      for (const h of hearings(
-        pending,
-        page.owner,
-        Date.now(),
-        unnamedIn(store)
-      )) {
+      for (const h of hearings(pending, page.owner, Date.now(), unnamed)) {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         await hear(store, h.conversation, h.from).catch((e: Error) => {
           // Words not fetched: heard again after the next quiet wait, never read as silence.
