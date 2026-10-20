@@ -293,7 +293,8 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
       loop("obs_000000000002", { type: "promise" }),
       loop("obs_000000000003", { speaker: "person:jean" }),
       loop("obs_000000000004", { speaker: "unknown:shop@mail.test" }),
-      loop("obs_000000000005", { about: "person:jean" }),
+      // His own to-do filed under a project is still his.
+      loop("obs_000000000005", { about: "project:house" }),
       loop("obs_000000000006", {}),
       loop("obs_000000000007", { when: "2026-10-20" }),
       loop("obs_000000000008", { salience: 2 }),
@@ -306,6 +307,7 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
   expect(lines.map((l) => l.split(" ")[1])).toEqual([
     "obs_000000000001",
     "obs_000000000002",
+    "obs_000000000005",
   ]);
   expect(dayLines([], [], [], [], [], lines)[0]).toBe(
     "Due (his own open to-dos and promises for this day):"

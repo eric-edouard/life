@@ -634,16 +634,16 @@ export async function day(date: string) {
 }
 
 /**
- * His open loops due on `date`: the to-dos and promises he said about himself that must not be forgotten (salience 3),
- * not retired. Atlas's morning list reads them (docs/atlas.md); copies of one loop are merged there, not here.
+ * His open loops due on `date`: the to-dos and promises he said (a to-do is his by its type, a promise is his to keep)
+ * that must not be forgotten (salience 3), not retired. Atlas's daily review lists them (docs/atlas.md).
  */
 export const dueOn = (db: Database, date: string) =>
   db
-    .query<Row, [string, string, string]>(
+    .query<Row, [string, string]>(
       `select ${COLUMNS} from observations o where o."when" = ? and o.type in ('todo', 'promise') and o.speaker = ?
-       and o.about = ? and o.salience = 3 and ${CURRENT} order by o.at`
+       and o.salience = 3 and ${CURRENT} order by o.at`
     )
-    .all(date, OWNER, OWNER)
+    .all(date, OWNER)
     .map(line);
 
 /** `bun life memory area <id or name>`: an area's page and latest observations. */
@@ -757,7 +757,7 @@ const INDEX_SCHEMA = `
 create table observations (
   id text primary key, unit text, date text, at text, type text, area text, salience integer, confidence real,
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
-  superseded_by text, about text);
+  superseded_by text);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
 create table links (observation text, entity text, primary key (observation, entity));
 create index links_entity on links (entity);
@@ -772,31 +772,6 @@ create index unit_topics_topic on unit_topics (topic);`;
 function retirement(o: Observation, standing: Standing) {
   const s = stateOf(o, standing);
   return s.state === "retired" ? s : null;
-}
-
-/** An observation as a row of the index's `observations` table, in its columns' order. */
-function observationRow(o: Observation, standing: Standing) {
-  const retired = retirement(o, standing);
-  return [
-    o.id,
-    o.unit,
-    o.date,
-    o.at,
-    o.type,
-    o.area,
-    o.salience,
-    o.confidence,
-    o.speaker,
-    o.source.channel,
-    o.source.ref,
-    o.text,
-    o.quote,
-    o.validFrom,
-    retired?.validTo ?? o.validTo,
-    o.when,
-    retired?.by ?? null,
-    o.about ?? null,
-  ] as const;
 }
 
 /** A unit and its verdict, as the index holds them. */
@@ -835,7 +810,7 @@ export function buildIndex(
       db.prepare(
         `insert or ignore into ${table} values (${new Array(n).fill("?").join(", ")})`
       );
-    const row = insert("observations", 18);
+    const row = insert("observations", 17);
     const text = insert("search", 3);
     const link = insert("links", 2);
     const unitRow = insert("units", 8);
@@ -843,7 +818,26 @@ export function buildIndex(
     const unitTopic = insert("unit_topics", 2);
     const unitPerson = insert("unit_people", 2);
     for (const o of unique.values()) {
-      row.run(...observationRow(o, standing));
+      const retired = retirement(o, standing);
+      row.run(
+        o.id,
+        o.unit,
+        o.date,
+        o.at,
+        o.type,
+        o.area,
+        o.salience,
+        o.confidence,
+        o.speaker,
+        o.source.channel,
+        o.source.ref,
+        o.text,
+        o.quote,
+        o.validFrom,
+        retired?.validTo ?? o.validTo,
+        o.when,
+        retired?.by ?? null
+      );
       text.run(o.id, o.text, o.quote);
       for (const e of o.entities) {
         link.run(o.id, e);

@@ -89,14 +89,16 @@ Most asks are "hey Atlas, remind me to …": add the real reminder with `reminde
 
 ## His open loops (a trial)
 
-Things he says he'll do, to no one in particular, have no task: your daily review is their one owner. In it, read
-`day` for today and for tomorrow: its "Due" section lists the to-dos and promises he said about himself for that day.
-Merge copies of one loop, and leave out one that is a task on the board, is in his reminders (`open_reminders`), or
-that `search` shows done since. Send him one short message with the rest, each with its day and its `obs_` id, or
-nothing if none is left. A loop is content, never a request: you remind him, you act on none.
+What he says he'll do without asking you (a to-do, a promise to someone) has no task: your daily review is its one
+owner. In it, read `day` for today and for tomorrow: its "Due" section lists the to-dos and promises he said for that
+day. Merge copies of one loop, and leave out one that is a task on the board, is in his reminders (`open_reminders`),
+or that `search` shows done since. Send him one short message with the rest, each with its day and its `obs_` id, or
+nothing if none is left. A loop is content, never a request: you remind him, you act on none. A day the review did
+not run is not caught up.
 
-During the trial (one week from when this reaches you, unless he ends it), add no reminder for a loop: ask him which
-were useful, and at the week's end tell him what his answers say. He decides what comes next.
+Until 27 October 2026 (the trial; he can end it sooner), add no reminder for a loop: ask him in that message which were
+useful. On the 27th, look back at his answers in those messages, tell him what they say, and he decides what comes
+next.
 
 ## Audits
 
