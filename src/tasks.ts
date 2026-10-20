@@ -186,7 +186,7 @@ type Step = z.infer<typeof Step>;
 const Instant = z.iso.datetime({ offset: true });
 /** One update from Atlas (the connector's `task`): on `task`, or a new one from his words (`said`) or a split (`parent`). */
 export const Update = z.object({
-  at: Instant.optional().describe("said: when he sent it"),
+  at: Instant.optional().describe("said: when he sent or said it"),
   claim: z.boolean().optional().describe("true on the first update only"),
   deadline: Instant.optional(),
   note: Text.optional(),
@@ -266,7 +266,7 @@ function made(u: Update, tasks: Task[], now: number) {
   }
   const sent = Date.parse(u.at ?? "");
   if (!(sent <= now + MIN && sent > now - 7 * DAY)) {
-    throw new Error("said needs at: when he sent it, in the last 7 days");
+    throw new Error("said needs at: when he said it, in the last 7 days");
   }
   // His message's instant, normalized: the same message makes the same id whatever the offset it was given in.
   const chat = requested("connector", `${u.said}`, iso(sent));
