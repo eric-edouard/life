@@ -457,7 +457,7 @@ function printDeleted(days: number) {
 // night's line, and by the nightly tick that emails him an hour in (18 Oct: Beeper's store would not open for 5 hours,
 // unseen, and what is deleted meanwhile is lost).
 
-// ponytail: an incident open over 7 days drops out of the window (after a week of daily emails). Re-log it if that matters.
+// ponytail: an incident open over 7 days drops out of the window until the archive restarts and logs it again.
 export const ARCHIVE_LOOKBACK = 7;
 
 /** The incidents open at the end of `lines` (run events, oldest first): each store's first failed pass. */
