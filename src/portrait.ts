@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import { ORIGIN } from "./auth";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
-import { DATA } from "./truth";
+import { DATA, ROOT } from "./truth";
 
 // The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data,
 // never in this repo): /me is index.html, /me/<name> is <name>.html. Behind a password (LIFE_PORTRAIT_PASSWORD in
@@ -12,17 +12,39 @@ import { DATA } from "./truth";
 const SESSION = "__Host-life-me";
 const SESSION_S = 30 * 24 * 3600;
 const PAGES = join(DATA, "docs", "portrait");
-const ROUTE = /^\/me(?:\/[a-z0-9-]+)?$/;
+const PAGE = /^\/me(?:\/[a-z0-9-]+)?$/;
+// A page's clips: its audio and the words timed to it, in a folder named like the page.
+const CLIP = /^\/me\/[a-z0-9-]+\/[a-z0-9-]+\.(?:m4a|json)$/;
+// The clip player is code, so it ships in this repo; the pages and clips are his data.
+const PLAYER = "/me/player.js";
+const HTML = "text/html; charset=utf-8";
+const TYPES: Record<string, string> = {
+  js: "text/javascript; charset=utf-8",
+  json: "application/json",
+  m4a: "audio/mp4",
+};
 // ponytail: one global window for failed passwords, per-IP limits if it ever faces more than him.
 const FAILS_ALLOWED = 5;
 const FAILS_WINDOW_MS = 60_000;
-// The page and the form load Google Fonts and inline styles, nothing else: no images, no scripts.
+// The pages load Google Fonts, inline styles, the player and their clips from here, nothing else: no images.
 const PAGE_HEADERS = {
   ...HEADERS,
   "content-security-policy":
-    "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'",
-  "content-type": "text/html; charset=utf-8",
+    "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; media-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'",
+  "content-type": HTML,
   "x-robots-tag": "noindex",
+};
+
+/** The file a path under /me serves (a page, one of its clips, the player), or null for a path that isn't the portrait's. */
+const fileOf = (pages: string, pathname: string) => {
+  const name = pathname.slice("/me/".length);
+  if (pathname === PLAYER) {
+    return join(ROOT, "assets", "portrait", "player.js");
+  }
+  if (CLIP.test(pathname)) {
+    return join(pages, name);
+  }
+  return PAGE.test(pathname) ? join(pages, `${name || "index"}.html`) : null;
 };
 
 const form = (
@@ -86,21 +108,26 @@ export function createPortrait(
 
   async function handle(req: Request): Promise<Response | null> {
     const { pathname } = new URL(req.url);
-    if (!ROUTE.test(pathname)) {
+    const path = fileOf(pages, pathname);
+    if (!path) {
       return null;
     }
-    if (req.method === "POST") {
+    const page = path.endsWith(".html");
+    if (page && req.method === "POST") {
       return login(req, pathname);
     }
     if (!signedIn(req)) {
-      return text(form(pathname), 200, PAGE_HEADERS);
+      return page
+        ? text(form(pathname), 200, PAGE_HEADERS)
+        : text("sign in at /me", 401);
     }
-    const file = Bun.file(
-      join(pages, `${pathname.slice("/me/".length) || "index"}.html`)
-    );
+    const file = Bun.file(path);
+    const type = TYPES[path.split(".").pop() ?? ""] ?? HTML;
     return (await file.exists())
-      ? new Response(file, { headers: PAGE_HEADERS })
-      : text("no such page", 404);
+      ? new Response(file, {
+          headers: { ...PAGE_HEADERS, "content-type": type },
+        })
+      : text("not found", 404);
   }
 
   return { handle };
