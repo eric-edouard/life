@@ -24,6 +24,7 @@ import {
   Transcript,
   turnOffset,
   turnsBetween,
+  visits,
 } from "./lifelog";
 
 const since = new Date("2026-10-01T00:00:00Z");
@@ -337,4 +338,27 @@ test("a feed page with a turn not yet in a conversation and a conversation retir
   apply(s, p);
   expect(() => readConversations(s, since)).not.toThrow();
   expect(readConversations(s, since)).toEqual([]);
+});
+
+test("visits: lifelog's 404 (no place the phone named matches) is no stays; another error still throws", async () => {
+  let status = 404;
+  const server = Bun.serve({
+    fetch: () => new Response("{}", { status }),
+    port: 0,
+  });
+  const env = { ...process.env };
+  Object.assign(process.env, {
+    LIFELOG_TOKEN: "t",
+    LIFELOG_URL: `http://localhost:${server.port}`,
+  });
+  try {
+    expect(await visits({ place: "Nowhere" })).toEqual([]);
+    status = 500;
+    await expect(visits({ place: "Nowhere" })).rejects.toThrow(
+      "lifelog GET /visits: 500"
+    );
+  } finally {
+    process.env = env;
+    server.stop();
+  }
 });
