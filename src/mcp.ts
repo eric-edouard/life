@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Asked, actAsked, openReminders } from "./actions";
 import {
   ISSUER,
+  METADATA,
   ORIGIN,
   RESOURCE,
   type Refused,
@@ -39,7 +40,6 @@ import { ROOT } from "./truth";
 // Auth: a Bearer JWT that lifelog's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
-const METADATA = `${ORIGIN}/.well-known/oauth-protected-resource/mcp`;
 const CHALLENGE = `Bearer resource_metadata="${METADATA}", scope="${SCOPES.join(" ")}"`;
 
 const ICONS: Record<string, string> = {
