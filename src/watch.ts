@@ -11,7 +11,7 @@ import { codeAt } from "./proc";
 import { serveConnector } from "./server";
 import { openStore, poll, type Store } from "./sources/lifelog";
 import { ROOT } from "./truth";
-import { healTunnel } from "./tunnel";
+import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
@@ -157,6 +157,14 @@ export async function watch(): Promise<number> {
       `${new Date().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
     )
   );
+  // Beside the loop, so a slow probe never holds up hearing; the process exits on new code all the same.
+  setInterval(
+    () =>
+      healTunnel().catch((e: Error) =>
+        log("run.error", { error: e.message, step: "watch.tunnel" })
+      ),
+    TUNNEL_EVERY_MS
+  );
   const pending: Pending = new Map();
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
@@ -213,10 +221,6 @@ export async function watch(): Promise<number> {
       log("run.error", { error: result.error, step: "watch" });
     }
     await Bun.write(HEALTH, `${JSON.stringify(health, null, 2)}\n`);
-    // Not awaited: a slow probe never holds up hearing.
-    healTunnel().catch((e: Error) =>
-      log("run.error", { error: e.message, step: "watch.tunnel" })
-    );
     if ("error" in result) {
       await Bun.sleep(RETRY_MS);
     }
