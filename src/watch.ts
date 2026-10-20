@@ -23,7 +23,7 @@ import { ROOT } from "./truth";
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
 const QUIET_MS = 40_000;
-/** A replay of the store (after a restart or an outage) never acts on speech older than this: the 7 days every step looks back. */
+/** A replay of the store (after a restart or an outage) never acts on speech older than a week. */
 const RECENT_MS = 7 * 24 * 3_600_000;
 
 /** The health after one poll. */
@@ -58,13 +58,13 @@ function fold(
   now: number,
   tries = 0
 ) {
-  for (const t of turns) {
-    if (now - Date.parse(t.at) >= RECENT_MS) {
-      console.log(
-        `${new Date(now).toISOString()} not heard, older than a week: ${t.conversation} at ${t.at}`
-      );
-      continue;
-    }
+  const recent = turns.filter((t) => now - Date.parse(t.at) < RECENT_MS);
+  if (recent.length < turns.length) {
+    console.log(
+      `${new Date(now).toISOString()} not heard: ${turns.length - recent.length} of his turns older than a week`
+    );
+  }
+  for (const t of recent) {
     const p = pending.get(t.conversation);
     pending.set(t.conversation, {
       at: now,
