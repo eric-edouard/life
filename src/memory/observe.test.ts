@@ -394,6 +394,64 @@ test("the cache: a unit is read again only when its content or the prompt change
   ).toHaveLength(1);
 });
 
+test("identity is part of the cache: a unit read as someone else, or that he said was read wrong, is read again, once", () => {
+  const sam = unit({ id: "u_00000000001a", people: ["person:lou"] });
+  const verdicts = ledger([verdict(sam, { salience: 3 })]);
+  const readLine = (readAs?: string[], at = "2026-10-10T02:00:00.000Z") => ({
+    at,
+    observations: 1,
+    ...(readAs ? { people: readAs } : {}),
+    prompt: "memory-extract.v1",
+    run: "r0",
+    schemaVersion: 1 as const,
+    unit: sam.id,
+    unitHash: sam.hash,
+  });
+  const pending = (
+    ledgerLines: ReturnType<typeof readLine>[],
+    rereads: [string, string][] = []
+  ) =>
+    toExtract(
+      [built(sam)],
+      verdicts,
+      ledgerLines,
+      "memory-extract.v1",
+      new Map(rereads)
+    ).pending.length;
+  // Read as Sam, now Lou: read again; once read as Lou, cached.
+  expect(pending([readLine(["person:sam"])])).toBe(1);
+  expect(pending([readLine(["person:sam"]), readLine(["person:lou"])])).toBe(0);
+  // An unknown name truth/ now maps (lifelog's unknown:Lou, now person:lou): read again, by choice.
+  expect(pending([readLine(["unknown:Lou"])])).toBe(1);
+  // A line from before `people` was recorded counts as read as today.
+  expect(pending([readLine()])).toBe(0);
+  // He said it was read wrong after its last reading: read again; a reading after his word settles it.
+  expect(pending([readLine()], [[sam.id, "2026-10-21T00:00:00.000Z"]])).toBe(1);
+  expect(
+    pending(
+      [readLine(), readLine(["person:lou"], "2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-21T00:00:00.000Z"]]
+    )
+  ).toBe(0);
+  // Instants, not strings: his word at 04:00+02:00 is 02:00Z, the same instant as the reading, so it is settled.
+  expect(
+    pending(
+      [readLine(["person:lou"], "2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-22T04:00:00+02:00"]]
+    )
+  ).toBe(0);
+  // Order is not identity: the same people listed differently stay cached.
+  const twoOf = unit({ id: sam.id, people: ["person:lou", "person:ann"] });
+  expect(
+    toExtract(
+      [built(twoOf)],
+      ledger([verdict(twoOf, { salience: 3 })]),
+      [{ ...readLine(["person:ann", "person:lou"]), unitHash: twoOf.hash }],
+      "memory-extract.v1"
+    ).pending.length
+  ).toBe(0);
+});
+
 test("the index is rebuilt from observations: search ignores accents, links answer by entity", async () => {
   const { observations } = parseObservations(
     {

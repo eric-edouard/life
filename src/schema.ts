@@ -462,6 +462,8 @@ export const Extracted = z
   .object({
     at: isoDateTime,
     observations: z.int().min(0),
+    /** The unit's people as the model read them, sorted: when `truth/` makes them someone else, it is read again. */
+    people: z.array(z.string()).optional(),
     prompt: z.string(),
     run: z.string(),
     schemaVersion: z.literal(1),
@@ -573,7 +575,8 @@ export const PageSection = z.enum([
  * conversation (`bun life memory correct`) and by the pages step when it finds him editing a page file. Every
  * rebuild respects it. `wrong` and `not-important` hide observations (on one page when `page` is set, else
  * everywhere); `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
- * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`).
+ * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`); `reread`
+ * says units were read wrong (a fact under the wrong person, say): each is extracted again when its day is next read.
  */
 export const Correction = z
   .discriminatedUnion("kind", [
@@ -617,6 +620,13 @@ export const Correction = z
         from: PersonRef,
         kind: z.literal("same-person"),
         to: PersonRef,
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("reread"),
+        units: z.array(UnitId).min(1),
       })
       .strict(),
     z
