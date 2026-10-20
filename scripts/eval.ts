@@ -5,7 +5,7 @@
 // `--json` prints the counts alone, for the bench (scripts/bench.ts).
 import { join } from "node:path";
 import { z } from "zod";
-import { askOnce, llmFor } from "../src/llm";
+import { askOnce, llmFor, llmSpec } from "../src/llm";
 import { locked } from "../src/memory/guard";
 import {
   appendJsonl,
@@ -153,7 +153,7 @@ const rows = result.facts.map((f) => {
 });
 console.log(
   asJson
-    ? JSON.stringify(t.counts)
+    ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("main")) })
     : [
         `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
         ...result.note,

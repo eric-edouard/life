@@ -5,7 +5,7 @@
 // hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { llmFor, llmSpec } from "../src/llm";
 import { LOG_DIR, logDays, logEvents } from "../src/log";
@@ -23,7 +23,13 @@ import { DATA, ROOT } from "../src/truth";
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(DATA, "docs/evals/events-2026-10-16.json");
 /** Short names for `--models` (an `engine/model/effort` works too). */
+// Benched 20 Oct and dropped: MiMo V2.6 Pro (at high it spends the whole token budget reasoning, at medium its host
+// errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). DeepSeek Flash is on Parasail:
+// DeepInfra rate-limits it upstream.
 const MODELS: Record<string, string> = {
+  "deepseek-flash":
+    "openrouter/deepseek/deepseek-v4.1-flash-1017@parasail/high",
+  glm: "openrouter/z-ai/glm-5.3@z-ai/high",
   opus: "claude/opus/medium",
 };
 /** What Life runs, always benched, at least twice so its own spread shows. */
@@ -40,7 +46,8 @@ const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 const ERROR_LINE = /^error: .*$/m;
 
-type Counts = ReturnType<typeof tally>["counts"];
+/** What eval.ts --json prints: the counts and the judge that gave them. */
+type Counts = ReturnType<typeof tally>["counts"] & { judge?: string };
 const wrong = (c: Counts) => c.contradicted + c.restated;
 
 /** In a copy (`LIFE_DATA`, `LIFE_LLM` set): moments then extract over the week, its claims to claims.jsonl. */
@@ -112,10 +119,9 @@ async function run(
 
 async function bench(models: string[], runs: number) {
   const main = dirname(
-    resolve(
-      ROOT,
-      git(ROOT, ["rev-parse", "--git-common-dir"]).stdout.toString().trim()
-    )
+    git(ROOT, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
+      .stdout.toString()
+      .trim()
   );
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
   const base = join(tmp, "base");
@@ -167,7 +173,9 @@ async function bench(models: string[], runs: number) {
         const code = join(tmp, p.label, "code");
         const data = join(tmp, p.label, "data");
         await checkout(code);
-        await exec(["cp", "-cR", base, data]);
+        if ((await exec(["cp", "-cR", base, data])).code !== 0) {
+          throw new Error(`could not copy the data to ${data}`);
+        }
         const started = performance.now();
         try {
           const read = await run(code, data, p.llm, [
@@ -252,7 +260,7 @@ export function table(rows: Row[], about: { facts: number; rated: number }) {
   return [
     `# Bench ${WEEK.from} to ${WEEK.to} (${new Date().toISOString().slice(0, 16)}Z, code ${git(ROOT, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge: his engine's main tier. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
+    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
     "",
     `| run | model | true facts held | wrong (of ${about.facts}) | vs baseline | rated statements | claims | calls | time | cost |`,
     "|---|---|---|---|---|---|---|---|---|---|",
