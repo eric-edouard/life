@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Item, planOf, steerOf, steersOf, wantOf } from "./board";
+import { type Item, planOf, wantOf } from "./board";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
 import {
@@ -198,13 +198,9 @@ test("he is asked to look when Atlas is stuck, waits on him over an hour, a task
 
 const look = (over: Partial<Item> = {}): Item => ({
   completed: false,
-  due: null,
   id: 1,
   notes: "",
   section: "",
-  steps: {},
-  subIds: {},
-  title: "Atlas: x",
   ...over,
 });
 
@@ -222,39 +218,27 @@ const working = (more: Action[] = []) =>
     ...more,
   ]);
 
-test("the board gets Life's fields: notes, section, Atlas's steps added then ticked, Needs you with a due while he is needed, a tick when done", () => {
+test("the board gets Life's fields: notes, section, Needs you with a due while he is needed, a tick when done; his tick stays until he is needed", () => {
   const want = wantOf(working(), null);
   expect(want.notes.split("\n")[0]).toBe(ASK);
   expect(want.notes).toContain("searching");
   const blank = look({ notes: want.notes, section: "Open" });
   const first = planOf(want, blank, undefined, T0);
-  expect(first.flags).toEqual([
-    "--private",
-    "--section=Working",
-    '--subtask={"title":"Find three flats"}',
-    '--subtask={"title":"Book visits"}',
-  ]);
-  // Next pass: the subtasks exist, so the done one is ticked; then nothing is left to write.
-  const steps = { "Book visits": false, "Find three flats": false };
-  const subIds = { "Book visits": 8, "Find three flats": 7 };
-  const made = { ...first.look, steps, subIds };
-  const second = planOf(want, made, first.look, T0);
-  expect([second.flags, second.done]).toEqual([[], [7]]);
-  // A step Life added and he removed stays removed.
-  const removed = { ...made, steps: { "Find three flats": false } };
-  expect(planOf(want, removed, second.look, T0).flags).toEqual([]);
-  expect(planOf(want, removed, second.kept, T0).flags).toEqual([]);
-  const ticked = second.look;
-  expect(planOf(want, ticked, ticked, T0).done).toEqual([]);
+  expect(first.flags).toEqual(["--private", "--section=Working"]);
+  const ticked = first.look;
+  expect(planOf(want, ticked, ticked, T0)).toMatchObject({
+    done: [],
+    flags: [],
+  });
   // He is needed: Needs you with a due of now, kept while the cause lasts, cleared when it ends.
   const needed = wantOf(working(), "Atlas stuck");
   const alert = planOf(needed, ticked, ticked, T0);
-  expect(alert.flags).toContain(`--due=${alert.look.due}`);
+  expect(alert.flags.filter((f) => f.startsWith("--due="))).toHaveLength(1);
   expect(alert.flags).toContain("--section=Needs you");
   const later = planOf(needed, alert.look, alert.look, T0 + 9 * MIN);
   expect(later.flags).toEqual([]);
   // A failed private write is tried again next pass, without a new alert.
-  const retry = planOf(needed, ticked, alert.kept, T0 + MIN).flags;
+  const retry = planOf(needed, ticked, alert.look, T0 + MIN).flags;
   expect(retry).toContain("--section=Needs you");
   expect(retry.filter((f) => f.startsWith("--due"))).toEqual([]);
   expect(planOf(want, alert.look, alert.look, T0).flags).toEqual([
@@ -266,103 +250,13 @@ test("the board gets Life's fields: notes, section, Atlas's steps added then tic
   ]);
   const done = task([own("update", 5, { outcome: "booked", state: "done" })]);
   expect(planOf(wantOf(done, null), ticked, ticked, T0).done).toEqual([1]);
-});
-
-test("his changes are steers, Life's own writes are not, and Life never writes over his tick, title, due or subtasks", () => {
-  const want = wantOf(working(), null);
-  const p = planOf(want, look({ notes: "old" }), undefined, T0);
-  const after = {
-    ...p.look,
-    steps: { "Book visits": false, "Find three flats": true },
-  };
-  expect(steerOf(after, after).changes).toEqual({});
-  const steps = { ...after.steps, "Call the agency": false };
-  const his = look({
-    ...after,
-    completed: true,
-    due: "2026-10-20 09:00",
-    notes: `${after.notes}\nask the agency first`,
-    steps,
-    title: "Atlas: flats",
-  });
-  const steer = steerOf(after, his);
-  expect(steer.changes).toEqual({
-    completed: true,
-    due: "2026-10-20 09:00",
-    notes: his.notes,
-    steps,
-    title: "Atlas: flats",
-  });
-  expect(steer.note).toBe("ask the agency first");
-  // His note shows as his until Atlas's next update; nothing else of his is written over.
-  const steered = working([own("steer", 7, steer)]);
-  const next = planOf(wantOf(steered, null), his, his, T0);
-  expect(wantOf(steered, null).notes).toEndWith("You: ask the agency first");
-  expect(next.flags).toEqual([`--notes=${wantOf(steered, null).notes}`]);
-  expect([next.done, next.reopen]).toEqual([[], false]);
-  // His tick is not undone, until Life asks him to look.
-  expect(planOf(wantOf(steered, "Atlas stuck"), his, his, T0).reopen).toBe(
-    true
-  );
-});
-
-test("Life's own subtasks are never steers: in Reminders' order, dropped from Atlas's list, or on a closed task; his are", () => {
-  const [a, b, c] = ["Verify the link", "Redesign the day", "Publish it"];
-  const claim = own("update", 5, {
-    claim: true,
-    deadline: at(60),
-    note: "on it",
-    state: "working",
-    steps: [a, b, c].map((title) => ({ done: false, title })),
-  });
-  const claimed = task([claim]);
-  const first = planOf(wantOf(claimed, null), look(), undefined, T0).look;
-  // Reminders lists the subtasks Life added in its own order.
-  const read = look({
-    ...first,
-    steps: { [c]: false, [a]: false, [b]: false },
-  });
-  const steers = (t: Task, item = read) =>
-    steersOf([t], { [ASK]: first }, new Map([[ASK, item]]));
-  expect(steers(claimed)).toEqual([]);
-  // Atlas drops a and c from its full list while working: they stay, unchanged, and are no steer.
-  const dropped = task([
-    claim,
-    own("update", 7, {
-      deadline: at(60),
-      note: "narrowed",
-      state: "working",
-      steps: [{ done: true, title: b }],
-    }),
-  ]);
-  const next = planOf(wantOf(dropped, null), read, first, T0).look;
-  expect(
-    steerOf(next, { ...next, steps: { [c]: false, [b]: true, [a]: false } })
-      .changes
-  ).toEqual({});
-  // Atlas closes it with a new list: no steer, even for a change, and none for a deleted item.
-  const done = task([
-    claim,
-    own("update", 7, {
-      outcome: "split",
-      state: "done",
-      steps: [{ done: true, title: "Split it" }],
-    }),
-  ]);
-  const his = look({
-    ...read,
-    steps: { ...read.steps, "Call the agency": false },
-  });
-  expect(steers(done)).toEqual([]);
-  expect(steers(done, his)).toEqual([]);
-  expect(steersOf([done], { [ASK]: first }, new Map())).toEqual([]);
-  // His own subtask on an open task is a steer; so is a deleted item.
-  expect(steers(dropped, his)).toEqual([
-    [ASK, { changes: { steps: his.steps }, note: "" }],
-  ]);
-  expect(steersOf([dropped], { [ASK]: first }, new Map())).toEqual([
-    [ASK, { changes: { deleted: true }, note: "" }],
-  ]);
+  // An old steer line changes nothing: no "You:" line, no steers in the row.
+  const steered = working([own("steer", 7, { changes: {}, note: "his" })]);
+  expect(wantOf(steered, null)).toEqual(want);
+  // His tick on an open task is not undone, until Life asks him to look.
+  const his = { ...ticked, completed: true };
+  expect(planOf(want, his, ticked, T0).reopen).toBe(false);
+  expect(planOf(needed, his, ticked, T0).reopen).toBe(true);
 });
 
 const TEXT = "# Atlas: the playbook";

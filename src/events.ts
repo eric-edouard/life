@@ -39,14 +39,6 @@ const AskData = z.object({
     .describe("Life's nudge: the task is past its deadline. Not a new ask"),
   quote: z.string().describe("His words, from the wake turn on"),
   ref: z.string().describe("Where the words are: a turn or session:<at>"),
-  steer: z
-    .object({
-      changes: z.record(z.string(), z.unknown()),
-      note: z.string().optional(),
-      task: z.string(),
-    })
-    .optional()
-    .describe("He changed its item on his board (the new values). Not an ask"),
   title: z.string().optional().describe("The part of his words it is"),
   turns: z.array(z.int()).optional().describe("Their turn numbers"),
 });
@@ -240,18 +232,17 @@ export const parse = (line: string) =>
   line ? Action.parse(JSON.parse(line)) : null;
 
 /**
- * The next event in the ledger at or after line `from` (its cursor: the line after it), or null: an ask, or a nudge or
- * steer of a task, sent as its task's ask with `nudge` or `steer` (one event name: a second would replace the
- * subscription).
+ * The next event in the ledger at or after line `from` (its cursor: the line after it), or null: an ask, or a nudge
+ * of a task, sent as its task's ask with `nudge` (one event name: a second would replace the subscription).
  */
 export function nextEvent(lines: string[], from: number) {
   for (const [k, line] of lines.slice(from).entries()) {
     const a = parse(line);
     const ask =
-      a?.kind === "nudge" || a?.kind === "steer"
+      a?.kind === "nudge"
         ? lines.map(parse).find((x) => x?.id === a.target)
         : a;
-    // An ask Atlas made from a chat is already its own: only its nudges and steers go out.
+    // An ask Atlas made from a chat is already its own: only its nudges go out.
     const own = a === ask && a?.madeBy === "connector";
     if (a && ask?.kind === "ask" && ask.instruction && !own) {
       const cursor = from + k + 1;
@@ -358,7 +349,7 @@ export async function deliver() {
     }
     const error = `Atlas did not receive it (callback ${status || "unreachable"})`;
     log("run.error", { error, event: event.eventId, step: "events.deliver" });
-    // A nudge or steer passed over needs no mail: escalation brings the task to him.
+    // A nudge passed over needs no mail: escalation brings the task to him.
     if (
       after.subscription &&
       after.delivered === cursor &&

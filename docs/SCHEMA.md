@@ -263,9 +263,8 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
 - `kind`: `add`, `edit`, `done`, `remove`, `ask`. A task's own lines,
   with no `instruction` and the task's (its ask's) id as `target`: `update` (Atlas, the connector's `task`: `after` is
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
-  `reason`, `steps` [{title, done}], `claim`), `nudge` (Life: `after.why`, the task was past its deadline) and `steer`
-  (he changed its item on the board: `after.changes`, the changed fields' new values among `completed`, `title`, `due`,
-  `notes`, `steps` {title: done}, or `deleted`; and `note`, his new note lines). Id: `act_` + 12 hex over
+  `reason`, `steps` [{title, done}], `claim`), `nudge` (Life: `after.why`, the task was past its deadline) and, until 20 Oct,
+  `steer` (his change to its board item, `after.changes` and `note`; such lines only parse now). Id: `act_` + 12 hex over
   `<task>@<at> | kind`.
 - `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask) or a task's id (its lines).
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An ask's
@@ -276,7 +275,7 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
   `instruction.at`, `at` and the `event.sent` log line it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once) or
   `duplicate` (an open reminder had the title; nothing written). `madeBy`: `session` (a Claude session), `connector` (a
-  chat, Atlas's updates) or `watch` (the watcher: a "hey Atlas" heard, a nudge, a steer).
+  chat, Atlas's updates) or `watch` (the watcher: a "hey Atlas" heard, a nudge; a steer until 20 Oct).
 - Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
   `modelMs` and `actMs`, and a model as `madeBy`; they still parse.
 
