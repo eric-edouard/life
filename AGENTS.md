@@ -130,6 +130,12 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`readStanding`, `by` the claim itself: closed as history, never wrong), so an undo lifts either. Like `correct`, an answer is
   appended without the lock (his own words, one line, never while waiting on the nightly). Its swipe deck
   (`deck` in `assets/check/check.js`) stays generic: items and a list of verdicts in, verdicts out.
+- **The portrait** (`src/portrait.ts`, `/me` on the same server, his request of 20 Oct) serves one page about him,
+  `~/Life/docs/portrait/index.html` (written from his memory in a session, never in this repo), and nothing else; its CSP
+  allows inline styles and Google Fonts only (no images, no scripts). It is behind a password (`LIFE_PORTRAIT_PASSWORD`;
+  unset, or `LIFE_OWNER_SUB` unset, `/me` is off), not lifelog's OAuth: he chose a password over the lifelog sign-in
+  when offered both. The cookie is its expiry signed with the password, failed tries are capped; never serve the page
+  before that check.
 - **The archive is the only live copy of deleted messages and of old note versions** (the backup keeps snapshots). Never move, wipe or migrate its files (a new table is allowed
   with the owner's OK, never a rewrite of existing rows), and keep `com.ericedouard.life.archive` running. App stores
   are opened read-only. The archive keeps the apps it copies from running (`app` in `STORES`): a closed one is opened
