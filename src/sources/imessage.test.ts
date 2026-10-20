@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -21,7 +22,7 @@ test("a photo-only message carries its attachments as files, a link preview left
     // Never downloaded to this Mac, and Messages left its type out.
     { mime: null, name: "Audio Message.caf", path: null },
   ]);
-  const read = (d: Date) => readImessage(d, db, new Map());
+  const read = (d: Date) => readImessage(d, db);
   const since = new Date(Date.now() - 3_600_000);
   expect(read(since)[0]?.files).toEqual([
     {
@@ -64,4 +65,9 @@ test("his Contacts name a 1:1 chat Messages knows only by its number (an empty n
   const names = new Map([[handleKey("06 11 11 11 11"), "Claire Dupont"]]);
   expect(readImessage(since, db, names)[0]?.chatName).toBe("Claire Dupont");
   expect(readImessage(since, db, new Map())[0]?.chatName).toBeUndefined();
+  // A group (its identifier `chat…`) is never named after a contact, whatever its digits.
+  const group = new Database(db);
+  group.run("update chat set chat_identifier = 'chat611111111'");
+  group.close();
+  expect(readImessage(since, db, names)[0]?.chatName).toBeUndefined();
 });
