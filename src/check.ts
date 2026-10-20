@@ -9,6 +9,7 @@ import {
   SCOPE,
   type Verify,
 } from "./auth";
+import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
 import { readRatings, readStatements, recordRating } from "./memory/ledger";
 import { plain as asOf } from "./memory/statements";
 import { readPeople } from "./memory/who";
@@ -28,38 +29,9 @@ const FILES: Record<string, string> = {
   "/check/check.css": "check.css",
   "/check/check.js": "check.js",
 };
-const HEADERS = {
-  "cache-control": "no-store",
-  "content-security-policy": "default-src 'self'; frame-ancestors 'none'",
-  "referrer-policy": "no-referrer",
-  "x-content-type-options": "nosniff",
-};
 const LOGIN_MAX_S = 600;
 
 const Answer = Rating.pick({ answer: true, claim: true });
-
-const cookie = (name: string, value: string, maxAge: number) =>
-  new Bun.Cookie(name, value, {
-    httpOnly: true,
-    maxAge,
-    path: "/",
-    sameSite: "lax",
-    secure: true,
-  }).serialize();
-
-const redirect = (to: string, cookies: string[] = []) => {
-  const headers = new Headers({ ...HEADERS, location: to });
-  for (const c of cookies) {
-    headers.append("set-cookie", c);
-  }
-  return new Response(null, { headers, status: 302 });
-};
-
-const cookieOf = (req: Request, name: string) =>
-  new Bun.CookieMap(req.headers.get("cookie") ?? "").get(name);
-
-const plain = (body: string, status: number) =>
-  new Response(body, { headers: HEADERS, status });
 
 /** The check page's routes; `handle` resolves to null for any other path. `lifelog` reaches its token endpoint. */
 export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
@@ -91,7 +63,7 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
       !(state && verifier && code) ||
       url.searchParams.get("state") !== state
     ) {
-      return plain("Sign-in did not complete. Open /check/ to try again.", 400);
+      return text("Sign-in did not complete. Open /check/ to try again.", 400);
     }
     const res = await lifelog(`${ISSUER}/oauth2/token`, {
       body: new URLSearchParams({
@@ -111,7 +83,7 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
       !token.success ||
       "refusal" in (await verify(token.data.access_token))
     ) {
-      return plain("Not signed in as the owner.", 403);
+      return text("Not signed in as the owner.", 403);
     }
     return redirect("/check/", [
       cookie(SESSION, token.data.access_token, token.data.expires_in),
@@ -147,12 +119,12 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
     }
     if (pathname === "/check/answer" && req.method === "POST") {
       if (req.headers.get("origin") !== ORIGIN) {
-        return plain("cross-origin", 400);
+        return text("cross-origin", 400);
       }
       const a = Answer.safeParse(await req.json().catch(() => null));
       const known = new Set((await readStatements()).map((s) => s.claim));
       if (!(a.success && known.has(a.data.claim))) {
-        return plain("no such statement", 400);
+        return text("no such statement", 400);
       }
       await recordRating(a.data.claim, a.data.answer);
       return new Response(null, { headers: HEADERS, status: 204 });
@@ -178,9 +150,9 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
     const whose = await verify(cookieOf(req, SESSION) ?? "");
     if ("refusal" in whose) {
       if (whose.refusal === "forbidden") {
-        return plain("forbidden", 403);
+        return text("forbidden", 403);
       }
-      return pathname === "/check/" ? login() : plain("sign in again", 401);
+      return pathname === "/check/" ? login() : text("sign in again", 401);
     }
     return owned(req, pathname);
   }
