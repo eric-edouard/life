@@ -3,6 +3,7 @@ import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
+import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
   backupDue,
@@ -166,7 +167,11 @@ async function whatIsNew(since: string) {
   const { all, observations, standing } = await observationsNow(people);
   const fresh = observations.filter(newSince(all, since));
   const ids = new Set(fresh.map((o) => o.id));
-  const { homes } = placed(observations, people.truth);
+  const { homes } = placed(
+    observations,
+    people.truth,
+    await pagedNow(people.truth)
+  );
   return {
     facts: [...homes].flatMap(([home, lines]) =>
       lines.flatMap(({ o }) =>
@@ -204,6 +209,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const extracted = await phase.step("extract", () =>
       extract({ days, evidence })
     );
+    // Who is close decides who has a page: judged before the pages and the report's homes.
+    await phase.step("closeness", () => closeness());
     const { facts, observed, retired } = await whatIsNew(since);
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
     phase.at = "index";
