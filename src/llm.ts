@@ -172,31 +172,151 @@ const imageBlock = async (path: string) => ({
   type: "image",
 });
 
-const openRouterUrl = () =>
-  process.env.OPENROUTER_URL ?? "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
 /** Room for a day's moments and their reasoning; every bench host allows at least this much. */
 const OPENROUTER_MAX_TOKENS = 131_072;
 const OpenRouterReply = z.object({
   choices: z
-    .array(z.object({ message: z.object({ content: z.string().nullable() }) }))
+    .array(
+      z.object({
+        finish_reason: z.string().nullable().optional(),
+        message: z.object({ content: z.string().nullable() }),
+      })
+    )
     .min(1),
+  // Not in OpenRouter's documented schema, but sent: without it the host can't be checked, so the call fails.
   provider: z.string(),
-  usage: z.object({ cost: z.number() }).loose(),
+  usage: z.object({ cost: z.number().optional() }).loose(),
 });
-const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
 const NOT_ALNUM = /[^a-z0-9]/g;
+const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
+
+/** One call as a runner gets it. */
+interface Call {
+  dir: string;
+  images: string[];
+  input: unknown;
+  llm: Llm;
+  system: string;
+}
+/** A runner's reply: its text, and what the log records of the call besides the time. */
+interface Answer {
+  fields?: Record<string, unknown>;
+  text: string;
+}
 
 /**
- * One call through OpenRouter, the bench's alone (`llmOverride`): pinned to the host after `@` in fp8, routed only to
- * endpoints that keep nothing (`zdr`, `data_collection: deny`), no fallback, and refused when another host served it.
- * No tools; the key (OPENROUTER_API_KEY in .env) is read here only.
+ * A CLI run to its end in an empty folder outside the repo (inside it, claude loads the project's auto-memory and
+ * codex its AGENTS.md: recorded content must reach the model with nothing but the prompt). Throws on a failure.
  */
-async function askOpenRouter(
-  llm: Llm,
-  system: string,
-  opts: { dir: string; images?: string[]; input: unknown },
-  made: ReturnType<typeof stamp>
+async function cli(
+  name: string,
+  args: (cwd: string) => string[],
+  o: { env: Record<string, string>; stdin: string }
 ) {
+  const cwd = await mkdtemp(join(tmpdir(), "life-llm-"));
+  const { code, killed, stderr, stdout } = await exec(args(cwd), {
+    cwd,
+    env: o.env,
+    stdin: o.stdin,
+    timeout: MODEL_TIMEOUT_MS,
+  }).finally(() => rm(cwd, { force: true, recursive: true }));
+  if (code !== 0) {
+    // claude reports its errors on stdout, codex on stderr: keep the tail of both.
+    const detail = [stderr, stdout]
+      .map((t) => t.trim().slice(-300))
+      .filter(Boolean)
+      .join(" | ");
+    throw new Error(
+      `${name} ${killed ? `timed out after ${MODEL_TIMEOUT_MS / 1000} s` : `exited ${code}`}: ${detail}`
+    );
+  }
+  return stdout;
+}
+
+async function askClaude({ dir, images, input, llm, system }: Call) {
+  const stdout = await cli(
+    "claude",
+    () => [
+      ...["claude", "-p", "--model", llm.model, "--verbose"],
+      ...(llm.effort ? ["--effort", llm.effort] : []),
+      ...["--input-format", "stream-json", "--output-format", "stream-json"],
+      ...["--tools", "", "--strict-mcp-config", "--setting-sources", ""],
+      ...["--no-session-persistence", "--system-prompt", system],
+    ],
+    {
+      env: modelEnv(),
+      stdin: JSON.stringify({
+        message: {
+          content: [
+            { text: JSON.stringify(input), type: "text" },
+            ...(await Promise.all(images.map(imageBlock))),
+          ],
+          role: "user",
+        },
+        type: "user",
+      }),
+    }
+  );
+  await Bun.write(join(dir, "claude.jsonl"), stdout);
+  // A stream of events, the result last.
+  const res = ClaudeResult.parse(
+    JSON.parse(stdout.trim().split("\n").at(-1) ?? "")
+  );
+  if (res.is_error) {
+    throw new Error(`claude reported an error: ${res.result.slice(-300)}`);
+  }
+  return {
+    fields: {
+      costUsd: res.total_cost_usd,
+      turns: res.num_turns,
+      usage: res.usage,
+    },
+    text: res.result,
+  };
+}
+
+async function askCodex({ dir, images, input, llm, system }: Call) {
+  if (!(await Bun.file(join(CODEX_HOME, "auth.json")).exists())) {
+    // codex refuses a CODEX_HOME that doesn't exist, even to log in.
+    await mkdir(CODEX_HOME, { recursive: true });
+    throw new Error(
+      `codex has no login in ${CODEX_HOME}: run CODEX_HOME="${CODEX_HOME}" codex login --device-auth`
+    );
+  }
+  const reply = join(dir, "codex.txt");
+  await cli(
+    "codex",
+    (cwd) => [
+      // The pinned binary, read-only, and none of the extras (CODEX_OFF).
+      ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
+      ...["-C", cwd, "-m", llm.model],
+      ...CODEX_OFF.flatMap((f) => ["--disable", f]),
+      ...["-", "--ephemeral", "--ignore-user-config", "--ignore-rules"],
+      ...[
+        `model_reasoning_effort=${toml(llm.effort ?? "medium")}`,
+        `developer_instructions=${toml(system)}`,
+        "project_doc_max_bytes=0",
+        'web_search="disabled"',
+        "skills.bundled.enabled=false",
+        "skills.include_instructions=false",
+      ].flatMap((c) => ["-c", c]),
+      ...CODEX_TOOLS.flatMap((f) => ["--disable", f]),
+      ...["-o", reply],
+      ...images.map((i) => `--image=${i}`),
+    ],
+    { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
+  );
+  return { text: await Bun.file(reply).text() };
+}
+
+/**
+ * One call through OpenRouter, the bench's alone (`llmOverride`): pinned to the host after `@`, in fp8 (the same
+ * weights for every candidate), routed only to endpoints that keep nothing (`zdr`, `data_collection: deny`), no
+ * fallback, every parameter honored, and refused when another host served it. No tools; the key
+ * (OPENROUTER_API_KEY in .env) is read here only.
+ */
+async function askOpenRouter({ dir, images, input, llm, system }: Call) {
   const key = process.env.OPENROUTER_API_KEY;
   const [model, host] = llm.model.split("@");
   if (!(key && host)) {
@@ -204,16 +324,15 @@ async function askOpenRouter(
       "openrouter needs OPENROUTER_API_KEY in .env and a model as author/model@host"
     );
   }
-  if (opts.images?.length) {
+  if (images.length > 0) {
     throw new Error("the bench sends no images through OpenRouter");
   }
-  const started = performance.now();
-  const res = await fetch(openRouterUrl(), {
+  const res = await fetch(OPENROUTER, {
     body: JSON.stringify({
       max_tokens: OPENROUTER_MAX_TOKENS,
       messages: [
         { content: system, role: "system" },
-        { content: JSON.stringify(opts.input), role: "user" },
+        { content: JSON.stringify(input), role: "user" },
       ],
       model,
       provider: {
@@ -221,9 +340,10 @@ async function askOpenRouter(
         data_collection: "deny",
         only: [host],
         quantizations: ["fp8"],
+        require_parameters: true,
         zdr: true,
       },
-      reasoning: { effort: llm.effort ?? "high" },
+      ...(llm.effort ? { reasoning: { effort: llm.effort } } : {}),
     }),
     headers: {
       authorization: `Bearer ${key}`,
@@ -231,41 +351,43 @@ async function askOpenRouter(
     },
     method: "POST",
     signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-  }).catch((e: Error) => e);
-  const ms = Math.round(performance.now() - started);
-  const text = res instanceof Response ? await res.text() : res.message;
-  await Bun.write(join(opts.dir, "openrouter.json"), text);
-  const fail = (error: string) => {
-    log("model.run", { ...made, error, ms, ok: false });
-    return new Error(`openrouter: ${error}`);
-  };
-  if (!(res instanceof Response && res.ok)) {
-    throw fail(
-      `${res instanceof Response ? res.status : "no answer"}: ${text.slice(-300)}`
-    );
+  });
+  const text = await res.text();
+  await Bun.write(join(dir, "openrouter.json"), text);
+  if (!res.ok) {
+    throw new Error(`openrouter ${res.status}: ${text.slice(-300)}`);
   }
   const reply = OpenRouterReply.parse(JSON.parse(text));
+  const [choice] = reply.choices;
   if (slug(reply.provider) !== slug(host)) {
-    throw fail(`served by ${reply.provider}, not ${host}`);
+    throw new Error(`openrouter: served by ${reply.provider}, not ${host}`);
   }
-  log("model.run", {
-    ...made,
-    costUsd: reply.usage.cost,
-    effort: llm.effort,
-    host: reply.provider,
-    ms,
-    ok: true,
-    usage: reply.usage,
-  });
-  return extractJson(reply.choices[0]?.message.content ?? "");
+  if (choice?.finish_reason !== "stop" || !choice.message.content) {
+    throw new Error(`openrouter: stopped (${choice?.finish_reason})`);
+  }
+  return {
+    fields: {
+      costUsd: reply.usage.cost,
+      host: reply.provider,
+      usage: reply.usage,
+    },
+    text: choice.message.content,
+  };
 }
+
+const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
+  claude: askClaude,
+  codex: askCodex,
+  openrouter: askOpenRouter,
+};
 
 /**
  * One shot with no tools, no MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
  * `input` (as JSON) the whole user message. Code assembles everything the model sees, so the call stays small.
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
  * The input and the raw reply are kept in `dir`, so anything made from a call can be checked against exactly what the
- * model read. `images` (JPEG or PNG paths) follow the input, in order. Returns the reply's JSON.
+ * model read. `images` (JPEG or PNG paths) follow the input, in order. Returns the reply's JSON; every call, failed or
+ * not, is one `model.run` line.
  */
 export async function askOnce(opts: {
   context?: unknown;
@@ -282,109 +404,29 @@ export async function askOnce(opts: {
       ? ""
       : `\n\n<context>\n${JSON.stringify(opts.context)}\n</context>\n`;
   const system = `${await promptText(opts.prompt)}${context}`;
-  const made = stamp(llm, opts.prompt, opts.run);
+  const made = { ...stamp(llm, opts.prompt, opts.run), effort: llm.effort };
   await mkdir(dir, { recursive: true });
   await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));
-  if (llm.engine === "openrouter") {
-    return askOpenRouter(llm, system, opts, made);
-  }
-  const reply = join(
-    dir,
-    llm.engine === "claude" ? "claude.jsonl" : "codex.txt"
-  );
-  const images = opts.images ?? [];
-  const codex = llm.engine === "codex";
-  if (codex && !(await Bun.file(join(CODEX_HOME, "auth.json")).exists())) {
-    // codex refuses a CODEX_HOME that doesn't exist, even to log in.
-    await mkdir(CODEX_HOME, { recursive: true });
-    throw new Error(
-      `codex has no login in ${CODEX_HOME}: run CODEX_HOME="${CODEX_HOME}" codex login --device-auth`
-    );
-  }
-  // Both engines start in an empty folder outside the repo: inside it, claude loads the project's auto-memory and codex
-  // its AGENTS.md, and recorded content must reach the model with nothing but the prompt.
-  const cwd = await mkdtemp(join(tmpdir(), "life-llm-"));
-  const args =
-    llm.engine === "claude"
-      ? [
-          ...["claude", "-p", "--model", llm.model, "--verbose"],
-          ...(llm.effort ? ["--effort", llm.effort] : []),
-          ...[
-            "--input-format",
-            "stream-json",
-            "--output-format",
-            "stream-json",
-          ],
-          ...["--tools", "", "--strict-mcp-config", "--setting-sources", ""],
-          ...["--no-session-persistence", "--system-prompt", system],
-        ]
-      : [
-          // The pinned binary, read-only, and none of the extras (CODEX_OFF).
-          ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
-          ...["-C", cwd, "-m", llm.model],
-          ...CODEX_OFF.flatMap((f) => ["--disable", f]),
-          ...["-", "--ephemeral", "--ignore-user-config", "--ignore-rules"],
-          ...[
-            `model_reasoning_effort=${toml(llm.effort ?? "medium")}`,
-            `developer_instructions=${toml(system)}`,
-            "project_doc_max_bytes=0",
-            'web_search="disabled"',
-            "skills.bundled.enabled=false",
-            "skills.include_instructions=false",
-          ].flatMap((c) => ["-c", c]),
-          ...CODEX_TOOLS.flatMap((f) => ["--disable", f]),
-          ...["-o", reply],
-          ...images.map((i) => `--image=${i}`),
-        ];
   const started = performance.now();
-  const { code, killed, stderr, stdout } = await exec(args, {
-    cwd,
-    env: modelEnv(codex ? { CODEX_HOME } : {}),
-    stdin: codex
-      ? JSON.stringify(opts.input)
-      : JSON.stringify({
-          message: {
-            content: [
-              { text: JSON.stringify(opts.input), type: "text" },
-              ...(await Promise.all(images.map(imageBlock))),
-            ],
-            role: "user",
-          },
-          type: "user",
-        }),
-    timeout: MODEL_TIMEOUT_MS,
-  }).finally(() => rm(cwd, { force: true, recursive: true }));
-  const ms = Math.round(performance.now() - started);
-  if (code !== 0) {
-    // claude reports its errors on stdout, codex on stderr: keep the tail of both.
-    const detail = [stderr, stdout]
-      .map((t) => t.trim().slice(-300))
-      .filter(Boolean)
-      .join(" | ");
-    log("model.run", { ...made, code, error: detail, ms, ok: false });
-    throw new Error(
-      `${llm.engine} ${killed ? `timed out after ${MODEL_TIMEOUT_MS / 1000} s` : `exited ${code}`}: ${detail}`
-    );
+  const ms = () => Math.round(performance.now() - started);
+  try {
+    const { fields, text } = await RUNNERS[llm.engine]({
+      dir,
+      images: opts.images ?? [],
+      input: opts.input,
+      llm,
+      system,
+    });
+    const json = extractJson(text);
+    log("model.run", { ...made, ...fields, ms: ms(), ok: true });
+    return json;
+  } catch (e) {
+    log("model.run", {
+      ...made,
+      error: (e as Error).message,
+      ms: ms(),
+      ok: false,
+    });
+    throw e;
   }
-  if (codex) {
-    log("model.run", { ...made, effort: llm.effort, ms, ok: true });
-    return extractJson(await Bun.file(reply).text());
-  }
-  await Bun.write(reply, stdout);
-  // A stream of events, the result last.
-  const res = ClaudeResult.parse(
-    JSON.parse(stdout.trim().split("\n").at(-1) ?? "")
-  );
-  log("model.run", {
-    ...made,
-    costUsd: res.total_cost_usd,
-    ms,
-    ok: !res.is_error,
-    turns: res.num_turns,
-    usage: res.usage,
-  });
-  if (res.is_error) {
-    throw new Error(`claude reported an error: ${res.result.slice(-300)}`);
-  }
-  return extractJson(res.result);
 }
