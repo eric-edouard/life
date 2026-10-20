@@ -17,12 +17,13 @@ import {
   conversationsWith,
   type LifelogConversation,
   readConversations,
+  type Store,
   searchVoice,
   speakers,
   turnOffset,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth, OWNER } from "../truth";
+import { loadTruth } from "../truth";
 import {
   daysOf,
   momentsNow,
@@ -39,7 +40,7 @@ import {
   verdictOf,
 } from "./ledger";
 import { who as named, SURE_AT } from "./observe";
-import { digestOf, type PageMeta, parsePage } from "./page";
+import { bodyOf, type PageMeta, parsePage } from "./page";
 import { asData, chatHits, holdsAll } from "./raw";
 import { actionLine } from "./report";
 import {
@@ -88,10 +89,10 @@ const VOICE_LIMIT = 20;
 const VOICE_MAX = 600;
 const QUOTE_MAX = 140;
 const TITLE_MAX = 50;
-const DIGEST = 2000;
 const WORD = /[\p{L}\p{N}]+/gu;
 
 interface Row {
+  at: string;
   channel: string;
   confidence: number;
   date: string;
@@ -123,7 +124,7 @@ interface UnitRow {
 const unitLine = (u: UnitRow) =>
   `- ${u.id} ${u.date} ${u.source}: ${clip(u.title, 80)}${u.topics ? ` [${u.topics}]` : ""}`;
 
-const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.confidence, o."when",
+const COLUMNS = `o.id, o.at, o.date, o.type, o.text, o.quote, o.channel, o.confidence, o."when",
   (select title from units where id = o.unit) as title,
   (select group_concat(replace(replace(person, 'person:', ''), 'unknown:', ''), ', ') from unit_people where unit = o.unit) as people`;
 const CURRENT = "o.superseded_by is null";
@@ -132,14 +133,42 @@ const CURRENT = "o.superseded_by is null";
 const ftsQuery = (q: string, op: "AND" | "OR") =>
   (q.match(WORD) ?? []).map((w) => `"${w}"`).join(` ${op} `);
 
-export function matches(db: Database, q: string) {
+interface Days {
+  from?: string;
+  to?: string;
+}
+/** The local days `from` to `to` (both included, either open) as a SQL condition on `col`, with its values. */
+const between = (col: string, r: Days) => ({
+  args: [r.from, r.to]
+    .filter((d): d is string => !!d)
+    .map((d) => d.slice(0, 10)),
+  sql: `${r.from ? ` and ${col} >= ?` : ""}${r.to ? ` and ${col} <= ?` : ""}`,
+});
+/** A moment that has a day inside `r`. */
+const inDays = (r: Days) => (m: Moment) => {
+  const [first, last] = daysOf(m);
+  return (
+    (!r.from || last >= r.from.slice(0, 10)) &&
+    (!r.to || first <= r.to.slice(0, 10))
+  );
+};
+
+export function matches(db: Database, q: string, range: Days = {}) {
+  const o = between("o.date", range);
+  const u = between("u.date", range);
   const sql = `select ${COLUMNS} from search s join observations o on o.id = s.id
-    where search match ? and ${CURRENT} order by rank limit ${LIMIT}`;
+    where search match ? and ${CURRENT}${o.sql} order by rank limit ${LIMIT}`;
   const unitSql = `select u.id, u.date, u.source, u.title, u.topics from unit_search s join units u on u.id = s.id
-    where unit_search match ? order by rank limit ${LIMIT}`;
+    where unit_search match ?${u.sql} order by rank limit ${LIMIT}`;
   const found = (query: string) => ({
-    observations: db.query<Row, [string]>(sql).all(query).map(line),
-    units: db.query<UnitRow, [string]>(unitSql).all(query).map(unitLine),
+    observations: db
+      .query<Row, string[]>(sql)
+      .all(query, ...o.args)
+      .map(line),
+    units: db
+      .query<UnitRow, string[]>(unitSql)
+      .all(query, ...u.args)
+      .map(unitLine),
   });
   for (const mode of ["AND", "OR"] as const) {
     const query = ftsQuery(q, mode);
@@ -173,14 +202,14 @@ async function findPage(dir: "people" | "areas", name: string) {
     : null;
 }
 
-function latest(db: Database, where: string, value: string) {
+/** The newest observations `where` finds (said before `before`, when given). */
+function latest(db: Database, where: string, value: string, before?: string) {
   return db
-    .query<Row, [string]>(
+    .query<Row, string[]>(
       `select ${COLUMNS} from observations o ${where} and o.salience >= ${KEEP_AT} and ${CURRENT}
-       order by o.at desc limit ${LIMIT}`
+       ${before ? "and o.at < ?" : ""} order by o.at desc limit ${LIMIT}`
     )
-    .all(value)
-    .map(line);
+    .all(value, ...(before ? [before] : []));
 }
 
 const NOT_BUILT =
@@ -211,12 +240,18 @@ function withIndex(lines: (db: Database) => string[]) {
   return out === null ? NOT_BUILT : asData(out);
 }
 
-/** A page's digest, when it has one, then the observations `rows` finds for it. */
+/** A page, whole, with when it was built, when it has one; then the observations `rows` finds for it. */
 function entity(text: string | null, rows: (meta?: PageMeta) => string[]) {
   const meta = text ? parsePage(text)?.meta : undefined;
   const found = rows(meta);
   return [
-    ...(text && meta ? [`## ${meta.name}`, digestOf(text, DIGEST), ""] : []),
+    ...(text && meta
+      ? [
+          `(page built ${meta.built.slice(0, 16).replace("T", " ")} UTC: newer observations are below, not on it yet)`,
+          bodyOf(text),
+          "",
+        ]
+      : []),
     "Latest observations:",
     ...(found.length > 0 ? found : ["(none)"]),
   ];
@@ -245,18 +280,15 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
   }
 }
 
-/** `from`/`to` bound the voice and chat sections only. */
-export async function search(
-  words: string,
-  o: { from?: string; to?: string } = {}
-) {
+/** `from`/`to` (local days, both included) bound every section. */
+export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
   // lifelog's search is a network call: the chats are read meanwhile.
   const holds = holdsAll(words);
   const [voice, chats, found] = await Promise.all([
     voiceHits(words, range),
     chatHits(words, range),
-    momentsWhere((m) => holds(`${m.title} ${m.place ?? ""}`)),
+    momentsWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
   ]);
   return withIndex((db) => [
     ...(found.length > 0
@@ -267,7 +299,7 @@ export async function search(
           "Observations and units:",
         ]
       : []),
-    ...matches(db, words),
+    ...matches(db, words, o),
     "",
     "Voice (exact spoken words; conversation id, time, turn: `fetch <id> --from-turn <turn>`):",
     ...voice,
@@ -340,8 +372,150 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
     );
 }
 
-/** A name two people go by lists them, then shows the first; a name on no page nor map is looked for among lifelog's speakers. */
-export async function person(name?: string) {
+/** Levenshtein distance between two strings. */
+function distance(a: string, b: string) {
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      next[j] = Math.min(
+        (row[j] ?? 0) + 1,
+        (next[j - 1] ?? 0) + 1,
+        (row[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    row = next;
+  }
+  return row[b.length] ?? 0;
+}
+
+/**
+ * Who a name no one goes by may mean: the people whose name or alias, or one of its words, is an edit or two from it
+ * (one for a name of four letters or fewer), nearest first, five at most. A misheard or misspelled name, never a guess
+ * picked for the caller.
+ */
+export function nearNames<
+  T extends { aliases: string[]; id: string; name: string },
+>(name: string, people: T[]) {
+  const q = normalize(name);
+  const max = q.length <= 4 ? 1 : 2;
+  const best = new Map<string, { d: number; p: T }>();
+  for (const p of people) {
+    for (const n of [p.name, ...p.aliases].map(normalize)) {
+      for (const w of new Set([n, ...n.split(" ")])) {
+        const d = distance(q, w);
+        if (d <= max && d < (best.get(p.id)?.d ?? max + 1)) {
+          best.set(p.id, { d, p });
+        }
+      }
+    }
+  }
+  return [...best.values()]
+    .sort((a, b) => a.d - b.d || a.p.name.localeCompare(b.p.name))
+    .slice(0, 5)
+    .map(({ p }) => p);
+}
+
+/**
+ * A page of a list ordered newest first, by whole days: the newest items before `before` up to `limit`, then the rest
+ * of the last day taken, so a day is never cut between two pages. `next`: the day to page back from, when something
+ * older is left.
+ */
+export function newestDays<T>(
+  items: T[],
+  dayOf: (x: T) => string,
+  limit: number,
+  before?: string
+) {
+  const left = before ? items.filter((x) => dayOf(x) < before) : items;
+  const edge = left[limit - 1];
+  const taken = edge
+    ? left.filter((x) => dayOf(x) >= dayOf(edge))
+    : left.slice();
+  const last = taken.at(-1);
+  return {
+    next: last && taken.length < left.length ? dayOf(last) : undefined,
+    taken,
+  };
+}
+
+/**
+ * What Life holds about someone, by source and by month, and what it can't hold, so a short answer never reads as
+ * "nothing happened". `moments` are all the moments with them.
+ */
+export function coverageLines(db: Database, ref: string, moments: Moment[]) {
+  const start = db
+    .query<{ d: string | null }, []>("select min(date) as d from units")
+    .get()?.d;
+  const sources = db
+    .query<
+      { first: string; last: string; n: number; source: string },
+      [string]
+    >(
+      `select u.source, count(*) as n, min(u.date) as first, max(u.date) as last from unit_people p
+       join units u on u.id = p.unit where p.person = ? group by u.source order by n desc`
+    )
+    .all(ref);
+  const months = new Map<
+    string,
+    { moments: number; observations: number; units: Map<string, number> }
+  >();
+  const month = (m: string) => {
+    const was = months.get(m);
+    if (was) {
+      return was;
+    }
+    const fresh = { moments: 0, observations: 0, units: new Map() };
+    months.set(m, fresh);
+    return fresh;
+  };
+  for (const r of db
+    .query<{ m: string; n: number; source: string }, [string]>(
+      `select substr(u.date, 1, 7) as m, u.source, count(*) as n from unit_people p
+       join units u on u.id = p.unit where p.person = ? group by m, u.source`
+    )
+    .all(ref)) {
+    month(r.m).units.set(r.source, r.n);
+  }
+  for (const r of db
+    .query<{ m: string; n: number }, [string]>(
+      `select substr(o.date, 1, 7) as m, count(*) as n from links l join observations o on o.id = l.observation
+       where l.entity = ? and ${CURRENT} group by m`
+    )
+    .all(ref)) {
+    month(r.m).observations = r.n;
+  }
+  for (const m of moments) {
+    month(daysOf(m)[0].slice(0, 7)).moments += 1;
+  }
+  return [
+    `What Life holds about them (its memory starts on ${start ?? "?"}; older chats are only in the archive: \`chats\` with \`who\` and \`from\`):`,
+    ...sources.map(
+      (s) => `- ${s.source}: ${s.n} units, ${s.first} to ${s.last}`
+    ),
+    "By month:",
+    ...[...months]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([m, x]) => {
+        const units = [...x.units.values()].reduce((a, b) => a + b, 0);
+        const by = [...x.units]
+          .sort((a, b) => b[1] - a[1])
+          .map(([s, n]) => `${s} ${n}`)
+          .join(", ");
+        return `- ${m}: ${units} units${by ? ` (${by})` : ""}, ${x.observations} observations, ${x.moments} moments`;
+      }),
+    "Not in Life: calls, and time together that wasn't recorded.",
+  ];
+}
+
+/**
+ * A person: their page, whole, and what Life holds about them by source and month; then their observations (every
+ * one linked to them, whatever page it lives on) and the moments with them, newest first by whole days, and their
+ * recorded conversations. `before` (a day, exclusive) pages back; each answer names the next one. A name
+ * two people go by lists them, then shows the first; a name on no page nor map is looked for among lifelog's
+ * speakers; a name no one goes by says so and lists the names near it.
+ */
+export async function person(name?: string, o: { before?: string } = {}) {
   if (!name) {
     const list = await peoplePages();
     return withIndex((db) => {
@@ -350,26 +524,30 @@ export async function person(name?: string) {
     });
   }
   const { canon, inferred, refOf, truth } = await readPeople();
-  const same = namedLike(name, [
+  const people = [
     ...truth.people,
     ...new Map(
       inferred
         .filter((p) => canon(`person:${p.id}`) === `person:${p.id}`)
         .map((p) => [p.id, { ...p, aliases: p.surfaces }])
     ).values(),
-  ]);
+  ];
+  const same = namedLike(name, people);
   const found = await findPage("people", same[0]?.id ?? name);
   const id = found?.id ?? same[0]?.id ?? slugOf(name);
-  const mapped = truth.people.find((p) => p.id === id);
-  const shared = (
-    await momentsWhere((m) =>
-      m.people.some(({ ref }) => refOf(ref) === `person:${id}`)
-    )
-  ).slice(-LIMIT);
-  const sharedLines =
-    shared.length > 0
-      ? ["", "Last moments with them:", ...shared.map(momentLine)]
-      : [];
+  const ref = `person:${id}`;
+  const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
+  // Pages go by whole local days: a day is never cut between two answers.
+  const before = o.before?.slice(0, 10);
+  const all = await momentsWhere((m) =>
+    m.people.some((p) => refOf(p.ref) === ref)
+  );
+  const moments = newestDays(
+    all.toReversed(),
+    (m) => daysOf(m)[0],
+    LIMIT,
+    before
+  );
   return withStore((store) =>
     withIndex((db) => {
       const heard =
@@ -378,44 +556,112 @@ export async function person(name?: string) {
           : speakers(store).filter((s) =>
               normalize(s.name).includes(normalize(name))
             );
-      const lifelog = mapped?.handles.lifelog;
-      const ids = lifelog ? [lifelog] : heard.map((s) => s.id);
+      if (!found && same.length === 0 && heard.length === 0) {
+        return noOne(name, people, speakers(store));
+      }
+      const observations = newestDays(
+        linked(db, ref),
+        (r) => r.date,
+        LIMIT,
+        before
+      );
+      const obsLines = observations.taken.map(line);
+      // The later of the days the two lists would page back from: neither skips anything (one may repeat).
+      const next = [observations.next, moments.next]
+        .filter((d): d is string => !!d)
+        .sort()
+        .at(-1);
       return [
-        ...candidateLines(
-          name,
-          same,
-          (who) =>
-            db
-              .query<{ n: number }, [string]>(
-                `select count(*) as n from links l join observations o on o.id = l.observation where l.entity = ? and ${CURRENT}`
-              )
-              .get(`person:${who}`)?.n ?? 0
-        ),
-        // The owner's own page opens with his goals, in his words and his order.
-        ...(`person:${id}` === OWNER && truth.me.goals
-          ? ["Goals (truth/me.md, his words):", truth.me.goals, ""]
-          : []),
-        ...entity(found?.text ?? null, () =>
-          latest(
-            db,
-            "join links l on l.observation = o.id where l.entity = ?",
-            `person:${id}`
-          )
-        ),
-        ...sharedLines,
-        ...(ids.length > 0
+        ...candidateLines(name, same, (who) => linkedCount(db, who)),
+        ...(before
           ? [
-              "",
-              `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`,
-              ...conversationsWith(store, ids, LIMIT).map(
-                (c) =>
-                  `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`
-              ),
+              `Before ${before}:`,
+              "Observations:",
+              ...(obsLines.length > 0 ? obsLines : ["(none)"]),
             ]
-          : []),
+          : [
+              ...entity(found?.text ?? null, () => obsLines),
+              "",
+              ...coverageLines(db, ref, all),
+            ]),
+        ...momentLines(moments.taken),
+        ...recorded(
+          store,
+          lifelog ? [lifelog] : heard.map((s) => s.id),
+          heard.map((s) => s.name),
+          before
+        ),
+        "",
+        olderLine(next),
       ];
     })
   );
+}
+
+/** The moments with someone, oldest first. */
+const momentLines = (newestFirst: Moment[]) =>
+  newestFirst.length > 0
+    ? ["", "Moments with them:", ...newestFirst.toReversed().map(momentLine)]
+    : [];
+
+const olderLine = (next?: string) =>
+  next ? `Older: the same call with \`before\` ${next}.` : "(nothing older)";
+
+/** A name no one goes by: says so, with the names near it (lifelog's speakers too, but one already on the list is that person). */
+function noOne(
+  name: string,
+  people: { aliases: string[]; id: string; name: string }[],
+  heard: { name: string }[]
+) {
+  const near = nearNames(name, [
+    ...people,
+    ...heard
+      .filter((s) => namedLike(s.name, people).length === 0)
+      .map((s) => ({ aliases: [], id: s.name, name: s.name })),
+  ]);
+  return [
+    `No one goes by "${name}".`,
+    ...(near.length > 0
+      ? [
+          "Names near it (`person <id>`):",
+          ...near.map((p) => `- ${p.id}: ${p.name}`),
+        ]
+      : []),
+  ];
+}
+
+/** Every current observation linked to `ref` worth a page line, whatever page it lives on, newest first. */
+const linked = (db: Database, ref: string) =>
+  db
+    .query<Row, [string]>(
+      `select ${COLUMNS} from observations o join links l on l.observation = o.id
+       where l.entity = ? and o.salience >= ${KEEP_AT} and ${CURRENT} order by o.at desc`
+    )
+    .all(ref);
+
+const linkedCount = (db: Database, id: string) =>
+  db
+    .query<{ n: number }, [string]>(
+      `select count(*) as n from links l join observations o on o.id = l.observation where l.entity = ? and ${CURRENT}`
+    )
+    .get(`person:${id}`)?.n ?? 0;
+
+/** The recorded conversations where lifelog's `ids` spoke, before `before`; `heard`: the speaker names they were found by. */
+function recorded(
+  store: Store,
+  ids: string[],
+  heard: string[],
+  before?: string
+) {
+  return ids.length > 0
+    ? [
+        "",
+        `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard)].join(", ")}` : ""} (\`fetch <id>\`):`,
+        ...conversationsWith(store, ids, LIMIT, before).map(
+          (c) => `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`
+        ),
+      ]
+    : [];
 }
 
 const SUMMARY = 200;
@@ -499,7 +745,9 @@ export async function area(name: string) {
   return withIndex((db) =>
     entity(text, (meta) =>
       meta?.page.startsWith("area:")
-        ? latest(db, "where o.area = ?", meta.page.slice("area:".length))
+        ? latest(db, "where o.area = ?", meta.page.slice("area:".length)).map(
+            line
+          )
         : []
     )
   );

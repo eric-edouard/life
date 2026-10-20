@@ -8,7 +8,7 @@ import {
 } from "../schema";
 import { OWNER, othersIn, type Truth } from "../truth";
 import { digest, type Standing, shows, stateOf } from "./ledger";
-import { daysBefore, within } from "./units";
+import { daysBefore } from "./units";
 
 // The pure parts of stage 3 (memory-pipeline §3.5): a page's file format, where each observation lives, the owner's
 // edits found in a page, the consolidation reply checked and merged into the previous page, and the rules code
@@ -621,11 +621,5 @@ export function oftenLine(counts: Map<string, number>, top = 8) {
     : [];
 }
 
-/** The live lines of a page file, each section within `budget` characters: the agent digest. */
-export function digestOf(text: string, budget: number) {
-  const p = parsePage(text);
-  return LIVE.flatMap(({ key, title }) => {
-    const kept = within(p?.raw[key] ?? [], budget, (l) => l.length + 1);
-    return kept.length > 0 ? [`${title}:`, ...kept] : [];
-  }).join("\n");
-}
+/** A page file as a reader sees it: everything but its frontmatter. */
+export const bodyOf = (text: string) => text.replace(FRONT, "").trim();

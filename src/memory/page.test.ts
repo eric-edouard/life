@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import type { Observation } from "../schema";
 import {
   assemble,
+  bodyOf,
   type Check,
   changes,
   checkReply,
-  digestOf,
   fit,
   generated,
   homeOf,
@@ -410,11 +410,10 @@ test("what changed counts lines added, moved to History and removed; the digest 
     moved: 1,
     removed: 1,
   });
-  expect(digestOf(page(), 1000)).toContain("Steel supports");
-  expect(digestOf(page(), 1000)).not.toContain("Plan sent");
-  expect(digestOf(page(), 80)).toBe(
-    "Now:\n- The handover is expected around 17 Oct. [obs_bbbbbbbbbbbb]"
-  );
+  // A reader gets the whole page, History included, without its frontmatter.
+  expect(bodyOf(page())).toContain("Steel supports");
+  expect(bodyOf(page())).toContain("## History");
+  expect(bodyOf(page())).not.toContain("schemaVersion");
   expect(perSection()).toEqual({ health: [], history: [], now: [], views: [] });
 });
 
@@ -567,8 +566,8 @@ test("his page renders its sections in order and reads back; other pages keep No
   ] as never);
   expect(onTimo).not.toContain("## Health");
   expect(parsePage(onTimo)?.raw.now).toContain("- Hans hurt his back.");
-  expect(digestOf(text, 1000)).toBe(
-    "Views, values and habits:\n- Values honesty. [obs_aaaaaaaaaaaa]\n- Mine, as I wrote it.\nHealth:\n- Sleeps badly. [obs_cccccccccccc]"
+  expect(bodyOf(text)).toContain(
+    "## Views, values and habits\n\n- Values honesty. [obs_aaaaaaaaaaaa]\n- Mine, as I wrote it."
   );
   expect(page()).not.toContain("## Views");
   expect(page()).not.toContain("## Health");

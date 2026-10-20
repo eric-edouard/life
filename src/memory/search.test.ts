@@ -16,9 +16,12 @@ import { holdsAll } from "./raw";
 import {
   buildIndex,
   candidateLines,
+  coverageLines,
   dayLines,
   momentLine,
   namedLike,
+  nearNames,
+  newestDays,
   readIndex,
   matches as searchMatches,
 } from "./search";
@@ -154,7 +157,63 @@ test("search: an observation hit names the unit it comes from and who is in it",
     )
   ).toThrow();
   expect(searchMatches(db, "beautify")[0]).toBe(hit);
+  // `from`/`to` bound observations and units too, both days included.
+  expect(searchMatches(db, "beautify", { from: "2026-10-14" })[0]).toBe(hit);
+  expect(searchMatches(db, "beautify", { to: "2026-10-14" })[0]).toBe(hit);
+  expect(searchMatches(db, "beautify", { from: "2026-10-15" })).toEqual([
+    "(nothing found)",
+  ]);
+  expect(searchMatches(db, "beautify", { to: "2026-10-13" })).toEqual([
+    "(nothing found)",
+  ]);
+  // What Life holds about someone: by source and by month, and what it can't hold.
+  const cover = coverageLines(db, "person:jerome", []);
+  expect(cover[0]).toContain("its memory starts on 2026-10-14");
+  expect(cover).toContain("- lifelog: 1 units, 2026-10-14 to 2026-10-14");
+  expect(cover).toContain(
+    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 moments"
+  );
+  expect(cover.at(-1)).toContain("calls");
   db.close();
+});
+
+test("person: a misheard or misspelled name lists the names near it, never a guess", () => {
+  const people = [
+    { aliases: ["Joel", "Joël"], id: "joel", name: "Joël Marchand" },
+    { aliases: [], id: "noel", name: "Noel" },
+    { aliases: ["Ines"], id: "ines", name: "Inès Fabre" },
+  ];
+  expect(nearNames("Joelle", people).map((p) => p.id)).toEqual(["joel"]);
+  expect(nearNames("Jowl", people).map((p) => p.id)).toEqual(["joel"]);
+  expect(nearNames("Joël Marchant", people).map((p) => p.id)).toEqual(["joel"]);
+  expect(nearNames("Joe", people).map((p) => p.id)).toEqual(["joel"]);
+  // A name of four letters or fewer allows one edit only: "Nil" is two from "Noel".
+  expect(nearNames("Nil", people)).toEqual([]);
+  expect(nearNames("Zebulon", people)).toEqual([]);
+});
+
+test("person pages back by whole days: a day is never cut, and `next` is the day to page back from", () => {
+  const items = [
+    "2026-10-20",
+    "2026-10-19",
+    "2026-10-19",
+    "2026-10-18",
+    "2026-10-17",
+  ];
+  const day = (d: string) => d;
+  expect(newestDays(items, day, 2)).toEqual({
+    next: "2026-10-19",
+    taken: ["2026-10-20", "2026-10-19", "2026-10-19"],
+  });
+  expect(newestDays(items, day, 2, "2026-10-19")).toEqual({
+    next: undefined,
+    taken: ["2026-10-18", "2026-10-17"],
+  });
+  expect(newestDays(items, day, 9)).toEqual({ next: undefined, taken: items });
+  expect(newestDays(items, day, 2, "2026-10-17")).toEqual({
+    next: undefined,
+    taken: [],
+  });
 });
 
 test("readIndex takes no async read: the index closes when the read returns", () => {
