@@ -46,7 +46,8 @@ Everything is in the memory CLI (`bun life memory ...`); the connector's tools a
 - `week <YYYY-MM-DD>`: Monday to Sunday of that date's week, day by day: his plan (the events tagged `#plan` on his
   main Google calendar, which Atlas writes on his word; read from the Mac's Calendar database, `LIFE_CALENDAR` in
   `.env`), his Hevy workouts (its API, `HEVY_API_KEY`) and the moments. Read at the call, never stored; Life writes
-  neither the calendar nor Hevy. Nothing is matched: the reader judges plan against what happened.
+  neither the calendar nor Hevy. Nothing is matched: the reader judges plan against what happened. His `#plan` blocks
+  (his word) and the moments Life reads as planned (inferred) stay apart: never merge one into the other.
 - `chats --who <name|handle> | --chat <id> [--from d --to d]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, 7 days and 200 messages at most.
 
 Use the CLI; read a source directly only if it is unavailable: `~/Library/Application Support/Life/archive/` (`whatsapp.sqlite`,

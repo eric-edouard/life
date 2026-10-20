@@ -89,3 +89,21 @@ test("a source that gave nothing says why, never reads as an empty day; any date
     "  not connected (LIFE_CALENDAR is not set in .env)"
   );
 });
+
+test("a block over several days shows on each of them, not on the day it ends at midnight", () => {
+  const lines = weekLines(
+    ["2026-10-17", "2026-10-18", "2026-10-19"],
+    [
+      {
+        allDay: true,
+        end: "2026-10-19T00:00:00.000Z",
+        start: "2026-10-17T00:00:00.000Z",
+        title: "Weekend off",
+      },
+    ],
+    [],
+    []
+  );
+  expect(lines.filter((l) => l === "- all day Weekend off")).toHaveLength(2);
+  expect(lines.slice(lines.indexOf("## 2026-10-19"))).toContain("  no plan");
+});

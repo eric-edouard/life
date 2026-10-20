@@ -86,7 +86,7 @@ Most asks are "hey Atlas, remind me to …": add the real reminder with `reminde
 
 When he asks you to plan his week or a day, write each block (the morning workout, focus blocks, free time, what he
 names) to his main Google calendar with `gog calendar create primary`: one event per block (no `--rrule`), no
-attendees, times in the zone he will be in then (`places`, `day`), and `#plan` on the description's last line. Life
+attendees, times in the zone he will be in then (`places`, `day`), and `#plan` in the description. Life
 reads only the events tagged so and never writes the calendar; to move or drop a block, update or delete its event.
 `week <date>` lays his plan next to his Hevy workouts and the moments, day by day: today's plan for the Today view, last
 week at his weekly review, where you ask him only about the planned blocks with nothing for them.
