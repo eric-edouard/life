@@ -9,6 +9,7 @@ import {
   RESOURCE,
   type Refused,
   SCOPE,
+  UNREACHABLE,
   type Verify,
 } from "./auth";
 import {
@@ -443,7 +444,7 @@ export function createMcp(verify: Verify) {
       return text("forbidden", 403);
     }
     if (refusal === "unreachable") {
-      return text("Life unreachable", 503);
+      return text(UNREACHABLE, 503);
     }
     return text("unauthorized", 401, {
       "WWW-Authenticate": token

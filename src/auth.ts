@@ -20,6 +20,8 @@ const refused = (
   why,
 });
 export type Refused = ReturnType<typeof refused>;
+/** What an `unreachable` refusal answers, with a 503: Life is up, lifelog's keys are not. */
+export const UNREACHABLE = "lifelog unreachable, try again";
 
 /**
  * Whose a token is: the owner's OAuth client and scopes when lifelog's OAuth server issued it for Life (`life:read`) to the owner, else a

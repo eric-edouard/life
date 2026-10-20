@@ -153,33 +153,36 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
     },
     port: 0,
   });
-  const refusal = async (path: string, kid = "k1") => {
-    const at = ownerTokens({
-      jwks: createRemoteJWKSet(new URL(path, lifelog.url), {
-        timeoutDuration: 100,
-      }),
-      now: () => NOW.getTime(),
-      ownerSub: OWNER,
-    });
-    const bearer = await new SignJWT({ aud: RESOURCE, iss: ISSUER })
-      .setProtectedHeader({ alg: "EdDSA", kid })
-      .setExpirationTime(SECONDS + 60)
-      .sign(privateKey);
-    return (await at(bearer)) as { refusal?: string };
-  };
-  expect((await refusal("/slow")).refusal).toBe("unreachable");
-  expect((await refusal("/down")).refusal).toBe("unreachable");
-  expect((await refusal("/keys", "k2")).refusal).toBe("invalid");
-  expect((await refusal("/keys")).refusal).toBe("forbidden");
-  const down = createMcp(async () => ({ refusal: "unreachable", why: "x" }));
-  const res = await down.handle(
-    new Request(RESOURCE, {
-      headers: { authorization: "Bearer t" },
-      method: "POST",
-    })
-  );
-  expect(res?.status).toBe(503);
-  lifelog.stop(true);
+  try {
+    const refusal = async (path: string, kid = "k1") => {
+      const at = ownerTokens({
+        jwks: createRemoteJWKSet(new URL(path, lifelog.url), {
+          timeoutDuration: 100,
+        }),
+        now: () => NOW.getTime(),
+        ownerSub: OWNER,
+      });
+      const bearer = await new SignJWT({ aud: RESOURCE, iss: ISSUER })
+        .setProtectedHeader({ alg: "EdDSA", kid })
+        .setExpirationTime(SECONDS + 60)
+        .sign(privateKey);
+      return (await at(bearer)) as { refusal?: string };
+    };
+    expect((await refusal("/slow")).refusal).toBe("unreachable");
+    expect((await refusal("/down")).refusal).toBe("unreachable");
+    expect((await refusal("/keys", "k2")).refusal).toBe("invalid");
+    expect((await refusal("/keys")).refusal).toBe("forbidden");
+    const down = createMcp(async () => ({ refusal: "unreachable", why: "x" }));
+    const res = await down.handle(
+      new Request(RESOURCE, {
+        headers: { authorization: "Bearer t" },
+        method: "POST",
+      })
+    );
+    expect(res?.status).toBe(503);
+  } finally {
+    lifelog.stop(true);
+  }
 });
 
 test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders` and `task` write but are not destructive, so Atlas runs unattended", async () => {
