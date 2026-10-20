@@ -1,4 +1,4 @@
-# A made-up map for tests (DATA is src/test-data while `bun test` runs).
+# A made-up map for tests (each `bun test` run reads its own copy as DATA).
 schemaVersion: 1
 people:
   - id: me

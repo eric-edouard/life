@@ -10,8 +10,10 @@ backfill): `docs/relationships.md`, the plan and his decisions.
 `memory/` and `truth/` (every such path here) are in `DATA` (`src/truth.ts`): `~/Life`, a local git repo of their own
 with no remote, or `$LIFE_DATA`. The nightly commits there and pushes nothing (`commitMemory` refuses a repo with a
 remote): nothing of his goes to GitHub. Every worktree reads and writes that same `~/Life` and shares its one lock
-(`~/Life/.nightly.lock`); point `LIFE_DATA` at a copy to experiment. `bun test` reads made-up data (`src/test-data`,
-`NODE_ENV=test`). Rules for editing `truth/` are in `~/Life/AGENTS.md`.
+(`~/Life/.nightly.lock`); point `LIFE_DATA` at a copy to experiment. Each `bun test` run (`NODE_ENV=test`) reads its
+own copy of the made-up data (`src/test-data`), in a temp folder outside any repo, its lock and log there too: two runs
+at once share nothing, and `commitMemory` refuses a folder that is not a repo's root. Rules for editing `truth/` are
+in `~/Life/AGENTS.md`.
 
 ## It runs itself
 
