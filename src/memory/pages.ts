@@ -15,6 +15,7 @@ import { DATA, OWNER, type Truth } from "../truth";
 import {
   appendJsonl,
   CORRECTIONS,
+  PAGE_KINDS,
   PAGES,
   pagePath,
   readUnits,
@@ -404,7 +405,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
 /** Deletes the page files no target claims any more (a person folded into another, a person who lost their page). */
 export async function removeOrphans(dir: string, keep: Set<string>) {
   const found = await Promise.all(
-    ["people", "areas"].map(async (kind) =>
+    PAGE_KINDS.map(async (kind) =>
       (await readdir(join(dir, kind)).catch(() => []))
         .filter((name) => name.endsWith(".md"))
         .map((name) => join(dir, kind, name))
@@ -538,7 +539,7 @@ export function changedSinceCommit(root = DATA, dir = PAGES) {
   ])
     .stdout.toString()
     .split("\0");
-  const now = ["people", "areas"].flatMap((kind) => {
+  const now = PAGE_KINDS.flatMap((kind) => {
     const sub = join(dir, kind);
     return existsSync(sub)
       ? readdirSync(sub).map((name) => relative(root, join(sub, name)))
