@@ -156,6 +156,14 @@ test("search: an observation hit names the unit it comes from and who is in it",
     )
   ).toThrow();
   expect(searchMatches(db, "beautify")[0]).toBe(hit);
+  // A unit's people are kept once each: the index takes them as reindex maps them today (two refs may fold into one).
+  buildIndex([o], path, standing, [
+    { unit: { ...unit, people: ["person:jerome", "person:jerome"] } },
+  ]);
+  expect(
+    db.query("select person from unit_people where unit = ?").all(unit.id)
+  ).toEqual([{ person: "person:jerome" }]);
+  buildIndex([o], path, standing, [{ unit }]);
   // `from`/`to` bound observations and units too, both days included.
   expect(searchMatches(db, "beautify", { from: "2026-10-14" })[0]).toBe(hit);
   expect(searchMatches(db, "beautify", { to: "2026-10-14" })[0]).toBe(hit);
