@@ -1,6 +1,6 @@
-// The portrait's clip player (/me/player.js). Each <figure class="clip" data-clip="/me/<page>/<clip>"> gets its
+// The portrait's clip player (/me/player.js). Each <figure class="clip" data-clip="/me/<page>/clips/<clip>"> gets its
 // words from <clip>.json (lifelog's own timings, cut to the clip) and plays <clip>.m4a, marking the word being
-// said `now` and the ones before it `said`, as lifelog's app does. A word is a button: it plays from there.
+// said `now` and the ones before it `said`, as lifelog's app does. Clicking a word plays from there.
 // One clip plays at a time. The page styles .clip, .turn, .who, .w, .now, .said and .playing.
 
 const HOLD_MS = 600;
@@ -11,7 +11,7 @@ for (const clip of document.querySelectorAll("figure.clip[data-clip]")) {
   const say = clip.querySelector(".say");
   const play = clip.querySelector("button.play");
   const audio = new Audio(`${src}.m4a`);
-  audio.preload = "none";
+  audio.preload = "metadata"; // so a click on a word can seek before playing (Safari)
   let spans = [];
   let frame = 0;
 
@@ -68,7 +68,7 @@ for (const clip of document.querySelectorAll("figure.clip[data-clip]")) {
       current.pause();
     }
     current = audio;
-    audio.play();
+    audio.play().catch(() => clip.classList.add("unavailable"));
   };
   audio.addEventListener("play", () => {
     clip.classList.add("playing");

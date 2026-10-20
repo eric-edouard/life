@@ -133,7 +133,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`deck` in `assets/check/check.js`) stays generic: items and a list of verdicts in, verdicts out.
 - **The portrait** (`src/portrait.ts`, `/me` on the same server, his request of 20 Oct) serves pages about him and
   his people from `~/Life/docs/portrait/` (written from his memory in a session, never in this repo): `/me` is
-  `index.html`, `/me/<name>` is `<name>.html` (lowercase letters, digits, hyphens), `/me/<name>/<clip>.m4a|json` a
+  `index.html`, `/me/<name>` is `<name>.html` (lowercase letters, digits, hyphens), `/me/<name>/clips/<clip>.m4a|json` a
   clip of that page (audio cut from lifelog, and lifelog's word timings shifted to it), and `/me/player.js` the clip
   player (`assets/portrait/`, code, so in this repo); nothing else. Its CSP allows inline styles, Google Fonts and
   those files only (no images). It is behind a password (`LIFE_PORTRAIT_PASSWORD`;
