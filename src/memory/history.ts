@@ -294,9 +294,8 @@ export async function lifeStatus(now = new Date()) {
   const archive = (name: string) => dbTime(archiveDb(name));
   let watcher: Record<string, unknown> = { state: "unknown" };
   if (health) {
-    const { public: _, ...rest } = health;
     watcher = {
-      ...rest,
+      ...health,
       state: polling(health, now.getTime()) ? "ok" : "not-polling",
     };
   }
@@ -307,8 +306,6 @@ export async function lifeStatus(now = new Date()) {
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,
     },
-    // The watcher's public check as it recorded it; null: never checked.
-    connector: health?.public ?? null,
     consolidation: lastOf(list, "memory.pages"),
     extraction: lastOf(list, "memory.extract"),
     indexBuiltAt: dbTime(INDEX),

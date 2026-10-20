@@ -11,7 +11,7 @@ import { count, localTime, time } from "./units";
 import { localDate, when } from "./zones";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
-// (no model). `sendReport` also carries the watcher's alerts (its feed, its public connector).
+// (no model). `sendReport` also carries the alerts (a failed action or delivery, a task the board cannot show, the lock).
 
 const FROM = `Claude <${LIFE_MAIL.from}>`;
 
@@ -211,46 +211,6 @@ function alert(
   const { date, weekday } = when(localDate(at));
   const { subject, ...rest } = a;
   return compose(subject, { date, label, weekday, ...rest });
-}
-
-/** The watcher's alert (`down`: no successful poll for a while) or its all-clear. */
-export function watchReport(down: boolean, since: string, error: string) {
-  const at = time(since);
-  return alert(since, "Life watcher", {
-    failure: down ? { error, step: "the lifelog feed" } : null,
-    notes: [
-      down
-        ? "No successful poll since the time above. New chapters are not reaching the units; they catch up from the saved cursor once it polls again."
-        : "Polling again from the saved cursor; nothing was lost.",
-      "Details: bun life status, and ~/Library/Logs/life-watch.log",
-    ],
-    preheader: down
-      ? `No successful poll since ${at}: ${error}`.slice(0, 140)
-      : "Polling again.",
-    stats: [{ label: "last ok", value: at }],
-    subject: down ? "lifelog watcher is down" : "lifelog watcher is back",
-    verdict: down ? "DOWN" : "OK · polling again",
-  });
-}
-
-/** The public connector's alert (the tunnel did not recover) or its all-clear. */
-export function publicReport(down: boolean, at: string) {
-  return alert(at, "Life watcher", {
-    failure: down
-      ? {
-          error:
-            "life.ericedouard.com does not answer; restarting the tunnel did not fix it",
-          step: "the public connector",
-        }
-      : null,
-    notes: ["Details: bun life status, and ~/Library/Logs/life-watch.log"],
-    preheader: down
-      ? "Claude and ChatGPT cannot reach Life."
-      : "Claude and ChatGPT reach Life again.",
-    stats: [{ label: down ? "down since" : "back at", value: time(at) }],
-    subject: down ? "public connector is down" : "public connector is back",
-    verdict: down ? "DOWN" : "OK · back",
-  });
 }
 
 /** The nightly's alert: a run has held the lock over 3 hours, so no night or midday can start. */
