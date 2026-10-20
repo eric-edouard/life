@@ -1,6 +1,8 @@
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { stamp } from "../llm";
+import { git } from "../proc";
 import {
   type Area,
   Correction,
@@ -9,7 +11,7 @@ import {
   type Person,
   type Unit,
 } from "../schema";
-import { OWNER, type Truth } from "../truth";
+import { DATA, OWNER, type Truth } from "../truth";
 import {
   appendJsonl,
   CORRECTIONS,
@@ -177,8 +179,6 @@ async function targets(
 }
 
 interface BuiltPage {
-  /** Lines added, moved to History and removed. */
-  changed: ReturnType<typeof changes>;
   /** What the owner did to the page file, now recorded in corrections.jsonl. */
   corrections: Correction[];
   rejects: { reason: string; text: string }[];
@@ -340,7 +340,6 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
     });
     return {
       ...base,
-      changed: changes(old, kept),
       skipped: true,
       text: prev ? finish(kept, prev.meta.madeBy) : null,
     };
@@ -396,7 +395,6 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   const madeBy = stamp(r.step.llm, PAGES_PROMPT, r.step.run);
   return {
     ...base,
-    changed: changes(old, sections),
     rejects: reply.rejects,
     skipped: false,
     text: finish(sections, madeBy),
@@ -514,11 +512,40 @@ export async function pages(opts: PagesOptions) {
       rejects: built.reduce((n, b) => n + b.rejects.length, 0),
       skipped: built.filter((b) => b.skipped).length,
     }),
-    /** Per page that changed: lines added, moved to History and removed. */
-    changes: built.flatMap((b) =>
-      b.changed.added + b.changed.moved + b.changed.removed > 0
-        ? [{ page: b.target.name, ...b.changed }]
-        : []
-    ),
+    /** Per page that changed since the last commit (the last night): lines added, moved to History and removed. */
+    changes: changedSinceCommit(),
   };
+}
+
+/**
+ * Each page that changed since `~/Life`'s last commit (the night's), midday runs' rewrites included, against its
+ * committed version: lines added, moved to History and removed. A page gone counts its lines removed.
+ */
+export function changedSinceCommit(root = DATA, dir = PAGES) {
+  const at = relative(root, dir);
+  const paths = git(root, [
+    "status",
+    "--porcelain",
+    "--untracked-files=all",
+    "--",
+    at,
+  ])
+    .stdout.toString()
+    .split("\n")
+    .map((l) => l.slice(3).trim())
+    .filter((p) => p.endsWith(".md"));
+  return paths.flatMap((path) => {
+    const head = git(root, ["show", `HEAD:${path}`]);
+    const was = parsePage(head.exitCode === 0 ? head.stdout.toString() : "");
+    const file = join(root, path);
+    const now = existsSync(file) ? parsePage(readFileSync(file, "utf8")) : null;
+    const name = now?.meta.name ?? was?.meta.name;
+    const c = changes(
+      was ? generated(was) : perSection(),
+      now ? generated(now) : perSection()
+    );
+    return name && c.added + c.moved + c.removed > 0
+      ? [{ page: name, ...c }]
+      : [];
+  });
 }

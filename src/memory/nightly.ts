@@ -88,9 +88,9 @@ function coded(day: string, rec: RunRecord) {
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (guard.ts), and
- * only the 3rd failure of a day sends the failure email. A tick that skips the night runs the midday pass when its
- * slot is open, else a week of the backfill when one is set. Then the
- * daily backup, when it is due (`backupDue`: the night is done, on this tick or before).
+ * only the 3rd failure of a day sends the failure email. What a tick runs is `turnOf`'s: the night, else the midday
+ * pass (moments, extract, pages) when its slot is open, else a backfill week. Then the daily backup, when it is due
+ * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
   const now = new Date();
@@ -115,11 +115,7 @@ export async function nightly(days: number, force = false) {
   const code =
     turn === "night"
       ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
-      : await {
-          backfill: () => backfilled(day),
-          midday: () => midday(now),
-          none: () => Promise.resolve(0),
-        }[turn]();
+      : await daytime(turn, now, day);
   const { backup: was, night: state } = states();
   if (force || !backupDue(now.getHours(), day, state, was)) {
     return code;
@@ -134,6 +130,14 @@ export async function nightly(days: number, force = false) {
   return Math.max(code, backedUp);
 }
 
+/** A tick's work when it is not the night's. */
+function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
+  if (turn === "midday") {
+    return midday(now);
+  }
+  return turn === "backfill" ? backfilled(day) : Promise.resolve(0);
+}
+
 /**
  * A midday run (about 13:00 and 19:00, same 30-minute tick): moments and extract of today, so the day's speech is read
  * while it is fresh, then the index, then the pages that have new observations. No commit, no email: the nightly
@@ -144,14 +148,12 @@ export async function midday(now = new Date(), force = false) {
   if (!(force || middayDue(now, readMidday()))) {
     return 0;
   }
-  const code = await locked(async () => {
+  // Pages follow the day: only a page with new observations is rewritten (a quiet one keeps its file).
+  const code = await locked(() => {
     recordMidday();
-    if ((await sweep("memory.midday", lastDays(now, 1))) !== 0) {
-      return 1;
-    }
-    // Pages follow the day: only a page with new observations is rewritten (a quiet one keeps its file).
-    const paged = await pages({ rebuild: false });
-    return paged.failed > 0 ? 1 : 0;
+    return sweep("memory.midday", lastDays(now, 1), () =>
+      pages({ rebuild: false })
+    );
   });
   return code ?? Number(force);
 }
@@ -176,8 +178,16 @@ async function backfilled(day: string) {
   return code ?? 0;
 }
 
-/** One sweep without pages, commit or email: the evidence of `window`, read once for moments and extract, then the index; recorded as `name`. The caller holds the lock. */
-async function sweep(name: string, window: Window) {
+/**
+ * One sweep without commit or email: the evidence of `window`, read once for moments and extract, then `then` (the
+ * midday's pages), then the index; recorded as `name`, every step's failure caught and logged. The caller holds the
+ * lock.
+ */
+async function sweep(
+  name: string,
+  window: Window,
+  then?: () => Promise<{ failed: number }>
+) {
   const rec = record(name, { ...window });
   const phase = phases(rec);
   try {
@@ -187,6 +197,9 @@ async function sweep(name: string, window: Window) {
     console.log(JSON.stringify(found));
     const extracted = await phase.step("extract", () => extract(evidence));
     console.log(JSON.stringify(extracted));
+    if (then) {
+      await phase.step("pages", then);
+    }
     phase.at = "index";
     await reindex();
     rec.end({ outcome: "ok" });

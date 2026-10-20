@@ -52,7 +52,7 @@ export const backupDue = (
   (decide(hour, day, night) === "skip" || hour >= 6) &&
   decide(hour, day, backup) === "run";
 
-/** The hours of the midday runs (moments and extract of the day so far, no pages, no commit, no email). */
+/** The hours of the midday runs (moments, extract and pages of the day so far; no commit, no email). */
 const MIDDAYS = [13, 19];
 
 /** True at the first tick after a midday hour that no run has used yet (`last`: when the last midday run started). */
