@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { codeAt, exec } from "./proc";
 import { ARCHIVE, archiveDb } from "./sources/archived";
-import { APPLE_EPOCH_S } from "./sources/imessage";
+import { fromAppleS, toAppleS } from "./sources/imessage";
 import { listNotes, NOTES, noteVersion } from "./sources/notes";
 import { ROOT } from "./truth";
 
@@ -89,7 +89,7 @@ export function archiveOnce(
   try {
     const empty = !archive.query("select 1 from messages limit 1").get();
     // The first run copies all history; later runs only the last week, where anything can still change.
-    const since = empty ? 0 : now / 1000 - APPLE_EPOCH_S - WINDOW_S;
+    const since = empty ? 0 : toAppleS(now) - WINDOW_S;
     const rows = whatsapp
       .query<Row, [number]>(
         `select coalesce(m.ZSTANZAID, 'pk:' || m.Z_PK) as id, m.ZMESSAGETYPE as type, m.ZISFROMME as fromMe,
@@ -110,7 +110,7 @@ export function archiveOnce(
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       rows.map((r) => [
         ...[r.id, r.chat, r.chatName, r.sender, r.senderName, r.fromMe],
-        new Date((r.at + APPLE_EPOCH_S) * 1000).toISOString(),
+        fromAppleS(r.at).toISOString(),
         ...[r.type, r.text, r.media, seenAt],
       ])
     );
