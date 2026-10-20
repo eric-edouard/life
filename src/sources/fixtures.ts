@@ -48,6 +48,7 @@ export const turn = (
   isOwner = false
 ) => ({
   conversationId,
+  endAt: startAt,
   jobId: "job-1",
   speaker: { isOwner, personId, personName },
   startAt,

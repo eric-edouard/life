@@ -33,6 +33,8 @@ When he asks you to change a reminder, use `bun life act '<json>'` (kinds, field
 `src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why.
 `act` refuses an add whose title an open reminder has (`duplicateOf`, every caller), and a timed `due` always alerts
 at that time. Deep work on his life is Atlas's, his ChatGPT agent: hand it over with `bun life ask '<his words>'`.
+`bun life asks [--from d --to d]` lists where each ask's time went (spoken, ended, arrived, recorded, delivered, claimed,
+closed).
 
 ## Answering about his life
 

@@ -10,7 +10,7 @@ import {
   polling,
   readHealth,
 } from "./health";
-import { hear } from "./hear";
+import { hear, whose } from "./hear";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
 import { publicReport, sendReport, watchReport } from "./memory/report";
@@ -18,21 +18,24 @@ import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { codeAt, exec } from "./proc";
 import { serveConnector } from "./server";
-import { openStore, poll, type Store } from "./sources/lifelog";
+import { openStore, poll, type Store, turnsBetween } from "./sources/lifelog";
 import { ROOT } from "./truth";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`); after 15 minutes without a poll it emails once, and once on recovery.
 // Every 5 minutes, while the Mac is online, it also checks the public connector end to end (see `publicCheck`).
-// It also hears "hey Atlas": 40 s after his last new turn in a conversation, `hear` records its asks, and every loop
+// It also hears "hey Atlas": 10 s after his last new turn in a conversation (40 s while a turn there has no speaker
+// yet: lifelog names him a moment after the words), `hear` records its asks, and every loop
 // `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
 // steers not yet delivered to Atlas (src/events.ts).
 
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
 const PUBLIC_EVERY_MS = 5 * 60_000;
-const QUIET_MS = 40_000;
+/** How long a conversation stays quiet before it is heard: once every new turn has a speaker, and while one hasn't. */
+const QUIET_MS = 10_000;
+const UNNAMED_MS = 40_000;
 /** A replay of the store (after a restart or a long sleep) never acts on speech older than this. */
 const RECENT_MS = 24 * 3_600_000;
 const PUBLIC_URL =
@@ -92,7 +95,7 @@ export type Pending = Map<string, { at: number; from: string; tries: number }>;
 /** A hearing whose words could not be fetched is tried again this many times, then logged lost (a restart waits on it). */
 const TRIES = 5;
 
-/** Folds turns into `pending`, each conversation due 40 s after its last one arrived; speech older than a day is left out. */
+/** Folds turns into `pending`, each conversation due after its last one arrived (`hearings`); speech older than a day is left out. */
 function fold(
   pending: Pending,
   turns: { at: string; conversation: string }[],
@@ -112,16 +115,20 @@ function fold(
 }
 
 /**
- * Folds the turns of one poll into `pending` and takes out the conversations quiet for 40 s (measured on arrival, not
- * on speech time), ready for `hear`. ponytail: `pending` lives in memory; a restart inside the 40 s drops those turns.
+ * Folds the turns of one poll into `pending` and takes out the conversations quiet for 10 s, or 40 s while `unnamed`
+ * says a turn there from `from` on has no speaker (measured on arrival, not on speech time), ready for `hear`.
+ * ponytail: `pending` lives in memory; a restart inside the wait drops those turns.
  */
 export function hearings(
   pending: Pending,
   turns: { at: string; conversation: string }[],
-  now: number
+  now: number,
+  unnamed: (conversation: string, from: string) => boolean
 ) {
   fold(pending, turns, now);
-  const due = [...pending].filter(([, p]) => now - p.at >= QUIET_MS);
+  const due = [...pending].filter(
+    ([c, p]) => now - p.at >= (unnamed(c, p.from) ? UNNAMED_MS : QUIET_MS)
+  );
   for (const [conversation] of due) {
     pending.delete(conversation);
   }
@@ -131,6 +138,19 @@ export function hearings(
     tries,
   }));
 }
+
+/** Seconds the next poll may hold: until the first pending conversation could be due, a minute at most. */
+export const holdFor = (pending: Pending, now: number) =>
+  Math.min(
+    WAIT_S,
+    ...[...pending.values()].map((p) =>
+      Math.max(1, Math.ceil((p.at + QUIET_MS - now) / 1000))
+    )
+  );
+
+/** A turn of the conversation from `from` on has no speaker yet. */
+const unnamedIn = (store: Store) => (conversation: string, from: string) =>
+  turnsBetween(store, conversation, from).some((t) => whose(t) === "unknown");
 
 const reach = (url: string, method: string) =>
   fetch(url, { method, signal: AbortSignal.timeout(10_000) }).catch(() => null);
@@ -232,13 +252,18 @@ export async function watch(): Promise<number> {
     let result: { cursor: string } | { error: string };
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
-      const page = await poll(store, more ? 0 : WAIT_S);
+      const page = await poll(store, more ? 0 : holdFor(pending, Date.now()));
       ({ more } = page);
       dirty ||= page.changed;
-      for (const h of hearings(pending, page.owner, Date.now())) {
+      for (const h of hearings(
+        pending,
+        page.owner,
+        Date.now(),
+        unnamedIn(store)
+      )) {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         await hear(store, h.conversation, h.from).catch((e: Error) => {
-          // Words not fetched: heard again after the next quiet 40 s, never read as silence.
+          // Words not fetched: heard again after the next quiet wait, never read as silence.
           const lost = h.tries + 1 >= TRIES;
           log("run.error", { error: e.message, lost, step: "watch.hear" });
           if (!lost) {

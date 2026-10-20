@@ -335,6 +335,7 @@ export async function deliver() {
       return;
     }
     const { action, cursor, event } = next;
+    const sent = Date.now();
     // biome-ignore lint/performance/noAwaitInLoops: one event at a time, in order
     const status = await post(
       state.subscription,
@@ -350,6 +351,8 @@ export async function deliver() {
     const after = settle(state, status, cursor, now);
     writeState(after);
     if (status >= 200 && status < 300) {
+      // When Atlas got it, for `bun life asks`.
+      log("event.sent", { event: event.eventId, ms: Date.now() - sent });
       continue;
     }
     const error = `Atlas did not receive it (callback ${status || "unreachable"})`;

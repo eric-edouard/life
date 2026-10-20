@@ -9,7 +9,7 @@ import { ROOT } from "../truth";
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: conversations, chapter
-// titles and summaries, and for every turn only who spoke and when, never its text) and builds units from that store.
+// titles and summaries, and for every turn only who spoke, when, and when the feed brought it, never its text) and builds units from that store.
 // Only the watcher (src/watch.ts) calls `poll`: a page folded in anywhere else would never be heard (eric-edouard/life#5).
 
 const WAIT_MARGIN_S = 30;
@@ -57,6 +57,7 @@ export const Page = z.object({
       z.object({
         // null while lifelog's server has not yet grouped the turn into a conversation; it is sent again once it has.
         conversationId: z.string().nullable(),
+        endAt: z.string(),
         jobId: z.string(),
         // Who spoke, as the server resolves it: a name given to one turn beats the voice's name.
         speaker: z.object({
@@ -103,12 +104,15 @@ export interface LifelogConversation {
 /** A turn of a chapter: where its words are (`readTranscript(jobId)[turnIndex]`), when, and who lifelog says spoke. */
 export interface ChapterTurn {
   at: string;
+  /** When it ended, and when the feed first brought it; null on a turn stored before 20 Oct. */
+  end: string | null;
   jobId: string;
   name: string | null;
   /** Lifelog says the owner spoke it. */
   owner: boolean;
   /** Lifelog's person, when it named the speaker (a person with no name is still someone). */
   personId: string | null;
+  seen: string | null;
   turnIndex: number;
 }
 
@@ -172,9 +176,19 @@ export function openStore(dir = WATCH) {
     title text not null, summary text not null);
   create table if not exists turns (
     job_id text not null, turn_index integer not null, conversation_id text not null, start_at text not null,
-    person_id text, person_name text, is_owner integer not null default 0, primary key (job_id, turn_index));
+    person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
+    primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists chapters_conversation on chapters (conversation_id);`);
+  // A store from before 20 Oct: its turns gain their end and when they were seen, filled as lifelog sends them again.
+  const columns = db
+    .query<{ name: string }, []>("pragma table_info(turns)")
+    .all();
+  for (const c of ["end_at", "seen_at"]) {
+    if (!columns.some((k) => k.name === c)) {
+      db.run(`alter table turns add column ${c} text`);
+    }
+  }
   return { cursor, db };
 }
 export type Store = ReturnType<typeof openStore>;
@@ -209,8 +223,15 @@ export const turnRef = (job: string, turn: number, at: string) =>
 const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
 
-/** Folds one page into the store: whole rows replace the ones with the same key, `removed` ones go. Idempotent. */
-export function apply(store: Store, page: Page) {
+/**
+ * Folds one page into the store: whole rows replace the ones with the same key, `removed` ones go. Idempotent. A turn
+ * keeps when it was first `seen`: when the hearing could first have heard it.
+ */
+export function apply(
+  store: Store,
+  page: Page,
+  seen = new Date().toISOString()
+) {
   const { db } = store;
   const conversation = db.prepare(
     "insert or replace into conversations values (?, ?, ?, ?, ?, ?, ?)"
@@ -219,7 +240,11 @@ export function apply(store: Store, page: Page) {
     "insert or replace into chapters values (?, ?, ?, ?, ?, ?)"
   );
   const turn = db.prepare(
-    "insert or replace into turns values (?, ?, ?, ?, ?, ?, ?)"
+    `insert into turns (job_id, turn_index, conversation_id, start_at, person_id, person_name, is_owner, end_at, seen_at)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?) on conflict (job_id, turn_index) do update set
+    conversation_id = excluded.conversation_id, start_at = excluded.start_at, person_id = excluded.person_id,
+    person_name = excluded.person_name, is_owner = excluded.is_owner, end_at = excluded.end_at,
+    seen_at = coalesce(turns.seen_at, excluded.seen_at)`
   );
   db.transaction(() => {
     for (const c of page.conversations) {
@@ -251,7 +276,9 @@ export function apply(store: Store, page: Page) {
         t.startAt,
         t.speaker.personId,
         t.speaker.personName,
-        t.speaker.isOwner ? 1 : 0
+        t.speaker.isOwner ? 1 : 0,
+        t.endAt,
+        seen
       );
     }
     for (const r of page.removed) {
@@ -317,10 +344,12 @@ const nameOf = (
 
 interface TurnRow {
   conversation_id: string;
+  end_at: string | null;
   is_owner: number;
   job_id: string;
   person_id: string | null;
   person_name: string | null;
+  seen_at: string | null;
   start_at: string;
   turn_index: number;
 }
@@ -430,10 +459,12 @@ export function turnsBetween(
     .all(conversationId, start, end)
     .map((t) => ({
       at: t.start_at,
+      end: t.end_at,
       jobId: t.job_id,
       name: nameOf(t.person_id, t.person_name, byId),
       owner: t.is_owner === 1,
       personId: t.person_id,
+      seen: t.seen_at,
       turnIndex: t.turn_index,
     }));
 }
