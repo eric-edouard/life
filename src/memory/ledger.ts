@@ -338,6 +338,26 @@ export async function recordCorrection(said: unknown) {
 /** The truth benchmark: every statement, in the order it was drawn. */
 export const readStatements = () => rowsOf(STATEMENTS, Statement);
 
+/** His rated statements (skips aside) as facts: a false one false, a true or outdated one (true then) true. */
+export function ratedFacts() {
+  const ratings = readRatings();
+  return readStatements().flatMap((s) => {
+    const answer = ratings.get(s.claim)?.answer;
+    return answer && answer !== "skip"
+      ? [
+          {
+            date: s.date,
+            fact: s.text,
+            id: s.claim,
+            outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
+            true: answer !== "false",
+            units: s.units,
+          },
+        ]
+      : [];
+  });
+}
+
 /** Appends the owner's answer to one statement's claim (the check page); null takes his last one back. */
 export const recordRating = (claim: string, answer: Rating["answer"]) =>
   appendJsonl(RATINGS, Rating, [

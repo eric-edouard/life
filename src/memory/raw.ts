@@ -67,7 +67,10 @@ const DAY_MS = 86_400_000;
 
 const FETCHES = 8;
 
-/** The transcripts of every recording these turns are in, a few requests at a time. */
+/**
+ * The transcripts of every recording these turns are in, a few requests at a time. A recording lifelog no longer has
+ * (404) has no words; any other failure throws, so a fetch that failed never reads as silence.
+ */
 export async function transcripts(turns: ChapterTurn[]) {
   const out = new Map<string, Awaited<ReturnType<typeof readTranscript>>>();
   const list = [...new Set(turns.map((t) => t.jobId))];
@@ -75,7 +78,15 @@ export async function transcripts(turns: ChapterTurn[]) {
     // biome-ignore lint/performance/noAwaitInLoops: a few requests at a time, not hundreds at once
     await Promise.all(
       list.slice(i, i + FETCHES).map(async (job) => {
-        out.set(job, await readTranscript(job).catch(() => []));
+        out.set(
+          job,
+          await readTranscript(job).catch((e: { status?: number }) => {
+            if (e.status === 404) {
+              return [];
+            }
+            throw e;
+          })
+        );
       })
     );
   }
@@ -190,7 +201,7 @@ export async function fetchOf(
     if (shown.length > 0 && lines.length === 0) {
       return asData([
         head,
-        "(no words: lifelog's transcript did not answer, or these turns are empty)",
+        "(no words: lifelog no longer has this recording, or these turns are empty)",
       ]);
     }
   }
