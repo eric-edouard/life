@@ -183,11 +183,14 @@ Facts, not permissions: `## Sends` governs every send.
   - `bun life …` in `~/Work/life`: `memory` (the same reads as the connector), `status`;
   - `gog`: his personal Google account (Gmail, Calendar, Contacts, Drive, Docs, Sheets, Tasks) and a second, work
     Gmail; `gws`: the Lynx mailbox (Gmail only);
-  - Claude Code (`claude`), started from `~/Work`.
+  - Claude Code (`claude`), started from `~/Work`;
+  - the skills in `~/.agents/skills`: found, read and used;
+  - Beeper: its chats are readable;
+  - `memo` (Apple Notes): the folders list (a note's text not yet tested).
 
-  Configured, not yet verified: a Claude Remote Control session started from a Codex task (the launcher, task
-  `act_34647b39f4e9`), `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
-  `memo` (Apple Notes), the Beeper and browser tools, the skills in `~/.agents/skills`. His global rules are
+  Refused: `imsg` (iMessage access denied). Not working yet: the browser (no connected route); starting `playwriter`
+  first tries to stop whatever holds its port. Configured, not yet verified: a Claude Remote
+  Control session started from a Codex task (the launcher, task `act_34647b39f4e9`). His global rules are
   `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his work (`~/.codex/memories`),
   apart from Life. Local hooks don't run there, and a protected app's data can refuse access whatever the permissions.
   Each task first checks what it needs: `command -v` for a CLI, one harmless call for a tool (`codex mcp list` can
