@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { mkdir, rm } from "node:fs/promises";
+import { dirname } from "node:path";
 import { type Closeness, Correction, type SourceEvent } from "../schema";
 import {
   chapter,
@@ -14,11 +16,13 @@ import {
   dueFor,
   levelsNow,
   pagedBy,
+  pagedNow,
   parseLevels,
   personallyClose,
   tally,
   voiceDays,
 } from "./closeness";
+import { pagePath } from "./ledger";
 
 const msg = (
   chat: string,
@@ -132,8 +136,8 @@ test("a level keeps a page when close or once close, never a service's; his word
   });
   expect(levels.has("person:ann2")).toBe(false);
   expect(levels.get("person:ann")?.personal).toBe("inner");
-  // Someone on his map not judged yet keeps a page until judged.
-  expect([...pagedBy(levels, ["person:new"])].sort()).toEqual([
+  // Someone waiting keeps a page until judged; a judgment beats waiting (joe).
+  expect([...pagedBy(levels, ["person:new", "person:joe"])].sort()).toEqual([
     "person:ann",
     "person:bob",
     "person:me",
@@ -241,6 +245,14 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
     new Set(["person:dad"])
   ).map((d) => d.ref);
   expect(due).toEqual(["person:bob", "person:dad", "person:eli"]);
+  // A written page waits: judged with nothing counted.
+  expect(
+    dueFor(
+      [{ ref: "person:inf-x", t: t(0) }],
+      new Map(),
+      new Set(["person:inf-x"])
+    )
+  ).toHaveLength(1);
   // Nothing counted: no first or last day, not today.
   expect(tally(new Map(), "2026-10-20")).toMatchObject({
     first: null,
@@ -275,4 +287,15 @@ test("a closeness correction names a personal or a work level", () => {
     true
   );
   expect(Correction.safeParse(base).success).toBe(false);
+});
+
+test("a written page stays until its person is judged: no closeness ledger deletes no page", async () => {
+  const path = pagePath("person:inf-new");
+  await mkdir(dirname(path), { recursive: true });
+  await Bun.write(path, "# New\n");
+  try {
+    expect(await pagedNow({ people: [] })).toContain("person:inf-new");
+  } finally {
+    await rm(path);
+  }
 });
