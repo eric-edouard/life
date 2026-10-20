@@ -28,5 +28,8 @@ export const redirect = (to: string, cookies: string[] = []) => {
 export const cookieOf = (req: Request, name: string) =>
   new Bun.CookieMap(req.headers.get("cookie") ?? "").get(name);
 
-export const text = (body: string, status: number) =>
-  new Response(body, { headers: HEADERS, status });
+export const text = (
+  body: string,
+  status: number,
+  headers: Record<string, string> = {}
+) => new Response(body, { headers: { ...HEADERS, ...headers }, status });

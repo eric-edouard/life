@@ -4,17 +4,17 @@ import { ORIGIN } from "./auth";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
 import { DATA } from "./truth";
 
-// The portrait (/me): one page about him, written from his memory into DATA/docs/dashboard/index.html (his data, never
+// The portrait (/me): one page about him, written from his memory into DATA/docs/portrait/index.html (his data, never
 // in this repo), behind a password (LIFE_PORTRAIT_PASSWORD in .env). Signing in sets a cookie holding its expiry signed
 // with the password, so changing the password signs every browser out. Nothing of his answers before that check.
 
 const SESSION = "__Host-life-me";
 const SESSION_S = 30 * 24 * 3600;
-const PAGE = join(DATA, "docs", "dashboard", "index.html");
+const PAGE = join(DATA, "docs", "portrait", "index.html");
 // ponytail: one global window for failed passwords, per-IP limits if it ever faces more than him.
 const FAILS_ALLOWED = 5;
 const FAILS_WINDOW_MS = 60_000;
-// The page and the form load Google Fonts and inline styles, nothing else.
+// The page and the form load Google Fonts and inline styles, nothing else: no images, no scripts.
 const PAGE_HEADERS = {
   ...HEADERS,
   "content-security-policy":
@@ -57,6 +57,10 @@ export function createPortrait(
     if (req.headers.get("origin") !== ORIGIN) {
       return text("forbidden", 403);
     }
+    // Read the form before counting: nothing awaits between the check and the push, so a burst can't slip past.
+    const given = String(
+      (await req.formData().catch(() => null))?.get("password") ?? ""
+    );
     fails = fails.filter((t) => now() - t < FAILS_WINDOW_MS);
     if (fails.length >= FAILS_ALLOWED) {
       return new Response(form("Too many tries, wait a minute."), {
@@ -64,9 +68,6 @@ export function createPortrait(
         status: 429,
       });
     }
-    const given = String(
-      (await req.formData().catch(() => null))?.get("password") ?? ""
-    );
     if (!same(sign(given), sign(password ?? ""))) {
       fails.push(now());
       return new Response(form("Wrong password."), {

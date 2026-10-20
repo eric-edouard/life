@@ -57,6 +57,15 @@ test("five wrong tries a minute, then even the right password waits", async () =
   expect((await login("open sesame")).status).toBe(302);
 });
 
+test("a burst of wrong guesses can't slip the right one through", async () => {
+  clock += 3_600_000;
+  const burst = await Promise.all([
+    ...Array.from({ length: 20 }, () => login("nope")),
+    login("open sesame"),
+  ]);
+  expect(burst.at(-1)?.status).toBe(429);
+});
+
 test("off without a password, and other paths are not its own", async () => {
   expect(
     await createPortrait("", page).handle(new Request(`${ORIGIN}/me`))
