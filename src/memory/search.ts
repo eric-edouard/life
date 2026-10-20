@@ -22,7 +22,7 @@ import {
   turnOffset,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth } from "../truth";
+import { loadTruth, OWNER } from "../truth";
 import {
   daysOf,
   momentsNow,
@@ -559,17 +559,21 @@ const linkedCount = (db: Database, id: string) =>
 const SUMMARY = 200;
 
 /**
- * The lines of `day`: what happened (its moments, planned ones included), the day's conversations with their chapters,
- * its chat and mail units, its key observations, then what Life changed for him.
+ * The lines of `day`: what is due that day (`dueOn`), what happened (its moments, planned ones included), the day's
+ * conversations with their chapters, its chat and mail units, its key observations, then what Life changed for him.
  */
 export function dayLines(
   conversations: LifelogConversation[],
   units: UnitRow[],
   facts: string[] = [],
   actions: Action[] = [],
-  moments: Moment[] = []
+  moments: Moment[] = [],
+  due: string[] = []
 ) {
   return [
+    ...(due.length > 0
+      ? ["Due (his own open to-dos and promises for this day):", ...due, ""]
+      : []),
     ...(moments.length > 0
       ? ["What happened (moments):", ...moments.map(momentLine), ""]
       : []),
@@ -622,11 +626,26 @@ export async function day(date: string) {
           .all(date)
           .map(line),
         actions,
-        moments
+        moments,
+        dueOn(db, date)
       )
     )
   );
 }
+
+/**
+ * His open loops due on `date` that must not be forgotten (salience 3), not retired: his promises (his to keep, even
+ * when the quote opens with the other's request) and the to-dos he said (not a mail's). Atlas's daily review lists them
+ * (docs/atlas.md).
+ */
+export const dueOn = (db: Database, date: string) =>
+  db
+    .query<Row, [string, string]>(
+      `select ${COLUMNS} from observations o where o."when" = ? and o.salience = 3 and ${CURRENT}
+       and (o.type = 'promise' or (o.type = 'todo' and o.speaker = ?)) order by o.at`
+    )
+    .all(date, OWNER)
+    .map(line);
 
 /** `bun life memory area <id or name>`: an area's page and latest observations. */
 export async function area(name: string) {
