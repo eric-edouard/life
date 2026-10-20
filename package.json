@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
     "fix": "bun x --bun ultracite fix",
     "life": "bun src/cli.ts",

@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { type SourceEvent, sourceFile } from "../schema";
+import { contacts, handleKey } from "./contacts";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 
@@ -52,7 +53,12 @@ interface Row {
   text: string | null;
 }
 
-export function readImessage(since: Date, path = DB): SourceEvent[] {
+/** `names`: his Contacts, which name a 1:1 chat that has no name of its own (Messages keeps only the number). */
+export function readImessage(
+  since: Date,
+  path = DB,
+  names: Map<string, string> = contacts()
+): SourceEvent[] {
   const db = new Database(path, { readonly: true });
   try {
     const rows = db
@@ -71,19 +77,28 @@ export function readImessage(since: Date, path = DB): SourceEvent[] {
           order by m.date`
       )
       .all(toAppleNs(since));
-    return rows.map((r) => ({
-      at: fromAppleNs(r.date).toISOString(),
-      chat: r.chat ?? r.sender ?? "unknown",
-      ...(r.chatName ? { chatName: r.chatName } : {}),
-      files: (JSON.parse(r.files) as Parameters<typeof sourceFile>[0][]).map(
-        (a) => sourceFile({ ...a, path: a.path?.replace(HOME, homedir()) })
-      ),
-      fromMe: r.fromMe === 1,
-      id: `imessage:${r.guid}`,
-      sender: r.fromMe === 1 ? "me" : (r.sender ?? "unknown"),
-      source: "imessage" as const,
-      text: r.text ?? textFromAttributedBody(r.attributedBody),
-    }));
+    return rows.map((r) => {
+      // A chat Messages names (an empty name is none), else, for a 1:1 chat (its identifier a handle, a group's is
+      // `chat…`), the name his Contacts give that handle: every message of the chat, his own included.
+      const named =
+        r.chatName ||
+        (r.chat && !r.chat.startsWith("chat")
+          ? names.get(handleKey(r.chat))
+          : undefined);
+      return {
+        at: fromAppleNs(r.date).toISOString(),
+        chat: r.chat ?? r.sender ?? "unknown",
+        ...(named ? { chatName: named } : {}),
+        files: (JSON.parse(r.files) as Parameters<typeof sourceFile>[0][]).map(
+          (a) => sourceFile({ ...a, path: a.path?.replace(HOME, homedir()) })
+        ),
+        fromMe: r.fromMe === 1,
+        id: `imessage:${r.guid}`,
+        sender: r.fromMe === 1 ? "me" : (r.sender ?? "unknown"),
+        source: "imessage" as const,
+        text: r.text ?? textFromAttributedBody(r.attributedBody),
+      };
+    });
   } finally {
     db.close();
   }

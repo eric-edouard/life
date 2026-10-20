@@ -10,12 +10,13 @@ import {
   MAX_ATTEMPTS,
   nextMidday,
   nextNight,
+  readBackfill,
   readMidday,
   readState,
 } from "./guard";
 import { runAt } from "./ledger";
 import { INDEX } from "./search";
-import { daysBefore, windowStart } from "./units";
+import { daysBefore, lastDays } from "./units";
 import { localDate } from "./zones";
 
 // Life's processing as recorded, as JSON for a dashboard: `runs` (the history in derived/log: sweeps, their steps,
@@ -24,7 +25,7 @@ import { localDate } from "./zones";
 // --- runs ----------------------------------------------------------------------------------------------------------
 
 /** The sweeps: one launchd start that runs several steps. */
-const SWEEPS = new Set(["memory.nightly", "memory.midday"]);
+const SWEEPS = new Set(["memory.nightly", "memory.midday", "memory.backfill"]);
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
   ...SWEEPS,
@@ -94,9 +95,11 @@ function apply(r: Run, e: LogEvent) {
     r.input = omit(e);
     const days = Number(e.days);
     const start = new Date(r.startedAt ?? e.at);
-    if (days > 0) {
+    if (typeof e.from === "string" && typeof e.to === "string") {
+      r.window = { from: e.from, to: e.to };
+    } else if (days > 0) {
       r.window = {
-        from: localDate(windowStart(start, days).toISOString()),
+        from: lastDays(start, days).from,
         to: localDate(start.toISOString()),
       };
     }
@@ -300,6 +303,10 @@ export async function lifeStatus(now = new Date()) {
     };
   }
   return {
+    backfill: {
+      ...lastOf(list, "memory.backfill"),
+      state: readBackfill() ?? null,
+    },
     capture: {
       archive: Object.fromEntries(STORES.map((s) => [s.name, archive(s.name)])),
       // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.
