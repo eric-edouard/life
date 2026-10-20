@@ -28,6 +28,8 @@ export const DATA = TEST
   ? copied(FIXTURES)
   : (process.env.LIFE_DATA ?? join(homedir(), "Life"));
 
+// ponytail: each run leaves its ~24 KB copy for the OS to clear (an exit hook doesn't fire under bun test); delete
+// old ones here if the temp folder ever matters.
 function copied(from: string) {
   const to = mkdtempSync(join(tmpdir(), "life-test-"));
   cpSync(from, to, { recursive: true });

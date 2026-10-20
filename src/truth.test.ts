@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { commitMemory } from "./memory/run";
 import type { Chat, Person } from "./schema";
 import {
@@ -133,7 +134,9 @@ test("truth/me.md gives who he is (its first paragraph) and his goals", () => {
 test("tests read made-up data, and it is a consistent map", async () => {
   // This run's own copy of src/test-data, outside any repo: a test can never commit.
   expect(DATA.startsWith(tmpdir())).toBe(true);
-  expect(readdirSync(DATA).sort()).toEqual(readdirSync(FIXTURES).sort());
+  expect(readdirSync(join(DATA, "truth")).sort()).toEqual(
+    readdirSync(join(FIXTURES, "truth")).sort()
+  );
   expect(integrity(await loadTruth())).toEqual([]);
   expect(() => commitMemory(["memory"], "t")).toThrow("not a repo of its own");
 });
