@@ -11,7 +11,7 @@ import { count, localTime, time } from "./units";
 import { localDate, when } from "./zones";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
-// (no model). `sendReport` also carries the alerts (a failed action or delivery, a task the board cannot show, the lock).
+// (no model). `sendReport` also carries the alerts (a failed action or delivery, a task the board cannot show, the lock, the archive).
 
 const FROM = `Claude <${LIFE_MAIL.from}>`;
 
@@ -27,6 +27,8 @@ export interface Night {
     problems: string[];
     tasks: { name: string; relation: string }[];
   };
+  /** The archive's failures since the last night (`archiveLine`). */
+  archive: string;
   /** The last backup (`backupLine`). */
   backup: string;
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
@@ -121,6 +123,7 @@ export function successReport(day: string, ms: number, n: Night) {
         `Lifelog: ${n.watcher && polling(n.watcher) ? "the watcher is polling" : `the watcher is NOT POLLING (last good poll ${n.watcher?.lastOkAt ? localTime(n.watcher.lastOkAt) : "never"}), so its store, read as it stands, may lag`}`,
         `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
+        n.archive,
         n.backup,
         "Failures: none",
       ],
@@ -192,10 +195,7 @@ export function failureReport(
       "Nothing was committed; the next run resumes where this one stopped.",
       `Details: derived/log/${day}.jsonl`,
     ],
-    preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`.slice(
-      0,
-      140
-    ),
+    preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`,
     stats: [
       { label: "stopped at", value: step },
       { label: "after", value: duration(ms) },
@@ -242,14 +242,27 @@ export const actionFailedReport = (a: Action) =>
       `You said: “${a.instruction?.quote}”`,
       `Do it by hand, after a look at what is already there. Details: derived/log, memory/actions.jsonl (${a.id})`,
     ],
-    preheader:
-      `Could not ${a.kind} “${a.after.title ?? a.target}”: ${a.error}`.slice(
-        0,
-        140
-      ),
+    preheader: `Could not ${a.kind} “${a.after.title ?? a.target}”: ${a.error}`,
     stats: [{ label: "at", value: time(a.at) }],
     subject: `could not ${a.kind}: ${a.after.title ?? a.target}`,
     verdict: "FAILED",
+  });
+
+/** The alert for a store the archive has failed to copy for an hour: what is deleted meanwhile is not kept. */
+export const archiveFailedReport = (
+  name: string,
+  since: string,
+  error: string
+) =>
+  alert(since, "Life archive", {
+    failure: { error, step: `archive ${name}` },
+    notes: [
+      "Messages deleted and note versions replaced meanwhile are lost until it copies again. Details: ~/Library/Logs/life-archive.log, derived/log",
+    ],
+    preheader: `The archive has not copied ${name} since ${time(since)}: ${error}`,
+    stats: [{ label: "failing since", value: time(since) }],
+    subject: `the archive cannot copy ${name}`,
+    verdict: "FAILING",
   });
 
 /** One line saying what an action did and on which of his words: the nightly's Actions section and `day`. */
