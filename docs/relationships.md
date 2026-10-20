@@ -30,7 +30,7 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
 4. Who gets a page and that section comes from a **closeness level, judged by a model** on numbers code counts from raw
    signals only (two-way 1:1 message days, voice presence, how recent), never from model output (no feedback loop).
    Personal and work closeness are separate scores; a person can have both. Service accounts are not people. Family
-   and partner keep a floor. The owner can override any level in a sentence. No list he has to keep.
+   and partner keep a floor (the judging prompt's rule: close family is close whatever the counts). The owner can override any level in a sentence. No list he has to keep.
 5. Index everything: no per-person opt-out. (He has his close friend's approval to process his voice.)
 6. Relationship moments (agreement, boundary, conflict and repair, trust, a change of role) count more for close
    people, from the next prompt versions on.
@@ -51,8 +51,8 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
       France trips from his bookings); `gather` bounded by a `to` and run month by month, releasing the lock between
       months; no file descriptions for backfilled days (the tag only).
 - [ ] **3. Closeness:** code counts (1:1 only, personal and work apart), a model judges the level with a reason (only
-      when the counts moved), his overrides as corrections; the level replaces today's page rule; his Contacts name
-      handles.
+      when the counts moved), his overrides as corrections; the level replaces today's page rule.
+- [ ] **3b. Contacts:** his Contacts name the handles Life can't place.
 - [ ] **4. Prompts and the relationship section:** triage and extraction weigh relationship moments for close people;
       pages v5 adds the section (cited, attributed, "since / last evidence" by code, aging after 12 months);
       `priorFor` also shows the observations that section cites, whatever their age; the newer of two conflicting

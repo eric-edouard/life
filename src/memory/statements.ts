@@ -1,4 +1,5 @@
 import { type Moment, Statement } from "../schema";
+import { pagedNow } from "./closeness";
 import {
   appendJsonl,
   digest,
@@ -95,7 +96,8 @@ export type Claim = Omit<Draft, "group"> & { group: Draft["group"] | null };
 export async function claimsNow(): Promise<Claim[]> {
   const people = await readPeople();
   const { observations, standing } = await observationsNow(people);
-  const { homes, paged } = placed(observations, people.truth);
+  const paged = await pagedNow(people.truth);
+  const { homes } = placed(observations, people.truth, paged);
   const home = new Map(
     [...homes].flatMap(([page, list]) => list.map(({ o }) => [o.id, page]))
   );

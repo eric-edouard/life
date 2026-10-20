@@ -24,7 +24,7 @@ that is used at once and corrected later.
 His input arrives in conversation only. The one exception he asked for (19 Oct): the truth benchmark
 (`memory/statements.jsonl`), statements he will rate true or false on his phone when he likes, never a queue Life waits on. When he states a fact or corrects one, record it before moving on:
 `bun life memory correct '<json>'` (kinds in `docs/SCHEMA.md`: wrong, not-important, keep-mine, this-is,
-not-this-person, same-person), or, when it's about who someone is, offer to add it to `truth/` and do it on his yes.
+not-this-person, same-person, closeness: how close someone is to him, personal or work), or, when it's about who someone is, offer to add it to `truth/` and do it on his yes.
 When he says which project a repo belongs to, or a project is added, put the repo in that project's `repos:` (he agreed to this map; `repos` shows
 Life's guesses and the new projects it suggests), then `bun life validate`.
 When he states a goal or a priority, or changes one, offer to put it in `truth/me.md` `## Goals` (numbered, his
@@ -223,11 +223,11 @@ and how they came out (a review refuses either without it). Commit small. Prefer
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
-`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who a name, handle or ref is goes through
+`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`), never a list; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); the memory steps get their units only from `gather` (`units.ts`: every channel, in time
-order, once per sweep, handed to each step) and a unit's words from `raw.ts` (`voiceLines`, `chatLines`, `unitLines`; a failed fetch throws, only a recording lifelog
+order, once per sweep, handed to each step; the closeness counts alone read the sources over years, `WITH_PEOPLE`: days, never units) and a unit's words from `raw.ts` (`voiceLines`, `chatLines`, `unitLines`; a failed fetch throws, only a recording lifelog
 no longer has is silent; the hearing alone fetches its own, since one not transcribed yet must not read as silence);
 a message's files become lines in `showFiles` (`memory/files.ts`) only, the readers just resolve each to a
 `SourceFile` (`sourceFile`), and each file is read once, by its ref or its hash, into `memory/files.jsonl`
