@@ -1,6 +1,6 @@
 // What every model step shares: run one headless call on the owner's engine, `claude -p` or `codex exec`, getting back
 // its JSON reply, with no tools.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +8,7 @@ import { z } from "zod";
 import { log } from "./log";
 import { exec } from "./proc";
 import { Engine } from "./schema";
-import { ROOT } from "./truth";
+import { DATA, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -37,7 +37,7 @@ export function extractJson(text: string): unknown {
 /** What a step needs: repos and files fast, pages main, moments and extract deep (~/Life/docs/evals/events-2026-10-18.md). */
 export type Tier = "fast" | "main" | "deep";
 
-/** The engine, model and (codex) reasoning effort one run uses. */
+/** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`). */
 export interface Llm {
   effort?: string;
   engine: Engine;
@@ -85,8 +85,40 @@ export async function setEngine(engine: Engine) {
   await Bun.write(SETTINGS, `${JSON.stringify({ engine })}\n`);
 }
 
+/**
+ * `LIFE_LLM=engine/model[/effort]`: one process's model for every tier, set by the bench for a candidate and for its
+ * judge (`scripts/bench.ts`), never by launchd. Refused on his own data: what is written there comes from his engine.
+ */
+export function llmOverride(
+  set = process.env.LIFE_LLM,
+  data = DATA
+): Llm | undefined {
+  if (!set) {
+    return;
+  }
+  const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
+  if (real(data) === real(join(homedir(), "Life"))) {
+    throw new Error(
+      "LIFE_LLM is for a copy of the data (LIFE_DATA), never ~/Life"
+    );
+  }
+  const [engine, model, effort] = set.split("/");
+  if (!model) {
+    throw new Error(`LIFE_LLM is engine/model[/effort], not ${set}`);
+  }
+  return { effort, engine: Engine.parse(engine), model };
+}
+
+/** An `Llm` as `LIFE_LLM` names it: `engine/model[/effort]`. */
+export const llmSpec = (l: Llm) =>
+  [l.engine, l.model, l.effort].filter(Boolean).join("/");
+
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
 export async function llmFor(tier: Tier): Promise<Llm> {
+  const set = llmOverride();
+  if (set) {
+    return set;
+  }
   const engine = await readEngine();
   return engine === "claude"
     ? { engine, model: CLAUDE_MODELS[tier] }
@@ -184,6 +216,7 @@ export async function askOnce(opts: {
     llm.engine === "claude"
       ? [
           ...["claude", "-p", "--model", llm.model, "--verbose"],
+          ...(llm.effort ? ["--effort", llm.effort] : []),
           ...[
             "--input-format",
             "stream-json",
