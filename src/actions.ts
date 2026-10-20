@@ -343,25 +343,15 @@ export async function openReminders(list?: string) {
   return open.flat();
 }
 
-/** Whether remctl can act right now (read-only: nothing is written). The problems, none when it is ready. */
+/**
+ * Whether remctl can act right now (read-only: nothing is written). The problems, none when it is ready. One read
+ * through the signed host, the path every action takes: not `remctl doctor`, whose MCP-client section runs
+ * `tailscale status` and crashed on its 15 s timeout (20 Oct) while Reminders were fine.
+ */
 export async function checks() {
   try {
-    const d = await remctl<{
-      access?: { effective?: { ready?: boolean } };
-      capabilityHost?: {
-        fullReady?: boolean;
-        privateProtocol?: { compatible?: boolean };
-      };
-    }>(["doctor", "--for-agent"]);
-    const ready =
-      d.access?.effective?.ready &&
-      d.capabilityHost?.fullReady &&
-      d.capabilityHost.privateProtocol?.compatible;
-    return ready
-      ? []
-      : [
-          "Reminders: remctl doctor says it is not ready (`remctl doctor --for-agent`)",
-        ];
+    await remctl(["lists"]);
+    return [];
   } catch (e) {
     return [`Reminders: ${(e as Error).message}`];
   }
