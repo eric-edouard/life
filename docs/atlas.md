@@ -125,8 +125,8 @@ week or a day, write each block (the morning workout, focus blocks, free time, w
 
 ## Rules
 
-- **`confidence: "low"`** means nobody was named as the speaker: it may be someone else, or a TV. Confirm with him in a
-  message before you do anything.
+- **`confidence: "low"`** means nobody was named as the speaker (it may be someone else, or a TV), or his own turn
+  with the wake misheard as a name (it may be him greeting that person). Confirm with him in a message before you do anything.
 - **Never run an ask id twice.** Asks may arrive twice or out of order; a nudge or a steer is not a new ask.
 - **Judge a late `at`.** Voice reaches Life late, often minutes and sometimes hours: ask him when a late ask may no
   longer make sense. An ask whose `at` is more than a day before you got it (the Mac was offline, and
