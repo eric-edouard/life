@@ -11,7 +11,15 @@ import { titleOf } from "./hear";
 import { log } from "./log";
 import { sendReport, taskReport } from "./memory/report";
 import { clip, localTime } from "./memory/units";
-import { alerts, closed, settled, standing, type Task, tasksOf } from "./tasks";
+import {
+  alerts,
+  closed,
+  LAPSE,
+  settled,
+  standing,
+  type Task,
+  tasksOf,
+} from "./tasks";
 
 // Atlas's board, his Reminders list `BOARD`: a one-way projection of the tasks (src/tasks.ts), never through `act`, that
 // writes no ledger line and reads nothing back as his. One item per task, found by the task id on its notes' first
@@ -131,7 +139,17 @@ async function added({ notes, title }: Want): Promise<Item> {
 async function chase(tasks: Task[], now: number) {
   for (const { cause, key, t } of alerts(tasks, now, subscribed(now))) {
     // biome-ignore lint/performance/noAwaitInLoops: one email at a time
-    await sendReport(key, taskReport(t.ask, nameOf(t), cause));
+    await sendReport(
+      key,
+      taskReport(
+        t.ask,
+        // The lapse is about Atlas, not this task: one email for all of them.
+        cause === LAPSE
+          ? `${tasks.filter((x) => !closed(standing(x).state)).length} open tasks`
+          : nameOf(t),
+        cause
+      )
+    );
   }
 }
 

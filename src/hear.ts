@@ -38,14 +38,16 @@ const NAMING_MS = 40_000;
 
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn) {
-  const words = [...t.text.matchAll(new RegExp(WAKE, "gi"))].map((m) =>
-    m[1]?.toLowerCase()
-  );
+  const words = wakeWords(t);
   if (words.includes("atlas") && t.who !== "other") {
     return t.who === "me" ? "high" : "low";
   }
   return words.length > 0 && t.who === "me" ? "low" : undefined;
 }
+
+/** The wake words in a turn: "atlas", or its misheard one. */
+const wakeWords = (t: Turn) =>
+  [...t.text.matchAll(new RegExp(WAKE, "gi"))].map((m) => m[1]?.toLowerCase());
 
 /** One turn as the hearing sees it: whose it is (his, unattributed, someone else's) and its words. */
 export interface Turn {
@@ -161,5 +163,12 @@ export async function hear(
       a.timing
     );
   }
-  return !asks.some(held);
+  // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
+  const misheard = turns.some(
+    (t) =>
+      t.who === "unknown" &&
+      wakeWords(t).some((w) => w !== "atlas") &&
+      now - Date.parse(t.seen) < NAMING_MS
+  );
+  return !(asks.some(held) || misheard);
 }

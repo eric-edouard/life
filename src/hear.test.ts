@@ -211,6 +211,40 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
   }
 });
 
+test("his misheard wake with no speaker yet waits for lifelog to name him", async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [{ speakerId: null, text: "hey Zorba, buy milk" }],
+    }),
+  });
+  const store = lifelogStore();
+  const at = "2026-10-19T10:00:00.000Z";
+  apply(
+    store,
+    page({ turns: [fed(0, at, null, null)] }),
+    "2026-10-19T10:00:30.000Z"
+  );
+  const quotes = () => tasksOf().map((t) => t.ask.instruction.quote);
+  try {
+    expect(
+      await hear(store, "c1", "", Date.parse("2026-10-19T10:00:50Z"))
+    ).toBe(false);
+    expect(quotes()).toEqual([]);
+    apply(
+      store,
+      page({ turns: [fed(0, at, "p-me", "Me", "c1", true)] }),
+      "2026-10-19T10:00:55.000Z"
+    );
+    expect(
+      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:00Z"))
+    ).toBe(true);
+    expect(quotes()).toEqual(["hey Zorba, buy milk"]);
+  } finally {
+    server.close();
+    rmSync(ACTIONS, { force: true });
+  }
+});
+
 test("a failed word fetch throws, so the watcher hears it again: never read as silence", async () => {
   const server = lifelogServer({});
   const store = lifelogStore();
