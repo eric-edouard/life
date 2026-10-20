@@ -25,6 +25,15 @@ type LogKind =
   | "run.error"
   | "source.read";
 
+/** A run event's line (`run.start`, `run.end`, `run.error`): every one names its step. */
+export interface LogEvent {
+  at: string;
+  kind: string;
+  run?: string;
+  step: string;
+  [field: string]: unknown;
+}
+
 const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
 /** derived/log's files, newest first (named by UTC day). */

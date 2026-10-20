@@ -273,11 +273,12 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     phase.at = "actions";
     const report = await acted(now, rec);
     const commits = await coded(day, rec);
+    const archive = await archiveLine(since);
     phase.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
     mail = successReport(day, rec.ms(), {
       acted: report,
-      archive: await archiveLine(since),
+      archive,
       backup: backupLine(now),
       code: commits,
       extracted,

@@ -2,7 +2,7 @@ import { statSync } from "node:fs";
 import { z } from "zod";
 import { STORES } from "../archive";
 import { polling, readHealth } from "../health";
-import { LOG_DIR, logDays, logEvents } from "../log";
+import { LOG_DIR, type LogEvent, logDays, logEvents } from "../log";
 import { archiveDb } from "../sources/archived";
 import { decode, encode, PAGE } from "./feed";
 import {
@@ -38,14 +38,6 @@ const PIPELINE = [
   "memory.infer",
   "memory.pages",
 ];
-
-interface LogEvent {
-  at: string;
-  kind: string;
-  run?: string;
-  step: string;
-  [field: string]: unknown;
-}
 
 const omit = (e: LogEvent | undefined) => {
   if (!e) {

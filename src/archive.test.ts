@@ -31,13 +31,19 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
 const LINE =
   /^Archive: FAILED: beeper from [\d-]+ [\d:]+, still failing: no db$/;
 
-test("a failing store is logged once and emails him once, an hour in; a good pass ends the incident", () => {
+test("a failing store is logged once and emails him an hour in, until a send goes through; a good pass ends it", () => {
   const open = new Map();
   const at = (min: number) =>
     new Date(Date.parse("2026-10-18T10:00:00Z") + min * 60_000);
   expect(incident("beeper", at(0), open)).toBe("start");
   expect(incident("beeper", at(59), open)).toBe(null);
   expect(incident("beeper", at(60), open)).toBe("mail");
+  // The send failed: due again an hour later.
+  open.get("beeper").mailAt = at(120).getTime();
+  expect(incident("beeper", at(61), open)).toBe(null);
+  expect(incident("beeper", at(120), open)).toBe("mail");
+  // Sent: never again for this incident.
+  open.get("beeper").mailAt = null;
   expect(incident("beeper", at(300), open)).toBe(null);
   open.delete("beeper");
   expect(incident("beeper", at(301), open)).toBe("start");

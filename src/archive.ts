@@ -1,7 +1,7 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { log, logDays, logEvents } from "./log";
+import { type LogEvent, log, logDays, logEvents } from "./log";
 import { archiveFailedReport, sendReport } from "./memory/report";
 import { localTime } from "./memory/units";
 import { codeAt, exec } from "./proc";
@@ -461,29 +461,24 @@ function printDeleted(days: number) {
 const ALERT_MS = 3_600_000;
 const LOOKBACK_DAYS = 7;
 
-type Incidents = Map<string, { mailed: boolean; since: string }>;
-interface LogLine {
-  at: string;
-  error?: string;
-  kind: string;
-  step: string;
-}
+// `mailAt`: when to email him (null once he was): an hour in, or an hour after a send that failed.
+type Incidents = Map<string, { mailAt: number | null; since: string }>;
 
 /** The archive's incident lines of the last 7 days, oldest first. */
 const incidentLines = async () =>
   (await logDays())
     .slice(0, LOOKBACK_DAYS)
     .reverse()
-    .flatMap((n) => logEvents<LogLine>(n, "run."))
+    .flatMap((n) => logEvents<LogEvent>(n, "run."))
     .filter((e) => e.step.startsWith("archive."));
 
 /** The incidents still open at the end of `lines`, by store. */
-export function openIncidents(lines: LogLine[]): Incidents {
+export function openIncidents(lines: LogEvent[]): Incidents {
   const incidents: Incidents = new Map();
   for (const e of lines) {
     const name = e.step.slice("archive.".length);
     if (e.kind === "run.error") {
-      incidents.set(name, { mailed: false, since: e.at });
+      incidents.set(name, { mailAt: Date.parse(e.at) + ALERT_MS, since: e.at });
     } else {
       incidents.delete(name);
     }
@@ -491,32 +486,31 @@ export function openIncidents(lines: LogLine[]): Incidents {
   return incidents;
 }
 
-/** What a failed pass of `name` at `now` calls for: logging a new incident, emailing him an hour in (once), or nothing. */
+/** What a failed pass of `name` at `now` calls for: logging a new incident, emailing him (when due), or nothing. */
 export function incident(name: string, now: Date, incidents: Incidents) {
   const f = incidents.get(name);
   if (!f) {
-    incidents.set(name, { mailed: false, since: now.toISOString() });
+    const at = now.getTime();
+    incidents.set(name, { mailAt: at + ALERT_MS, since: now.toISOString() });
     return "start";
   }
-  if (f.mailed || now.getTime() - Date.parse(f.since) < ALERT_MS) {
-    return null;
-  }
-  f.mailed = true;
-  return "mail";
+  return f.mailAt !== null && now.getTime() >= f.mailAt ? "mail" : null;
 }
 
 async function failed(name: string, error: string, incidents: Incidents) {
-  const what = incident(name, new Date(), incidents);
+  const now = new Date();
+  const what = incident(name, now, incidents);
   if (what === "start") {
     log("run.error", { error, step: `archive.${name}` });
   }
-  const since = incidents.get(name)?.since;
-  if (what === "mail" && since) {
+  const f = incidents.get(name);
+  if (what === "mail" && f) {
     // Keyed by the incident's start, so a restart's second try is the same email.
-    await sendReport(
-      `archive/${name}/${since}`,
-      archiveFailedReport(name, since, error)
+    const sent = await sendReport(
+      `archive/${name}/${f.since}`,
+      archiveFailedReport(name, f.since, error)
     );
+    f.mailAt = sent ? null : now.getTime() + ALERT_MS;
   }
 }
 
@@ -531,7 +525,7 @@ export async function archiveLine(since: string) {
       const still = incidents.get(name)?.since === e.at;
       return e.at >= since || still
         ? [
-            `${name} from ${localTime(e.at)}${still ? ", still failing" : ""}: ${e.error}`,
+            `${name} from ${localTime(e.at)}${still ? ", still failing" : ""}: ${String(e.error)}`,
           ]
         : [];
     });
@@ -554,7 +548,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
       try {
         const added = copy();
         if (incidents.delete(name)) {
-          log("run.end", { outcome: "ok", step: `archive.${name}` });
+          log("run.end", { step: `archive.${name}` });
         }
         if (added > 0) {
           console.log(`${new Date().toISOString()} archived ${added} ${name}`);
