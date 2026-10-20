@@ -9,6 +9,7 @@ import {
   RESOURCE,
   type Refused,
   SCOPE,
+  UNREACHABLE,
   type Verify,
 } from "./auth";
 import {
@@ -437,15 +438,20 @@ export function createMcp(verify: Verify) {
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     return { ...(await verify(token)), token };
   }
-  /** The 401 or 403 that answers a refused token. */
-  const denied = ({ refusal, token }: Refused & { token: string }) =>
-    refusal === "forbidden"
-      ? text("forbidden", 403)
-      : text("unauthorized", 401, {
-          "WWW-Authenticate": token
-            ? `${CHALLENGE}, error="invalid_token"`
-            : CHALLENGE,
-        });
+  /** The 401, 403 or 503 (lifelog's keys out of reach) that answers a refused token. */
+  function denied({ refusal, token }: Refused & { token: string }) {
+    if (refusal === "forbidden") {
+      return text("forbidden", 403);
+    }
+    if (refusal === "unreachable") {
+      return text(UNREACHABLE, 503);
+    }
+    return text("unauthorized", 401, {
+      "WWW-Authenticate": token
+        ? `${CHALLENGE}, error="invalid_token"`
+        : CHALLENGE,
+    });
+  }
 
   async function handle(req: Request): Promise<Response | null> {
     const { pathname } = new URL(req.url);
