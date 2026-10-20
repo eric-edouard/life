@@ -85,7 +85,12 @@ test("a person's page: the form keeps its path through sign-in, then /me/<name> 
   const cookie = session(res);
   expect(await (await get(cookie, "/me/sam")).text()).toContain("A friend");
   expect((await get(cookie, "/me/nobody")).status).toBe(404);
-  expect(await portrait.handle(new Request(`${ORIGIN}/me/../etc`))).toBeNull();
+  expect(
+    await portrait.handle(new Request(`${ORIGIN}/me/..%2Fetc`))
+  ).toBeNull();
+  expect(await (await login("nope", ORIGIN, "/me/sam")).text()).toContain(
+    'action="/me/sam"'
+  );
   expect(
     await portrait.handle(new Request(`${ORIGIN}/me/Sam.html`))
   ).toBeNull();
