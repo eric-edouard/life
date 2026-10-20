@@ -1,5 +1,6 @@
+import { cpSync, mkdtempSync } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type Area,
@@ -16,10 +17,22 @@ import {
 export const ROOT = join(import.meta.dir, "..");
 /** `bun test` sets NODE_ENV=test: tests never touch the real log or data. */
 export const TEST = process.env.NODE_ENV === "test";
-/** His data: a local git repo of its own (memory/ and truth/), never pushed. Tests read made-up data. */
+/** The made-up data tests read (src/test-data). */
+export const FIXTURES = join(ROOT, "src", "test-data");
+/**
+ * His data: a local git repo of its own (memory/ and truth/), never pushed. A test run reads its own copy of the
+ * made-up data, outside any repo: two runs at once (a push's check beside another session's tests) share no lock or
+ * ledger, and none can commit.
+ */
 export const DATA = TEST
-  ? join(ROOT, "src", "test-data")
+  ? copied(FIXTURES)
   : (process.env.LIFE_DATA ?? join(homedir(), "Life"));
+
+function copied(from: string) {
+  const to = mkdtempSync(join(tmpdir(), "life-test-"));
+  cpSync(from, to, { recursive: true });
+  return to;
+}
 const ME = "me";
 /** The owner's own entry in truth/people.yaml. */
 export function ownerIn(people: Person[]): Person {

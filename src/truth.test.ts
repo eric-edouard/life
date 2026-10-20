@@ -1,8 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
+import { readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { commitMemory } from "./memory/run";
 import type { Chat, Person } from "./schema";
-import { DATA, integrity, loadTruth, ROOT, readMe, type Truth } from "./truth";
+import {
+  DATA,
+  FIXTURES,
+  integrity,
+  loadTruth,
+  readMe,
+  type Truth,
+} from "./truth";
 
 const person = (id: string, whatsapp: string[] = []): Person => ({
   aliases: [],
@@ -123,10 +131,11 @@ test("truth/me.md gives who he is (its first paragraph) and his goals", () => {
 });
 
 test("tests read made-up data, and it is a consistent map", async () => {
-  expect(DATA).toBe(join(ROOT, "src", "test-data"));
+  // This run's own copy of src/test-data, outside any repo: a test can never commit.
+  expect(DATA.startsWith(tmpdir())).toBe(true);
+  expect(readdirSync(DATA).sort()).toEqual(readdirSync(FIXTURES).sort());
   expect(integrity(await loadTruth())).toEqual([]);
-  // src/test-data is in the code repo, which has a remote: a test can never commit.
-  expect(() => commitMemory(["memory"], "t")).toThrow("never pushed");
+  expect(() => commitMemory(["memory"], "t")).toThrow("git commit failed");
 });
 
 test("me.md's goals are the block under Goals; its first paragraph is who he is", () => {
