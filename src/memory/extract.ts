@@ -313,7 +313,10 @@ export function priorFor(
 
 /** Extracts the kept units of `evidence` (its window, `gather`) not read yet by this prompt. */
 export async function extract(evidence: Evidence) {
-  const step = await begin("extract", "deep", { prompt: EXTRACT_PROMPT });
+  const step = await begin("extract", "deep", {
+    prompt: EXTRACT_PROMPT,
+    ...evidence.window,
+  });
   const { now, today } = step;
   const { built, conversations, failed, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.

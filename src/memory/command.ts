@@ -1,11 +1,11 @@
 import { parseArgs } from "node:util";
 import { extract } from "./extract";
 import { changeFeed, claim } from "./feed";
-import { locked } from "./guard";
+import { locked, recordBackfill } from "./guard";
 import { lifeStatus, runs } from "./history";
 import { recordCorrection } from "./ledger";
 import { moments } from "./moments";
-import { backfill, DAYS, midday, nightly } from "./nightly";
+import { midday, nightly } from "./nightly";
 import { pages } from "./pages";
 import { placesOf } from "./places";
 import { chatsOf, fetchOf } from "./raw";
@@ -20,7 +20,7 @@ import {
   unresolved,
 } from "./search";
 import { addStatements } from "./statements";
-import { gather, windowStart } from "./units";
+import { DAYS, gather, lastDays } from "./units";
 
 // The memory command line: parses the arguments and calls the steps.
 
@@ -73,7 +73,7 @@ type Handler = (values: Values, rest: string[]) => Promise<number>;
 
 /** A hand-run step's evidence: its last `--days` days, gathered once for it (a sweep gathers once for all its steps). */
 const gathered = (v: Values) =>
-  gather(windowStart(new Date(), Number(v.days ?? DAYS)));
+  gather(lastDays(new Date(), Number(v.days ?? DAYS)));
 
 const scan = step(() => mapRepos());
 
@@ -105,10 +105,15 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 const HANDLERS: Record<string, Handler> = {
   area: (_values, rest) => printed(rest.length > 0 ? area(words(rest)) : null),
-  backfill: (v) =>
-    v.from && v.to && DAY.test(v.from) && DAY.test(v.to)
-      ? backfill(v.from, v.to)
-      : usage(),
+  backfill(v) {
+    if (!(v.from && v.to && DAY.test(v.from) && DAY.test(v.to))) {
+      return Promise.resolve(usage());
+    }
+    // The ticks read it, a week each, when no night or midday run is due (nightly.ts).
+    recordBackfill({ failures: 0, next: v.from, to: v.to });
+    console.log(`backfill set: ${v.from} to ${v.to}, a week per tick`);
+    return Promise.resolve(0);
+  },
   changes: (v) =>
     json(
       changeFeed({
