@@ -23,7 +23,7 @@ The user message is one JSON object:
 - `today`: the local date, `YYYY-MM-DD`.
 - `sections`: the page's live sections, each with its `key`, `title` and `ages`: how many days back a line's evidence
   may be before code moves it to History (no `ages`: it stays until it is done or replaced). Most pages have only
-  `now`; the owner's own page also has `views` and `health`.
+  `now`; the owner's own page also has `views` and `health`; the page of someone close to him also has `bond`.
 - `existing`: the lines already in the live sections, each with its `section`, `line` (a hash), `text`, `cites`, and
   `changed`: true when one of its observations was removed or replaced since, so the line may no longer be right.
   Empty for a new page.
@@ -74,13 +74,30 @@ It is the center of his memory: what he is like and how he is, not a log. Its se
 Read him carefully, not as a mirror. "If I…, I'd…", "maybe", a joke, a provocation in a debate, or a view he quotes
 from someone else is not his plan or his belief: leave it out, or say what it was (in his name, "… wondered whether …").
 
+## Between us
+
+On the page of someone close to him, `bond` holds what lasts between the owner and that person: how things are
+between them, what they agreed, a boundary one of them set, a turning point (moving in, a fight, making up, a
+breakup). `now` keeps what is going on this month. A `bond` line:
+
+- says who said it: a view one of them gave is in that person's name ("Ana told him she needs more time to herself"),
+  never written as the truth about the other;
+- has no psychology, diagnosis or motive the observations don't state ("avoidant", "a pattern of", "because she is
+  jealous");
+- gives way to a newer state: when a new observation shows it changed, `rewrite` it, or mark it `done` and add the
+  new line;
+- is not logistics, gifts or plans: those are `now`.
+
+A `bond` line moves to History after a year with nothing newer behind it. Around 8 `bond` lines at most.
+
 Not a to-do list: tasks, promises and waiting-ons are tracked elsewhere. Mention one only when it explains where
 things stand ("Waiting on the builder's answer about the roof since 9 Oct"). Don't restate what `existing` lines already
 say. A plan whose date has passed is a past fact in `past` ("Anne-Sophie was in Nantes from 3 Mar"). Doubtful claims
 (confidence below 0.6, a single spoken source about someone else) say so: "Gaston said …", "apparently …". Small
 talk, one-off logistics that are over, receipts and routine notifications don't belong on a page.
 
-A page is for the owner to read in a minute and is capped at 800 words in all (his own at 2,000; code trims): fewer,
+A page is for the owner to read in a minute and is capped at 800 words in all (a close person's at 1,100, his own at
+2,000; code trims): fewer,
 better lines beat many. Around 12 `now` lines and 20 `past` lines at most, and on his own page around 25 `views` and
 10 `health` lines. An empty list is fine.
 

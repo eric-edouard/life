@@ -47,17 +47,19 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
       covers (by source, first and last), a month-by-month timeline, and pages back through every observation and
       moment linked to the person (`before`); `search` applies `from`/`to` to every section; `chats` honors `from`/`to`,
       says when it cuts, and pages back (`before`); a name no one goes by answers so and lists near names.
-- [ ] **2. Backfill-safe foundation:** zones sorted by `from` and his zone timeline from July 2025 (<city>, with the
+- [x] **2. Backfill-safe foundation:** zones sorted by `from` and his zone timeline from July 2025 (<city>, with the
       France trips from his bookings); `gather` bounded by a `to` and run month by month, releasing the lock between
       months; no file descriptions for backfilled days (the tag only).
-- [ ] **3. Closeness:** code counts (1:1 only, personal and work apart), a model judges the level with a reason (only
+- [x] **3. Closeness:** code counts (1:1 only, personal and work apart), a model judges the level with a reason (only
       when the counts moved), his overrides as corrections; the level replaces today's page rule.
-- [ ] **3b. Contacts:** his Contacts name the handles Life can't place.
-- [ ] **4. Prompts and the relationship section:** triage and extraction weigh relationship moments for close people;
-      pages v5 adds the section (cited, attributed, "since / last evidence" by code, aging after 12 months);
-      `priorFor` also shows the observations that section cites, whatever their age; the newer of two conflicting
-      facts wins on the page.
-- [ ] **5. Pages at midday.**
+- [x] **3b. Contacts:** his Contacts name the handles Life can't place.
+- [x] **4. Prompts and the relationship section:** moments v4 and extraction v5 weigh what is between him and the
+      people close to him (`close: true` in the context); pages v5 adds Between us (cited, attributed, "since / last
+      evidence" by code in `person`, aging after 12 months); `priorFor` also shows the `person` facts of the last year
+      about the close people (simpler than reading the page's cites, same effect), so a newer fact retires the older.
+      Close means close personally now or once (faded), so the backfill weighs an ex's days and a night's dip never
+      empties the section; a page that loses Between us moves its lines to History.
+- [x] **5. Pages at midday.**
 - [ ] **6. Pilot:** one month of backfill, every channel; measure cost, new inferred people, eval.
 - [ ] **7. Backfill** July 2025 to September 2026, oldest month first.
 

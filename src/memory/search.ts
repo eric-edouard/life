@@ -41,7 +41,13 @@ import {
   verdictOf,
 } from "./ledger";
 import { who as named, SURE_AT } from "./observe";
-import { bodyOf, type PageMeta, parsePage } from "./page";
+import {
+  bodyOf,
+  generated,
+  type PageMeta,
+  parsePage,
+  renderLine,
+} from "./page";
 import { asData, chatHits, holdsAll } from "./raw";
 import { actionLine } from "./report";
 import {
@@ -242,15 +248,39 @@ function withIndex(lines: (db: Database) => string[]) {
   return out === null ? NOT_BUILT : asData(out);
 }
 
+/** The page's text, each Between us line followed by the days of its first and latest evidence. */
+export function withSpans(text: string, dateOf: (id: string) => string[]) {
+  const parsed = parsePage(text);
+  let body = bodyOf(text);
+  for (const l of parsed ? generated(parsed).bond : []) {
+    const days = l.cites.flatMap(dateOf).toSorted();
+    const rendered = renderLine("bond", l);
+    // A function, so a `$` in the line is never read as a replacement pattern.
+    body = body.replace(rendered, () =>
+      days.length > 0
+        ? `${rendered} (since ${days[0]} · last evidence ${days.at(-1)})`
+        : rendered
+    );
+  }
+  return body;
+}
+
 /** A page, whole, with when it was built, when it has one; then the observations `rows` finds for it. */
-function entity(text: string | null, rows: (meta?: PageMeta) => string[]) {
+function entity(
+  db: Database,
+  text: string | null,
+  rows: (meta?: PageMeta) => string[]
+) {
   const meta = text ? parsePage(text)?.meta : undefined;
   const found = rows(meta);
+  const dates = db.query<{ date: string }, [string]>(
+    "select date from observations where id = ?"
+  );
   return [
     ...(text && meta
       ? [
           `(page built ${meta.built.slice(0, 16).replace("T", " ")} UTC: newer observations are below, not on it yet)`,
-          redact(bodyOf(text)),
+          redact(withSpans(text, (id) => dates.all(id).map((r) => r.date))),
           "",
         ]
       : []),
@@ -497,7 +527,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
           ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
               ...close,
-              ...entity(found?.text ?? null, () => obsLines),
+              ...entity(db, found?.text ?? null, () => obsLines),
               "",
               ...coverageLines(db, ref, timeline),
             ]),
@@ -648,7 +678,7 @@ export const dueOn = (db: Database, date: string) =>
 export async function area(name: string) {
   const text = await areaPage(name);
   return withIndex((db) =>
-    entity(text, (meta) =>
+    entity(db, text, (meta) =>
       meta?.page.startsWith("area:")
         ? latest(db, "where o.area = ?", meta.page.slice("area:".length)).map(
             line

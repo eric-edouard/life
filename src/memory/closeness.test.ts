@@ -15,6 +15,7 @@ import {
   levelsNow,
   pagedBy,
   parseLevels,
+  personallyClose,
   tally,
   voiceDays,
 } from "./closeness";
@@ -137,6 +138,11 @@ test("a level keeps a page when close or once close, never a service's; his word
     "person:bob",
     "person:me",
     "person:new",
+    "person:old",
+  ]);
+  // Close personally, now or once: Between us. Not work, not a service, not one he lowered.
+  expect([...personallyClose(levels)].sort()).toEqual([
+    "person:ann",
     "person:old",
   ]);
 });

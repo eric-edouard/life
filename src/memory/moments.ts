@@ -16,6 +16,7 @@ import {
   type Verdict,
 } from "../schema";
 import { OWNER, type Truth } from "../truth";
+import { closeNow } from "./closeness";
 import {
   appendJsonl,
   appendVerdicts,
@@ -50,12 +51,12 @@ import { readPeople, UNKNOWN } from "./who";
 
 // `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
 // judged on its current content, the deep-tier model reads every unit of the day from every channel in time order,
-// with the moments of the days before that may continue into it (memory-moments.v3), and returns a verdict per unit
+// with the moments of the days before that may continue into it (memory-moments.v4), and returns a verdict per unit
 // (memory/verdicts.jsonl: what it is, its area, topics, salience), the day's moments (memory/moments/<day>.jsonl) and
 // who the day's unknown handles and names are (memory/people-inferred.jsonl).
 // Extraction then reads a moment's units together (extract.ts). Units are written here too (units.ts builds them).
 
-const MOMENTS_PROMPT = "memory-moments.v3";
+const MOMENTS_PROMPT = "memory-moments.v4";
 // ponytail: a whole day goes in one call (about 200 KB on a busy day, each unit clipped by `head`); split the day
 // into halves with the moments of the first as `earlier` if a day ever outgrows the model's context.
 const TOPICS_SHOWN = 40;
@@ -331,7 +332,7 @@ export async function moments(evidence: Evidence) {
       hints.set(repo, [r.area]);
     }
   }
-  const context = refContext(truth, inferred);
+  const context = refContext(truth, inferred, await closeNow());
   const taken = new Set(inferred.map((p) => p.id));
   const projects = new Set(truth.projects.map((p) => p.id));
   const named: InferredPerson[] = [];
