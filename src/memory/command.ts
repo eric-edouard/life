@@ -21,6 +21,7 @@ import {
 } from "./search";
 import { addStatements } from "./statements";
 import { DAYS, gather, lastDays } from "./units";
+import { firstZoneDay } from "./zones";
 
 // The memory command line: parses the arguments and calls the steps.
 
@@ -109,6 +110,13 @@ const HANDLERS: Record<string, Handler> = {
   backfill(v) {
     if (!(v.from && v.to && DAY.test(v.from) && DAY.test(v.to))) {
       return Promise.resolve(usage());
+    }
+    // His zones must cover it first: a past zone can't be added once memory has units of its days (SCHEMA.md).
+    if (v.from < firstZoneDay()) {
+      console.error(
+        `record his zones from ${v.from} first (memory/zones.jsonl starts on ${firstZoneDay()})`
+      );
+      return Promise.resolve(1);
     }
     // The ticks read it, a week each, when no night or midday run is due (nightly.ts); not while a week runs.
     const { from, to } = v;

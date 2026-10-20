@@ -139,15 +139,19 @@ export function recordBackfill(b: Backfill) {
 const WEEKS_A_DAY = 4;
 
 /**
- * The week a backfill reads next on `day`: seven days from `next`, never past `to`; none once it is done, stopped
- * after MAX_ATTEMPTS failures of one week, or `day` read its WEEKS_A_DAY.
+ * The week a backfill reads next on `day`: seven days from `next`, never past `to`; none before `day`'s own night
+ * went through (`night`: a week never pushes the night back), once it is done, stopped after MAX_ATTEMPTS failures of
+ * one week, or `day` read its WEEKS_A_DAY.
  */
 export function backfillWeek(
   b: Backfill | undefined,
-  day: string
+  day: string,
+  night: NightState | undefined
 ): Window | null {
   if (
     !b ||
+    night?.date !== day ||
+    night.status !== "ok" ||
     b.next > b.to ||
     b.failures >= MAX_ATTEMPTS ||
     (b.day === day && (b.weeks ?? 0) >= WEEKS_A_DAY)

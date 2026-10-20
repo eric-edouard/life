@@ -23,6 +23,12 @@ function zones() {
   return cache.list;
 }
 
+/** The local day his first zone record starts: memory can't read a day before it without guessing its zone. */
+export const firstZoneDay = () => {
+  const [first] = zones();
+  return first ? wall(new Date(first.from).toISOString(), first.tz).day : "";
+};
+
 /** The owner's time zone at `iso`: the latest record from before it (the first one before them all). */
 export function zoneAt(iso: string) {
   const list = zones();

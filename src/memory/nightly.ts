@@ -106,11 +106,8 @@ export async function nightly(days: number, force = false) {
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
   const night = force || decide(now.getHours(), day, readState()) === "run";
-  // The backfill only once today's night went through: a week never pushes the night back.
   const daytime = () =>
-    middayDue(now, readMidday())
-      ? midday(now)
-      : backfilled(readState()?.status === "ok" ? day : undefined);
+    middayDue(now, readMidday()) ? midday(now) : backfilled(day);
   const code = night
     ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
     : await daytime();
@@ -148,16 +145,16 @@ export async function midday(now = new Date(), force = false) {
 }
 
 /**
- * One week of the backfill (`bun life memory backfill` sets its range) on a tick with no night and no midday to run,
- * once `day`'s night is done (none: not yet): a sweep under the lock, then the range moves on. The past is read oldest
- * first, a week per tick and a few a day (`backfillWeek`), so it never keeps the nights, the midday runs or the backup
- * from their turn, nor uses his subscriptions all day; a week read already costs nothing (the steps' caches).
+ * One week of the backfill (`bun life memory backfill` sets its range) on a tick with no night and no midday to run:
+ * a sweep under the lock, then the range moves on. The past is read oldest first, a week per tick, a few a day, only
+ * after the day's night (`backfillWeek`), so it never keeps the nights, the midday runs or the backup from their turn,
+ * nor uses his subscriptions all day; a week read already costs nothing (the steps' caches).
  */
-async function backfilled(day: string | undefined) {
+async function backfilled(day: string) {
   const code = await locked(async () => {
     const b = readBackfill();
-    const week = day && backfillWeek(b, day);
-    if (!(b && day && week)) {
+    const week = backfillWeek(b, day, readState());
+    if (!(b && week)) {
       return 0;
     }
     const done = await sweep("memory.backfill", week);
