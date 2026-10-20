@@ -78,9 +78,13 @@ export function readImessage(
       )
       .all(toAppleNs(since));
     return rows.map((r) => {
+      // A chat Messages names (an empty name is none), else, for a 1:1 chat (its identifier a handle, a group's is
+      // `chat…`), the name his Contacts give that handle: every message of the chat, his own included.
       const named =
-        r.chatName ??
-        (r.chat && r.chat === r.sender ? names.get(handleKey(r.chat)) : null);
+        r.chatName ||
+        (r.chat && !r.chat.startsWith("chat")
+          ? names.get(handleKey(r.chat))
+          : undefined);
       return {
         at: fromAppleNs(r.date).toISOString(),
         chat: r.chat ?? r.sender ?? "unknown",

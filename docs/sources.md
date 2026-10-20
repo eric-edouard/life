@@ -26,7 +26,7 @@ the archive's media copy); Life copies none, and a description outlives its file
 
 ## Removed in the 14 Oct reset (restore from git when a layer needs one)
 
-Reminders (JXA), Calendar, Apple Notes (now from the archive), Contacts, Whereabouts, the Gmail connector.
+Reminders (JXA), Calendar, Apple Notes (now from the archive), Whereabouts, the Gmail connector.
 
 ## Not used yet
 
