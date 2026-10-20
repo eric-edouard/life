@@ -50,6 +50,8 @@ export const OUT = join(ROOT, "derived", "memory");
 export const UNITS = join(MEMORY, "units");
 export const OBSERVATIONS = join(MEMORY, "observations");
 export const PAGES = join(MEMORY, "pages");
+/** The kinds of page, each a folder under PAGES. */
+export const PAGE_KINDS = ["people", "areas"] as const;
 
 /** The file of a person's or an area's page. */
 export const pagePath = (ref: string) =>

@@ -24,6 +24,7 @@ import {
   isCurrent,
   linesOf,
   OBSERVATIONS,
+  PAGE_KINDS,
   PAGES,
   RATINGS,
   readCorrections,
@@ -188,7 +189,7 @@ async function readPages() {
   const pages = new Map<string, Record<Key, string[]>>();
   const paths = (
     await Promise.all(
-      ["people", "areas"].map(async (dir) =>
+      PAGE_KINDS.map(async (dir) =>
         (await filesIn(join(PAGES, dir), ".md")).map((n) => join(PAGES, dir, n))
       )
     )

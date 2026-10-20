@@ -11,6 +11,7 @@ import {
   type NightState,
   nextMidday,
   nextNight,
+  turnOf,
 } from "./guard";
 
 const day = "2026-10-15";
@@ -130,4 +131,35 @@ test("a backfill reads a week at a time up to its last day, four a day; three fa
   expect(afterWeek(full, week as never, true, "2026-10-22").weeks).toBe(1);
   expect(backfillWeek({ ...b, next: "2025-07-11" }, today, night)).toBeNull();
   expect(backfillWeek(undefined, today, night)).toBeNull();
+});
+
+test("a tick runs the night when due, else the midday slot, else a backfill week unless the backup is still due", () => {
+  const today = "2026-10-21";
+  const at = (h: number) => new Date(2026, 9, 21, h, 30);
+  const ok = st("ok", 1, today);
+  const backfill = { failures: 0, next: "2025-07-01", to: "2025-08-01" };
+  const backedUp = st("ok", 1, today);
+  expect(turnOf(at(3), today, {})).toBe("night");
+  expect(
+    turnOf(at(1), today, { backfill, night: st("ok", 1, "2026-10-20") })
+  ).toBe("none");
+  expect(turnOf(at(13), today, { backfill, backup: backedUp, night: ok })).toBe(
+    "midday"
+  );
+  const spent = new Date(2026, 9, 21, 13, 0).toISOString();
+  expect(
+    turnOf(at(14), today, {
+      backfill,
+      backup: backedUp,
+      midday: spent,
+      night: ok,
+    })
+  ).toBe("backfill");
+  // The day's backup not done yet: it goes first, no week this tick.
+  expect(turnOf(at(14), today, { backfill, midday: spent, night: ok })).toBe(
+    "none"
+  );
+  expect(
+    turnOf(at(14), today, { backup: backedUp, midday: spent, night: ok })
+  ).toBe("none");
 });
