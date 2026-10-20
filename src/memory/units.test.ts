@@ -30,7 +30,7 @@ import {
   unitId,
   writeUnits,
 } from "./units";
-import { cutAt, dayStart, zoneAt } from "./zones";
+import { cutAt, dayStart, firstZoneDay, zoneAt } from "./zones";
 
 const people = [
   {
@@ -400,6 +400,8 @@ test("a window is whole local days where he was, today included", () => {
 test("his zone at an instant is the latest record before it, the first one before them all, in time order", () => {
   // Lisbon from 2019 is the file's last line: his past, told after the newer records.
   expect(zoneAt("2018-01-01T00:00:00Z")).toBe("Europe/Lisbon");
+  // A backfill may not start before it.
+  expect(firstZoneDay()).toBe("2019-01-01");
   expect(zoneAt("2020-01-01T00:00:00Z")).toBe("Europe/Lisbon");
   expect(zoneAt("2026-08-02T00:00:00Z")).toBe("Asia/Jakarta");
   expect(zoneAt("2026-10-06T16:59:59Z")).toBe("Asia/Jakarta");
