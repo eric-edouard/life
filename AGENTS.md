@@ -59,7 +59,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   the same text.
 - **He is the center, not one more person.** His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
   projection of the observations like every page, so its shape changes at the cost of rebuilding one page; his goals
-  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me` in its What I hold (as of the page's last build). Nothing about him is stored in
+  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me` in its What I hold (as of the page's last build) and read fresh by the connector's `tasks` (`loadMe`). Nothing about him is stored in
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
