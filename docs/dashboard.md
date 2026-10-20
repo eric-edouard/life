@@ -21,7 +21,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `capture.archive.{whatsapp,beeper,notes}` | last write to Life's archive (a new message or note version), not a health check | file times |
 | `capture.lastTriage` | the last run that judged units (the moments step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | midday (13:00, 19:00), nightly and backfill weeks | derived/log, `memory.extract` |
-| `consolidation` | pages, nightly only (or a hand run) | derived/log, `memory.pages` |
+| `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
 | `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
 
 - `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, or `unknown` (no health file).

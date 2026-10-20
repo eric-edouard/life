@@ -174,6 +174,34 @@ export function afterWeek(
     : { ...b, day, failures: b.failures + 1, weeks };
 }
 
+/**
+ * What a 30-minute tick runs: the night when it is due; else the midday run when its slot is open; else a backfill
+ * week when one is due (`backfillWeek`), unless the day's backup still is (it runs after the tick's work, and goes
+ * first). The backup itself is `backupDue`'s, after any of these.
+ */
+export function turnOf(
+  now: Date,
+  day: string,
+  s: {
+    backfill?: Backfill;
+    backup?: NightState;
+    midday?: string;
+    night?: NightState;
+  }
+): "night" | "midday" | "backfill" | "none" {
+  const hour = now.getHours();
+  if (decide(hour, day, s.night) === "run") {
+    return "night";
+  }
+  if (middayDue(now, s.midday)) {
+    return "midday";
+  }
+  return !backupDue(hour, day, s.night, s.backup) &&
+    backfillWeek(s.backfill, day, s.night)
+    ? "backfill"
+    : "none";
+}
+
 /** A scheduled job's state (`nightly`, `backup`). */
 type Job = "nightly" | "backup";
 const stateFile = (job: Job) => join(OUT, `${job}.json`);
