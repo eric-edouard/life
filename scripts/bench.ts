@@ -16,7 +16,6 @@ import { moments } from "../src/memory/moments";
 import { claimsNow } from "../src/memory/statements";
 import type { tally } from "../src/memory/tally";
 import { gather } from "../src/memory/units";
-import { dayStart } from "../src/memory/zones";
 import { exec, git } from "../src/proc";
 import { DATA, ROOT } from "../src/truth";
 
@@ -42,7 +41,6 @@ const SEED = [
   "memory/people-inferred.jsonl",
   "memory/repos-inferred.jsonl",
 ];
-const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 const ERROR_LINE = /^error: .*$/m;
 
@@ -52,16 +50,11 @@ const wrong = (c: Counts) => c.contradicted + c.restated;
 
 /** In a copy (`LIFE_DATA`, `LIFE_LLM` set): moments then extract over the week, its claims to claims.jsonl. */
 async function readWeek() {
-  const since = dayStart(WEEK.from);
-  const days = Math.ceil((Date.now() - since.getTime()) / DAY_MS) + 1;
   const done = await locked(async () => {
-    const evidence = await gather(since);
-    const week = {
-      ...evidence,
-      built: evidence.built.filter((b) => b.unit.date <= WEEK.to),
-    };
-    const m = await moments({ days, evidence: week });
-    const e = await extract({ days, evidence: week });
+    // The week's evidence: gather cuts its units to the window.
+    const week = await gather({ from: WEEK.from, to: WEEK.to });
+    const m = await moments(week);
+    const e = await extract(week);
     const claims = (await claimsNow()).filter(
       (c) => c.date >= WEEK.from && c.date <= WEEK.to
     );

@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { z } from "zod";
 import {
   Action,
@@ -74,6 +80,12 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
   linesOf(path)
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
+
+/** Writes a small JSON state file (a guard's, the backfill's), its folder made if missing. */
+export function writeJson(path: string, value: unknown) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value)}\n`);
+}
 
 /** A small JSON state file, or undefined when it is missing or unreadable. */
 export function readJson<T>(path: string): T | undefined {
