@@ -9,6 +9,7 @@ import { uptime } from "node:os";
 import { join } from "node:path";
 import { DATA } from "../truth";
 import { OUT, readJson } from "./ledger";
+import { daysBefore, type Window } from "./units";
 
 // launchd starts the nightly every 30 minutes; this guard decides whether a start does anything.
 
@@ -114,6 +115,31 @@ export function nextMidday(now: Date, last: string | undefined) {
     hour === undefined ? at(now, 1, MIDDAYS[0] as number) : at(now, 0, hour),
     "the next slot"
   );
+}
+
+/** The backfill's range (`bun life memory backfill`): the next local day to read, the last one, and how many times its week failed. */
+export interface Backfill {
+  failures: number;
+  next: string;
+  to: string;
+}
+const BACKFILL = join(OUT, "backfill.json");
+export const readBackfill = () => readJson<Backfill>(BACKFILL);
+export function recordBackfill(b: Backfill) {
+  mkdirSync(OUT, { recursive: true });
+  writeFileSync(BACKFILL, `${JSON.stringify(b)}\n`);
+}
+
+/**
+ * The week a backfill reads next: seven days from `next`, never past `to`; none once it is done, or stopped after
+ * MAX_ATTEMPTS failures of one week.
+ */
+export function backfillWeek(b: Backfill | undefined): Window | null {
+  if (!b || b.next > b.to || b.failures >= MAX_ATTEMPTS) {
+    return null;
+  }
+  const end = daysBefore(b.next, -6);
+  return { from: b.next, to: end < b.to ? end : b.to };
 }
 
 /** A scheduled job's state (`nightly`, `backup`). */

@@ -24,7 +24,7 @@ import { localDate } from "./zones";
 // --- runs ----------------------------------------------------------------------------------------------------------
 
 /** The sweeps: one launchd start that runs several steps. */
-const SWEEPS = new Set(["memory.nightly", "memory.midday"]);
+const SWEEPS = new Set(["memory.nightly", "memory.midday", "memory.backfill"]);
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
   ...SWEEPS,
@@ -94,7 +94,9 @@ function apply(r: Run, e: LogEvent) {
     r.input = omit(e);
     const days = Number(e.days);
     const start = new Date(r.startedAt ?? e.at);
-    if (days > 0) {
+    if (typeof e.from === "string" && typeof e.to === "string") {
+      r.window = { from: e.from, to: e.to };
+    } else if (days > 0) {
       r.window = {
         from: localDate(windowStart(start, days).toISOString()),
         to: localDate(start.toISOString()),

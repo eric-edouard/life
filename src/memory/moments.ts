@@ -305,7 +305,10 @@ async function writeDay(day: string, list: Moment[]) {
 
 /** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
 export async function moments(evidence: Evidence) {
-  const step = await begin("moments", "deep", { prompt: MOMENTS_PROMPT });
+  const step = await begin("moments", "deep", {
+    prompt: MOMENTS_PROMPT,
+    ...evidence.window,
+  });
   const { built: all, failed, read: sources, repos, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;

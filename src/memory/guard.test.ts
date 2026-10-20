@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
 import {
+  backfillWeek,
   backupDue,
   decide,
   LOCK,
@@ -89,4 +90,16 @@ test("a lock left by a dead pid, or from before the boot (its pid reused), is ta
   writeFileSync(LOCK, String(process.pid)); // alive, but written before the boot
   utimesSync(LOCK, new Date(0), new Date(0));
   expect(await locked(async () => "ran")).toBe("ran");
+});
+
+test("a backfill reads a week at a time up to its last day, then stops; three failures of a week stop it too", () => {
+  const b = { failures: 0, next: "2025-07-01", to: "2025-07-10" };
+  expect(backfillWeek(b)).toEqual({ from: "2025-07-01", to: "2025-07-07" });
+  expect(backfillWeek({ ...b, next: "2025-07-08" })).toEqual({
+    from: "2025-07-08",
+    to: "2025-07-10",
+  });
+  expect(backfillWeek({ ...b, next: "2025-07-11" })).toBeNull();
+  expect(backfillWeek({ ...b, failures: 3 })).toBeNull();
+  expect(backfillWeek(undefined)).toBeNull();
 });

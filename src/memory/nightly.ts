@@ -5,14 +5,17 @@ import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
 import { extract } from "./extract";
 import {
+  backfillWeek,
   backupDue,
   decide,
   locked,
   lockedSince,
   MAX_ATTEMPTS,
   middayDue,
+  readBackfill,
   readMidday,
   readState,
+  recordBackfill,
   recordMidday,
   recordState,
 } from "./guard";
@@ -30,15 +33,18 @@ import {
 import { codeOn, mapRepos } from "./repos";
 import { commitMemory, phases, type RunRecord, record } from "./run";
 import { reindex } from "./search";
-import { clip, daysBefore, gather, localTime, windowStart } from "./units";
+import {
+  clip,
+  daysBefore,
+  gather,
+  lastDays,
+  localTime,
+  type Window,
+  windowStart,
+} from "./units";
 import { observationsNow, readPeople } from "./who";
-import { dayStart, localDate, noteZone } from "./zones";
+import { localDate, noteZone } from "./zones";
 
-/**
- * The default look-back of every step: yesterday, plus what a sleeping Mac or a late summary left behind, and the
- * lifelog units lifelog re-summarizes a few days later (their new hash needs a new verdict).
- */
-export const DAYS = 7;
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * 3_600_000;
 
@@ -82,7 +88,8 @@ function coded(day: string, rec: RunRecord) {
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (guard.ts), and
- * only the 3rd failure of a day sends the failure email. A tick that skips the night runs the midday pass. Then the
+ * only the 3rd failure of a day sends the failure email. A tick that skips the night runs the midday pass when its
+ * slot is open, else a week of the backfill when one is set. Then the
  * daily backup, when it is due (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
@@ -98,11 +105,12 @@ export async function nightly(days: number, force = false) {
   await locked(() => noteZone(now));
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
-  const code =
-    !force && decide(now.getHours(), day, readState()) === "skip"
-      ? await midday(now)
-      : ((await locked(() => runNight(days, now, day, force))) ??
-        Number(force));
+  const night = force || decide(now.getHours(), day, readState()) === "run";
+  const daytime = () =>
+    middayDue(now, readMidday()) ? midday(now) : backfilled();
+  const code = night
+    ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
+    : await daytime();
   if (
     force ||
     !backupDue(now.getHours(), day, readState(), readState("backup"))
@@ -129,80 +137,66 @@ export async function midday(now = new Date(), force = false) {
   if (!(force || middayDue(now, readMidday()))) {
     return 0;
   }
-  const code = await sweep(
-    "memory.midday",
-    { days: 1 },
-    windowStart(now, 1),
-    undefined,
-    recordMidday
-  );
+  const code = await locked(() => {
+    recordMidday();
+    return sweep("memory.midday", lastDays(now, 1));
+  });
   return code ?? Number(force);
 }
 
 /**
- * Reads the past, the local days `from` to before `to`, a week at a time, oldest first, each week a sweep like a
- * midday run (moments, extract, the index) under the lock, let go between weeks so the nights go on. Pages follow at
- * the next night. A day or unit read already is skipped (the steps' caches), so a stopped backfill resumes where it was.
+ * One week of the backfill (`bun life memory backfill` sets its range), on a tick with no night and no midday to run:
+ * a sweep under the lock, then the range moves on. The past is read oldest first, a week per tick, so it never keeps
+ * the nights, the midday runs or the backup from their turn; a week read already costs nothing (the steps' caches).
  */
-export async function backfill(from: string, to: string) {
-  for (let day = from; day < to; day = daysBefore(day, -7)) {
-    const end = daysBefore(day, -7) < to ? daysBefore(day, -7) : to;
-    // biome-ignore lint/performance/noAwaitInLoops: a week reads what the weeks before it found
-    const code = await sweep(
-      "memory.backfill",
-      { from: day, to: end },
-      dayStart(day),
-      dayStart(end)
-    );
-    if (code !== 0) {
-      return 1;
-    }
+async function backfilled() {
+  const b = readBackfill();
+  const week = backfillWeek(b);
+  if (!(b && week)) {
+    return 0;
   }
-  return 0;
+  const code = await locked(() => sweep("memory.backfill", week));
+  if (code !== null) {
+    recordBackfill(
+      code === 0
+        ? { ...b, failures: 0, next: daysBefore(week.to, -1) }
+        : { ...b, failures: b.failures + 1 }
+    );
+  }
+  return code ?? 0;
 }
 
-/**
- * One sweep without pages, commit or email: the evidence of `since` to before `until` (now, without it), read once for
- * moments and extract, then the index; under the lock (null when another run holds it), recorded as `name`. `started`
- * runs once the lock is held.
- */
-async function sweep(
-  name: string,
-  data: Record<string, unknown>,
-  since: Date,
-  until?: Date,
-  started: () => void = () => undefined
-) {
-  return await locked(async () => {
-    started();
-    const rec = record(name, data);
-    const phase = phases(rec);
-    try {
-      phase.at = "gather";
-      const evidence = await gather(since, until);
-      const found = await phase.step("moments", () => moments(evidence));
-      console.log(JSON.stringify(found));
-      const extracted = await phase.step("extract", () => extract(evidence));
-      console.log(JSON.stringify(extracted));
-      phase.at = "index";
-      await reindex();
-      rec.end({ outcome: "ok" });
-      return 0;
-    } catch (e) {
-      rec.end(phase.failed(e));
-      return 1;
-    }
-  });
+/** One sweep without pages, commit or email: the evidence of `window`, read once for moments and extract, then the index; recorded as `name`. The caller holds the lock. */
+async function sweep(name: string, window: Window) {
+  const rec = record(name, { ...window });
+  const phase = phases(rec);
+  try {
+    phase.at = "gather";
+    const evidence = await gather(window);
+    const found = await phase.step("moments", () => moments(evidence));
+    console.log(JSON.stringify(found));
+    const extracted = await phase.step("extract", () => extract(evidence));
+    console.log(JSON.stringify(extracted));
+    phase.at = "index";
+    await reindex();
+    rec.end({ outcome: "ok" });
+    return 0;
+  } catch (e) {
+    rec.end(phase.failed(e));
+    return 1;
+  }
 }
 
 /**
  * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`), the
  * salience-3 page lines not retired, by their home page (`placed`), and the retirements those new observations made.
  */
-async function whatIsNew(since: string) {
+/** What the night's report counts as new: first cited since `since` and about the night's days, not a backfilled past. */
+async function whatIsNew(since: string, from: string) {
   const people = await readPeople();
   const { all, observations, standing } = await observationsNow(people);
-  const fresh = observations.filter(newSince(all, since));
+  const isNew = newSince(all, since);
+  const fresh = observations.filter((o) => o.date >= from && isNew(o));
   const ids = new Set(fresh.map((o) => o.id));
   const { homes } = placed(observations, people.truth);
   return {
@@ -235,10 +229,13 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Every source is read once and handed to each step.
     phase.at = "gather";
     const watcher = readHealth();
-    const evidence = await gather(windowStart(now, days));
+    const evidence = await gather(lastDays(now, days));
     const found = await phase.step("moments", () => moments(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
-    const { facts, observed, retired } = await whatIsNew(since);
+    const { facts, observed, retired } = await whatIsNew(
+      since,
+      evidence.window.from
+    );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
     phase.at = "index";
     await reindex();
