@@ -178,7 +178,7 @@ Facts, not permissions: `## Sends` governs every send.
 - **Life's connector:** its tools describe themselves. His Reminders change only through `reminders`, never `remctl`;
   `correct` is for when he corrects Life's memory.
 - **His Mac, through a Codex task:** full access to everything on it, his accounts, apps and files included. OpenAI
-  runs the task, the Mac runs its commands; put the Codex task id in the task's note. In use: his repos, `bun life …`
+  runs the task, the Mac runs its commands; put the Codex task id in the task's note. Routes: his repos, `bun life …`
   in `~/Work/life`, `gog` (his personal Google account and a second, work Gmail), `gws` (the Lynx mailbox), Claude Code
   (`claude`, from `~/Work`), the skills in `~/.agents/skills`, Beeper, `memo` (Apple Notes), `imsg`, `playwriter` (his
   Chrome, with his logins). Failing today: `imsg` (access denied) and the browser (no working route; starting
