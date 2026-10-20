@@ -350,6 +350,8 @@ export async function deliver() {
     const after = settle(state, status, cursor, now);
     writeState(after);
     if (status >= 200 && status < 300) {
+      // When Atlas got it, for `bun life asks`.
+      log("event.sent", { event: event.eventId });
       continue;
     }
     const error = `Atlas did not receive it (callback ${status || "unreachable"})`;
