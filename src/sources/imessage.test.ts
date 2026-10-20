@@ -1,8 +1,10 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { showFiles } from "../memory/files";
+import { handleKey } from "./contacts";
 import { imessageFixture } from "./fixtures";
 import {
   fromAppleNs,
@@ -54,4 +56,18 @@ test("text is recovered from an archived attributed string", () => {
     Buffer.from([0x86]),
   ]);
   expect(textFromAttributedBody(blob)).toBe("Ça marche, à demain");
+});
+
+test("his Contacts name a 1:1 chat Messages knows only by its number (an empty name is none)", () => {
+  const db = imessageFixture("salut");
+  const since = new Date(Date.now() - 3_600_000);
+  // Contacts write the number their own way: the key is its last digits.
+  const names = new Map([[handleKey("06 11 11 11 11"), "Claire Dupont"]]);
+  expect(readImessage(since, db, names)[0]?.chatName).toBe("Claire Dupont");
+  expect(readImessage(since, db, new Map())[0]?.chatName).toBeUndefined();
+  // A group (its identifier `chat…`) is never named after a contact, whatever its digits.
+  const group = new Database(db);
+  group.run("update chat set chat_identifier = 'chat611111111'");
+  group.close();
+  expect(readImessage(since, db, names)[0]?.chatName).toBeUndefined();
 });
