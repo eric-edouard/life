@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { log } from "./log";
 import { exec } from "./proc";
-import { Engine } from "./schema";
+import { Engine, Runner } from "./schema";
 import { DATA, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
@@ -37,10 +37,10 @@ export function extractJson(text: string): unknown {
 /** What a step needs: repos and files fast, pages main, moments and extract deep (~/Life/docs/evals/events-2026-10-18.md). */
 export type Tier = "fast" | "main" | "deep";
 
-/** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`). */
+/** The runner, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an OpenRouter model is `author/model@host`). */
 export interface Llm {
   effort?: string;
-  engine: Engine;
+  engine: Runner;
   model: string;
 }
 
@@ -102,16 +102,19 @@ export function llmOverride(
       "LIFE_LLM is for a copy of the data (LIFE_DATA), never ~/Life"
     );
   }
-  const [engine, model, effort] = set.split("/");
-  if (!model) {
+  const [engine = "", ...rest] = set.split("/");
+  const effort = EFFORTS.includes(rest.at(-1) ?? "") ? rest.pop() : undefined;
+  if (rest.length === 0) {
     throw new Error(`LIFE_LLM is engine/model[/effort], not ${set}`);
   }
-  return { effort, engine: Engine.parse(engine), model };
+  return { effort, engine: Runner.parse(engine), model: rest.join("/") };
 }
 
 /** An `Llm` as `LIFE_LLM` names it, `engine/model[/effort]`: for `LIFE_LLM`, the log and the nightly email. */
 export const llmSpec = (l: Llm) =>
   [l.engine, l.model, l.effort].filter(Boolean).join("/");
+
+const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
 export function llmFor(tier: Tier): Llm {
@@ -169,6 +172,94 @@ const imageBlock = async (path: string) => ({
   type: "image",
 });
 
+const openRouterUrl = () =>
+  process.env.OPENROUTER_URL ?? "https://openrouter.ai/api/v1/chat/completions";
+/** Room for a day's moments and their reasoning; every bench host allows at least this much. */
+const OPENROUTER_MAX_TOKENS = 131_072;
+const OpenRouterReply = z.object({
+  choices: z
+    .array(z.object({ message: z.object({ content: z.string().nullable() }) }))
+    .min(1),
+  provider: z.string(),
+  usage: z.object({ cost: z.number() }).loose(),
+});
+const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
+const NOT_ALNUM = /[^a-z0-9]/g;
+
+/**
+ * One call through OpenRouter, the bench's alone (`llmOverride`): pinned to the host after `@` in fp8, routed only to
+ * endpoints that keep nothing (`zdr`, `data_collection: deny`), no fallback, and refused when another host served it.
+ * No tools; the key (OPENROUTER_API_KEY in .env) is read here only.
+ */
+async function askOpenRouter(
+  llm: Llm,
+  system: string,
+  opts: { dir: string; images?: string[]; input: unknown },
+  made: ReturnType<typeof stamp>
+) {
+  const key = process.env.OPENROUTER_API_KEY;
+  const [model, host] = llm.model.split("@");
+  if (!(key && host)) {
+    throw new Error(
+      "openrouter needs OPENROUTER_API_KEY in .env and a model as author/model@host"
+    );
+  }
+  if (opts.images?.length) {
+    throw new Error("the bench sends no images through OpenRouter");
+  }
+  const started = performance.now();
+  const res = await fetch(openRouterUrl(), {
+    body: JSON.stringify({
+      max_tokens: OPENROUTER_MAX_TOKENS,
+      messages: [
+        { content: system, role: "system" },
+        { content: JSON.stringify(opts.input), role: "user" },
+      ],
+      model,
+      provider: {
+        allow_fallbacks: false,
+        data_collection: "deny",
+        only: [host],
+        quantizations: ["fp8"],
+        zdr: true,
+      },
+      reasoning: { effort: llm.effort ?? "high" },
+    }),
+    headers: {
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+  }).catch((e: Error) => e);
+  const ms = Math.round(performance.now() - started);
+  const text = res instanceof Response ? await res.text() : res.message;
+  await Bun.write(join(opts.dir, "openrouter.json"), text);
+  const fail = (error: string) => {
+    log("model.run", { ...made, error, ms, ok: false });
+    return new Error(`openrouter: ${error}`);
+  };
+  if (!(res instanceof Response && res.ok)) {
+    throw fail(
+      `${res instanceof Response ? res.status : "no answer"}: ${text.slice(-300)}`
+    );
+  }
+  const reply = OpenRouterReply.parse(JSON.parse(text));
+  if (slug(reply.provider) !== slug(host)) {
+    throw fail(`served by ${reply.provider}, not ${host}`);
+  }
+  log("model.run", {
+    ...made,
+    costUsd: reply.usage.cost,
+    effort: llm.effort,
+    host: reply.provider,
+    ms,
+    ok: true,
+    usage: reply.usage,
+  });
+  return extractJson(reply.choices[0]?.message.content ?? "");
+}
+
 /**
  * One shot with no tools, no MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
  * `input` (as JSON) the whole user message. Code assembles everything the model sees, so the call stays small.
@@ -192,6 +283,11 @@ export async function askOnce(opts: {
       : `\n\n<context>\n${JSON.stringify(opts.context)}\n</context>\n`;
   const system = `${await promptText(opts.prompt)}${context}`;
   const made = stamp(llm, opts.prompt, opts.run);
+  await mkdir(dir, { recursive: true });
+  await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));
+  if (llm.engine === "openrouter") {
+    return askOpenRouter(llm, system, opts, made);
+  }
   const reply = join(
     dir,
     llm.engine === "claude" ? "claude.jsonl" : "codex.txt"
@@ -240,8 +336,6 @@ export async function askOnce(opts: {
           ...["-o", reply],
           ...images.map((i) => `--image=${i}`),
         ];
-  await mkdir(dir, { recursive: true });
-  await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));
   const started = performance.now();
   const { code, killed, stderr, stdout } = await exec(args, {
     cwd,
