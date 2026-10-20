@@ -21,7 +21,7 @@ encrypted backup. This file says what is true now.
 
 | | lifelog (`~/Work/lifelog`) | Life (this repo) |
 |---|---|---|
-| Job | Voice capture: Pendant audio, transcripts, speakers, per-conversation chapters and summaries, search, MCP | Memory across sources: Pendant (via lifelog), WhatsApp/Beeper, iMessage, mail, Apple Notes; his plan (calendar), read by `week` |
+| Job | Voice capture: Pendant audio, transcripts, speakers, per-conversation chapters and summaries, search, MCP | Memory across sources: Pendant (via lifelog), WhatsApp/Beeper, iMessage, mail, Apple Notes |
 | Owns | The raw spoken archive | The people list across channels, observations, people and project pages |
 | Runs | iPhone + Railway + the Mac helper | The Mac (Beeper and chat.db are Mac-only, and chats stay off Railway) |
 | Acts? | Never | Only on his clear request: Reminders (15 Oct) |
