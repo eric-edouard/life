@@ -84,6 +84,10 @@ function frontmatter(text: string, path: string) {
   return { body: (body ?? "").trim(), data: Bun.YAML.parse(head) };
 }
 
+/** truth/me.md, read fresh. */
+export const loadMe = async () =>
+  readMe(await Bun.file(join(DATA, "truth", "me.md")).text());
+
 export async function loadTruth(): Promise<Truth> {
   const dir = join(DATA, "truth");
   const { people } = PeopleFile.parse(await yaml(join(dir, "people.yaml")));
@@ -99,8 +103,7 @@ export async function loadTruth(): Promise<Truth> {
       return { ...Project.parse(data), notes: body };
     })
   );
-  const me = readMe(await Bun.file(join(dir, "me.md")).text());
-  return { areas, chats, me, people, projects };
+  return { areas, chats, me: await loadMe(), people, projects };
 }
 
 /** Every handle a person has, normalized the way senders are looked up: emails lower-cased. */
