@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -11,7 +11,7 @@ import {
 import { ISSUER, ownerTokens, RESOURCE } from "./auth";
 import { LOG_DIR } from "./log";
 import { correct, createMcp } from "./mcp";
-import { linesOf } from "./memory/ledger";
+import { ACTIONS, linesOf } from "./memory/ledger";
 import { placesOf } from "./memory/places";
 import {
   chapter,
@@ -22,6 +22,7 @@ import {
   turn,
 } from "./sources/fixtures";
 import { apply, forward, type Stay } from "./sources/lifelog";
+import { sealed, update } from "./tasks";
 
 const OWNER = "owner-sub";
 const CHALLENGE =
@@ -280,16 +281,34 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   await res?.body?.cancel();
 });
 
-test("tasks hands out the playbook, docs/atlas.md, with its seal; task refuses another seal with both", async () => {
+test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
+  update({
+    at: new Date().toISOString(),
+    claim: true,
+    outcome: "booked ".repeat(100),
+    said: "book the dentist",
+    seal: sealed().seal,
+    state: "done",
+    title: "Dentist",
+  });
   const { json } = await rpc(bearer, "tools/call", {
     arguments: {},
     name: "tasks",
   });
-  const { playbook, seal } = json.result.structuredContent;
+  const { goals, playbook, seal, tasks } = json.result.structuredContent;
   expect(playbook).toBe(
     readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
   );
+  expect(goals).toBe("1. Be well.");
+  expect(Object.keys(tasks[0]).sort()).toEqual([
+    "id",
+    "note",
+    "state",
+    "title",
+  ]);
+  expect(tasks[0].note.length).toBeLessThanOrEqual(200);
+  rmSync(ACTIONS, { force: true });
   const refused = await rpc(bearer, "tools/call", {
     arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
     name: "task",

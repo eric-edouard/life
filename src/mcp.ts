@@ -28,8 +28,8 @@ import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
-import { sealed, taskList, Update, update } from "./tasks";
-import { ROOT } from "./truth";
+import { closed, sealed, taskList, Update, update } from "./tasks";
+import { DATA, ROOT, readMe } from "./truth";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; the Cloudflare tunnel forwards
 // life.ericedouard.com to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
@@ -368,9 +368,23 @@ function buildServer() {
   tool(
     server,
     "tasks",
-    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; each open task (an ask of his), and those closed in the last day, with its state, deadline, steps, last note and his steers since your last update. A task's whole history: `changes` with types action.update, action.nudge, action.steer.",
+    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; his `goals` (truth/me.md, his priority order); each open task (an ask of his) with its state, deadline, steps, last note and his steers since your last update, and those closed in the last day as id, state, title and the start of their last note. A task's whole history: `changes` with types action.update, action.nudge, action.steer.",
     z.object({}),
-    async () => ({ ...sealed(), tasks: taskList() })
+    async () => ({
+      ...sealed(),
+      goals: readMe(await Bun.file(join(DATA, "truth", "me.md")).text()).goals,
+      // Closed rows stay short (the nightly's `taskList` keeps them whole): what was done, not how.
+      tasks: taskList().map((t) =>
+        closed(t.state)
+          ? {
+              id: t.id,
+              note: clip(t.note ?? "", 200),
+              state: t.state,
+              title: t.title,
+            }
+          : t
+      ),
+    })
   );
   tool(
     server,
