@@ -43,6 +43,9 @@ test("a conversation is heard once its speech is complete: 5 s after his last tu
     hearings(pending, turns, t(s).getTime(), speech);
   expect(heard([turn("a", 0), turn("b", 5), turn("c", 6)], 10)).toEqual([]);
   expect(holdFor(pending, t(10).getTime(), speech)).toBe(5);
+  // Rounded up, and never less than a second.
+  expect(holdFor(pending, t(11.8).getTime(), speech)).toBe(4);
+  expect(holdFor(pending, t(20).getTime(), speech)).toBe(1);
   expect(heard([], 14)).toEqual([]);
   expect(heard([], 15)).toEqual([
     { conversation: "a", from: t(0).toISOString(), tries: 0 },

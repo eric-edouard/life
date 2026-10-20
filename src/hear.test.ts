@@ -137,6 +137,7 @@ test("speech is complete once its last turn is someone else's or ends a recordin
   expect(state(8, [his])).toBe("complete");
   expect(state(90, [his])).toBe("open");
   expect(state(null, [his])).toBe("open");
+  expect(state(0, [his])).toBe("open");
   expect(state(90, [his, other])).toBe("complete");
   expect(state(8, [his, nobody])).toBe("unnamed");
 });
