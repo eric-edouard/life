@@ -58,6 +58,14 @@ test("his workouts in the range, by start, across pages: a workout as its newest
   expect(asked[0]).toContain(`since=${FROM.toISOString()}`);
 });
 
+test("an empty feed, as Hevy sends it (`workouts: []`, no `events`), is no workouts", async () => {
+  const get = (() =>
+    Promise.resolve(
+      Response.json({ page: 1, page_count: 1, workouts: [] })
+    )) as unknown as typeof fetch;
+  expect(await readWorkouts(FROM, TO, "key", get)).toEqual([]);
+});
+
 test("no key, no read; a failed page fails the read", async () => {
   expect(await readWorkouts(FROM, TO, "", feed([]).get)).toBeNull();
   const down = (() =>
