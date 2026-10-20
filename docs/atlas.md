@@ -55,14 +55,14 @@ make one task: a retry with the same `at` answers "already a task". No `ask` eve
 
 ## Events
 
-Every event is `ask`; its `data` is the task: `id`, `quote` (his words), `at`, `confidence`, and for speech
+Every event is `ask`; its `data` is the task: `id`, `quote` (his words, from the wake on), `at`, `confidence`, and for speech
 `conversation` and `turns`.
 
-- **A new ask** has neither `nudge` nor `steer`. `quote` holds only his words from the wake on. Read around them:
-  `fetch` the `conversation` from a few turns before its first `turns` (check they match his words: a late upload can
-  shift the numbers). When the ask points at something it doesn't say ("this", "what we discussed"), also `search` or
-  `day` over the last day or two. Keep only what he said or heard with him, never a TV or someone else's call. Ask him
-  only if it stays unclear.
+- **A new ask** has neither `nudge` nor `steer`. Read around his words: `fetch` the `conversation` from a few turns
+  before its first `turns` (check they match his words: a late upload can shift the numbers). When the ask points at
+  something it doesn't say ("this", "what we discussed"), also `search` or `day` over the day or two before its `at`.
+  Keep only what he said or what was said to him, never a TV or someone else's call. Ask him what he meant only if it
+  stays unclear (the confirmations under Rules still apply).
 - **`nudge: {task, why}`**: Life's chase, the task is past its deadline (an unclaimed one 30 min after it was recorded).
   Three unanswered nudges, a `waiting-eric` over an hour, a task open a week, or no live subscription move its item to
   "Needs you" with an alert on his phone.
