@@ -59,12 +59,16 @@ export const logEvents = <T = Record<string, unknown> & { at: string }>(
       }
     });
 
-/** The run events (`run.`) of the newest `days` log files, oldest first. */
-export const runEvents = async (days: number, dir = LOG_DIR) =>
+/** The events of one kind (a prefix: `run.` is every run event) in the newest `days` log files, oldest first. */
+export const recentEvents = async <T = LogEvent>(
+  days: number,
+  kind = "run.",
+  dir = LOG_DIR
+) =>
   (await logDays(dir))
     .slice(0, days)
     .reverse()
-    .flatMap((n) => logEvents<LogEvent>(n, "run.", dir));
+    .flatMap((n) => logEvents<T>(n, kind, dir));
 
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   const at = new Date().toISOString();

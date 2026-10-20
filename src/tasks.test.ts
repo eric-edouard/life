@@ -144,18 +144,15 @@ test("an open task is due 30 min after it was recorded, a claimed one at its own
 
 test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Atlas isn't subscribed; once per cause and update", () => {
   const now = T0 + 20 * MIN;
-  expect(escalation(task([]), now, true)).toBeNull();
-  expect(escalation(task([]), now, false)).toBe("Atlas isn't receiving asks");
-  expect(escalation(task([]), T0 + 30 * MIN, true)).toBe(
+  expect(escalation(task([]), now)).toBeNull();
+  expect(escalation(task([]), T0 + 30 * MIN)).toBe(
     "not claimed 30 min after the ask"
   );
   const working = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
   ]);
-  expect(escalation(working, T0 + 59 * MIN, true)).toBeNull();
-  expect(escalation(working, T0 + 61 * MIN, true)).toBe(
-    "working past its deadline"
-  );
+  expect(escalation(working, T0 + 59 * MIN)).toBeNull();
+  expect(escalation(working, T0 + 61 * MIN)).toBe("working past its deadline");
   const waiting = task([
     own("update", 30, {
       deadline: at(600),
@@ -163,8 +160,8 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
       state: "waiting-eric",
     }),
   ]);
-  expect(escalation(waiting, T0 + 89 * MIN, true)).toBeNull();
-  expect(escalation(waiting, T0 + 91 * MIN, true)).toBe(
+  expect(escalation(waiting, T0 + 89 * MIN)).toBeNull();
+  expect(escalation(waiting, T0 + 91 * MIN)).toBe(
     "Atlas needs you: which flat?"
   );
   const week = 8 * 24 * 60;
@@ -175,7 +172,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
       state: "working",
     }),
   ]);
-  expect(escalation(extended, T0 + week * MIN, true)).toBe("stuck for 7 days");
+  expect(escalation(extended, T0 + week * MIN)).toBe("stuck for 7 days");
   // Emailed once, however often Atlas extends it.
   const extendedAgain = task([
     ...extended.lines,
@@ -189,7 +186,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
     alerts([extended], T0 + week * MIN, true)[0]?.key
   );
   const done = task([own("update", 30, { outcome: "sent", state: "done" })]);
-  expect(escalation(done, now, false)).toBeNull();
+  expect(escalation(done, now)).toBeNull();
   // A task Atlas made from his chat is chased too.
   const chat = action({
     ...asked,
@@ -197,10 +194,9 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
     madeBy: "connector",
   });
   const both = tasksOf([asked, chat].map((a) => JSON.stringify(a)));
-  expect(alerts(both, T0 + 31 * MIN, true).map((x) => x.t.ask.id)).toEqual([
-    ASK,
-    "act_00000000000b",
-  ]);
+  expect(
+    alerts(both, T0 + 31 * MIN, true).map((x) => ("t" in x ? x.t.ask.id : ""))
+  ).toEqual([ASK, "act_00000000000b"]);
   // The key changes with Atlas's last update: silent again after one is a new email; the same silence is not.
   const key = (t: Task, m: number) => alerts([t], T0 + m * MIN, true)[0]?.key;
   expect(key(working, 61)).toBe(key(working, 120));
@@ -210,8 +206,13 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
   ]);
   expect(key(again, 91)).not.toBe(key(working, 61));
   // A lapsed subscription is one email, whatever the number of open tasks.
-  const lapsed = alerts(both, T0 + 31 * MIN, false).map((x) => x.key);
-  expect(new Set(lapsed).size).toBe(1);
+  expect(alerts(both, T0 + 31 * MIN, false)).toEqual([
+    {
+      cause: "Atlas isn't receiving asks",
+      key: "lapse/2026-10-19",
+      open: 2,
+    },
+  ]);
 });
 
 const look = (over: Partial<Item> = {}): Item => ({

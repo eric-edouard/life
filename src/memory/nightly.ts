@@ -3,7 +3,7 @@ import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
 import { titleOf } from "../hear";
-import { runEvents } from "../log";
+import { recentEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
@@ -85,7 +85,7 @@ function coded(day: string, rec: RunRecord) {
 
 /** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
 export async function archiveLine(since: string) {
-  const lines = await runEvents(ARCHIVE_LOOKBACK);
+  const lines = await recentEvents(ARCHIVE_LOOKBACK);
   const still = new Set(openIncidents(lines).values());
   const listed = lines
     .filter(
