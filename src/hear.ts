@@ -91,8 +91,8 @@ export function speechIn(store: Store, conversation: string, from: string) {
 }
 
 /**
- * Hears one conversation from `from` on and records its asks; false, recording none, while a wake with no speaker is
- * younger than NAMING_MS (lifelog may still name him: a `low` ask stays low). The words are fetched from lifelog; a
+ * Hears one conversation from `from` on and records its asks, except a wake with no speaker younger than NAMING_MS
+ * (lifelog may still name him: a `low` ask stays low): false while one is held. The words are fetched from lifelog; a
  * failed fetch throws (the watcher hears the conversation again), never reads as silence.
  */
 export async function hear(
@@ -120,16 +120,11 @@ export async function hear(
       who: whose(t),
     })
   );
+  // A wake with no speaker, younger than NAMING_MS: held, so lifelog can still name him.
+  const held = (a: { confidence: string; timing: { arrived: string } }) =>
+    a.confidence === "low" && now - Date.parse(a.timing.arrived) < NAMING_MS;
   const asks = asksIn(turns, from);
-  if (
-    asks.some(
-      (a) =>
-        a.confidence === "low" && now - Date.parse(a.timing.arrived) < NAMING_MS
-    )
-  ) {
-    return false;
-  }
-  for (const a of asks) {
+  for (const a of asks.filter((x) => !held(x))) {
     ask(
       { at: a.at, quote: a.quote, ref: a.ref },
       { confidence: a.confidence, conversation, turns: a.turns },
@@ -139,5 +134,5 @@ export async function hear(
       a.timing
     );
   }
-  return true;
+  return !asks.some(held);
 }

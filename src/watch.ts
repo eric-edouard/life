@@ -17,16 +17,17 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
-// It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks;
-// every loop `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
-// steers not yet delivered to Atlas (src/events.ts).
+// It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
+// (a wake with no speaker waits for one, up to `NAMING_MS`); every loop `tick` chases Atlas's tasks and mirrors them
+// on his board (src/board.ts); `deliver` pushes the asks, nudges and steers not yet delivered to Atlas (src/events.ts).
 // Every 2 minutes it also heals the Mac's tunnel (src/tunnel.ts).
 
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
 /**
  * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
- * it have settled (its speaker, about 2 s), open speech once the next recording is usually in.
+ * it have settled (its speaker, mostly within 3 s), open speech once the next recording is usually in. A wake with no
+ * speaker yet waits longer, in `hear` (`NAMING_MS`).
  * ponytail: a recording later than that ends the ask before it (`asksIn` starts at a wake); joining it to the open
  * ask would need a ledger line that extends an ask.
  */
