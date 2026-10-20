@@ -3,6 +3,7 @@
 // said `now` and the ones before it `said`, as lifelog's app does. A word is a button: it plays from there.
 // One clip plays at a time. The page styles .clip, .turn, .who, .w, .now, .said and .playing.
 
+const HOLD_MS = 600;
 let current = null;
 
 for (const clip of document.querySelectorAll("figure.clip[data-clip]")) {
@@ -48,10 +49,16 @@ for (const clip of document.querySelectorAll("figure.clip[data-clip]")) {
 
   const paint = () => {
     const t = audio.currentTime * 1000;
-    for (const s of spans) {
-      s.classList.toggle("now", t >= s.dataset.s && t < s.dataset.e);
-      s.classList.toggle("said", t >= s.dataset.e);
-    }
+    // A word stays lit through the pause after it, until the next word starts (at most HOLD_MS past its end).
+    spans.forEach((s, i) => {
+      const next = spans[i + 1];
+      const until = Math.min(
+        next ? Number(next.dataset.s) : Number.POSITIVE_INFINITY,
+        Number(s.dataset.e) + HOLD_MS
+      );
+      s.classList.toggle("now", t >= s.dataset.s && t < until);
+      s.classList.toggle("said", t >= until);
+    });
     if (!audio.paused) {
       frame = requestAnimationFrame(paint);
     }
