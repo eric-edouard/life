@@ -269,7 +269,7 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
   `<task>@<at> | kind`.
 - `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask) or a task's id (its lines).
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An ask's
-  `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker), and for speech `conversation`
+  `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker, or his own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers, as `fetch --from-turn` counts them); for a task Atlas made, `title` (one part of
   his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (his last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with

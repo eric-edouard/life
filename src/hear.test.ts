@@ -90,6 +90,8 @@ test("his own “hey Zorba” (LIFE_MISHEARD) is lifelog mishearing “hey Atlas
       turn(130, "unknown", "hey Zorba, call me back"),
       turn(190, "me", "hey Atlas, book a table"),
       turn(195, "me", "hey Zorba, and a taxi"),
+      turn(260, "me", "hey Zorba, hey Atlas, book it"),
+      turn(320, "unknown", "hey Zorba, hey Atlas, book it"),
     ],
     ""
   );
@@ -97,6 +99,8 @@ test("his own “hey Zorba” (LIFE_MISHEARD) is lifelog mishearing “hey Atlas
     [[0], "low"],
     [[5], "high"],
     [[6], "low"],
+    [[7], "high"],
+    [[8], "low"],
   ]);
 });
 

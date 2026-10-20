@@ -31,11 +31,13 @@ const NAMING_MS = 40_000;
 
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn) {
-  const word = t.text.match(WAKE)?.[1]?.toLowerCase();
-  if (word === "atlas" && t.who !== "other") {
+  const words = [...t.text.matchAll(new RegExp(WAKE, "gi"))].map((m) =>
+    m[1]?.toLowerCase()
+  );
+  if (words.includes("atlas") && t.who !== "other") {
     return t.who === "me" ? "high" : "low";
   }
-  return word && t.who === "me" ? "low" : undefined;
+  return words.length > 0 && t.who === "me" ? "low" : undefined;
 }
 
 /** One turn as the hearing sees it: whose it is (his, unattributed, someone else's) and its words. */
