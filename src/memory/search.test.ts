@@ -18,6 +18,7 @@ import {
   candidateLines,
   coverageLines,
   dayLines,
+  dueOn,
   momentLine,
   readIndex,
   matches as searchMatches,
@@ -251,4 +252,67 @@ test("holding all the words: case and accents ignored, every word needed, a quer
   expect(holds("Dinner at the chateau de Pondres")).toBe(true);
   expect(holds("Dinner at the château")).toBe(false);
   expect(holdsAll("??")("anything")).toBe(false);
+});
+
+// audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no
+// one nudged him. `day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
+test("audit-1-apple-open-loop: day lists his own open to-dos and promises due that day, and nothing else", async () => {
+  const path = join(await mkdtemp(join(tmpdir(), "life-due-")), "i.sqlite");
+  const loop = (id: string, over: Partial<Observation>) =>
+    ({
+      about: "person:me",
+      at: "2026-10-18T17:12:59.670Z",
+      confidence: 0.9,
+      date: "2026-10-18",
+      entities: ["person:me"],
+      id,
+      quote: "tomorrow I'm going to call them",
+      salience: 3,
+      source: { channel: "lifelog", ref: "j:8@x" },
+      speaker: "person:me",
+      text: "Call the shop to ask for a morning pickup before booking the train.",
+      type: "todo",
+      unit: "u_000000000001",
+      when: "2026-10-19",
+      ...over,
+    }) as unknown as Observation;
+  const standing = {
+    corrections: [],
+    latest: new Map(),
+    live: new Set(["u_000000000001"]),
+    retired: new Map([
+      [
+        "obs_000000000006",
+        { by: "obs_000000000001", observation: "obs_000000000006" },
+      ],
+    ]),
+  };
+  buildIndex(
+    [
+      loop("obs_000000000001", {}),
+      loop("obs_000000000002", { type: "promise" }),
+      loop("obs_000000000003", { speaker: "person:jean" }),
+      loop("obs_000000000004", { speaker: "unknown:shop@mail.test" }),
+      // His own to-do filed under a project is still his.
+      loop("obs_000000000005", { about: "project:house" }),
+      loop("obs_000000000006", {}),
+      loop("obs_000000000007", { when: "2026-10-20" }),
+      loop("obs_000000000008", { salience: 2 }),
+      loop("obs_000000000009", { type: "news" }),
+      // His promise whose quote opens with the other's request is still his to keep.
+      loop("obs_000000000010", { speaker: "person:jean", type: "promise" }),
+    ],
+    path,
+    standing as never
+  );
+  const lines = dueOn(new Database(path, { readonly: true }), "2026-10-19");
+  expect(lines.map((l) => l.split(" ")[1])).toEqual([
+    "obs_000000000001",
+    "obs_000000000002",
+    "obs_000000000005",
+    "obs_000000000010",
+  ]);
+  expect(dayLines([], [], [], [], [], lines)[0]).toBe(
+    "Due (his own open to-dos and promises for this day):"
+  );
 });
