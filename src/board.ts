@@ -36,7 +36,7 @@ const MIN = 60_000;
 /** How each watched item looked after Life's last pass (mode 600: his words). */
 const SNAPSHOT = join(ROOT, "derived", "board.json");
 const NEEDS = "Needs you";
-/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
+/** Everything up to its wake (`WAKE`) and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
 
 /** An item as Life reads it; `steps` and `subIds`: its subtasks by title; `made`: the ones Life added (snapshot only). */

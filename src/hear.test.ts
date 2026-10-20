@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { asksIn, hear, speechIn, type Turn, wakes, whose } from "./hear";
+import { asksIn, hear, speechIn, type Turn, WAKE, whose } from "./hear";
 import { ACTIONS } from "./memory/ledger";
 import {
   turn as fed,
@@ -11,15 +11,16 @@ import {
 import { apply } from "./sources/lifelog";
 import { tasksOf } from "./tasks";
 
-test("only the two words “hey Atlas”, in order, wake it, whatever the case and punctuation", () => {
+test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
     "hey Atlas, book a table",
     "Hey, Atlas.",
     "HEY ATLAS",
     "so... hey — atlas, remind me",
     "and then hey atlas",
+    "hey, zorba: call",
   ]) {
-    expect(wakes(said)).toBe(true);
+    expect(WAKE.test(said)).toBe(true);
   }
   for (const said of [
     "ok Atlas, book a table",
@@ -29,8 +30,9 @@ test("only the two words “hey Atlas”, in order, wake it, whatever the case a
     "hey there Atlas",
     "Atlas hey",
     "hey atlases",
+    "hey zorbas",
   ]) {
-    expect(wakes(said)).toBe(false);
+    expect(WAKE.test(said)).toBe(false);
   }
 });
 
@@ -78,6 +80,30 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
     ref: "job:0@x",
     turns: [0],
   });
+});
+
+test("his own “hey Zorba” (LIFE_MISHEARD) is lifelog mishearing “hey Atlas”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
+  const asks = asksIn(
+    [
+      turn(0, "me", "Hey Zorba, add milk to the list"),
+      turn(60, "me", "Zorba, can you pass me the salt?"),
+      turn(65, "other", "hey Zorba, sure"),
+      turn(70, "me", "thanks Zorba, at last we eat"),
+      turn(130, "unknown", "hey Zorba, call me back"),
+      turn(190, "me", "hey Atlas, book a table"),
+      turn(195, "me", "hey Zorba, and a taxi"),
+      turn(260, "me", "hey Zorba, hey Atlas, book it"),
+      turn(320, "unknown", "hey Zorba, hey Atlas, book it"),
+    ],
+    ""
+  );
+  expect(asks.map((a) => [a.turns, a.confidence])).toEqual([
+    [[0], "low"],
+    [[5], "high"],
+    [[6], "low"],
+    [[7], "high"],
+    [[8], "low"],
+  ]);
 });
 
 test("an ask runs over his following turns until another speaker, a 15 s pause or a new wake", () => {
@@ -146,12 +172,12 @@ test("speech is complete once its last turn is someone else's or ends a recordin
   expect(state(8, [his, nobody])).toBe("complete");
 });
 
-test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds back only itself", async () => {
+test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds back only itself (his misheard one waits for nothing)", async () => {
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: null, text: "hey Atlas, water the plant" },
-        { speakerId: null, text: "hey Atlas, call the bank" },
+        { speakerId: null, text: "hey Zorba, call the bank" },
       ],
     }),
   });
@@ -171,12 +197,12 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
     expect(
       await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))
     ).toBe(false);
-    expect(quotes()).toEqual(["hey Atlas, call the bank"]);
+    expect(quotes()).toEqual(["hey Zorba, call the bank"]);
     expect(
       await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))
     ).toBe(true);
     expect(quotes()).toEqual([
-      "hey Atlas, call the bank",
+      "hey Zorba, call the bank",
       "hey Atlas, water the plant",
     ]);
   } finally {

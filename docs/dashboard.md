@@ -9,7 +9,7 @@ reads it (to show who sent the line). Every answer is JSON (text content, and `s
 it) and carries `observedAt`, the server's time.
 
 Auth is the connector's, unchanged: lifelog's JWT for `https://life.ericedouard.com/mcp`, `life:read`, `sub` =
-`LIFE_OWNER_SUB`. Without it: 401; another user: 403. The four tools are annotated read-only.
+`LIFE_OWNER_SUB`. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
 
 ## status
 

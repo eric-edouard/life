@@ -173,7 +173,7 @@ How close each person is to the owner, written by the nightly's `closeness` step
 counts, for everyone over the last 3 years, the days a 1:1 chat went both ways, the days a mail thread did (apart:
 mostly work; never a group nor a mailing list) and the days they spoke in his recordings (lifelog's speakers, live
 conversations), weighted by how recent (`recent` halves every 30 days, `lasting` every 365); the model judges those
-counts with who they are on his map (everyone on it is judged, counts or not; close family is close whatever the
+counts with who they are on his map (everyone on it, and anyone with a page, is judged, counts or not; close family is close whatever the
 counts, the prompt's rule). `counts` is what it judged, rounded, so a person is asked about again only when their counts
 move or the prompt changes. The latest record per person wins (a person folded into another: the kept one's); his
 `closeness` correction wins over it. No model output feeds the counts. Model-owned: who has a page follows it at once.
@@ -199,8 +199,8 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
 
 One Markdown page per person who has one by closeness (`pagedBy`, `closeness.ts`: the owner, `people/me.md`; anyone
-whose personal or work level is inner, regular or faded and is not a service; someone in `truth/people.yaml` not judged
-yet) and has an observation, and per area of `truth/areas.yaml` (the file is named by the
+whose personal or work level is inner, regular or faded and is not a service; someone not judged
+yet who is in `truth/people.yaml` or has a page already, judged at the next night) and has an observation, and per area of `truth/areas.yaml` (the file is named by the
 area's id; an inferred person's id starts with `inf-`). Rewritten nightly by `bun life memory pages` from the previous
 version and the observations extracted since; git keeps every version (the nightly's "Memory: <date>" commits).
 
@@ -269,7 +269,7 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
   `<task>@<at> | kind`.
 - `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask) or a task's id (its lines).
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An ask's
-  `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker), and for speech `conversation`
+  `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker, or his own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers, as `fetch --from-turn` counts them); for a task Atlas made, `title` (one part of
   his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (his last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with

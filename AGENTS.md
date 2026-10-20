@@ -67,8 +67,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
-  words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, and one lifelog gives to someone
-  else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
+  words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
+  (`LIFE_MISHEARD`, a real name) `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
@@ -125,7 +125,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. A refused token (not a missing one,
   never its body), the SDK's own rejections (`onerror`) and invalid arguments (`tool()` validates them itself) are
   logged as `mcp.call` with `error`; nothing reads a response back. Every request
-  needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`).
+  needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`). lifelog's
+  keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never a refused token.
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly
   cookie, checked by `ownerTokens` on every request): never serve anything of his before that check. A `false` is a
@@ -225,7 +226,7 @@ and how they came out (a review refuses either without it). Commit small. Prefer
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
-`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
+`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); the memory steps get their units only from `gather` (`units.ts`: every channel, in time

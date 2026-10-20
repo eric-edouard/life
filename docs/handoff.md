@@ -83,7 +83,8 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
 - **Atlas** (19 Oct; its playbook, returned by `tasks` with a seal `task` checks: `docs/atlas.md`): his ChatGPT agent, with
   Life's connector, its cloud computer and his Mac's terminal. "Hey Atlas" anywhere in one of his turns (`hear.ts`, no
   model) makes an ask: that turn and his following ones until another speaker or a 15 s pause, with the conversation
-  and turn numbers; an unattributed turn makes a `low` confidence ask, someone else's none. `bun life ask '<words>'`
+  and turn numbers; an unattributed turn makes a `low` confidence ask, someone else's none, and his own "hey" + the word lifelog
+  mishears for Atlas (`LIFE_MISHEARD`) a `low` one. `bun life ask '<words>'`
   makes one from a Claude session. An ask is an Action (`kind: ask`), delivered as the MCP event `ask`
   (`events.ts`, OpenAI's spec: `events/subscribe` with a verified callback on OpenAI's hosts, Standard Webhooks
   signatures, the ledger line as the replay cursor, `derived/events.json`). `bun life asks` lists where each ask's
