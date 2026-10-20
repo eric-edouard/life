@@ -383,10 +383,9 @@ function buildServer() {
               id: t.id,
               note: clip(t.note ?? "", 200),
               state: t.state,
-              // A spoken ask has no title: its words name it.
               title: titleOf(t),
             }
-          : t
+          : { ...t, title: titleOf(t) }
       ),
     })
   );

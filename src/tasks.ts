@@ -6,6 +6,7 @@ import { parse } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
 import { clip } from "./memory/units";
+import { localDate } from "./memory/zones";
 import { Action, type Instruction } from "./schema";
 import { ROOT } from "./truth";
 
@@ -187,7 +188,7 @@ export const settled = (s: { since: string; state: State }, now: number) =>
   closed(s.state) && now - Date.parse(s.since) > DAY;
 
 const WEEK = "stuck for 7 days";
-const LAPSE = "Atlas isn't receiving asks";
+export const LAPSE = "Atlas isn't receiving asks";
 
 /**
  * Why he must look at a task now, or null: every task, chat ones too. Atlas isn't subscribed, waits on him over an
@@ -223,7 +224,7 @@ export const alerts = (tasks: Task[], now: number, live: boolean) =>
     // A lapsed subscription is one email a day, not one per open task.
     const key =
       cause === LAPSE
-        ? `lapse/${iso(now).slice(0, 10)}`
+        ? `lapse/${localDate(iso(now))}`
         : `task/${t.ask.id}/${cause?.split(":")[0]}/${since}`;
     return cause ? [{ cause, key, t }] : [];
   });
