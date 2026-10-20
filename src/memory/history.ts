@@ -10,12 +10,13 @@ import {
   MAX_ATTEMPTS,
   nextMidday,
   nextNight,
+  readBackfill,
   readMidday,
   readState,
 } from "./guard";
 import { runAt } from "./ledger";
 import { INDEX } from "./search";
-import { daysBefore, windowStart } from "./units";
+import { daysBefore, lastDays } from "./units";
 import { localDate } from "./zones";
 
 // Life's processing as recorded, as JSON for a dashboard: `runs` (the history in derived/log: sweeps, their steps,
@@ -98,7 +99,7 @@ function apply(r: Run, e: LogEvent) {
       r.window = { from: e.from, to: e.to };
     } else if (days > 0) {
       r.window = {
-        from: localDate(windowStart(start, days).toISOString()),
+        from: lastDays(start, days).from,
         to: localDate(start.toISOString()),
       };
     }
@@ -302,6 +303,10 @@ export async function lifeStatus(now = new Date()) {
     };
   }
   return {
+    backfill: {
+      ...lastOf(list, "memory.backfill"),
+      state: readBackfill() ?? null,
+    },
     capture: {
       archive: Object.fromEntries(STORES.map((s) => [s.name, archive(s.name)])),
       // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.

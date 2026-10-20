@@ -110,10 +110,13 @@ const HANDLERS: Record<string, Handler> = {
     if (!(v.from && v.to && DAY.test(v.from) && DAY.test(v.to))) {
       return Promise.resolve(usage());
     }
-    // The ticks read it, a week each, when no night or midday run is due (nightly.ts).
-    recordBackfill({ failures: 0, next: v.from, to: v.to });
-    console.log(`backfill set: ${v.from} to ${v.to}, a week per tick`);
-    return Promise.resolve(0);
+    // The ticks read it, a week each, when no night or midday run is due (nightly.ts); not while a week runs.
+    const { from, to } = v;
+    return locked(() => {
+      recordBackfill({ failures: 0, next: from, to });
+      console.log(`backfill set: ${from} to ${to}, a few weeks a day`);
+      return Promise.resolve(0);
+    }).then((code) => code ?? 1);
   },
   changes: (v) =>
     json(

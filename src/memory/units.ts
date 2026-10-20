@@ -479,10 +479,6 @@ export function applyRules(built: Built[]) {
   return built;
 }
 
-/** Local midnight `days - 1` days ago, so every date in the window is a whole day. */
-export const windowStart = (now: Date, days: number) =>
-  dayStart(daysBefore(localDate(now.toISOString()), days - 1));
-
 /**
  * Reads one source. A broken one is logged and named in `failed`, and gives no rows: the caller must not
  * mistake that for a quiet day (a unit file rebuilt without that source's units would lose them).
@@ -623,7 +619,7 @@ export async function gather(window: Window) {
     ),
     ...ORDER.map((name) => safely(name, () => READERS[name](since), failed)),
   ]);
-  const recent = windowStart(new Date(), DAYS).toISOString();
+  const recent = dayStart(lastDays(new Date(), DAYS).from).toISOString();
   const files = await describeFiles(read.flat().filter((e) => e.at >= recent));
   const known = readFiles();
   const chats = read.map((events) => showFiles(events, known));

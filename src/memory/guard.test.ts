@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
 import {
+  afterWeek,
   backfillWeek,
   backupDue,
   decide,
@@ -92,14 +93,35 @@ test("a lock left by a dead pid, or from before the boot (its pid reused), is ta
   expect(await locked(async () => "ran")).toBe("ran");
 });
 
-test("a backfill reads a week at a time up to its last day, then stops; three failures of a week stop it too", () => {
+test("a backfill reads a week at a time up to its last day, four a day; three failures of a week stop it", () => {
+  const today = "2026-10-21";
   const b = { failures: 0, next: "2025-07-01", to: "2025-07-10" };
-  expect(backfillWeek(b)).toEqual({ from: "2025-07-01", to: "2025-07-07" });
-  expect(backfillWeek({ ...b, next: "2025-07-08" })).toEqual({
+  const week = backfillWeek(b, today);
+  expect(week).toEqual({ from: "2025-07-01", to: "2025-07-07" });
+  // Read: the range moves on and the day counts it.
+  const after = afterWeek(b, week as never, true, today);
+  expect(after).toEqual({
+    day: today,
+    failures: 0,
+    next: "2025-07-08",
+    to: "2025-07-10",
+    weeks: 1,
+  });
+  expect(backfillWeek(after, today)).toEqual({
     from: "2025-07-08",
     to: "2025-07-10",
   });
-  expect(backfillWeek({ ...b, next: "2025-07-11" })).toBeNull();
-  expect(backfillWeek({ ...b, failures: 3 })).toBeNull();
-  expect(backfillWeek(undefined)).toBeNull();
+  // Failed: the same week again, one failure more; three stop it.
+  expect(afterWeek(b, week as never, false, today)).toMatchObject({
+    failures: 1,
+    next: "2025-07-01",
+  });
+  expect(backfillWeek({ ...b, failures: 3 }, today)).toBeNull();
+  // Four weeks a day, then the next day.
+  const full = { ...after, weeks: 4 };
+  expect(backfillWeek(full, today)).toBeNull();
+  expect(backfillWeek(full, "2026-10-22")).not.toBeNull();
+  expect(afterWeek(full, week as never, true, "2026-10-22").weeks).toBe(1);
+  expect(backfillWeek({ ...b, next: "2025-07-11" }, today)).toBeNull();
+  expect(backfillWeek(undefined, today)).toBeNull();
 });

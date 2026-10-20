@@ -30,6 +30,8 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 - `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else `idle`.
 - `nightly.state`: the guard's record (`date`, `status`, `attempts` of `maxAttempts`, `okAt`); `midday.slotSpentAt`:
   when the last midday started. **A spent slot is not a success**: read `midday.lastOk` / `lastFailed`.
+- `backfill`: the backfill's runs (`latest`, `lastOk`, `lastFailed`) and `state`: its range (`next`, `to`), `failures`
+  of its current week (3 stop it), and `weeks` read on `day` (4 a day at most); null when none was set.
 - `nightly.next`, `midday.next`: `{earliest, latest, why}`. launchd ticks every 30 min, so a run is expected between
   the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures today: no
   more tries until tomorrow", "today's night succeeded", "the next slot". Not a countdown.
@@ -38,12 +40,12 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 ## runs
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it
-is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`
-and the steps `memory.repos|files|moments|extract|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
+is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
+`memory.backfill` and the steps `memory.repos|files|moments|extract|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
-`outcome`, `input` (what it started with: `days`, `prompt`, `model`), `window` (`{from, to}`, the local days its
-sources were read for), `result` (the step's counters as it logged them: `calls`, `failed`, `cached`, `reused`,
+`outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`),
+`force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's counters as it logged them: `calls`, `failed`, `cached`, `reused`,
 `added`, `read` per source, `agreement`…), `errors`. A sweep lists its steps in `children`; a step names its `sweep`.
 
 `outcome`: `ok`; `failed` (it ended with failures, or a sweep's `outcome: failed` with `failedAt`, the phase that
