@@ -164,7 +164,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   after its pass, and launchd restarts each on the new code.
 - The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks, nudges and steers (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
-  him like a failed action and passed over (offline, nothing is delivered or tried: `deliver` runs after a good poll); with no live subscription asks wait, unsent and unalerted, until Atlas
+  him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent and unalerted, until Atlas
   subscribes again with its cursor; the nightly's Actions section lists every ask either way). Its startup line `actions: remctl ready` in `~/Library/Logs/life-watch.log` is the check that launchd
   can reach remctl (the connector's `reminders` acts from the watcher).
 - **The laptop is the host, and offline means delayed, never lost** (decided 20 Oct, `~/Life/docs/server-scope-2026-10-20.md`): the lifelog cursor is gap-free, hearing reaches back a week (`RECENT_MS`, skipped turns are logged)
