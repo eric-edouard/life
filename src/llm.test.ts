@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -47,21 +47,34 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("openrouter: pinned, zero retention, no fallback; another host is refused", async () => {
+test("openrouter: pinned, zero retention, no fallback; another host, a cut reply or an error is refused", async () => {
   const asked: Record<string, unknown>[] = [];
-  let served = "DeepInfra";
-  const server = Bun.serve({
-    async fetch(req) {
-      asked.push((await req.json()) as Record<string, unknown>);
-      return Response.json({
-        choices: [{ message: { content: '{"ok": true}' } }],
-        provider: served,
-        usage: { cost: 0.01 },
-      });
-    },
-    port: 0,
-  });
-  process.env.OPENROUTER_URL = `http://localhost:${server.port}`;
+  let reply: { finish: string; provider: string; status: number } = {
+    finish: "stop",
+    provider: "DeepInfra",
+    status: 200,
+  };
+  const fetched = spyOn(globalThis, "fetch").mockImplementation(((
+    _url: string,
+    init: RequestInit
+  ) => {
+    asked.push(JSON.parse(String(init.body)));
+    return Promise.resolve(
+      Response.json(
+        {
+          choices: [
+            {
+              finish_reason: reply.finish,
+              message: { content: '{"ok": true}' },
+            },
+          ],
+          provider: reply.provider,
+          usage: { cost: 0.01 },
+        },
+        { status: reply.status }
+      )
+    );
+  }) as unknown as typeof fetch);
   process.env.OPENROUTER_API_KEY = "test-key";
   const ask = () =>
     askOnce({
@@ -79,13 +92,17 @@ test("openrouter: pinned, zero retention, no fallback; another host is refused",
       data_collection: "deny",
       only: ["deepinfra"],
       quantizations: ["fp8"],
+      require_parameters: true,
       zdr: true,
     });
-    served = "Novita";
+    reply = { ...reply, provider: "Novita" };
     await expect(ask()).rejects.toThrow("served by Novita");
+    reply = { ...reply, finish: "length", provider: "DeepInfra" };
+    await expect(ask()).rejects.toThrow("stopped (length)");
+    reply = { ...reply, status: 429 };
+    await expect(ask()).rejects.toThrow("openrouter 429");
   } finally {
-    server.stop(true);
-    delete process.env.OPENROUTER_URL;
+    fetched.mockRestore();
     delete process.env.OPENROUTER_API_KEY;
   }
 });
