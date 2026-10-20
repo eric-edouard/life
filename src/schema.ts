@@ -112,7 +112,7 @@ export const Action = z
     after: z.record(z.string(), z.unknown()),
     at: isoDateTime,
     before: z.record(z.string(), z.unknown()).optional(),
-    // Also "partial: <failed step>" on an add that was created but lost a private field (result ok).
+    // Also "partial: <failed step>" on an add or edit that was done but lost a private field (result ok).
     error: z.string().optional(),
     id: z.string().regex(/^act_[0-9a-f]{12}$/),
     instruction: z
@@ -135,13 +135,15 @@ export const Action = z
     schemaVersion: z.literal(1),
     // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask), a task's id (its lines) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
-    // Until 19 Oct, for a request heard in his speech: where the time went (spoke = instruction.at).
+    // An ask heard in his speech: where the time went (spoke = instruction.at, recorded = at). `ended`: his last turn of
+    // it ended; `arrived`: lifelog's feed had brought all of it. Until 19 Oct, a heard request's `heard`, `modelMs`, `actMs`.
     timing: z
       .object({
-        actMs: z.int(),
+        actMs: z.int().optional(),
         arrived: isoDateTime,
-        heard: isoDateTime,
-        modelMs: z.int(),
+        ended: isoDateTime.optional(),
+        heard: isoDateTime.optional(),
+        modelMs: z.int().optional(),
       })
       .strict()
       .optional(),

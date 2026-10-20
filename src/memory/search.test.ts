@@ -16,12 +16,15 @@ import { holdsAll } from "./raw";
 import {
   buildIndex,
   candidateLines,
+  coverageLines,
   dayLines,
+  dueOn,
   momentLine,
-  namedLike,
   readIndex,
   matches as searchMatches,
 } from "./search";
+import { newestDays } from "./units";
+import { namedLike, nearNames } from "./who";
 
 test("day: the conversations with their chapters and people, then the chat and mail units", () => {
   const store = lifelogStore();
@@ -154,7 +157,63 @@ test("search: an observation hit names the unit it comes from and who is in it",
     )
   ).toThrow();
   expect(searchMatches(db, "beautify")[0]).toBe(hit);
+  // `from`/`to` bound observations and units too, both days included.
+  expect(searchMatches(db, "beautify", { from: "2026-10-14" })[0]).toBe(hit);
+  expect(searchMatches(db, "beautify", { to: "2026-10-14" })[0]).toBe(hit);
+  expect(searchMatches(db, "beautify", { from: "2026-10-15" })).toEqual([
+    "(nothing found)",
+  ]);
+  expect(searchMatches(db, "beautify", { to: "2026-10-13" })).toEqual([
+    "(nothing found)",
+  ]);
+  // What Life holds about someone: by source and by month, and what it can't hold.
+  const cover = coverageLines(db, "person:jerome", []);
+  expect(cover[0]).toContain("its memory starts on 2026-10-14");
+  expect(cover).toContain("- lifelog: 1 units, 2026-10-14 to 2026-10-14");
+  expect(cover).toContain(
+    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 moments"
+  );
+  expect(cover.at(-1)).toContain("calls");
   db.close();
+});
+
+test("person: a misheard or misspelled name lists the names near it, never a guess", () => {
+  const people = [
+    { aliases: ["Joel", "Joël"], id: "joel", name: "Joël Marchand" },
+    { aliases: [], id: "noel", name: "Noel" },
+    { aliases: ["Ines"], id: "ines", name: "Inès Fabre" },
+  ];
+  expect(nearNames("Joelle", people).map((p) => p.id)).toEqual(["joel"]);
+  expect(nearNames("Jowl", people).map((p) => p.id)).toEqual(["joel"]);
+  expect(nearNames("Joël Marchant", people).map((p) => p.id)).toEqual(["joel"]);
+  expect(nearNames("Joe", people).map((p) => p.id)).toEqual(["joel"]);
+  // A name of four letters or fewer allows one edit only: "Nil" is two from "Noel".
+  expect(nearNames("Nil", people)).toEqual([]);
+  expect(nearNames("Zebulon", people)).toEqual([]);
+});
+
+test("person pages back by whole days: a day is never cut, and `next` is the day to page back from", () => {
+  const items = [
+    "2026-10-20",
+    "2026-10-19",
+    "2026-10-19",
+    "2026-10-18",
+    "2026-10-17",
+  ];
+  const day = (d: string) => d;
+  expect(newestDays(items, day, 2)).toEqual({
+    next: "2026-10-19",
+    taken: ["2026-10-20", "2026-10-19", "2026-10-19"],
+  });
+  expect(newestDays(items, day, 2, "2026-10-19")).toEqual({
+    next: undefined,
+    taken: ["2026-10-18", "2026-10-17"],
+  });
+  expect(newestDays(items, day, 9)).toEqual({ next: undefined, taken: items });
+  expect(newestDays(items, day, 2, "2026-10-17")).toEqual({
+    next: undefined,
+    taken: [],
+  });
 });
 
 test("readIndex takes no async read: the index closes when the read returns", () => {
@@ -193,4 +252,67 @@ test("holding all the words: case and accents ignored, every word needed, a quer
   expect(holds("Dinner at the chateau de Pondres")).toBe(true);
   expect(holds("Dinner at the château")).toBe(false);
   expect(holdsAll("??")("anything")).toBe(false);
+});
+
+// audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no
+// one nudged him. `day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
+test("audit-1-apple-open-loop: day lists his own open to-dos and promises due that day, and nothing else", async () => {
+  const path = join(await mkdtemp(join(tmpdir(), "life-due-")), "i.sqlite");
+  const loop = (id: string, over: Partial<Observation>) =>
+    ({
+      about: "person:me",
+      at: "2026-10-18T17:12:59.670Z",
+      confidence: 0.9,
+      date: "2026-10-18",
+      entities: ["person:me"],
+      id,
+      quote: "tomorrow I'm going to call them",
+      salience: 3,
+      source: { channel: "lifelog", ref: "j:8@x" },
+      speaker: "person:me",
+      text: "Call the shop to ask for a morning pickup before booking the train.",
+      type: "todo",
+      unit: "u_000000000001",
+      when: "2026-10-19",
+      ...over,
+    }) as unknown as Observation;
+  const standing = {
+    corrections: [],
+    latest: new Map(),
+    live: new Set(["u_000000000001"]),
+    retired: new Map([
+      [
+        "obs_000000000006",
+        { by: "obs_000000000001", observation: "obs_000000000006" },
+      ],
+    ]),
+  };
+  buildIndex(
+    [
+      loop("obs_000000000001", {}),
+      loop("obs_000000000002", { type: "promise" }),
+      loop("obs_000000000003", { speaker: "person:jean" }),
+      loop("obs_000000000004", { speaker: "unknown:shop@mail.test" }),
+      // His own to-do filed under a project is still his.
+      loop("obs_000000000005", { about: "project:house" }),
+      loop("obs_000000000006", {}),
+      loop("obs_000000000007", { when: "2026-10-20" }),
+      loop("obs_000000000008", { salience: 2 }),
+      loop("obs_000000000009", { type: "news" }),
+      // His promise whose quote opens with the other's request is still his to keep.
+      loop("obs_000000000010", { speaker: "person:jean", type: "promise" }),
+    ],
+    path,
+    standing as never
+  );
+  const lines = dueOn(new Database(path, { readonly: true }), "2026-10-19");
+  expect(lines.map((l) => l.split(" ")[1])).toEqual([
+    "obs_000000000001",
+    "obs_000000000002",
+    "obs_000000000005",
+    "obs_000000000010",
+  ]);
+  expect(dayLines([], [], [], [], [], lines)[0]).toBe(
+    "Due (his own open to-dos and promises for this day):"
+  );
 });

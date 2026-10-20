@@ -32,8 +32,8 @@ export interface Night {
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
   extracted: Result<typeof extract>;
-  /** The salience-3 page lines among `observed` not retired, each with its home page's name (`page`). */
-  facts: { page: string; text: string }[];
+  /** The salience-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
+  facts: { id: string; page: string; text: string }[];
   /** The files the night read (`describeFiles`): its failed calls and missing tools never fail the night. */
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
@@ -50,7 +50,7 @@ export interface Night {
   watcher: Health | null;
 }
 
-const duration = (ms: number) =>
+export const duration = (ms: number) =>
   `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 
 const percent = (x: number | null) =>
@@ -268,7 +268,8 @@ export function actionLine(a: Action) {
   const outcome = {
     duplicate: ` duplicate of #${a.target.split(":")[1]}`,
     failed: ` FAILED: ${a.error}`,
-    ok: "",
+    // A partial (done, a private step such as the section failed) is ok with its error.
+    ok: a.error ? ` (${a.error})` : "",
   }[a.result];
   return `${what} ← “${a.instruction?.quote}”${outcome}`;
 }

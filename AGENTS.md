@@ -2,7 +2,8 @@
 
 A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes:
 sources → units → verdicts → observations → people and area pages. Plus an always-on archive that keeps chat messages
-deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`.
+deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`. Relationships (arcs, closeness, the
+backfill): `docs/relationships.md`, the plan and his decisions.
 
 ## Where his data lives
 
@@ -33,17 +34,19 @@ When he asks you to change a reminder, use `bun life act '<json>'` (kinds, field
 `src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why.
 `act` refuses an add whose title an open reminder has (`duplicateOf`, every caller), and a timed `due` always alerts
 at that time. Deep work on his life is Atlas's, his ChatGPT agent: hand it over with `bun life ask '<his words>'`.
+`bun life asks [--from d --to d]` lists where each ask's time went (spoken, ended, arrived, recorded, delivered, claimed,
+closed).
 
 ## Answering about his life
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
-- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (each hit gives a conversation id and a turn) and the chat messages (90 days) and note versions (any age) holding all the words (newest 100, two around each; a long one as its lines holding a word).
+- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 100, two around each; a long one as its lines holding a word). `--from`/`--to` bound every section.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
-- `day <YYYY-MM-DD>` (what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name]` (the last moments with them too; `person me`: his own page, his goals first, then his views, health and what he's dealing with; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers), `area <name>`, `topics [tag]`.
+- `day <YYYY-MM-DD>` (what is due: his own to-dos and promises for that day; what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name] [--before d]` (the whole page, when it was built, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first by whole days, `--before` paging back; `person me`: his own page, his goals in What I hold, all of truth/me.md; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers, and a name no one goes by lists the names near it), `area <name>`, `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
 - `repos [project|area|repo]` (CLI only, not a connector tool): his code repos by project, where each is and the last 30 days of commits; his map is `Project.repos` in `truth/`, Life's guesses are marked inferred. Read a project's first repo (its main entry point) before working in it. Which mailbox sends what: `~/Work/CLAUDE.md`. Commits are also units (`source git`, one per repo and day): `search`, `day` and `fetch` show them.
-- `chats --who <name|handle> | --chat <id> [--from d --to d]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, 7 days and 200 messages at most.
+- `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, as far back as `--from` (without it 90 days for `--who`, 7 for `--chat`), the latest 200; a cut names the `--before` that reads on.
 
 Use the CLI; read a source directly only if it is unavailable: `~/Library/Application Support/Life/archive/` (`whatsapp.sqlite`,
 `beeper.sqlite`, `notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only. Beeper is for acting only, and a send needs his OK on the exact text.
@@ -54,7 +57,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   the same text.
 - **He is the center, not one more person.** His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
   projection of the observations like every page, so its shape changes at the cost of rebuilding one page; his goals
-  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me`. Nothing about him is stored in
+  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me` in its What I hold (as of the page's last build). Nothing about him is stored in
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
@@ -93,7 +96,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
   answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions
   one line in their first 512 characters; events carry data only. It has Atlas confirm a low-confidence ask with him
-  first and change reminders only through the connector's `reminders`.
+  first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`). His Apple Notes are memory only, never his words for
   actions.
@@ -153,6 +156,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (one process's model, `llmOverride`) is the bench's and its judge's only (`scripts/bench.ts`), refused on `~/Life`; launchd never sets it.
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
+- **Life's emails follow the owner's Ledger brand**, one source: agent-config's `ledger-brand` skill
+  (`~/.agents/skills/ledger-brand`: `SKILL.md`, its email rules, and `tokens.css`). `C` in
+  `src/memory/email.ts` copies its values as literals (email takes no CSS variables): a brand change lands in the skill first.
 
 ## Gotchas
 
@@ -166,6 +172,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Only the watcher calls `poll`: a page folded in anywhere else would never be heard (#5).
   When a commit changes `src/` or `prompts/` (`codeAt`), the watcher exits once no hearing is pending, the archive
   after its pass, and launchd restarts each on the new code.
+- The watcher hears a conversation once its speech is complete (`speechIn`, `hear.ts`): it reads a recording of under
+  a minute of speech (lifelog's `durationSeconds`) as closed on 30 s of silence, lifelog's `cutter.ts` rule. If lifelog
+  changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet
+  waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low.
 - The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks, nudges and steers (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
   him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent and unalerted, until Atlas
@@ -174,6 +184,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **The laptop is the host, and offline means delayed, never lost** (decided 20 Oct, `~/Life/docs/server-scope-2026-10-20.md`): the lifelog cursor is gap-free, hearing reaches back a week (`RECENT_MS`, skipped turns are logged)
   and delivery waits for a good poll, so nothing alerts on an outage. Reconsider a server only on a measured loss (an
   ask lost, or acted on late with harm) or spoken asks above about one a day for a month (`actions.jsonl`).
+- The watcher heals the Mac's tunnel (`src/tunnel.ts`, every 2 min): it restarts `com.eric.cloudflared` only on a 530
+  (Cloudflare has no tunnel to the Mac), never on no answer (offline, or the watcher busy) or an app's 5xx (a dead app behind the tunnel once
+  had another repo's watchdog restart it 35,000 times). It is the tunnel's only heal; other hostnames ride on it.
 - `bun life act --check` says whether remctl can act now (read-only). remctl works through its signed Capability
   Host, only by absolute path (`~/bin/remctl`, not on launchd's PATH), and a read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
@@ -195,7 +208,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 ## Working here
 
-`bun run check` must pass before every commit; the pre-push hook runs it. Commit small. Prefer deleting code to adding
+`bun run check` must pass before every commit; the pre-push hook runs it. When he says something didn't work, it is
+audited by `docs/audits.md`. A fix from an audit names its audit file in its PR and merges only with its regression
+case; a PR that changes `prompts/` or `docs/atlas.md` says in its description which cases of those stages it re-checked
+and how they came out (a review refuses either without it). Commit small. Prefer deleting code to adding
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
