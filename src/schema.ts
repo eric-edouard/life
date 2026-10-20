@@ -104,7 +104,7 @@ export type MadeBy = z.infer<typeof MadeBy>;
  * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
  * for Atlas (`kind` ask, `target` atlas) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (src/tasks.ts),
- * whose `TASK_LINES` have no `instruction` and its id as `target`: Atlas's updates, Life's nudges, his steers.
+ * whose `TASK_LINES` have no `instruction` and its id as `target`: Atlas's updates; Life's nudges and his steers (until 20 Oct) only parse now.
  */
 export const TASK_LINES = ["update", "nudge", "steer"] as const;
 export const Action = z
@@ -129,7 +129,7 @@ export const Action = z
       "instinct",
       ...TASK_LINES,
     ]),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard, a nudge, a steer).
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct).
     madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
     result: z.enum(["ok", "failed", "duplicate"]),
     schemaVersion: z.literal(1),
@@ -152,7 +152,7 @@ export const Action = z
   .strict();
 export type Action = z.infer<typeof Action>;
 export type Instruction = NonNullable<Action["instruction"]>;
-/** A task's own line (Atlas's update, Life's nudge, his steer), not something done on his request: the one test. */
+/** A task's own line (Atlas's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: Action) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
 

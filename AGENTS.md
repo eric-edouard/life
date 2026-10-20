@@ -59,7 +59,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   the same text.
 - **He is the center, not one more person.** His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
   projection of the observations like every page, so its shape changes at the cost of rebuilding one page; his goals
-  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me` in its What I hold (as of the page's last build). Nothing about him is stored in
+  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me` in its What I hold (as of the page's last build) and read fresh by the connector's `tasks` (`loadMe`). Nothing about him is stored in
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
@@ -67,8 +67,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
-  words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, and one lifelog gives to someone
-  else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
+  words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
+  (`LIFE_MISHEARD`, a real name) `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
@@ -77,21 +77,17 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
   `update`s through the connector's `task` (the write rules are `refusal`, behind the playbook's seal in `written`; one
-  claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows), Life's `nudge`s (`standing(...).nudge`, the one
-  rule: past its deadline, an open one 30 min after it was recorded; 30 min apart, only after the last was delivered,
-  until 3 delivered go unanswered) and his `steer`s. Nudges and steers go out as
-  `ask` events with `nudge` or `steer` (one event name: a second would replace the subscription). Task lines stay out of
-  the Actions section and `day`; the nightly lists every open task and those closed in the last day.
-- **The board, his Reminders list `Atlas`, is a projection of the ledger** (`src/board.ts`, `tick`, each minute in the
-  watcher): it writes no ledger line but his steers and never goes through `act`. An item is found by the task id on
-  its notes' first line. Life owns its notes, section and the subtasks made from Atlas's `steps` (added when missing,
-  ticked when done) and brings them in line each pass; it ticks the item once when the task closes, and `escalation`
-  moves it to "Needs you" with a due of now (bringing back his tick), cleared when the cause ends. The title, the due,
-  his tick and his own subtasks are his. `derived/board.json` holds how each item looked after Life's last pass: what
-  differs now is his change, a steer (the changed fields' new values; his new note lines show as "You: …" until
-  Atlas's next update). Only open tasks' items are watched; a lost or unreadable snapshot is a fresh baseline. When a
-  write fails while he is needed he is emailed, once per incident. Sections Needs you / Working / Open exist (made by
-  hand on 19 Oct, once: the code only assigns them).
+  claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows). `nudge` and
+  `steer` lines (until 20 Oct) only parse. What needs him is one rule, `escalation`, for every task, chat ones too:
+  unclaimed 30 min after the ask, claimed and past its deadline, waiting on him over 1 h, a week old, or no live
+  subscription (one email a day); `chase` (`src/board.ts`, each minute in the watcher) emails him once per task, cause and
+  Atlas's last update. Every send goes out once per id (`sendReport` skips one in the last 8 days of `email.sent`). Task lines stay out of the Actions section and `day`; the nightly lists every open task and
+  those closed in the last day.
+- **The board, his Reminders list `Atlas`, is a one-way projection of the ledger, his receipt** (`src/board.ts`, `tick`,
+  each minute in the watcher): it writes no ledger line, reads nothing back as his (no steers: they once forged his
+  voice) and never goes through `act`. An item is found by the task id on its notes' first line. Life brings its notes
+  and section (Open, Working: made by hand on 19 Oct, the code only assigns them) in line each pass and ticks the item
+  when its task closes. It never alerts: what needs him is emailed (`chase`).
 - **Atlas is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
   asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
@@ -111,8 +107,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   model, or by code for a document or a PDF's text layer). A step may quote it as evidence of what was sent, never as
   anyone's words or request.
 - **The only sends are the nightly report and the alerts (a failed action or an ask
-  whose delivery failed, an Atlas task that needs him when its board item could not say so, a run holding the lock over 3 h), by
-  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made), nudge or steer to the one subscriber,
+  whose delivery failed, an Atlas task that needs him, once per cause, Atlas not subscribed to `ask` (one a day for all open tasks), a run holding the lock over 3 h (once per incident),
+  an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
+  while it lasts, `archiveFailing` in `src/archive.ts`), by
+  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
   acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,
@@ -123,7 +121,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. A refused token (not a missing one,
   never its body), the SDK's own rejections (`onerror`) and invalid arguments (`tool()` validates them itself) are
   logged as `mcp.call` with `error`; nothing reads a response back. Every request
-  needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`).
+  needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`). lifelog's
+  keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never a refused token.
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly
   cookie, checked by `ownerTokens` on every request): never serve anything of his before that check. A `false` is a
@@ -167,9 +166,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (one process's model, `llmOverride`) is the bench's and its judge's only (`scripts/bench.ts`), refused on `~/Life`; launchd never sets it.
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
-- **Life's emails follow the owner's Ledger brand**, one source: agent-config's `ledger-brand` skill
-  (`~/.agents/skills/ledger-brand`: `SKILL.md`, its email rules, and `tokens.css`). `C` in
-  `src/memory/email.ts` copies its values as literals (email takes no CSS variables): a brand change lands in the skill first.
+- **Everything Life shows him follows the owner's Ledger brand** (emails, `/check`, `/me`, its icon, any new screen),
+  one source: agent-config's `ledger-brand` skill (`~/.agents/skills/ledger-brand`: `SKILL.md`, its email rules, and
+  `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts` and `assets/icon/` copy its values (email takes no
+  CSS variables): a brand change lands in the skill first.
 
 ## Gotchas
 
@@ -192,10 +192,11 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - The watcher hears a conversation once its speech is complete (`speechIn`, `hear.ts`): it reads a recording of under
   a minute of speech (lifelog's `durationSeconds`) as closed on 30 s of silence, lifelog's `cutter.ts` rule. If lifelog
   changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet
-  waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low.
-- The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks, nudges and steers (`deliver`, `derived/events.json`, mode 600: the
+  waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low. So does a turn with no speaker yet
+  that holds his misheard wake: it becomes an ask only once lifelog names him.
+- The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
-  him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent and unalerted, until Atlas
+  him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent, until Atlas
   subscribes again with its cursor; the nightly's Actions section lists every ask either way). Its startup line `actions: remctl ready` in `~/Library/Logs/life-watch.log` is the check that launchd
   can reach remctl (the connector's `reminders` acts from the watcher).
 - **The laptop is the host, and offline means delayed, never lost** (decided 20 Oct, `~/Life/docs/server-scope-2026-10-20.md`): the lifelog cursor is gap-free, hearing reaches back a week (`RECENT_MS`, skipped turns are logged)
@@ -232,7 +233,7 @@ and how they came out (a review refuses either without it). Commit small. Prefer
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
-`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
+`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask` and `update`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); the memory steps get their units only from `gather` (`units.ts`: every channel, in time
