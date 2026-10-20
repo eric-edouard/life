@@ -112,6 +112,11 @@ export function successReport(day: string, ms: number, n: Night) {
       models,
       notes: [
         `Corrections applied: ${n.paged.corrections}; observations retired: ${n.retired}`,
+        ...(n.paged.dropped.length > 0
+          ? [
+              `Pages no longer kept (git has them): ${n.paged.dropped.join(", ")}`,
+            ]
+          : []),
         `Verdicts agree with your labels ${percent(a.agreement)} of the time (${a.labeled} labels)`,
         `Lifelog: ${n.watcher && polling(n.watcher) ? "the watcher is polling" : `the watcher is NOT POLLING (last good poll ${n.watcher?.lastOkAt ? localTime(n.watcher.lastOkAt) : "never"}), so its store, read as it stands, may lag`}`,
         `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,

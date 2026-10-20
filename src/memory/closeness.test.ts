@@ -1,12 +1,21 @@
 import { expect, test } from "bun:test";
 import type { Closeness, SourceEvent } from "../schema";
 import {
+  chapter,
+  conversation,
+  lifelogStore,
+  page,
+  turn,
+} from "../sources/fixtures";
+import { apply } from "../sources/lifelog";
+import {
   bucket,
   chatDays,
   levelsNow,
   pagedBy,
   parseLevels,
   tally,
+  voiceDays,
 } from "./closeness";
 
 const msg = (
@@ -24,7 +33,7 @@ const msg = (
   text: "…",
 });
 
-test("closeness counts 1:1 chats only, by the day each side wrote; a group says nothing of closeness", () => {
+test("closeness counts 1:1 chats and mail only, by the day each side wrote; a group or a mailing list says nothing", () => {
   const resolve = (s: string) =>
     ({ "+1": "person:ann", "+2": "person:bob" })[s] ?? null;
   const days = chatDays(
@@ -35,6 +44,9 @@ test("closeness counts 1:1 chats only, by the day each side wrote; a group says 
       msg("grp", "2026-10-01T10:00:00.000Z", false, "+1"),
       msg("grp", "2026-10-01T10:05:00.000Z", false, "+2"),
       msg("+9", "2026-10-01T10:00:00.000Z", false),
+      // A group by its id, though only one other person wrote in it, and a newsletter.
+      msg("120@g.us", "2026-10-01T10:00:00.000Z", false, "+2"),
+      { ...msg("+2", "2026-10-01T10:00:00.000Z", false), bulk: true },
     ],
     resolve
   );
@@ -78,6 +90,7 @@ test("a level keeps a page when close or once close, never a service's; family s
     people: [
       { id: "dad", relation: "father" },
       { id: "new", relation: "friend" },
+      { id: "bob", relation: "business partner" },
     ],
   } as never;
   const levels = levelsNow(
@@ -93,6 +106,8 @@ test("a level keeps a page when close or once close, never a service's; family s
     truth
   );
   expect(levels.get("person:dad")?.personal).toBe("regular");
+  // A business partner is not family.
+  expect(levels.get("person:bob")?.personal).toBe("acquaintance");
   expect(levels.get("person:joe")?.personal).toBe("acquaintance");
   expect([...pagedBy(levels, truth)].sort()).toEqual([
     "person:ann",
@@ -139,5 +154,27 @@ test("the judgment is checked: a person not asked about, twice, or a level out o
   expect(invalid).toBe(3);
   expect(rows.map((r) => [r.person, r.personal, r.counts])).toEqual([
     ["person:ann", "inner", "1/2"],
+  ]);
+});
+
+test("voice days are the days someone spoke in a live recording, by lifelog's own speakers", () => {
+  const store = lifelogStore();
+  apply(
+    store,
+    page({
+      chapters: [
+        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
+      ],
+      conversations: [conversation("c1")],
+      turns: [
+        turn(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie"),
+        turn(1, "2026-10-14T10:02:00.000Z", null, null),
+      ],
+    })
+  );
+  const days = voiceDays(store, (s) => (s === "p1" ? "person:anne" : null));
+  expect([...days.keys()]).toEqual(["person:anne"]);
+  expect([...(days.get("person:anne")?.values() ?? [])]).toEqual([
+    { got: 0, sent: 0, voice: true },
   ]);
 });
