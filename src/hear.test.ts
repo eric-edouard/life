@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import { rmSync } from "node:fs";
 import { asksIn, hear, speechIn, type Turn, wakes, whose } from "./hear";
+import { ACTIONS } from "./memory/ledger";
 import {
   turn as fed,
   lifelogServer,
@@ -7,6 +9,7 @@ import {
   page,
 } from "./sources/fixtures";
 import { apply } from "./sources/lifelog";
+import { tasksOf } from "./tasks";
 
 test("only the two words “hey Atlas”, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
@@ -115,7 +118,7 @@ test("the pause is measured from a turn's end; the ask keeps when its last turn 
   expect(ask?.timing).toEqual({ arrived: iso(100), ended: iso(43) });
 });
 
-test("speech is complete once its last turn is someone else's or ends a recording closed on silence (under a minute of speech); a turn with no speaker waits for one", () => {
+test("speech is complete once its last turn is someone else's or ends a recording closed on silence (under a minute of speech)", () => {
   const store = lifelogStore();
   const at = "2026-10-19T10:00:00.000Z";
   const state = (seconds: number | null, turns: ReturnType<typeof fed>[]) => {
@@ -139,7 +142,47 @@ test("speech is complete once its last turn is someone else's or ends a recordin
   expect(state(null, [his])).toBe("open");
   expect(state(0, [his])).toBe("open");
   expect(state(90, [his, other])).toBe("complete");
-  expect(state(8, [his, nobody])).toBe("unnamed");
+  // A turn with no speaker yet is no reason to wait: only an ask's own wake is (`hear`).
+  expect(state(8, [his, nobody])).toBe("complete");
+});
+
+test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds back only itself", async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [
+        { speakerId: null, text: "hey Atlas, water the plant" },
+        { speakerId: null, text: "hey Atlas, call the bank" },
+      ],
+    }),
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    page({
+      turns: [
+        fed(0, "2026-10-19T10:00:00.000Z", null, null),
+        fed(1, "2026-10-19T10:00:20.000Z", "p-me", "Me", "c1", true),
+      ],
+    }),
+    "2026-10-19T10:00:30.000Z"
+  );
+  const quotes = () => tasksOf().map((t) => t.ask.instruction.quote);
+  try {
+    expect(
+      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))
+    ).toBe(false);
+    expect(quotes()).toEqual(["hey Atlas, call the bank"]);
+    expect(
+      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))
+    ).toBe(true);
+    expect(quotes()).toEqual([
+      "hey Atlas, call the bank",
+      "hey Atlas, water the plant",
+    ]);
+  } finally {
+    server.close();
+    rmSync(ACTIONS, { force: true });
+  }
 });
 
 test("a failed word fetch throws, so the watcher hears it again: never read as silence", async () => {
