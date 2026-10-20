@@ -12,7 +12,7 @@ import {
   type Unit,
 } from "../schema";
 import { DATA, OWNER, type Truth } from "../truth";
-import { levelsWith, pagedNow, personallyClose } from "./closeness";
+import { levelsWith, onMapOf, pagedBy, personallyClose } from "./closeness";
 import {
   appendJsonl,
   CORRECTIONS,
@@ -132,9 +132,11 @@ async function targets(
   observations: (Observation & { unmapped: boolean })[],
   truth: Truth,
   inferred: InferredPerson[],
-  close: ReadonlySet<string>
+  standing: Standing
 ) {
-  const paged = await pagedNow(truth);
+  const levels = levelsWith(standing.corrections);
+  const paged = pagedBy(levels, onMapOf(truth, standing.corrections));
+  const close = personallyClose(levels);
   const { homes } = placed(observations, truth, paged);
   const newest = (ref: string) =>
     (homes.get(ref) ?? [])
@@ -188,7 +190,11 @@ async function targets(
       ref: `area:${a.id}`,
     })
   );
-  return [...people.flatMap((t) => (t ? [t] : [])), ...places];
+  return {
+    close,
+    levels,
+    targets: [...people.flatMap((t) => (t ? [t] : [])), ...places],
+  };
 }
 
 interface BuiltPage {
@@ -474,10 +480,12 @@ export async function pages(opts: PagesOptions) {
   ]);
   const { inferred, truth } = people;
   const current = await observationsNow(people);
-  const levels = levelsWith(current.standing.corrections);
-  const close = personallyClose(levels);
+  const {
+    close,
+    levels,
+    targets: all,
+  } = await targets(current.observations, truth, inferred, current.standing);
   const context = refContext(truth, inferred, close);
-  const all = await targets(current.observations, truth, inferred, close);
   const { only } = opts;
   const chosen = only
     ? all.filter(
