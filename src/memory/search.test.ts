@@ -299,6 +299,8 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
       loop("obs_000000000007", { when: "2026-10-20" }),
       loop("obs_000000000008", { salience: 2 }),
       loop("obs_000000000009", { type: "news" }),
+      // His promise whose quote opens with the other's request is still his to keep.
+      loop("obs_000000000010", { speaker: "person:jean", type: "promise" }),
     ],
     path,
     standing as never
@@ -308,6 +310,7 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
     "obs_000000000001",
     "obs_000000000002",
     "obs_000000000005",
+    "obs_000000000010",
   ]);
   expect(dayLines([], [], [], [], [], lines)[0]).toBe(
     "Due (his own open to-dos and promises for this day):"

@@ -634,14 +634,15 @@ export async function day(date: string) {
 }
 
 /**
- * His open loops due on `date`: the to-dos and promises he said (a to-do is his by its type, a promise is his to keep)
- * that must not be forgotten (salience 3), not retired. Atlas's daily review lists them (docs/atlas.md).
+ * His open loops due on `date` that must not be forgotten (salience 3), not retired: his promises (his to keep, even
+ * when the quote opens with the other's request) and the to-dos he said (not a mail's). Atlas's daily review lists them
+ * (docs/atlas.md).
  */
 export const dueOn = (db: Database, date: string) =>
   db
     .query<Row, [string, string]>(
-      `select ${COLUMNS} from observations o where o."when" = ? and o.type in ('todo', 'promise') and o.speaker = ?
-       and o.salience = 3 and ${CURRENT} order by o.at`
+      `select ${COLUMNS} from observations o where o."when" = ? and o.salience = 3 and ${CURRENT}
+       and (o.type = 'promise' or (o.type = 'todo' and o.speaker = ?)) order by o.at`
     )
     .all(date, OWNER)
     .map(line);
