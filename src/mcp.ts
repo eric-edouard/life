@@ -19,6 +19,7 @@ import {
   Unsubscribe,
   unsubscribe,
 } from "./events";
+import { text } from "./http";
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
 import { lifeStatus, runs } from "./memory/history";
@@ -415,12 +416,6 @@ function buildServer() {
   );
   return server;
 }
-
-const text = (
-  body: string,
-  status: number,
-  headers: Record<string, string> = {}
-) => new Response(body, { headers, status });
 
 /**
  * The connector's routes: `handle` answers `/mcp`, the protected-resource metadata and the icons, and resolves to null
