@@ -13,6 +13,7 @@ import { DATA, ROOT, TEST } from "./truth";
 export const LOG_DIR = TEST ? join(DATA, "log") : join(ROOT, "derived", "log");
 
 type LogKind =
+  | "board.write"
   | "email.sent"
   | "event.sent"
   | "file.read"
