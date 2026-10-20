@@ -1,8 +1,9 @@
 // Life's truth check: the statements by group; each answer is saved at once (memory/ratings.jsonl).
 
 // A deck of items to judge one at a time, generic: items {id, text, note, without?} and verdicts in, onVerdict(id, value |
-// null: undo) out; `without` lists the verdict values an item doesn't offer. A verdict is {value, label, key, swipe?, main?}: its button, its key, a swipe that way ("left", "right",
-// "up") judge it; main ones get the big buttons. Undo is a button and Backspace.
+// null: undo) out. A verdict is {value, label, key, swipe?, main?}: its button, its key, a swipe that way ("left",
+// "right", "up") judge it; main ones get the big buttons; an item's `without` lists the values it doesn't offer. Undo is
+// a button and Backspace.
 const AWAY = { left: [-1, 0], right: [1, 0], up: [0, -1] };
 
 export function deck(root, verdicts, onVerdict) {
@@ -18,9 +19,10 @@ export function deck(root, verdicts, onVerdict) {
     .join("")}</div>`;
   const stage = root.querySelector(".stage");
   const undoButton = root.querySelector("[data-undo]");
-  // The verdict whose way is within 45° of the drag.
+  // The verdicts the card on top offers.
   const offered = () =>
     verdicts.filter((v) => !queue[0]?.without?.includes(v.value));
+  // The verdict whose way is within 45° of the drag.
   const bySwipe = (x, y) =>
     offered().find(({ swipe }) => {
       const [a, b] = AWAY[swipe] ?? [0, 0];
@@ -37,8 +39,9 @@ export function deck(root, verdicts, onVerdict) {
     if (!item) {
       return;
     }
+    const shown = new Set(offered().map((v) => v.value));
     for (const b of root.querySelectorAll("[data-verdict]")) {
-      b.hidden = item.without?.includes(b.dataset.verdict) ?? false;
+      b.hidden = !shown.has(b.dataset.verdict);
     }
     const el = document.createElement("article");
     el.innerHTML = `<p class="note"></p><p class="text"></p>`;
