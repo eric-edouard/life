@@ -106,15 +106,19 @@ export async function nightly(days: number, force = false) {
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
   const night = force || decide(now.getHours(), day, readState()) === "run";
-  const daytime = () =>
-    middayDue(now, readMidday()) ? midday(now) : backfilled(day);
+  // A backup still due today goes before a backfill week (it runs after, below).
+  const backupFirst = () =>
+    backupDue(now.getHours(), day, readState(), readState("backup"));
+  const daytime = () => {
+    if (middayDue(now, readMidday())) {
+      return midday(now);
+    }
+    return backupFirst() ? Promise.resolve(0) : backfilled(day);
+  };
   const code = night
     ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
     : await daytime();
-  if (
-    force ||
-    !backupDue(now.getHours(), day, readState(), readState("backup"))
-  ) {
+  if (force || !backupFirst()) {
     return code;
   }
   // Recorded even when it throws, so a day never tries more than 3 times.
