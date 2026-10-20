@@ -10,7 +10,7 @@ import { exec } from "./proc";
 
 export const TUNNEL_EVERY_MS = 2 * 60_000;
 
-/** The probe's HTTP status (0: no answer) means the tunnel is down: only Cloudflare's 530. Any other answer (a dead app's 502 included) means it reached the Mac. */
+/** Only Cloudflare's 530 (no tunnel to us) means the tunnel is down; no answer (0) or any other status does not. */
 export const tunnelDown = (status: number) => status === 530;
 
 const statusOf = (url: string) =>
