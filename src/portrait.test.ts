@@ -30,6 +30,8 @@ const session = (res: Response) =>
 
 test("nothing of his before the password: the form, a wrong one 401, another site's post 403", async () => {
   const form = await get();
+  // A browser only sends our Origin with the form's post when the form page allows a same-origin referrer.
+  expect(form.headers.get("referrer-policy")).toBe("same-origin");
   expect(await form.text()).not.toContain("as Life knows him");
   expect((await login("nope")).status).toBe(401);
   expect((await login("open sesame", "https://elsewhere.example")).status).toBe(
