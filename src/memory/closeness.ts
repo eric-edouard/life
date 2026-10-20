@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { z } from "zod";
 import { stamp } from "../llm";
 import {
@@ -13,11 +12,10 @@ import { OWNER, type Truth } from "../truth";
 import {
   appendJsonl,
   CLOSENESS,
-  filesIn,
   latestBy,
-  PAGES,
   readCorrections,
   rowsOf,
+  writtenPeople,
 } from "./ledger";
 import { begin, chunks, inBatches, meContext } from "./run";
 import { daysBefore, safely, WITH_PEOPLE } from "./units";
@@ -351,10 +349,9 @@ export async function waitingOf(
   corrections: Correction[]
 ) {
   const canon = merged(corrections);
-  const written = await filesIn(join(PAGES, "people"), ".md");
   return new Set([
     ...truth.people.map((p) => canon(`person:${p.id}`)),
-    ...written.map((f) => canon(`person:${f.slice(0, -3)}`)),
+    ...(await writtenPeople()).map(canon),
   ]);
 }
 
