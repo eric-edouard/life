@@ -44,13 +44,15 @@ test("closeness counts 1:1 chats and mail only, by the day each side wrote; a gr
       msg("grp", "2026-10-01T10:00:00.000Z", false, "+1"),
       msg("grp", "2026-10-01T10:05:00.000Z", false, "+2"),
       msg("+9", "2026-10-01T10:00:00.000Z", false),
+      // A chat only he wrote in counts for its person, one way.
+      msg("+2", "2026-10-02T09:00:00.000Z", true),
       // A group by its id, though only one other person wrote in it, and a newsletter.
       msg("120@g.us", "2026-10-01T10:00:00.000Z", false, "+2"),
       { ...msg("+2", "2026-10-01T10:00:00.000Z", false), bulk: true },
     ],
     resolve
   );
-  expect([...days.keys()]).toEqual(["person:ann"]);
+  expect([...days.keys()].sort()).toEqual(["person:ann", "person:bob"]);
   const t = tally(days.get("person:ann") ?? new Map(), "2026-10-02");
   expect(t).toMatchObject({
     first: "2026-10-01",
@@ -85,12 +87,22 @@ test("a level keeps a page when close or once close, never a service's; family s
     ["person:old", row("person:old", { personal: "faded" })],
     ["person:bank", row("person:bank", { personal: "regular", service: true })],
     ["person:joe", row("person:joe", { personal: "inner" })],
+    ["person:eve", row("person:eve")],
+    // Folded into Ann: her levels are Ann's.
+    [
+      "person:ann2",
+      row("person:ann2", {
+        at: "2026-10-19T00:00:00.000Z",
+        personal: "regular",
+      }),
+    ],
   ]);
   const truth = {
     people: [
       { id: "dad", relation: "father" },
       { id: "new", relation: "friend" },
       { id: "bob", relation: "business partner" },
+      { id: "eve", relation: "ex-girlfriend" },
     ],
   } as never;
   const levels = levelsNow(
@@ -102,12 +114,21 @@ test("a level keeps a page when close or once close, never a service's; family s
         person: "person:joe",
         personal: "acquaintance",
       } as never,
+      {
+        at: "2026-10-20T00:00:00.000Z",
+        from: "person:ann2",
+        kind: "same-person",
+        to: "person:ann",
+      } as never,
     ],
     truth
   );
   expect(levels.get("person:dad")?.personal).toBe("regular");
-  // A business partner is not family.
+  // A business partner, an ex: not family.
   expect(levels.get("person:bob")?.personal).toBe("acquaintance");
+  expect(levels.get("person:eve")?.personal).toBe("acquaintance");
+  expect(levels.has("person:ann2")).toBe(false);
+  expect(levels.get("person:ann")?.personal).toBe("inner");
   expect(levels.get("person:joe")?.personal).toBe("acquaintance");
   expect([...pagedBy(levels, truth)].sort()).toEqual([
     "person:ann",

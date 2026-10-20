@@ -35,7 +35,7 @@ For each person, one entry:
   the rest. Someone can be both (a friend he builds a company with): judge each side on its own.
 - `service`: true when it is a business, a bank, a shop's account, a bot or an automated sender, not a person. Then
   both levels are `acquaintance`.
-- `why`: one short line in English (under 200 characters): what the level rests on (the relation, the counts).
+- `why`: one short line in English (under 300 characters): what the level rests on (the relation, the counts).
 
 Weigh the relation he wrote first, then the counts: a relation like father, sister or partner is close family
 whatever the counts. Many days both ways, or many recordings together, mean close; a long silence after a close
