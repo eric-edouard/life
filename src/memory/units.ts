@@ -549,15 +549,19 @@ export const lifelogNames = (truth: Truth) =>
     )
   );
 
+/** Files are described (`describeFiles`) only on messages of this many days back: an older one stays a tag. */
+const DESCRIBED_DAYS = 7;
+
 /**
- * The evidence of a window: every source since `since` (lifelog, chats, mail, notes, his commits), cut into units with the
- * code rules applied, in time order across channels; also what the later stages need around them. The one reader of
- * the sources for the memory steps: a sweep gathers once and hands it to each step. The messages' new files are read
- * first (`describeFiles`), so a unit's hash moves once when its file is described. Git units are never extracted
- * nor read for people (extract skips them; the moments step caps their
+ * The evidence of a window, the local days from `since` to before `until` (now, without it): every source (lifelog,
+ * chats, mail, notes, his commits), cut into units with the code rules applied, in time order across channels; also
+ * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
+ * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
+ * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
+ * files as tags. Git units are never extracted nor read for people (extract skips them; the moments step caps their
  * salience at 1).
  */
-export async function gather(since: Date) {
+export async function gather(since: Date, until?: Date) {
   if (!LIFE_CHAT) {
     // Unset, Life's own chat would read as facts.
     throw new Error("LIFE_CHAT is not set in .env");
@@ -577,15 +581,19 @@ export async function gather(since: Date) {
     ),
     ...ORDER.map((name) => safely(name, () => READERS[name](since), failed)),
   ]);
-  const files = await describeFiles(read.flat());
+  const recent = windowStart(new Date(), DESCRIBED_DAYS).toISOString();
+  const files = await describeFiles(read.flat().filter((e) => e.at >= recent));
   const known = readFiles();
   const chats = read.map((events) => showFiles(events, known));
   const handles = handleIndex(truth.people);
+  const [from, to] = [since, until].map((d) => d && localDate(d.toISOString()));
   const built = applyRules([
     ...lifelogUnits(lifelog, nameIndex(truth.people)),
     ...chats.flatMap((events) => messageUnits(events, handles)),
     ...repoUnits(commits),
-  ]).toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
+  ])
+    .filter((b) => b.unit.date >= (from ?? "") && !(to && b.unit.date >= to))
+    .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
   return {
     built,
     conversations: lifelog,
