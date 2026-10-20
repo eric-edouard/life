@@ -67,34 +67,36 @@ test("the public check ignores an offline Mac, heals on the 2nd failure, alerts 
   expect(run(true, true)).toBe("none");
 });
 
-test("a conversation is heard once, 15 s after his last turn arrived (40 s while one has no speaker), from his earliest turn; old speech is never heard", () => {
+test("a conversation is heard once its speech is complete: 5 s after his last turn arrived, 40 s while a turn has no speaker, 60 s while the next recording may go on; old speech is never heard", () => {
   const pending: Pending = new Map();
   const t = (s: number) => new Date(at(0).getTime() + s * 1000);
   const turn = (conversation: string, s: number) => ({
     at: t(s).toISOString(),
     conversation,
   });
-  const unnamed = (conversation: string) => conversation === "b";
+  const speech = (conversation: string) =>
+    (({ a: "complete", b: "unnamed" }) as const)[conversation] ?? "open";
   const heard = (turns: ReturnType<typeof turn>[], s: number) =>
-    hearings(pending, turns, t(s).getTime(), unnamed);
-  expect(heard([turn("a", 0), turn("b", 5)], 10)).toEqual([]);
-  expect(holdFor(pending, t(10).getTime(), unnamed)).toBe(15);
-  expect(heard([], 19)).toEqual([]);
-  // A turn of "a" arrived at 20 s: its quiet restarted.
-  expect(heard([turn("a", 15)], 20)).toEqual([]);
-  expect(heard([], 34)).toEqual([]);
-  expect(heard([], 35)).toEqual([
+    hearings(pending, turns, t(s).getTime(), speech);
+  expect(heard([turn("a", 0), turn("b", 5), turn("c", 6)], 10)).toEqual([]);
+  expect(holdFor(pending, t(10).getTime(), speech)).toBe(5);
+  expect(heard([], 14)).toEqual([]);
+  expect(heard([], 15)).toEqual([
     { conversation: "a", from: t(0).toISOString(), tries: 0 },
   ]);
-  // "b" has a turn with no speaker: it waits 40 s, and the poll holds until then.
-  expect(holdFor(pending, t(35).getTime(), unnamed)).toBe(15);
+  // A turn of "c" arrived at 40 s: its wait restarted.
+  expect(heard([turn("c", 30)], 40)).toEqual([]);
   expect(heard([], 49)).toEqual([]);
   expect(heard([], 50)).toEqual([
     { conversation: "b", from: t(5).toISOString(), tries: 0 },
   ]);
-  expect(heard([], 999)).toEqual([]);
-  expect(holdFor(pending, t(999).getTime(), unnamed)).toBe(60);
-  const old = { at: "2026-10-13T10:00:00.000Z", conversation: "c" };
+  expect(holdFor(pending, t(50).getTime(), speech)).toBe(50);
+  expect(heard([], 99)).toEqual([]);
+  expect(heard([], 100)).toEqual([
+    { conversation: "c", from: t(6).toISOString(), tries: 0 },
+  ]);
+  expect(holdFor(pending, t(100).getTime(), speech)).toBe(60);
+  const old = { at: "2026-10-13T10:00:00.000Z", conversation: "d" };
   expect(heard([old], 0)).toEqual([]);
   expect(pending.size).toBe(0);
 });

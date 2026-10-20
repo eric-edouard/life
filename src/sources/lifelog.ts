@@ -50,6 +50,8 @@ export const Page = z.object({
     })
   ),
   cursor: z.string(),
+  // Each recording and how many seconds of speech it holds (`speechSeconds`).
+  jobs: z.array(z.object({ durationSeconds: z.number(), id: z.string() })),
   more: z.boolean(),
   removed: z.array(z.object({ kind: z.string(), ref: z.string() })),
   turns: z
@@ -178,6 +180,7 @@ export function openStore(dir = WATCH) {
     job_id text not null, turn_index integer not null, conversation_id text not null, start_at text not null,
     person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
     primary key (job_id, turn_index));
+  create table if not exists jobs (id text primary key, speech_seconds real not null);
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists chapters_conversation on chapters (conversation_id);`);
   // A store from before 20 Oct: its turns gain their end and when they were seen, filled as lifelog sends them again.
@@ -223,6 +226,19 @@ export const turnRef = (job: string, turn: number, at: string) =>
 const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
 
+/** Deletes what the feed says went: a conversation, a chapter or a turn (`<job>:<turn>`). */
+function drop(db: Database, r: Page["removed"][number]) {
+  if (r.kind === "chapter" || r.kind === "conversation") {
+    db.run(`delete from ${r.kind}s where id = ?`, [r.ref]);
+  } else if (r.kind === "turn") {
+    const at = r.ref.lastIndexOf(":");
+    db.run("delete from turns where job_id = ? and turn_index = ?", [
+      r.ref.slice(0, at),
+      Number(r.ref.slice(at + 1)),
+    ]);
+  }
+}
+
 /**
  * Folds one page into the store: whole rows replace the ones with the same key, `removed` ones go. Idempotent. A turn
  * keeps when it was first `seen`: when the hearing could first have heard it.
@@ -246,7 +262,11 @@ export function apply(
     person_name = excluded.person_name, is_owner = excluded.is_owner, end_at = excluded.end_at,
     seen_at = coalesce(turns.seen_at, excluded.seen_at)`
   );
+  const job = db.prepare("insert or replace into jobs values (?, ?)");
   db.transaction(() => {
+    for (const j of page.jobs) {
+      job.run(j.id, j.durationSeconds);
+    }
     for (const c of page.conversations) {
       conversation.run(
         c.id,
@@ -282,15 +302,7 @@ export function apply(
       );
     }
     for (const r of page.removed) {
-      if (r.kind === "chapter" || r.kind === "conversation") {
-        db.run(`delete from ${r.kind}s where id = ?`, [r.ref]);
-      } else if (r.kind === "turn") {
-        const at = r.ref.lastIndexOf(":");
-        db.run("delete from turns where job_id = ? and turn_index = ?", [
-          r.ref.slice(0, at),
-          Number(r.ref.slice(at + 1)),
-        ]);
-      }
+      drop(db, r);
     }
   })();
   return (
@@ -443,6 +455,14 @@ export function readConversations(
       title: c.title,
     }));
 }
+
+/** Seconds of speech in one recording, or null before lifelog sent it. */
+export const speechSeconds = (store: Store, jobId: string) =>
+  store.db
+    .query<{ speech_seconds: number }, [string]>(
+      "select speech_seconds from jobs where id = ?"
+    )
+    .get(jobId)?.speech_seconds ?? null;
 
 /** The turns of a conversation between two instants (a chapter's range; the whole conversation by default), in order. */
 export function turnsBetween(

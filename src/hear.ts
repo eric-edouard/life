@@ -2,6 +2,7 @@ import {
   type ChapterTurn,
   readTranscript,
   type Store,
+  speechSeconds,
   turnRef,
   turnsBetween,
 } from "./sources/lifelog";
@@ -13,7 +14,9 @@ import { ask } from "./tasks";
 /** The two words in this order, whatever the case and the punctuation around or between them. */
 export const WAKE = /\bhey\W+atlas\b/i;
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
-export const GAP_MS = 15_000;
+const GAP_MS = 15_000;
+/** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */
+const CLOSED_ON_SILENCE_S = 60;
 
 export const wakes = (text: string) => WAKE.test(text);
 
@@ -68,6 +71,26 @@ export function whose(t: ChapterTurn): Turn["who"] {
     return "me";
   }
   return t.personId || t.name ? "other" : "unknown";
+}
+
+/**
+ * Where a conversation's speech from `from` on stands for hearing: `unnamed` while a turn has no speaker yet (lifelog
+ * names him a moment after the words), `complete` once its last turn is someone else's or ends a recording lifelog
+ * closed on silence (no turn of an ask can follow), else `open` (the next recording may go on with it).
+ */
+export function speechIn(store: Store, conversation: string, from: string) {
+  const turns = turnsBetween(store, conversation, from);
+  if (turns.some((t) => whose(t) === "unknown")) {
+    return "unnamed";
+  }
+  const last = turns.at(-1);
+  if (!last || whose(last) === "other") {
+    return "complete";
+  }
+  const seconds = speechSeconds(store, last.jobId);
+  return seconds !== null && seconds < CLOSED_ON_SILENCE_S
+    ? "complete"
+    : "open";
 }
 
 /**

@@ -10,7 +10,7 @@ import {
   polling,
   readHealth,
 } from "./health";
-import { GAP_MS, hear, whose } from "./hear";
+import { hear, speechIn } from "./hear";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
 import { publicReport, sendReport, watchReport } from "./memory/report";
@@ -18,27 +18,25 @@ import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { codeAt, exec } from "./proc";
 import { serveConnector } from "./server";
-import { openStore, poll, type Store, turnsBetween } from "./sources/lifelog";
+import { openStore, poll, type Store } from "./sources/lifelog";
 import { ROOT } from "./truth";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`); after 15 minutes without a poll it emails once, and once on recovery.
 // Every 5 minutes, while the Mac is online, it also checks the public connector end to end (see `publicCheck`).
-// It also hears "hey Atlas": 15 s after his last new turn in a conversation (40 s while a turn there has no speaker
-// yet: lifelog names him a moment after the words), `hear` records its asks, and every loop
-// `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
+// It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks;
+// every loop `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
 // steers not yet delivered to Atlas (src/events.ts).
 
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
 const PUBLIC_EVERY_MS = 5 * 60_000;
 /**
- * How long a conversation stays quiet before it is heard: as long as the pause that ends an ask (so his next turn of
- * it is in), and 40 s while a turn there has no speaker yet.
+ * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
+ * it have settled, an unnamed turn once lifelog could name him, open speech once the next recording could be in.
  */
-const QUIET_MS = GAP_MS;
-const UNNAMED_MS = 40_000;
+const WAIT_MS = { complete: 5000, open: 60_000, unnamed: 40_000 };
 /** A replay of the store (after a restart or a long sleep) never acts on speech older than this. */
 const RECENT_MS = 24 * 3_600_000;
 const PUBLIC_URL =
@@ -117,28 +115,28 @@ function fold(
   }
 }
 
-/** A turn of a conversation from `from` on has no speaker yet. */
-type Unnamed = (conversation: string, from: string) => boolean;
+/** Where a conversation's speech stands (`speechIn`). */
+type Speech = (conversation: string, from: string) => keyof typeof WAIT_MS;
 
-/** When a pending conversation is due: 15 s after its last turn arrived, 40 s while one has no speaker. */
+/** When a pending conversation is due: `WAIT_MS` after its last turn arrived, by where its speech stands. */
 const dueAt = (
   [conversation, p]: [string, { at: number; from: string }],
-  unnamed: Unnamed
-) => p.at + (unnamed(conversation, p.from) ? UNNAMED_MS : QUIET_MS);
+  speech: Speech
+) => p.at + WAIT_MS[speech(conversation, p.from)];
 
 /**
- * Folds the turns of one poll into `pending` and takes out the conversations quiet for 15 s, or 40 s while `unnamed`
- * says a turn there from `from` on has no speaker (measured on arrival, not on speech time), ready for `hear`.
+ * Folds the turns of one poll into `pending` and takes out the conversations due (`dueAt`, measured on arrival, not on
+ * speech time), ready for `hear`.
  * ponytail: `pending` lives in memory; a restart inside the wait drops those turns.
  */
 export function hearings(
   pending: Pending,
   turns: { at: string; conversation: string }[],
   now: number,
-  unnamed: Unnamed
+  speech: Speech
 ) {
   fold(pending, turns, now);
-  const due = [...pending].filter((e) => dueAt(e, unnamed) <= now);
+  const due = [...pending].filter((e) => dueAt(e, speech) <= now);
   for (const [conversation] of due) {
     pending.delete(conversation);
   }
@@ -150,18 +148,13 @@ export function hearings(
 }
 
 /** Seconds the next poll may hold: until the first pending conversation could be due, a minute at most. */
-export const holdFor = (pending: Pending, now: number, unnamed: Unnamed) =>
+export const holdFor = (pending: Pending, now: number, speech: Speech) =>
   Math.min(
     WAIT_S,
     ...[...pending].map((e) =>
-      Math.max(1, Math.ceil((dueAt(e, unnamed) - now) / 1000))
+      Math.max(1, Math.ceil((dueAt(e, speech) - now) / 1000))
     )
   );
-
-const unnamedIn =
-  (store: Store): Unnamed =>
-  (conversation, from) =>
-    turnsBetween(store, conversation, from).some((t) => whose(t) === "unknown");
 
 const reach = (url: string, method: string) =>
   fetch(url, { method, signal: AbortSignal.timeout(10_000) }).catch(() => null);
@@ -254,7 +247,8 @@ export async function watch(): Promise<number> {
     )
   );
   const pending: Pending = new Map();
-  const unnamed = unnamedIn(store);
+  const speech: Speech = (conversation, from) =>
+    speechIn(store, conversation, from);
   let health = readHealth();
   // Units follow the store even if the last run stopped between the two.
   let dirty = true;
@@ -266,11 +260,11 @@ export async function watch(): Promise<number> {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
       const page = await poll(
         store,
-        more ? 0 : holdFor(pending, Date.now(), unnamed)
+        more ? 0 : holdFor(pending, Date.now(), speech)
       );
       ({ more } = page);
       dirty ||= page.changed;
-      for (const h of hearings(pending, page.owner, Date.now(), unnamed)) {
+      for (const h of hearings(pending, page.owner, Date.now(), speech)) {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         await hear(store, h.conversation, h.from).catch((e: Error) => {
           // Words not fetched: heard again after the next quiet wait, never read as silence.

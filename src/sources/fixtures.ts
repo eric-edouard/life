@@ -18,6 +18,7 @@ export const page = (over: Record<string, unknown> = {}) => ({
   chapters: [],
   conversations: [],
   cursor: "1",
+  jobs: [],
   more: false,
   removed: [],
   turns: [],
