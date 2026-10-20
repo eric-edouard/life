@@ -2,15 +2,16 @@ import { createRemoteJWKSet } from "jose";
 import { ISSUER, ownerTokens } from "./auth";
 import { createCheck } from "./check";
 import { createMcp } from "./mcp";
+import { createPortrait } from "./portrait";
 
 // The watcher's one HTTP server, on loopback; the Cloudflare tunnel forwards life.ericedouard.com to it.
 
-/** Serves the connector and the check page (`check.ts`) on loopback (127.0.0.1:46200, bodies up to 256 KiB), 404 for any other path; off, with a line saying so, when LIFE_OWNER_SUB is not set. */
+/** Serves the connector, the check page (`check.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set) on loopback (127.0.0.1:46200, bodies up to 256 KiB), 404 for any other path; off, with a line saying so, when LIFE_OWNER_SUB is not set. */
 export function serveConnector() {
   const ownerSub = process.env.LIFE_OWNER_SUB;
   if (!ownerSub) {
     console.log(
-      "Connector: LIFE_OWNER_SUB is not set, /mcp and /check are off"
+      "Connector: LIFE_OWNER_SUB is not set, /mcp, /check and /me are off"
     );
     return;
   }
@@ -20,12 +21,14 @@ export function serveConnector() {
   });
   const mcp = createMcp(verify);
   const check = createCheck(verify);
+  const portrait = createPortrait();
   Bun.serve({
     // No stack traces or source in an error page: much of this answers before sign-in.
     development: false,
     fetch: async (req) =>
       (await mcp.handle(req)) ??
       (await check.handle(req)) ??
+      (await portrait.handle(req)) ??
       new Response("not found", { status: 404 }),
     hostname: "127.0.0.1",
     maxRequestBodySize: 256 * 1024,
