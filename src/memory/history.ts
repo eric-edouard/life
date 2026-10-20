@@ -208,11 +208,16 @@ async function logDays(dir: string) {
     .reverse();
 }
 
-function readEvents(dir: string, name: string) {
+/** One log file's events whose kind starts with `kind` (`run.`: every run event). */
+function readEvents(dir: string, name: string, kind = "run.") {
   return linesOf(join(dir, name))
-    .filter((l) => l.includes('"kind":"run.'))
+    .filter((l) => l.includes(`"kind":"${kind}`))
     .map((l) => JSON.parse(l) as LogEvent);
 }
+
+/** Every event of `kind` in a log folder, newest day first. */
+export const logEvents = async (dir: string, kind: string) =>
+  (await logDays(dir)).flatMap((n) => readEvents(dir, n, kind));
 
 export interface RunsQuery {
   cursor?: string;

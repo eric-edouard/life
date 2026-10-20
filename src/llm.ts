@@ -113,15 +113,16 @@ export function llmOverride(
 export const llmSpec = (l: Llm) =>
   [l.engine, l.model, l.effort].filter(Boolean).join("/");
 
-/** What `engine` runs for a step of `tier`. */
-export const llmOf = (engine: Engine, tier: Tier): Llm =>
-  engine === "claude"
-    ? { engine, model: CLAUDE_MODELS[tier] }
-    : { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
-
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
 export function llmFor(tier: Tier): Llm {
-  return llmOverride() ?? llmOf(readEngine(), tier);
+  const set = llmOverride();
+  if (set) {
+    return set;
+  }
+  const engine = readEngine();
+  return engine === "claude"
+    ? { engine, model: CLAUDE_MODELS[tier] }
+    : { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
 }
 
 /** Recorded on everything a model made; the engine stays out of the cache key, so switching engines re-runs nothing. */

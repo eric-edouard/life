@@ -1,18 +1,18 @@
 // `bun bench [--models opus,…] [--runs n]`: how well candidate models do Life's deep steps (moments, then extract)
-// on one fixed week, against what Life runs (its deep tier, `llmOf`). Each run is the real pipeline on its own
-// throwaway copy of the data (empty memory, today's truth/), read with one model through `LIFE_LLM`, in its own
+// on one fixed week, against what Life runs (his engine's deep tier). Each run is the real pipeline on its own
+// throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier then grades its claims against the week's
 // hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
-import { readdirSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { llmOf, llmSpec, readEngine } from "../src/llm";
+import { llmFor, llmSpec } from "../src/llm";
 import { LOG_DIR } from "../src/log";
 import { extract } from "../src/memory/extract";
 import { locked } from "../src/memory/guard";
-import { linesOf, ratedFacts } from "../src/memory/ledger";
+import { logEvents } from "../src/memory/history";
+import { ratedFacts } from "../src/memory/ledger";
 import { moments } from "../src/memory/moments";
 import { claimsNow } from "../src/memory/statements";
 import type { tally } from "../src/memory/tally";
@@ -66,12 +66,9 @@ async function readWeek() {
         .join("\n")
     );
     // This worktree's log holds this run alone so far: its calls' cost (codex reports none).
-    const costs = readdirSync(LOG_DIR)
-      .flatMap((f) => linesOf(join(LOG_DIR, f)))
-      .map((l) => JSON.parse(l) as { costUsd?: number; kind: string })
-      .flatMap((l) =>
-        l.kind === "model.run" && l.costUsd !== undefined ? [l.costUsd] : []
-      );
+    const costs = (await logEvents(LOG_DIR, "model.run")).flatMap((l) =>
+      typeof l.costUsd === "number" ? [l.costUsd] : []
+    );
     return {
       calls: m.calls + e.calls,
       claims: claims.length,
@@ -80,6 +77,7 @@ async function readWeek() {
           ? `$${costs.reduce((a, b) => a + b, 0).toFixed(2)}`
           : "subscription",
       failed: m.failed + e.failed,
+      model: llmSpec(llmFor("deep")),
     };
   });
   if (!done) {
@@ -88,11 +86,22 @@ async function readWeek() {
   console.log(JSON.stringify(done));
 }
 
-/** One process in the bench's worktree, on one copy, with one model; its last stdout line is JSON. */
-async function run(code: string, data: string, llm: string, args: string[]) {
+/** One process in the bench's worktree, on one copy, with his engine or one model; its last stdout line is JSON. */
+async function run(
+  code: string,
+  data: string,
+  llm: string | undefined,
+  args: string[]
+) {
   const r = await exec(["bun", ...args], {
     cwd: code,
-    env: { ...process.env, LIFE_DATA: data, LIFE_LLM: llm },
+    env: {
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(([k]) => k !== "LIFE_LLM")
+      ),
+      LIFE_DATA: data,
+      ...(llm ? { LIFE_LLM: llm } : {}),
+    },
     timeout: 3 * HOUR_MS,
   });
   if (r.code !== 0) {
@@ -109,27 +118,27 @@ async function bench(models: string[], runs: number) {
       git(ROOT, ["rev-parse", "--git-common-dir"]).stdout.toString().trim()
     )
   );
-  // What Life runs is the main checkout's setting, wherever the bench is run from.
-  const engine = readEngine(join(main, "derived", "settings.json"));
-  const named: Record<string, string> = {
-    ...MODELS,
-    [BASELINE]: llmSpec(llmOf(engine, "deep")),
-  };
-  const judge = llmSpec(llmOf(engine, "main"));
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
   const base = join(tmp, "base");
   const worktrees: string[] = [];
-  /** This code at HEAD in `dir`, with the main checkout's dependencies, .env and lifelog store. */
+  /** This code at HEAD in `dir`, with the main checkout's dependencies, .env, lifelog store and engine setting. */
   const checkout = async (dir: string) => {
     worktrees.push(dir);
-    git(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]);
+    if (
+      git(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]).exitCode !== 0
+    ) {
+      throw new Error(`git worktree add ${dir} failed`);
+    }
     await mkdir(join(dir, "derived"), { recursive: true });
-    await symlink(join(main, "node_modules"), join(dir, "node_modules"));
-    await symlink(join(main, ".env"), join(dir, ".env"));
-    await symlink(
-      join(main, "derived", "watch"),
-      join(dir, "derived", "watch")
-    );
+    for (const p of [
+      "node_modules",
+      ".env",
+      "derived/watch",
+      "derived/settings.json",
+    ]) {
+      // biome-ignore lint/performance/noAwaitInLoops: four links
+      await symlink(join(main, p), join(dir, p));
+    }
   };
   try {
     await mkdir(join(base, "memory"), { recursive: true });
@@ -149,7 +158,7 @@ async function bench(models: string[], runs: number) {
           { length: m === BASELINE ? Math.max(2, runs) : runs },
           (_, k) => ({
             label: `${m.replaceAll("/", "-")}${k + 1}`,
-            llm: named[m] ?? m,
+            llm: m === BASELINE ? undefined : (MODELS[m] ?? m),
             model: m,
           })
         )
@@ -169,7 +178,7 @@ async function bench(models: string[], runs: number) {
           const minutes = Math.round((performance.now() - started) / 60_000);
           const claims = join(data, "claims.jsonl");
           const graded = (file: string) =>
-            run(code, data, judge, [
+            run(code, data, undefined, [
               "scripts/eval.ts",
               file,
               claims,
@@ -185,6 +194,7 @@ async function bench(models: string[], runs: number) {
             cost: read.cost as string,
             failed: read.failed as number,
             held,
+            llm: read.model as string,
             minutes,
             stated,
           };
@@ -193,7 +203,7 @@ async function bench(models: string[], runs: number) {
         }
       })
     );
-    console.log(table(rows, { facts, judge, rated: rated.length }));
+    console.log(table(rows, { facts, rated: rated.length }));
   } finally {
     for (const dir of worktrees) {
       git(ROOT, ["worktree", "remove", "--force", dir]);
@@ -204,7 +214,7 @@ async function bench(models: string[], runs: number) {
 
 type Row = {
   label: string;
-  llm: string;
+  llm?: string;
   model: string;
   error?: string;
 } & Partial<{
@@ -218,10 +228,7 @@ type Row = {
 }>;
 
 /** One line per run; a held count within the baseline's own spread (or 3) of its mean is a tie. */
-export function table(
-  rows: Row[],
-  about: { facts: number; judge: string; rated: number }
-) {
+export function table(rows: Row[], about: { facts: number; rated: number }) {
   const base = rows.flatMap((r) =>
     r.model === BASELINE && r.held ? [r.held.held] : []
   );
@@ -239,14 +246,14 @@ export function table(
   };
   const line = (r: Row) => {
     if (!(r.held && r.stated)) {
-      return `| ${r.label} | ${r.llm} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} |||||||`;
+      return `| ${r.label} | ${r.llm ?? "his engine"} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} |||||||`;
     }
-    return `| ${r.label} | ${r.llm} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed: invalid)` : ""} | ${r.minutes} min | ${r.cost} |`;
+    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed: invalid)` : ""} | ${r.minutes} min | ${r.cost} |`;
   };
   return [
     `# Bench ${WEEK.from} to ${WEEK.to} (${new Date().toISOString().slice(0, 16)}Z, code ${git(ROOT, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${about.judge}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
+    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge: his engine's main tier. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
     "",
     `| run | model | true facts held | wrong (of ${about.facts}) | vs baseline | rated statements | claims | calls | time | cost |`,
     "|---|---|---|---|---|---|---|---|---|---|",
