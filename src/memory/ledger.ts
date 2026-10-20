@@ -65,6 +65,7 @@ export const SUPERSESSIONS = join(MEMORY, "supersessions.jsonl");
 export const CORRECTIONS = join(MEMORY, "corrections.jsonl");
 export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
+export const CLOSENESS = join(MEMORY, "closeness.jsonl");
 export const REPOS_INFERRED = join(MEMORY, "repos-inferred.jsonl");
 export const ACTIONS = join(MEMORY, "actions.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");

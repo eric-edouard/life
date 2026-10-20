@@ -19,7 +19,10 @@ test("pages no target claims are deleted, the others stay", async () => {
     join(dir, "people/zoe.md"),
     join(dir, "areas/shop.md"),
   ]);
-  await removeOrphans(dir, keep);
+  // Read before they go, so his edits on them can be kept.
+  expect(await removeOrphans(dir, keep)).toEqual([
+    { path: join(dir, "people/inf-anais.md"), text: "x" },
+  ]);
   expect(await readdir(join(dir, "people"))).toEqual(["zoe.md"]);
   expect(await readdir(join(dir, "areas"))).toEqual(["shop.md"]);
   await rm(dir, { recursive: true });

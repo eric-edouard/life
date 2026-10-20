@@ -1,8 +1,18 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commitMemory } from "./memory/run";
+import { git } from "./proc";
 import type { Chat, Person } from "./schema";
-import { DATA, integrity, loadTruth, ROOT, readMe, type Truth } from "./truth";
+import {
+  DATA,
+  FIXTURES,
+  integrity,
+  loadTruth,
+  readMe,
+  type Truth,
+} from "./truth";
 
 const person = (id: string, whatsapp: string[] = []): Person => ({
   aliases: [],
@@ -123,10 +133,21 @@ test("truth/me.md gives who he is (its first paragraph) and his goals", () => {
 });
 
 test("tests read made-up data, and it is a consistent map", async () => {
-  expect(DATA).toBe(join(ROOT, "src", "test-data"));
+  // This run's own copy of src/test-data, outside any repo: a test can never commit.
+  expect(DATA.startsWith(tmpdir())).toBe(true);
+  expect(readdirSync(join(DATA, "truth")).sort()).toEqual(
+    readdirSync(join(FIXTURES, "truth")).sort()
+  );
   expect(integrity(await loadTruth())).toEqual([]);
-  // src/test-data is in the code repo, which has a remote: a test can never commit.
-  expect(() => commitMemory(["memory"], "t")).toThrow("never pushed");
+  expect(() => commitMemory(["memory"], "t")).toThrow("not a repo of its own");
+  // His data is never pushed: a data repo with a remote is refused before anything is staged.
+  git(DATA, ["init", "-q"]);
+  git(DATA, ["remote", "add", "origin", "https://example.test/x.git"]);
+  try {
+    expect(() => commitMemory(["memory"], "t")).toThrow("never pushed");
+  } finally {
+    rmSync(join(DATA, ".git"), { force: true, recursive: true });
+  }
 });
 
 test("me.md's goals are the block under Goals; its first paragraph is who he is", () => {
