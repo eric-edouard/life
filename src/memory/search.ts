@@ -187,19 +187,14 @@ export function matches(db: Database, q: string, range: Days = {}) {
   return ["(nothing found)"];
 }
 
-/** The page whose file is `name` (an id or a name's slug), else the first whose file name contains it. */
-async function findPage(dir: "people" | "areas", name: string) {
+/** The text of the area page whose file is `name` (an id or a name's slug), else the first whose file name holds it. */
+async function areaPage(name: string) {
   const slug = slugOf(name);
-  const files = await readdir(join(PAGES, dir)).catch(() => [] as string[]);
+  const files = await readdir(join(PAGES, "areas")).catch(() => [] as string[]);
   const file = files.includes(`${slug}.md`)
     ? `${slug}.md`
     : files.find((f) => f.includes(slug));
-  return file
-    ? {
-        id: file.slice(0, -3),
-        text: await Bun.file(join(PAGES, dir, file)).text(),
-      }
-    : null;
+  return file ? await Bun.file(join(PAGES, "areas", file)).text() : null;
 }
 
 /** The observations `where` finds worth a page line, newest first: `limit` of them (-1: all). */
@@ -238,6 +233,20 @@ export function readIndex<T>(
 function withIndex(lines: (db: Database) => string[]) {
   const out = readIndex(lines);
   return out === null ? NOT_BUILT : asData(out);
+}
+
+/**
+ * Who a name means: who it resolves to (handles, his corrections, names, as everywhere), else the first person going
+ * by it; `same`, everyone going by it, that one first. A name nothing resolves means no one (never a part of a name).
+ */
+export function meant<
+  T extends { aliases: string[]; id: string; name: string },
+>(name: string, people: T[], resolve: (s: string) => string | null) {
+  const resolved = resolve(name)?.replace(PERSON, "");
+  const same = namedLike(name, people).toSorted(
+    (a, b) => Number(b.id === resolved) - Number(a.id === resolved)
+  );
+  return { known: resolved ?? same[0]?.id, same };
 }
 
 /** A page, whole, with when it was built, when it has one; then the observations `rows` finds for it. */
@@ -439,14 +448,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
         .map((p) => [p.id, { ...p, aliases: p.surfaces }])
     ).values(),
   ];
-  // Who the name is (handles, his corrections, then names), as everywhere; the names it matches list the candidates.
-  const resolved = resolve(name)?.replace(PERSON, "");
-  // The candidates, the one shown first; a name nothing resolves opens no page (never a guess by part of a name).
-  const same = namedLike(name, people).toSorted(
-    (a, b) => Number(b.id === resolved) - Number(a.id === resolved)
-  );
-  const known = resolved ?? same[0]?.id;
-  const found = known ? await findPage("people", known) : null;
+  const { known, same } = meant(name, people, resolve);
+  // The person's own page, by its id: never one whose file name only holds the name.
+  const file = known && Bun.file(join(PAGES, "people", `${known}.md`));
+  const found =
+    file && (await file.exists()) ? { text: await file.text() } : null;
   const id = known ?? slugOf(name);
   const ref = `person:${id}`;
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
@@ -633,7 +639,7 @@ export async function day(date: string) {
 
 /** `bun life memory area <id or name>`: an area's page and latest observations. */
 export async function area(name: string) {
-  const text = (await findPage("areas", name))?.text ?? null;
+  const text = await areaPage(name);
   return withIndex((db) =>
     entity(text, (meta) =>
       meta?.page.startsWith("area:")
@@ -858,12 +864,18 @@ export function buildIndex(
   return unique.size;
 }
 
+/** A unit with who it is with as of today (`refOf`: a name since resolved, a person folded into another), once each. */
+export const withPeopleNow = (unit: Unit, refOf: (ref: string) => string) => ({
+  ...unit,
+  people: [...new Set(unit.people.map(refOf))],
+});
+
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */
 export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   // Who a unit is with as of today (a name since resolved, a person folded into another), as observations and moments.
   const units = (await readUnits()).map((unit) => ({
-    unit: { ...unit, people: [...new Set(unit.people.map(people.refOf))] },
+    unit: withPeopleNow(unit, people.refOf),
     verdict: verdictOf(verdicts, unit),
   }));
   const { observations, standing } = await observationsNow(people);
