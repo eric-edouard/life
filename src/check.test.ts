@@ -79,6 +79,27 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
   expect(await check.handle(new Request(`${ORIGIN}/mcp`))).toBeNull();
 });
 
+test("lifelog's keys out of reach: the page and the sign-in answer 503, never a sign-in or a refusal", async () => {
+  const down = createCheck(
+    async () => ({ refusal: "unreachable", why: "request timed out" }),
+    lifelog
+  );
+  const at = async (path: string, jar = "") =>
+    (await down.handle(
+      new Request(`${ORIGIN}${path}`, { headers: { cookie: jar } })
+    )) as Response;
+  expect((await at("/check/", await session())).status).toBe(503);
+  const login = await at("/check/login");
+  const state = new URL(login.headers.get("location") ?? "").searchParams.get(
+    "state"
+  );
+  const loginCookie =
+    (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+  expect(
+    (await at(`/check/callback?code=good&state=${state}`, loginCookie)).status
+  ).toBe(503);
+});
+
 test("sign-in: PKCE with a state cookie; only the owner's token becomes the session cookie", async () => {
   const login = await get("/check/login");
   const url = new URL(login.headers.get("location") ?? "");
