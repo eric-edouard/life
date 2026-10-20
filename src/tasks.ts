@@ -371,8 +371,8 @@ export function update(u: Update, now = Date.now()) {
 }
 
 /**
- * Every open task, and the ones closed in the last day: the connector's `tasks` (with his steers since Atlas's last
- * update) and the nightly's rows.
+ * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (with his steers
+ * since Atlas's last update; it cuts the closed rows short).
  */
 export function taskList(now = Date.now()) {
   return tasksOf().flatMap((t) => {

@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -11,7 +11,7 @@ import {
 import { ISSUER, ownerTokens, RESOURCE } from "./auth";
 import { LOG_DIR } from "./log";
 import { correct, createMcp } from "./mcp";
-import { linesOf } from "./memory/ledger";
+import { ACTIONS, linesOf } from "./memory/ledger";
 import { placesOf } from "./memory/places";
 import {
   chapter,
@@ -22,6 +22,7 @@ import {
   turn,
 } from "./sources/fixtures";
 import { apply, forward, type Stay } from "./sources/lifelog";
+import { sealed, update } from "./tasks";
 
 const OWNER = "owner-sub";
 const CHALLENGE =
@@ -280,16 +281,48 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   await res?.body?.cancel();
 });
 
-test("tasks hands out the playbook, docs/atlas.md, with its seal; task refuses another seal with both", async () => {
+test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
-  const { json } = await rpc(bearer, "tools/call", {
-    arguments: {},
-    name: "tasks",
-  });
-  const { playbook, seal } = json.result.structuredContent;
+  const now = new Date().toISOString();
+  const words = { at: now, claim: true, seal: sealed().seal };
+  let json: Awaited<ReturnType<typeof rpc>>["json"];
+  try {
+    update({
+      ...words,
+      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      note: "on it",
+      said: "call the bank",
+      state: "working",
+    });
+    update({
+      ...words,
+      at: new Date(Date.now() - 60_000).toISOString(),
+      outcome: "booked ".repeat(100),
+      said: "book the dentist",
+      state: "done",
+    });
+    ({ json } = await rpc(bearer, "tools/call", {
+      arguments: {},
+      name: "tasks",
+    }));
+  } finally {
+    rmSync(ACTIONS, { force: true });
+  }
+  const { goals, playbook, seal, tasks } = json.result.structuredContent;
   expect(playbook).toBe(
     readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
   );
+  expect(goals).toBe("1. Be well.");
+  // An open row stays whole; a closed one is cut to four fields.
+  expect([tasks[0].quote, tasks[0].steps]).toEqual(["call the bank", []]);
+  expect(Object.keys(tasks[1]).sort()).toEqual([
+    "id",
+    "note",
+    "state",
+    "title",
+  ]);
+  expect(tasks[1].note.length).toBeLessThanOrEqual(200);
+  expect(tasks[1].title).toBe("book the dentist");
   const refused = await rpc(bearer, "tools/call", {
     arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
     name: "task",
