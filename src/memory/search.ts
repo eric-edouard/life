@@ -23,7 +23,7 @@ import {
   withStore,
 } from "../sources/lifelog";
 import { loadTruth, OWNER } from "../truth";
-import { levelsNow, readCloseness } from "./closeness";
+import { levelsWith } from "./closeness";
 import {
   daysOf,
   momentsNow,
@@ -888,7 +888,7 @@ export async function reindex() {
 
 /** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
 async function closenessLine(ref: string) {
-  const l = levelsNow(readCloseness(), await readCorrections()).get(ref);
+  const l = levelsWith(await readCorrections()).get(ref);
   return l
     ? [
         `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}: ${l.why}`,

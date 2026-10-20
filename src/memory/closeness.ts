@@ -54,9 +54,10 @@ const dayOf = (days: Days, who: string, day: string) => {
 };
 
 /**
- * Who one chat's messages are with: its one other person (handles resolved, so one person writing from two handles is
- * one), else (a chat only he wrote in) its id's, else its name's (a mail thread's is its subject: never); none when
- * more than one other person wrote.
+ * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
+ * its name's (a mail thread's is its subject: never). A WhatsApp or iMessage chat says by its id whether it is a group
+ * (`chatDays` leaves those out), so the rest are 1:1 whatever handles one person wrote from; elsewhere (Beeper, mail)
+ * more than one other sender is a group: none.
  */
 function chatPerson(
   list: SourceEvent[],
@@ -66,16 +67,14 @@ function chatPerson(
     list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
   );
   const [first] = list;
-  if (!first || others.size > 1) {
+  const byId = first?.source === "whatsapp" || first?.source === "imessage";
+  if (!first || (others.size > 1 && !byId)) {
     return null;
   }
-  const [other] = others;
   const named =
     first.chatName && first.source !== "mail" ? resolve(first.chatName) : null;
-  if (!other) {
-    return resolve(first.chat) ?? named;
-  }
-  return other.startsWith("person:") ? other : named;
+  const person = [...others].find((o) => o.startsWith("person:"));
+  return person ?? (others.size === 0 ? resolve(first.chat) : null) ?? named;
 }
 
 /**
@@ -317,11 +316,12 @@ export function pagedBy(
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
   const corrections = await readCorrections();
-  return pagedBy(
-    levelsNow(readCloseness(), corrections),
-    onMapOf(truth, corrections)
-  );
+  return pagedBy(levelsWith(corrections), onMapOf(truth, corrections));
 }
+
+/** Each person's levels now, from the ledger and `corrections` (his, as read by the caller). */
+export const levelsWith = (corrections: Correction[]) =>
+  levelsNow(readCloseness(), corrections);
 
 /** Everyone on his map, as the person each is now (one folded into another is that one). */
 const onMapOf = (truth: Pick<Truth, "people">, corrections: Correction[]) => {
@@ -347,8 +347,8 @@ export async function closeness() {
       )
     )
   ).flat();
-  // A source that could not be read would make everyone in it look distant: the step fails rather than judge on it.
-  step.stats.failed += failed.length;
+  // A source that could not be read would make everyone in it look distant: no one is judged this night, the levels
+  // stand as they were (the night goes on; `unread` and the log say which source).
   const days = chatDays(events, resolve);
   await withStore((store) => voiceDays(store, resolve, days));
   const relation = new Map<string, string>([
@@ -405,5 +405,6 @@ export async function closeness() {
     invalid,
     judged: written,
     people: tallies.length,
+    unread: failed,
   });
 }

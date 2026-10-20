@@ -270,7 +270,7 @@ export function placed(
     }),
     (h) => h.home
   );
-  return { homes, paged };
+  return { homes };
 }
 
 // --- merging the reply into the previous page --------------------------------------------------------------------

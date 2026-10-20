@@ -10,7 +10,7 @@ import {
   type Unit,
 } from "../schema";
 import { OWNER, type Truth } from "../truth";
-import { levelsNow, pagedNow, readCloseness } from "./closeness";
+import { levelsWith, pagedNow } from "./closeness";
 import {
   appendJsonl,
   CORRECTIONS,
@@ -517,11 +517,11 @@ export async function pages(opts: PagesOptions) {
     ...built.flatMap((b) => b.corrections),
     ...gone.flatMap((g) => newCorrections(g.meta.page, g, r)),
   ]);
-  const judged = levelsNow(readCloseness(), r.standing.corrections);
+  const judged = levelsWith(r.standing.corrections);
   return {
     dropped: gone.map(
       (g) =>
-        `${g.meta.name} (${judged.get(g.meta.page)?.why ?? "not close enough to keep a page"})`
+        `${g.meta.name} (${judged.get(g.meta.page)?.why ?? (g.meta.page.startsWith("area:") ? "its area is gone" : "never judged: little 1:1 contact")})`
     ),
     ...step.end({
       corrections: built.reduce((n, b) => n + b.corrections.length, 0),

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Closeness, SourceEvent } from "../schema";
+import { type Closeness, Correction, type SourceEvent } from "../schema";
 import {
   chapter,
   conversation,
@@ -240,4 +240,33 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
     first: null,
     last: null,
   });
+});
+
+test("a WhatsApp or iMessage chat that isn't a group by its id is 1:1, a handle Life can't place included; on Beeper two senders are a group", () => {
+  const resolve = (s: string) => (s === "+3" ? "person:cat" : null);
+  const at = "2026-10-01T10:00:00.000Z";
+  const days = chatDays(
+    [
+      msg("+3", at, false, "+3"),
+      msg("+3", at, false, "lid-unplaced"),
+      { ...msg("!room", at, false, "+3"), source: "beeper" as const },
+      { ...msg("!room", at, false, "someone"), source: "beeper" as const },
+    ],
+    resolve
+  );
+  expect([...days.keys()]).toEqual(["person:cat"]);
+  expect([...(days.get("person:cat")?.values() ?? [])][0]?.chat.got).toBe(2);
+});
+
+test("a closeness correction names a personal or a work level", () => {
+  const base = {
+    at: "2026-10-20T00:00:00.000Z",
+    kind: "closeness",
+    person: "person:ann",
+    schemaVersion: 1,
+  };
+  expect(Correction.safeParse({ ...base, personal: "inner" }).success).toBe(
+    true
+  );
+  expect(Correction.safeParse(base).success).toBe(false);
 });
