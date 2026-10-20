@@ -1,12 +1,12 @@
 <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <title>Life</title>
-  <rect fill="#111214" height="1024" width="1024" />
+  <rect fill="#f7f7f5" height="1024" width="1024" />
   <path
     d="M190 600C190 270 470 270 512 512C554 754 834 754 834 424"
     fill="none"
-    stroke="#F5F5F3"
+    stroke="#1b1d1f"
     stroke-linecap="round"
     stroke-width="100"
   />
-  <circle cx="834" cy="424" fill="#FF4F00" r="100" />
+  <circle cx="834" cy="424" fill="#2f8f4e" r="100" />
 </svg>
