@@ -164,12 +164,8 @@ test("a turn's place in its conversation, and a person's conversations newest fi
   );
   expect(turnOffset(s, "c1", "job-1", 0)).toBe(0);
   expect(turnOffset(s, "c1", "job-1", 2)).toBe(2);
-  expect(conversationsWith(s, [ANNE], 5).map((c) => c.id)).toEqual([
-    "c2",
-    "c1",
-  ]);
-  expect(conversationsWith(s, [ANNE], 1)).toHaveLength(1);
-  expect(conversationsWith(s, [ANNE, "nobody"], 5)).toHaveLength(2);
+  expect(conversationsWith(s, [ANNE]).map((c) => c.id)).toEqual(["c2", "c1"]);
+  expect(conversationsWith(s, [ANNE, "nobody"])).toHaveLength(2);
   expect(speakers(s)).toEqual([{ id: ANNE, name: "Anne-Sophie" }]);
 });
 

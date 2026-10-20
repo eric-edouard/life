@@ -301,13 +301,14 @@ retirement stands only while `by` is current: a replacement re-read away retires
 
 ## zones.jsonl
 
-Where the owner was, as the Mac's IANA time zone, append-only: `{schemaVersion: 1, from, tz}`, the zone from `from` on
-(the first line also covers everything before it). Every local day and time in memory/ comes from it (`zoneAt`,
+Where the owner was, as the Mac's IANA time zone, append-only: `{schemaVersion: 1, from, tz}`, the zone from `from` on,
+read in `from` order (the earliest also covers everything before it). Every local day and time in memory/ comes from it (`zoneAt`,
 `src/memory/zones.ts`), so a unit's day, and the id of a chat-day or mail thread-day, stays the same when the day is
 read again from another country. launchd's 30-minute tick appends a line when the Mac's own zone (never a `TZ`
-variable) differs from the last one, taking effect at once, or at the next midnight of the zone ahead when the two are
+variable) differs from the latest one, taking effect at once, or at the next midnight of the zone ahead when the two are
 on different days (`cutAt`: a local day never goes back); what came before it was noticed keeps the old zone. Seeded on 18 Oct from
-his commits' offsets and lifelog's stays. The units of 6 Sep–8 Oct were cut on 11–15 Oct in the Mac's zone of then: until a re-read
+his commits' offsets and lifelog's stays. His past may be appended later (his own account of where he lived) only
+before the first day memory has units of: an earlier unit's day, and so its id, would move. The units of 6 Sep–8 Oct were cut on 11–15 Oct in the Mac's zone of then: until a re-read
 cuts them again, 304 of their chat and mail units sit on that zone's days (re-read, their ids change; no label is on
 them). A re-read of them starts on or before 6 Sep, so no day keeps a stale copy.
 

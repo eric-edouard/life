@@ -24,7 +24,7 @@ import {
   matches as searchMatches,
 } from "./search";
 import { newestDays } from "./units";
-import { namedLike, nearNames } from "./who";
+import { meant, namedLike, nearNames } from "./who";
 
 test("day: the conversations with their chapters and people, then the chat and mail units", () => {
   const store = lifelogStore();
@@ -157,6 +157,14 @@ test("search: an observation hit names the unit it comes from and who is in it",
     )
   ).toThrow();
   expect(searchMatches(db, "beautify")[0]).toBe(hit);
+  // A unit's people are kept once each: the index takes them as reindex maps them today (two refs may fold into one).
+  buildIndex([o], path, standing, [
+    { unit: { ...unit, people: ["person:jerome", "person:jerome"] } },
+  ]);
+  expect(
+    db.query("select person from unit_people where unit = ?").all(unit.id)
+  ).toEqual([{ person: "person:jerome" }]);
+  buildIndex([o], path, standing, [{ unit }]);
   // `from`/`to` bound observations and units too, both days included.
   expect(searchMatches(db, "beautify", { from: "2026-10-14" })[0]).toBe(hit);
   expect(searchMatches(db, "beautify", { to: "2026-10-14" })[0]).toBe(hit);
@@ -252,6 +260,39 @@ test("holding all the words: case and accents ignored, every word needed, a quer
   expect(holds("Dinner at the chateau de Pondres")).toBe(true);
   expect(holds("Dinner at the château")).toBe(false);
   expect(holdsAll("??")("anything")).toBe(false);
+});
+
+test("a name means who it resolves to, listed first among those going by it; a name nothing resolves means no one", () => {
+  const people = [
+    { aliases: ["Claire"], id: "claire", name: "Claire Dupont" },
+    { aliases: ["Claire"], id: "claire-friend", name: "Claire (friend)" },
+    { aliases: [], id: "ann", name: "Ann Kerr" },
+  ];
+  const mean = (name: string, resolve: (s: string) => string | null) =>
+    meant(name, {
+      canon: (r: string) => r,
+      inferred: [],
+      resolve,
+      truth: { people } as never,
+    });
+  const ids = (m: ReturnType<typeof mean>) => [
+    m.known,
+    m.same.map((p) => p.id),
+  ];
+  // He said this Claire is his friend (`this-is`): she is the one, listed first.
+  expect(
+    ids(mean("Claire", (s) => (s === "Claire" ? "person:claire-friend" : null)))
+  ).toEqual(["claire-friend", ["claire-friend", "claire"]]);
+  expect(ids(mean("Claire", () => null))).toEqual([
+    "claire",
+    ["claire", "claire-friend"],
+  ]);
+  // A name he said is Ann: she is meant and listed first, though she goes by another name.
+  expect(ids(mean("Claire", () => "person:ann"))).toEqual([
+    "ann",
+    ["ann", "claire", "claire-friend"],
+  ]);
+  expect(ids(mean("Clai", () => null))).toEqual([undefined, []]);
 });
 
 // audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no

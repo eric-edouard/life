@@ -28,6 +28,7 @@ import {
   momentsNow,
   OUT,
   PAGES,
+  pagePath,
   readActions,
   readCorrections,
   readMoments,
@@ -53,7 +54,13 @@ import {
   slugOf,
   time,
 } from "./units";
-import { namedLike, nearNames, observationsNow, readPeople } from "./who";
+import {
+  meant,
+  namedLike,
+  nearNames,
+  observationsNow,
+  readPeople,
+} from "./who";
 import { dayStart, localDate } from "./zones";
 
 // The read path, as `bun life memory search|person|area` (src/memory/command.ts): short cited results from the pages
@@ -69,7 +76,6 @@ import { dayStart, localDate } from "./zones";
 
 export const INDEX = join(OUT, "index.sqlite");
 const LIMIT = 12;
-const PERSON = /^person:/;
 
 /** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
 export const momentLine = (m: Moment) =>
@@ -187,19 +193,14 @@ export function matches(db: Database, q: string, range: Days = {}) {
   return ["(nothing found)"];
 }
 
-/** The page whose file is `name` (an id or a name's slug), else the first whose file name contains it. */
-async function findPage(dir: "people" | "areas", name: string) {
+/** The text of the area page whose file is `name` (an id or a name's slug), else the first whose file name holds it. */
+async function areaPage(name: string) {
   const slug = slugOf(name);
-  const files = await readdir(join(PAGES, dir)).catch(() => [] as string[]);
+  const files = await readdir(join(PAGES, "areas")).catch(() => [] as string[]);
   const file = files.includes(`${slug}.md`)
     ? `${slug}.md`
     : files.find((f) => f.includes(slug));
-  return file
-    ? {
-        id: file.slice(0, -3),
-        text: await Bun.file(join(PAGES, dir, file)).text(),
-      }
-    : null;
+  return file ? await Bun.file(join(PAGES, "areas", file)).text() : null;
 }
 
 /** The observations `where` finds worth a page line, newest first: `limit` of them (-1: all). */
@@ -430,20 +431,14 @@ export async function person(name?: string, o: { before?: string } = {}) {
       return pages.length > 0 ? pages : ["(no people pages yet)"];
     });
   }
-  const { canon, inferred, refOf, resolve, truth } = await readPeople();
-  const people = [
-    ...truth.people,
-    ...new Map(
-      inferred
-        .filter((p) => canon(`person:${p.id}`) === `person:${p.id}`)
-        .map((p) => [p.id, { ...p, aliases: p.surfaces }])
-    ).values(),
-  ];
-  // Who the name is (handles, his corrections, then names), as everywhere; the names it matches list the candidates.
-  const resolved = resolve(name)?.replace(PERSON, "");
-  const same = namedLike(name, people);
-  const found = await findPage("people", resolved ?? same[0]?.id ?? name);
-  const id = found?.id ?? resolved ?? same[0]?.id ?? slugOf(name);
+  const folks = await readPeople();
+  const { refOf, truth } = folks;
+  const { all: people, known, same } = meant(name, folks);
+  // The person's own page, by its id: never one whose file name only holds the name.
+  const file = known && Bun.file(pagePath(`person:${known}`));
+  const found =
+    file && (await file.exists()) ? { text: await file.text() } : null;
+  const id = known ?? slugOf(name);
   const ref = `person:${id}`;
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
   // Pages go by whole local days: a day is never cut between two answers.
@@ -454,12 +449,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
   return withStore((store) =>
     withIndex((db) => {
       // A name on no page nor map: the lifelog speakers it is part of.
-      const known = !!(found || same[0] || resolved);
       const voices = speakers(store);
       const heard = known
         ? []
         : voices.filter((s) => normalize(s.name).includes(normalize(name)));
-      if (!known && heard.length === 0) {
+      if (!(known || heard.length > 0)) {
         return noOne(name, people, voices);
       }
       const ids = lifelog ? [lifelog] : heard.map((s) => s.id);
@@ -480,7 +474,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
           kind: "moment" as const,
           line: momentLine(m),
         })),
-        ...conversationsWith(store, ids, -1).map((c) => ({
+        ...conversationsWith(store, ids).map((c) => ({
           day: localDate(c.start_at),
           kind: "conversation" as const,
           line: `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`,
@@ -649,7 +643,7 @@ export const dueOn = (db: Database, date: string) =>
 
 /** `bun life memory area <id or name>`: an area's page and latest observations. */
 export async function area(name: string) {
-  const text = (await findPage("areas", name))?.text ?? null;
+  const text = await areaPage(name);
   return withIndex((db) =>
     entity(text, (meta) =>
       meta?.page.startsWith("area:")
@@ -878,7 +872,8 @@ export function buildIndex(
 export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = (await readUnits()).map((unit) => ({
-    unit,
+    // Who a unit is with as of today (`refOf`); the table keeps each once.
+    unit: { ...unit, people: unit.people.map(people.refOf) },
     verdict: verdictOf(verdicts, unit),
   }));
   const { observations, standing } = await observationsNow(people);
