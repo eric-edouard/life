@@ -16,7 +16,7 @@ export const WAKE = /\bhey\W+atlas\b/i;
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;
 /** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */
-const CLOSED_ON_SILENCE_S = 60;
+export const CLOSED_ON_SILENCE_S = 60;
 
 export const wakes = (text: string) => WAKE.test(text);
 

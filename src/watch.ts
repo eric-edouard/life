@@ -24,7 +24,9 @@ const WAIT_S = 60;
 const RETRY_MS = 30_000;
 /**
  * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
- * it have settled, an unnamed turn once lifelog could name him, open speech once the next recording could be in.
+ * it have settled, an unnamed turn once lifelog could name him, open speech once the next recording is usually in.
+ * ponytail: a recording later than that ends the ask before it (`asksIn` starts at a wake); joining it to the open
+ * ask would need a ledger line that extends an ask.
  */
 const WAIT_MS = { complete: 5000, open: 60_000, unnamed: 40_000 };
 /** A replay of the store (after a restart or an outage) never acts on speech older than a week. */

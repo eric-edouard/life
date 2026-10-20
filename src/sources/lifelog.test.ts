@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { z } from "zod";
+import { CLOSED_ON_SILENCE_S } from "../hear";
 import {
   chapter,
   conversation,
@@ -278,6 +279,22 @@ test("poll also lists a new turn nobody is named for, once", async () => {
     server.close();
   }
 });
+
+const CUTTER = join(homedir(), "Work/lifelog/apps/server/src/cutter.ts");
+
+test.skipIf(!existsSync(CUTTER))(
+  "lifelog still closes a recording of less speech than CLOSED_ON_SILENCE_S only on 30 s of silence (hear.ts reads it so)",
+  () => {
+    const ms = (name: string) =>
+      Number(
+        readFileSync(CUTTER, "utf8")
+          .match(new RegExp(`const ${name} = ([\\d_]+)`))?.[1]
+          ?.replaceAll("_", "")
+      );
+    expect(ms("LONG_MS")).toBe(CLOSED_ON_SILENCE_S * 1000);
+    expect(ms("CLOCK_MS")).toBe(30_000);
+  }
+);
 
 // lifelog's published contract, kept current by its own gate. On a Mac without the checkout there is nothing to check.
 const CONTRACT = join(homedir(), "Work/lifelog/apps/server/openapi.json");
