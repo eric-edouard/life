@@ -209,6 +209,9 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
     own("update", 70, { deadline: at(90), note: "b", state: "working" }),
   ]);
   expect(key(again, 91)).not.toBe(key(working, 61));
+  // A lapsed subscription is one email, whatever the number of open tasks.
+  const lapsed = alerts(both, T0 + 31 * MIN, false).map((x) => x.key);
+  expect(new Set(lapsed).size).toBe(1);
 });
 
 const look = (over: Partial<Item> = {}): Item => ({
