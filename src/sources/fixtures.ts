@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
-import { APPLE_EPOCH_S, toAppleNs } from "./imessage";
+import { toAppleNs, toAppleS } from "./imessage";
 import { openStore } from "./lifelog";
 
 // Small stores to test the readers against: lifelog's change feed, and the Mac apps' databases the archive copies.
@@ -18,6 +18,7 @@ export const page = (over: Record<string, unknown> = {}) => ({
   chapters: [],
   conversations: [],
   cursor: "1",
+  jobs: [],
   more: false,
   removed: [],
   turns: [],
@@ -48,6 +49,7 @@ export const turn = (
   isOwner = false
 ) => ({
   conversationId,
+  endAt: startAt,
   jobId: "job-1",
   speaker: { isOwner, personId, personName },
   startAt,
@@ -106,7 +108,7 @@ export function whatsappFixture() {
     }
     wa.run(
       "insert into ZWAMESSAGE values (?, ?, ?, 0, ?, ?, ?, 1, 1, '120@g.us', null)",
-      [pk, id, type, now / 1000 - 978_307_200 - agoS, text, media ? pk : null]
+      [pk, id, type, toAppleS(now) - agoS, text, media ? pk : null]
     );
   };
   return { add, dir, now, source, wa };
@@ -253,7 +255,7 @@ export function notesFixture() {
           binned ? 102 : 101,
           shared ? "share" : null,
         ],
-        ...[now / 1000 - APPLE_EPOCH_S - agoS, locked],
+        ...[toAppleS(now) - agoS, locked],
       ]
     );
     db.run("delete from ZICNOTEDATA where ZNOTE = ?", [pk]);
@@ -287,7 +289,8 @@ export function imessageFixture(
     "create table message_attachment_join (message_id integer, attachment_id integer)"
   );
   db.run("insert into handle values (1, '+33611111111')");
-  db.run("insert into chat values (1, '+33611111111', null)");
+  // Messages leaves a 1:1 chat's name empty.
+  db.run("insert into chat values (1, '+33611111111', '')");
   db.run("insert into message values (1, 'g1', ?, 0, ?, null, 1, 0)", [
     toAppleNs(new Date(Date.now() - 60_000)),
     text,

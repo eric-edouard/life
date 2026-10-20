@@ -5,6 +5,8 @@ import { type JWTVerifyGetKey, jwtVerify } from "jose";
 
 export const ORIGIN = "https://life.ericedouard.com";
 export const RESOURCE = `${ORIGIN}/mcp`;
+/** The resource's OAuth metadata; also the tunnel's health probe (src/tunnel.ts). */
+export const METADATA = `${ORIGIN}/.well-known/oauth-protected-resource/mcp`;
 export const ISSUER = "https://lifelog.ericedouard.com/api/auth";
 export const SCOPE = "life:read";
 /** The check page's public client at lifelog (PKCE, no secret), registered once on 19 Oct for /check/callback. */

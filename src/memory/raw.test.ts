@@ -291,13 +291,67 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
   ]);
   const t = (turnIndex: number, owner: boolean) => ({
     at: "2026-10-14T10:00:00.000Z",
+    end: null,
     jobId: "job-1",
     name: null,
     owner,
     personId: null,
+    seen: null,
     turnIndex,
   });
   expect(
     voiceLines([t(0, true), t(1, false)], jobs, new Map()).map((l) => l.speaker)
   ).toEqual([OWNER, "unknown:speaker_1"]);
+});
+
+/** The `before` a cut chats answer names. */
+const NEXT = /the same call with `before` (\S+)\)/;
+
+test("chats: `from` is read as far back as asked, a cut names the call that reads on, and no `from` says its window", async () => {
+  const day = 86_400_000;
+  const now = Date.now();
+  // One message a day for the last 300 days.
+  const events = Array.from({ length: 300 }, (_, i) => ({
+    at: new Date(now - (300 - i) * day).toISOString(),
+    chat: "+33611111111",
+    fromMe: i % 2 === 0,
+    id: `imessage:${i}`,
+    sender: "+33611111111",
+    source: "imessage" as const,
+    text: `message ${i}`,
+  }));
+  const sources = {
+    imessage: (since: Date) =>
+      events.filter((e) => e.at >= since.toISOString()),
+  };
+  const chat = "+33611111111";
+  const from = new Date(now - 400 * day).toISOString().slice(0, 10);
+  const all = (await chatsOf({ chat, from }, sources)) ?? "";
+  expect(all).toContain("message 299");
+  expect(all).toContain("message 100");
+  expect(all).not.toContain("message 99\n");
+  expect(all).not.toContain("(no `from`");
+  const cut = all.match(NEXT)?.[1];
+  expect(cut).toBe(events[100]?.at);
+  const older = (await chatsOf({ before: cut, chat, from }, sources)) ?? "";
+  expect(older).toContain("message 99");
+  expect(older).toContain("message 0");
+  expect(older).not.toContain("message 100");
+  expect(older).not.toContain("earlier not shown");
+  const recent = (await chatsOf({ chat }, sources)) ?? "";
+  expect(recent).toContain("(no `from`: 7 days");
+  expect(recent).toContain("message 299");
+  expect(recent).not.toContain("message 290");
+  // Two messages in the same second at the cut stay on one page: an instant is never cut, so neither is lost.
+  const burst = events.map((e, i) =>
+    i === 99 ? { ...e, at: events[100]?.at ?? "" } : e
+  );
+  const twin = { imessage: () => burst };
+  const first = (await chatsOf({ chat, from }, twin)) ?? "";
+  expect(first).toContain("message 99");
+  expect(first).toContain("message 100");
+  const rest =
+    (await chatsOf({ before: first.match(NEXT)?.[1], chat, from }, twin)) ?? "";
+  expect(rest).toContain("message 98");
+  expect(rest).not.toContain("message 99");
 });

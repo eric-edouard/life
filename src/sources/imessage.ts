@@ -2,18 +2,22 @@ import { Database } from "bun:sqlite";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { type SourceEvent, sourceFile } from "../schema";
+import { contacts, handleKey } from "./contacts";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 
 const DB = join(homedir(), "Library", "Messages", "chat.db");
 const HOME = /^~/;
 // Messages stores dates as nanoseconds since 2001-01-01.
-export const APPLE_EPOCH_S = 978_307_200;
+const APPLE_EPOCH_S = 978_307_200;
 
 export const toAppleNs = (date: Date) =>
   BigInt(Math.floor(date.getTime() / 1000) - APPLE_EPOCH_S) * 1_000_000_000n;
 export const fromAppleNs = (ns: number | bigint) =>
   new Date(Number(BigInt(ns) / 1_000_000n) + APPLE_EPOCH_S * 1000);
+// Notes and WhatsApp store seconds since 2001-01-01; `ms` is a JavaScript time.
+export const fromAppleS = (s: number) => new Date((s + APPLE_EPOCH_S) * 1000);
+export const toAppleS = (ms: number) => ms / 1000 - APPLE_EPOCH_S;
 
 /** Newer messages keep their text only in an archived NSAttributedString; pull the first string out of it. */
 export function textFromAttributedBody(blob: Uint8Array | null): string {
@@ -49,7 +53,12 @@ interface Row {
   text: string | null;
 }
 
-export function readImessage(since: Date, path = DB): SourceEvent[] {
+/** `names`: his Contacts, which name a 1:1 chat that has no name of its own (Messages keeps only the number). */
+export function readImessage(
+  since: Date,
+  path = DB,
+  names: Map<string, string> = contacts()
+): SourceEvent[] {
   const db = new Database(path, { readonly: true });
   try {
     const rows = db
@@ -68,19 +77,28 @@ export function readImessage(since: Date, path = DB): SourceEvent[] {
           order by m.date`
       )
       .all(toAppleNs(since));
-    return rows.map((r) => ({
-      at: fromAppleNs(r.date).toISOString(),
-      chat: r.chat ?? r.sender ?? "unknown",
-      ...(r.chatName ? { chatName: r.chatName } : {}),
-      files: (JSON.parse(r.files) as Parameters<typeof sourceFile>[0][]).map(
-        (a) => sourceFile({ ...a, path: a.path?.replace(HOME, homedir()) })
-      ),
-      fromMe: r.fromMe === 1,
-      id: `imessage:${r.guid}`,
-      sender: r.fromMe === 1 ? "me" : (r.sender ?? "unknown"),
-      source: "imessage" as const,
-      text: r.text ?? textFromAttributedBody(r.attributedBody),
-    }));
+    return rows.map((r) => {
+      // A chat Messages names (an empty name is none), else, for a 1:1 chat (its identifier a handle, a group's is
+      // `chat…`), the name his Contacts give that handle: every message of the chat, his own included.
+      const named =
+        r.chatName ||
+        (r.chat && !r.chat.startsWith("chat")
+          ? names.get(handleKey(r.chat))
+          : undefined);
+      return {
+        at: fromAppleNs(r.date).toISOString(),
+        chat: r.chat ?? r.sender ?? "unknown",
+        ...(named ? { chatName: named } : {}),
+        files: (JSON.parse(r.files) as Parameters<typeof sourceFile>[0][]).map(
+          (a) => sourceFile({ ...a, path: a.path?.replace(HOME, homedir()) })
+        ),
+        fromMe: r.fromMe === 1,
+        id: `imessage:${r.guid}`,
+        sender: r.fromMe === 1 ? "me" : (r.sender ?? "unknown"),
+        source: "imessage" as const,
+        text: r.text ?? textFromAttributedBody(r.attributedBody),
+      };
+    });
   } finally {
     db.close();
   }
