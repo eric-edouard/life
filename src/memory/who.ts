@@ -239,6 +239,8 @@ export function nearNames<
     .map(({ p }) => p);
 }
 
+const PERSON = /^person:/;
+
 /** Everyone a name can mean: the people on his map and those Life inferred (not folded into another), going by their surfaces too. */
 export function nameable({
   canon,
@@ -274,5 +276,3 @@ export function meant(
     same: one ? [one, ...same] : same,
   };
 }
-
-const PERSON = /^person:/;
