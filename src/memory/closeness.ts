@@ -313,6 +313,18 @@ export function pagedBy(
   return paged;
 }
 
+/** The people close to him personally (not a service): their page has Between us. */
+export const personallyClose = (levels: ReturnType<typeof levelsNow>) =>
+  new Set(
+    [...levels].flatMap(([ref, l]) =>
+      !l.service && CLOSE.has(l.personal) ? [ref] : []
+    )
+  );
+
+/** Who is close to him personally now (`personallyClose` over the ledger and his corrections). */
+export const closeNow = async () =>
+  personallyClose(levelsWith(await readCorrections()));
+
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
   const corrections = await readCorrections();

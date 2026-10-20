@@ -15,6 +15,7 @@ import {
   withStore,
 } from "../sources/lifelog";
 import { othersIn } from "../truth";
+import { closeNow } from "./closeness";
 import {
   appendJsonl,
   EXTRACTED,
@@ -51,7 +52,7 @@ import { observationsNow, readPeople, UNKNOWN } from "./who";
 // entity against the candidate list, then appends them to memory/observations/<yyyy-mm>.jsonl, and the earlier facts
 // the moment's lines show are no longer true to memory/supersessions.jsonl. Nothing is sent.
 
-const EXTRACT_PROMPT = "memory-extract.v4";
+const EXTRACT_PROMPT = "memory-extract.v5";
 /** Characters of unit text per call: whole moments, as many as fit. */
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
@@ -60,6 +61,9 @@ const QUIET_MS = 60 * 60_000;
 /** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40. */
 const PRIOR_DAYS = 14;
 const PRIOR_MAX = 40;
+/** What lasts between him and someone close (`person` facts), shown from this far back, at most this many. */
+const BOND_DAYS = 365;
+const BOND_MAX = 10;
 
 /** The ids of the lifelog conversations that are summarized and have been quiet for an hour. */
 export function closedConversations(
@@ -278,13 +282,15 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
  * people from the two weeks before it, and about the owner alone from its day and the day before. `shown` are the active
  * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
  * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
- * offered again.
+ * offered again. Beyond those, the `person` facts of the last year about its people `close` to him: what is between
+ * them lasts, and a newer fact must be able to replace it.
  */
 export function priorFor(
   group: Group,
   shown: { by?: string; o: Observation }[],
   reread: Set<string>,
   run: string,
+  close: ReadonlySet<string>,
   max = PRIOR_MAX
 ) {
   const day = group.units.at(-1)?.unit.date ?? "";
@@ -298,17 +304,24 @@ export function priorFor(
     o.date >= daysBefore(day, PRIOR_DAYS) &&
     (o.entities.some((e) => people.has(e)) ||
       (othersIn(o.entities).length === 0 && o.date >= daysBefore(day, 1)));
-  return shown
+  const lasting = (o: Observation) =>
+    o.type === "person" &&
+    o.date >= daysBefore(day, BOND_DAYS) &&
+    o.entities.some((e) => people.has(e) && close.has(e));
+  const candidates = shown
     .filter(
       ({ by, o }) =>
         o.date <= day &&
         (o.madeBy.run === run || !reread.has(o.unit)) &&
-        (!by || reread.has(by)) &&
-        about(o)
+        (!by || reread.has(by))
     )
     .map(({ o }) => o)
-    .toSorted((a, b) => b.at.localeCompare(a.at))
-    .slice(0, max);
+    .toSorted((a, b) => b.at.localeCompare(a.at));
+  const recent = candidates.filter(about).slice(0, max);
+  const older = candidates
+    .filter((o) => !recent.includes(o) && lasting(o))
+    .slice(0, BOND_MAX);
+  return [...recent, ...older];
 }
 
 /** Extracts the kept units of `evidence` (its window, `gather`) not read yet by this prompt. */
@@ -412,7 +425,8 @@ export async function extract(evidence: Evidence) {
   );
   const lanes = lanesOf(calls);
 
-  const context = refContext(truth, inferred);
+  const close = await closeNow();
+  const context = refContext(truth, inferred, close);
   const candidates = new Set(
     [context.people, context.projects].flatMap((l) => l.map((x) => x.ref))
   );
@@ -438,7 +452,7 @@ export async function extract(evidence: Evidence) {
       const prior = [
         ...new Map(
           call
-            .flatMap((g) => priorFor(g, standingNow, reread, step.run))
+            .flatMap((g) => priorFor(g, standingNow, reread, step.run, close))
             .map((o) => [o.id, o])
         ).values(),
       ];
