@@ -158,8 +158,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`), never an API key.
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
-- **Life's emails follow the owner's Ledger brand** (light, serif, minimal; source `~/Downloads/ledger-brand`, moving to
-  agent-config's `ledger-brand` skill): `C` in `src/memory/email.ts`, with `ok` and `warn` darkened to read on white.
+- **Life's emails follow the owner's Ledger brand** by its email adapter, the one source: agent-config's `ledger-brand`
+  skill (`~/.agents/skills/ledger-brand`: `adapters/email.md`, tokens in `references/source/tokens.json`). `C` in
+  `src/memory/email.ts` copies its values as literals (email takes no CSS variables): a brand change lands in the skill first.
 
 ## Gotchas
 

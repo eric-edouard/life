@@ -1,6 +1,6 @@
-// The nightly report as an HTML email in the owner's Ledger look (AGENTS.md: paper page, one white card, serif to
-// read, mono to count): tables and inline styles only (mail clients ignore the rest), no
-// web fonts (each stack falls back to Georgia or Menlo), no images, no links, no tracking. Light only.
+// The nightly report as an HTML email in the owner's Ledger brand, by its email adapter (AGENTS.md): paper page, one
+// white card, serif to read, mono to count; tables and inline styles only, no web fonts, no images, no links, no
+// tracking. Light only.
 
 /** Life's own mail: its sender, and how `compose` (report.ts) starts every subject. */
 export const LIFE_MAIL = {
@@ -45,21 +45,21 @@ export interface Digest {
   weekday: string;
 }
 
-const SERIF = "'Source Serif 4',Georgia,'Times New Roman',serif";
-const MONO = "'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace";
-// Ledger's tokens; ok and warn darkened so they read on white (≥5:1).
+const SERIF = "'Source Serif 4',Georgia,serif";
+const MONO = "'IBM Plex Mono',Menlo,Consolas,monospace";
+// Ledger's tokens (tokens.json); a tint is its status hue at 11% on white, as its chips. ok fails contrast as text, so
+// status hues only mark (a stripe, a dot) and the words beside them stay ink.
 const C = {
   bad: "#c4382c",
-  badTint: "#f9ebe9",
+  badTint: "#f9e9e8",
   bg: "#f7f7f5",
   ink: "#1b1d1f",
   line: "#e1e2de",
   muted: "#6d7176",
-  ok: "#24733f",
-  okTint: "#e9f1eb",
+  ok: "#2f8f4e",
+  okTint: "#e8f3ec",
   panel: "#ffffff",
   sunk: "#f1f1ee",
-  warn: "#8f5a0b",
 };
 
 const ESCAPES: Record<string, string> = {
@@ -107,8 +107,8 @@ const pairs = (items: Pair[]) =>
     )
     .join("");
 
-const delta = (color: string, sign: string, n: number) =>
-  `<span style="color:${n > 0 ? color : C.muted}">${sign}${n}</span>`;
+const delta = (sign: string, n: number) =>
+  `<span style="color:${n > 0 ? C.ink : C.muted}">${sign}${n}</span>`;
 
 const changes = (items: Change[]) =>
   `<div style="padding-bottom:6px;font:13px/1.4 ${SERIF};color:${C.muted}">+ added&nbsp;&nbsp;→ moved to History&nbsp;&nbsp;− removed</div>${items
@@ -116,7 +116,7 @@ const changes = (items: Change[]) =>
       (c) =>
         `<table ${TABLE}><tr>
 <td style="padding:9px 0;border-top:1px solid ${C.line};font:15px/1.4 ${SERIF};color:${C.ink}">${esc(c.page)}</td>
-<td align="right" style="padding:9px 0;border-top:1px solid ${C.line};font:500 13px/1.4 ${MONO};white-space:nowrap">${delta(C.ok, "+", c.added)}&nbsp;&nbsp;${delta(C.warn, "→", c.moved)}&nbsp;&nbsp;${delta(C.bad, "−", c.removed)}</td></tr></table>`
+<td align="right" style="padding:9px 0;border-top:1px solid ${C.line};font:500 13px/1.4 ${MONO};white-space:nowrap">${delta("+", c.added)}&nbsp;&nbsp;${delta("→", c.moved)}&nbsp;&nbsp;${delta("−", c.removed)}</td></tr></table>`
     )
     .join("")}`;
 
@@ -190,7 +190,7 @@ export function renderHtml(d: Digest) {
 <tr><td style="padding:0 4px 20px">
 <div style="font:13px/1.3 ${SERIF};color:${C.muted}">${esc(d.weekday)} · ${esc(d.label ?? "Life nightly")}</div>
 <div style="margin-top:6px;font:600 36px/1.1 ${SERIF};letter-spacing:-.01em;color:${C.ink}">${esc(d.date)}</div>
-<div style="margin-top:12px"><span style="display:inline-block;padding:4px 8px;border-radius:4px;background:${tint};font:500 11.5px/1 ${MONO};color:${status}">● ${esc(d.verdict)}</span></div>
+<div style="margin-top:12px"><span style="display:inline-block;padding:4px 8px;border-radius:4px;background:${tint};font:500 11.5px/1 ${MONO};color:${C.ink}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
 </td></tr>
 <tr><td style="background:${C.panel};border:1px solid ${C.line};border-top:3px solid ${status};border-radius:6px">
 <table ${TABLE}>
