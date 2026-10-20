@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Moment } from "../schema";
-import { weekLines } from "./week";
+import { week, weekLines } from "./week";
 
 const moment = (over: Partial<Moment>): Moment => ({
   copies: [],
@@ -71,9 +71,21 @@ test("each day lays the plan next to the workouts and the moments, in his zone t
   ]);
 });
 
-test("a source that is not connected says so, never reads as an empty day", () => {
-  const lines = weekLines(["2026-10-14"], null, null, []);
-  expect(lines).toContain("  not connected (LIFE_CALENDAR is not set in .env)");
+test("a source that gave nothing says why, never reads as an empty day; any date reads its Monday-to-Sunday week", async () => {
+  const lines = weekLines(
+    ["2026-10-14"],
+    "unreadable: no such table: Calendar",
+    "not connected (HEVY_API_KEY is not set in .env)",
+    []
+  );
+  expect(lines).toContain("  unreadable: no such table: Calendar");
   expect(lines).toContain("  not connected (HEVY_API_KEY is not set in .env)");
   expect(lines).not.toContain("  no plan");
+  const sunday = await week("2026-10-18");
+  expect(sunday).toContain("The week of 2026-10-12");
+  expect(sunday).toContain("## 2026-10-18");
+  expect(sunday).not.toContain("## 2026-10-19");
+  expect(sunday).toContain(
+    "  not connected (LIFE_CALENDAR is not set in .env)"
+  );
 });

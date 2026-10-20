@@ -4,10 +4,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readPlan } from "./calendar";
-import { APPLE_EPOCH_S } from "./imessage";
+import { toAppleS } from "./imessage";
 
 const ACCOUNT = "someone@example.com";
-const apple = (iso: string) => Date.parse(iso) / 1000 - APPLE_EPOCH_S;
+const apple = (iso: string) => toAppleS(Date.parse(iso));
 
 /** A Calendar database with the columns `readPlan` reads: his main calendar (1) and a shared one (2). */
 function calendarFixture(
