@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { unzipSync } from "node:zlib";
 import { type SourceEvent, sourceFile } from "../schema";
 import { ARCHIVE, type Row, readArchived } from "./archived";
-import { APPLE_EPOCH_S } from "./imessage";
+import { fromAppleS } from "./imessage";
 
 // Apple Notes' own store, opened read-only by the archive (src/archive.ts), which keeps every version of each note.
 // Only the Notes app writes it, iCloud sync included, so an iPhone edit lands here while Notes runs on the Mac.
@@ -45,7 +45,7 @@ export const listNotes = (db: Database) =>
     .all()
     .map(({ modified, ...n }) => ({
       ...n,
-      at: new Date(((modified ?? 0) + APPLE_EPOCH_S) * 1000).toISOString(),
+      at: fromAppleS(modified ?? 0).toISOString(),
     }));
 
 function varint(buf: Uint8Array, at: number): [number, number] {
