@@ -16,7 +16,6 @@ import {
   oftenLine,
   ownerEdits,
   type PageLine,
-  pagedPeople,
   parsePage,
   perSection,
   placed,
@@ -189,25 +188,6 @@ test("one fact, one page: a person who has a page owns what is only about them, 
   expect(home(["person:me"], null, "news", true)).toBeNull();
 });
 
-test("people with pages: everyone in truth, and an inferred person from five observations about them alone", () => {
-  const about = (entities: string[], salience = 2) => ({ entities, salience });
-  const five = Array.from({ length: 5 }, () => about(["person:inf-glazier"]));
-  const paged = pagedPeople(
-    [
-      ...five,
-      about(["person:inf-plumber"]),
-      about(["person:inf-plumber", "person:hans"]),
-      about(["person:inf-plumber"], 1),
-    ],
-    { people: [{ id: "me" }, { id: "hans" }] } as never
-  );
-  expect([...paged].sort()).toEqual([
-    "person:hans",
-    "person:inf-glazier",
-    "person:me",
-  ]);
-});
-
 test("placed: the pages and the email file a page line by its home; a conditional claim or one with no home is no page line", () => {
   const line = (id: string, entities: string[], over = {}) =>
     ({
@@ -226,7 +206,8 @@ test("placed: the pages and the email file a page line by its home; a conditiona
       line("minor", ["person:hans"], { salience: 1 }),
       line("nowhere", ["person:stranger"]),
     ],
-    { people: [{ id: "hans" }], projects: [] } as never
+    { projects: [] } as never,
+    new Set(["person:hans"])
   );
   expect(
     [...homes].map(([home, list]) => [home, list.map((h) => h.o.id)])

@@ -189,6 +189,10 @@ export function refContext(truth: Truth, inferred: InferredPerson[]) {
 
 /** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
 export function commitMemory(all: string[], message: string) {
+  // Its own repo's root, never a folder git would resolve to some repo above it (a test run's copy, a subfolder).
+  if (!existsSync(join(DATA, ".git"))) {
+    throw new Error(`${DATA} is not a repo of its own: nothing is committed`);
+  }
   if (git(DATA, ["remote"]).stdout.toString().trim()) {
     throw new Error(`${DATA}'s repo has a remote: his data is never pushed`);
   }

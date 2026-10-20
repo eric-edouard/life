@@ -533,6 +533,16 @@ export const CHATS = {
   imessage: SOURCES.imessage,
   whatsapp: SOURCES.whatsapp,
 };
+/**
+ * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. The closeness counts
+ * read it over years (closeness.ts), the one memory step reading sources outside `gather`: it counts days, never units.
+ */
+export const WITH_PEOPLE = {
+  beeper: READERS.beeper,
+  imessage: READERS.imessage,
+  mail: READERS.mail,
+  whatsapp: READERS.whatsapp,
+};
 /** What `search` reads messages from: the chats, and his notes (not chats: `chats` is about people). */
 export const SEARCHED = { ...CHATS, notes: SOURCES.notes };
 

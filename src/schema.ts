@@ -550,6 +550,9 @@ export const Score = z
   .strict();
 
 const PersonRef = z.string().regex(/^person:[a-z0-9-]+$/);
+/** How close someone is to the owner, in his personal life or his work: `faded` was close, not any more. */
+export const Level = z.enum(["inner", "regular", "acquaintance", "faded"]);
+export type Level = z.infer<typeof Level>;
 const Correcting = {
   at: isoDateTime,
   note: z.string().optional(),
@@ -566,50 +569,63 @@ export const PageSection = z.enum(["views", "health", "now", "history"]);
  * everywhere); `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
  * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`).
  */
-export const Correction = z.discriminatedUnion("kind", [
-  z
-    .object({
-      ...Correcting,
-      kind: z.enum(["wrong", "not-important"]),
-      // Observations (obs_…) and, from 18 Oct, moments (mom_…).
-      observations: z.array(z.union([ObservationId, MomentId])).min(1),
-      page: EntityRef.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      kind: z.literal("keep-mine"),
-      page: EntityRef,
-      section: PageSection,
-      text: z.string().min(1),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      kind: z.literal("this-is"),
-      person: PersonRef,
-      surface: z.string().min(1),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      kind: z.literal("not-this-person"),
-      person: PersonRef,
-      surface: z.string().min(1),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      from: PersonRef,
-      kind: z.literal("same-person"),
-      to: PersonRef,
-    })
-    .strict(),
-]);
+export const Correction = z
+  .discriminatedUnion("kind", [
+    z
+      .object({
+        ...Correcting,
+        kind: z.enum(["wrong", "not-important"]),
+        // Observations (obs_…) and, from 18 Oct, moments (mom_…).
+        observations: z.array(z.union([ObservationId, MomentId])).min(1),
+        page: EntityRef.optional(),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("keep-mine"),
+        page: EntityRef,
+        section: PageSection,
+        text: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("this-is"),
+        person: PersonRef,
+        surface: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("not-this-person"),
+        person: PersonRef,
+        surface: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        from: PersonRef,
+        kind: z.literal("same-person"),
+        to: PersonRef,
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("closeness"),
+        person: PersonRef,
+        personal: Level.optional(),
+        work: Level.optional(),
+      })
+      .strict(),
+  ])
+  .refine((c) => c.kind !== "closeness" || !!(c.personal || c.work), {
+    message: "a closeness correction names a personal or a work level",
+  });
 export type Correction = z.infer<typeof Correction>;
 
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
@@ -661,3 +677,24 @@ export const RepoGuess = z
   })
   .strict();
 export type RepoGuess = z.infer<typeof RepoGuess>;
+
+/**
+ * memory/closeness.jsonl: how close each person is to the owner, personal and work apart, as the fast model judged it
+ * from what code counted (`closeness.ts`): `service` is a business or a bot, not a person. `counts` is the counts it
+ * judged, rounded, so it is asked again only when they move. The latest line per person holds; his `closeness`
+ * correction wins over it.
+ */
+export const Closeness = z
+  .object({
+    at: isoDateTime,
+    counts: z.string(),
+    madeBy: MadeBy,
+    person: PersonRef,
+    personal: Level,
+    schemaVersion: z.literal(1),
+    service: z.boolean(),
+    why: z.string().min(1).max(300),
+    work: Level,
+  })
+  .strict();
+export type Closeness = z.infer<typeof Closeness>;
