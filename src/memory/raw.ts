@@ -30,7 +30,7 @@ import {
   SEARCHED,
   time,
 } from "./units";
-import { type People, readPeople, UNKNOWN } from "./who";
+import { meant, type People, readPeople, UNKNOWN } from "./who";
 import { localDate } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
@@ -219,11 +219,10 @@ export async function fetchOf(
 }
 
 /** What `--who` stands for: the words, and when they name a person (on the map, inferred, as corrected), that person's names and handles. */
-function needlesOf(
-  who: string,
-  { canon, corrections, inferred, resolve, truth }: People
-) {
-  const ref = resolve(who) ?? `person:${who}`;
+function needlesOf(who: string, people: People) {
+  const { canon, corrections, inferred, truth } = people;
+  // Who the words mean, as `person` reads them (`meant`); the words alone when no one.
+  const ref = `person:${meant(who, people).known ?? who}`;
   const person = truth.people.find((p) => `person:${p.id}` === ref);
   return [
     who,

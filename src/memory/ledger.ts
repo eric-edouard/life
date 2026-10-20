@@ -50,6 +50,12 @@ export const OUT = join(ROOT, "derived", "memory");
 export const UNITS = join(MEMORY, "units");
 export const OBSERVATIONS = join(MEMORY, "observations");
 export const PAGES = join(MEMORY, "pages");
+
+/** The file of a person's or an area's page. */
+export const pagePath = (ref: string) =>
+  ref.startsWith("person:")
+    ? join(PAGES, "people", `${ref.slice("person:".length)}.md`)
+    : join(PAGES, "areas", `${ref.slice("area:".length)}.md`);
 export const MOMENTS = join(MEMORY, "moments");
 export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");

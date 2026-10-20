@@ -238,3 +238,41 @@ export function nearNames<
     .slice(0, 5)
     .map(({ p }) => p);
 }
+
+const PERSON = /^person:/;
+
+/** Everyone a name can mean: the people on his map and those Life inferred (not folded into another), going by their surfaces too. */
+function nameable({
+  canon,
+  inferred,
+  truth,
+}: Pick<People, "canon" | "inferred" | "truth">) {
+  return [
+    ...truth.people,
+    ...new Map(
+      inferred
+        .filter((p) => canon(`person:${p.id}`) === `person:${p.id}`)
+        .map((p) => [p.id, { ...p, aliases: p.surfaces }])
+    ).values(),
+  ];
+}
+
+/**
+ * Who a name means: who it resolves to (handles, his corrections, names), else the first person going by it; a name
+ * nothing resolves means no one (never a part of a name). `same`: everyone going by it, the one meant first (listed
+ * even when it goes by another name, a handle or one he said is them).
+ */
+export function meant(
+  name: string,
+  people: Pick<People, "canon" | "inferred" | "resolve" | "truth">
+) {
+  const all = nameable(people);
+  const resolved = people.resolve(name)?.replace(PERSON, "");
+  const one = all.find((p) => p.id === resolved);
+  const same = namedLike(name, all).filter((p) => p.id !== resolved);
+  return {
+    all,
+    known: resolved ?? same[0]?.id,
+    same: one ? [one, ...same] : same,
+  };
+}
