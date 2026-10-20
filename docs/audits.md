@@ -2,19 +2,18 @@
 
 He says "hey Atlas, this didn't work: …". Atlas takes it in (`docs/atlas.md`, `## Audits`); a Claude session
 investigates. An audit changes no code, memory or reminders: it writes only its audit file and its case in
-`~/Life/docs` and commits them there (the nightly commits only `memory/` and `truth/`). It ends with a proposal. Fixes
-go through the gates below, each with its regression case. Agreed with the owner on 20 Oct.
+`~/Life/docs` and commits them there, outside the nightly's hours (the nightly commits `memory/` and `truth/` in the
+same repo). It ends with a proposal. Agreed with the owner on 20 Oct; the plan and its phases: `~/Life/docs/audits-plan.md`.
 
 ## Who does what
 
 | Step | Who |
 |---|---|
-| Intake, the practical fix, talking to him | Atlas |
-| Investigation and proposal, in a Remote Control session in normal permission mode (he answers prompts on his phone; never bypass) | Claude |
+| Intake and the practical fix | Atlas |
+| Investigation and proposal | Claude, started by Atlas (`docs/atlas.md`) |
 | A second, fresh-context adversarial pass on the findings, before any fix is proposed | Claude (another session) |
-| The fix, once he approves its scope, in a worktree | Claude |
-| Review tied to the final head commit | the `debt-review` skill |
-| Merge, which is go-live | him |
+| The fix, once he approves its scope | the normal path: a worktree, a PR, `debt-review` |
+| Go-live: merge, then pull in `~/Work/life` (the services restart on its `src/` or `prompts/`, `tasks` reads the playbook there) | him |
 
 ## The audit file
 
@@ -35,15 +34,20 @@ finding needs. Sections, in order:
 8. **Cause**: proven, or the observability that is missing. Never one dressed as the other.
 9. **Coverage**: the tools used, the caps hit, what was unavailable.
 10. **Adversarial pass**: what it found and how each point was settled.
-11. **Proposal**: a bounded fix, its regression case, success criteria. The practical fix stays Atlas's task.
+11. **Proposal**: a bounded fix, its regression case, success criteria.
 
-## Regression cases (enforced)
+## Regression cases
+
+Enforced by the review: `AGENTS.md` makes a fix from an audit carry its case, and `debt-review` treats a broken
+`AGENTS.md` rule as a Do it.
 
 - Every proven failure leaves a case in `~/Life/docs/evals/cases/audit-<n>-<slug>.json`: `audit` (its file), `class`
   (stage letters), `evidence` (ids), `expected`, `mustNot` (what the fix must never do), `status` (`pending` until a
-  fix lands, then `test` or `eval`) and `why`.
-- A stage without a model call (hearing, tasks, board, delivery) gets a `bun test` with made-up data, which fails on
-  the code before the fix and passes after. `bun run check` runs it on every push (the pre-push hook).
-- A model stage (moments, extract, a judge) gets facts in `~/Life/docs/evals/` graded by `bun scripts/eval.ts`, after
-  every prompt change. A flaky case passes 2 runs of 3; a flake is recorded, not retried away.
+  fix lands), `check` (then: the test or facts file that holds it) and `why`.
+- Code stages (H, T, N and the code side of O): a `bun test` with made-up data that fails before the fix and passes
+  after; `bun run check` runs it on every push.
+- Model stages (E, and R when a model reads): facts graded by `bun scripts/eval.ts`, rerun when a prompt changes. A
+  flaky case passes 2 runs of 3; a flake is recorded, not retried away.
+- Atlas's stages (J, F, P), held by the playbook: a scenario in the case, re-read against `docs/atlas.md` whenever it
+  changes, until code can check it.
 - Cases only accumulate. Removing one needs his OK, written in the case file.

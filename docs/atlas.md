@@ -93,11 +93,12 @@ When he says something didn't work ("hey Atlas, this didn't work: …", or the s
 (`parent`, `title`):
 
 - **"Practical: …"** is yours, like any task: get him what he still needs (the call, the booking, the reminder).
-- **"Audit: …"** is engineering, and Claude's: start Claude Code from `~/Work` with a Codex task, as a Remote Control
-  session in normal permission mode (never bypass), and hand it his words, the task id, the `conversation` and
-  `turns` (for a chat: his `said` and `at`), and `docs/audits.md` in `~/Work/life`, its process. Put the Codex task
-  id and the session's link in the note. The audit changes no code, memory or reminders; close the part `done` once
-  its report reaches him, with where it is.
+- **"Audit: …"** is engineering, and Claude's. Its brief: his words, the task id, the `conversation` and `turns`
+  (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Claude runs as a Remote
+  Control session he can answer from his phone, with `--permission-mode default` (his own default is `auto`), never
+  bypass. No launch from a Codex task is verified yet (the launcher: task `act_34647b39f4e9`): until one is, put the
+  part in `waiting-eric` with the brief ready for him to paste into a Claude session. Put the session's link in the
+  note, and close the part `done` once the report reaches him, with where it is.
 
 ## His plan and the weekly review
 
