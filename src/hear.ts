@@ -88,9 +88,8 @@ export function speechIn(store: Store, conversation: string, from: string) {
     return "complete";
   }
   const seconds = speechSeconds(store, last.jobId);
-  return seconds !== null && seconds < CLOSED_ON_SILENCE_S
-    ? "complete"
-    : "open";
+  // lifelog sends 0 for a recording it could not measure: unknown, like a missing one.
+  return seconds && seconds < CLOSED_ON_SILENCE_S ? "complete" : "open";
 }
 
 /**

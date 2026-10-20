@@ -1,8 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
-import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { linesOf } from "./memory/ledger";
+import { filesIn, linesOf } from "./memory/ledger";
 import { ROOT, TEST } from "./truth";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
@@ -32,10 +31,7 @@ const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
 /** derived/log's files, newest first (named by UTC day). */
 export const logDays = async (dir = LOG_DIR) =>
-  (await readdir(dir).catch(() => [] as string[]))
-    .filter((n) => LOG_FILE.test(n))
-    .sort()
-    .reverse();
+  (await filesIn(dir)).filter((n) => LOG_FILE.test(n)).reverse();
 
 /** One day's events whose kind starts with `kind` (`run.`, `event.sent`). */
 export const logEvents = <T = Record<string, unknown> & { at: string }>(
