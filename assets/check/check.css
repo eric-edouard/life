@@ -126,7 +126,6 @@ button {
   border-color: var(--ink);
 }
 [data-verdict="false"] {
-  color: var(--bad);
   border-color: var(--bad);
 }
 button:disabled,
