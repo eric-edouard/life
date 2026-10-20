@@ -15,6 +15,7 @@ import {
   latestBy,
   readCorrections,
   rowsOf,
+  writtenPeople,
 } from "./ledger";
 import { begin, chunks, inBatches, meContext } from "./run";
 import { daysBefore, safely, WITH_PEOPLE } from "./units";
@@ -183,22 +184,22 @@ const round = (n: number) => Math.round(n * 10) / 10;
 export const bucket = (t: Tally) =>
   `${Math.round(Math.log2(1 + t.recent))}/${Math.round(Math.log2(1 + t.lasting))}`;
 
-/** Who is worth judging: everyone on his map, and anyone with this much `lasting`. */
+/** Who is worth judging: everyone waiting (`waitingOf`), and anyone with this much `lasting`. */
 const JUDGED_FROM = 1;
 
 /**
- * Whom to ask about: everyone worth judging (on his map, or this much `lasting`) never judged, judged on other counts
+ * Whom to ask about: everyone worth judging (waiting, or this much `lasting`) never judged, judged on other counts
  * (rounded: they really moved) or under another prompt.
  */
 export function dueFor(
   tallies: { ref: string; t: Tally }[],
   judged: Map<string, Closeness>,
-  onMap: Set<string>
+  waiting: Set<string>
 ) {
   return tallies.filter(
     ({ ref, t }) =>
       ref !== OWNER &&
-      (onMap.has(ref) || t.lasting >= JUDGED_FROM) &&
+      (waiting.has(ref) || t.lasting >= JUDGED_FROM) &&
       (judged.get(ref)?.counts !== bucket(t) ||
         judged.get(ref)?.madeBy.prompt !== CLOSENESS_PROMPT)
   );
@@ -292,11 +293,11 @@ const PAGED = new Set<Level>(["inner", "regular", "faded"]);
 
 /**
  * The people who have a page: the owner, everyone whose personal or work level keeps one (not a service), and a person
- * on his map not judged yet (he said who they are; the next night judges them).
+ * `waiting` for a judgment (`waitingOf`).
  */
 export function pagedBy(
   levels: ReturnType<typeof levelsNow>,
-  onMap: Iterable<string>
+  waiting: Iterable<string>
 ) {
   const paged = new Set([OWNER]);
   for (const [ref, l] of levels) {
@@ -304,7 +305,7 @@ export function pagedBy(
       paged.add(ref);
     }
   }
-  for (const ref of onMap) {
+  for (const ref of waiting) {
     if (!levels.has(ref)) {
       paged.add(ref);
     }
@@ -331,21 +332,28 @@ export const closeNow = async () =>
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
   const corrections = await readCorrections();
-  return pagedBy(levelsWith(corrections), onMapOf(truth, corrections));
+  return pagedBy(levelsWith(corrections), await waitingOf(truth, corrections));
 }
 
 /** Each person's levels now, from the ledger and `corrections` (his, as read by the caller). */
 export const levelsWith = (corrections: Correction[]) =>
   levelsNow(readCloseness(), corrections);
 
-/** Everyone on his map, as the person each is now (one folded into another is that one). */
-export const onMapOf = (
+/**
+ * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone on his map (he
+ * said who they are) and everyone whose page is written, so a missing or empty closeness ledger never deletes a page.
+ * Each as the person they are now (one folded into another is that one).
+ */
+export async function waitingOf(
   truth: Pick<Truth, "people">,
   corrections: Correction[]
-) => {
+) {
   const canon = merged(corrections);
-  return new Set(truth.people.map((p) => canon(`person:${p.id}`)));
-};
+  return new Set([
+    ...truth.people.map((p) => canon(`person:${p.id}`)),
+    ...(await writtenPeople()).map(canon),
+  ]);
+}
 
 /**
  * The nightly step: counts every person's days over the last YEARS years from the chats and his recordings, then asks
@@ -373,16 +381,16 @@ export async function closeness() {
     ...inferred.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
   ]);
-  const onMap = onMapOf(truth, people.corrections);
+  const waiting = await waitingOf(truth, people.corrections);
   const judged = readCloseness();
-  // Everyone on his map is judged, even with nothing counted (a relation alone can say close family).
-  for (const ref of onMap) {
+  // Everyone waiting is judged, even with nothing counted (a relation alone can say close family).
+  for (const ref of waiting) {
     if (!days.has(ref)) {
       days.set(ref, new Map());
     }
   }
   const tallies = [...days].map(([ref, of]) => ({ ref, t: tally(of, today) }));
-  const due = dueFor(tallies, judged, onMap);
+  const due = dueFor(tallies, judged, waiting);
   const ctx = {
     at: step.now.toISOString(),
     madeBy: stamp(step.llm, CLOSENESS_PROMPT, step.run),
