@@ -130,9 +130,12 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`readStanding`, `by` the claim itself: closed as history, never wrong), so an undo lifts either. Like `correct`, an answer is
   appended without the lock (his own words, one line, never while waiting on the nightly). Its swipe deck
   (`deck` in `assets/check/check.js`) stays generic: items and a list of verdicts in, verdicts out.
-- **The portrait** (`src/portrait.ts`, `/me` on the same server, his request of 20 Oct) serves one page about him,
-  `~/Life/docs/portrait/index.html` (written from his memory in a session, never in this repo), and nothing else; its CSP
-  allows inline styles and Google Fonts only (no images, no scripts). It is behind a password (`LIFE_PORTRAIT_PASSWORD`;
+- **The portrait** (`src/portrait.ts`, `/me` on the same server, his request of 20 Oct) serves pages about him and
+  his people from `~/Life/docs/portrait/` (written from his memory in a session, never in this repo): `/me` is
+  `index.html`, `/me/<name>` is `<name>.html` (lowercase letters, digits, hyphens), `/me/<name>/clips/<clip>.m4a|json` a
+  clip of that page (audio cut from lifelog, and lifelog's word timings shifted to it), and `/me/player.js` the clip
+  player (`assets/portrait/`, code, so in this repo); nothing else. Its CSP allows inline styles, Google Fonts and
+  those files only (no images). It is behind a password (`LIFE_PORTRAIT_PASSWORD`;
   unset, or `LIFE_OWNER_SUB` unset, `/me` is off), not lifelog's OAuth: he chose a password over the lifelog sign-in
   when offered both. The cookie is its expiry signed with the password, failed tries are capped; never serve the page
   before that check.
