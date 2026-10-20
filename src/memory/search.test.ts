@@ -19,10 +19,10 @@ import {
   coverageLines,
   dayLines,
   momentLine,
-  newestDays,
   readIndex,
   matches as searchMatches,
 } from "./search";
+import { newestDays } from "./units";
 import { namedLike, nearNames } from "./who";
 
 test("day: the conversations with their chapters and people, then the chat and mail units", () => {

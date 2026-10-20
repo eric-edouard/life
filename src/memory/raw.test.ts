@@ -329,15 +329,16 @@ test("chats: `from` is read as far back as asked, a cut names the call that read
   expect(recent).toContain("(no `from`: 7 days");
   expect(recent).toContain("message 299");
   expect(recent).not.toContain("message 290");
-  // Two messages in the same second across the cut both reach a page: the instant goes to the next page whole.
+  // Two messages in the same second at the cut stay on one page: an instant is never cut, so neither is lost.
   const burst = events.map((e, i) =>
     i === 99 ? { ...e, at: events[100]?.at ?? "" } : e
   );
   const twin = { imessage: () => burst };
   const first = (await chatsOf({ chat, from }, twin)) ?? "";
-  expect(first).not.toContain("message 100");
+  expect(first).toContain("message 99");
+  expect(first).toContain("message 100");
   const rest =
     (await chatsOf({ before: first.match(NEXT)?.[1], chat, from }, twin)) ?? "";
-  expect(rest).toContain("message 99");
-  expect(rest).toContain("message 100");
+  expect(rest).toContain("message 98");
+  expect(rest).not.toContain("message 99");
 });

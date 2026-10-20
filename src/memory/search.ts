@@ -47,6 +47,7 @@ import {
   dayRange,
   lifelogNames,
   localTime,
+  newestDays,
   normalize,
   normalizeTopics,
   slugOf,
@@ -360,29 +361,6 @@ function withPages(db: Database, list: { id: string; name: string }[]) {
     );
 }
 
-/**
- * A page of a list ordered newest first, by whole days: the newest items before `before` up to `limit`, then the rest
- * of the last day taken, so a day is never cut between two pages. `next`: the day to page back from, when something
- * older is left.
- */
-export function newestDays<T>(
-  items: T[],
-  dayOf: (x: T) => string,
-  limit: number,
-  before?: string
-) {
-  const left = before ? items.filter((x) => dayOf(x) < before) : items;
-  const edge = left[limit - 1];
-  const taken = edge
-    ? left.filter((x) => dayOf(x) >= dayOf(edge))
-    : left.slice();
-  const last = taken.at(-1);
-  return {
-    next: last && taken.length < left.length ? dayOf(last) : undefined,
-    taken,
-  };
-}
-
 /** One thing of a person's timeline: its day, which list it shows in, and its line. */
 interface Dated {
   day: string;
@@ -461,11 +439,11 @@ export async function person(name?: string, o: { before?: string } = {}) {
         .map((p) => [p.id, { ...p, aliases: p.surfaces }])
     ).values(),
   ];
-  const same = namedLike(name, people);
-  // A handle, or a name he said is someone (`this-is`): who it resolves to.
+  // Who the name is (handles, his corrections, then names), as everywhere; the names it matches list the candidates.
   const resolved = resolve(name)?.replace(PERSON, "");
-  const found = await findPage("people", same[0]?.id ?? resolved ?? name);
-  const id = found?.id ?? same[0]?.id ?? resolved ?? slugOf(name);
+  const same = namedLike(name, people);
+  const found = await findPage("people", resolved ?? same[0]?.id ?? name);
+  const id = found?.id ?? resolved ?? same[0]?.id ?? slugOf(name);
   const ref = `person:${id}`;
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
   // Pages go by whole local days: a day is never cut between two answers.
@@ -526,7 +504,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
               "",
               ...coverageLines(db, ref, timeline),
             ]),
-        ...section("Moments with them:", lines("moment").toReversed()),
+        ...section("Moments with them:", lines("moment")),
         ...section(recordedTitle(heard), lines("conversation")),
         "",
         next

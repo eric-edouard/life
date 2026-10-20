@@ -23,6 +23,7 @@ import {
   lifelogNames,
   localTime,
   nameIndex,
+  newestDays,
   normalize,
   oneToOne,
   personRef,
@@ -353,15 +354,11 @@ export async function chatsOf(
   }
   const people = await readPeople();
   const needles = o.who ? needlesOf(o.who, people) : [];
-  const range = dayRange(o.from, o.to);
   const before = o.before ? new Date(o.before).toISOString() : undefined;
   const days = o.who ? SEARCH_DAYS : CHAT_DAYS;
   const { end, events, failed, start } = readChats(
     days,
-    {
-      ...range,
-      to: before && !(range.to && range.to < before) ? before : range.to,
-    },
+    dayRange(o.from, o.to),
     sources
   );
   const shown = events.filter((e) => {
@@ -374,11 +371,14 @@ export async function chatsOf(
     const hay = ` ${normalize(`${e.chat} ${e.chatName ?? ""} ${e.fromMe ? "" : e.sender}`)} `;
     return needles.some((n) => hay.includes(` ${n} `));
   });
-  // The latest PAGE, less the messages sharing the instant of the first one left out: `before` is exclusive, so they
-  // go to the next page whole.
-  const edge = shown.at(-PAGE - 1)?.at;
-  const page = shown.slice(-PAGE).filter((e) => e.at !== edge);
-  const cut = shown.length - page.length;
+  // Newest first by instant, the edge instant kept whole: `before` names where the next page starts.
+  const { next, taken } = newestDays(
+    shown.toReversed(),
+    (e) => e.at,
+    PAGE,
+    before
+  );
+  const page = taken.toReversed();
   return asData([
     `${localDate(start.toISOString())} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`,
     ...(o.from
@@ -387,10 +387,8 @@ export async function chatsOf(
           `(no \`from\`: ${days.whatsapp} days; give \`from\` to read further back)`,
         ]),
     ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
-    ...(cut > 0
-      ? [
-          `(${cut} earlier not shown: the same call with \`before\` ${page[0]?.at})`,
-        ]
+    ...(next
+      ? [`(earlier not shown: the same call with \`before\` ${next})`]
       : []),
     ...chatLinesOf(page, people),
   ]);
