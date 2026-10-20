@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { appsToOpen, archiveOnce } from "./archive";
+import { toAppleS } from "./sources/imessage";
 
 test("the archive opens each closed app, but not again within 10 minutes", () => {
   const now = Date.now();
@@ -37,7 +38,7 @@ test("a message deleted for everyone keeps its text and media in the archive", (
   wa.run("insert into ZWACHATSESSION values (1, '66@s.whatsapp.net', 'Ana')");
   wa.run("insert into ZWAMEDIAITEM values (1, 'Media/a.jpg')");
   const now = Date.now();
-  const date = now / 1000 - 978_307_200 - 60;
+  const date = toAppleS(now) - 60;
   wa.run(
     "insert into ZWAMESSAGE values (1, 'S1', 1, 0, ?, 'see you at 8', 1, 1, null, '66@s.whatsapp.net', null)",
     [date]
