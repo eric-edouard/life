@@ -93,8 +93,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
   answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions
   one line in their first 512 characters; events carry data only. It has Atlas confirm a low-confidence ask with him
-  first, send as him only under its `## Sends` (his yes in its chat on the exact text), and change reminders only
-  through the connector's `reminders`.
+  first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`). His Apple Notes are memory only, never his words for
   actions.
