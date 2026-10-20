@@ -22,7 +22,8 @@ import {
   turnOffset,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth } from "../truth";
+import { loadTruth, type Truth } from "../truth";
+import { levelsNow, readCloseness } from "./closeness";
 import {
   daysOf,
   momentsNow,
@@ -446,6 +447,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const id = found?.id ?? resolved ?? same[0]?.id ?? slugOf(name);
   const ref = `person:${id}`;
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
+  const close = await closenessLine(ref, truth);
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
   const moments = await momentsWhere((m) =>
@@ -500,6 +502,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
         ...(before
           ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
+              ...close,
               ...entity(found?.text ?? null, () => obsLines),
               "",
               ...coverageLines(db, ref, timeline),
@@ -867,4 +870,16 @@ export async function reindex() {
   console.log(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
   );
+}
+
+/** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
+async function closenessLine(ref: string, truth: Truth) {
+  const rows = readCloseness();
+  const l = levelsNow(rows, await readCorrections(), truth).get(ref);
+  return l
+    ? [
+        `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}${rows.get(ref) ? `: ${rows.get(ref)?.why}` : ""}`,
+        "",
+      ]
+    : [];
 }
