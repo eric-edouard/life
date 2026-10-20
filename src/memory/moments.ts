@@ -44,11 +44,9 @@ import {
   head,
   localTime,
   normalizeTopics,
-  windowStart,
   writeUnits,
 } from "./units";
 import { readPeople, UNKNOWN } from "./who";
-import { localDate } from "./zones";
 
 // `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
 // judged on its current content, the deep-tier model reads every unit of the day from every channel in time order,
@@ -305,17 +303,15 @@ async function writeDay(day: string, list: Moment[]) {
   );
 }
 
-export async function moments(opts: { days: number; evidence: Evidence }) {
+/** Reads the days of `evidence`'s units (its window, `gather`), oldest first, each one not read yet. */
+export async function moments(evidence: Evidence) {
   const step = await begin("moments", "deep", {
-    days: opts.days,
     prompt: MOMENTS_PROMPT,
+    ...evidence.window,
   });
-  const since = windowStart(step.now, opts.days);
-  const from = localDate(since.toISOString());
-  const { built, failed, read: sources, repos, truth } = opts.evidence;
+  const { built: all, failed, read: sources, repos, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
-  const all = built.filter((b) => b.unit.date >= from);
   const days = [...new Set(all.map((b) => b.unit.date))].sort();
   // Units first (code output, rebuildable); not when a source failed: the files would lose that source's units.
   if (failed.length === 0) {

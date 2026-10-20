@@ -289,7 +289,8 @@ export function imessageFixture(
     "create table message_attachment_join (message_id integer, attachment_id integer)"
   );
   db.run("insert into handle values (1, '+33611111111')");
-  db.run("insert into chat values (1, '+33611111111', null)");
+  // Messages leaves a 1:1 chat's name empty.
+  db.run("insert into chat values (1, '+33611111111', '')");
   db.run("insert into message values (1, 'g1', ?, 0, ?, null, 1, 0)", [
     toAppleNs(new Date(Date.now() - 60_000)),
     text,
