@@ -294,7 +294,8 @@ const live = (
 
 /**
  * What one delivery's HTTP status (0: unreachable) does: a 2xx or a 413 (never retried) moves past the event, a 410
- * drops the subscription, anything else retries it after 1, 2, 4… minutes, and after the 8th try moves on.
+ * drops the subscription, anything else retries it after 1, 2, 4… minutes, and after the 8th try moves on. Unreachable
+ * (the Mac offline, mostly) is not a try: the event waits for the network, never passed over.
  */
 export function settle(
   s: State,
@@ -306,10 +307,12 @@ export function settle(
     return { attempts: 0, delivered: s.delivered };
   }
   const ok = status >= 200 && status < 300;
-  if (!ok && status !== 413 && s.attempts + 1 < ATTEMPTS) {
-    const attempts = s.attempts + 1;
-    const retryAt = new Date(now + BACKOFF_MS * 2 ** attempts).toISOString();
-    return { ...s, attempts, retryAt };
+  const unreachable = status === 0;
+  if (!ok && status !== 413 && (unreachable || s.attempts + 1 < ATTEMPTS)) {
+    const retryAt = new Date(
+      now + BACKOFF_MS * 2 ** (s.attempts + 1)
+    ).toISOString();
+    return { ...s, attempts: s.attempts + (unreachable ? 0 : 1), retryAt };
   }
   return { ...s, attempts: 0, delivered: cursor, retryAt: undefined };
 }

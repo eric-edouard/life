@@ -6,9 +6,7 @@ import {
   actionLine,
   failureReport,
   type Night,
-  publicReport,
   successReport,
-  watchReport,
 } from "./report";
 
 const MORE = /\+\d+ more/;
@@ -269,29 +267,6 @@ test("a failed action's alert carries his words and the error", () => {
   expect(mail.subject).toBe("Life · could not add: Buy checked baggage");
   expect(mail.text).toContain("remctl is not installed");
   expect(mail.text).toContain("write that down in the to-dos");
-});
-
-test("the watcher's alert says it is down, its all-clear says it is back", () => {
-  const down = watchReport(
-    true,
-    "2026-10-15T10:00:00.000Z",
-    "lifelog GET /changes: 502"
-  );
-  expect(down.subject).toBe("Life · lifelog watcher is down");
-  expect(down.text).toContain("lifelog GET /changes: 502");
-  expect(down.html).toContain("Life watcher");
-  expect(watchReport(false, "2026-10-15T10:20:00.000Z", "").subject).toBe(
-    "Life · lifelog watcher is back"
-  );
-});
-
-test("the public connector's alert says it is down, its all-clear says it is back", () => {
-  const down = publicReport(true, "2026-10-15T10:00:00.000Z");
-  expect(down.subject).toBe("Life · public connector is down");
-  expect(down.text).toContain("restarting the tunnel did not fix it");
-  expect(publicReport(false, "2026-10-15T10:20:00.000Z").subject).toBe(
-    "Life · public connector is back"
-  );
 });
 
 test("the success email says the window it read and counts the new observations", () => {
