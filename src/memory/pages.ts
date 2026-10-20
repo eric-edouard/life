@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { stamp } from "../llm";
@@ -522,27 +522,40 @@ export async function pages(opts: PagesOptions) {
  * committed version: lines added, moved to History and removed. A page gone counts its lines removed.
  */
 export function changedSinceCommit(root = DATA, dir = PAGES) {
+  if (git(root, ["rev-parse", "--git-dir"]).exitCode !== 0) {
+    throw new Error(`${root} is not a git repository`);
+  }
   const at = relative(root, dir);
-  const paths = git(root, [
-    "status",
-    "--porcelain",
-    "--untracked-files=all",
+  // Every page committed (none before the first commit) and every page now: a page new or gone counts too.
+  const committed = git(root, [
+    "ls-tree",
+    "-r",
+    "-z",
+    "--name-only",
+    "HEAD",
     "--",
     at,
   ])
     .stdout.toString()
-    .split("\n")
-    .map((l) => l.slice(3).trim())
-    .filter((p) => p.endsWith(".md"));
+    .split("\0");
+  const now = ["people", "areas"].flatMap((kind) => {
+    const sub = join(dir, kind);
+    return existsSync(sub)
+      ? readdirSync(sub).map((name) => relative(root, join(sub, name)))
+      : [];
+  });
+  const paths = [...new Set([...committed, ...now])].filter((p) =>
+    p.endsWith(".md")
+  );
   return paths.flatMap((path) => {
     const head = git(root, ["show", `HEAD:${path}`]);
     const was = parsePage(head.exitCode === 0 ? head.stdout.toString() : "");
     const file = join(root, path);
-    const now = existsSync(file) ? parsePage(readFileSync(file, "utf8")) : null;
-    const name = now?.meta.name ?? was?.meta.name;
+    const is = existsSync(file) ? parsePage(readFileSync(file, "utf8")) : null;
+    const name = is?.meta.name ?? was?.meta.name;
     const c = changes(
       was ? generated(was) : perSection(),
-      now ? generated(now) : perSection()
+      is ? generated(is) : perSection()
     );
     return name && c.added + c.moved + c.removed > 0
       ? [{ page: name, ...c }]
