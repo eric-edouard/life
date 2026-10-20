@@ -81,13 +81,13 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
 
-/** A small JSON state file, or undefined when it is missing or unreadable. */
 /** Writes a small JSON state file (a guard's, the backfill's), its folder made if missing. */
 export function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value)}\n`);
 }
 
+/** A small JSON state file, or undefined when it is missing or unreadable. */
 export function readJson<T>(path: string): T | undefined {
   try {
     return JSON.parse(readFileSync(path, "utf8"));
