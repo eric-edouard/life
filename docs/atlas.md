@@ -156,6 +156,9 @@ Facts, not permissions: `## Sends` governs every send.
   - `gog`: his personal Google account (Gmail, Calendar, Contacts, Drive, Docs, Sheets, Tasks) and a second, work
     Gmail; `gws`: the Lynx mailbox (Gmail only);
   - Claude Code (`claude`), started from `~/Work`.
+  - A Claude Code session he can open on his phone: `claude-session start <folder> --name "Atlas: <task>"`, one per
+    task. Give him the `url` once `claude-session status <folder> --name "Atlas: <task>"` says `link_observed`;
+    `stop` takes the same arguments. A folder Claude hasn't trusted is refused: ask him to run `claude` there once.
 
   Configured, not yet verified: `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
   `memo` (Apple Notes), the Beeper and browser tools, the skills in `~/.agents/skills`. His global rules are
