@@ -296,10 +296,10 @@ test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and 
     });
     update({
       ...words,
+      at: new Date(Date.now() - 60_000).toISOString(),
       outcome: "booked ".repeat(100),
       said: "book the dentist",
       state: "done",
-      title: "Dentist",
     });
     ({ json } = await rpc(bearer, "tools/call", {
       arguments: {},
@@ -314,7 +314,7 @@ test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and 
   );
   expect(goals).toBe("1. Be well.");
   // An open row stays whole; a closed one is cut to four fields.
-  expect(tasks[0].steps).toEqual([]);
+  expect([tasks[0].quote, tasks[0].steps]).toEqual(["call the bank", []]);
   expect(Object.keys(tasks[1]).sort()).toEqual([
     "id",
     "note",
@@ -322,6 +322,7 @@ test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and 
     "title",
   ]);
   expect(tasks[1].note.length).toBeLessThanOrEqual(200);
+  expect(tasks[1].title).toBe("book the dentist");
   const refused = await rpc(bearer, "tools/call", {
     arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
     name: "task",

@@ -380,7 +380,8 @@ function buildServer() {
               id: t.id,
               note: clip(t.note ?? "", 200),
               state: t.state,
-              title: t.title,
+              // A spoken ask has no title: its words name it.
+              title: t.title ?? clip(t.quote, 120),
             }
           : t
       ),
