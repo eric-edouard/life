@@ -12,7 +12,7 @@ import {
   type Unit,
 } from "../schema";
 import { DATA, OWNER, type Truth } from "../truth";
-import { levelsWith, pagedNow } from "./closeness";
+import { levelsWith, pagedNow, personallyClose } from "./closeness";
 import {
   appendJsonl,
   CORRECTIONS,
@@ -59,13 +59,15 @@ import { observationsNow, readPeople } from "./who";
 // lines or fixes lines whose observations changed, and code ages lines into History and keeps the page within
 // its word budget. Code checks every citation. Nothing is sent.
 
-const PAGES_PROMPT = "memory-pages.v4";
+const PAGES_PROMPT = "memory-pages.v5";
 /** Characters of observations per call; a new page over a busy area gets its newest ones. */
 const BUDGET = 90_000;
 const HOLD_MAX = 1500;
 /** "Often talk about" counts the topics of the units of this many days. */
 const OFTEN_DAYS = 90;
 interface Target {
+  /** Close to him personally: the page has Between us. */
+  close: boolean;
   hold: string;
   name: string;
   /** Observations whose home is this page (salience 2+, replaced ones included), newest first. */
@@ -129,7 +131,8 @@ const exists = (path: string) => Bun.file(path).exists();
 async function targets(
   observations: (Observation & { unmapped: boolean })[],
   truth: Truth,
-  inferred: InferredPerson[]
+  inferred: InferredPerson[],
+  close: ReadonlySet<string>
 ) {
   const paged = await pagedNow(truth);
   const { homes } = placed(observations, truth, paged);
@@ -162,12 +165,19 @@ async function targets(
       const person = named.get(ref);
       const homed = newest(ref);
       return person && (homed.length > 0 || (await exists(pagePath(ref))))
-        ? { ...person, observations: homed, path: pagePath(ref), ref }
+        ? {
+            ...person,
+            close: close.has(ref),
+            observations: homed,
+            path: pagePath(ref),
+            ref,
+          }
         : null;
     })
   );
   const places = truth.areas.map(
     (a): Target => ({
+      close: false,
       hold: areaHold(
         a,
         truth.projects.filter((p) => p.area === a.id)
@@ -273,7 +283,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   ].filter(
     (l, i, all) => all.findIndex((x) => bare(x.text) === bare(l.text)) === i
   );
-  const layout = layoutOf(t.ref);
+  const layout = layoutOf(t.ref, t.close);
   const old = prev && !r.rebuild ? generated(prev) : perSection<PageLine>();
   const settled = settle(old, known);
   const fresh = visible.filter(
@@ -298,6 +308,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   const write = (page: Sections, by: PageMeta["madeBy"], built: string) =>
     renderPage({
       hold: t.hold,
+      layout,
       meta: {
         built,
         madeBy: by,
@@ -463,8 +474,10 @@ export async function pages(opts: PagesOptions) {
   ]);
   const { inferred, truth } = people;
   const current = await observationsNow(people);
-  const context = refContext(truth, inferred);
-  const all = await targets(current.observations, truth, inferred);
+  const levels = levelsWith(current.standing.corrections);
+  const close = personallyClose(levels);
+  const context = refContext(truth, inferred, close);
+  const all = await targets(current.observations, truth, inferred, close);
   const { only } = opts;
   const chosen = only
     ? all.filter(
@@ -516,11 +529,10 @@ export async function pages(opts: PagesOptions) {
     ...built.flatMap((b) => b.corrections),
     ...gone.flatMap((g) => newCorrections(g.meta.page, g, r)),
   ]);
-  const judged = levelsWith(r.standing.corrections);
   return {
     dropped: gone.map(
       (g) =>
-        `${g.meta.name} (${judged.get(g.meta.page)?.why ?? (g.meta.page.startsWith("area:") ? "its area is gone" : "never judged: little 1:1 contact")})`
+        `${g.meta.name} (${levels.get(g.meta.page)?.why ?? (g.meta.page.startsWith("area:") ? "its area is gone" : "never judged: little 1:1 contact")})`
     ),
     ...step.end({
       corrections: built.reduce((n, b) => n + b.corrections.length, 0),

@@ -57,7 +57,7 @@ tags for what the unit is about, such as `philosophy`, `ai`, `construction` (cod
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's salience at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
-the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, his own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` since, which also says who the day's unknown people are) is unchanged; a day is read again when one of its units has no current verdict by that prompt. The chat's own project decides an `areaHint`
+the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, his own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` since 20 Oct, which weighs what goes on between him and the people close to him) is unchanged; a day is read again when one of its units has no current verdict by that prompt. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
 not judged yet; a dropped unit's lines are ignored.
 
@@ -77,7 +77,7 @@ ID cards, invoices, plans.
 ## moments/YYYY-MM-DD.jsonl
 
 What happened, or is planned, in the owner's life: one line per moment (a trip, a dinner, a flight, a coffee), written by
-`bun life memory moments` (prompt `memory-moments.v3`) from one day of units read together across every channel, in
+`bun life memory moments` (prompt `memory-moments.v4`) from one day of units read together across every channel, in
 time order, with the moments of the days before that may continue into it (the same call writes the day's verdicts).
 A day's file is rewritten when the day is read again; git keeps the old ones. A moment a later day sees again keeps its id there, and the latest
 day's line is its current state (a plan that happened, or was cancelled), and its units are those of all its days'
@@ -105,7 +105,10 @@ units, searchable, but is not read in full). From `memory-extract.v3` a kept uni
 (every unit of it worth a searchable line), and with the earlier facts about the moment's people, which it may retire.
 From `memory-extract.v4` a moment is read across its days, from the day before its first unit to read and cut
 between days to fit a call (a unit in several moments with the one reaching furthest forward, of those the smallest),
-and what the lines show ended is written as what happened, not as still open.
+and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
+`person` type also holds what is between him and someone, in someone's name, and the earlier facts it may retire
+include the `person` facts of the last year about the people close to him (`priorFor`). The model context marks those
+people `close: true` (`refContext`, `personallyClose`: a personal level inner or regular).
 
 | Field | Meaning |
 |---|---|
@@ -187,7 +190,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 |---|---|---|
 | `wrong` | `observations: [obs_…, mom_…]`, optional `page` | Never shown (pages, search; a moment: every read, and the next days' reading), or off that page only |
 | `not-important` | `observations`, optional `page` | Same; a true fact he does not want |
-| `keep-mine` | `page`, `section` (`now`, `history`; on his own page also `views`, `health`), `text` | The line stays on the page as written |
+| `keep-mine` | `page`, `section` (`now`, `history`; on his own page also `views`, `health`; on a close person's `bond`), `text` | The line stays on the page as written |
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
@@ -214,6 +217,10 @@ Sections, in order:
   habits and tastes, `- <text> [obs_…]`, from what he said himself (the prompt's rule: `speaker` is not yet reliable
   enough for code to check it); never ages: a line leaves when it is done, replaced or his.
 - **Health** (his own page only): as Now, but a line ages into History after 60 days.
+- **Between us** (the page of someone close to him personally, `personallyClose`): what lasts between them, the
+  relationship, agreements, boundaries, turning points, each view in its speaker's name; ages into History after 365
+  days. `person` shows each line's first and latest evidence day. When the person is no longer close, its lines move
+  to History.
 - **Now**: where things stand, `- <text> [obs_…, …]`. Every line cites observations and at least one is under 21 days
   old (`SECTION` in `page.ts`); with none it ages into History.
 - **History**: `- <day> · <text> [obs_…]`, newest first, oldest last; a finished or aged line keeps its words and is
@@ -234,7 +241,7 @@ because it only narrows a list he reads: his to-do in a voice lifelog left unnam
   observations, move a line to History, rewrite a line one of whose observations was removed or replaced, or rewrite a
   line to take in new observations while keeping its own; code rejects any other change.
 - **Aging.** A Now line with no observation newer than 21 days moves to History by code (Health: 60 days).
-- **800 words** per page (his own: 2,000), hold included: the live lines with the oldest evidence move to History
+- **800 words** per page (a close person's: 1,100; his own: 2,000), hold included: the live lines with the oldest evidence move to History
   beyond that (those of a section that ages first, his views last), and History loses its oldest.
 - **Conflicts** are settled by extraction, where the evidence is: a moment's lines retire the earlier facts they show
   are no longer true (`supersessions.jsonl`). The owner's lines win over everything. A `conditional` observation is

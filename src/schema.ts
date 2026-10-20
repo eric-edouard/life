@@ -560,7 +560,13 @@ const Correcting = {
 };
 
 /** A page's sections, in page order (`SECTIONS`, page.ts): views and health are on the owner's page only. */
-export const PageSection = z.enum(["views", "health", "now", "history"]);
+export const PageSection = z.enum([
+  "views",
+  "health",
+  "bond",
+  "now",
+  "history",
+]);
 
 /**
  * memory/corrections.jsonl: what the owner told Life, append-only, written by a Claude session when he says it in
