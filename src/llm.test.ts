@@ -1,8 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { askOnce, extractJson, llmOverride, readEngine } from "./llm";
+import { LOG_DIR } from "./log";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
   expect(extractJson('{"a": 1}')).toEqual({ a: 1 });
@@ -39,6 +40,11 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
     effort: "high",
     engine: "openrouter",
     model: "xiaomi/mimo-v2.6-pro@deepinfra",
+  });
+  expect(llmOverride("openrouter/x/y", copy)).toEqual({
+    effort: undefined,
+    engine: "openrouter",
+    model: "x/y",
   });
   expect(() => llmOverride("opus", copy)).toThrow();
   expect(() => llmOverride("gemini/x", copy)).toThrow();
@@ -97,6 +103,13 @@ test("openrouter: pinned, zero retention, no fallback; another host, a cut reply
     });
     reply = { ...reply, provider: "Novita" };
     await expect(ask()).rejects.toThrow("served by Novita");
+    // Refused, yet billed: its cost is in the log.
+    const logged = readdirSync(LOG_DIR).flatMap((f) =>
+      readFileSync(join(LOG_DIR, f), "utf8").trim().split("\n")
+    );
+    expect(logged.findLast((l) => l.includes("served by Novita"))).toContain(
+      '"costUsd":0.01'
+    );
     reply = { ...reply, finish: "length", provider: "DeepInfra" };
     await expect(ask()).rejects.toThrow("stopped (length)");
     reply = { ...reply, status: 429 };

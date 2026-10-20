@@ -1,5 +1,5 @@
-// What every model step shares: run one headless call on the owner's engine, `claude -p` or `codex exec`, getting back
-// its JSON reply, with no tools.
+// What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
+// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter.
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -204,6 +204,9 @@ interface Answer {
   fields?: Record<string, unknown>;
   text: string;
 }
+/** A call that answered but is refused: what it cost is still logged. */
+const refused = (message: string, fields: Answer["fields"]) =>
+  Object.assign(new Error(message), { fields });
 
 /**
  * A CLI run to its end in an empty folder outside the repo (inside it, claude loads the project's auto-memory and
@@ -263,17 +266,18 @@ async function askClaude({ dir, images, input, llm, system }: Call) {
   const res = ClaudeResult.parse(
     JSON.parse(stdout.trim().split("\n").at(-1) ?? "")
   );
-  if (res.is_error) {
-    throw new Error(`claude reported an error: ${res.result.slice(-300)}`);
-  }
-  return {
-    fields: {
-      costUsd: res.total_cost_usd,
-      turns: res.num_turns,
-      usage: res.usage,
-    },
-    text: res.result,
+  const fields = {
+    costUsd: res.total_cost_usd,
+    turns: res.num_turns,
+    usage: res.usage,
   };
+  if (res.is_error) {
+    throw refused(
+      `claude reported an error: ${res.result.slice(-300)}`,
+      fields
+    );
+  }
+  return { fields, text: res.result };
 }
 
 async function askCodex({ dir, images, input, llm, system }: Call) {
@@ -311,8 +315,8 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
 }
 
 /**
- * One call through OpenRouter, the bench's alone (`llmOverride`): pinned to the host after `@`, in fp8 (the same
- * weights for every candidate), routed only to endpoints that keep nothing (`zdr`, `data_collection: deny`), no
+ * One call through OpenRouter, the bench's alone (`llmOverride`): pinned to the host after `@`, in fp8 (each bench
+ * host's endpoint for its model is, 20 Oct 2026), routed only to endpoints that keep nothing (`zdr`, `data_collection: deny`), no
  * fallback, every parameter honored, and refused when another host served it. No tools; the key
  * (OPENROUTER_API_KEY in .env) is read here only.
  */
@@ -359,20 +363,21 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
   }
   const reply = OpenRouterReply.parse(JSON.parse(text));
   const [choice] = reply.choices;
+  const fields = {
+    costUsd: reply.usage.cost,
+    host: reply.provider,
+    usage: reply.usage,
+  };
   if (slug(reply.provider) !== slug(host)) {
-    throw new Error(`openrouter: served by ${reply.provider}, not ${host}`);
+    throw refused(
+      `openrouter: served by ${reply.provider}, not ${host}`,
+      fields
+    );
   }
   if (choice?.finish_reason !== "stop" || !choice.message.content) {
-    throw new Error(`openrouter: stopped (${choice?.finish_reason})`);
+    throw refused(`openrouter: stopped (${choice?.finish_reason})`, fields);
   }
-  return {
-    fields: {
-      costUsd: reply.usage.cost,
-      host: reply.provider,
-      usage: reply.usage,
-    },
-    text: choice.message.content,
-  };
+  return { fields, text: choice.message.content };
 }
 
 const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
@@ -409,20 +414,23 @@ export async function askOnce(opts: {
   await Bun.write(join(dir, "input.json"), JSON.stringify(opts.input, null, 1));
   const started = performance.now();
   const ms = () => Math.round(performance.now() - started);
+  let fields: Answer["fields"];
   try {
-    const { fields, text } = await RUNNERS[llm.engine]({
+    const answer = await RUNNERS[llm.engine]({
       dir,
       images: opts.images ?? [],
       input: opts.input,
       llm,
       system,
     });
-    const json = extractJson(text);
+    ({ fields } = answer);
+    const json = extractJson(answer.text);
     log("model.run", { ...made, ...fields, ms: ms(), ok: true });
     return json;
   } catch (e) {
     log("model.run", {
       ...made,
+      ...(fields ?? (e as { fields?: Answer["fields"] }).fields),
       error: (e as Error).message,
       ms: ms(),
       ok: false,
