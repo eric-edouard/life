@@ -276,8 +276,8 @@ function withContext(events: SourceEvent[], query: string) {
 }
 
 /**
- * Messages of the last `days[source]` days (and inside `range`) from each source, oldest first, without Life's own
- * chat, and the sources that could not be read.
+ * Messages from each source inside `range`, oldest first, without Life's own chat, and the sources that could not be
+ * read. With no `from`, a source reads its last `days[source]` days before the end.
  */
 function readChats(
   days: Record<string, number>,
@@ -285,13 +285,10 @@ function readChats(
   sources: Partial<typeof SEARCHED>
 ) {
   const end = range.to ? new Date(range.to) : new Date();
-  const startOf = (source: string) => {
-    const back = (days[source] ?? 0) * DAY_MS;
-    const floor = new Date(Math.max(0, end.getTime() - back));
-    return range.from && new Date(range.from) > floor
+  const startOf = (source: string) =>
+    range.from
       ? new Date(range.from)
-      : floor;
-  };
+      : new Date(Math.max(0, end.getTime() - (days[source] ?? 0) * DAY_MS));
   const failed: string[] = [];
   const stop = end.toISOString();
   const read = Object.entries(sources).flatMap(([name, from]) => {
@@ -333,12 +330,20 @@ export async function chatHits(
 }
 
 /**
- * `bun life memory chats --who <name|handle> | --chat <id> [--from d] [--to d]`: the latest 200 messages of the last 7
- * days at most, from WhatsApp and Beeper's archives and iMessage, today included. Messages deleted for everyone show
- * their text marked (deleted). `--who` matches a chat's name or id or a sender, by a name or handle on the map too.
+ * `bun life memory chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant]`: the latest 200
+ * messages inside the range, from WhatsApp and Beeper's archives and iMessage, today included; with no `from`, the
+ * last 90 days for `--who` and 7 for `--chat`. `before` (exclusive) pages back: each answer names the next one.
+ * Messages deleted for everyone show their text marked (deleted). `--who` matches a chat's name or id or a sender, by
+ * a name or handle on the map too.
  */
 export async function chatsOf(
-  o: { chat?: string; from?: string; to?: string; who?: string },
+  o: {
+    before?: string;
+    chat?: string;
+    from?: string;
+    to?: string;
+    who?: string;
+  },
   sources: Partial<typeof CHATS> = CHATS
 ) {
   if (!(o.who || o.chat)) {
@@ -346,9 +351,15 @@ export async function chatsOf(
   }
   const people = await readPeople();
   const needles = o.who ? needlesOf(o.who, people) : [];
+  const range = dayRange(o.from, o.to);
+  const before = o.before ? new Date(o.before).toISOString() : undefined;
+  const days = o.who ? SEARCH_DAYS : CHAT_DAYS;
   const { end, events, failed, start } = readChats(
-    o.who && !o.from ? SEARCH_DAYS : CHAT_DAYS,
-    dayRange(o.from, o.to),
+    days,
+    {
+      ...range,
+      to: before && !(range.to && range.to < before) ? before : range.to,
+    },
     sources
   );
   const shown = events.filter((e) => {
@@ -361,13 +372,21 @@ export async function chatsOf(
     const hay = ` ${normalize(`${e.chat} ${e.chatName ?? ""} ${e.fromMe ? "" : e.sender}`)} `;
     return needles.some((n) => hay.includes(` ${n} `));
   });
+  const page = shown.slice(-PAGE);
   return asData([
     `${localDate(start.toISOString())} to ${localDate(end.toISOString())} (the latest ${PAGE} messages)`,
+    ...(o.from
+      ? []
+      : [
+          `(no \`from\`: ${days.whatsapp} days; give \`from\` to read further back)`,
+        ]),
     ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
     ...(shown.length > PAGE
-      ? [`(${shown.length - PAGE} earlier not shown)`]
+      ? [
+          `(${shown.length - PAGE} earlier not shown: the same call with \`before\` ${page[0]?.at})`,
+        ]
       : []),
-    ...chatLinesOf(shown.slice(-PAGE), people),
+    ...chatLinesOf(page, people),
   ]);
 }
 
