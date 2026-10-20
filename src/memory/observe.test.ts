@@ -11,8 +11,9 @@ import {
   type Unit,
   type Unresolved,
 } from "../schema";
-import { speakersByUnit, toExtract } from "./extract";
+import { peopleNow, toExtract } from "./extract";
 import { ledger, unit, verdict } from "./fixtures";
+import { rereadAt } from "./ledger";
 import { locate, parseObservations, type Source } from "./observe";
 import { buildIndex } from "./search";
 import { areaLookup, type Built } from "./units";
@@ -394,11 +395,11 @@ test("the cache: a unit is read again only when its content or the prompt change
   ).toHaveLength(1);
 });
 
-test("identity is part of the cache: a unit whose people resolve to someone else since is read again, once", () => {
+test("identity is part of the cache: a unit read as someone else, or that he said was read wrong, is read again, once", () => {
   const sam = unit({ id: "u_00000000001a", people: ["person:lou"] });
   const verdicts = ledger([verdict(sam, { salience: 3 })]);
-  const readLine = (readAs?: string[]) => ({
-    at: "2026-10-10T02:00:00.000Z",
+  const readLine = (readAs?: string[], at = "2026-10-10T02:00:00.000Z") => ({
+    at,
     observations: 1,
     ...(readAs ? { people: readAs } : {}),
     prompt: "memory-extract.v1",
@@ -409,36 +410,43 @@ test("identity is part of the cache: a unit whose people resolve to someone else
   });
   const pending = (
     ledgerLines: ReturnType<typeof readLine>[],
-    spoke = new Map<string, string[]>()
+    rereads: [string, string][] = []
   ) =>
-    toExtract([built(sam)], verdicts, ledgerLines, "memory-extract.v1", spoke)
-      .pending.length;
-  // Read as someone else, now Lou: read again.
+    toExtract([built(sam)], verdicts, ledgerLines, "memory-extract.v1", {
+      rereads: new Map(rereads),
+    }).pending.length;
+  // Read as Sam, now Lou: read again; once read as Lou, cached.
   expect(pending([readLine(["person:sam"])])).toBe(1);
-  // Read as Lou already: cached, so it is read once.
   expect(pending([readLine(["person:sam"]), readLine(["person:lou"])])).toBe(0);
-  // A line from before `people` was recorded: its observations' speakers decide.
-  expect(pending([readLine()], new Map([[sam.id, ["person:sam"]]]))).toBe(1);
-  expect(pending([readLine()], new Map([[sam.id, ["person:lou"]]]))).toBe(0);
+  // A line from before `people` was recorded counts as read as today.
   expect(pending([readLine()])).toBe(0);
+  // He said it was read wrong after its last reading: read again; a reading after his word settles it.
+  expect(pending([readLine()], [[sam.id, "2026-10-21T00:00:00.000Z"]])).toBe(1);
+  expect(
+    pending(
+      [readLine(), readLine(["person:lou"], "2026-10-22T02:00:00.000Z")],
+      [[sam.id, "2026-10-21T00:00:00.000Z"]]
+    )
+  ).toBe(0);
 });
 
-test("who said a unit's observations: the owner aside, folds applied", () => {
-  const spokenBy = (unitId: string, by: string) =>
-    ({ speaker: by, unit: unitId }) as Parameters<
-      typeof speakersByUnit
-    >[0][number];
-  const bySpeaker = speakersByUnit(
-    [
-      spokenBy("u_1", "person:me"),
-      spokenBy("u_1", "person:inf-sam"),
-      spokenBy("u_1", "unknown:+1555"),
-      spokenBy("u_2", "person:lou"),
-    ],
-    (r) => (r === "person:inf-sam" ? "person:sam" : r)
-  );
-  expect(bySpeaker.get("u_1")).toEqual(["person:sam"]);
-  expect(bySpeaker.get("u_2")).toEqual(["person:lou"]);
+test("a unit's people as of today: folds applied, deduplicated, in one order", () => {
+  const u = unit({ people: ["person:zed", "person:inf-sam", "person:sam"] });
+  expect(
+    peopleNow(u, (r) => (r === "person:inf-sam" ? "person:sam" : r))
+  ).toEqual(["person:sam", "person:zed"]);
+});
+
+test("his reread corrections: the latest word on each unit", () => {
+  const word = (ids: string[], when: string) =>
+    ({ at: when, kind: "reread", schemaVersion: 1, units: ids }) as Correction;
+  const at = rereadAt([
+    word(["u_00000000001a", "u_00000000001b"], "2026-10-21T00:00:00.000Z"),
+    word(["u_00000000001a"], "2026-10-22T00:00:00.000Z"),
+    word(["u_00000000001b"], "2026-10-20T00:00:00.000Z"),
+  ]);
+  expect(at.get("u_00000000001a")).toBe("2026-10-22T00:00:00.000Z");
+  expect(at.get("u_00000000001b")).toBe("2026-10-21T00:00:00.000Z");
 });
 
 test("the index is rebuilt from observations: search ignores accents, links answer by entity", async () => {
