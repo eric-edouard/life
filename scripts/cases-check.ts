@@ -4,6 +4,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { readJson } from "../src/memory/ledger";
 import { DATA } from "../src/truth";
 
 const CASES = join(DATA, "docs/evals/cases");
@@ -33,19 +34,14 @@ const textOf = (path: string) =>
     ? readFileSync(path, "utf8")
     : null;
 
-/** Its JSON, or null when it is none. */
-const jsonOf = (text: string) => {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return null;
-  }
-};
-
 const problems = readdirSync(CASES)
   .filter((f) => f.endsWith(".json"))
   .flatMap((file) => {
-    const parsed = Case.safeParse(jsonOf(textOf(join(CASES, file)) ?? ""));
+    const json = readJson<unknown>(join(CASES, file));
+    if (json === undefined) {
+      return [`${file}: not JSON`];
+    }
+    const parsed = Case.safeParse(json);
     if (!parsed.success) {
       return [`${file}: ${z.prettifyError(parsed.error)}`];
     }
