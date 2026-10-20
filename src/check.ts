@@ -7,6 +7,7 @@ import {
   ORIGIN,
   RESOURCE,
   SCOPE,
+  UNREACHABLE,
   type Verify,
 } from "./auth";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
@@ -79,11 +80,14 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
     const token = z
       .object({ access_token: z.string(), expires_in: z.number() })
       .safeParse(res.ok ? await res.json() : null);
-    if (
-      !token.success ||
-      "refusal" in (await verify(token.data.access_token))
-    ) {
+    if (!token.success) {
       return text("Not signed in as the owner.", 403);
+    }
+    const whose = await verify(token.data.access_token);
+    if ("refusal" in whose) {
+      return whose.refusal === "unreachable"
+        ? text(UNREACHABLE, 503)
+        : text("Not signed in as the owner.", 403);
     }
     return redirect("/check/", [
       cookie(SESSION, token.data.access_token, token.data.expires_in),
@@ -151,6 +155,9 @@ export function createCheck(verify: Verify, lifelog: typeof fetch = fetch) {
     if ("refusal" in whose) {
       if (whose.refusal === "forbidden") {
         return text("forbidden", 403);
+      }
+      if (whose.refusal === "unreachable") {
+        return text(UNREACHABLE, 503);
       }
       return pathname === "/check/" ? login() : text("sign in again", 401);
     }

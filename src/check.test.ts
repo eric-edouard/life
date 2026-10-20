@@ -55,6 +55,8 @@ const get = async (path: string, cookie = "", init: RequestInit = {}) =>
   )) as Response;
 afterAll(() => rm(RATINGS, { force: true }));
 
+const IMPORT = /@import url\("([^"]+)"/;
+
 const session = async (sub = "owner") => `__Host-life=${await token(sub)}`;
 
 test("nothing of his without the owner's token: the page sends him to sign in, the data says 401, another account 403", async () => {
@@ -77,6 +79,37 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
   const year = new Date().getFullYear() === 2026 ? "" : " 2026";
   expect(groups[0]?.statements[0]?.asOf).toBe(`12 Oct${year}`);
   expect(await check.handle(new Request(`${ORIGIN}/mcp`))).toBeNull();
+});
+
+test("the page's policy lets in the fonts its stylesheet imports", async () => {
+  const css = await Bun.file(
+    new URL("../assets/check/check.css", import.meta.url)
+  ).text();
+  const host = new URL(css.match(IMPORT)?.[1] ?? "").origin;
+  expect(
+    (await get("/check/")).headers.get("content-security-policy")
+  ).toContain(host);
+});
+
+test("lifelog's keys out of reach: the page and the sign-in answer 503, never a sign-in or a refusal", async () => {
+  const down = createCheck(
+    async () => ({ refusal: "unreachable", why: "request timed out" }),
+    lifelog
+  );
+  const at = async (path: string, jar = "") =>
+    (await down.handle(
+      new Request(`${ORIGIN}${path}`, { headers: { cookie: jar } })
+    )) as Response;
+  expect((await at("/check/", await session())).status).toBe(503);
+  const login = await at("/check/login");
+  const state = new URL(login.headers.get("location") ?? "").searchParams.get(
+    "state"
+  );
+  const loginCookie =
+    (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+  expect(
+    (await at(`/check/callback?code=good&state=${state}`, loginCookie)).status
+  ).toBe(503);
 });
 
 test("sign-in: PKCE with a state cookie; only the owner's token becomes the session cookie", async () => {

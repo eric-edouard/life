@@ -9,6 +9,7 @@ import {
   RESOURCE,
   type Refused,
   SCOPE,
+  UNREACHABLE,
   type Verify,
 } from "./auth";
 import {
@@ -18,6 +19,7 @@ import {
   Unsubscribe,
   unsubscribe,
 } from "./events";
+import { titleOf } from "./hear";
 import { text } from "./http";
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
@@ -29,8 +31,8 @@ import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
-import { sealed, taskList, Update, update } from "./tasks";
-import { ROOT } from "./truth";
+import { closed, sealed, taskList, Update, update } from "./tasks";
+import { loadMe, ROOT } from "./truth";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; the Cloudflare tunnel forwards
 // life.ericedouard.com to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
@@ -369,9 +371,23 @@ function buildServer() {
   tool(
     server,
     "tasks",
-    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; each open task (an ask of his), and those closed in the last day, with its state, deadline, steps, last note and his steers since your last update. A task's whole history: `changes` with types action.update, action.nudge, action.steer.",
+    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; his `goals` (truth/me.md, his priority order); each open task (an ask of his) with its state, deadline, steps and last note, and those closed in the last day as id, state, title and the start of their last note. A task's whole history: `changes` with type action.update (action.nudge and action.steer until 20 Oct).",
     z.object({}),
-    async () => ({ ...sealed(), tasks: taskList() })
+    async () => ({
+      ...sealed(),
+      goals: (await loadMe()).goals,
+      // Closed rows stay short (the nightly's `taskList` keeps them whole): what was done, not how.
+      tasks: taskList().map((t) =>
+        closed(t.state)
+          ? {
+              id: t.id,
+              note: clip(t.note ?? "", 200),
+              state: t.state,
+              title: titleOf(t),
+            }
+          : { ...t, title: titleOf(t) }
+      ),
+    })
   );
   tool(
     server,
@@ -417,15 +433,20 @@ export function createMcp(verify: Verify) {
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     return { ...(await verify(token)), token };
   }
-  /** The 401 or 403 that answers a refused token. */
-  const denied = ({ refusal, token }: Refused & { token: string }) =>
-    refusal === "forbidden"
-      ? text("forbidden", 403)
-      : text("unauthorized", 401, {
-          "WWW-Authenticate": token
-            ? `${CHALLENGE}, error="invalid_token"`
-            : CHALLENGE,
-        });
+  /** The 401, 403 or 503 (lifelog's keys out of reach) that answers a refused token. */
+  function denied({ refusal, token }: Refused & { token: string }) {
+    if (refusal === "forbidden") {
+      return text("forbidden", 403);
+    }
+    if (refusal === "unreachable") {
+      return text(UNREACHABLE, 503);
+    }
+    return text("unauthorized", 401, {
+      "WWW-Authenticate": token
+        ? `${CHALLENGE}, error="invalid_token"`
+        : CHALLENGE,
+    });
+  }
 
   async function handle(req: Request): Promise<Response | null> {
     const { pathname } = new URL(req.url);

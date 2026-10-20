@@ -2,21 +2,23 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
-import { deliveredLines, parse } from "./events";
+import { parse } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
 import { clip } from "./memory/units";
-import { Action, type Instruction, type TASK_LINES } from "./schema";
+import { localDate } from "./memory/zones";
+import { Action, type Instruction } from "./schema";
 import { ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
-// done or dropped. Its own lines: Atlas's updates (the connector's `task`), Life's nudges and his steers (src/board.ts).
+// done or dropped. Its own lines: Atlas's updates (the connector's `task`); Life's nudges and his steers (until 20 Oct) are
+// only history. What needs him is `escalation`, emailed once (`chase`, src/board.ts).
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
-/** An unclaimed ask is nudged 30 min after it was recorded (Atlas picks events up 5 to 22 min late), nudges as far apart. */
-const NUDGE_MS = 30 * MIN;
+/** An ask is due to be claimed 30 min after it was recorded (Atlas picks events up 5 to 22 min late). */
+const CLAIM_MS = 30 * MIN;
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -71,41 +73,37 @@ export function ask(...a: Parameters<typeof askLine>) {
   return old ?? action;
 }
 
-const lineOf = (
+/** Atlas's update of a task, as a ledger line. */
+const updateLine = (
   task: string,
-  kind: (typeof TASK_LINES)[number],
   after: Action["after"],
   now: number
 ): Action => ({
   after,
   at: iso(now),
-  id: actionId(`${task}@${iso(now)}`, kind, ""),
-  kind,
-  madeBy: kind === "update" ? "connector" : "watch",
+  id: actionId(`${task}@${iso(now)}`, "update", ""),
+  kind: "update",
+  madeBy: "connector",
   result: "ok",
   schemaVersion: 1,
   target: task,
-  why: { nudge: "late", steer: "he changed the board", update: "Atlas" }[kind],
+  why: "Atlas",
 });
-
-/** Appends one of a task's own lines (synchronous: two runs cannot both claim a task). */
-export const taskLine = (...a: Parameters<typeof lineOf>) =>
-  appendJsonl(ACTIONS, Action, [lineOf(...a)]);
 
 export interface Task {
   ask: Action & { instruction: Instruction };
-  /** Its own lines in ledger order; `delivered`: the watcher has sent it (or passed it over). */
-  lines: (Action & { delivered: boolean })[];
+  /** Its own lines in ledger order. */
+  lines: Action[];
 }
 
 /** The ledger as tasks: each ask with its own lines. */
-export function tasksOf(lines = linesOf(ACTIONS), delivered = 0) {
+export function tasksOf(lines = linesOf(ACTIONS)) {
   const tasks = new Map<string, Task>();
-  for (const [i, a] of lines.map(parse).entries()) {
+  for (const a of lines.map(parse)) {
     if (a?.kind === "ask" && a.instruction) {
       tasks.set(a.id, { ask: { ...a, instruction: a.instruction }, lines: [] });
     } else if (a) {
-      tasks.get(a.target)?.lines.push({ ...a, delivered: i < delivered });
+      tasks.get(a.target)?.lines.push(a);
     }
   }
   return [...tasks.values()];
@@ -161,67 +159,79 @@ export async function timings(
     });
 }
 
-/**
- * Where a task stands: its last update (`end`), deadline (an open one's: 30 min after it was recorded), steps; `nudge`:
- * why it is nudged now (the one rule: past its deadline, 30 min after the last nudge was delivered, until 3 delivered
- * ones go unanswered).
- */
-export function standing(t: Task, now = Date.now()) {
+/** Where a task stands: its last update (`end`), deadline (an open one's: 30 min after it was recorded), steps. */
+export function standing(t: Task) {
   const updates = t.lines.filter((l) => l.kind === "update");
   const end: Partial<Update> = updates.at(-1)?.after ?? {};
   const since = updates.at(-1)?.at ?? t.ask.at;
   const state = end.state ?? ("open" as State);
   const deadline = updates.length
     ? end.deadline
-    : iso(Date.parse(since) + NUDGE_MS);
-  const nudges = t.lines.filter((l) => l.kind === "nudge");
-  const prev = nudges.at(-1);
-  const unanswered = nudges.filter((n) => n.delivered && n.at > since).length;
+    : iso(Date.parse(since) + CLAIM_MS);
   const ends = updates.map((u) => Date.parse(`${u.after.deadline}`));
-  const late =
-    !closed(state) &&
-    Date.parse(deadline ?? "") <= now &&
-    unanswered < 3 &&
-    (!prev || (prev.delivered && now - Date.parse(prev.at) >= NUDGE_MS));
-  const why =
-    state === "open"
-      ? "not claimed 30 min after the ask"
-      : `${state} past its deadline`;
   return {
     deadline,
     end,
     // Updates that moved the deadline later.
     extensions: ends.filter((d, i) => d > (ends[i - 1] ?? d)).length,
-    nudge: late ? why : null,
-    nudges: nudges.length,
     since,
     state,
-    /** His steers since Atlas's last update. */
-    steers: t.lines.filter((l) => l.kind === "steer" && l.at > since),
     steps: (updates.findLast((u) => u.after.steps)?.after.steps ??
       []) as Step[],
-    unanswered,
     /** Atlas's last word: the outcome or reason once closed. */
     word: end.outcome ?? end.reason ?? end.question ?? end.note,
   };
 }
 
-/** Why he must look at a task now (its item goes to "Needs you" with a due), or null. */
-export function escalation(t: Task, now: number, live: boolean) {
-  const { end, since, state, unanswered } = standing(t, now);
+/** Closed over a day ago: out of the lists, and its board item left to him. */
+export const settled = (s: { since: string; state: State }, now: number) =>
+  closed(s.state) && now - Date.parse(s.since) > DAY;
+
+const WEEK = "stuck for 7 days";
+const LAPSE = "Atlas isn't receiving asks";
+
+/**
+ * Why he must look at a task now, or null: every task, chat ones too. Atlas waits on him over an hour, let it pass
+ * its deadline (unclaimed 30 min after the ask, or claimed and silent), or it is a week old.
+ */
+export function escalation(t: Task, now: number) {
+  const { deadline, end, since, state } = standing(t);
   if (closed(state)) {
     return null;
-  }
-  if (!live) {
-    return "Atlas isn't receiving asks";
-  }
-  if (unanswered >= 3) {
-    return "Atlas stuck";
   }
   if (state === "waiting-eric" && now - Date.parse(since) > HOUR) {
     return `Atlas needs you: ${end.question}`;
   }
-  return now - Date.parse(t.ask.at) > 7 * DAY ? "stuck for 7 days" : null;
+  if (Date.parse(deadline ?? "") <= now) {
+    return state === "open"
+      ? "not claimed 30 min after the ask"
+      : `${state} past its deadline`;
+  }
+  return now - Date.parse(t.ask.at) > 7 * DAY ? WEEK : null;
+}
+
+/**
+ * What needs him now, each with the key it is emailed once under. With no live subscription, one alert a day (his
+ * day) for all the open tasks; else each task that needs him, keyed by task, cause and Atlas's last update (a
+ * week-old task once, however often Atlas extends it).
+ */
+export function alerts(tasks: Task[], now: number, live: boolean) {
+  if (!live) {
+    const open = tasks.filter((t) => !closed(standing(t).state)).length;
+    return open
+      ? [{ cause: LAPSE, key: `lapse/${localDate(iso(now))}`, open }]
+      : [];
+  }
+  return tasks.flatMap((t) => {
+    const cause = escalation(t, now);
+    if (!cause) {
+      return [];
+    }
+    const since = cause === WEEK ? "" : standing(t).since;
+    return [
+      { cause, key: `task/${t.ask.id}/${cause.split(":")[0]}/${since}`, t },
+    ];
+  });
 }
 
 const Text = z.string().min(1).max(2000);
@@ -264,7 +274,7 @@ export function refusal(t: Task | undefined, u: Update, now: number) {
   if (!t) {
     return `no task ${u.task}`;
   }
-  const { state } = standing(t, now);
+  const { state } = standing(t);
   const missing = REQUIRED[u.state].filter((k) => !u[k]);
   const deadline = Date.parse(u.deadline ?? "");
   if (closed(state)) {
@@ -290,7 +300,7 @@ export function refusal(t: Task | undefined, u: Update, now: number) {
 function made(u: Update, tasks: Task[], now: number) {
   const p = taskOf(tasks, u.parent);
   if (p) {
-    const { state } = standing(p, now);
+    const { state } = standing(p);
     if (!u.title) {
       throw new Error("a split needs title");
     }
@@ -359,7 +369,7 @@ export function written(
   if (u.state === "waiting-eric") {
     after.deadline ??= iso(now + DAY);
   }
-  const line = lineOf(id, "update", after, now);
+  const line = updateLine(id, after, now);
   return { answer: `${id}: ${u.state}`, lines: fresh ? [fresh, line] : [line] };
 }
 
@@ -371,14 +381,14 @@ export function update(u: Update, now = Date.now()) {
 }
 
 /**
- * Every open task, and the ones closed in the last day: the connector's `tasks` (with his steers since Atlas's last
- * update) and the nightly's rows.
+ * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (it cuts the
+ * closed rows short).
  */
 export function taskList(now = Date.now()) {
   return tasksOf().flatMap((t) => {
-    const s = standing(t, now);
+    const s = standing(t);
     const h = Math.floor((now - Date.parse(t.ask.at)) / HOUR);
-    if (closed(s.state) && now - Date.parse(s.since) > DAY) {
+    if (settled(s, now)) {
       return [];
     }
     return {
@@ -388,23 +398,11 @@ export function taskList(now = Date.now()) {
       extensions: s.extensions,
       id: t.ask.id,
       note: s.word,
-      nudges: s.nudges,
       parent: t.ask.after.parent,
       quote: clip(t.ask.instruction.quote, 300),
       state: s.state,
-      steers: s.steers.map((l) => ({ at: l.at, ...l.after })),
       steps: s.steps,
-      title: t.ask.after.title,
+      title: t.ask.after.title as string | undefined,
     };
   });
-}
-
-/** Nudges each task past its deadline. */
-export function nudge(now = Date.now()) {
-  for (const t of tasksOf(undefined, deliveredLines())) {
-    const why = standing(t, now).nudge;
-    if (why) {
-      taskLine(t.ask.id, "nudge", { why }, now);
-    }
-  }
 }

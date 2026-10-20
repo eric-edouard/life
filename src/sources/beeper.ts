@@ -1,7 +1,6 @@
 import { join } from "node:path";
-import { BEEPER } from "../archive";
 import { type SourceEvent, sourceFile } from "../schema";
-import { ARCHIVE, phoneMap, type Row, readArchived } from "./archived";
+import { ARCHIVE, BEEPER, phoneMap, type Row, readArchived } from "./archived";
 
 // LINE, Telegram and Instagram (the chats Beeper Desktop bridges) from Life's own archive. Beeper's API is not used: it
 // only works while Beeper runs and keeps no deleted text.

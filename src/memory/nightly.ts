@@ -1,6 +1,9 @@
 import { checks } from "../actions";
+import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
+import { titleOf } from "../hear";
+import { recentEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
@@ -26,6 +29,7 @@ import { moments } from "./moments";
 import { placed } from "./page";
 import { pages } from "./pages";
 import {
+  archiveFailedReport,
   failureReport,
   lockReport,
   type Mail,
@@ -35,19 +39,13 @@ import {
 import { codeOn, mapRepos } from "./repos";
 import { commitMemory, phases, type RunRecord, record } from "./run";
 import { reindex } from "./search";
-import {
-  clip,
-  daysBefore,
-  gather,
-  lastDays,
-  localTime,
-  type Window,
-} from "./units";
+import { daysBefore, gather, lastDays, localTime, type Window } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { dayStart, localDate, noteZone } from "./zones";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * 3_600_000;
+const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
@@ -64,7 +62,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems.push(`actions.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
-  // A task's own lines (Atlas's updates, nudges, steers) are its rows, not actions.
+  // A task's own lines (Atlas's updates) are its rows, not actions.
   return {
     actions: actions.filter(
       (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
@@ -72,7 +70,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems,
     tasks: tasks.map((t) => ({
       name: `${t.state} · ${t.age}`,
-      relation: `${clip(t.quote, 120)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.nudges} nudges, ${t.extensions} extensions`,
+      relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.extensions} extensions`,
     })),
   };
 }
@@ -83,6 +81,24 @@ function coded(day: string, rec: RunRecord) {
     rec.error(e.message, { step: "memory.nightly.code" });
     return [];
   });
+}
+
+/** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
+export async function archiveLine(since: string) {
+  const lines = await recentEvents(ARCHIVE_LOOKBACK);
+  const still = new Set(openIncidents(lines).values());
+  const listed = lines
+    .filter(
+      (e) =>
+        e.kind === "run.error" &&
+        e.step.startsWith("archive.") &&
+        (e.at >= since || still.has(e))
+    )
+    .map(
+      (e) =>
+        `${e.step.slice("archive.".length)} from ${localTime(e.at)}${still.has(e) ? ", still failing" : ""}: ${String(e.error)}`
+    );
+  return `Archive: ${listed.length > 0 ? `FAILED: ${listed.join("; ")}` : "no failure"}`;
 }
 
 /**
@@ -100,6 +116,14 @@ export async function nightly(days: number, force = false) {
     await sendReport(
       `lock/${held.toISOString()}`,
       lockReport(held.toISOString())
+    );
+  }
+  // Each store failing for an hour: one email per incident and day while it lasts (the key).
+  for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
+    // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
+    await sendReport(
+      `archive/${name}/${e.at}/${localDate(now.toISOString())}`,
+      archiveFailedReport(name, e.at, String(e.error))
     );
   }
   // Each tick is a fresh process: the place to notice he moved (only the Mac's own zone counts, never a TZ variable).
@@ -272,10 +296,12 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     phase.at = "actions";
     const report = await acted(now, rec);
     const commits = await coded(day, rec);
+    const archive = await archiveLine(since);
     phase.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
     mail = successReport(day, rec.ms(), {
       acted: report,
+      archive,
       backup: backupLine(now),
       code: commits,
       extracted,

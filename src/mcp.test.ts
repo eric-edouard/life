@@ -1,8 +1,9 @@
 import { afterAll, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
+  createRemoteJWKSet,
   exportJWK,
   generateKeyPair,
   type JWK,
@@ -11,7 +12,7 @@ import {
 import { ISSUER, ownerTokens, RESOURCE } from "./auth";
 import { LOG_DIR } from "./log";
 import { correct, createMcp } from "./mcp";
-import { linesOf } from "./memory/ledger";
+import { ACTIONS, linesOf } from "./memory/ledger";
 import { placesOf } from "./memory/places";
 import {
   chapter,
@@ -22,6 +23,7 @@ import {
   turn,
 } from "./sources/fixtures";
 import { apply, forward, type Stay } from "./sources/lifelog";
+import { sealed, update } from "./tasks";
 
 const OWNER = "owner-sub";
 const CHALLENGE =
@@ -135,6 +137,52 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
     `${CHALLENGE}, error="invalid_token"`
   );
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
+});
+
+test("lifelog's keys out of reach answer 503, not a refused token; a key it lacks is still the token's fault", async () => {
+  // 20 Oct: a JWKS fetch timing out was reported as an invalid token.
+  const lifelog = Bun.serve({
+    fetch: async ({ url }) => {
+      const { pathname } = new URL(url);
+      if (pathname === "/slow") {
+        await Bun.sleep(1000);
+      }
+      return pathname === "/down"
+        ? new Response("", { status: 502 })
+        : Response.json({ keys: [jwk] });
+    },
+    port: 0,
+  });
+  try {
+    const refusal = async (path: string, kid = "k1") => {
+      const at = ownerTokens({
+        jwks: createRemoteJWKSet(new URL(path, lifelog.url), {
+          timeoutDuration: 100,
+        }),
+        now: () => NOW.getTime(),
+        ownerSub: OWNER,
+      });
+      const bearer = await new SignJWT({ aud: RESOURCE, iss: ISSUER })
+        .setProtectedHeader({ alg: "EdDSA", kid })
+        .setExpirationTime(SECONDS + 60)
+        .sign(privateKey);
+      return (await at(bearer)) as { refusal?: string };
+    };
+    expect((await refusal("/slow")).refusal).toBe("unreachable");
+    expect((await refusal("/down")).refusal).toBe("unreachable");
+    expect((await refusal("/keys", "k2")).refusal).toBe("invalid");
+    expect((await refusal("/keys")).refusal).toBe("forbidden");
+    const down = createMcp(async () => ({ refusal: "unreachable", why: "x" }));
+    const res = await down.handle(
+      new Request(RESOURCE, {
+        headers: { authorization: "Bearer t" },
+        method: "POST",
+      })
+    );
+    expect(res?.status).toBe(503);
+  } finally {
+    lifelog.stop(true);
+  }
 });
 
 test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders` and `task` write but are not destructive, so Atlas runs unattended", async () => {
@@ -280,16 +328,48 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   await res?.body?.cancel();
 });
 
-test("tasks hands out the playbook, docs/atlas.md, with its seal; task refuses another seal with both", async () => {
+test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
-  const { json } = await rpc(bearer, "tools/call", {
-    arguments: {},
-    name: "tasks",
-  });
-  const { playbook, seal } = json.result.structuredContent;
+  const now = new Date().toISOString();
+  const words = { at: now, claim: true, seal: sealed().seal };
+  let json: Awaited<ReturnType<typeof rpc>>["json"];
+  try {
+    update({
+      ...words,
+      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      note: "on it",
+      said: "call the bank",
+      state: "working",
+    });
+    update({
+      ...words,
+      at: new Date(Date.now() - 60_000).toISOString(),
+      outcome: "booked ".repeat(100),
+      said: "book the dentist",
+      state: "done",
+    });
+    ({ json } = await rpc(bearer, "tools/call", {
+      arguments: {},
+      name: "tasks",
+    }));
+  } finally {
+    rmSync(ACTIONS, { force: true });
+  }
+  const { goals, playbook, seal, tasks } = json.result.structuredContent;
   expect(playbook).toBe(
     readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
   );
+  expect(goals).toBe("1. Be well.");
+  // An open row stays whole; a closed one is cut to four fields.
+  expect([tasks[0].quote, tasks[0].steps]).toEqual(["call the bank", []]);
+  expect(Object.keys(tasks[1]).sort()).toEqual([
+    "id",
+    "note",
+    "state",
+    "title",
+  ]);
+  expect(tasks[1].note.length).toBeLessThanOrEqual(200);
+  expect(tasks[1].title).toBe("book the dentist");
   const refused = await rpc(bearer, "tools/call", {
     arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
     name: "task",

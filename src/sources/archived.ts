@@ -12,6 +12,16 @@ export const ARCHIVE = join(
   "Library/Application Support/Life/archive"
 );
 
+// The apps' own stores the archive copies from (WhatsApp's and Beeper's), opened read-only.
+export const WHATSAPP = join(
+  homedir(),
+  "Library/Group Containers/group.net.whatsapp.WhatsApp.shared"
+);
+export const BEEPER = join(
+  homedir(),
+  "Library/Application Support/BeeperTexts"
+);
+
 /** One archive store's database (`STORES` names them). */
 export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);

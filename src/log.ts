@@ -25,13 +25,25 @@ type LogKind =
   | "run.error"
   | "source.read";
 
+/** A run event's line (`run.start`, `run.end`, `run.error`): every one names its step. */
+export interface LogEvent {
+  at: string;
+  kind: string;
+  run?: string;
+  step: string;
+  [field: string]: unknown;
+}
+
 const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
 /** derived/log's files, newest first (named by UTC day). */
 export const logDays = async (dir = LOG_DIR) =>
   (await filesIn(dir)).filter((n) => LOG_FILE.test(n)).reverse();
 
-/** One day's events whose kind starts with `kind` (`run.`, `event.sent`). */
+/**
+ * One day's events whose kind starts with `kind` (`run.`, `event.sent`). A line that does not parse is skipped: a bad
+ * line must never stop a reader (the archive reads its incidents here on start).
+ */
 export const logEvents = <T = Record<string, unknown> & { at: string }>(
   name: string,
   kind: string,
@@ -39,7 +51,24 @@ export const logEvents = <T = Record<string, unknown> & { at: string }>(
 ) =>
   linesOf(join(dir, name))
     .filter((l) => l.includes(`"kind":"${kind}`))
-    .map((l) => JSON.parse(l) as T);
+    .flatMap((l) => {
+      try {
+        return [JSON.parse(l) as T];
+      } catch {
+        return [];
+      }
+    });
+
+/** The events of one kind (a prefix: `run.` is every run event) in the newest `days` log files, oldest first. */
+export const recentEvents = async <T = LogEvent>(
+  days: number,
+  kind = "run.",
+  dir = LOG_DIR
+) =>
+  (await logDays(dir))
+    .slice(0, days)
+    .reverse()
+    .flatMap((n) => logEvents<T>(n, kind, dir));
 
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   const at = new Date().toISOString();
