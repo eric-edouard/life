@@ -186,15 +186,6 @@ export function openStore(dir = WATCH) {
   create table if not exists jobs (id text primary key, speech_seconds real not null);
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists chapters_conversation on chapters (conversation_id);`);
-  // A store from before 20 Oct: its turns gain their end and when they were seen, filled as lifelog sends them again.
-  const columns = db
-    .query<{ name: string }, []>("pragma table_info(turns)")
-    .all();
-  for (const c of ["end_at", "seen_at"]) {
-    if (!columns.some((k) => k.name === c)) {
-      db.run(`alter table turns add column ${c} text`);
-    }
-  }
   return { cursor, db };
 }
 export type Store = ReturnType<typeof openStore>;
