@@ -165,7 +165,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Never cap a report list or replace its tail with “+N more”.
 - **Everything Life shows him follows the owner's Ledger brand** (emails, `/check`, `/me`, its icon, any new screen),
   one source: agent-config's `ledger-brand` skill (`~/.agents/skills/ledger-brand`: `SKILL.md`, its email rules, and
-  `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css` and `portrait.ts` copy its values (email takes no
+  `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts` and `assets/icon/` copy its values (email takes no
   CSS variables): a brand change lands in the skill first.
 
 ## Gotchas
