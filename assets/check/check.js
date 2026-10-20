@@ -41,7 +41,7 @@ export function deck(root, verdicts, onVerdict) {
     }
     const shown = new Set(offered().map((v) => v.value));
     for (const b of root.querySelectorAll("[data-verdict]")) {
-      b.hidden = !shown.has(b.dataset.verdict);
+      b.disabled = !shown.has(b.dataset.verdict); // kept in its slot, so the other buttons don't move
     }
     const el = document.createElement("article");
     el.innerHTML = `<p class="note"></p><p class="text"></p>`;
@@ -132,7 +132,7 @@ export function deck(root, verdicts, onVerdict) {
     if (e.target.closest("select, input, textarea")) {
       return; // the keys belong to the control
     }
-    const verdict = offered().find((v) => v.key === e.key);
+    const verdict = verdicts.find((v) => v.key === e.key);
     if (verdict) {
       judge(verdict.value);
     } else if (e.key === "Backspace") {
@@ -204,7 +204,7 @@ function pick(current) {
 }
 
 // True, but over (`outdated`): true when Life recorded it, not anymore (a closure kept as history, never "false"); not
-// offered on a moment, which has no closed state.
+// offered where Life says a statement can't be over (its `without`).
 const VERDICTS = [
   {
     key: "ArrowLeft",
@@ -259,7 +259,7 @@ function open(g, first) {
         id: s.claim,
         note: note(s),
         text: s.text,
-        without: s.kind === "moment" ? ["outdated"] : [],
+        without: s.without,
       }))
   );
 }

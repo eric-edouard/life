@@ -70,9 +70,17 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
   const ok = await get("/check/statements", await session());
   expect(ok.status).toBe(200);
   const { groups } = (await ok.json()) as {
-    groups: { name: string; statements: { asOf: string }[] }[];
+    groups: {
+      name: string;
+      statements: { asOf: string; without: string[] }[];
+    }[];
   };
   expect(groups.map((g) => g.name)).toEqual(["Events"]);
+  // A moment has no closed state: its card offers no "True, but over".
+  expect(groups[0]?.statements.map((s) => s.without)).toEqual([
+    [],
+    ["outdated"],
+  ]);
   // Each card says when its claim dates from: the made-up statement's day, with its year unless it is this one's.
   const year = new Date().getFullYear() === 2026 ? "" : " 2026";
   expect(groups[0]?.statements[0]?.asOf).toBe(`12 Oct${year}`);
@@ -140,6 +148,10 @@ test("an answer must come from Life's own page and name a statement; a false hid
   expect([await wrong(), closed()]).toEqual([false, "rated outdated"]);
   expect((await post(ORIGIN, { answer: null, claim })).status).toBe(204);
   expect(closed()).toBe(null);
+  expect(
+    (await post(ORIGIN, { answer: "outdated", claim: "mom_00000000000b" }))
+      .status
+  ).toBe(400);
   const feed = await changeFeed({ types: ["rating"] });
   expect(feed.items.map((i) => i.type)).toEqual([
     "rating.false",

@@ -22,6 +22,9 @@ import { when } from "./zones";
 export const plain = (t: string) =>
   `${when(t.slice(0, 10)).date}${t.startsWith(String(new Date().getFullYear())) ? "" : ` ${t.slice(0, 4)}`}${t.slice(10)}`;
 
+/** Whether he can rate a statement over (`outdated`): a moment has no closed state. */
+export const closable = (s: Pick<Statement, "kind">) => s.kind !== "moment";
+
 /** A moment in plain words: "Happened: Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé; told Dad." */
 export function momentText(m: Moment, name: (ref: string) => string) {
   const end = m.end?.startsWith(m.start?.slice(0, 10) ?? "-")

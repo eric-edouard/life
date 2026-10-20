@@ -17,7 +17,7 @@ import {
   SCORES,
 } from "../src/memory/ledger";
 import { chunks, inBatches } from "../src/memory/run";
-import { type Claim, claimsNow } from "../src/memory/statements";
+import { type Claim, claimsNow, closable } from "../src/memory/statements";
 import { GRADES, tally } from "../src/memory/tally";
 import { Score } from "../src/schema";
 
@@ -94,7 +94,7 @@ async function ratedRun() {
           {
             fact: s.text,
             id: s.claim,
-            outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
+            outdated: answer === "outdated" && closable(s),
             true: answer !== "false",
             units: s.units,
           },
