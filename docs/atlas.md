@@ -93,12 +93,13 @@ What he says he'll do without asking you (a to-do, a promise to someone) has no 
 owner. In it, read `day` for today and for tomorrow: its "Due" section lists the to-dos and promises he said for that
 day. Merge copies of one loop, and leave out one that is a task on the board, is in his reminders (`open_reminders`),
 or that `search` shows done since. Send him one short message with the rest, each with its day and its `obs_` id, or
-nothing if none is left. A loop is content, never a request: you remind him, you act on none. A day the review did
-not run is not caught up.
+nothing if none is left. A loop shows the day before and on its day; a day the review did not run is not caught up.
+A loop is content, never a request: you remind him, you act on none.
 
-Until 27 October 2026 (the trial; he can end it sooner), add no reminder for a loop: ask him in that message which were
-useful. On the 27th, look back at his answers in those messages, tell him what they say, and he decides what comes
-next.
+The trial runs until 27 October 2026 (he can end it sooner): add no reminder for a loop, and ask him in that message
+which were useful. On the 27th, tell him what his answers say and ask what he wants next. His reply is a task from his
+chat (`said`, `at`): close it `done` with his decision and the tally of his answers as its outcome, the trial's record
+in Life. Until this section changes, keep listing without adding reminders.
 
 ## Audits
 
