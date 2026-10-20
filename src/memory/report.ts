@@ -50,7 +50,7 @@ export interface Night {
   watcher: Health | null;
 }
 
-const duration = (ms: number) =>
+export const duration = (ms: number) =>
   `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 
 const percent = (x: number | null) =>
