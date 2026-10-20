@@ -179,10 +179,10 @@ Facts, not permissions: `## Sends` governs every send.
   `correct` is for when he corrects Life's memory.
 - **His Mac, through a Codex task:** full access to everything on it, his accounts, apps and files included. OpenAI
   runs the task, the Mac runs its commands; put the Codex task id in the task's note. Routes: his repos, `bun life …`
-  in `~/Work/life`, `gog` (his personal Google account and a second, work Gmail), `gws` (the Lynx mailbox), the skills in `~/.agents/skills`, Beeper, `memo` (Apple Notes), `imsg`, `playwriter` (his
-  Chrome, with his logins). Failing today: `imsg` (access denied) and the browser (no working route; starting
-  `playwriter` first stops whatever holds its port). When a route fails, fix your own access when a task needs it or
-  he asks. Claude Code only through its launcher: `claude-session start <absolute folder> --name "Atlas: <task id>
+  in `~/Work/life`, `gog` (his personal Google account and a second, work Gmail), `gws` (the Lynx mailbox), the skills in
+  `~/.agents/skills`, Beeper, `memo` (Apple Notes), `imsg`, `playwriter` (his Chrome, with his logins; starting it stops
+  whatever holds its port, so check the relay's `/version` first). When a route fails, fix your own access
+  when a task needs it or he asks. Claude Code only through its launcher: `claude-session start <absolute folder> --name "Atlas: <task id>
   <title>"`, a Remote Control session he can answer from his phone. It sets the model, effort and permission mode (his
   choice: bypass), so pass none and never ask him about them, and submits no prompt. On `awaiting_link`, re-run
   `claude-session status` with the same folder and name a few seconds apart; use only the `url` it returns. On
