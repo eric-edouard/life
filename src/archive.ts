@@ -1,9 +1,9 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { type LogEvent, log, recentEvents } from "./log";
 import { codeAt, exec } from "./proc";
-import { ARCHIVE, archiveDb } from "./sources/archived";
+import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
 import { fromAppleS, toAppleS } from "./sources/imessage";
 import { listNotes, NOTES, noteVersion } from "./sources/notes";
 import { ROOT } from "./truth";
@@ -13,14 +13,6 @@ import { ROOT } from "./truth";
 // The only copy of what an app wiped is one taken while it existed. The apps' stores are opened read-only; only the
 // archive is written (whatsapp.sqlite, beeper.sqlite, notes.sqlite). Query the deleted ones with `archive deleted`.
 
-export const WHATSAPP = join(
-  homedir(),
-  "Library/Group Containers/group.net.whatsapp.WhatsApp.shared"
-);
-export const BEEPER = join(
-  homedir(),
-  "Library/Application Support/BeeperTexts"
-);
 const LOCAL = /^local-/;
 // WhatsApp lets senders delete for everyone for about 60 hours; edits and late media downloads fit in a week too.
 const WINDOW_S = 7 * 86_400;
@@ -460,6 +452,35 @@ function printDeleted(days: number) {
   }
 }
 
+// A store failing since its first failed pass until its next good one is an incident, logged at both ends
+// (`archive.<store>`: run.error, run.end). The log is its only record: read back on a restart (each commit), by the
+// night's line, and by the nightly tick that emails him an hour in (18 Oct: Beeper's store would not open for 5 hours,
+// unseen, and what is deleted meanwhile is lost).
+
+// ponytail: an incident open over 7 days drops out of the window until the archive restarts and logs it again.
+export const ARCHIVE_LOOKBACK = 7;
+
+/** The incidents open at the end of `lines` (run events, oldest first): each store's first failed pass. */
+export function openIncidents(lines: LogEvent[]) {
+  const started = new Map<string, LogEvent>();
+  for (const e of lines.filter((l) => l.step.startsWith("archive."))) {
+    const name = e.step.slice("archive.".length);
+    if (e.kind === "run.error") {
+      started.set(name, e);
+    } else {
+      started.delete(name);
+    }
+  }
+  return started;
+}
+
+/** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
+export async function archiveFailing(ms = 0, now = Date.now()) {
+  return [...openIncidents(await recentEvents(ARCHIVE_LOOKBACK))].filter(
+    ([, e]) => now - Date.parse(e.at) >= ms
+  );
+}
+
 /**
  * `archive` runs until a commit changes the code (the LaunchAgent starts it again), `archive --once` once,
  * `archive deleted [days]` prints deleted messages.
@@ -470,15 +491,26 @@ export async function archiveCommand(args: string[]): Promise<number> {
     return 0;
   }
   const running = codeAt(ROOT);
+  const failing = new Set((await archiveFailing()).map(([name]) => name));
   while (codeAt(ROOT) === running) {
     for (const { copy, name } of STORES) {
       try {
         const added = copy();
+        if (failing.delete(name)) {
+          log("run.end", { step: `archive.${name}` });
+        }
         if (added > 0) {
           console.log(`${new Date().toISOString()} archived ${added} ${name}`);
         }
       } catch (error) {
         console.error(new Date().toISOString(), name, error);
+        if (!failing.has(name)) {
+          failing.add(name);
+          log("run.error", {
+            error: (error as Error).message,
+            step: `archive.${name}`,
+          });
+        }
       }
     }
     if (args.includes("--once")) {

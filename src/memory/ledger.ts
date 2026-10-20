@@ -119,6 +119,12 @@ export function appendJsonl<T>(path: string, schema: z.ZodType<T>, rows: T[]) {
   }
 }
 
+/** Everyone whose page is written, by ref (the inverse of `pagePath`). */
+export const writtenPeople = async () =>
+  (await filesIn(join(PAGES, "people"), ".md")).map(
+    (f) => `person:${f.slice(0, -3)}`
+  );
+
 /** The files of a folder with that extension, by name (observations/: one `.jsonl` per month). */
 export const filesIn = async (dir: string, ext = ".jsonl") =>
   (await readdir(dir).catch(() => [] as string[]))

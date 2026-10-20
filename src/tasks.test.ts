@@ -2,10 +2,11 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Item, planOf, steerOf, steersOf, wantOf } from "./board";
+import { type Item, planOf, wantOf } from "./board";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
 import {
+  alerts,
   escalation,
   refusal,
   sealed,
@@ -45,30 +46,27 @@ const own = (
     madeBy: kind === "update" ? "connector" : "watch",
     target: of,
   });
-/** A task from its lines, all delivered unless `undelivered` counts the last ones that are not. */
-const task = (lines: Action[], undelivered = 0): Task => {
-  const all = [asked, ...lines].map((a) => JSON.stringify(a));
-  const [t] = tasksOf(all, all.length - undelivered);
+/** A task from its lines. */
+const task = (lines: Action[]): Task => {
+  const [t] = tasksOf([asked, ...lines].map((a) => JSON.stringify(a)));
   if (!t) {
     throw new Error("no task");
   }
   return t;
 };
 
-test("the ledger as tasks: each ask gets its own lines in order, with what was delivered; other actions are left out", () => {
+test("the ledger as tasks: each ask gets its own lines in order, old nudges and steers too; other actions are left out", () => {
   const lines = [
     asked,
     action({}),
     own("update", 5, { note: "on it", state: "working" }),
     own("nudge", 6, { why: "x" }, "act_00000000000f"),
     own("nudge", 40, { why: "y" }),
+    own("steer", 41, { changes: {}, note: "" }),
   ].map((a) => JSON.stringify(a));
-  const [t, ...rest] = tasksOf(lines, 3);
+  const [t, ...rest] = tasksOf(lines);
   expect(rest).toEqual([]);
-  expect(t?.lines.map((l) => [l.kind, l.delivered])).toEqual([
-    ["update", true],
-    ["nudge", false],
-  ]);
+  expect(t?.lines.map((l) => l.kind)).toEqual(["update", "nudge", "steer"]);
 });
 
 test("the write rules: claim once, required fields per state, deadlines ahead (24 h at most when working), nothing after done or dropped", () => {
@@ -128,37 +126,8 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   ).toBe("the task is done: no update after that");
 });
 
-test("an open task is due 30 min after it was recorded, a claimed one at its own deadline", () => {
+test("an open task is due 30 min after it was recorded, a claimed one at its own deadline; extensions count", () => {
   expect(standing(task([])).deadline).toBe(at(30));
-  expect(standing(task([]), T0 + 29 * MIN).nudge).toBeNull();
-  expect(standing(task([]), T0 + 30 * MIN).nudge).toBe(
-    "not claimed 30 min after the ask"
-  );
-  const working = task([
-    own("update", 5, { deadline: at(60), note: "a", state: "working" }),
-  ]);
-  expect(standing(working, T0 + 30 * MIN).nudge).toBeNull();
-  expect(standing(working, T0 + 61 * MIN).nudge).toBe(
-    "working past its deadline"
-  );
-});
-
-test("nudges are 30 min apart, only after the last one was delivered, and stop after 3 delivered ones go unanswered", () => {
-  const one = [own("nudge", 15, { why: "x" })];
-  expect(standing(task(one), T0 + 44 * MIN).nudge).toBeNull();
-  expect(standing(task(one), T0 + 45 * MIN).nudge).not.toBeNull();
-  expect(standing(task(one, 1), T0 + 90 * MIN).nudge).toBeNull();
-  const three = [15, 45, 75].map((m) => own("nudge", m, { why: "x" }));
-  expect(standing(task(three)).unanswered).toBe(3);
-  expect(standing(task(three), T0 + 200 * MIN).nudge).toBeNull();
-  // An undelivered nudge does not count.
-  expect(standing(task(three, 1)).unanswered).toBe(2);
-  // An update answers them.
-  const answered = task([
-    ...three,
-    own("update", 80, { deadline: at(90), note: "a", state: "working" }),
-  ]);
-  expect(standing(answered).unanswered).toBe(0);
   // An extension is an update that moved the deadline later, whatever its offset.
   const later = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
@@ -169,15 +138,21 @@ test("nudges are 30 min apart, only after the last one was delivered, and stop a
     }),
     own("update", 7, { deadline: at(60), note: "c", state: "working" }),
   ]);
+  expect(standing(later).deadline).toBe(at(60));
   expect(standing(later).extensions).toBe(1);
 });
 
-test("he is asked to look when Atlas is stuck, waits on him over an hour, a task is a week old, or Atlas isn't subscribed", () => {
-  const now = T0 + 100 * MIN;
-  expect(escalation(task([]), now, true)).toBeNull();
-  expect(escalation(task([]), now, false)).toBe("Atlas isn't receiving asks");
-  const three = [15, 45, 75].map((m) => own("nudge", m, { why: "x" }));
-  expect(escalation(task(three), now, true)).toBe("Atlas stuck");
+test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Atlas isn't subscribed; once per cause and update", () => {
+  const now = T0 + 20 * MIN;
+  expect(escalation(task([]), now)).toBeNull();
+  expect(escalation(task([]), T0 + 30 * MIN)).toBe(
+    "not claimed 30 min after the ask"
+  );
+  const working = task([
+    own("update", 5, { deadline: at(60), note: "a", state: "working" }),
+  ]);
+  expect(escalation(working, T0 + 59 * MIN)).toBeNull();
+  expect(escalation(working, T0 + 61 * MIN)).toBe("working past its deadline");
   const waiting = task([
     own("update", 30, {
       deadline: at(600),
@@ -185,26 +160,66 @@ test("he is asked to look when Atlas is stuck, waits on him over an hour, a task
       state: "waiting-eric",
     }),
   ]);
-  expect(escalation(waiting, T0 + 89 * MIN, true)).toBeNull();
-  expect(escalation(waiting, T0 + 91 * MIN, true)).toBe(
+  expect(escalation(waiting, T0 + 89 * MIN)).toBeNull();
+  expect(escalation(waiting, T0 + 91 * MIN)).toBe(
     "Atlas needs you: which flat?"
   );
-  expect(escalation(task([]), T0 + 8 * 24 * 60 * MIN, true)).toBe(
-    "stuck for 7 days"
+  const week = 8 * 24 * 60;
+  const extended = task([
+    own("update", week - 5, {
+      deadline: at(week + 60),
+      note: "a",
+      state: "working",
+    }),
+  ]);
+  expect(escalation(extended, T0 + week * MIN)).toBe("stuck for 7 days");
+  // Emailed once, however often Atlas extends it.
+  const extendedAgain = task([
+    ...extended.lines,
+    own("update", week + 30, {
+      deadline: at(week + 120),
+      note: "b",
+      state: "working",
+    }),
+  ]);
+  expect(alerts([extendedAgain], T0 + (week + 31) * MIN, true)[0]?.key).toBe(
+    alerts([extended], T0 + week * MIN, true)[0]?.key
   );
   const done = task([own("update", 30, { outcome: "sent", state: "done" })]);
-  expect(escalation(done, now, false)).toBeNull();
+  expect(escalation(done, now)).toBeNull();
+  // A task Atlas made from his chat is chased too.
+  const chat = action({
+    ...asked,
+    id: "act_00000000000b",
+    madeBy: "connector",
+  });
+  const both = tasksOf([asked, chat].map((a) => JSON.stringify(a)));
+  expect(
+    alerts(both, T0 + 31 * MIN, true).map((x) => ("t" in x ? x.t.ask.id : ""))
+  ).toEqual([ASK, "act_00000000000b"]);
+  // The key changes with Atlas's last update: silent again after one is a new email; the same silence is not.
+  const key = (t: Task, m: number) => alerts([t], T0 + m * MIN, true)[0]?.key;
+  expect(key(working, 61)).toBe(key(working, 120));
+  const again = task([
+    own("update", 5, { deadline: at(60), note: "a", state: "working" }),
+    own("update", 70, { deadline: at(90), note: "b", state: "working" }),
+  ]);
+  expect(key(again, 91)).not.toBe(key(working, 61));
+  // A lapsed subscription is one email, whatever the number of open tasks.
+  expect(alerts(both, T0 + 31 * MIN, false)).toEqual([
+    {
+      cause: "Atlas isn't receiving asks",
+      key: "lapse/2026-10-19",
+      open: 2,
+    },
+  ]);
 });
 
 const look = (over: Partial<Item> = {}): Item => ({
   completed: false,
-  due: null,
   id: 1,
   notes: "",
   section: "",
-  steps: {},
-  subIds: {},
-  title: "Atlas: x",
   ...over,
 });
 
@@ -222,147 +237,23 @@ const working = (more: Action[] = []) =>
     ...more,
   ]);
 
-test("the board gets Life's fields: notes, section, Atlas's steps added then ticked, Needs you with a due while he is needed, a tick when done", () => {
-  const want = wantOf(working(), null);
+test("the board gets Life's fields: notes and section in line, a tick when done; his tick is his", () => {
+  const want = wantOf(working());
   expect(want.notes.split("\n")[0]).toBe(ASK);
   expect(want.notes).toContain("searching");
   const blank = look({ notes: want.notes, section: "Open" });
-  const first = planOf(want, blank, undefined, T0);
-  expect(first.flags).toEqual([
-    "--private",
-    "--section=Working",
-    '--subtask={"title":"Find three flats"}',
-    '--subtask={"title":"Book visits"}',
-  ]);
-  // Next pass: the subtasks exist, so the done one is ticked; then nothing is left to write.
-  const steps = { "Book visits": false, "Find three flats": false };
-  const subIds = { "Book visits": 8, "Find three flats": 7 };
-  const made = { ...first.look, steps, subIds };
-  const second = planOf(want, made, first.look, T0);
-  expect([second.flags, second.done]).toEqual([[], [7]]);
-  // A step Life added and he removed stays removed.
-  const removed = { ...made, steps: { "Find three flats": false } };
-  expect(planOf(want, removed, second.look, T0).flags).toEqual([]);
-  expect(planOf(want, removed, second.kept, T0).flags).toEqual([]);
-  const ticked = second.look;
-  expect(planOf(want, ticked, ticked, T0).done).toEqual([]);
-  // He is needed: Needs you with a due of now, kept while the cause lasts, cleared when it ends.
-  const needed = wantOf(working(), "Atlas stuck");
-  const alert = planOf(needed, ticked, ticked, T0);
-  expect(alert.flags).toContain(`--due=${alert.look.due}`);
-  expect(alert.flags).toContain("--section=Needs you");
-  const later = planOf(needed, alert.look, alert.look, T0 + 9 * MIN);
-  expect(later.flags).toEqual([]);
-  // A failed private write is tried again next pass, without a new alert.
-  const retry = planOf(needed, ticked, alert.kept, T0 + MIN).flags;
-  expect(retry).toContain("--section=Needs you");
-  expect(retry.filter((f) => f.startsWith("--due"))).toEqual([]);
-  expect(planOf(want, alert.look, alert.look, T0).flags).toEqual([
-    `--notes=${want.notes}`,
-    "--due=clear",
-    "--alarm=clear",
-    "--private",
-    "--section=Working",
-  ]);
+  expect(planOf(want, blank)).toEqual({
+    done: [],
+    flags: ["--private", "--section=Working"],
+  });
+  const kept = look({ notes: want.notes, section: "Working" });
+  expect(planOf(want, kept)).toEqual({ done: [], flags: [] });
+  expect(planOf(want, { ...kept, completed: true }).done).toEqual([]);
   const done = task([own("update", 5, { outcome: "booked", state: "done" })]);
-  expect(planOf(wantOf(done, null), ticked, ticked, T0).done).toEqual([1]);
-});
-
-test("his changes are steers, Life's own writes are not, and Life never writes over his tick, title, due or subtasks", () => {
-  const want = wantOf(working(), null);
-  const p = planOf(want, look({ notes: "old" }), undefined, T0);
-  const after = {
-    ...p.look,
-    steps: { "Book visits": false, "Find three flats": true },
-  };
-  expect(steerOf(after, after).changes).toEqual({});
-  const steps = { ...after.steps, "Call the agency": false };
-  const his = look({
-    ...after,
-    completed: true,
-    due: "2026-10-20 09:00",
-    notes: `${after.notes}\nask the agency first`,
-    steps,
-    title: "Atlas: flats",
-  });
-  const steer = steerOf(after, his);
-  expect(steer.changes).toEqual({
-    completed: true,
-    due: "2026-10-20 09:00",
-    notes: his.notes,
-    steps,
-    title: "Atlas: flats",
-  });
-  expect(steer.note).toBe("ask the agency first");
-  // His note shows as his until Atlas's next update; nothing else of his is written over.
-  const steered = working([own("steer", 7, steer)]);
-  const next = planOf(wantOf(steered, null), his, his, T0);
-  expect(wantOf(steered, null).notes).toEndWith("You: ask the agency first");
-  expect(next.flags).toEqual([`--notes=${wantOf(steered, null).notes}`]);
-  expect([next.done, next.reopen]).toEqual([[], false]);
-  // His tick is not undone, until Life asks him to look.
-  expect(planOf(wantOf(steered, "Atlas stuck"), his, his, T0).reopen).toBe(
-    true
-  );
-});
-
-test("Life's own subtasks are never steers: in Reminders' order, dropped from Atlas's list, or on a closed task; his are", () => {
-  const [a, b, c] = ["Verify the link", "Redesign the day", "Publish it"];
-  const claim = own("update", 5, {
-    claim: true,
-    deadline: at(60),
-    note: "on it",
-    state: "working",
-    steps: [a, b, c].map((title) => ({ done: false, title })),
-  });
-  const claimed = task([claim]);
-  const first = planOf(wantOf(claimed, null), look(), undefined, T0).look;
-  // Reminders lists the subtasks Life added in its own order.
-  const read = look({
-    ...first,
-    steps: { [c]: false, [a]: false, [b]: false },
-  });
-  const steers = (t: Task, item = read) =>
-    steersOf([t], { [ASK]: first }, new Map([[ASK, item]]));
-  expect(steers(claimed)).toEqual([]);
-  // Atlas drops a and c from its full list while working: they stay, unchanged, and are no steer.
-  const dropped = task([
-    claim,
-    own("update", 7, {
-      deadline: at(60),
-      note: "narrowed",
-      state: "working",
-      steps: [{ done: true, title: b }],
-    }),
-  ]);
-  const next = planOf(wantOf(dropped, null), read, first, T0).look;
-  expect(
-    steerOf(next, { ...next, steps: { [c]: false, [b]: true, [a]: false } })
-      .changes
-  ).toEqual({});
-  // Atlas closes it with a new list: no steer, even for a change, and none for a deleted item.
-  const done = task([
-    claim,
-    own("update", 7, {
-      outcome: "split",
-      state: "done",
-      steps: [{ done: true, title: "Split it" }],
-    }),
-  ]);
-  const his = look({
-    ...read,
-    steps: { ...read.steps, "Call the agency": false },
-  });
-  expect(steers(done)).toEqual([]);
-  expect(steers(done, his)).toEqual([]);
-  expect(steersOf([done], { [ASK]: first }, new Map())).toEqual([]);
-  // His own subtask on an open task is a steer; so is a deleted item.
-  expect(steers(dropped, his)).toEqual([
-    [ASK, { changes: { steps: his.steps }, note: "" }],
-  ]);
-  expect(steersOf([dropped], { [ASK]: first }, new Map())).toEqual([
-    [ASK, { changes: { deleted: true }, note: "" }],
-  ]);
+  expect(planOf(wantOf(done), kept).done).toEqual([1]);
+  // An old steer line changes nothing: no "You:" line.
+  const steered = working([own("steer", 7, { changes: {}, note: "his" })]);
+  expect(wantOf(steered)).toEqual(want);
 });
 
 const TEXT = "# Atlas: the playbook";
@@ -438,7 +329,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(child?.instruction).toEqual(asked.instruction);
   expect(child?.after).toMatchObject({ parent: ASK, title: "Book visits" });
   const [t] = tasksOf([JSON.stringify(child)]);
-  expect(t && wantOf(t, null).title).toBe("Atlas: Book visits");
+  expect(t && wantOf(t).title).toBe("Atlas: Book visits");
   // A split's id comes from its parent: it never meets a sibling made from the same message, nor its parent.
   const chat = { ...claiming, at: at(-5), said: "dentist and vet" };
   const dentist = write({ ...chat, title: "dentist" }).lines;

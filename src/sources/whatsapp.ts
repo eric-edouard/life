@@ -1,7 +1,12 @@
 import { join } from "node:path";
-import { WHATSAPP } from "../archive";
 import { type SourceEvent, sourceFile } from "../schema";
-import { ARCHIVE, phoneMap, type Row, readArchived } from "./archived";
+import {
+  ARCHIVE,
+  phoneMap,
+  type Row,
+  readArchived,
+  WHATSAPP,
+} from "./archived";
 
 // WhatsApp from Life's own archive.
 
