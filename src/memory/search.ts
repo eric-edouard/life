@@ -774,6 +774,31 @@ function retirement(o: Observation, standing: Standing) {
   return s.state === "retired" ? s : null;
 }
 
+/** An observation as a row of the index's `observations` table, in its columns' order. */
+function observationRow(o: Observation, standing: Standing) {
+  const retired = retirement(o, standing);
+  return [
+    o.id,
+    o.unit,
+    o.date,
+    o.at,
+    o.type,
+    o.area,
+    o.salience,
+    o.confidence,
+    o.speaker,
+    o.source.channel,
+    o.source.ref,
+    o.text,
+    o.quote,
+    o.validFrom,
+    retired?.validTo ?? o.validTo,
+    o.when,
+    retired?.by ?? null,
+    o.about ?? null,
+  ] as const;
+}
+
 /** A unit and its verdict, as the index holds them. */
 interface IndexedUnit {
   unit: Unit;
@@ -818,27 +843,7 @@ export function buildIndex(
     const unitTopic = insert("unit_topics", 2);
     const unitPerson = insert("unit_people", 2);
     for (const o of unique.values()) {
-      const retired = retirement(o, standing);
-      row.run(
-        o.id,
-        o.unit,
-        o.date,
-        o.at,
-        o.type,
-        o.area,
-        o.salience,
-        o.confidence,
-        o.speaker,
-        o.source.channel,
-        o.source.ref,
-        o.text,
-        o.quote,
-        o.validFrom,
-        retired?.validTo ?? o.validTo,
-        o.when,
-        retired?.by ?? null,
-        o.about ?? null
-      );
+      row.run(...observationRow(o, standing));
       text.run(o.id, o.text, o.quote);
       for (const e of o.entities) {
         link.run(o.id, e);
