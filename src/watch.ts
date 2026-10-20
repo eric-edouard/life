@@ -19,7 +19,7 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); every loop `tick` chases Atlas's tasks and mirrors them
-// on his board (src/board.ts); `deliver` pushes the asks, nudges and steers not yet delivered to Atlas (src/events.ts).
+// on his board (src/board.ts); `deliver` pushes the asks and nudges not yet delivered to Atlas (src/events.ts).
 // Every 2 minutes it also heals the Mac's tunnel (src/tunnel.ts).
 
 const WAIT_S = 60;

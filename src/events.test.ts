@@ -125,7 +125,7 @@ test("a delivery moves on after a 2xx or a 413, retries others with a growing pa
   expect(settle(s, 410, 2, now)).toEqual({ attempts: 0, delivered: 1 });
 });
 
-test("a nudge or a steer goes out as its task's ask, with its own event id and the nudge or steer", () => {
+test("a nudge goes out as its task's ask, with its own event id and the nudge; an old steer line parses and goes nowhere", () => {
   const nudge = line({
     after: { why: "not claimed 30 min after the ask" },
     at: "2026-10-15T10:20:00.000Z",
@@ -155,4 +155,14 @@ test("a nudge or a steer goes out as its task's ask, with its own event id and t
   });
   expect(nextEvent([own], 0)).toBeNull();
   expect(nextEvent([own, nudge], 0)?.event.eventId).toBe("act_00000000000c");
+
+  const steer = line({
+    after: { changes: { completed: true }, note: "" },
+    id: "act_00000000000d",
+    instruction: undefined,
+    kind: "steer",
+    madeBy: "watch",
+    target: "act_00000000000a",
+  });
+  expect(nextEvent([ask("act_00000000000a"), steer], 1)).toBeNull();
 });
