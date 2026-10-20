@@ -5,6 +5,7 @@ import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
 import { extract } from "./extract";
 import {
+  afterWeek,
   backfillWeek,
   backupDue,
   decide,
@@ -40,10 +41,9 @@ import {
   lastDays,
   localTime,
   type Window,
-  windowStart,
 } from "./units";
 import { observationsNow, readPeople } from "./who";
-import { localDate, noteZone } from "./zones";
+import { dayStart, localDate, noteZone } from "./zones";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * 3_600_000;
@@ -106,8 +106,11 @@ export async function nightly(days: number, force = false) {
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
   const night = force || decide(now.getHours(), day, readState()) === "run";
+  // The backfill only once today's night went through: a week never pushes the night back.
   const daytime = () =>
-    middayDue(now, readMidday()) ? midday(now) : backfilled();
+    middayDue(now, readMidday())
+      ? midday(now)
+      : backfilled(readState()?.status === "ok" ? day : undefined);
   const code = night
     ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
     : await daytime();
@@ -145,24 +148,22 @@ export async function midday(now = new Date(), force = false) {
 }
 
 /**
- * One week of the backfill (`bun life memory backfill` sets its range), on a tick with no night and no midday to run:
- * a sweep under the lock, then the range moves on. The past is read oldest first, a week per tick, so it never keeps
- * the nights, the midday runs or the backup from their turn; a week read already costs nothing (the steps' caches).
+ * One week of the backfill (`bun life memory backfill` sets its range) on a tick with no night and no midday to run,
+ * once `day`'s night is done (none: not yet): a sweep under the lock, then the range moves on. The past is read oldest
+ * first, a week per tick and a few a day (`backfillWeek`), so it never keeps the nights, the midday runs or the backup
+ * from their turn, nor uses his subscriptions all day; a week read already costs nothing (the steps' caches).
  */
-async function backfilled() {
-  const b = readBackfill();
-  const week = backfillWeek(b);
-  if (!(b && week)) {
-    return 0;
-  }
-  const code = await locked(() => sweep("memory.backfill", week));
-  if (code !== null) {
-    recordBackfill(
-      code === 0
-        ? { ...b, failures: 0, next: daysBefore(week.to, -1) }
-        : { ...b, failures: b.failures + 1 }
-    );
-  }
+async function backfilled(day: string | undefined) {
+  const code = await locked(async () => {
+    const b = readBackfill();
+    const week = day && backfillWeek(b, day);
+    if (!(b && day && week)) {
+      return 0;
+    }
+    const done = await sweep("memory.backfill", week);
+    recordBackfill(afterWeek(b, week, done === 0, day));
+    return done;
+  });
   return code ?? 0;
 }
 
@@ -188,10 +189,10 @@ async function sweep(name: string, window: Window) {
 }
 
 /**
- * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`), the
- * salience-3 page lines not retired, by their home page (`placed`), and the retirements those new observations made.
+ * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`) and about
+ * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
+ * (`placed`), and the retirements those new observations made.
  */
-/** What the night's report counts as new: first cited since `since` and about the night's days, not a backfilled past. */
 async function whatIsNew(since: string, from: string) {
   const people = await readPeople();
   const { all, observations, standing } = await observationsNow(people);
@@ -216,11 +217,12 @@ async function whatIsNew(since: string, from: string) {
 
 async function runNight(days: number, now: Date, day: string, force: boolean) {
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
-  const rec = record("memory.nightly", { days, force });
+  const window = lastDays(now, days);
+  const rec = record("memory.nightly", { ...window, force });
   // Lines first cited since the last good night (with no guard state, the window) are new in this report, midday runs' too.
   const last = readState();
   const since =
-    last?.okAt ?? last?.lastAt ?? windowStart(now, days).toISOString();
+    last?.okAt ?? last?.lastAt ?? dayStart(window.from).toISOString();
   const phase = phases(rec);
   let mail: Mail;
   let failure: ReturnType<typeof phase.failed> | undefined;
@@ -229,13 +231,10 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Every source is read once and handed to each step.
     phase.at = "gather";
     const watcher = readHealth();
-    const evidence = await gather(lastDays(now, days));
+    const evidence = await gather(window);
     const found = await phase.step("moments", () => moments(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
-    const { facts, observed, retired } = await whatIsNew(
-      since,
-      evidence.window.from
-    );
+    const { facts, observed, retired } = await whatIsNew(since, window.from);
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
     phase.at = "index";
     await reindex();
@@ -251,7 +250,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       extracted,
       facts,
       files: evidence.files,
-      from: daysBefore(day, days - 1),
+      from: window.from,
       moments: found,
       observed,
       paged,
