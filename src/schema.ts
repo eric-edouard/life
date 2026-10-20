@@ -559,7 +559,7 @@ const Correcting = {
   schemaVersion: z.literal(1),
 };
 
-/** A page's sections, in page order (`SECTIONS`, page.ts): views and health are on the owner's page only. */
+/** A page's sections, in page order (`SECTIONS`, page.ts): views and health on the owner's page only, bond on a close person's (`layoutOf`). */
 export const PageSection = z.enum([
   "views",
   "health",

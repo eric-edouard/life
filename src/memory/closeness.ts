@@ -313,11 +313,15 @@ export function pagedBy(
   return paged;
 }
 
-/** The people close to him personally (not a service): their page has Between us. */
+/**
+ * The people close to him personally, now or once (`faded`), not a service: their page has Between us, and the models
+ * weigh what is between them. Once close counts, so a backfill reads an ex's days as close ones and a night's dip
+ * never empties the section; its lines age out after a year.
+ */
 export const personallyClose = (levels: ReturnType<typeof levelsNow>) =>
   new Set(
     [...levels].flatMap(([ref, l]) =>
-      !l.service && CLOSE.has(l.personal) ? [ref] : []
+      !l.service && PAGED.has(l.personal) ? [ref] : []
     )
   );
 
@@ -336,7 +340,10 @@ export const levelsWith = (corrections: Correction[]) =>
   levelsNow(readCloseness(), corrections);
 
 /** Everyone on his map, as the person each is now (one folded into another is that one). */
-const onMapOf = (truth: Pick<Truth, "people">, corrections: Correction[]) => {
+export const onMapOf = (
+  truth: Pick<Truth, "people">,
+  corrections: Correction[]
+) => {
   const canon = merged(corrections);
   return new Set(truth.people.map((p) => canon(`person:${p.id}`)));
 };

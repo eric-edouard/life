@@ -57,6 +57,8 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
       people close to him (`close: true` in the context); pages v5 adds Between us (cited, attributed, "since / last
       evidence" by code in `person`, aging after 12 months); `priorFor` also shows the `person` facts of the last year
       about the close people (simpler than reading the page's cites, same effect), so a newer fact retires the older.
+      Close means close personally now or once (faded), so the backfill weighs an ex's days and a night's dip never
+      empties the section; a page that loses Between us moves its lines to History.
 - [x] **5. Pages at midday.**
 - [ ] **6. Pilot:** one month of backfill, every channel; measure cost, new inferred people, eval.
 - [ ] **7. Backfill** July 2025 to September 2026, oldest month first.

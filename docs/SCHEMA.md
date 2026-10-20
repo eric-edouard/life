@@ -108,7 +108,7 @@ between days to fit a call (a unit in several moments with the one reaching furt
 and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
 `person` type also holds what is between him and someone, in someone's name, and the earlier facts it may retire
 include the `person` facts of the last year about the people close to him (`priorFor`). The model context marks those
-people `close: true` (`refContext`, `personallyClose`: a personal level inner or regular).
+people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones).
 
 | Field | Meaning |
 |---|---|
@@ -217,9 +217,9 @@ Sections, in order:
   habits and tastes, `- <text> [obs_…]`, from what he said himself (the prompt's rule: `speaker` is not yet reliable
   enough for code to check it); never ages: a line leaves when it is done, replaced or his.
 - **Health** (his own page only): as Now, but a line ages into History after 60 days.
-- **Between us** (the page of someone close to him personally, `personallyClose`): what lasts between them, the
+- **Between us** (the page of someone close to him personally, now or once, `personallyClose`): what lasts between them, the
   relationship, agreements, boundaries, turning points, each view in its speaker's name; ages into History after 365
-  days. `person` shows each line's first and latest evidence day. When the person is no longer close, its lines move
+  days. `person` shows each line's first and latest evidence day. A page that loses it (a service, or he lowers them) moves its lines
   to History.
 - **Now**: where things stand, `- <text> [obs_…, …]`. Every line cites observations and at least one is under 21 days
   old (`SECTION` in `page.ts`); with none it ages into History.

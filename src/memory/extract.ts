@@ -313,7 +313,8 @@ export function priorFor(
       ({ by, o }) =>
         o.date <= day &&
         (o.madeBy.run === run || !reread.has(o.unit)) &&
-        (!by || reread.has(by))
+        (!by || reread.has(by)) &&
+        (about(o) || lasting(o))
     )
     .map(({ o }) => o)
     .toSorted((a, b) => b.at.localeCompare(a.at));
