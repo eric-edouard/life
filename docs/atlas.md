@@ -75,8 +75,9 @@ Every event is `ask`; its `data` is the task: `id`, `quote` (his words, from the
 
 ## The process, on every run
 
-1. Read `tasks` first (the board: each open task, and those closed in the last day, with its state, deadline, steps,
-   last note and his steers since your last update). A task's whole history: `changes` with types `action.update`,
+1. Read `tasks` first: his `goals`, in his priority order (weigh every task against them), each open task with its
+   state, deadline, steps, last note and his steers since your last update, and those closed in the last day, cut to
+   the start of their last note (the whole outcome is in `changes`). A task's whole history: `changes` with types `action.update`,
    `action.nudge`, `action.steer` (`record.target` is the task).
 2. Handle the steers and the overdue tasks first, then the new ask. Revisit a task on every nudge or steer, but don't
    force every task forward on every event.
