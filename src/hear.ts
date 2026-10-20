@@ -31,7 +31,7 @@ const NAMING_MS = 40_000;
 
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn) {
-  const word = WAKE.exec(t.text)?.[1]?.toLowerCase();
+  const word = t.text.match(WAKE)?.[1]?.toLowerCase();
   if (word === "atlas" && t.who !== "other") {
     return t.who === "me" ? "high" : "low";
   }
