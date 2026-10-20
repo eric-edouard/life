@@ -58,7 +58,7 @@ const commands: Record<string, () => Promise<number>> = {
   async engine() {
     const [, , , arg] = process.argv;
     if (arg === undefined) {
-      console.log(await readEngine());
+      console.log(readEngine());
       return 0;
     }
     const engine = Engine.safeParse(arg);
