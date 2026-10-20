@@ -2,7 +2,8 @@
 
 A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes:
 sources → units → verdicts → observations → people and area pages. Plus an always-on archive that keeps chat messages
-deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`.
+deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`. Relationships (arcs, closeness, the
+backfill): `docs/relationships.md`, the plan and his decisions.
 
 ## Where his data lives
 
@@ -40,12 +41,12 @@ closed).
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
-- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (each hit gives a conversation id and a turn) and the chat messages (90 days) and note versions (any age) holding all the words (newest 100, two around each; a long one as its lines holding a word).
+- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 100, two around each; a long one as its lines holding a word). `--from`/`--to` bound every section.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
-- `day <YYYY-MM-DD>` (what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name]` (the last moments with them too; `person me`: his own page, his goals first, then his views, health and what he's dealing with; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers), `area <name>`, `topics [tag]`.
+- `day <YYYY-MM-DD>` (what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name] [--before d]` (the whole page, when it was built, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first by whole days, `--before` paging back; `person me`: his own page, his goals in What I hold, all of truth/me.md; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers, and a name no one goes by lists the names near it), `area <name>`, `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
 - `repos [project|area|repo]` (CLI only, not a connector tool): his code repos by project, where each is and the last 30 days of commits; his map is `Project.repos` in `truth/`, Life's guesses are marked inferred. Read a project's first repo (its main entry point) before working in it. Which mailbox sends what: `~/Work/CLAUDE.md`. Commits are also units (`source git`, one per repo and day): `search`, `day` and `fetch` show them.
-- `chats --who <name|handle> | --chat <id> [--from d --to d]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, 7 days and 200 messages at most.
+- `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, as far back as `--from` (without it 90 days for `--who`, 7 for `--chat`), the latest 200; a cut names the `--before` that reads on.
 
 Use the CLI; read a source directly only if it is unavailable: `~/Library/Application Support/Life/archive/` (`whatsapp.sqlite`,
 `beeper.sqlite`, `notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only. Beeper is for acting only, and a send needs his OK on the exact text.
@@ -56,7 +57,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   the same text.
 - **He is the center, not one more person.** His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
   projection of the observations like every page, so its shape changes at the cost of rebuilding one page; his goals
-  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me`. Nothing about him is stored in
+  are only in `truth/me.md` (`truth.me.goals`), shown first on `person me` in its What I hold (as of the page's last build). Nothing about him is stored in
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
