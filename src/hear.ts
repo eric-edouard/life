@@ -17,6 +17,8 @@ export const WAKE = /\bhey\W+atlas\b/i;
 const GAP_MS = 15_000;
 /** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */
 export const CLOSED_ON_SILENCE_S = 60;
+/** How long a wake with no speaker waits for lifelog to name him (70% of recordings within 10 s, 5% more by 40 s). */
+const NAMING_MS = 40_000;
 
 export const wakes = (text: string) => WAKE.test(text);
 
@@ -74,16 +76,12 @@ export function whose(t: ChapterTurn): Turn["who"] {
 }
 
 /**
- * Where a conversation's speech from `from` on stands for hearing: `unnamed` while a turn has no speaker yet (lifelog
- * names him a moment after the words), `complete` once its last turn is someone else's or ends a recording lifelog
- * closed on silence (no turn of an ask can follow), else `open` (the next recording may go on with it).
+ * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's or
+ * ends a recording lifelog closed on silence (no turn of an ask can follow), else `open` (the next recording may go
+ * on with it).
  */
 export function speechIn(store: Store, conversation: string, from: string) {
-  const turns = turnsBetween(store, conversation, from);
-  if (turns.some((t) => whose(t) === "unknown")) {
-    return "unnamed";
-  }
-  const last = turns.at(-1);
+  const last = turnsBetween(store, conversation, from).at(-1);
   if (!last || whose(last) === "other") {
     return "complete";
   }
@@ -93,10 +91,16 @@ export function speechIn(store: Store, conversation: string, from: string) {
 }
 
 /**
- * Hears one conversation from `from` on and records its asks. The words are fetched from lifelog; a failed fetch
- * throws (the watcher hears the conversation again), never reads as silence.
+ * Hears one conversation from `from` on and records its asks, except a wake with no speaker younger than NAMING_MS
+ * (lifelog may still name him: a `low` ask stays low): false while one is held. The words are fetched from lifelog; a
+ * failed fetch throws (the watcher hears the conversation again), never reads as silence.
  */
-export async function hear(store: Store, conversation: string, from: string) {
+export async function hear(
+  store: Store,
+  conversation: string,
+  from: string,
+  now = Date.now()
+) {
   const all = turnsBetween(store, conversation);
   const jobs = [
     ...new Set(all.filter((t) => t.at >= from).map((t) => t.jobId)),
@@ -116,14 +120,19 @@ export async function hear(store: Store, conversation: string, from: string) {
       who: whose(t),
     })
   );
-  for (const a of asksIn(turns, from)) {
+  // A wake with no speaker, younger than NAMING_MS: held, so lifelog can still name him.
+  const held = (a: { confidence: string; timing: { arrived: string } }) =>
+    a.confidence === "low" && now - Date.parse(a.timing.arrived) < NAMING_MS;
+  const asks = asksIn(turns, from);
+  for (const a of asks.filter((x) => !held(x))) {
     ask(
       { at: a.at, quote: a.quote, ref: a.ref },
       { confidence: a.confidence, conversation, turns: a.turns },
       "watch",
       "heard “hey Atlas”",
-      Date.now(),
+      now,
       a.timing
     );
   }
+  return !asks.some(held);
 }
