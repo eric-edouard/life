@@ -1,64 +1,33 @@
 import { expect, test } from "bun:test";
 import type { Health } from "./health";
-import { afterPoll, hearings, type Pending, publicCheck } from "./watch";
+import { afterPoll, hearings, type Pending } from "./watch";
 
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
 const fail = { error: "lifelog GET /changes: 502" };
 
-test("a successful poll resets the errors; an incident alerts once after 15 minutes and once when it ends", () => {
+test("a successful poll resets the errors and the lag; a failed one keeps the last cursor", () => {
   let h: Health | null = null;
   const run = (minute: number, r: typeof fail | { cursor: string }) => {
-    const next = afterPoll(h, at(minute), r, at(0));
-    // What `notify` does once the mail is sent.
-    const sent = { down: at(minute).toISOString(), up: null };
-    h = {
-      ...next.health,
-      alertedAt: next.send ? sent[next.send] : next.health.alertedAt,
-    };
-    return next;
+    h = afterPoll(h, at(minute), r, at(0));
+    return h;
   };
-  expect(run(0, ok("5")).send).toBeNull();
-  expect(run(1, fail).health.consecutiveErrors).toBe(1);
-  expect(run(10, fail).send).toBeNull();
+  expect(run(0, ok("5")).consecutiveErrors).toBe(0);
+  expect(run(1, fail).consecutiveErrors).toBe(1);
   const down = run(16, fail);
-  expect(down.send).toBe("down");
-  expect(down.health.lagSec).toBe(16 * 60);
-  expect(down.health.cursor).toBe("5");
-  expect(run(20, fail).send).toBeNull();
+  expect(down.consecutiveErrors).toBe(2);
+  expect(down.lagSec).toBe(16 * 60);
+  expect(down.cursor).toBe("5");
   const up = run(25, ok("9"));
-  expect(up.send).toBe("up");
-  expect(up.health.consecutiveErrors).toBe(0);
-  expect(up.health.lagSec).toBe(0);
-  expect(run(26, ok("9")).send).toBeNull();
+  expect(up.consecutiveErrors).toBe(0);
+  expect(up.lagSec).toBe(0);
+  expect(up.lastError).toBeNull();
 });
 
-test("a watcher that never succeeded counts its downtime from its start", () => {
+test("a watcher that never succeeded counts its lag from its start", () => {
   const first = afterPoll(null, at(16), fail, at(0));
-  expect(first.send).toBe("down");
-  expect(first.health.lastOkAt).toBeNull();
-});
-
-test("the public check ignores an offline Mac, heals on the 2nd failure, alerts once on the 3rd, says back once", () => {
-  let s = { checkedAt: null, failures: 0, result: null } as Parameters<
-    typeof publicCheck
-  >[0];
-  const run = (online: boolean, up: boolean) => {
-    const r = publicCheck(s, { ok: up, online });
-    s = r.state;
-    return r.action;
-  };
-  expect(run(false, false)).toBe("none");
-  expect(s.failures).toBe(0);
-  expect(run(true, false)).toBe("none");
-  expect(run(false, false)).toBe("none");
-  expect(run(true, false)).toBe("heal");
-  expect(run(true, false)).toBe("alert");
-  expect(run(true, false)).toBe("none");
-  expect(run(true, true)).toBe("recovered");
-  expect(run(true, true)).toBe("none");
-  expect(run(true, false)).toBe("none");
-  expect(run(true, true)).toBe("none");
+  expect(first.lagSec).toBe(16 * 60);
+  expect(first.lastOkAt).toBeNull();
 });
 
 test("a conversation is heard once, 40 s after his last turn arrived, from his earliest turn; old speech is never heard", () => {
@@ -81,7 +50,22 @@ test("a conversation is heard once, 40 s after his last turn arrived, from his e
     { conversation: "a", from: t(0).toISOString(), tries: 0 },
   ]);
   expect(hearings(pending, [], t(999).getTime())).toEqual([]);
-  const old = { at: "2026-10-13T10:00:00.000Z", conversation: "c" };
+  const old = { at: "2026-10-08T09:59:00.000Z", conversation: "c" };
   expect(hearings(pending, [old], t(0).getTime())).toEqual([]);
   expect(pending.size).toBe(0);
+});
+
+test("after a 3-day outage, his turns from before it are still heard, once, from his first turn", () => {
+  const pending: Pending = new Map();
+  const back = at(0).getTime();
+  const said = "2026-10-12T10:00:00.000Z";
+  const turns = [
+    { at: said, conversation: "d" },
+    { at: "2026-10-12T10:00:05.000Z", conversation: "d" },
+  ];
+  expect(hearings(pending, turns, back)).toEqual([]);
+  expect(hearings(pending, [], back + 40_000)).toEqual([
+    { conversation: "d", from: said, tries: 0 },
+  ]);
+  expect(hearings(pending, [], back + 80_000)).toEqual([]);
 });
