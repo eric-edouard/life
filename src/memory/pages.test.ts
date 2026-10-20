@@ -25,18 +25,18 @@ test("pages no target claims are deleted, the others stay", async () => {
   await rm(dir, { recursive: true });
 });
 
-test("what changed is counted against the last commit, so a midday rewrite shows in the night's report", async () => {
+test("what changed is counted against the last commit, so a midday rewrite shows in the night's report; a page new or gone too", async () => {
   const root = await mkdtemp(join(tmpdir(), "life-"));
   const dir = join(root, "memory", "pages");
   await mkdir(join(dir, "people"), { recursive: true });
-  const page = (lines: string[]) =>
+  const page = (name: string, lines: string[]) =>
     renderPage({
       hold: "",
       meta: {
         built: "2026-10-20T00:00:00.000Z",
         madeBy: { engine: "claude", model: "m", prompt: "p", run: "r" },
-        name: "Hans",
-        page: "person:hans",
+        name,
+        page: `person:${name.toLowerCase()}`,
         schemaVersion: 1,
         seen: "r",
       },
@@ -47,22 +47,44 @@ test("what changed is counted against the last commit, so a midday rewrite shows
         now: lines.map((text) => ({ cites: ["obs_aaaaaaaaaaaa"], text })),
         views: [],
       },
-      title: "Hans",
+      title: name,
     });
-  const file = join(dir, "people", "hans.md");
-  await Bun.write(file, page(["Builds the roof."]));
-  for (const args of [
-    ["init", "-q"],
-    ["add", "."],
-    ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "night"],
-  ]) {
-    git(root, args);
-  }
-  expect(changedSinceCommit(root, dir)).toEqual([]);
-  // A midday run rewrites it; the night adds a line more: the report counts both against the night before.
-  await Bun.write(file, page(["Builds the roof.", "Paid the tiles."]));
+  const file = (name: string) => join(dir, "people", `${name}.md`);
+  git(root, ["init", "-q"]);
+  // No commit yet: every page is new.
+  await Bun.write(file("hans"), page("Hans", ["Builds the roof."]));
   expect(changedSinceCommit(root, dir)).toEqual([
     { added: 1, moved: 0, page: "Hans", removed: 0 },
   ]);
+  await Bun.write(file("ana"), page("Ana", ["Sells the tiles."]));
+  git(root, ["add", "."]);
+  git(root, [
+    "-c",
+    "user.email=t@t",
+    "-c",
+    "user.name=t",
+    "commit",
+    "-qm",
+    "night",
+  ]);
+  expect(changedSinceCommit(root, dir)).toEqual([]);
+  // A midday rewrite, a page gone, a page new: all against the night before.
+  await Bun.write(
+    file("hans"),
+    page("Hans", ["Builds the roof.", "Paid the tiles."])
+  );
+  await rm(file("ana"));
+  await Bun.write(file("zoe"), page("Zoe", ["Moved in."]));
+  expect(
+    changedSinceCommit(root, dir).sort((a, b) => a.page.localeCompare(b.page))
+  ).toEqual([
+    { added: 0, moved: 0, page: "Ana", removed: 1 },
+    { added: 1, moved: 0, page: "Hans", removed: 0 },
+    { added: 1, moved: 0, page: "Zoe", removed: 0 },
+  ]);
+  // Outside a git repository: an error, never an empty report.
+  const lone = await mkdtemp(join(tmpdir(), "no-git-"));
+  expect(() => changedSinceCommit(lone, lone)).toThrow();
+  await rm(lone, { recursive: true });
   await rm(root, { recursive: true });
 });
