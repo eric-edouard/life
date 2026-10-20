@@ -13,16 +13,10 @@ const SESSION = "__Host-life-me";
 const SESSION_S = 30 * 24 * 3600;
 const PAGES = join(DATA, "docs", "portrait");
 const PAGE = /^\/me(?:\/[a-z0-9-]+)?$/;
-// A page's clips: its audio and the words timed to it, in a folder named like the page.
-const CLIP = /^\/me\/[a-z0-9-]+\/[a-z0-9-]+\.(?:m4a|json)$/;
+// A page's clips: its audio and the words timed to it, in <page>/clips/ (nothing else of the page's folder is served).
+const CLIP = /^\/me\/[a-z0-9-]+\/clips\/[a-z0-9-]+\.(?:m4a|json)$/;
 // The clip player is code, so it ships in this repo; the pages and clips are his data.
 const PLAYER = "/me/player.js";
-const HTML = "text/html; charset=utf-8";
-const TYPES: Record<string, string> = {
-  js: "text/javascript; charset=utf-8",
-  json: "application/json",
-  m4a: "audio/mp4",
-};
 // ponytail: one global window for failed passwords, per-IP limits if it ever faces more than him.
 const FAILS_ALLOWED = 5;
 const FAILS_WINDOW_MS = 60_000;
@@ -31,20 +25,27 @@ const PAGE_HEADERS = {
   ...HEADERS,
   "content-security-policy":
     "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; media-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'",
-  "content-type": HTML,
   "x-robots-tag": "noindex",
 };
 
-/** The file a path under /me serves (a page, one of its clips, the player), or null for a path that isn't the portrait's. */
+// Bun types each file from its extension; only the sign-in form, a string, says it is HTML.
+const FORM_HEADERS = {
+  ...PAGE_HEADERS,
+  "content-type": "text/html; charset=utf-8",
+};
+
+/** What a path under /me serves (a page, one of its clips, the player), or null for a path that isn't the portrait's. */
 const fileOf = (pages: string, pathname: string) => {
   const name = pathname.slice("/me/".length);
   if (pathname === PLAYER) {
-    return join(ROOT, "assets", "portrait", "player.js");
+    return { page: false, path: join(ROOT, "assets", "portrait", "player.js") };
   }
   if (CLIP.test(pathname)) {
-    return join(pages, name);
+    return { page: false, path: join(pages, name) };
   }
-  return PAGE.test(pathname) ? join(pages, `${name || "index"}.html`) : null;
+  return PAGE.test(pathname)
+    ? { page: true, path: join(pages, `${name || "index"}.html`) }
+    : null;
 };
 
 const form = (
@@ -93,12 +94,12 @@ export function createPortrait(
       return text(
         form(pathname, "Too many tries, wait a minute."),
         429,
-        PAGE_HEADERS
+        FORM_HEADERS
       );
     }
     if (!same(sign(given), sign(key))) {
       fails.push(now());
-      return text(form(pathname, "Wrong password."), 401, PAGE_HEADERS);
+      return text(form(pathname, "Wrong password."), 401, FORM_HEADERS);
     }
     const exp = String(Math.floor(now() / 1000) + SESSION_S);
     return redirect(pathname, [
@@ -108,25 +109,22 @@ export function createPortrait(
 
   async function handle(req: Request): Promise<Response | null> {
     const { pathname } = new URL(req.url);
-    const path = fileOf(pages, pathname);
-    if (!path) {
+    const served = fileOf(pages, pathname);
+    if (!served) {
       return null;
     }
-    const page = path.endsWith(".html");
+    const { page, path } = served;
     if (page && req.method === "POST") {
       return login(req, pathname);
     }
     if (!signedIn(req)) {
       return page
-        ? text(form(pathname), 200, PAGE_HEADERS)
+        ? text(form(pathname), 200, FORM_HEADERS)
         : text("sign in at /me", 401);
     }
     const file = Bun.file(path);
-    const type = TYPES[path.split(".").pop() ?? ""] ?? HTML;
     return (await file.exists())
-      ? new Response(file, {
-          headers: { ...PAGE_HEADERS, "content-type": type },
-        })
+      ? new Response(file, { headers: PAGE_HEADERS })
       : text("not found", 404);
   }
 

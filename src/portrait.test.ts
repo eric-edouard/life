@@ -8,9 +8,10 @@ import { createPortrait } from "./portrait";
 const dir = await mkdtemp(join(tmpdir(), "portrait-"));
 await writeFile(join(dir, "index.html"), "<h1>Someone, as Life knows him</h1>");
 await writeFile(join(dir, "sam.html"), "<h1>A friend</h1>");
-await mkdir(join(dir, "sam"));
-await writeFile(join(dir, "sam", "hello.json"), '{"words":[]}');
-await writeFile(join(dir, "sam", "hello.m4a"), "not really audio");
+await mkdir(join(dir, "sam", "clips"), { recursive: true });
+await writeFile(join(dir, "sam", "clips", "hello.json"), '{"words":[]}');
+await writeFile(join(dir, "sam", "clips", "hello.m4a"), "not really audio");
+await writeFile(join(dir, "sam", "research.json"), "{}");
 await writeFile(join(dir, "sam", "notes.md"), "research");
 afterAll(() => rm(dir, { force: true, recursive: true }));
 
@@ -100,15 +101,15 @@ test("a person's page: the form keeps its path through sign-in, then /me/<name> 
   ).toBeNull();
 });
 
-test("a page's clips and the player: behind the password, typed, and nothing else in the folder", async () => {
+test("a page's clips and the player: behind the password, typed, and nothing outside clips/", async () => {
   clock += 3_600_000;
-  expect((await get("", "/me/sam/hello.m4a")).status).toBe(401);
+  expect((await get("", "/me/sam/clips/hello.m4a")).status).toBe(401);
   const cookie = session(await login("open sesame"));
-  const audio = await get(cookie, "/me/sam/hello.m4a");
-  expect(audio.headers.get("content-type")).toBe("audio/mp4");
+  const audio = await get(cookie, "/me/sam/clips/hello.m4a");
+  expect(audio.headers.get("content-type")).toBe("audio/x-m4a");
   expect(
-    (await get(cookie, "/me/sam/hello.json")).headers.get("content-type")
-  ).toBe("application/json");
+    (await get(cookie, "/me/sam/clips/hello.json")).headers.get("content-type")
+  ).toContain("application/json");
   const player = await get(cookie, "/me/player.js");
   expect(player.headers.get("content-type")).toContain("text/javascript");
   expect(await player.text()).toContain("figure.clip");
