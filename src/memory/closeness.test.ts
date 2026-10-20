@@ -136,8 +136,8 @@ test("a level keeps a page when close or once close, never a service's; his word
   });
   expect(levels.has("person:ann2")).toBe(false);
   expect(levels.get("person:ann")?.personal).toBe("inner");
-  // Someone on his map not judged yet keeps a page until judged.
-  expect([...pagedBy(levels, ["person:new"])].sort()).toEqual([
+  // Someone waiting keeps a page until judged; a judgment beats waiting (joe).
+  expect([...pagedBy(levels, ["person:new", "person:joe"])].sort()).toEqual([
     "person:ann",
     "person:bob",
     "person:me",

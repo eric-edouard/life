@@ -1,4 +1,3 @@
-import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { stamp } from "../llm";
@@ -14,6 +13,7 @@ import { OWNER, type Truth } from "../truth";
 import {
   appendJsonl,
   CLOSENESS,
+  filesIn,
   latestBy,
   PAGES,
   readCorrections,
@@ -186,22 +186,22 @@ const round = (n: number) => Math.round(n * 10) / 10;
 export const bucket = (t: Tally) =>
   `${Math.round(Math.log2(1 + t.recent))}/${Math.round(Math.log2(1 + t.lasting))}`;
 
-/** Who is worth judging: everyone on his map, and anyone with this much `lasting`. */
+/** Who is worth judging: everyone waiting (`waitingOf`), and anyone with this much `lasting`. */
 const JUDGED_FROM = 1;
 
 /**
- * Whom to ask about: everyone worth judging (on his map, or this much `lasting`) never judged, judged on other counts
+ * Whom to ask about: everyone worth judging (waiting, or this much `lasting`) never judged, judged on other counts
  * (rounded: they really moved) or under another prompt.
  */
 export function dueFor(
   tallies: { ref: string; t: Tally }[],
   judged: Map<string, Closeness>,
-  onMap: Set<string>
+  waiting: Set<string>
 ) {
   return tallies.filter(
     ({ ref, t }) =>
       ref !== OWNER &&
-      (onMap.has(ref) || t.lasting >= JUDGED_FROM) &&
+      (waiting.has(ref) || t.lasting >= JUDGED_FROM) &&
       (judged.get(ref)?.counts !== bucket(t) ||
         judged.get(ref)?.madeBy.prompt !== CLOSENESS_PROMPT)
   );
@@ -334,7 +334,7 @@ export const closeNow = async () =>
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
   const corrections = await readCorrections();
-  return pagedBy(levelsWith(corrections), waitingOf(truth, corrections));
+  return pagedBy(levelsWith(corrections), await waitingOf(truth, corrections));
 }
 
 /** Each person's levels now, from the ledger and `corrections` (his, as read by the caller). */
@@ -342,31 +342,21 @@ export const levelsWith = (corrections: Correction[]) =>
   levelsNow(readCloseness(), corrections);
 
 /**
- * Who keeps a page until judged: everyone on his map (he said who they are) and everyone whose page is written, so a
- * missing or empty closeness ledger never deletes a page. Each as the person they are now.
+ * Who keeps a page until judged, and is judged at the next night even with nothing counted: everyone on his map (he
+ * said who they are) and everyone whose page is written, so a missing or empty closeness ledger never deletes a page.
+ * Each as the person they are now (one folded into another is that one).
  */
-export const waitingOf = (
+export async function waitingOf(
   truth: Pick<Truth, "people">,
   corrections: Correction[]
-) => {
-  const dir = join(PAGES, "people");
+) {
   const canon = merged(corrections);
-  const written = existsSync(dir)
-    ? readdirSync(dir).flatMap((f) =>
-        f.endsWith(".md") ? [canon(`person:${f.slice(0, -3)}`)] : []
-      )
-    : [];
-  return new Set([...onMapOf(truth, corrections), ...written]);
-};
-
-/** Everyone on his map, as the person each is now (one folded into another is that one). */
-export const onMapOf = (
-  truth: Pick<Truth, "people">,
-  corrections: Correction[]
-) => {
-  const canon = merged(corrections);
-  return new Set(truth.people.map((p) => canon(`person:${p.id}`)));
-};
+  const written = await filesIn(join(PAGES, "people"), ".md");
+  return new Set([
+    ...truth.people.map((p) => canon(`person:${p.id}`)),
+    ...written.map((f) => canon(`person:${f.slice(0, -3)}`)),
+  ]);
+}
 
 /**
  * The nightly step: counts every person's days over the last YEARS years from the chats and his recordings, then asks
@@ -394,16 +384,16 @@ export async function closeness() {
     ...inferred.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
   ]);
-  const onMap = onMapOf(truth, people.corrections);
+  const waiting = await waitingOf(truth, people.corrections);
   const judged = readCloseness();
-  // Everyone on his map is judged, even with nothing counted (a relation alone can say close family).
-  for (const ref of onMap) {
+  // Everyone waiting is judged, even with nothing counted (a relation alone can say close family).
+  for (const ref of waiting) {
     if (!days.has(ref)) {
       days.set(ref, new Map());
     }
   }
   const tallies = [...days].map(([ref, of]) => ({ ref, t: tally(of, today) }));
-  const due = dueFor(tallies, judged, onMap);
+  const due = dueFor(tallies, judged, waiting);
   const ctx = {
     at: step.now.toISOString(),
     madeBy: stamp(step.llm, CLOSENESS_PROMPT, step.run),

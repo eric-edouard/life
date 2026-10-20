@@ -135,7 +135,7 @@ async function targets(
   standing: Standing
 ) {
   const levels = levelsWith(standing.corrections);
-  const paged = pagedBy(levels, waitingOf(truth, standing.corrections));
+  const paged = pagedBy(levels, await waitingOf(truth, standing.corrections));
   const close = personallyClose(levels);
   const { homes } = placed(observations, truth, paged);
   const newest = (ref: string) =>
@@ -540,7 +540,7 @@ export async function pages(opts: PagesOptions) {
   return {
     dropped: gone.map(
       (g) =>
-        `${g.meta.name} (${levels.get(g.meta.page)?.why ?? (g.meta.page.startsWith("area:") ? "its area is gone" : "never judged: little 1:1 contact")})`
+        `${g.meta.name} (${levels.get(g.meta.page)?.why ?? (g.meta.page.startsWith("area:") ? "its area is gone" : "no longer known")})`
     ),
     ...step.end({
       corrections: built.reduce((n, b) => n + b.corrections.length, 0),

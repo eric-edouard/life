@@ -199,8 +199,8 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
 
 One Markdown page per person who has one by closeness (`pagedBy`, `closeness.ts`: the owner, `people/me.md`; anyone
-whose personal or work level is inner, regular or faded and is not a service; someone in `truth/people.yaml` not judged
-yet) and has an observation, and per area of `truth/areas.yaml` (the file is named by the
+whose personal or work level is inner, regular or faded and is not a service; someone not judged
+yet who is in `truth/people.yaml` or has a page already, judged at the next night) and has an observation, and per area of `truth/areas.yaml` (the file is named by the
 area's id; an inferred person's id starts with `inf-`). Rewritten nightly by `bun life memory pages` from the previous
 version and the observations extracted since; git keeps every version (the nightly's "Memory: <date>" commits).
 
