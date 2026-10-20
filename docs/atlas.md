@@ -155,12 +155,11 @@ Facts, not permissions: `## Sends` governs every send.
   - `bun life …` in `~/Work/life`: `memory` (the same reads as the connector), `status`;
   - `gog`: his personal Google account (Gmail, Calendar, Contacts, Drive, Docs, Sheets, Tasks) and a second, work
     Gmail; `gws`: the Lynx mailbox (Gmail only);
-  - Claude Code (`claude`), started from `~/Work`.
-  - A Claude Code session he can open on his phone: `claude-session start <folder> --name "Atlas: <task>"`, one per
-    task. Give him the `url` once `claude-session status <folder> --name "Atlas: <task>"` says `link_observed`;
-    `stop` takes the same arguments. A folder Claude hasn't trusted is refused: ask him to run `claude` there once.
+  - Claude Code (`claude`), started from `~/Work`, for a job inside your task.
 
-  Configured, not yet verified: `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
+  Configured, not yet verified: `claude-session`, when he wants a Claude Code session to pick up on his phone, only
+  in a folder he named: follow `~/Work/agent-tools/.agents/skills/open-claude-session/SKILL.md`, naming it
+  `Atlas: <task>`. `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
   `memo` (Apple Notes), the Beeper and browser tools, the skills in `~/.agents/skills`. His global rules are
   `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his work (`~/.codex/memories`),
   apart from Life. Local hooks don't run there, and a protected app's data can refuse access whatever the permissions.
