@@ -108,6 +108,7 @@ const night = (facts: number) =>
     paged: {
       changes: [{ added: 2, moved: 1, page: "Shop", removed: 0 }],
       corrections: 0,
+      dropped: ["inf-glazier"],
       model: "codex/m (medium)",
       retired: 1,
     },
@@ -132,6 +133,7 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("codex/m (high), codex/m (medium)");
   expect(text).toContain("6 moments on 2 days");
   expect(text).toContain("observations retired: 1");
+  expect(text).toContain("Pages no longer kept (git has them): inf-glazier");
   expect(text).toContain("3m 41s");
   expect(text).toContain("Shop: +2 added, 1 moved to History, 0 removed");
   expect(text).toContain("75%");

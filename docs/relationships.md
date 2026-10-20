@@ -50,7 +50,7 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
 - [ ] **2. Backfill-safe foundation:** zones sorted by `from` and his zone timeline from July 2025 (<city>, with the
       France trips from his bookings); `gather` bounded by a `to` and run month by month, releasing the lock between
       months; no file descriptions for backfilled days (the tag only).
-- [x] **3. Closeness:** code counts (1:1 only, personal and work apart), a model judges the level with a reason (only
+- [ ] **3. Closeness:** code counts (1:1 only, personal and work apart), a model judges the level with a reason (only
       when the counts moved), his overrides as corrections; the level replaces today's page rule.
 - [ ] **3b. Contacts:** his Contacts name the handles Life can't place.
 - [ ] **4. Prompts and the relationship section:** triage and extraction weigh relationship moments for close people;

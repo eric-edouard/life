@@ -167,9 +167,9 @@ repo wins. A repo on a project (either way) counts every author's commits in its
 How close each person is to the owner, written by the nightly's `closeness` step (the fast-tier model), append-only:
 `{schemaVersion: 1, person, personal, work, service, why, counts, madeBy, at}`. `personal` and `work` are each `inner`,
 `regular`, `acquaintance` or `faded` (was close, not any more); `service` a business or a bot; `why` one line. Code
-counts, for everyone over the last 3 years, the days a 1:1 chat went both ways and the days they spoke in his
-recordings (lifelog's speakers), weighted by how recent (`recent` halves every 30 days, `lasting` every 365); the model
-judges those counts with who they are on his map. `counts` is what it judged, rounded, so a person is asked about again
+counts, for everyone over the last 3 years, the days a 1:1 chat or mail thread went both ways (not a group nor a
+mailing list) and the days they spoke in his recordings (lifelog's speakers, live conversations), weighted by how recent (`recent` halves every 30 days, `lasting` every 365); the model
+judges those counts with who they are on his map (everyone on it is judged, counts or not). `counts` is what it judged, rounded, so a person is asked about again
 only when their counts move or the prompt changes. The latest record per person wins; a relation on his map like
 father or sister keeps `personal` at `regular` at least, and his `closeness` correction wins over both. No model output
 feeds the counts. Model-owned: who has a page follows it at once.

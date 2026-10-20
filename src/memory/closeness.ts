@@ -7,7 +7,7 @@ import {
   type MadeBy,
   type SourceEvent,
 } from "../schema";
-import { type Store, withStore } from "../sources/lifelog";
+import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { OWNER, type Truth } from "../truth";
 import {
   appendJsonl,
@@ -17,7 +17,7 @@ import {
   rowsOf,
 } from "./ledger";
 import { begin, chunks, inBatches, meContext } from "./run";
-import { CHATS, daysBefore, safely } from "./units";
+import { daysBefore, safely, WITH_PEOPLE } from "./units";
 import { readPeople } from "./who";
 import { localDate } from "./zones";
 
@@ -50,16 +50,25 @@ const dayOf = (days: Days, who: string, day: string) => {
 };
 
 /**
- * The 1:1 chats' days by person: a chat where one other sender wrote is 1:1 (a group is not a measure of closeness),
- * its person who the sender or the chat's name resolves to.
+ * The 1:1 chats' and mail threads' days by person: one where one other sender wrote, and not a group by its id (a
+ * WhatsApp `@g.us`, an iMessage `chat…`) nor a mailing list (a group is not a measure of closeness); its person who the
+ * sender or the chat's name resolves to.
  */
 export function chatDays(
   events: SourceEvent[],
   resolve: (s: string) => string | null,
   days: Days = new Map()
 ) {
+  const one = events.filter(
+    (e) =>
+      !(
+        e.bulk ||
+        e.chat.endsWith("@g.us") ||
+        (e.source === "imessage" && e.chat.startsWith("chat"))
+      )
+  );
   for (const list of Map.groupBy(
-    events,
+    one,
     (e) => `${e.source}|${e.chat}`
   ).values()) {
     const others = new Set(list.filter((e) => !e.fromMe).map((e) => e.sender));
@@ -82,18 +91,13 @@ export function chatDays(
   return days;
 }
 
-/** The days each person spoke in his recordings, by lifelog's own speaker names (never a model's). */
+/** The days each person spoke in his recordings (`speakerTurns`: live conversations, lifelog's own speakers). */
 export function voiceDays(
   store: Store,
   resolve: (s: string) => string | null,
   days: Days = new Map()
 ) {
-  const turns = store.db
-    .query<{ at: string; id: string; name: string | null }, []>(
-      "select distinct person_id as id, person_name as name, start_at as at from turns where person_id is not null and is_owner = 0"
-    )
-    .all();
-  for (const t of turns) {
+  for (const t of speakerTurns(store)) {
     const who = resolve(t.id) ?? (t.name ? resolve(t.name) : null);
     if (who && who !== OWNER) {
       dayOf(days, who, localDate(t.at)).voice = true;
@@ -193,7 +197,7 @@ export const readCloseness = () =>
 
 /** A relation on his map that keeps someone at least `regular` in his personal life, however little they talk. */
 const FAMILY =
-  /\b(father|mother|dad|mum|mom|brother|sister|son|daughter|wife|husband|partner|girlfriend|boyfriend|grand\w*)\b/i;
+  /\b(father|mother|dad|mum|mom|brother|sister|son|daughter|wife|husband|(?<!business )partner|girlfriend|boyfriend|grand\w*)\b/i;
 
 /**
  * Each person's levels now: the model's latest judgment, family kept at least `regular`, then his own word
@@ -282,7 +286,7 @@ export async function closeness() {
   const failed: string[] = [];
   const events = (
     await Promise.all(
-      Object.entries(CHATS).map(([name, read]) =>
+      Object.entries(WITH_PEOPLE).map(([name, read]) =>
         safely(name, () => read(since), failed)
       )
     )
@@ -297,6 +301,12 @@ export async function closeness() {
   ]);
   const onMap = new Set(truth.people.map((p) => `person:${p.id}`));
   const judged = readCloseness();
+  // Everyone on his map is judged, even with nothing counted (a relation alone can say close family).
+  for (const ref of onMap) {
+    if (!days.has(ref)) {
+      days.set(ref, new Map());
+    }
+  }
   const tallies = [...days].map(([ref, of]) => ({ ref, t: tally(of, today) }));
   const due = tallies.filter(
     ({ ref, t }) =>

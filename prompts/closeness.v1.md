@@ -17,8 +17,9 @@ The user message is one JSON object with `today` and `people`. Each person has:
 - `person`: their ref. Echo it back as is.
 - `name`, and `relation`: who they are to him, in his own words when he wrote it, else Life's guess (may be empty).
 - `first`, `last`: the first and last day anything happened with them.
-- `twoWay`: days a 1:1 chat with them went both ways; `voice`: days they spoke in his recordings (he wears a
-  recorder: time together, in person or on a call). Recordings began recently, so older closeness shows in chats only.
+- `twoWay`: days a 1:1 chat or mail thread with them went both ways (mail is mostly work); `voice`: days they spoke in
+  his recordings (he wears a recorder: time together, in person or on a call). Recordings began recently, so older
+  closeness shows in chats and mail only.
 - `recent`: those days weighted, halving every 30 days (who is close now); `lasting`: the same halving every 365 days
   (who has been close over the years).
 

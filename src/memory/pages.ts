@@ -1,5 +1,5 @@
 import { mkdir, readdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { stamp } from "../llm";
 import {
   type Area,
@@ -506,15 +506,17 @@ export async function pages(opts: PagesOptions) {
       }
     })
   );
-  if (!only) {
-    await removeOrphans(PAGES, new Set(all.map((t) => t.path)));
-  }
+  // A page no one keeps any more (a person no longer close, an area gone) leaves; git keeps it. The report names them.
+  const dropped = only
+    ? []
+    : await removeOrphans(PAGES, new Set(all.map((t) => t.path)));
   await appendJsonl(
     CORRECTIONS,
     Correction,
     built.flatMap((b) => b.corrections)
   );
   return {
+    dropped: dropped.map((path) => basename(path, ".md")),
     ...step.end({
       corrections: built.reduce((n, b) => n + b.corrections.length, 0),
       pages: built.length,
