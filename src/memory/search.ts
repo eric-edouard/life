@@ -36,6 +36,7 @@ import {
   readVerdicts,
   type Standing,
   stateOf,
+  touches,
   verdictOf,
 } from "./ledger";
 import { who as named, SURE_AT } from "./observe";
@@ -464,10 +465,7 @@ export async function day(date: string) {
   const actions = (await readActions()).filter(
     (a) => !isTaskLine(a) && localDate(a.at) === date
   );
-  const moments = await momentsWhere((m) => {
-    const [first, last] = daysOf(m);
-    return first <= date && date <= last;
-  });
+  const moments = await momentsWhere((m) => touches(m, date, date));
   return withStore((store) =>
     withIndex((db) =>
       dayLines(

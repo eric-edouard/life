@@ -30,6 +30,8 @@ export interface Workout {
 /**
  * His workouts that started in `from`–`to`, by start; null without a key. Read from the change feed since `from`
  * (newest change first, so a workout's first event is how it stands; a deletion hides it).
+ * ponytail: the feed holds every change since `from`, 10 a page, so an old week reads every change after it; page
+ * through /v1/workouts and stop at `from` if old weeks get slow.
  */
 export async function readWorkouts(
   from: Date,
