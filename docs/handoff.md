@@ -105,7 +105,8 @@ judge calls: not near 02:00, 13:00 or 19:00. To trace a false to its step: `bun 
 a moment.
 
 Model choice: `bun bench [--models opus,…] [--runs n]` runs the real moments and extract over 12–18 Oct, once per
-model on an empty copy of the data (today's `truth/`), and judges each run's claims (pinned judge) against that week's
+model (Opus 5.5 medium, and through OpenRouter on zero-retention hosts MiMo V2.6 Pro, DeepSeek V4.1 Flash, V4 Pro and
+GLM-5.3) on an empty copy of the data (today's `truth/`), and judges each run's claims (pinned judge) against that week's
 38 hand-checked facts and his rated statements; the baseline (Life's deep tier) runs twice so its own spread shows.
 About 40 minutes; it prints the table and writes nothing of his. Not between 01:30 and 06:00.
 
