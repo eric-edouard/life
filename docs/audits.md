@@ -2,8 +2,10 @@
 
 He says "hey Atlas, this didn't work: …". Atlas takes it in (`docs/atlas.md`, `## Audits`); a Claude session
 investigates. An audit changes no code, memory or reminders: it writes only its audit file and its case in
-`~/Life/docs` and commits them there by path (`git commit -- <files>`), never while `~/Life/.nightly.lock` exists: the
-nightly stages `memory/` and `truth/` in the same repo, and a bare commit would take them. It ends with a proposal. Agreed with the owner on 20 Oct; the plan and its phases: `~/Life/docs/audits-plan.md`.
+`~/Life/docs` and commits them there by path (`git commit -- <files>`), only while the connector's `status` says
+`processing` is idle (a run holds the lock otherwise): the nightly stages `memory/` and `truth/` in the same repo, and
+a bare commit would take them. It ends with a proposal. Agreed with the owner on 20 Oct; the plan and its phases:
+`~/Life/docs/audits-plan.md`.
 
 ## Who does what
 
@@ -32,7 +34,9 @@ finding needs. Sections, in order:
    policy (P). Each one pass, fail (proven), fail (inferred) or unknown (a gap), with evidence.
 7. **Hypotheses**, and the counterexamples that killed them.
 8. **Cause**: proven, or the observability that is missing. Never one dressed as the other.
-9. **Coverage**: the tools used, the caps hit, what was unavailable.
+9. **Coverage**: the tools used, the caps hit, what was unavailable. Where to look: what an agent read is its
+   `mcp.call` lines in `derived/log` (the OAuth `client` that writes `task` is Atlas's; another is a chat or an app);
+   what a nightly report listed is its run's `listed` (the connector's `runs`).
 10. **Adversarial pass**: what it found and how each point was settled.
 11. **Proposal**: a bounded fix, its regression case, success criteria.
 
@@ -51,4 +55,6 @@ Enforced by the review: the rule is in `AGENTS.md`, and `debt-review` treats a b
   flaky case passes 2 runs of 3; a flake is recorded, not retried away.
 - Atlas's stages (J, F, P), held by the playbook: a scenario in the case, re-read against `docs/atlas.md` whenever it
   changes, until code can check it.
+- `src/cases.test.ts` checks every case on every push: its shape, its audit file, and that a `test` case's test
+  exists and names it (a `facts` case's file exists).
 - Cases only accumulate. Removing one needs his OK, written in the case file.

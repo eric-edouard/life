@@ -96,9 +96,8 @@ When he says something didn't work ("hey Atlas, this didn't work: …", or the s
 - **"Audit: …"** is engineering, and Claude's. Its brief: his words, the task id, the `conversation` and `turns`
   (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Claude runs as a Remote
   Control session he can answer from his phone, with `--permission-mode default` (his own default is `auto`), never
-  bypass. No Remote Control launch from a Codex task is verified yet (the launcher: task `act_34647b39f4e9`): until
-  one is, put the part in `waiting-eric` with the brief ready for him to paste into a Claude session, and ask him for
-  its link. Put the link in the note. Close the part `done` once you have read its report, the audit file in
+  bypass. While that launch is not verified (What you can reach), put the part in `waiting-eric` with the brief ready
+  for him to paste into a Claude session, and ask him for its link. Put the link in the note. Close the part `done` once you have read its report, the audit file in
   `~/Life/docs/audits/` (with a Codex task), with its path.
 
 ## His plan and the weekly review
@@ -172,7 +171,8 @@ Facts, not permissions: `## Sends` governs every send.
     Gmail; `gws`: the Lynx mailbox (Gmail only);
   - Claude Code (`claude`), started from `~/Work`.
 
-  Configured, not yet verified: `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
+  Configured, not yet verified: a Claude Remote Control session started from a Codex task (the launcher, task
+  `act_34647b39f4e9`), `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
   `memo` (Apple Notes), the Beeper and browser tools, the skills in `~/.agents/skills`. His global rules are
   `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his work (`~/.codex/memories`),
   apart from Life. Local hooks don't run there, and a protected app's data can refuse access whatever the permissions.
