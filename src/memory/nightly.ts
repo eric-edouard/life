@@ -68,7 +68,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems.push(`actions.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
-  // A task's own lines (Atlas's updates, nudges) are its rows, not actions.
+  // A task's own lines (Atlas's updates) are its rows, not actions.
   return {
     actions: actions.filter(
       (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
@@ -76,7 +76,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems,
     tasks: tasks.map((t) => ({
       name: `${t.state} · ${t.age}`,
-      relation: `${clip(t.quote, 120)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.nudges} nudges, ${t.extensions} extensions`,
+      relation: `${clip(t.quote, 120)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.extensions} extensions`,
     })),
   };
 }
@@ -124,11 +124,11 @@ export async function nightly(days: number, force = false) {
       lockReport(held.toISOString())
     );
   }
-  // Each store failing for an hour: one email per incident (the key; Resend forgets a key after 24 h, so again daily while it lasts).
+  // Each store failing for an hour: one email per incident and day while it lasts (the key).
   for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
     // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
     await sendReport(
-      `archive/${name}/${e.at}`,
+      `archive/${name}/${e.at}/${localDate(now.toISOString())}`,
       archiveFailedReport(name, e.at, String(e.error))
     );
   }

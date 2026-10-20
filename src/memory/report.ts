@@ -1,5 +1,5 @@
 import { type Health, polling } from "../health";
-import { log } from "../log";
+import { log, logDays, logEvents } from "../log";
 import type { Action } from "../schema";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
@@ -11,7 +11,7 @@ import { count, localTime, time } from "./units";
 import { localDate, when } from "./zones";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
-// (no model). `sendReport` also carries the alerts (a failed action or delivery, a task the board cannot show, the lock, the archive).
+// (no model). `sendReport` also carries the alerts (a failed action or delivery, an Atlas task that needs him, the lock, the archive).
 
 const FROM = `Claude <${LIFE_MAIL.from}>`;
 
@@ -234,6 +234,20 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
+/** The alert for an Atlas task that needs him (`chase`, src/board.ts): why, and his words. */
+export const taskReport = (a: Action, title: string, cause: string) =>
+  alert(a.at, "Atlas task", {
+    failure: { error: cause, step: title },
+    notes: [
+      `You said: “${a.instruction?.quote}”`,
+      `Its task: ${a.id} (Life's \`tasks\`; memory/actions.jsonl).`,
+    ],
+    preheader: `${cause}: ${title}`.slice(0, 140),
+    stats: [{ label: "asked", value: time(a.at) }],
+    subject: `Atlas: ${title} (${cause.split(":")[0]})`,
+    verdict: "NEEDS YOU",
+  });
+
 /** The alert for an action that failed: his words are in it, so he can do the thing by hand. */
 export const actionFailedReport = (a: Action) =>
   alert(a.at, "Life action", {
@@ -296,11 +310,27 @@ export type Mail = ReturnType<typeof compose> & {
   attachments?: { content: string; filename: string }[];
 };
 
+let sent: Set<string> | undefined;
+/** Whether `id` went out already: the `email.sent` log of the last 8 days, read once per process. */
+async function sentBefore(id: string) {
+  sent ??= new Set(
+    (await logDays())
+      .slice(0, 8)
+      .flatMap((n) => logEvents<{ key: string }>(n, "email.sent"))
+      .map((e) => e.key)
+  );
+  return sent.has(id);
+}
+
 /**
- * Sends a report with Resend's API (idempotent per `id`, `<kind>/<run or incident>`; the kind names the step in the log). A failed send is logged and returns null: it never changes
- * how the night ended.
+ * Sends a report with Resend's API, once per `id` (`<kind>/<run or incident>`; the kind names the step in the log): an
+ * id already sent (`sentBefore`) is skipped, and Resend's idempotency key covers a race. A failed send is logged and
+ * returns null: it never changes how the night ended, and the caller may try again.
  */
 export async function sendReport(id: string, mail: Mail) {
+  if (await sentBefore(id)) {
+    return null;
+  }
   try {
     const key = process.env.RESEND_PERSONAL_API_KEY;
     // His address, the only recipient.
@@ -322,7 +352,8 @@ export async function sendReport(id: string, mail: Mail) {
     if (!(res.ok && body.id)) {
       throw new Error(`Resend ${res.status}: ${body.message ?? "no id"}`);
     }
-    log("email.sent", { id: body.id, subject: mail.subject });
+    log("email.sent", { id: body.id, key: id, subject: mail.subject });
+    sent?.add(id);
     return body.id;
   } catch (e) {
     log("run.error", {
