@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commitMemory } from "./memory/run";
+import { git } from "./proc";
 import type { Chat, Person } from "./schema";
 import {
   DATA,
@@ -139,6 +140,14 @@ test("tests read made-up data, and it is a consistent map", async () => {
   );
   expect(integrity(await loadTruth())).toEqual([]);
   expect(() => commitMemory(["memory"], "t")).toThrow("not a repo of its own");
+  // His data is never pushed: a data repo with a remote is refused before anything is staged.
+  git(DATA, ["init", "-q"]);
+  git(DATA, ["remote", "add", "origin", "https://example.test/x.git"]);
+  try {
+    expect(() => commitMemory(["memory"], "t")).toThrow("never pushed");
+  } finally {
+    rmSync(join(DATA, ".git"), { force: true, recursive: true });
+  }
 });
 
 test("me.md's goals are the block under Goals; its first paragraph is who he is", () => {
