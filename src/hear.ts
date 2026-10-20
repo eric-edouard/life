@@ -13,7 +13,7 @@ import { ask } from "./tasks";
 /** The two words in this order, whatever the case and the punctuation around or between them. */
 export const WAKE = /\bhey\W+atlas\b/i;
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
-const GAP_MS = 15_000;
+export const GAP_MS = 15_000;
 
 export const wakes = (text: string) => WAKE.test(text);
 
@@ -54,7 +54,7 @@ export function asksIn(turns: Turn[], from: string) {
         ref: t.ref,
         timing: {
           arrived: span.reduce((a, s) => (s.seen > a ? s.seen : a), t.seen),
-          ended: span.reduce((_, s) => s.end, t.end),
+          ended: (span.at(-1) ?? t).end,
         },
         turns: span.map((_, k) => i + k),
       },

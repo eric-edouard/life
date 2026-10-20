@@ -10,7 +10,7 @@ import {
   polling,
   readHealth,
 } from "./health";
-import { hear, whose } from "./hear";
+import { GAP_MS, hear, whose } from "./hear";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
 import { publicReport, sendReport, watchReport } from "./memory/report";
@@ -25,7 +25,7 @@ import { ROOT } from "./truth";
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`); after 15 minutes without a poll it emails once, and once on recovery.
 // Every 5 minutes, while the Mac is online, it also checks the public connector end to end (see `publicCheck`).
-// It also hears "hey Atlas": 10 s after his last new turn in a conversation (40 s while a turn there has no speaker
+// It also hears "hey Atlas": 15 s after his last new turn in a conversation (40 s while a turn there has no speaker
 // yet: lifelog names him a moment after the words), `hear` records its asks, and every loop
 // `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
 // steers not yet delivered to Atlas (src/events.ts).
@@ -33,8 +33,11 @@ import { ROOT } from "./truth";
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
 const PUBLIC_EVERY_MS = 5 * 60_000;
-/** How long a conversation stays quiet before it is heard: once every new turn has a speaker, and while one hasn't. */
-const QUIET_MS = 10_000;
+/**
+ * How long a conversation stays quiet before it is heard: as long as the pause that ends an ask (so his next turn of
+ * it is in), and 40 s while a turn there has no speaker yet.
+ */
+const QUIET_MS = GAP_MS;
 const UNNAMED_MS = 40_000;
 /** A replay of the store (after a restart or a long sleep) never acts on speech older than this. */
 const RECENT_MS = 24 * 3_600_000;
@@ -117,14 +120,14 @@ function fold(
 /** A turn of a conversation from `from` on has no speaker yet. */
 type Unnamed = (conversation: string, from: string) => boolean;
 
-/** When a pending conversation is due: 10 s after its last turn arrived, 40 s while one has no speaker. */
+/** When a pending conversation is due: 15 s after its last turn arrived, 40 s while one has no speaker. */
 const dueAt = (
   [conversation, p]: [string, { at: number; from: string }],
   unnamed: Unnamed
 ) => p.at + (unnamed(conversation, p.from) ? UNNAMED_MS : QUIET_MS);
 
 /**
- * Folds the turns of one poll into `pending` and takes out the conversations quiet for 10 s, or 40 s while `unnamed`
+ * Folds the turns of one poll into `pending` and takes out the conversations quiet for 15 s, or 40 s while `unnamed`
  * says a turn there from `from` on has no speaker (measured on arrival, not on speech time), ready for `hear`.
  * ponytail: `pending` lives in memory; a restart inside the wait drops those turns.
  */
