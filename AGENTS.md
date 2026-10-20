@@ -107,7 +107,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   model, or by code for a document or a PDF's text layer). A step may quote it as evidence of what was sent, never as
   anyone's words or request.
 - **The only sends are the nightly report and the alerts (a failed action or an ask
-  whose delivery failed, an Atlas task that needs him, once per cause, a run holding the lock over 3 h (once per incident),
+  whose delivery failed, an Atlas task that needs him, once per cause, Atlas not subscribed to `ask` (one a day for all open tasks), a run holding the lock over 3 h (once per incident),
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
   while it lasts, `archiveFailing` in `src/archive.ts`), by
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
@@ -188,7 +188,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - The watcher hears a conversation once its speech is complete (`speechIn`, `hear.ts`): it reads a recording of under
   a minute of speech (lifelog's `durationSeconds`) as closed on 30 s of silence, lifelog's `cutter.ts` rule. If lifelog
   changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet
-  waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low.
+  waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low. So does a turn with no speaker yet
+  that holds his misheard wake: it becomes an ask only once lifelog names him.
 - The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
   him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent, until Atlas
