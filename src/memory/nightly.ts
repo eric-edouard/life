@@ -1,7 +1,8 @@
 import { checks } from "../actions";
-import { archiveFailing, archiveLine } from "../archive";
+import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
+import { runEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
@@ -88,6 +89,24 @@ function coded(day: string, rec: RunRecord) {
   });
 }
 
+/** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
+export async function archiveLine(since: string) {
+  const lines = await runEvents(ARCHIVE_LOOKBACK);
+  const still = new Set(openIncidents(lines).values());
+  const listed = lines
+    .filter(
+      (e) =>
+        e.kind === "run.error" &&
+        e.step.startsWith("archive.") &&
+        (e.at >= since || still.has(e))
+    )
+    .map(
+      (e) =>
+        `${e.step.slice("archive.".length)} from ${localTime(e.at)}${still.has(e) ? ", still failing" : ""}: ${String(e.error)}`
+    );
+  return `Archive: ${listed.length > 0 ? `FAILED: ${listed.join("; ")}` : "no failure"}`;
+}
+
 /**
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
@@ -105,7 +124,7 @@ export async function nightly(days: number, force = false) {
       lockReport(held.toISOString())
     );
   }
-  // Each store failing for an hour: one email per incident (the key), again a day later while it lasts.
+  // Each store failing for an hour: one email per incident (the key; Resend forgets a key after 24 h, so again daily while it lasts).
   for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
     // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
     await sendReport(

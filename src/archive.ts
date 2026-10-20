@@ -2,7 +2,6 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { type LogEvent, log, runEvents } from "./log";
-import { localTime } from "./memory/units";
 import { codeAt, exec } from "./proc";
 import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
 import { fromAppleS, toAppleS } from "./sources/imessage";
@@ -458,6 +457,9 @@ function printDeleted(days: number) {
 // night's line, and by the nightly tick that emails him an hour in (18 Oct: Beeper's store would not open for 5 hours,
 // unseen, and what is deleted meanwhile is lost).
 
+// ponytail: an incident open over 7 days drops out of the window (after a week of daily emails). Re-log it if that matters.
+export const ARCHIVE_LOOKBACK = 7;
+
 /** The incidents open at the end of `lines` (run events, oldest first): each store's first failed pass. */
 export function openIncidents(lines: LogEvent[]) {
   const started = new Map<string, LogEvent>();
@@ -474,27 +476,9 @@ export function openIncidents(lines: LogEvent[]) {
 
 /** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
 export async function archiveFailing(ms = 0, now = Date.now()) {
-  return [...openIncidents(await runEvents(7))].filter(
+  return [...openIncidents(await runEvents(ARCHIVE_LOOKBACK))].filter(
     ([, e]) => now - Date.parse(e.at) >= ms
   );
-}
-
-/** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
-export async function archiveLine(since: string) {
-  const lines = await runEvents(7);
-  const still = new Set(openIncidents(lines).values());
-  const listed = lines
-    .filter(
-      (e) =>
-        e.kind === "run.error" &&
-        e.step.startsWith("archive.") &&
-        (e.at >= since || still.has(e))
-    )
-    .map(
-      (e) =>
-        `${e.step.slice("archive.".length)} from ${localTime(e.at)}${still.has(e) ? ", still failing" : ""}: ${String(e.error)}`
-    );
-  return `Archive: ${listed.length > 0 ? `FAILED: ${listed.join("; ")}` : "no failure"}`;
 }
 
 /**

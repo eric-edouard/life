@@ -6,11 +6,11 @@ import { join } from "node:path";
 import {
   appsToOpen,
   archiveFailing,
-  archiveLine,
   archiveOnce,
   openIncidents,
 } from "./archive";
 import { log } from "./log";
+import { archiveLine } from "./memory/nightly";
 import { toAppleS } from "./sources/imessage";
 
 test("the archive opens each closed app, but not again within 10 minutes", () => {
