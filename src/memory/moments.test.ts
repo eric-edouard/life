@@ -197,14 +197,14 @@ test("a day is read again when one of its units has no verdict by this prompt on
     unread(
       [b],
       ledger([
-        verdict(b.unit, { madeBy: { ...madeBy, prompt: "memory-moments.v4" } }),
+        verdict(b.unit, { madeBy: { ...madeBy, prompt: "memory-moments.v3" } }),
       ])
     )
   ).toBe(false);
   expect(unread([b], ledger([verdict(b.unit)]))).toBe(true);
   // Read again, the day keeps the verdict of a unit already judged on this content, and takes the others.
   const c = built(U2);
-  const v2 = { ...madeBy, prompt: "memory-moments.v4" };
+  const v2 = { ...madeBy, prompt: "memory-moments.v3" };
   const known = ledger([verdict(b.unit, { madeBy: v2 })]);
   const said = [
     verdict(b.unit, { madeBy: v2, salience: 0 }),
