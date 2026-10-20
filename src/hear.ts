@@ -7,6 +7,7 @@ import {
   turnsBetween,
 } from "./sources/lifelog";
 import { ask } from "./tasks";
+import { TEST } from "./truth";
 
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
@@ -21,6 +22,21 @@ export const CLOSED_ON_SILENCE_S = 60;
 const NAMING_MS = 40_000;
 
 export const wakes = (text: string) => WAKE.test(text);
+/**
+ * "hey <word>" as lifelog mishears "hey Atlas" (3 of 18 by 20 Oct): `LIFE_MISHEARD` in `.env`, its one word a real
+ * name people he knows go by, so it wakes only on his own turn, as `low` (Atlas confirms with him first).
+ */
+const MISHEARD_WORD = TEST ? "Zorba" : process.env.LIFE_MISHEARD;
+const MISHEARD = MISHEARD_WORD
+  ? new RegExp(String.raw`\bhey\W+${RegExp.escape(MISHEARD_WORD)}\b`, "i")
+  : undefined;
+/** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
+function wakeOf(t: Turn) {
+  if (t.who !== "other" && wakes(t.text)) {
+    return t.who === "me" ? "high" : "low";
+  }
+  return t.who === "me" && MISHEARD?.test(t.text) ? "low" : undefined;
+}
 
 /** One turn as the hearing sees it: whose it is (his, unattributed, someone else's) and its words. */
 export interface Turn {
@@ -36,25 +52,26 @@ export interface Turn {
 /**
  * The asks in a conversation's turns (all of them, in order, so the indexes are `fetch --from-turn`'s), woken at or
  * after `from`. An ask is a wake turn that is not someone else's, then the following turns of the same speaker until
- * another speaker, a 15 s pause or a new wake. His wake is `high` confidence, an unattributed one `low`.
+ * another speaker, a 15 s pause or a new wake. Its confidence is `wakeOf`'s.
  */
 export function asksIn(turns: Turn[], from: string) {
   return turns.flatMap((t, i) => {
-    if (t.at < from || t.who === "other" || !wakes(t.text)) {
+    const confidence = wakeOf(t);
+    if (t.at < from || !confidence) {
       return [];
     }
     const rest = turns.slice(i + 1);
     const cut = rest.findIndex(
       (n, k) =>
         n.who !== t.who ||
-        wakes(n.text) ||
+        wakeOf(n) ||
         Date.parse(n.at) - Date.parse((rest[k - 1] ?? t).end) > GAP_MS
     );
     const span = turns.slice(i, cut < 0 ? turns.length : i + 1 + cut);
     return [
       {
         at: t.at,
-        confidence: t.who === "me" ? "high" : "low",
+        confidence,
         quote: span.map((s) => s.text.trim()).join(" "),
         ref: t.ref,
         timing: {
@@ -121,8 +138,9 @@ export async function hear(
     })
   );
   // A wake with no speaker, younger than NAMING_MS: held, so lifelog can still name him.
-  const held = (a: { confidence: string; timing: { arrived: string } }) =>
-    a.confidence === "low" && now - Date.parse(a.timing.arrived) < NAMING_MS;
+  const held = (a: { timing: { arrived: string }; turns: number[] }) =>
+    turns[a.turns[0] ?? 0]?.who === "unknown" &&
+    now - Date.parse(a.timing.arrived) < NAMING_MS;
   const asks = asksIn(turns, from);
   for (const a of asks.filter((x) => !held(x))) {
     ask(

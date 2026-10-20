@@ -80,6 +80,26 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
+test("his own “hey Zorba” (LIFE_MISHEARD) is lifelog mishearing “hey Atlas”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
+  const asks = asksIn(
+    [
+      turn(0, "me", "Hey Zorba, add milk to the list"),
+      turn(60, "me", "Zorba, can you pass me the salt?"),
+      turn(65, "other", "hey Zorba, sure"),
+      turn(70, "me", "thanks Zorba, at last we eat"),
+      turn(130, "unknown", "hey Zorba, call me back"),
+      turn(190, "me", "hey Atlas, book a table"),
+      turn(195, "me", "hey Zorba, and a taxi"),
+    ],
+    ""
+  );
+  expect(asks.map((a) => [a.turns, a.confidence])).toEqual([
+    [[0], "low"],
+    [[5], "high"],
+    [[6], "low"],
+  ]);
+});
+
 test("an ask runs over his following turns until another speaker, a 15 s pause or a new wake", () => {
   const turns = [
     turn(0, "other", "what should we do?"),

@@ -67,8 +67,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   only code that does it on his request; the tasks' board is a projection, below), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
-  words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, and one lifelog gives to someone
-  else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
+  words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
+  (`LIFE_MISHEARD`, a real name) `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
