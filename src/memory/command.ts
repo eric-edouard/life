@@ -21,6 +21,7 @@ import {
 } from "./search";
 import { addStatements } from "./statements";
 import { gather, windowStart } from "./units";
+import { week } from "./week";
 
 // The memory command line: parses the arguments and calls the steps.
 
@@ -172,11 +173,12 @@ const HANDLERS: Record<string, Handler> = {
     console.log(await unresolved());
     return 0;
   },
+  week: (_values, [date = ""]) => printed(DAY.test(date) ? week(date) : null),
 };
 
 function usage() {
   console.error(
-    "usage: bun life memory moments [--days 7] | extract [--days 7] | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory moments [--days 7] | extract [--days 7] | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | week <YYYY-MM-DD> | person [name] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }

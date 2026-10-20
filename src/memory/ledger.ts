@@ -123,6 +123,12 @@ export const daysOf = (m: Moment) =>
     (m.end ?? m.start ?? m.day).slice(0, 10),
   ] as const;
 
+/** A moment covering any day from `first` to `last`. */
+export const touches = (m: Moment, first: string, last: string) => {
+  const [from, to] = daysOf(m);
+  return from <= last && first <= to;
+};
+
 /** Each moment as it stands: its line from the latest day that read it, with the units (and copies) of every day's line, in day order; never one the owner said is wrong or unimportant (a moment is on no page: any such correction hides it). */
 export const momentsNow = (lines: Moment[], corrections: Correction[]) =>
   [...Map.groupBy(lines, (m) => m.id).values()].flatMap((ls) => {

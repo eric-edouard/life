@@ -148,7 +148,10 @@ async function call(
     signal: AbortSignal.timeout(timeoutS * 1000),
   });
   if (!res.ok) {
-    throw new Error(`lifelog ${method} ${path.split("?")[0]}: ${res.status}`);
+    throw Object.assign(
+      new Error(`lifelog ${method} ${path.split("?")[0]}: ${res.status}`),
+      { status: res.status }
+    );
   }
   return (await res.json()) as unknown;
 }
@@ -598,7 +601,12 @@ export async function visits(q: Record<string, string | number | undefined>) {
       v === undefined ? [] : [[k, `${v}`] as [string, string]]
     )
   );
-  return Stays.parse(await call(`/visits?${query}`));
+  // A 404 is lifelog's answer when no place the phone named matches: no stays.
+  return Stays.parse(
+    await call(`/visits?${query}`).catch((e: { status?: number }) =>
+      e.status === 404 ? [] : Promise.reject(e)
+    )
+  );
 }
 
 /** The live conversations that overlap [from, to): id, start and title. */

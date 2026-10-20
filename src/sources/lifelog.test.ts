@@ -25,6 +25,7 @@ import {
   Transcript,
   turnOffset,
   turnsBetween,
+  visits,
 } from "./lifelog";
 
 const since = new Date("2026-10-01T00:00:00Z");
@@ -370,4 +371,14 @@ test("a feed page with a turn not yet in a conversation and a conversation retir
   apply(s, p);
   expect(() => readConversations(s, since)).not.toThrow();
   expect(readConversations(s, since)).toEqual([]);
+});
+
+test("visits: lifelog's 404 (no place the phone named matches) is no stays", async () => {
+  // No route: the test server answers 404, as lifelog does when nothing matches.
+  const server = lifelogServer({});
+  try {
+    expect(await visits({ place: "Nowhere" })).toEqual([]);
+  } finally {
+    server.close();
+  }
 });
