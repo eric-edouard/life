@@ -132,10 +132,10 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 ## extracted.jsonl
 
 Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, people, at}`, one
-line per unit and run, `observations` being how many it kept (often 0), `people` who the unit's people resolved to
-then (absent on lines from before 21 Oct 2026). A unit is read again when its `unitHash` or the prompt version changes,
-or when its people resolve to someone else since (`truth/` or a `this-is`, `not-this-person`, `same-person`
-correction; for a line without `people`, when a speaker of its shown observations is not among its people now), and only the latest extraction of a unit counts: observations from an older one are ignored
+line per unit and run, `observations` being how many it kept (often 0), `people` who the unit's people were as of that
+reading (`peopleNow`: `truth/`, `same-person` folds, names since resolved; absent before 21 Oct 2026, read as today). A
+unit is read again when its `unitHash` or the prompt version changes, when its people resolve to someone else since,
+or when a `reread` correction names it after its last reading; and only the latest extraction of a unit counts: observations from an older one are ignored
 (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
 re-cut, Life's own mail).
 
@@ -196,6 +196,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
+| `reread` | `units: [u_…]` | Those units were read wrong (a fact under the wrong person, say): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`) |
 | `closeness` | `person`, `personal` and/or `work` (a level) | His word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)

@@ -283,6 +283,19 @@ export async function readStanding(
   return { corrections, ...c, retired: retiredBy(retirements, current) };
 }
 
+/** When the owner last said each unit was read wrong (`reread`): extraction reads it again if it read it before then. */
+export function rereadAt(corrections: Correction[]) {
+  const at = new Map<string, string>();
+  for (const c of corrections) {
+    if (c.kind === "reread") {
+      for (const unit of c.units) {
+        at.set(unit, c.at > (at.get(unit) ?? "") ? c.at : (at.get(unit) ?? ""));
+      }
+    }
+  }
+  return at;
+}
+
 /** A correction that hides observations (`wrong`, `not-important`): everywhere, or on its `page` only. */
 export const hides = (c: Correction) =>
   c.kind === "wrong" || c.kind === "not-important" ? c : null;
