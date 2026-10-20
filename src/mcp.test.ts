@@ -283,32 +283,45 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
 
 test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
-  update({
-    at: new Date().toISOString(),
-    claim: true,
-    outcome: "booked ".repeat(100),
-    said: "book the dentist",
-    seal: sealed().seal,
-    state: "done",
-    title: "Dentist",
-  });
-  const { json } = await rpc(bearer, "tools/call", {
-    arguments: {},
-    name: "tasks",
-  });
+  const now = new Date().toISOString();
+  const words = { at: now, claim: true, seal: sealed().seal };
+  let json: Awaited<ReturnType<typeof rpc>>["json"];
+  try {
+    update({
+      ...words,
+      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      note: "on it",
+      said: "call the bank",
+      state: "working",
+    });
+    update({
+      ...words,
+      outcome: "booked ".repeat(100),
+      said: "book the dentist",
+      state: "done",
+      title: "Dentist",
+    });
+    ({ json } = await rpc(bearer, "tools/call", {
+      arguments: {},
+      name: "tasks",
+    }));
+  } finally {
+    rmSync(ACTIONS, { force: true });
+  }
   const { goals, playbook, seal, tasks } = json.result.structuredContent;
   expect(playbook).toBe(
     readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
   );
   expect(goals).toBe("1. Be well.");
-  expect(Object.keys(tasks[0]).sort()).toEqual([
+  // An open row stays whole; a closed one is cut to four fields.
+  expect(tasks[0].steps).toEqual([]);
+  expect(Object.keys(tasks[1]).sort()).toEqual([
     "id",
     "note",
     "state",
     "title",
   ]);
-  expect(tasks[0].note.length).toBeLessThanOrEqual(200);
-  rmSync(ACTIONS, { force: true });
+  expect(tasks[1].note.length).toBeLessThanOrEqual(200);
   const refused = await rpc(bearer, "tools/call", {
     arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
     name: "task",

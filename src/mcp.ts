@@ -29,7 +29,7 @@ import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
 import { closed, sealed, taskList, Update, update } from "./tasks";
-import { DATA, ROOT, readMe } from "./truth";
+import { loadMe, ROOT } from "./truth";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; the Cloudflare tunnel forwards
 // life.ericedouard.com to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
@@ -372,7 +372,7 @@ function buildServer() {
     z.object({}),
     async () => ({
       ...sealed(),
-      goals: readMe(await Bun.file(join(DATA, "truth", "me.md")).text()).goals,
+      goals: (await loadMe()).goals,
       // Closed rows stay short (the nightly's `taskList` keeps them whole): what was done, not how.
       tasks: taskList().map((t) =>
         closed(t.state)
