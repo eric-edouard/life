@@ -1,10 +1,8 @@
 import { statSync } from "node:fs";
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
 import { z } from "zod";
 import { STORES } from "../archive";
 import { polling, readHealth } from "../health";
-import { LOG_DIR } from "../log";
+import { LOG_DIR, logDays, logEvents } from "../log";
 import { archiveDb } from "../sources/archived";
 import { decode, encode, PAGE } from "./feed";
 import {
@@ -15,7 +13,7 @@ import {
   readMidday,
   readState,
 } from "./guard";
-import { linesOf, runAt } from "./ledger";
+import { runAt } from "./ledger";
 import { INDEX } from "./search";
 import { daysBefore, windowStart } from "./units";
 import { localDate } from "./zones";
@@ -73,8 +71,6 @@ export interface Run {
   /** The local days its sources were read for. */
   window?: { from: string; to: string };
 }
-
-const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
 /** A sweep's sub-step (memory.nightly.actions) belongs to its sweep. */
 const stepOf = (s: string) =>
@@ -200,20 +196,6 @@ const keyOf = (r: Run) => r.startedAt ?? r.endedAt ?? "";
 const newestFirst = (a: Run, b: Run) =>
   keyOf(b).localeCompare(keyOf(a)) || b.id.localeCompare(a.id);
 
-/** derived/log's files, newest first (named by UTC day). */
-async function logDays(dir: string) {
-  return (await readdir(dir).catch(() => [] as string[]))
-    .filter((n) => LOG_FILE.test(n))
-    .sort()
-    .reverse();
-}
-
-function readEvents(dir: string, name: string) {
-  return linesOf(join(dir, name))
-    .filter((l) => l.includes('"kind":"run.'))
-    .map((l) => JSON.parse(l) as LogEvent);
-}
-
 export interface RunsQuery {
   cursor?: string;
   limit?: number;
@@ -243,7 +225,7 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
     if (after && day > nextDay(after[0])) {
       continue;
     }
-    events.push(...readEvents(dir, name));
+    events.push(...logEvents<LogEvent>(name, "run.", dir));
     const last = i === days.length - 1;
     // Assembled with the whole pipeline, so a sweep lists its steps whatever `steps` shows.
     const ready = assembleRuns(events, new Set([...PIPELINE, ...steps]), lock)
@@ -304,9 +286,9 @@ export async function lifeStatus(now = new Date()) {
   const lock = lockedSince();
   const night = readState();
   const middaySlot = readMidday();
-  const events = (await logDays(LOG_DIR))
+  const events = (await logDays())
     .slice(0, STATUS_DAYS)
-    .flatMap((n) => readEvents(LOG_DIR, n));
+    .flatMap((n) => logEvents<LogEvent>(n, "run."));
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
   const archive = (name: string) => dbTime(archiveDb(name));

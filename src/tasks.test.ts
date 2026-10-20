@@ -1,4 +1,7 @@
 import { expect, test } from "bun:test";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type Item, planOf, steerOf, steersOf, wantOf } from "./board";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
@@ -9,6 +12,7 @@ import {
   standing,
   type Task,
   tasksOf,
+  timings,
   type Update,
   written,
 } from "./tasks";
@@ -100,6 +104,14 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
         state: "waiting-eric",
         task: ASK,
       },
+      now
+    )
+  ).toBeNull();
+  // A duplicate ask is claimed and dropped in one update.
+  expect(
+    refusal(
+      open,
+      { claim: true, reason: "same as t1", state: "dropped", task: ASK },
       now
     )
   ).toBeNull();
@@ -442,4 +454,53 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(() => write(grand, write(split).lines)).toThrow("is a part");
   const done = own("update", 1, { outcome: "split", state: "done" });
   expect(() => write(split, [done])).toThrow(`${ASK} is done`);
+});
+
+test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", async () => {
+  // Two deliveries of the ask on two days, in their own log: the first is when Atlas got it.
+  const dir = mkdtempSync(join(tmpdir(), "life-sent-"));
+  const sent = (day: string, min: number) =>
+    writeFileSync(
+      join(dir, `${day}.jsonl`),
+      `${JSON.stringify({ at: at(min), event: ASK, kind: "event.sent" })}\n`
+    );
+  sent("2026-10-19", 1);
+  sent("2026-10-20", 30);
+  const heard = {
+    ...asked,
+    timing: { arrived: at(-1), ended: at(-2) },
+  } satisfies Action;
+  const part = action({
+    after: { confidence: "high", parent: ASK, title: "a part" },
+    at: at(1),
+    id: "act_00000000000b",
+    kind: "ask",
+    target: "atlas",
+  });
+  const lines = [
+    heard,
+    part,
+    own("update", 5, { claim: true, state: "working" }),
+    own("update", 9, { outcome: "sent", state: "done" }),
+  ].map((a) => JSON.stringify(a));
+  const [t, ...rest] = await timings(at(-60), at(60), tasksOf(lines), dir);
+  expect(rest).toEqual([]);
+  const moments = Object.fromEntries(t?.moments ?? []);
+  expect(moments).toMatchObject({
+    arrived: at(-1),
+    claimed: at(5),
+    closed: at(9),
+    ended: at(-2),
+    recorded: at(0),
+  });
+  expect(moments.delivered).toBe(at(1));
+  expect(t?.moments.map(([m]) => m)).toEqual([
+    "spoke",
+    "ended",
+    "arrived",
+    "recorded",
+    "delivered",
+    "claimed",
+    "closed",
+  ]);
 });
