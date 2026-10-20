@@ -115,7 +115,7 @@ test("the pause is measured from a turn's end; the ask keeps when its last turn 
   expect(ask?.timing).toEqual({ arrived: iso(100), ended: iso(43) });
 });
 
-test("speech is complete once its last turn is someone else's or ends a recording closed on silence (under a minute of speech); a turn with no speaker waits for one", () => {
+test("speech is complete once its last turn is someone else's or ends a recording closed on silence (under a minute of speech)", () => {
   const store = lifelogStore();
   const at = "2026-10-19T10:00:00.000Z";
   const state = (seconds: number | null, turns: ReturnType<typeof fed>[]) => {
@@ -139,7 +139,25 @@ test("speech is complete once its last turn is someone else's or ends a recordin
   expect(state(null, [his])).toBe("open");
   expect(state(0, [his])).toBe("open");
   expect(state(90, [his, other])).toBe("complete");
-  expect(state(8, [his, nobody])).toBe("unnamed");
+  // A turn with no speaker yet is no reason to wait: only an ask's own wake is (`hear`).
+  expect(state(8, [his, nobody])).toBe("complete");
+});
+
+test("a wake with no speaker waits for lifelog to name him: nothing is recorded while it is younger than 40 s", async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [{ speakerId: null, text: "hey Atlas, water the plant" }],
+    }),
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    page({ turns: [fed(0, "2026-10-19T10:00:00.000Z", null, null)] }),
+    "2026-10-19T10:00:30.000Z"
+  );
+  const before = Date.parse("2026-10-19T10:01:09.000Z");
+  expect(await hear(store, "c1", "", before)).toBe(false);
+  server.close();
 });
 
 test("a failed word fetch throws, so the watcher hears it again: never read as silence", async () => {
