@@ -288,8 +288,7 @@ export function levelsNow(
 }
 
 /** The levels that keep a page: the close, and the once close (their page stays as their history). */
-const CLOSE = new Set<Level>(["inner", "regular"]);
-const PAGED = new Set<Level>([...CLOSE, "faded"]);
+const PAGED = new Set<Level>(["inner", "regular", "faded"]);
 
 /**
  * The people who have a page: the owner, everyone whose personal or work level keeps one (not a service), and a person
