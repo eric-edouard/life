@@ -164,6 +164,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Only the watcher calls `poll`: a page folded in anywhere else would never be heard (#5).
   When a commit changes `src/` or `prompts/` (`codeAt`), the watcher exits once no hearing is pending, the archive
   after its pass, and launchd restarts each on the new code.
+- The watcher hears a conversation once its speech is complete (`speechIn`, `hear.ts`): it reads a recording of under
+  a minute of speech (lifelog's `durationSeconds`) as closed on 30 s of silence, lifelog's `cutter.ts` rule. If lifelog
+  changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it.
 - The watcher also hears "hey Atlas" (`hear`), runs the tasks' `tick` and delivers the asks, nudges and steers (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
   him like a failed action and passed over; with no live subscription asks wait, unsent and unalerted, until Atlas

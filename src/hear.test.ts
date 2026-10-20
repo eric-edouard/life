@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { asksIn, hear, type Turn, wakes, whose } from "./hear";
+import { asksIn, hear, speechIn, type Turn, wakes, whose } from "./hear";
 import {
   turn as fed,
   lifelogServer,
@@ -113,6 +113,32 @@ test("the pause is measured from a turn's end; the ask keeps when its last turn 
   );
   expect(ask?.turns).toEqual([0, 1]);
   expect(ask?.timing).toEqual({ arrived: iso(100), ended: iso(43) });
+});
+
+test("speech is complete once its last turn is someone else's or ends a recording closed on silence (under a minute of speech); a turn with no speaker waits for one", () => {
+  const store = lifelogStore();
+  const at = "2026-10-19T10:00:00.000Z";
+  const state = (seconds: number | null, turns: ReturnType<typeof fed>[]) => {
+    store.db.run("delete from turns");
+    store.db.run("delete from jobs");
+    apply(
+      store,
+      page({
+        jobs:
+          seconds === null ? [] : [{ durationSeconds: seconds, id: "job-1" }],
+        turns,
+      })
+    );
+    return speechIn(store, "c1", at);
+  };
+  const his = fed(0, at, "p-me", "Me", "c1", true);
+  const other = fed(1, "2026-10-19T10:00:09.000Z", "p-ana", "Ana");
+  const nobody = fed(1, "2026-10-19T10:00:09.000Z", null, null);
+  expect(state(8, [his])).toBe("complete");
+  expect(state(90, [his])).toBe("open");
+  expect(state(null, [his])).toBe("open");
+  expect(state(90, [his, other])).toBe("complete");
+  expect(state(8, [his, nobody])).toBe("unnamed");
 });
 
 test("a failed word fetch throws, so the watcher hears it again: never read as silence", async () => {

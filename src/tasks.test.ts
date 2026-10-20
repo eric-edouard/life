@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type Item, planOf, steerOf, steersOf, wantOf } from "./board";
-import { log } from "./log";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
 import {
@@ -447,7 +449,15 @@ test("a split inherits its parent's words, one level only, and never takes new o
 });
 
 test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", async () => {
-  log("event.sent", { event: ASK });
+  // Two deliveries of the ask on two days, in their own log: the first is when Atlas got it.
+  const dir = mkdtempSync(join(tmpdir(), "life-sent-"));
+  const sent = (day: string, min: number) =>
+    writeFileSync(
+      join(dir, `${day}.jsonl`),
+      `${JSON.stringify({ at: at(min), event: ASK, kind: "event.sent" })}\n`
+    );
+  sent("2026-10-19", 1);
+  sent("2026-10-20", 30);
   const heard = {
     ...asked,
     timing: { arrived: at(-1), ended: at(-2) },
@@ -465,7 +475,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
     own("update", 5, { claim: true, state: "working" }),
     own("update", 9, { outcome: "sent", state: "done" }),
   ].map((a) => JSON.stringify(a));
-  const [t, ...rest] = await timings(at(-60), at(60), tasksOf(lines));
+  const [t, ...rest] = await timings(at(-60), at(60), tasksOf(lines), dir);
   expect(rest).toEqual([]);
   const moments = Object.fromEntries(t?.moments ?? []);
   expect(moments).toMatchObject({
@@ -475,8 +485,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
     ended: at(-2),
     recorded: at(0),
   });
-  // The first delivery logged (the test log keeps earlier runs' lines).
-  expect(typeof moments.delivered).toBe("string");
+  expect(moments.delivered).toBe(at(1));
   expect(t?.moments.map(([m]) => m)).toEqual([
     "spoke",
     "ended",
