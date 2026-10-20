@@ -26,11 +26,11 @@ const WAIT_S = 60;
 const RETRY_MS = 30_000;
 /**
  * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
- * it have settled, an unnamed turn once lifelog could name him, open speech once the next recording is usually in.
+ * it have settled (its speaker, about 2 s), open speech once the next recording is usually in.
  * ponytail: a recording later than that ends the ask before it (`asksIn` starts at a wake); joining it to the open
  * ask would need a ledger line that extends an ask.
  */
-const WAIT_MS = { complete: 5000, open: 60_000, unnamed: 40_000 };
+const WAIT_MS = { complete: 5000, open: 60_000 };
 /** A replay of the store (after a restart or an outage) never acts on speech older than a week. */
 const RECENT_MS = 7 * 24 * 3_600_000;
 
@@ -184,20 +184,25 @@ export async function watch(): Promise<number> {
       ({ more } = page);
       dirty ||= page.changed;
       for (const h of hearings(pending, page.owner, Date.now(), speech)) {
+        // Heard again after the next wait: words not fetched (never read as silence), or a wake still waiting for
+        // its speaker. `again` is the tries it carries, null when done or lost.
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
-        await hear(store, h.conversation, h.from).catch((e: Error) => {
-          // Words not fetched: heard again after the next wait, never read as silence.
-          const lost = h.tries + 1 >= TRIES;
-          log("run.error", { error: e.message, lost, step: "watch.hear" });
-          if (!lost) {
-            fold(
-              pending,
-              [{ at: h.from, conversation: h.conversation }],
-              Date.now(),
-              h.tries + 1
-            );
+        const again = await hear(store, h.conversation, h.from).then(
+          (heard) => (heard ? null : h.tries),
+          (e: Error) => {
+            const lost = h.tries + 1 >= TRIES;
+            log("run.error", { error: e.message, lost, step: "watch.hear" });
+            return lost ? null : h.tries + 1;
           }
-        });
+        );
+        if (again !== null) {
+          fold(
+            pending,
+            [{ at: h.from, conversation: h.conversation }],
+            Date.now(),
+            again
+          );
+        }
       }
       // Delivery first: a slow Reminders host holds up the board, never an ask.
       await deliver().catch((e: Error) =>
