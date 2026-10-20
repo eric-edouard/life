@@ -1,5 +1,5 @@
 import { type Health, polling } from "../health";
-import { LOG_DIR, log, logDays, logEvents } from "../log";
+import { log, logDays, logEvents } from "../log";
 import type { Action } from "../schema";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
@@ -234,7 +234,7 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
-/** The alert for an Atlas task that needs him (`chase`, src/tasks.ts): why, and his words. */
+/** The alert for an Atlas task that needs him (`chase`, src/board.ts): why, and his words. */
 export const taskReport = (a: Action, title: string, cause: string) =>
   alert(a.at, "Atlas task", {
     failure: { error: cause, step: title },
@@ -310,13 +310,13 @@ export type Mail = ReturnType<typeof compose> & {
   attachments?: { content: string; filename: string }[];
 };
 
-let sent: Set<unknown> | undefined;
+let sent: Set<string> | undefined;
 /** Whether `id` went out already: the `email.sent` log of the last 8 days, read once per process. */
-async function sentBefore(id: string, dir = LOG_DIR) {
+async function sentBefore(id: string) {
   sent ??= new Set(
-    (await logDays(dir))
+    (await logDays())
       .slice(0, 8)
-      .flatMap((n) => logEvents(n, "email.sent", dir))
+      .flatMap((n) => logEvents<{ key: string }>(n, "email.sent"))
       .map((e) => e.key)
   );
   return sent.has(id);

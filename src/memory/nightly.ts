@@ -128,7 +128,7 @@ export async function nightly(days: number, force = false) {
   for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
     // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
     await sendReport(
-      `archive/${name}/${e.at}/${now.toISOString().slice(0, 10)}`,
+      `archive/${name}/${e.at}/${localDate(now.toISOString())}`,
       archiveFailedReport(name, e.at, String(e.error))
     );
   }

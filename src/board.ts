@@ -19,6 +19,7 @@ import { alerts, closed, standing, type Task, tasksOf } from "./tasks";
 // closes: his receipt that he was heard. What needs him (`escalation`, src/tasks.ts) is emailed by `chase`, never shown here.
 
 const MIN = 60_000;
+const DAY = 24 * 60 * MIN;
 /** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
 
@@ -154,7 +155,10 @@ export async function tick(now = Date.now()) {
   const items = await readBoard(new Set(tasks.map((t) => t.ask.id)));
   for (const t of tasks) {
     const item = items.get(t.ask.id);
-    if (!(item?.completed && closed(standing(t).state))) {
+    const s = standing(t);
+    // A task closed over a day ago is left alone: he may have unticked its item.
+    const settled = closed(s.state) && now - Date.parse(s.since) > DAY;
+    if (!(settled || (item?.completed && closed(s.state)))) {
       // biome-ignore lint/performance/noAwaitInLoops: one item at a time
       await mirror(t, item);
     }

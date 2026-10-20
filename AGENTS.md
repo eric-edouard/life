@@ -107,7 +107,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   model, or by code for a document or a PDF's text layer). A step may quote it as evidence of what was sent, never as
   anyone's words or request.
 - **The only sends are the nightly report and the alerts (a failed action or an ask
-  whose delivery failed, an Atlas task that needs him, once per cause, a run holding the lock over 3 h,
+  whose delivery failed, an Atlas task that needs him, once per cause, a run holding the lock over 3 h (once per incident),
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
   while it lasts, `archiveFailing` in `src/archive.ts`), by
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
