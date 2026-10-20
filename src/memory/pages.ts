@@ -517,7 +517,7 @@ export async function pages(opts: PagesOptions) {
     ...built.flatMap((b) => b.corrections),
     ...gone.flatMap((g) => newCorrections(g.meta.page, g, r)),
   ]);
-  const judged = levelsNow(readCloseness(), r.standing.corrections, truth);
+  const judged = levelsNow(readCloseness(), r.standing.corrections);
   return {
     dropped: gone.map(
       (g) =>
