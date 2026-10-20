@@ -221,6 +221,10 @@ async function mirror(
     if (p.reopen) {
       await remctl(["undone", `${it.id}`]);
     }
+    if (p.done.length > 0 || p.reopen) {
+      // What left or came back to his open list, by id: an audit can tell a ticked item from a lost one.
+      log("board.write", { done: p.done, item: it.id, reopen: p.reopen, task });
+    }
     const r = p.flags.length
       ? await remctl(["edit", `${it.id}`, ...p.flags])
       : {};
