@@ -17,7 +17,6 @@ import {
   conversationsWith,
   type LifelogConversation,
   readConversations,
-  type Store,
   searchVoice,
   speakers,
   turnOffset,
@@ -61,9 +60,9 @@ import { dayStart, localDate } from "./zones";
 //   search <words>   moments, observations and units matching the words, the exact spoken words (lifelog's search) and chats
 //   day <date>       what happened that day (its moments), its recorded conversations and chapters, its units from the
 //                    other sources and its key observations
-//   person [name]    a person's page digest, latest observations, last moments with them and recorded conversations; with
-//                    no name, the people
-//   area <id>        an area's page digest and latest observations
+//   person [name]    a person's page, what Life holds about them, their observations, moments and recorded conversations,
+//                    paged back by day; with no name, the people
+//   area <id>        an area's page and latest observations
 //   topics [tag]     the top topics, or the units tagged so, by date (--person <id>: only units involving them)
 //   unresolved       names Life could not map to truth/, most seen first
 
@@ -92,7 +91,6 @@ const TITLE_MAX = 50;
 const WORD = /[\p{L}\p{N}]+/gu;
 
 interface Row {
-  at: string;
   channel: string;
   confidence: number;
   date: string;
@@ -124,7 +122,7 @@ interface UnitRow {
 const unitLine = (u: UnitRow) =>
   `- ${u.id} ${u.date} ${u.source}: ${clip(u.title, 80)}${u.topics ? ` [${u.topics}]` : ""}`;
 
-const COLUMNS = `o.id, o.at, o.date, o.type, o.text, o.quote, o.channel, o.confidence, o."when",
+const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.confidence, o."when",
   (select title from units where id = o.unit) as title,
   (select group_concat(replace(replace(person, 'person:', ''), 'unknown:', ''), ', ') from unit_people where unit = o.unit) as people`;
 const CURRENT = "o.superseded_by is null";
@@ -202,14 +200,14 @@ async function findPage(dir: "people" | "areas", name: string) {
     : null;
 }
 
-/** The newest observations `where` finds (said before `before`, when given). */
-function latest(db: Database, where: string, value: string, before?: string) {
+/** The observations `where` finds worth a page line, newest first: `limit` of them (-1: all). */
+function latest(db: Database, where: string, value: string, limit = LIMIT) {
   return db
-    .query<Row, string[]>(
+    .query<Row, [string]>(
       `select ${COLUMNS} from observations o ${where} and o.salience >= ${KEEP_AT} and ${CURRENT}
-       ${before ? "and o.at < ?" : ""} order by o.at desc limit ${LIMIT}`
+       order by o.date desc, o.at desc limit ${limit}`
     )
-    .all(value, ...(before ? [before] : []));
+    .all(value);
 }
 
 const NOT_BUILT =
@@ -560,14 +558,26 @@ export async function person(name?: string, o: { before?: string } = {}) {
         return noOne(name, people, speakers(store));
       }
       const observations = newestDays(
-        linked(db, ref),
+        latest(
+          db,
+          "join links l on l.observation = o.id where l.entity = ?",
+          ref,
+          -1
+        ),
         (r) => r.date,
         LIMIT,
         before
       );
+      const ids = lifelog ? [lifelog] : heard.map((s) => s.id);
+      const conversations = newestDays(
+        conversationsWith(store, ids, -1),
+        (c) => localDate(c.start_at),
+        LIMIT,
+        before
+      );
       const obsLines = observations.taken.map(line);
-      // The later of the days the two lists would page back from: neither skips anything (one may repeat).
-      const next = [observations.next, moments.next]
+      // The latest of the days the lists would page back from: none skips anything (one may repeat).
+      const next = [observations.next, moments.next, conversations.next]
         .filter((d): d is string => !!d)
         .sort()
         .at(-1);
@@ -586,10 +596,8 @@ export async function person(name?: string, o: { before?: string } = {}) {
             ]),
         ...momentLines(moments.taken),
         ...recorded(
-          store,
-          lifelog ? [lifelog] : heard.map((s) => s.id),
-          heard.map((s) => s.name),
-          before
+          conversations.taken,
+          heard.map((s) => s.name)
         ),
         "",
         olderLine(next),
@@ -630,15 +638,6 @@ function noOne(
   ];
 }
 
-/** Every current observation linked to `ref` worth a page line, whatever page it lives on, newest first. */
-const linked = (db: Database, ref: string) =>
-  db
-    .query<Row, [string]>(
-      `select ${COLUMNS} from observations o join links l on l.observation = o.id
-       where l.entity = ? and o.salience >= ${KEEP_AT} and ${CURRENT} order by o.at desc`
-    )
-    .all(ref);
-
 const linkedCount = (db: Database, id: string) =>
   db
     .query<{ n: number }, [string]>(
@@ -646,18 +645,16 @@ const linkedCount = (db: Database, id: string) =>
     )
     .get(`person:${id}`)?.n ?? 0;
 
-/** The recorded conversations where lifelog's `ids` spoke, before `before`; `heard`: the speaker names they were found by. */
+/** Recorded conversations with someone, newest first; `heard`: the lifelog speaker names they were found by. */
 function recorded(
-  store: Store,
-  ids: string[],
-  heard: string[],
-  before?: string
+  conversations: { id: string; start_at: string; title: string }[],
+  heard: string[]
 ) {
-  return ids.length > 0
+  return conversations.length > 0
     ? [
         "",
         `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard)].join(", ")}` : ""} (\`fetch <id>\`):`,
-        ...conversationsWith(store, ids, LIMIT, before).map(
+        ...conversations.map(
           (c) => `- ${c.id} ${localTime(c.start_at)}: ${clip(c.title, 80)}`
         ),
       ]
@@ -739,7 +736,7 @@ export async function day(date: string) {
   );
 }
 
-/** `bun life memory area <id or name>`: an area's page digest and latest observations. */
+/** `bun life memory area <id or name>`: an area's page and latest observations. */
 export async function area(name: string) {
   const text = (await findPage("areas", name))?.text ?? null;
   return withIndex((db) =>

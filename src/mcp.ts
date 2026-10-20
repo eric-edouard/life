@@ -263,7 +263,7 @@ function buildServer() {
   tool(
     server,
     "area",
-    "An area's page (a part of the owner's life or work): its digest and latest observations.",
+    "An area's page (a part of the owner's life or work): the page and its latest observations.",
     z.object({ name: z.string().min(1).describe("Area id or name") }),
     ({ name }) => area(name)
   );
