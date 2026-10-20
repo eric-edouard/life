@@ -1,40 +1,23 @@
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   add,
-  alarmArgs,
   BOARD,
   partial,
   type Reminder,
   remctl,
   reminderArgs,
 } from "./actions";
-import { deliveredLines, subscribed } from "./events";
 import { WAKE } from "./hear";
 import { log } from "./log";
-import { readJson } from "./memory/ledger";
-import { actionFailedReport, sendReport } from "./memory/report";
 import { clip, localTime } from "./memory/units";
-import {
-  closed,
-  escalation,
-  nudge,
-  standing,
-  type Task,
-  tasksOf,
-} from "./tasks";
-import { ROOT } from "./truth";
+import { chase, closed, standing, type Task, tasksOf } from "./tasks";
 
 // Atlas's board, his Reminders list `BOARD`: a one-way projection of the tasks (src/tasks.ts), never through `act`, that
 // writes no ledger line and reads nothing back as his. One item per task, found by the task id on its notes' first
-// line. Each pass Life brings its own fields (notes, section) to what the ledger says, ticks the item when its task
-// closes, and while he is needed moves it to "Needs you" with a due of now (bringing back his tick).
+// line. Each pass Life brings its own fields (notes, section) to what the ledger says and ticks the item when its task
+// closes: his receipt that he was heard. What needs him is emailed (`chase`, src/tasks.ts), never shown here.
 
 const MIN = 60_000;
-/** How each watched item looked after Life's last pass, for "Needs you" (mode 600: his words). */
-const SNAPSHOT = join(ROOT, "derived", "board.json");
-const NEEDS = "Needs you";
-/** Everything up to its wake (`WAKE`) and the spaces and punctuation after it: the title is his words from there. */
+/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
 
 /** An item as Life reads it. */
@@ -46,11 +29,11 @@ export interface Item {
 }
 
 /** What a task's item should say: notes (id, his words, state, latest note). */
-export function wantOf(t: Task, cause: string | null) {
+export function wantOf(t: Task) {
   const { deadline, end, state, word } = standing(t);
   const { quote } = t.ask.instruction;
   const until = !closed(state) && deadline && `until ${localTime(deadline)}`;
-  const line = [state, until, end.on && `on ${end.on}`, cause];
+  const line = [state, until, end.on && `on ${end.on}`];
   const { title } = t.ask.after;
   const notes = [
     t.ask.id,
@@ -59,42 +42,24 @@ export function wantOf(t: Task, cause: string | null) {
     word,
   ];
   const low = t.ask.after.confidence === "low" ? " (to confirm)" : "";
-  const section = state === "open" ? "Open" : "Working";
   return {
     completed: closed(state),
     notes: notes.filter(Boolean).join("\n").trim(),
-    section: cause ? NEEDS : section,
+    section: state === "open" ? "Open" : "Working",
     title: `Atlas${low}: ${clip((title as string | undefined) ?? (quote.replace(TO_WAKE, "") || quote), 80)}`,
   };
 }
 type Want = ReturnType<typeof wantOf>;
 
-/** The writes that bring item `it` to `w` (`seen`: how Life left it), and how it will look after them. */
-export function planOf(w: Want, it: Item, seen: Item | undefined, now: number) {
-  const was = seen?.section === NEEDS;
-  const alert = w.section === NEEDS && !was;
-  const calm = was && w.section !== NEEDS;
-  // A due of now (remctl's local time) when he is first needed, cleared when he no longer is; else his own.
-  const due = alert
-    ? new Date(now).toLocaleString("sv-SE").slice(0, 16)
-    : undefined;
+/** The writes that bring item `it` to `w`. */
+export function planOf(w: Want, it: Item) {
   const { priv, pub } = reminderArgs({
-    due: calm ? null : due,
     notes: w.notes === it.notes ? undefined : w.notes,
     section: w.section === it.section ? undefined : w.section,
   });
-  const reopen = alert && it.completed;
-  const look = {
-    ...it,
-    completed: w.completed || (it.completed && !reopen),
-    notes: w.notes,
-    section: w.section,
-  };
   return {
     done: w.completed && !it.completed ? [it.id] : [],
-    flags: [...pub, ...(calm ? ["--alarm=clear"] : alarmArgs(due)), ...priv],
-    look,
-    reopen,
+    flags: [...pub, ...priv],
   };
 }
 
@@ -117,53 +82,35 @@ async function readBoard(tasks: Set<string>) {
 
 /**
  * Brings a task's item in line (a closed task with no item gets none; a new one is added with the task id in its
- * notes, so a failed pass finds it again): how it looks after (a failed private write, the section, is tried again next
- * pass). When a write fails while he is needed and the item doesn't show it yet, he is
- * emailed, once per incident.
+ * notes, so a failed pass finds it again, and a failed private write, the section, is tried again next pass).
  */
-async function mirror(
-  t: Task,
-  item: Item | undefined,
-  seen: Item | undefined,
-  cause: string | null,
-  now: number
-) {
-  const w = wantOf(t, cause);
+async function mirror(t: Task, item: Item | undefined) {
+  const w = wantOf(t);
   const task = t.ask.id;
   if (!item && w.completed) {
     return;
   }
   try {
     const it = item ?? (await added(w));
-    const p = planOf(w, it, seen, now);
+    const p = planOf(w, it);
     if (p.done.length > 0) {
       await remctl(["done", ...p.done.map(String)]);
-    }
-    if (p.reopen) {
-      await remctl(["undone", `${it.id}`]);
-    }
-    if (p.done.length > 0 || p.reopen) {
-      // What left or came back to his open list, by id: an audit can tell a ticked item from a lost one.
-      log("board.write", { done: p.done, item: it.id, reopen: p.reopen, task });
+      // What left his open list, by id: an audit can tell a ticked item from a lost one.
+      log("board.write", { done: p.done, item: it.id, task });
     }
     const r = p.flags.length
       ? await remctl(["edit", `${it.id}`, ...p.flags])
       : {};
     const half = partial(r);
     if (half) {
-      // The private write (the section) failed: the next pass tries again.
       log("run.error", { error: half, step: "tasks.board", task });
     }
-    return p.look;
   } catch (e) {
-    const error = (e as Error).message;
-    log("run.error", { error, step: "tasks.board", task });
-    if (cause && seen?.section !== NEEDS) {
-      const key = `${task}/${cause.split(":")[0]}/${standing(t).since}`;
-      const a = { ...t.ask, after: { title: cause }, error };
-      await sendReport(`atlas/${key}`, actionFailedReport(a));
-    }
-    return item;
+    log("run.error", {
+      error: (e as Error).message,
+      step: "tasks.board",
+      task,
+    });
   }
 }
 
@@ -174,33 +121,22 @@ async function added({ notes, title }: Want): Promise<Item> {
 
 let last = 0;
 /**
- * The watcher's pass, each loop: the nudges (from the ledger alone, so a Reminders outage stops none), then, at most
- * each minute, the board: each item is brought in line (a deleted one comes back). Only open tasks' items are watched
- * (a closed one's until it is ticked); a lost snapshot is a fresh baseline.
+ * The watcher's pass, at most each minute: the chase (from the ledger alone, so a Reminders outage stops no email),
+ * then the board: each item is brought in line (a deleted one of an open task comes back).
  */
 export async function tick(now = Date.now()) {
-  nudge(now);
   if (now - last < MIN) {
     return;
   }
   last = now;
-  const tasks = () => tasksOf(undefined, deliveredLines());
-  const shots = readJson<Record<string, Item>>(SNAPSHOT) ?? {};
-  const watched = () =>
-    tasks().filter((t) => t.ask.id in shots || !closed(standing(t).state));
-  const items = await readBoard(new Set(watched().map((t) => t.ask.id)));
-  const live = subscribed(now);
-  const next: Record<string, Item> = {};
-  for (const t of watched()) {
-    const [item, shot] = [items.get(t.ask.id), shots[t.ask.id]];
-    const { state } = standing(t, now);
-    const cause = escalation(t, now, live);
-    const seen = shot?.id === item?.id ? shot : undefined;
-    // biome-ignore lint/performance/noAwaitInLoops: one item at a time
-    const look = await mirror(t, item, seen, cause, now);
-    if (look && !(look.completed && closed(state))) {
-      next[t.ask.id] = look;
+  const tasks = tasksOf();
+  await chase(tasks, now);
+  const items = await readBoard(new Set(tasks.map((t) => t.ask.id)));
+  for (const t of tasks) {
+    const item = items.get(t.ask.id);
+    if (!(item?.completed && closed(standing(t).state))) {
+      // biome-ignore lint/performance/noAwaitInLoops: one item at a time
+      await mirror(t, item);
     }
   }
-  writeFileSync(SNAPSHOT, `${JSON.stringify(next)}\n`, { mode: 0o600 });
 }

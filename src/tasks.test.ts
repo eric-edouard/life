@@ -6,6 +6,7 @@ import { type Item, planOf, wantOf } from "./board";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
 import {
+  alerts,
   escalation,
   refusal,
   sealed,
@@ -45,30 +46,27 @@ const own = (
     madeBy: kind === "update" ? "connector" : "watch",
     target: of,
   });
-/** A task from its lines, all delivered unless `undelivered` counts the last ones that are not. */
-const task = (lines: Action[], undelivered = 0): Task => {
-  const all = [asked, ...lines].map((a) => JSON.stringify(a));
-  const [t] = tasksOf(all, all.length - undelivered);
+/** A task from its lines. */
+const task = (lines: Action[]): Task => {
+  const [t] = tasksOf([asked, ...lines].map((a) => JSON.stringify(a)));
   if (!t) {
     throw new Error("no task");
   }
   return t;
 };
 
-test("the ledger as tasks: each ask gets its own lines in order, with what was delivered; other actions are left out", () => {
+test("the ledger as tasks: each ask gets its own lines in order, old nudges and steers too; other actions are left out", () => {
   const lines = [
     asked,
     action({}),
     own("update", 5, { note: "on it", state: "working" }),
     own("nudge", 6, { why: "x" }, "act_00000000000f"),
     own("nudge", 40, { why: "y" }),
+    own("steer", 41, { changes: {}, note: "" }),
   ].map((a) => JSON.stringify(a));
-  const [t, ...rest] = tasksOf(lines, 3);
+  const [t, ...rest] = tasksOf(lines);
   expect(rest).toEqual([]);
-  expect(t?.lines.map((l) => [l.kind, l.delivered])).toEqual([
-    ["update", true],
-    ["nudge", false],
-  ]);
+  expect(t?.lines.map((l) => l.kind)).toEqual(["update", "nudge", "steer"]);
 });
 
 test("the write rules: claim once, required fields per state, deadlines ahead (24 h at most when working), nothing after done or dropped", () => {
@@ -128,37 +126,8 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   ).toBe("the task is done: no update after that");
 });
 
-test("an open task is due 30 min after it was recorded, a claimed one at its own deadline", () => {
+test("an open task is due 30 min after it was recorded, a claimed one at its own deadline; extensions count", () => {
   expect(standing(task([])).deadline).toBe(at(30));
-  expect(standing(task([]), T0 + 29 * MIN).nudge).toBeNull();
-  expect(standing(task([]), T0 + 30 * MIN).nudge).toBe(
-    "not claimed 30 min after the ask"
-  );
-  const working = task([
-    own("update", 5, { deadline: at(60), note: "a", state: "working" }),
-  ]);
-  expect(standing(working, T0 + 30 * MIN).nudge).toBeNull();
-  expect(standing(working, T0 + 61 * MIN).nudge).toBe(
-    "working past its deadline"
-  );
-});
-
-test("nudges are 30 min apart, only after the last one was delivered, and stop after 3 delivered ones go unanswered", () => {
-  const one = [own("nudge", 15, { why: "x" })];
-  expect(standing(task(one), T0 + 44 * MIN).nudge).toBeNull();
-  expect(standing(task(one), T0 + 45 * MIN).nudge).not.toBeNull();
-  expect(standing(task(one, 1), T0 + 90 * MIN).nudge).toBeNull();
-  const three = [15, 45, 75].map((m) => own("nudge", m, { why: "x" }));
-  expect(standing(task(three)).unanswered).toBe(3);
-  expect(standing(task(three), T0 + 200 * MIN).nudge).toBeNull();
-  // An undelivered nudge does not count.
-  expect(standing(task(three, 1)).unanswered).toBe(2);
-  // An update answers them.
-  const answered = task([
-    ...three,
-    own("update", 80, { deadline: at(90), note: "a", state: "working" }),
-  ]);
-  expect(standing(answered).unanswered).toBe(0);
   // An extension is an update that moved the deadline later, whatever its offset.
   const later = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
@@ -169,15 +138,24 @@ test("nudges are 30 min apart, only after the last one was delivered, and stop a
     }),
     own("update", 7, { deadline: at(60), note: "c", state: "working" }),
   ]);
+  expect(standing(later).deadline).toBe(at(60));
   expect(standing(later).extensions).toBe(1);
 });
 
-test("he is asked to look when Atlas is stuck, waits on him over an hour, a task is a week old, or Atlas isn't subscribed", () => {
-  const now = T0 + 100 * MIN;
+test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Atlas isn't subscribed; once per cause and update", () => {
+  const now = T0 + 20 * MIN;
   expect(escalation(task([]), now, true)).toBeNull();
   expect(escalation(task([]), now, false)).toBe("Atlas isn't receiving asks");
-  const three = [15, 45, 75].map((m) => own("nudge", m, { why: "x" }));
-  expect(escalation(task(three), now, true)).toBe("Atlas stuck");
+  expect(escalation(task([]), T0 + 30 * MIN, true)).toBe(
+    "not claimed 30 min after the ask"
+  );
+  const working = task([
+    own("update", 5, { deadline: at(60), note: "a", state: "working" }),
+  ]);
+  expect(escalation(working, T0 + 59 * MIN, true)).toBeNull();
+  expect(escalation(working, T0 + 61 * MIN, true)).toBe(
+    "working past its deadline"
+  );
   const waiting = task([
     own("update", 30, {
       deadline: at(600),
@@ -189,11 +167,36 @@ test("he is asked to look when Atlas is stuck, waits on him over an hour, a task
   expect(escalation(waiting, T0 + 91 * MIN, true)).toBe(
     "Atlas needs you: which flat?"
   );
-  expect(escalation(task([]), T0 + 8 * 24 * 60 * MIN, true)).toBe(
-    "stuck for 7 days"
-  );
+  const week = 8 * 24 * 60;
+  const extended = task([
+    own("update", week - 5, {
+      deadline: at(week + 60),
+      note: "a",
+      state: "working",
+    }),
+  ]);
+  expect(escalation(extended, T0 + week * MIN, true)).toBe("stuck for 7 days");
   const done = task([own("update", 30, { outcome: "sent", state: "done" })]);
   expect(escalation(done, now, false)).toBeNull();
+  // A task Atlas made from his chat is chased too.
+  const chat = action({
+    ...asked,
+    id: "act_00000000000b",
+    madeBy: "connector",
+  });
+  const both = tasksOf([asked, chat].map((a) => JSON.stringify(a)));
+  expect(alerts(both, T0 + 31 * MIN, true).map((x) => x.t.ask.id)).toEqual([
+    ASK,
+    "act_00000000000b",
+  ]);
+  // The key changes with Atlas's last update: silent again after one is a new email; the same silence is not.
+  const key = (t: Task, m: number) => alerts([t], T0 + m * MIN, true)[0]?.key;
+  expect(key(working, 61)).toBe(key(working, 120));
+  const again = task([
+    own("update", 5, { deadline: at(60), note: "a", state: "working" }),
+    own("update", 70, { deadline: at(90), note: "b", state: "working" }),
+  ]);
+  expect(key(again, 91)).not.toBe(key(working, 61));
 });
 
 const look = (over: Partial<Item> = {}): Item => ({
@@ -218,45 +221,23 @@ const working = (more: Action[] = []) =>
     ...more,
   ]);
 
-test("the board gets Life's fields: notes, section, Needs you with a due while he is needed, a tick when done; his tick stays until he is needed", () => {
-  const want = wantOf(working(), null);
+test("the board gets Life's fields: notes and section in line, a tick when done; his tick is his", () => {
+  const want = wantOf(working());
   expect(want.notes.split("\n")[0]).toBe(ASK);
   expect(want.notes).toContain("searching");
   const blank = look({ notes: want.notes, section: "Open" });
-  const first = planOf(want, blank, undefined, T0);
-  expect(first.flags).toEqual(["--private", "--section=Working"]);
-  const ticked = first.look;
-  expect(planOf(want, ticked, ticked, T0)).toMatchObject({
+  expect(planOf(want, blank)).toEqual({
     done: [],
-    flags: [],
+    flags: ["--private", "--section=Working"],
   });
-  // He is needed: Needs you with a due of now, kept while the cause lasts, cleared when it ends.
-  const needed = wantOf(working(), "Atlas stuck");
-  const alert = planOf(needed, ticked, ticked, T0);
-  expect(alert.flags.filter((f) => f.startsWith("--due="))).toHaveLength(1);
-  expect(alert.flags).toContain("--section=Needs you");
-  const later = planOf(needed, alert.look, alert.look, T0 + 9 * MIN);
-  expect(later.flags).toEqual([]);
-  // A failed private write is tried again next pass, without a new alert.
-  const retry = planOf(needed, ticked, alert.look, T0 + MIN).flags;
-  expect(retry).toContain("--section=Needs you");
-  expect(retry.filter((f) => f.startsWith("--due"))).toEqual([]);
-  expect(planOf(want, alert.look, alert.look, T0).flags).toEqual([
-    `--notes=${want.notes}`,
-    "--due=clear",
-    "--alarm=clear",
-    "--private",
-    "--section=Working",
-  ]);
+  const kept = look({ notes: want.notes, section: "Working" });
+  expect(planOf(want, kept)).toEqual({ done: [], flags: [] });
+  expect(planOf(want, { ...kept, completed: true }).done).toEqual([]);
   const done = task([own("update", 5, { outcome: "booked", state: "done" })]);
-  expect(planOf(wantOf(done, null), ticked, ticked, T0).done).toEqual([1]);
-  // An old steer line changes nothing: no "You:" line, no steers in the row.
+  expect(planOf(wantOf(done), kept).done).toEqual([1]);
+  // An old steer line changes nothing: no "You:" line.
   const steered = working([own("steer", 7, { changes: {}, note: "his" })]);
-  expect(wantOf(steered, null)).toEqual(want);
-  // His tick on an open task is not undone, until Life asks him to look.
-  const his = { ...ticked, completed: true };
-  expect(planOf(want, his, ticked, T0).reopen).toBe(false);
-  expect(planOf(needed, his, ticked, T0).reopen).toBe(true);
+  expect(wantOf(steered)).toEqual(want);
 });
 
 const TEXT = "# Atlas: the playbook";
@@ -332,7 +313,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(child?.instruction).toEqual(asked.instruction);
   expect(child?.after).toMatchObject({ parent: ASK, title: "Book visits" });
   const [t] = tasksOf([JSON.stringify(child)]);
-  expect(t && wantOf(t, null).title).toBe("Atlas: Book visits");
+  expect(t && wantOf(t).title).toBe("Atlas: Book visits");
   // A split's id comes from its parent: it never meets a sibling made from the same message, nor its parent.
   const chat = { ...claiming, at: at(-5), said: "dentist and vet" };
   const dentist = write({ ...chat, title: "dentist" }).lines;

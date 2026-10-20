@@ -369,7 +369,7 @@ function buildServer() {
   tool(
     server,
     "tasks",
-    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; his `goals` (truth/me.md, his priority order); each open task (an ask of his) with its state, deadline, steps and last note, and those closed in the last day as id, state, title and the start of their last note. A task's whole history: `changes` with types action.update, action.nudge (action.steer until 20 Oct).",
+    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; his `goals` (truth/me.md, his priority order); each open task (an ask of his) with its state, deadline, steps and last note, and those closed in the last day as id, state, title and the start of their last note. A task's whole history: `changes` with type action.update (action.nudge and action.steer until 20 Oct).",
     z.object({}),
     async () => ({
       ...sealed(),

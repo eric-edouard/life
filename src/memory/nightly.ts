@@ -68,7 +68,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems.push(`actions.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
-  // A task's own lines (Atlas's updates, nudges) are its rows, not actions.
+  // A task's own lines (Atlas's updates) are its rows, not actions.
   return {
     actions: actions.filter(
       (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
@@ -76,7 +76,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems,
     tasks: tasks.map((t) => ({
       name: `${t.state} · ${t.age}`,
-      relation: `${clip(t.quote, 120)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.nudges} nudges, ${t.extensions} extensions`,
+      relation: `${clip(t.quote, 120)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.extensions} extensions`,
     })),
   };
 }
