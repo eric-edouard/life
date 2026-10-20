@@ -4,6 +4,7 @@ import process from "node:process";
 
 const steps: Record<string, string[]> = {
   biome: ["bun", "x", "--bun", "ultracite", "check"],
+  cases: ["bun", "scripts/cases-check.ts"],
   fallow: ["bun", "x", "--bun", "fallow", "--fail-on-issues"],
   scrub: ["bun", "scripts/scrub-check.ts"],
   test: ["bun", "test", "./src/"],

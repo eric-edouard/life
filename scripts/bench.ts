@@ -8,10 +8,9 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { llmFor, llmSpec } from "../src/llm";
-import { LOG_DIR } from "../src/log";
+import { LOG_DIR, logDays, logEvents } from "../src/log";
 import { extract } from "../src/memory/extract";
 import { locked } from "../src/memory/guard";
-import { logEvents } from "../src/memory/history";
 import { ratedFacts } from "../src/memory/ledger";
 import { moments } from "../src/memory/moments";
 import { claimsNow } from "../src/memory/statements";
@@ -66,9 +65,9 @@ async function readWeek() {
         .join("\n")
     );
     // This worktree's log holds this run alone so far: its calls' cost (codex reports none).
-    const costs = (await logEvents(LOG_DIR, "model.run")).flatMap((l) =>
-      typeof l.costUsd === "number" ? [l.costUsd] : []
-    );
+    const costs = (await logDays(LOG_DIR))
+      .flatMap((n) => logEvents<{ costUsd?: number }>(n, "model.run"))
+      .flatMap((l) => (typeof l.costUsd === "number" ? [l.costUsd] : []));
     return {
       calls: m.calls + e.calls,
       claims: claims.length,

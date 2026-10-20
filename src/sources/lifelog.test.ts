@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { z } from "zod";
+import { CLOSED_ON_SILENCE_S } from "../hear";
 import {
   chapter,
   conversation,
@@ -15,6 +16,7 @@ import {
   apply,
   conversationsWith,
   Hits,
+  openStore,
   Page,
   poll,
   readConversations,
@@ -24,6 +26,7 @@ import {
   Transcript,
   turnOffset,
   turnsBetween,
+  visits,
 } from "./lifelog";
 
 const since = new Date("2026-10-01T00:00:00Z");
@@ -228,6 +231,38 @@ test("the owner flag is stored and read back; poll lists a turn as his once, a l
   }
 });
 
+test("a turn keeps its end and when the feed first brought it; a store from before them gains both", () => {
+  const s = store();
+  s.db.run("alter table turns drop column end_at");
+  s.db.run("alter table turns drop column seen_at");
+  const reopened = openStore(dirname(s.cursor));
+  const words = {
+    ...turn(0, "2026-10-14T10:00:00.000Z", null, null),
+    endAt: "2026-10-14T10:00:04.000Z",
+  };
+  apply(
+    reopened,
+    Page.parse(page({ turns: [words] })),
+    "2026-10-14T10:01:00.000Z"
+  );
+  const named = {
+    ...words,
+    speaker: { isOwner: true, personId: JEAN, personName: "Jean (Me)" },
+  };
+  apply(
+    reopened,
+    Page.parse(page({ turns: [named] })),
+    "2026-10-14T10:01:01.000Z"
+  );
+  expect(turnsBetween(reopened, "c1")).toMatchObject([
+    {
+      end: "2026-10-14T10:00:04.000Z",
+      owner: true,
+      seen: "2026-10-14T10:01:00.000Z",
+    },
+  ]);
+});
+
 test("poll also lists a new turn nobody is named for, once", async () => {
   const s = store();
   const lost = turn(0, "2026-10-14T10:00:00.000Z", null, null, "c1");
@@ -244,6 +279,22 @@ test("poll also lists a new turn nobody is named for, once", async () => {
     server.close();
   }
 });
+
+const CUTTER = join(homedir(), "Work/lifelog/apps/server/src/cutter.ts");
+
+test.skipIf(!existsSync(CUTTER))(
+  "lifelog still closes a recording of less speech than CLOSED_ON_SILENCE_S only on 30 s of silence (hear.ts reads it so)",
+  () => {
+    const ms = (name: string) =>
+      Number(
+        readFileSync(CUTTER, "utf8")
+          .match(new RegExp(`const ${name} = ([\\d_]+)`))?.[1]
+          ?.replaceAll("_", "")
+      );
+    expect(ms("LONG_MS")).toBe(CLOSED_ON_SILENCE_S * 1000);
+    expect(ms("CLOCK_MS")).toBe(30_000);
+  }
+);
 
 // lifelog's published contract, kept current by its own gate. On a Mac without the checkout there is nothing to check.
 const CONTRACT = join(homedir(), "Work/lifelog/apps/server/openapi.json");
@@ -337,4 +388,14 @@ test("a feed page with a turn not yet in a conversation and a conversation retir
   apply(s, p);
   expect(() => readConversations(s, since)).not.toThrow();
   expect(readConversations(s, since)).toEqual([]);
+});
+
+test("visits: lifelog's 404 (no place the phone named matches) is no stays", async () => {
+  // No route: the test server answers 404, as lifelog does when nothing matches.
+  const server = lifelogServer({});
+  try {
+    expect(await visits({ place: "Nowhere" })).toEqual([]);
+  } finally {
+    server.close();
+  }
 });

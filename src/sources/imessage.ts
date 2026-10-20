@@ -8,12 +8,15 @@ import { type SourceEvent, sourceFile } from "../schema";
 const DB = join(homedir(), "Library", "Messages", "chat.db");
 const HOME = /^~/;
 // Messages stores dates as nanoseconds since 2001-01-01.
-export const APPLE_EPOCH_S = 978_307_200;
+const APPLE_EPOCH_S = 978_307_200;
 
 export const toAppleNs = (date: Date) =>
   BigInt(Math.floor(date.getTime() / 1000) - APPLE_EPOCH_S) * 1_000_000_000n;
 export const fromAppleNs = (ns: number | bigint) =>
   new Date(Number(BigInt(ns) / 1_000_000n) + APPLE_EPOCH_S * 1000);
+// Notes and WhatsApp store seconds since 2001-01-01; `ms` is a JavaScript time.
+export const fromAppleS = (s: number) => new Date((s + APPLE_EPOCH_S) * 1000);
+export const toAppleS = (ms: number) => ms / 1000 - APPLE_EPOCH_S;
 
 /** Newer messages keep their text only in an archived NSAttributedString; pull the first string out of it. */
 export function textFromAttributedBody(blob: Uint8Array | null): string {
