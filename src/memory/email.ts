@@ -50,11 +50,13 @@ const MONO = "'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace";
 // Ledger's tokens; ok and warn darkened so they read on white (≥5:1).
 const C = {
   bad: "#c4382c",
+  badTint: "#f9ebe9",
   bg: "#f7f7f5",
   ink: "#1b1d1f",
   line: "#e1e2de",
   muted: "#6d7176",
   ok: "#24733f",
+  okTint: "#e9f1eb",
   panel: "#ffffff",
   sunk: "#f1f1ee",
   warn: "#8f5a0b",
@@ -160,7 +162,7 @@ const failureBox = (f: NonNullable<Digest["failure"]>) =>
   );
 
 export function renderHtml(d: Digest) {
-  const status = d.failure ? C.bad : C.ok;
+  const [status, tint] = d.failure ? [C.bad, C.badTint] : [C.ok, C.okTint];
   const body = [
     d.failure ? failureBox(d.failure) : "",
     stats(d),
@@ -188,7 +190,7 @@ export function renderHtml(d: Digest) {
 <tr><td style="padding:0 4px 20px">
 <div style="font:13px/1.3 ${SERIF};color:${C.muted}">${esc(d.weekday)} · ${esc(d.label ?? "Life nightly")}</div>
 <div style="margin-top:6px;font:600 36px/1.1 ${SERIF};letter-spacing:-.01em;color:${C.ink}">${esc(d.date)}</div>
-<div style="margin-top:12px"><span style="display:inline-block;padding:4px 8px;border-radius:4px;background:${d.failure ? "#f9ebe9" : "#e9f1eb"};font:500 11.5px/1 ${MONO};color:${status}">● ${esc(d.verdict)}</span></div>
+<div style="margin-top:12px"><span style="display:inline-block;padding:4px 8px;border-radius:4px;background:${tint};font:500 11.5px/1 ${MONO};color:${status}">● ${esc(d.verdict)}</span></div>
 </td></tr>
 <tr><td style="background:${C.panel};border:1px solid ${C.line};border-top:3px solid ${status};border-radius:6px">
 <table ${TABLE}>
