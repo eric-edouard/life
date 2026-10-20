@@ -8,7 +8,6 @@ import {
   afterWeek,
   backfillWeek,
   backupDue,
-  decide,
   locked,
   lockedSince,
   MAX_ATTEMPTS,
@@ -19,6 +18,7 @@ import {
   recordBackfill,
   recordMidday,
   recordState,
+  turnOf,
 } from "./guard";
 import { newSince, readActions } from "./ledger";
 import { moments } from "./moments";
@@ -105,20 +105,23 @@ export async function nightly(days: number, force = false) {
   await locked(() => noteZone(now));
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
-  const night = force || decide(now.getHours(), day, readState()) === "run";
-  // A backup still due today goes before a backfill week (it runs after, below).
-  const backupFirst = () =>
-    backupDue(now.getHours(), day, readState(), readState("backup"));
-  const daytime = () => {
-    if (middayDue(now, readMidday())) {
-      return midday(now);
-    }
-    return backupFirst() ? Promise.resolve(0) : backfilled(day);
-  };
-  const code = night
-    ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
-    : await daytime();
-  if (force || !backupFirst()) {
+  const states = () => ({
+    backfill: readBackfill(),
+    backup: readState("backup"),
+    midday: readMidday(),
+    night: readState(),
+  });
+  const turn = force ? "night" : turnOf(now, day, states());
+  const code =
+    turn === "night"
+      ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
+      : await {
+          backfill: () => backfilled(day),
+          midday: () => midday(now),
+          none: () => Promise.resolve(0),
+        }[turn]();
+  const { backup: was, night: state } = states();
+  if (force || !backupDue(now.getHours(), day, state, was)) {
     return code;
   }
   // Recorded even when it throws, so a day never tries more than 3 times.
@@ -133,17 +136,22 @@ export async function nightly(days: number, force = false) {
 
 /**
  * A midday run (about 13:00 and 19:00, same 30-minute tick): moments and extract of today, so the day's speech is read
- * while it is fresh, then the index. No pages, no commit, no email: the nightly commits and reports all of
- * it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule, never the lock. A failure
- * is only logged, and the slot is spent.
+ * while it is fresh, then the index, then the pages that have new observations. No commit, no email: the nightly
+ * commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
+ * never the lock. A failure is only logged, and the slot is spent.
  */
 export async function midday(now = new Date(), force = false) {
   if (!(force || middayDue(now, readMidday()))) {
     return 0;
   }
-  const code = await locked(() => {
+  const code = await locked(async () => {
     recordMidday();
-    return sweep("memory.midday", lastDays(now, 1));
+    if ((await sweep("memory.midday", lastDays(now, 1))) !== 0) {
+      return 1;
+    }
+    // Pages follow the day: only a page with new observations is rewritten (a quiet one keeps its file).
+    const paged = await pages({ rebuild: false });
+    return paged.failed > 0 ? 1 : 0;
   });
   return code ?? Number(force);
 }
