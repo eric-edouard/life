@@ -393,7 +393,7 @@ test("Often talk about is the topics that repeat, most first", () => {
   expect(oftenLine(new Map([["once", 1]]))).toEqual([]);
 });
 
-test("what changed counts lines added, moved to History and removed; the digest is the Now lines within budget", () => {
+test("what changed counts lines added, moved to History and removed; a reader gets the whole page", () => {
   const after = of({
     history: [
       ...sections().history,

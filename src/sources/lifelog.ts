@@ -534,25 +534,20 @@ export function speakers(store: Store) {
     .all();
 }
 
-/** The latest live conversations where lifelog's person (or one of the people) `personIds` spoke, newest first, started before `before` when given. */
+/** The latest live conversations where lifelog's person (or one of the people) `personIds` spoke, newest first. */
 export function conversationsWith(
   store: Store,
   personIds: string[],
-  limit: number,
-  before = "9999"
+  limit: number
 ) {
   return store.db
-    .query<
-      { id: string; start_at: string; title: string },
-      [string, string, number]
-    >(
+    .query<{ id: string; start_at: string; title: string }, [string, number]>(
       `select c.id, c.start_at, c.title from conversations c
         where ${LIVE}
           and c.id in (select conversation_id from turns where person_id in (select value from json_each(?)))
-          and c.start_at < ?
         order by c.start_at desc limit ?`
     )
-    .all(JSON.stringify(personIds), before, limit);
+    .all(JSON.stringify(personIds), limit);
 }
 
 export const Hits = z.object({

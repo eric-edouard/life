@@ -278,6 +278,8 @@ function withContext(events: SourceEvent[], query: string) {
 /**
  * Messages from each source inside `range`, oldest first, without Life's own chat, and the sources that could not be
  * read. With no `from`, a source reads its last `days[source]` days before the end.
+ * ponytail: an early `from` reads every message since (iMessage holds years, 40k WhatsApp messages in a few hundred
+ * ms, Oct 2026); bound the read in SQL by `before` if that grows slow.
  */
 function readChats(
   days: Record<string, number>,
