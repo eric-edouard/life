@@ -67,7 +67,7 @@ test("the public check ignores an offline Mac, heals on the 2nd failure, alerts 
   expect(run(true, true)).toBe("none");
 });
 
-test("a conversation is heard once, 10 s after his last turn arrived (40 s while one has no speaker), from his earliest turn; old speech is never heard", () => {
+test("a conversation is heard once, 15 s after his last turn arrived (40 s while one has no speaker), from his earliest turn; old speech is never heard", () => {
   const pending: Pending = new Map();
   const t = (s: number) => new Date(at(0).getTime() + s * 1000);
   const turn = (conversation: string, s: number) => ({
@@ -78,16 +78,16 @@ test("a conversation is heard once, 10 s after his last turn arrived (40 s while
   const heard = (turns: ReturnType<typeof turn>[], s: number) =>
     hearings(pending, turns, t(s).getTime(), unnamed);
   expect(heard([turn("a", 0), turn("b", 5)], 10)).toEqual([]);
-  expect(holdFor(pending, t(10).getTime(), unnamed)).toBe(10);
+  expect(holdFor(pending, t(10).getTime(), unnamed)).toBe(15);
   expect(heard([], 19)).toEqual([]);
   // A turn of "a" arrived at 20 s: its quiet restarted.
   expect(heard([turn("a", 15)], 20)).toEqual([]);
-  expect(heard([], 29)).toEqual([]);
-  expect(heard([], 30)).toEqual([
+  expect(heard([], 34)).toEqual([]);
+  expect(heard([], 35)).toEqual([
     { conversation: "a", from: t(0).toISOString(), tries: 0 },
   ]);
   // "b" has a turn with no speaker: it waits 40 s, and the poll holds until then.
-  expect(holdFor(pending, t(30).getTime(), unnamed)).toBe(20);
+  expect(holdFor(pending, t(35).getTime(), unnamed)).toBe(15);
   expect(heard([], 49)).toEqual([]);
   expect(heard([], 50)).toEqual([
     { conversation: "b", from: t(5).toISOString(), tries: 0 },

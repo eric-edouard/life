@@ -123,12 +123,14 @@ export const closed = (s: State) => s === "done" || s === "dropped";
  * (not speech, not yet, or before 20 Oct). A split's parts are left out: they share their parent's times.
  */
 export async function timings(from = "", to = "9999", tasks = tasksOf()) {
-  const sent = new Map(
-    (await logDays())
-      .filter((n) => n >= from.slice(0, 10))
-      .flatMap((n) => logEvents(n, "event.sent"))
-      .map((e) => [`${e.event}`, e.at])
-  );
+  // Oldest first, the first delivery kept: a retry after a lost answer is not when Atlas got it.
+  const sent = new Map<string, string>();
+  const days = (await logDays())
+    .filter((n) => n >= from.slice(0, 10))
+    .reverse();
+  for (const e of days.flatMap((n) => logEvents(n, "event.sent"))) {
+    sent.set(`${e.event}`, sent.get(`${e.event}`) ?? e.at);
+  }
   return tasks
     .filter((t) => !t.ask.after.parent && t.ask.at >= from && t.ask.at < to)
     .map(({ ask: a, lines }) => {
