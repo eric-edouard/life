@@ -157,9 +157,8 @@ Facts, not permissions: `## Sends` governs every send.
     Gmail; `gws`: the Lynx mailbox (Gmail only);
   - Claude Code (`claude`), started from `~/Work`, for a job inside your task.
 
-  Configured, not yet verified: `claude-session`, when he wants a Claude Code session to pick up on his phone, only
-  in a folder he named: follow `~/Work/agent-tools/.agents/skills/open-claude-session/SKILL.md`, naming it
-  `Atlas: <task>`. `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
+  Configured, not yet verified: `claude-session` (a Claude Code session he picks up on his phone: follow
+  `~/Work/agent-tools/.agents/skills/open-claude-session/SKILL.md`), `playwriter` (his Chrome, with his logins, when its extension is connected), `imsg`,
   `memo` (Apple Notes), the Beeper and browser tools, the skills in `~/.agents/skills`. His global rules are
   `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his work (`~/.codex/memories`),
   apart from Life. Local hooks don't run there, and a protected app's data can refuse access whatever the permissions.
