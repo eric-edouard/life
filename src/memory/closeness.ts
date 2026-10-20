@@ -123,8 +123,9 @@ export function voiceDays(
 
 /** What code counts about someone: their days, and two scores that weigh each day by what happened and how long ago. */
 export interface Tally {
-  first: string;
-  last: string;
+  /** The first and last day anything happened with them; null when nothing did. */
+  first: string | null;
+  last: string | null;
   /** Halves every 365 days: who has been close over the years. */
   lasting: number;
   /** Halves every 30 days: who is close now. */
@@ -142,8 +143,8 @@ function weight(d: Day) {
 export function tally(of: Map<string, Day>, today: string): Tally {
   const sorted = [...of.keys()].sort();
   const t = {
-    first: sorted[0] ?? today,
-    last: sorted.at(-1) ?? today,
+    first: sorted[0] ?? null,
+    last: sorted.at(-1) ?? null,
     lasting: 0,
     recent: 0,
     twoWay: 0,
@@ -168,6 +169,24 @@ export const bucket = (t: Tally) =>
 
 /** Who is worth judging: everyone on his map, and anyone with this much `lasting`. */
 const JUDGED_FROM = 1;
+
+/**
+ * Whom to ask about: everyone worth judging (on his map, or this much `lasting`) never judged, judged on other counts
+ * (rounded: they really moved) or under another prompt.
+ */
+export function dueFor(
+  tallies: { ref: string; t: Tally }[],
+  judged: Map<string, Closeness>,
+  onMap: Set<string>
+) {
+  return tallies.filter(
+    ({ ref, t }) =>
+      ref !== OWNER &&
+      (onMap.has(ref) || t.lasting >= JUDGED_FROM) &&
+      (judged.get(ref)?.counts !== bucket(t) ||
+        judged.get(ref)?.madeBy.prompt !== CLOSENESS_PROMPT)
+  );
+}
 
 const Entry = z.object({
   person: z.string(),
@@ -212,11 +231,12 @@ export const readCloseness = () =>
 
 /** A relation on his map that keeps someone at least `regular` in his personal life, however little they talk. */
 const FAMILY =
-  /\b(father|mother|dad|mum|mom|brother|sister|son|daughter|wife|husband|partner|girlfriend|boyfriend|grand\w*)\b/i;
-/** …unless it says they no longer are, or are not by blood or love: an ex, a former one, an in-law, a business partner. */
-const NOT_FAMILY = /\b(ex|former|business|work)\b[- ]?\w*|in-law/i;
-const isFamily = (relation: string) =>
-  FAMILY.test(relation) && !NOT_FAMILY.test(relation);
+  /\b(?:(ex|former|business|work)[- ])?(?:step-?)?(?:father|mother|dad|mum|mom|brother|sister|son|daughter|wife|husband|partner|girlfriend|boyfriend|grand\w*)(-in-law)?\b/i;
+/** …unless the word itself says they no longer are, or are not by blood or love: an ex-wife, a business partner, an in-law. */
+const isFamily = (relation: string) => {
+  const m = relation.match(FAMILY);
+  return !!m && !m[1] && !m[2];
+};
 
 /**
  * Each person's levels now: the model's latest judgment, family kept at least `regular`, then his own word
@@ -229,7 +249,7 @@ export function levelsNow(
 ) {
   const out = new Map<
     string,
-    { personal: Level; service: boolean; work: Level }
+    { personal: Level; service: boolean; why: string; work: Level }
   >();
   // A person folded into another (`same-person`) is that one: the latest judgment of either stands.
   const canon = merged(corrections);
@@ -239,6 +259,7 @@ export function levelsNow(
     out.set(canon(c.person), {
       personal: c.personal,
       service: c.service,
+      why: c.why,
       work: c.work,
     });
   }
@@ -246,7 +267,12 @@ export function levelsNow(
     const ref = `person:${p.id}`;
     const was = out.get(ref);
     if (was && isFamily(p.relation ?? "") && !CLOSE.has(was.personal)) {
-      out.set(ref, { ...was, personal: "regular", service: false });
+      out.set(ref, {
+        ...was,
+        personal: "regular",
+        service: false,
+        why: `${p.relation}: family stays close`,
+      });
     }
   }
   for (const c of corrections) {
@@ -255,11 +281,13 @@ export function levelsNow(
       const was = out.get(ref) ?? {
         personal: "acquaintance" as const,
         service: false,
+        why: "",
         work: "acquaintance" as const,
       };
       out.set(ref, {
         personal: c.personal ?? was.personal,
         service: false,
+        why: "your word",
         work: c.work ?? was.work,
       });
     }
@@ -336,13 +364,7 @@ export async function closeness() {
     }
   }
   const tallies = [...days].map(([ref, of]) => ({ ref, t: tally(of, today) }));
-  const due = tallies.filter(
-    ({ ref, t }) =>
-      ref !== OWNER &&
-      (onMap.has(ref) || t.lasting >= JUDGED_FROM) &&
-      (judged.get(ref)?.counts !== bucket(t) ||
-        judged.get(ref)?.madeBy.prompt !== CLOSENESS_PROMPT)
-  );
+  const due = dueFor(tallies, judged, onMap);
   const ctx = {
     at: step.now.toISOString(),
     madeBy: stamp(step.llm, CLOSENESS_PROMPT, step.run),
