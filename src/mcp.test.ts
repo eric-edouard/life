@@ -137,7 +137,7 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
 });
 
-test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders` and `task` write but are not destructive, so Atlas runs unattended", async () => {
+test("tools/list: fourteen read-only tools; `correct` asks for approval, `reminders` and `task` write but are not destructive, so Atlas runs unattended", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -160,6 +160,7 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
     "status",
     "task",
     "tasks",
+    "week",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
   const claim = json.result.tools.find(

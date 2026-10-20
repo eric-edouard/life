@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
-import { APPLE_EPOCH_S, toAppleNs } from "./imessage";
+import { toAppleNs, toAppleS } from "./imessage";
 import { openStore } from "./lifelog";
 
 // Small stores to test the readers against: lifelog's change feed, and the Mac apps' databases the archive copies.
@@ -108,7 +108,7 @@ export function whatsappFixture() {
     }
     wa.run(
       "insert into ZWAMESSAGE values (?, ?, ?, 0, ?, ?, ?, 1, 1, '120@g.us', null)",
-      [pk, id, type, now / 1000 - 978_307_200 - agoS, text, media ? pk : null]
+      [pk, id, type, toAppleS(now) - agoS, text, media ? pk : null]
     );
   };
   return { add, dir, now, source, wa };
@@ -255,7 +255,7 @@ export function notesFixture() {
           binned ? 102 : 101,
           shared ? "share" : null,
         ],
-        ...[now / 1000 - APPLE_EPOCH_S - agoS, locked],
+        ...[toAppleS(now) - agoS, locked],
       ]
     );
     db.run("delete from ZICNOTEDATA where ZNOTE = ?", [pk]);
