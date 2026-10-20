@@ -462,6 +462,8 @@ export const Extracted = z
   .object({
     at: isoDateTime,
     observations: z.int().min(0),
+    /** Who the unit's people resolved to when it was read: a later change (truth/, a correction) reads it again. */
+    people: z.array(z.string()).optional(),
     prompt: z.string(),
     run: z.string(),
     schemaVersion: z.literal(1),

@@ -14,7 +14,7 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { othersIn } from "../truth";
+import { OWNER, othersIn } from "../truth";
 import { closeNow } from "./closeness";
 import {
   appendJsonl,
@@ -202,19 +202,35 @@ export function byDays<T extends Group & { sources: Source[] }>(
 
 /**
  * The units to read: kept (salience >= KEEP_AT) on their current content, and not yet extracted by this prompt
- * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl).
+ * from that same content and people (the cache: unit content hash + prompt version, from memory/extracted.jsonl).
+ * Who a unit's people are is part of what was read: when they resolve to someone else since (truth/, a correction),
+ * the unit is read again and its earlier observations replaced. A ledger line from before `people` was recorded
+ * falls back to `spoke` (the speakers of the unit's shown observations): one not among its people now reads it again.
  */
 export function toExtract(
   built: Built[],
   verdicts: Verdicts,
   ledger: Extracted[],
-  prompt = EXTRACT_PROMPT
+  prompt = EXTRACT_PROMPT,
+  spoke: Map<string, string[]> = new Map()
 ) {
-  const done = new Set(
-    ledger.flatMap((e) =>
-      e.prompt === prompt ? [`${e.unit}|${e.unitHash}`] : []
-    )
-  );
+  // The last reading of each unit's content: who its people were then (absent before the field existed).
+  const done = new Map<string, string[] | undefined>();
+  for (const e of ledger) {
+    if (e.prompt === prompt) {
+      done.set(`${e.unit}|${e.unitHash}`, e.people);
+    }
+  }
+  const readAs = ({ unit }: Built) => {
+    const key = `${unit.id}|${unit.hash}`;
+    if (!done.has(key)) {
+      return false;
+    }
+    const was = done.get(key);
+    return was
+      ? was.join() === unit.people.join()
+      : (spoke.get(unit.id) ?? []).every((p) => unit.people.includes(p));
+  };
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
   for (const b of built) {
@@ -229,9 +245,7 @@ export function toExtract(
       kept.push({ b, reason: v.reason });
     }
   }
-  const pending = kept.filter(
-    ({ b }) => !done.has(`${b.unit.id}|${b.unit.hash}`)
-  );
+  const pending = kept.filter(({ b }) => !readAs(b));
   return { kept, pending, stale };
 }
 
@@ -325,6 +339,20 @@ export function priorFor(
   return [...recent, ...older];
 }
 
+/** The people who said each unit's observations, as they read today (the owner and unnamed speakers aside). */
+export function speakersByUnit(
+  observations: Observation[],
+  canon: (ref: string) => string
+) {
+  const spoke = new Map<string, string[]>();
+  for (const o of observations) {
+    if (o.speaker.startsWith("person:") && o.speaker !== OWNER) {
+      spoke.set(o.unit, [...(spoke.get(o.unit) ?? []), canon(o.speaker)]);
+    }
+  }
+  return spoke;
+}
+
 /** Extracts the kept units of `evidence` (its window, `gather`) not read yet by this prompt. */
 export async function extract(evidence: Evidence) {
   const step = await begin("extract", "deep", {
@@ -343,17 +371,19 @@ export async function extract(evidence: Evidence) {
       (b.unit.source === "lifelog" && closed.has(b.unit.key))
   );
   const verdicts = await readVerdicts();
-  const { kept, pending, stale } = toExtract(
-    inWindow,
-    verdicts,
-    rowsOf(EXTRACTED, Extracted)
-  );
   const people = await readPeople();
-  const { corrections, inferred, resolve } = people;
+  const { canon, corrections, inferred, resolve } = people;
   const [written, { observations: known, standing }] = await Promise.all([
     readMoments(),
     observationsNow(people),
   ]);
+  const { kept, pending, stale } = toExtract(
+    inWindow,
+    verdicts,
+    rowsOf(EXTRACTED, Extracted),
+    EXTRACT_PROMPT,
+    speakersByUnit(known, canon)
+  );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
     const s = stateOf(o, standing);
@@ -551,6 +581,7 @@ export async function extract(evidence: Evidence) {
     [...finished, ...copies].map(({ unit }) => ({
       at,
       observations: perUnit.get(unit.id) ?? 0,
+      people: unit.people,
       prompt: EXTRACT_PROMPT,
       run: step.run,
       schemaVersion: 1 as const,

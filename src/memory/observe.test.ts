@@ -11,7 +11,7 @@ import {
   type Unit,
   type Unresolved,
 } from "../schema";
-import { toExtract } from "./extract";
+import { speakersByUnit, toExtract } from "./extract";
 import { ledger, unit, verdict } from "./fixtures";
 import { locate, parseObservations, type Source } from "./observe";
 import { buildIndex } from "./search";
@@ -392,6 +392,53 @@ test("the cache: a unit is read again only when its content or the prompt change
   expect(
     toExtract([c].map(built), verdicts, extracted, "memory-extract.v2").pending
   ).toHaveLength(1);
+});
+
+test("identity is part of the cache: a unit whose people resolve to someone else since is read again, once", () => {
+  const sam = unit({ id: "u_00000000001a", people: ["person:lou"] });
+  const verdicts = ledger([verdict(sam, { salience: 3 })]);
+  const readLine = (readAs?: string[]) => ({
+    at: "2026-10-10T02:00:00.000Z",
+    observations: 1,
+    ...(readAs ? { people: readAs } : {}),
+    prompt: "memory-extract.v1",
+    run: "r0",
+    schemaVersion: 1 as const,
+    unit: sam.id,
+    unitHash: sam.hash,
+  });
+  const pending = (
+    ledgerLines: ReturnType<typeof readLine>[],
+    spoke = new Map<string, string[]>()
+  ) =>
+    toExtract([built(sam)], verdicts, ledgerLines, "memory-extract.v1", spoke)
+      .pending.length;
+  // Read as someone else, now Lou: read again.
+  expect(pending([readLine(["person:sam"])])).toBe(1);
+  // Read as Lou already: cached, so it is read once.
+  expect(pending([readLine(["person:sam"]), readLine(["person:lou"])])).toBe(0);
+  // A line from before `people` was recorded: its observations' speakers decide.
+  expect(pending([readLine()], new Map([[sam.id, ["person:sam"]]]))).toBe(1);
+  expect(pending([readLine()], new Map([[sam.id, ["person:lou"]]]))).toBe(0);
+  expect(pending([readLine()])).toBe(0);
+});
+
+test("who said a unit's observations: the owner aside, folds applied", () => {
+  const spokenBy = (unitId: string, by: string) =>
+    ({ speaker: by, unit: unitId }) as Parameters<
+      typeof speakersByUnit
+    >[0][number];
+  const bySpeaker = speakersByUnit(
+    [
+      spokenBy("u_1", "person:me"),
+      spokenBy("u_1", "person:inf-sam"),
+      spokenBy("u_1", "unknown:+1555"),
+      spokenBy("u_2", "person:lou"),
+    ],
+    (r) => (r === "person:inf-sam" ? "person:sam" : r)
+  );
+  expect(bySpeaker.get("u_1")).toEqual(["person:sam"]);
+  expect(bySpeaker.get("u_2")).toEqual(["person:lou"]);
 });
 
 test("the index is rebuilt from observations: search ignores accents, links answer by entity", async () => {
