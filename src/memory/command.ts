@@ -2,7 +2,7 @@ import { parseArgs } from "node:util";
 import { closeness } from "./closeness";
 import { extract } from "./extract";
 import { changeFeed, claim } from "./feed";
-import { locked, recordBackfill } from "./guard";
+import { locked, readBackfill, recordBackfill } from "./guard";
 import { lifeStatus, runs } from "./history";
 import { recordCorrection } from "./ledger";
 import { moments } from "./moments";
@@ -124,7 +124,8 @@ const HANDLERS: Record<string, Handler> = {
     // The ticks read it, a week each, when no night or midday run is due (nightly.ts); not while a week runs.
     const { from, to } = v;
     return locked(() => {
-      recordBackfill({ failures: 0, next: from, to });
+      // A new range keeps the weeks this day read already: setting it again never lifts the day's cap.
+      recordBackfill({ ...readBackfill(), failures: 0, next: from, to });
       console.log(`backfill set: ${from} to ${to}, a few weeks a day`);
       return Promise.resolve(0);
     }).then((code) => code ?? 1);

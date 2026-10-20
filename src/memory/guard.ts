@@ -52,7 +52,7 @@ export const backupDue = (
   (decide(hour, day, night) === "skip" || hour >= 6) &&
   decide(hour, day, backup) === "run";
 
-/** The hours of the midday runs (moments and extract of the day so far, no pages, no commit, no email). */
+/** The hours of the midday runs (moments, extract and pages of the day so far; no commit, no email). */
 const MIDDAYS = [13, 19];
 
 /** True at the first tick after a midday hour that no run has used yet (`last`: when the last midday run started). */
@@ -172,6 +172,34 @@ export function afterWeek(
   return ok
     ? { day, failures: 0, next: daysBefore(week.to, -1), to: b.to, weeks }
     : { ...b, day, failures: b.failures + 1, weeks };
+}
+
+/**
+ * What a 30-minute tick runs: the night when it is due; else the midday run when its slot is open; else a backfill
+ * week when one is due (`backfillWeek`), unless the day's backup still is (it runs after the tick's work, and goes
+ * first). The backup itself is `backupDue`'s, after any of these.
+ */
+export function turnOf(
+  now: Date,
+  day: string,
+  s: {
+    backfill?: Backfill;
+    backup?: NightState;
+    midday?: string;
+    night?: NightState;
+  }
+): "night" | "midday" | "backfill" | "none" {
+  const hour = now.getHours();
+  if (decide(hour, day, s.night) === "run") {
+    return "night";
+  }
+  if (middayDue(now, s.midday)) {
+    return "midday";
+  }
+  return !backupDue(hour, day, s.night, s.backup) &&
+    backfillWeek(s.backfill, day, s.night)
+    ? "backfill"
+    : "none";
 }
 
 /** A scheduled job's state (`nightly`, `backup`). */
