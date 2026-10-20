@@ -1,6 +1,5 @@
 import type { Moment } from "../schema";
 import { type Block, PLAN_TAG, readPlan } from "../sources/calendar";
-import { readWorkouts, type Workout } from "../sources/hevy";
 import { touches } from "./ledger";
 import { asData } from "./raw";
 import { momentLine, momentsWhere } from "./search";
@@ -8,10 +7,10 @@ import { daysBefore, time } from "./units";
 import { dayStart, localDate } from "./zones";
 
 // `bun life memory week <date>`, and the connector's `week`: the plan next to what happened, day by day, Monday to
-// Sunday of the week holding `date`. The plan is his calendar's `#plan` blocks, the workouts are Hevy's, the rest is
-// the moments. Nothing is matched or judged here: the reader (Atlas, at the weekly review) does that.
+// Sunday of the week holding `date`. The plan is his calendar's `#plan` blocks, what happened the moments. Nothing is
+// matched or judged here: the reader (Atlas, at the weekly review, with his workouts from its own Hevy app) does that.
 
-const span = (b: Block | Workout) => `${time(b.start)}–${time(b.end)}`;
+const span = (b: Block) => `${time(b.start)}–${time(b.end)}`;
 /** The local day of a block's edge; an all-day block is stored at midnight UTC of its own days, whatever zone he is in. */
 const dayAt = (b: Block, iso: string) =>
   b.allDay ? iso.slice(0, 10) : localDate(iso);
@@ -35,11 +34,10 @@ function section<T>(
   return [title, ...(lines.length > 0 ? lines : [`  ${empty}`])];
 }
 
-/** The week's lines: each day's plan, workouts and moments; `plan` or `workouts` a string when that source gave none. */
+/** The week's lines: each day's plan and moments; `plan` a string when the calendar gave none. */
 export function weekLines(
   days: string[],
   plan: Block[] | string,
-  workouts: Workout[] | string,
   moments: Moment[]
 ) {
   return days.flatMap((d) => [
@@ -52,13 +50,6 @@ export function weekLines(
       "no plan"
     ),
     ...section(
-      "Workouts (Hevy):",
-      workouts,
-      (w) => localDate(w.start) === d,
-      (w) => `- ${span(w)} ${w.title}`,
-      "none logged"
-    ),
-    ...section(
       "Moments:",
       moments,
       (m) => touches(m, d, d),
@@ -69,13 +60,12 @@ export function weekLines(
   ]);
 }
 
-/** A source's rows, or why there are none: its key unset, or the read failed (the rest of the week still shows). */
-async function rows<T>(
-  key: string,
-  read: () => T[] | null | Promise<T[] | null>
-): Promise<T[] | string> {
+/** His plan's blocks, or why there are none: `LIFE_CALENDAR` unset, or the database unreadable (the moments still show). */
+function planOf(from: Date, to: Date): Block[] | string {
   try {
-    return (await read()) ?? `not connected (${key} is not set in .env)`;
+    return (
+      readPlan(from, to) ?? "not connected (LIFE_CALENDAR is not set in .env)"
+    );
   } catch (e) {
     return `unreadable: ${(e as Error).message}`;
   }
@@ -90,14 +80,10 @@ export async function week(date: string) {
   const days = Array.from({ length: 7 }, (_, i) => daysBefore(monday, -i));
   const sunday = days.at(-1) as string;
   const [from, to] = [dayStart(monday), dayStart(daysBefore(sunday, -1))];
-  const [plan, workouts, moments] = await Promise.all([
-    rows("LIFE_CALENDAR", () => readPlan(from, to)),
-    rows("HEVY_API_KEY", () => readWorkouts(from, to)),
-    momentsWhere((m) => touches(m, monday, sunday)),
-  ]);
+  const moments = await momentsWhere((m) => touches(m, monday, sunday));
   return asData([
-    `The week of ${monday}: the plan (blocks tagged ${PLAN_TAG} on his calendar), his Hevy workouts and the moments, day by day. A planned block with nothing for it is no evidence, not proof it was missed.`,
+    `The week of ${monday}: the plan (blocks tagged ${PLAN_TAG} on his calendar) and the moments, day by day; his workouts are in Hevy, not here. A planned block with nothing for it is no evidence, not proof it was missed.`,
     "",
-    ...weekLines(days, plan, workouts, moments),
+    ...weekLines(days, planOf(from, to), moments),
   ]);
 }
