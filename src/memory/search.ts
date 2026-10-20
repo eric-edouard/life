@@ -255,8 +255,8 @@ export function withSpans(text: string, dateOf: (id: string) => string[]) {
   for (const l of parsed ? generated(parsed).bond : []) {
     const days = l.cites.flatMap(dateOf).toSorted();
     const rendered = renderLine("bond", l);
-    body = body.replace(
-      rendered,
+    // A function, so a `$` in the line is never read as a replacement pattern.
+    body = body.replace(rendered, () =>
       days.length > 0
         ? `${rendered} (since ${days[0]} · last evidence ${days.at(-1)})`
         : rendered
