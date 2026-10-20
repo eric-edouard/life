@@ -19,7 +19,7 @@ import { apply } from "../sources/lifelog";
 import { readNotes } from "../sources/notes";
 import { readWhatsapp } from "../sources/whatsapp";
 import { OWNER } from "../truth";
-import { chatHits, chatsOf, fetchOf, voiceLines } from "./raw";
+import { chatHits, chatsOf, fetchOf, transcripts, voiceLines } from "./raw";
 import { LIFE_CHAT, localTime, time } from "./units";
 
 const words = ["Allo", "Salut", "", "Fin"];
@@ -69,6 +69,19 @@ test("fetch: who spoke and when come from the store, the words from lifelog, a p
   expect(server.seen.every((r) => r.auth === "Bearer test-token")).toBe(true);
   expect(await fetchOf("nope", 0, 200, open)).toContain("(nothing found)");
   expect(await fetchOf("u_000000000000")).toContain("(no unit u_000000000000)");
+});
+
+test("transcripts: a recording lifelog no longer has is silent, a failed fetch throws", async () => {
+  const of = (jobId: string) =>
+    transcripts([{ jobId }] as Parameters<typeof transcripts>[0]);
+  expect((await of("job-gone")).get("job-gone")).toEqual([]);
+  const url = process.env.LIFELOG_URL;
+  process.env.LIFELOG_URL = "http://127.0.0.1:1";
+  try {
+    await expect(of("job-1")).rejects.toThrow();
+  } finally {
+    process.env.LIFELOG_URL = url;
+  }
 });
 
 test("chats: WhatsApp, Beeper and iMessage together, deleted messages shown marked, today included", async () => {

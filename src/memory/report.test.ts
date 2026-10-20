@@ -86,7 +86,7 @@ const night = (facts: number) =>
     acted: { actions: [], problems: [], tasks: [] },
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
     code: [],
-    extracted: { added: 2, model: "codex/m (high)", read: 3, retired: 1 },
+    extracted: { added: 2, model: "codex/m/high", read: 3, retired: 1 },
     facts: Array.from({ length: facts }, (_, i) => ({
       id: `obs_${i}`,
       page: "Shop",
@@ -102,7 +102,7 @@ const night = (facts: number) =>
     from: "2026-10-12",
     moments: {
       agreement: { agreement: 0.75, labeled: 40 },
-      model: "codex/m (high)",
+      model: "codex/m/high",
       moments: 6,
       people: [{ name: "Sia", relation: "the plumber" }],
       read: 2,
@@ -112,7 +112,7 @@ const night = (facts: number) =>
       changes: [{ added: 2, moved: 1, page: "Shop", removed: 0 }],
       corrections: 0,
       dropped: ["inf-glazier"],
-      model: "codex/m (medium)",
+      model: "codex/m/medium",
       retired: 1,
     },
     repos: { suggestions: [] },
@@ -133,7 +133,7 @@ test("the success email includes every fact, counts pages and lists models once"
     expect(html).toContain(`>fact ${i}</div>`);
   }
   expect(text).not.toMatch(MORE);
-  expect(text).toContain("codex/m (high), codex/m (medium)");
+  expect(text).toContain("codex/m/high, codex/m/medium");
   expect(text).toContain("6 moments on 2 days");
   expect(text).toContain("observations retired: 1");
   expect(text).toContain("Pages no longer kept (git has them): inf-glazier");

@@ -30,7 +30,7 @@ import {
   SEARCHED,
   time,
 } from "./units";
-import { type People, readPeople, UNKNOWN } from "./who";
+import { meant, type People, readPeople, UNKNOWN } from "./who";
 import { localDate } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
@@ -67,7 +67,10 @@ const DAY_MS = 86_400_000;
 
 const FETCHES = 8;
 
-/** The transcripts of every recording these turns are in, a few requests at a time. */
+/**
+ * The transcripts of every recording these turns are in, a few requests at a time. A recording lifelog no longer has
+ * (404) has no words; any other failure throws, so a fetch that failed never reads as silence.
+ */
 export async function transcripts(turns: ChapterTurn[]) {
   const out = new Map<string, Awaited<ReturnType<typeof readTranscript>>>();
   const list = [...new Set(turns.map((t) => t.jobId))];
@@ -75,7 +78,15 @@ export async function transcripts(turns: ChapterTurn[]) {
     // biome-ignore lint/performance/noAwaitInLoops: a few requests at a time, not hundreds at once
     await Promise.all(
       list.slice(i, i + FETCHES).map(async (job) => {
-        out.set(job, await readTranscript(job).catch(() => []));
+        out.set(
+          job,
+          await readTranscript(job).catch((e: { status?: number }) => {
+            if (e.status === 404) {
+              return [];
+            }
+            throw e;
+          })
+        );
       })
     );
   }
@@ -190,7 +201,7 @@ export async function fetchOf(
     if (shown.length > 0 && lines.length === 0) {
       return asData([
         head,
-        "(no words: lifelog's transcript did not answer, or these turns are empty)",
+        "(no words: lifelog no longer has this recording, or these turns are empty)",
       ]);
     }
   }
@@ -208,11 +219,10 @@ export async function fetchOf(
 }
 
 /** What `--who` stands for: the words, and when they name a person (on the map, inferred, as corrected), that person's names and handles. */
-function needlesOf(
-  who: string,
-  { canon, corrections, inferred, resolve, truth }: People
-) {
-  const ref = resolve(who) ?? `person:${who}`;
+function needlesOf(who: string, people: People) {
+  const { canon, corrections, inferred, truth } = people;
+  // Who the words mean, as `person` reads them (`meant`); the words alone when no one.
+  const ref = `person:${meant(who, people).known ?? who}`;
   const person = truth.people.find((p) => `person:${p.id}` === ref);
   return [
     who,

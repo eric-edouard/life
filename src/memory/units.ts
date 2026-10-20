@@ -479,10 +479,6 @@ export function applyRules(built: Built[]) {
   return built;
 }
 
-/** Local midnight `days - 1` days ago, so every date in the window is a whole day. */
-export const windowStart = (now: Date, days: number) =>
-  dayStart(daysBefore(localDate(now.toISOString()), days - 1));
-
 /**
  * Reads one source. A broken one is logged and named in `failed`, and gives no rows: the caller must not
  * mistake that for a quiet day (a unit file rebuilt without that source's units would lose them).
@@ -583,14 +579,37 @@ export const lifelogNames = (truth: Truth) =>
   );
 
 /**
- * The evidence of a window: every source since `since` (lifelog, chats, mail, notes, his commits), cut into units with the
- * code rules applied, in time order across channels; also what the later stages need around them. The one reader of
- * the sources for the memory steps: a sweep gathers once and hands it to each step. The messages' new files are read
- * first (`describeFiles`), so a unit's hash moves once when its file is described. Git units are never extracted
- * nor read for people (extract skips them; the moments step caps their
+ * The default look-back of every step: yesterday, plus what a sleeping Mac or a late summary left behind, and the
+ * lifelog units lifelog re-summarizes a few days later (their new hash needs a new verdict). Files are described
+ * (`describeFiles`) only on messages of these days: an older one stays a tag.
+ */
+export const DAYS = 7;
+
+/** Local days, both included: what a sweep reads. */
+export interface Window {
+  from: string;
+  to: string;
+}
+
+/** The last `days` local days, today included. */
+export function lastDays(now: Date, days: number): Window {
+  const to = localDate(now.toISOString());
+  return { from: daysBefore(to, days - 1), to };
+}
+
+/**
+ * The evidence of a window of local days: every source (lifelog,
+ * chats, mail, notes, his commits), cut into units with the code rules applied, in time order across channels; also
+ * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
+ * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
+ * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
+ * files as tags. Git units are never extracted nor read for people (extract skips them; the moments step caps their
  * salience at 1).
  */
-export async function gather(since: Date) {
+export async function gather(window: Window) {
+  // ponytail: the readers read from `since` to now and the window is cut after, so a backfill week of 2025 reads every
+  // source up to today; give the readers an end if the pilot measures that slow next to the model calls.
+  const since = dayStart(window.from);
   if (!LIFE_CHAT) {
     // Unset, Life's own chat would read as facts.
     throw new Error("LIFE_CHAT is not set in .env");
@@ -610,7 +629,8 @@ export async function gather(since: Date) {
     ),
     ...ORDER.map((name) => safely(name, () => READERS[name](since), failed)),
   ]);
-  const files = await describeFiles(read.flat());
+  const recent = dayStart(lastDays(new Date(), DAYS).from).toISOString();
+  const files = await describeFiles(read.flat().filter((e) => e.at >= recent));
   const known = readFiles();
   const chats = read.map((events) => showFiles(events, known));
   const handles = handleIndex(truth.people);
@@ -618,7 +638,9 @@ export async function gather(since: Date) {
     ...lifelogUnits(lifelog, nameIndex(truth.people)),
     ...chats.flatMap((events) => messageUnits(events, handles)),
     ...repoUnits(commits),
-  ]).toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
+  ])
+    .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
+    .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
   return {
     built,
     conversations: lifelog,
@@ -631,6 +653,7 @@ export async function gather(since: Date) {
     },
     repos,
     truth,
+    window,
   };
 }
 export type Evidence = Awaited<ReturnType<typeof gather>>;
