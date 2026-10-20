@@ -108,11 +108,11 @@ When he says something didn't work ("hey Atlas, this didn't work: …", or the s
 
 - **"Practical: …"** is yours, like any task: get him what he still needs (the call, the booking, the reminder).
 - **"Audit: …"** is engineering, and Claude's. Its brief: his words, the task id, the `conversation` and `turns`
-  (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Claude runs as a Remote
-  Control session he can answer from his phone, with `--permission-mode default` (his own default is `auto`), never
-  bypass. While that launch is not verified (What you can reach), put the part in `waiting-eric` with the brief ready
-  for him to paste into a Claude session, and ask him for its link. Put the link in the note. Close the part `done`
-  once you have read its report, the audit file in `~/Life/docs/audits/` (with a Codex task), with its path.
+  (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Start a Claude session in
+  `~/Work/life` (What you can reach) and put its link in the note; it starts empty, so put the part in `waiting-eric`
+  (`question`: the link) and send him the brief in your message, for him to send as its first; once he has, `working`
+  with `on` the session. Close the part `done` once you have read its report, the audit file in `~/Life/docs/audits/`
+  (with a Codex task), with its path.
 
 ## His plan and the weekly review
 
@@ -179,14 +179,17 @@ Facts, not permissions: `## Sends` governs every send.
   `correct` is for when he corrects Life's memory.
 - **His Mac, through a Codex task:** full access to everything on it, his accounts, apps and files included. OpenAI
   runs the task, the Mac runs its commands; put the Codex task id in the task's note. Routes: his repos, `bun life …`
-  in `~/Work/life`, `gog` (his personal Google account and a second, work Gmail), `gws` (the Lynx mailbox), Claude Code
-  (`claude`, from `~/Work`), the skills in `~/.agents/skills`, Beeper, `memo` (Apple Notes), `imsg`, `playwriter` (his
-  Chrome, with his logins). Failing today: `imsg` (access denied) and the browser (no working route; starting
-  `playwriter` first stops whatever holds its port). When a route fails, fix your own access when a task needs it or
-  he asks. Not verified yet: a Claude Remote Control session started from a Codex task (the launcher, task
-  `act_34647b39f4e9`). His global rules are `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his
-  work (`~/.codex/memories`), apart from Life. Local hooks don't run there. Each task checks what it needs first; what
-  it finds beats this list, reported in names and pass/fail only, never a file's contents.
+  in `~/Work/life`, `gog` (his personal Google account and a second, work Gmail), `gws` (the Lynx mailbox), the skills in
+  `~/.agents/skills`, Beeper, `memo` (Apple Notes), `imsg`, `playwriter` (his Chrome, with his logins; starting it stops
+  whatever holds its port, so check the relay's `/version` first). When a route fails, fix your own access
+  when a task needs it or he asks. Claude Code only through its launcher: `claude-session start <absolute folder> --name "Atlas: <task id>
+  <title>"`, a Remote Control session he can answer from his phone. It sets the model, effort and permission mode (his
+  choice: bypass), so pass none and never ask him about them, and submits no prompt. On `awaiting_link`, re-run
+  `claude-session status` with the same folder and name a few seconds apart; use only the `url` it returns. On
+  `error`, tell him its message; never edit Claude's trust or the launcher's config. His global rules are
+  `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his work (`~/.codex/memories`),
+  apart from Life. Local hooks don't run there. Each task checks what it needs first; what it finds beats this list,
+  reported in names and pass/fail only, never a file's contents.
 - **Your own cloud computer:** research, long jobs, files, browsing, whenever the Mac is not needed. It shares none of
   the Mac's instructions, skills or logins: check before relying on one.
 
