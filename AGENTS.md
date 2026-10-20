@@ -149,7 +149,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   and against his ratings with `bun scripts/eval.ts --ratings`.
 - **Model output is cached** by unit hash and prompt version. Bump a prompt's version only when its meaning changes,
   and ask before re-running the whole archive.
-- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`), never an API key.
+- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`), never an API key. `LIFE_LLM`
+  (one process's model, `llmOverride`) is the bench's and its judge's only (`scripts/bench.ts`), refused on `~/Life`; launchd never sets it.
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
 - **Life's emails follow the owner's Ledger brand**, one source: agent-config's `ledger-brand` skill
@@ -221,8 +222,8 @@ that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own 
 `memory/who.ts` (`readPeople`); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); the memory steps get their units only from `gather` (`units.ts`: every channel, in time
-order, once per sweep, handed to each step) and a unit's words from `raw.ts` (`voiceLines`, `chatLines`, `unitLines`; the hearing alone fetches its own, so a
-failed fetch never reads as silence);
+order, once per sweep, handed to each step) and a unit's words from `raw.ts` (`voiceLines`, `chatLines`, `unitLines`; a failed fetch throws, only a recording lifelog
+no longer has is silent; the hearing alone fetches its own, since one not transcribed yet must not read as silence);
 a message's files become lines in `showFiles` (`memory/files.ts`) only, the readers just resolve each to a
 `SourceFile` (`sourceFile`), and each file is read once, by its ref or its hash, into `memory/files.jsonl`
 (`describeFiles`, called by `gather` before units are cut, so a unit's hash moves once); other programs run through `src/proc.ts`; the lifelog store opens with `withStore`; the
