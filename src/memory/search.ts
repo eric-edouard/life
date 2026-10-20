@@ -36,6 +36,7 @@ import {
   readVerdicts,
   type Standing,
   stateOf,
+  touches,
   verdictOf,
 } from "./ledger";
 import { who as named, SURE_AT } from "./observe";
@@ -74,7 +75,7 @@ export const momentLine = (m: Moment) =>
   `- ${m.id} ${m.start ?? `${m.day} (undated)`}${m.end ? ` to ${m.end}` : ""} ${m.title}${m.place ? ` @ ${m.place}` : ""} (${m.status}${m.people.length > 0 ? `; ${m.people.map((p) => `${named({ speaker: p.ref })} ${p.role}`).join(", ")}` : ""}) [${m.units.slice(0, 3).join(" ")}]`;
 
 /** The moments as they stand now that `keep` keeps, by when they happen. */
-const momentsWhere = async (keep: (m: Moment) => boolean) => {
+export const momentsWhere = async (keep: (m: Moment) => boolean) => {
   const [lines, corrections] = await Promise.all([
     readMoments(),
     readCorrections(),
@@ -464,10 +465,7 @@ export async function day(date: string) {
   const actions = (await readActions()).filter(
     (a) => !isTaskLine(a) && localDate(a.at) === date
   );
-  const moments = await momentsWhere((m) => {
-    const [first, last] = daysOf(m);
-    return first <= date && date <= last;
-  });
+  const moments = await momentsWhere((m) => touches(m, date, date));
   return withStore((store) =>
     withIndex((db) =>
       dayLines(
