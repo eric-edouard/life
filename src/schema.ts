@@ -569,59 +569,63 @@ export const PageSection = z.enum(["views", "health", "now", "history"]);
  * everywhere); `keep-mine` is a page line that stays as written; `this-is` says a handle or name is a person,
  * `not-this-person` that it is not, `same-person` that two person refs are one (`from` folds into `to`).
  */
-export const Correction = z.discriminatedUnion("kind", [
-  z
-    .object({
-      ...Correcting,
-      kind: z.enum(["wrong", "not-important"]),
-      // Observations (obs_…) and, from 18 Oct, moments (mom_…).
-      observations: z.array(z.union([ObservationId, MomentId])).min(1),
-      page: EntityRef.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      kind: z.literal("keep-mine"),
-      page: EntityRef,
-      section: PageSection,
-      text: z.string().min(1),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      kind: z.literal("this-is"),
-      person: PersonRef,
-      surface: z.string().min(1),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      kind: z.literal("not-this-person"),
-      person: PersonRef,
-      surface: z.string().min(1),
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      from: PersonRef,
-      kind: z.literal("same-person"),
-      to: PersonRef,
-    })
-    .strict(),
-  z
-    .object({
-      ...Correcting,
-      kind: z.literal("closeness"),
-      person: PersonRef,
-      personal: Level.optional(),
-      work: Level.optional(),
-    })
-    .strict(),
-]);
+export const Correction = z
+  .discriminatedUnion("kind", [
+    z
+      .object({
+        ...Correcting,
+        kind: z.enum(["wrong", "not-important"]),
+        // Observations (obs_…) and, from 18 Oct, moments (mom_…).
+        observations: z.array(z.union([ObservationId, MomentId])).min(1),
+        page: EntityRef.optional(),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("keep-mine"),
+        page: EntityRef,
+        section: PageSection,
+        text: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("this-is"),
+        person: PersonRef,
+        surface: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("not-this-person"),
+        person: PersonRef,
+        surface: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        from: PersonRef,
+        kind: z.literal("same-person"),
+        to: PersonRef,
+      })
+      .strict(),
+    z
+      .object({
+        ...Correcting,
+        kind: z.literal("closeness"),
+        person: PersonRef,
+        personal: Level.optional(),
+        work: Level.optional(),
+      })
+      .strict(),
+  ])
+  .refine((c) => c.kind !== "closeness" || !!(c.personal || c.work), {
+    message: "a closeness correction names a personal or a work level",
+  });
 export type Correction = z.infer<typeof Correction>;
 
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
