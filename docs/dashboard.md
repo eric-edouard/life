@@ -45,8 +45,10 @@ is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the swe
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
 `outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`),
-`force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's counters as it logged them: `calls`, `failed`, `cached`, `reused`,
-`added`, `read` per source, `agreement`…), `errors`. A sweep lists its steps in `children`; a step names its `sweep`.
+`force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's
+counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a
+nightly's `listed`: the observation ids its report held, sent or not), `errors`. A sweep lists its steps in
+`children`; a step names its `sweep`.
 
 `outcome`: `ok`; `failed` (it ended with failures, or a sweep's `outcome: failed` with `failedAt`, the phase that
 stopped it); `running` (no end yet, and it started after the lock was taken); `unfinished` (no end and nothing holds
