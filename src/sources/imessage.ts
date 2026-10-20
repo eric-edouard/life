@@ -8,7 +8,7 @@ import { type SourceEvent, sourceFile } from "../schema";
 const DB = join(homedir(), "Library", "Messages", "chat.db");
 const HOME = /^~/;
 // Messages stores dates as nanoseconds since 2001-01-01.
-export const APPLE_EPOCH_S = 978_307_200;
+const APPLE_EPOCH_S = 978_307_200;
 
 export const toAppleNs = (date: Date) =>
   BigInt(Math.floor(date.getTime() / 1000) - APPLE_EPOCH_S) * 1_000_000_000n;

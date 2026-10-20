@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { TEST } from "../truth";
 import { fromAppleS, toAppleS } from "./imessage";
 
 // His plan: the events Atlas writes on his word to his main Google calendar, tagged `#plan` in their description, read
@@ -33,7 +34,7 @@ export interface Block {
 export function readPlan(
   from: Date,
   to: Date,
-  account = process.env.LIFE_CALENDAR,
+  account = TEST ? undefined : process.env.LIFE_CALENDAR,
   path = DB
 ): Block[] | null {
   if (!account) {

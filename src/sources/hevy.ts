@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TEST } from "../truth";
 
 // His workouts as he logs them in Hevy, read from its public API (a Hevy Pro key, `HEVY_API_KEY` in .env). Read-only:
 // Life never writes to Hevy. The evidence of a planned workout, which his voice and chats almost never carry.
@@ -36,7 +37,7 @@ export interface Workout {
 export async function readWorkouts(
   from: Date,
   to: Date,
-  key = process.env.HEVY_API_KEY,
+  key = TEST ? undefined : process.env.HEVY_API_KEY,
   get = fetch
 ): Promise<Workout[] | null> {
   if (!key) {
