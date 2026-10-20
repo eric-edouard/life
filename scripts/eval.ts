@@ -1,7 +1,8 @@
-// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings`: grades what Life's memory holds about a few days against facts
+// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings [--json]`: grades what Life's memory holds about a few days against facts
 // checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`claimsNow`, the words the owner rates);
 // a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--ratings` grades the statements the owner rated
 // (memory/ratings.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
+// `--json` prints the counts alone, for the bench (scripts/bench.ts).
 import { join } from "node:path";
 import { z } from "zod";
 import { askOnce, llmFor } from "../src/llm";
@@ -10,8 +11,7 @@ import {
   appendJsonl,
   liveUnits,
   OUT,
-  readRatings,
-  readStatements,
+  ratedFacts,
   readUnits,
   runId,
   SCORES,
@@ -80,27 +80,9 @@ const judge = async (
  * listed apart and left out of the score.
  */
 async function ratedRun() {
-  const [statements, ratings, claims, units] = await Promise.all([
-    readStatements(),
-    readRatings(),
-    claimsNow(),
-    readUnits(),
-  ]);
+  const [claims, units] = await Promise.all([claimsNow(), readUnits()]);
   const live = liveUnits(units);
-  const rated = statements.flatMap((s) => {
-    const answer = ratings.get(s.claim)?.answer;
-    return answer && answer !== "skip"
-      ? [
-          {
-            fact: s.text,
-            id: s.claim,
-            outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
-            true: answer !== "false",
-            units: s.units,
-          },
-        ]
-      : [];
-  });
+  const rated = ratedFacts();
   const { gone = [], judged = [] } = Object.groupBy(rated, (f) =>
     f.units.some((u) => live.has(u)) ? "judged" : "gone"
   );
@@ -149,7 +131,9 @@ async function factsRun(factsPath: string, claimsPath?: string) {
   };
 }
 
-const [mode, claimsFile] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const asJson = args.includes("--json");
+const [mode, claimsFile] = args.filter((a) => a !== "--json");
 if (!mode) {
   throw new Error(
     "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings"
@@ -168,12 +152,14 @@ const rows = result.facts.map((f) => {
   return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.claims.join(" ") ?? ""} | ${g?.why ?? ""} |`;
 });
 console.log(
-  [
-    `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
-    ...result.note,
-    "",
-    "| fact | is | memory | result | claims | why |",
-    "|---|---|---|---|---|---|",
-    ...rows,
-  ].join("\n")
+  asJson
+    ? JSON.stringify(t.counts)
+    : [
+        `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
+        ...result.note,
+        "",
+        "| fact | is | memory | result | claims | why |",
+        "|---|---|---|---|---|---|",
+        ...rows,
+      ].join("\n")
 );

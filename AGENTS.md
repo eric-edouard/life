@@ -146,7 +146,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   and against his ratings with `bun scripts/eval.ts --ratings`.
 - **Model output is cached** by unit hash and prompt version. Bump a prompt's version only when its meaning changes,
   and ask before re-running the whole archive.
-- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`), never an API key.
+- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`), never an API key. `LIFE_LLM`
+  (one process's model, `llmOverride`) is the bench's and its judge's only (`scripts/bench.ts`), refused on `~/Life`; launchd never sets it.
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
 
