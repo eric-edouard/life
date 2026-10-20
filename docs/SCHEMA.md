@@ -134,9 +134,10 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, people, at}`, one
 line per unit and run, `observations` being how many it kept (often 0), `people` the unit's people as the model read them
 (sorted; absent before 21 Oct 2026, read as today). A unit is read again when its `unitHash` or the prompt version
-changes, when its people are someone else since (`truth/` changed who a handle or name is), or when a `reread`
-correction names it after its last reading (folds and names resolved since need none: readers file observations as of
-today); and only the latest extraction of a unit counts: observations from an older one are ignored
+changes, when its people are someone else since (`truth/` changed who a handle or name is, an unknown name now
+known included), or when a `reread` correction names it after its last reading. Either takes effect when the unit's day
+is next read: the night reads the last 7 days, `backfill` older ones. Folds, `this-is` and inferred names need no new
+reading: readers file observations as of today. and only the latest extraction of a unit counts: observations from an older one are ignored
 (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
 re-cut, Life's own mail).
 

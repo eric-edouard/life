@@ -462,7 +462,7 @@ export const Extracted = z
   .object({
     at: isoDateTime,
     observations: z.int().min(0),
-    /** Who the unit's people resolved to when it was read: a later change (truth/, a correction) reads it again. */
+    /** The unit's people as the model read them, sorted: when `truth/` makes them someone else, it is read again. */
     people: z.array(z.string()).optional(),
     prompt: z.string(),
     run: z.string(),

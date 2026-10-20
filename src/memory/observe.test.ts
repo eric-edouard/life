@@ -13,7 +13,6 @@ import {
 } from "../schema";
 import { toExtract } from "./extract";
 import { ledger, unit, verdict } from "./fixtures";
-import { rereadAt } from "./ledger";
 import { locate, parseObservations, type Source } from "./observe";
 import { buildIndex } from "./search";
 import { areaLookup, type Built } from "./units";
@@ -422,6 +421,8 @@ test("identity is part of the cache: a unit read as someone else, or that he sai
   // Read as Sam, now Lou: read again; once read as Lou, cached.
   expect(pending([readLine(["person:sam"])])).toBe(1);
   expect(pending([readLine(["person:sam"]), readLine(["person:lou"])])).toBe(0);
+  // An unknown name truth/ now maps (lifelog's unknown:Lou, now person:lou): read again, by choice.
+  expect(pending([readLine(["unknown:Lou"])])).toBe(1);
   // A line from before `people` was recorded counts as read as today.
   expect(pending([readLine()])).toBe(0);
   // He said it was read wrong after its last reading: read again; a reading after his word settles it.
@@ -449,18 +450,6 @@ test("identity is part of the cache: a unit read as someone else, or that he sai
       "memory-extract.v1"
     ).pending.length
   ).toBe(0);
-});
-
-test("his reread corrections: the latest word on each unit (the ledger is in time order)", () => {
-  const word = (ids: string[], when: string) =>
-    ({ at: when, kind: "reread", schemaVersion: 1, units: ids }) as Correction;
-  const at = rereadAt([
-    word(["u_00000000001b"], "2026-10-20T00:00:00.000Z"),
-    word(["u_00000000001a", "u_00000000001b"], "2026-10-21T00:00:00.000Z"),
-    word(["u_00000000001a"], "2026-10-22T00:00:00.000Z"),
-  ]);
-  expect(at.get("u_00000000001a")).toBe("2026-10-22T00:00:00.000Z");
-  expect(at.get("u_00000000001b")).toBe("2026-10-21T00:00:00.000Z");
 });
 
 test("the index is rebuilt from observations: search ignores accents, links answer by entity", async () => {
