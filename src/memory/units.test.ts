@@ -396,8 +396,11 @@ test("the window starts at local midnight where he was, so every day in it is wh
   expect(start.toISOString()).toBe("2026-10-04T17:00:00.000Z");
 });
 
-test("his zone at an instant is the latest record before it, the first one before them all", () => {
-  expect(zoneAt("2020-01-01T00:00:00Z")).toBe("Asia/Jakarta");
+test("his zone at an instant is the latest record before it, the first one before them all, in time order", () => {
+  // Lisbon from 2019 is the file's last line: his past, told after the newer records.
+  expect(zoneAt("2018-01-01T00:00:00Z")).toBe("Europe/Lisbon");
+  expect(zoneAt("2020-01-01T00:00:00Z")).toBe("Europe/Lisbon");
+  expect(zoneAt("2026-08-02T00:00:00Z")).toBe("Asia/Jakarta");
   expect(zoneAt("2026-10-06T16:59:59Z")).toBe("Asia/Jakarta");
   expect(zoneAt("2026-10-06T17:00:00Z")).toBe("Europe/Berlin");
   expect(zoneAt("2030-01-01T00:00:00Z")).not.toBe("Asia/Jakarta");

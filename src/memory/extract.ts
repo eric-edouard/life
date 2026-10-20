@@ -40,11 +40,9 @@ import {
   lifelogNames,
   localTime,
   nameIndex,
-  windowStart,
   within,
 } from "./units";
 import { observationsNow, readPeople, UNKNOWN } from "./who";
-import { localDate } from "./zones";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (salience >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
@@ -313,24 +311,19 @@ export function priorFor(
     .slice(0, max);
 }
 
-export async function extract(opts: { days: number; evidence: Evidence }) {
-  const step = await begin("extract", "deep", {
-    days: opts.days,
-    prompt: EXTRACT_PROMPT,
-  });
+/** Extracts the kept units of `evidence` (its window, `gather`) not read yet by this prompt. */
+export async function extract(evidence: Evidence) {
+  const step = await begin("extract", "deep", { prompt: EXTRACT_PROMPT });
   const { now, today } = step;
-  const since = windowStart(now, opts.days);
-
-  const { built, conversations, failed, truth } = opts.evidence;
+  const { built, conversations, failed, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
   // Today is not over: its chats are still growing, so they wait for tomorrow; only closed lifelog conversations go now.
   const closed = closedConversations(conversations, now);
   const inWindow = built.filter(
     (b) =>
-      b.unit.date >= localDate(since.toISOString()) &&
-      (b.unit.date < today ||
-        (b.unit.source === "lifelog" && closed.has(b.unit.key)))
+      b.unit.date < today ||
+      (b.unit.source === "lifelog" && closed.has(b.unit.key))
   );
   const verdicts = await readVerdicts();
   const { kept, pending, stale } = toExtract(

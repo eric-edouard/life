@@ -8,14 +8,16 @@ import { appendJsonl, rowsOf, ZONES } from "./ledger";
 
 let cache = { list: [] as { from: number; tz: string }[], mtime: -1 };
 
-/** The records, read again when the file changed (the watcher runs for days; a tick may append meanwhile). */
+/**
+ * The records by `from` (one about the past, his history told later, is appended after the newer ones), read again
+ * when the file changed (the watcher runs for days; a tick may append meanwhile).
+ */
 function zones() {
   const mtime = statSync(ZONES).mtimeMs;
   if (mtime !== cache.mtime) {
-    const list = rowsOf(ZONES, Zone).map((z) => ({
-      from: Date.parse(z.from),
-      tz: z.tz,
-    }));
+    const list = rowsOf(ZONES, Zone)
+      .map((z) => ({ from: Date.parse(z.from), tz: z.tz }))
+      .toSorted((a, b) => a.from - b.from);
     cache = { list, mtime };
   }
   return cache.list;
