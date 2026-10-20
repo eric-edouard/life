@@ -39,6 +39,7 @@ import {
   type Standing,
   stateOf,
   verdictOf,
+  writtenPeople,
 } from "./ledger";
 import { who as named, SURE_AT } from "./observe";
 import {
@@ -361,16 +362,12 @@ export function candidateLines(
 
 /** The people who have a page: id and name. */
 async function peoplePages() {
-  const files = await readdir(join(PAGES, "people")).catch(
-    () => [] as string[]
-  );
   return Promise.all(
-    files.map(async (f) => ({
-      id: f.slice(0, -3),
-      name:
-        parsePage(await Bun.file(join(PAGES, "people", f)).text())?.meta.name ??
-        f,
-    }))
+    (await writtenPeople()).map(async (ref) => {
+      const id = ref.slice("person:".length);
+      const page = parsePage(await Bun.file(pagePath(ref)).text());
+      return { id, name: page?.meta.name ?? id };
+    })
   );
 }
 

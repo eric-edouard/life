@@ -1,11 +1,13 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { Action } from "../schema";
 import { action, madeBy } from "./fixtures";
 import {
   actionFailedReport,
   actionLine,
   failureReport,
+  lockReport,
   type Night,
+  sendReport,
   successReport,
 } from "./report";
 
@@ -84,6 +86,7 @@ test("an ask reads as his words to Atlas, a low-confidence one says so", () => {
 const night = (facts: number) =>
   ({
     acted: { actions: [], problems: [], tasks: [] },
+    archive: "Archive: no failure",
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
     code: [],
     extracted: { added: 2, model: "codex/m/high", read: 3, retired: 1 },
@@ -141,6 +144,7 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("Shop: +2 added, 1 moved to History, 0 removed");
   expect(text).toContain("75%");
   expect(text).toContain("Last backup: 2026-10-15 05:00, 5.5 GB");
+  expect(text).toContain("Archive: no failure");
   expect(html).not.toMatch(MORE);
   expect(html).toContain("the plumber");
   expect(html).toContain("OK · memory committed");
@@ -292,4 +296,22 @@ test("the success email says the window it read and counts the new observations"
   expect(successReport("2026-10-18", 1000, n).text).toContain(
     "the watcher is NOT POLLING (last good poll never)"
   );
+});
+
+test("a send goes out once per id: a second one with the same id never reaches Resend", async () => {
+  const env = { ...process.env };
+  process.env.RESEND_PERSONAL_API_KEY = "test";
+  process.env.LIFE_MAIL_TO = "owner@example.test";
+  const post = spyOn(globalThis, "fetch").mockResolvedValue(
+    Response.json({ id: "email_1" })
+  );
+  try {
+    const mail = lockReport("2026-10-19T10:00:00.000Z");
+    expect(await sendReport("test/once", mail)).toBe("email_1");
+    expect(await sendReport("test/once", mail)).toBeNull();
+    expect(post).toHaveBeenCalledTimes(1);
+  } finally {
+    post.mockRestore();
+    process.env = env;
+  }
 });

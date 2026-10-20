@@ -125,28 +125,19 @@ test("a delivery moves on after a 2xx or a 413, retries others with a growing pa
   expect(settle(s, 410, 2, now)).toEqual({ attempts: 0, delivered: 1 });
 });
 
-test("a nudge or a steer goes out as its task's ask, with its own event id and the nudge or steer", () => {
-  const nudge = line({
-    after: { why: "not claimed 30 min after the ask" },
-    at: "2026-10-15T10:20:00.000Z",
-    id: "act_00000000000c",
-    instruction: undefined,
-    kind: "nudge",
-    madeBy: "watch",
-    target: "act_00000000000a",
-  });
-  const event = nextEvent([ask("act_00000000000a"), nudge], 1)?.event;
-  expect(event?.eventId).toBe("act_00000000000c");
-  expect(event?.timestamp).toBe("2026-10-15T10:20:00.000Z");
-  expect(event?.data).toMatchObject({
-    id: "act_00000000000a",
-    nudge: {
-      task: "act_00000000000a",
-      why: "not claimed 30 min after the ask",
-    },
-    quote: "write that down in the to-dos",
-  });
-  // A task Atlas made from a chat is not sent back to it as an ask; its nudges are.
+test("only asks go out, not one Atlas made from a chat; old nudge and steer lines parse and go nowhere", () => {
+  const old = (kind: "nudge" | "steer", id: string) =>
+    line({
+      after: {},
+      id,
+      instruction: undefined,
+      kind,
+      madeBy: "watch",
+      target: "act_00000000000a",
+    });
+  const lines = [ask("act_00000000000a"), old("nudge", "act_00000000000c")];
+  expect(nextEvent(lines, 0)?.event.eventId).toBe("act_00000000000a");
+  expect(nextEvent([...lines, old("steer", "act_00000000000d")], 1)).toBeNull();
   const own = line({
     id: "act_00000000000a",
     kind: "ask",
@@ -154,5 +145,4 @@ test("a nudge or a steer goes out as its task's ask, with its own event id and t
     target: "atlas",
   });
   expect(nextEvent([own], 0)).toBeNull();
-  expect(nextEvent([own, nudge], 0)?.event.eventId).toBe("act_00000000000c");
 });

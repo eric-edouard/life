@@ -3,7 +3,14 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appsToOpen, archiveOnce } from "./archive";
+import {
+  appsToOpen,
+  archiveFailing,
+  archiveOnce,
+  openIncidents,
+} from "./archive";
+import { log } from "./log";
+import { archiveLine } from "./memory/nightly";
 import { toAppleS } from "./sources/imessage";
 
 test("the archive opens each closed app, but not again within 10 minutes", () => {
@@ -19,6 +26,29 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
     "Beeper Desktop",
     "Notes",
   ]);
+});
+
+const LINE =
+  /^Archive: FAILED: beeper from [\d-]+ [\d:]+, still failing: no db$/;
+
+test("an archive incident lives in the log: open until its run.end, listed by the night and due for an email an hour in", async () => {
+  const step = "archive.beeper";
+  log("run.error", { error: "no db", step });
+  log("run.error", { error: "other", step: "memory.nightly" });
+  await Bun.sleep(2);
+  // The night after it started: still listed, as still failing.
+  const since = new Date().toISOString();
+  expect(await archiveLine(since)).toMatch(LINE);
+  expect((await archiveFailing()).map(([name]) => name)).toEqual(["beeper"]);
+  expect(await archiveFailing(3_600_000)).toEqual([]);
+  expect((await archiveFailing(3_600_000, Date.now() + 3_600_000)).length).toBe(
+    1
+  );
+  log("run.end", { step });
+  expect(await archiveLine(since)).toBe("Archive: no failure");
+  expect(await archiveFailing()).toEqual([]);
+  const start = { at: "2026-10-18T10:00:00.000Z", kind: "run.error", step };
+  expect(openIncidents([start]).get("beeper")).toBe(start);
 });
 
 test("a message deleted for everyone keeps its text and media in the archive", () => {

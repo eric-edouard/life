@@ -9,7 +9,7 @@ reads it (to show who sent the line). Every answer is JSON (text content, and `s
 it) and carries `observedAt`, the server's time.
 
 Auth is the connector's, unchanged: lifelog's JWT for `https://life.ericedouard.com/mcp`, `life:read`, `sub` =
-`LIFE_OWNER_SUB`. Without it: 401; another user: 403. The four tools are annotated read-only.
+`LIFE_OWNER_SUB`. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
 
 ## status
 
@@ -83,7 +83,7 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
 | `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
 | `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech |
-| `action.update` / `action.nudge` / `action.steer` | a task's line in `actions.jsonl` (`record.target`: the task) | `record.after` (`docs/SCHEMA.md`) |
+| `action.update` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task) | `record.after` (`docs/SCHEMA.md`) |
 | `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
@@ -127,7 +127,8 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 
 - Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now moments, extract, infer,
   pages) are complete from 14 Oct. derived/log is never rotated.
-- No record of each index rebuild (only the file's time) or of the archive's health (only its last write).
+- No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
+  `run.error` when one starts, `run.end` when it ends), not in `status`.
 - `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page (none when extraction retired it);
   a correction's page or people. Not the entities of the observations a correction or supersession names.
 - Page changes appear once committed (the nightly commits them); an uncommitted hand run of `pages` does not show.

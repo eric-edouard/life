@@ -16,7 +16,13 @@ export function serveConnector() {
     return;
   }
   const verify = ownerTokens({
-    jwks: createRemoteJWKSet(new URL(`${ISSUER}/jwks`)),
+    // lifelog's keys rarely change: kept a day (a key it dropped stops working within it), or refetched sooner when a
+    // token names a key they lack, so its latency reaches about one request a day; a failed fetch answers 503 (jose
+    // serves no stale keys, so lifelog down when the day ends is a 503 until it is back).
+    jwks: createRemoteJWKSet(new URL(`${ISSUER}/jwks`), {
+      cacheMaxAge: 24 * 3600 * 1000,
+      timeoutDuration: 15_000,
+    }),
     ownerSub,
   });
   const mcp = createMcp(verify);
