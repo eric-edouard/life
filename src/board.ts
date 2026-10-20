@@ -6,19 +6,29 @@ import {
   remctl,
   reminderArgs,
 } from "./actions";
+import { subscribed } from "./events";
 import { WAKE } from "./hear";
 import { log } from "./log";
+import { sendReport, taskReport } from "./memory/report";
 import { clip, localTime } from "./memory/units";
-import { chase, closed, standing, type Task, tasksOf } from "./tasks";
+import { alerts, closed, standing, type Task, tasksOf } from "./tasks";
 
 // Atlas's board, his Reminders list `BOARD`: a one-way projection of the tasks (src/tasks.ts), never through `act`, that
 // writes no ledger line and reads nothing back as his. One item per task, found by the task id on its notes' first
 // line. Each pass Life brings its own fields (notes, section) to what the ledger says and ticks the item when its task
-// closes: his receipt that he was heard. What needs him is emailed (`chase`, src/tasks.ts), never shown here.
+// closes: his receipt that he was heard. What needs him (`escalation`, src/tasks.ts) is emailed by `chase`, never shown here.
 
 const MIN = 60_000;
 /** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
+
+/** A task's name: its title, else his words from "hey Atlas" on. */
+const titleOf = (t: Task) =>
+  clip(
+    (t.ask.after.title as string | undefined) ??
+      (t.ask.instruction.quote.replace(TO_WAKE, "") || t.ask.instruction.quote),
+    80
+  );
 
 /** An item as Life reads it. */
 export interface Item {
@@ -34,7 +44,6 @@ export function wantOf(t: Task) {
   const { quote } = t.ask.instruction;
   const until = !closed(state) && deadline && `until ${localTime(deadline)}`;
   const line = [state, until, end.on && `on ${end.on}`];
-  const { title } = t.ask.after;
   const notes = [
     t.ask.id,
     clip(quote, 1000),
@@ -46,7 +55,7 @@ export function wantOf(t: Task) {
     completed: closed(state),
     notes: notes.filter(Boolean).join("\n").trim(),
     section: state === "open" ? "Open" : "Working",
-    title: `Atlas${low}: ${clip((title as string | undefined) ?? (quote.replace(TO_WAKE, "") || quote), 80)}`,
+    title: `Atlas${low}: ${titleOf(t)}`,
   };
 }
 type Want = ReturnType<typeof wantOf>;
@@ -117,6 +126,17 @@ async function mirror(t: Task, item: Item | undefined) {
 async function added({ notes, title }: Want): Promise<Item> {
   const { after } = await add({ kind: "add", list: BOARD, notes, title });
   return { completed: false, id: Number(after.id), notes, section: "" };
+}
+
+/**
+ * Emails him each task that needs him, once per key (`sendReport`): a task that goes silent again after an update is
+ * a new email.
+ */
+async function chase(tasks: Task[], now: number) {
+  for (const { cause, key, t } of alerts(tasks, now, subscribed(now))) {
+    // biome-ignore lint/performance/noAwaitInLoops: one email at a time
+    await sendReport(key, taskReport(t.ask, titleOf(t), cause));
+  }
 }
 
 let last = 0;

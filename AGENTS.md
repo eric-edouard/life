@@ -80,7 +80,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows). `nudge` and
   `steer` lines (until 20 Oct) only parse. What needs him is one rule, `escalation`, for every task, chat ones too:
   unclaimed 30 min after the ask, claimed and past its deadline, waiting on him over 1 h, a week old, or no live
-  subscription (one email per open task); `chase` (each minute in the watcher) emails him once per task, cause and
+  subscription (one email per open task); `chase` (`src/board.ts`, each minute in the watcher) emails him once per task, cause and
   Atlas's last update. Every send goes out once per id (`sendReport` skips one in the last 8 days of `email.sent`). Task lines stay out of the Actions section and `day`; the nightly lists every open task and
   those closed in the last day.
 - **The board, his Reminders list `Atlas`, is a one-way projection of the ledger, his receipt** (`src/board.ts`, `tick`,

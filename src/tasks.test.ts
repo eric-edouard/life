@@ -176,6 +176,18 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
     }),
   ]);
   expect(escalation(extended, T0 + week * MIN, true)).toBe("stuck for 7 days");
+  // Emailed once, however often Atlas extends it.
+  const extendedAgain = task([
+    ...extended.lines,
+    own("update", week + 30, {
+      deadline: at(week + 120),
+      note: "b",
+      state: "working",
+    }),
+  ]);
+  expect(alerts([extendedAgain], T0 + (week + 31) * MIN, true)[0]?.key).toBe(
+    alerts([extended], T0 + week * MIN, true)[0]?.key
+  );
   const done = task([own("update", 30, { outcome: "sent", state: "done" })]);
   expect(escalation(done, now, false)).toBeNull();
   // A task Atlas made from his chat is chased too.

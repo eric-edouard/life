@@ -2,17 +2,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
-import { parse, subscribed } from "./events";
+import { parse } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
-import { sendReport, taskReport } from "./memory/report";
 import { clip } from "./memory/units";
 import { Action, type Instruction } from "./schema";
 import { ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
 // done or dropped. Its own lines: Atlas's updates (the connector's `task`); Life's nudges and his steers (until 20 Oct) are
-// only history. What needs him is emailed once (`chase`).
+// only history. What needs him is `escalation`, emailed once (`chase`, src/board.ts).
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -183,6 +182,8 @@ export function standing(t: Task) {
   };
 }
 
+const WEEK = "stuck for 7 days";
+
 /**
  * Why he must look at a task now, or null: every task, chat ones too. Atlas isn't subscribed, waits on him over an
  * hour, let it pass its deadline (unclaimed 30 min after the ask, or claimed and silent), or it is a week old.
@@ -203,28 +204,20 @@ export function escalation(t: Task, now: number, live: boolean) {
       ? "not claimed 30 min after the ask"
       : `${state} past its deadline`;
   }
-  return now - Date.parse(t.ask.at) > 7 * DAY ? "stuck for 7 days" : null;
+  return now - Date.parse(t.ask.at) > 7 * DAY ? WEEK : null;
 }
 
-/** The tasks that need him now, each with the key it is emailed once under: task, cause and Atlas's last update. */
+/**
+ * The tasks that need him now, each with the key it is emailed once under: task, cause and Atlas's last update (a
+ * week-old task once, however often Atlas extends it).
+ */
 export const alerts = (tasks: Task[], now: number, live: boolean) =>
   tasks.flatMap((t) => {
     const cause = escalation(t, now, live);
-    const key = `task/${t.ask.id}/${cause?.split(":")[0]}/${standing(t).since}`;
+    const since = cause === WEEK ? "" : standing(t).since;
+    const key = `task/${t.ask.id}/${cause?.split(":")[0]}/${since}`;
     return cause ? [{ cause, key, t }] : [];
   });
-
-/**
- * Emails him each task that needs him (the watcher's tick), once per key (`sendReport`): a task that goes silent again
- * after an update is a new email.
- */
-export async function chase(tasks: Task[], now: number) {
-  for (const { cause, key, t } of alerts(tasks, now, subscribed(now))) {
-    const title = `${t.ask.after.title ?? clip(t.ask.instruction.quote, 80)}`;
-    // biome-ignore lint/performance/noAwaitInLoops: one email at a time
-    await sendReport(key, taskReport(t.ask, title, cause));
-  }
-}
 
 const Text = z.string().min(1).max(2000);
 const Step = z.object({

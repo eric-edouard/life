@@ -124,11 +124,11 @@ export async function nightly(days: number, force = false) {
       lockReport(held.toISOString())
     );
   }
-  // Each store failing for an hour: one email per incident (the key; Resend forgets a key after 24 h, so again daily while it lasts).
+  // Each store failing for an hour: one email per incident and day while it lasts (the key).
   for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
     // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
     await sendReport(
-      `archive/${name}/${e.at}`,
+      `archive/${name}/${e.at}/${now.toISOString().slice(0, 10)}`,
       archiveFailedReport(name, e.at, String(e.error))
     );
   }
