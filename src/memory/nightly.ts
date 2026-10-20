@@ -176,7 +176,7 @@ async function whatIsNew(since: string) {
     facts: [...homes].flatMap(([home, lines]) =>
       lines.flatMap(({ o }) =>
         ids.has(o.id) && o.salience === 3 && !standing.retired.has(o.id)
-          ? [{ page: people.names.get(home) ?? home, text: o.text }]
+          ? [{ id: o.id, page: people.names.get(home) ?? home, text: o.text }]
           : []
       )
     ),
@@ -196,6 +196,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     last?.okAt ?? last?.lastAt ?? windowStart(now, days).toISOString();
   const phase = phases(rec);
   let mail: Mail;
+  // The observations the report lists, in the run record: an audit can tell what he was told.
+  let listed: string[] = [];
   let failure: ReturnType<typeof phase.failed> | undefined;
   try {
     const repos = await phase.step("repos", () => mapRepos());
@@ -235,12 +237,13 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       retired,
       watcher,
     });
+    listed = facts.map((f) => f.id);
   } catch (e) {
     failure = phase.failed(e);
     mail = failureReport(day, rec.ms(), failure.failedAt, failure.error);
   }
   const { attempts } = recordState(day, !failure);
-  rec.end({ attempts, ...(failure ?? { outcome: "ok" }) });
+  rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
     const id = await sendReport(`nightly/${rec.run}`, mail);
     console.log(id ? `report emailed: ${id}` : "report email not sent");
