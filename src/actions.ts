@@ -345,8 +345,8 @@ export async function openReminders(list?: string) {
 
 /**
  * Whether remctl can act right now (read-only: nothing is written). The problems, none when it is ready. One read
- * through the signed host, the path every action takes: not `remctl doctor`, whose MCP-client section runs
- * `tailscale status` and crashed on its 15 s timeout (20 Oct) while Reminders were fine.
+ * through the signed host, not `remctl doctor` (its Tailscale probe times out while Reminders are fine); a broken
+ * private helper (sections, subtasks) shows on the act instead, which emails him.
  */
 export async function checks() {
   try {
