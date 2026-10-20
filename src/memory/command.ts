@@ -108,7 +108,9 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const HANDLERS: Record<string, Handler> = {
   area: (_values, rest) => printed(rest.length > 0 ? area(words(rest)) : null),
   backfill(v) {
-    if (!(v.from && v.to && DAY.test(v.from) && DAY.test(v.to))) {
+    if (
+      !(v.from && v.to && DAY.test(v.from) && DAY.test(v.to) && v.from <= v.to)
+    ) {
       return Promise.resolve(usage());
     }
     // His zones must cover it first: a past zone can't be added once memory has units of its days (SCHEMA.md).
