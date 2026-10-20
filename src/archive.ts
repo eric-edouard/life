@@ -1,8 +1,7 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type LogEvent, log, logDays, logEvents } from "./log";
-import { archiveFailedReport, sendReport } from "./memory/report";
+import { type LogEvent, log, runEvents } from "./log";
 import { localTime } from "./memory/units";
 import { codeAt, exec } from "./proc";
 import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
@@ -455,80 +454,46 @@ function printDeleted(days: number) {
 }
 
 // A store failing since its first failed pass until its next good one is an incident, logged at both ends
-// (`archive.<store>`: run.error, run.end). The log is its only record, so a restart (each commit) or the night reads it
-// whole. He is emailed once an hour in, since what is deleted meanwhile is lost (18 Oct: Beeper's store would not open
-// for 5 hours, unseen).
-const ALERT_MS = 3_600_000;
-const LOOKBACK_DAYS = 7;
+// (`archive.<store>`: run.error, run.end). The log is its only record: read back on a restart (each commit), by the
+// night's line, and by the nightly tick that emails him an hour in (18 Oct: Beeper's store would not open for 5 hours,
+// unseen, and what is deleted meanwhile is lost).
 
-// `mailAt`: when to email him (null once he was): an hour in, or an hour after a send that failed.
-type Incidents = Map<string, { mailAt: number | null; since: string }>;
-
-/** The archive's incident lines of the last 7 days, oldest first. */
-const incidentLines = async () =>
-  (await logDays())
-    .slice(0, LOOKBACK_DAYS)
-    .reverse()
-    .flatMap((n) => logEvents<LogEvent>(n, "run."))
-    .filter((e) => e.step.startsWith("archive."));
-
-/** The incidents still open at the end of `lines`, by store. */
-export function openIncidents(lines: LogEvent[]): Incidents {
-  const incidents: Incidents = new Map();
-  for (const e of lines) {
+/** The incidents open at the end of `lines` (run events, oldest first): each store's first failed pass. */
+export function openIncidents(lines: LogEvent[]) {
+  const started = new Map<string, LogEvent>();
+  for (const e of lines.filter((l) => l.step.startsWith("archive."))) {
     const name = e.step.slice("archive.".length);
     if (e.kind === "run.error") {
-      incidents.set(name, { mailAt: Date.parse(e.at) + ALERT_MS, since: e.at });
+      started.set(name, e);
     } else {
-      incidents.delete(name);
+      started.delete(name);
     }
   }
-  return incidents;
+  return started;
 }
 
-/** What a failed pass of `name` at `now` calls for: logging a new incident, emailing him (when due), or nothing. */
-export function incident(name: string, now: Date, incidents: Incidents) {
-  const f = incidents.get(name);
-  if (!f) {
-    const at = now.getTime();
-    incidents.set(name, { mailAt: at + ALERT_MS, since: now.toISOString() });
-    return "start";
-  }
-  return f.mailAt !== null && now.getTime() >= f.mailAt ? "mail" : null;
-}
-
-async function failed(name: string, error: string, incidents: Incidents) {
-  const now = new Date();
-  const what = incident(name, now, incidents);
-  if (what === "start") {
-    log("run.error", { error, step: `archive.${name}` });
-  }
-  const f = incidents.get(name);
-  if (what === "mail" && f) {
-    // Keyed by the incident's start, so a restart's second try is the same email.
-    const sent = await sendReport(
-      `archive/${name}/${f.since}`,
-      archiveFailedReport(name, f.since, error)
-    );
-    f.mailAt = sent ? null : now.getTime() + ALERT_MS;
-  }
+/** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
+export async function archiveFailing(ms = 0, now = Date.now()) {
+  return [...openIncidents(await runEvents(7))].filter(
+    ([, e]) => now - Date.parse(e.at) >= ms
+  );
 }
 
 /** The nightly's line on the archive: the incidents that started since `since` (an ISO instant) or are still open. */
 export async function archiveLine(since: string) {
-  const lines = await incidentLines();
-  const incidents = openIncidents(lines);
+  const lines = await runEvents(7);
+  const still = new Set(openIncidents(lines).values());
   const listed = lines
-    .filter((e) => e.kind === "run.error")
-    .flatMap((e) => {
-      const name = e.step.slice("archive.".length);
-      const still = incidents.get(name)?.since === e.at;
-      return e.at >= since || still
-        ? [
-            `${name} from ${localTime(e.at)}${still ? ", still failing" : ""}: ${String(e.error)}`,
-          ]
-        : [];
-    });
+    .filter(
+      (e) =>
+        e.kind === "run.error" &&
+        e.step.startsWith("archive.") &&
+        (e.at >= since || still.has(e))
+    )
+    .map(
+      (e) =>
+        `${e.step.slice("archive.".length)} from ${localTime(e.at)}${still.has(e) ? ", still failing" : ""}: ${String(e.error)}`
+    );
   return `Archive: ${listed.length > 0 ? `FAILED: ${listed.join("; ")}` : "no failure"}`;
 }
 
@@ -542,12 +507,12 @@ export async function archiveCommand(args: string[]): Promise<number> {
     return 0;
   }
   const running = codeAt(ROOT);
-  const incidents = openIncidents(await incidentLines());
+  const failing = new Set((await archiveFailing()).map(([name]) => name));
   while (codeAt(ROOT) === running) {
     for (const { copy, name } of STORES) {
       try {
         const added = copy();
-        if (incidents.delete(name)) {
+        if (failing.delete(name)) {
           log("run.end", { step: `archive.${name}` });
         }
         if (added > 0) {
@@ -555,14 +520,20 @@ export async function archiveCommand(args: string[]): Promise<number> {
         }
       } catch (error) {
         console.error(new Date().toISOString(), name, error);
-        // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop, the stores one at a time
-        await failed(name, (error as Error).message, incidents);
+        if (!failing.has(name)) {
+          failing.add(name);
+          log("run.error", {
+            error: (error as Error).message,
+            step: `archive.${name}`,
+          });
+        }
       }
     }
     if (args.includes("--once")) {
       return 0;
     }
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
+    // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
   }
   console.log(`${new Date().toISOString()} new code: restarting`);

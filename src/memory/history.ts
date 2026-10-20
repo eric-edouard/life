@@ -2,7 +2,7 @@ import { statSync } from "node:fs";
 import { z } from "zod";
 import { STORES } from "../archive";
 import { polling, readHealth } from "../health";
-import { LOG_DIR, type LogEvent, logDays, logEvents } from "../log";
+import { LOG_DIR, type LogEvent, logDays, logEvents, runEvents } from "../log";
 import { archiveDb } from "../sources/archived";
 import { decode, encode, PAGE } from "./feed";
 import {
@@ -281,9 +281,7 @@ export async function lifeStatus(now = new Date()) {
   const lock = lockedSince();
   const night = readState();
   const middaySlot = readMidday();
-  const events = (await logDays())
-    .slice(0, STATUS_DAYS)
-    .flatMap((n) => logEvents<LogEvent>(n, "run."));
+  const events = await runEvents(STATUS_DAYS);
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
   const archive = (name: string) => dbTime(archiveDb(name));

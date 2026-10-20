@@ -1,5 +1,5 @@
 import { checks } from "../actions";
-import { archiveLine } from "../archive";
+import { archiveFailing, archiveLine } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
 import { type Action, isTaskLine } from "../schema";
@@ -27,6 +27,7 @@ import { moments } from "./moments";
 import { placed } from "./page";
 import { pages } from "./pages";
 import {
+  archiveFailedReport,
   failureReport,
   lockReport,
   type Mail,
@@ -49,6 +50,7 @@ import { dayStart, localDate, noteZone } from "./zones";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * 3_600_000;
+const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
@@ -101,6 +103,14 @@ export async function nightly(days: number, force = false) {
     await sendReport(
       `lock/${held.toISOString()}`,
       lockReport(held.toISOString())
+    );
+  }
+  // Each store failing for an hour: one email per incident (the key), again a day later while it lasts.
+  for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
+    // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
+    await sendReport(
+      `archive/${name}/${e.at}`,
+      archiveFailedReport(name, e.at, String(e.error))
     );
   }
   // Each tick is a fresh process: the place to notice he moved (only the Mac's own zone counts, never a TZ variable).

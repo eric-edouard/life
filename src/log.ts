@@ -50,6 +50,13 @@ export const logEvents = <T = Record<string, unknown> & { at: string }>(
     .filter((l) => l.includes(`"kind":"${kind}`))
     .map((l) => JSON.parse(l) as T);
 
+/** The run events (`run.`) of the newest `days` log files, oldest first. */
+export const runEvents = async (days: number, dir = LOG_DIR) =>
+  (await logDays(dir))
+    .slice(0, days)
+    .reverse()
+    .flatMap((n) => logEvents<LogEvent>(n, "run.", dir));
+
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   const at = new Date().toISOString();
   const line = JSON.stringify({ at, kind, ...fields });
