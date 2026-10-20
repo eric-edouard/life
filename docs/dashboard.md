@@ -24,9 +24,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `consolidation` | pages, nightly only (or a hand run) | derived/log, `memory.pages` |
 | `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
 
-- `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, or `unknown` (no health file). `connector`:
-  the watcher's 5-minute public check as recorded (`result` `ok`, `fail` or `offline`, not judged; `failures` in a
-  row; `checkedAt`), null when never checked.
+- `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, or `unknown` (no health file).
 - `extraction`, `consolidation`, `nightly`, `midday` each give `latest`, `lastOk`, `lastFailed` (whole run records, see
   `runs`) within the last `lookbackDays` (7) of logs; null means none recorded in that time, not success.
 - `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else `idle`.
