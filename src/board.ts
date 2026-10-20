@@ -40,11 +40,9 @@ const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
 /** An item as Life reads it. */
 export interface Item {
   completed: boolean;
-  due: string | null;
   id: number;
   notes: string;
   section: string;
-  title: string;
 }
 
 /** What a task's item should say: notes (id, his words, state, latest note). */
@@ -89,7 +87,6 @@ export function planOf(w: Want, it: Item, seen: Item | undefined, now: number) {
   const look = {
     ...it,
     completed: w.completed || (it.completed && !reopen),
-    due: calm ? null : (due ?? it.due),
     notes: w.notes,
     section: w.section,
   };
@@ -110,11 +107,9 @@ async function readBoard(tasks: Set<string>) {
     taskOf(r),
     {
       completed: r.completed,
-      due: r.dueDate?.slice(0, 16).replace("T", " ") ?? null,
       id: r.id,
       notes: (r.notes ?? "").trim(),
       section: r.section ?? "",
-      title: r.title,
     },
   ];
   return new Map(rows.filter((r) => tasks.has(taskOf(r))).map(read));
@@ -122,8 +117,8 @@ async function readBoard(tasks: Set<string>) {
 
 /**
  * Brings a task's item in line (a closed task with no item gets none; a new one is added with the task id in its
- * notes, so a failed pass finds it again): how it looks after (a failed private write: its steps as read, and the
- * next pass tries again). When a write fails while he is needed and the item doesn't show it yet, he is
+ * notes, so a failed pass finds it again): how it looks after (a failed private write, the section, is tried again next
+ * pass). When a write fails while he is needed and the item doesn't show it yet, he is
  * emailed, once per incident.
  */
 async function mirror(
@@ -174,8 +169,7 @@ async function mirror(
 
 async function added({ notes, title }: Want): Promise<Item> {
   const { after } = await add({ kind: "add", list: BOARD, notes, title });
-  const blank = { completed: false, due: null, section: "" };
-  return { ...blank, id: Number(after.id), notes, title };
+  return { completed: false, id: Number(after.id), notes, section: "" };
 }
 
 let last = 0;

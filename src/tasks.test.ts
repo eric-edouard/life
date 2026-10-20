@@ -198,11 +198,9 @@ test("he is asked to look when Atlas is stuck, waits on him over an hour, a task
 
 const look = (over: Partial<Item> = {}): Item => ({
   completed: false,
-  due: null,
   id: 1,
   notes: "",
   section: "",
-  title: "Atlas: x",
   ...over,
 });
 
@@ -235,7 +233,7 @@ test("the board gets Life's fields: notes, section, Needs you with a due while h
   // He is needed: Needs you with a due of now, kept while the cause lasts, cleared when it ends.
   const needed = wantOf(working(), "Atlas stuck");
   const alert = planOf(needed, ticked, ticked, T0);
-  expect(alert.flags).toContain(`--due=${alert.look.due}`);
+  expect(alert.flags.filter((f) => f.startsWith("--due="))).toHaveLength(1);
   expect(alert.flags).toContain("--section=Needs you");
   const later = planOf(needed, alert.look, alert.look, T0 + 9 * MIN);
   expect(later.flags).toEqual([]);
@@ -252,6 +250,9 @@ test("the board gets Life's fields: notes, section, Needs you with a due while h
   ]);
   const done = task([own("update", 5, { outcome: "booked", state: "done" })]);
   expect(planOf(wantOf(done, null), ticked, ticked, T0).done).toEqual([1]);
+  // An old steer line changes nothing: no "You:" line, no steers in the row.
+  const steered = working([own("steer", 7, { changes: {}, note: "his" })]);
+  expect(wantOf(steered, null)).toEqual(want);
   // His tick on an open task is not undone, until Life asks him to look.
   const his = { ...ticked, completed: true };
   expect(planOf(want, his, ticked, T0).reopen).toBe(false);
