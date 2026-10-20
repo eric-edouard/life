@@ -2,28 +2,54 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import { ORIGIN } from "./auth";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
-import { DATA } from "./truth";
+import { DATA, ROOT } from "./truth";
 
-// The portrait (/me): one page about him, written from his memory into DATA/docs/portrait/index.html (his data, never
-// in this repo), behind a password (LIFE_PORTRAIT_PASSWORD in .env). Signing in sets a cookie holding its expiry signed
-// with the password, so changing the password signs every browser out. Nothing of his answers before that check.
+// The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data,
+// never in this repo): /me is index.html, /me/<name> is <name>.html. Behind a password (LIFE_PORTRAIT_PASSWORD in
+// .env). Signing in sets a cookie holding its expiry signed with the password, so changing the password signs every
+// browser out. Nothing of his answers before that check.
 
 const SESSION = "__Host-life-me";
 const SESSION_S = 30 * 24 * 3600;
-const PAGE = join(DATA, "docs", "portrait", "index.html");
+const PAGES = join(DATA, "docs", "portrait");
+const PAGE = /^\/me(?:\/[a-z0-9-]+)?$/;
+// A page's clips: its audio and the words timed to it, in <page>/clips/ (nothing else of the page's folder is served).
+const CLIP = /^\/me\/[a-z0-9-]+\/clips\/[a-z0-9-]+\.(?:m4a|json)$/;
+// The clip player is code, so it ships in this repo; the pages and clips are his data.
+const PLAYER = "/me/player.js";
 // ponytail: one global window for failed passwords, per-IP limits if it ever faces more than him.
 const FAILS_ALLOWED = 5;
 const FAILS_WINDOW_MS = 60_000;
-// The page and the form load Google Fonts and inline styles, nothing else: no images, no scripts.
+// The pages load Google Fonts, inline styles, the player and their clips from here, nothing else: no images.
 const PAGE_HEADERS = {
   ...HEADERS,
   "content-security-policy":
-    "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'",
-  "content-type": "text/html; charset=utf-8",
+    "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; media-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'",
   "x-robots-tag": "noindex",
 };
 
+// Bun types each file from its extension; only the sign-in form, a string, says it is HTML.
+const FORM_HEADERS = {
+  ...PAGE_HEADERS,
+  "content-type": "text/html; charset=utf-8",
+};
+
+/** What a path under /me serves (a page, one of its clips, the player), or null for a path that isn't the portrait's. */
+const fileOf = (pages: string, pathname: string) => {
+  const name = pathname.slice("/me/".length);
+  if (pathname === PLAYER) {
+    return { page: false, path: join(ROOT, "assets", "portrait", "player.js") };
+  }
+  if (CLIP.test(pathname)) {
+    return { page: false, path: join(pages, name) };
+  }
+  return PAGE.test(pathname)
+    ? { page: true, path: join(pages, `${name || "index"}.html`) }
+    : null;
+};
+
 const form = (
+  action: string,
   note = ""
 ) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Life</title>
@@ -32,12 +58,12 @@ const form = (
 form{display:grid;gap:12px;width:min(320px,calc(100vw - 32px))}h1{font-size:28px;margin:0}
 input,button{font:inherit;padding:9px 12px;border-radius:5px;border:1px solid #e1e2de;background:#fff}
 button{background:#1b1d1f;color:#fff;border-color:#1b1d1f;font-weight:600;cursor:pointer}p{margin:0;color:#c4382c;font:500 12px "IBM Plex Mono",monospace}</style>
-<form method="post" action="/me"><h1>Life</h1><input type="password" name="password" placeholder="Password" autocomplete="current-password" autofocus required><button>Open</button>${note ? `<p>${note}</p>` : ""}</form>`;
+<form method="post" action="${action}"><h1>Life</h1><input type="password" name="password" placeholder="Password" autocomplete="current-password" autofocus required><button>Open</button>${note ? `<p>${note}</p>` : ""}</form>`;
 
-/** The /me routes; `handle` resolves to null for any other path, and for every path when no password is set. */
+/** The /me and /me/<name> routes; `handle` resolves to null for any other path, and for every path when no password is set. */
 export function createPortrait(
   password = process.env.LIFE_PORTRAIT_PASSWORD,
-  page = PAGE,
+  pages = PAGES,
   now = Date.now
 ) {
   if (!password) {
@@ -55,7 +81,7 @@ export function createPortrait(
     return Number(exp) * 1000 > now() && same(mac, sign(exp));
   }
 
-  async function login(req: Request) {
+  async function login(req: Request, pathname: string) {
     if (req.headers.get("origin") !== ORIGIN) {
       return text("forbidden", 403);
     }
@@ -65,31 +91,41 @@ export function createPortrait(
     );
     fails = fails.filter((t) => now() - t < FAILS_WINDOW_MS);
     if (fails.length >= FAILS_ALLOWED) {
-      return text(form("Too many tries, wait a minute."), 429, PAGE_HEADERS);
+      return text(
+        form(pathname, "Too many tries, wait a minute."),
+        429,
+        FORM_HEADERS
+      );
     }
     if (!same(sign(given), sign(key))) {
       fails.push(now());
-      return text(form("Wrong password."), 401, PAGE_HEADERS);
+      return text(form(pathname, "Wrong password."), 401, FORM_HEADERS);
     }
     const exp = String(Math.floor(now() / 1000) + SESSION_S);
-    return redirect("/me", [cookie(SESSION, `${exp}.${sign(exp)}`, SESSION_S)]);
+    return redirect(pathname, [
+      cookie(SESSION, `${exp}.${sign(exp)}`, SESSION_S),
+    ]);
   }
 
   async function handle(req: Request): Promise<Response | null> {
     const { pathname } = new URL(req.url);
-    if (pathname !== "/me") {
+    const served = fileOf(pages, pathname);
+    if (!served) {
       return null;
     }
-    if (req.method === "POST") {
-      return login(req);
+    const { page, path } = served;
+    if (page && req.method === "POST") {
+      return login(req, pathname);
     }
     if (!signedIn(req)) {
-      return text(form(), 200, PAGE_HEADERS);
+      return page
+        ? text(form(pathname), 200, FORM_HEADERS)
+        : text("sign in at /me", 401);
     }
-    const file = Bun.file(page);
+    const file = Bun.file(path);
     return (await file.exists())
       ? new Response(file, { headers: PAGE_HEADERS })
-      : text("no portrait yet", 404);
+      : text("not found", 404);
   }
 
   return { handle };

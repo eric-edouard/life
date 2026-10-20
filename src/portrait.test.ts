@@ -1,25 +1,30 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ORIGIN } from "./auth";
 import { createPortrait } from "./portrait";
 
 const dir = await mkdtemp(join(tmpdir(), "portrait-"));
-const page = join(dir, "index.html");
-await writeFile(page, "<h1>Someone, as Life knows him</h1>");
+await writeFile(join(dir, "index.html"), "<h1>Someone, as Life knows him</h1>");
+await writeFile(join(dir, "sam.html"), "<h1>A friend</h1>");
+await mkdir(join(dir, "sam", "clips"), { recursive: true });
+await writeFile(join(dir, "sam", "clips", "hello.json"), '{"words":[]}');
+await writeFile(join(dir, "sam", "clips", "hello.m4a"), "not really audio");
+await writeFile(join(dir, "sam", "research.json"), "{}");
+await writeFile(join(dir, "sam", "notes.md"), "research");
 afterAll(() => rm(dir, { force: true, recursive: true }));
 
 let clock = 1_800_000_000_000;
-const portrait = createPortrait("open sesame", page, () => clock);
+const portrait = createPortrait("open sesame", dir, () => clock);
 
-const get = async (cookie = "") =>
+const get = async (cookie = "", path = "/me") =>
   (await portrait.handle(
-    new Request(`${ORIGIN}/me`, { headers: { cookie } })
+    new Request(`${ORIGIN}${path}`, { headers: { cookie } })
   )) as Response;
-const login = async (password: string, origin = ORIGIN) =>
+const login = async (password: string, origin = ORIGIN, path = "/me") =>
   (await portrait.handle(
-    new Request(`${ORIGIN}/me`, {
+    new Request(`${ORIGIN}${path}`, {
       body: new URLSearchParams({ password }),
       headers: { origin },
       method: "POST",
@@ -53,7 +58,7 @@ test("the right password gives a cookie that opens the page until it expires", a
 
 test("a new password signs every browser out", async () => {
   const cookie = session(await login("open sesame"));
-  const changed = createPortrait("new one", page, () => clock);
+  const changed = createPortrait("new one", dir, () => clock);
   const res = (await changed.handle(
     new Request(`${ORIGIN}/me`, { headers: { cookie } })
   )) as Response;
@@ -77,9 +82,48 @@ test("a burst of wrong guesses can't slip the right one through", async () => {
   expect(burst.at(-1)?.status).toBe(429);
 });
 
+test("a person's page: the form keeps its path through sign-in, then /me/<name> serves <name>.html", async () => {
+  clock += 3_600_000;
+  expect(await (await get("", "/me/sam")).text()).toContain('action="/me/sam"');
+  const res = await login("open sesame", ORIGIN, "/me/sam");
+  expect(res.headers.get("location")).toBe("/me/sam");
+  const cookie = session(res);
+  expect(await (await get(cookie, "/me/sam")).text()).toContain("A friend");
+  expect((await get(cookie, "/me/nobody")).status).toBe(404);
+  expect(
+    await portrait.handle(new Request(`${ORIGIN}/me/..%2Fetc`))
+  ).toBeNull();
+  expect(await (await login("nope", ORIGIN, "/me/sam")).text()).toContain(
+    'action="/me/sam"'
+  );
+  expect(
+    await portrait.handle(new Request(`${ORIGIN}/me/Sam.html`))
+  ).toBeNull();
+});
+
+test("a page's clips and the player: behind the password, typed, and nothing outside clips/", async () => {
+  clock += 3_600_000;
+  expect((await get("", "/me/sam/clips/hello.m4a")).status).toBe(401);
+  const cookie = session(await login("open sesame"));
+  const audio = await get(cookie, "/me/sam/clips/hello.m4a");
+  expect(audio.headers.get("content-type")).toBe("audio/x-m4a");
+  expect(
+    (await get(cookie, "/me/sam/clips/hello.json")).headers.get("content-type")
+  ).toContain("application/json");
+  const player = await get(cookie, "/me/player.js");
+  expect(player.headers.get("content-type")).toContain("text/javascript");
+  expect(await player.text()).toContain("figure.clip");
+  expect(
+    await portrait.handle(new Request(`${ORIGIN}/me/sam/notes.md`))
+  ).toBeNull();
+  expect(
+    (await get(cookie, "/me")).headers.get("content-security-policy")
+  ).toContain("media-src 'self'");
+});
+
 test("off without a password, and other paths are not its own", async () => {
   expect(
-    await createPortrait("", page).handle(new Request(`${ORIGIN}/me`))
+    await createPortrait("", dir).handle(new Request(`${ORIGIN}/me`))
   ).toBeNull();
   expect(await portrait.handle(new Request(`${ORIGIN}/check/`))).toBeNull();
 });
