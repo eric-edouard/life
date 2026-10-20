@@ -87,6 +87,20 @@ Most asks are "hey Atlas, remind me to …": add the real reminder with `reminde
 (`open_reminders` shows the lists and their sections), then mark the task `done` with an outcome naming that reminder.
 `reminders` refuses the `Atlas` list: the board is Life's, read it only with `tasks`.
 
+## Audits
+
+When he says something didn't work ("hey Atlas, this didn't work: …", or the same in a chat), split the task in two
+(`parent`, `title`):
+
+- **"Practical: …"** is yours, like any task: get him what he still needs (the call, the booking, the reminder).
+- **"Audit: …"** is engineering, and Claude's. Its brief: his words, the task id, the `conversation` and `turns`
+  (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Claude runs as a Remote
+  Control session he can answer from his phone, with `--permission-mode default` (his own default is `auto`), never
+  bypass. No Remote Control launch from a Codex task is verified yet (the launcher: task `act_34647b39f4e9`): until
+  one is, put the part in `waiting-eric` with the brief ready for him to paste into a Claude session, and ask him for
+  its link. Put the link in the note. Close the part `done` once you have read its report, the audit file in
+  `~/Life/docs/audits/` (with a Codex task), with its path.
+
 ## His plan and the weekly review
 
 His one calendar is his main Google calendar (`primary`); Instinct reads it too. When he asks you to plan his
