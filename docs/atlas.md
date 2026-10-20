@@ -108,11 +108,9 @@ When he says something didn't work ("hey Atlas, this didn't work: …", or the s
 
 - **"Practical: …"** is yours, like any task: get him what he still needs (the call, the booking, the reminder).
 - **"Audit: …"** is engineering, and Claude's. Its brief: his words, the task id, the `conversation` and `turns`
-  (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Claude runs as a Remote
-  Control session he can answer from his phone, with `--permission-mode default` (his own default is `auto`), never
-  bypass. While that launch is not verified (What you can reach), put the part in `waiting-eric` with the brief ready
-  for him to paste into a Claude session, and ask him for its link. Put the link in the note. Close the part `done`
-  once you have read its report, the audit file in `~/Life/docs/audits/` (with a Codex task), with its path.
+  (for a chat: his `said` and `at`), and the process, `docs/audits.md` in `~/Work/life`. Start it with the launcher
+  (What you can reach); put the session's link in the note. Close the part `done` once you have read its report, the
+  audit file in `~/Life/docs/audits/` (with a Codex task), with its path.
 
 ## His plan and the weekly review
 
@@ -183,8 +181,9 @@ Facts, not permissions: `## Sends` governs every send.
   (`claude`, from `~/Work`), the skills in `~/.agents/skills`, Beeper, `memo` (Apple Notes), `imsg`, `playwriter` (his
   Chrome, with his logins). Failing today: `imsg` (access denied) and the browser (no working route; starting
   `playwriter` first stops whatever holds its port). When a route fails, fix your own access when a task needs it or
-  he asks. Not verified yet: a Claude Remote Control session started from a Codex task (the launcher, task
-  `act_34647b39f4e9`). His global rules are `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his
+  he asks. A Claude session: `claude-session start <folder> --name "Atlas: <task>"` from a Codex task, a Remote
+  Control session he can answer from his phone; the launcher sets the model, effort and permission mode (his choice:
+  bypass), so pass none of them and never ask him about them. His global rules are `~/.codex/AGENTS.md`, plus each repo's `AGENTS.md`; Codex keeps its own memory of his
   work (`~/.codex/memories`), apart from Life. Local hooks don't run there. Each task checks what it needs first; what
   it finds beats this list, reported in names and pass/fail only, never a file's contents.
 - **Your own cloud computer:** research, long jobs, files, browsing, whenever the Mac is not needed. It shares none of
