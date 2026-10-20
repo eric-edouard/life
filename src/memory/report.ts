@@ -32,7 +32,7 @@ export interface Night {
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
   extracted: Result<typeof extract>;
-  /** The salience-3 page lines among `observed` not retired, each with its home page's name (`page`) and its observation (`id`, kept in the night's run record). */
+  /** The salience-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
   facts: { id: string; page: string; text: string }[];
   /** The files the night read (`describeFiles`): its failed calls and missing tools never fail the night. */
   files: Result<typeof describeFiles>;

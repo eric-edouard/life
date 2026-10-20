@@ -47,14 +47,15 @@ Enforced by the review: the rule is in `AGENTS.md`, and `debt-review` treats a b
 
 - Every proven failure leaves a case in `~/Life/docs/evals/cases/audit-<n>-<slug>.json`: `audit` (its file), `class`
   (stage letters), `evidence` (ids), `expected`, `mustNot` (what the fix must never do), `status` (`pending` until a
-  fix lands, then `test`, `facts` or `scenario`, the three kinds below), `check` (the test, facts file or scenario
-  that holds it) and `why`.
+  fix lands, then `test`, `facts` or `scenario`, the three kinds below), `check` (a test's path in this repo, a facts
+  file's path in `~/Life` like `audit`, or the scenario) and `why`.
 - Code stages (H, T, N and the code side of O): a `bun test` with made-up data that fails before the fix and passes
   after; `bun run check` runs it on every push.
 - Model stages (E, and R when a model reads): facts graded by `bun scripts/eval.ts`, rerun when a prompt changes. A
   flaky case passes 2 runs of 3; a flake is recorded, not retried away.
 - Atlas's stages (J, F, P), held by the playbook: a scenario in the case, re-read against `docs/atlas.md` whenever it
   changes, until code can check it.
-- `src/cases.test.ts` checks every case on every push: its shape, its audit file, and that a `test` case's test
-  exists and names it (a `facts` case's file exists).
+- `scripts/cases-check.ts`, a step of `bun run check`, checks every case on every push: its shape, its audit file,
+  and that a `test` case's test exists and names it (a `facts` case's file exists). It reads his data through `DATA`,
+  like `scrub`, never inside `bun test`.
 - Cases only accumulate. Removing one needs his OK, written in the case file.
