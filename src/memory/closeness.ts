@@ -18,7 +18,7 @@ import {
 } from "./ledger";
 import { begin, chunks, inBatches, meContext } from "./run";
 import { daysBefore, safely, WITH_PEOPLE } from "./units";
-import { readPeople } from "./who";
+import { merged, readPeople } from "./who";
 import { localDate } from "./zones";
 
 // Who matters to the owner, and how (docs/relationships.md, step 3). Code counts what happened with each person from
@@ -50,6 +50,25 @@ const dayOf = (days: Days, who: string, day: string) => {
 };
 
 /**
+ * Who one chat's messages are with: its one other sender, else (a chat only he wrote in) its id, else its name (a
+ * mail thread's is its subject: never); none when more than one other person wrote.
+ */
+function chatPerson(
+  list: SourceEvent[],
+  resolve: (s: string) => string | null
+) {
+  const others = new Set(list.filter((e) => !e.fromMe).map((e) => e.sender));
+  const [first] = list;
+  if (!first || others.size > 1) {
+    return null;
+  }
+  const [other] = others;
+  const named =
+    first.chatName && first.source !== "mail" ? resolve(first.chatName) : null;
+  return (other ? resolve(other) : resolve(first.chat)) ?? named;
+}
+
+/**
  * The 1:1 chats' and mail threads' days by person: one where one other sender wrote, and not a group by its id (a
  * WhatsApp `@g.us`, an iMessage `chat…`) nor a mailing list (a group is not a measure of closeness); its person who the
  * sender or the chat's name resolves to.
@@ -71,11 +90,7 @@ export function chatDays(
     one,
     (e) => `${e.source}|${e.chat}`
   ).values()) {
-    const others = new Set(list.filter((e) => !e.fromMe).map((e) => e.sender));
-    const [other] = others;
-    const [first] = list;
-    const named = first?.chatName ? resolve(first.chatName) : null;
-    const who = others.size === 1 && other ? (resolve(other) ?? named) : null;
+    const who = chatPerson(list, resolve);
     if (!who || who === OWNER) {
       continue;
     }
@@ -197,7 +212,11 @@ export const readCloseness = () =>
 
 /** A relation on his map that keeps someone at least `regular` in his personal life, however little they talk. */
 const FAMILY =
-  /\b(father|mother|dad|mum|mom|brother|sister|son|daughter|wife|husband|(?<!business )partner|girlfriend|boyfriend|grand\w*)\b/i;
+  /\b(father|mother|dad|mum|mom|brother|sister|son|daughter|wife|husband|partner|girlfriend|boyfriend|grand\w*)\b/i;
+/** …unless it says they no longer are, or are not by blood or love: an ex, a former one, an in-law, a business partner. */
+const NOT_FAMILY = /\b(ex|former|business|work)\b[- ]?\w*|in-law/i;
+const isFamily = (relation: string) =>
+  FAMILY.test(relation) && !NOT_FAMILY.test(relation);
 
 /**
  * Each person's levels now: the model's latest judgment, family kept at least `regular`, then his own word
@@ -212,24 +231,33 @@ export function levelsNow(
     string,
     { personal: Level; service: boolean; work: Level }
   >();
-  for (const [ref, c] of rows) {
-    out.set(ref, { personal: c.personal, service: c.service, work: c.work });
+  // A person folded into another (`same-person`) is that one: the latest judgment of either stands.
+  const canon = merged(corrections);
+  for (const c of [...rows.values()].toSorted((a, b) =>
+    a.at.localeCompare(b.at)
+  )) {
+    out.set(canon(c.person), {
+      personal: c.personal,
+      service: c.service,
+      work: c.work,
+    });
   }
   for (const p of truth.people) {
     const ref = `person:${p.id}`;
     const was = out.get(ref);
-    if (was && FAMILY.test(p.relation ?? "") && !CLOSE.has(was.personal)) {
+    if (was && isFamily(p.relation ?? "") && !CLOSE.has(was.personal)) {
       out.set(ref, { ...was, personal: "regular", service: false });
     }
   }
   for (const c of corrections) {
     if (c.kind === "closeness") {
-      const was = out.get(c.person) ?? {
+      const ref = canon(c.person);
+      const was = out.get(ref) ?? {
         personal: "acquaintance" as const,
         service: false,
         work: "acquaintance" as const,
       };
-      out.set(c.person, {
+      out.set(ref, {
         personal: c.personal ?? was.personal,
         service: false,
         work: c.work ?? was.work,
