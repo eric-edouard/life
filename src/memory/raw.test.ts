@@ -278,10 +278,12 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
   ]);
   const t = (turnIndex: number, owner: boolean) => ({
     at: "2026-10-14T10:00:00.000Z",
+    end: null,
     jobId: "job-1",
     name: null,
     owner,
     personId: null,
+    seen: null,
     turnIndex,
   });
   expect(

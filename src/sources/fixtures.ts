@@ -18,6 +18,7 @@ export const page = (over: Record<string, unknown> = {}) => ({
   chapters: [],
   conversations: [],
   cursor: "1",
+  jobs: [],
   more: false,
   removed: [],
   turns: [],
@@ -48,6 +49,7 @@ export const turn = (
   isOwner = false
 ) => ({
   conversationId,
+  endAt: startAt,
   jobId: "job-1",
   speaker: { isOwner, personId, personName },
   startAt,
