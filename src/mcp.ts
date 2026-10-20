@@ -244,7 +244,7 @@ function buildServer() {
   tool(
     server,
     "day",
-    "Everything on one day: what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
+    "Everything on one day: what is due (his own open to-dos and promises), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
     z.object({ date: Day }),
     ({ date }) => day(date)
   );
