@@ -346,7 +346,7 @@ export async function openReminders(list?: string) {
 /**
  * Whether remctl can act right now (read-only: nothing is written). The problems, none when it is ready. One read
  * through the signed host, not `remctl doctor` (its Tailscale probe times out while Reminders are fine); a broken
- * private helper (sections, subtasks) shows on the act instead, which emails him.
+ * private helper (sections, subtasks) shows as a partial on the act, in the nightly's Actions.
  */
 export async function checks() {
   try {
