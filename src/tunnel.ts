@@ -1,4 +1,4 @@
-import { ORIGIN } from "./auth";
+import { METADATA } from "./auth";
 import { exec } from "./proc";
 
 // The Mac's Cloudflare tunnel (`com.eric.cloudflared`, `~/.cloudflared/config.yml`) carries the connector and the
@@ -7,7 +7,6 @@ import { exec } from "./proc";
 // it only when Cloudflare says it has no tunnel to us (530) or nothing answered while the internet is up.
 
 export const TUNNEL_EVERY_MS = 2 * 60_000;
-const PROBE = `${ORIGIN}/.well-known/oauth-protected-resource/mcp`;
 
 /** The probe's HTTP status (0: no answer) means the tunnel is down. Any other answer (a 502 from a dead app behind it included) means Cloudflare reached the Mac. */
 export const tunnelDown = (status: number) => status === 530 || status === 0;
@@ -20,7 +19,7 @@ const statusOf = (url: string) =>
 
 /** One probe: restarts cloudflared when the tunnel is down and the internet is not. */
 export async function healTunnel() {
-  const status = await statusOf(PROBE);
+  const status = await statusOf(METADATA);
   if (!tunnelDown(status) || (await statusOf("https://1.1.1.1")) === 0) {
     return;
   }
