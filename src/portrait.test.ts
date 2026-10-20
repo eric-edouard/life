@@ -26,7 +26,7 @@ const login = async (password: string, origin = ORIGIN) =>
     })
   )) as Response;
 const session = (res: Response) =>
-  (res.headers.get("set-cookie") ?? "").split(";")[0];
+  (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
 
 test("nothing of his before the password: the form, a wrong one 401, another site's post 403", async () => {
   const form = await get();
@@ -47,6 +47,15 @@ test("the right password gives a cookie that opens the page until it expires", a
   expect(await (await get(cookie)).text()).toContain("as Life knows him");
   clock += 31 * 24 * 3600 * 1000;
   expect(await (await get(cookie)).text()).toContain('type="password"');
+});
+
+test("a new password signs every browser out", async () => {
+  const cookie = session(await login("open sesame"));
+  const changed = createPortrait("new one", page, () => clock);
+  const res = (await changed.handle(
+    new Request(`${ORIGIN}/me`, { headers: { cookie } })
+  )) as Response;
+  expect(await res.text()).toContain('type="password"');
 });
 
 test("five wrong tries a minute, then even the right password waits", async () => {
