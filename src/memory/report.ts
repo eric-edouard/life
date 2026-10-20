@@ -1,5 +1,5 @@
 import { type Health, polling } from "../health";
-import { log, logDays, logEvents } from "../log";
+import { log, recentEvents } from "../log";
 import type { Action } from "../schema";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
@@ -248,6 +248,19 @@ export const taskReport = (a: Action, title: string, cause: string) =>
     verdict: "NEEDS YOU",
   });
 
+/** The alert for a lapsed `ask` subscription: about Atlas, not one task. */
+export const lapseReport = (open: number, now: number) =>
+  alert(new Date(now).toISOString(), "Atlas", {
+    failure: { error: "no live subscription to `ask`", step: "delivery" },
+    notes: [
+      `${open} open tasks wait, and new asks are recorded but reach Atlas only once it subscribes again.`,
+    ],
+    preheader: `Atlas isn't receiving asks: ${open} open tasks`,
+    stats: [{ label: "open tasks", value: String(open) }],
+    subject: "Atlas isn't receiving asks",
+    verdict: "NEEDS YOU",
+  });
+
 /** The alert for an action that failed: his words are in it, so he can do the thing by hand. */
 export const actionFailedReport = (a: Action) =>
   alert(a.at, "Life action", {
@@ -314,10 +327,7 @@ let sent: Set<string> | undefined;
 /** Whether `id` went out already: the `email.sent` log of the last 8 days, read once per process. */
 async function sentBefore(id: string) {
   sent ??= new Set(
-    (await logDays())
-      .slice(0, 8)
-      .flatMap((n) => logEvents<{ key: string }>(n, "email.sent"))
-      .map((e) => e.key)
+    (await recentEvents<{ key: string }>(8, "email.sent")).map((e) => e.key)
   );
   return sent.has(id);
 }

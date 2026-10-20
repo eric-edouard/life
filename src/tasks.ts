@@ -188,19 +188,16 @@ export const settled = (s: { since: string; state: State }, now: number) =>
   closed(s.state) && now - Date.parse(s.since) > DAY;
 
 const WEEK = "stuck for 7 days";
-export const LAPSE = "Atlas isn't receiving asks";
+const LAPSE = "Atlas isn't receiving asks";
 
 /**
- * Why he must look at a task now, or null: every task, chat ones too. Atlas isn't subscribed, waits on him over an
- * hour, let it pass its deadline (unclaimed 30 min after the ask, or claimed and silent), or it is a week old.
+ * Why he must look at a task now, or null: every task, chat ones too. Atlas waits on him over an hour, let it pass
+ * its deadline (unclaimed 30 min after the ask, or claimed and silent), or it is a week old.
  */
-export function escalation(t: Task, now: number, live: boolean) {
+export function escalation(t: Task, now: number) {
   const { deadline, end, since, state } = standing(t);
   if (closed(state)) {
     return null;
-  }
-  if (!live) {
-    return LAPSE;
   }
   if (state === "waiting-eric" && now - Date.parse(since) > HOUR) {
     return `Atlas needs you: ${end.question}`;
@@ -214,20 +211,28 @@ export function escalation(t: Task, now: number, live: boolean) {
 }
 
 /**
- * The tasks that need him now, each with the key it is emailed once under: task, cause and Atlas's last update (a
+ * What needs him now, each with the key it is emailed once under. With no live subscription, one alert a day (his
+ * day) for all the open tasks; else each task that needs him, keyed by task, cause and Atlas's last update (a
  * week-old task once, however often Atlas extends it).
  */
-export const alerts = (tasks: Task[], now: number, live: boolean) =>
-  tasks.flatMap((t) => {
-    const cause = escalation(t, now, live);
+export function alerts(tasks: Task[], now: number, live: boolean) {
+  if (!live) {
+    const open = tasks.filter((t) => !closed(standing(t).state)).length;
+    return open
+      ? [{ cause: LAPSE, key: `lapse/${localDate(iso(now))}`, open }]
+      : [];
+  }
+  return tasks.flatMap((t) => {
+    const cause = escalation(t, now);
+    if (!cause) {
+      return [];
+    }
     const since = cause === WEEK ? "" : standing(t).since;
-    // A lapsed subscription is one email a day, not one per open task.
-    const key =
-      cause === LAPSE
-        ? `lapse/${localDate(iso(now))}`
-        : `task/${t.ask.id}/${cause?.split(":")[0]}/${since}`;
-    return cause ? [{ cause, key, t }] : [];
+    return [
+      { cause, key: `task/${t.ask.id}/${cause.split(":")[0]}/${since}`, t },
+    ];
   });
+}
 
 const Text = z.string().min(1).max(2000);
 const Step = z.object({

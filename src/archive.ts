@@ -1,7 +1,7 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type LogEvent, log, runEvents } from "./log";
+import { type LogEvent, log, recentEvents } from "./log";
 import { codeAt, exec } from "./proc";
 import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
 import { fromAppleS, toAppleS } from "./sources/imessage";
@@ -476,7 +476,7 @@ export function openIncidents(lines: LogEvent[]) {
 
 /** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
 export async function archiveFailing(ms = 0, now = Date.now()) {
-  return [...openIncidents(await runEvents(ARCHIVE_LOOKBACK))].filter(
+  return [...openIncidents(await recentEvents(ARCHIVE_LOOKBACK))].filter(
     ([, e]) => now - Date.parse(e.at) >= ms
   );
 }
