@@ -109,7 +109,7 @@ export const Action = z
     after: z.record(z.string(), z.unknown()),
     at: isoDateTime,
     before: z.record(z.string(), z.unknown()).optional(),
-    // Also "partial: <failed step>" on an add that was created but lost a private field (result ok).
+    // Also "partial: <failed step>" on an add or edit that was done but lost a private field (result ok).
     error: z.string().optional(),
     id: z.string().regex(/^act_[0-9a-f]{12}$/),
     instruction: z

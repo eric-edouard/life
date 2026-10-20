@@ -273,7 +273,8 @@ export function actionLine(a: Action) {
   const outcome = {
     duplicate: ` duplicate of #${a.target.split(":")[1]}`,
     failed: ` FAILED: ${a.error}`,
-    ok: "",
+    // A partial (done, a private step such as the section failed) is ok with its error.
+    ok: a.error ? ` (${a.error})` : "",
   }[a.result];
   return `${what} ← “${a.instruction?.quote}”${outcome}`;
 }

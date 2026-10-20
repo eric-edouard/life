@@ -32,6 +32,9 @@ test("an action reads as what it did, his words, and how it ended", () => {
   expect(actionLine(action({ error: "boom", result: "failed" }))).toEndWith(
     " FAILED: boom"
   );
+  expect(actionLine(action({ error: "partial: section: x" }))).toEndWith(
+    " (partial: section: x)"
+  );
   expect(actionLine(action({ result: "duplicate" }))).toEndWith(
     " duplicate of #12"
   );
