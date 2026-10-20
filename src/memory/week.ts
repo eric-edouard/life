@@ -4,17 +4,21 @@ import { readWorkouts, type Workout } from "../sources/hevy";
 import { touches } from "./ledger";
 import { asData } from "./raw";
 import { momentLine, momentsWhere } from "./search";
-import { dayRange, daysBefore, time } from "./units";
-import { localDate } from "./zones";
+import { daysBefore, time } from "./units";
+import { dayStart, localDate } from "./zones";
 
 // `bun life memory week <date>`, and the connector's `week`: the plan next to what happened, day by day, Monday to
 // Sunday of the week holding `date`. The plan is his calendar's `#plan` blocks, the workouts are Hevy's, the rest is
 // the moments. Nothing is matched or judged here: the reader (Atlas, at the weekly review) does that.
 
 const span = (b: Block | Workout) => `${time(b.start)}–${time(b.end)}`;
-/** An all-day block is stored at midnight UTC of its own day, whatever zone he is in. */
-const dayOf = (b: Block) =>
-  b.allDay ? b.start.slice(0, 10) : localDate(b.start);
+/** The local day of a block's edge; an all-day block is stored at midnight UTC of its own days, whatever zone he is in. */
+const dayAt = (b: Block, iso: string) =>
+  b.allDay ? iso.slice(0, 10) : localDate(iso);
+/** A block on day `d`: from its start's day to the day of its last minute. */
+const on = (b: Block, d: string) =>
+  dayAt(b, b.start) <= d &&
+  d <= dayAt(b, new Date(Date.parse(b.end) - 60_000).toISOString());
 
 /** A section of a day: the rows of `list` that `keep` keeps, `empty` when none does, or why the source gave none. */
 function section<T>(
@@ -43,7 +47,7 @@ export function weekLines(
     ...section(
       "Plan (his calendar):",
       plan,
-      (b) => dayOf(b) === d,
+      (b) => on(b, d),
       (b) => `- ${b.allDay ? "all day" : span(b)} ${b.title}`,
       "no plan"
     ),
@@ -85,8 +89,7 @@ export async function week(date: string) {
   );
   const days = Array.from({ length: 7 }, (_, i) => daysBefore(monday, -i));
   const sunday = days.at(-1) as string;
-  const range = dayRange(monday, sunday);
-  const [from, to] = [new Date(range.from ?? ""), new Date(range.to ?? "")];
+  const [from, to] = [dayStart(monday), dayStart(daysBefore(sunday, -1))];
   const [plan, workouts, moments] = await Promise.all([
     rows("LIFE_CALENDAR", () => readPlan(from, to)),
     rows("HEVY_API_KEY", () => readWorkouts(from, to)),
