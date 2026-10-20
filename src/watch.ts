@@ -11,6 +11,7 @@ import { codeAt } from "./proc";
 import { serveConnector } from "./server";
 import { openStore, poll, type Store } from "./sources/lifelog";
 import { ROOT } from "./truth";
+import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
@@ -19,6 +20,7 @@ import { ROOT } from "./truth";
 // It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks;
 // every loop `tick` chases Atlas's tasks and mirrors them on his board (src/board.ts); `deliver` pushes the asks, nudges and
 // steers not yet delivered to Atlas (src/events.ts).
+// Every 2 minutes it also heals the Mac's tunnel (src/tunnel.ts).
 
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
@@ -154,6 +156,14 @@ export async function watch(): Promise<number> {
     console.log(
       `${new Date().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
     )
+  );
+  // Beside the loop, so a slow probe never holds up hearing; the process exits on new code all the same.
+  setInterval(
+    () =>
+      healTunnel().catch((e: Error) =>
+        log("run.error", { error: e.message, step: "watch.tunnel" })
+      ),
+    TUNNEL_EVERY_MS
   );
   const pending: Pending = new Map();
   const speech: Speech = (conversation, from) =>
