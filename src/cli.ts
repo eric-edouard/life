@@ -1,11 +1,13 @@
+import { parseArgs } from "node:util";
 import { Asked, actAsked, checks, requested } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { readEngine, setEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
-import { actionLine } from "./memory/report";
+import { actionLine, duration } from "./memory/report";
+import { dayRange } from "./memory/units";
 import { Engine } from "./schema";
-import { ask } from "./tasks";
+import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
 
@@ -51,6 +53,39 @@ const commands: Record<string, () => Promise<number>> = {
     );
     console.log(`${done.id}: ${actionLine(done)}`);
     return Promise.resolve(0);
+  },
+  /**
+   * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each moment as
+   * the time since the one before it (src/tasks.ts `timings`).
+   */
+  async asks() {
+    const { values } = parseArgs({
+      args: process.argv.slice(3),
+      options: { from: { type: "string" }, to: { type: "string" } },
+    });
+    const { from, to } = dayRange(values.from, values.to);
+    for (const { id, madeBy, moments, quote } of await timings(from, to)) {
+      const [[, spoke] = [], ...rest] = moments;
+      let prev = spoke ?? "";
+      const hops = rest.flatMap(([moment, at]) => {
+        const hop = at
+          ? [`${moment} +${duration(Date.parse(at) - Date.parse(prev))}`]
+          : [];
+        prev = at ?? prev;
+        return hop;
+      });
+      const words = JSON.stringify(quote.slice(0, 60));
+      console.log(
+        [
+          spoke?.replace("T", " ").slice(0, 19),
+          id,
+          madeBy,
+          ...hops,
+          words,
+        ].join("  ")
+      );
+    }
+    return 0;
   },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (src/backup.ts). */
   backup,

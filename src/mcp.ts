@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Asked, actAsked, openReminders } from "./actions";
 import {
   ISSUER,
+  METADATA,
   ORIGIN,
   RESOURCE,
   type Refused,
@@ -37,7 +38,6 @@ import { ROOT } from "./truth";
 // Auth: a Bearer JWT that lifelog's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
-const METADATA = `${ORIGIN}/.well-known/oauth-protected-resource/mcp`;
 const CHALLENGE = `Bearer resource_metadata="${METADATA}", scope="${SCOPES.join(" ")}"`;
 
 const ICONS: Record<string, string> = {
@@ -226,7 +226,7 @@ function buildServer() {
   tool(
     server,
     "search",
-    "Find a topic across the owner's memory (moments: what happened or is planned; observations; units), the exact words spoken in recordings and the chat messages (90 days) and Apple Notes versions (any age) holding all the words. Returns cited passages with ids; `fetch` one for more.",
+    "Find a topic across the owner's memory (moments: what happened or is planned; observations; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from `from`) and Apple Notes versions (any age) holding all the words. `from`/`to` bound every section. Returns cited passages with ids; `fetch` one for more.",
     z.object({ query: z.string().min(2).max(500), ...range }),
     ({ query, ...rest }) => search(query, rest)
   );
@@ -244,29 +244,38 @@ function buildServer() {
   tool(
     server,
     "day",
-    "Everything on one day: what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
+    "Everything on one day: what is due (his own open to-dos and promises), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
     z.object({ date: Day }),
     ({ date }) => day(date)
   );
   tool(
     server,
     "person",
-    "A person's page: who they are to the owner, the latest observations, the last moments with them and recorded conversations. With no name, lists who has a page.",
-    z.object({ name: z.string().optional().describe("Name, alias or id") }),
-    ({ name }) => person(name)
+    "A person's page, whole (who they are to the owner, where things stand, History), what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first, and recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
+    z.object({
+      before: Day.optional().describe(
+        "Page back: only what is older than this day"
+      ),
+      name: z.string().optional().describe("Name, alias or id"),
+    }),
+    ({ name, before }) => person(name, { before })
   );
   tool(
     server,
     "area",
-    "An area's page (a part of the owner's life or work): its digest and latest observations.",
+    "An area's page (a part of the owner's life or work): the page and its latest observations.",
     z.object({ name: z.string().min(1).describe("Area id or name") }),
     ({ name }) => area(name)
   );
   tool(
     server,
     "chats",
-    "Read chats (WhatsApp, Telegram, LINE, iMessage, messages deleted for everyone included). `who` (a person) or `chat`: the latest 200 messages of the last 7 days. To find messages by their words, use `search`.",
+    "Read chats (WhatsApp, Telegram, LINE, iMessage, messages deleted for everyone included), as far back as the archive goes. `who` (a person) or `chat`: the latest 200 messages from `from` (without it, the last 90 days for `who`, 7 for `chat`); `before` pages back (each answer names the next). To find messages by their words, use `search`.",
     z.object({
+      before: z.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("Page back: only messages before this instant"),
       chat: z.string().optional().describe("A chat id"),
       who: z.string().optional().describe("A name, alias or handle"),
       ...range,

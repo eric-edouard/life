@@ -184,3 +184,57 @@ export async function observationsNow({
   );
   return { all, observations, standing };
 }
+
+/** Who goes by this name (or id): the people on the map and the ones Life inferred, by name or alias. */
+export function namedLike<
+  T extends { aliases: string[]; id: string; name: string },
+>(name: string, people: T[]) {
+  return people.filter(
+    (p) =>
+      p.id === name ||
+      [p.name, ...p.aliases].some((n) => normalize(n) === normalize(name))
+  );
+}
+
+function distance(a: string, b: string) {
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      next[j] = Math.min(
+        (row[j] ?? 0) + 1,
+        (next[j - 1] ?? 0) + 1,
+        (row[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    row = next;
+  }
+  return row[b.length] ?? 0;
+}
+
+/**
+ * Who a name no one goes by may mean: the people whose name or alias, or one of its words, is an edit or two from it
+ * (one for a name of four letters or fewer), nearest first, five at most. A misheard or misspelled name, never a guess
+ * picked for the caller.
+ */
+export function nearNames<
+  T extends { aliases: string[]; id: string; name: string },
+>(name: string, people: T[]) {
+  const q = normalize(name);
+  const max = q.length <= 4 ? 1 : 2;
+  const best = new Map<string, { d: number; p: T }>();
+  for (const p of people) {
+    for (const n of [p.name, ...p.aliases].map(normalize)) {
+      for (const w of new Set([n, ...n.split(" ")])) {
+        const d = distance(q, w);
+        if (d <= max && d < (best.get(p.id)?.d ?? max + 1)) {
+          best.set(p.id, { d, p });
+        }
+      }
+    }
+  }
+  return [...best.values()]
+    .sort((a, b) => a.d - b.d || a.p.name.localeCompare(b.p.name))
+    .slice(0, 5)
+    .map(({ p }) => p);
+}
