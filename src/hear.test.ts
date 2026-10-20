@@ -11,13 +11,14 @@ import {
 import { apply } from "./sources/lifelog";
 import { tasksOf } from "./tasks";
 
-test("only the two words “hey Atlas”, in order, wake it, whatever the case and punctuation", () => {
+test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
     "hey Atlas, book a table",
     "Hey, Atlas.",
     "HEY ATLAS",
     "so... hey — atlas, remind me",
     "and then hey atlas",
+    "hey, zorba: call",
   ]) {
     expect(WAKE.test(said)).toBe(true);
   }
@@ -29,6 +30,7 @@ test("only the two words “hey Atlas”, in order, wake it, whatever the case a
     "hey there Atlas",
     "Atlas hey",
     "hey atlases",
+    "hey zorbas",
   ]) {
     expect(WAKE.test(said)).toBe(false);
   }
