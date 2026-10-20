@@ -61,7 +61,7 @@ function fold(
   const recent = turns.filter((t) => now - Date.parse(t.at) < RECENT_MS);
   if (recent.length < turns.length) {
     console.log(
-      `${new Date(now).toISOString()} not heard: ${turns.length - recent.length} of his turns older than a week`
+      `${new Date(now).toISOString()} not heard: ${turns.length - recent.length} turns older than a week`
     );
   }
   for (const t of recent) {
