@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { asksIn, hear, speechIn, type Turn, wakes, whose } from "./hear";
+import { asksIn, hear, speechIn, type Turn, WAKE, whose } from "./hear";
 import { ACTIONS } from "./memory/ledger";
 import {
   turn as fed,
@@ -19,7 +19,7 @@ test("only the two words “hey Atlas”, in order, wake it, whatever the case a
     "so... hey — atlas, remind me",
     "and then hey atlas",
   ]) {
-    expect(wakes(said)).toBe(true);
+    expect(WAKE.test(said)).toBe(true);
   }
   for (const said of [
     "ok Atlas, book a table",
@@ -30,7 +30,7 @@ test("only the two words “hey Atlas”, in order, wake it, whatever the case a
     "Atlas hey",
     "hey atlases",
   ]) {
-    expect(wakes(said)).toBe(false);
+    expect(WAKE.test(said)).toBe(false);
   }
 });
 
@@ -166,12 +166,12 @@ test("speech is complete once its last turn is someone else's or ends a recordin
   expect(state(8, [his, nobody])).toBe("complete");
 });
 
-test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds back only itself", async () => {
+test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds back only itself (his misheard one waits for nothing)", async () => {
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: null, text: "hey Atlas, water the plant" },
-        { speakerId: null, text: "hey Atlas, call the bank" },
+        { speakerId: null, text: "hey Zorba, call the bank" },
       ],
     }),
   });
@@ -191,12 +191,12 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
     expect(
       await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))
     ).toBe(false);
-    expect(quotes()).toEqual(["hey Atlas, call the bank"]);
+    expect(quotes()).toEqual(["hey Zorba, call the bank"]);
     expect(
       await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))
     ).toBe(true);
     expect(quotes()).toEqual([
-      "hey Atlas, call the bank",
+      "hey Zorba, call the bank",
       "hey Atlas, water the plant",
     ]);
   } finally {

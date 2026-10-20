@@ -12,8 +12,16 @@ import { TEST } from "./truth";
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
 
-/** The two words in this order, whatever the case and the punctuation around or between them. */
-export const WAKE = /\bhey\W+atlas\b/i;
+/**
+ * "hey Atlas" as lifelog may write it (`LIFE_MISHEARD` in `.env`, 3 of 18 by 20 Oct): a real name people he knows go
+ * by, so that one wakes only on his own turn, as `low` (Atlas confirms with him first).
+ */
+const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
+/** "hey" then Atlas or its misheard word, whatever the case and the punctuation around or between them. */
+export const WAKE = new RegExp(
+  String.raw`\bhey\W+(atlas${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
+  "i"
+);
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;
 /** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */
@@ -21,21 +29,13 @@ export const CLOSED_ON_SILENCE_S = 60;
 /** How long a wake with no speaker waits for lifelog to name him (70% of recordings within 10 s, 5% more by 40 s). */
 const NAMING_MS = 40_000;
 
-export const wakes = (text: string) => WAKE.test(text);
-/**
- * "hey <word>" as lifelog mishears "hey Atlas" (3 of 18 by 20 Oct): `LIFE_MISHEARD` in `.env`, its one word a real
- * name people he knows go by, so it wakes only on his own turn, as `low` (Atlas confirms with him first).
- */
-const MISHEARD_WORD = TEST ? "Zorba" : process.env.LIFE_MISHEARD;
-const MISHEARD = MISHEARD_WORD
-  ? new RegExp(String.raw`\bhey\W+${RegExp.escape(MISHEARD_WORD)}\b`, "i")
-  : undefined;
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn) {
-  if (t.who !== "other" && wakes(t.text)) {
+  const word = WAKE.exec(t.text)?.[1]?.toLowerCase();
+  if (word === "atlas" && t.who !== "other") {
     return t.who === "me" ? "high" : "low";
   }
-  return t.who === "me" && MISHEARD?.test(t.text) ? "low" : undefined;
+  return word && t.who === "me" ? "low" : undefined;
 }
 
 /** One turn as the hearing sees it: whose it is (his, unattributed, someone else's) and its words. */
@@ -139,7 +139,7 @@ export async function hear(
   );
   // A wake with no speaker, younger than NAMING_MS: held, so lifelog can still name him.
   const held = (a: { timing: { arrived: string }; turns: number[] }) =>
-    turns[a.turns[0] ?? 0]?.who === "unknown" &&
+    turns[a.turns[0] ?? -1]?.who === "unknown" &&
     now - Date.parse(a.timing.arrived) < NAMING_MS;
   const asks = asksIn(turns, from);
   for (const a of asks.filter((x) => !held(x))) {
@@ -147,7 +147,7 @@ export async function hear(
       { at: a.at, quote: a.quote, ref: a.ref },
       { confidence: a.confidence, conversation, turns: a.turns },
       "watch",
-      "heard “hey Atlas”",
+      "heard its wake",
       now,
       a.timing
     );
