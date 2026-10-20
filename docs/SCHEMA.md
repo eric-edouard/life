@@ -137,7 +137,7 @@ line per unit and run, `observations` being how many it kept (often 0), `people`
 changes, when its people are someone else since (`truth/` changed who a handle or name is, an unknown name now
 known included), or when a `reread` correction names it after its last reading. Either takes effect when the unit's day
 is next read: the night reads the last 7 days, `backfill` older ones. Folds, `this-is` and inferred names need no new
-reading: readers file observations as of today. and only the latest extraction of a unit counts: observations from an older one are ignored
+reading: readers file observations as of today. Only the latest extraction of a unit counts: observations from an older one are ignored
 (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
 re-cut, Life's own mail).
 
