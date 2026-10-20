@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { TEST } from "../truth";
 import { fromAppleS, toAppleS } from "./imessage";
 
-// His plan: the events Atlas writes on his word to his main Google calendar, tagged `#plan` in their description, read
+// His plan: the events Atlas writes on his word to his main Google calendar, tagged `#plan` in their description (never
+// an invitation: those have attendees, Atlas's blocks none), read
 // from the Mac's Calendar database (which syncs that calendar), opened read-only. Never written: Life writes no calendar.
 
 const DB = join(
@@ -50,6 +51,7 @@ export function readPlan(
         `select i.summary as title, i.start_date as start, i.end_date as end, i.all_day as allDay
            from CalendarItem i join Calendar c on c.ROWID = i.calendar_id
           where c.external_id = ? and instr(i.description, ?) > 0 and i.status <> ${CANCELED} and not i.hidden
+            and not i.has_attendees
             and i.start_date < ? and i.end_date > ?
           order by i.start_date`
       )
