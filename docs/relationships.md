@@ -30,7 +30,7 @@ resolver or summary hierarchy (`handoff.md`). Time is already modeled: said (`at
 4. Who gets a page and that section comes from a **closeness level, judged by a model** on numbers code counts from raw
    signals only (two-way 1:1 message days, voice presence, how recent), never from model output (no feedback loop).
    Personal and work closeness are separate scores; a person can have both. Service accounts are not people. Family
-   and partner keep a floor. The owner can override any level in a sentence. No list he has to keep.
+   and partner keep a floor (the judging prompt's rule: close family is close whatever the counts). The owner can override any level in a sentence. No list he has to keep.
 5. Index everything: no per-person opt-out. (He has his close friend's approval to process his voice.)
 6. Relationship moments (agreement, boundary, conflict and repair, trust, a change of role) count more for close
    people, from the next prompt versions on.

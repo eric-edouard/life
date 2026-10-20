@@ -36,7 +36,12 @@ const msg = (
 
 test("closeness counts 1:1 chats and mail only, by the day each side wrote; a group or a mailing list says nothing", () => {
   const resolve = (s: string) =>
-    ({ "+1": "person:ann", "+2": "person:bob" })[s] ?? null;
+    ({
+      "+1": "person:ann",
+      "+2": "person:bob",
+      "ann@x.com": "person:ann",
+      lid1: "person:bob",
+    })[s] ?? null;
   const days = chatDays(
     [
       msg("+1", "2026-10-01T10:00:00.000Z", false),
@@ -47,6 +52,18 @@ test("closeness counts 1:1 chats and mail only, by the day each side wrote; a gr
       msg("+9", "2026-10-01T10:00:00.000Z", false),
       // A chat only he wrote in counts for its person, one way.
       msg("+2", "2026-10-02T09:00:00.000Z", true),
+      // One person writing from two handles in one chat is still a 1:1.
+      msg("bob-chat", "2026-10-02T10:00:00.000Z", false, "+2"),
+      msg("bob-chat", "2026-10-02T10:01:00.000Z", false, "lid1"),
+      // A mail thread both ways: a mail day, not a chat day.
+      {
+        ...msg("thread", "2026-10-02T11:00:00.000Z", false, "ann@x.com"),
+        source: "mail" as const,
+      },
+      {
+        ...msg("thread", "2026-10-02T12:00:00.000Z", true),
+        source: "mail" as const,
+      },
       // A group by its id, though only one other person wrote in it, and a newsletter.
       msg("120@g.us", "2026-10-01T10:00:00.000Z", false, "+2"),
       { ...msg("+2", "2026-10-01T10:00:00.000Z", false), bulk: true },
@@ -58,12 +75,16 @@ test("closeness counts 1:1 chats and mail only, by the day each side wrote; a gr
   expect(t).toMatchObject({
     first: "2026-10-01",
     last: "2026-10-02",
+    mail: 1,
     twoWay: 1,
     voice: 0,
   });
-  // A day both ways weighs 1, one way 0.3, halving with age.
-  expect(t.recent).toBe(1.3);
-  expect(bucket(t)).toBe("1/1");
+  expect(
+    tally(days.get("person:bob") ?? new Map(), "2026-10-02").recent
+  ).toBeGreaterThan(0.3);
+  // A day both ways weighs 1, one way 0.3, the more of chat and mail (day 2: one way in chat, both ways in mail).
+  expect(t.recent).toBe(2);
+  expect(bucket(t)).toBe("2/2");
 });
 
 const row = (person: string, over: Partial<Closeness> = {}): Closeness =>
@@ -80,73 +101,43 @@ const row = (person: string, over: Partial<Closeness> = {}): Closeness =>
     ...over,
   }) as Closeness;
 
-test("a level keeps a page when close or once close, never a service's; family stays regular; his word wins", () => {
+test("a level keeps a page when close or once close, never a service's; his word wins; a folded person is the kept one", () => {
   const rows = new Map([
     ["person:ann", row("person:ann", { personal: "inner" })],
     ["person:bob", row("person:bob", { work: "regular" })],
-    ["person:dad", row("person:dad")],
     ["person:old", row("person:old", { personal: "faded" })],
     ["person:bank", row("person:bank", { personal: "regular", service: true })],
     ["person:joe", row("person:joe", { personal: "inner" })],
-    ["person:eve", row("person:eve")],
-    ["person:tom", row("person:tom")],
-    ["person:liz", row("person:liz")],
-    // Folded into Ann: her levels are Ann's.
-    [
-      "person:ann2",
-      row("person:ann2", {
-        at: "2026-10-19T00:00:00.000Z",
-        personal: "regular",
-      }),
-    ],
+    // Folded into Ann: only Ann's own judgment counts.
+    ["person:ann2", row("person:ann2", { at: "2026-10-21T00:00:00.000Z" })],
   ]);
-  const truth = {
-    people: [
-      { id: "dad", relation: "father" },
-      { id: "new", relation: "friend" },
-      { id: "bob", relation: "business partner" },
-      { id: "eve", relation: "ex-girlfriend" },
-      { id: "tom", relation: "brother, runs a business" },
-      { id: "liz", relation: "sister-in-law" },
-    ],
-  } as never;
-  const levels = levelsNow(
-    rows,
-    [
-      {
-        at: "2026-10-20T00:00:00.000Z",
-        kind: "closeness",
-        person: "person:joe",
-        personal: "acquaintance",
-      } as never,
-      {
-        at: "2026-10-20T00:00:00.000Z",
-        from: "person:ann2",
-        kind: "same-person",
-        to: "person:ann",
-      } as never,
-    ],
-    truth
-  );
-  expect(levels.get("person:dad")?.personal).toBe("regular");
-  // A business partner, an ex: not family.
-  expect(levels.get("person:bob")?.personal).toBe("acquaintance");
-  expect(levels.get("person:eve")?.personal).toBe("acquaintance");
-  // What follows the family word doesn't undo it; an in-law isn't kept.
-  expect(levels.get("person:tom")?.personal).toBe("regular");
-  expect(levels.get("person:liz")?.personal).toBe("acquaintance");
-  expect(levels.get("person:joe")?.why).toBe("your word");
+  const levels = levelsNow(rows, [
+    {
+      at: "2026-10-20T00:00:00.000Z",
+      kind: "closeness",
+      person: "person:joe",
+      personal: "acquaintance",
+    } as never,
+    {
+      at: "2026-10-20T00:00:00.000Z",
+      from: "person:ann2",
+      kind: "same-person",
+      to: "person:ann",
+    } as never,
+  ]);
+  expect(levels.get("person:joe")).toMatchObject({
+    personal: "acquaintance",
+    why: "your word",
+  });
   expect(levels.has("person:ann2")).toBe(false);
   expect(levels.get("person:ann")?.personal).toBe("inner");
-  expect(levels.get("person:joe")?.personal).toBe("acquaintance");
-  expect([...pagedBy(levels, truth)].sort()).toEqual([
+  // Someone on his map not judged yet keeps a page until judged.
+  expect([...pagedBy(levels, ["person:new"])].sort()).toEqual([
     "person:ann",
     "person:bob",
-    "person:dad",
     "person:me",
     "person:new",
     "person:old",
-    "person:tom",
   ]);
 });
 
@@ -206,7 +197,7 @@ test("voice days are the days someone spoke in a live recording, by lifelog's ow
   const days = voiceDays(store, (s) => (s === "p1" ? "person:anne" : null));
   expect([...days.keys()]).toEqual(["person:anne"]);
   expect([...(days.get("person:anne")?.values() ?? [])]).toEqual([
-    { got: 0, sent: 0, voice: true },
+    { chat: { got: 0, sent: 0 }, mail: { got: 0, sent: 0 }, voice: true },
   ]);
 });
 

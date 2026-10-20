@@ -32,10 +32,10 @@ const PER_CALL = 40;
 /** How far back the counts read: a day older than this weighs under an eighth of a recent one in `lasting`. */
 const YEARS = 3;
 
-/** One day with someone: messages each way in a 1:1 chat, and whether they spoke in a recording. */
+/** One day with someone: messages each way in a 1:1 chat and in mail (mostly work), and whether they spoke in a recording. */
 interface Day {
-  got: number;
-  sent: number;
+  chat: { got: number; sent: number };
+  mail: { got: number; sent: number };
   voice: boolean;
 }
 /** Per person ref, per local day. */
@@ -44,20 +44,27 @@ export type Days = Map<string, Map<string, Day>>;
 const dayOf = (days: Days, who: string, day: string) => {
   const of = days.get(who) ?? new Map<string, Day>();
   days.set(who, of);
-  const d = of.get(day) ?? { got: 0, sent: 0, voice: false };
+  const d = of.get(day) ?? {
+    chat: { got: 0, sent: 0 },
+    mail: { got: 0, sent: 0 },
+    voice: false,
+  };
   of.set(day, d);
   return d;
 };
 
 /**
- * Who one chat's messages are with: its one other sender, else (a chat only he wrote in) its id, else its name (a
- * mail thread's is its subject: never); none when more than one other person wrote.
+ * Who one chat's messages are with: its one other person (handles resolved, so one person writing from two handles is
+ * one), else (a chat only he wrote in) its id's, else its name's (a mail thread's is its subject: never); none when
+ * more than one other person wrote.
  */
 function chatPerson(
   list: SourceEvent[],
   resolve: (s: string) => string | null
 ) {
-  const others = new Set(list.filter((e) => !e.fromMe).map((e) => e.sender));
+  const others = new Set(
+    list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
+  );
   const [first] = list;
   if (!first || others.size > 1) {
     return null;
@@ -65,7 +72,10 @@ function chatPerson(
   const [other] = others;
   const named =
     first.chatName && first.source !== "mail" ? resolve(first.chatName) : null;
-  return (other ? resolve(other) : resolve(first.chat)) ?? named;
+  if (!other) {
+    return resolve(first.chat) ?? named;
+  }
+  return other.startsWith("person:") ? other : named;
 }
 
 /**
@@ -95,7 +105,9 @@ export function chatDays(
       continue;
     }
     for (const e of list) {
-      const d = dayOf(days, who, localDate(e.at));
+      const d = dayOf(days, who, localDate(e.at))[
+        e.source === "mail" ? "mail" : "chat"
+      ];
       if (e.fromMe) {
         d.sent += 1;
       } else {
@@ -128,17 +140,20 @@ export interface Tally {
   last: string | null;
   /** Halves every 365 days: who has been close over the years. */
   lasting: number;
+  mail: number;
   /** Halves every 30 days: who is close now. */
   recent: number;
+  /** Days a 1:1 chat went both ways; a mail thread (mostly work); his recordings. */
   twoWay: number;
   voice: number;
 }
 
-/** A day's weight: a recording together 2, a chat both ways 1, one way 0.3. */
-function weight(d: Day) {
-  const chat = d.sent && d.got ? 1 : 0.3 * Number(d.sent + d.got > 0);
-  return (d.voice ? 2 : 0) + chat;
-}
+/** Messages both ways 1, one way 0.3. */
+const exchanged = (c: Day["chat"]) =>
+  c.sent && c.got ? 1 : 0.3 * Number(c.sent + c.got > 0);
+/** A day's weight: a recording together 2, then the more of its chat and its mail. */
+const weight = (d: Day) =>
+  (d.voice ? 2 : 0) + Math.max(exchanged(d.chat), exchanged(d.mail));
 
 export function tally(of: Map<string, Day>, today: string): Tally {
   const sorted = [...of.keys()].sort();
@@ -146,6 +161,7 @@ export function tally(of: Map<string, Day>, today: string): Tally {
     first: sorted[0] ?? null,
     last: sorted.at(-1) ?? null,
     lasting: 0,
+    mail: 0,
     recent: 0,
     twoWay: 0,
     voice: 0,
@@ -155,7 +171,8 @@ export function tally(of: Map<string, Day>, today: string): Tally {
     const age = (now - Date.parse(day)) / 86_400_000;
     t.lasting += weight(d) * 0.5 ** (age / 365);
     t.recent += weight(d) * 0.5 ** (age / 30);
-    t.twoWay += d.sent && d.got ? 1 : 0;
+    t.twoWay += d.chat.sent && d.chat.got ? 1 : 0;
+    t.mail += d.mail.sent && d.mail.got ? 1 : 0;
     t.voice += d.voice ? 1 : 0;
   }
   return { ...t, lasting: round(t.lasting), recent: round(t.recent) };
@@ -229,49 +246,25 @@ export function parseLevels(
 export const readCloseness = () =>
   latestBy(rowsOf(CLOSENESS, Closeness), (c) => c.person);
 
-/** A relation on his map that keeps someone at least `regular` in his personal life, however little they talk. */
-const FAMILY =
-  /\b(?:(ex|former|business|work)[- ])?(?:step-?)?(?:father|mother|dad|mum|mom|brother|sister|son|daughter|wife|husband|partner|girlfriend|boyfriend|grand\w*)(-in-law)?\b/i;
-/** …unless the word itself says they no longer are, or are not by blood or love: an ex-wife, a business partner, an in-law. */
-const isFamily = (relation: string) => {
-  const m = relation.match(FAMILY);
-  return !!m && !m[1] && !m[2];
-};
-
-/**
- * Each person's levels now: the model's latest judgment, family kept at least `regular`, then his own word
- * (`closeness` corrections, the latest per person and field) over both.
- */
+/** Each person's levels now: the model's latest judgment, then his own word (`closeness` corrections) over it. */
 export function levelsNow(
   rows: Map<string, Closeness>,
-  corrections: Correction[],
-  truth: Pick<Truth, "people">
+  corrections: Correction[]
 ) {
   const out = new Map<
     string,
     { personal: Level; service: boolean; why: string; work: Level }
   >();
-  // A person folded into another (`same-person`) is that one: the latest judgment of either stands.
+  // A person folded into another (`same-person`) is that one: only the kept person's own judgment counts (their counts
+  // took the folded one's in).
   const canon = merged(corrections);
-  for (const c of [...rows.values()].toSorted((a, b) =>
-    a.at.localeCompare(b.at)
-  )) {
-    out.set(canon(c.person), {
-      personal: c.personal,
-      service: c.service,
-      why: c.why,
-      work: c.work,
-    });
-  }
-  for (const p of truth.people) {
-    const ref = `person:${p.id}`;
-    const was = out.get(ref);
-    if (was && isFamily(p.relation ?? "") && !CLOSE.has(was.personal)) {
-      out.set(ref, {
-        ...was,
-        personal: "regular",
-        service: false,
-        why: `${p.relation}: family stays close`,
+  for (const c of rows.values()) {
+    if (canon(c.person) === c.person) {
+      out.set(c.person, {
+        personal: c.personal,
+        service: c.service,
+        why: c.why,
+        work: c.work,
       });
     }
   }
@@ -305,7 +298,7 @@ const PAGED = new Set<Level>([...CLOSE, "faded"]);
  */
 export function pagedBy(
   levels: ReturnType<typeof levelsNow>,
-  truth: Pick<Truth, "people">
+  onMap: Iterable<string>
 ) {
   const paged = new Set([OWNER]);
   for (const [ref, l] of levels) {
@@ -313,9 +306,9 @@ export function pagedBy(
       paged.add(ref);
     }
   }
-  for (const p of truth.people) {
-    if (!levels.has(`person:${p.id}`)) {
-      paged.add(`person:${p.id}`);
+  for (const ref of onMap) {
+    if (!levels.has(ref)) {
+      paged.add(ref);
     }
   }
   return paged;
@@ -323,11 +316,18 @@ export function pagedBy(
 
 /** Who has a page now (`pagedBy` over the ledger and his corrections). */
 export async function pagedNow(truth: Pick<Truth, "people">) {
+  const corrections = await readCorrections();
   return pagedBy(
-    levelsNow(readCloseness(), await readCorrections(), truth),
-    truth
+    levelsNow(readCloseness(), corrections),
+    onMapOf(truth, corrections)
   );
 }
+
+/** Everyone on his map, as the person each is now (one folded into another is that one). */
+const onMapOf = (truth: Pick<Truth, "people">, corrections: Correction[]) => {
+  const canon = merged(corrections);
+  return new Set(truth.people.map((p) => canon(`person:${p.id}`)));
+};
 
 /**
  * The nightly step: counts every person's days over the last YEARS years from the chats and his recordings, then asks
@@ -355,7 +355,7 @@ export async function closeness() {
     ...inferred.map((p) => [`person:${p.id}`, p.relation] as const),
     ...truth.people.map((p) => [`person:${p.id}`, p.relation ?? ""] as const),
   ]);
-  const onMap = new Set(truth.people.map((p) => `person:${p.id}`));
+  const onMap = onMapOf(truth, people.corrections);
   const judged = readCloseness();
   // Everyone on his map is judged, even with nothing counted (a relation alone can say close family).
   for (const ref of onMap) {

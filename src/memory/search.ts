@@ -22,7 +22,7 @@ import {
   turnOffset,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth, OWNER, type Truth } from "../truth";
+import { loadTruth, OWNER } from "../truth";
 import { levelsNow, readCloseness } from "./closeness";
 import {
   daysOf,
@@ -442,7 +442,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const id = known ?? slugOf(name);
   const ref = `person:${id}`;
   const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
-  const close = await closenessLine(ref, truth);
+  const close = await closenessLine(ref);
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
   const moments = await momentsWhere((m) =>
@@ -887,8 +887,8 @@ export async function reindex() {
 }
 
 /** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
-async function closenessLine(ref: string, truth: Truth) {
-  const l = levelsNow(readCloseness(), await readCorrections(), truth).get(ref);
+async function closenessLine(ref: string) {
+  const l = levelsNow(readCloseness(), await readCorrections()).get(ref);
   return l
     ? [
         `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}: ${l.why}`,
