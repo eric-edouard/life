@@ -446,7 +446,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(() => write(split, [done])).toThrow(`${ASK} is done`);
 });
 
-test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", () => {
+test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", async () => {
   const before = new Date().toISOString();
   log("event.sent", { event: ASK, ms: 300 });
   const heard = {
@@ -466,7 +466,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
     own("update", 5, { claim: true, state: "working" }),
     own("update", 9, { outcome: "sent", state: "done" }),
   ].map((a) => JSON.stringify(a));
-  const [t, ...rest] = timings(at(-60), at(60), tasksOf(lines));
+  const [t, ...rest] = await timings(at(-60), at(60), tasksOf(lines));
   expect(rest).toEqual([]);
   const moments = Object.fromEntries(t?.moments ?? []);
   expect(moments).toMatchObject({

@@ -88,8 +88,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   makes one from a Claude session. An ask is an Action (`kind: ask`), delivered as the MCP event `ask`
   (`events.ts`, OpenAI's spec: `events/subscribe` with a verified callback on OpenAI's hosts, Standard Webhooks
   signatures, the ledger line as the replay cursor, `derived/events.json`). `bun life asks` lists where each ask's
-  time went. On the one voice ask so far (19 Oct): 43 s phone, 3 s lifelog's server, 42 s Life's wait (now 10 s),
-  then 17 min until Atlas claimed it.
+  time went.
   Every ask is a task until Atlas closes it done or dropped (`tasks.ts`, its board `board.ts`): Atlas reports with `task` (also
   making a task from his chat words, or a split), Life nudges it past a deadline and shows every task on the Reminders
   list `Atlas` (made 19 Oct, with its sections), where his own changes steer Atlas. Rules and states: AGENTS.md and the playbook.
