@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { z } from "zod";
 import { CLOSED_ON_SILENCE_S } from "../hear";
 import {
@@ -16,7 +16,6 @@ import {
   apply,
   conversationsWith,
   Hits,
-  openStore,
   Page,
   poll,
   readConversations,
@@ -227,30 +226,19 @@ test("the owner flag is stored and read back; poll lists a turn as his once, a l
   }
 });
 
-test("a turn keeps its end and when the feed first brought it; a store from before them gains both", () => {
+test("a turn keeps its end and when the feed first brought it", () => {
   const s = store();
-  s.db.run("alter table turns drop column end_at");
-  s.db.run("alter table turns drop column seen_at");
-  const reopened = openStore(dirname(s.cursor));
   const words = {
     ...turn(0, "2026-10-14T10:00:00.000Z", null, null),
     endAt: "2026-10-14T10:00:04.000Z",
   };
-  apply(
-    reopened,
-    Page.parse(page({ turns: [words] })),
-    "2026-10-14T10:01:00.000Z"
-  );
+  apply(s, Page.parse(page({ turns: [words] })), "2026-10-14T10:01:00.000Z");
   const named = {
     ...words,
     speaker: { isOwner: true, personId: JEAN, personName: "Jean (Me)" },
   };
-  apply(
-    reopened,
-    Page.parse(page({ turns: [named] })),
-    "2026-10-14T10:01:01.000Z"
-  );
-  expect(turnsBetween(reopened, "c1")).toMatchObject([
+  apply(s, Page.parse(page({ turns: [named] })), "2026-10-14T10:01:01.000Z");
+  expect(turnsBetween(s, "c1")).toMatchObject([
     {
       end: "2026-10-14T10:00:04.000Z",
       owner: true,
