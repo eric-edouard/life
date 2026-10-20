@@ -163,9 +163,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (one process's model, `llmOverride`) is the bench's and its judge's only (`scripts/bench.ts`), refused on `~/Life`; launchd never sets it.
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
-- **Life's emails follow the owner's Ledger brand**, one source: agent-config's `ledger-brand` skill
-  (`~/.agents/skills/ledger-brand`: `SKILL.md`, its email rules, and `tokens.css`). `C` in
-  `src/memory/email.ts` copies its values as literals (email takes no CSS variables): a brand change lands in the skill first.
+- **Everything Life shows him follows the owner's Ledger brand** (emails, `/check`, `/me`, its icon, any new screen),
+  one source: agent-config's `ledger-brand` skill (`~/.agents/skills/ledger-brand`: `SKILL.md`, its email rules, and
+  `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts` and `assets/icon/` copy its values (email takes no
+  CSS variables): a brand change lands in the skill first.
 
 ## Gotchas
 
