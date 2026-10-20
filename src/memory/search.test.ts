@@ -18,14 +18,12 @@ import {
   candidateLines,
   coverageLines,
   dayLines,
-  meant,
   momentLine,
   readIndex,
   matches as searchMatches,
-  withPeopleNow,
 } from "./search";
 import { newestDays } from "./units";
-import { namedLike, nearNames } from "./who";
+import { meant, namedLike, nearNames } from "./who";
 
 test("day: the conversations with their chapters and people, then the chat and mail units", () => {
   const store = lifelogStore();
@@ -255,29 +253,35 @@ test("holding all the words: case and accents ignored, every word needed, a quer
   expect(holdsAll("??")("anything")).toBe(false);
 });
 
-test("a name means who it resolves to, shown first among those going by it; a name nothing resolves means no one", () => {
+test("a name means who it resolves to, listed first among those going by it; a name nothing resolves means no one", () => {
   const people = [
     { aliases: ["Claire"], id: "claire", name: "Claire Dupont" },
     { aliases: ["Claire"], id: "claire-friend", name: "Claire (friend)" },
+    { aliases: [], id: "ann", name: "Ann Kerr" },
+  ];
+  const mean = (name: string, resolve: (s: string) => string | null) =>
+    meant(name, {
+      canon: (r: string) => r,
+      inferred: [],
+      resolve,
+      truth: { people } as never,
+    });
+  const ids = (m: ReturnType<typeof mean>) => [
+    m.known,
+    m.same.map((p) => p.id),
   ];
   // He said this Claire is his friend (`this-is`): she is the one, listed first.
-  const said = (s: string) => (s === "Claire" ? "person:claire-friend" : null);
-  const { known, same } = meant("Claire", people, said);
-  expect(known).toBe("claire-friend");
-  expect(same.map((p) => p.id)).toEqual(["claire-friend", "claire"]);
-  expect(meant("Claire", people, () => null).known).toBe("claire");
-  expect(meant("Clai", people, () => null)).toEqual({
-    known: undefined,
-    same: [],
-  });
-});
-
-test("the index's units are with who they are today: a name since resolved, a person folded into another", () => {
-  const refOf = (r: string) =>
-    ({ "person:old": "person:new", "unknown:Bob": "person:bob" })[r] ?? r;
-  const unit = { people: ["person:old", "unknown:Bob", "person:new"] } as never;
-  expect(withPeopleNow(unit, refOf).people).toEqual([
-    "person:new",
-    "person:bob",
+  expect(
+    ids(mean("Claire", (s) => (s === "Claire" ? "person:claire-friend" : null)))
+  ).toEqual(["claire-friend", ["claire-friend", "claire"]]);
+  expect(ids(mean("Claire", () => null))).toEqual([
+    "claire",
+    ["claire", "claire-friend"],
   ]);
+  // A name he said is Ann: she is meant and listed first, though she goes by another name.
+  expect(ids(mean("Claire", () => "person:ann"))).toEqual([
+    "ann",
+    ["ann", "claire", "claire-friend"],
+  ]);
+  expect(ids(mean("Clai", () => null))).toEqual([undefined, []]);
 });
