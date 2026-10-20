@@ -214,7 +214,7 @@ that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own 
 `actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `taskLine`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`), never a list; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
-the Mac's clock); the memory steps get their units only from `gather` (`units.ts`: every channel, in time
+the Mac's clock); the memory steps get their units only from `gather` (the closeness counts alone read the sources over years, `WITH_PEOPLE`: days, never units) (`units.ts`: every channel, in time
 order, once per sweep, handed to each step) and a unit's words from `raw.ts` (`voiceLines`, `chatLines`, `unitLines`; the hearing alone fetches its own, so a
 failed fetch never reads as silence);
 a message's files become lines in `showFiles` (`memory/files.ts`) only, the readers just resolve each to a

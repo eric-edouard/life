@@ -893,11 +893,10 @@ export async function reindex() {
 
 /** How close someone is to him, personal and work, and why (`closeness.jsonl`, his word over it); none when not judged. */
 async function closenessLine(ref: string, truth: Truth) {
-  const rows = readCloseness();
-  const l = levelsNow(rows, await readCorrections(), truth).get(ref);
+  const l = levelsNow(readCloseness(), await readCorrections(), truth).get(ref);
   return l
     ? [
-        `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}${rows.get(ref) ? `: ${rows.get(ref)?.why}` : ""}`,
+        `Closeness: personal ${l.personal}, work ${l.work}${l.service ? " (a service, not a person)" : ""}: ${l.why}`,
         "",
       ]
     : [];

@@ -1,5 +1,5 @@
 import { mkdir, readdir, rm } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { stamp } from "../llm";
 import {
   type Area,
@@ -10,7 +10,7 @@ import {
   type Unit,
 } from "../schema";
 import { OWNER, type Truth } from "../truth";
-import { pagedNow } from "./closeness";
+import { levelsNow, pagedNow, readCloseness } from "./closeness";
 import {
   appendJsonl,
   CORRECTIONS,
@@ -221,11 +221,11 @@ const asInput = (o: Observation, titles: Map<string, string>) => ({
 });
 
 /** The owner's edits found on the page file now, as corrections not yet in corrections.jsonl. */
-function newCorrections(t: Target, prev: Parsed, r: Run): Correction[] {
+function newCorrections(ref: string, prev: Parsed, r: Run): Correction[] {
   const found = ownerEdits(prev);
   const have = new Set(
     r.standing.corrections.flatMap((c) =>
-      c.kind === "keep-mine" && c.page === t.ref ? [bare(c.text)] : []
+      c.kind === "keep-mine" && c.page === ref ? [bare(c.text)] : []
     )
   );
   const stamped = { at: r.at, schemaVersion: 1 as const };
@@ -236,7 +236,7 @@ function newCorrections(t: Target, prev: Parsed, r: Run): Correction[] {
         (l): Correction => ({
           ...stamped,
           kind: "keep-mine",
-          page: t.ref,
+          page: ref,
           section: l.section,
           text: l.text,
         })
@@ -249,7 +249,7 @@ function newCorrections(t: Target, prev: Parsed, r: Run): Correction[] {
           ...stamped,
           kind: "not-important",
           observations,
-          page: t.ref,
+          page: ref,
         })
       ),
   ];
@@ -258,7 +258,7 @@ function newCorrections(t: Target, prev: Parsed, r: Run): Correction[] {
 async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   const before = await readText(t.path);
   const prev = before ? parsePage(before) : null;
-  const added = prev ? newCorrections(t, prev, r) : [];
+  const added = prev ? newCorrections(t.ref, prev, r) : [];
   const everything = [...r.standing.corrections, ...added];
   const known = knownOn(
     t.observations,
@@ -420,8 +420,12 @@ export async function removeOrphans(dir: string, keep: Set<string>) {
     )
   );
   const orphans = found.flat().filter((path) => !keep.has(path));
+  // Read before they go: his edits on a page that leaves are still his (`pages` records them).
+  const read = await Promise.all(
+    orphans.map(async (path) => ({ path, text: await readText(path) }))
+  );
   await Promise.all(orphans.map((path) => rm(path)));
-  return orphans;
+  return read;
 }
 
 /** For each person ref: the unit ids to count topics over (the units of their observations, the units they are in). */
@@ -506,17 +510,24 @@ export async function pages(opts: PagesOptions) {
       }
     })
   );
-  // A page no one keeps any more (a person no longer close, an area gone) leaves; git keeps it. The report names them.
-  const dropped = only
-    ? []
-    : await removeOrphans(PAGES, new Set(all.map((t) => t.path)));
-  await appendJsonl(
-    CORRECTIONS,
-    Correction,
-    built.flatMap((b) => b.corrections)
-  );
+  // A page no one keeps any more (a person no longer close, an area gone) leaves, his edits on it recorded first; git
+  // keeps it. The report names them and why.
+  const gone = (
+    only ? [] : await removeOrphans(PAGES, new Set(all.map((t) => t.path)))
+  ).flatMap(({ text }) => {
+    const parsed = text ? parsePage(text) : null;
+    return parsed ? [parsed] : [];
+  });
+  await appendJsonl(CORRECTIONS, Correction, [
+    ...built.flatMap((b) => b.corrections),
+    ...gone.flatMap((g) => newCorrections(g.meta.page, g, r)),
+  ]);
+  const judged = levelsNow(readCloseness(), r.standing.corrections, truth);
   return {
-    dropped: dropped.map((path) => basename(path, ".md")),
+    dropped: gone.map(
+      (g) =>
+        `${g.meta.name} (${judged.get(g.meta.page)?.why ?? "not close enough to keep a page"})`
+    ),
     ...step.end({
       corrections: built.reduce((n, b) => n + b.corrections.length, 0),
       pages: built.length,

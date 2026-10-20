@@ -11,6 +11,7 @@ import { apply } from "../sources/lifelog";
 import {
   bucket,
   chatDays,
+  dueFor,
   levelsNow,
   pagedBy,
   parseLevels,
@@ -88,6 +89,8 @@ test("a level keeps a page when close or once close, never a service's; family s
     ["person:bank", row("person:bank", { personal: "regular", service: true })],
     ["person:joe", row("person:joe", { personal: "inner" })],
     ["person:eve", row("person:eve")],
+    ["person:tom", row("person:tom")],
+    ["person:liz", row("person:liz")],
     // Folded into Ann: her levels are Ann's.
     [
       "person:ann2",
@@ -103,6 +106,8 @@ test("a level keeps a page when close or once close, never a service's; family s
       { id: "new", relation: "friend" },
       { id: "bob", relation: "business partner" },
       { id: "eve", relation: "ex-girlfriend" },
+      { id: "tom", relation: "brother, runs a business" },
+      { id: "liz", relation: "sister-in-law" },
     ],
   } as never;
   const levels = levelsNow(
@@ -127,6 +132,10 @@ test("a level keeps a page when close or once close, never a service's; family s
   // A business partner, an ex: not family.
   expect(levels.get("person:bob")?.personal).toBe("acquaintance");
   expect(levels.get("person:eve")?.personal).toBe("acquaintance");
+  // What follows the family word doesn't undo it; an in-law isn't kept.
+  expect(levels.get("person:tom")?.personal).toBe("regular");
+  expect(levels.get("person:liz")?.personal).toBe("acquaintance");
+  expect(levels.get("person:joe")?.why).toBe("your word");
   expect(levels.has("person:ann2")).toBe(false);
   expect(levels.get("person:ann")?.personal).toBe("inner");
   expect(levels.get("person:joe")?.personal).toBe("acquaintance");
@@ -137,6 +146,7 @@ test("a level keeps a page when close or once close, never a service's; family s
     "person:me",
     "person:new",
     "person:old",
+    "person:tom",
   ]);
 });
 
@@ -198,4 +208,45 @@ test("voice days are the days someone spoke in a live recording, by lifelog's ow
   expect([...(days.get("person:anne")?.values() ?? [])]).toEqual([
     { got: 0, sent: 0, voice: true },
   ]);
+});
+
+test("judged again only when the rounded counts moved or the prompt changed; everyone on his map, the rest from some lasting", () => {
+  const t = (lasting: number) => ({
+    ...tally(new Map(), "2026-10-20"),
+    lasting,
+  });
+  const judged = new Map([
+    [
+      "person:ann",
+      row("person:ann", {
+        counts: bucket(t(3)),
+        madeBy: { prompt: "closeness.v1" } as never,
+      }),
+    ],
+    [
+      "person:bob",
+      row("person:bob", {
+        counts: bucket(t(3)),
+        madeBy: { prompt: "closeness.v0" } as never,
+      }),
+    ],
+  ]);
+  const due = dueFor(
+    [
+      { ref: "person:ann", t: t(3) },
+      { ref: "person:bob", t: t(3) },
+      { ref: "person:cid", t: t(0.2) },
+      { ref: "person:dad", t: t(0) },
+      { ref: "person:eli", t: t(2) },
+      { ref: "person:me", t: t(9) },
+    ],
+    judged,
+    new Set(["person:dad"])
+  ).map((d) => d.ref);
+  expect(due).toEqual(["person:bob", "person:dad", "person:eli"]);
+  // Nothing counted: no first or last day, not today.
+  expect(tally(new Map(), "2026-10-20")).toMatchObject({
+    first: null,
+    last: null,
+  });
 });
