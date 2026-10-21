@@ -12,6 +12,7 @@ import {
   Rating,
   Supersession,
 } from "../schema";
+import { kindOf } from "../sources";
 import { DATA, OWNER } from "../truth";
 import {
   ACTIONS,
@@ -37,7 +38,6 @@ import {
 } from "./ledger";
 import { type Key, PageMeta, parsePage, readLine } from "./page";
 import { readIndex } from "./search";
-import { CHATS } from "./units";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,
@@ -516,7 +516,7 @@ export async function claim(id: string) {
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));
   const handle = o.speaker === OWNER ? "me" : (authorFrom(o, chats) ?? null);
-  const chat = unit && unit.source in CHATS;
+  const chat = unit && kindOf(unit.source) === "chat";
   return {
     corrections: [
       ...hiding(ctx.corrections, id),

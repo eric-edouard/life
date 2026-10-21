@@ -53,6 +53,12 @@ interface Row {
   text: string | null;
 }
 
+/** Whether a chat is a group: a group's identifier is `chat…`, a 1:1 chat's its handle. */
+export const isImessageGroup = (chat: string) => chat.startsWith("chat");
+const HANDLE = /^(\+\d+|[^@\s]+@[^@\s]+)$/;
+/** The handle a 1:1 chat's key is (a number or an address). */
+export const handleOf = (key: string) => (HANDLE.test(key) ? key : undefined);
+
 /** `names`: his Contacts, which name a 1:1 chat that has no name of its own (Messages keeps only the number). */
 export function readImessage(
   since: Date,
@@ -82,7 +88,7 @@ export function readImessage(
       // `chat…`), the name his Contacts give that handle: every message of the chat, his own included.
       const named =
         r.chatName ||
-        (r.chat && !r.chat.startsWith("chat")
+        (r.chat && !isImessageGroup(r.chat)
           ? names.get(handleKey(r.chat))
           : undefined);
       return {

@@ -2,18 +2,14 @@ import { join } from "node:path";
 import { log } from "../log";
 import { redact } from "../redact";
 import { type Person, type SourceEvent, Unit } from "../schema";
-import { readBeeper } from "../sources/beeper";
-import { type RepoMap, readGit, repoMap } from "../sources/git";
-import { readImessage } from "../sources/imessage";
+import { type Descriptor, kindOf, SOURCES, sourceOf } from "../sources";
+import { type RepoMap, repoMap } from "../sources/git";
 import {
   type LifelogConversation,
   readConversations,
   type Store,
   withStore,
 } from "../sources/lifelog";
-import { readMail } from "../sources/mail";
-import { readNotes } from "../sources/notes";
-import { readWhatsapp } from "../sources/whatsapp";
 import {
   handleIndex,
   loadTruth,
@@ -281,7 +277,7 @@ export function oneToOne(b: Built) {
   const others = new Set(
     b.messages.filter((m) => !m.fromMe).map((m) => m.sender)
   );
-  const chat = b.unit.source in CHATS;
+  const chat = kindOf(b.unit.source) === "chat";
   return chat && others.size === 1 && b.unit.title !== b.unit.key
     ? b.unit.title
     : undefined;
@@ -320,7 +316,8 @@ function chatDay(list: SourceEvent[], handles: Map<string, string>): Built {
     (e, i) => `${time(e.at)} ${who[i] ?? e.sender}: ${redact(e.text)}`
   );
   const title =
-    first.chatName ?? (first.source === "mail" ? "(no subject)" : first.chat);
+    first.chatName ??
+    (kindOf(first.source) === "mail" ? "(no subject)" : first.chat);
   const ids = sorted.map((e) => e.id);
   return {
     messages: sorted.map((e, i) => ({
@@ -346,7 +343,7 @@ function chatDay(list: SourceEvent[], handles: Map<string, string>): Built {
         ...new Set(who.flatMap((p) => (p ? [`person:${p}`] : []))),
       ].sort(),
       refs:
-        first.source === "mail"
+        kindOf(first.source) === "mail"
           ? ids
           : [...new Set([ids[0], ids.at(-1)])].filter(
               (id): id is string => !!id
@@ -420,18 +417,18 @@ export const LIFE_CHAT = TEST
 
 /** Mail the owner never wrote in, other than his agents' reports (the model judges those: he asked for their to-dos). */
 const isMail = (b: Built) =>
-  b.unit.source === "mail" &&
+  kindOf(b.unit.source) === "mail" &&
   b.unit.stats.fromMe === 0 &&
   !b.messages.some((m) => AGENT_REPORTS.includes(m.sender));
 /** Life's nightly report and alerts: reading them back would turn its own output into facts. */
 const lifeMail = (b: Built) =>
-  b.unit.source === "mail" &&
+  kindOf(b.unit.source) === "mail" &&
   b.unit.title.startsWith(LIFE_MAIL.subject) &&
   b.messages.every((m) => m.sender === LIFE_MAIL.from);
 
 /** Cheap code rules for obvious noise (§3.3), in order. The first rule that matches drops the unit. */
 const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
-  ["no-summary", (b) => b.unit.source === "lifelog" && !b.unit.summary],
+  ["no-summary", (b) => kindOf(b.unit.source) === "voice" && !b.unit.summary],
   // Life's own chat (see LIFE_CHAT) and mail.
   ["life-output", (b) => b.unit.key === LIFE_CHAT || lifeMail(b)],
   // The same content already seen. ponytail: a note-day whose change repeats one inside the window (a tick undone and
@@ -439,7 +436,8 @@ const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
   ["duplicate", (b, seen) => seen.has(b.unit.hash)],
   [
     "too-short",
-    (b) => b.unit.source !== "lifelog" && b.unit.stats.chars < SHORT_CHARS,
+    (b) =>
+      kindOf(b.unit.source) !== "voice" && b.unit.stats.chars < SHORT_CHARS,
   ],
   // Only short messages (a long mail with a promo code in it is not a login code), or a mail whose subject says it is one.
   [
@@ -449,7 +447,7 @@ const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
       b.messages.every(
         (m) =>
           (m.text.length <= OTP_MAX && OTP.test(m.text)) ||
-          (b.unit.source === "mail" &&
+          (kindOf(b.unit.source) === "mail" &&
             CODE_SUBJECT.test(b.unit.title) &&
             m.text.length <= CODE_MAIL_MAX)
       ),
@@ -507,48 +505,47 @@ export async function safely<T>(
   }
 }
 
-/** The chats and mail as read: their events carry their files, not shown yet (`gather` describes them first). */
-const READERS = {
-  beeper: readBeeper,
-  imessage: readImessage,
-  mail: readMail,
-  notes: readNotes,
-  whatsapp: readWhatsapp,
-};
 /** A source whose events show their files as lines, as the ledger has them now. */
 const withFiles =
   (read: (since: Date) => SourceEvent[]) =>
   (since: Date): SourceEvent[] =>
     showFiles(read(since), readFiles());
 
-/** The order units are cut in: of two with the same content, the first stays and the second is dropped as a duplicate. */
-const ORDER = ["imessage", "whatsapp", "beeper", "mail", "notes"] as const;
-/** Every source but lifelog and git, its events showing their files. */
-const SOURCES = Object.fromEntries(
-  ORDER.map((name) => [name, withFiles(READERS[name])])
-) as Record<(typeof ORDER)[number], (since: Date) => SourceEvent[]>;
-/** The chat apps, where people speak for themselves (not mail, nor his notes): WhatsApp, Beeper, iMessage. */
-export const CHATS = {
-  beeper: SOURCES.beeper,
-  imessage: SOURCES.imessage,
-  whatsapp: SOURCES.whatsapp,
-};
 /**
- * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. The closeness counts
- * read it over years (closeness.ts), the one memory step reading sources outside `gather`: it counts days, never units.
+ * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each
+ * a source's name to its reader (its events showing their files), in cut order.
  */
-export const WITH_PEOPLE = {
-  beeper: READERS.beeper,
-  imessage: READERS.imessage,
-  mail: READERS.mail,
-  whatsapp: READERS.whatsapp,
-};
-/** What `search` reads messages from: the chats, and his notes (not chats: `chats` is about people). */
-export const SEARCHED = { ...CHATS, notes: SOURCES.notes };
+export function tablesOf(sources: Descriptor[]) {
+  const messages = sources.flatMap((s) =>
+    s.kind === "repo" || s.kind === "voice" ? [] : [s]
+  );
+  const readers = (
+    keep: (s: (typeof messages)[number]) => boolean,
+    show = withFiles
+  ) =>
+    Object.fromEntries(
+      messages.filter(keep).map((s) => [s.name, show(s.read)])
+    );
+  return {
+    /** The chat apps, where people speak for themselves (not mail, nor his notes). */
+    CHATS: readers((s) => s.kind === "chat"),
+    /** What `search` reads messages from: the sources it has a window for. */
+    SEARCHED: readers((s) => s.searchDays !== undefined),
+    /**
+     * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. The closeness counts
+     * read it over years (closeness.ts), the one memory step reading sources outside `gather`: it counts days, never units.
+     */
+    WITH_PEOPLE: readers(
+      (s) => s.kind === "chat" || s.kind === "mail",
+      (read) => read
+    ),
+  };
+}
+export const { CHATS, SEARCHED, WITH_PEOPLE } = tablesOf(SOURCES);
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
- * `start` to its `end`, whatever zone it was cut in. Nothing for a lifelog unit, or when they are all gone.
+ * `start` to its `end`, whatever zone it was cut in. Nothing for a voice unit, or when they are all gone.
  */
 export function builtFor(
   unit: Unit,
@@ -556,17 +553,20 @@ export function builtFor(
   repos: RepoMap,
   me: Person
 ) {
-  if (unit.source === "lifelog") {
+  const source = sourceOf(unit.source);
+  if (source.kind === "voice") {
     return;
   }
   const since = new Date(unit.start);
-  const events = (
-    unit.source === "git"
-      ? readGit(since, repos, me)
-      : SOURCES[unit.source](since)
+  const read = (
+    source.kind === "repo"
+      ? source.read(since, { me, repos })
+      : source.read(since)
   ).filter((e) => e.chat === unit.key && e.at <= unit.end);
+  // A repo's commits carry no files.
+  const events = source.kind === "repo" ? read : showFiles(read, readFiles());
   if (events.length > 0) {
-    return unit.source === "git" ? repoDay(events) : chatDay(events, handles);
+    return source.kind === "repo" ? repoDay(events) : chatDay(events, handles);
   }
 }
 
@@ -603,8 +603,8 @@ export function lastDays(now: Date, days: number): Window {
  * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
- * files as tags. Git units are never extracted nor read for people (extract skips them; the moments step caps their
- * salience at 1).
+ * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
+ * their salience at 1).
  */
 export async function gather(window: Window) {
   // ponytail: the readers read from `since` to now and the window is cut after, so a backfill week of 2025 reads every
@@ -617,27 +617,45 @@ export async function gather(window: Window) {
   const truth = await loadTruth();
   const failed: string[] = [];
   const repos = repoMap(truth, await readRepoGuesses());
-  const [commits, lifelog, ...read] = await Promise.all([
-    safely("git", () => readGit(since, repos, ownerIn(truth.people)), failed),
-    safely(
-      "lifelog",
-      () =>
-        withStore((store) =>
-          readConversations(store, since, lifelogNames(truth))
-        ),
-      failed
-    ),
-    ...ORDER.map((name) => safely(name, () => READERS[name](since), failed)),
-  ]);
+  const ctx = { me: ownerIn(truth.people), repos };
+  // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
+  // events, in the registry's order.
+  const lifelog = await safely(
+    "lifelog",
+    () =>
+      withStore((store) =>
+        readConversations(store, since, lifelogNames(truth))
+      ),
+    failed
+  );
+  const read = await Promise.all(
+    SOURCES.flatMap((s) => (s.kind === "voice" ? [] : [s])).map(async (s) => ({
+      events: await safely(
+        s.name,
+        () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
+        failed
+      ),
+      s,
+    }))
+  );
+  // A repo's commits carry no files; the others' recent messages have theirs described, then shown.
   const recent = dayStart(lastDays(new Date(), DAYS).from).toISOString();
-  const files = await describeFiles(read.flat().filter((e) => e.at >= recent));
+  const files = await describeFiles(
+    read
+      .flatMap(({ events, s }) => (s.kind === "repo" ? [] : events))
+      .filter((e) => e.at >= recent)
+  );
   const known = readFiles();
-  const chats = read.map((events) => showFiles(events, known));
+  const shown = read.map(({ events, s }) => ({
+    events: s.kind === "repo" ? events : showFiles(events, known),
+    s,
+  }));
   const handles = handleIndex(truth.people);
   const built = applyRules([
     ...lifelogUnits(lifelog, nameIndex(truth.people)),
-    ...chats.flatMap((events) => messageUnits(events, handles)),
-    ...repoUnits(commits),
+    ...shown.flatMap(({ events, s }) =>
+      s.kind === "repo" ? repoUnits(events) : messageUnits(events, handles)
+    ),
   ])
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
@@ -647,9 +665,10 @@ export async function gather(window: Window) {
     failed,
     files,
     read: {
-      git: commits.length,
       lifelog: lifelog.length,
-      ...Object.fromEntries(chats.map((e, i) => [ORDER[i], e.length])),
+      ...Object.fromEntries(
+        shown.map(({ events, s }) => [s.name, events.length])
+      ),
     },
     repos,
     truth,

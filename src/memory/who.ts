@@ -7,6 +7,7 @@ import {
   type Unit,
   type Unresolved,
 } from "../schema";
+import { sourceOf } from "../sources";
 import { handleIndex, loadTruth, OWNER } from "../truth";
 import {
   readCorrections,
@@ -210,23 +211,15 @@ export function renamed(text: string, names: string[], name: string) {
     );
 }
 
-// A 1:1 chat's key, as units.ts makes it: iMessage's handle (a number or an address), WhatsApp's `<number>@s.whatsapp.net`.
-// ponytail: WhatsApp's `@lid` 1:1 chats and Beeper have no handle in their key, so their older facts keep their author.
-const IMESSAGE_HANDLE = /^(\+\d+|[^@\s]+@[^@\s]+)$/;
-const WHATSAPP_ONE = /^(\d+)@s\.whatsapp\.net$/;
-
 /**
- * The handle of each 1:1 chat unit, by unit id: who wrote a fact that predates `speakerFrom`, other than the owner.
- * iMessage keys a 1:1 chat by the handle; WhatsApp by `<number>@s.whatsapp.net`. Groups and Beeper have no such key.
+ * The handle of each 1:1 chat unit, by unit id (its source's `handleOf` its key): who wrote a fact that predates
+ * `speakerFrom`, other than the owner. Groups, and sources whose keys hold no handle, have none.
  */
 export function chatHandles(units: Unit[]) {
   return new Map(
     units.flatMap((u) => {
-      if (u.source === "imessage" && IMESSAGE_HANDLE.test(u.key)) {
-        return [[u.id, u.key] as const];
-      }
-      const wa = u.source === "whatsapp" && WHATSAPP_ONE.exec(u.key);
-      return wa ? [[u.id, `+${wa[1]}`] as const] : [];
+      const handle = sourceOf(u.source).handleOf?.(u.key);
+      return handle ? [[u.id, handle] as const] : [];
     })
   );
 }
