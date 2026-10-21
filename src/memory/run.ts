@@ -2,16 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { clock } from "../clock";
-import {
-  askOnce,
-  llmFor,
-  llmSpec,
-  minus,
-  type Quota,
-  quota,
-  type Tier,
-  tokensSpent,
-} from "../llm";
+import { askOnce, llmFor, llmSpec, type Tier } from "../llm";
 import { log } from "../log";
 import { git } from "../proc";
 import { INFERRED_USE_AT, type InferredPerson } from "../schema";
@@ -24,42 +15,20 @@ import { localDate } from "./zones";
 
 const PARALLEL = 4;
 
-/** What a run spent of his Codex plan: its quota (whole percents of the fuller window) at start and end, and its tokens. */
-export interface Use {
-  quota: { after: Quota | null; before: Quota | null };
-  tokens: ReturnType<typeof tokensSpent>;
-}
-
-/** The percent a run took: null when either reading is missing or the window reset during it. */
-export const percentOf = ({ quota: { after, before } }: Use) =>
-  after && before && after.resetsAt === before.resetsAt
-    ? after.used - before.used
-    : null;
-
 /**
  * A run of any kind, logged in derived/log as started now with `fields`: its id is its start instant (`runId`). `error`
  * logs a failure of the run (`what.step` names a sub-step: memory.nightly.actions); `end` logs its end with its duration
- * and what it spent (`use`: the quota read as it started and as it ended, and the tokens of the process's model calls
- * in between, its steps' included) and returns what it logged (`step` aside). No model: the sweeps use it as is, the
- * steps through `begin`.
+ * and returns what it logged (`step` aside). No model: the sweeps use it as is, the steps through `begin`.
  */
 export function record(step: string, fields: Record<string, unknown>) {
   const now = clock();
   const run = runId(now);
   const started = performance.now();
-  // Read while the run's first calls start: a call takes far longer than the reading.
-  const before = quota();
-  const tokens = tokensSpent();
   log("run.start", { ...fields, run, step });
   const ms = () => Math.round(performance.now() - started);
-  /** What it spent so far: the quota read now against the one read as it started, and the tokens since. */
-  const use = async (): Promise<Use> => ({
-    quota: { after: (await quota()) ?? null, before: (await before) ?? null },
-    tokens: minus(tokensSpent(), tokens),
-  });
   return {
-    async end<C extends Record<string, unknown>>(result: C) {
-      const summary = { ...result, ms: ms(), run, use: await use() };
+    end<C extends Record<string, unknown>>(result: C) {
+      const summary = { ...result, ms: ms(), run };
       log("run.end", { ...summary, step });
       return summary;
     },
@@ -70,23 +39,7 @@ export function record(step: string, fields: Record<string, unknown>) {
     now,
     run,
     step,
-    use,
   };
-}
-
-/** Tokens as a person reads them: 812k, 2.1M. */
-const tokensText = (n: number) =>
-  n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`;
-
-/** One run's use in words: "+1% of the week, 2.1M tokens (1.4M cached)"; under 1% when the whole percent didn't move. */
-export function useText(u: Use) {
-  const tokens = `${tokensText(u.tokens.input + u.tokens.output)} tokens (${tokensText(u.tokens.cached)} cached)`;
-  const p = percentOf(u);
-  if (p !== null) {
-    return `${p < 1 ? "under 1%" : `+${p}%`} of the quota, ${tokens}`;
-  }
-  const read = u.quota.before && u.quota.after;
-  return `${read ? "the quota reset during it" : "quota not read"}, ${tokens}`;
 }
 
 export type RunRecord = ReturnType<typeof record>;

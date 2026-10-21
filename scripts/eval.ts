@@ -7,7 +7,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../src/clock";
-import { llmFor, llmSpec } from "../src/llm";
+import { llmFor, llmSpec, quota } from "../src/llm";
 import { locked, spareQuota } from "../src/memory/guard";
 import {
   appendJsonl,
@@ -40,10 +40,6 @@ const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
     keep(c) ? [{ date: c.date, id: c.claim, text: c.text }] : []
   );
 
-// Recorded, so what the judge's calls spent of his Codex plan is in its run (`use`).
-const rec = record("eval", { args: process.argv.slice(2) });
-const { run } = rec;
-const DIR = join(OUT, "evals", run);
 /** Rated statements per judge call. */
 const PER_CALL = 30;
 
@@ -118,12 +114,24 @@ if (!mode) {
 if (!asJson) {
   await spareQuota();
 }
-const result =
-  mode === "--ratings"
-    ? await locked(ratedRun)
-    : await factsRun(mode, claimsFile);
+// A recorded run, so what the judge's calls spent of his Codex plan is in its `use` (the quota read just before, and
+// at its end).
+const rec = record("eval", { args });
+const { run } = rec;
+const DIR = join(OUT, "evals", run);
+const failed = async (error: string) => {
+  await quota();
+  rec.end({ error, outcome: "failed" });
+  return new Error(error);
+};
+const result = await (mode === "--ratings"
+  ? locked(ratedRun)
+  : factsRun(mode, claimsFile)
+).catch(async (e: Error) => {
+  throw await failed(e.message);
+});
 if (!result) {
-  throw new Error("a run holds the lock: score when it is done");
+  throw await failed("a run holds the lock: score when it is done");
 }
 const { t } = result;
 const rows = result.facts.map((f) => {
@@ -142,4 +150,5 @@ console.log(
         ...rows,
       ].join("\n")
 );
-await rec.end({ ...t.counts });
+await quota();
+rec.end({ ...t.counts, outcome: "ok" });
