@@ -142,7 +142,15 @@ const Said = Moment.pick({
 });
 const at = (s: string | null) => (LocalTime.safeParse(s).success ? s : null);
 
-/** The verdicts of a day's reply for units of that day, once each; commits at salience 1 at most (never extracted). */
+/** Code's last word on a verdict's salience: commits 1 at most (never extracted), a unit he marked "hey Life" 3. */
+const saliencyOf = (u: Unit, salience: number) => {
+  if (kindOf(u.source) === "repo") {
+    return Math.min(salience, 1);
+  }
+  return u.marked ? 3 : salience;
+};
+
+/** The verdicts of a day's reply for units of that day, once each; commits at salience 1 at most (never extracted), a marked unit 3. */
 function verdictsOf(
   list: unknown[],
   ctx: { areas: Map<string, string>; madeBy: MadeBy; units: Map<string, Unit> }
@@ -164,8 +172,7 @@ function verdictsOf(
             area: areaOf(area, ctx.areas),
             hash: u.hash,
             madeBy: ctx.madeBy,
-            salience:
-              kindOf(u.source) === "repo" ? Math.min(salience, 1) : salience,
+            salience: saliencyOf(u, salience),
             schemaVersion: 1,
             topics: normalizeTopics(topics),
             unit: id,
