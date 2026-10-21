@@ -679,13 +679,13 @@ export async function gather(
   const ctx = { me: ownerIn(truth.people), repos };
   // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
   // events, in the registry's order. Only the sources he turned on that can be read now.
-  for (const s of enabledSources()) {
+  const sources = enabledSources().filter((s) => {
     const why = s.missing?.();
     if (why) {
       log("source.read", { ok: true, skipped: why, source: s.name });
     }
-  }
-  const sources = readySources();
+    return !why;
+  });
   const lifelog = sources.some((s) => s.kind === "voice")
     ? await safely(
         "lifelog",

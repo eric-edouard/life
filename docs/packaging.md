@@ -13,7 +13,7 @@ the same process in its own repo.
   paths: `LIFE_CHAT` no longer required).
 - [ ] 1.3 `derived/` and the data root under Application Support for a new install; `isHis` by a marker, not a path.
 - [ ] 1.4 `bun life init`: an empty, valid `truth/`, Goals optional, zones seeded, the data repo created.
-- [ ] 1.5 Sources: `needs`, `probe`, the enabled set. A source not set up never fails the night; zero sources runs a
+- [ ] 1.5 Sources: the `sources` setting, each descriptor's `missing`, the ready set. A source not set up never fails the night; zero sources runs a
   clean night.
 - [ ] 1.6 Life without a voice source: the watcher, `day`, search and the nightly run with lifelog off (a voice interface waits for a second voice source: Omi comes through lifelog).
 - [ ] 1.7 Archive stores as descriptors: only enabled, installed apps kept open.

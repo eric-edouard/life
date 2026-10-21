@@ -164,7 +164,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
   while it lasts, `archiveFailing` in `src/archive.ts`), by
   email to the owner only, or with no `mail` setting a macOS notification and the report kept as a page in
-  `STATE/reports` (`src/memory/report.ts`: sender and his address in the `mail` setting), one MCP event per ask (not one Atlas made) to the one subscriber,
+  `STATE/reports` (either way the log's `email.sent`, which means delivered) (`src/memory/report.ts`: sender and his address in the `mail` setting), one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent), and the status page's
   plate without his words to its own Worker once a minute (`pushPlate`, `src/dashboard.ts`).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
@@ -259,7 +259,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Pages follow at the next night. Only the last 7 days' messages get their files described; older ones stay tags.
   Record his zones for the range first (`memory/zones.jsonl`, his own account of where he was): a past zone may be
   added only before the first day memory has units of, and a backfill moves that day back. A failed call or a source that throws fails the whole night (one he did not turn on, or not set up yet, `missing`, is
-  skipped and logged, never a failure: `readableSources`): non-zero
+  skipped and logged, never a failure: `readySources`): non-zero
   exit, nothing committed, and a failure email after the 3rd failed try. Its Actions section and the files step
   (`describeFiles`: a failed call leaves its files tags until the next run) never fail the night.
 - Codex is pinned in `package.json` and run as its native binary, because the other `codex` installs on this Mac reject

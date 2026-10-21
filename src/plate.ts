@@ -512,13 +512,28 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   };
 }
 
+/** A source he turned on that can't be read yet: idle, with what it needs, never "broken". */
+const notSetUp = (d: Descriptor, why: string): Card => ({
+  facts: [],
+  group: "sources",
+  headline: why,
+  id: d.name,
+  name: d.label,
+  tone: "idle",
+  word: "not set up",
+});
+
 function sourceCards(r: Reads): Card[] {
   return [
-    ...enabledSources().flatMap((d) =>
-      d.kind === "voice"
+    ...enabledSources().flatMap((d) => {
+      const why = d.missing?.();
+      if (why) {
+        return [notSetUp(d, why)];
+      }
+      return d.kind === "voice"
         ? [pendantCard(r, d), lifelogCard(r)]
-        : [sourceCard(r, d)]
-    ),
+        : [sourceCard(r, d)];
+    }),
     {
       ...(r.contacts.ok
         ? { tone: "ok", word: "readable" }
