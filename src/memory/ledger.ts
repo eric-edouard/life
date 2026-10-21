@@ -15,6 +15,7 @@ import {
   Correction,
   Extracted,
   FileEntry,
+  Imported,
   InferredPerson,
   type Instruction,
   MemoryLabel,
@@ -69,6 +70,7 @@ export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
 export const REPOS_INFERRED = join(MEMORY, "repos-inferred.jsonl");
+export const IMPORTED = join(MEMORY, "imported.jsonl");
 export const ACTIONS = join(MEMORY, "actions.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");
 const VERDICTS = join(MEMORY, "verdicts.jsonl");
@@ -444,6 +446,14 @@ export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 export const readRepoGuesses = () => [
   ...latestBy(rowsOf(REPOS_INFERRED, RepoGuess), (g) => g.repo).values(),
 ];
+
+/** The imported conversations the import step kept (`<source>:<id>`, a unit's key): the latest line for each wins. */
+export const keptConversations = () =>
+  new Set(
+    [
+      ...latestBy(rowsOf(IMPORTED, Imported), (i) => i.conversation).values(),
+    ].flatMap((i) => (i.keep ? [i.conversation] : []))
+  );
 
 /** The owner's labels: the latest one for each unit wins. */
 export const readLabels = () => [

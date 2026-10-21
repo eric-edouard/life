@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { unzipSync } from "node:zlib";
 import { type SourceEvent, sourceFile } from "../schema";
-import { ARCHIVE, type Row, readArchived } from "./archived";
+import { ARCHIVE, newestArchived, type Row, readArchived } from "./archived";
 import { fromAppleS } from "./imessage";
 
 // Apple Notes' own store, opened read-only by the archive (src/archive.ts), which keeps every version of each note.
@@ -266,3 +266,11 @@ export function readNotes(since: Date, archive = ARCHIVE): SourceEvent[] {
     };
   });
 }
+
+/** The newest note version the archive kept (the status page). */
+export const newestNote = () =>
+  newestArchived(
+    "notes",
+    `select at, 'Note: ' || coalesce(title, '') as words
+     from versions order by at desc limit 1`
+  );

@@ -1,6 +1,7 @@
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
+import { ATLAS, clientName } from "../events";
 import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
 import { log, recentEvents } from "../log";
@@ -42,6 +43,7 @@ import {
   failureReport,
   lockReport,
   type Mail,
+  reportKey,
   sendReport,
   successReport,
 } from "./report";
@@ -84,7 +86,7 @@ export const reviewed = async (now: Date) =>
     (e) =>
       e.tool === "day" &&
       !e.error &&
-      e.agent?.startsWith("openai-mcp") &&
+      clientName(e.agent) === ATLAS &&
       Date.parse(e.at) >= now.getTime() - DAY_MS
   );
 
@@ -446,7 +448,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   const { attempts } = recordState(day, !failure);
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
-    const id = await sendReport(`nightly/${rec.run}`, mail);
+    const id = await sendReport(reportKey(rec.run), mail);
     console.log(id ? `report emailed: ${id}` : "report email not sent");
   }
   return failure ? 1 : 0;

@@ -361,27 +361,50 @@ export function archiveNotesOnce(
 
 // Each store the archive keeps, on its own, so one app being closed or locked never stops the others. `app` writes it
 // and is kept running: closed, it receives nothing (and Beeper's store cannot be opened read-only). `media` is the
-// column of `deleted` that names a copied file.
+// column of `deleted` that names a copied file; `copies` the table each copy is a row of.
 export const STORES = [
   {
     app: "WhatsApp",
+    copies: "messages",
     copy: archiveOnce,
     media: "media",
     name: "whatsapp",
   },
   {
     app: "Beeper Desktop",
+    copies: "messages",
     copy: archiveBeeperOnce,
     media: "''",
     name: "beeper",
   },
   {
     app: "Notes",
+    copies: "versions",
     copy: archiveNotesOnce,
     media: "''",
     name: "notes",
   },
 ];
+
+/** When the archive last copied anything into a store (a new message or note version); null: none yet, or no store. */
+export function lastCopied(store: (typeof STORES)[number], dir = ARCHIVE) {
+  const path = archiveDb(store.name, dir);
+  if (!existsSync(path)) {
+    return null;
+  }
+  const db = new Database(path, { readonly: true });
+  try {
+    return (
+      db
+        .query<{ at: string | null }, []>(
+          `select max(seenAt) as at from ${store.copies}`
+        )
+        .get()?.at ?? null
+    );
+  } finally {
+    db.close();
+  }
+}
 
 // An app opened less than 10 minutes ago is not opened again, so one that fails to start is not relaunched every pass.
 const REOPEN_MS = 600_000;
