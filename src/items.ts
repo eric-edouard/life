@@ -1,4 +1,4 @@
-import type { Action, SourceEvent } from "./schema";
+import { type Action, type SourceEvent, stands } from "./schema";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
 // every read from the records that already hold each fact (the observations, memory/actions.jsonl, his chats), never
@@ -44,17 +44,14 @@ export interface Linked {
   wrote?: string;
 }
 
-/** A write whose outcome is not known to stand: one about to be made, or one that failed (it may have landed). */
-export const isTry = (a: Action) =>
-  a.result === "intent" || a.result === "failed";
-
 /**
  * One line's mark on a linked reminder: a try adds its values to `tried`, and so does a partial (a step failed, which
  * one is unknown: the next pass learns what is there); a write that went through, or his change seen, settles them.
  */
 function apply(it: Linked, a: Action) {
   const after = pick(a.after);
-  const tried = isTry(a);
+  // An intent or a failure: its outcome is not known to stand.
+  const tried = !stands(a);
   const unsure = tried || Boolean(a.error?.startsWith("partial"));
   it.wrote = a.madeBy === "reminders" ? it.wrote : a.at;
   for (const [f, v] of Object.entries(after)) {
