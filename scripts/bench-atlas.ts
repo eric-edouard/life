@@ -153,8 +153,15 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     kept.map((l) => `${l}\n`).join("")
   );
   // Each case's own log, store and index; derived/memory's caches (embeddings) carry over.
-  for (const d of ["log", "watch", "memory/index.sqlite"]) {
-    // biome-ignore lint/performance/noAwaitInLoops: three paths
+  const indexFile = "memory/index.sqlite";
+  for (const d of [
+    "log",
+    "watch",
+    indexFile,
+    `${indexFile}-wal`,
+    `${indexFile}-shm`,
+  ]) {
+    // biome-ignore lint/performance/noAwaitInLoops: a few paths
     await rm(join(code, "derived", d), { force: true, recursive: true });
   }
   await mkdir(join(code, "derived/watch"), { recursive: true });
