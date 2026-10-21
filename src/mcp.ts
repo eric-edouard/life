@@ -191,9 +191,9 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
   }
 }
 
-/** The ids an answer cites: observations, moments, units, and conversations (UUIDs). */
+/** The ids an answer cites: observations, moments, units, actions (`act_`: reminders, tasks) and conversations (UUIDs). */
 const IDS =
-  /\b(?:obs|mom|u)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
+  /\b(?:obs|mom|u|act)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
 
 /** The arguments with every string clipped to 200 chars. */
 const cut = (args: unknown) =>
@@ -299,7 +299,7 @@ export function buildServer() {
   tool(
     server,
     "day",
-    "Everything on one day: the birthdays of that day and the next 7 (name, date, days left, age), what is due (his own open to-dos and promises), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
+    "Everything on one day: the birthdays of that day and the next 7 (name, date, days left, age), what is due (his open items, most pressing first: to-dos, promises and his reminders of that day or up to a week late, waiting items on their day, replies he owes), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
     z.object({ date: Day }),
     ({ date }) => day(date)
   );

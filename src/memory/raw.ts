@@ -1,7 +1,8 @@
 import { clock } from "../clock";
+import { type Candidate, owed } from "../items";
 import { redact } from "../redact";
 import type { SourceEvent, Unit } from "../schema";
-import { kindOf, sourceOf } from "../sources";
+import { isDirect, kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
 import {
   type ChapterTurn,
@@ -509,4 +510,31 @@ function chatLinesOf(
       ),
     ];
   });
+}
+
+/** How far back a chat counts as one he writes in (audit 5). */
+const WROTE_DAYS = 60;
+
+/**
+ * The replies he owes up to `end` (`owed`, src/items.ts), as open items for `day`: in a 1:1 chat (its source can tell
+ * a group) of his last 60 days, the last word is theirs. Who wrote is the person's name when Life has one.
+ */
+export async function repliesOwed(end: Date): Promise<Candidate[]> {
+  const people = await readPeople();
+  const from = new Date(end.getTime() - WROTE_DAYS * DAY_MS).toISOString();
+  const { events } = readChats(
+    "chatDays",
+    { from, to: end.toISOString() },
+    CHATS
+  );
+  const direct = (e: SourceEvent, others: number) =>
+    isDirect(e.source, e.chat, others);
+  return owed(events, direct).map((e) => ({
+    at: e.at,
+    id: e.id,
+    kind: "reply",
+    line: `- ${e.id} ${localDate(e.at)} reply owed: ${senderOf(e, people)} wrote "${clip(redact(e.text).replace(/\s+/g, " "), 200)}" (\`chats --chat ${e.chat}\`)`,
+    person: people.resolve(e.sender) ?? undefined,
+    when: localDate(e.at),
+  }));
 }

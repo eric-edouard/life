@@ -7,7 +7,7 @@ import {
   type MadeBy,
   type SourceEvent,
 } from "../schema";
-import { kindOf, sourceOf } from "../sources";
+import { isDirect, kindOf } from "../sources";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { OWNER, type Truth } from "../truth";
 import {
@@ -58,7 +58,7 @@ const dayOf = (days: Days, who: string, day: string) => {
 /**
  * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
  * its name's (a mail thread's is its subject: never). A source whose ids say whether a chat is a group (`group`:
- * WhatsApp, iMessage; `chatDays` leaves those out) has the rest 1:1 whatever handles one person wrote from; elsewhere
+ * WhatsApp, iMessage; `isDirect`) has the rest 1:1 whatever handles one person wrote from; elsewhere
  * (Beeper, mail) more than one other sender is a group: none.
  */
 function chatPerson(
@@ -69,8 +69,7 @@ function chatPerson(
     list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
   );
   const [first] = list;
-  const byId = first && sourceOf(first.source).group;
-  if (!first || (others.size > 1 && !byId)) {
+  if (!(first && isDirect(first.source, first.chat, others.size))) {
     return null;
   }
   const named =
@@ -91,9 +90,7 @@ export function chatDays(
   resolve: (s: string) => string | null,
   days: Days = new Map()
 ) {
-  const one = events.filter(
-    (e) => !(e.bulk || sourceOf(e.source).group?.(e.chat))
-  );
+  const one = events.filter((e) => !e.bulk);
   for (const list of Map.groupBy(
     one,
     (e) => `${e.source}|${e.chat}`
