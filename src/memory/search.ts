@@ -770,7 +770,7 @@ export const birthdaysNear = (
     .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
- * His open loops due on `date` that must not be forgotten (salience 3), not retired: his promises (his to keep, even
+ * His open items due on `date` that must not be forgotten (salience 3), not retired: his promises (his to keep, even
  * when the quote opens with the other's request) and the to-dos he said (not a mail's). Atlas's daily review lists them
  * (docs/atlas.md).
  */
