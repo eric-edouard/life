@@ -22,7 +22,7 @@ export interface Line {
   from?: string;
   /** Exact location: the message id, or lifelog's `jobId:turnIndex@capturedAt`. */
   ref: string;
-  /** person:<slug>, or unknown:<label>. */
+  /** person:<slug>, unknown:<label>, or agent:<name> (`speakerOf`). */
   speaker: string;
   /** A readable name for an unknown speaker: the title of a 1:1 chat (its other member). */
   speakerName?: string;

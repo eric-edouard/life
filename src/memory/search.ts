@@ -66,6 +66,7 @@ import {
   nearNames,
   observationsNow,
   readPeople,
+  unitNow,
 } from "./who";
 import { dayStart, localDate, when } from "./zones";
 
@@ -1034,8 +1035,8 @@ export function buildIndex(
 export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = (await readUnits()).map((unit) => ({
-    // Who a unit is with as of today (`refOf`); the table keeps each once.
-    unit: { ...unit, people: unit.people.map(people.refOf) },
+    // Who a unit is with as of today; the table keeps each once.
+    unit: unitNow(unit, people.refOf),
     verdict: verdictOf(verdicts, unit),
   }));
   const { observations, standing } = await observationsNow(people);

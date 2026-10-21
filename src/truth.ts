@@ -123,10 +123,6 @@ export function handlesOf(p: Person): string[] {
   ];
 }
 
-/** Index of every handle in the map to the person who owns it. */
-export const handleIndex = (people: Person[]): Map<string, string> =>
-  new Map(people.flatMap((p) => handlesOf(p).map((h) => [h, p.id])));
-
 function checkPeople(people: Person[], issues: string[]): Set<string> {
   const ids = new Set<string>();
   const owner = new Map<string, string>();

@@ -292,9 +292,9 @@ it. Docs stay short and written for humans. One way to do each thing: where an o
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
 `actions.jsonl`, appended only by `act` and `setGrant` (`actions.ts`), the tasks (`ask`, `update` and `reply`, `tasks.ts`) and the watcher's sync pass (`inbound`, `closings`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
-`memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there): a chat or mail unit
-keeps its senders as `unknown:<sender>` (a lifelog unit, the names truth/ does not know), resolved by no writer: every
-reader of a unit's people maps them with `refOf`, as of its day (the hearing's `whose`, `hear.ts`, is no resolver: it
+`memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there): a unit keeps its
+people unresolved (a chat's or mail's senders, the names lifelog gives, as `unknown:`), every reader maps them with
+`unitNow`, and who wrote a message is `speakerOf` (`units.ts`; the hearing's `whose`, `hear.ts`, is no resolver: it
 asks only whether lifelog credits a turn to him); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
