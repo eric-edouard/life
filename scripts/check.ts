@@ -6,8 +6,18 @@ const steps: Record<string, string[]> = {
   biome: ["bun", "x", "--bun", "ultracite", "check"],
   cases: ["bun", "scripts/cases-check.ts"],
   fallow: ["bun", "x", "--bun", "fallow", "--fail-on-issues"],
+  // The status page is typed with the browser's types, apart from the server's.
+  "page types": [
+    "bun",
+    "x",
+    "--bun",
+    "tsc",
+    "--noEmit",
+    "-p",
+    "assets/dashboard",
+  ],
   scrub: ["bun", "scripts/scrub-check.ts"],
-  test: ["bun", "test", "./src/", "./scripts/"],
+  test: ["bun", "test", "./src/", "./scripts/", "./worker/"],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
 };
 

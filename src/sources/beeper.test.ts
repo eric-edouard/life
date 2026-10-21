@@ -1,10 +1,11 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { archiveBeeperOnce } from "../archive";
 import { showFiles } from "../memory/files";
-import { readBeeper } from "./beeper";
+import { newestBeeper, readBeeper } from "./beeper";
 import { beeperFixture } from "./fixtures";
 
 test("an attachment is a file the archive keeps, at Beeper's cached copy when it fetched one, even once deleted", () => {
@@ -108,4 +109,27 @@ test("the archive keeps the text of Beeper messages deleted or edited later, wit
     .query<{ text: string }, []>("select text from deleted")
     .all();
   expect(deleted).toEqual([{ text: "pay the carpenter" }]);
+});
+
+test("each network's newest message is that row whole, never another row's words", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-newest-"));
+  const db = new Database(join(dir, "beeper.sqlite"));
+  db.run(
+    "create table messages (network text, at text, chatName text, text text)"
+  );
+  const add = db.prepare("insert into messages values (?, ?, ?, ?)");
+  add.run("line", "2026-10-20T10:00:00.000Z", "Ana", "old");
+  add.run("line", "2026-10-21T10:00:00.000Z", "Bo", "newest on line");
+  add.run("line", "2026-10-19T10:00:00.000Z", "Cy", "older");
+  add.run("telegram", "2026-10-21T12:00:00.000Z", "Di", "newest overall");
+  db.close();
+  expect(newestBeeper(dir)).toEqual({
+    at: "2026-10-21T12:00:00.000Z",
+    parts: [
+      { at: "2026-10-21T12:00:00.000Z", label: "telegram" },
+      { at: "2026-10-21T10:00:00.000Z", label: "line" },
+    ],
+    words: ["telegram: Di: newest overall", "line: Bo: newest on line"],
+  });
+  rmSync(dir, { force: true, recursive: true });
 });
