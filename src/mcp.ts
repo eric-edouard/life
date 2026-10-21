@@ -3,14 +3,12 @@ import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   Asked,
-  act,
   actAsked,
+  actGranted,
   Change,
-  grantedFrom,
-  grantRefusal,
+  Granted,
   openOf,
   openReminders,
-  remctl,
   sectionsOf,
 } from "./actions";
 import {
@@ -23,7 +21,7 @@ import {
   UNREACHABLE,
   type Verify,
 } from "./auth";
-import { clock, FROZEN } from "./clock";
+import { FROZEN } from "./clock";
 import {
   ASK_EVENT,
   Subscribe,
@@ -36,20 +34,14 @@ import { text } from "./http";
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
 import { lifeStatus, runs } from "./memory/history";
-import { readActions, recordCorrection } from "./memory/ledger";
+import { recordCorrection } from "./memory/ledger";
 import { placesOf } from "./memory/places";
 import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { ObservationId } from "./schema";
-import {
-  Fix,
-  FORWARD_KINDS,
-  forward,
-  ownerSpoke,
-  withStore,
-} from "./sources/lifelog";
+import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
 import {
   closed,
   Reply,
@@ -131,61 +123,21 @@ const sends = <P, R>(handle: (p: P) => R) =>
         throw new Error(NOT_DONE);
       };
 
-/**
- * The standing grant's add (the connector's `reminders` with `obs`): the instruction is the observation itself (its
- * id, his quote, when he said it), never words a client passes, and the checks are re-read at this moment (the turn's
- * credit, the list's sharing). It binds the connector only, not what Atlas does in its terminal.
- */
-async function actGranted(obs: string, change: Change) {
-  if (change.kind !== "add") {
-    throw new Error(
-      "`obs` grants an add only: anything else needs his words as `said`"
-    );
-  }
-  const actions = await readActions();
-  const old = grantedFrom(actions, obs);
-  if (old) {
-    return old;
-  }
-  const { observation: o, status } = await claim(obs);
-  const mine =
-    o.source.channel === "lifelog" &&
-    (await withStore((s) => ownerSpoke(s, o.source.ref)));
-  const list = change.list
-    ? await remctl<{ sharees?: unknown[]; shared?: boolean }>([
-        "list-info",
-        "--",
-        change.list,
-      ])
-    : undefined;
-  const no = grantRefusal({
-    actions,
-    list,
-    mine,
-    now: clock().toISOString(),
-    o,
-    state: status.state,
-  });
-  if (no) {
-    throw new Error(`Not done: ${no}.`);
-  }
-  return act({
-    change,
-    instruction: { at: o.at, quote: o.quote, ref: o.id },
-    madeBy: "connector",
-    why: "the standing grant: his own spoken to-do",
-  });
-}
-
 /** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
 async function request({ obs, said, ...change }: z.infer<typeof Reminders>) {
-  if (!(obs || said)) {
+  if (!obs === !said) {
     throw new Error(
-      "Not done: pass his own words as `said` (or, for an add, `obs`)."
+      "Not done: pass his own words as `said`, or, for an add, `obs`: one of them."
     );
   }
-  const done = obs
-    ? await actGranted(obs, change)
+  const granted = obs && Granted.safeParse(change);
+  if (granted && !granted.success) {
+    throw new Error(
+      "Not done: with `obs`, only an add, with title, list, due and section."
+    );
+  }
+  const done = granted
+    ? await actGranted(await claim(obs as string), granted.data)
     : await actAsked(
         { ...change, said: said as string, why: "asked in a chat" },
         "connector"
@@ -468,7 +420,7 @@ export function buildServer() {
   tool(
     server,
     "reminders",
-    "Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask): add, edit, done, undone (ticked back open), remove (to Recently Deleted) or restore (back from there, into `list`); undo one with its inverse. Not the list `Atlas`: that is the board, changed with `task`. `target` is a reminder id (edit, done, remove). Logged in Life's history; `day` shows it.",
+    "Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask), or, with `obs`, the standing grant: add, edit, done, undone (ticked back open), remove (to Recently Deleted) or restore (back from there, into `list`); undo one with its inverse. Not the list `Atlas`: that is the board, changed with `task`. `target` is a reminder id (all but add). Logged in Life's history; `day` shows it.",
     Reminders,
     dry((a) => request(a)),
     REVERSIBLE

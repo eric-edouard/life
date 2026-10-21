@@ -114,6 +114,15 @@ export type MadeBy = z.infer<typeof MadeBy>;
  * A reply (`after` {text}) is what Atlas told him; one on no task targets `chat`.
  */
 export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
+/** What `act` does to a reminder. undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`. */
+export const REMINDER_KINDS = [
+  "add",
+  "edit",
+  "done",
+  "remove",
+  "undone",
+  "restore",
+] as const;
 export const Action = z
   .object({
     after: z.record(z.string(), z.unknown()),
@@ -127,17 +136,7 @@ export const Action = z
       .strict()
       .optional(),
     // "instinct": an email to Instinct, until 19 Oct.
-    kind: z.enum([
-      "add",
-      "edit",
-      "done",
-      "remove",
-      "undone",
-      "restore",
-      "ask",
-      "instinct",
-      ...TASK_LINES,
-    ]),
+    kind: z.enum([...REMINDER_KINDS, "ask", "instinct", ...TASK_LINES]),
     // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct).
     madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
     result: z.enum(["ok", "failed", "duplicate"]),

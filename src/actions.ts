@@ -7,7 +7,13 @@ import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
 import { localDate } from "./memory/zones";
 import { exec } from "./proc";
-import { Action, type Instruction, type Observation } from "./schema";
+import {
+  Action,
+  type Instruction,
+  type Observation,
+  REMINDER_KINDS,
+} from "./schema";
+import { ownerSpoke, withStore } from "./sources/lifelog";
 
 // The only code that writes outside Life on the owner's clear request: Apple Reminders through remctl (its signed
 // host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
@@ -26,8 +32,7 @@ const Due = z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/);
 export const Change = z.object({
   // With a time it alerts then; null clears it (edit only).
   due: Due.nullish(),
-  // undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`.
-  kind: z.enum(["add", "edit", "done", "remove", "undone", "restore"]),
+  kind: z.enum(REMINDER_KINDS),
   list: z.string().optional(),
   notes: z.string().max(2000).nullish(),
   priority: z.enum(["high", "medium", "low"]).optional(),
@@ -46,6 +51,7 @@ export const Change = z.object({
   urgent: z.boolean().optional(),
 });
 export type Change = z.infer<typeof Change>;
+export type Granted = z.infer<typeof Granted>;
 type Done = Pick<Action, "after" | "before" | "error" | "target">;
 
 const parse = <T>(s: string) => {
@@ -368,7 +374,7 @@ export const grantedFrom = (actions: Action[], obs: string) =>
  */
 export function grantRefusal(g: {
   actions: Action[];
-  list?: { sharees?: unknown[]; shared?: boolean };
+  list: { sharees?: unknown[]; shared?: boolean };
   mine: boolean;
   now: string;
   o: Pick<Observation, "salience" | "source" | "type">;
@@ -396,12 +402,71 @@ export function grantRefusal(g: {
   if (made.filter((a) => localDate(a.at) === today).length >= GRANT_DAILY) {
     return `already ${GRANT_DAILY} today`;
   }
-  if (!g.list) {
-    return "name the list";
-  }
-  if (g.list.shared || (g.list.sharees?.length ?? 0) > 0) {
+  // Fails closed: a list counts as shared unless remctl says plainly it is not.
+  if (!(g.list.shared === false && g.list.sharees?.length === 0)) {
     return "the list is shared: that needs his words";
   }
+}
+
+/** What the grant may set: an add's title, list (always named: its sharing is checked), due and section, nothing else. */
+export const Granted = Change.pick({
+  due: true,
+  list: true,
+  section: true,
+  title: true,
+})
+  .extend({ kind: z.literal("add"), list: z.string() })
+  .strict();
+
+/** One grant at a time: the cap and the dedupe read the ledger, and only `act` appends to it. */
+let granting: Promise<unknown> = Promise.resolve();
+
+/**
+ * The standing grant's add (the connector's `reminders` with `obs`), from the observation as `claim` reads it: the
+ * instruction is the observation itself (its id, his quote, when he said it), never words a client passes, and the
+ * turn's credit and the list's sharing are re-read now. It binds the connector only, not what Atlas does in its terminal.
+ */
+export function actGranted(
+  {
+    observation: o,
+    status,
+  }: { observation: Observation; status: { state: string } },
+  change: Granted
+) {
+  const run = granting.then(async () => {
+    const actions = await readActions();
+    const old = grantedFrom(actions, o.id);
+    if (old) {
+      return old;
+    }
+    const mine =
+      o.source.channel === "lifelog" &&
+      (await withStore((s) => ownerSpoke(s, o.source.ref)));
+    const list = await remctl<{ sharees?: unknown[]; shared?: boolean }>([
+      "list-info",
+      "--",
+      change.list,
+    ]);
+    const no = grantRefusal({
+      actions,
+      list,
+      mine,
+      now: clock().toISOString(),
+      o,
+      state: status.state,
+    });
+    if (no) {
+      throw new Error(`Not done: ${no}.`);
+    }
+    return act({
+      change,
+      instruction: { at: o.at, quote: o.quote, ref: o.id },
+      madeBy: "connector",
+      why: "the standing grant: his own spoken to-do",
+    });
+  });
+  granting = run.catch(() => undefined);
+  return run;
 }
 
 /** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */
