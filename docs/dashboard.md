@@ -35,7 +35,8 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 - `nightly.next`, `midday.next`: `{earliest, latest, why}`. launchd ticks every 30 min, so a run is expected between
   the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures today: no
   more tries until tomorrow", "today's night succeeded", "the next slot", or "held: Codex quota 91% used, over 75%"
-  (the midday waits for the quota's reset: `earliest` is the first slot after it). Not a countdown.
+  (the midday waits for the quota's reset: `earliest` is the first slot after it, or after the next tick when the
+  reading has no reset time). Not a countdown.
 - `timeZone`: the Mac's, which every schedule follows.
 
 ## runs
