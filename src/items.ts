@@ -21,9 +21,11 @@ export const FIELDS = [
   "urgent",
 ] as const;
 export type Fields = Partial<Record<(typeof FIELDS)[number], unknown>>;
-/** One value per meaning: null, false, "" and "none" all mean not set. */
+/** One value per meaning: undefined, null, false, "" and "none" all mean not set, kept as null (JSON keeps a null key). */
 export const norm = (v: unknown) =>
-  v === null || v === false || v === "" || v === "none" ? undefined : v;
+  v === undefined || v === null || v === false || v === "" || v === "none"
+    ? null
+    : v;
 export const pick = (o: Record<string, unknown>): Fields =>
   Object.fromEntries(FIELDS.flatMap((f) => (f in o ? [[f, norm(o[f])]] : [])));
 
