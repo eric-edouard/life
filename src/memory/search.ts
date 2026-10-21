@@ -3,7 +3,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../clock";
 import { isReviewCall } from "../events";
-import { type Candidate, OVERDUE_DAYS, openItems, openLinked } from "../items";
+import {
+  AGAIN_DAYS,
+  type Candidate,
+  OVERDUE_DAYS,
+  openItems,
+  openLinked,
+} from "../items";
 import { type Call, recentEvents } from "../log";
 import { redact } from "../redact";
 import {
@@ -667,7 +673,7 @@ export function dayLines({
       : []),
     ...(due.length > 0
       ? [
-          "Due (open items, most pressing first: to-dos, promises and his reminders for this day or up to a week overdue, waiting items on their day, replies he owes):",
+          "Due (open items, most pressing first: to-dos, promises and his reminders for this day or up to a week overdue, waiting items on their day, undated ones and replies he owes the day after and 3 days after):",
           ...due,
           "",
         ]
@@ -806,15 +812,23 @@ export function dueOf(
         ref: string;
         whom: string | null;
       },
-      [string, string, string, string]
+      [string, string, string, string, string, string]
     >(
       `select ${COLUMNS}, o.at, o.ref,
          (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
          (select entity from links where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
-       from observations o where o.salience = 3 and ${CURRENT} and o."when" between ? and ?
+       from observations o where o.salience = 3 and ${CURRENT}
+       and (o."when" between ? and ? or (o."when" is null and o.date between ? and ?))
        and (o.type in ('promise', 'waiting') or (o.type = 'todo' and o.speaker = ?)) order by o.at, o.id`
     )
-    .all(OWNER, daysBefore(date, OVERDUE_DAYS), date, OWNER);
+    .all(
+      OWNER,
+      daysBefore(date, OVERDUE_DAYS),
+      date,
+      daysBefore(date, AGAIN_DAYS),
+      date,
+      OWNER
+    );
   const said: Candidate[] = rows.map((r) => ({
     at: r.at,
     id: r.id,
@@ -825,6 +839,7 @@ export function dueOf(
       r.speaker && r.speaker !== OWNER ? r.speaker : (r.whom ?? undefined),
     projects: r.projects?.split(",") ?? [],
     ref: r.ref,
+    said: r.when ? undefined : r.date,
     when: r.when ?? undefined,
   }));
   return openItems([...said, ...more], { ...context, date }).map(

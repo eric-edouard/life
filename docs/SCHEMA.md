@@ -248,7 +248,8 @@ Sections, in order:
 To-dos stay observations (their `type`): Reminders are written only by actions on his clear request (`actions.jsonl`).
 `day` lists as due the salience-3 promises and the to-dos he said whose `when` is that day or up to a week before
 (`dueOf`, then `openItems` in `src/items.ts`; his choice of 20 Oct: what he said, not what a mail asks of him), with
-his reminders, waiting items and the replies he owes. It is the one place code checks `speaker`, against the rule above,
+his reminders, waiting items and the replies he owes; an undated one shows the day after it was said and 3 days
+after, then is stale, never due. It is the one place code checks `speaker`, against the rule above,
 because it only narrows a list he reads: his to-do in a voice lifelog left unnamed is missed. Rules code enforces:
 
 - **One fact, one page.** Each observation has a home, computed on every run and never stored (`homeOf`): the person's
