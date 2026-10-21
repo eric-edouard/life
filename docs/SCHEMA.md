@@ -140,7 +140,8 @@ line per unit and run, `observations` being how many it kept (often 0); lines of
 the prompt version changes, or when a `reread` correction names it after its last reading (the night reads the last
 7 days, `backfill` older ones). Who someone is needs no new reading: readers resolve a fact's author and entities as of
 today. Only the latest extraction of a unit counts: observations from an older one are ignored
-(`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
+(`replaced`), except one he rated true (his latest answer, `rated`): shown to the new reading as a prior, it stays until a
+newer observation retires it. So are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
 re-cut, Life's own mail).
 
 ## unresolved.jsonl

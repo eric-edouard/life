@@ -333,7 +333,8 @@ export function parseObservations(
     for (const old of (o.replaces ?? []).flatMap(
       (x) => ctx.prior?.get(x) ?? []
     )) {
-      if (old.at < made.at) {
+      // Never itself: a re-read can write a fact he rated true again, word for word (same id), and list it.
+      if (old.at < made.at && old.id !== made.id) {
         replaced.push({ by: made, old });
       }
     }
