@@ -71,6 +71,11 @@ const CODEX_EFFORT: Record<Tier, string> = {
 };
 // Everything codex could call besides the model itself: recorded speech gets no tools, plugins or memory.
 const CODEX_TOOLS = ["shell_tool", "unified_exec", "code_mode_host"];
+// The bench's agent reaches MCP tools only through code mode's `exec` (a V8 isolate with no file system or network),
+// so it keeps that and still has no shell; `apply_patch`, nested there, meets the read-only sandbox. Its nested
+// `clock__curr_time` reads the real time: no flag removes it, so the bench's prompt says not to (verified 21 Oct on
+// codex 0.162.1 against a fake provider, no quota spent).
+const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
 const CODEX_OFF =
   "plugins apps browser_use browser_use_external computer_use image_generation multi_agent hooks goals in_app_browser skill_search tool_suggest memories".split(
     " "
@@ -314,8 +319,8 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
   await cli(
     "codex",
     (cwd) => [
-      // The pinned binary, read-only, and none of the extras (CODEX_OFF). With the bench's connector it stays read-only
-      // and its MCP calls are approved by config: `exec` cancelled them in 0.130 (openai/codex#24135), unchecked since.
+      // The pinned binary, read-only, and none of the extras (CODEX_OFF). With the bench's connector, its MCP calls are
+      // approved by config.
       ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
       ...["-C", cwd, "-m", llm.model],
       ...CODEX_OFF.flatMap((f) => ["--disable", f]),
@@ -335,12 +340,14 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
                 .map(([k, v]) => `${k}=${toml(v)}`)
                 .join(",")}}`,
               `mcp_servers.${SERVER}.default_tools_approval_mode="approve"`,
-              "include_apply_patch_tool=false",
               "features.view_image=false",
             ]
           : []),
       ].flatMap((c) => ["-c", c]),
-      ...CODEX_TOOLS.flatMap((f) => ["--disable", f]),
+      ...(tools ? CODEX_AGENT_OFF : CODEX_TOOLS).flatMap((f) => [
+        "--disable",
+        f,
+      ]),
       ...["-o", reply],
       ...images.map((i) => `--image=${i}`),
     ],
