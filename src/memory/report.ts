@@ -330,10 +330,15 @@ export function actionLine(a: Action) {
   const outcome = {
     duplicate: ` duplicate of #${a.target.split(":")[1]}`,
     failed: ` FAILED: ${a.error}`,
+    // Never listed (`isBookkeeping`): its outcome is the next line.
+    intent: " (not answered)",
     // A partial (done, a private step such as the section failed) is ok with its error.
     ok: a.error ? ` (${a.error})` : "",
   }[a.result];
-  return `${what} ← “${a.instruction?.quote}”${outcome}`;
+  const by = a.instruction
+    ? `← “${a.instruction.quote}”`
+    : "by him in Reminders";
+  return `${what} ${by}${outcome}`;
 }
 
 export type Mail = ReturnType<typeof compose> & {

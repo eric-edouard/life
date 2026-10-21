@@ -6,7 +6,7 @@ import { redact } from "../redact";
 import {
   type Action,
   INFERRED_USE_AT,
-  isTaskLine,
+  isListed,
   KEEP_AT,
   type Moment,
   type Observation,
@@ -689,7 +689,7 @@ export async function day(date: string) {
   const names = lifelogNames(truth);
   const born = birthdaysNear(truth.people, date);
   const actions = (await readActions()).filter(
-    (a) => !isTaskLine(a) && localDate(a.at) === date
+    (a) => isListed(a) && localDate(a.at) === date
   );
   const moments = await momentsWhere(inDays({ from: date, to: date }));
   return withStore((store) =>
