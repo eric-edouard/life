@@ -15,6 +15,7 @@ export const LOG_DIR = TEST ? join(DATA, "log") : join(ROOT, "derived", "log");
 
 type LogKind =
   | "board.write"
+  | "calendar.write"
   | "email.sent"
   | "event.sent"
   | "file.read"

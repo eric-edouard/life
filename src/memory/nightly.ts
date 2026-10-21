@@ -5,7 +5,7 @@ import { clock } from "../clock";
 import { readHealth } from "../health";
 import { titleOf } from "../hear";
 import { quota } from "../llm";
-import { recentEvents } from "../log";
+import { log, recentEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
 import { taskList, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
@@ -31,6 +31,7 @@ import { newSince, readActions } from "./ledger";
 import { moments } from "./moments";
 import { placed } from "./page";
 import { pages } from "./pages";
+import { syncPast } from "./past";
 import {
   archiveFailedReport,
   failureReport,
@@ -180,6 +181,11 @@ export async function nightly(days: number, force = false) {
     turn === "night"
       ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
       : await daytime(turn, now, day);
+  // The Past calendar follows the moments each tick (past.ts); a failure only logs, the next tick tries again.
+  await syncPast(now).then(
+    (r) => r && console.log(JSON.stringify({ past: r })),
+    (e) => log("run.error", { error: String(e), step: "past" })
+  );
   const { backup: was, night: state } = states();
   if (force || !backupDue(now.getHours(), day, state, was)) {
     return code;
