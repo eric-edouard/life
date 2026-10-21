@@ -16,7 +16,7 @@ import { ledger, unit, verdict } from "./fixtures";
 import { locate, parseObservations, type Source } from "./observe";
 import { buildIndex } from "./search";
 import { areaLookup, type Built } from "./units";
-import { aboutNow, merged, resolver } from "./who";
+import { aboutNow, chatHandles, merged, renamed, resolver } from "./who";
 
 const people = [
   Person.parse({ aliases: ["Jean"], id: "me", name: "Jean Dupont" }),
@@ -193,6 +193,88 @@ test("an observation is about its entities, folded, plus the names that resolve 
     false,
     true,
     false,
+  ]);
+});
+
+test("who wrote a fact is who their handle is today: refiled, and an older sentence renamed, with no new reading", () => {
+  const facts = [
+    // Recorded with its handle: the handle is Pops's now, not Gaston's.
+    {
+      entities: ["person:gaston"],
+      id: "obs_1",
+      speaker: "person:gaston",
+      speakerFrom: "+66600000001",
+      text: "Gas asked Jean for the keys.",
+      unit: "u_000000000001",
+    },
+    // From before `speakerFrom`: a 1:1 chat's handle says who.
+    {
+      entities: [],
+      id: "obs_2",
+      speaker: "person:gaston",
+      text: "Gaston will call back.",
+      unit: "u_000000000002",
+    },
+    // The owner, and a fact whose author did not change, stay as written.
+    {
+      entities: [],
+      id: "obs_3",
+      speaker: "person:me",
+      text: "Jean paid Gaston.",
+      unit: "u_000000000002",
+    },
+    {
+      entities: [],
+      id: "obs_4",
+      speaker: "person:gaston",
+      speakerFrom: "Gaston",
+      text: "Gaston is late.",
+      unit: "u_000000000003",
+    },
+  ] as unknown as Observation[];
+  const chats = new Map([["u_000000000002", "+66600000001"]]);
+  const now = aboutNow(facts, [], people, [], [], chats);
+  expect(now.map((o) => o.speaker)).toEqual([
+    "person:dad",
+    "person:dad",
+    "person:me",
+    "person:gaston",
+  ]);
+  expect(now[0]?.entities).toEqual(["person:dad"]);
+  expect(now.map((o) => o.text)).toEqual([
+    "Jean Senior Dupont asked Jean for the keys.",
+    "Jean Senior Dupont will call back.",
+    "Jean paid Gaston.",
+    "Gaston is late.",
+  ]);
+});
+
+test("renaming takes whole words only, any case, longest name first", () => {
+  expect(
+    renamed(
+      "Zoé met ZOÉ's friend Zoéline; Zoé Martin left.",
+      ["Zoé", "Zoé Martin"],
+      "Lou"
+    )
+  ).toBe("Lou met Lou's friend Zoéline; Lou left.");
+});
+
+test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never groups", () => {
+  const chat = (id: string, app: string, key: string) =>
+    ({ id, key, source: app }) as Unit;
+  expect([
+    ...chatHandles([
+      chat("u_1", "imessage", "+33600000000"),
+      chat("u_2", "imessage", "a@b.fr"),
+      chat("u_3", "imessage", "chat123456"),
+      chat("u_4", "whatsapp", "33600000000@s.whatsapp.net"),
+      chat("u_5", "whatsapp", "120363000@g.us"),
+      chat("u_6", "beeper", "!abc:beeper.local"),
+    ]),
+  ]).toEqual([
+    ["u_1", "+33600000000"],
+    ["u_2", "a@b.fr"],
+    ["u_4", "+33600000000"],
   ]);
 });
 
@@ -394,13 +476,12 @@ test("the cache: a unit is read again only when its content or the prompt change
   ).toHaveLength(1);
 });
 
-test("identity is part of the cache: a unit read as someone else, or that he said was read wrong, is read again, once", () => {
+test("a unit he said was read wrong is read again, once: his word against its last reading, as instants", () => {
   const sam = unit({ id: "u_00000000001a", people: ["person:lou"] });
   const verdicts = ledger([verdict(sam, { salience: 3 })]);
-  const readLine = (readAs?: string[], at = "2026-10-10T02:00:00.000Z") => ({
+  const readLine = (at = "2026-10-10T02:00:00.000Z") => ({
     at,
     observations: 1,
-    ...(readAs ? { people: readAs } : {}),
     prompt: "memory-extract.v1",
     run: "r0",
     schemaVersion: 1 as const,
@@ -408,47 +489,30 @@ test("identity is part of the cache: a unit read as someone else, or that he sai
     unitHash: sam.hash,
   });
   const pending = (
-    ledgerLines: ReturnType<typeof readLine>[],
+    lines: ReturnType<typeof readLine>[],
     rereads: [string, string][] = []
   ) =>
     toExtract(
       [built(sam)],
       verdicts,
-      ledgerLines,
+      lines,
       "memory-extract.v1",
       new Map(rereads)
     ).pending.length;
-  // Read as Sam, now Lou: read again; once read as Lou, cached.
-  expect(pending([readLine(["person:sam"])])).toBe(1);
-  expect(pending([readLine(["person:sam"]), readLine(["person:lou"])])).toBe(0);
-  // An unknown name truth/ now maps (lifelog's unknown:Lou, now person:lou): read again, by choice.
-  expect(pending([readLine(["unknown:Lou"])])).toBe(1);
-  // A line from before `people` was recorded counts as read as today.
   expect(pending([readLine()])).toBe(0);
-  // He said it was read wrong after its last reading: read again; a reading after his word settles it.
   expect(pending([readLine()], [[sam.id, "2026-10-21T00:00:00.000Z"]])).toBe(1);
   expect(
     pending(
-      [readLine(), readLine(["person:lou"], "2026-10-22T02:00:00.000Z")],
+      [readLine(), readLine("2026-10-22T02:00:00.000Z")],
       [[sam.id, "2026-10-21T00:00:00.000Z"]]
     )
   ).toBe(0);
-  // Instants, not strings: his word at 04:00+02:00 is 02:00Z, the same instant as the reading, so it is settled.
+  // 04:00+02:00 is 02:00Z: the same instant as the reading, so it is settled.
   expect(
     pending(
-      [readLine(["person:lou"], "2026-10-22T02:00:00.000Z")],
+      [readLine("2026-10-22T02:00:00.000Z")],
       [[sam.id, "2026-10-22T04:00:00+02:00"]]
     )
-  ).toBe(0);
-  // Order is not identity: the same people listed differently stay cached.
-  const twoOf = unit({ id: sam.id, people: ["person:lou", "person:ann"] });
-  expect(
-    toExtract(
-      [built(twoOf)],
-      ledger([verdict(twoOf, { salience: 3 })]),
-      [{ ...readLine(["person:ann", "person:lou"]), unitHash: twoOf.hash }],
-      "memory-extract.v1"
-    ).pending.length
   ).toBe(0);
 });
 

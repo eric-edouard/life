@@ -103,6 +103,7 @@ export function chatLines(
     const speaker = m.who ? `person:${m.who}` : resolve(m.sender);
     return {
       at: m.at,
+      ...(m.fromMe ? {} : { from: m.sender }),
       ref: m.id,
       speaker: speaker ?? `${UNKNOWN}${m.sender}`,
       ...(!speaker && name ? { speakerName: name } : {}),
@@ -128,6 +129,7 @@ export function voiceLines(
     return [
       {
         at: t.at,
+        ...(t.name && !t.owner ? { from: t.name } : {}),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
         speaker: t.name ? personRef(t.name, names) : unnamed,
         text: redact(turn.text),

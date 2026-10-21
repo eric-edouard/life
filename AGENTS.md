@@ -24,8 +24,9 @@ that is used at once and corrected later.
 His input arrives in conversation only. The one exception he asked for (19 Oct): the truth benchmark
 (`memory/statements.jsonl`), statements he will rate true or false on his phone when he likes, never a queue Life waits on. When he states a fact or corrects one, record it before moving on:
 `bun life memory correct '<json>'` (kinds in `docs/SCHEMA.md`: wrong, not-important, keep-mine, this-is,
-not-this-person, same-person, closeness: how close someone is to him, personal or work; reread: units read wrong, as a fact
-filed under the wrong person, read again when their day is next read, older than 7 days by `bun life memory backfill`),
+not-this-person, same-person, closeness: how close someone is to him, personal or work; reread: units the model read wrong,
+read again when their day is next read, older than 7 days by `bun life memory backfill`; who wrote a fact is resolved
+when it is read, so a wrong author is fixed by `truth/` or a correction alone, with no reading),
 or, when it's about who someone is, offer to add it to `truth/` and do it on his yes.
 When he says which project a repo belongs to, or a project is added, put the repo in that project's `repos:` (he agreed to this map; `repos` shows
 Life's guesses and the new projects it suggests), then `bun life validate`.
