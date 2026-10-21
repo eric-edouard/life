@@ -108,7 +108,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
   first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
-  them in an empty temp dir, Codex with its own `CODEX_HOME`). His Apple Notes are memory only, never his words for
+  them in an empty temp dir, Codex with its own `CODEX_HOME`), but the Atlas bench's agent: Life's connector, frozen
+  and dry, as its only tools: Codex still read-only, with no shell but code mode's `exec` (its only way to MCP) and
+  its nested real-time clock, which the bench's prompt says not to read. His Apple Notes are memory only, never his words for
   actions.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates, and every quote is checked against its
   source (`src/memory/observe.ts`).
@@ -252,14 +254,18 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 `bun run check` must pass before every commit; the pre-push hook runs it. When he says something didn't work, it is
 audited by `docs/audits.md`. A fix from an audit names its audit file in its PR and merges only with its regression
 case; a PR that changes `prompts/` or `docs/atlas.md` says in its description which cases of those stages it re-checked
-and how they came out (a review refuses either without it). Commit small. Prefer deleting code to adding
+and how they came out (a review refuses either without it); Atlas end to end is `bun scripts/bench-atlas.ts` (his past
+asks replayed frozen, cases in `~/Life/docs/evals/atlas-bench-cases.json`). Commit small. Prefer deleting code to adding
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
 `actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `reply`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
-the Mac's clock); a source's behaviour is its descriptor in `src/sources/index.ts` (`SOURCES`, in cut order): code
+the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
+`LIFE_NOW` stops it for the Atlas bench, on a copy of the data and in a worktree of its own only; memory is the copy as
+of then, the live sources are cut at it, and a frozen run acts on and sends nothing (`unfrozen` in each of remctl, lifelog's `forward`, `sendReport`, the
+events' `post` and the Past calendar's `gog`; the connector's `dry` and `sends` answer the bench); a source's behaviour is its descriptor in `src/sources/index.ts` (`SOURCES`, in cut order): code
 branches on its kind or capability, never on its name (only its own code, its reader and lifelog's units, names it),
 and every table of sources (`CHATS`, `SEARCHED`, `WITH_PEOPLE`, their days) is derived from it (`tablesOf`,
 `units.ts`); the memory steps get their units only from `gather` (`units.ts`: every channel, in time

@@ -1,6 +1,7 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
-// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is.
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is. The
+// one call with tools is the Atlas bench's (scripts/bench-atlas.ts): Life's own connector, frozen, and nothing else.
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +9,7 @@ import { z } from "zod";
 import { log } from "./log";
 import { exec, firstLine } from "./proc";
 import { Engine, Runner } from "./schema";
-import { DATA, ROOT } from "./truth";
+import { DATA, isHis, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -70,6 +71,11 @@ const CODEX_EFFORT: Record<Tier, string> = {
 };
 // Everything codex could call besides the model itself: recorded speech gets no tools, plugins or memory.
 const CODEX_TOOLS = ["shell_tool", "unified_exec", "code_mode_host"];
+// The bench's agent reaches MCP tools only through code mode's `exec` (a V8 isolate with no file system or network),
+// so it keeps that and still has no shell; `apply_patch`, nested there, meets the read-only sandbox. Its nested
+// `clock__curr_time` reads the real time: no flag removes it, so the bench's prompt says not to (verified 21 Oct on
+// codex 0.162.1 against a fake provider, no quota spent).
+const CODEX_AGENT_OFF = ["shell_tool", "unified_exec", "sleep_tool"];
 const CODEX_OFF =
   "plugins apps browser_use browser_use_external computer_use image_generation multi_agent hooks goals in_app_browser skill_search tool_suggest memories".split(
     " "
@@ -96,8 +102,7 @@ export function llmOverride(
   if (!set) {
     return;
   }
-  const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
-  if (real(data) === real(join(homedir(), "Life"))) {
+  if (isHis(data)) {
     throw new Error(
       "LIFE_LLM is for a copy of the data (LIFE_DATA), never ~/Life"
     );
@@ -117,12 +122,11 @@ export const llmSpec = (l: Llm) =>
 const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
-export function llmFor(tier: Tier): Llm {
+export function llmFor(tier: Tier, engine = readEngine()): Llm {
   const set = llmOverride();
   if (set) {
     return set;
   }
-  const engine = readEngine();
   return engine === "claude"
     ? { engine, model: CLAUDE_MODELS[tier] }
     : { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
@@ -191,6 +195,13 @@ const OpenRouterReply = z.object({
 const NOT_ALNUM = /[^a-z0-9]/g;
 const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
 
+/** An MCP server over stdio, `life`: the only tools a call may have (the Atlas bench's frozen connector). */
+export interface Tools {
+  command: string[];
+  env: Record<string, string>;
+}
+const SERVER = "life";
+
 /** One call as a runner gets it. */
 interface Call {
   dir: string;
@@ -198,6 +209,7 @@ interface Call {
   input: unknown;
   llm: Llm;
   system: string;
+  tools?: Tools;
 }
 /**
  * A runner's reply: its text, and what the log records of the call besides the time. `refusal`: it answered, but the
@@ -238,7 +250,7 @@ async function cli(
   return stdout;
 }
 
-async function askClaude({ dir, images, input, llm, system }: Call) {
+async function askClaude({ dir, images, input, llm, system, tools }: Call) {
   const stdout = await cli(
     "claude",
     () => [
@@ -246,6 +258,20 @@ async function askClaude({ dir, images, input, llm, system }: Call) {
       ...(llm.effort ? ["--effort", llm.effort] : []),
       ...["--input-format", "stream-json", "--output-format", "stream-json"],
       ...["--tools", "", "--strict-mcp-config", "--setting-sources", ""],
+      ...(tools
+        ? [
+            ...["--allowedTools", `mcp__${SERVER}`, "--mcp-config"],
+            JSON.stringify({
+              mcpServers: {
+                [SERVER]: {
+                  args: tools.command.slice(1),
+                  command: tools.command[0],
+                  env: tools.env,
+                },
+              },
+            }),
+          ]
+        : []),
       ...["--no-session-persistence", "--system-prompt", system],
     ],
     {
@@ -281,7 +307,7 @@ async function askClaude({ dir, images, input, llm, system }: Call) {
   };
 }
 
-async function askCodex({ dir, images, input, llm, system }: Call) {
+async function askCodex({ dir, images, input, llm, system, tools }: Call) {
   if (!(await Bun.file(join(CODEX_HOME, "auth.json")).exists())) {
     // codex refuses a CODEX_HOME that doesn't exist, even to log in.
     await mkdir(CODEX_HOME, { recursive: true });
@@ -293,7 +319,8 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
   await cli(
     "codex",
     (cwd) => [
-      // The pinned binary, read-only, and none of the extras (CODEX_OFF).
+      // The pinned binary, read-only, and none of the extras (CODEX_OFF). With the bench's connector, its MCP calls are
+      // approved by config.
       ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
       ...["-C", cwd, "-m", llm.model],
       ...CODEX_OFF.flatMap((f) => ["--disable", f]),
@@ -305,8 +332,22 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
         'web_search="disabled"',
         "skills.bundled.enabled=false",
         "skills.include_instructions=false",
+        ...(tools
+          ? [
+              `mcp_servers.${SERVER}.command=${toml(tools.command[0] ?? "")}`,
+              `mcp_servers.${SERVER}.args=[${tools.command.slice(1).map(toml).join(",")}]`,
+              `mcp_servers.${SERVER}.env={${Object.entries(tools.env)
+                .map(([k, v]) => `${k}=${toml(v)}`)
+                .join(",")}}`,
+              `mcp_servers.${SERVER}.default_tools_approval_mode="approve"`,
+              "features.view_image=false",
+            ]
+          : []),
       ].flatMap((c) => ["-c", c]),
-      ...CODEX_TOOLS.flatMap((f) => ["--disable", f]),
+      ...(tools ? CODEX_AGENT_OFF : CODEX_TOOLS).flatMap((f) => [
+        "--disable",
+        f,
+      ]),
       ...["-o", reply],
       ...images.map((i) => `--image=${i}`),
     ],
@@ -460,7 +501,7 @@ const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
 };
 
 /**
- * One shot with no tools, no MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
+ * One shot with no tools (but the bench's `tools`), no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
  * `input` (as JSON) the whole user message. Code assembles everything the model sees, so the call stays small.
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
  * The input and the raw reply are kept in `dir`, so anything made from a call can be checked against exactly what the
@@ -469,6 +510,8 @@ const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
  */
 export async function askOnce(opts: {
   context?: unknown;
+  /** The one exception to "no tools": the Atlas bench's frozen connector. */
+  tools?: Tools;
   dir: string;
   images?: string[];
   input: unknown;
@@ -477,6 +520,9 @@ export async function askOnce(opts: {
   run: string;
 }) {
   const { dir, llm } = opts;
+  if (opts.tools && llm.engine === "openrouter") {
+    throw new Error("tools run on his subscriptions only (claude or codex)");
+  }
   const context =
     opts.context === undefined
       ? ""
@@ -495,6 +541,7 @@ export async function askOnce(opts: {
       input: opts.input,
       llm,
       system,
+      tools: opts.tools,
     });
     ({ fields } = answer);
     if (answer.refusal) {

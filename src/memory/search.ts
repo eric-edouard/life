@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { nameOf } from "../board";
+import { clock } from "../clock";
 import { redact } from "../redact";
 import {
   type Action,
@@ -502,7 +503,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const lifelog = mapped?.handles.lifelog;
   const birthday = mapped?.birthday
     ? [
-        `Birthday: ${birthdayText(nextBirthday(mapped.birthday, localDate(new Date().toISOString())))}`,
+        `Birthday: ${birthdayText(nextBirthday(mapped.birthday, localDate(clock().toISOString())))}`,
         "",
       ]
     : [];

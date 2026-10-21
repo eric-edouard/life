@@ -351,7 +351,12 @@ test("a date range is whole local days, the last one included; instants stay as 
   expect(dayRange("2026-10-14T08:00:00Z").from).toBe(
     "2026-10-14T08:00:00.000Z"
   );
-  expect(dayRange()).toEqual({ from: undefined, to: undefined });
+  // The end never passes now.
+  const now = Date.now();
+  expect(dayRange().from).toBeUndefined();
+  expect(Date.parse(dayRange(undefined, "2999-01-01").to ?? "")).toBeLessThan(
+    now + 60_000
+  );
 });
 
 test("a repo-day is a unit: commits and lines in the title, the subjects as summary, other authors by name", () => {

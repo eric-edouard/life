@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { clock } from "../clock";
 import { log } from "../log";
 import { redact } from "../redact";
 import { type Person, type SourceEvent, Unit } from "../schema";
@@ -87,7 +88,7 @@ const contentHash = (s: string) => digest("sha256", s, 16);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * `from`..`to` as ISO instants. A date is a local day: `from` starts it, `to` is inclusive (it ends after that day).
- * Either may be missing.
+ * `from` may be missing; `to` never passes now, so a frozen clock (`LIFE_NOW`) bounds every live source read through it.
  */
 export function dayRange(from?: string, to?: string) {
   const edge = (d: string | undefined, plus: number) => {
@@ -98,7 +99,9 @@ export function dayRange(from?: string, to?: string) {
       ? dayStart(daysBefore(d, -plus)).toISOString()
       : new Date(d).toISOString();
   };
-  return { from: edge(from, 0), to: edge(to, 1) };
+  const now = clock().toISOString();
+  const end = edge(to, 1);
+  return { from: edge(from, 0), to: end && end < now ? end : now };
 }
 
 /** Lower case, no accents, letters and digits only: how names, quotes and titles are compared. */
@@ -639,7 +642,7 @@ export async function gather(window: Window) {
     }))
   );
   // A repo's commits carry no files; the others' recent messages have theirs described, then shown.
-  const recent = dayStart(lastDays(new Date(), DAYS).from).toISOString();
+  const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
   const files = await describeFiles(
     read
       .flatMap(({ events, s }) => (s.kind === "repo" ? [] : events))
