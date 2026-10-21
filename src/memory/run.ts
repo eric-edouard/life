@@ -53,7 +53,6 @@ export async function metered(step: string, fields: Record<string, unknown>) {
   const rec = record(step, { ...fields, quota: before });
   return {
     ...rec,
-    before,
     end: async <C extends Record<string, unknown>>(result: C) =>
       rec.end({ ...result, quota: (await quota()) ?? null }),
   };
