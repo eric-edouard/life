@@ -243,7 +243,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 `bun run check` must pass before every commit; the pre-push hook runs it. When he says something didn't work, it is
 audited by `docs/audits.md`. A fix from an audit names its audit file in its PR and merges only with its regression
 case; a PR that changes `prompts/` or `docs/atlas.md` says in its description which cases of those stages it re-checked
-and how they came out (a review refuses either without it). Commit small. Prefer deleting code to adding
+and how they came out (a review refuses either without it); Atlas end to end is `bun scripts/bench-atlas.ts` (his past
+asks replayed frozen, cases in `~/Life/docs/evals/atlas-bench-cases.json`). Commit small. Prefer deleting code to adding
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
