@@ -299,7 +299,7 @@ export function buildServer() {
   tool(
     server,
     "day",
-    "Everything on one day: the birthdays of that day and the next 7 (name, date, days left, age), what is due (his open items, most pressing first: to-dos, promises and his reminders of that day or up to a week late, waiting items on their day, replies he owes), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
+    "Everything on one day: the birthdays of that day and the next 7 (name, date, days left, age), what is due (his open items, most pressing first: to-dos, promises and his reminders of that day or up to a week late, waiting items on their day, undated ones and replies he owes the day after and 3 days after), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
     z.object({ date: Day }),
     ({ date }) => day(date)
   );

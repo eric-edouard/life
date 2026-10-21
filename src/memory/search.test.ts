@@ -366,6 +366,9 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       // What he waits on from someone: on its day only.
       loop("obs_000000000013", { speaker: "person:jean", type: "waiting" }),
       loop("obs_000000000014", { type: "waiting", when: "2026-10-18" }),
+      // Undated: the day after it was said (18 Oct), not two days after.
+      loop("obs_000000000016", { when: undefined }),
+      loop("obs_000000000017", { date: "2026-10-17", when: undefined }),
     ],
     path,
     standing as never
@@ -386,6 +389,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
     "obs_000000000005",
     "obs_000000000011",
     "obs_000000000015",
+    "obs_000000000016",
     "obs_000000000013",
   ]);
   expect(lines.filter((l) => l.endsWith(" (overdue)"))).toEqual(
@@ -395,6 +399,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
   expect(lines.map((l) => l.match(SAID_BY)?.[0] ?? "")).toEqual([
     " by jean",
     " heard as jean",
+    "",
     "",
     "",
     "",

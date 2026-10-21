@@ -126,8 +126,10 @@ export interface Candidate {
   projects?: string[];
   /** The turn it was said in: an open task from the same turn holds it (it is on the board). */
   ref?: string;
+  /** The day it was said, for one with no day of its own (an undated to-do, promise or wait; a reply he owes: their last word). */
+  said?: string;
   urgent?: boolean;
-  /** Its day. A reply's is when the last word, theirs, was sent. */
+  /** Its day, when it has one. */
   when?: string;
 }
 export type OpenItem = Candidate & { merged: string[]; overdue: boolean };
@@ -142,18 +144,17 @@ const daysFrom = (from: string, to: string) =>
 /**
  * Whether an item shows on `date`, each at most twice: a dated one on its day (the daily review reads tomorrow too, so
  * the day before as well), then, only if a review never showed it twice (`shown`), up to `OVERDUE_DAYS` late; a
- * waiting one on its day; a reply he owes the day after their last word and 3 days after. Undated ones wait for
- * Stage 4's re-read (the review's PR 2).
+ * waiting one on its day; one said with no day (an undated to-do, promise or wait, a reply he owes) the day after
+ * and 3 days after.
  */
 function timely(c: Candidate, date: string, today: string, shown: number) {
   if (!c.when) {
-    return false;
-  }
-  const late = daysFrom(c.when, date);
-  if (c.kind === "reply") {
-    // Only as its days come: the review reads tomorrow too, which would show it four times.
+    // Said with no day of its own: the day after and 3 days after, only as those days come (the review reads
+    // tomorrow too); then stale, never due again.
+    const late = c.said ? daysFrom(c.said, date) : 0;
     return (late === 1 || late === 3) && date <= today;
   }
+  const late = daysFrom(c.when, date);
   if (c.kind === "waiting") {
     return late === 0;
   }
@@ -231,10 +232,7 @@ export function openItems(
         !(c.ref && tasks.has(c.ref)) &&
         timely(c, date, today, shown.get(c.id) ?? 0)
     )
-    .map((c) => ({
-      ...c,
-      overdue: (c.when ?? date) < date && c.kind !== "reply",
-    }))
+    .map((c) => ({ ...c, overdue: (c.when ?? date) < date }))
     .toSorted(rank);
 }
 
