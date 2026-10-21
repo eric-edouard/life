@@ -7,6 +7,7 @@ import {
   type MadeBy,
   type SourceEvent,
 } from "../schema";
+import { kindOf, sourceOf } from "../sources";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { OWNER, type Truth } from "../truth";
 import {
@@ -56,9 +57,9 @@ const dayOf = (days: Days, who: string, day: string) => {
 
 /**
  * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
- * its name's (a mail thread's is its subject: never). A WhatsApp or iMessage chat says by its id whether it is a group
- * (`chatDays` leaves those out), so the rest are 1:1 whatever handles one person wrote from; elsewhere (Beeper, mail)
- * more than one other sender is a group: none.
+ * its name's (a mail thread's is its subject: never). A source whose ids say whether a chat is a group (`group`:
+ * WhatsApp, iMessage; `chatDays` leaves those out) has the rest 1:1 whatever handles one person wrote from; elsewhere
+ * (Beeper, mail) more than one other sender is a group: none.
  */
 function chatPerson(
   list: SourceEvent[],
@@ -68,20 +69,22 @@ function chatPerson(
     list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
   );
   const [first] = list;
-  const byId = first?.source === "whatsapp" || first?.source === "imessage";
+  const byId = first && sourceOf(first.source).group;
   if (!first || (others.size > 1 && !byId)) {
     return null;
   }
   const named =
-    first.chatName && first.source !== "mail" ? resolve(first.chatName) : null;
+    first.chatName && kindOf(first.source) !== "mail"
+      ? resolve(first.chatName)
+      : null;
   const person = [...others].find((o) => o.startsWith("person:"));
   return person ?? (others.size === 0 ? resolve(first.chat) : null) ?? named;
 }
 
 /**
- * The 1:1 chats' and mail threads' days by person: one where one other sender wrote, and not a group by its id (a
- * WhatsApp `@g.us`, an iMessage `chat…`) nor a mailing list (a group is not a measure of closeness); its person who the
- * sender or the chat's name resolves to.
+ * The 1:1 chats' and mail threads' days by person: one where one other sender wrote, and not a group by its id (its
+ * source's `group`: a WhatsApp `@g.us`, an iMessage `chat…`) nor a mailing list (a group is not a measure of
+ * closeness); its person who the sender or the chat's name resolves to.
  */
 export function chatDays(
   events: SourceEvent[],
@@ -89,12 +92,7 @@ export function chatDays(
   days: Days = new Map()
 ) {
   const one = events.filter(
-    (e) =>
-      !(
-        e.bulk ||
-        e.chat.endsWith("@g.us") ||
-        (e.source === "imessage" && e.chat.startsWith("chat"))
-      )
+    (e) => !(e.bulk || sourceOf(e.source).group?.(e.chat))
   );
   for (const list of Map.groupBy(
     one,
@@ -106,7 +104,7 @@ export function chatDays(
     }
     for (const e of list) {
       const d = dayOf(days, who, localDate(e.at))[
-        e.source === "mail" ? "mail" : "chat"
+        kindOf(e.source) === "mail" ? "mail" : "chat"
       ];
       if (e.fromMe) {
         d.sent += 1;

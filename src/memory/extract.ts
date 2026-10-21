@@ -9,6 +9,7 @@ import {
   Supersession,
   Unresolved,
 } from "../schema";
+import { kindOf } from "../sources";
 import {
   type LifelogConversation,
   turnsBetween,
@@ -110,7 +111,7 @@ export function groupsOf(
   const worth = (id: string) => {
     const b = byId.get(id);
     return b &&
-      b.unit.source !== "git" &&
+      kindOf(b.unit.source) !== "repo" &&
       !(b.unit.drop || copied.has(id)) &&
       (verdictOf(verdicts, b.unit)?.salience ?? 0) >= SEARCHABLE_AT
       ? [b]
@@ -348,7 +349,7 @@ export async function extract(evidence: Evidence) {
   const inWindow = built.filter(
     (b) =>
       b.unit.date < today ||
-      (b.unit.source === "lifelog" && closed.has(b.unit.key))
+      (kindOf(b.unit.source) === "voice" && closed.has(b.unit.key))
   );
   const verdicts = await readVerdicts();
   const people = await readPeople();
@@ -388,7 +389,7 @@ export async function extract(evidence: Evidence) {
     (store) =>
       new Map(
         read.flatMap(({ unit }) =>
-          unit.source === "lifelog"
+          kindOf(unit.source) === "voice"
             ? [
                 [
                   unit.id,
@@ -409,7 +410,7 @@ export async function extract(evidence: Evidence) {
   let truncated = 0;
   const sourceOf = (b: Built): Source[] => {
     const all =
-      b.unit.source === "lifelog"
+      kindOf(b.unit.source) === "voice"
         ? voiceLines(turns.get(b.unit.id) ?? [], jobs, names)
         : chatLines(b, resolve);
     // ponytail: a unit longer than UNIT_MAX keeps its first lines only (a longer line cut to it, as a whole note's text

@@ -6,6 +6,7 @@ import {
   type Observation,
   type Unit,
 } from "../schema";
+import { kindOf } from "../sources";
 import { othersIn } from "../truth";
 import { digest } from "./ledger";
 import { areaOf, normalize } from "./units";
@@ -229,7 +230,8 @@ function recordOf(
 ): Observation {
   // A single spoken source about someone else stays a maybe (design §3.3).
   const spoken =
-    source.unit.source === "lifelog" && othersIn([...entities]).length > 0;
+    kindOf(source.unit.source) === "voice" &&
+    othersIn([...entities]).length > 0;
   return {
     ...(about ? { about } : {}),
     area: areaOf(o.area, ctx.areas),

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { stamp } from "../llm";
 import { redact } from "../redact";
 import { type MadeBy, RepoGuess, type Unit } from "../schema";
+import { kindOf } from "../sources";
 import {
   listRepos,
   myCommits,
@@ -220,7 +221,7 @@ export async function codeOn(day: string) {
     readVerdicts(),
   ]);
   return codeRows(
-    units.filter((u) => u.source === "git" && u.date === day),
+    units.filter((u) => kindOf(u.source) === "repo" && u.date === day),
     verdicts,
     repoMap(truth, guesses),
     truth.projects

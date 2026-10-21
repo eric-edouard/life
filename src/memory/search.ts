@@ -13,6 +13,7 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
+import { kindOf } from "../sources";
 import {
   conversationsWith,
   type LifelogConversation,
@@ -130,7 +131,7 @@ const line = (r: Row) => {
 interface UnitRow {
   date: string;
   id: string;
-  source: string;
+  source: Unit["source"];
   title: string;
   topics: string;
 }
@@ -639,9 +640,11 @@ export async function day(date: string) {
         ),
         db
           .query<UnitRow, [string]>(
-            "select id, date, source, title, topics from units where date = ? and source <> 'lifelog' order by source, title"
+            "select id, date, source, title, topics from units where date = ? order by source, title"
           )
-          .all(date),
+          .all(date)
+          // A voice unit is listed with its conversation.
+          .filter((u) => kindOf(u.source) !== "voice"),
         db
           .query<Row, [string]>(
             `select ${COLUMNS} from observations o where o.date = ? and o.salience >= ${KEEP_AT} and ${CURRENT}
