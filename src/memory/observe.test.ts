@@ -337,7 +337,7 @@ test("two authors filed as one person who now resolve to two different people: n
   // Each author is who they are now, but Gaston as named in the unit stays Gaston: two people claim the name.
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
-    "person:dad",
+    "person:decoy",
     "person:me",
   ]);
   expect(now[2]?.entities).toEqual(["person:gaston"]);
