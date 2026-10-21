@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { SourceEvent, SourceFile } from "../schema";
+import type { Newest } from "./index";
 
 // Reading Life's archive (src/archive.ts), opened read-only: WhatsApp and Beeper's chats, a message deleted for everyone
 // with the text the archive kept, an edited one by its latest text; each version of a note as what it changed.
@@ -25,6 +26,32 @@ export const BEEPER = join(
 /** One archive store's database (`STORES` names them). */
 export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);
+
+/**
+ * A store's newest items as the status page shows them: `sql` gives rows newest first, each its `at`, his `words` and,
+ * for a store with parts, a `label`.
+ */
+export function newestArchived(
+  name: "beeper" | "notes" | "whatsapp",
+  sql: string,
+  dir = ARCHIVE
+): Newest {
+  const db = new Database(archiveDb(name, dir), { readonly: true });
+  try {
+    const rows = db
+      .query<{ at: string; label?: string; words: string }, []>(sql)
+      .all();
+    return {
+      at: rows[0]?.at ?? null,
+      parts: rows.flatMap((r) =>
+        r.label ? [{ at: r.at, label: r.label }] : []
+      ),
+      words: rows.map((r) => r.words),
+    };
+  } finally {
+    db.close();
+  }
+}
 
 const MARKS = /[‪-‮]/g;
 

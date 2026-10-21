@@ -18,6 +18,7 @@ import { moments } from "../src/memory/moments";
 import { claimsNow } from "../src/memory/statements";
 import type { tally } from "../src/memory/tally";
 import { gather } from "../src/memory/units";
+import { readPeople } from "../src/memory/who";
 import { exec, git, gitOut } from "../src/proc";
 import { DATA, ROOT } from "../src/truth";
 
@@ -54,7 +55,10 @@ const wrong = (c: Counts) => c.contradicted + c.restated;
 async function readWeek() {
   const done = await locked(async () => {
     // The week's evidence: gather cuts its units to the window.
-    const week = await gather({ from: WEEK.from, to: WEEK.to });
+    const week = await gather(
+      { from: WEEK.from, to: WEEK.to },
+      await readPeople()
+    );
     const m = await moments(week);
     const e = await extract(week);
     const claims = (await claimsNow()).filter(

@@ -4,7 +4,7 @@ import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
-import { ACTIONS, appendJsonl, readActions } from "./memory/ledger";
+import { ACTIONS, appendJsonl, readActions, tasksOf } from "./memory/ledger";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
@@ -14,7 +14,7 @@ import { checks, pull } from "./reminders/remctl";
 import { Action } from "./schema";
 import { serveConnector } from "./server";
 import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
-import { chase, closings, receipts, tasksOf } from "./tasks";
+import { chase, closings, receipts } from "./tasks";
 import { ROOT } from "./truth";
 import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 

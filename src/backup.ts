@@ -29,11 +29,18 @@ interface Status {
   snapshot?: string;
 }
 
+export const readBackup = () => readJson<Status>(STATUS);
+/** No good snapshot in the last 48 h. */
+export const backupOld = (now: Date, s = readBackup()) =>
+  !s?.okAt || now.getTime() - Date.parse(s.okAt) > 48 * 3_600_000;
+export const backupSize = (s = readBackup()) =>
+  `${((s?.bytes ?? 0) / 1e9).toFixed(1)} GB`;
+
 /** The nightly report's line, flagged when the last run went wrong or the last snapshot is over 48 h old. */
-export function backupLine(now: Date, s = readJson<Status>(STATUS)) {
-  const size = `${((s?.bytes ?? 0) / 1e9).toFixed(1)} GB`;
+export function backupLine(now: Date, s = readBackup()) {
+  const size = backupSize(s);
   const last = s?.okAt ? `${localTime(s.okAt)}, ${size}` : "none";
-  const old = !s?.okAt || now.getTime() - Date.parse(s.okAt) > 48 * 3_600_000;
+  const old = backupOld(now, s);
   return `Last backup: ${[last, s?.error, old && "OVER 48 H OLD"].filter(Boolean).join(" · ")}`;
 }
 

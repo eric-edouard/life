@@ -15,6 +15,9 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "beeper",
     "mail",
     "notes",
+    "claude",
+    "chatgpt",
+    "atlas",
     "git",
   ]);
 });
@@ -48,6 +51,8 @@ test("a new source is one descriptor: every table picks it up", () => {
     "whatsapp",
     "beeper",
     "notes",
+    "claude",
+    "chatgpt",
   ]);
   expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual(["mail"]);
 });

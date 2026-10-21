@@ -11,17 +11,17 @@ import {
   type Store,
   withStore,
 } from "../sources/lifelog";
-import {
-  handleIndex,
-  loadTruth,
-  ownerIn,
-  resolveSender,
-  TEST,
-  type Truth,
-} from "../truth";
+import { loadTruth, OWNER, ownerIn, TEST, type Truth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { describeFiles, showFiles } from "./files";
-import { digest, readFiles, readRepoGuesses, readUnits, UNITS } from "./ledger";
+import {
+  digest,
+  keptConversations,
+  readFiles,
+  readRepoGuesses,
+  readUnits,
+  UNITS,
+} from "./ledger";
 import { dayStart, localDate, wall } from "./zones";
 
 // L1 units (memory-pipeline §3.1): one lifelog chapter, one chat-day, mail thread-day, note-day or repo-day. Built by
@@ -32,7 +32,9 @@ import { dayStart, localDate, wall } from "./zones";
 const TEXT_MAX = 1500;
 const SHORT_CHARS = 12;
 const OTP_MAX = 200;
-const PAREN = /\(.*?\)/g;
+export const PERSON = /^person:/;
+export const UNKNOWN = "unknown:";
+const AGENT = "agent:";
 const MARKS = /\p{M}/gu;
 const NON_ALNUM = /[^a-z0-9]+/g;
 const OTP =
@@ -67,9 +69,10 @@ export interface Message {
   id: string;
   sender: string;
   text: string;
-  /** `me`, the person id on the map, or null. */
-  who: string | null;
 }
+
+/** Who a name, handle or address is (`resolver`, who.ts: the one resolver), or null. */
+export type Resolve = (surface: string) => string | null;
 
 export interface Built {
   messages: Message[];
@@ -198,24 +201,6 @@ export const areaOf = (said: string | null, lookup: Map<string, string>) =>
 /** Where his agents mail him their reports from (the older routines still use Make a Dent's). */
 const AGENT_REPORTS = [LIFE_MAIL.from, "alerts@send.make-a-dent.com"];
 
-/** Names and aliases on the map, normalized, to the person; a name two people share maps to nobody. */
-export function nameIndex(people: Person[]) {
-  const index = new Map<string, string | null>();
-  for (const p of people) {
-    for (const n of [p.name, ...p.aliases]) {
-      const k = normalize(n);
-      index.set(k, index.has(k) && index.get(k) !== p.id ? null : p.id);
-    }
-  }
-  return index;
-}
-
-/** `person:<slug>` for a name lifelog gives ("Jean (Me)" -> person:me), else `unknown:<name>`. */
-export function personRef(name: string, index: Map<string, string | null>) {
-  const id = index.get(normalize(name.replace(PAREN, "")));
-  return id ? `person:${id}` : `unknown:${name}`;
-}
-
 /** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
 export const head = (text: string) =>
   text.length <= TEXT_MAX
@@ -226,10 +211,8 @@ export const head = (text: string) =>
 export const MARKED =
   '[He said "hey Life" here: he asked Life to remember what he says after it.]';
 
-export function lifelogUnits(
-  conversations: LifelogConversation[],
-  names: Map<string, string | null>
-): Built[] {
+/** Its chapters as units, each with the names lifelog gave its people kept unresolved (`unknown:`, read by `refOf`). */
+export function lifelogUnits(conversations: LifelogConversation[]): Built[] {
   return conversations.flatMap((c): Built[] => {
     if (c.chapters.length === 0) {
       // Not summarized (yet): kept in units/ so the gap is counted, dropped by rule `no-summary`.
@@ -267,7 +250,7 @@ export function lifelogUnits(
           id: unitId("lifelog", ch.id),
           key: c.id,
           ...(ch.marked ? { marked: ch.marked } : {}),
-          people: [...new Set(ch.people.map((n) => personRef(n, names)))],
+          people: [...new Set(ch.people.map((n) => `${UNKNOWN}${n}`))],
           refs: [`${c.id}#${ch.id}`, ...(ch.ref ? [ch.ref] : [])],
           schemaVersion: 1,
           source: "lifelog",
@@ -310,36 +293,57 @@ const byDay = (events: SourceEvent[]) => [
 ];
 
 /** Chat-days, mail thread-days and note-days: every message of one chat, thread or note on one local day. */
-export const messageUnits = (
-  events: SourceEvent[],
-  handles: Map<string, string>
-) => byDay(events).map((list) => chatDay(list, handles));
+export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
+  byDay(events).map((list) => chatDay(list, resolve));
 
 /** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
 export const unitTitle = (first: SourceEvent) =>
   first.chatName ??
   (kindOf(first.source) === "mail" ? "(no subject)" : first.chat);
 
-/** The unit of one chat's (or thread's) messages. */
-function chatDay(list: SourceEvent[], handles: Map<string, string>): Built {
+/**
+ * Who wrote a message, as the memory steps read it: him, an agent (its own line, never a person), else whom `resolve`
+ * names now, else `unknown:<sender>`.
+ */
+export function speakerOf(
+  kind: Descriptor["kind"],
+  m: { fromMe: boolean; sender: string },
+  resolve: Resolve
+) {
+  if (m.fromMe) {
+    return OWNER;
+  }
+  if (kind === "agent") {
+    return `${AGENT}${m.sender}`;
+  }
+  return resolve(m.sender) ?? `${UNKNOWN}${m.sender}`;
+}
+
+/**
+ * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
+ * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`unitNow`). Its text, read once by the
+ * moments step, names them as `speakerOf` does now.
+ */
+function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const sorted = list.sort((a, b) => a.at.localeCompare(b.at));
   const first = sorted[0] as SourceEvent;
   const last = sorted.at(-1) as SourceEvent;
-  const who = sorted.map((e) => resolveSender(e, handles));
-  const lines = sorted.map(
-    (e, i) => `${time(e.at)} ${who[i] ?? e.sender}: ${redact(e.text)}`
-  );
+  const kind = kindOf(first.source);
+  const written = kind === "chat" || kind === "mail";
+  const lines = sorted.map((e) => {
+    const who = speakerOf(kind, e, resolve);
+    return `${time(e.at)} ${who.startsWith(UNKNOWN) ? e.sender : who.replace(PERSON, "")}: ${redact(e.text)}`;
+  });
   const title = unitTitle(first);
   const ids = sorted.map((e) => e.id);
   return {
-    messages: sorted.map((e, i) => ({
+    messages: sorted.map((e) => ({
       at: e.at,
       bulk: e.bulk,
       fromMe: e.fromMe,
       id: e.id,
       sender: e.sender,
       text: e.text,
-      who: who[i] ?? null,
     })),
     text: `${title}\n${lines.join("\n")}`,
     unit: {
@@ -352,7 +356,14 @@ function chatDay(list: SourceEvent[], handles: Map<string, string>): Built {
       id: dayUnitId(first),
       key: first.chat,
       people: [
-        ...new Set(who.flatMap((p) => (p ? [`person:${p}`] : []))),
+        ...new Set(
+          sorted.flatMap((e) => {
+            if (e.fromMe) {
+              return [OWNER];
+            }
+            return written ? [`${UNKNOWN}${e.sender}`] : [];
+          })
+        ),
       ].sort(),
       refs:
         kindOf(first.source) === "mail"
@@ -393,7 +404,7 @@ export const repoUnits = (events: SourceEvent[]) => byDay(events).map(repoDay);
 /** The unit of one repo's commits. */
 function repoDay(list: SourceEvent[]): Built {
   const byId = new Map(list.map((e) => [e.id, e]));
-  const { messages, text, unit } = chatDay(list, new Map());
+  const { messages, text, unit } = chatDay(list, () => null);
   const sum = (k: "added" | "removed") =>
     messages.reduce((n, m) => n + (byId.get(m.id)?.[k] ?? 0), 0);
   const others: Record<string, number> = {};
@@ -455,10 +466,19 @@ export const searchableMail = (events: SourceEvent[]) =>
   });
 
 /** Cheap code rules for obvious noise (§3.3), in order. The first rule that matches drops the unit. */
-const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
+const RULES: [
+  string,
+  (b: Built, seen: Set<string>, kept: Set<string>) => boolean,
+][] = [
   ["no-summary", (b) => kindOf(b.unit.source) === "voice" && !b.unit.summary],
   // Life's own chat (see LIFE_CHAT) and mail.
   ["life-output", (b) => b.unit.key === LIFE_CHAT || lifeMail(b)],
+  // An imported conversation the import step did not keep as about his life (memory/imported.jsonl).
+  [
+    "not-kept",
+    (b, _seen, kept) =>
+      !!sourceOf(b.unit.source).imported && !kept.has(b.unit.key),
+  ],
   // The same content already seen. ponytail: a note-day whose change repeats one inside the window (a tick undone and
   // redone) keeps only the first; exempt notes from this rule if such repeats matter.
   ["duplicate", (b, seen) => seen.has(b.unit.hash)],
@@ -491,11 +511,11 @@ const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
   ],
 ];
 
-/** Marks each unit a rule drops (`unit.drop` names the rule). */
-export function applyRules(built: Built[]) {
+/** Marks each unit a rule drops (`unit.drop` names the rule); `kept`: the imported conversations the import kept. */
+export function applyRules(built: Built[], kept = new Set<string>()) {
   const seen = new Set<string>();
   for (const b of built) {
-    const rule = RULES.find(([, test]) => test(b, seen))?.[0];
+    const rule = RULES.find(([, test]) => test(b, seen, kept))?.[0];
     seen.add(b.unit.hash);
     if (rule) {
       b.unit.drop = rule;
@@ -581,7 +601,7 @@ export const { CHATS, SEARCHED, SEARCHED_MAIL, WITH_PEOPLE } =
  */
 export function builtFor(
   unit: Unit,
-  handles: Map<string, string>,
+  resolve: Resolve,
   repos: RepoMap,
   me: Person
 ) {
@@ -598,7 +618,7 @@ export function builtFor(
   // A repo's commits carry no files.
   const events = source.kind === "repo" ? read : showFiles(read, readFiles());
   if (events.length > 0) {
-    return source.kind === "repo" ? repoDay(events) : chatDay(events, handles);
+    return source.kind === "repo" ? repoDay(events) : chatDay(events, resolve);
   }
 }
 
@@ -631,14 +651,17 @@ export function lastDays(now: Date, days: number): Window {
 
 /**
  * The evidence of a window of local days: every source (lifelog,
- * chats, mail, notes, his commits), cut into units with the code rules applied, in time order across channels; also
+ * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
  * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
  * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
  * their salience at 1).
  */
-export async function gather(window: Window) {
+export async function gather(
+  window: Window,
+  { resolve, truth }: { resolve: Resolve; truth: Truth }
+) {
   // ponytail: the readers read from `since` to now and the window is cut after, so a backfill week of 2025 reads every
   // source up to today; give the readers an end if the pilot measures that slow next to the model calls.
   const since = dayStart(window.from);
@@ -646,7 +669,6 @@ export async function gather(window: Window) {
     // Unset, Life's own chat would read as facts.
     throw new Error("LIFE_CHAT is not set in .env");
   }
-  const truth = await loadTruth();
   const failed: string[] = [];
   const repos = repoMap(truth, await readRepoGuesses());
   const ctx = { me: ownerIn(truth.people), repos };
@@ -682,13 +704,15 @@ export async function gather(window: Window) {
     events: s.kind === "repo" ? events : showFiles(events, known),
     s,
   }));
-  const handles = handleIndex(truth.people);
-  const built = applyRules([
-    ...lifelogUnits(lifelog, nameIndex(truth.people)),
-    ...shown.flatMap(({ events, s }) =>
-      s.kind === "repo" ? repoUnits(events) : messageUnits(events, handles)
-    ),
-  ])
+  const built = applyRules(
+    [
+      ...lifelogUnits(lifelog),
+      ...shown.flatMap(({ events, s }) =>
+        s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
+      ),
+    ],
+    keptConversations()
+  )
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
   return {
@@ -734,10 +758,7 @@ export async function writeUnits(dates: string[], units: Unit[]) {
 export async function syncLifelogUnits(store: Store) {
   const truth = await loadTruth();
   const want = applyRules(
-    lifelogUnits(
-      readConversations(store, new Date(0), lifelogNames(truth)),
-      nameIndex(truth.people)
-    )
+    lifelogUnits(readConversations(store, new Date(0), lifelogNames(truth)))
   ).map((b) => Unit.parse(b.unit));
   const all = await readUnits();
   const have = all.filter((u) => u.source === "lifelog");

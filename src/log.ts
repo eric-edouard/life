@@ -26,10 +26,11 @@ type LogKind =
   | "run.start"
   | "run.end"
   | "run.error"
+  | "run.phase"
   | "source.read"
   | "sync.pull";
 
-/** A run event's line (`run.start`, `run.end`, `run.error`): every one names its step. */
+/** A run event's line (`run.start`, `run.phase`, `run.end`, `run.error`): every one names its step. */
 export interface LogEvent {
   at: string;
   kind: string;
@@ -40,7 +41,7 @@ export interface LogEvent {
 
 const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
-/** A `mcp.call` line of Atlas's daily review reading `day` (ChatGPT's MCP client, no error). */
+/** A `mcp.call` line, as `isReviewCall` (src/events.ts) reads it. */
 export interface Call {
   agent?: string;
   at: string;
@@ -48,8 +49,6 @@ export interface Call {
   ids?: string[];
   tool?: string;
 }
-export const isReviewCall = (e: Call) =>
-  e.tool === "day" && !e.error && Boolean(e.agent?.startsWith("openai-mcp"));
 
 /** derived/log's files, newest first (named by UTC day). */
 export const logDays = async (dir = LOG_DIR) =>

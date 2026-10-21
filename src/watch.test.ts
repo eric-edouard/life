@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import type { Health } from "./health";
 import { hear } from "./hear";
-import { ACTIONS } from "./memory/ledger";
+import { ACTIONS, tasksOf } from "./memory/ledger";
 import {
   turn as fed,
   lifelogServer,
@@ -10,7 +10,6 @@ import {
   page,
 } from "./sources/fixtures";
 import { apply } from "./sources/lifelog";
-import { tasksOf } from "./tasks";
 import { afterPoll, hearings, holdFor, type Pending, resumed } from "./watch";
 
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
