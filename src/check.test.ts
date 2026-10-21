@@ -9,6 +9,7 @@ import {
 } from "jose";
 import { CHECK_CLIENT, ISSUER, ORIGIN, ownerTokens, RESOURCE } from "./auth";
 import { createCheck } from "./check";
+import { createSignIn } from "./signin";
 import { changeFeed } from "./memory/feed";
 import {
   RATINGS,
@@ -44,7 +45,7 @@ const lifelog = (async (_url: string, init?: RequestInit) => {
     ? Response.json({ access_token: await token(issued), expires_in: 3600 })
     : new Response("bad", { status: 400 });
 }) as typeof fetch;
-const check = createCheck(verify, lifelog);
+const check = createCheck(createSignIn(verify, lifelog));
 
 const get = async (path: string, cookie = "", init: RequestInit = {}) =>
   (await check.handle(
@@ -93,8 +94,10 @@ test("the page's policy lets in the fonts its stylesheet imports", async () => {
 
 test("lifelog's keys out of reach: the page and the sign-in answer 503, never a sign-in or a refusal", async () => {
   const down = createCheck(
-    async () => ({ refusal: "unreachable", why: "request timed out" }),
-    lifelog
+    createSignIn(
+      async () => ({ refusal: "unreachable", why: "request timed out" }),
+      lifelog
+    )
   );
   const at = async (path: string, jar = "") =>
     (await down.handle(
