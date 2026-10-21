@@ -14,8 +14,8 @@ import {
   useState,
 } from "react";
 import { createRoot } from "react-dom/client";
-import type { Card, Fact, Snapshot, Tick, Tone } from "../../src/plate";
-import type { Entry, runDetail } from "../../src/plate-detail";
+import type { Card, Fact, Plate, Tick, Tone } from "../../src/plate";
+import type { detail, Entry, runDetail } from "../../src/plate-detail";
 
 // The status page (src/dashboard.ts serves it, src/plate.ts makes its data): the plate of groups, a group opened to
 // its cards, a card opened to its detail. It only reads.
@@ -87,7 +87,7 @@ type Link =
 
 /** The plate, live from the Mac's stream; when the Mac can't be reached, the last snapshot the always-on page holds. */
 function usePlate() {
-  const [plate, setPlate] = useState<Snapshot | null>(null);
+  const [plate, setPlate] = useState<Plate | null>(null);
   const [link, setLink] = useState<Link>({ kind: "live" });
   useEffect(() => {
     let poll: ReturnType<typeof setInterval> | undefined;
@@ -165,7 +165,7 @@ const titleOf = (problems: number) => {
 };
 
 /** Life's icon with its dot in the worst state's colour, and the title counting the problems. */
-function useTab(plate: Snapshot | null, link: Link) {
+function useTab(plate: Plate | null, link: Link) {
   useEffect(() => {
     const tone: Tone = link.kind === "live" ? (plate?.worst ?? "idle") : "idle";
     let icon = document.querySelector<HTMLLinkElement>("link[rel=icon]");
@@ -499,7 +499,7 @@ function useWires(
 }
 
 /** Dots that travel an edge each time the data at either end of it moved. */
-function useDots(plate: Snapshot | null) {
+function useDots(plate: Plate | null) {
   const last = useRef(new Map<string, number>());
   const [dots, setDots] = useState<{ edge: string; key: number }[]>([]);
   useEffect(() => {
@@ -537,14 +537,14 @@ function useDots(plate: Snapshot | null) {
   return dots;
 }
 
-function Plate({
+function Diagram({
   link,
   onOpen,
   plate,
 }: {
   link: Link;
   onOpen: (group: string) => void;
-  plate: Snapshot;
+  plate: Plate;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const { refFor, wires } = useWires(box, plate.edges);
@@ -766,11 +766,13 @@ function Sheet({
   );
 }
 
-interface Detail {
-  history: Entry[];
-  log: string[];
-  next: string | null;
-}
+type Detail = Awaited<ReturnType<typeof detail>>;
+
+/** A card's detail, or its next page before `before`. */
+const readCard = (id: string, before?: string): Promise<Detail> =>
+  fetch(
+    `/status/card/${id}${before ? `?before=${encodeURIComponent(before)}` : ""}`
+  ).then((r) => r.json());
 
 type RunView = NonNullable<Awaited<ReturnType<typeof runDetail>>>;
 
@@ -924,30 +926,35 @@ function Open({
   onClose: () => void;
   privacy: boolean;
 }) {
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const [history, setHistory] = useState<Entry[] | null>(null);
   const [lines, setLines] = useState<string[]>([]);
-  const [next, setNext] = useState<string | null>(null);
+  const [next, setNext] = useState<Detail["next"]>({
+    history: null,
+    log: null,
+  });
   useEffect(() => {
-    fetch(`/status/card/${card.id}`)
-      .then((r) => r.json())
-      .then(
-        (d: Detail) => {
-          setDetail(d);
-          setLines(d.log);
-          setNext(d.next);
-        },
-        () => setDetail({ history: [], log: [], next: null })
-      );
+    readCard(card.id).then(
+      (d) => {
+        setHistory(d.history);
+        setLines(d.log);
+        setNext(d.next);
+      },
+      () => setHistory([])
+    );
   }, [card.id]);
-  const more = async () => {
-    if (!next) {
+  /** The next page of one list, back through the whole log. */
+  const more = async (list: "history" | "log") => {
+    const at = next[list];
+    if (!at) {
       return;
     }
-    const d: Detail = await fetch(
-      `/status/card/${card.id}?before=${encodeURIComponent(next)}`
-    ).then((r) => r.json());
-    setLines((l) => [...l, ...d.log]);
-    setNext(d.next);
+    const d = await readCard(card.id, at);
+    if (list === "history") {
+      setHistory((h) => [...(h ?? []), ...d.history]);
+    } else {
+      setLines((l) => [...l, ...d.log]);
+    }
+    setNext((n) => ({ ...n, [list]: d.next[list] }));
   };
   return (
     <motion.div
@@ -987,10 +994,19 @@ function Open({
           <Cross />
         </button>
         <h4>History</h4>
-        {detail ? (
-          <History entries={detail.history} now={now} privacy={privacy} />
+        {history ? (
+          <History entries={history} now={now} privacy={privacy} />
         ) : (
           <p className="muted">Reading…</p>
+        )}
+        {next.history && (
+          <button
+            className="btn more"
+            onClick={() => more("history")}
+            type="button"
+          >
+            Load older history
+          </button>
         )}
         <h4>Log</h4>
         {privacy ? (
@@ -1004,8 +1020,12 @@ function Open({
                 ? lines.join("\n")
                 : "No log lines for this part in the last 7 days."}
             </pre>
-            {next && (
-              <button className="btn more" onClick={more} type="button">
+            {next.log && (
+              <button
+                className="btn more"
+                onClick={() => more("log")}
+                type="button"
+              >
                 Load older lines
               </button>
             )}
@@ -1016,7 +1036,7 @@ function Open({
   );
 }
 
-function liveWord(plate: Snapshot | null) {
+function liveWord(plate: Plate | null) {
   if (!plate) {
     return "connecting";
   }
@@ -1106,7 +1126,7 @@ function App() {
       )}
       {plate ? (
         <>
-          <Plate link={link} onOpen={setGroup} plate={plate} />
+          <Diagram link={link} onOpen={setGroup} plate={plate} />
           <Today now={now} privacy={privacy} ticks={plate.today} />
         </>
       ) : (

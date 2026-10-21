@@ -172,6 +172,15 @@ export function pushPlate() {
   setInterval(once, PUSH_MS);
 }
 
+/** A card's detail, or its next page: `before` must be an instant. */
+async function card(id: string, url: URL) {
+  const before = url.searchParams.get("before") ?? undefined;
+  if (before && Number.isNaN(Date.parse(before))) {
+    return text("before must be an instant", 400);
+  }
+  return json(await detail(id, before));
+}
+
 export function createDashboard(signIn: SignIn) {
   /** Everything past sign-in. */
   async function owned(url: URL) {
@@ -189,10 +198,7 @@ export function createDashboard(signIn: SignIn) {
       return json(await snapshot());
     }
     if (pathname.startsWith("/status/card/")) {
-      const id = pathname.slice("/status/card/".length);
-      return json(
-        await detail(id, url.searchParams.get("before") ?? undefined)
-      );
+      return card(pathname.slice("/status/card/".length), url);
     }
     if (pathname === "/status/icon.svg") {
       return icon(url.searchParams.get("tone") ?? "idle");

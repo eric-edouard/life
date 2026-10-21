@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { clientName } from "./events";
-import { type Card, strip, toneOf, waking, wokeAt } from "./plate";
+import { type Card, stationsOf, strip, toneOf, waking, wokeAt } from "./plate";
 
 const now = Date.parse("2026-10-21T15:00:00.000Z");
 const ago = (ms: number) => new Date(now - ms).toISOString();
@@ -89,4 +89,46 @@ test("what leaves the Mac carries none of his words and no error's text: only th
   }
   expect(out).toContain("memory.extract failed");
   expect(out).toContain("Last item");
+});
+
+test("a sweep's stations are the phases it recorded: done, now, the one it failed at still to do, then the night's report", () => {
+  const run = (phases: string[], outcome: string, failedAt?: string) =>
+    ({ outcome, phases, result: failedAt ? { failedAt } : {} }) as never;
+  const all = [
+    "repos",
+    "gather",
+    "moments",
+    "extract",
+    "pages",
+    "index",
+    "actions",
+    "commit",
+  ];
+  const ok = run(all, "ok");
+  const state = (list: { name: string; state: string }[]) =>
+    list.map((x) => `${x.name}:${x.state}`);
+  expect(
+    state(stationsOf({ lastOk: ok, latest: ok }, false, true)).slice(-3)
+  ).toEqual(["actions:done", "commit:done", "email:done"]);
+  const failed = run(
+    [
+      "repos",
+      "gather",
+      "moments",
+      "extract",
+      "pages",
+      "index",
+      "actions",
+      "commit",
+    ],
+    "failed",
+    "commit"
+  );
+  expect(
+    state(stationsOf({ lastOk: ok, latest: failed }, false, false)).slice(-2)
+  ).toEqual(["commit:todo", "email:todo"]);
+  const running = run(["repos", "gather", "moments"], "running");
+  expect(
+    state(stationsOf({ lastOk: ok, latest: running }, true, null)).slice(1, 4)
+  ).toEqual(["gather:done", "moments:now", "extract:todo"]);
 });

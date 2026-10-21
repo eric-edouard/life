@@ -230,16 +230,25 @@ export async function withStore<T>(
   }
 }
 
-/** The newest speech turn the watcher folded in: lifelog sends turns once transcribed, minutes after they were spoken. */
-export const newestTurn = () =>
-  withStore(
-    (s) =>
-      s.db
-        .query<{ at: string | null }, []>(
-          "select max(start_at) as at from turns"
-        )
-        .get()?.at ?? null
-  );
+/** The store opened read-only, for a reader that must not create or change it (the status page). */
+export const readStore = (dir = WATCH): Store => ({
+  cursor: storeFiles(dir).cursor,
+  db: new Database(storeFiles(dir).file, { readonly: true }),
+});
+
+/** The newest speech turn the watcher folded in (null with no store yet): lifelog sends turns once transcribed, minutes after they were spoken. */
+export const newestTurn = (dir = WATCH) =>
+  existsSync(storeFiles(dir).file)
+    ? withStore(
+        (s) =>
+          s.db
+            .query<{ at: string | null }, []>(
+              "select max(start_at) as at from turns"
+            )
+            .get()?.at ?? null,
+        () => readStore(dir)
+      )
+    : null;
 
 const DIGITS = /^\d+$/;
 

@@ -10,6 +10,7 @@ const POWER_LINE =
   /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}) (Sleep|Wake)\s/;
 const ZONE_OFFSET = / ([+-]\d{2})(\d{2})$/;
 const DAY = 86_400_000;
+const PS_LINE = /^(\d+)\s+(.+)$/;
 
 /** The services Life runs on the Mac; the nightly tick runs every 30 min, so no process between ticks is fine. */
 const SERVICES = [
@@ -23,6 +24,26 @@ const SERVICES = [
   { label: "com.eric.cloudflared", name: "cloudflared", ticks: false },
 ];
 
+/** When each process started, by pid (`ps`'s local start time). */
+async function startedAt(pids: string[]) {
+  if (pids.length === 0) {
+    return new Map<string, string>();
+  }
+  const out = await exec(["ps", "-o", "pid=,lstart=", "-p", pids.join(",")]);
+  return new Map(
+    out.stdout
+      .trim()
+      .split("\n")
+      .flatMap((l) => {
+        const [, pid, start] = l.trim().match(PS_LINE) ?? [];
+        const at = start ? new Date(start) : null;
+        return pid && at && !Number.isNaN(at.getTime())
+          ? [[pid, at.toISOString()] as const]
+          : [];
+      })
+  );
+}
+
 export async function macState() {
   const [list, batt, disk, wake] = await Promise.all([
     exec(["launchctl", "list"]),
@@ -34,6 +55,12 @@ export async function macState() {
     list.stdout.split("\n").map((l) => {
       const [pid, status, label] = l.split("\t");
       return [label, { pid, status }] as const;
+    })
+  );
+  const started = await startedAt(
+    SERVICES.flatMap((s) => {
+      const pid = rows.get(s.label)?.pid;
+      return pid && pid !== "-" ? [pid] : [];
     })
   );
   const sec = Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0);
@@ -50,6 +77,8 @@ export async function macState() {
         name: s.name,
         ok: running || (s.ticks && r?.status === "0"),
         running,
+        /** When its process started: launchd's restart after a crash or a commit, the tunnel's after a heal. */
+        since: r ? (started.get(r.pid ?? "") ?? null) : null,
         status: r?.status ?? "not loaded",
       };
     }),

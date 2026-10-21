@@ -8,7 +8,7 @@ import { readHealth } from "./health";
 import { type LogEvent, recentEvents } from "./log";
 import { macState, sleeps } from "./mac";
 import { changeFeed } from "./memory/feed";
-import { lifeStatus, runs, STEPS, type Use, useText } from "./memory/history";
+import { lifeStatus, runs, type Use, useText } from "./memory/history";
 import {
   ACTIONS,
   CORRECTIONS,
@@ -19,8 +19,10 @@ import {
   readRatings,
   readStatements,
 } from "./memory/ledger";
+import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
 import { git } from "./proc";
+import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { readContacts } from "./sources/contacts";
 import { type Descriptor, type Newest, SOURCES } from "./sources/index";
@@ -306,6 +308,7 @@ async function reads(now: Date) {
     sleepList,
     swept,
     actions,
+    remctl,
     newest,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
@@ -332,6 +335,7 @@ async function reads(now: Date) {
       })
     ),
     cached("actions", 15_000, readActions),
+    cached("remctl", 60_000, checks),
     newestOf(),
   ]);
   const of = (kind: string, days: number) =>
@@ -356,6 +360,7 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
+    remctl,
     sent: of("email.sent", 2),
     sleepList,
     status,
@@ -390,7 +395,8 @@ const pendantFacts = (
 ): Fact[] => [
   {
     at: p?.recordingKnownAt,
-    label: "Recording, as of",
+    // lifelog's phone reports each change as it happens: the state stands since then.
+    label: "Recording state, since",
     value: p?.recording ?? "unknown",
   },
   {
@@ -558,9 +564,11 @@ function captureCards(r: Reads): Card[] {
         [true, { tone: "ok", word: "copying" }]
       ),
       beat: 5000,
+      // Each store: copying or failing, and its last copy (lifeStatus's).
       facts: STORES.map((s) => ({
+        at: r.status.capture.archive[s.name],
         label: s.name,
-        value: r.failingStores.has(s.name) ? "failing" : "copying",
+        value: r.failingStores.has(s.name) ? "failing, last copy" : "last copy",
       })),
       group: "capture",
       headline: archiveUp ? `every 5 s · ${STORES.length} stores` : "stopped",
@@ -628,6 +636,8 @@ function captureCards(r: Reads): Card[] {
           label: "cloudflared",
           value: tunnel?.running ? "running" : (tunnel?.status ?? "?"),
         },
+        // The watcher heals the tunnel by restarting cloudflared (tunnel.ts): its start is the last heal or reboot.
+        { at: tunnel?.since, label: "Up since" },
       ],
       group: "capture",
       headline: tunnel?.running ? "connected" : "down",
@@ -648,23 +658,42 @@ type Sweep =
   | Reads["status"]["midday"]
   | Omit<Reads["status"]["backfill"], "state">;
 
-const stepsOf = (children: string[] | undefined) =>
-  new Set((children ?? []).map((c) => c.split("/")[0]));
+/** A nightly report's email (`reportKey`), by its key. */
+const isReport = (key: unknown) => String(key ?? "").startsWith(reportKey(""));
 
-/** A sweep's stations: the steps its last good run and its latest ran, in their order, and the one running now. */
-function stationsOf(s: Sweep, proc: Processing) {
-  const ran = stepsOf([
-    ...(s.lastOk?.children ?? []),
-    ...(s.latest?.children ?? []),
-  ]);
-  const latest = stepsOf(s.latest?.children);
-  return STEPS.filter((o) => ran.has(o) || proc.phase === o).map((o) => {
-    let state: "done" | "now" | "todo" = latest.has(o) ? "done" : "todo";
-    if (proc.phase === o) {
-      state = "now";
+/**
+ * A sweep's stations: the phases its last good run went through (its steps among them) and any its latest added,
+ * done as its latest went through them, the one it is in now, the one it failed at left to do; for the night, then
+ * its report, done once that email went.
+ */
+export function stationsOf(
+  s: Pick<Sweep, "lastOk" | "latest">,
+  running: boolean,
+  reported: boolean | null
+) {
+  const latest = s.latest?.phases ?? [];
+  const names = [...new Set([...(s.lastOk?.phases ?? []), ...latest])];
+  const now = running ? latest.at(-1) : undefined;
+  const failedAt =
+    s.latest?.outcome === "failed"
+      ? String(s.latest.result?.failedAt)
+      : undefined;
+  const stateOf = (name: string): "done" | "now" | "todo" => {
+    if (name === now) {
+      return "now";
     }
-    return { name: o.replace("memory.", ""), state };
-  });
+    return latest.includes(name) && name !== failedAt ? "done" : "todo";
+  };
+  const stations = names.map((name) => ({ name, state: stateOf(name) }));
+  return reported === null
+    ? stations
+    : [
+        ...stations,
+        {
+          name: "email",
+          state: reported ? ("done" as const) : ("todo" as const),
+        },
+      ];
 }
 
 const sweepFacts = (
@@ -725,7 +754,18 @@ function sweepCard(
     headline,
     id,
     name,
-    stations: running || latest ? stationsOf(s, proc) : undefined,
+    stations:
+      running || latest
+        ? stationsOf(
+            s,
+            running,
+            id === "nightly"
+              ? r.sent.some(
+                  (e) => e.key === reportKey(latest?.id.split("/")[1] ?? "")
+                )
+              : null
+          )
+        : undefined,
   };
 }
 
@@ -970,14 +1010,27 @@ function outputCards(r: Reads): Card[] {
       word: byClient.size ? "connected" : "quiet",
     },
     {
-      ...(failed
-        ? { tone: "warn", word: "a failure" }
-        : { tone: "ok", word: "ready" }),
-      content: acts
-        .slice(-5)
-        .map(
-          (a) => `${a.kind} ${String(a.after?.title ?? a.before?.title ?? "")}`
-        ),
+      ...firstOf(
+        [
+          r.remctl.length > 0,
+          {
+            ask: ASK("that Life can't reach Reminders"),
+            tone: "bad",
+            word: "unreachable",
+          },
+        ],
+        [failed > 0, { tone: "warn", word: "a failure" }],
+        [true, { tone: "ok", word: "ready" }]
+      ),
+      content: [
+        ...r.remctl,
+        ...acts
+          .slice(-5)
+          .map(
+            (a) =>
+              `${a.kind} ${String(a.after?.title ?? a.before?.title ?? "")}`
+          ),
+      ],
       facts: [
         { label: "Actions today", value: String(acts.length) },
         { label: "Failed today", value: String(failed) },
@@ -993,9 +1046,11 @@ function outputCards(r: Reads): Card[] {
       facts: [
         { label: "Sent today", value: String(mails.length) },
         {
-          at: mails.findLast((m) =>
-            String(m.key ?? m.subject ?? "").includes("nightly")
-          )?.at,
+          label: "Alerts today",
+          value: String(mails.filter((m) => !isReport(m.key)).length),
+        },
+        {
+          at: mails.findLast((m) => isReport(m.key))?.at,
           label: "Last report",
         },
       ],
@@ -1082,7 +1137,10 @@ function macCards(r: Reads): Card[] {
           [sv.running, { tone: "ok", word: "running" }],
           [true, { tone: "idle", word: "waiting" }]
         ),
-        facts: [{ label: "launchd", value: launchd }],
+        facts: [
+          { label: "launchd", value: launchd },
+          { at: sv.since, label: "Up since" },
+        ],
         group: "mac",
         headline,
         id: `service-${sv.name.replaceAll(" ", "-")}`,
@@ -1159,10 +1217,10 @@ export async function snapshot(now = clock()) {
   };
 }
 
-export type Snapshot = Awaited<ReturnType<typeof snapshot>>;
+export type Plate = Awaited<ReturnType<typeof snapshot>>;
 
 /** The plate as it may leave the Mac: each card and tick keeps only its listed fields, so none of his words go. */
-export const strip = (s: Snapshot): Snapshot => ({
+export const strip = (s: Plate): Plate => ({
   ...s,
   cards: s.cards.map((c) => ({
     at: c.at,
