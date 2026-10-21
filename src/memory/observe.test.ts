@@ -173,9 +173,10 @@ test("an observation is about its entities, folded, plus the names that resolve 
       entities: ["person:inf-plumber", "project:shop"],
       id: "obs_1",
       speaker: "person:me",
+      text: "A fact.",
     },
-    { entities: [], id: "obs_2", speaker: "person:me" },
-    { entities: [], id: "obs_3", speaker: "unknown:Plombier" },
+    { entities: [], id: "obs_2", speaker: "person:me", text: "A fact." },
+    { entities: [], id: "obs_3", speaker: "unknown:Plombier", text: "A fact." },
   ] as unknown as Observation[];
   const rows = [
     { observation: "obs_2", surface: "Plombier" },
@@ -359,6 +360,67 @@ test("a voice kept by lifelog's id resolves by the name lifelog gave it when the
   const [o] = aboutNow(facts, [], people, [], []);
   expect(o?.speaker).toBe("person:dad");
   expect(o?.speakerName).toBeUndefined();
+});
+
+test("tokens: kept for the author, unknown names and listed refs; a ref the claim does not list is just its name", () => {
+  const { observations } = parseObservations(
+    {
+      observations: [
+        obs({
+          entities: ["person:me", "person:dad"],
+          text: "{speaker|Jean} will ask {person:dad|Pops}, {unknown:Zoé|Zoé} and {person:gaston|Gas} about the glazier.",
+        }),
+      ],
+    },
+    ctx
+  );
+  expect(observations[0]?.text).toBe(
+    "{speaker|Jean} will ask {person:dad|Pops}, {unknown:Zoé|Zoé} and Gas about the glazier."
+  );
+});
+
+test("a token shows the name as written, and a person's current name only when who it names changed", () => {
+  const facts = [
+    {
+      entities: ["person:gaston"],
+      id: "obs_1",
+      speaker: "person:gaston",
+      speakerFrom: "+66600000001",
+      text: "{speaker|Gas} owes {person:me|Jean} 50€.",
+      unit: "u_000000000005",
+    },
+    {
+      entities: ["person:gaston", "person:me"],
+      id: "obs_2",
+      speaker: "person:me",
+      text: "{person:me|Jean} reminded {person:gaston|Gas}.",
+      unit: "u_000000000005",
+    },
+    {
+      entities: ["person:inf-plumber"],
+      id: "obs_3",
+      speaker: "person:me",
+      text: "{person:inf-plumber|the plumber} is late.",
+      unit: "u_000000000004",
+    },
+  ] as unknown as Observation[];
+  const fold = said({
+    from: "person:inf-plumber",
+    kind: "same-person",
+    to: "person:gaston",
+  });
+  const now = aboutNow(
+    facts,
+    [],
+    people,
+    [inferred("inf-plumber", ["Plombier"])],
+    [fold]
+  );
+  expect(now.map((o) => o.text)).toEqual([
+    "Jean Senior Dupont owes Jean 50€.",
+    "Jean reminded Jean Senior Dupont.",
+    "Gaston is late.",
+  ]);
 });
 
 test("renaming takes whole words only, any case, longest name first", () => {

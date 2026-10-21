@@ -9,7 +9,7 @@ import {
 import { othersIn } from "../truth";
 import { digest } from "./ledger";
 import { areaOf, normalize } from "./units";
-import { UNKNOWN } from "./who";
+import { SPEAKER, sentence, UNKNOWN } from "./who";
 import { localDate, zoneAt } from "./zones";
 
 // The pure parts of stage 2 (memory-pipeline §3.3, §3.4): what the extractor may return, the quote check, entity
@@ -247,7 +247,13 @@ function recordOf(
     speaker: line.speaker,
     ...(line.from ? { speakerFrom: line.from } : {}),
     ...(line.speakerName ? { speakerName: line.speakerName } : {}),
-    text: o.text,
+    // A token for a ref the claim does not list is just its name: what renders must be what was checked.
+    text:
+      sentence(o.text, (ref, name) =>
+        ref === SPEAKER || ref.startsWith(UNKNOWN) || entities.has(ref)
+          ? `{${ref}|${name}}`
+          : name
+      ) ?? o.text,
     type: o.type,
     tz: zoneAt(line.at),
     unit: o.unit,

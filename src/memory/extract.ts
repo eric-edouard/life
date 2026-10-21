@@ -54,7 +54,7 @@ import { observationsNow, readPeople, UNKNOWN } from "./who";
 // entity against the candidate list, then appends them to memory/observations/<yyyy-mm>.jsonl, and the earlier facts
 // the moment's lines show are no longer true to memory/supersessions.jsonl. Nothing is sent.
 
-const EXTRACT_PROMPT = "memory-extract.v5";
+const EXTRACT_PROMPT = "memory-extract.v6";
 /** Characters of unit text per call: whole moments, as many as fit. */
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;

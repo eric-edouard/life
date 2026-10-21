@@ -61,8 +61,8 @@ Only what the owner would want to find again, one claim per observation, of one 
 | news | something changed in one of his areas: status, problem, progress, numbers, money in or out |
 
 **Between him and someone close.** Write what the lines show of the relationship itself, in plain words and in
-someone's name: "Ana told <his first name> on 3 Mar she needs more time to herself."; "<his first name> and Ana agreed on 3
-Mar to keep money matters separate." Who said what is part of the claim: a view one of them gave is `reported` in
+someone's name: "{speaker|Ana} told {person:me|<his first name>} on 3 Mar she needs more time to herself.";
+"{person:me|<his first name>} and {person:ana|Ana} agreed on 3 Mar to keep money matters separate." Who said what is part of the claim: a view one of them gave is `reported` in
 that person's name, never written as the truth about the other. No psychology, diagnosis or motive the lines don't
 state ("avoidant", "insecure", "because she is jealous"). Everyday logistics with them are not observations. When the
 lines show a newer state, list the older one from `prior` in `replaces`.
@@ -98,11 +98,15 @@ happened.
 - `modality`: `fact` (stated as true by someone in a position to know), `plan` (settled for later), `reported` (someone
   says it about a third person), `conditional` (only if something else; a hypothesis, a joke, a quote of someone
   else's words, an AI's text read aloud).
-- `text`: the claim, in English, self-contained, one short sentence with one fact: name who (use the person's name,
-  his first name for him), what, and when as an absolute date when there is one ("<his first name> will find a glazier to replace the
-  shop's broken pane (120 x 60 cm, 4 mm)."; "Anne-Sophie is in Nantes from 3 Mar."). No "he", "they", "tomorrow" or
-  "this shop" without saying whose. Two facts make two observations. Never mention phone numbers, ids or whether
-  someone is on the map.
+- `text`: the claim, in English, self-contained, one short sentence with one fact: name who, what, and when as an
+  absolute date when there is one. Write every person as a token `{ref|name}`: the `ref` you list in `entities`
+  (`person:…` or `unknown:<name as written>`), then the name as you would write it (his first name for him). The
+  author of the line you quote is `{speaker|name}` instead, whoever they are. Code shows the name, and a person's
+  current name when their ref changes later, so never write a person's name outside a token. Examples:
+  `"{person:me|<his first name>} will find a glazier to replace the shop's broken pane (120 x 60 cm, 4 mm)."`,
+  `"{speaker|Anne-Sophie} is in Nantes from 3 Mar."`, `"{speaker|Sam} asked {person:me|<his first name>} to repay the 800€."`.
+  No "he", "she", "they", "tomorrow" or "this shop" without saying whose: repeat the token. Two facts make two
+  observations. Never mention phone numbers, ids or whether someone is on the map.
 - `quote`: the evidence, copied **exactly** from one or two adjacent lines' text, in the original language: same
   words, same spelling, same filler words and repetitions ("euh", "du coup", "il faut que, il faut que"), no
   translation, no "…" to skip words, no `[n] HH:MM who:` prefix. At least a few words, at most about 300

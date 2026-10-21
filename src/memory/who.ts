@@ -162,13 +162,25 @@ export function aboutNow(
       speaker: a.now,
       // A chat title named an unknown author; once they resolve, their name is the map's.
       speakerName: resolvedNow ? undefined : o.speakerName,
-      // ponytail: a sentence written before tokens names people; a move swaps their names in it as it is read (never
-      // stored). Tokenized sentences (extract v6) will make this a no-op for new facts.
-      text: [...moved].reduce(
-        (t, [was, now]) =>
-          renamed(t, namesOf.get(was) ?? [], namesOf.get(now)?.[0] ?? now),
-        o.text
-      ),
+      text:
+        sentence(o.text, (ref, name) => {
+          // A token shows the name the model wrote, unless who it names is someone else now (a move, a fold).
+          const was = ref === SPEAKER ? a.was : ref;
+          const now =
+            ref === SPEAKER ? a.now : (moved.get(canon(ref)) ?? canon(ref));
+          const changed =
+            now !== was &&
+            !now.startsWith(UNKNOWN) &&
+            !(ref === SPEAKER && a.unknown);
+          return changed ? (namesOf.get(now)?.[0] ?? name) : name;
+        }) ??
+        // ponytail: a sentence from before tokens (extract v6) names people as plain words; a move swaps them as it
+        // is read (never stored).
+        [...moved].reduce(
+          (t, [was, now]) =>
+            renamed(t, namesOf.get(was) ?? [], namesOf.get(now)?.[0] ?? now),
+          o.text
+        ),
       unmapped: !!named.get(o.id)?.some((n) => !n.ref),
     };
   });
@@ -186,6 +198,24 @@ export function authorFrom(o: Observation, chatOf: Map<string, string>) {
     return o.speaker.slice(UNKNOWN.length);
   }
   return o.speaker === OWNER ? undefined : chatOf.get(o.unit);
+}
+
+/** The cited line's author in a token. */
+export const SPEAKER = "speaker";
+/** A person written into a fact's sentence (extract v6): `{ref|name}`, the ref or `speaker`, and the name as written. */
+const TOKEN = /\{(speaker|person:[^{}|]+|unknown:[^{}|]+)\|([^{}]*)\}/g;
+
+/** A sentence with each token replaced by `show(ref, name)`; null for a sentence with no token (written before v6). */
+export function sentence(
+  text: string,
+  show: (ref: string, name: string) => string
+) {
+  let found = false;
+  const out = text.replace(TOKEN, (_, ref: string, name: string) => {
+    found = true;
+    return show(ref, name);
+  });
+  return found ? out : null;
 }
 
 /** `text` with each whole-word `names` (any case) replaced by `name`. */
