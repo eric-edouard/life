@@ -13,6 +13,7 @@ import {
   layoutOf,
   lineHash,
   liveLines,
+  newOn,
   oftenLine,
   ownerEdits,
   type PageLine,
@@ -595,4 +596,26 @@ test("a close person's page has Between us before Now; once not close, its lines
   expect(after.history.map((l) => l.text)).toEqual([
     "Hans and Jean agreed to keep money apart.",
   ]);
+});
+
+test("new to a page: extracted since its last reading, or refiled onto it and not offered yet", () => {
+  const fact = (id: string, run: string, refiled = false) =>
+    ({ id, madeBy: { run }, refiled }) as unknown as Observation & {
+      refiled: boolean;
+    };
+  const facts = [
+    fact("obs_a", "r2"),
+    fact("obs_b", "r1"),
+    fact("obs_c", "r1", true),
+    fact("obs_d", "r1", true),
+  ];
+  expect(newOn(facts, null).map((o) => o.id)).toEqual([
+    "obs_a",
+    "obs_b",
+    "obs_c",
+    "obs_d",
+  ]);
+  expect(
+    newOn(facts, { offered: ["obs_d"], seen: "r1" }).map((o) => o.id)
+  ).toEqual(["obs_a", "obs_c"]);
 });
