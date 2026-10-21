@@ -16,6 +16,7 @@ import {
   apply,
   conversationsWith,
   Hits,
+  LifelogStatus,
   ownerSpoke,
   Page,
   poll,
@@ -371,6 +372,8 @@ test.skipIf(!existsSync(CONTRACT))(
       ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
       ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
       ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
+      // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
+      // optional and nullable (tested below) and there is nothing to compare.
     ]).toEqual([]);
   }
 );
@@ -476,4 +479,20 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
     })
   );
   expect(marked("c2")).toEqual([undefined, undefined]);
+});
+
+test("lifelog's /status is read whatever its untyped objects hold: absent, null, or partly there", () => {
+  expect(LifelogStatus.parse({})).toEqual({});
+  expect(
+    LifelogStatus.parse({ other: 1, pendant: null, phoneHeartbeat: null })
+  ).toEqual({
+    pendant: null,
+    phoneHeartbeat: null,
+  });
+  expect(
+    LifelogStatus.parse({
+      pendant: { batteryPercent: 0, connection: null, recording: "recording" },
+      phoneHeartbeat: { backlog: null },
+    }).pendant?.batteryPercent
+  ).toBe(0);
 });
