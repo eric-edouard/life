@@ -44,9 +44,9 @@ test("a session that ran out is renewed with its refresh token: the same request
   expect(refused.status).toBe(401);
   expect(refused.headers.get("set-cookie")).toContain("__Host-life-refresh=;");
 
-  // The issuer out of reach: an answer, not a crash.
+  // The issuer out of reach: a 503, and the refresh token kept for when it is back.
   const down = createSignIn(verify, () => Promise.reject(new Error("down")));
-  expect(
-    ((await down.refusal(post("__Host-life-refresh=r1"))) as Response).status
-  ).toBe(401);
+  const away = (await down.refusal(post("__Host-life-refresh=r1"))) as Response;
+  expect(away.status).toBe(503);
+  expect(away.headers.get("set-cookie")).toBeNull();
 });

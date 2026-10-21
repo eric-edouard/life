@@ -66,32 +66,21 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
         400
       );
     }
-    const res = await exchange({
-      body: new URLSearchParams({
-        client_id: client,
-        code,
-        code_verifier: verifier,
-        grant_type: "authorization_code",
-        redirect_uri: CALLBACK,
-        resource,
-      }),
-      method: "POST",
+    const token = await trade({
+      code,
+      code_verifier: verifier,
+      grant_type: "authorization_code",
+      redirect_uri: CALLBACK,
+      resource,
     });
-    if (!res) {
+    if (token === "unreachable") {
       return text(UNREACHABLE, 503);
     }
-    const token = Tokens.safeParse(res.ok ? await res.json() : null);
-    if (!token.success) {
+    if (token === "refused") {
       return text("Not signed in as the owner.", 403);
     }
-    const whose = await verify(token.data.access_token);
-    if ("refusal" in whose) {
-      return whose.refusal === "unreachable"
-        ? text(UNREACHABLE, 503)
-        : text("Not signed in as the owner.", 403);
-    }
     return redirect(next && PAGES.has(next) ? next : "/check/", [
-      ...sessionCookies(token.data),
+      ...sessionCookies(token),
       cookie(LOGIN, "", 0),
     ]);
   }
@@ -105,8 +94,8 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (!("refusal" in whose)) {
       return null;
     }
-    const renewed = whose.refusal === "invalid" && (await renew(req));
-    if (renewed) {
+    const renewed = whose.refusal === "invalid" ? await renew(req) : "none";
+    if (renewed instanceof Response) {
       return renewed;
     }
     if (whose.refusal === "forbidden") {
@@ -115,8 +104,9 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (whose.refusal === "unreachable") {
       return text(UNREACHABLE, 503);
     }
-    // A refresh token the issuer refused is dropped, or every request would try it again.
-    const dropped = cookieOf(req, REFRESH) ? [cookie(REFRESH, "", 0)] : [];
+    // A refresh token the issuer refused is dropped, or every request would try it again (one it never saw, the issuer
+    // being away, is kept: renew answered 503 then).
+    const dropped = renewed === "refused" ? [cookie(REFRESH, "", 0)] : [];
     if (page) {
       const answer = login(page);
       for (const c of dropped) {
@@ -131,37 +121,52 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     );
   }
 
-  /** A call to the issuer's token endpoint; null when it can't be reached in time. */
-  const exchange = (init: RequestInit) =>
-    lifelog(`${issuer}/oauth2/token`, {
-      ...init,
+  /**
+   * One trade at the issuer's token endpoint (a code or a refresh token): the owner's tokens, "refused" when the issuer
+   * or the check says no, "unreachable" when the issuer or its keys can't be reached in time.
+   */
+  async function trade(fields: Record<string, string>) {
+    const res = await lifelog(`${issuer}/oauth2/token`, {
+      body: new URLSearchParams({ client_id: client, ...fields }),
+      method: "POST",
       signal: AbortSignal.timeout(15_000),
     }).catch(() => null);
+    if (!res) {
+      return "unreachable";
+    }
+    const token = Tokens.safeParse(res.ok ? await res.json() : null);
+    if (!token.success) {
+      return "refused";
+    }
+    const whose = await verify(token.data.access_token);
+    if ("refusal" in whose) {
+      return whose.refusal === "unreachable" ? "unreachable" : "refused";
+    }
+    return token.data;
+  }
 
-  /** A spent session renewed with its refresh token: the same address again, with the new cookies; null when it can't be. */
-  async function renew(req: Request) {
+  /**
+   * A spent session renewed with its refresh token: the same address again, with the new cookies; a 503 when the issuer
+   * can't be reached (the token kept); "refused" when the issuer said no; "none" with no refresh token.
+   */
+  async function renew(req: Request): Promise<Response | "none" | "refused"> {
     const refresh = cookieOf(req, REFRESH);
     if (!refresh) {
-      return null;
+      return "none";
     }
-    const res = await exchange({
-      body: new URLSearchParams({
-        client_id: client,
-        grant_type: "refresh_token",
-        refresh_token: refresh,
-      }),
-      method: "POST",
+    const token = await trade({
+      grant_type: "refresh_token",
+      refresh_token: refresh,
     });
-    const token = Tokens.safeParse(res?.ok ? await res.json() : null);
-    if (
-      !token.success ||
-      "refusal" in (await verify(token.data.access_token))
-    ) {
-      return null;
+    if (token === "unreachable") {
+      return text(UNREACHABLE, 503);
+    }
+    if (token === "refused") {
+      return token;
     }
     const { pathname, search } = new URL(req.url);
     // 307: a rating posted as the session ran out is posted again, with the new session.
-    return redirect(`${pathname}${search}`, sessionCookies(token.data), 307);
+    return redirect(`${pathname}${search}`, sessionCookies(token), 307);
   }
 
   return { callback, login, refusal };
