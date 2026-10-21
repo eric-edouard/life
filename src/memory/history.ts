@@ -3,7 +3,7 @@ import { z } from "zod";
 import { STORES } from "../archive";
 import { clock } from "../clock";
 import { polling, readHealth } from "../health";
-import type { Quota } from "../llm";
+import { add, NONE, type Quota, type Tokens } from "../llm";
 import {
   LOG_DIR,
   type LogEvent,
@@ -55,6 +55,12 @@ const omit = (e: LogEvent | undefined) => {
   return rest;
 };
 
+/** What a run spent of his Codex plan: its tokens, and for a metered run the quota read around it (`useOf`). */
+export interface Use {
+  quota: { after: Quota | null; before: Quota | null } | null;
+  tokens: Tokens;
+}
+
 export interface Run {
   /** Steps that ran inside a sweep, by id. */
   children?: string[];
@@ -69,8 +75,61 @@ export interface Run {
   step: string;
   /** The sweep it ran in, if any. */
   sweep?: string;
+  /** What it spent of his Codex plan; null when it made no model call and reads no quota. */
+  use?: Use | null;
   /** The local days its sources were read for. */
   window?: { from: string; to: string };
+}
+
+/** The percent a run took: null when either reading is missing or the window reset during it. */
+export const percentOf = (u: Use) =>
+  u.quota?.after &&
+  u.quota.before &&
+  u.quota.after.resetsAt === u.quota.before.resetsAt
+    ? u.quota.after.used - u.quota.before.used
+    : null;
+
+/** Tokens as a person reads them: 812k, 2.1M. */
+const tokensText = (n: number) =>
+  n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`;
+
+/** A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached)"; under 1% when the whole percent didn't move. */
+export function useText(u: Use | null) {
+  const t = u?.tokens ?? NONE;
+  const tokens = `${tokensText(t.input + t.output)} tokens (${tokensText(t.cached)} cached)`;
+  const p = u ? percentOf(u) : null;
+  if (p !== null) {
+    return `${p < 1 ? "under 1%" : `+${p}%`} of the quota, ${tokens}`;
+  }
+  const read = u?.quota?.before && u.quota.after;
+  return `${read ? "the quota reset during it" : "quota not read"}, ${tokens}`;
+}
+
+/**
+ * A run's use, derived from the log: the tokens of its model calls (`model.run` lines with its run id) and its steps',
+ * and for a metered run (`metered`, run.ts) the quota it logged as it started and ended (null while it runs).
+ */
+function useOf(
+  r: Run,
+  tokensBy: Map<string, Tokens>,
+  byId: Map<string, Run>
+): Use | null {
+  const own = (x: Run) => tokensBy.get(x.id.slice(x.step.length + 1));
+  const parts = [
+    r,
+    ...(r.children ?? []).flatMap((c) => byId.get(c) ?? []),
+  ].flatMap((x) => own(x) ?? []);
+  const quota =
+    r.input && "quota" in r.input
+      ? {
+          after: (r.result?.quota as Quota | undefined) ?? null,
+          before: r.input.quota as Quota | null,
+        }
+      : null;
+  if (!(parts.length || quota)) {
+    return null;
+  }
+  return { quota, tokens: parts.reduce(add, NONE) };
 }
 
 /** A sweep's sub-step (memory.nightly.actions) belongs to its sweep. */
@@ -172,6 +231,9 @@ export function assembleRuns(
   const byId = new Map<string, Run>();
   const orphans: LogEvent[] = [];
   for (const e of [...events].sort((a, b) => a.at.localeCompare(b.at))) {
+    if (!e.kind.startsWith("run.")) {
+      continue;
+    }
     const step = stepOf(e.step);
     if (!steps.has(step)) {
       continue;
@@ -191,8 +253,33 @@ export function assembleRuns(
   for (const r of list) {
     r.outcome = outcomeOf(r, lockSince);
   }
-  return nest(list, orphans);
+  nest(list, orphans);
+  const tokensBy = tokensOf(events);
+  for (const r of list) {
+    if (r.startedAt) {
+      r.use = useOf(r, tokensBy, byId);
+    }
+  }
+  return list;
 }
+
+/** The tokens of the model calls, by run id. */
+function tokensOf(events: LogEvent[]) {
+  const by = new Map<string, Tokens>();
+  for (const e of events) {
+    const t = e.tokens as Tokens | undefined;
+    if (e.kind === "model.run" && e.run && t) {
+      by.set(e.run, add(by.get(e.run) ?? NONE, t));
+    }
+  }
+  return by;
+}
+
+/** One day's events a run is made of: its run lines and the model calls it made. */
+const runEvents = (name: string, dir = LOG_DIR) => [
+  ...logEvents<LogEvent>(name, "run.", dir),
+  ...logEvents<LogEvent>(name, "model.run", dir),
+];
 
 /** Newest first; a run without a start (an old error) sorts by its end. */
 const keyOf = (r: Run) => r.startedAt ?? r.endedAt ?? "";
@@ -228,7 +315,7 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
     if (after && day > nextDay(after[0])) {
       continue;
     }
-    events.push(...logEvents<LogEvent>(name, "run.", dir));
+    events.push(...runEvents(name, dir));
     const last = i === days.length - 1;
     // Assembled with the whole pipeline, so a sweep lists its steps whatever `steps` shows.
     const ready = assembleRuns(events, new Set([...PIPELINE, ...steps]), lock)
@@ -289,7 +376,9 @@ export async function lifeStatus(now = clock()) {
   const lock = lockedSince();
   const night = readState();
   const middaySlot = readMidday();
-  const events = await recentEvents(STATUS_DAYS);
+  const events = (await logDays())
+    .slice(0, STATUS_DAYS)
+    .flatMap((n) => runEvents(n));
   // The tick reads the quota every 30 minutes: its last reading (an unread one has no figures) says whether middays wait.
   const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
