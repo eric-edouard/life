@@ -292,7 +292,7 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
 
 /**
  * The earlier facts extraction may show (`priorFor`): the active ones, and the retired ones with the unit of what
- * retired them (one he rated outdated, retired by itself, is closed for good). None from a unit this run reads again
+ * retired them (one he rated outdated, or one a fact he rated true retired, is closed for good). None from a unit this run reads again
  * (`reread`: replaced, or about to be) but those he rated true (never replaced, so shown to be corrected).
  */
 export function shownFor<O extends Observation>(
@@ -307,7 +307,10 @@ export function shownFor<O extends Observation>(
     }
     const s = stateOf(o, standing);
     if (s.state === "retired") {
-      return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
+      // Closed for good: by his answer, or by a fact he rated true (a re-read keeps it, so its retirement holds).
+      return s.by === o.id || standing.rated.has(s.by)
+        ? []
+        : [{ by: unitOf.get(s.by), o }];
     }
     return s.state === "active" ? [{ o }] : [];
   });

@@ -226,10 +226,12 @@ export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.claim);
 
 export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
 
-/** The claims his latest answer calls true: an undo or a later answer lifts one. */
+/** The claims his latest answer calls true, now or then (`outdated`): an undo or a later answer lifts one. */
 export const ratedTrue = (latest: Map<string, Rating>) =>
   new Set(
-    [...latest.values()].flatMap((r) => (r.answer === "true" ? [r.claim] : []))
+    [...latest.values()].flatMap((r) =>
+      r.answer === "true" || r.answer === "outdated" ? [r.claim] : []
+    )
   );
 
 /** The claims his latest answer calls false, as `wrong` corrections: an undo or a later answer lifts one. */
@@ -275,7 +277,7 @@ export interface Standing {
   corrections: Correction[];
   latest: Map<string, Extracted>;
   live: Set<string>;
-  /** What he rated true (his latest answer): a re-read of its unit does not replace it. */
+  /** What he rated true, now or then (his latest answer): a re-read of its unit does not replace it. */
   rated: Set<string>;
   retired: Map<string, Retirement>;
 }
@@ -378,9 +380,15 @@ export const shows = (s: State, page?: string) =>
   (s.state === "active" || s.state === "retired") &&
   !(page && s.hiddenOn.includes(page));
 
-/** The observations that show in the index: neither hidden everywhere nor replaced. */
-export const shownOf = (list: Observation[], standing: Standing) =>
-  list.filter((o) => shows(stateOf(o, standing)));
+/**
+ * The observations that show in the index: neither hidden everywhere nor replaced; one line per id, the latest (a re-read
+ * that writes a fact he rated true again, word for word, leaves two current lines of one id).
+ */
+export const shownOf = (list: Observation[], standing: Standing) => [
+  ...new Map(
+    list.filter((o) => shows(stateOf(o, standing))).map((o) => [o.id, o])
+  ).values(),
+];
 
 /** Stamps and checks what the owner said (the CLI's `correct` and the connector's) and appends it; throws when invalid. */
 export async function recordCorrection(said: unknown) {
