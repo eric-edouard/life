@@ -27,6 +27,7 @@ import {
   readVerdicts,
   rereadAt,
   rowsOf,
+  type Standing,
   SUPERSESSIONS,
   stateOf,
   UNRESOLVED,
@@ -290,19 +291,42 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
 }
 
 /**
+ * The earlier facts extraction may show (`priorFor`): the active ones, and the retired ones whose retirer is about to be
+ * replaced (or no longer shows), so the new reading can bring them back. A fact is about to be replaced when this run
+ * reads its unit again (`reread`) and he did not rate it true (rated facts are never replaced, so shown to be corrected).
+ */
+export function shownFor<O extends Observation>(
+  known: O[],
+  standing: Standing,
+  reread: ReadonlySet<string>
+) {
+  const byId = new Map(known.map((o) => [o.id, o]));
+  const fading = (o: Observation) =>
+    reread.has(o.unit) && !standing.rated.has(o.id);
+  return known.filter((o) => {
+    if (fading(o)) {
+      return false;
+    }
+    // `known` shows (`shownOf`): active, or retired.
+    const s = stateOf(o, standing);
+    if (s.state !== "retired") {
+      return true;
+    }
+    const by = byId.get(s.by);
+    return !by || fading(by);
+  });
+}
+
+/**
  * Earlier facts for a group, newest first, shown to the model as a reading to correct, never as evidence: about its
- * people from the two weeks before it, and about the owner alone from its day and the day before. `shown` are the active
- * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
- * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
- * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
+ * people from the two weeks before it, and about the owner alone from its day and the day before, of those it may show
+ * (`shownFor`, with those this run wrote already). Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
  * units at any age, and the `person` facts of the last year about its people `close` to him (what is between them
  * lasts, and a newer fact must replace it).
  */
 export function priorFor(
   group: Group,
-  shown: { by?: string; o: Observation }[],
-  reread: Set<string>,
-  run: string,
+  shown: Observation[],
   close: ReadonlySet<string>,
   max = PRIOR_MAX
 ) {
@@ -329,14 +353,7 @@ export function priorFor(
     [lasting, BOND_MAX],
   ];
   const candidates = shown
-    .filter(
-      ({ by, o }) =>
-        o.date <= day &&
-        (o.madeBy.run === run || !reread.has(o.unit)) &&
-        (!by || reread.has(by)) &&
-        slots.some(([fits]) => fits(o))
-    )
-    .map(({ o }) => o)
+    .filter((o) => o.date <= day && slots.some(([fits]) => fits(o)))
     .toSorted((a, b) => b.at.localeCompare(a.at));
   const taken = new Set<Observation>();
   return slots.flatMap(([fits, n]) => {
@@ -385,15 +402,6 @@ export async function extract(evidence: Evidence) {
     EXTRACT_PROMPT,
     rereadAt(corrections)
   );
-  const unitOf = new Map(known.map((o) => [o.id, o.unit]));
-  const shown = known.flatMap((o) => {
-    const s = stateOf(o, standing);
-    if (s.state === "retired") {
-      // One he rated outdated (retired by itself) is closed for good.
-      return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
-    }
-    return s.state === "active" ? [{ o }] : [];
-  });
   const { copies, groups } = groupsOf(
     pending.map((p) => p.b),
     inWindow,
@@ -404,6 +412,7 @@ export async function extract(evidence: Evidence) {
 
   const read = groups.flatMap((g) => g.units);
   const reread = new Set([...read, ...copies].map((b) => b.unit.id));
+  const shown = shownFor(known, standing, reread);
   const turns = await withStore(
     (store) =>
       new Map(
@@ -476,14 +485,13 @@ export async function extract(evidence: Evidence) {
       const sources = call.flatMap((g) => g.sources);
       // What this run wrote is the reading now, and what it retired is gone.
       const gone = new Set(retired.map((r) => r.observation));
-      const standingNow = [
-        ...shown,
-        ...observations.map((o) => ({ o })),
-      ].filter(({ o }) => !gone.has(o.id));
+      const standingNow = [...shown, ...observations].filter(
+        (o) => !gone.has(o.id)
+      );
       const prior = [
         ...new Map(
           call
-            .flatMap((g) => priorFor(g, standingNow, reread, step.run, close))
+            .flatMap((g) => priorFor(g, standingNow, close))
             .map((o) => [o.id, o])
         ).values(),
       ];
