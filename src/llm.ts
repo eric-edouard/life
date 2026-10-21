@@ -9,7 +9,7 @@ import { z } from "zod";
 import { log } from "./log";
 import { exec, firstLine } from "./proc";
 import { Engine, Runner } from "./schema";
-import { DATA, isHis, ROOT } from "./truth";
+import { DATA, isHis, ROOT, TEST } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -45,7 +45,10 @@ export interface Llm {
   model: string;
 }
 
-const SETTINGS = join(ROOT, "derived", "settings.json");
+// A test run reads its own (none: claude), never his engine: no test reaches Codex.
+const SETTINGS = TEST
+  ? join(DATA, "settings.json")
+  : join(ROOT, "derived", "settings.json");
 const Settings = z.object({ engine: Engine.default("claude") });
 const CLAUDE_MODELS: Record<Tier, string> = {
   deep: "opus",
