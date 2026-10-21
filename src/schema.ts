@@ -195,6 +195,9 @@ const SourceName = z.enum([
   "mail",
   "git",
   "notes",
+  "claude",
+  "chatgpt",
+  "atlas",
 ]);
 
 /**
@@ -354,7 +357,7 @@ export const Unit = z
     key: z.string(),
     // lifelog: the refs of the turns of his "hey Life" spans in it (the hearing's marks); absent when none.
     marked: z.array(z.string()).optional(),
-    // person:<slug> from truth/people.yaml, or unknown:<name> for a name lifelog knows and the map doesn't.
+    // As the source names them, unresolved (unknown:<name or sender>, person:me): readers map them (`unitNow`, who.ts).
     people: z.array(z.string()),
     // lifelog: conversation#turns and jobId:turnIndex@capturedAt; chats: first and last message id; mail: message ids.
     refs: z.array(z.string()).min(1),
@@ -473,7 +476,7 @@ export const Observation = z
         ref: z.string().min(1),
       })
       .strict(),
-    /** Who said or wrote the cited line: person:<slug>, or unknown:<label>. */
+    /** Who said or wrote the cited line: person:<slug>, unknown:<label>, or agent:<name> (an agent's report, never a person). */
     speaker: z.string(),
     /**
      * The handle or name the cited line's author came from (a chat sender; for a voice, lifelog's id, else its name), from
@@ -730,6 +733,24 @@ export const RepoGuess = z
   })
   .strict();
 export type RepoGuess = z.infer<typeof RepoGuess>;
+
+/**
+ * memory/imported.jsonl: whether a conversation of his claude.ai or ChatGPT export is about his life (people, plans,
+ * decisions, himself) or only work with the assistant, as the fast model judged it from his pruned messages
+ * (`memory/imports.ts`). Model-owned and append-only, the latest line per conversation wins; only kept ones are read
+ * (`sources/assistants.ts`).
+ */
+export const Imported = z
+  .object({
+    at: isoDateTime,
+    conversation: z.string().min(1),
+    keep: z.boolean(),
+    madeBy: MadeBy,
+    schemaVersion: z.literal(1),
+    why: z.string().min(1).max(300),
+  })
+  .strict();
+export type Imported = z.infer<typeof Imported>;
 
 /**
  * memory/closeness.jsonl: how close each person is to the owner, personal and work apart, as the fast model judged it

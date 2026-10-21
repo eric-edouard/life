@@ -1,15 +1,40 @@
 import type { Person, SourceEvent, Unit } from "../schema";
-import { readBeeper } from "./beeper";
-import { type RepoMap, readGit } from "./git";
-import { handleOf, isImessageGroup, readImessage } from "./imessage";
-import { readMail } from "./mail";
-import { readNotes } from "./notes";
-import { isWhatsappGroup, phoneOf, readWhatsapp } from "./whatsapp";
+import { FORMATS, newestAssistant, readAssistant } from "./assistants";
+import { newestAtlas, readAtlas } from "./atlas";
+import { newestBeeper, readBeeper } from "./beeper";
+import { newestCommit, type RepoMap, readGit } from "./git";
+import {
+  handleOf,
+  isImessageGroup,
+  newestImessage,
+  readImessage,
+} from "./imessage";
+import { newestMail, readMail } from "./mail";
+import { newestNote, readNotes } from "./notes";
+import {
+  isWhatsappGroup,
+  newestWhatsapp,
+  phoneOf,
+  readWhatsapp,
+} from "./whatsapp";
 
 // The registry: what Life knows about each source, in one descriptor. Code asks a source's kind or what it can do (a
 // field here), never its name; the tables of sources are derived from it (`tablesOf`, units.ts).
 
 type SourceName = Unit["source"];
+
+/** A source's newest item, for the status page: when it came, his words in it, by part. */
+export interface Newest {
+  at: string | null;
+  /** More lines for its card (a repo's name, how many committed today). */
+  facts?: { label: string; value: string }[];
+  /** Each part's newest (Beeper's networks). */
+  parts?: { at: string; label: string }[];
+  /** His words in it: the status page hides them in privacy mode and never sends them off the Mac. */
+  words?: string[];
+}
+
+const HOUR = 3_600_000;
 
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */
@@ -18,12 +43,24 @@ export type Descriptor = {
   group?: (chat: string) => boolean;
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
+  /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
+  imported?: boolean;
+  /** What he calls it. */
+  label: string;
   name: SourceName;
+  /** Its newest item (the status page's card); a voice source's is lifelog's to tell. */
+  newest?: () => Newest | Promise<Newest>;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
   searchDays?: number;
+  /** How long it may stay silent before its card turns amber (`toneOf`, plate.ts). */
+  silentAfter: number;
 } & (
   | {
-      kind: "chat" | "mail" | "notes";
+      /**
+       * notes: his own writing, no one else's words (Apple Notes, his messages to AI assistants); agent: what his agents
+       * report they did, evidence of it, never anyone's words.
+       */
+      kind: "agent" | "chat" | "mail" | "notes";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date) => SourceEvent[];
     }
@@ -41,45 +78,93 @@ export type Descriptor = {
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
 export const SOURCES: Descriptor[] = [
-  { kind: "voice", name: "lifelog" },
+  // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, plate.ts).
+  { kind: "voice", label: "Pendant", name: "lifelog", silentAfter: 6 * HOUR },
   {
     chatDays: 7,
     group: isImessageGroup,
     handleOf,
     kind: "chat",
+    label: "iMessage",
     name: "imessage",
+    newest: newestImessage,
     read: readImessage,
     searchDays: 90,
+    silentAfter: 24 * HOUR,
   },
   {
     chatDays: 7,
     group: isWhatsappGroup,
     handleOf: phoneOf,
     kind: "chat",
+    label: "WhatsApp",
     name: "whatsapp",
+    newest: newestWhatsapp,
     read: readWhatsapp,
     searchDays: 90,
+    silentAfter: 24 * HOUR,
   },
   {
     chatDays: 7,
     kind: "chat",
+    label: "Beeper",
     name: "beeper",
+    newest: newestBeeper,
     read: readBeeper,
     searchDays: 90,
+    silentAfter: 72 * HOUR,
   },
-  { kind: "mail", name: "mail", read: readMail, searchDays: 90 },
+  {
+    kind: "mail",
+    label: "Mail",
+    name: "mail",
+    newest: newestMail,
+    read: readMail,
+    searchDays: 90,
+    silentAfter: 12 * HOUR,
+  },
   {
     kind: "notes",
+    label: "Notes",
     name: "notes",
+    newest: newestNote,
     read: readNotes,
     // ponytail: each search reads every note version (1,500 in 15 ms, a whole search 150 ms, Oct 2026); index their
     // text in index.sqlite if that grows slow.
     searchDays: Number.POSITIVE_INFINITY,
+    silentAfter: 7 * 24 * HOUR,
+  },
+  // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
+  // amber; its newest is his newest imported message. ponytail: search reads every pruned message (the export parsed once per process,
+  // every sweep included); index them in index.sqlite if that grows slow.
+  ...(["claude", "chatgpt"] as const).map(
+    (name): Descriptor => ({
+      imported: true,
+      kind: "notes",
+      label: FORMATS[name].label,
+      name,
+      newest: () => newestAssistant(name),
+      read: readAssistant(name),
+      searchDays: Number.POSITIVE_INFINITY,
+      silentAfter: Number.POSITIVE_INFINITY,
+    })
+  ),
+  // Atlas's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
+  {
+    kind: "agent",
+    label: "Atlas",
+    name: "atlas",
+    newest: newestAtlas,
+    read: readAtlas,
+    silentAfter: Number.POSITIVE_INFINITY,
   },
   {
     kind: "repo",
+    label: "Git",
     name: "git",
+    newest: newestCommit,
     read: (since, { me, repos }) => readGit(since, repos, me),
+    silentAfter: 72 * HOUR,
   },
 ];
 
