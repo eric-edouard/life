@@ -1,21 +1,24 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chase, type Item, planOf, wantOf } from "./board";
 import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
-import type { Action } from "./schema";
+import { ACTIONS, appendJsonl, linesOf } from "./memory/ledger";
+import { Action } from "./schema";
 import {
   alerts,
   escalation,
   refusal,
+  reply,
   sealed,
   standing,
   type Task,
   tasksOf,
   timings,
   type Update,
+  unanswered,
   written,
 } from "./tasks";
 
@@ -443,4 +446,38 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
     "claimed",
     "closed",
   ]);
+});
+
+test("a reply is a line of its task's history (or of no task, `chat`); the day's asks with none are counted, splits left out", () => {
+  const answered = task([own("reply", 1, { text: "Booked." })]);
+  expect(answered.lines.map((l) => l.kind)).toEqual(["reply"]);
+  expect(standing(answered).state).toBe("open");
+  const split = task([]);
+  split.ask = { ...split.ask, after: { parent: ASK } };
+  expect(unanswered(T0, [answered, task([]), split])).toBe(1);
+  expect(unanswered(T0 + MIN, [task([])])).toBe(0);
+  try {
+    appendJsonl(ACTIONS, Action, [asked]);
+    expect(reply({ task: ASK, text: "On it." }, T0 + MIN)).toBe(
+      `${ASK}: reply logged`
+    );
+    reply({ text: "Hello." }, T0 + 2 * MIN);
+    expect(() => reply({ task: "act_nope00000000", text: "x" })).toThrow(
+      "no task"
+    );
+    const [t] = tasksOf();
+    expect(t?.lines.map((l) => [l.kind, l.after.text])).toEqual([
+      ["reply", "On it."],
+    ]);
+    expect(
+      Action.parse(JSON.parse(linesOf(ACTIONS).at(-1) as string))
+    ).toMatchObject({
+      after: { text: "Hello." },
+      kind: "reply",
+      madeBy: "connector",
+      target: "chat",
+    });
+  } finally {
+    rmSync(ACTIONS, { force: true });
+  }
 });

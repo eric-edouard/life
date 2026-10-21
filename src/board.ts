@@ -19,8 +19,8 @@ import { alerts, closed, settled, standing, type Task, tasksOf } from "./tasks";
 // closes: his receipt that he was heard. What needs him (`escalation`, src/tasks.ts) is emailed by `chase`, never shown here.
 
 const MIN = 60_000;
-/** A task's name, as the board and the email show it. */
-const nameOf = (t: Task) =>
+/** A task's name, as the board, the email and `search` show it. */
+export const nameOf = (t: Task) =>
   titleOf({
     quote: t.ask.instruction.quote,
     title: t.ask.after.title as string | undefined,

@@ -215,6 +215,12 @@ const LIVE = "c.successor is null and c.kind in ('conversation', 'imported')";
 /** A transcript turn's ref, the `<job>:<turn>@<instant>` every reader cites. */
 export const turnRef = (job: string, turn: number, at: string) =>
   `${job}:${turn}@${at}`;
+const TURN_REF = /^([^:\s]+):(\d+)@\S+$/;
+/** A turn ref's recording and turn, or null for any other id. */
+export const parseTurnRef = (ref: string) => {
+  const [, jobId, turn] = ref.match(TURN_REF) ?? [];
+  return jobId ? { jobId, turnIndex: Number(turn) } : null;
+};
 
 /** The stored successor: null while live; "" when retired with none (lifelog dropped it), so `successor is null` stays "live". */
 const successor = (c: { retired: { successorId: string | null } | null }) =>
@@ -508,21 +514,18 @@ export async function readTranscript(jobId: string) {
   ).turns;
 }
 
-/** How many turns of a conversation come before one turn: its place in the conversation, for `fetch --from-turn`. */
-export function turnOffset(
-  store: Store,
-  conversationId: string,
-  jobId: string,
-  turnIndex: number
-) {
-  return (
-    store.db
-      .query<{ n: number }, [string, string, number]>(
-        `select count(*) as n from turns where conversation_id = ?1
-          and (start_at, job_id, turn_index) < (select start_at, job_id, turn_index from turns where job_id = ?2 and turn_index = ?3)`
-      )
-      .get(conversationId, jobId, turnIndex)?.n ?? 0
-  );
+/**
+ * Where one turn is now: its conversation (lifelog may have moved it since it was cited) and how many turns come
+ * before it there, for `fetch --from-turn`; null once lifelog dropped it.
+ */
+export function turnPlace(store: Store, jobId: string, turnIndex: number) {
+  return store.db
+    .query<{ conversation: string; offset: number }, [string, number]>(
+      `select t.conversation_id as conversation, (select count(*) from turns o where o.conversation_id = t.conversation_id
+        and (o.start_at, o.job_id, o.turn_index) < (t.start_at, t.job_id, t.turn_index)) as offset
+        from turns t where t.job_id = ?1 and t.turn_index = ?2`
+    )
+    .get(jobId, turnIndex);
 }
 
 /** The people lifelog names in the store's turns: its person id and the name it gave. */
