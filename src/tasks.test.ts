@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { chase, type Item, planOf, wantOf } from "./board";
 import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
+import { type Task, tasksOf } from "./memory/ledger";
 import type { Action } from "./schema";
 import {
   alerts,
@@ -12,8 +13,6 @@ import {
   refusal,
   sealed,
   standing,
-  type Task,
-  tasksOf,
   timings,
   type Update,
   written,

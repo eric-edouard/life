@@ -4,9 +4,8 @@ import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { log } from "./log";
-import { ACTIONS, digest, linesOf } from "./memory/ledger";
+import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
-import { Action } from "./schema";
 import { ROOT } from "./truth";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
@@ -223,17 +222,13 @@ export function unsubscribe(p: z.infer<typeof Unsubscribe>) {
   return {};
 }
 
-/** One ledger line, null for a blank one. */
-export const parse = (line: string) =>
-  line ? Action.parse(JSON.parse(line)) : null;
-
 /**
  * The next event in the ledger at or after line `from` (its cursor: the line after it), or null: an ask, not one Atlas
  * made from a chat (already its own).
  */
 export function nextEvent(lines: string[], from: number) {
   for (const [k, line] of lines.slice(from).entries()) {
-    const a = parse(line);
+    const a = parseAction(line);
     if (a?.kind === "ask" && a.instruction && a.madeBy !== "connector") {
       const cursor = from + k + 1;
       const data: z.infer<typeof AskData> = {

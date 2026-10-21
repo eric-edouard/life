@@ -2,9 +2,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
-import { parse } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
-import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
+import {
+  ACTIONS,
+  appendJsonl,
+  digest,
+  lastUpdate,
+  type Task,
+  tasksOf,
+} from "./memory/ledger";
 import { clip } from "./memory/units";
 import { localDate } from "./memory/zones";
 import { Action, type Instruction } from "./schema";
@@ -90,25 +96,6 @@ const updateLine = (
   why: "Atlas",
 });
 
-export interface Task {
-  ask: Action & { instruction: Instruction };
-  /** Its own lines in ledger order. */
-  lines: Action[];
-}
-
-/** The ledger as tasks: each ask with its own lines. */
-export function tasksOf(lines = linesOf(ACTIONS)) {
-  const tasks = new Map<string, Task>();
-  for (const a of lines.map(parse)) {
-    if (a?.kind === "ask" && a.instruction) {
-      tasks.set(a.id, { ask: { ...a, instruction: a.instruction }, lines: [] });
-    } else if (a) {
-      tasks.get(a.target)?.lines.push(a);
-    }
-  }
-  return [...tasks.values()];
-}
-
 /** The task with this id: one lookup for the ask, `task`'s writes and a split's parent. */
 const taskOf = (tasks: Task[], id?: string) =>
   tasks.find((t) => t.ask.id === id);
@@ -161,20 +148,18 @@ export async function timings(
 
 /** Where a task stands: its last update (`end`), deadline (an open one's: 30 min after it was recorded), steps. */
 export function standing(t: Task) {
-  const updates = t.lines.filter((l) => l.kind === "update");
-  const end: Partial<Update> = updates.at(-1)?.after ?? {};
-  const since = updates.at(-1)?.at ?? t.ask.at;
+  const last = lastUpdate(t);
+  const end: Partial<Update> = last?.after ?? {};
+  const since = last?.at ?? t.ask.at;
   const state = end.state ?? ("open" as State);
-  const deadline = updates.length
-    ? end.deadline
-    : iso(Date.parse(since) + CLAIM_MS);
+  const deadline = last ? end.deadline : iso(Date.parse(since) + CLAIM_MS);
   return {
     deadline,
     end,
     since,
     state,
-    steps: (updates.findLast((u) => u.after.steps)?.after.steps ??
-      []) as Step[],
+    steps: (t.lines.findLast((u) => u.kind === "update" && u.after.steps)
+      ?.after.steps ?? []) as Step[],
     /** Atlas's last word: the outcome or reason once closed. */
     word: end.outcome ?? end.reason ?? end.question ?? end.note,
   };

@@ -15,6 +15,7 @@ import {
   Extracted,
   FileEntry,
   InferredPerson,
+  type Instruction,
   MemoryLabel,
   Moment,
   Observation,
@@ -408,6 +409,33 @@ export const recordRating = (claim: string, answer: Rating["answer"]) =>
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
 
 export const readActions = () => rowsOf(ACTIONS, Action);
+
+/** One actions ledger line, null for a blank one. */
+export const parseAction = (line: string) =>
+  line ? Action.parse(JSON.parse(line)) : null;
+
+export interface Task {
+  ask: Action & { instruction: Instruction };
+  /** Its own lines in ledger order. */
+  lines: Action[];
+}
+
+/** The actions ledger as Atlas's tasks (tasks.ts): each ask with its own lines. */
+export function tasksOf(lines = linesOf(ACTIONS)) {
+  const tasks = new Map<string, Task>();
+  for (const a of lines.map(parseAction)) {
+    if (a?.kind === "ask" && a.instruction) {
+      tasks.set(a.id, { ask: { ...a, instruction: a.instruction }, lines: [] });
+    } else if (a) {
+      tasks.get(a.target)?.lines.push(a);
+    }
+  }
+  return [...tasks.values()];
+}
+
+/** Atlas's last update of a task: where it stands (`standing`, tasks.ts), and its outcome once done. */
+export const lastUpdate = (t: Task) =>
+  t.lines.findLast((l) => l.kind === "update");
 
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 
