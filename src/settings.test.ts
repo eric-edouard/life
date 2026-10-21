@@ -13,8 +13,11 @@ test("a corrupt settings file throws instead of switching engine; a missing one 
 
 test("setSetting changes one part and keeps the others", async () => {
   const before = readSettings();
-  await setSetting("engine", "codex");
-  expect(readSettings()).toEqual({ ...before, engine: "codex" });
-  expect(settings().engine).toBe("codex");
-  await setSetting("engine", before.engine);
+  try {
+    await setSetting("engine", "codex");
+    expect(readSettings()).toEqual({ ...before, engine: "codex" });
+    expect(settings().engine).toBe("codex");
+  } finally {
+    await setSetting("engine", before.engine);
+  }
 });
