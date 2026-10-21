@@ -2,7 +2,14 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { askOnce, extractJson, llmOverride, quotaOf, readEngine } from "./llm";
+import {
+  askOnce,
+  extractJson,
+  llmOverride,
+  quotaOf,
+  readEngine,
+  type Tools,
+} from "./llm";
 import { LOG_DIR } from "./log";
 import { DATA, ROOT } from "./truth";
 
@@ -132,7 +139,7 @@ interface Run {
 }
 
 /** One claude call then one codex call, each CLI faked where it is spawned, with secrets in the environment. */
-async function spawnBoth() {
+async function spawnBoth(tools?: Tools) {
   const runs: Run[] = [];
   const spawned = spyOn(Bun, "spawn").mockImplementation(((
     argv: string[],
@@ -173,6 +180,7 @@ async function spawnBoth() {
         llm: { engine, model: "m" },
         prompt: "eval-judge.v1",
         run: "r",
+        tools,
       });
       expect(reply).toEqual({ ok: true });
     }
@@ -199,6 +207,7 @@ test("a model call has no tools, no MCP, no settings, no secrets, and runs in an
   for (const tool of ["shell_tool", "unified_exec", "code_mode_host"]) {
     expect(codex.argv[codex.argv.indexOf(tool) - 1]).toBe("--disable");
   }
+  expect(codex.argv.join(" ")).not.toContain("mcp_servers");
   expect(codex.argv).toEqual(
     expect.arrayContaining([
       "--ignore-user-config",
@@ -271,4 +280,32 @@ test("the Codex quota: the fuller window and its reset; no window or no answer i
   expect(quotaOf(limits(null))).toBeUndefined();
   expect(quotaOf('{"error":{"message":"no"},"id":2}')).toBeUndefined();
   expect(quotaOf(undefined)).toBeUndefined();
+});
+
+test("the bench's one call with tools: Life's connector only, read-only; codex keeps code mode, the way to MCP tools, and no shell", async () => {
+  const tools = {
+    command: ["bun", "serve.ts"],
+    env: { LIFE_NOW: "2026-10-14T10:00:00Z" },
+  };
+  const [claude, codex] = await spawnBoth(tools);
+  expect(after(claude.argv, "--tools")).toBe("");
+  expect(after(claude.argv, "--allowedTools")).toBe("mcp__life");
+  expect(
+    Object.keys(
+      JSON.parse(after(claude.argv, "--mcp-config") ?? "{}").mcpServers
+    )
+  ).toEqual(["life"]);
+  expect(after(codex.argv, "-s")).toBe("read-only");
+  for (const tool of ["shell_tool", "unified_exec", "sleep_tool"]) {
+    expect(codex.argv[codex.argv.indexOf(tool) - 1]).toBe("--disable");
+  }
+  expect(codex.argv).not.toContain("code_mode_host");
+  expect(codex.argv).not.toContain(
+    "--dangerously-bypass-approvals-and-sandbox"
+  );
+  expect(
+    codex.argv
+      .filter((a) => a.startsWith("mcp_servers."))
+      .every((a) => a.startsWith("mcp_servers.life."))
+  ).toBe(true);
 });

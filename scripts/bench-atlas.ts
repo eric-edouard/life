@@ -2,9 +2,11 @@
 // Each case is one ask of memory/actions.jsonl, replayed in the world as it was then: a clone of ~/Life at its last
 // commit before the ask, the ledger cut at the ask, the lifelog store cut at its instant, the index rebuilt from that
 // copy, and the clock frozen there (`LIFE_NOW`, src/clock.ts) in a throwaway worktree of this code. A headless agent on
-// his subscription (his engine's main tier, or `--engine`) gets Life's connector, frozen and dry (mcp.ts), as its only
-// tools, and the playbook through `tasks`. Graded by code first (the ids its tool answers cited, the calls it made, the
-// tools it must not call), then by his engine's judge on what it said (`contain`, and `not.contain`: nothing invented).
+// his subscription gets Life's connector, frozen and dry (mcp.ts), as its only tools, and the playbook through `tasks`:
+// Codex's main tier (Sol), as close as it gets to Atlas, a ChatGPT agent (his rule). `--engine claude` only checks the
+// harness: its table says so and is never Atlas's result. Graded by code first (the ids its tool answers cited, the
+// calls it made, the tools it must not call), then by the same engine's judge on what it said (`contain`, and
+// `not.contain`: nothing invented).
 // Prints one row per case; writes nothing of his. `--serve` is the frozen connector over stdio, for the agent.
 import { Database } from "bun:sqlite";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -15,7 +17,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { clock, FROZEN } from "../src/clock";
 import { nextEvent, parse } from "../src/events";
-import { askOnce, llmFor, readEngine } from "../src/llm";
+import { askOnce, llmFor } from "../src/llm";
 import { recentEvents } from "../src/log";
 import { buildServer } from "../src/mcp";
 import { spareQuota } from "../src/memory/guard";
@@ -326,7 +328,11 @@ async function bench(file: string, only: string[], engine: Engine) {
       console.error(`${c.id}: ${"checks" in row ? "done" : row.error}`);
     }
     const head = must(ROOT, ["rev-parse", "--short", "HEAD"]);
-    console.log(table(rows, `${run}, ${engine}, code ${head}`));
+    const what =
+      engine === "codex"
+        ? "Codex, as Atlas"
+        : `${engine}: a harness check, not Atlas's result`;
+    console.log(table(rows, `${run}, ${what}, code ${head}`));
   } finally {
     git(ROOT, ["worktree", "remove", "--force", code]);
     await rm(tmp, { force: true, recursive: true });
@@ -352,7 +358,7 @@ if (import.meta.main) {
     await bench(
       positionals[0] ?? CASES,
       values.only?.split(",") ?? [],
-      Engine.parse(values.engine ?? readEngine())
+      Engine.parse(values.engine ?? "codex")
     );
   }
 }
