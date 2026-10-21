@@ -10,12 +10,12 @@ import { exec } from "./proc";
 import { expand, settings } from "./settings";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { storeFiles, WATCH } from "./sources/lifelog";
-import { DATA, ROOT } from "./truth";
+import { DATA, ROOT, STATE } from "./truth";
 
 // The daily restic snapshot (AGENTS.md, "Backups") to the `backup` setting's repository, run by the nightly's tick
 // (`backupDue`). Without the setting there is no backup, and the report says it is off.
 const STAGING = join(dirname(ARCHIVE), "backup-staging");
-const STATUS = join(ROOT, "derived", "backup.json");
+const STATUS = join(STATE, "backup.json");
 
 /** Whether this install backs up at all. */
 export const backupOn = () => !!settings().backup;

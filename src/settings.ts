@@ -3,15 +3,13 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine } from "./schema";
-import { DATA, ROOT, TEST } from "./truth";
+import { STATE } from "./truth";
 
 // What makes one install differ from another, in one file: who it serves, where its parts are, what is turned on.
 // Secrets are not here: they stay in the environment (`.env` for a checkout, the app passes them to the helper). A
-// part left out is off. A test run reads its own (src/test-data/settings.json), never his.
+// part left out is off. A test run reads its own (src/test-data/state/settings.json), never his.
 
-export const SETTINGS = TEST
-  ? join(DATA, "settings.json")
-  : join(ROOT, "derived", "settings.json");
+export const SETTINGS = join(STATE, "settings.json");
 
 export const Settings = z
   .object({
