@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Moment } from "../schema";
 import { madeBy, unit } from "./fixtures";
-import { drafts } from "./past";
+import { type Draft, drafts, plan } from "./past";
 
 const moment = (over: Partial<Moment> = {}): Moment => ({
   copies: [],
@@ -25,19 +25,23 @@ const moment = (over: Partial<Moment> = {}): Moment => ({
 });
 
 const known = {
-  names: new Map([["person:bastien", "Bastien"]]),
+  nameOf: (r: string) => (r === "person:bastien" ? "Bastien" : r.slice(8)),
   noted: new Map([["u_000000000001", ["Bastien moves in March."]]]),
-  refOf: (r: string) => r,
   units: new Map([["u_000000000001", unit({ title: "Dinner talk" })]]),
 };
 const now = new Date("2026-10-21T12:00:00Z");
 
-test("only moments that happened and have started go on the calendar, timed in his zone then", () => {
+test("only moments that happened and ended 2 h ago go on the calendar, timed in his zone then", () => {
   const [d, ...rest] = drafts(
     [
       moment(),
       moment({ id: "mom_000000000002", status: "planned" }),
       moment({ id: "mom_000000000003", start: "2026-10-22 09:00" }),
+      moment({
+        end: "2026-10-21 12:30",
+        id: "mom_000000000004",
+        start: "2026-10-21 12:00",
+      }),
     ],
     known,
     now
@@ -50,7 +54,7 @@ test("only moments that happened and have started go on the calendar, timed in h
     moment: "mom_000000000001",
     to: "2026-10-20T20:30:00.000Z",
   });
-  expect(d?.text).toContain("With: Bastien, Kofi (organizer)");
+  expect(d?.text).toContain("with Bastien; organizer Kofi.");
   expect(d?.text).toContain("- Bastien moves in March.");
   expect(d?.text).toContain("Dinner talk");
 });
@@ -76,4 +80,25 @@ test("no time is a whole day, no end an hour, and the hash follows what is shown
   );
   expect(a?.hash).toBe(drafts([moment()], known, now)[0]?.hash as string);
   expect(a?.hash).not.toBe(b?.hash);
+});
+
+test("a sync keeps what shows as it is, rewrites what changed or doubled, deletes what is gone", () => {
+  const draft = (id: string, hash: string) => ({ hash, moment: id }) as Draft;
+  const { fresh, stale } = plan(
+    [draft("m1", "a"), draft("m2", "a"), draft("m3", "new")],
+    new Map([
+      ["m1", [{ hash: "a", id: "e1" }]],
+      [
+        "m2",
+        [
+          { hash: "a", id: "e2" },
+          { hash: "a", id: "e2b" },
+        ],
+      ],
+      ["m3", [{ hash: "old", id: "e3" }]],
+      ["m9", [{ hash: "a", id: "e9" }]],
+    ])
+  );
+  expect(fresh.map((d) => d.moment)).toEqual(["m2", "m3"]);
+  expect(stale.map((e) => e.id)).toEqual(["e2", "e2b", "e3", "e9"]);
 });

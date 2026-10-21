@@ -29,7 +29,7 @@ export interface PlacesQuery {
   to?: string;
 }
 
-const where = (s: Stay) =>
+export const where = (s: Stay) =>
   `${s.place ?? "unnamed place"} (${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)})`;
 
 /** The stays for a question, newest first; null when it names nothing to look for. */

@@ -10,7 +10,6 @@ import {
   shows,
   stateOf,
 } from "./ledger";
-import { who } from "./observe";
 import { placed } from "./page";
 import { record } from "./run";
 import { observationsNow, readPeople } from "./who";
@@ -122,8 +121,6 @@ export async function claimsNow(): Promise<Claim[]> {
       },
     ];
   });
-  const name = (ref: string) =>
-    people.names.get(people.refOf(ref)) ?? who({ speaker: ref });
   const moments = momentsNow(await readMoments(), people.corrections).map(
     (m) => ({
       claim: m.id,
@@ -131,7 +128,7 @@ export async function claimsNow(): Promise<Claim[]> {
       group: momentGroup(m, paged, people.refOf),
       kind: "moment" as const,
       source: null,
-      text: momentText(m, name),
+      text: momentText(m, people.nameOf),
       units: m.units,
     })
   );
