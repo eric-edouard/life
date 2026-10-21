@@ -137,7 +137,7 @@ test("“Hej Atlas” from an unattributed voice is a low ask, from a named othe
   ]);
 });
 
-test("his own “hey Zorba” (LIFE_MISHEARD) is lifelog mishearing “hey Atlas”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
+test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “hey Atlas”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
   const asks = asksIn(
     [
       turn(0, "me", "Hey Zorba, add milk to the list"),

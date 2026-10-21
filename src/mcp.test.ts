@@ -10,14 +10,11 @@ import {
   SignJWT,
 } from "jose";
 import { ownerTokens } from "./auth";
-import { connector as settingsOf } from "./settings";
-
-const { issuer: ISSUER, metadata, resource: RESOURCE } = settingsOf();
-
 import { LOG_DIR } from "./log";
 import { correct, createMcp } from "./mcp";
 import { ACTIONS, linesOf } from "./memory/ledger";
 import { placesOf } from "./memory/places";
+import { connector as settingsOf } from "./settings";
 import {
   chapter,
   conversation,
@@ -29,6 +26,8 @@ import {
 import { apply, forward, type Stay } from "./sources/lifelog";
 import { sealed, update } from "./tasks";
 import { DATA } from "./truth";
+
+const { issuer: ISSUER, metadata, resource: RESOURCE } = settingsOf();
 
 const OWNER = "owner-sub";
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;

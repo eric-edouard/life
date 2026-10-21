@@ -228,7 +228,6 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
 test("chase sends one email a pass, listing every task that newly needs him; each cause is sent once", async () => {
   const env = { ...process.env };
   process.env.RESEND_PERSONAL_API_KEY = "test";
-  process.env.LIFE_MAIL_TO = "owner@example.test";
   const subjects: string[] = [];
   const post = spyOn(globalThis, "fetch").mockImplementation(((
     _url: string,

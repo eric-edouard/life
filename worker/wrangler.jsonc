@@ -1,6 +1,6 @@
 // The status page's always-on edge (status.ts). Deploy from ~/Work/life with .env loaded:
 //   set -a; . ./.env; set +a; bun x wrangler@4.40.0 deploy -c worker/wrangler.jsonc
-// Secrets (once): OWNER_SUB (= the connector setting's owner) and PUSH_SECRET (= LIFE_STATUS_PUSH_SECRET), `wrangler secret put`.
+// Secrets (once): ISSUER and OWNER_SUB (= the connector setting's issuer and owner) and PUSH_SECRET (= LIFE_STATUS_PUSH_SECRET), `wrangler secret put`.
 // Only the page's paths are routed here: /mcp, /check and /me never pass through the Worker.
 {
   "name": "life-status",
@@ -20,9 +20,5 @@
       "zone_name": "ericedouard.com"
     }
   ],
-  "vars": {
-    "ISSUER": "https://lifelog.ericedouard.com/api/auth",
-    "RESOURCE": "https://life.ericedouard.com/mcp"
-  },
   "workers_dev": false
 }

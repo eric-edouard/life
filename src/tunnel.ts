@@ -1,6 +1,6 @@
 import { clock } from "./clock";
 import { exec } from "./proc";
-import { settings } from "./settings";
+import { connector, settings } from "./settings";
 
 // The Mac's Cloudflare tunnel (`com.eric.cloudflared`, `~/.cloudflared/config.yml`) carries the connector and the
 // other hostnames on this Mac. cloudflared can wedge: its edge connections die but the process never exits, so
@@ -22,14 +22,8 @@ const statusOf = (url: string) =>
 
 /** One probe: restarts cloudflared when the tunnel is down; nothing to probe without a connector. */
 export async function healTunnel() {
-  const origin = settings().connector?.origin;
   if (
-    !(
-      origin &&
-      tunnelDown(
-        await statusOf(`${origin}/.well-known/oauth-protected-resource/mcp`)
-      )
-    )
+    !(settings().connector && tunnelDown(await statusOf(connector().metadata)))
   ) {
     return;
   }

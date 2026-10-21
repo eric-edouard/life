@@ -200,7 +200,10 @@ export const areaOf = (said: string | null, lookup: Map<string, string>) =>
   (said && lookup.get(normalize(said))) || null;
 
 /** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
-const AGENT_REPORTS = [LIFE_MAIL.from, ...settings().reports];
+const AGENT_REPORTS = [
+  ...(LIFE_MAIL.from ? [LIFE_MAIL.from] : []),
+  ...settings().reports,
+];
 
 /** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
 export const head = (text: string) =>

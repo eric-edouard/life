@@ -239,6 +239,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **One settings file says how this install differs from another** (`src/settings.ts`, `derived/settings.json`, zod
   strict): the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos
   folder, his agents' report senders. A part left out is off, never an error: a fresh install with no settings runs.
+  It is strict and read when modules load (units, tasks, email, git), so a new key lands in code first, and a bad file
+  stops the watcher and the nightly, like `truth/`.
   Secrets stay in the environment (`.env`). Owner values are never defaults in code: tests read
   `src/test-data/settings.json`, made up.
 
