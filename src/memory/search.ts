@@ -2,7 +2,13 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../clock";
-import { type Candidate, OVERDUE_DAYS, openItems, openLinked } from "../items";
+import {
+  AGAIN_DAYS,
+  type Candidate,
+  OVERDUE_DAYS,
+  openItems,
+  openLinked,
+} from "../items";
 import { type Call, isReviewCall, recentEvents } from "../log";
 import { redact } from "../redact";
 import {
@@ -664,7 +670,7 @@ export function dayLines({
       : []),
     ...(due.length > 0
       ? [
-          "Due (open items, most pressing first: to-dos, promises and his reminders for this day or up to a week overdue, waiting items on their day, replies he owes):",
+          "Due (open items, most pressing first: to-dos, promises and his reminders for this day or up to a week overdue, waiting items on their day, undated ones and replies he owes the day after and 3 days after):",
           ...due,
           "",
         ]
@@ -816,7 +822,7 @@ export function dueOf(
       OWNER,
       daysBefore(date, OVERDUE_DAYS),
       date,
-      daysBefore(date, 3),
+      daysBefore(date, AGAIN_DAYS),
       date,
       OWNER
     );

@@ -122,6 +122,11 @@ test("copies merge: a reminder into its observation, an item said in an open tas
     urgent: true,
   });
   expect(ids([said], { tasks: new Set(["job:8@x"]) })).toEqual([]);
+  // A reminder with a due date gives an undated observation its day: shown on it, not lost.
+  const undated = item({ said: "2026-10-15", when: undefined });
+  expect(ids([undated, { ...reminder, when: DATE }])).toEqual([
+    "obs_000000000001",
+  ]);
 });
 
 test("rank: his urgent flag and priority, then who owes whom, his goals in order, closeness, age", () => {
