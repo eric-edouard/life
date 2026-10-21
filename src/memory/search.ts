@@ -24,6 +24,7 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
+import { agentName } from "../settings";
 import { kindOf, listening } from "../sources";
 import {
   conversationsWith,
@@ -381,7 +382,7 @@ export async function search(words: string, o: Days = {}) {
       : []),
     ...(tasks.length > 0
       ? [
-          "Atlas's tasks (Atlas's own reports, not checked by Life):",
+          `${agentName()}'s tasks (its own reports, not checked by Life):`,
           ...cut(tasks, true),
           "",
         ]
@@ -800,7 +801,7 @@ export const birthdaysNear = (
 /**
  * What `day` lists as due on `date` (`openItems`, src/items.ts, which merges, times and ranks): the salience-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
- * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/atlas.md).
+ * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/agent.md).
  */
 export function dueOf(
   db: Database,

@@ -22,7 +22,7 @@ the same process in its own repo.
 
 ## Phase 2: agents and sign-in
 
-- [ ] 2.1 Agent settings (name, wake words, misheard, clients); `atlas` target becomes `agent`, old lines parse.
+- [ ] 2.1 Agent settings (name, wake words, misheard, client, transport); every "Atlas" Life writes comes from them; the stored words (`target: "atlas"`, `waiting-eric`) stay.
 - [ ] 2.2 Transport interface: `mcp-event`, `pull`, `webhook`, `command`.
 - [ ] 2.3 Playbook split: the shipped protocol and the user's own part.
 - [ ] 2.4 Life's own authorization server, pairing-code approval, CIMD then DCR.
@@ -40,9 +40,15 @@ the same process in its own repo.
 ## Deploy steps when `packaging` reaches `main`
 
 - Write the owner's `derived/settings.json` from his `.env` and the values that were constants: `connector` (origin,
-  issuer, client, owner), `lifelog.url`, `mail`, `lifeChat`, `misheard`, `past`, `reports`, `repos: "~/Work"`,
-  `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), `sources` (every source he
-  reads today: lifelog, imessage, whatsapp, beeper, mail, notes, claude, chatgpt, atlas, git), and keep `engine`.
+  issuer, client, owner, and `tunnel: "cloudflare"`, or the healer stops), `lifelog.url`, `mail`, `lifeChat`, `past`,
+  `reports`, `repos: "~/Work"`, `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`),
+  `sources` (every source he reads today: lifelog, imessage, whatsapp, beeper, mail, notes, claude, chatgpt, atlas,
+  git), `agent` (`{name: "Atlas", wake: ["atlas"], misheard: ["at last", <his misheard name from .env>], client:
+  "openai-mcp"}`, or nothing wakes), and keep `engine`.
+- Move his own part of the playbook from `~/Life/docs/packaging/playbook.md` to `~/Life/playbook.md` (audits, his plan,
+  what his Mac reaches, his send accounts: without it Atlas loses them).
 - Remove the moved keys from `.env` (`LIFE_OWNER_SUB`, `LIFE_MAIL_TO`, `LIFE_CHAT`, `LIFE_MISHEARD`, `LIFE_PAST_*`,
   `LIFELOG_URL`) and the parked `TELEGRAM_*` and `INSTINCT_KEY`.
 - Add the status Worker's new secret, `ISSUER` (`wrangler secret put ISSUER`, the connector's issuer), then redeploy it.
+  The Worker works only with another issuer (his lifelog): with Life's own, it can't check a sign-in while the Mac is
+  away, and a friend's install has no Worker.

@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
 import { exec } from "../proc";
+import { agentName } from "../settings";
 
 // How Life talks to his Apple Reminders: remctl (its signed host, `--json`), the shape of a reminder, his lists. This
 // folder is the only code that touches Reminders, an interface to Life, never its truth: `write.ts` makes the changes
@@ -10,7 +11,7 @@ import { exec } from "../proc";
 
 const REMCTL = join(homedir(), "bin", "remctl");
 /** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
-export const BOARD = "Atlas";
+export const BOARD = agentName();
 
 const parse = <T>(s: string) => {
   try {

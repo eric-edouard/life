@@ -93,7 +93,7 @@ export async function act(a: Act): Promise<Action> {
   }
   const on = c.target && (await info(c.target).catch(() => undefined))?.list;
   if (c.list === BOARD || on === BOARD) {
-    throw new Error(`the list ${BOARD} is Atlas's board: use \`task\``);
+    throw new Error(`the list ${BOARD} is the agent's board: use \`task\``);
   }
   const id = actionId(instruction.ref, c.kind, c.title);
   const old = await recorded(id);
