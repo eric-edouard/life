@@ -67,9 +67,16 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
-  Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
-  only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
-  the tasks' board below, written only by `src/board.ts`.
+  Reminders (add, edit, done, undone, remove to Recently Deleted, restore, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
+  only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
+  the tasks' board below, written only by `src/board.ts`. One standing grant (decision 2 of the 21 Oct review)
+  is the only other authority, off until his words in a Claude session turn it on (`bun life grant on|off '<his
+  words>'`, a `grant` line in the ledger, the latest standing; his "stop" may come through Atlas, as off only takes
+  authority away): `reminders` with `obs` in place of `said` adds a
+  reminder (title, list, due, section) from his current salience-3 to-do or promise in a lifelog turn the store
+  credits to him at that moment, at most 3 a day, one at a time, never on a shared list, and not again once he removed
+  one it made through Life, until his next yes (`grantRefusal`, all derived from the ledger); its authority is the
+  observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
   (`LIFE_MISHEARD`, a real name) `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
@@ -127,9 +134,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
-  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`), and logs Atlas's replies (`reply`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
+  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`), or on the one standing grant, and logs Atlas's replies (`reply`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
   `claim`, are the dashboard's JSON reads, `src/memory/history.ts` and `feed.ts`, contracts in `docs/dashboard.md`); `correct` (lifelog writes all go through the
-  table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
+  table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`, or an `obs` for the grant); `task` (Atlas's
   updates, through `update`); `reply` (what Atlas tells him, one `actions.jsonl` line, appended only: it sends nothing).
   `correct` is annotated destructive so clients ask first; `reminders`, `task` and `reply` are not
   (nothing they do is lost: a remove goes to Recently Deleted), so Atlas uses them unattended. Never add a tool that sends or edits anything else.
@@ -164,7 +171,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   null and absent field lifelog's contract allows (`apps/server/openapi.json`; `lifelog.test.ts` checks them when
   `~/Work/lifelog` is there), so a contract-valid page never stops the watcher.
 - **Memory data is append-only and expensive:** never hand-edit `memory/` (except appending owner corrections or
-  labels; `actions.jsonl` is `act`'s and the tasks') or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
+  labels; `actions.jsonl` is `act`'s, the tasks' and `setGrant`'s) or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
   must never move. A change to how unit ids are made ships an old→new map applied to `memory/labels.jsonl` and
   `memory/statements.jsonl` (`units`). Code
   rewrites only `units/` and `moments/<day>.jsonl` (the day's moments, model-owned, read again with the day).
@@ -259,7 +266,7 @@ asks replayed frozen, cases in `~/Life/docs/evals/atlas-bench-cases.json`). Comm
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
-`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `reply`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
+`actions.jsonl`, appended only by `act` and `setGrant` (`actions.ts`) and the tasks (`ask`, `update` and `reply`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
