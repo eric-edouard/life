@@ -47,7 +47,7 @@ closed).
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
-- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 100, two around each; a long one as its lines holding a word). `--from`/`--to` bound every section.
+- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (the best 20, each as its lines holding a word, 300 characters at most; each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 20, one around each; a long one as its lines holding a word). `--from`/`--to` bound every section.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
 - `day <YYYY-MM-DD>` (what is due: his own to-dos and promises for that day; what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name] [--before d]` (the whole page, when it was built, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first by whole days, `--before` paging back; `person me`: his own page, his goals in What I hold, all of truth/me.md; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers, and a name no one goes by lists the names near it), `area <name>`, `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
@@ -96,8 +96,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
   asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
   `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
-  answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions
-  one line in their first 512 characters; events carry data only. It has Atlas confirm a low-confidence ask with him
+  answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions,
+  512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
   first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`). His Apple Notes are memory only, never his words for
@@ -117,7 +117,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
-  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,
+  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
   `claim`, are the dashboard's JSON reads, `src/memory/history.ts` and `feed.ts`, contracts in `docs/dashboard.md`); `correct` (lifelog writes all go through the
   table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
   updates, through `update`). `correct` is annotated destructive so clients ask first; `reminders` and `task` are not
@@ -181,6 +181,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `derived/memory/backfill.json`, and a tick with no midday run due, once the day's night went through, reads its next week, oldest
   first, as a midday-like sweep (`backfilled`, `nightly.ts`), four weeks a day at most (`backfillWeek`, `guard.ts`),
   so it never takes their turn nor all of his subscriptions; three failures of a week stop it. What a tick runs is `turnOf` (`guard.ts`, tested).
+  Over 75% of his Codex quota (`reserved`) a tick runs no midday and no backfill week, and `scripts/eval.ts` and the
+  bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check: the bench made it); the night always runs. The quota is read from `codex app-server` (no model call, no quota spent)
+  each tick, logged as `quota.read` (the status's `midday.next` reads the last line), and shown in the nightly email.
   Pages follow at the next night. Only the last 7 days' messages get their files described; older ones stay tags.
   Record his zones for the range first (`memory/zones.jsonl`, his own account of where he was): a past zone may be
   added only before the first day memory has units of, and a backfill moves that day back. A failed call or an unreadable source fails the whole night: non-zero

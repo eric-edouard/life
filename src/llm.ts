@@ -1,12 +1,12 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
-// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter.
+// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is.
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "./log";
-import { exec } from "./proc";
+import { exec, firstLine } from "./proc";
 import { Engine, Runner } from "./schema";
 import { DATA, ROOT } from "./truth";
 
@@ -313,6 +313,73 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
     { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
   );
   return { text: await Bun.file(reply).text() };
+}
+
+/** How full his Codex plan is: its fuller window (on his plan, the week) and when that window resets. */
+export interface Quota {
+  resetsAt: string | null;
+  used: number;
+}
+const RateWindow = z.object({
+  resetsAt: z.number().nullish(),
+  usedPercent: z.number(),
+});
+const RateLimits = z.object({
+  result: z.object({
+    rateLimits: z.object({
+      primary: RateWindow.nullish(),
+      secondary: RateWindow.nullish(),
+    }),
+  }),
+});
+// The app-server's JSON-RPC (`codex app-server generate-json-schema`): initialized first, then the one read.
+const READ_LIMITS = `{"id":1,"method":"initialize","params":{"clientInfo":{"name":"life","version":"1"}}}
+{"method":"initialized"}
+{"id":2,"method":"account/rateLimits/read"}
+`;
+
+/** The quota in the app-server's answer to `account/rateLimits/read`; undefined for no window or no answer. */
+export function quotaOf(reply = ""): Quota | undefined {
+  try {
+    const { primary, secondary } = RateLimits.parse(JSON.parse(reply)).result
+      .rateLimits;
+    const [w] = [primary, secondary]
+      .flatMap((x) => (x ? [x] : []))
+      .sort((a, b) => b.usedPercent - a.usedPercent);
+    return (
+      w && {
+        resetsAt: w.resetsAt ? new Date(w.resetsAt * 1000).toISOString() : null,
+        used: w.usedPercent,
+      }
+    );
+  } catch {
+    // No answer, or not this one: unread.
+  }
+}
+
+/**
+ * His Codex plan's usage, read from Codex's app-server (no model call, no quota spent) and logged, unread too, so the
+ * last line is the last reading: undefined when this process's calls don't go to Codex, Codex doesn't answer, or the
+ * engine setting is corrupt (the night's own calls fail on it, loudly). Never throws.
+ */
+export async function quota() {
+  let q: Quota | undefined;
+  try {
+    if (llmFor("main").engine === "codex") {
+      q = quotaOf(
+        await firstLine(
+          [CODEX_BIN, "app-server"],
+          READ_LIMITS,
+          (l) => JSON.parse(l).id === 2,
+          { env: modelEnv({ CODEX_HOME }), timeout: 15_000 }
+        )
+      );
+    }
+  } catch {
+    // Unread.
+  }
+  log("quota.read", { ...q });
+  return q;
 }
 
 /**
