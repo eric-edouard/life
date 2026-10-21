@@ -393,7 +393,10 @@ const pendantFacts = (
     label: "Recording, as of",
     value: p?.recording ?? "unknown",
   },
-  { label: "Battery", value: p?.batteryPercent ? `${p.batteryPercent}%` : "?" },
+  {
+    label: "Battery",
+    value: typeof p?.batteryPercent === "number" ? `${p.batteryPercent}%` : "?",
+  },
   { label: "Connection", value: p?.connection ?? "?" },
   { at: spokeAt, label: "Newest speech heard" },
 ];
@@ -479,7 +482,7 @@ function sourceCard(r: Reads, d: Descriptor): Card {
       ? { ask: ASK(`that ${d.label} cannot be read`) }
       : {}),
     content: [
-      ...(n.words ?? []).map((w) => clip(w)),
+      ...(n.words ?? []).map((w) => clip(w, 140)),
       ...(why ? [`Error: ${clip(String(why), 300)}`] : []),
     ],
     facts: [

@@ -37,6 +37,8 @@ test("with the Mac away, someone who isn't the owner gets nothing of his", async
       env("s")
     );
     expect(res.status).toBe(503);
-    expect(await res.text()).not.toContain("x");
+    expect(await res.text()).toBe(
+      "Life's Mac is offline. Sign in once it is back."
+    );
   }
 });
