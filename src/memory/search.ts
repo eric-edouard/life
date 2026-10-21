@@ -619,8 +619,9 @@ const linkedCount = (db: Database, id: string) =>
 const SUMMARY = 200;
 
 /**
- * The lines of `day`: what is due that day (`dueOn`), what happened (its moments, planned ones included), the day's
- * conversations with their chapters, its chat and mail units, its key observations, then what Life changed for him.
+ * The lines of `day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOn`), what happened (its moments,
+ * planned ones included), the day's conversations with their chapters, its chat and mail units, its key observations,
+ * then what Life changed for him.
  */
 export function dayLines(
   conversations: LifelogConversation[],
