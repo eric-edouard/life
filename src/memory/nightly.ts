@@ -6,7 +6,7 @@ import { titleOf } from "../hear";
 import { quota } from "../llm";
 import { recentEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
-import { taskList } from "../tasks";
+import { taskList, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
@@ -51,14 +51,36 @@ const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
+/** Whether Atlas (ChatGPT's MCP client) read `day` in the last 24 h, as its daily review does (docs/atlas.md): a review that found Life unreachable leaves no other trace. */
+export const reviewed = async (now: Date) =>
+  (
+    await recentEvents<{
+      agent?: string;
+      at: string;
+      error?: boolean;
+      tool?: string;
+    }>(2, "mcp.call")
+  ).some(
+    (e) =>
+      e.tool === "day" &&
+      !e.error &&
+      e.agent?.startsWith("openai-mcp") &&
+      Date.parse(e.at) >= now.getTime() - DAY_MS
+  );
+
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
+  if (!(await reviewed(now))) {
+    problems.push("no daily review reached Life in the last 24 h");
+  }
   let actions: Action[] = [];
   let tasks: ReturnType<typeof taskList> = [];
+  let gaps = 0;
   try {
     actions = readActions();
     tasks = taskList(now.getTime());
+    gaps = unanswered(now.getTime() - DAY_MS);
   } catch (e) {
     const { message } = e as Error;
     problems.push(`actions.jsonl: ${message}`);
@@ -70,10 +92,21 @@ async function acted(now: Date, rec: RunRecord) {
       (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
     ),
     problems,
-    tasks: tasks.map((t) => ({
-      name: `${t.state} · ${t.age}`,
-      relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
-    })),
+    tasks: [
+      ...tasks.map((t) => ({
+        name: `${t.state} · ${t.age}`,
+        relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
+      })),
+      // Atlas logs its replies by the playbook, not by code: the asks it never logged one for show here.
+      ...(gaps > 0
+        ? [
+            {
+              name: "No reply logged",
+              relation: `${gaps} of the last day's asks`,
+            },
+          ]
+        : []),
+    ],
   };
 }
 

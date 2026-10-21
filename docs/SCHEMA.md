@@ -23,6 +23,8 @@ whole transcripts or message bodies (but an ask's words, `actions.jsonl`).
   act or must not forget.
 - **Entity refs**: `person:<slug>` (`truth/people.yaml`), `project:<slug>` (`truth/projects/`), `area:<slug>`
   (`truth/areas.yaml`).
+- **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
+  known.
 
 ## units/YYYY-MM-DD.jsonl (layer L1)
 
@@ -268,19 +270,22 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
 - `kind`: `add`, `edit`, `done`, `remove`, `ask`. A task's own lines,
   with no `instruction` and the task's (its ask's) id as `target`: `update` (Atlas, the connector's `task`: `after` is
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
-  `reason`, `steps` [{title, done}], `claim`), and, until 20 Oct, `nudge` (Life: `after.why`, the task was past
+  `reason`, `steps` [{title, done}], `claim`), `reply` (what Atlas told him, the connector's `reply`: `after.text`,
+  clipped at 4,000 characters; one on no task has `target` `chat`) and, until 20 Oct, `nudge` (Life: `after.why`, the task was past
   its deadline) and `steer` (his change to its board item, `after.changes` and `note`); those only parse now. Id: `act_` + 12 hex over
-  `<task>@<at> | kind`.
-- `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask) or a task's id (its lines).
+  `<task>@<at> | kind` (a reply's also over its text).
+- `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask), a task's id (its lines) or `chat`
+  (a reply on no task).
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An ask's
   `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker, or his own wake misheard as a name), and for speech `conversation`
-  and `turns` (the turn numbers, as `fetch --from-turn` counts them); for a task Atlas made, `title` (one part of
+  and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
+  event carries only that); for a task Atlas made, `title` (one part of
   his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (his last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
   `instruction.at`, `at` and the `event.sent` log line it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once) or
   `duplicate` (an open reminder had the title; nothing written). `madeBy`: `session` (a Claude session), `connector` (a
-  chat, Atlas's updates) or `watch` (the watcher: a "hey Atlas" heard; a nudge or a steer until 20 Oct).
+  chat, Atlas's updates and replies) or `watch` (the watcher: a "hey Atlas" heard; a nudge or a steer until 20 Oct).
 - Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
   `modelMs` and `actMs`, and a model as `madeBy`; they still parse.
 

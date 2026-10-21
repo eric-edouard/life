@@ -21,6 +21,12 @@ const Handles = z
 export const Person = z
   .object({
     aliases: z.array(z.string()).default([]),
+    // `--MM-DD`, or `YYYY-MM-DD` when the year is known.
+    birthday: z
+      .string()
+      .regex(/^(--|\d{4}-)\d{2}-\d{2}$/)
+      .refine((b) => isoDate.safeParse(b.replace("--", "2000-")).success)
+      .optional(),
     handles: Handles.default({ email: [], phone: [], whatsapp: [] }),
     id: slug,
     language: z.enum(["en", "fr", "th"]).optional(),
@@ -104,9 +110,10 @@ export type MadeBy = z.infer<typeof MadeBy>;
  * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
  * for Atlas (`kind` ask, `target` atlas) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (src/tasks.ts),
- * whose `TASK_LINES` have no `instruction` and its id as `target`: Atlas's updates; Life's nudges and his steers (until 20 Oct) only parse now.
+ * whose `TASK_LINES` have no `instruction` and its id as `target`: Atlas's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
+ * A reply (`after` {text}) is what Atlas told him; one on no task targets `chat`.
  */
-export const TASK_LINES = ["update", "nudge", "steer"] as const;
+export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
 export const Action = z
   .object({
     after: z.record(z.string(), z.unknown()),
@@ -133,7 +140,7 @@ export const Action = z
     madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
     result: z.enum(["ok", "failed", "duplicate"]),
     schemaVersion: z.literal(1),
-    // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask), a task's id (its lines) or "mailto:<address>" (Instinct, until 19 Oct).
+    // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
     // An ask heard in his speech: where the time went (spoke = instruction.at, recorded = at). `ended`: his last turn of
     // it ended; `arrived`: lifelog's feed had brought all of it. Until 19 Oct, a heard request's `heard`, `modelMs`, `actMs`.

@@ -12,18 +12,25 @@ import {
   turn,
 } from "../sources/fixtures";
 import { apply, readConversations } from "../sources/lifelog";
+import { tasksOf } from "../tasks";
+import { action } from "./fixtures";
 import { fuse, store } from "./meaning";
 import { layoutOf, perSection, renderPage } from "./page";
 import { byWords } from "./raw";
 import {
+  areaFor,
+  birthdaysNear,
+  birthdayText,
   buildIndex,
   candidateLines,
   coverageLines,
   dayLines,
   dueOn,
   momentLine,
+  nextBirthday,
   readIndex,
   matches as searchMatches,
+  taskHits,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
@@ -41,9 +48,10 @@ test("day: the conversations with their chapters and people, then the chat and m
       turns: [turn(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie")],
     })
   );
-  const lines = dayLines(
-    readConversations(store, new Date("2026-10-14T00:00:00Z")),
-    [
+  const lines = dayLines({
+    conversations: readConversations(store, new Date("2026-10-14T00:00:00Z")),
+    facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
+    units: [
       {
         date: "2026-10-14",
         id: "u_000000000001",
@@ -52,8 +60,7 @@ test("day: the conversations with their chapters and people, then the chat and m
         topics: "glass",
       },
     ],
-    ['- obs_1 2026-10-14 todo: Call the glazier "call him"']
-  );
+  });
   expect(lines).toContain("Recorded conversations (1; `fetch <id>`):");
   expect(
     lines.some((l) => l.includes("- c1 ") && l.endsWith("The plumber"))
@@ -263,11 +270,11 @@ test("a day opens with what happened: its moments, when, what, where, how they s
   expect(momentLine(m)).toBe(
     "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [u_000000000001]"
   );
-  expect(dayLines([], [], [], [], [m]).slice(0, 2)).toEqual([
-    "What happened (moments):",
+  expect(dayLines({ moments: [m] }).slice(0, 2)).toEqual([
+    "Moments (what happened or is planned):",
     momentLine(m),
   ]);
-  expect(dayLines([], [])[0]).toStartWith("Recorded conversations");
+  expect(dayLines({})[0]).toStartWith("Recorded conversations");
 });
 
 test("by words: those holding the most of them, the later first; case and accents ignored, short and common words left out unless they are all there is", () => {
@@ -330,6 +337,8 @@ test("a name means who it resolves to, listed first among those going by it; a n
   expect(ids(mean("Clai", () => null))).toEqual([undefined, []]);
 });
 
+const SAID_BY = / (by|heard as) jean/;
+
 // audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no
 // one nudged him. `day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
 test("audit-1-apple-open-loop: day lists his own open to-dos and promises due that day, and nothing else", async () => {
@@ -366,7 +375,12 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
   buildIndex(
     [
       loop("obs_000000000001", {}),
-      loop("obs_000000000002", { type: "promise" }),
+      // His promise whose words a sender wrote: labelled "by", never left out (decision 11b).
+      loop("obs_000000000002", {
+        source: { channel: "whatsapp", ref: "m1" },
+        speaker: "person:jean",
+        type: "promise",
+      }),
       loop("obs_000000000003", { speaker: "person:jean" }),
       loop("obs_000000000004", { speaker: "unknown:shop@mail.test" }),
       // His own to-do filed under a project is still his.
@@ -388,7 +402,14 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
     "obs_000000000005",
     "obs_000000000010",
   ]);
-  expect(dayLines([], [], [], [], [], lines)[0]).toBe(
+  // Who spoke, when not him: "by" a sender, "heard as" a voice (lifelog misnames some).
+  expect(lines.map((l) => l.match(SAID_BY)?.[0] ?? "")).toEqual([
+    "",
+    " by jean",
+    "",
+    " heard as jean",
+  ]);
+  expect(dayLines({ due: lines })[0]).toBe(
     "Due (his own open to-dos and promises for this day):"
   );
 });
@@ -424,4 +445,94 @@ test("a Between us line shows the days of its first and latest evidence", () => 
   expect(withSpans(text, (id) => (day[id] ? [day[id]] : []))).toContain(
     "agreed to keep money apart. [obs_aaaaaaaaaaaa, obs_bbbbbbbbbbbb] (since 2026-03-01 · last evidence 2026-09-12)"
   );
+});
+
+test("birthdays: the next date, days left and age; day lists this day and the next 7, soonest first", () => {
+  expect(nextBirthday("1993-11-12", "2026-11-09")).toEqual({
+    age: 33,
+    day: "2026-11-12",
+    left: 3,
+  });
+  // Passed this year: next year's; no year, no age.
+  expect(nextBirthday("--01-07", "2026-10-21")).toEqual({
+    age: null,
+    day: "2027-01-07",
+    left: 78,
+  });
+  expect(birthdayText(nextBirthday("--10-21", "2026-10-21"))).toBe(
+    "21 Oct (today)"
+  );
+  expect(
+    birthdaysNear(
+      [
+        { birthday: "2000-10-28", id: "ana", name: "Ana" },
+        { birthday: "--10-21", id: "jean", name: "Jean" },
+        { birthday: "--10-29", id: "late", name: "Late" },
+        { id: "none", name: "None" },
+      ],
+      "2026-10-21"
+    )
+  ).toEqual([
+    "- Jean (`person jean`): 21 Oct (today)",
+    "- Ana (`person ana`): 28 Oct (in 7 days, turns 26)",
+  ]);
+  // 29 Feb falls on 1 Mar in other years.
+  expect(nextBirthday("--02-29", "2027-02-28")).toMatchObject({
+    day: "2027-03-01",
+    left: 1,
+  });
+  // Across the new year.
+  expect(
+    birthdaysNear(
+      [{ birthday: "--01-02", id: "jan", name: "Jan" }],
+      "2026-12-28"
+    )
+  ).toEqual(["- Jan (`person jan`): 2 Jan (in 5 days)"]);
+  // First in `day`, before what is due.
+  expect(dayLines({ born: ["- born"], due: ["- due"] }).slice(0, 3)).toEqual([
+    "Birthdays (this day and the next 7):",
+    "- born",
+    "",
+  ]);
+});
+
+test("area: an area's or a project's id or name, never a part of one", () => {
+  const truth = {
+    areas: [{ id: "construction", name: "Construction" }],
+    projects: [{ area: "construction", id: "house", name: "The House" }],
+  } as unknown as Parameters<typeof areaFor>[1];
+  expect(areaFor("construction", truth)).toEqual({
+    id: "construction",
+    project: undefined,
+  });
+  expect(areaFor("CONSTRUCTION", truth).id).toBe("construction");
+  expect(areaFor("house", truth).project?.id).toBe("house");
+  expect(areaFor("the house", truth).id).toBe("construction");
+  expect(areaFor("constr", truth).id).toBeUndefined();
+});
+
+test("Atlas's tasks in search: his words or Atlas's reports hold the words, inside from/to; a state alone matches nothing", () => {
+  const ask = action({
+    after: { confidence: "high" },
+    id: "act_00000000000a",
+    kind: "ask",
+    target: "atlas",
+  });
+  const done = action({
+    after: { outcome: "Booked the dentist for Friday.", state: "done" },
+    at: "2026-10-15T11:00:00.000Z",
+    id: "act_00000000000b",
+    instruction: undefined,
+    kind: "update",
+    madeBy: "connector",
+    target: ask.id,
+  });
+  const tasks = tasksOf([ask, done].map((l) => JSON.stringify(l)));
+  const hits = (q: string, o = {}) => taskHits(q, o, tasks);
+  expect(hits("dentist")).toEqual([
+    "- act_00000000000a 2026-10-15 done: write that down in the to-dos → Booked the dentist for Friday.",
+  ]);
+  expect(hits("to-dos")).toHaveLength(1);
+  expect(hits("done")).toEqual([]);
+  expect(hits("dentist", { from: "2026-10-16" })).toEqual([]);
 });

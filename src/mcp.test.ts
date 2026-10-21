@@ -24,6 +24,7 @@ import {
 } from "./sources/fixtures";
 import { apply, forward, type Stay } from "./sources/lifelog";
 import { sealed, update } from "./tasks";
+import { DATA } from "./truth";
 
 const OWNER = "owner-sub";
 const CHALLENGE =
@@ -185,7 +186,7 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
   }
 });
 
-test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders` and `task` write but are not destructive, so Atlas runs unattended", async () => {
+test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders`, `task` and `reply` write but are not destructive, so Atlas runs unattended", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -203,6 +204,7 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
     "person",
     "places",
     "reminders",
+    "reply",
     "runs",
     "search",
     "status",
@@ -217,7 +219,7 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
     properties: { id: { type: "string" } },
     required: ["id"],
   });
-  const writes = ["correct", "reminders", "task"];
+  const writes = ["correct", "reminders", "reply", "task"];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
@@ -327,7 +329,7 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   await res?.body?.cancel();
 });
 
-test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and closed tasks cut short; task refuses another seal with both", async () => {
+test("tasks hands out the playbook, docs/atlas.md, with its seal, all of truth/me.md and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
   const now = new Date().toISOString();
   const words = { at: now, claim: true, seal: sealed().seal };
@@ -354,13 +356,12 @@ test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and 
   } finally {
     rmSync(ACTIONS, { force: true });
   }
-  const { goals, playbook, seal, tasks } = JSON.parse(
-    json.result.content[0].text
-  );
+  const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
   expect(playbook).toBe(
     readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
   );
-  expect(goals).toBe("1. Be well.");
+  expect(me).toBe(readFileSync(join(DATA, "truth", "me.md"), "utf8"));
+  expect(me).toContain("1. Be well.");
   // An open row stays whole; a closed one is cut to four fields.
   expect([tasks[0].quote, tasks[0].steps]).toEqual(["call the bank", []]);
   expect(Object.keys(tasks[1]).sort()).toEqual([
