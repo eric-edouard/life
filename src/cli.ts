@@ -4,6 +4,7 @@ import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { readEngine, setEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
+import { embedded } from "./memory/meaning";
 import { actionLine, duration } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { Engine } from "./schema";
@@ -130,4 +131,6 @@ if (!command) {
   console.error(`usage: bun life <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
-process.exit(await command());
+const code = await command();
+await embedded();
+process.exit(code);

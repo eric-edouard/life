@@ -86,14 +86,14 @@ export function store(vectors: [string, number[]][]) {
 
 /** Embeds the texts not in the cache yet (`PER_CALL` at most), a batch at a time; false when it can't (no key, offline). */
 export async function embed(texts: string[]) {
-  const have = vectorsOf(texts.map(hashOf));
-  const todo = [
-    ...new Set(texts.filter((t) => t.trim() && !have.has(hashOf(t)))),
-  ].slice(0, PER_CALL);
-  if (!KEY) {
-    return todo.length === 0;
-  }
   try {
+    const have = vectorsOf(texts.map(hashOf));
+    const todo = [
+      ...new Set(texts.filter((t) => t.trim() && !have.has(hashOf(t)))),
+    ].slice(0, PER_CALL);
+    if (!KEY) {
+      return todo.length === 0;
+    }
     for (let i = 0; i < todo.length; i += BATCH) {
       const batch = todo.slice(i, i + BATCH);
       // biome-ignore lint/performance/noAwaitInLoops: one paid request at a time
@@ -129,7 +129,7 @@ export async function embed(texts: string[]) {
 let running: Promise<boolean> | null = null;
 /**
  * Embeds the texts in the background, one run at a time (a call meanwhile is skipped: the next rebuild brings its texts
- * again), so a rebuild never waits on the network nor holds the lock for it.
+ * again), so a rebuild never waits on the network nor holds the lock for it; a command's process waits for it (`embedded`).
  */
 export function embedSoon(texts: string[]) {
   if (!running) {
@@ -138,6 +138,9 @@ export function embedSoon(texts: string[]) {
     });
   }
 }
+
+/** The background embed in flight, if any: a command waits for it before its process exits (cli.ts). */
+export const embedded = () => running ?? Promise.resolve(true);
 
 /** The query's vector, embedded once per query text; null with no key or offline, so search falls back to words. */
 export async function queryVector(q: string) {
