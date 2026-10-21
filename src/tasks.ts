@@ -23,13 +23,17 @@ import { ROOT, TEST } from "./truth";
  */
 const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
 /**
- * A greeting then Atlas or a misheard Atlas, whatever the case and the punctuation around or between them. The
- * greeting is "hey" as lifelog writes it ("Hej" on 21 Oct, audit 4), never the end of a longer word.
+ * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
+ * longer word. Shared by both wakes.
  */
+const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
+/** A greeting then Atlas or a misheard Atlas, whatever the case. */
 export const WAKE = new RegExp(
-  String.raw`\b(?:hey|hej|hei|hé|ey)\W+(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
+  String.raw`${GREETING}(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
   "i"
 );
+/** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is lifelog's misspelling. */
+export const MARK = new RegExp(String.raw`${GREETING}li[fv]e\b`, "i");
 /** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
 /** A task's name: its title, else his words from "hey Atlas" on. */

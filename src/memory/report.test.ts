@@ -103,6 +103,7 @@ const night = (facts: number) =>
       read: 2,
     },
     from: "2026-10-12",
+    marked: [],
     moments: {
       agreement: { agreement: 0.75, labeled: 40 },
       model: "codex/m/high",
@@ -323,4 +324,19 @@ test("a send goes out once per id: a second one with the same id never reaches R
     post.mockRestore();
     process.env = env;
   }
+});
+
+test('each "hey Life" is listed with what the memory holds of it', () => {
+  const n = {
+    ...night(0),
+    marked: [
+      {
+        name: "2026-10-15 20:36",
+        relation: "“hey Life, I committed” → nothing held",
+      },
+    ],
+  } as Night;
+  const { text } = successReport("2026-10-15", 1000, n);
+  expect(text).toContain("Hey Life (1)");
+  expect(text).toContain("nothing held");
 });
