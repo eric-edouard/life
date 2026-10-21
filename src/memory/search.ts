@@ -83,11 +83,17 @@ import { dayStart, localDate, when } from "./zones";
 export const INDEX = join(OUT, "index.sqlite");
 const LIMIT = 12;
 /** A section's first LIMIT lines (its last, `newest`), saying so when there were more. */
-const CUT = `(cut at ${LIMIT}: narrow with \`from\` and \`to\`)`;
 const cut = (lines: string[], newest = false) =>
   lines.length > LIMIT
-    ? [...(newest ? lines.slice(-LIMIT) : lines.slice(0, LIMIT)), CUT]
+    ? [
+        ...(newest ? lines.slice(-LIMIT) : lines.slice(0, LIMIT)),
+        `(cut at ${LIMIT}: narrow with \`from\` and \`to\`)`,
+      ]
     : lines;
+
+/** A moment's title and place: its line's, and what search reads its words in. */
+const momentTitle = (m: Moment) =>
+  `${m.title}${m.place ? ` @ ${m.place}` : ""}`;
 
 /** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
 export const momentLine = (m: Moment) =>
@@ -153,17 +159,11 @@ const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.confidence,
   (select group_concat(replace(replace(person, 'person:', ''), 'unknown:', ''), ', ') from unit_people where unit = o.unit) as people`;
 const CURRENT = "o.superseded_by is null";
 
-/** The query's words (as every section reads them, `queryWords`) quoted for FTS5: all of them, or any. */
-const ftsQuery = (q: string, op: "AND" | "OR") =>
+/** The query's words (as every section reads them, `queryWords`) quoted for FTS5, any of them. */
+const ftsQuery = (q: string) =>
   queryWords(q)
     .map((w) => `"${w}"`)
-    .join(` ${op} `);
-
-/** How many FTS candidates each of its queries (all the words, any of them) brings to the words rank. */
-const POOL = 50;
-/** A moment's title and place: its line's, and what search reads its words in. */
-const momentTitle = (m: Moment) =>
-  `${m.title}${m.place ? ` @ ${m.place}` : ""}`;
+    .join(" OR ");
 
 interface Days {
   from?: string;
@@ -187,44 +187,27 @@ const inDays = (r: Days) => (m: Moment) => daysMeet(r, ...daysOf(m));
 export function matches(db: Database, q: string, range: Days = {}) {
   const o = between("o.date", range);
   const u = between("u.date", range);
-  // FTS's best of the candidates holding the most of the words (`byWords`, as every section ranks by words); those
-  // holding all of them first, so none is lost below the pool of those holding any.
-  const ids = (sql: string, args: string[]) =>
-    byWords(
-      [
-        ...new Map(
-          (["AND", "OR"] as const).flatMap((op) => {
-            const query = ftsQuery(q, op);
-            return query
-              ? db
-                  .query<{ id: string; text: string }, string[]>(sql)
-                  .all(query, ...args)
-                  .map((r) => [r.id, r] as const)
-              : [];
-          })
-        ).values(),
-      ],
-      q,
-      (r) => r.text
-    )
-      .slice(0, LIMIT + 1)
-      .map((r) => r.id);
-  const row = db.query<Row, [string]>(
-    `select ${COLUMNS} from observations o where o.id = ?`
-  );
-  const unitRow = db.query<UnitRow, [string]>(
-    "select id, date, source, title, topics from units where id = ?"
-  );
-  const observations = ids(
-    `select o.id, o.text || ' ' || o.quote as text from search s join observations o on o.id = s.id
-      where search match ? and ${CURRENT}${o.sql} order by rank limit ${POOL}`,
+  // Every item holding a word (FTS), kept to those holding the most of them (`byWords`, as every section ranks by
+  // words), in FTS's rank. ponytail: counts words over every match (8,000 rows at most, a few ms, Oct 2026).
+  const query = ftsQuery(q);
+  const best = <T extends { hay: string }>(sql: string, args: string[]) =>
+    query
+      ? byWords(
+          db.query<T, string[]>(sql).all(query, ...args),
+          q,
+          (r) => r.hay
+        ).slice(0, LIMIT + 1)
+      : [];
+  const observations = best<Row & { hay: string }>(
+    `select ${COLUMNS}, o.text || ' ' || o.quote as hay from search s join observations o on o.id = s.id
+      where search match ? and ${CURRENT}${o.sql} order by rank`,
     o.args
-  ).map((id) => line(row.get(id) as Row));
-  const units = ids(
-    `select u.id, s.title || ' ' || s.summary || ' ' || s.topics as text from unit_search s join units u on u.id = s.id
-      where unit_search match ?${u.sql} order by rank limit ${POOL}`,
+  ).map(line);
+  const units = best<UnitRow & { hay: string }>(
+    `select u.id, u.date, u.source, u.title, u.topics, s.title || ' ' || s.summary || ' ' || s.topics as hay
+      from unit_search s join units u on u.id = s.id where unit_search match ?${u.sql} order by rank`,
     u.args
-  ).map((id) => unitLine(unitRow.get(id) as UnitRow));
+  ).map(unitLine);
   return observations.length + units.length > 0
     ? [
         ...cut(observations),
@@ -352,16 +335,6 @@ export function taskHits(words: string, o: Days, tasks = tasksOf()) {
   });
 }
 
-/** The moments' lines for `words`: the newest `LIMIT` holding the most of them, shown by date, and a note when more were cut. */
-export function momentHits(moments: Moment[], words: string) {
-  const held = byWords(moments.toReversed(), words, momentTitle);
-  const best = new Set(held.slice(0, LIMIT));
-  return [
-    ...moments.filter((m) => best.has(m)).map(momentLine),
-    ...(held.length > LIMIT ? [CUT] : []),
-  ];
-}
-
 /** `from`/`to` (local days, both included) bound every section. */
 export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
@@ -371,11 +344,11 @@ export async function search(words: string, o: Days = {}) {
     chatHits(words, range),
     momentsWhere(inDays(o)),
   ]);
-  const found = momentHits(moments, words);
+  const found = byWords(moments, words, momentTitle).map(momentLine);
   const tasks = taskHits(words, o);
   return withIndex((db) => [
     ...(found.length > 0
-      ? ["Moments (what happened or is planned):", ...found, ""]
+      ? ["Moments (what happened or is planned):", ...cut(found, true), ""]
       : []),
     ...(tasks.length > 0
       ? [

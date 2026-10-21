@@ -261,14 +261,14 @@ const chatGroups = (events: SourceEvent[]) =>
 
 // Words too common to rank by, French and English.
 const STOP = new Set(
-  "and are avec but dans des est for from has have les not par pas pour que qui sur the this une was what when with you".split(
+  "a an and are at au avec be but by dans de des du en est et for from has have i if in is it la le les ne not of on or par pas pour que qui sur the this to un une was what when with y you".split(
     " "
   )
 );
-/** The words of `query` worth matching: 3 letters or more and not too common; all of them when none is. */
+/** The words of `query` worth matching: not too common (an "AI" or a "UK" counts); all of them when none is. */
 export const queryWords = (query: string) => {
   const all = normalize(query).split(" ").filter(Boolean);
-  const content = all.filter((w) => w.length >= 3 && !STOP.has(w));
+  const content = all.filter((w) => !STOP.has(w));
   return content.length > 0 ? content : all;
 };
 
@@ -305,9 +305,9 @@ export function focus(text: string, query: string, max: number) {
  */
 function withContext(events: SourceEvent[], query: string) {
   const byChat = chatGroups(events);
-  const hits = byWords(events.toReversed(), query, (e) => e.text);
+  const hits = byWords(events, query, (e) => e.text);
   const keep = new Set(
-    hits.slice(0, QUERY_HITS).flatMap((hit) => {
+    hits.slice(-QUERY_HITS).flatMap((hit) => {
       const list = byChat.get(`${hit.source}|${hit.chat}`) ?? [];
       const i = list.indexOf(hit);
       return list.slice(Math.max(0, i - QUERY_CONTEXT), i + QUERY_CONTEXT + 1);

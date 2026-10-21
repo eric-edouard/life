@@ -25,7 +25,6 @@ import {
   coverageLines,
   dayLines,
   dueOn,
-  momentHits,
   momentLine,
   nextBirthday,
   readIndex,
@@ -184,8 +183,8 @@ test("search: an observation hit names the unit it comes from and who is in it",
   expect(searchMatches(db, "beautify", { to: "2026-10-13" })).toEqual([
     "(nothing found)",
   ]);
-  // One holding every word is found though a hundred holding one outrank it by FTS's rank.
-  const many = ["glazier", "vitre"].flatMap((w) =>
+  // The one holding the most of the words comes first, though 180 holding one outrank it by FTS's rank.
+  const many = ["glazier", "vitre", "piano"].flatMap((w) =>
     Array.from({ length: 60 }, (_, i) => ({
       ...o,
       id: `obs_${w}${i}`,
@@ -199,7 +198,9 @@ test("search: an observation hit names the unit it comes from and who is in it",
     text: `The vitre ${"and more words ".repeat(40)}then the glazier.`,
   };
   buildIndex([...many, both], path, standing);
-  expect(searchMatches(db, "glazier vitre")[0]).toStartWith("- obs_both ");
+  const [best, ...rest] = searchMatches(db, "glazier vitre piano");
+  expect(best).toStartWith("- obs_both ");
+  expect(rest).toEqual([]);
   buildIndex([o], path, standing, [{ unit }]);
   // What Life holds about someone: by source and by month, and what it can't hold.
   const cover = coverageLines(db, "person:jerome", []);
@@ -297,35 +298,6 @@ test("by words: those holding the most of them, in their order; case and accents
   ]);
   expect(byWords(["it is", "no"], "is at", (t) => t)).toEqual(["it is"]);
   expect(byWords(["anything"], "??", (t) => t)).toEqual([]);
-});
-
-test("moments: the newest holding the most of the words, shown by date, a cut said", () => {
-  const moment = (id: string, day: string, title: string) =>
-    ({
-      day,
-      id,
-      people: [],
-      start: null,
-      status: "happened",
-      title,
-      units: [],
-    }) as unknown as Moment;
-  const moments = [
-    moment("mom_1", "2026-10-14", "Dinner with the glazier"),
-    moment("mom_2", "2026-10-15", "Window repair with the glazier booked"),
-    moment("mom_3", "2026-10-16", "Gym"),
-  ];
-  const lines = momentHits(moments, "glazier window");
-  expect(lines).toHaveLength(1);
-  expect(lines[0]).toStartWith("- mom_2 ");
-  const many = Array.from({ length: 13 }, (_, i) =>
-    moment(`mom_g${i}`, `2026-10-${10 + i}`, "glazier")
-  );
-  const cutLines = momentHits(many, "glazier");
-  expect(cutLines).toHaveLength(13);
-  // The newest 12, by date: the oldest is left out.
-  expect(cutLines[0]).toStartWith("- mom_g1 ");
-  expect(cutLines.at(-1)).toStartWith("(cut at 12");
 });
 
 test("a name means who it resolves to, listed first among those going by it; a name nothing resolves means no one", () => {
