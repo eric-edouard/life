@@ -4,6 +4,7 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { log } from "./log";
 import { exec, firstLine } from "./proc";
@@ -112,15 +113,31 @@ export const llmSpec = (l: Llm) =>
 
 const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
+/** The API's models by tier, as the CLI's: Opus deep, Sonnet main, Haiku fast. */
+const ANTHROPIC_MODELS: Record<Tier, string> = {
+  deep: "claude-opus-5-5",
+  fast: "claude-haiku-5-5",
+  main: "claude-sonnet-5-5",
+};
+
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
 export function llmFor(tier: Tier, engine = readEngine()): Llm {
   const set = llmOverride();
   if (set) {
     return set;
   }
-  return engine === "claude"
-    ? { engine, model: CLAUDE_MODELS[tier] }
-    : { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
+  switch (engine) {
+    case "claude":
+      return { engine, model: CLAUDE_MODELS[tier] };
+    case "anthropic":
+      return {
+        effort: CODEX_EFFORT[tier],
+        engine,
+        model: ANTHROPIC_MODELS[tier],
+      };
+    default:
+      return { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
+  }
 }
 
 /** Recorded on everything a model made; the engine stays out of the cache key, so switching engines re-runs nothing. */
@@ -215,6 +232,7 @@ const imageBlock = async (path: string) => ({
 });
 
 const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
+const OPENAI = "https://api.openai.com/v1/chat/completions";
 /** Room for a day's moments and their reasoning; every bench host allows at least this much. */
 const OPENROUTER_MAX_TOKENS = 131_072;
 const OpenRouterReply = z.object({
@@ -536,9 +554,111 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
   };
 }
 
+/**
+ * One call through Anthropic's API with his key: streamed (a day's moments can take long), adaptive thinking at the
+ * tier's effort, and the server's default fallback model when a safety check declines.
+ */
+async function askAnthropic({ dir, images, input, llm, system, tools }: Call) {
+  if (tools) {
+    throw new Error("tools run on his subscriptions only (claude or codex)");
+  }
+  const reply = await new Anthropic().beta.messages
+    .stream({
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      max_tokens: 64_000,
+      messages: [
+        {
+          content: [
+            { text: JSON.stringify(input), type: "text" },
+            ...((await Promise.all(
+              images.map(imageBlock)
+            )) as Anthropic.Beta.BetaImageBlockParam[]),
+          ],
+          role: "user",
+        },
+      ],
+      model: llm.model,
+      output_config: {
+        effort: llm.effort as "low" | "medium" | "high" | undefined,
+      },
+      system,
+      thinking: { type: "adaptive" },
+    })
+    .finalMessage();
+  await Bun.write(join(dir, "anthropic.json"), JSON.stringify(reply));
+  const text = reply.content
+    .flatMap((b) => (b.type === "text" ? [b.text] : []))
+    .join("");
+  return {
+    fields: { model: reply.model, usage: reply.usage },
+    refusal:
+      reply.stop_reason === "end_turn"
+        ? undefined
+        : `anthropic: stopped (${reply.stop_reason})`,
+    text,
+  };
+}
+
+/** One call through OpenAI's API with his key, at the tier's reasoning effort. */
+async function askOpenAI({ dir, images, input, llm, system, tools }: Call) {
+  const key = process.env.OPENAI_API_KEY;
+  if (tools || !key) {
+    throw new Error(
+      tools
+        ? "tools run on his subscriptions only (claude or codex)"
+        : "openai needs OPENAI_API_KEY"
+    );
+  }
+  const pictures = await Promise.all(
+    images.map(async (path) => ({
+      image_url: {
+        url: `data:${path.endsWith(".png") ? "image/png" : "image/jpeg"};base64,${Buffer.from(await Bun.file(path).arrayBuffer()).toString("base64")}`,
+      },
+      type: "image_url",
+    }))
+  );
+  const res = await fetch(OPENAI, {
+    body: JSON.stringify({
+      messages: [
+        { content: system, role: "system" },
+        {
+          content: [{ text: JSON.stringify(input), type: "text" }, ...pictures],
+          role: "user",
+        },
+      ],
+      model: llm.model,
+      reasoning_effort: llm.effort,
+    }),
+    headers: {
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+    timeout: false,
+  });
+  const body = await res.text();
+  await Bun.write(join(dir, "openai.json"), body);
+  if (!res.ok) {
+    throw new Error(`openai ${res.status}: ${body.slice(-300)}`);
+  }
+  const reply = OpenRouterReply.pick({ choices: true }).parse(JSON.parse(body));
+  const [choice] = reply.choices;
+  return {
+    refusal:
+      choice?.finish_reason === "stop" && choice.message.content
+        ? undefined
+        : `openai: stopped (${choice?.finish_reason})`,
+    text: choice?.message.content ?? "",
+  };
+}
+
 const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
+  anthropic: askAnthropic,
   claude: askClaude,
   codex: askCodex,
+  openai: askOpenAI,
   openrouter: askOpenRouter,
 };
 

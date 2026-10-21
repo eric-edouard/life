@@ -10,7 +10,7 @@ import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
 import { checks } from "./reminders/remctl";
 import { Engine } from "./schema";
-import { setSetting } from "./settings";
+import { readSettings, type Settings, setSetting } from "./settings";
 import { connect } from "./tailscale";
 import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
@@ -157,6 +157,22 @@ const commands: Record<string, () => Promise<number>> = {
   pair() {
     console.log(pair());
     return Promise.resolve(0);
+  },
+  /**
+   * The settings as JSON (`settings`), or some parts of them replaced (`settings set '<json>'`, checked whole before
+   * anything is written): the app reads and writes them only through this, so their shape lives in one place.
+   */
+  async settings() {
+    const [verb, arg] = process.argv.slice(3);
+    if (verb === "set") {
+      const parts = JSON.parse(arg ?? "{}") as Partial<Settings>;
+      for (const [key, value] of Object.entries(parts)) {
+        // biome-ignore lint/performance/noAwaitInLoops: one small file, in order
+        await setSetting(key as keyof Settings, value as never);
+      }
+    }
+    console.log(JSON.stringify(readSettings(), null, 2));
+    return 0;
   },
   /** What the lifelog watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),

@@ -444,7 +444,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
     const id = await sendReport(reportKey(rec.run), mail);
-    console.log(id ? `report emailed: ${id}` : "report email not sent");
+    console.log(id ? `report delivered: ${id}` : "report not delivered");
   }
   return failure ? 1 : 0;
 }
