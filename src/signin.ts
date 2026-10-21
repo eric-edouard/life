@@ -13,7 +13,10 @@ const LOGIN_MAX_S = 600;
 /** Where a sign-in may land: the pages behind it. */
 const PAGES = new Set(["/", "/check/"]);
 
-export function createSignIn(verify: Verify, lifelog: typeof fetch = fetch) {
+/** How the token exchange reaches the issuer: `fetch`, or the issuer itself when it is Life's own (server.ts). */
+export type Exchange = (url: string, init: RequestInit) => Promise<Response>;
+
+export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
   const { client, issuer, origin, resource } = connector();
   const CALLBACK = `${origin}/check/callback`;
   /** Off to lifelog's sign-in (silent once he is signed in there and consented), with PKCE; back to `next` after. */
