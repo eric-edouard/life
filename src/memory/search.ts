@@ -10,6 +10,7 @@ import {
   KEEP_AT,
   type Moment,
   type Observation,
+  type Person,
   type Unit,
   type Verdict,
 } from "../schema";
@@ -623,15 +624,23 @@ const SUMMARY = 200;
  * planned ones included), the day's conversations with their chapters, its chat and mail units, its key observations,
  * then what Life changed for him.
  */
-export function dayLines(
-  conversations: LifelogConversation[],
-  units: UnitRow[],
-  facts: string[] = [],
-  actions: Action[] = [],
-  moments: Moment[] = [],
-  due: string[] = [],
-  born: string[] = []
-) {
+export function dayLines({
+  actions = [],
+  born = [],
+  conversations = [],
+  due = [],
+  facts = [],
+  moments = [],
+  units = [],
+}: {
+  actions?: Action[];
+  born?: string[];
+  conversations?: LifelogConversation[];
+  due?: string[];
+  facts?: string[];
+  moments?: Moment[];
+  units?: UnitRow[];
+}) {
   return [
     ...(born.length > 0
       ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
@@ -680,29 +689,29 @@ export async function day(date: string) {
   const moments = await momentsWhere(inDays({ from: date, to: date }));
   return withStore((store) =>
     withIndex((db) =>
-      dayLines(
-        readConversations(store, dayStart(date), names).filter(
+      dayLines({
+        actions,
+        born,
+        conversations: readConversations(store, dayStart(date), names).filter(
           (c) => localDate(c.startedAt) === date
         ),
-        db
-          .query<UnitRow, [string]>(
-            "select id, date, source, title, topics from units where date = ? order by source, title"
-          )
-          .all(date)
-          // A voice unit is listed with its conversation.
-          .filter((u) => kindOf(u.source) !== "voice"),
-        db
+        due: dueOn(db, date),
+        facts: db
           .query<Row, [string]>(
             `select ${COLUMNS} from observations o where o.date = ? and o.salience >= ${KEEP_AT} and ${CURRENT}
              order by o.salience desc, o.at limit ${DAY_FACTS}`
           )
           .all(date)
           .map(line),
-        actions,
         moments,
-        dueOn(db, date),
-        born
-      )
+        units: db
+          .query<UnitRow, [string]>(
+            "select id, date, source, title, topics from units where date = ? order by source, title"
+          )
+          .all(date)
+          // A voice unit is listed with its conversation.
+          .filter((u) => kindOf(u.source) !== "voice"),
+      })
     )
   );
 }
@@ -743,7 +752,7 @@ export const birthdayText = (b: ReturnType<typeof nextBirthday>) =>
  * matters to him. Soonest first.
  */
 export const birthdaysNear = (
-  people: { birthday?: string; id: string; name: string }[],
+  people: Pick<Person, "birthday" | "id" | "name">[],
   date: string
 ) =>
   people
