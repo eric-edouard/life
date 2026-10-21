@@ -106,6 +106,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   source (`src/memory/observe.ts`).
 - **Life's own output never re-enters memory:** its chat (`LIFE_CHAT`) and its mail (`LIFE_MAIL`, every subject set by
   `compose`) are dropped as `life-output` (`src/memory/units.ts`). His agents' reports are not Life's: the model judges them.
+  Each task Atlas closed done is a unit of the `atlas` source (`src/sources/atlas.ts`, his decision 14, 21 Oct): its
+  outcome with his ask's words, all Atlas's line. Extraction may read it as evidence of what was done, to close a loop,
+  never as his words or a request, and stays the only step that retires a fact.
   The one exception is what Life read off a file (`memory/files.jsonl`), shown in its message's line inside the
   file's brackets: the model's description after `described by Life:`, the words on the file after `text:` (read by the
   model, or by code for a document or a PDF's text layer). A step may quote it as evidence of what was sent, never as

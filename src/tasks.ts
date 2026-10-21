@@ -158,8 +158,8 @@ export function standing(t: Task) {
     end,
     since,
     state,
-    steps: (t.lines.findLast((u) => u.kind === "update" && u.after.steps)
-      ?.after.steps ?? []) as Step[],
+    steps: (t.lines.findLast((u) => u.kind === "update" && u.after.steps)?.after
+      .steps ?? []) as Step[],
     /** Atlas's last word: the outcome or reason once closed. */
     word: end.outcome ?? end.reason ?? end.question ?? end.note,
   };

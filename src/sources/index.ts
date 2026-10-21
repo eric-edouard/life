@@ -1,4 +1,5 @@
 import type { Person, SourceEvent, Unit } from "../schema";
+import { readAtlas } from "./atlas";
 import { readBeeper } from "./beeper";
 import { type RepoMap, readGit } from "./git";
 import { handleOf, isImessageGroup, readImessage } from "./imessage";
@@ -23,7 +24,8 @@ export type Descriptor = {
   searchDays?: number;
 } & (
   | {
-      kind: "chat" | "mail" | "notes";
+      /** `agent`: what his agents report they did, evidence of it, never anyone's words. */
+      kind: "agent" | "chat" | "mail" | "notes";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date) => SourceEvent[];
     }
@@ -76,6 +78,7 @@ export const SOURCES: Descriptor[] = [
     // text in index.sqlite if that grows slow.
     searchDays: Number.POSITIVE_INFINITY,
   },
+  { kind: "agent", name: "atlas", read: readAtlas },
   {
     kind: "repo",
     name: "git",

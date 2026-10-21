@@ -15,6 +15,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "beeper",
     "mail",
     "notes",
+    "atlas",
     "git",
   ]);
 });

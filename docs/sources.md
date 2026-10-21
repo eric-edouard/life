@@ -2,7 +2,7 @@
 
 Every source is read-only. Each one is a file in `src/sources/` (the message archive is `src/archive.ts`) that returns `SourceEvent`s with stable ids, so
 reading twice never duplicates anything. What Life knows about a source is its descriptor in `src/sources/index.ts`:
-its kind (chat, mail, notes, repo, voice), its reader, how far back `search` and `chats` read it, and what its ids say
+its kind (agent, chat, mail, notes, repo, voice), its reader, how far back `search` and `chats` read it, and what its ids say
 (groups, handles). Adding a source is one more descriptor there, and its name in `SourceName` (`schema.ts`). Raw data stays in its own app; Life keeps only ids and short quotes (and an ask's words, AGENTS.md). Before any text reaches a model,
 `src/redact.ts` removes card numbers, IBANs, long tokens and lines that look like passwords or codes.
 
@@ -25,6 +25,7 @@ the archive's media copy); Life copies none, and a description outlives its file
 | Email, all accounts | Apple Mail's local store, `~/Library/Mail/V10/` | `mail.ts` | Covers every account in Mail (personal, the shop's, the company's, iCloud, Exchange). Every MIME part with a file name is a file, in the `.emlx` or, for a partial one, in Mail's `Attachments` folder. |
 | Git commits | `git log --all --no-merges --numstat` in every repo under `~/Work` (worktrees folded into the main repo by `git rev-parse --git-common-dir`) | `git.ts` | Read-only. One unit per repo and day (`repoUnits`), reusing the chat-day builder. His commits in every repo; in the repos of his projects (`Project.repos` in `truth/projects/*.md`) other authors' too. The moments step tags them (topics), code caps their salience at 1, so they are searchable and listed by `day` but never extracted. Lines leave out lockfiles, binaries and files changed by over 3,000 lines in one commit (generated). |
 | Recorded conversations | lifelog's REST API (`/changes`, `/transcription-jobs/{id}/transcript`, `POST /search` for the exact words), owner device token as `LIFELOG_TOKEN` in `.env` | `lifelog.ts` | Reads only, except the owner's corrections `forward` sends. Units come from the store `bun life watch` keeps, the only caller of `poll` (so every "hey Atlas" is heard); exact words are fetched on demand. Chapter titles and summaries (lifelog's own) with turn refs. `bun life memory moments` reads only those; `bun life memory extract` also reads the transcript turns of kept chapters (`/transcription-jobs/{id}/transcript`) and keeps short quotes. |
+| Atlas's done tasks | Life's own ledger, `memory/actions.jsonl` (`tasksOf`) | `atlas.ts` | Kind `agent` (decision 14, 21 Oct). One unit per task Atlas closed done, dated when it closed: his ask's words (the first 1,500 characters) and Atlas's outcome, all as Atlas's line (`atlas`), never his. Its own report, not checked by Life: extraction may read it as evidence of what was done, to close the loop his ask also left as a to-do. Always read (salience at least 2), never searched as messages. |
 
 ## Removed in the 14 Oct reset (restore from git when a layer needs one)
 
