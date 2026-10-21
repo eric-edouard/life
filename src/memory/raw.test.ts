@@ -350,7 +350,7 @@ test("chats never read Life's own chat with the bot", async () => {
       { who: "Claude Life Assistant" },
       {
         beeper: () => [
-          event(LIFE_CHAT, "Life's own answer"),
+          event(LIFE_CHAT as string, "Life's own answer"),
           event("!other", "a real chat"),
         ],
       }

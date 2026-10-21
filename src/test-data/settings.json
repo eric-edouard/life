@@ -1,0 +1,15 @@
+{
+  "backup": { "password": "echo made-up", "repository": "~/made-up-backup" },
+  "connector": {
+    "client": "test-check-client",
+    "issuer": "https://voice.example.test/api/auth",
+    "origin": "https://life.example.test",
+    "owner": "owner-sub"
+  },
+  "lifeChat": "!life:beeper.local",
+  "lifelog": { "url": "https://voice.example.test" },
+  "mail": { "from": "alerts@life.example.test", "to": "owner@example.test" },
+  "misheard": "Zorba",
+  "reports": ["alerts@agents.example.test"],
+  "repos": "~/Work"
+}

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { clock, unfrozen } from "../clock";
 import { log } from "../log";
 import { digest, readJson } from "../memory/ledger";
+import { settings } from "../settings";
 import { ROOT } from "../truth";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
@@ -121,16 +122,16 @@ export interface ChapterTurn {
   turnIndex: number;
 }
 
-/** lifelog's server (REST API). */
-const lifelogUrl = () =>
-  process.env.LIFELOG_URL ?? "https://lifelog.ericedouard.com";
-
+/** lifelog's server (REST API): its address from settings (a test's stand-in sets `LIFELOG_URL`), its token from the environment. */
 function config() {
+  const url = process.env.LIFELOG_URL ?? settings().lifelog?.url;
   const token = process.env.LIFELOG_TOKEN;
-  if (!token) {
-    throw new Error("LIFELOG_TOKEN is missing from .env");
+  if (!(url && token)) {
+    throw new Error(
+      "lifelog is not set up (settings: lifelog, env: LIFELOG_TOKEN)"
+    );
   }
-  return { token, url: lifelogUrl() };
+  return { token, url };
 }
 
 /** GET `path`, or send `body` to it (POST unless `method` says otherwise). */

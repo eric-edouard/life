@@ -9,11 +9,12 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
-import { ISSUER, ownerTokens, RESOURCE } from "./auth";
+import { ownerTokens } from "./auth";
 import { LOG_DIR } from "./log";
 import { correct, createMcp } from "./mcp";
 import { ACTIONS, linesOf } from "./memory/ledger";
 import { placesOf } from "./memory/places";
+import { connector as settingsOf } from "./settings";
 import {
   chapter,
   conversation,
@@ -26,9 +27,10 @@ import { apply, forward, type Stay } from "./sources/lifelog";
 import { sealed, update } from "./tasks";
 import { DATA } from "./truth";
 
+const { issuer: ISSUER, metadata, resource: RESOURCE } = settingsOf();
+
 const OWNER = "owner-sub";
-const CHALLENGE =
-  'Bearer resource_metadata="https://life.ericedouard.com/.well-known/oauth-protected-resource/mcp", scope="life:read offline_access"';
+const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
 const NOW = new Date("2026-10-15T10:00:00Z");
 
 const { privateKey, publicKey } = await generateKeyPair("EdDSA", {
@@ -37,9 +39,11 @@ const { privateKey, publicKey } = await generateKeyPair("EdDSA", {
 const jwk: JWK = { ...(await exportJWK(publicKey)), alg: "EdDSA", kid: "k1" };
 const jwks = createLocalJWKSet({ keys: [jwk] });
 const verify = ownerTokens({
+  issuer: ISSUER,
   jwks,
   now: () => NOW.getTime(),
   ownerSub: OWNER,
+  resource: RESOURCE,
 });
 const connector = createMcp(verify);
 
@@ -102,7 +106,7 @@ test("protected-resource metadata on both paths; other paths are not the connect
   ]) {
     // biome-ignore lint/performance/noAwaitInLoops: two requests
     const res = await connector.handle(
-      new Request(`https://life.ericedouard.com${path}`)
+      new Request(`https://life.example.test${path}`)
     );
     expect(await res?.json()).toEqual({
       authorization_servers: [ISSUER],
@@ -112,7 +116,7 @@ test("protected-resource metadata on both paths; other paths are not the connect
     });
   }
   expect(
-    await connector.handle(new Request("https://life.ericedouard.com/v1/ask"))
+    await connector.handle(new Request("https://life.example.test/v1/ask"))
   ).toBeNull();
 });
 
@@ -157,11 +161,13 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
   try {
     const refusal = async (path: string, kid = "k1") => {
       const at = ownerTokens({
+        issuer: ISSUER,
         jwks: createRemoteJWKSet(new URL(path, lifelog.url), {
           timeoutDuration: 100,
         }),
         now: () => NOW.getTime(),
         ownerSub: OWNER,
+        resource: RESOURCE,
       });
       const bearer = await new SignJWT({ aud: RESOURCE, iss: ISSUER })
         .setProtectedHeader({ alg: "EdDSA", kid })
@@ -472,8 +478,8 @@ test("the server is named Life, carries its icons, and its instructions open wit
   expect(
     json.result.serverInfo.icons.map((i: { src: string }) => i.src)
   ).toEqual([
-    "https://life.ericedouard.com/icon.svg",
-    "https://life.ericedouard.com/icon-512.png",
+    "https://life.example.test/icon.svg",
+    "https://life.example.test/icon-512.png",
   ]);
 });
 

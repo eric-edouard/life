@@ -1,16 +1,9 @@
 import { errors, type JWTVerifyGetKey, jwtVerify } from "jose";
 
-// The owner's sign-in, for the connector (/mcp, a Bearer token) and the check page (a cookie): lifelog's OAuth server
-// issues the tokens for Life's resource; Life only checks them.
+// The owner's sign-in, for the connector (/mcp, a Bearer token) and the check page (a cookie): an OAuth server (the
+// `connector` setting's issuer) issues the tokens for Life's resource; Life only checks them.
 
-export const ORIGIN = "https://life.ericedouard.com";
-export const RESOURCE = `${ORIGIN}/mcp`;
-/** The resource's OAuth metadata; also the tunnel's health probe (src/tunnel.ts). */
-export const METADATA = `${ORIGIN}/.well-known/oauth-protected-resource/mcp`;
-export const ISSUER = "https://lifelog.ericedouard.com/api/auth";
 export const SCOPE = "life:read";
-/** The check page's public client at lifelog (PKCE, no secret), registered once on 19 Oct for /check/callback. */
-export const CHECK_CLIENT = "PycFqBLbqFmixRgErpQfyYLIGNsvHzoQ";
 
 const refused = (
   refusal: "forbidden" | "invalid" | "unreachable",
@@ -29,13 +22,17 @@ export const UNREACHABLE = "lifelog unreachable, try again";
  * could not be fetched (the token was not judged), `invalid` otherwise. The one check behind /mcp and the check page.
  */
 export function ownerTokens({
+  issuer,
   jwks,
   now = Date.now,
   ownerSub,
+  resource,
 }: {
+  issuer: string;
   jwks: JWTVerifyGetKey;
   now?: () => number;
   ownerSub: string;
+  resource: string;
 }) {
   return async (token: string) => {
     // Only a key set that has no key for this token is the token's fault; any other failure to get keys is lifelog's.
@@ -54,9 +51,9 @@ export function ownerTokens({
     try {
       const { payload } = await jwtVerify(token, keys, {
         algorithms: ["EdDSA"],
-        audience: RESOURCE,
+        audience: resource,
         currentDate: new Date(now()),
-        issuer: ISSUER,
+        issuer,
       });
       const scopes = String(payload.scope ?? "").split(" ");
       if (payload.sub !== ownerSub || !scopes.includes(SCOPE)) {

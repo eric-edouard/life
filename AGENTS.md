@@ -84,7 +84,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
-  (`LIFE_MISHEARD`, a real name, or "at last") `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
+  (the `misheard` setting, a real name, or "at last") `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
@@ -124,8 +124,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   notes and section (Open, Working: made by hand on 19 Oct, the code only assigns them) in line each pass and ticks the
   item when its task closes, and only then (so a ticked receipt of an open task is always his). It never alerts: what
   needs him is emailed (`chase`).
-- **The Past calendar, his Google calendar `LIFE_PAST_CALENDAR`, is a one-way projection of the moments** (his request,
-  21 Oct; `src/memory/past.ts`, `syncPast`, each nightly tick, through `gog` as `LIFE_PAST_ACCOUNT`): one event per
+- **The Past calendar, his Google calendar (the `past` setting), is a one-way projection of the moments** (his request,
+  21 Oct; `src/memory/past.ts`, `syncPast`, each nightly tick, through `gog` as its account): one event per
   moment that happened, none overlapping (`tiled`: what covers another is left off), found by its private properties `lifeMoment` and `lifeHash`; a changed moment is written again,
   a gone one deleted, events without `lifeMoment` never touched. It reads nothing back and never alerts. Should
   Google Calendar ever become a source, its events with `lifeMoment` are Life's output and must be dropped.
@@ -149,7 +149,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   actions.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates, and every quote is checked against its
   source (`src/memory/observe.ts`).
-- **Life's own output never re-enters memory:** its chat (`LIFE_CHAT`) and its mail (`LIFE_MAIL`, every subject set by
+- **Life's own output never re-enters memory:** its chat (the `lifeChat` setting) and its mail (`LIFE_MAIL`, every subject set by
   `compose`) are dropped as `life-output` (`src/memory/units.ts`). His agents' reports are not Life's: the model judges them.
   The one exception is what Life read off a file (`memory/files.jsonl`), shown in its message's line inside the
   file's brackets: the model's description after `described by Life:`, the words on the file after `text:` (read by the
@@ -163,7 +163,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   whose delivery failed, an Atlas task that needs him, once per cause, Atlas not subscribed to `ask` (one a day for all open tasks), a run holding the lock over 3 h (once per incident),
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
   while it lasts, `archiveFailing` in `src/archive.ts`), by
-  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), one MCP event per ask (not one Atlas made) to the one subscriber,
+  email to the owner only (`src/memory/report.ts`: sender and his address in the `mail` setting), one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent), and the status page's
   plate without his words to its own Worker once a minute (`pushPlate`, `src/dashboard.ts`).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
@@ -178,7 +178,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. A refused token (not a missing one,
   never its body), the SDK's own rejections (`onerror`) and invalid arguments (`tool()` validates them itself) are
   logged as `mcp.call` with `error`; nothing reads a response back. Every request
-  needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`). lifelog's
+  needs lifelog's JWT for this resource, `life:read`, `sub` = the `connector` setting's owner (`ownerTokens`, `src/auth.ts`). lifelog's
   keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never a refused token.
 - **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
   reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages): never serve anything of his before
@@ -198,7 +198,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   clip of that page (audio cut from lifelog, and lifelog's word timings shifted to it), and `/me/player.js` the clip
   player (`assets/portrait/`, code, so in this repo); nothing else. Its CSP allows inline styles, Google Fonts and
   those files only (no images). It is behind a password (`LIFE_PORTRAIT_PASSWORD`;
-  unset, or `LIFE_OWNER_SUB` unset, `/me` is off), not lifelog's OAuth: he chose a password over the lifelog sign-in
+  unset, or no `connector` setting, `/me` is off), not lifelog's OAuth: he chose a password over the lifelog sign-in
   when offered both. The cookie is its expiry signed with the password, failed tries are capped; never serve the page
   before that check.
 - **The archive is the only live copy of deleted messages and of old note versions** (the backup keeps snapshots). Never move, wipe or migrate its files (a new table is allowed
@@ -235,6 +235,14 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   CSS variables): a brand change lands in the skill first.
 
 ## Gotchas
+
+- **One settings file says how this install differs from another** (`src/settings.ts`, `derived/settings.json`, zod
+  strict): the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos
+  folder, his agents' report senders. A part left out is off, never an error: a fresh install with no settings runs.
+  It is strict and read when modules load (units, tasks, email, git), so a new key lands in code first, and a bad file
+  stops the watcher and the nightly, like `truth/`.
+  Secrets stay in the environment (`.env`). Owner values are never defaults in code: tests read
+  `src/test-data/settings.json`, made up.
 
 - `bun life memory nightly` is started every 30 min by launchd and a guard (`derived/memory/nightly.json`) runs it once a day after 02:00, up to 3 tries; run it by hand with `--force`. The same tick runs `bun life memory midday` at the first tick after 13:00 and after 19:00 (the moments of today, extract of its closed lifelog conversations, then the index, then the pages with new observations; no commit or email, a failure only logs; the nightly commits and its report counts what the midday runs found), and the backup once the night is done or from 06:00 (`backupDue`, its tries in `derived/memory/backup.json`; the snapshot's outcome stays in `derived/backup.json`). Everything looks back 7 days. Older days are read by the backfill: `bun life memory backfill --from d --to d` (both included) sets its range in
   `derived/memory/backfill.json`, and a tick with no midday run due, once the day's night went through, reads its next week, oldest
@@ -283,14 +291,14 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   watcher, for 2 min). Write it only once its schema change is merged and live (`validate` from `~/Work/life`, never
   a worktree: `~/Life/AGENTS.md`).
 - **Nothing of his is committed here**, in code, tests, prompts or docs: tests use made-up people, phones and places;
-  his material goes to `~/Life/docs/`, a setting of his to `.env` (`LIFE_MAIL_TO`, `LIFE_CHAT`). The `scrub` step of
+  his material goes to `~/Life/docs/`, a setting of his to `derived/settings.json` (`src/settings.ts`), a secret to `.env`. The `scrub` step of
   `bun run check` catches the tracked files that hold a full name, alias, surname, phone, email, handle or chat id
   from `~/Life/truth`; first names alone, places, project names, `.env` values and git history are on you. His
   domain in Life's own addresses (sender, connector, LaunchAgent labels) is infrastructure, kept on purpose.
   lifelog's check runs `scripts/scrub-check.ts` by this path with git pathspecs as arguments: keep both.
 - **Backups**: `src/backup.ts` (the `memory-nightly` tick, once the night is done or from 06:00: once a day, 3 tries, `backupDue`; by hand only from `~/Work/life`) snapshots with restic into
   `~/Library/Mobile Documents/com~apple~CloudDocs/Life backup/restic`; the password is in the Keychain
-  (`RESTIC_PASSWORD_COMMAND="security find-generic-password -s life-restic -w"`) and his password manager.
+  (the `backup` setting's password command) and his password manager.
   It holds what its `restic backup` lists, `~/Life` cloned under the lock (the one reader that takes it). Restore:
   `restic restore latest --tag daily --target <dir>` puts every file at `<dir>` + its absolute path. From
   `<dir>`'s `~/Library/Application Support/Life/backup-staging/`: `Life/` goes to `~/Life`,

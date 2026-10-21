@@ -258,7 +258,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           {
             chat: "mail:9",
             id: "mail:z",
-            sender: "alerts@send.make-a-dent.com",
+            sender: "alerts@agents.example.test",
             text: "Bakery Ads report: approve 3 changes",
           },
           true
@@ -317,13 +317,13 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
         ),
         mail(
           "m4",
-          LIFE_MAIL.from,
+          LIFE_MAIL.from as string,
           "Bakery · 18 oct. — the shop slips again",
           "Two forward bookings are inactive."
         ),
         mail(
           "m6",
-          LIFE_MAIL.from,
+          LIFE_MAIL.from as string,
           "Life · 17 Oct · 108 new facts, 20 pages",
           "Facts: Jean must pay the cladding deposit."
         ),
