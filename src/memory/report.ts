@@ -2,6 +2,7 @@ import { unfrozen } from "../clock";
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
 import type { Action } from "../schema";
+import { settings } from "../settings";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
 import type { describeFiles } from "./files";
@@ -377,9 +378,9 @@ export async function sendReport(id: string | string[], mail: Mail) {
   try {
     const key = process.env.RESEND_PERSONAL_API_KEY;
     // His address, the only recipient.
-    const to = process.env.LIFE_MAIL_TO;
+    const to = settings().mail?.to;
     if (!(key && to)) {
-      throw new Error("RESEND_PERSONAL_API_KEY or LIFE_MAIL_TO is not set");
+      throw new Error("RESEND_PERSONAL_API_KEY or the mail setting is not set");
     }
     const res = await fetch("https://api.resend.com/emails", {
       body: JSON.stringify({ from: FROM, to: [to], ...mail }),

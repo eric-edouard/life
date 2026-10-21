@@ -1,9 +1,9 @@
 import { join } from "node:path";
-import { ORIGIN } from "./auth";
 import { FROZEN } from "./clock";
 import { HEADERS, text } from "./http";
 import { snapshot, strip } from "./plate";
 import { detail, runDetail } from "./plate-detail";
+import { connector } from "./settings";
 import type { SignIn } from "./signin";
 import { ROOT } from "./truth";
 
@@ -154,7 +154,7 @@ export function pushPlate() {
               )
             )
           );
-      const res = await fetch(`${ORIGIN}/__status/push`, {
+      const res = await fetch(`${connector().origin}/__status/push`, {
         body: JSON.stringify({ files, snapshot: strip(await snapshot()) }),
         headers: {
           authorization: `Bearer ${secret}`,

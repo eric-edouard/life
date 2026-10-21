@@ -3,6 +3,7 @@ import { log } from "../log";
 import { exec } from "../proc";
 import { redact } from "../redact";
 import type { Moment, Unit } from "../schema";
+import { settings } from "../settings";
 import {
   conversationsBetween,
   type Stay,
@@ -326,12 +327,11 @@ function pastCalendar(calendar: string, account: string) {
 
 /** Brings the calendar in line with the moments; null when it is not set up. */
 export async function syncPast(now = clock()) {
-  const calendar = process.env.LIFE_PAST_CALENDAR;
-  const account = process.env.LIFE_PAST_ACCOUNT;
-  if (!(calendar && account)) {
+  const { past } = settings();
+  if (!past) {
     return null;
   }
-  const cal = pastCalendar(calendar, account);
+  const cal = pastCalendar(past.calendar, past.account);
   const want = await wanted(now);
   const { fresh, stale } = plan(
     want,

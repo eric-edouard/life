@@ -2,12 +2,13 @@ import { parseArgs } from "node:util";
 import { Asked, actAsked, requested, setGrant } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
-import { readEngine, setEngine } from "./llm";
+import { readEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
 import { actionLine, duration } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { checks } from "./reminders/remctl";
 import { Engine } from "./schema";
+import { setSetting } from "./settings";
 import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
@@ -102,7 +103,7 @@ const commands: Record<string, () => Promise<number>> = {
       console.error(`usage: bun life engine [${Engine.options.join("|")}]`);
       return 2;
     }
-    await setEngine(engine.data);
+    await setSetting("engine", engine.data);
     console.log(`engine: ${engine.data}`);
     return 0;
   },

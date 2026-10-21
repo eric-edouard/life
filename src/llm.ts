@@ -1,15 +1,15 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
 // engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is. The
 // one call with tools is the Atlas bench's (scripts/bench-atlas.ts): Life's own connector, frozen, and nothing else.
-import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "./log";
 import { exec, firstLine } from "./proc";
-import { Engine, Runner } from "./schema";
-import { DATA, isHis, ROOT, TEST } from "./truth";
+import { type Engine, Runner } from "./schema";
+import { readSettings } from "./settings";
+import { DATA, isHis, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -45,11 +45,6 @@ export interface Llm {
   model: string;
 }
 
-// A test run reads its own (none: claude), never his engine: no test reaches Codex.
-const SETTINGS = TEST
-  ? join(DATA, "settings.json")
-  : join(ROOT, "derived", "settings.json");
-const Settings = z.object({ engine: Engine.default("claude") });
 const CLAUDE_MODELS: Record<Tier, string> = {
   deep: "opus",
   fast: "haiku",
@@ -84,15 +79,9 @@ const CODEX_OFF =
     " "
   );
 
-/** The engine he chose; a corrupt settings file throws, never a silent switch of engine (his transcripts go where he said). */
-export const readEngine = (path = SETTINGS): Engine =>
-  existsSync(path)
-    ? Settings.parse(JSON.parse(readFileSync(path, "utf8"))).engine
-    : "claude";
-
-export async function setEngine(engine: Engine) {
-  await Bun.write(SETTINGS, `${JSON.stringify({ engine })}\n`);
-}
+/** The engine he chose (a test run reads its own settings: claude, so no test reaches Codex); a corrupt settings file
+ * throws, never a silent switch of engine (his transcripts go where he said). */
+export const readEngine = (path?: string): Engine => readSettings(path).engine;
 
 /**
  * `LIFE_LLM=engine/model[/effort]`: one process's model for every tier, set by the bench for a candidate and for its
