@@ -112,34 +112,37 @@ async function run(
   return JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "");
 }
 
-async function bench(models: string[], runs: number) {
-  const main = dirname(
+/** The main checkout (this repo's first worktree): its dependencies, .env, lifelog store and engine setting. */
+export const mainCheckout = () =>
+  dirname(
     git(ROOT, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
       .stdout.toString()
       .trim()
   );
+
+/** This code at HEAD in `dir`, a throwaway worktree, with the main checkout's `links` (its dependencies, .env, …). */
+export async function checkout(dir: string, links: string[]) {
+  if (git(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]).exitCode !== 0) {
+    throw new Error(`git worktree add ${dir} failed`);
+  }
+  await mkdir(join(dir, "derived"), { recursive: true });
+  const main = mainCheckout();
+  for (const p of links) {
+    // biome-ignore lint/performance/noAwaitInLoops: a few links
+    await symlink(join(main, p), join(dir, p));
+  }
+}
+
+async function bench(models: string[], runs: number) {
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
   const base = join(tmp, "base");
   const worktrees: string[] = [];
-  /** This code at HEAD in `dir`, with the main checkout's dependencies, .env, lifelog store and engine setting. */
-  const checkout = async (dir: string) => {
-    worktrees.push(dir);
-    if (
-      git(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]).exitCode !== 0
-    ) {
-      throw new Error(`git worktree add ${dir} failed`);
-    }
-    await mkdir(join(dir, "derived"), { recursive: true });
-    for (const p of [
-      "node_modules",
-      ".env",
-      "derived/watch",
-      "derived/settings.json",
-    ]) {
-      // biome-ignore lint/performance/noAwaitInLoops: four links
-      await symlink(join(main, p), join(dir, p));
-    }
-  };
+  const links = [
+    "node_modules",
+    ".env",
+    "derived/watch",
+    "derived/settings.json",
+  ];
   try {
     await mkdir(join(base, "memory"), { recursive: true });
     for (const p of SEED) {
@@ -167,7 +170,8 @@ async function bench(models: string[], runs: number) {
       plan.map(async (p) => {
         const code = join(tmp, p.label, "code");
         const data = join(tmp, p.label, "data");
-        await checkout(code);
+        worktrees.push(code);
+        await checkout(code, links);
         if ((await exec(["cp", "-cR", base, data])).code !== 0) {
           throw new Error(`could not copy the data to ${data}`);
         }
