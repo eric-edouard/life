@@ -444,9 +444,14 @@ export function readConversations(
         );
         const [first] = inside;
         const marked = inside.flatMap((t) =>
-          whose(chapterTurn(t, byId)) === "other"
-            ? []
-            : (marks.get(`${t.job_id}:${t.turn_index}`) ?? [])
+          // A turn lifelog gave someone else, or a recording transcribed again (its wake ref no longer this turn's): no mark.
+          (() => {
+            const refs = marks.get(`${t.job_id}:${t.turn_index}`) ?? [];
+            return whose(chapterTurn(t, byId)) === "other" ||
+              refs[0] !== turnRef(t.job_id, t.turn_index, t.start_at)
+              ? []
+              : refs;
+          })()
         );
         const chapter: LifelogChapter = {
           end: c.end_at,
@@ -668,6 +673,16 @@ export function writeMarks(
   from: string,
   marks: string[][]
 ) {
+  const now = () =>
+    store.db
+      .query<{ refs: string }, [string, string]>(
+        `select m.refs from marks m join turns t using (job_id, turn_index)
+          where t.conversation_id = ? and t.start_at >= ? order by m.refs`
+      )
+      .all(conversation, from)
+      .map((m) => m.refs)
+      .join("\n");
+  const before = now();
   store.db.transaction(() => {
     store.db.run(
       `delete from marks where (job_id, turn_index) in
@@ -684,6 +699,8 @@ export function writeMarks(
       }
     }
   })();
+  // Whether they changed: the units on disk carry marks, so only then do they need building again.
+  return now() !== before;
 }
 
 /** The live conversations that overlap [from, to): id, start and title. */

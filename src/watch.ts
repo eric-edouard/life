@@ -245,9 +245,9 @@ export async function watch(): Promise<number> {
         // its speaker. `again` is the tries it carries, null when done or lost.
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         const again = await hear(store, h.conversation, h.from).then(
-          (heard) => {
-            // Its "hey Life" marks are in the store now: the units on disk carry them at the next sync.
-            dirty = true;
+          ({ heard, marked }) => {
+            // Its "hey Life" marks changed: the units on disk carry them at the next sync.
+            dirty ||= marked;
             return heard ? null : h.tries;
           },
           (e: Error) => {

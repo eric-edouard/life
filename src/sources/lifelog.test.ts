@@ -452,6 +452,22 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
   expect(marked("c2")).toEqual([[R0, "r0b"], [R1]]);
   writeMarks(s, "c2", "2026-10-14T10:05:00.000Z", []);
   expect(marked("c2")).toEqual([[R0, "r0b"], undefined]);
+  // Heard again unchanged: nothing to rebuild.
+  expect(writeMarks(s, "c2", "", [[R0, "r0b"]])).toBe(false);
+  // lifelog transcribed the recording again: another turn at the same index (a new start) is not the wake.
+  apply(
+    s,
+    page({
+      turns: [turn(0, "2026-10-14T10:02:00.000Z", null, null, "c2", true)],
+    })
+  );
+  expect(marked("c2")).toEqual([undefined, undefined]);
+  apply(
+    s,
+    page({
+      turns: [turn(0, "2026-10-14T10:01:00.000Z", null, null, "c2", true)],
+    })
+  );
   // lifelog names someone else for the wake turn: no longer his mark.
   apply(
     s,

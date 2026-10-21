@@ -118,7 +118,8 @@ export function speechIn(store: Store, conversation: string, from: string) {
 
 /**
  * Hears one conversation from `from` on and records its asks, except a wake with no speaker younger than NAMING_MS
- * (lifelog may still name him: a `low` ask stays low): false while one is held. The words are fetched from lifelog; a
+ * (lifelog may still name him: a `low` ask stays low): `heard` false while one is held; `marked` when its "hey Life"
+ * marks changed. The words are fetched from lifelog; a
  * failed fetch throws (the watcher hears the conversation again), never reads as silence.
  */
 export async function hear(
@@ -162,7 +163,7 @@ export async function hear(
     );
   }
   // His "hey Life" spans, for memory only: their chapter's unit carries them, read again at salience 3 (units.ts, moments.ts).
-  writeMarks(
+  const marked = writeMarks(
     store,
     conversation,
     from,
@@ -175,5 +176,5 @@ export async function hear(
       wakeWords(t).some((w) => w !== "atlas") &&
       now - Date.parse(t.seen) < NAMING_MS
   );
-  return !(asks.some(held) || misheard);
+  return { heard: !(asks.some(held) || misheard), marked };
 }

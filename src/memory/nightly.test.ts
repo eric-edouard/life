@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { log } from "../log";
 import type { Extracted, Observation } from "../schema";
 import { unit } from "./fixtures";
+import { latestExtractions } from "./ledger";
 import { markedSince, reviewed } from "./nightly";
 
 test("a daily review reached Life only when ChatGPT read `day` without error in the last 24 h", async () => {
@@ -23,15 +24,16 @@ test("each marked unit is listed once read since the last night, with the observ
   ];
   const read = (at: string, id = u.id, unitHash = u.hash) =>
     ({ at, unit: id, unitHash }) as Extracted;
+  const latest = (...lines: Extracted[]) => latestExtractions(lines);
   const held = {
     source: { channel: "lifelog", ref: "j:2@a" },
     text: "He will vote for the stones.",
   } as Observation;
   const since = "2026-10-10T02:00:00.000Z";
-  const after = [
+  const after = latest(
     read("2026-10-10T13:00:00.000Z"),
-    read("2026-10-10T13:00:00.000Z", "u_000000000002"),
-  ];
+    read("2026-10-10T13:00:00.000Z", "u_000000000002")
+  );
   expect(
     markedSince(built, after, since, [held]).map((m) => m.relation)
   ).toEqual(["Shop repairs → He will vote for the stones."]);
@@ -42,12 +44,12 @@ test("each marked unit is listed once read since the last night, with the observ
   expect(
     markedSince(
       built,
-      [read("2026-10-10T13:00:00.000Z", u.id, "unmarked0000000")],
+      latest(read("2026-10-10T13:00:00.000Z", u.id, "unmarked0000000")),
       since,
       [held]
     )
   ).toEqual([]);
   expect(
-    markedSince(built, [read("2026-10-09T13:00:00.000Z")], since, [held])
+    markedSince(built, latest(read("2026-10-09T13:00:00.000Z")), since, [held])
   ).toEqual([]);
 });
