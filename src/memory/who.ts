@@ -4,14 +4,16 @@ import {
   type InferredPerson,
   type Observation,
   type Person,
+  type Unit,
   type Unresolved,
 } from "../schema";
-import { handleIndex, loadTruth } from "../truth";
+import { handleIndex, loadTruth, OWNER } from "../truth";
 import {
   readCorrections,
   readInferred,
   readObservations,
   readStanding,
+  readUnits,
   readUnresolved,
   shownOf,
 } from "./ledger";
@@ -100,7 +102,8 @@ export function aboutNow(
   unresolved: Unresolved[],
   people: Person[],
   inferred: InferredPerson[],
-  corrections: Correction[]
+  corrections: Correction[],
+  chatOf: Map<string, string> = new Map()
 ) {
   const canon = merged(corrections);
   const resolve = resolver(people, inferred, corrections);
@@ -110,22 +113,85 @@ export function aboutNow(
       : []
   );
   const named = Map.groupBy(found, (n) => n.observation);
+  const namesOf = new Map<string, string[]>([
+    ...inferred.map((p): [string, string[]] => [`person:${p.id}`, [p.name]]),
+    ...people.map((p): [string, string[]] => [
+      `person:${p.id}`,
+      [p.name, ...p.aliases],
+    ]),
+  ]);
   return observations.map((o) => {
     const spoke = o.speaker.startsWith(UNKNOWN)
       ? resolve(o.speaker.slice(UNKNOWN.length))
       : null;
+    const was = canon(o.speaker);
+    // Who the author is today: from the handle or name they came from (`speakerFrom`, or before it, a 1:1 chat's).
+    const from =
+      o.speakerFrom ??
+      (was === OWNER || spoke ? undefined : chatOf.get(o.unit));
+    const speaker = (from && resolve(from)) || was;
+    const moved = speaker !== was && !was.startsWith(UNKNOWN);
     return {
       ...o,
       entities: [
         ...new Set([
-          ...o.entities.map(canon),
+          ...o.entities
+            .map(canon)
+            .map((e) => (moved && e === was ? speaker : e)),
           ...(named.get(o.id) ?? []).flatMap((n) => (n.ref ? [n.ref] : [])),
           ...(spoke ? [spoke] : []),
         ]),
       ].sort(),
+      speaker,
+      // A fact written before the author was a token names them: swap the old name for who they are now.
+      text: moved
+        ? renamed(
+            o.text,
+            namesOf.get(was) ?? [],
+            namesOf.get(speaker)?.[0] ?? speaker
+          )
+        : o.text,
       unmapped: !!named.get(o.id)?.some((n) => !n.ref),
     };
   });
+}
+
+/** `text` with each whole-word `names` (any case) replaced by `name`. */
+export function renamed(text: string, names: string[], name: string) {
+  return names
+    .filter(Boolean)
+    .toSorted((a, b) => b.length - a.length)
+    .reduce(
+      (t, n) =>
+        t.replace(
+          new RegExp(
+            `(?<![\\p{L}\\p{N}])${RegExp.escape(n)}(?![\\p{L}\\p{N}])`,
+            "giu"
+          ),
+          name
+        ),
+      text
+    );
+}
+
+// A 1:1 chat's key: iMessage's handle (a number or an address), WhatsApp's `<number>@s.whatsapp.net`.
+const IMESSAGE_HANDLE = /^(\+\d+|[^@\s]+@[^@\s]+)$/;
+const WHATSAPP_ONE = /^(\d+)@s\.whatsapp\.net$/;
+
+/**
+ * The handle of each 1:1 chat unit, by unit id: who wrote a fact that predates `speakerFrom`, other than the owner.
+ * iMessage keys a 1:1 chat by the handle; WhatsApp by `<number>@s.whatsapp.net`. Groups and Beeper have no such key.
+ */
+export function chatHandles(units: Unit[]) {
+  return new Map(
+    units.flatMap((u) => {
+      if (u.source === "imessage" && IMESSAGE_HANDLE.test(u.key)) {
+        return [[u.id, u.key] as const];
+      }
+      const wa = u.source === "whatsapp" && WHATSAPP_ONE.exec(u.key);
+      return wa ? [[u.id, `+${wa[1]}`] as const] : [];
+    })
+  );
 }
 
 /** truth/, Life's inferred people and the owner's corrections, read once, with the resolver and the folds over them. */
@@ -170,17 +236,19 @@ export async function observationsNow({
   truth,
 }: People) {
   const read = readObservations();
-  const [all, standing, unresolved] = await Promise.all([
+  const [all, standing, unresolved, units] = await Promise.all([
     read,
     readStanding(corrections, read),
     readUnresolved(),
+    readUnits(),
   ]);
   const observations = aboutNow(
     shownOf(all, standing),
     unresolved,
     truth.people,
     inferred,
-    corrections
+    corrections,
+    chatHandles(units)
   );
   return { all, observations, standing };
 }

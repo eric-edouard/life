@@ -18,6 +18,8 @@ import { localDate, zoneAt } from "./zones";
 /** One line of a unit's source text: a message, or one transcript turn. */
 export interface Line {
   at: string;
+  /** The handle or name the speaker was resolved from (none for the owner): stored as `speakerFrom`. */
+  from?: string;
   /** Exact location: the message id, or lifelog's `jobId:turnIndex@capturedAt`. */
   ref: string;
   /** person:<slug>, or unknown:<label>. */
@@ -243,6 +245,7 @@ function recordOf(
     schemaVersion: 1,
     source: { channel: source.unit.source, ref: line.ref },
     speaker: line.speaker,
+    ...(line.from ? { speakerFrom: line.from } : {}),
     ...(line.speakerName ? { speakerName: line.speakerName } : {}),
     text: o.text,
     type: o.type,
