@@ -41,3 +41,8 @@ test("a sign-in lands only on one of his pages", () => {
   expect(landing("/check/")).toBe("/check/");
   expect(landing("https://evil.example/")).toBe("/check/");
 });
+
+test("a history that doesn't page back offers no older page: the tasks and the Mac's day are whole", async () => {
+  const { detail } = await import("./plate-detail");
+  expect((await detail("tasks")).next.history).toBeNull();
+});

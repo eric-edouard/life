@@ -49,7 +49,9 @@ A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written
 `outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`),
 `force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's
 counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a
-nightly's `listed`: the observation ids its report held, sent or not), `errors`. A sweep lists its steps in
+nightly's `listed`: the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases
+it entered, in order (its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being
+`status`'s `processing.phase`. A sweep lists its steps in
 `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of his Codex plan,
 derived from the log (`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each
 `model.run` line's) and its steps'; a metered run (a sweep, the eval `eval`, the Atlas bench `bench.atlas`: `metered`,
@@ -182,4 +184,11 @@ tool.
   push (`pushPlate`). A push needs the shared secret; with none set the Worker takes none. Deploy: `worker/wrangler.jsonc`.
 - **Look.** Ledger, softened at his word: round surfaces, soft shadows, status as a coloured dot and a word, no
   coloured borders.
-- Shipped as one PR (the spec said two: the reads and the page were built and reviewed together).
+- **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
+  its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
+  steps, their counts and what it wrote. A sweep's line runs through its steps, then what it does after them (index;
+  the night's commit and report). The tunnel and each service show when their process started (a heal or a
+  restart), Reminders whether remctl can act, Email the alerts apart from the report.
+- **Pendant.** Recording or not, as the phone reports each change (lifelog's PRs 23 and 24), and the newest speech
+  heard; its silence counts from 08:00 at the earliest.
+- Shipped as PRs 108 (Codex use per run), 110 (the page) and the follow-up for these details; the spec said two.

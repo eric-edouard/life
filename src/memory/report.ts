@@ -360,6 +360,9 @@ export async function unsent(keys: string[]) {
   return keys.filter((k) => !sent?.has(k));
 }
 
+/** The nightly report's key for the night run `run` (`sendReport`): the status page knows the report went by it. */
+export const reportKey = (run: string) => `nightly/${run}`;
+
 /**
  * Sends a report with Resend's API, once per key (`<kind>/<run or incident>`; the kind names the step in the log):
  * skipped when every key went out already (`unsent`), one `email.sent` line per new key, and Resend's idempotency key

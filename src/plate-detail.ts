@@ -2,7 +2,7 @@ import { clock } from "./clock";
 import { ATLAS, clientName } from "./events";
 import { recentEvents } from "./log";
 import { sleeps } from "./mac";
-import { changeFeed } from "./memory/feed";
+import { changeFeed, encode } from "./memory/feed";
 import { runs, STEPS, useText } from "./memory/history";
 import { clip } from "./memory/units";
 import { cached, DAY, type Line, spent, type Tone, toneOfRun } from "./plate";
@@ -111,39 +111,43 @@ function entryOf(e: Line): Entry {
 const PAGE = 40;
 
 /** A sweep's runs, newest first, each one the page can open. */
-async function runHistory(step: string, older: (at: string) => boolean) {
-  const { items } = await runs({ limit: PAGE, steps: [step] });
-  return items
-    .filter((r) => older(r.startedAt ?? ""))
-    .map(
-      (r): Entry => ({
-        at: r.startedAt ?? r.endedAt ?? "",
-        content:
-          r.outcome === "failed"
-            ? `Failed at ${String(r.result?.failedAt ?? "?")}`
-            : undefined,
-        end: r.endedAt,
-        run: r.id,
-        sub: [
-          r.window ? `${r.window.from} → ${r.window.to}` : "",
-          spent(r.use) ? useText(r.use ?? null) : "",
-        ]
-          .filter(Boolean)
-          .join(" · "),
-        title:
-          r.endedAt && r.startedAt
-            ? `${r.outcome} in ${Math.round((Date.parse(r.endedAt) - Date.parse(r.startedAt)) / 60_000)} min`
-            : r.outcome,
-        tone: toneOfRun(r.outcome),
-      })
-    );
+async function runHistory(step: string, before?: string) {
+  // runs' own cursor: the runs that started before `before`, a page of them.
+  const { items } = await runs({
+    cursor: before ? encode([before, ""]) : undefined,
+    limit: PAGE,
+    steps: [step],
+  });
+  return items.map(
+    (r): Entry => ({
+      at: r.startedAt ?? r.endedAt ?? "",
+      content:
+        r.outcome === "failed"
+          ? `Failed at ${String(r.result?.failedAt ?? "?")}`
+          : undefined,
+      end: r.endedAt,
+      run: r.id,
+      sub: [
+        r.window ? `${r.window.from} → ${r.window.to}` : "",
+        spent(r.use) ? useText(r.use ?? null) : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      title:
+        r.endedAt && r.startedAt
+          ? `${r.outcome} in ${Math.round((Date.parse(r.endedAt) - Date.parse(r.startedAt)) / 60_000)} min`
+          : r.outcome,
+      tone: toneOfRun(r.outcome),
+    })
+  );
 }
 
 /** The memory's latest changes, of the last two days. */
-async function changeHistory(older: (at: string) => boolean) {
+async function changeHistory(older: (at: string) => boolean, before?: string) {
+  const until = before ? Date.parse(before) : clock().getTime();
   const feed = await changeFeed({
     limit: 500,
-    since: new Date(clock().getTime() - 2 * DAY).toISOString(),
+    since: new Date(until - 2 * DAY).toISOString(),
   });
   return feed.items
     .filter((it) => older(it.recordedAt))
@@ -162,14 +166,24 @@ async function changeHistory(older: (at: string) => boolean) {
     );
 }
 
-/** A history that is not its log lines: a sweep's runs, the tasks, the memory's changes, the Mac's sleeps. */
-async function ownHistory(id: string, older: (at: string) => boolean) {
+/**
+ * A history that is not its log lines: a sweep's runs and the memory's changes, which page back (`pages`); the open
+ * tasks and the Mac's sleeps of the day, whole.
+ */
+async function ownHistory(
+  id: string,
+  older: (at: string) => boolean,
+  before?: string
+) {
   const step = RUN_CARDS[id];
   if (step) {
-    return runHistory(step, older);
+    return { entries: await runHistory(step, before), pages: true };
+  }
+  if (id === "memory") {
+    return { entries: await changeHistory(older, before), pages: true };
   }
   if (id === "tasks") {
-    return taskList(clock().getTime()).map(
+    const entries = taskList(clock().getTime()).map(
       (x): Entry => ({
         at: x.deadline ?? "",
         content: x.quote,
@@ -178,19 +192,18 @@ async function ownHistory(id: string, older: (at: string) => boolean) {
         tone: x.state === "waiting-eric" ? "warn" : "busy",
       })
     );
-  }
-  if (id === "memory") {
-    return changeHistory(older);
+    return { entries, pages: false };
   }
   if (id === "mac") {
     const s = await cached("sleeps", 5 * 60_000, () =>
       sleeps(clock().getTime())
     );
-    return s
+    const entries = s
       .toReversed()
       .map(
         (x): Entry => ({ at: x.at, end: x.end, title: "asleep", tone: "idle" })
       );
+    return { entries, pages: false };
   }
   return null;
 }
@@ -200,17 +213,32 @@ async function ownHistory(id: string, older: (at: string) => boolean) {
  * history is its runs; the tasks' their list; the memory's its latest changes; any other card its log lines.
  */
 export async function detail(id: string, before?: string) {
-  const all = await cached("log", 5000, () => recentEvents<Line>(8, ""));
+  // The last 8 days, or as far back as `before` and 8 days more: paging goes back through the whole log.
+  const days = before
+    ? Math.ceil((clock().getTime() - Date.parse(before)) / DAY) + 8
+    : 8;
+  const all = before
+    ? await recentEvents<Line>(days, "")
+    : await cached("log", 5000, () => recentEvents<Line>(8, ""));
   const older = (at: string) => !before || at < before;
   const pick = LOGS[id];
   const lines = pick
     ? all.filter((e) => pick(e) && older(e.at)).toReversed()
     : [];
   const page = lines.slice(0, PAGE);
+  const own = await ownHistory(id, older, before);
+  const history = own ?? { entries: page.map(entryOf), pages: true };
   return {
-    history: (await ownHistory(id, older)) ?? page.map(entryOf),
+    history: history.entries,
     log: page.map((e) => JSON.stringify(e)),
-    next: page.length === PAGE ? page.at(-1)?.at : null,
+    /** Where each list goes on: pass it back as `before` for its next page; null at its end. */
+    next: {
+      history:
+        history.pages && history.entries.length === PAGE
+          ? (history.entries.at(-1)?.at ?? null)
+          : null,
+      log: page.length === PAGE ? (page.at(-1)?.at ?? null) : null,
+    },
   };
 }
 

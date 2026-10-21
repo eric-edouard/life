@@ -74,6 +74,8 @@ export interface Run {
   input: Record<string, unknown> | null;
   /** ok | failed | running (it holds the lock now) | unfinished (no end recorded: interrupted, or still running unlocked). */
   outcome: "failed" | "ok" | "running" | "unfinished";
+  /** A sweep's phases in the order it entered them (`phases`, run.ts), its steps among them. */
+  phases?: string[];
   result: Record<string, unknown> | null;
   startedAt: string | null;
   step: string;
@@ -151,6 +153,8 @@ const errorOf = (e: LogEvent) => ({
 function apply(r: Run, e: LogEvent) {
   if (e.kind === "run.error") {
     r.errors.push(errorOf(e));
+  } else if (e.step === r.step && e.kind === "run.phase") {
+    r.phases = [...(r.phases ?? []), String(e.phase)];
   } else if (e.step === r.step && e.kind === "run.end") {
     r.result = omit(e);
     r.endedAt = e.at;
@@ -427,7 +431,11 @@ export async function lifeStatus(now = clock()) {
     observedAt: now.toISOString(),
     processing: lock
       ? {
-          phase: running.find((r) => !SWEEPS.has(r.step))?.step ?? null,
+          // The phase the sweep last entered (`phases`, run.ts), else the step running (runs from before 21 Oct).
+          phase:
+            running.find((r) => SWEEPS.has(r.step))?.phases?.at(-1) ??
+            running.find((r) => !SWEEPS.has(r.step))?.step ??
+            null,
           since: lock.toISOString(),
           state: "running",
           sweep: running.find((r) => SWEEPS.has(r.step))?.id ?? null,
