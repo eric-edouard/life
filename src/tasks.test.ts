@@ -2,14 +2,17 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chase, type Item, planOf, wantOf } from "./board";
 import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
 import { ACTIONS, appendJsonl, linesOf } from "./memory/ledger";
+import { planOf } from "./reminders/board";
+import type { Reminder } from "./reminders/remctl";
 import { Action } from "./schema";
 import {
   alerts,
+  chase,
   escalation,
+  receipts,
   refusal,
   reply,
   sealed,
@@ -19,6 +22,7 @@ import {
   timings,
   type Update,
   unanswered,
+  wantOf,
   written,
 } from "./tasks";
 
@@ -267,11 +271,12 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
   }
 });
 
-const look = (over: Partial<Item> = {}): Item => ({
+const look = (over: Partial<Reminder> = {}): Reminder => ({
   completed: false,
   id: 1,
   notes: "",
   section: "",
+  title: "Atlas: Book visits",
   ...over,
 });
 
@@ -480,4 +485,15 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
   } finally {
     rmSync(ACTIONS, { force: true });
   }
+});
+
+test("the board's receipts leave out a task closed over a day ago: he may have unticked its item", () => {
+  const closedAt = (min: number) =>
+    task([own("update", min, { outcome: "done", state: "done" })]);
+  const now = T0 + 25 * 60 * MIN;
+  expect(receipts([closedAt(0), closedAt(120)], now)).toHaveLength(1);
+  expect(receipts([task([])], now)[0]).toMatchObject({
+    completed: false,
+    id: ASK,
+  });
 });

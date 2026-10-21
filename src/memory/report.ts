@@ -55,6 +55,8 @@ export interface Night {
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: midday runs' included. */
   retired: number;
+  /** What the night and the day's earlier sweeps spent of his Codex plan, a line each (`spent`, nightly.ts). */
+  spent: string[];
   /** The watcher's health (`readHealth`) when the night read its store, as it stood. */
   watcher: Health | null;
 }
@@ -133,6 +135,7 @@ export function successReport(day: string, ms: number, n: Night) {
         n.archive,
         n.backup,
         n.quota,
+        ...n.spent,
         "Failures: none",
       ],
       preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.moments.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
@@ -243,7 +246,7 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
-/** The alert for the Atlas tasks that newly need him, one per `chase` pass (src/board.ts): why, and his words. */
+/** The alert for the Atlas tasks that newly need him, one per `chase` pass (src/tasks.ts): why, and his words. */
 export function taskReport(
   list: { ask: Task["ask"]; cause: string; title: string }[],
   now: number
@@ -333,10 +336,15 @@ export function actionLine(a: Action) {
   const outcome = {
     duplicate: ` duplicate of #${a.target.split(":")[1]}`,
     failed: ` FAILED: ${a.error}`,
+    // Never listed (`isBookkeeping`): its outcome is the next line.
+    intent: " (not answered)",
     // A partial (done, a private step such as the section failed) is ok with its error.
     ok: a.error ? ` (${a.error})` : "",
   }[a.result];
-  return `${what} ← “${a.instruction?.quote}”${outcome}`;
+  const by = a.instruction
+    ? `← “${a.instruction.quote}”`
+    : "by him in Reminders";
+  return `${what} ${by}${outcome}`;
 }
 
 export type Mail = ReturnType<typeof compose> & {

@@ -1,18 +1,12 @@
-import { checks } from "../actions";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { readHealth } from "../health";
-import { titleOf } from "../hear";
-import { quota } from "../llm";
+import { type Quota, quota } from "../llm";
 import { log, recentEvents } from "../log";
-import {
-  type Action,
-  Extracted,
-  isTaskLine,
-  type Observation,
-} from "../schema";
-import { taskList, unanswered } from "../tasks";
+import { checks } from "../reminders/remctl";
+import { type Action, Extracted, isListed, type Observation } from "../schema";
+import { taskList, titleOf, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
@@ -32,6 +26,7 @@ import {
   recordState,
   turnOf,
 } from "./guard";
+import { runs, useText } from "./history";
 import { EXTRACTED, newSince, readActions, rowsOf } from "./ledger";
 import { moments } from "./moments";
 import { placed } from "./page";
@@ -46,7 +41,13 @@ import {
   successReport,
 } from "./report";
 import { codeOn, mapRepos } from "./repos";
-import { commitMemory, phases, type RunRecord, record } from "./run";
+import {
+  commitMemory,
+  type Metered,
+  metered,
+  phases,
+  type RunRecord,
+} from "./run";
 import { reindex } from "./search";
 import {
   type Built,
@@ -83,7 +84,7 @@ export const reviewed = async (now: Date) =>
   );
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
-async function acted(now: Date, rec: RunRecord) {
+async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   const problems = await checks();
   if (!(await reviewed(now))) {
     problems.push("no daily review reached Life in the last 24 h");
@@ -103,7 +104,7 @@ async function acted(now: Date, rec: RunRecord) {
   // A task's own lines (Atlas's updates) are its rows, not actions.
   return {
     actions: actions.filter(
-      (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
+      (a) => isListed(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
     ),
     problems,
     tasks: [
@@ -125,7 +126,7 @@ async function acted(now: Date, rec: RunRecord) {
 }
 
 /** Yesterday's Code rows. Never fails the night: a failure is logged and there are no rows. */
-function coded(day: string, rec: RunRecord) {
+function coded(day: string, rec: Pick<RunRecord, "error">) {
   return codeOn(daysBefore(day, 1)).catch((e: Error) => {
     rec.error(e.message, { step: "memory.nightly.code" });
     return [];
@@ -270,7 +271,7 @@ async function sweep(
   window: Window,
   then?: () => Promise<{ failed: number }>
 ) {
-  const rec = record(name, { ...window });
+  const rec = await metered(name, { ...window });
   const phase = phases(rec);
   try {
     phase.at = "gather";
@@ -284,10 +285,10 @@ async function sweep(
     }
     phase.at = "index";
     await reindex();
-    rec.end({ outcome: "ok" });
+    await rec.end({ outcome: "ok" });
     return 0;
   } catch (e) {
-    rec.end(phase.failed(e));
+    await rec.end(phase.failed(e));
     return 1;
   }
 }
@@ -359,10 +360,30 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   };
 }
 
+/**
+ * What the sweeps of the last 24 h spent of his Codex plan, a line each, oldest first; this night's to `now`, the
+ * quota just read for the email.
+ */
+async function spent(rec: Metered, now: Quota | undefined) {
+  const since = new Date(rec.now.getTime() - DAY_MS).toISOString();
+  const { items } = await runs({
+    limit: 20,
+    steps: ["memory.nightly", "memory.midday", "memory.backfill"],
+  });
+  return items
+    .filter((r) => (r.startedAt ?? "") >= since && r.use)
+    .reverse()
+    .map((r) =>
+      r.id === `memory.nightly/${rec.run}` && r.use
+        ? `Codex use, this night: ${useText({ ...r.use, quota: { after: now ?? null, before: r.use.quota?.before ?? null } })}`
+        : `Codex use, ${r.step.replace("memory.", "")} of ${localTime(r.startedAt ?? "")}: ${useText(r.use ?? null)}`
+    );
+}
+
 async function runNight(days: number, now: Date, day: string, force: boolean) {
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
   const window = lastDays(now, days);
-  const rec = record("memory.nightly", { ...window, force });
+  const rec = await metered("memory.nightly", { ...window, force });
   // Lines first cited since the last good night (with no guard state, the window) are new in this report, midday runs' too.
   const last = readState();
   const since =
@@ -396,6 +417,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const archive = await archiveLine(since);
     phase.at = "commit";
     commitMemory(["memory", "truth"], `Memory: ${day}`);
+    const q = await quota();
     mail = successReport(day, rec.ms(), {
       acted: report,
       archive,
@@ -409,9 +431,10 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       moments: found,
       observed,
       paged,
-      quota: quotaLine(await quota()),
+      quota: quotaLine(q),
       repos,
       retired,
+      spent: await spent(rec, q),
       watcher,
     });
     listed = facts.map((f) => f.id);
@@ -420,7 +443,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     mail = failureReport(day, rec.ms(), failure.failedAt, failure.error);
   }
   const { attempts } = recordState(day, !failure);
-  rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
+  await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
     const id = await sendReport(`nightly/${rec.run}`, mail);
     console.log(id ? `report emailed: ${id}` : "report email not sent");
