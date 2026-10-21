@@ -8,9 +8,10 @@ import {
   lanesOf,
   packed,
   priorFor,
+  shownFor,
 } from "./extract";
 import { ledger, madeBy, unit, verdict } from "./fixtures";
-import { momentsNow } from "./ledger";
+import { momentsNow, type Standing } from "./ledger";
 import type { Built } from "./units";
 
 const conversation = (
@@ -244,14 +245,12 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
   const shown = [
     { o: o("old", { date: "2026-09-20" }) },
     { o: o("near", { date: "2026-10-14" }) },
-    { o: o("own", { date: "2026-10-15", unit: U1 }) },
     { o: o("his", { date: "2026-10-14", entities: ["person:me"] }) },
     { o: o("his-old", { date: "2026-10-10", entities: ["person:me"] }) },
     { by: U1, o: o("retired-here", { date: "2026-10-13" }) },
     { by: U3, o: o("retired-elsewhere", { date: "2026-10-13" }) },
     { o: o("same", { date: "2026-10-15" }) },
-    // Facts of a unit read again elsewhere in the run are about to be replaced: never shown; one it retired is.
-    { o: o("crowding", { date: "2026-10-15", unit: U3 }) },
+    // One a unit read again in the run retired is offered again (its own facts never reach here, `shownFor`).
     { by: U3, o: o("retired-by-reread", { date: "2026-10-12" }) },
     // What this run already wrote for a unit it read is its reading now: shown, newest first.
     {
@@ -264,9 +263,7 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
     },
   ];
   expect(
-    priorFor(group, shown, new Set([U1, U2, U3]), "now", new Set()).map(
-      (x) => x.id
-    )
+    priorFor(group, shown, new Set([U1, U2, U3]), new Set()).map((x) => x.id)
   ).toEqual([
     "written-now",
     "same",
@@ -277,8 +274,8 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
     "retired-by-reread",
   ]);
   expect(
-    priorFor(group, shown, new Set([U1, U2]), "now", new Set()).map((x) => x.id)
-  ).toEqual(["written-now", "same", "crowding", "near", "his", "retired-here"]);
+    priorFor(group, shown, new Set([U1, U2]), new Set()).map((x) => x.id)
+  ).toEqual(["written-now", "same", "near", "his", "retired-here"]);
   // Someone close: what is between them is shown from up to a year back, after the recent facts.
   const bond = [
     ...shown,
@@ -286,12 +283,12 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
     { o: o("bond-too-old", { date: "2025-09-01", type: "person" }) },
   ];
   expect(
-    priorFor(group, bond, new Set([U1, U2]), "now", new Set(["person:bastien"]))
+    priorFor(group, bond, new Set([U1, U2]), new Set(["person:bastien"]))
       .map((x) => x.id)
       .at(-1)
   ).toBe("bond");
   expect(
-    priorFor(group, bond, new Set([U1, U2]), "now", new Set()).map((x) => x.id)
+    priorFor(group, bond, new Set([U1, U2]), new Set()).map((x) => x.id)
   ).not.toContain("bond");
 });
 
@@ -337,24 +334,23 @@ test("earlier facts also hold the moment's own units at any age, in their own sl
     })),
   ];
   expect(
-    priorFor(group, shown, new Set([U1]), "now", new Set(), 2).map((x) => x.id)
+    priorFor(group, shown, new Set([U1]), new Set(), 2).map((x) => x.id)
   ).toEqual(["recent-0", "recent-1", "plan", "his-plan"]);
 });
 
-test("a fact he rated true is shown again when its unit is read again, so the new reading corrects it rather than drops it", () => {
-  const o = (id: string) =>
-    ({
-      at: "2026-10-15T10:00:00.000Z",
-      date: "2026-10-15",
-      entities: ["person:bastien"],
-      id,
-      madeBy: { ...madeBy, unitHash: "h" },
-      type: "decision",
-      unit: U1,
-    }) as Observation;
-  const group = { moment: moment(), units: [built(U1)] };
-  const shown = [{ kept: true, o: o("rated") }, { o: o("unrated") }];
-  expect(
-    priorFor(group, shown, new Set([U1]), "now", new Set()).map((x) => x.id)
-  ).toEqual(["rated"]);
+test("what extraction may show: none from a unit read again but what he rated true, the active ones elsewhere", () => {
+  const o = (id: string, of: string) =>
+    ({ id, madeBy: { ...madeBy, unitHash: "h" }, unit: of }) as Observation;
+  const known = [o("rated", U1), o("unrated", U1), o("elsewhere", U2)];
+  const standing = {
+    corrections: [],
+    latest: new Map(),
+    live: new Set([U1, U2]),
+    rated: new Set(["rated"]),
+    retired: new Map(),
+  } as Standing;
+  expect(shownFor(known, standing, new Set([U1])).map((x) => x.o.id)).toEqual([
+    "rated",
+    "elsewhere",
+  ]);
 });

@@ -200,7 +200,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   rewrites only `units/` and `moments/<day>.jsonl` (the day's moments, model-owned, read again with the day).
 - **Facts are read by moment** (`moments.ts`, then `extract.ts`): one call per day reads every unit of the day from
   every channel in time order, judges each and finds what happened; extraction reads a moment's units together, with
-  earlier facts as a reading to correct, never as evidence, and is the only step that retires an observation (besides his `outdated` answers). A re-read never drops a fact he rated true: it is shown again as a prior and stays until a newer observation retires it (`kept`, `isCurrent`).
+  earlier facts as a reading to correct, never as evidence, and is the only step that retires an observation (besides his `outdated` answers). A re-read never drops a fact he rated true: it is shown again as a prior and stays until a newer observation retires it (`rated`, `isCurrent`, `shownFor`).
   A moment is all its days' lines (`momentsNow`); a unit shared by several moments is read with the one whose reading
   reaches furthest, and on a tie the smallest. Measure a change to either with `bun scripts/eval.ts ~/Life/docs/evals/events-2026-10-16.json` (`events-2026-10-18.md` there)
   and against his ratings with `bun scripts/eval.ts --ratings`.

@@ -49,9 +49,9 @@ test("a unit re-extracted under another hash or prompt keeps only its latest fac
     read("u_4", "h1", "r2"),
   ];
   const c = {
-    kept: new Set<string>(),
     latest: latestExtractions(ledger),
     live: new Set(["u_1", "u_2", "u_3", "u_4"]),
+    rated: new Set<string>(),
   };
   expect(all.filter((x) => isCurrent(c, x)).map((x) => x.id)).toEqual([
     "new",
@@ -197,9 +197,9 @@ test("the index, the pages and the dashboard agree on where each observation sta
 async function view(f: typeof fixture) {
   const standing = {
     corrections: f.corrections,
-    kept: new Set<string>(),
     latest: latestExtractions(f.extracted),
     live: f.live,
+    rated: new Set<string>(),
     retired: f.retired,
   };
   const shown = shownOf(f.list, standing);
@@ -239,9 +239,9 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
   const x = obs("obs_000000000001", "u_1", "h1");
   const at = (over: Partial<Standing>): Standing => ({
     corrections: [],
-    kept: new Set(),
     latest: new Map(),
     live: new Set(["u_1"]),
+    rated: new Set(),
     retired: new Map(),
     ...over,
   });
@@ -300,9 +300,9 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
   const standing = (ratings: Rating[], first: Supersession[] = []) =>
     ({
       corrections: [],
-      kept: new Set(),
       latest: new Map(),
       live: new Set(["u_1"]),
+      rated: new Set(),
       retired: retiredBy(
         [...first, ...ratedOutdated(latestRatings(ratings))],
         new Set(["obs_a", "obs_b"])
@@ -346,9 +346,9 @@ test("a re-read keeps a fact he rated true: not replaced when the new reading le
   ) =>
     ({
       corrections: [],
-      kept: ratedTrue(latestRatings(ratings)),
       latest,
       live: new Set(["u_1"]),
+      rated: ratedTrue(latestRatings(ratings)),
       retired,
     }) as Standing;
   expect(stateOf(rated, standing([rate("true")])).state).toBe("active");

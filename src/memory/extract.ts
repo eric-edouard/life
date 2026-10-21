@@ -27,6 +27,7 @@ import {
   readVerdicts,
   rereadAt,
   rowsOf,
+  type Standing,
   SUPERSESSIONS,
   stateOf,
   UNRESOLVED,
@@ -290,19 +291,40 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
 }
 
 /**
+ * The earlier facts extraction may show (`priorFor`): the active ones, and the retired ones with the unit of what
+ * retired them (one he rated outdated, retired by itself, is closed for good). None from a unit this run reads again
+ * (`reread`: replaced, or about to be) but those he rated true (never replaced, so shown to be corrected).
+ */
+export function shownFor<O extends Observation>(
+  known: O[],
+  standing: Standing,
+  reread: ReadonlySet<string>
+) {
+  const unitOf = new Map(known.map((o) => [o.id, o.unit]));
+  return known.flatMap((o): { by?: string; o: O }[] => {
+    if (reread.has(o.unit) && !standing.rated.has(o.id)) {
+      return [];
+    }
+    const s = stateOf(o, standing);
+    if (s.state === "retired") {
+      return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
+    }
+    return s.state === "active" ? [{ o }] : [];
+  });
+}
+
+/**
  * Earlier facts for a group, newest first, shown to the model as a reading to correct, never as evidence: about its
  * people from the two weeks before it, and about the owner alone from its day and the day before. `shown` are the active
- * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
- * this run reads again: their earlier facts are replaced, or about to be, so none is shown but those he rated true
- * (`kept`: never replaced, so shown to be corrected), and one they retired is offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
+ * facts (`shownFor`, with those this run wrote already), and the retired ones with the unit of what retired them, offered
+ * again when that unit is one this run reads again (`reread`). Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
  * units at any age, and the `person` facts of the last year about its people `close` to him (what is between them
  * lasts, and a newer fact must replace it).
  */
 export function priorFor(
   group: Group,
-  shown: { by?: string; kept?: boolean; o: Observation }[],
-  reread: Set<string>,
-  run: string,
+  shown: { by?: string; o: Observation }[],
+  reread: ReadonlySet<string>,
   close: ReadonlySet<string>,
   max = PRIOR_MAX
 ) {
@@ -330,9 +352,8 @@ export function priorFor(
   ];
   const candidates = shown
     .filter(
-      ({ by, kept, o }) =>
+      ({ by, o }) =>
         o.date <= day &&
-        (kept || o.madeBy.run === run || !reread.has(o.unit)) &&
         (!by || reread.has(by)) &&
         slots.some(([fits]) => fits(o))
     )
@@ -385,15 +406,6 @@ export async function extract(evidence: Evidence) {
     EXTRACT_PROMPT,
     rereadAt(corrections)
   );
-  const unitOf = new Map(known.map((o) => [o.id, o.unit]));
-  const shown = known.flatMap((o): Parameters<typeof priorFor>[1] => {
-    const s = stateOf(o, standing);
-    if (s.state === "retired") {
-      // One he rated outdated (retired by itself) is closed for good.
-      return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
-    }
-    return s.state === "active" ? [{ kept: standing.kept.has(o.id), o }] : [];
-  });
   const { copies, groups } = groupsOf(
     pending.map((p) => p.b),
     inWindow,
@@ -404,6 +416,7 @@ export async function extract(evidence: Evidence) {
 
   const read = groups.flatMap((g) => g.units);
   const reread = new Set([...read, ...copies].map((b) => b.unit.id));
+  const shown = shownFor(known, standing, reread);
   const turns = await withStore(
     (store) =>
       new Map(
@@ -483,7 +496,7 @@ export async function extract(evidence: Evidence) {
       const prior = [
         ...new Map(
           call
-            .flatMap((g) => priorFor(g, standingNow, reread, step.run, close))
+            .flatMap((g) => priorFor(g, standingNow, reread, close))
             .map((o) => [o.id, o])
         ).values(),
       ];
