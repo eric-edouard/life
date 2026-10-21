@@ -12,6 +12,7 @@ import {
   UNREACHABLE,
   type Verify,
 } from "./auth";
+import { FROZEN } from "./clock";
 import {
   ASK_EVENT,
   Subscribe,
@@ -85,6 +86,27 @@ const WRITES = {
 const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
 const Reminders = Asked.omit({ why: true });
+
+/**
+ * A frozen world (`LIFE_NOW`, the Atlas bench) reaches nothing outside Life's copy of the data: a tool that would read
+ * or change his live Reminders or lifelog answers that it did nothing (its call is logged as every call is, `mcp.call`
+ * with its arguments, so the bench grades it), and an event request is refused. `task` and `reply` still run: they
+ * write only to the copy's ledger.
+ */
+const NOT_DONE =
+  "Not done: this is a frozen run (a benchmark), where nothing acts or sends.";
+const dry = <S extends z.ZodObject>(run: Tool<S>): Tool<S> =>
+  FROZEN === undefined
+    ? run
+    : (args) =>
+        Promise.resolve(`${NOT_DONE} Recorded: ${JSON.stringify(args)}`);
+const sends = <P, R>(handle: (p: P) => R) =>
+  FROZEN === undefined
+    ? handle
+    : (): R => {
+        log("mcp.call", { error: true, refused: "events: a frozen run" });
+        throw new Error(NOT_DONE);
+      };
 
 /** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
 async function request(a: Omit<Asked, "why">) {
@@ -179,7 +201,7 @@ function tool<S extends z.ZodObject>(
       inputSchema: unchecked(inputSchema) as unknown as z.ZodObject,
     },
     async (args, ctx) => {
-      const started = Date.now();
+      const started = performance.now();
       const parsed = inputSchema.safeParse(args);
       const result = await answer(() => {
         if (!parsed.success) {
@@ -196,7 +218,7 @@ function tool<S extends z.ZodObject>(
         chars: body.length,
         error: result.isError,
         ids: [...new Set(body.match(IDS))],
-        ms: Date.now() - started,
+        ms: Math.round(performance.now() - started),
         tool: name,
       });
       return result;
@@ -204,7 +226,8 @@ function tool<S extends z.ZodObject>(
   );
 }
 
-function buildServer() {
+/** The connector's tools and event, without its transport or auth: `createMcp` serves it over HTTP, the bench over stdio. */
+export function buildServer() {
   const server = new McpServer(
     {
       icons: [
@@ -360,7 +383,7 @@ function buildServer() {
     "correct",
     "Change something, only when the owner explicitly asked for that change: `memory` (a correction to Life's memory), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
-    correct,
+    dry(correct),
     WRITES
   );
   tool(
@@ -368,7 +391,7 @@ function buildServer() {
     "reminders",
     "Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask): add, edit, done, or remove (to Recently Deleted). Not the list `Atlas`: that is the board, changed with `task`. `target` is a reminder id (edit, done, remove). Logged in Life's history; `day` shows it.",
     Reminders,
-    (a) => request(a),
+    dry((a) => request(a)),
     REVERSIBLE
   );
   tool(
@@ -376,13 +399,13 @@ function buildServer() {
     "open_reminders",
     "The owner's open Apple Reminders (JSON), of one list or all: each one's id, title, notes, due, list and section, and every list's sections, empty ones too. Not the list `Atlas`: that is the board, read with `tasks`.",
     z.object({ list: z.string().optional().describe("A list's name") }),
-    async ({ list }) => {
+    dry(async ({ list }) => {
       const [reminders, sections] = await Promise.all([
         openReminders(list),
         sectionsOf(list),
       ]);
       return { reminders: reminders.map(openOf), sections };
-    }
+    })
   );
   tool(
     server,
@@ -431,12 +454,12 @@ function buildServer() {
   server.server.setRequestHandler(
     "events/subscribe",
     { params: Subscribe },
-    subscribe
+    sends(subscribe)
   );
   server.server.setRequestHandler(
     "events/unsubscribe",
     { params: Unsubscribe },
-    unsubscribe
+    sends(unsubscribe)
   );
   return server;
 }

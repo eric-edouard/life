@@ -1,3 +1,4 @@
+import { clock, unfrozen } from "../clock";
 import { log } from "../log";
 import { exec } from "../proc";
 import { redact } from "../redact";
@@ -255,6 +256,7 @@ async function wanted(now: Date) {
 function pastCalendar(calendar: string, account: string) {
   // Values go as `--flag=value`: a model-written title starting with "-" must not read as a flag.
   const run = async (args: string[]) => {
+    unfrozen("use his calendar");
     const r = await exec([
       "gog",
       "calendar",
@@ -323,7 +325,7 @@ function pastCalendar(calendar: string, account: string) {
 }
 
 /** Brings the calendar in line with the moments; null when it is not set up. */
-export async function syncPast(now = new Date()) {
+export async function syncPast(now = clock()) {
   const calendar = process.env.LIFE_PAST_CALENDAR;
   const account = process.env.LIFE_PAST_ACCOUNT;
   if (!(calendar && account)) {

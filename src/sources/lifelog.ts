@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { clock, unfrozen } from "../clock";
 import { log } from "../log";
 import { digest, readJson } from "../memory/ledger";
 import { ROOT } from "../truth";
@@ -243,11 +244,7 @@ function drop(db: Database, r: Page["removed"][number]) {
  * Folds one page into the store: whole rows replace the ones with the same key, `removed` ones go. Idempotent. A turn
  * keeps when it was first `seen`: when the hearing could first have heard it.
  */
-export function apply(
-  store: Store,
-  page: Page,
-  seen = new Date().toISOString()
-) {
+export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   const { db } = store;
   const conversation = db.prepare(
     "insert or replace into conversations values (?, ?, ?, ?, ?, ?, ?)"
@@ -719,7 +716,7 @@ const FORWARDS: Record<
     request: (a) => [
       "PUT",
       `/conversations/${seg(a.id)}/title`,
-      { editedAt: new Date().toISOString(), title: a.title },
+      { editedAt: clock().toISOString(), title: a.title },
     ],
   },
 };
@@ -727,6 +724,7 @@ export const FORWARD_KINDS = Object.keys(FORWARDS);
 
 /** Sends one correction the owner approved, logging the request before it and the answer after it. */
 export async function forward(kind: string, a: Fix) {
+  unfrozen("write to lifelog");
   const f = FORWARDS[kind];
   if (!f) {
     throw new Error(`not a forwardable correction: ${kind}`);

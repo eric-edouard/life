@@ -1,3 +1,4 @@
+import { clock } from "../clock";
 import { redact } from "../redact";
 import type { SourceEvent, Unit } from "../schema";
 import { kindOf, sourceOf } from "../sources";
@@ -332,7 +333,7 @@ function readChats(
   range: { from?: string; to?: string },
   sources: Partial<typeof SEARCHED>
 ) {
-  const end = range.to ? new Date(range.to) : new Date();
+  const end = range.to ? new Date(range.to) : clock();
   const days = (source: string) =>
     sourceOf(source as Unit["source"])[window] ?? 0;
   const startOf = (source: string) =>
