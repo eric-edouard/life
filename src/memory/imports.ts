@@ -1,0 +1,162 @@
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { z } from "zod";
+import { stamp } from "../llm";
+import { Imported, type MadeBy } from "../schema";
+import {
+  type Conversation,
+  FORMATS,
+  formatOf,
+  importOf,
+  pruned,
+} from "../sources/assistants";
+import { loadTruth } from "../truth";
+import { appendJsonl, IMPORTED, rowsOf } from "./ledger";
+import { begin, chunks, inBatches, meContext } from "./run";
+import { clip } from "./units";
+import { localDate } from "./zones";
+
+// `bun life memory import <folder> [--dry]`: his claude.ai or ChatGPT export, once (~/Life/docs/
+// claude-import-scope-2026-10-21.md). The export is pruned by code (`pruned`), copied into his data, and each
+// conversation is judged once by the fast model from the start of his messages: about his life, or only work with the
+// assistant (memory/imported.jsonl). The kept ones are a source like any other (`sources/assistants.ts`): the backfill
+// reads their days with every other channel's, through the one moments and extract path.
+
+const IMPORT_PROMPT = "import.v1";
+const PER_CALL = 10;
+/** What the model reads of a conversation: its title and the start of his messages. */
+const GIST = 3000;
+
+/** An export folder's `conversations.json`: which assistant's it is and its conversations, pruned. */
+export function readExport(folder: string) {
+  const file = join(folder, "conversations.json");
+  const json: unknown = JSON.parse(readFileSync(file, "utf8"));
+  const source = formatOf(json);
+  if (!source) {
+    throw new Error(`${file} is neither a claude.ai nor a ChatGPT export`);
+  }
+  const all = FORMATS[source].parse(json);
+  return { all: all.length, conversations: pruned(all), file, source };
+}
+
+const gist = (c: Conversation) =>
+  clip(c.messages.map((m) => m.text).join("\n"), GIST);
+
+/** What an import would read: conversations, his kept messages, their days, and what the judging would read. */
+export function summaryOf(all: number, conversations: Conversation[]) {
+  const messages = conversations.flatMap((c) => c.messages);
+  const days = [...new Set(messages.map((m) => localDate(m.at)))].sort();
+  return {
+    calls: Math.ceil(conversations.length / PER_CALL),
+    chars: messages.reduce((n, m) => n + m.text.length, 0),
+    conversations: { all, kept: conversations.length },
+    days: days.length,
+    from: days[0],
+    gistChars: conversations.reduce((n, c) => n + gist(c).length, 0),
+    messages: messages.length,
+    to: days.at(-1),
+  };
+}
+
+/** `import --dry`: what importing `folder` would read, with no copy and no model call. */
+export function dryRun(folder: string) {
+  const { all, conversations, source } = readExport(folder);
+  return { source, ...summaryOf(all, conversations) };
+}
+
+const Entry = z.object({
+  id: z.string(),
+  keep: z.boolean(),
+  why: z.string().min(1),
+});
+
+/** The model's reply for one call: a line for each conversation asked about, once; anything else is counted invalid. */
+export function parseJudged(
+  reply: unknown,
+  asked: Set<string>,
+  ctx: { at: string; madeBy: MadeBy; source: string }
+) {
+  const list = z
+    .object({ conversations: z.array(z.unknown()) })
+    .parse(reply).conversations;
+  const records = new Map<string, Imported>();
+  let invalid = 0;
+  for (const raw of list) {
+    const r = Entry.safeParse(raw);
+    if (!(r.success && asked.has(r.data.id)) || records.has(r.data.id)) {
+      invalid += 1;
+      continue;
+    }
+    records.set(r.data.id, {
+      at: ctx.at,
+      conversation: `${ctx.source}:${r.data.id}`,
+      keep: r.data.keep,
+      madeBy: ctx.madeBy,
+      schemaVersion: 1,
+      why: clip(r.data.why, 300),
+    });
+  }
+  return { invalid, records: [...records.values()] };
+}
+
+/** Copies the export into his data and judges each conversation not judged yet under this prompt. */
+export async function importExport(folder: string) {
+  const { all, conversations, file, source } = readExport(folder);
+  const to = importOf(source);
+  mkdirSync(dirname(to), { recursive: true });
+  copyFileSync(file, to);
+  const step = await begin("import", "fast", { prompt: IMPORT_PROMPT, source });
+  const asked = new Set(
+    rowsOf(IMPORTED, Imported)
+      .filter((i) => i.madeBy.prompt === IMPORT_PROMPT)
+      .map((i) => i.conversation)
+  );
+  const due = conversations.filter((c) => !asked.has(`${source}:${c.id}`));
+  const ctx = {
+    at: step.now.toISOString(),
+    madeBy: stamp(step.llm, IMPORT_PROMPT, step.run),
+    source,
+  };
+  const context = meContext(await loadTruth());
+  const kept = new Set<string>();
+  let invalid = 0;
+  // One bad call costs only its conversations: they are asked again on the next run.
+  await inBatches(chunks(due, PER_CALL), step.dir, (batch, dir) =>
+    step.attempt(async () => {
+      const json = await step.ask({
+        context,
+        dir,
+        input: {
+          assistant: FORMATS[source].label,
+          conversations: batch.map((c) => ({
+            id: c.id,
+            text: gist(c),
+            title: c.title,
+          })),
+        },
+        prompt: IMPORT_PROMPT,
+      });
+      const checked = parseJudged(json, new Set(batch.map((c) => c.id)), ctx);
+      // Written as each call ends: a stopped run resumes from them.
+      appendJsonl(IMPORTED, Imported, checked.records);
+      for (const r of checked.records.filter((i) => i.keep)) {
+        kept.add(r.conversation);
+      }
+      invalid += checked.invalid;
+    })
+  );
+  const read = summaryOf(all, conversations);
+  const days = summaryOf(
+    all,
+    conversations.filter((c) => kept.has(`${source}:${c.id}`))
+  );
+  return step.end({
+    asked: due.length,
+    // The kept days are read by the backfill (`bun life memory backfill --from <from> --to <to>`), under the quota guard.
+    backfill: { days: days.days, from: days.from, to: days.to },
+    invalid,
+    kept: kept.size,
+    read,
+    source,
+  });
+}

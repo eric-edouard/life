@@ -1,4 +1,5 @@
 import type { Person, SourceEvent, Unit } from "../schema";
+import { readAssistant } from "./assistants";
 import { readBeeper } from "./beeper";
 import { type RepoMap, readGit } from "./git";
 import { handleOf, isImessageGroup, readImessage } from "./imessage";
@@ -23,6 +24,7 @@ export type Descriptor = {
   searchDays?: number;
 } & (
   | {
+      /** notes: his own writing, no one else's words (Apple Notes, his messages to AI assistants). */
       kind: "chat" | "mail" | "notes";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date) => SourceEvent[];
@@ -74,6 +76,20 @@ export const SOURCES: Descriptor[] = [
     read: readNotes,
     // ponytail: each search reads every note version (1,500 in 15 ms, a whole search 150 ms, Oct 2026); index their
     // text in index.sqlite if that grows slow.
+    searchDays: Number.POSITIVE_INFINITY,
+  },
+  // His claude.ai and ChatGPT history, imported once (memory/imports.ts). ponytail: search reads every kept message
+  // (parsed once per process); index them in index.sqlite if that grows slow.
+  {
+    kind: "notes",
+    name: "claude",
+    read: readAssistant("claude"),
+    searchDays: Number.POSITIVE_INFINITY,
+  },
+  {
+    kind: "notes",
+    name: "chatgpt",
+    read: readAssistant("chatgpt"),
     searchDays: Number.POSITIVE_INFINITY,
   },
   {
