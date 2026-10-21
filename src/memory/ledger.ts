@@ -174,12 +174,12 @@ export const liveUnits = (units: Unit[]) =>
 
 /**
  * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), the
- * unit has none, or he rated `o` true (`kept`): a unit read again, under another content hash or another prompt
+ * unit has none, or he rated `o` true (`rated`): a unit read again, under another content hash or another prompt
  * version, leaves its older facts in the ledger, replaced, except those he rated true, which only a newer observation
  * retires; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
-  { kept, latest, live }: Pick<Standing, "kept" | "latest" | "live">,
+  { latest, live, rated }: Pick<Standing, "latest" | "live" | "rated">,
   o: Observation
 ) {
   const l = latest.get(o.unit);
@@ -187,7 +187,7 @@ export function isCurrent(
     live.has(o.unit) &&
     (!l ||
       (l.unitHash === o.madeBy.unitHash && l.run === o.madeBy.run) ||
-      kept.has(o.id))
+      rated.has(o.id))
   );
 }
 
@@ -273,10 +273,10 @@ export function readCorrections(): Correction[] {
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
 export interface Standing {
   corrections: Correction[];
-  /** What he rated true (his latest answer): a re-read of its unit does not replace it. */
-  kept: Set<string>;
   latest: Map<string, Extracted>;
   live: Set<string>;
+  /** What he rated true (his latest answer): a re-read of its unit does not replace it. */
+  rated: Set<string>;
   retired: Map<string, Retirement>;
 }
 
@@ -290,9 +290,9 @@ export async function readStanding(
   const supersessions = rowsOf(SUPERSESSIONS, Supersession);
   const ratings = readRatings();
   const c = {
-    kept: ratedTrue(ratings),
     latest: latestExtractions(extracted),
     live: liveUnits(units),
+    rated: ratedTrue(ratings),
   };
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))

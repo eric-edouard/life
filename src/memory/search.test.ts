@@ -135,9 +135,9 @@ test("search: an observation hit names the unit it comes from and who is in it",
   } as unknown as Unit;
   const standing = {
     corrections: [],
-    kept: new Set<string>(),
     latest: new Map(),
     live: new Set([unit.id]),
+    rated: new Set<string>(),
     retired: new Map(),
   };
   buildIndex([o], path, standing, [{ unit }]);
@@ -331,9 +331,9 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
     }) as unknown as Observation;
   const standing = {
     corrections: [],
-    kept: new Set<string>(),
     latest: new Map(),
     live: new Set(["u_000000000001"]),
+    rated: new Set<string>(),
     retired: new Map([
       [
         "obs_000000000006",

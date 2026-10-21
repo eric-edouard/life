@@ -514,7 +514,7 @@ export async function claim(id: string) {
     throw new Error(`no observation ${id}`);
   }
   const ctx = await readContext();
-  const o = (versions.find((v) => isCurrent(ctx, v.o)) ?? versions.at(-1))
+  const o = (versions.findLast((v) => isCurrent(ctx, v.o)) ?? versions.at(-1))
     ?.o as Observation;
   const people = await readPeople();
   const unit = (await readUnits()).find((u) => u.id === o.unit);
