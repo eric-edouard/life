@@ -6,7 +6,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { log } from "./log";
-import { exec } from "./proc";
+import { exec, firstLine } from "./proc";
 import { Engine, Runner } from "./schema";
 import { DATA, ROOT } from "./truth";
 
@@ -312,7 +312,73 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
     ],
     { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
   );
+  // Every call leaves a reading, so what a run spent shows in the log.
+  await quota();
   return { text: await Bun.file(reply).text() };
+}
+
+/** How full his Codex plan is: its fuller window (on his plan, the week) and when that window resets. */
+export interface Quota {
+  resetsAt: string | null;
+  used: number;
+}
+const RateWindow = z.object({
+  resetsAt: z.number().nullish(),
+  usedPercent: z.number(),
+});
+const RateLimits = z.object({
+  result: z.object({
+    rateLimits: z.object({
+      primary: RateWindow.nullish(),
+      secondary: RateWindow.nullish(),
+    }),
+  }),
+});
+// The app-server's JSON-RPC (`codex app-server generate-json-schema`): initialized first, then the one read.
+const READ_LIMITS = `{"id":1,"method":"initialize","params":{"clientInfo":{"name":"life","version":"1"}}}
+{"method":"initialized"}
+{"id":2,"method":"account/rateLimits/read"}
+`;
+
+/** The quota in the app-server's answer to `account/rateLimits/read`; undefined for no window or no answer. */
+export function quotaOf(reply = ""): Quota | undefined {
+  try {
+    const { primary, secondary } = RateLimits.parse(JSON.parse(reply)).result
+      .rateLimits;
+    const [w] = [primary, secondary]
+      .flatMap((x) => (x ? [x] : []))
+      .sort((a, b) => b.usedPercent - a.usedPercent);
+    return (
+      w && {
+        resetsAt: w.resetsAt ? new Date(w.resetsAt * 1000).toISOString() : null,
+        used: w.usedPercent,
+      }
+    );
+  } catch {
+    // No answer, or not this one: unread.
+  }
+}
+
+/**
+ * His Codex plan's usage, read from Codex's app-server (no model call, no quota spent) and logged: undefined, logged
+ * as nothing, when this process's calls don't go to Codex or Codex doesn't answer.
+ */
+export async function quota() {
+  if (llmFor("main").engine !== "codex") {
+    return;
+  }
+  const q = quotaOf(
+    await firstLine(
+      [CODEX_BIN, "app-server"],
+      READ_LIMITS,
+      (l) => l.startsWith('{"id":2,'),
+      { env: modelEnv({ CODEX_HOME }), timeout: 15_000 }
+    )
+  );
+  if (q) {
+    log("quota.read", { ...q });
+  }
+  return q;
 }
 
 /**

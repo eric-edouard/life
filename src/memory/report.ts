@@ -45,6 +45,8 @@ export interface Night {
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): midday runs' included. */
   observed: number;
   paged: Result<typeof pages>;
+  /** His Codex quota as the night ended (`quotaLine`). */
+  quota: string;
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: midday runs' included. */
   retired: number;
@@ -125,6 +127,7 @@ export function successReport(day: string, ms: number, n: Night) {
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.archive,
         n.backup,
+        n.quota,
         "Failures: none",
       ],
       preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.moments.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,

@@ -6,7 +6,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { askOnce, llmFor, llmSpec } from "../src/llm";
-import { locked } from "../src/memory/guard";
+import { locked, spareQuota } from "../src/memory/guard";
 import {
   appendJsonl,
   liveUnits,
@@ -139,6 +139,7 @@ if (!mode) {
     "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings"
   );
 }
+await spareQuota();
 const result =
   mode === "--ratings"
     ? await locked(ratedRun)

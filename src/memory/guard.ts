@@ -7,9 +7,10 @@ import {
 } from "node:fs";
 import { uptime } from "node:os";
 import { join } from "node:path";
+import { type Quota, quota } from "../llm";
 import { DATA } from "../truth";
 import { OUT, readJson, writeJson } from "./ledger";
-import { daysBefore, type Window } from "./units";
+import { daysBefore, localTime, type Window } from "./units";
 
 // launchd starts the nightly every 30 minutes; this guard decides whether a start does anything.
 
@@ -51,6 +52,28 @@ export const backupDue = (
 ) =>
   (decide(hour, day, night) === "skip" || hour >= 6) &&
   decide(hour, day, backup) === "run";
+
+/**
+ * Above this share of his Codex plan, the runs that can wait do (middays, backfill weeks, evals), so the night keeps
+ * the rest: a re-read night takes about 12 to 14% of a week (~/Life/docs/reviews/2026-10-21-atlas, gap 6).
+ */
+const RESERVE = 75;
+
+/** True while `q` is over the reserve, until its window resets; an unread quota holds nothing. */
+export const reserved = (q: Quota | undefined, now = Date.now()): q is Quota =>
+  !!q && q.used > RESERVE && !(q.resetsAt && Date.parse(q.resetsAt) <= now);
+
+/** The nightly email's line on the quota. */
+export const quotaLine = (q: Quota | undefined) =>
+  `Codex quota: ${q ? `${q.used}% used${q.resetsAt ? `, resets ${localTime(q.resetsAt)}` : ""}` : "not read"}${reserved(q) ? `: over ${RESERVE}%, the middays, backfill and evals wait` : ""}`;
+
+/** An eval or a bench run starts only under the reserve (his decision 12, 21 Oct: evals right after a reset). */
+export async function spareQuota() {
+  const q = await quota();
+  if (reserved(q)) {
+    throw new Error(quotaLine(q));
+  }
+}
 
 /** The hours of the midday runs (moments, extract and pages of the day so far; no commit, no email). */
 const MIDDAYS = [13, 19];
@@ -105,8 +128,22 @@ export function nextNight(
   );
 }
 
-/** When the next midday run may start. It runs only on ticks where the nightly does not, and a spent slot is not a success. */
-export function nextMidday(now: Date, last: string | undefined) {
+/**
+ * When the next midday run may start. It runs only on ticks where the nightly does not, and a spent slot is not a
+ * success. Over the reserve (`q`, the last reading), it waits for the quota's reset.
+ */
+export function nextMidday(
+  now: Date,
+  last: string | undefined,
+  q?: Quota
+): ReturnType<typeof windowAt> {
+  if (reserved(q, now.getTime())) {
+    const after = q.resetsAt ? new Date(q.resetsAt) : now;
+    return {
+      ...nextMidday(after, last),
+      why: `held: Codex quota ${q.used}% used, over ${RESERVE}%`,
+    };
+  }
   if (middayDue(now, last)) {
     return windowAt(now, "a slot is open: the next tick runs it");
   }
@@ -175,9 +212,9 @@ export function afterWeek(
 }
 
 /**
- * What a 30-minute tick runs: the night when it is due; else the midday run when its slot is open; else a backfill
- * week when one is due (`backfillWeek`), unless the day's backup still is (it runs after the tick's work, and goes
- * first). The backup itself is `backupDue`'s, after any of these.
+ * What a 30-minute tick runs: the night when it is due; else nothing over the quota's reserve (`reserved`); else the
+ * midday run when its slot is open; else a backfill week when one is due (`backfillWeek`), unless the day's backup
+ * still is (it runs after the tick's work, and goes first). The backup itself is `backupDue`'s, after any of these.
  */
 export function turnOf(
   now: Date,
@@ -187,11 +224,15 @@ export function turnOf(
     backup?: NightState;
     midday?: string;
     night?: NightState;
+    quota?: Quota;
   }
 ): "night" | "midday" | "backfill" | "none" {
   const hour = now.getHours();
   if (decide(hour, day, s.night) === "run") {
     return "night";
+  }
+  if (reserved(s.quota, now.getTime())) {
+    return "none";
   }
   if (middayDue(now, s.midday)) {
     return "midday";

@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { askOnce, extractJson, llmOverride, readEngine } from "./llm";
+import { askOnce, extractJson, llmOverride, quotaOf, readEngine } from "./llm";
 import { LOG_DIR } from "./log";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
@@ -119,4 +119,28 @@ test("openrouter: pinned, zero retention, no fallback; another host, a cut reply
     fetched.mockRestore();
     delete process.env.OPENROUTER_API_KEY;
   }
+});
+
+test("the Codex quota: the fuller window and its reset; no window or no answer is none", () => {
+  const limits = (primary: unknown, secondary: unknown = null) =>
+    JSON.stringify({ id: 2, result: { rateLimits: { primary, secondary } } });
+  expect(
+    quotaOf(
+      limits(
+        {
+          resetsAt: 1_793_085_398,
+          usedPercent: 91,
+          windowDurationMins: 10_080,
+        },
+        { resetsAt: null, usedPercent: 40 }
+      )
+    )
+  ).toEqual({ resetsAt: "2026-10-27T07:16:38.000Z", used: 91 });
+  expect(quotaOf(limits({ usedPercent: 10 }, { usedPercent: 60 }))).toEqual({
+    resetsAt: null,
+    used: 60,
+  });
+  expect(quotaOf(limits(null))).toBeUndefined();
+  expect(quotaOf('{"id":2,"error":{"message":"no"}}')).toBeUndefined();
+  expect(quotaOf(undefined)).toBeUndefined();
 });
