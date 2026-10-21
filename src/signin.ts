@@ -131,10 +131,13 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       method: "POST",
       signal: AbortSignal.timeout(15_000),
     }).catch(() => null);
-    if (!res) {
+    // No answer, or the issuer's own failure (5xx): out of reach, not a refusal of the token.
+    if (!res || res.status >= 500) {
       return "unreachable";
     }
-    const token = Tokens.safeParse(res.ok ? await res.json() : null);
+    const token = Tokens.safeParse(
+      res.ok ? await res.json().catch(() => null) : null
+    );
     if (!token.success) {
       return "refused";
     }
