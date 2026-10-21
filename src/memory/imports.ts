@@ -8,7 +8,7 @@ import {
   FORMATS,
   formatOf,
   importOf,
-  pruned,
+  parsedExport,
 } from "../sources/assistants";
 import { loadTruth } from "../truth";
 import { spareQuota } from "./guard";
@@ -36,8 +36,7 @@ export function readExport(folder: string) {
   if (!source) {
     throw new Error(`${file} is neither a claude.ai nor a ChatGPT export`);
   }
-  const all = FORMATS[source].parse(json);
-  return { all: all.length, conversations: pruned(all), file, source };
+  return { ...parsedExport(source, json), file, source };
 }
 
 const gist = (c: Conversation) =>

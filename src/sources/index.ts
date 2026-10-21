@@ -1,5 +1,5 @@
 import type { Person, SourceEvent, Unit } from "../schema";
-import { FORMATS, readAssistant } from "./assistants";
+import { FORMATS, newestAssistant, readAssistant } from "./assistants";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
@@ -131,7 +131,7 @@ export const SOURCES: Descriptor[] = [
     silentAfter: 7 * 24 * HOUR,
   },
   // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
-  // amber, and it has no `newest`. ponytail: search reads every pruned message (the export parsed once per process,
+  // amber; its newest is his newest imported message. ponytail: search reads every pruned message (the export parsed once per process,
   // every sweep included); index them in index.sqlite if that grows slow.
   ...(["claude", "chatgpt"] as const).map(
     (name): Descriptor => ({
@@ -139,6 +139,7 @@ export const SOURCES: Descriptor[] = [
       kind: "notes",
       label: FORMATS[name].label,
       name,
+      newest: () => newestAssistant(name),
       read: readAssistant(name),
       searchDays: Number.POSITIVE_INFINITY,
       silentAfter: Number.POSITIVE_INFINITY,
