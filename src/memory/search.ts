@@ -44,7 +44,7 @@ import {
   writtenPeople,
 } from "./ledger";
 import { embedSoon, fuse, hashOf, nearest, queryVector } from "./meaning";
-import { who as named, SURE_AT } from "./observe";
+import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page";
 import { asData, byWords, chatHits, focus, queryWords } from "./raw";
 import { actionLine } from "./report";
@@ -61,6 +61,7 @@ import {
 } from "./units";
 import {
   meant,
+  who as named,
   namedLike,
   nearNames,
   observationsNow,

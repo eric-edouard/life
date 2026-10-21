@@ -107,7 +107,7 @@ const night = (facts: number) =>
       agreement: { agreement: 0.75, labeled: 40 },
       model: "codex/m/high",
       moments: 6,
-      people: [{ name: "Nell", relation: "the plumber" }],
+      people: [{ name: "Pim", relation: "the plumber" }],
       read: 2,
       units: 9,
     },

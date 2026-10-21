@@ -25,6 +25,11 @@ import { nameIndex, normalize, personRef } from "./units";
 
 export const UNKNOWN = "unknown:";
 
+const WHO = /^(person|unknown):/;
+/** A speaker as a reader sees it: the readable name when there is one, else the id without its `person:` prefix. */
+export const who = (x: { speaker: string; speakerName?: string }) =>
+  x.speakerName ?? x.speaker.replace(WHO, "");
+
 /** Follows the owner's `same-person` corrections: a person ref folded into another becomes that one. */
 export function merged(corrections: Correction[]) {
   const into = new Map<string, string>();
@@ -236,23 +241,29 @@ export async function readPeople() {
   ]);
   const canon = merged(corrections);
   const resolve = resolver(truth.people, inferred, corrections);
+  /** Who a moment's person ref is as of today. */
+  const refOf = (ref: string) =>
+    ref.startsWith(UNKNOWN)
+      ? (resolve(ref.slice(UNKNOWN.length)) ?? ref)
+      : canon(ref);
+  const names = new Map<string, string>([
+    ...[...truth.people, ...inferred].map(
+      (p) => [`person:${p.id}`, p.name] as const
+    ),
+    ...truth.projects.map((p) => [`project:${p.id}`, p.name] as const),
+    ...truth.areas.map((a) => [`area:${a.id}`, a.name] as const),
+  ]);
   return {
     canon,
     corrections,
     inferred,
+    /** A moment's person ref as a reader sees it: the readable name of who it is today, else the bare id. */
+    nameOf: (ref: string) =>
+      names.get(refOf(ref)) ?? who({ speaker: refOf(ref) }),
     /** A readable name for each person (inferred ones too), project and area ref. */
-    names: new Map<string, string>([
-      ...[...truth.people, ...inferred].map(
-        (p) => [`person:${p.id}`, p.name] as const
-      ),
-      ...truth.projects.map((p) => [`project:${p.id}`, p.name] as const),
-      ...truth.areas.map((a) => [`area:${a.id}`, a.name] as const),
-    ]),
+    names,
     /** Who a moment's person ref is as of today: a name since resolved, a person since folded into another. */
-    refOf: (ref: string) =>
-      ref.startsWith(UNKNOWN)
-        ? (resolve(ref.slice(UNKNOWN.length)) ?? ref)
-        : canon(ref),
+    refOf,
     resolve,
     truth,
   };
