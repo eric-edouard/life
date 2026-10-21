@@ -365,9 +365,7 @@ export async function chatHits(
     : undefined;
   return [
     ...unread(failed),
-    ...(cut > 0
-      ? [`(${cut} older matches not shown: narrow with \`from\`/\`to\`)`]
-      : []),
+    ...(cut > 0 ? [older(cut)] : []),
     ...(found.length > 0
       ? chatLinesOf(found, await readPeople(), units)
       : ["(nothing found)"]),
@@ -396,11 +394,7 @@ export async function mailHits(
   const ids = new Set(units.map((u) => u.id));
   return [
     ...unread(failed),
-    ...(mail.length > MAIL_HITS
-      ? [
-          `(${mail.length - MAIL_HITS} older matches not shown: narrow with \`from\`/\`to\`)`,
-        ]
-      : []),
+    ...(mail.length > MAIL_HITS ? [older(mail.length - MAIL_HITS)] : []),
     ...mail.slice(0, MAIL_HITS).map((e) => {
       const unit = dayUnitId(e);
       // The text is the subject, then the body: a mail with no subject is its body alone.
@@ -472,6 +466,10 @@ export async function chatsOf(
     ...chatLinesOf(page, people),
   ]);
 }
+
+/** How many older matches a section left out, and how to read them. */
+const older = (n: number) =>
+  `(${n} older matches not shown: narrow with \`from\`/\`to\`)`;
 
 /** The sources that could not be read, said in one line; nothing when none. */
 const unread = (names: string[]) =>

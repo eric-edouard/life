@@ -225,9 +225,9 @@ test("search's chats: all words, no accents or case, across the three apps, one 
   ]);
 });
 
-test("search's mail: a line per thread-day, the newest 5 holding the most of the words, no newsletter nor Life's own mail, his agents' reports kept", async () => {
+test("search's mail: a line per thread-day, the newest 5 holding all the words, no newsletter nor Life's own mail, his agents' reports kept", async () => {
   const mail = (i: number, text: string, more: Partial<SourceEvent> = {}) => ({
-    at: new Date(Date.now() - (30 - i) * 60_000).toISOString(),
+    at: `2026-10-14T10:${10 + i}:00.000Z`,
     chat: `mail:${i}`,
     chatName: `Subject ${i}`,
     fromMe: false,
@@ -249,24 +249,42 @@ test("search's mail: a line per thread-day, the newest 5 holding the most of the
     mail(6, "vitre again", { chat: "mail:1", chatName: "Subject 1" }),
     mail(7, "vitre 7"),
     mail(8, "vitre 8"),
+    // A newsletter he answered is no newsletter.
+    mail(9, "vitre promo", { bulk: true }),
+    mail(10, "thanks, vitre ok", {
+      chat: "mail:9",
+      chatName: "Subject 9",
+      fromMe: true,
+      sender: "me@example.com",
+    }),
   ];
   const hits = (query: string) =>
     mailHits(
       query,
-      {},
+      { from: "2026-10-14T00:00:00.000Z", to: "2026-10-15T00:00:00.000Z" },
       { mail: (since) => events.filter((e) => e.at >= since.toISOString()) }
     );
   const found = await hits("vitre");
-  expect(found[0]).toBe("(1 older matches not shown: narrow with `from`/`to`)");
-  expect(found).toHaveLength(6);
+  expect(found[0]).toBe("(2 older matches not shown: narrow with `from`/`to`)");
+  const ends = [
+    ' me: "Subject 9" thanks, vitre ok',
+    '"Subject 8" vitre 8',
+    '"Subject 7" vitre 7',
+    '"Subject 1" vitre again',
+    '"(no subject)" vitre first / second',
+  ];
+  expect(found.slice(1).map((l, i) => l.endsWith(ends[i] ?? "?"))).toEqual(
+    ends.map(() => true)
+  );
   expect(found[1]).toStartWith("- (no unit) ");
-  expect(found[1]).toEndWith('ann@example.com: "Subject 8" vitre 8');
-  expect(found[3]).toEndWith('"Subject 1" vitre again');
-  expect(found[4]).toEndWith('"(no subject)" vitre first / second');
-  expect(found[5]).toContain('"Agent report" vitre 3');
   expect(found.join("\n")).not.toContain("sale");
   expect(found.join("\n")).not.toContain("nightly");
-  // The one holding both words alone, though the oldest.
+  // His agent's report, from Life's own address, is kept; Life's nightly is not.
+  expect(await hits("vitre 3")).toEqual([
+    expect.stringContaining('"Agent report" vitre 3'),
+  ]);
+  expect(await hits("vitre 2")).toEqual(["(nothing found)"]);
+  // Every word must be there.
   expect(await hits("vitre glazier")).toEqual([
     expect.stringContaining('"Subject 0" the glazier and the vitre'),
   ]);
