@@ -60,7 +60,7 @@ const ask = (id: string) =>
     target: "atlas",
   });
 
-test("the replay cursor is the ledger line after each ask, carrying data only; other actions are passed over", () => {
+test("the replay cursor is the ledger line after each ask, carrying data only (its turn ref, not the positions the ledger keeps); other actions are passed over", () => {
   const lines = [
     line({}),
     ask("act_00000000000a"),
@@ -73,11 +73,9 @@ test("the replay cursor is the ledger line after each ask, carrying data only; o
     data: {
       at: "2026-10-15T09:59:00.000Z",
       confidence: "low",
-      conversation: "c1",
       id: "act_00000000000a",
       quote: "write that down in the to-dos",
       ref: "job-1:3@2026-10-15T09:59:00.000Z",
-      turns: [3, 4],
     },
     eventId: "act_00000000000a",
     name: "ask",

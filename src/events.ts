@@ -32,12 +32,12 @@ const AskData = z.object({
     .describe(
       "low: nobody was named as the speaker, or his own wake misheard as a name; confirm with him first"
     ),
-  conversation: z.string().optional().describe("The recording, for `fetch`"),
   id: z.string().describe("The task's id: its ask in Life's actions ledger"),
   quote: z.string().describe("His words, from the wake turn on"),
-  ref: z.string().describe("Where the words are: a turn or session:<at>"),
+  ref: z
+    .string()
+    .describe("Where the words are: a turn (`fetch` it) or session:<at>"),
   title: z.string().optional().describe("The part of his words it is"),
-  turns: z.array(z.int()).optional().describe("Their turn numbers"),
 });
 
 export const ASK_EVENT = {
@@ -240,10 +240,8 @@ export function nextEvent(lines: string[], from: number) {
       const data: z.infer<typeof AskData> = {
         ...a.instruction,
         confidence: a.after.confidence === "low" ? "low" : "high",
-        conversation: a.after.conversation as string | undefined,
         id: a.id,
         title: a.after.title as string | undefined,
-        turns: a.after.turns as number[] | undefined,
       };
       return {
         action: a,

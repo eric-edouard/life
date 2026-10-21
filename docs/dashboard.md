@@ -84,13 +84,13 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `correction.<kind>` | owner correction | `reflected` |
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
 | `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
-| `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech |
-| `action.update` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task) | `record.after` (`docs/SCHEMA.md`) |
+| `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
+| `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
 | `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
 Filters: `types` (types or prefixes: `observation`, `correction`, `action.failed`…), `about` (`person:<id>`,
-`area:<id>`, `project:<id>`), `run`, `since` (recorded at or after). A filter narrows the items, never the cursor's
+`area:<id>`, `project:<id>`, `task:<id>`: one task's ask, updates and replies), `run`, `since` (recorded at or after). A filter narrows the items, never the cursor's
 reach: every match is still returned, page by page.
 
 - **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its
@@ -132,7 +132,7 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 - No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
   `run.error` when one starts, `run.end` when it ends), not in `status`.
 - `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page (none when extraction retired it);
-  a correction's page or people. Not the entities of the observations a correction or supersession names.
+  a correction's page or people; an ask's and its task lines' `task:<id>`. Not the entities of the observations a correction or supersession names.
 - Page changes appear once committed (the nightly commits them); an uncommitted hand run of `pages` does not show.
 - Units are not in the feed (they are rewritten, not appended): read them with `day`, `search`, `fetch`.
 
