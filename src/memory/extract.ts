@@ -47,7 +47,7 @@ import {
   UNKNOWN,
   within,
 } from "./units";
-import { observationsNow, readPeople, who } from "./who";
+import { observationsNow, readPeople, unitNow, who } from "./who";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (salience >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
@@ -372,7 +372,7 @@ export async function extract(evidence: Evidence) {
     )
     .map((b) => ({
       ...b,
-      unit: { ...b.unit, people: b.unit.people.map(refOf) },
+      unit: unitNow(b.unit, refOf),
     }));
   const [written, { observations: known, standing }] = await Promise.all([
     readMoments(),

@@ -27,6 +27,7 @@ const SHORT_CHARS = 12;
 const OTP_MAX = 200;
 export const PERSON = /^person:/;
 export const UNKNOWN = "unknown:";
+const AGENT = "agent:";
 const MARKS = /\p{M}/gu;
 const NON_ALNUM = /[^a-z0-9]+/g;
 const OTP =
@@ -294,9 +295,27 @@ export const unitTitle = (first: SourceEvent) =>
   (kindOf(first.source) === "mail" ? "(no subject)" : first.chat);
 
 /**
+ * Who wrote a message, as the memory steps read it: him, an agent (its own line, never a person), else whom `resolve`
+ * names now, else `unknown:<sender>`.
+ */
+export function speakerOf(
+  kind: Descriptor["kind"],
+  m: { fromMe: boolean; sender: string },
+  resolve: Resolve
+) {
+  if (m.fromMe) {
+    return OWNER;
+  }
+  if (kind === "agent") {
+    return `${AGENT}${m.sender}`;
+  }
+  return resolve(m.sender) ?? `${UNKNOWN}${m.sender}`;
+}
+
+/**
  * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
- * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`refOf`). Its text, read once by the
- * moments step, names them as `resolve` does now.
+ * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`unitNow`). Its text, read once by the
+ * moments step, names them as `speakerOf` does now.
  */
 function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const sorted = list.sort((a, b) => a.at.localeCompare(b.at));
@@ -305,9 +324,8 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const kind = kindOf(first.source);
   const written = kind === "chat" || kind === "mail";
   const lines = sorted.map((e) => {
-    const named = written ? resolve(e.sender) : null;
-    const who = e.fromMe ? OWNER : named;
-    return `${time(e.at)} ${who?.replace(PERSON, "") ?? e.sender}: ${redact(e.text)}`;
+    const who = speakerOf(kind, e, resolve);
+    return `${time(e.at)} ${who.startsWith(UNKNOWN) ? e.sender : who.replace(PERSON, "")}: ${redact(e.text)}`;
   });
   const title = unitTitle(first);
   const ids = sorted.map((e) => e.id);
@@ -617,7 +635,7 @@ export function lastDays(now: Date, days: number): Window {
 
 /**
  * The evidence of a window of local days: every source (lifelog,
- * chats, mail, notes, his commits), cut into units with the code rules applied, senders resolved by `resolve`, in time order across channels; also
+ * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
  * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its

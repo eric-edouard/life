@@ -51,7 +51,7 @@ import {
 } from "./page";
 import { begin, inBatches, refContext, type Step } from "./run";
 import { daysBefore, slugOf, within } from "./units";
-import { observationsNow, readPeople, type Shown, who } from "./who";
+import { observationsNow, readPeople, type Shown, unitNow, who } from "./who";
 
 // `bun life memory pages`: stage 3 of the memory cascade (memory-pipeline §3.5). One page per person who has enough to
 // say and per area. Each observation has one home page (`homeOf`). A page is rebuilt from its previous version: lines
@@ -442,7 +442,7 @@ export async function removeOrphans(dir: string, keep: Set<string>) {
 
 /**
  * For each person ref: the unit ids to count topics over (the units of their observations, the units they are in, as
- * of today: `refOf`).
+ * of today: `unitNow`).
  */
 function oftenBy(
   units: Unit[],
@@ -453,7 +453,7 @@ function oftenBy(
   const since = daysBefore(day, OFTEN_DAYS);
   const recent = units
     .filter((u) => !u.drop && u.date >= since && u.date <= day)
-    .map((u) => ({ ...u, people: u.people.map(refOf) }));
+    .map((u) => unitNow(u, refOf));
   return (t: Target) => {
     // His page would count every unit: he is in all of them.
     if (!t.ref.startsWith("person:") || t.ref === OWNER) {

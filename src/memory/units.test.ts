@@ -26,11 +26,12 @@ import {
   normalizeTopics,
   oneToOne,
   repoUnits,
+  speakerOf,
   syncLifelogUnits,
   unitId,
   writeUnits,
 } from "./units";
-import { resolver } from "./who";
+import { resolver, unitNow } from "./who";
 import { cutAt, dayStart, firstZoneDay, zoneAt } from "./zones";
 
 const people = [
@@ -593,4 +594,45 @@ test("a conversation from 23:40 to 00:30 at the window start is read whole: its 
     ["2026-10-14", "2026-10-14T21:40:00.000Z"],
     ["2026-10-15", "2026-10-14T22:10:00.000Z"],
   ]);
+});
+
+test("who wrote a message, for every kind: him, an agent's own line, whom the resolver names, else unknown", () => {
+  const named = (s: string) => (s === "+33600000002" ? "person:dad" : null);
+  const of = (
+    kind: Parameters<typeof speakerOf>[0],
+    sender: string,
+    fromMe = false
+  ) => speakerOf(kind, { fromMe, sender }, named);
+  expect([
+    of("chat", "me", true),
+    of("chat", "+33600000002"),
+    of("mail", "a@b.c"),
+    of("agent", "atlas"),
+    of("agent", "+33600000002"),
+  ]).toEqual([
+    "person:me",
+    "person:dad",
+    "unknown:a@b.c",
+    "agent:atlas",
+    "agent:+33600000002",
+  ]);
+});
+
+test("a reader sees a unit's stored senders as whom they resolve to today, a mail's unknown senders left out", () => {
+  const resolve = resolver(people);
+  const refOf = (r: string) =>
+    r.startsWith("unknown:") ? (resolve(r.slice(8)) ?? r) : r;
+  const [chat] = messageUnits(
+    [msg({}), msg({ id: "b:2", sender: "+66600000009" })],
+    () => null
+  );
+  const [mail] = messageUnits(
+    [msg({ sender: "news@shop.example", source: "mail" })],
+    () => null
+  );
+  expect(chat && unitNow(chat.unit, refOf).people).toEqual([
+    "person:dad",
+    "unknown:+66600000009",
+  ]);
+  expect(mail && unitNow(mail.unit, refOf).people).toEqual([]);
 });

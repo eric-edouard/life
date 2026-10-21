@@ -33,6 +33,7 @@ import {
   SEARCHED,
   SEARCHED_MAIL,
   searchableMail,
+  speakerOf,
   time,
   UNKNOWN,
   unitTitle,
@@ -92,28 +93,19 @@ export async function transcripts(turns: ChapterTurn[]) {
 }
 
 /** The lines of a chat-day or mail thread-day, each cited to its message id. */
-export function chatLines(
-  b: Built,
-  resolve: (surface: string) => string | null
-): Line[] {
+export function chatLines(b: Built, resolve: Resolve): Line[] {
   const name = oneToOne(b);
-  // An agent's report is its own line, never resolved to a person, now or when read (`aboutNow`).
-  if (kindOf(b.unit.source) === "agent") {
-    return b.messages.map((m) => ({
-      at: m.at,
-      ref: m.id,
-      speaker: `agent:${m.sender}`,
-      text: redact(m.text),
-    }));
-  }
+  const kind = kindOf(b.unit.source);
   return b.messages.map((m) => {
-    const speaker = m.fromMe ? OWNER : resolve(m.sender);
+    const speaker = speakerOf(kind, m, resolve);
+    // An agent's line keeps no handle, so it is never resolved to a person when read (`aboutNow`).
+    const from = m.fromMe || kind === "agent" ? {} : { from: m.sender };
     return {
       at: m.at,
-      ...(m.fromMe ? {} : { from: m.sender }),
+      ...from,
       ref: m.id,
-      speaker: speaker ?? `${UNKNOWN}${m.sender}`,
-      ...(!speaker && name ? { speakerName: name } : {}),
+      speaker,
+      ...(speaker.startsWith(UNKNOWN) && name ? { speakerName: name } : {}),
       text: redact(m.text),
     };
   });
