@@ -261,7 +261,7 @@ line he deletes is recorded as `not-important` for its observations on that page
 ## actions.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `src/actions.ts`), what he changed in
-Reminders by hand (read back by the watcher, `src/sync.ts`), and Atlas's tasks (`src/tasks.ts`: his asks and their lines):
+Reminders by hand (read back by the watcher, `src/reminders/inbound.ts`), and Atlas's tasks (`src/tasks.ts`: his asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
 - `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its

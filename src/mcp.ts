@@ -30,9 +30,9 @@ import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
+import { openOf, openReminders, sectionsOf } from "./reminders/remctl";
 import { type Action, ObservationId } from "./schema";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
-import { openOf, openReminders, sectionsOf } from "./sync";
 import {
   closed,
   Reply,
