@@ -129,7 +129,8 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
             (5, 13, 1, null, 1, ${t - 864_000}, 1, 0, 9, 0, null),
             (1006, 14, 1, null, 2, ${t + 180}, 1, 0, 10, 0, null),
             (1007, 15, 1, null, 2, ${t + 240}, 1, 0, 11, 0, null),
-            (1008, 16, 2, null, 1, ${t + 300}, 5, 0, 12, 0, null)`);
+            (1008, 16, 2, null, 1, ${t + 300}, 5, 0, 12, 0, null),
+            (1009, 16, 2, null, 1, ${t + 300}, 4, 0, 12, 0, null)`);
   db.run("insert into labels values (1003, 2)");
   db.close();
   const dir = join(root, acct, "INBOX.mbox", "STORE", "Data", "1", "Messages");
