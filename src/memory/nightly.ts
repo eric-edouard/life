@@ -4,8 +4,8 @@ import { clock } from "../clock";
 import { readHealth } from "../health";
 import { quota } from "../llm";
 import { log, recentEvents } from "../log";
-import { type Action, isTaskLine } from "../schema";
-import { checks } from "../sync";
+import { checks } from "../reminders/remctl";
+import { type Action, isListed } from "../schema";
 import { taskList, titleOf, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
@@ -90,7 +90,7 @@ async function acted(now: Date, rec: RunRecord) {
   // A task's own lines (Atlas's updates) are its rows, not actions.
   return {
     actions: actions.filter(
-      (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
+      (a) => isListed(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
     ),
     problems,
     tasks: [

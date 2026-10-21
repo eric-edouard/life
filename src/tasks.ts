@@ -9,8 +9,8 @@ import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
 import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
+import type { Receipt } from "./reminders/board";
 import { Action, type Instruction } from "./schema";
-import type { Receipt } from "./sync";
 import { ROOT, TEST } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
@@ -101,17 +101,18 @@ const taskLine = (
   task: string,
   after: Action["after"],
   now: number,
-  salt = ""
+  salt = "",
+  // Atlas, through the connector; or his own tick or removal of the receipt (`closings`).
+  by: Pick<Action, "madeBy" | "why"> = { madeBy: "connector", why: "Atlas" }
 ): Action => ({
   after,
   at: iso(now),
   id: actionId(`${task}@${iso(now)}`, kind, salt),
   kind,
-  madeBy: "connector",
+  ...by,
   result: "ok",
   schemaVersion: 1,
   target: task,
-  why: "Atlas",
 });
 
 export interface Task {
@@ -172,7 +173,11 @@ export async function timings(
           ["arrived", a.timing?.arrived ?? null],
           ["recorded", a.at],
           ["delivered", sent.get(a.id) ?? null],
-          ["claimed", updates[0]?.at ?? null],
+          // Atlas's first update; one Life wrote from his tick in Reminders is no claim.
+          [
+            "claimed",
+            updates.find((u) => u.madeBy !== "reminders")?.at ?? null,
+          ],
           [
             "closed",
             updates.find((u) => closed(u.after.state as State))?.at ?? null,
@@ -516,6 +521,24 @@ export function wantOf(t: Task): Receipt {
   };
 }
 
-/** The board's receipts (`push`, src/sync.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
+/** The board's receipts (`push`, src/reminders/board.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
 export const receipts = (tasks: Task[], now: number) =>
   tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
+
+/** His tick or removal of an open task's receipt (`marks`, src/reminders/board.ts) closes it, done or dropped (decision 17): it only takes work away. */
+export const closings = (
+  tasks: Task[],
+  marks: Map<string, "removed" | "ticked">,
+  at: string
+): Action[] =>
+  tasks.flatMap((t) => {
+    const mark = marks.get(t.ask.id);
+    const after =
+      mark === "ticked"
+        ? { outcome: "he ticked its receipt in Reminders", state: "done" }
+        : { reason: "he removed its receipt in Reminders", state: "dropped" };
+    const by = { madeBy: "reminders", why: "his change in Reminders" } as const;
+    return mark && !closed(standing(t).state)
+      ? [taskLine("update", t.ask.id, after, Date.parse(at), "reminders", by)]
+      : [];
+  });
