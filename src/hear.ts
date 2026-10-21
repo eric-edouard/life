@@ -19,9 +19,12 @@ import { TEST } from "./truth";
  * by, so that one wakes only on his own turn, as `low` (Atlas confirms with him first).
  */
 const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
-/** "hey" then Atlas or its misheard word, whatever the case and the punctuation around or between them. */
+/**
+ * "hey" then Atlas or its misheard word, whatever the case and the punctuation around or between them. "hey" as
+ * lifelog may write it: "Hej" (21 Oct, audit 4), and its other spellings of the greeting, never a word of its own.
+ */
 export const WAKE = new RegExp(
-  String.raw`\bhey\W+(atlas${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
+  String.raw`\b(?:hey|hej|hei|hay|hé|ey)\W+(atlas${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
   "i"
 );
 /** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
