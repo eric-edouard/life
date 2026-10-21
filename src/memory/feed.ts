@@ -11,9 +11,8 @@ import {
   ObservationId,
   Rating,
   Supersession,
-  type Unit,
 } from "../schema";
-import { DATA } from "../truth";
+import { DATA, OWNER } from "../truth";
 import {
   ACTIONS,
   CORRECTIONS,
@@ -37,10 +36,9 @@ import {
   stateOf,
 } from "./ledger";
 import { type Key, PageMeta, parsePage, readLine } from "./page";
-import { unitLines } from "./raw";
 import { readIndex } from "./search";
 import { CHATS } from "./units";
-import { aboutNow, type People, readPeople, UNKNOWN } from "./who";
+import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,
 // correction, inferred identity, action and page change, by cursor) and `claim` (one observation with its evidence).
@@ -478,32 +476,6 @@ export async function changeFeed(f: ChangeFilter = {}) {
 // --- one claim with its evidence -----------------------------------------------------------------------------------
 
 /**
- * Who wrote an observation's cited line: its `handle` and who that is `now`, read the way `fetch` and extraction read
- * it (`unitLines`: today's map and corrections), so a mapping corrected since shows here; else the speaker as filed.
- */
-async function speakerOf(
-  o: Observation,
-  unit: Unit | undefined,
-  people: People
-) {
-  const read = unit && (await unitLines(unit, people));
-  const i = read?.built.messages.findIndex((x) => x.id === o.source.ref) ?? -1;
-  const m = read?.built.messages[i];
-  if (read && m) {
-    return {
-      handle: m.fromMe ? "me" : m.sender,
-      now: read.lines[i]?.speaker ?? null,
-    };
-  }
-  const surface = o.speaker.startsWith(UNKNOWN)
-    ? o.speaker.slice(UNKNOWN.length)
-    : null;
-  return surface
-    ? { handle: surface, now: people.resolve(surface) }
-    : { handle: null, now: people.canon(o.speaker) };
-}
-
-/**
  * One observation with everything that says how far to trust it: the claim and its lifecycle, the source (channel,
  * ref, time, speaker, quote), the unit to read it in (`fetch`, `chats`), who it is about as filed and as resolved now
  * (inferred people marked, with their confidence), the owner's corrections, supersessions, the pages that cite it and
@@ -532,23 +504,23 @@ export async function claim(id: string) {
   const o = (versions.find((v) => isCurrent(ctx, v.o)) ?? versions.at(-1))
     ?.o as Observation;
   const people = await readPeople();
+  const unit = (await readUnits()).find((u) => u.id === o.unit);
+  const chats = chatHandles(unit ? [unit] : []);
   const now = aboutNow(
     [o],
     await readUnresolved(),
     people.truth.people,
     people.inferred,
-    people.corrections
+    people.corrections,
+    chats
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));
-  const unit = (await readUnits()).find((u) => u.id === o.unit);
-  const who = await speakerOf(o, unit, people);
+  const handle = o.speaker === OWNER ? "me" : (authorFrom(o, chats) ?? null);
   const chat = unit && unit.source in CHATS;
   return {
     corrections: [
       ...hiding(ctx.corrections, id),
-      ...ctx.corrections.filter(
-        (c) => "surface" in c && c.surface === who.handle
-      ),
+      ...ctx.corrections.filter((c) => "surface" in c && c.surface === handle),
     ],
     entities: now.entities.map((ref) => {
       const guess = inferred.get(ref);
@@ -579,9 +551,10 @@ export async function claim(id: string) {
       (s) => s.by === id && s.observation !== id
     ),
     speaker: {
-      ...who,
       filed: o.speaker,
-      name: o.speakerName ?? people.names.get(o.speaker) ?? null,
+      handle,
+      name: now.speakerName ?? people.names.get(now.speaker) ?? null,
+      now: now.speaker,
     },
     status: stateOf(o, ctx),
     unit: unit

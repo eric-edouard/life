@@ -443,6 +443,11 @@ export const Observation = z
       .strict(),
     /** Who said or wrote the cited line: person:<slug>, or unknown:<label>. */
     speaker: z.string(),
+    /**
+     * The handle or name the cited line's author came from (a chat sender; for a voice, lifelog's id, else its name), from
+     * 21 Oct 2026: readers resolve it again (`aboutNow`), so a later identity fix needs no new reading.
+     */
+    speakerFrom: z.string().optional(),
     /** A readable name for an unknown speaker (the 1:1 chat's title), next to the raw id in `speaker`. */
     speakerName: z.string().optional(),
     text: z.string().min(1).max(500),
@@ -462,7 +467,7 @@ export const Extracted = z
   .object({
     at: isoDateTime,
     observations: z.int().min(0),
-    /** The unit's people as the model read them, sorted: when `truth/` makes them someone else, it is read again. */
+    /** Written 21 Oct 2026 only (the unit's people then); ignored since: who someone is is resolved when read. */
     people: z.array(z.string()).optional(),
     prompt: z.string(),
     run: z.string(),
