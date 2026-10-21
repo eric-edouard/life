@@ -41,7 +41,8 @@ the same process in its own repo.
 
 - Write the owner's `derived/settings.json` from his `.env` and the values that were constants: `connector` (origin,
   issuer, client, owner), `lifelog.url`, `mail`, `lifeChat`, `misheard`, `past`, `reports`, `repos: "~/Work"`,
-  `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), and keep `engine`.
+  `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), `sources` (every source he
+  reads today: lifelog, imessage, whatsapp, beeper, mail, notes, claude, chatgpt, atlas, git), and keep `engine`.
 - Remove the moved keys from `.env` (`LIFE_OWNER_SUB`, `LIFE_MAIL_TO`, `LIFE_CHAT`, `LIFE_MISHEARD`, `LIFE_PAST_*`,
   `LIFELOG_URL`) and the parked `TELEGRAM_*` and `INSTINCT_KEY`.
 - Add the status Worker's new secret, `ISSUER` (`wrangler secret put ISSUER`, the connector's issuer), then redeploy it.

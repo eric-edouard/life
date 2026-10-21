@@ -187,7 +187,7 @@ export const stands = (a: Action) =>
   a.result === "ok" || a.result === "duplicate";
 
 /** Where a unit or an observation comes from. */
-const SourceName = z.enum([
+export const SourceName = z.enum([
   "lifelog",
   "beeper",
   "whatsapp",
