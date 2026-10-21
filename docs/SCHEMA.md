@@ -266,8 +266,10 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
 - `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
   parent's id instead of `ref`): the same words act or ask once; a failed try may rerun.
 - `instruction`: his words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
-  act` or `ask`) or `connector:<at>` (a chat; for a task Atlas made, the instant he sent the message). `at`: when he said it.
-- `kind`: `add`, `edit`, `done`, `remove`, `ask`. A task's own lines,
+  act` or `ask`) or `connector:<at>` (a chat; for a task Atlas made, the instant he sent the message) or an observation's id (an add of the
+  standing grant: his quote and when he said it). `at`: when he said it.
+- `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
+  his words in `instruction`; the latest one stands). A task's own lines,
   with no `instruction` and the task's (its ask's) id as `target`: `update` (Atlas, the connector's `task`: `after` is
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
   `reason`, `steps` [{title, done}], `claim`), `reply` (what Atlas told him, the connector's `reply`: `after.text`,
