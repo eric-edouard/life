@@ -103,6 +103,7 @@ const night = (facts: number) =>
       read: 2,
     },
     from: "2026-10-12",
+    marked: [],
     moments: {
       agreement: { agreement: 0.75, labeled: 40 },
       model: "codex/m/high",
@@ -121,6 +122,10 @@ const night = (facts: number) =>
     quota: "Codex quota: 40% used, resets 2026-10-27 08:16",
     repos: { suggestions: [] },
     retired: 1,
+    spent: [
+      "Codex use, midday of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
+      "Codex use, this night: +3% of the quota, 2.1M tokens (1.4M cached)",
+    ],
     watcher: { lastOkAt: new Date().toISOString() },
   }) as unknown as Night;
 
@@ -145,6 +150,9 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("Shop: +2 added, 1 moved to History, 0 removed");
   expect(text).toContain("75%");
   expect(text).toContain("Codex quota: 40% used");
+  expect(text).toContain(
+    "Codex use, this night: +3% of the quota, 2.1M tokens (1.4M cached)"
+  );
   expect(text).toContain("Last backup: 2026-10-15 05:00, 5.5 GB");
   expect(text).toContain("Archive: no failure");
   expect(html).not.toMatch(MORE);
@@ -316,4 +324,19 @@ test("a send goes out once per id: a second one with the same id never reaches R
     post.mockRestore();
     process.env = env;
   }
+});
+
+test('each "hey Life" is listed with what the memory holds of it', () => {
+  const n = {
+    ...night(0),
+    marked: [
+      {
+        name: "2026-10-15 20:36",
+        relation: "“hey Life, I committed” → nothing held",
+      },
+    ],
+  } as Night;
+  const { text } = successReport("2026-10-15", 1000, n);
+  expect(text).toContain("Hey Life (1)");
+  expect(text).toContain("nothing held");
 });

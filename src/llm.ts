@@ -9,7 +9,7 @@ import { z } from "zod";
 import { log } from "./log";
 import { exec, firstLine } from "./proc";
 import { Engine, Runner } from "./schema";
-import { DATA, isHis, ROOT } from "./truth";
+import { DATA, isHis, ROOT, TEST } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -45,7 +45,10 @@ export interface Llm {
   model: string;
 }
 
-const SETTINGS = join(ROOT, "derived", "settings.json");
+// A test run reads its own (none: claude), never his engine: no test reaches Codex.
+const SETTINGS = TEST
+  ? join(DATA, "settings.json")
+  : join(ROOT, "derived", "settings.json");
 const Settings = z.object({ engine: Engine.default("claude") });
 const CLAUDE_MODELS: Record<Tier, string> = {
   deep: "opus",
@@ -146,6 +149,53 @@ const ClaudeResult = z.object({
   result: z.string().default(""),
   total_cost_usd: z.number().optional(),
   usage: z.record(z.string(), z.unknown()).optional(),
+});
+
+/** The tokens of a call (on its `model.run` line), or of a run's calls: input (cached included), cached input, output. */
+export interface Tokens {
+  cached: number;
+  input: number;
+  output: number;
+}
+export const NONE: Tokens = { cached: 0, input: 0, output: 0 };
+export const add = (a: Tokens, b: Tokens): Tokens => ({
+  cached: a.cached + b.cached,
+  input: a.input + b.input,
+  output: a.output + b.output,
+});
+const num = (v: unknown) => (typeof v === "number" ? v : 0);
+
+/** codex's `--json` events: the tokens of each `turn.completed`, summed. */
+export function codexTokens(jsonl: string): Tokens {
+  return jsonl
+    .split("\n")
+    .flatMap((l) => {
+      try {
+        const e = JSON.parse(l);
+        return e?.type === "turn.completed" ? [e.usage ?? {}] : [];
+      } catch {
+        return [];
+      }
+    })
+    .reduce(
+      (t, u) =>
+        add(t, {
+          cached: num(u.cached_input_tokens),
+          input: num(u.input_tokens),
+          output: num(u.output_tokens),
+        }),
+      NONE
+    );
+}
+
+/** claude's usage: input counts cache reads and writes too, as codex's does. */
+export const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
+  cached: num(u.cache_read_input_tokens),
+  input:
+    num(u.input_tokens) +
+    num(u.cache_read_input_tokens) +
+    num(u.cache_creation_input_tokens),
+  output: num(u.output_tokens),
 });
 
 // A TOML basic string for `-c key=value`; JSON's escapes are TOML's, bar a raw DEL.
@@ -295,6 +345,7 @@ async function askClaude({ dir, images, input, llm, system, tools }: Call) {
   );
   const fields = {
     costUsd: res.total_cost_usd,
+    tokens: claudeTokens(res.usage),
     turns: res.num_turns,
     usage: res.usage,
   };
@@ -316,7 +367,7 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
     );
   }
   const reply = join(dir, "codex.txt");
-  await cli(
+  const events = await cli(
     "codex",
     (cwd) => [
       // The pinned binary, read-only, and none of the extras (CODEX_OFF). With the bench's connector, its MCP calls are
@@ -348,12 +399,15 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
         "--disable",
         f,
       ]),
-      ...["-o", reply],
+      ...["--json", "-o", reply],
       ...images.map((i) => `--image=${i}`),
     ],
     { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
   );
-  return { text: await Bun.file(reply).text() };
+  return {
+    fields: { tokens: codexTokens(events) },
+    text: await Bun.file(reply).text(),
+  };
 }
 
 /** How full his Codex plan is: its fuller window (on his plan, the week) and when that window resets. */

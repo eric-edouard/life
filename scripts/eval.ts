@@ -15,10 +15,9 @@ import {
   OUT,
   ratedFacts,
   readUnits,
-  runId,
   SCORES,
 } from "../src/memory/ledger";
-import { chunks, inBatches } from "../src/memory/run";
+import { chunks, ended, inBatches, metered } from "../src/memory/run";
 import { type Claim, claimsNow } from "../src/memory/statements";
 import { type Grade, judge, tally } from "../src/memory/tally";
 import { Score } from "../src/schema";
@@ -41,8 +40,6 @@ const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
     keep(c) ? [{ date: c.date, id: c.claim, text: c.text }] : []
   );
 
-const run = runId(clock());
-const DIR = join(OUT, "evals", run);
 /** Rated statements per judge call. */
 const PER_CALL = 30;
 
@@ -117,27 +114,34 @@ if (!mode) {
 if (!asJson) {
   await spareQuota();
 }
-const result =
-  mode === "--ratings"
-    ? await locked(ratedRun)
-    : await factsRun(mode, claimsFile);
-if (!result) {
-  throw new Error("a run holds the lock: score when it is done");
-}
-const { t } = result;
-const rows = result.facts.map((f) => {
-  const g = t.grades.get(f.id);
-  return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.claims.join(" ") ?? ""} | ${g?.why ?? ""} |`;
+// A metered run: what the judge's calls spent of his Codex plan is in its `use`.
+const rec = await metered("eval", { args });
+const { run } = rec;
+const DIR = join(OUT, "evals", run);
+await ended(rec, async () => {
+  const result =
+    mode === "--ratings"
+      ? await locked(ratedRun)
+      : await factsRun(mode, claimsFile);
+  if (!result) {
+    throw new Error("a run holds the lock: score when it is done");
+  }
+  const { t } = result;
+  const rows = result.facts.map((f) => {
+    const g = t.grades.get(f.id);
+    return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.claims.join(" ") ?? ""} | ${g?.why ?? ""} |`;
+  });
+  console.log(
+    asJson
+      ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("main")) })
+      : [
+          `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
+          ...result.note,
+          "",
+          "| fact | is | memory | result | claims | why |",
+          "|---|---|---|---|---|---|",
+          ...rows,
+        ].join("\n")
+  );
+  return t.counts;
 });
-console.log(
-  asJson
-    ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("main")) })
-    : [
-        `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
-        ...result.note,
-        "",
-        "| fact | is | memory | result | claims | why |",
-        "|---|---|---|---|---|---|",
-        ...rows,
-      ].join("\n")
-);
