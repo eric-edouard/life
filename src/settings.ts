@@ -16,13 +16,16 @@ export const Settings = z
     /**
      * His agent, the one "hey <name>" hands his words to (`hear.ts`, `tasks.ts`): its name (what Life calls it, and
      * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
-     * turn, as low confidence), and the user agent its connector calls start with. Without it nothing wakes an agent.
+     * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
+     * nothing wakes an agent.
      */
     agent: z
       .object({
         client: z.string().optional(),
         misheard: z.array(z.string()).default([]),
         name: z.string(),
+        /** How asks reach it: pushed as the MCP event `ask` (ChatGPT), or pulled by its own `tasks` calls (Claude). */
+        transport: z.enum(["mcp-event", "pull"]).default("mcp-event"),
         wake: z.array(z.string()).min(1),
       })
       .strict()
