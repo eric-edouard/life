@@ -120,37 +120,44 @@ export function aboutNow(
       [p.name, ...p.aliases],
     ]),
   ]);
-  return observations.map((o) => {
-    const spoke = o.speaker.startsWith(UNKNOWN)
-      ? resolve(o.speaker.slice(UNKNOWN.length))
-      : null;
+  // Who wrote each fact, then and now: from the handle or name they came from (`speakerFrom`; an unknown author's
+  // label; before `speakerFrom`, a 1:1 chat's handle), resolved today. The one place a fact's author is decided.
+  const authors = observations.map((o) => {
     const was = canon(o.speaker);
-    // Who the author is today: from the handle or name they came from (`speakerFrom`, or before it, a 1:1 chat's).
+    const unknown = was.startsWith(UNKNOWN);
+    const legacy = was === OWNER ? undefined : chatOf.get(o.unit);
     const from =
-      o.speakerFrom ??
-      (was === OWNER || spoke ? undefined : chatOf.get(o.unit));
-    const speaker = (from && resolve(from)) || was;
-    const moved = speaker !== was && !was.startsWith(UNKNOWN);
+      o.speakerFrom ?? (unknown ? was.slice(UNKNOWN.length) : legacy);
+    return { now: (from && resolve(from)) || was, unknown, was };
+  });
+  // A person an author was filed as and is someone else now is that one in every fact of the unit, whoever wrote it.
+  const moves = new Map<string, Map<string, string>>();
+  for (const [k, o] of observations.entries()) {
+    const a = authors[k];
+    if (a && !a.unknown && a.now !== a.was) {
+      moves.set(o.unit, (moves.get(o.unit) ?? new Map()).set(a.was, a.now));
+    }
+  }
+  return observations.map((o, k) => {
+    const a = authors[k] ?? { now: o.speaker, unknown: false, was: o.speaker };
+    const moved = moves.get(o.unit) ?? new Map<string, string>();
     return {
       ...o,
       entities: [
         ...new Set([
-          ...o.entities
-            .map(canon)
-            .map((e) => (moved && e === was ? speaker : e)),
+          ...o.entities.map(canon).map((e) => moved.get(e) ?? e),
           ...(named.get(o.id) ?? []).flatMap((n) => (n.ref ? [n.ref] : [])),
-          ...(spoke ? [spoke] : []),
+          ...(a.unknown && a.now !== a.was ? [a.now] : []),
         ]),
       ].sort(),
-      speaker,
-      // A fact written before the author was a token names them: swap the old name for who they are now.
-      text: moved
-        ? renamed(
-            o.text,
-            namesOf.get(was) ?? [],
-            namesOf.get(speaker)?.[0] ?? speaker
-          )
-        : o.text,
+      speaker: a.now,
+      // ponytail: a sentence written before tokens names people; a move swaps their names in it, for good (any later
+      // remap too). Tokenized sentences (extract v6) will make this a no-op for new facts.
+      text: [...moved].reduce(
+        (t, [was, now]) =>
+          renamed(t, namesOf.get(was) ?? [], namesOf.get(now)?.[0] ?? now),
+        o.text
+      ),
       unmapped: !!named.get(o.id)?.some((n) => !n.ref),
     };
   });
@@ -174,7 +181,8 @@ export function renamed(text: string, names: string[], name: string) {
     );
 }
 
-// A 1:1 chat's key: iMessage's handle (a number or an address), WhatsApp's `<number>@s.whatsapp.net`.
+// A 1:1 chat's key, as units.ts makes it: iMessage's handle (a number or an address), WhatsApp's `<number>@s.whatsapp.net`.
+// ponytail: WhatsApp's `@lid` 1:1 chats and Beeper have no handle in their key, so their older facts keep their author.
 const IMESSAGE_HANDLE = /^(\+\d+|[^@\s]+@[^@\s]+)$/;
 const WHATSAPP_ONE = /^(\d+)@s\.whatsapp\.net$/;
 

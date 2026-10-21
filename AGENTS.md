@@ -26,7 +26,8 @@ His input arrives in conversation only. The one exception he asked for (19 Oct):
 `bun life memory correct '<json>'` (kinds in `docs/SCHEMA.md`: wrong, not-important, keep-mine, this-is,
 not-this-person, same-person, closeness: how close someone is to him, personal or work; reread: units the model read wrong,
 read again when their day is next read, older than 7 days by `bun life memory backfill`; who wrote a fact is resolved
-when it is read, so a wrong author is fixed by `truth/` or a correction alone, with no reading),
+when it is read, so a wrong author, and that person in the rest of the unit, is fixed by `truth/` or a correction
+alone, with no reading),
 or, when it's about who someone is, offer to add it to `truth/` and do it on his yes.
 When he says which project a repo belongs to, or a project is added, put the repo in that project's `repos:` (he agreed to this map; `repos` shows
 Life's guesses and the new projects it suggests), then `bun life validate`.

@@ -112,6 +112,12 @@ export function chatLines(
   });
 }
 
+/** Where a voice's author came from: lifelog's id when it has one (the map may move it later), else its name; not the owner. */
+const fromOf = (t: ChapterTurn) => {
+  const from = t.owner ? null : (t.personId ?? t.name);
+  return from ? { from } : {};
+};
+
 /** The lines of recorded turns, each cited `jobId:turnIndex@capturedAt`; a turn with no words is left out, an unnamed one lifelog says is his is the owner's. */
 export function voiceLines(
   turns: ChapterTurn[],
@@ -129,7 +135,7 @@ export function voiceLines(
     return [
       {
         at: t.at,
-        ...(t.name && !t.owner ? { from: t.name } : {}),
+        ...fromOf(t),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
         speaker: t.name ? personRef(t.name, names) : unnamed,
         text: redact(turn.text),

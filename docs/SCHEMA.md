@@ -121,7 +121,7 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 | `source` | `{channel, ref}`: channel `lifelog`, `whatsapp`, `beeper`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: lifelog `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
 | `speaker` | Who said or wrote the cited line: `person:<slug>`, or `unknown:<label>` (a phone, an address, lifelog's `speaker_1`, or a name lifelog knows and the map doesn't). |
 | `speakerName` | Optional, from 11 Oct: a readable name for an `unknown:` chat sender, the title of the 1:1 chat they wrote in. |
-| `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, lifelog's name for a voice). Readers resolve the author again from it (`aboutNow`; before it, from a 1:1 chat's handle), refile the fact and, in a sentence written before, swap the old name: a later identity fix needs no new reading. |
+| `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, lifelog's name for a voice). Readers resolve the author again from it (`aboutNow`; for a fact from before it, a 1:1 chat's handle). An author who is someone else now is that person in every fact of the unit (speaker, entities), and their old name is swapped in the sentences, permanently, at every read: a later identity fix of an author needs no new reading. A non-author misfiled in a group chat still needs `reread`. |
 | `at`, `date`, `tz` | When the cited line was said or written (ISO with zone), its local day, and the IANA time zone that day is in (`zones.jsonl` at `at`; before 18 Oct, the Mac's when the record was made). |
 | `about` | From `memory-extract.v3`: the one person or project the claim is about (`person:me` for the owner himself), also in `entities`. |
 | `modality` | From `memory-extract.v3`: `fact`, `plan` (settled for later), `reported` (someone says it of a third person) or `conditional` (a hypothesis, a joke, a quote, an AI's text read aloud). |
@@ -133,7 +133,7 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 ## extracted.jsonl
 
 Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, at}`, one
-line per unit and run, `observations` being how many it kept (often 0). A unit is read again when its `unitHash` or
+line per unit and run, `observations` being how many it kept (often 0); lines of 21 Oct 2026 also carry `people`, ignored. A unit is read again when its `unitHash` or
 the prompt version changes, or when a `reread` correction names it after its last reading (the night reads the last
 7 days, `backfill` older ones). Who someone is needs no new reading: readers resolve a fact's author and entities as of
 today. Only the latest extraction of a unit counts: observations from an older one are ignored
