@@ -137,7 +137,7 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "1001.emlx"), emlx(ALTERNATIVE));
   writeFileSync(join(dir, "1006.emlx"), emlx(WITH_FILES));
-  writeFileSync(join(dir, "1007.emlx"), emlx(HTML_ONLY));
+  writeFileSync(join(dir, "1007.partial.emlx"), emlx(HTML_ONLY));
   const saved = join(dir, "..", "Attachments", "1006", "3");
   mkdirSync(saved, { recursive: true });
   writeFileSync(join(saved, "vue été.jpg"), "bytes");
@@ -222,4 +222,15 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   expect(
     emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#9")
   ).toBeUndefined();
+  // Each file is read once; a partial message is read again once Mail has it whole, under its own name.
+  writeFileSync(join(dir, "1007.emlx"), emlx(ALTERNATIVE));
+  expect(
+    readMail(
+      new Date("2026-10-08T00:00:00Z"),
+      root,
+      join(base, "none.sqlite")
+    ).at(-1)?.text
+  ).toBe(
+    "Big prize\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
+  );
 });
