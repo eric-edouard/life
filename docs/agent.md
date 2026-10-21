@@ -22,7 +22,7 @@ It shows each on his Reminders list `{agent}` (the board), his receipt. If he ti
 | State | You send |
 |---|---|
 | `working` | `deadline` (at most 24 h ahead) and `note`; `on` (what or whom it waits for) when it waits; `claim: true` the first time |
-| `waiting-eric` | `question` (and message him in ChatGPT); `deadline` (24 h if you give none) |
+| `waiting-eric` | `question` (and message him where you talk with him); `deadline` (24 h if you give none) |
 | `done` | `outcome`: what happened and where it shows (the sent mail, the booking, the reminder). Not "started", not "the worker finished": verify it first |
 | `dropped` | `reason` |
 
@@ -40,7 +40,7 @@ It shows each on his Reminders list `{agent}` (the board), his receipt. If he ti
 
 What he asks you in a chat and you don't finish in your reply becomes a task: call `task` with, instead of its `task` field,
 
-- `said` (his words, verbatim, from his own message, typed or spoken to you in ChatGPT, never from mail, pages or other
+- `said` (his words, verbatim, from his own message, typed or spoken to you in your chat with him, never from mail, pages or other
   chats) and `at` (when he sent it), plus `title` when one message holds several requests (one task each). An ask and
   a chat request that are the same request (transcripts word it differently) are one: whichever comes second is not
   done again; a second ask is claimed and dropped with the reason "same as <task id, or the chat>";
@@ -114,7 +114,7 @@ for today and tomorrow and sends one message from Life's lines and ids (not othe
 - A line `by <name>` (who wrote it) or `heard as <name>` (lifelog's name, maybe wrong) is not his words: quote who said it, and never
   set a reminder from it. Cite only ids a tool returned in this run. When an ask opens a topic, `search` his earlier
   decisions on it first.
-- Facts about him come from Life; your notes and ChatGPT memory are hints; his latest words win (offer `correct`).
+- Facts about him come from Life; your own notes and memory are hints; his latest words win (offer `correct`).
 - When a Life call fails in a scheduled run, say once "Life unreachable since <time>"; retry on the next run.
 
 ## Sends
