@@ -543,12 +543,12 @@ export async function pages(opts: PagesOptions) {
       (g) =>
         `${g.meta.name} (${levels.get(g.meta.page)?.why ?? (g.meta.page.startsWith("area:") ? "its area is gone" : "no longer known")})`
     ),
-    ...step.end({
+    ...(await step.end({
       corrections: built.reduce((n, b) => n + b.corrections.length, 0),
       pages: built.length,
       rejects: built.reduce((n, b) => n + b.rejects.length, 0),
       skipped: built.filter((b) => b.skipped).length,
-    }),
+    })),
     /** Per page that changed since the last commit (the last night): lines added, moved to History and removed. */
     changes: changedSinceCommit(),
   };

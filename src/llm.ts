@@ -148,6 +148,61 @@ const ClaudeResult = z.object({
   usage: z.record(z.string(), z.unknown()).optional(),
 });
 
+/** The tokens of a call, or of every call a process made: input (cached included), cached input, output. */
+export interface Tokens {
+  cached: number;
+  input: number;
+  output: number;
+}
+const NONE: Tokens = { cached: 0, input: 0, output: 0 };
+const add = (a: Tokens, b: Tokens): Tokens => ({
+  cached: a.cached + b.cached,
+  input: a.input + b.input,
+  output: a.output + b.output,
+});
+export const minus = (a: Tokens, b: Tokens): Tokens => ({
+  cached: a.cached - b.cached,
+  input: a.input - b.input,
+  output: a.output - b.output,
+});
+const num = (v: unknown) => (typeof v === "number" ? v : 0);
+let spent = NONE;
+/** Every token this process's model calls used so far: a run's own is the difference between its end and its start. */
+export const tokensSpent = () => spent;
+
+/** codex's `--json` events: the tokens of each `turn.completed`, summed. */
+export function codexTokens(jsonl: string): Tokens {
+  return jsonl
+    .split("\n")
+    .flatMap((l) => {
+      try {
+        const e = JSON.parse(l);
+        return e?.type === "turn.completed" ? [e.usage ?? {}] : [];
+      } catch {
+        return [];
+      }
+    })
+    .reduce(
+      (t, u) =>
+        add(t, {
+          cached: num(u.cached_input_tokens),
+          input: num(u.input_tokens),
+          output: num(u.output_tokens),
+        }),
+      NONE
+    );
+}
+
+/** claude's usage: input counts cache reads and writes too, as codex's does. */
+const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
+  cached: num(u.cache_read_input_tokens),
+  input:
+    num(u.input_tokens) +
+    num(u.cache_read_input_tokens) +
+    num(u.cache_creation_input_tokens),
+  output: num(u.output_tokens),
+});
+
 // A TOML basic string for `-c key=value`; JSON's escapes are TOML's, bar a raw DEL.
 const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
 
@@ -295,6 +350,7 @@ async function askClaude({ dir, images, input, llm, system, tools }: Call) {
   );
   const fields = {
     costUsd: res.total_cost_usd,
+    tokens: claudeTokens(res.usage),
     turns: res.num_turns,
     usage: res.usage,
   };
@@ -316,7 +372,7 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
     );
   }
   const reply = join(dir, "codex.txt");
-  await cli(
+  const events = await cli(
     "codex",
     (cwd) => [
       // The pinned binary, read-only, and none of the extras (CODEX_OFF). With the bench's connector, its MCP calls are
@@ -348,12 +404,15 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
         "--disable",
         f,
       ]),
-      ...["-o", reply],
+      ...["--json", "-o", reply],
       ...images.map((i) => `--image=${i}`),
     ],
     { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
   );
-  return { text: await Bun.file(reply).text() };
+  return {
+    fields: { tokens: codexTokens(events) },
+    text: await Bun.file(reply).text(),
+  };
 }
 
 /** How full his Codex plan is: its fuller window (on his plan, the week) and when that window resets. */
@@ -544,6 +603,7 @@ export async function askOnce(opts: {
       tools: opts.tools,
     });
     ({ fields } = answer);
+    spent = add(spent, (fields?.tokens as Tokens | undefined) ?? NONE);
     if (answer.refusal) {
       throw new Error(answer.refusal);
     }
