@@ -46,8 +46,8 @@ const PER_CALL = 30;
 /**
  * `--ratings`: the statements he rated true or false, judged against what the memory holds now of the same units, 30
  * at a time, all under the lock (one snapshot; the score is saved or the run fails). A false hides only its own claim
- * id, so a re-read that says it again is restated; a true still held is its own claim, and a re-read never drops a
- * true (`rated`, ledger.ts), so for trues the score says whether a newer reading retired or contradicted them. An outdated one (true then, retired by his answer) is a true one held, not judged (`tally`). A statement none of whose units exist any more (a chapter re-cut) can't be judged: it is
+ * id, so a re-read that says it again is restated; a true still held is its own claim, so for trues the score says
+ * whether they survived. An outdated one (true then, retired by his answer) is a true one held, not judged (`tally`). A statement none of whose units exist any more (a chapter re-cut) can't be judged: it is
  * listed apart and left out of the score.
  */
 async function ratedRun() {

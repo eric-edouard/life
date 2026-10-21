@@ -17,7 +17,6 @@ import {
   newSince,
   ratedFalse,
   ratedOutdated,
-  ratedTrue,
   retiredBy,
   type Standing,
   shownOf,
@@ -51,7 +50,6 @@ test("a unit re-extracted under another hash or prompt keeps only its latest fac
   const c = {
     latest: latestExtractions(ledger),
     live: new Set(["u_1", "u_2", "u_3", "u_4"]),
-    rated: new Set<string>(),
   };
   expect(all.filter((x) => isCurrent(c, x)).map((x) => x.id)).toEqual([
     "new",
@@ -199,7 +197,6 @@ async function view(f: typeof fixture) {
     corrections: f.corrections,
     latest: latestExtractions(f.extracted),
     live: f.live,
-    rated: new Set<string>(),
     retired: f.retired,
   };
   const shown = shownOf(f.list, standing);
@@ -241,7 +238,6 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
     corrections: [],
     latest: new Map(),
     live: new Set(["u_1"]),
-    rated: new Set(),
     retired: new Map(),
     ...over,
   });
@@ -302,7 +298,6 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
       corrections: [],
       latest: new Map(),
       live: new Set(["u_1"]),
-      rated: new Set(),
       retired: retiredBy(
         [...first, ...ratedOutdated(latestRatings(ratings))],
         new Set(["obs_a", "obs_b"])
@@ -326,62 +321,4 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
   expect(
     stateOf(x, standing([rate("obs_a", "outdated")], [closed]))
   ).toMatchObject({ by: "obs_b", state: "retired" });
-});
-
-test("a re-read keeps a fact he rated true: not replaced when the new reading leaves it out, retired only by a newer fact", () => {
-  const rate = (answer: Rating["answer"]) =>
-    ({
-      answer,
-      at: "2026-10-19T08:00:00Z",
-      claim: "obs_a",
-      schemaVersion: 1,
-    }) as Rating;
-  const rated = obs("obs_a", "u_1", "h1");
-  const other = obs("obs_b", "u_1", "h1");
-  // u_1 was read again by a later run, which wrote neither fact again.
-  const latest = new Map([["u_1", read("u_1", "h1", "r2")]]);
-  const standing = (
-    ratings: Rating[],
-    retired = new Map<string, Supersession>()
-  ) =>
-    ({
-      corrections: [],
-      latest,
-      live: new Set(["u_1"]),
-      rated: ratedTrue(latestRatings(ratings)),
-      retired,
-    }) as Standing;
-  expect(stateOf(rated, standing([rate("true")])).state).toBe("active");
-  expect(stateOf(other, standing([rate("true")])).state).toBe("replaced");
-  // An undo or a later answer lifts it.
-  expect(stateOf(rated, standing([rate("true"), rate(null)])).state).toBe(
-    "replaced"
-  );
-  const by = new Map([["obs_a", { at: "t", by: "obs_c" } as Supersession]]);
-  expect(stateOf(rated, standing([rate("true")], by)).state).toBe("retired");
-});
-
-test("a fact he rated true and a re-read wrote again word for word shows once, its latest line; one he rated outdated keeps its history", () => {
-  const rate = (claim: string, answer: Rating["answer"]) =>
-    ({ answer, at: "2026-10-19T08:00:00Z", claim, schemaVersion: 1 }) as Rating;
-  const again = obs("obs_a", "u_1", "h1", "r2");
-  const latest = new Map([["u_1", read("u_1", "h1", "r2")]]);
-  const ratings = latestRatings([
-    rate("obs_a", "true"),
-    rate("obs_o", "outdated"),
-  ]);
-  const rated = ratedTrue(ratings);
-  const standing = {
-    corrections: [],
-    latest,
-    live: new Set(["u_1"]),
-    rated,
-    retired: retiredBy(ratedOutdated(ratings), new Set(["obs_o"])),
-  } as Standing;
-  expect(
-    shownOf([obs("obs_a", "u_1", "h1"), again], standing).map(
-      (o) => o.madeBy.run
-    )
-  ).toEqual(["r2"]);
-  expect(stateOf(obs("obs_o", "u_1", "h1"), standing).state).toBe("retired");
 });
