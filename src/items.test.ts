@@ -89,13 +89,18 @@ test("a dated item shows on its day, then late only while a daily review has not
   const late = item({ when: "2026-10-16" });
   expect(ids([late])).toEqual(["obs_000000000001"]);
   expect(openItems([late], { date: DATE })[0]?.overdue).toBe(true);
-  expect(ids([late], { shown: new Map([["obs_000000000001", 2]]) })).toEqual(
-    []
-  );
+  const shown = (...days: string[]) => new Map([["obs_000000000001", days]]);
+  expect(ids([late], { shown: shown("2026-10-16", "2026-10-17") })).toEqual([]);
+  // Only days it could be in Due count (from the one before its day): its id in older answers is not a showing.
+  expect(ids([late], { shown: shown("2026-10-10", "2026-10-16") })).toEqual([
+    "obs_000000000001",
+  ]);
+  // Late, it shows only on days that have come: tomorrow's read lists it not (no double showing).
+  expect(ids([late], { date: "2026-10-20", today: DATE })).toEqual([]);
   // On its day it shows whatever was shown before (the day before, from tomorrow's read).
-  expect(
-    ids([item({})], { shown: new Map([["obs_000000000001", 1]]) })
-  ).toEqual(["obs_000000000001"]);
+  expect(ids([item({})], { shown: shown("2026-10-18") })).toEqual([
+    "obs_000000000001",
+  ]);
   // Waiting: its day only. With neither its day nor the day it was said: never.
   expect(
     ids([

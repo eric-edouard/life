@@ -150,18 +150,24 @@ const daysFrom = (from: string, to: string) =>
  * waiting one on its day; one said with no day (an undated to-do, promise or wait, a reply he owes) the day after
  * and 3 days after.
  */
-function timely(c: Candidate, date: string, today: string, shown: number) {
-  if (!c.when) {
+function timely(c: Candidate, date: string, today: string, shown: string[]) {
+  const { when } = c;
+  if (!when) {
     // Said with no day of its own: the day after and `AGAIN_DAYS` after, only as those days come (the review reads
     // tomorrow too); then stale, never due again.
     const late = c.said ? daysFrom(c.said, date) : Number.NaN;
     return (late === 1 || late === AGAIN_DAYS) && date <= today;
   }
-  const late = daysFrom(c.when, date);
+  const late = daysFrom(when, date);
   if (c.kind === "waiting") {
     return late === 0;
   }
-  return late === 0 || (late > 0 && late <= OVERDUE_DAYS && shown < 2);
+  // Shown in Due: on a day from the one before its day (its ids elsewhere in `day` don't count).
+  const inDue = shown.filter((d) => daysFrom(d, when) <= 1).length;
+  return (
+    late === 0 ||
+    (late > 0 && late <= OVERDUE_DAYS && inDue < 2 && date <= today)
+  );
 }
 
 const PRIORITY = ["high", "medium", "low"];
@@ -172,7 +178,7 @@ const KIND = { promise: 0, reminder: 1, reply: 0, todo: 1, waiting: 2 };
  * The open items due on `date`, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it
  * serves (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older
  * first. Copies merge: a reminder into the observation it came from, and an item said in the turn of an open task
- * (`tasks`: their refs) is left to that task. `shown`: on how many days a daily review was already shown each id.
+ * (`tasks`: their refs) is left to that task. `shown`: the days a daily review was already given each id (`day`'s answers).
  */
 export function openItems(
   candidates: Candidate[],
@@ -187,7 +193,7 @@ export function openItems(
     date: string;
     goals?: string[][];
     levels?: Map<string, number>;
-    shown?: Map<string, number>;
+    shown?: Map<string, string[]>;
     tasks?: Set<string>;
     /** His day now: what the review reads ahead of it shows no undated item. */
     today?: string;
@@ -235,7 +241,7 @@ export function openItems(
     .filter(
       (c) =>
         !(c.ref && tasks.has(c.ref)) &&
-        timely(c, date, today, shown.get(c.id) ?? 0)
+        timely(c, date, today, shown.get(c.id) ?? [])
     )
     .map((c) => ({ ...c, overdue: (c.when ?? date) < date }))
     .toSorted(rank);
