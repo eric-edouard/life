@@ -75,13 +75,52 @@ function span(m: Moment) {
   return { allDay: false, from, to };
 }
 
-/** The events the calendar should hold: every moment that happened and ended (`SETTLE` ago) by `now`, oldest first. */
+const begun = (allDay: boolean, from: string) =>
+  (allDay ? dayStart(from) : new Date(from)).getTime();
+
+/**
+ * Moments never overlap on the calendar (his rule, 21 Oct): of the timed and multi-day ones, one that covers another (a
+ * stay, a trip) is left off, and one that runs into the next ends where it starts (a multi-day one is never cut). A
+ * single whole day sits in the calendar's all-day band, over no one, so it always stays.
+ */
+export function tiled<T extends { allDay: boolean; from: string; to: string }>(
+  spans: T[]
+) {
+  const band = (x: T) => x.allDay && x.to === nextDay(x.from);
+  const ms = spans
+    .filter((x) => !band(x))
+    .map((x) => ({ e: ended(x.allDay, x.to), s: begun(x.allDay, x.from), x }));
+  const kept = ms
+    .filter(
+      (a) =>
+        !ms.some(
+          (b) => b !== a && a.s <= b.s && b.e <= a.e && b.e - b.s < a.e - a.s
+        )
+    )
+    .toSorted((a, b) => a.s - b.s || b.e - a.e);
+  return [
+    ...spans.filter(band),
+    ...kept.flatMap((a, i) => {
+      const next = kept[i + 1];
+      if (a.x.allDay || !next || next.s >= a.e) {
+        return [a.x];
+      }
+      // Two moments over the same span: the later one in the list stays.
+      return next.s > a.s
+        ? [{ ...a.x, to: new Date(next.s).toISOString() }]
+        : [];
+    }),
+  ];
+}
+
+/** The events the calendar should hold: every moment that happened and ended (`SETTLE` ago) by `now`, oldest first, none overlapping. */
 export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
-  return moments
-    .filter((m) => m.status === "happened")
-    .map((m) => ({ m, ...span(m) }))
+  return tiled(
+    moments
+      .filter((m) => m.status === "happened")
+      .map((m) => ({ m, ...span(m) }))
+  )
     .filter(({ allDay, to }) => ended(allDay, to) + SETTLE <= now.getTime())
-    .toSorted((a, b) => a.from.localeCompare(b.from))
     .map(({ m, ...when }) => {
       const units = m.units.flatMap((id) => k.units.get(id) ?? []);
       const noted = [
