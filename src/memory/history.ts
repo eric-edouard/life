@@ -346,6 +346,10 @@ const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
 
 // --- status --------------------------------------------------------------------------------------------------------
 
+/** Each archive store's last copy (`lastCopied`), by store name. */
+const copiedByStore = (): Record<string, string | null> =>
+  Object.fromEntries(STORES.map((s) => [s.name, lastCopied(s)]));
+
 /** When a SQLite file last changed, its write-ahead log included (written before the file); null: no file. */
 function dbTime(path: string) {
   const ms = Math.max(
@@ -400,7 +404,7 @@ export async function lifeStatus(now = clock()) {
       state: readBackfill() ?? null,
     },
     capture: {
-      archive: Object.fromEntries(STORES.map((s) => [s.name, lastCopied(s)])),
+      archive: copiedByStore(),
       // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,
