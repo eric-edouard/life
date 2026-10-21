@@ -7,6 +7,7 @@ import {
   appsToOpen,
   archiveFailing,
   archiveOnce,
+  keptStores,
   openIncidents,
 } from "./archive";
 import { log } from "./log";
@@ -96,4 +97,14 @@ test("a message deleted for everyone keeps its text and media in the archive", (
     { chatName: "Ana", media: "Media/a.jpg", text: "see you at 8" },
   ]);
   expect(readFileSync(join(dir, "media/Media/a.jpg"), "utf8")).toBe("photo");
+});
+
+test("only the stores of the sources he turned on are copied and kept open", () => {
+  expect(keptStores(["notes", "imessage"]).map((s) => s.name)).toEqual([
+    "notes",
+  ]);
+  expect(keptStores([])).toEqual([]);
+  expect(appsToOpen([], 1e12, new Map(), keptStores(["whatsapp"]))).toEqual([
+    "WhatsApp",
+  ]);
 });
