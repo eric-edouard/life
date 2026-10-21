@@ -314,12 +314,9 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
   await cli(
     "codex",
     (cwd) => [
-      // The pinned binary, read-only, and none of the extras (CODEX_OFF).
-      // `exec` cancels every MCP call unless approvals are bypassed (openai/codex#24135); with tools it has no shell.
-      ...[CODEX_BIN, "exec", "--skip-git-repo-check"],
-      ...(tools
-        ? ["--dangerously-bypass-approvals-and-sandbox"]
-        : ["-s", "read-only"]),
+      // The pinned binary, read-only, and none of the extras (CODEX_OFF). With the bench's connector it stays read-only
+      // and its MCP calls are approved by config: `exec` cancelled them in 0.130 (openai/codex#24135), unchecked since.
+      ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
       ...["-C", cwd, "-m", llm.model],
       ...CODEX_OFF.flatMap((f) => ["--disable", f]),
       ...["-", "--ephemeral", "--ignore-user-config", "--ignore-rules"],
@@ -338,6 +335,8 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
                 .map(([k, v]) => `${k}=${toml(v)}`)
                 .join(",")}}`,
               `mcp_servers.${SERVER}.default_tools_approval_mode="approve"`,
+              "include_apply_patch_tool=false",
+              "features.view_image=false",
             ]
           : []),
       ].flatMap((c) => ["-c", c]),

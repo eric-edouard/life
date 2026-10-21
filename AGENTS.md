@@ -103,7 +103,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
   first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
-  them in an empty temp dir, Codex with its own `CODEX_HOME`). His Apple Notes are memory only, never his words for
+  them in an empty temp dir, Codex with its own `CODEX_HOME`), but the Atlas bench's agent: Life's connector, frozen
+  and dry, as its only tools, Codex still read-only. His Apple Notes are memory only, never his words for
   actions.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates, and every quote is checked against its
   source (`src/memory/observe.ts`).
