@@ -47,9 +47,9 @@ closed).
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
-- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (the best 20, each as its lines holding a word, 300 characters at most; each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 20, one around each; a long one as its lines holding a word). `--from`/`--to` bound every section.
-- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
-- `day <YYYY-MM-DD>` (what is due: his own to-dos and promises for that day; what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name] [--before d]` (the whole page, when it was built, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first by whole days, `--before` paging back; `person me`: his own page, his goals in What I hold, all of truth/me.md; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers, and a name no one goes by lists the names near it), `area <name>`, `topics [tag]`.
+- `search <words> [--from d --to d]`: moments (what happened or is planned), Atlas's tasks (its own reports, matched when read), observations (each says who spoke when not him: "by" a sender, "heard as" a voice), units (each section says when it is cut at 12), from lifelog the exact spoken words (the best 20, each as its lines holding a word, 300 characters at most; each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 20, one around each; a long one as its lines holding a word). `--from`/`--to` bound every section.
+- `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (a turn ref, an ask's `ref`, opens its conversation as it is now, 5 turns before it) (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
+- `day <YYYY-MM-DD>` (what is due: his own to-dos and promises for that day; what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name] [--before d]` (the whole page, when it was built, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first by whole days, `--before` paging back; `person me`: his own page, his goals in What I hold, all of truth/me.md; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers, and a name no one goes by lists the names near it), `area <name>` (an area's or a project's id or name), `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
 - `repos [project|area|repo]` (CLI only, not a connector tool): his code repos by project, where each is and the last 30 days of commits; his map is `Project.repos` in `truth/`, Life's guesses are marked inferred. Read a project's first repo (its main entry point) before working in it. Which mailbox sends what: `~/Work/CLAUDE.md`. Commits are also units (`source git`, one per repo and day): `search`, `day` and `fetch` show them.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp and Beeper (Life's archive, messages deleted for everyone shown marked) and iMessage, today included, as far back as `--from` (without it 90 days for `--who`, 7 for `--chat`), the latest 200; a cut names the `--before` that reads on.
@@ -81,7 +81,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Every ask is a task until Atlas closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is its
   ask line plus its own lines in the same ledger (`TASK_LINES`, no `instruction`, `target` = the task): Atlas's
   `update`s through the connector's `task` (the write rules are `refusal`, behind the playbook's seal in `written`; one
-  claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows). `nudge` and
+  claim; `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows), and its
+  `reply` lines (what it told him; one on no task targets `chat`). `changes` with `about` `task:<id>` is a task's whole
+  history. The nightly counts the last day's asks with no reply logged (`unanswered`). `nudge` and
   `steer` lines (until 20 Oct) only parse. What needs him is one rule, `escalation`, for every task, chat ones too:
   unclaimed 30 min after the ask, claimed and past its deadline, waiting on him over 1 h, a week old, or no live
   subscription (one email a day); `chase` (`src/board.ts`, each minute in the watcher) emails him once per task, cause and
@@ -117,11 +119,14 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
-  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
+  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`), and logs Atlas's replies (`reply`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
   `claim`, are the dashboard's JSON reads, `src/memory/history.ts` and `feed.ts`, contracts in `docs/dashboard.md`); `correct` (lifelog writes all go through the
   table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
-  updates, through `update`). `correct` is annotated destructive so clients ask first; `reminders` and `task` are not
-  (nothing they do is lost: a remove goes to Recently Deleted), so Atlas uses them unattended. Never add a tool that sends or edits anything else. One MCP event, `ask`
+  updates, through `update`); `reply` (what Atlas tells him, one `actions.jsonl` line, appended only: it sends nothing).
+  `correct` is annotated destructive so clients ask first; `reminders`, `task` and `reply` are not
+  (nothing they do is lost: a remove goes to Recently Deleted), so Atlas uses them unattended. Never add a tool that sends or edits anything else.
+  Replies are Atlas's output, never his words: they don't enter memory as units (only, after decision 14b, through the
+  `atlas` source, as evidence of what was done). One MCP event, `ask`
   (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. A refused token (not a missing one,
   never its body), the SDK's own rejections (`onerror`) and invalid arguments (`tool()` validates them itself) are
   logged as `mcp.call` with `error`; nothing reads a response back. Every request

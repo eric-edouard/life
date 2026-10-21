@@ -6,7 +6,7 @@ import { titleOf } from "../hear";
 import { quota } from "../llm";
 import { recentEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
-import { taskList } from "../tasks";
+import { taskList, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
@@ -56,9 +56,11 @@ async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
   let actions: Action[] = [];
   let tasks: ReturnType<typeof taskList> = [];
+  let gaps: number | null = null;
   try {
     actions = readActions();
     tasks = taskList(now.getTime());
+    gaps = unanswered(now.getTime() - DAY_MS);
   } catch (e) {
     const { message } = e as Error;
     problems.push(`actions.jsonl: ${message}`);
@@ -70,10 +72,21 @@ async function acted(now: Date, rec: RunRecord) {
       (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
     ),
     problems,
-    tasks: tasks.map((t) => ({
-      name: `${t.state} · ${t.age}`,
-      relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
-    })),
+    tasks: [
+      ...tasks.map((t) => ({
+        name: `${t.state} · ${t.age}`,
+        relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
+      })),
+      // Atlas logs its replies by the playbook, not by code: the asks it never logged one for show here.
+      ...(gaps === null
+        ? []
+        : [
+            {
+              name: "No reply logged",
+              relation: `${gaps} of the last day's asks`,
+            },
+          ]),
+    ],
   };
 }
 
