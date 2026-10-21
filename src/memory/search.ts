@@ -51,6 +51,7 @@ import { actionLine } from "./report";
 import {
   clip,
   dayRange,
+  daysBefore,
   lifelogNames,
   localTime,
   newestDays,
@@ -648,7 +649,11 @@ export function dayLines({
       ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
       : []),
     ...(due.length > 0
-      ? ["Due (his own open to-dos and promises for this day):", ...due, ""]
+      ? [
+          "Due (open to-dos, promises and waiting items for this day, and up to a week overdue):",
+          ...due,
+          "",
+        ]
       : []),
     ...(moments.length > 0
       ? [
@@ -765,19 +770,25 @@ export const birthdaysNear = (
     .toSorted((x, y) => x.b.left - y.b.left)
     .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
+/** How many days late a dated loop is still listed as due (labelled overdue), so a missed daily review is caught up. */
+const OVERDUE_DAYS = 7;
+
 /**
- * His open loops due on `date` that must not be forgotten (salience 3), not retired: his promises (his to keep, even
- * when the quote opens with the other's request) and the to-dos he said (not a mail's). Atlas's daily review lists them
- * (docs/atlas.md).
+ * The open loops due on `date` that must not be forgotten (salience 3), not retired: promises (his to keep, even when
+ * the quote opens with the other's request) and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before,
+ * and what he waits on from others, on its day. Who said each, when not him, is labelled. Atlas's daily review lists
+ * them (docs/atlas.md).
  */
 export const dueOn = (db: Database, date: string) =>
   db
-    .query<Row, [string, string]>(
-      `select ${COLUMNS} from observations o where o."when" = ? and o.salience = 3 and ${CURRENT}
-       and (o.type = 'promise' or (o.type = 'todo' and o.speaker = ?)) order by o.at`
+    .query<Row, [string, string, string, string]>(
+      `select ${COLUMNS} from observations o where o.salience = 3 and ${CURRENT}
+       and ((o."when" between ? and ? and (o.type = 'promise' or (o.type = 'todo' and o.speaker = ?)))
+         or (o."when" = ? and o.type = 'waiting'))
+       order by o."when", o.at`
     )
-    .all(date, OWNER)
-    .map(line);
+    .all(daysBefore(date, OVERDUE_DAYS), date, OWNER, date)
+    .map((r) => `${line(r)}${r.when === date ? "" : " (overdue)"}`);
 
 /** The area an id or a name (any case or accents) means: an area's own, or a project's, with the project. */
 export function areaFor(
