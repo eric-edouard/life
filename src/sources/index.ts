@@ -1,4 +1,5 @@
 import type { Person, SourceEvent, Unit } from "../schema";
+import { FORMATS, newestAssistant, readAssistant } from "./assistants";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
@@ -41,6 +42,8 @@ export type Descriptor = {
   group?: (chat: string) => boolean;
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
+  /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
+  imported?: boolean;
   /** What he calls it. */
   label: string;
   name: SourceName;
@@ -52,6 +55,7 @@ export type Descriptor = {
   silentAfter: number;
 } & (
   | {
+      /** notes: his own writing, no one else's words (Apple Notes, his messages to AI assistants). */
       kind: "chat" | "mail" | "notes";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date) => SourceEvent[];
@@ -126,6 +130,21 @@ export const SOURCES: Descriptor[] = [
     searchDays: Number.POSITIVE_INFINITY,
     silentAfter: 7 * 24 * HOUR,
   },
+  // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
+  // amber; its newest is his newest imported message. ponytail: search reads every pruned message (the export parsed once per process,
+  // every sweep included); index them in index.sqlite if that grows slow.
+  ...(["claude", "chatgpt"] as const).map(
+    (name): Descriptor => ({
+      imported: true,
+      kind: "notes",
+      label: FORMATS[name].label,
+      name,
+      newest: () => newestAssistant(name),
+      read: readAssistant(name),
+      searchDays: Number.POSITIVE_INFINITY,
+      silentAfter: Number.POSITIVE_INFINITY,
+    })
+  ),
   {
     kind: "repo",
     label: "Git",
