@@ -61,7 +61,7 @@ export function afterPoll(
   };
 }
 
-/** Conversations where he spoke (or someone unnamed did): `at` is when the last such turn arrived, `from` the earliest not yet heard, `tries` its failed hearings. */
+/** Conversations to hear (new turns of his or unattributed ones, at start every recent one): `at` is when the last such turn arrived, `from` the earliest not yet heard, `tries` its failed hearings. */
 export type Pending = Map<string, { at: number; from: string; tries: number }>;
 /** A hearing whose words could not be fetched is tried again this many times, then logged lost. */
 const TRIES = 5;
@@ -186,8 +186,7 @@ export async function watch(): Promise<number> {
   let dirty = true;
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
-  // A commit changed src/ or prompts/: exit, launchd starts the new code (old code lost a request on 15 Oct by reading
-  // a renamed prompt), which hears again what was pending (`resumed`).
+  // A commit changed src/ or prompts/: exit, launchd starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
   while (codeAt(ROOT) === running) {
     let result: { cursor: string } | { error: string };
     try {
