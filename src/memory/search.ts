@@ -1,7 +1,6 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { nameOf } from "../board";
 import { clock } from "../clock";
 import { redact } from "../redact";
 import {
@@ -25,7 +24,7 @@ import {
   turnPlace,
   withStore,
 } from "../sources/lifelog";
-import { standing as taskStanding, tasksOf } from "../tasks";
+import { nameOf, standing as taskStanding, tasksOf } from "../tasks";
 import { loadTruth, OWNER, type Truth } from "../truth";
 import { levelsWith } from "./closeness";
 import {
