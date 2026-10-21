@@ -816,7 +816,7 @@ export function dueOf(
     >(
       `select ${COLUMNS}, o.at, o.ref,
          (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
-         (select entity from links where observation = o.id and entity like 'person:%' and entity != ? limit 1) as whom
+         (select entity from links where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
        from observations o where o.salience = 3 and ${CURRENT}
        and (o."when" between ? and ? or (o."when" is null and o.date between ? and ?))
        and (o.type in ('promise', 'waiting') or (o.type = 'todo' and o.speaker = ?)) order by o.at, o.id`
@@ -886,7 +886,7 @@ async function dueContext(date: string, truth: Truth) {
   };
 }
 
-/** On how many of his days before `date` Atlas's daily review got each id from `day` (the logged `mcp.call` ids). */
+/** The days before `date` on which Atlas's daily review got each id from `day` (the logged `mcp.call` ids). */
 async function shownDays(date: string) {
   const days = new Map<string, Set<string>>();
   const calls = await recentEvents<Call>(OVERDUE_DAYS + 2, "mcp.call");
@@ -898,7 +898,7 @@ async function shownDays(date: string) {
       }
     }
   }
-  return new Map([...days].map(([id, d]) => [id, d.size]));
+  return new Map([...days].map(([id, d]) => [id, [...d]]));
 }
 
 /** The area an id or a name (any case or accents) means: an area's own, or a project's, with the project. */

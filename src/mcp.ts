@@ -191,7 +191,7 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
   }
 }
 
-/** The ids an answer cites: observations, moments, units, and conversations (UUIDs). */
+/** The ids an answer cites: observations, moments, units, actions (`act_`: reminders, tasks) and conversations (UUIDs). */
 const IDS =
   /\b(?:obs|mom|u|act)_[0-9a-f]{12}\b|\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/g;
 

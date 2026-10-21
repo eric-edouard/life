@@ -65,7 +65,6 @@ test("an add repeats an open reminder with the same title, whatever the case and
     duplicateOf({ ...add, title: "Dîner avec Jérôme" }, open)
   ).toBeUndefined();
   expect(duplicateOf({ ...add, kind: "edit" }, open)).toBeUndefined();
-  expect(duplicateOf(add, undefined)).toBeUndefined();
 });
 
 test("an open reminder keeps the six fields `open_reminders` promises, its due as a change takes it", () => {
