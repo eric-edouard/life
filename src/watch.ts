@@ -36,13 +36,10 @@ async function tick(now = clock().getTime()) {
   await chase(tasksOf(), now);
   // Reminders both ways (src/sync.ts): one read, his changes recorded as state (his tick or removal of a receipt
   // closes its task), then the board brought in line.
-  const seen = readActions().length;
   const s = await pull();
-  const actions = readActions();
-  const at = new Date(now).toISOString();
+  const at = clock().toISOString();
   const lines = [
-    // A write `act` made during the read (the connector runs here, the CLI apart) would read as his: next pass.
-    ...(actions.length === seen ? inbound(s, actions, at) : []),
+    ...inbound(s, readActions(), at),
     ...closings(tasksOf(), marks(s), at),
   ];
   if (lines.length > 0) {

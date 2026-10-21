@@ -312,3 +312,39 @@ test("a lost add's title is Life's only until imported: a later reminder of his 
     inbound(snap([rem(), order, again]), [...base, lostAdd, ...imported], AT)
   ).toMatchObject([{ kind: "add", target: "reminder:32" }]);
 });
+
+test("Reminders' read lag: just after Life's write, the old value read back is no change of his", () => {
+  const justNow = "2026-10-21T11:59:59.000Z";
+  const ticked = wrote({ completed: true }, "ok", {
+    at: justNow,
+    kind: "done",
+  });
+  expect(inbound(snap([rem()]), [...base, ...ticked], AT)).toEqual([]);
+});
+
+test("a partial write (a step failed after a move) settles nothing: what Reminders shows is still Life's", () => {
+  const partial = wrote({ list: "Work", title: "Call" }, "ok", {
+    before: { id: 12 },
+    error: "partial: remctl edit: timeout",
+    target: "reminder:99",
+  });
+  expect(
+    inbound(snap([rem({ id: 99, list: "Work" })]), [...base, ...partial], AT)
+  ).toEqual([]);
+});
+
+test("a restore into another list is Life's move, not his", () => {
+  const out = action({
+    after: { deleted: true },
+    id: "act_00000000rem1",
+    kind: "remove",
+  });
+  const back = action({
+    after: { deleted: false, list: "Work" },
+    id: "act_0000000rest1",
+    kind: "restore",
+  });
+  expect(
+    inbound(snap([rem({ list: "Work" })]), [...base, out, back], AT)
+  ).toEqual([]);
+});
