@@ -444,7 +444,7 @@ export const Observation = z
     /** Who said or wrote the cited line: person:<slug>, or unknown:<label>. */
     speaker: z.string(),
     /**
-     * The handle or name the cited line's author came from (a chat sender, lifelog's name for a voice), recorded from
+     * The handle or name the cited line's author came from (a chat sender; for a voice, lifelog's id, else its name), from
      * 21 Oct 2026: readers resolve it again (`aboutNow`), so a later identity fix needs no new reading.
      */
     speakerFrom: z.string().optional(),

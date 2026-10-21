@@ -307,6 +307,43 @@ test("a move stays out of a unit where that person still writes as themself, and
   expect(now[2]?.text).toBe("Jean will drive.");
 });
 
+test("two authors filed as one person who now resolve to two different people: neither moves the others", () => {
+  const facts = [
+    {
+      entities: [],
+      id: "obs_1",
+      speaker: "person:gaston",
+      speakerFrom: "+66600000001",
+      text: "Gaston said yes.",
+      unit: "u_000000000006",
+    },
+    {
+      entities: ["person:gaston"],
+      id: "obs_2",
+      speaker: "person:gaston",
+      speakerFrom: "Decoy",
+      text: "Gaston said no.",
+      unit: "u_000000000006",
+    },
+    {
+      entities: ["person:gaston"],
+      id: "obs_3",
+      speaker: "person:me",
+      text: "Jean asked Gaston.",
+      unit: "u_000000000006",
+    },
+  ] as unknown as Observation[];
+  const now = aboutNow(facts, [], people, [], []);
+  // Each author is who they are now, but Gaston as named in the unit stays Gaston: two people claim the name.
+  expect(now.map((o) => o.speaker)).toEqual([
+    "person:dad",
+    "person:dad",
+    "person:me",
+  ]);
+  expect(now[2]?.entities).toEqual(["person:gaston"]);
+  expect(now[2]?.text).toBe("Jean asked Gaston.");
+});
+
 test("a voice kept by lifelog's id resolves by the name lifelog gave it when the map does not know the id", () => {
   const facts = [
     {

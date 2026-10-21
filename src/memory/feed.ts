@@ -11,7 +11,6 @@ import {
   ObservationId,
   Rating,
   Supersession,
-  type Unit,
 } from "../schema";
 import { DATA } from "../truth";
 import {
@@ -37,10 +36,9 @@ import {
   stateOf,
 } from "./ledger";
 import { type Key, PageMeta, parsePage, readLine } from "./page";
-import { unitLines } from "./raw";
 import { readIndex } from "./search";
 import { CHATS } from "./units";
-import { aboutNow, chatHandles, type People, readPeople, UNKNOWN } from "./who";
+import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,
 // correction, inferred identity, action and page change, by cursor) and `claim` (one observation with its evidence).
@@ -478,26 +476,6 @@ export async function changeFeed(f: ChangeFilter = {}) {
 // --- one claim with its evidence -----------------------------------------------------------------------------------
 
 /**
- * The handle an observation's cited line came from, read the way `fetch` and extraction read it (`unitLines`); else
- * the one it kept (`speakerFrom`, an unknown author's label). Who that is now is `aboutNow`'s, like every reader's.
- */
-async function handleOf(
-  o: Observation,
-  unit: Unit | undefined,
-  people: People
-) {
-  const read = unit && (await unitLines(unit, people));
-  const m = read?.built.messages.find((x) => x.id === o.source.ref);
-  if (m) {
-    return m.fromMe ? "me" : m.sender;
-  }
-  return (
-    o.speakerFrom ??
-    (o.speaker.startsWith(UNKNOWN) ? o.speaker.slice(UNKNOWN.length) : null)
-  );
-}
-
-/**
  * One observation with everything that says how far to trust it: the claim and its lifecycle, the source (channel,
  * ref, time, speaker, quote), the unit to read it in (`fetch`, `chats`), who it is about as filed and as resolved now
  * (inferred people marked, with their confidence), the owner's corrections, supersessions, the pages that cite it and
@@ -536,7 +514,7 @@ export async function claim(id: string) {
     chatHandles(unit ? [unit] : [])
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));
-  const handle = await handleOf(o, unit, people);
+  const handle = authorFrom(o, chatHandles(unit ? [unit] : [])) ?? null;
   const chat = unit && unit.source in CHATS;
   return {
     corrections: [
