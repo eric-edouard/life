@@ -10,7 +10,9 @@ const MAIL = join(homedir(), "Library", "Mail");
 const ACCOUNTS_DB = join(homedir(), "Library", "Accounts", "Accounts4.sqlite");
 const SNIPPET = 1500;
 const SENT = /sent|envoy/i;
-const SKIP = /junk|spam|trash|corbeille|deleted|supprim|indesirable/i;
+// Drafts were never sent: read as mail, an unsent draft would pass for something he wrote to someone.
+const SKIP =
+  /junk|spam|trash|corbeille|deleted|supprim|indesirable|draft|brouillon/i;
 const VERSION_DIR = /^V\d+$/;
 const MAILBOX_URL = /^\w+:\/\/([^/]+)\/(.*)$/;
 const BLANK_LINE = /\r?\n\r?\n/;
@@ -421,11 +423,17 @@ export function readMail(
   const mine = new Set(
     mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
   );
-  const seen = new Set<string>();
+  const rows = messagesSince(since, root);
+  const idOf = (r: Row) =>
+    `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
+  // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
+  const seen = new Set(
+    rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
+  );
   const events: SourceEvent[] = [];
-  for (const r of messagesSince(since, root)) {
-    const id = `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
-    if (seen.has(id) || SKIP.test(mailboxName(r.mailbox))) {
+  for (const r of rows) {
+    const id = idOf(r);
+    if (seen.has(id)) {
       continue;
     }
     seen.add(id);
