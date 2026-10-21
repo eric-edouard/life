@@ -1,6 +1,6 @@
 import type { Person, SourceEvent, Unit } from "../schema";
 import { FORMATS, newestAssistant, readAssistant } from "./assistants";
-import { readAtlas } from "./atlas";
+import { newestAtlas, readAtlas } from "./atlas";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
@@ -154,6 +154,7 @@ export const SOURCES: Descriptor[] = [
     kind: "agent",
     label: "Atlas",
     name: "atlas",
+    newest: newestAtlas,
     read: readAtlas,
     silentAfter: Number.POSITIVE_INFINITY,
   },
