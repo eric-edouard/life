@@ -2,13 +2,14 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chase, type Item, planOf, wantOf } from "./board";
 import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
 import { ACTIONS, appendJsonl, linesOf } from "./memory/ledger";
 import { Action } from "./schema";
+import { type Item, planOf } from "./sync";
 import {
   alerts,
+  chase,
   escalation,
   refusal,
   reply,
@@ -19,6 +20,7 @@ import {
   timings,
   type Update,
   unanswered,
+  wantOf,
   written,
 } from "./tasks";
 

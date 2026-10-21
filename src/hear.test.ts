@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { asksIn, hear, speechIn, type Turn, WAKE, whose } from "./hear";
+import { asksIn, hear, speechIn, type Turn, whose } from "./hear";
 import { ACTIONS } from "./memory/ledger";
 import {
   turn as fed,
@@ -9,7 +9,7 @@ import {
   page,
 } from "./sources/fixtures";
 import { apply } from "./sources/lifelog";
-import { tasksOf } from "./tasks";
+import { tasksOf, WAKE } from "./tasks";
 
 test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
