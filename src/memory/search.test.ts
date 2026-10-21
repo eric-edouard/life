@@ -24,7 +24,7 @@ import {
   candidateLines,
   coverageLines,
   dayLines,
-  dueOn,
+  dueOf,
   momentLine,
   nextBirthday,
   readIndex,
@@ -308,7 +308,8 @@ const SAID_BY = / (by|heard as) jean/;
 
 // audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no
 // one nudged him. `day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
-test("audit-1-apple-open-loop: day lists his own open to-dos and promises due that day, and nothing else", async () => {
+// Up to a week late it is still listed, labelled (a missed daily review), and what he waits on, on its day (#99).
+test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day or up to a week late, and waiting items on their day", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-due-")), "i.sqlite");
   const loop = (id: string, over: Partial<Observation>) =>
     ({
@@ -358,27 +359,48 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
       loop("obs_000000000009", { type: "news" }),
       // His promise whose quote opens with the other's request is still his to keep.
       loop("obs_000000000010", { speaker: "person:jean", type: "promise" }),
+      // Late: 3 and 7 days overdue are listed (labelled), 8 days is not.
+      loop("obs_000000000011", { when: "2026-10-16" }),
+      loop("obs_000000000015", { when: "2026-10-12" }),
+      loop("obs_000000000012", { when: "2026-10-11" }),
+      // What he waits on from someone: on its day only.
+      loop("obs_000000000013", { speaker: "person:jean", type: "waiting" }),
+      loop("obs_000000000014", { type: "waiting", when: "2026-10-18" }),
     ],
     path,
     standing as never
   );
-  const lines = dueOn(new Database(path, { readonly: true }), "2026-10-19");
+  const lines = dueOf(new Database(path, { readonly: true }), "2026-10-19", {
+    goals: [],
+    levels: new Map(),
+    more: [],
+    shown: new Map(),
+    tasks: new Set(),
+  });
+  // Ranked: his promises first, then his to-dos, then what he waits on.
   expect(lines.map((l) => l.split(" ")[1])).toEqual([
-    "obs_000000000001",
     "obs_000000000002",
-    "obs_000000000005",
     "obs_000000000010",
+    "obs_000000000001",
+    "obs_000000000005",
+    "obs_000000000011",
+    "obs_000000000015",
+    "obs_000000000013",
   ]);
+  expect(lines.filter((l) => l.endsWith(" (overdue)"))).toEqual(
+    lines.slice(4, 6)
+  );
   // Who spoke, when not him: "by" a sender, "heard as" a voice (lifelog misnames some).
   expect(lines.map((l) => l.match(SAID_BY)?.[0] ?? "")).toEqual([
-    "",
     " by jean",
+    " heard as jean",
+    "",
+    "",
+    "",
     "",
     " heard as jean",
   ]);
-  expect(dayLines({ due: lines })[0]).toBe(
-    "Due (his own open to-dos and promises for this day):"
-  );
+  expect(dayLines({ due: lines })[0]).toStartWith("Due (open items");
 });
 
 test("a Between us line shows the days of its first and latest evidence", () => {

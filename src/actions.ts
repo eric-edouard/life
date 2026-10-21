@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { clock } from "./clock";
-import { linked } from "./items";
+import { linked, openLinked } from "./items";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
@@ -14,16 +14,7 @@ import {
 } from "./schema";
 import { kindOf } from "./sources";
 import { ownerSpoke, withStore } from "./sources/lifelog";
-import {
-  BOARD,
-  type Done,
-  info,
-  intended,
-  isShared,
-  openReminders,
-  type Reminder,
-  write,
-} from "./sync";
+import { BOARD, type Done, info, intended, isShared, write } from "./sync";
 
 // What Life does outside itself on the owner's clear request: each change to his Apple Reminders is one `act`, which
 // decides it, has src/sync.ts (the only code that touches Reminders) make it, records it as an Action
@@ -74,7 +65,7 @@ interface Act {
 }
 
 /** The open reminder an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. */
-export function duplicateOf(c: Change, open?: Reminder[]) {
+export function duplicateOf(c: Change, open?: { id: number; title: string }[]) {
   const same =
     c.kind === "add"
       ? open?.find((r) => normalize(r.title) === normalize(c.title))
@@ -108,8 +99,11 @@ export async function act(a: Act): Promise<Action> {
   if (old) {
     return old;
   }
-  const open =
-    c.kind === "add" ? await openReminders().catch(() => undefined) : undefined;
+  // Read from the ledger (src/items.ts), never from Reminders: his hand-made ones are there once sync read them.
+  const open = openLinked(await readActions()).map((it) => ({
+    id: it.id,
+    title: `${it.fields.title}`,
+  }));
   const same = duplicateOf(c, open);
   const line = (done: Done, result: Action["result"]): Action => ({
     ...done,
