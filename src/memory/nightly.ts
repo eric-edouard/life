@@ -5,7 +5,12 @@ import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
 import { log, recentEvents } from "../log";
 import { checks } from "../reminders/remctl";
-import { type Action, Extracted, isListed, type Observation } from "../schema";
+import {
+  type Action,
+  type Extracted,
+  isListed,
+  type Observation,
+} from "../schema";
 import { taskList, titleOf, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
@@ -27,7 +32,7 @@ import {
   turnOf,
 } from "./guard";
 import { runs, useText } from "./history";
-import { EXTRACTED, newSince, readActions, rowsOf } from "./ledger";
+import { newSince, readActions } from "./ledger";
 import { moments } from "./moments";
 import { placed } from "./page";
 import { pages } from "./pages";
@@ -300,17 +305,18 @@ async function sweep(
  */
 export function markedSince(
   built: Built[],
-  extracted: Extracted[],
+  latest: Map<string, Extracted>,
   since: string,
   observations: Observation[]
 ) {
-  // Read on its marked content: a reading of the unit before the mark landed doesn't count.
-  const read = new Set(
-    extracted.filter((e) => e.at >= since).map((e) => `${e.unit}|${e.unitHash}`)
-  );
+  // Read on its marked content (its latest extraction): a reading before the mark landed doesn't count.
+  const read = (u: Built["unit"]) => {
+    const e = latest.get(u.id);
+    return !!e && e.unitHash === u.hash && e.at >= since;
+  };
   return built.flatMap(({ unit }) => {
     const marked = unit.marked ?? [];
-    if (marked.length === 0 || !read.has(`${unit.id}|${unit.hash}`)) {
+    if (marked.length === 0 || !read(unit)) {
       return [];
     }
     const held = observations.filter((o) => marked.includes(o.source.ref));
@@ -347,12 +353,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
           : []
       )
     ),
-    marked: markedSince(
-      built,
-      rowsOf(EXTRACTED, Extracted),
-      since,
-      observations
-    ),
+    marked: markedSince(built, standing.latest, since, observations),
     observed: fresh.length,
     retired: [...standing.retired.values()].filter(
       (s) => ids.has(s.by) && s.by !== s.observation

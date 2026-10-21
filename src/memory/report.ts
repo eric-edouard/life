@@ -43,7 +43,7 @@ export interface Night {
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
-  /** Each "hey Life" he said since the last night, and what the memory holds of it (`whatIsNew`). */
+  /** Each chapter he marked "hey Life", read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
   /** The days whose moments were read again, and how many moments they hold. */
   moments: Result<typeof moments>;

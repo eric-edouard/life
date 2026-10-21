@@ -250,11 +250,11 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
   const quotes = () => tasksOf().map((t) => t.ask.instruction.quote);
   try {
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))).heard
     ).toBe(false);
     expect(quotes()).toEqual(["hey Zorba, call the bank"]);
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))).heard
     ).toBe(true);
     expect(quotes()).toEqual([
       "hey Zorba, call the bank",
@@ -282,7 +282,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
   const quotes = () => tasksOf().map((t) => t.ask.instruction.quote);
   try {
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:00:50Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:00:50Z"))).heard
     ).toBe(false);
     expect(quotes()).toEqual([]);
     apply(
@@ -291,7 +291,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
       "2026-10-19T10:00:55.000Z"
     );
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:00Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:00Z"))).heard
     ).toBe(true);
     expect(quotes()).toEqual(["hey Zorba, buy milk"]);
   } finally {
@@ -359,7 +359,9 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
   const marked = () =>
     readConversations(store, new Date("2026-10-01"))[0]?.chapters[0]?.marked;
   try {
-    await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"));
+    expect(
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"))).marked
+    ).toBe(true);
     expect(marked()).toEqual([
       "job-1:0@2026-10-19T10:00:00.000Z",
       "job-1:1@2026-10-19T10:00:05.000Z",
