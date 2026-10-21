@@ -12,6 +12,8 @@ import {
   turn,
 } from "../sources/fixtures";
 import { apply, readConversations } from "../sources/lifelog";
+import { tasksOf } from "../tasks";
+import { action } from "./fixtures";
 import { layoutOf, perSection, renderPage } from "./page";
 import { holdsAll } from "./raw";
 import {
@@ -24,6 +26,7 @@ import {
   momentLine,
   readIndex,
   matches as searchMatches,
+  taskHits,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
@@ -421,4 +424,30 @@ test("area: an area's or a project's id or name, never a part of one", () => {
   expect(areaFor("house", truth).project?.id).toBe("house");
   expect(areaFor("the house", truth).id).toBe("construction");
   expect(areaFor("constr", truth).id).toBeUndefined();
+});
+
+test("Atlas's tasks in search: his words or Atlas's reports hold the words, inside from/to; a state alone matches nothing", () => {
+  const ask = action({
+    after: { confidence: "high" },
+    id: "act_00000000000a",
+    kind: "ask",
+    target: "atlas",
+  });
+  const done = action({
+    after: { outcome: "Booked the dentist for Friday.", state: "done" },
+    at: "2026-10-15T11:00:00.000Z",
+    id: "act_00000000000b",
+    instruction: undefined,
+    kind: "update",
+    madeBy: "connector",
+    target: ask.id,
+  });
+  const tasks = tasksOf([ask, done].map((l) => JSON.stringify(l)));
+  const hits = (q: string, o = {}) => taskHits(holdsAll(q), o, tasks);
+  expect(hits("dentist")).toEqual([
+    "- act_00000000000a 2026-10-15 done: write that down in the to-dos → Booked the dentist for Friday.",
+  ]);
+  expect(hits("to-dos")).toHaveLength(1);
+  expect(hits("done")).toEqual([]);
+  expect(hits("dentist", { from: "2026-10-16" })).toEqual([]);
 });

@@ -56,7 +56,7 @@ async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
   let actions: Action[] = [];
   let tasks: ReturnType<typeof taskList> = [];
-  let gaps: number | null = null;
+  let gaps = 0;
   try {
     actions = readActions();
     tasks = taskList(now.getTime());
@@ -78,14 +78,14 @@ async function acted(now: Date, rec: RunRecord) {
         relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
       })),
       // Atlas logs its replies by the playbook, not by code: the asks it never logged one for show here.
-      ...(gaps === null
-        ? []
-        : [
+      ...(gaps > 0
+        ? [
             {
               name: "No reply logged",
               relation: `${gaps} of the last day's asks`,
             },
-          ]),
+          ]
+        : []),
     ],
   };
 }
