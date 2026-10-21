@@ -13,6 +13,20 @@ export const SETTINGS = join(STATE, "settings.json");
 
 export const Settings = z
   .object({
+    /**
+     * His agent, the one "hey <name>" hands his words to (`hear.ts`, `tasks.ts`): its name (what Life calls it, and
+     * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
+     * turn, as low confidence), and the user agent its connector calls start with. Without it nothing wakes an agent.
+     */
+    agent: z
+      .object({
+        client: z.string().optional(),
+        misheard: z.array(z.string()).default([]),
+        name: z.string(),
+        wake: z.array(z.string()).min(1),
+      })
+      .strict()
+      .optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
       .object({ password: z.string(), repository: z.string() })
@@ -40,8 +54,6 @@ export const Settings = z
     lifelog: z.object({ url: z.url() }).strict().optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
-    /** A word lifelog hears in place of the agent's name. */
-    misheard: z.string().optional(),
     /** The Google calendar the moments are projected on (`past.ts`), through `gog` as this account. */
     past: z
       .object({ account: z.string(), calendar: z.string() })
@@ -96,3 +108,6 @@ export function connector() {
 const TILDE = /^~(?=\/|$)/;
 /** A path from settings, `~/` expanded. */
 export const expand = (path: string) => path.replace(TILDE, homedir());
+
+/** What Life calls his agent in what it writes (reports, the board, the connector's words). */
+export const agentName = () => settings().agent?.name ?? "the agent";

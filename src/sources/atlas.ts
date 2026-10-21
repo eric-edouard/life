@@ -1,6 +1,7 @@
 import { lastUpdate, tasksOf } from "../memory/ledger";
 import { wall } from "../memory/zones";
 import type { SourceEvent } from "../schema";
+import { agentName } from "../settings";
 import type { Newest } from "./index";
 
 // Atlas's tasks closed done (src/tasks.ts), each one event: its outcome with the words he asked in. Atlas's own report,
@@ -39,13 +40,13 @@ export function readAtlas(since: Date): SourceEvent[] {
       {
         at: last.at,
         chat: ask.id,
-        chatName: `Atlas: ${String(ask.after.title ?? quote).slice(0, 80)}`,
+        chatName: `${agentName()}: ${String(ask.after.title ?? quote).slice(0, 80)}`,
         fromMe: false,
         id: `atlas:${ask.id}`,
         sender: "atlas",
         source: "atlas",
         text: [
-          "Atlas reports it did this task (its own report, not checked by Life; not his words).",
+          `${agentName()} reports it did this task (its own report, not checked by Life; not his words).`,
           `He had asked, ${asked.day} ${asked.hms.slice(0, 5)}: "${quote.length > ASK_MAX ? `${quote.slice(0, ASK_MAX)}…` : quote}"`,
           `Outcome: ${String(last.after.outcome ?? "")}`,
         ].join("\n"),

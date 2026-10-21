@@ -1,4 +1,10 @@
 {
+  "agent": {
+    "client": "openai-mcp",
+    "misheard": ["at last", "Zorba"],
+    "name": "Atlas",
+    "wake": ["atlas"]
+  },
   "backup": {
     "password": "echo made-up",
     "repository": "~/made-up-backup"
@@ -17,7 +23,6 @@
     "from": "alerts@life.example.test",
     "to": "owner@example.test"
   },
-  "misheard": "Zorba",
   "reports": ["alerts@agents.example.test"],
   "repos": "~/Work",
   "sources": [

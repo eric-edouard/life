@@ -24,6 +24,7 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
+import { agentName } from "../settings";
 import { kindOf, listening } from "../sources";
 import {
   conversationsWith,
@@ -381,7 +382,7 @@ export async function search(words: string, o: Days = {}) {
       : []),
     ...(tasks.length > 0
       ? [
-          "Atlas's tasks (Atlas's own reports, not checked by Life):",
+          `${agentName()}'s tasks (its own reports, not checked by Life):`,
           ...cut(tasks, true),
           "",
         ]

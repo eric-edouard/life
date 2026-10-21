@@ -18,26 +18,37 @@ import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
 import type { Receipt } from "./reminders/board";
 import { Action, type Instruction } from "./schema";
-import { settings } from "./settings";
+import { agentName, settings } from "./settings";
 import { ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
 // done or dropped. Its own lines: Atlas's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 
+const SPACES = /\s+/;
+const NON_WORD = /\W+/g;
+/** One wake word as lifelog may write it: its words, with any spaces or punctuation between them. */
+const phrase = (w: string) =>
+  w.trim().split(SPACES).map(RegExp.escape).join(String.raw`\W+`);
+/** A wake word as heard, compared: lower case, one space between words. */
+const asHeard = (w: string) => w.toLowerCase().replace(NON_WORD, " ").trim();
+const AGENT = settings().agent;
+const NAMES = new Set((AGENT?.wake ?? []).map(asHeard));
 /**
- * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or the `misheard` setting, a real name people
- * he knows go by. Both are words of their own, so they wake only on his own turn, as `low` (Atlas confirms with him).
+ * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: "at last" for "Atlas" on 20 Oct,
+ * audit 4, or a real name people he knows go by). A misheard one wakes only on his own turn, as `low` (the agent
+ * confirms with him).
  */
-const MISHEARD = settings().misheard?.trim();
+export const isName = (word: string) => NAMES.has(asHeard(word));
 /**
  * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
  * longer word. Shared by both wakes.
  */
 const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
-/** A greeting then Atlas or a misheard Atlas, whatever the case. */
+const WAKES = [...(AGENT?.wake ?? []), ...(AGENT?.misheard ?? [])].map(phrase);
+/** A greeting then the agent's name or a mishearing of it, whatever the case; with no agent, nothing wakes. */
 export const WAKE = new RegExp(
-  String.raw`${GREETING}(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
+  WAKES.length > 0 ? String.raw`${GREETING}(${WAKES.join("|")})\b` : "(?!)",
   "i"
 );
 /** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is lifelog's misspelling. */
@@ -115,7 +126,7 @@ const taskLine = (
   now: number,
   salt = "",
   // Atlas, through the connector; or his own tick or removal of the receipt (`closings`).
-  by: Pick<Action, "madeBy" | "why"> = { madeBy: "connector", why: "Atlas" }
+  by: Pick<Action, "madeBy" | "why"> = { madeBy: "connector", why: agentName() }
 ): Action => ({
   after,
   at: iso(now),
@@ -205,7 +216,7 @@ export const settled = (s: { since: string; state: State }, now: number) =>
   closed(s.state) && now - Date.parse(s.since) > DAY;
 
 const WEEK = "stuck for 7 days";
-const LAPSE = "Atlas isn't receiving asks";
+const LAPSE = `${agentName()} isn't receiving asks`;
 
 /**
  * Why he must look at a task now, or null: every task, chat ones too. Atlas waits on him over an hour, let it pass
@@ -217,7 +228,7 @@ export function escalation(t: Task, now: number) {
     return null;
   }
   if (state === "waiting-eric" && now - Date.parse(since) > HOUR) {
-    return `Atlas needs you: ${end.question}`;
+    return `${agentName()} needs you: ${end.question}`;
   }
   if (Date.parse(deadline ?? "") <= now) {
     return state === "open"
@@ -331,7 +342,7 @@ function made(u: Update, tasks: Task[], now: number) {
       p.ask.instruction,
       after,
       "connector",
-      "split by Atlas",
+      `split by ${agentName()}`,
       now
     );
   }
@@ -345,7 +356,13 @@ function made(u: Update, tasks: Task[], now: number) {
   // His message's instant, normalized: the same message makes the same id whatever the offset it was given in.
   const chat = requested("connector", `${u.said}`, iso(sent));
   const after = { confidence: "high", title: u.title };
-  return askLine(chat, after, "connector", "asked Atlas in a chat", now);
+  return askLine(
+    chat,
+    after,
+    "connector",
+    `asked ${agentName()} in a chat`,
+    now
+  );
 }
 
 /**
@@ -508,7 +525,7 @@ export function wantOf(t: Task): Receipt {
     id: t.ask.id,
     notes: notes.filter(Boolean).join("\n").trim(),
     section: state === "open" ? "Open" : "Working",
-    title: `Atlas${low}: ${nameOf(t)}`,
+    title: `${agentName()}${low}: ${nameOf(t)}`,
   };
 }
 
