@@ -40,7 +40,7 @@ import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
-import { ObservationId } from "./schema";
+import { type Action, ObservationId } from "./schema";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
 import {
   closed,
@@ -125,23 +125,28 @@ const sends = <P, R>(handle: (p: P) => R) =>
 
 /** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
 async function request({ obs, said, ...change }: z.infer<typeof Reminders>) {
-  if (!obs === !said) {
-    throw new Error(
-      "Not done: pass his own words as `said`, or, for an add, `obs`: one of them."
-    );
+  if (obs && said) {
+    throw new Error("Not done: pass `said` or `obs`, not both.");
   }
-  const granted = obs && Granted.safeParse(change);
-  if (granted && !granted.success) {
-    throw new Error(
-      "Not done: with `obs`, only an add, with title, list, due and section."
-    );
-  }
-  const done = granted
-    ? await actGranted(await claim(obs as string), granted.data)
-    : await actAsked(
-        { ...change, said: said as string, why: "asked in a chat" },
-        "connector"
+  let done: Action;
+  if (obs) {
+    const granted = Granted.safeParse(change);
+    if (!granted.success) {
+      throw new Error(
+        "Not done: with `obs`, only an add, with title, list, due and section."
       );
+    }
+    done = await actGranted(await claim(obs), granted.data);
+  } else if (said) {
+    done = await actAsked(
+      { ...change, said, why: "asked in a chat" },
+      "connector"
+    );
+  } else {
+    throw new Error(
+      "Not done: pass his own words as `said` (or, for an add, `obs`)."
+    );
+  }
   const line = actionLine(done);
   if (done.result === "failed") {
     throw new Error(line);

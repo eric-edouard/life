@@ -223,17 +223,16 @@ export const parseTurnRef = (ref: string) => {
   return jobId ? { jobId, turnIndex: Number(turn) } : null;
 };
 
+/** A stored turn's owner flag, by recording and turn. */
+const ownerRow = (store: Store) =>
+  store.db.query<{ is_owner: number }, [string, number]>(
+    "select is_owner from turns where job_id = ? and turn_index = ?"
+  );
+
 /** Whether lifelog credits this turn (a turn ref) to the owner now, as the feed last sent it. */
 export const ownerSpoke = (store: Store, ref: string) => {
   const t = parseTurnRef(ref);
-  return Boolean(
-    t &&
-      store.db
-        .query<{ is_owner: number }, [string, number]>(
-          "select is_owner from turns where job_id = ? and turn_index = ?"
-        )
-        .get(t.jobId, t.turnIndex)?.is_owner
-  );
+  return Boolean(t && ownerRow(store).get(t.jobId, t.turnIndex)?.is_owner);
 };
 
 /** The stored successor: null while live; "" when retired with none (lifelog dropped it), so `successor is null` stays "live". */
@@ -335,9 +334,7 @@ export async function poll(store: Store, wait: number) {
   );
   // Before the page is folded in. A turn lifelog re-sends is not news; one it only now marks as his (it identifies the
   // owner late) is. A new turn with no speaker at all may be his too (a low-confidence ask, src/hear.ts).
-  const stored = store.db.query<{ is_owner: number }, [string, number]>(
-    "select is_owner from turns where job_id = ? and turn_index = ?"
-  );
+  const stored = ownerRow(store);
   const owner = page.turns.filter((t) => {
     const row = stored.get(t.jobId, t.turnIndex);
     return t.speaker.isOwner

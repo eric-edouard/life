@@ -67,7 +67,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
-  Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
+  Reminders (add, edit, done, undone, remove to Recently Deleted, restore, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
   only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`. One standing grant (his yes, decision 2 of the 21 Oct review)
   is the only other authority: `reminders` with `obs` in place of `said` adds a reminder (title, list, due, section)
