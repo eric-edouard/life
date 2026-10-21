@@ -193,7 +193,6 @@ const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
 /** An MCP server over stdio, `life`: the only tools a call may have (the Atlas bench's frozen connector). */
 export interface Tools {
   command: string[];
-  cwd: string;
   env: Record<string, string>;
 }
 const SERVER = "life";
@@ -262,7 +261,6 @@ async function askClaude({ dir, images, input, llm, system, tools }: Call) {
                 [SERVER]: {
                   args: tools.command.slice(1),
                   command: tools.command[0],
-                  cwd: tools.cwd,
                   env: tools.env,
                 },
               },
@@ -336,7 +334,6 @@ async function askCodex({ dir, images, input, llm, system, tools }: Call) {
           ? [
               `mcp_servers.${SERVER}.command=${toml(tools.command[0] ?? "")}`,
               `mcp_servers.${SERVER}.args=[${tools.command.slice(1).map(toml).join(",")}]`,
-              `mcp_servers.${SERVER}.cwd=${toml(tools.cwd)}`,
               `mcp_servers.${SERVER}.env={${Object.entries(tools.env)
                 .map(([k, v]) => `${k}=${toml(v)}`)
                 .join(",")}}`,

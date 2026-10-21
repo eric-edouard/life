@@ -214,8 +214,8 @@ async function runCase(
     prompt: "atlas-bench.v1",
     run: o.run,
     tools: {
-      command: ["bun", "scripts/bench-atlas.ts", "--serve"],
-      cwd: o.code,
+      // Its worktree's code, and the .env there (lifelog's token).
+      command: ["bun", "--cwd", o.code, "scripts/bench-atlas.ts", "--serve"],
       env: { LIFE_DATA: o.data, LIFE_NOW: world.at },
     },
   })) as { reply?: string };
