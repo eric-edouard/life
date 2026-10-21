@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { clock } from "../clock";
-import { askOnce, llmFor, llmSpec, type Tier } from "../llm";
+import { askOnce, llmFor, llmSpec, quota, type Tier } from "../llm";
 import { log } from "../log";
 import { git } from "../proc";
 import { INFERRED_USE_AT, type InferredPerson } from "../schema";
@@ -45,10 +45,41 @@ export function record(step: string, fields: Record<string, unknown>) {
 export type RunRecord = ReturnType<typeof record>;
 
 /**
+ * A run whose share of his Codex plan is measured (the sweeps, the eval, the Atlas bench): the quota read as it starts
+ * and as it ends, logged on its `run.start` and `run.end` (what it spent is derived from them: `useOf`, history.ts).
+ */
+export async function metered(step: string, fields: Record<string, unknown>) {
+  const before = (await quota()) ?? null;
+  const rec = record(step, { ...fields, quota: before });
+  return {
+    ...rec,
+    end: async <C extends Record<string, unknown>>(result: C) =>
+      rec.end({ ...result, quota: (await quota()) ?? null }),
+  };
+}
+
+export type Metered = Awaited<ReturnType<typeof metered>>;
+
+/** `work` as `rec`'s whole run: ended ok with what it returns, or failed with its error (thrown on). */
+export async function ended<T extends Record<string, unknown>>(
+  rec: Metered,
+  work: () => Promise<T>
+) {
+  try {
+    const result = await work();
+    await rec.end({ ...result, outcome: "ok" });
+    return result;
+  } catch (e) {
+    await rec.end({ error: (e as Error).message, outcome: "failed" });
+    throw e;
+  }
+}
+
+/**
  * A sweep's phases (the nightly's, the midday's): `at` is the one running. `step` runs a step, which fails the sweep if
  * it failed anything; `failed` logs the sweep's failure at the phase running and returns its end's fields.
  */
-export function phases(rec: RunRecord) {
+export function phases(rec: Pick<RunRecord, "error" | "step">) {
   const p = {
     at: "",
     failed(e: unknown) {
