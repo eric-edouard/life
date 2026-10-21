@@ -1,7 +1,7 @@
 import { errors, type JWTVerifyGetKey, jwtVerify } from "jose";
 
-// The owner's sign-in, for the connector (/mcp, a Bearer token) and the check page (a cookie): an OAuth server (the
-// `connector` setting's issuer) issues the tokens for Life's resource; Life only checks them.
+// The owner's sign-in, for the connector (/mcp, a Bearer token) and the check page (a cookie): an OAuth server issues
+// the tokens for Life's resource (Life's own, `oauth.ts`, or the `connector` setting's issuer); this checks them.
 
 export const SCOPE = "life:read";
 

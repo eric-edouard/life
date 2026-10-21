@@ -84,7 +84,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
-  (the `misheard` setting, a real name, or "at last") `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
+  (the `agent` setting's `misheard`: a real name, or "at last") `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
@@ -131,7 +131,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Google Calendar ever become a source, its events with `lifeMoment` are Life's output and must be dropped.
 - **Atlas is outside Life's boundary** (his choice, 21 Oct, kept as debt: an unattended run reads others' text with full access; revisit if sends should go out without his per-send yes). With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
-  asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
+  asks; nothing else Life reads ever does. Its playbook is `docs/agent.md` (the protocol, `{agent}` its name) then his own part, `playbook.md` in his data, read fresh by `tasks` (its
   `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
   answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions,
   512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
@@ -179,8 +179,12 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. A refused token (not a missing one,
   never its body), the SDK's own rejections (`onerror`) and invalid arguments (`tool()` validates them itself) are
   logged as `mcp.call` with `error`; nothing reads a response back. Every request
-  needs lifelog's JWT for this resource, `life:read`, `sub` = the `connector` setting's owner (`ownerTokens`, `src/auth.ts`). lifelog's
-  keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never a refused token.
+  needs a JWT for this resource, `life:read`, from its issuer: Life's own (`src/oauth.ts`, at `<origin>/auth`: an app
+  is approved with a pairing code from `bun life pair`, PKCE, one-use codes, refresh tokens replaced on use, its key in
+  `STATE/oauth`), or the `connector` setting's (his lifelog, `sub` = its owner) (`ownerTokens`, `src/auth.ts`). Another
+  issuer's keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never
+  a refused token. The origin is his Mac's tailnet name (`bun life connect`, `--public` through Funnel for ChatGPT and
+  Claude.ai, `src/tailscale.ts`) or his own Cloudflare tunnel (`tunnel: cloudflare`, the only one `tunnel.ts` heals).
 - **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
   reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages): never serve anything of his before
   that check. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to
@@ -241,7 +245,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   strict): the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos
   folder, his agents' report senders. A part left out is off, never an error: a fresh install with no settings runs.
   It is strict and read when modules load (units, tasks, email, git), so a new key lands in code first, and a bad file
-  stops the watcher and the nightly, like `truth/`.
+  stops the watcher and the nightly, like `truth/`. His agent is the `agent` setting (name, wake words, misheard forms,
+  client prefix): every "Atlas" Life writes is its name, and the ledger's `target: "atlas"` is the stored word for the
+  agent, kept as it is (append-only, like unit ids).
   Secrets stay in the environment (`.env`). Owner values are never defaults in code: tests read
   `src/test-data/state/settings.json`, made up.
 - **Where things live is two roots** (`truth.ts`): `DATA`, his data (`LIFE_DATA`, a checkout's default `~/Life`), and
@@ -315,7 +321,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 `bun run check` must pass before every commit; the pre-push hook runs it. When he says something didn't work, it is
 audited by `docs/audits.md`. A fix from an audit names its audit file in its PR and merges only with its regression
-case; a PR that changes `prompts/` or `docs/atlas.md` says in its description which cases of those stages it re-checked
+case; a PR that changes `prompts/`, `docs/agent.md` or his `playbook.md` says in its description which cases of those stages it re-checked
 and how they came out (a review refuses either without it); Atlas end to end is `bun scripts/bench-atlas.ts` (his past
 asks replayed frozen, cases in `~/Life/docs/evals/atlas-bench-cases.json`). Commit small. Prefer deleting code to adding
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,

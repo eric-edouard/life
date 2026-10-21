@@ -3,6 +3,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./schema";
+
+/** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
+export const PAGES_CLIENT = "life";
+export const OWNER_SUB = "owner";
+
 import { STATE } from "./truth";
 
 // What makes one install differ from another, in one file: who it serves, where its parts are, what is turned on.
@@ -13,6 +18,23 @@ export const SETTINGS = join(STATE, "settings.json");
 
 export const Settings = z
   .object({
+    /**
+     * His agent, the one "hey <name>" hands his words to (`hear.ts`, `tasks.ts`): its name (what Life calls it, and
+     * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
+     * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
+     * nothing wakes an agent.
+     */
+    agent: z
+      .object({
+        client: z.string(),
+        misheard: z.array(z.string()).default([]),
+        name: z.string(),
+        /** How asks reach it: pushed as the MCP event `ask` (ChatGPT), or pulled by its own `tasks` calls (Claude). */
+        transport: z.enum(["mcp-event", "pull"]).default("mcp-event"),
+        wake: z.array(z.string()).min(1),
+      })
+      .strict()
+      .optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
       .object({ password: z.string(), repository: z.string() })
@@ -21,16 +43,21 @@ export const Settings = z
     /** The connector (/mcp) and its sign-in; without it Life serves no HTTP at all. */
     connector: z
       .object({
-        /** The check page's public client at the issuer (PKCE, no secret). */
-        client: z.string(),
-        /** The OAuth server whose tokens it accepts. */
-        issuer: z.url(),
+        /** The check page's public client at another issuer (PKCE, no secret). */
+        client: z.string().optional(),
+        /** Another OAuth server whose tokens it accepts; without it Life issues them itself (`oauth.ts`). */
+        issuer: z.url().optional(),
         /** Its public address, where clients reach /mcp. */
         origin: z.url(),
-        /** The one subject (`sub`) let in: the owner. */
-        owner: z.string(),
+        /** The one subject (`sub`) another issuer lets in: the owner. */
+        owner: z.string().optional(),
+        /** What carries the origin to this Mac: Tailscale (`bun life connect`), or his own Cloudflare tunnel. */
+        tunnel: z.enum(["tailscale", "cloudflare"]).default("tailscale"),
       })
       .strict()
+      .refine((c) => !c.issuer || (c.client && c.owner), {
+        message: "another issuer needs its client and owner",
+      })
       .optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
@@ -40,8 +67,6 @@ export const Settings = z
     lifelog: z.object({ url: z.url() }).strict().optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
-    /** A word lifelog hears in place of the agent's name. */
-    misheard: z.string().optional(),
     /** The Google calendar the moments are projected on (`past.ts`), through `gog` as this account. */
     past: z
       .object({ account: z.string(), calendar: z.string() })
@@ -87,8 +112,13 @@ export function connector() {
   }
   return {
     ...c,
+    client: c.client ?? PAGES_CLIENT,
+    /** Life's own issuer (`oauth.ts`) unless another is set. */
+    issuer: c.issuer ?? `${c.origin}/auth`,
     /** The resource's OAuth metadata; also the tunnel's health probe (src/tunnel.ts). */
     metadata: `${c.origin}/.well-known/oauth-protected-resource/mcp`,
+    own: !c.issuer,
+    owner: c.owner ?? OWNER_SUB,
     resource: `${c.origin}/mcp`,
   };
 }
@@ -96,3 +126,6 @@ export function connector() {
 const TILDE = /^~(?=\/|$)/;
 /** A path from settings, `~/` expanded. */
 export const expand = (path: string) => path.replace(TILDE, homedir());
+
+/** What Life calls his agent in what it writes (reports, the board, the connector's words). */
+export const agentName = () => settings().agent?.name ?? "the agent";

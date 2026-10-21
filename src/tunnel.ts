@@ -20,10 +20,13 @@ const statusOf = (url: string) =>
     () => 0
   );
 
-/** One probe: restarts cloudflared when the tunnel is down; nothing to probe without a connector. */
+/** One probe: restarts cloudflared when the tunnel is down; nothing to probe without a Cloudflare tunnel. */
 export async function healTunnel() {
   if (
-    !(settings().connector && tunnelDown(await statusOf(connector().metadata)))
+    !(
+      settings().connector?.tunnel === "cloudflare" &&
+      tunnelDown(await statusOf(connector().metadata))
+    )
   ) {
     return;
   }

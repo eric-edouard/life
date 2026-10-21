@@ -1,6 +1,6 @@
 import { closeSync, existsSync, openSync } from "node:fs";
 import type { Person, SourceEvent, Unit } from "../schema";
-import { settings } from "../settings";
+import { agentName, settings } from "../settings";
 import { archiveDb } from "./archived";
 import {
   FORMATS,
@@ -195,7 +195,7 @@ export const SOURCES: Descriptor[] = [
   // Atlas's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
   {
     kind: "agent",
-    label: "Atlas",
+    label: agentName(),
     name: "atlas",
     newest: newestAtlas,
     read: readAtlas,
