@@ -12,7 +12,7 @@ import {
   Rating,
   Supersession,
 } from "../schema";
-import { DATA } from "../truth";
+import { DATA, OWNER } from "../truth";
 import {
   ACTIONS,
   CORRECTIONS,
@@ -505,16 +505,17 @@ export async function claim(id: string) {
     ?.o as Observation;
   const people = await readPeople();
   const unit = (await readUnits()).find((u) => u.id === o.unit);
+  const chats = chatHandles(unit ? [unit] : []);
   const now = aboutNow(
     [o],
     await readUnresolved(),
     people.truth.people,
     people.inferred,
     people.corrections,
-    chatHandles(unit ? [unit] : [])
+    chats
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));
-  const handle = authorFrom(o, chatHandles(unit ? [unit] : [])) ?? null;
+  const handle = o.speaker === OWNER ? "me" : (authorFrom(o, chats) ?? null);
   const chat = unit && unit.source in CHATS;
   return {
     corrections: [
