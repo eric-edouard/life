@@ -86,6 +86,8 @@ export interface LifelogChapter {
   id: string;
   /** Turns in it. */
   items: number;
+  /** The refs of his "hey Life" spans that start in it (the hearing's marks, `writeMarks`); absent when none. */
+  marked?: string[];
   /** Names lifelog gave the people who speak in it. */
   people: string[];
   /** `jobId:turnIndex@startAt` of its first turn, the stable quote ref; absent when it has no turn. */
@@ -188,6 +190,8 @@ export function openStore(dir = WATCH) {
     person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
     primary key (job_id, turn_index));
   create table if not exists jobs (id text primary key, speech_seconds real not null);
+  create table if not exists marks (
+    job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists chapters_conversation on chapters (conversation_id);`);
   return { cursor, db };
@@ -420,6 +424,18 @@ export function readConversations(
       .all(from),
     (t) => t.conversation_id
   );
+  // His "hey Life" spans by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
+  const marks = new Map(
+    db
+      .query<{ job_id: string; refs: string; turn_index: number }, []>(
+        "select * from marks"
+      )
+      .all()
+      .map((m) => [
+        `${m.job_id}:${m.turn_index}`,
+        JSON.parse(m.refs) as string[],
+      ])
+  );
   const chapters = Map.groupBy(
     db
       .query<
@@ -441,6 +457,16 @@ export function readConversations(
           (t) => t.start_at >= c.start_at && t.start_at < c.end_at
         );
         const [first] = inside;
+        const marked = inside.flatMap((t) =>
+          // A turn lifelog gave someone else, or a recording transcribed again (its wake ref no longer this turn's): no mark.
+          (() => {
+            const refs = marks.get(`${t.job_id}:${t.turn_index}`) ?? [];
+            return whose(chapterTurn(t, byId)) === "other" ||
+              refs[0] !== turnRef(t.job_id, t.turn_index, t.start_at)
+              ? []
+              : refs;
+          })()
+        );
         const chapter: LifelogChapter = {
           end: c.end_at,
           id: c.id,
@@ -453,6 +479,7 @@ export function readConversations(
               })
             ),
           ],
+          ...(marked.length > 0 ? { marked } : {}),
           ...(first
             ? { ref: turnRef(first.job_id, first.turn_index, first.start_at) }
             : {}),
@@ -507,17 +534,27 @@ export function turnsBetween(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
-    .map((t) => ({
-      at: t.start_at,
-      end: t.end_at,
-      jobId: t.job_id,
-      name: nameOf(t.person_id, t.person_name, byId),
-      owner: t.is_owner === 1,
-      personId: t.person_id,
-      seen: t.seen_at,
-      turnIndex: t.turn_index,
-    }));
+    .map((t) => chapterTurn(t, byId));
 }
+
+/** Whose a turn is, as lifelog has it: his, someone lifelog named (by id or name), or nobody's. */
+export function whose(t: ChapterTurn): "me" | "unknown" | "other" {
+  if (t.owner) {
+    return "me";
+  }
+  return t.personId || t.name ? "other" : "unknown";
+}
+
+const chapterTurn = (t: TurnRow, byId: Map<string, string>): ChapterTurn => ({
+  at: t.start_at,
+  end: t.end_at,
+  jobId: t.job_id,
+  name: nameOf(t.person_id, t.person_name, byId),
+  owner: t.is_owner === 1,
+  personId: t.person_id,
+  seen: t.seen_at,
+  turnIndex: t.turn_index,
+});
 
 export const Transcript = z.object({
   turns: z.array(
@@ -638,6 +675,46 @@ export async function visits(q: Record<string, string | number | undefined>) {
       e.status === 404 ? [] : Promise.reject(e)
     )
   );
+}
+
+/**
+ * Replaces the "hey Life" spans the hearing found in a conversation from `from` on (a span grows as he goes on): each
+ * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row.
+ */
+export function writeMarks(
+  store: Store,
+  conversation: string,
+  from: string,
+  marks: string[][]
+) {
+  const now = () =>
+    store.db
+      .query<{ refs: string }, [string, string]>(
+        `select m.refs from marks m join turns t using (job_id, turn_index)
+          where t.conversation_id = ? and t.start_at >= ? order by m.refs`
+      )
+      .all(conversation, from)
+      .map((m) => m.refs)
+      .join("\n");
+  const before = now();
+  store.db.transaction(() => {
+    store.db.run(
+      `delete from marks where (job_id, turn_index) in
+        (select job_id, turn_index from turns where conversation_id = ? and start_at >= ?)`,
+      [conversation, from]
+    );
+    for (const refs of marks) {
+      const wake = parseTurnRef(refs[0] ?? "");
+      if (wake) {
+        store.db.run(
+          "insert or replace into marks (job_id, turn_index, refs) values (?, ?, ?)",
+          [wake.jobId, wake.turnIndex, JSON.stringify(refs)]
+        );
+      }
+    }
+  })();
+  // Whether they changed: the units on disk carry marks, so only then do they need building again.
+  return now() !== before;
 }
 
 /** The live conversations that overlap [from, to): id, start and title. */

@@ -222,6 +222,10 @@ export const head = (text: string) =>
     ? text
     : `${text.slice(0, TEXT_MAX / 2)}\n…\n${text.slice(-TEXT_MAX / 2)}`;
 
+/** What a chapter he marked with "hey Life" adds to its text (`lifelogUnits`). */
+export const MARKED =
+  '[He said "hey Life" here: he asked Life to remember what he says after it.]';
+
 export function lifelogUnits(
   conversations: LifelogConversation[],
   names: Map<string, string | null>
@@ -251,7 +255,8 @@ export function lifelogUnits(
       ];
     }
     return c.chapters.map((ch) => {
-      const text = `${c.title}\n${ch.title}\n${ch.summary}`;
+      // A chapter he marked says so in its text: only its hash moves, so only it is read again, and the moments model sees it.
+      const text = `${c.title}\n${ch.title}\n${ch.summary}${ch.marked ? `\n${MARKED}` : ""}`;
       return {
         messages: [],
         text,
@@ -261,6 +266,7 @@ export function lifelogUnits(
           hash: contentHash(text),
           id: unitId("lifelog", ch.id),
           key: c.id,
+          ...(ch.marked ? { marked: ch.marked } : {}),
           people: [...new Set(ch.people.map((n) => personRef(n, names)))],
           refs: [`${c.id}#${ch.id}`, ...(ch.ref ? [ch.ref] : [])],
           schemaVersion: 1,
