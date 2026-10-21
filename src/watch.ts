@@ -27,17 +27,33 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
 const MIN = 60_000;
 let last = 0;
-/** At most each minute: the chase (from the ledger alone, so a Reminders outage stops no email), then Reminders both ways. */
+let ticking = false;
+/**
+ * At most each minute, one at a time: the chase (from the ledger alone, so a Reminders outage stops no email), then
+ * Reminders both ways. Beside the loop, never awaited by it: reading his lists takes about 10 s, hearing must not wait.
+ */
 async function tick(now = clock().getTime()) {
-  if (now - last < MIN) {
+  if (ticking || now - last < MIN) {
     return;
   }
   last = now;
+  ticking = true;
+  try {
+    await pass(now);
+  } finally {
+    ticking = false;
+  }
+}
+
+async function pass(now: number) {
   await chase(tasksOf(), now);
   // Reminders both ways (src/sync.ts): one read, his changes recorded as state (his tick or removal of a receipt
   // closes its task), then the board brought in line.
-  const s = await pull();
+  // Taken before the read: what Life writes during it falls inside the lag window (src/sync.ts `LAG_MS`).
   const at = clock().toISOString();
+  const read = performance.now();
+  const s = await pull();
+  log("sync.pull", { ms: Math.round(performance.now() - read) });
   const lines = [
     ...inbound(s, readActions(), at),
     ...closings(tasksOf(), marks(s), at),
@@ -253,7 +269,7 @@ export async function watch(): Promise<number> {
       await deliver().catch((e: Error) =>
         log("run.error", { error: e.message, step: "events.deliver" })
       );
-      await tick().catch((e: Error) =>
+      tick().catch((e: Error) =>
         log("run.error", { error: e.message, step: "tasks.tick" })
       );
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
