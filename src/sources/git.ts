@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { clock } from "../clock";
 import { log } from "../log";
-import { git } from "../proc";
+import { exec, git } from "../proc";
 import type { Person, RepoGuess, SourceEvent } from "../schema";
 import type { Truth } from "../truth";
 import type { Newest } from "./index";
@@ -48,14 +48,16 @@ export function listRepos(root = WORK): Repo[] {
 }
 
 /** The newest commit in any repo, and how many repos had one in the last day (the status page). */
-export function newestCommit(now = clock().getTime()): Newest {
-  const dated = listRepos()
-    .map((r) => ({
-      at: git(r.path, ["log", "-1", "--all", "--format=%cI"])
-        .stdout.toString()
-        .trim(),
+export async function newestCommit(now = clock().getTime()): Promise<Newest> {
+  const all = await Promise.all(
+    listRepos().map(async (r) => ({
+      at: (
+        await exec(["git", "-C", r.path, "log", "-1", "--all", "--format=%cI"])
+      ).stdout.trim(),
       repo: r.key,
     }))
+  );
+  const dated = all
     .filter((r) => r.at)
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   const day = dated.filter((r) => now - Date.parse(r.at) < 86_400_000).length;

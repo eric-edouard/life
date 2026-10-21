@@ -85,7 +85,7 @@ export function readWhatsapp(
 export const newestWhatsapp = () =>
   newestArchived(
     "whatsapp",
-    `select at, (select max(seenAt) from messages) as seen,
+    `select at,
        coalesce(chatName, '?') || coalesce(' · ' || senderName, '') || ': ' || text as words
      from messages order by at desc limit 1`
   );

@@ -21,10 +21,9 @@ import {
 
 type SourceName = Unit["source"];
 
-/** A source's newest item, for the status page: when it came, when Life last copied one, his words in it, by part. */
+/** A source's newest item, for the status page: when it came, his words in it, by part. */
 export interface Newest {
   at: string | null;
-  copiedAt?: string | null;
   /** More lines for its card (a repo's name, how many committed today). */
   facts?: { label: string; value: string }[];
   /** Each part's newest (Beeper's networks). */
@@ -46,7 +45,7 @@ export type Descriptor = {
   label: string;
   name: SourceName;
   /** Its newest item (the status page's card); a voice source's is lifelog's to tell. */
-  newest?: () => Newest;
+  newest?: () => Newest | Promise<Newest>;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
   searchDays?: number;
   /** How long it may stay silent before its card turns amber (`toneOf`, plate.ts). */

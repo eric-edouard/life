@@ -19,6 +19,7 @@ import {
   readRatings,
   readStatements,
 } from "./memory/ledger";
+import { clip } from "./memory/units";
 import { git } from "./proc";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { readContacts } from "./sources/contacts";
@@ -106,6 +107,19 @@ export function toneOf(
 /** Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (AGENTS.md). */
 export const waking = (d: Date) => d.getHours() >= 8 || d.getHours() < 1;
 
+/** When the waking hours `d` falls in began (08:00, the day before after midnight); null outside them. */
+export function wokeAt(d: Date) {
+  if (!waking(d)) {
+    return null;
+  }
+  const w = new Date(d);
+  w.setHours(8, 0, 0, 0);
+  if (d.getHours() < 1) {
+    w.setDate(w.getDate() - 1);
+  }
+  return w;
+}
+
 /** A run's outcome as a colour: the plate, its details and the page use this one. */
 const RUN_TONES: Record<string, Tone> = {
   ok: "ok",
@@ -136,11 +150,6 @@ async function safe<T>(read: () => Promise<T> | T) {
     return { error: (e as Error).message, ok: false as const };
   }
 }
-
-export const clip = (s: string | null | undefined, n = 140) => {
-  const t = (s ?? "").replaceAll(/\s+/g, " ").trim();
-  return t.length > n ? `${t.slice(0, n)}…` : t;
-};
 
 const countLines = (path: string) =>
   existsSync(path) ? linesOf(path).length : 0;
@@ -269,7 +278,11 @@ const newestOf = async () =>
             await cached(
               `newest:${d.name}`,
               d.kind === "repo" ? 5 * MIN : 3000,
-              () => safe((): Newest => d.newest?.() ?? { at: null })
+              () =>
+                safe(
+                  async (): Promise<Newest> =>
+                    (await d.newest?.()) ?? { at: null }
+                )
             ),
           ] as const
       )
@@ -281,11 +294,7 @@ async function reads(now: Date) {
   const t = now.getTime();
   const [
     status,
-    events,
-    mcp,
-    sent,
-    quotas,
-    models,
+    log,
     failing,
     turn,
     life,
@@ -296,16 +305,11 @@ async function reads(now: Date) {
     contacts,
     sleepList,
     swept,
-    writes,
     actions,
     newest,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
-    cached("events", 5000, () => recentEvents<Line>(2)),
-    cached("mcp", 5000, () => recentEvents<Line>(2, "mcp.call")),
-    cached("sent", 15_000, () => recentEvents<Line>(2, "email.sent")),
-    cached("quota", 15_000, () => recentEvents<Line>(8, "quota.read")),
-    cached("models", 5000, () => recentEvents<Line>(1, "model.run")),
+    cached("log", 5000, () => recentEvents<Line>(8, "")),
     cached("failing", 15_000, () => archiveFailing()),
     cached("turn", 3000, () => safe(newestTurn)),
     cached("lifelog", 30_000, () => safe(lifelogStatus)),
@@ -327,33 +331,39 @@ async function reads(now: Date) {
         ],
       })
     ),
-    cached("calendar", 15_000, () => recentEvents<Line>(2, "calendar.write")),
     cached("actions", 15_000, readActions),
     newestOf(),
   ]);
+  const of = (kind: string, days: number) =>
+    since(
+      log.filter((e) => e.kind === kind),
+      days * DAY,
+      t
+    );
+  const mcp = of("mcp.call", 2);
   return {
     actions,
     contacts,
-    errorsToday: since(events, DAY, t).filter((e) => e.kind === "run.error"),
+    errorsToday: of("run.error", 1),
     failingStores: new Map(failing),
     health: readHealth(),
     life,
     mac,
     mcp,
     mem,
-    models,
+    models: of("model.run", 1),
     newest,
     now,
     open,
-    quotas,
-    sent,
+    quotas: of("quota.read", 8),
+    sent: of("email.sent", 2),
     sleepList,
     status,
     swept,
     t,
     truth,
     turn,
-    writes,
+    writes: of("calendar.write", 2),
   };
 }
 
@@ -362,38 +372,45 @@ const serviceOf = (r: Reads, name: string) =>
   r.mac.services.find((s) => s.name === name);
 const polling = (r: Reads) => r.status.watcher.state === "ok";
 
+/** How quiet the Pendant is: silence counts from the start of his waking hours at the earliest (a night is not silence). */
+function pendantQuiet(r: Reads, d: Descriptor, spokeAt: string | null) {
+  const woke = wokeAt(r.now)?.toISOString();
+  const quietSince = spokeAt && woke && woke > spokeAt ? woke : spokeAt;
+  const limit = woke ? d.silentAfter : Number.POSITIVE_INFINITY;
+  return toneOf(quietSince, limit, r.t, r.turn.ok);
+}
+
+type Pendant = NonNullable<
+  Extract<Reads["life"], { ok: true }>["value"]["pendant"]
+>;
+
+const pendantFacts = (
+  p: Pendant | null | undefined,
+  spokeAt: string | null
+): Fact[] => [
+  {
+    at: p?.recordingKnownAt,
+    label: "Recording, as of",
+    value: p?.recording ?? "unknown",
+  },
+  { label: "Battery", value: p?.batteryPercent ? `${p.batteryPercent}%` : "?" },
+  { label: "Connection", value: p?.connection ?? "?" },
+  { at: spokeAt, label: "Newest speech heard" },
+];
+
 /** The Pendant, as lifelog last heard from the phone, and the newest speech the watcher folded in. */
 function pendantCard(r: Reads, d: Descriptor): Card {
-  const pendant = r.life.ok
-    ? (r.life.value as { pendant?: Record<string, string> }).pendant
-    : undefined;
+  const pendant = r.life.ok ? r.life.value.pendant : undefined;
   const recording = pendant?.recording === "recording";
   const spokeAt = r.turn.ok ? (r.turn.value ?? null) : null;
-  const quiet = toneOf(
-    spokeAt,
-    waking(r.now) ? d.silentAfter : Number.POSITIVE_INFINITY,
-    r.t,
-    r.turn.ok
-  );
+  const quiet = pendantQuiet(r, d, spokeAt);
   return {
     ...firstOf(
       [recording && quiet.tone === "warn", { tone: "warn", word: "silent" }],
       [recording, { tone: "ok", word: "recording" }],
       [true, quiet]
     ),
-    facts: [
-      {
-        at: pendant?.recordingKnownAt,
-        label: "Recording, as of",
-        value: pendant?.recording ?? "unknown",
-      },
-      {
-        label: "Battery",
-        value: pendant?.batteryPercent ? `${pendant.batteryPercent}%` : "?",
-      },
-      { label: "Connection", value: pendant?.connection ?? "?" },
-      { at: spokeAt, label: "Newest speech heard" },
-    ],
+    facts: pendantFacts(pendant, spokeAt),
     group: "sources",
     headline: pendant?.recording ?? "unknown",
     id: "pendant",
@@ -405,11 +422,7 @@ function pendantCard(r: Reads, d: Descriptor): Card {
 function lifelogCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
   const backlog = r.life.ok
-    ? (
-        r.life.value as {
-          phoneHeartbeat?: { backlog?: { pages?: number } };
-        }
-      ).phoneHeartbeat?.backlog?.pages
+    ? r.life.value.phoneHeartbeat?.backlog?.pages
     : undefined;
   return {
     ...firstOf(
@@ -454,6 +467,10 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   };
   const n: Newest = read.ok ? read.value : { at: null };
   const broken = r.failingStores.get(d.name);
+  // The archive's stores: when it last copied one in (lifeStatus).
+  const copiedAt = (r.status.capture.archive as Record<string, string | null>)[
+    d.name
+  ];
   const tone = toneOf(n.at, d.silentAfter, r.t, read.ok && !broken);
   const why = broken?.error ?? (read.ok ? undefined : read.error);
   return {
@@ -468,13 +485,13 @@ function sourceCard(r: Reads, d: Descriptor): Card {
     facts: [
       { at: n.at, label: n.parts?.length ? "Newest" : "Last item" },
       ...(n.parts ?? []).map((p) => ({ at: p.at, label: p.label })),
-      ...(n.copiedAt === undefined
+      ...(copiedAt === undefined
         ? []
-        : [{ at: n.copiedAt, label: "Last copied" }]),
+        : [{ at: copiedAt, label: "Last copied" }]),
       ...(n.facts ?? []),
       ...(broken ? [{ at: broken.at, label: "Failing since" }] : []),
     ],
-    flow: n.copiedAt ? Date.parse(n.copiedAt) : undefined,
+    flow: copiedAt ? Date.parse(copiedAt) : undefined,
     group: "sources",
     headline: tone.word,
     id: d.name,

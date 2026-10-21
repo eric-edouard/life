@@ -241,7 +241,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - Lifelog units come from the store `bun life watch` keeps (`derived/watch/`, always on; `bun life status`), one per chapter id.
   Only the watcher calls `poll`: a page folded in anywhere else would never be heard (#5). Its `marks` table (the
   hearing's "hey Life" spans, refs only) is the one thing there not rebuilt from the feed: a new store has only the marks heard since.
-  When a commit changes `src/` or `prompts/` (`codeAt`), the watcher exits (at start it hears again the turns first seen
+  When a commit changes `src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears again the turns first seen
   in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title once), the archive after
   its pass, and launchd restarts each on the new code.
 - The watcher hears a conversation once its speech is complete (`speechIn`, `hear.ts`): it reads a recording of under

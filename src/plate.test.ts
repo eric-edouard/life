@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { clientName } from "./events";
-import { type Card, strip, toneOf, waking } from "./plate";
+import { type Card, strip, toneOf, waking, wokeAt } from "./plate";
 
 const now = Date.parse("2026-10-21T15:00:00.000Z");
 const ago = (ms: number) => new Date(now - ms).toISOString();
@@ -37,6 +37,13 @@ test("the Pendant is expected to hear him between 08:00 and 01:00 only", () => {
     false,
     false,
   ]);
+});
+
+test("his waking hours began at 08:00, the day before after midnight: a night is not silence", () => {
+  const at = (day: number, h: number) => new Date(2026, 9, day, h, 30);
+  expect(wokeAt(at(21, 9))).toEqual(new Date(2026, 9, 21, 8, 0));
+  expect(wokeAt(at(22, 0))).toEqual(new Date(2026, 9, 21, 8, 0));
+  expect(wokeAt(at(22, 4))).toBeNull();
 });
 
 test("connector clients go by the names he knows them by", () => {
