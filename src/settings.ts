@@ -67,9 +67,9 @@ export const Settings = z
     lifelog: z.object({ url: z.url() }).strict().optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
-    /** The Google calendar the moments are projected on (`past.ts`), through `gog` as this account. */
+    /** The calendar the moments are projected on (`past.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
     past: z
-      .object({ account: z.string(), calendar: z.string() })
+      .object({ account: z.string().optional(), calendar: z.string() })
       .strict()
       .optional(),
     /** Who mails him his agents' reports: their mail is judged, not dropped as automated. */

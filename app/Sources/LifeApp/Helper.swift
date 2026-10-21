@@ -23,6 +23,7 @@ enum Helper {
     env["LIFE_ROOT"] = resources.path
     env["LIFE_DATA"] = data.path
     env["LIFE_STATE"] = state.path
+    env["LIFE_EVENTKIT"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-eventkit").path
     for name in secrets {
       if let value = Keychain.read(name) { env[name] = value }
     }
