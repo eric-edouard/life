@@ -54,13 +54,16 @@ const DAY_MS = 24 * 3_600_000;
 /** Whether Atlas (ChatGPT's MCP client) read `day` in the last 24 h, as its daily review does (docs/atlas.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
   (
-    await recentEvents<{ agent?: string; at: string; tool?: string }>(
-      2,
-      "mcp.call"
-    )
+    await recentEvents<{
+      agent?: string;
+      at: string;
+      error?: boolean;
+      tool?: string;
+    }>(2, "mcp.call")
   ).some(
     (e) =>
       e.tool === "day" &&
+      !e.error &&
       e.agent?.startsWith("openai-mcp") &&
       Date.parse(e.at) >= now.getTime() - DAY_MS
   );
