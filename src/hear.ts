@@ -15,16 +15,16 @@ import { TEST } from "./truth";
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
 
 /**
- * "hey Atlas" as lifelog may write it (`LIFE_MISHEARD` in `.env`): a real name people he knows go
- * by, so that one wakes only on his own turn, as `low` (Atlas confirms with him first).
+ * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or `LIFE_MISHEARD` in `.env`, a real name people
+ * he knows go by. Both are words of their own, so they wake only on his own turn, as `low` (Atlas confirms with him).
  */
 const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
 /**
- * "hey" then Atlas or its misheard word, whatever the case and the punctuation around or between them. "hey" as
- * lifelog may write it: "Hej" (21 Oct, audit 4), and its other spellings of the greeting, never a word of its own.
+ * A greeting then Atlas or a misheard Atlas, whatever the case and the punctuation around or between them. The
+ * greeting is "hey" as lifelog writes it ("Hej" on 21 Oct, audit 4), never the end of a longer word.
  */
 export const WAKE = new RegExp(
-  String.raw`\b(?:hey|hej|hei|hay|hé|ey)\W+(atlas${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
+  String.raw`\b(?:hey|hej|hei|hé|ey)\W+(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
   "i"
 );
 /** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
@@ -49,7 +49,7 @@ function wakeOf(t: Turn) {
   return words.length > 0 && t.who === "me" ? "low" : undefined;
 }
 
-/** The wake words in a turn: "atlas", or its misheard one. */
+/** The wake words in a turn: "atlas", or a misheard one. */
 const wakeWords = (t: Turn) =>
   [...t.text.matchAll(new RegExp(WAKE, "gi"))].map((m) => m[1]?.toLowerCase());
 
