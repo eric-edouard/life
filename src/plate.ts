@@ -26,7 +26,7 @@ import { git } from "./proc";
 import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { readContacts } from "./sources/contacts";
-import { type Descriptor, type Newest, SOURCES } from "./sources/index";
+import { type Descriptor, enabledSources, type Newest } from "./sources/index";
 import { lifelogStatus, newestTurn } from "./sources/lifelog";
 import { escalation, taskList } from "./tasks";
 import { DATA, loadTruth } from "./truth";
@@ -274,7 +274,7 @@ const firstOf = (
 const newestOf = async () =>
   new Map(
     await Promise.all(
-      SOURCES.map(
+      enabledSources().map(
         async (d) =>
           [
             d.name,
@@ -509,7 +509,7 @@ function sourceCard(r: Reads, d: Descriptor): Card {
 
 function sourceCards(r: Reads): Card[] {
   return [
-    ...SOURCES.flatMap((d) =>
+    ...enabledSources().flatMap((d) =>
       d.kind === "voice"
         ? [pendantCard(r, d), lifelogCard(r)]
         : [sourceCard(r, d)]
