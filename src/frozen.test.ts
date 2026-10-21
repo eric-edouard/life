@@ -76,6 +76,18 @@ test.if(FROZEN !== undefined)(
 );
 
 test.if(FROZEN !== undefined)(
+  "what acts outside the copy refuses to run frozen",
+  async () => {
+    const { remctl } = await import("./actions");
+    const { forward } = await import("./sources/lifelog");
+    const { sendReport } = await import("./memory/report");
+    await expect(remctl(["lists"])).rejects.toThrow("frozen run");
+    await expect(forward("title", {} as never)).rejects.toThrow("frozen run");
+    await expect(sendReport("k", {} as never)).rejects.toThrow("frozen run");
+  }
+);
+
+test.if(FROZEN !== undefined)(
   "a frozen connector acts on nothing and subscribes nothing",
   async () => {
     const { buildServer } = await import("./mcp");
