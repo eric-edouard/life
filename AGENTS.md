@@ -242,7 +242,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   It is strict and read when modules load (units, tasks, email, git), so a new key lands in code first, and a bad file
   stops the watcher and the nightly, like `truth/`.
   Secrets stay in the environment (`.env`). Owner values are never defaults in code: tests read
-  `src/test-data/settings.json`, made up.
+  `src/test-data/state/settings.json`, made up.
+- **Where things live is two roots** (`truth.ts`): `DATA`, his data (`LIFE_DATA`, a checkout's default `~/Life`), and
+  `STATE`, Life's own state (`LIFE_STATE`, a checkout's default its own `derived/`): settings, log, the watcher's store,
+  runs, the index. Nothing joins `derived/` by hand. The app sets both under Application Support.
 
 - `bun life memory nightly` is started every 30 min by launchd and a guard (`derived/memory/nightly.json`) runs it once a day after 02:00, up to 3 tries; run it by hand with `--force`. The same tick runs `bun life memory midday` at the first tick after 13:00 and after 19:00 (the moments of today, extract of its closed lifelog conversations, then the index, then the pages with new observations; no commit or email, a failure only logs; the nightly commits and its report counts what the midday runs found), and the backup once the night is done or from 06:00 (`backupDue`, its tries in `derived/memory/backup.json`; the snapshot's outcome stays in `derived/backup.json`). Everything looks back 7 days. Older days are read by the backfill: `bun life memory backfill --from d --to d` (both included) sets its range in
   `derived/memory/backfill.json`, and a tick with no midday run due, once the day's night went through, reads its next week, oldest

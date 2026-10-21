@@ -6,7 +6,7 @@ import { clock, unfrozen } from "../clock";
 import { log } from "../log";
 import { digest, readJson } from "../memory/ledger";
 import { settings } from "../settings";
-import { ROOT } from "../truth";
+import { STATE } from "../truth";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
@@ -16,7 +16,7 @@ import { ROOT } from "../truth";
 
 const WAIT_MARGIN_S = 30;
 
-export const WATCH = join(ROOT, "derived", "watch");
+export const WATCH = join(STATE, "watch");
 
 // The shapes Life reads from lifelog's API, each field as nullable or optional as lifelog's contract says
 // (`apps/server/openapi.json` in lifelog; lifelog.test.ts checks it). Fields Life doesn't read are left out and ignored.
