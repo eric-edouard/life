@@ -74,8 +74,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   words>'`, a `grant` line in the ledger, the latest standing; his "stop" may come through Atlas, as off only takes
   authority away): `reminders` with `obs` in place of `said` adds a
   reminder (title, list, due, section) from his current salience-3 to-do or promise in a lifelog turn the store
-  credits to him at that moment, at most 3 a day, one at a time, never on a shared list, and not again once he removed
-  one it made through Life, until his next yes (`grantRefusal`, all derived from the ledger); its authority is the
+  credits to him at that moment, at most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or by
+  his hand in Reminders), until his next yes (`grantRefusal`, all derived from the ledger); its authority is the
   observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
@@ -110,7 +110,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`closings`, decision 17), so it is not added again; Atlas sees why in `tasks`. Nothing else on it is read as his
   (no steers: they once forged his voice). An item is found by the task id on its notes' first line. Life brings its
   notes and section (Open, Working: made by hand on 19 Oct, the code only assigns them) in line each pass and ticks the
-  item when its task closes. It never alerts: what needs him is emailed (`chase`).
+  item when its task closes, and only then (so a ticked receipt of an open task is always his). It never alerts: what
+  needs him is emailed (`chase`).
 - **The Past calendar, his Google calendar `LIFE_PAST_CALENDAR`, is a one-way projection of the moments** (his request,
   21 Oct; `src/memory/past.ts`, `syncPast`, each nightly tick, through `gog` as `LIFE_PAST_ACCOUNT`): one event per
   moment that happened, none overlapping (`tiled`: what covers another is left off), found by its private properties `lifeMoment` and `lifeHash`; a changed moment is written again,

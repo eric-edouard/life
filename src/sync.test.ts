@@ -23,6 +23,7 @@ const snap = (live: Reminder[], over: Partial<Snapshot> = {}): Snapshot => ({
   board: [],
   deleted: [],
   live,
+  shared: [],
   ...over,
 });
 /** Life's add of reminder 12 (its answer came back), then the first pass's baseline. */
@@ -267,4 +268,47 @@ test("his tick or removal of an open task's receipt closes the task; a closed ta
       })
     ).size
   ).toBe(0);
+});
+
+test("the first pass also baselines what is already gone, so the second reports nothing he did before", () => {
+  const removed = {
+    ...added,
+    after: { id: 13, link: "BBBB-2", title: "Old one" },
+    id: "act_00000000add2",
+    target: "reminder:13",
+  };
+  const ledger = [added, removed];
+  const now = snap([rem()], {
+    deleted: [rem({ deepLink: undefined, id: 13 })],
+  });
+  const first = inbound(now, ledger, AT);
+  expect(first.map((l) => [l.kind, l.target])).toEqual([
+    ["import", "reminder:12"],
+    ["import", "reminder:13"],
+  ]);
+  expect(inbound(now, [...ledger, ...first], AT)).toEqual([]);
+  // Gone without a trace (purged, or on a shared list) at the first pass: baselined lost, then quiet.
+  const purged = inbound(snap([rem()]), ledger, AT);
+  expect(inbound(snap([rem()]), [...ledger, ...purged], AT)).toEqual([]);
+});
+
+test("a reminder Life knows on a shared list is never read: no lost, no change", () => {
+  const ledger = [...base, ...wrote({ list: "Shared" }, "ok")];
+  expect(inbound(snap([], { shared: ["Shared"] }), ledger, AT)).toEqual([]);
+});
+
+test("a lost add's title is Life's only until imported: a later reminder of his by that name is his", () => {
+  const order = rem({ deepLink: `${LINK}C`, id: 31, title: "Buy bread" });
+  const lostAdd = action({
+    after: { title: "Buy bread" },
+    id: "act_0000000lost2",
+    result: "intent",
+    target: "reminder:new",
+  });
+  const imported = inbound(snap([rem(), order]), [...base, lostAdd], AT);
+  expect(imported).toMatchObject([{ kind: "import" }]);
+  const again = rem({ deepLink: `${LINK}D`, id: 32, title: "Buy bread" });
+  expect(
+    inbound(snap([rem(), order, again]), [...base, lostAdd, ...imported], AT)
+  ).toMatchObject([{ kind: "add", target: "reminder:32" }]);
 });

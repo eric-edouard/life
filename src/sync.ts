@@ -2,11 +2,19 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Change } from "./actions";
 import { unfrozen } from "./clock";
+import {
+  FIELDS,
+  type Field,
+  type Fields,
+  type Linked,
+  linked,
+  pick,
+} from "./items";
 import { log } from "./log";
 import { digest } from "./memory/ledger";
 import { normalize } from "./memory/units";
 import { exec } from "./proc";
-import type { Action } from "./schema";
+import { type Action, stands } from "./schema";
 
 // The only code that touches his Apple Reminders, through remctl (its signed host, `--json`): Reminders is an
 // interface to Life, never its truth. `act` (src/actions.ts) decides and records each change he asked for and has
@@ -172,7 +180,16 @@ async function edit(c: Change): Promise<Done> {
     ...alarmArgs(changed.due, Boolean(before.alarms)),
     ...priv,
   ];
-  const r = flags.length > 0 ? await remctl(["edit", `${id}`, ...flags]) : {};
+  // Once a move gave it a new id, a failure is a partial: the record must keep the new id, or the moved reminder reads as his.
+  const r =
+    flags.length > 0
+      ? await remctl(["edit", `${id}`, ...flags]).catch((e: Error) => {
+          if (id === c.target) {
+            throw e;
+          }
+          return { message: e.message, status: "partial" };
+        })
+      : {};
   return {
     after: changed,
     before,
@@ -433,25 +450,6 @@ export async function push(receipts: Receipt[], board: Reminder[]) {
 // drop or add an item; it never asks, sends or grants. Section, order, completionDate and a repeating reminder's due
 // are Apple's own, never compared; a shared list is never read (a change there may be someone else's).
 
-/** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted (purged, or moved to a shared list). */
-const FIELDS = [
-  "completed",
-  "deleted",
-  "due",
-  "flagged",
-  "list",
-  "lost",
-  "notes",
-  "priority",
-  "title",
-  "urgent",
-] as const;
-type Fields = Partial<Record<(typeof FIELDS)[number], unknown>>;
-/** One value per meaning: null, false, "" and "none" all mean not set. */
-const norm = (v: unknown) =>
-  v === null || v === false || v === "" || v === "none" ? undefined : v;
-const pick = (o: Record<string, unknown>): Fields =>
-  Object.fromEntries(FIELDS.flatMap((f) => (f in o ? [[f, norm(o[f])]] : [])));
 /** A live reminder's fields, as a change writes them. */
 const fieldsNow = (r: Reminder) =>
   pick({
@@ -467,61 +465,13 @@ const fieldsNow = (r: Reminder) =>
     urgent: r.urgent,
   });
 const linkOf = (r: Reminder) => r.deepLink?.split("/").at(-1);
-
-interface Linked {
-  fields: Fields;
-  id: number;
-  link?: string;
-  tried: Map<string, unknown[]>;
-}
-
-/** One line's mark on a linked reminder: a try adds its values to `tried`; a write that went through, or his change seen, settles its fields. */
-function apply(it: Linked, a: Action) {
-  const after = pick(a.after);
-  const tried = a.result === "intent" || a.result === "failed";
-  for (const [f, v] of Object.entries(after)) {
-    if (tried) {
-      it.tried.set(f, [...(it.tried.get(f) ?? []), v]);
-    } else {
-      it.fields[f as Field] = v;
-      it.tried.delete(f);
-    }
-  }
-  it.link = tried ? it.link : ((a.after.link as string | undefined) ?? it.link);
-  return tried;
-}
-
-/** Every reminder Life links, by its id now: what the ledger says Life left on it, and the values Life tried since each settled. */
-export function linked(actions: Action[]) {
-  const items = new Map<number, Linked>();
-  for (const a of actions) {
-    const n = Number(a.target.split(":")[1]);
-    // A move can give a new id (src/sync.ts `edit`): the line's `before` has the old one.
-    const from = typeof a.before?.id === "number" ? a.before.id : n;
-    const opens =
-      (a.kind === "add" || a.kind === "import") && a.result === "ok";
-    const it: Linked | undefined =
-      items.get(from) ??
-      (opens ? { fields: {}, id: n, tried: new Map() } : undefined);
-    if (
-      it &&
-      a.target.startsWith("reminder:") &&
-      a.result !== "duplicate" &&
-      !apply(it, a)
-    ) {
-      items.delete(from);
-      items.set(n, it);
-      it.id = n;
-    }
-  }
-  return items;
-}
-
 /** What one pass reads: his unshared lists' reminders (ticked too), the board's, and Recently Deleted. */
 export interface Snapshot {
   board: Reminder[];
   deleted: Reminder[];
   live: Reminder[];
+  /** His shared lists, never read: a reminder Life knows there is left alone. */
+  shared: string[];
 }
 
 /** One line of his, read from Reminders: never his words (no `instruction`), so nothing can take it for a request. */
@@ -544,7 +494,6 @@ const his = (
   why: kind === "import" ? "linked, no change" : "his change in Reminders",
 });
 
-type Field = (typeof FIELDS)[number];
 const of = (o: Fields, fs: readonly Field[]) =>
   Object.fromEntries(fs.map((f) => [f, o[f]]));
 
@@ -552,16 +501,9 @@ const of = (o: Fields, fs: readonly Field[]) =>
 function linesFor(
   it: Linked,
   r: Reminder | undefined,
-  s: Snapshot,
+  now: Fields,
   at: string
 ) {
-  const gone = s.deleted.some(
-    (d) => d.id === it.id || (it.link !== undefined && linkOf(d) === it.link)
-  );
-  if (!(r || gone) && it.fields.deleted) {
-    return []; // removed, then purged
-  }
-  const now = r ? fieldsNow(r) : pick({ deleted: gone, lost: !gone });
   const known = (f: Field) => f in it.fields || f === "deleted" || f === "lost";
   const changed = FIELDS.filter(
     (f) =>
@@ -593,18 +535,41 @@ function linesFor(
 }
 
 /** The first pass's line for a linked reminder: its fields now, as a baseline (nothing is his change yet). */
-const baseline = (it: Linked, r: Reminder | undefined, at: string) =>
-  r
-    ? [
-        his(
-          "import",
-          r,
-          at,
-          { ...fieldsNow(r), link: linkOf(r) },
-          r.id === it.id ? {} : { id: it.id }
-        ),
-      ]
-    : [];
+const baseline = (
+  it: Linked,
+  r: Reminder | undefined,
+  now: Fields,
+  at: string
+) =>
+  his(
+    "import",
+    r ?? it,
+    at,
+    r ? { ...now, link: linkOf(r) } : now,
+    r && r.id !== it.id ? { id: it.id } : {}
+  );
+
+/** A linked reminder's lines this pass: the first pass's baseline, or its changes. */
+function linesOf(
+  it: Linked,
+  r: Reminder | undefined,
+  s: Snapshot,
+  first: boolean,
+  at: string
+) {
+  const gone = s.deleted.some(
+    (d) => d.id === it.id || (it.link !== undefined && linkOf(d) === it.link)
+  );
+  const now = r ? fieldsNow(r) : pick({ deleted: gone, lost: !gone });
+  // Left alone: one on a shared list (never read), one removed and then purged.
+  if (
+    s.shared.includes(`${it.fields.list}`) ||
+    !(r || gone || !it.fields.deleted)
+  ) {
+    return [];
+  }
+  return first ? [baseline(it, r, now, at)] : linesFor(it, r, now, at);
+}
 
 /**
  * The lines this pass adds: his changes to linked reminders and his new ones (`add`), and imports, which change
@@ -619,7 +584,7 @@ export function inbound(s: Snapshot, actions: Action[], at: string) {
   for (const it of linked(actions).values()) {
     const r = byId.get(it.id) ?? (it.link ? byLink.get(it.link) : undefined);
     byId.delete(r?.id ?? Number.NaN);
-    lines.push(...(first ? baseline(it, r, at) : linesFor(it, r, s, at)));
+    lines.push(...linesOf(it, r, s, first, at));
   }
   // What is left is open and linked to nothing: his new reminder, or Life's own add whose answer was lost.
   const lost = lostAdds(actions);
@@ -639,14 +604,19 @@ export function inbound(s: Snapshot, actions: Action[], at: string) {
 
 /** The titles of Life's adds that never got their answer (an intent or a failure, no ok): such a reminder is Life's. */
 function lostAdds(actions: Action[]) {
-  const ok = new Set(actions.filter((a) => a.result === "ok").map((a) => a.id));
-  return new Set(
+  const ok = new Set(actions.filter(stands).map((a) => a.id));
+  const titles = new Set(
     actions
-      .filter(
-        (a) => a.kind === "add" && !ok.has(a.id) && a.result !== "duplicate"
-      )
+      .filter((a) => a.kind === "add" && !ok.has(a.id))
       .map((a) => normalize(`${a.after.title}`))
   );
+  // Once imported, the title is free again: a later reminder of his by that name is his.
+  for (const a of actions) {
+    if (a.kind === "import") {
+      titles.delete(normalize(`${a.after.title}`));
+    }
+  }
+  return titles;
 }
 
 /** What he did to each task's receipt: ticked it, or removed it (in Recently Deleted, none live). `closings` (src/tasks.ts) reads it for open tasks only. */
@@ -671,20 +641,23 @@ export async function pull(): Promise<Snapshot> {
   const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
     ["lists"]
   );
-  const [rows, bin] = await Promise.all([
-    Promise.all(
-      lists.map(async (l) =>
-        l.isGroup || (l.title !== BOARD && (await isShared(l.title)))
-          ? []
-          : remctl<Reminder[]>(["show", "--list-id", `${l.id}`, "--completed"])
-      )
-    ),
+  const mine = lists.filter((l) => !l.isGroup);
+  const [shared, bin] = await Promise.all([
+    Promise.all(mine.map((l) => l.title !== BOARD && isShared(l.title))),
     remctl<{ items: Reminder[] }>(["deleted"]),
   ]);
+  const rows = await Promise.all(
+    mine.map((l, i) =>
+      shared[i]
+        ? []
+        : remctl<Reminder[]>(["show", "--list-id", `${l.id}`, "--completed"])
+    )
+  );
   const all = rows.flat().filter((r) => !r.isSubtask);
   return {
     board: all.filter((r) => r.list === BOARD),
     deleted: bin.items,
     live: all.filter((r) => r.list !== BOARD),
+    shared: mine.filter((_, i) => shared[i]).map((l) => l.title),
   };
 }

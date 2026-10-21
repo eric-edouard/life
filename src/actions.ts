@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { clock } from "./clock";
+import { linked } from "./items";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
@@ -9,6 +10,7 @@ import {
   type Instruction,
   type Observation,
   REMINDER_KINDS,
+  stands,
 } from "./schema";
 import { kindOf } from "./sources";
 import { ownerSpoke, withStore } from "./sources/lifelog";
@@ -82,9 +84,7 @@ export function duplicateOf(c: Change, open?: Reminder[]) {
 
 /** The record of an action already done (or asked) with this id: the same words act once, unless that try failed (or never ended). */
 export const recorded = async (id: string) =>
-  (await readActions()).find(
-    (x) => x.id === id && (x.result === "ok" || x.result === "duplicate")
-  );
+  (await readActions()).find((x) => x.id === id && stands(x));
 
 /**
  * Does one change and records it in memory/actions.jsonl; a failure is recorded too, and emailed at once with his words
@@ -166,12 +166,7 @@ const isGranted = (a: Action) =>
 
 /** The grant's earlier add from this observation, if one stands: the same observation adds once. */
 export const grantedFrom = (actions: Action[], obs: string) =>
-  actions.find(
-    (a) =>
-      isGranted(a) &&
-      a.instruction?.ref === obs &&
-      (a.result === "ok" || a.result === "duplicate")
-  );
+  actions.find((a) => isGranted(a) && a.instruction?.ref === obs && stands(a));
 
 /**
  * Why the standing grant (his yes, decision 2 of the 21 Oct review) may not add a reminder from this observation, or
@@ -192,17 +187,13 @@ export function grantRefusal(g: {
     return "the grant is off: only his own words in a conversation turn it on";
   }
   const made = g.actions.filter((a) => isGranted(a) && a.result === "ok");
-  // The grant's reminders, followed through moves to another list (a move gives a new id), in ledger order.
-  const targets = new Set<string>();
-  for (const a of g.actions.filter((x) => x.result === "ok")) {
-    if (
-      isGranted(a) ||
-      (a.kind === "edit" && targets.has(`reminder:${a.before?.id}`))
-    ) {
-      targets.add(a.target);
-    } else if (a.kind === "remove" && targets.has(a.target) && a.at >= on.at) {
-      return "the grant is off: he undid one of its reminders";
-    }
+  // The grant's reminders as the ledger follows them (through moves, his removals in Reminders too).
+  const keys = new Set(made.map((a) => a.id));
+  const undone = [...linked(g.actions).values()].some(
+    (it) => keys.has(it.key) && (it.removedAt ?? "") >= on.at
+  );
+  if (undone) {
+    return "the grant is off: he undid one of its reminders";
   }
   if (g.state !== "active") {
     return `the observation is ${g.state}, not current`;
