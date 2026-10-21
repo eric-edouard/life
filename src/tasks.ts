@@ -9,8 +9,8 @@ import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
 import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
+import type { Receipt } from "./reminders/board";
 import { Action, type Instruction } from "./schema";
-import type { Receipt } from "./sync";
 import { ROOT, TEST } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
@@ -521,15 +521,11 @@ export function wantOf(t: Task): Receipt {
   };
 }
 
-/** The board's receipts (`push`, src/sync.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
+/** The board's receipts (`push`, src/reminders/board.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
 export const receipts = (tasks: Task[], now: number) =>
   tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
 
-/**
- * His tick or removal of an open task's receipt in Reminders (`marks`, src/sync.ts) closes the task, done or dropped
- * (his decision 17, 21 Oct), and its receipt is not added again. It only takes work away from Atlas: no step, reply or
- * send follows from it, and Atlas sees why in `tasks`.
- */
+/** His tick or removal of an open task's receipt (`marks`, src/reminders/inbound.ts) closes it, done or dropped (decision 17): it only takes work away. */
 export const closings = (
   tasks: Task[],
   marks: Map<string, "removed" | "ticked">,
@@ -537,17 +533,12 @@ export const closings = (
 ): Action[] =>
   tasks.flatMap((t) => {
     const mark = marks.get(t.ask.id);
-    if (!mark || closed(standing(t).state)) {
-      return [];
-    }
     const after =
       mark === "ticked"
         ? { outcome: "he ticked its receipt in Reminders", state: "done" }
         : { reason: "he removed its receipt in Reminders", state: "dropped" };
-    return [
-      taskLine("update", t.ask.id, after, Date.parse(at), "reminders", {
-        madeBy: "reminders",
-        why: "his change in Reminders",
-      }),
-    ];
+    const by = { madeBy: "reminders", why: "his change in Reminders" } as const;
+    return mark && !closed(standing(t).state)
+      ? [taskLine("update", t.ask.id, after, Date.parse(at), "reminders", by)]
+      : [];
   });

@@ -6,6 +6,13 @@ import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
 import { localDate } from "./memory/zones";
 import {
+  BOARD,
+  isShared,
+  openReminders,
+  type Reminder,
+} from "./reminders/remctl";
+import { type Done, info, intended, write } from "./reminders/write";
+import {
   Action,
   type Instruction,
   type Observation,
@@ -14,19 +21,9 @@ import {
 } from "./schema";
 import { kindOf } from "./sources";
 import { ownerSpoke, withStore } from "./sources/lifelog";
-import {
-  BOARD,
-  type Done,
-  info,
-  intended,
-  isShared,
-  openReminders,
-  type Reminder,
-  write,
-} from "./sync";
 
 // What Life does outside itself on the owner's clear request: each change to his Apple Reminders is one `act`, which
-// decides it, has src/sync.ts (the only code that touches Reminders) make it, records it as an Action
+// decides it, has src/reminders/write.ts make it (src/reminders/ is the only code that touches Reminders), records it as an Action
 // (memory/actions.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
 // connector) decide that he asked. The ledger also holds Atlas's tasks (src/tasks.ts), whose board, the list `BOARD`,
 // no `act` may touch.
@@ -173,7 +170,7 @@ export const grantedFrom = (actions: Action[], obs: string) =>
  * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
  * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
  * it adds at most GRANT_DAILY a day (his local day), only from his current salience-3 to-do or promise in a lifelog
- * turn the store credits to him now (`mine`); a shared list is `isShared`'s (src/sync.ts), checked last (it reads his Reminders).
+ * turn the store credits to him now (`mine`); a shared list is `isShared`'s (src/reminders/remctl.ts), checked last (it reads his Reminders).
  */
 export function grantRefusal(g: {
   actions: Action[];

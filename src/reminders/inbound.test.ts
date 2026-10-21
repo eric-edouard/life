@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
-import { grantRefusal } from "./actions";
-import { action } from "./memory/fixtures";
-import { type Action, Action as ActionLine } from "./schema";
-import { inbound, marks, type Reminder, type Snapshot } from "./sync";
-import { closings, tasksOf } from "./tasks";
+import { grantRefusal } from "../actions";
+import { action } from "../memory/fixtures";
+import { type Action, Action as ActionLine } from "../schema";
+import { closings, tasksOf } from "../tasks";
+import { inbound, marks, type Snapshot } from "./inbound";
+import type { Reminder } from "./remctl";
 
 const AT = "2026-10-21T12:00:00.000Z";
 const LINK = "x-apple-reminderkit://REMCDReminder/AAAA-1";
@@ -124,7 +125,7 @@ test("conflict: his words win (the Reminders value kept in `before`); his later 
   ]);
 });
 
-test("his tick, edit, priority and urgent flag come back as his lines, once", () => {
+test("his tick, edit, priority and urgent flag come back as one line of his, named by the tick, once", () => {
   const now = rem({
     completed: true,
     priority: "high",
@@ -133,8 +134,10 @@ test("his tick, edit, priority and urgent flag come back as his lines, once", ()
   });
   const lines = inbound(snap([now]), base, AT);
   expect(lines.map((l) => [l.kind, l.after])).toEqual([
-    ["edit", { priority: "high", title: "Call him", urgent: true }],
-    ["done", { completed: true }],
+    [
+      "done",
+      { completed: true, priority: "high", title: "Call him", urgent: true },
+    ],
   ]);
   expect(lines.every((l) => !l.instruction && l.madeBy === "reminders")).toBe(
     true
@@ -157,12 +160,10 @@ test("deleted in Reminders: dropped once; purged or moved to a shared list: the 
 
 test("a hand move that gives a new id is found by its deepLink", () => {
   const moved = inbound(snap([rem({ id: 99, list: "Work" })]), base, AT);
-  expect(moved).toMatchObject([
-    {
-      after: { list: "Work" },
-      before: { id: 12, list: "Home" },
-      target: "reminder:99",
-    },
+  // The new id first (an import: no change), then his move.
+  expect(moved.map((l) => [l.kind, l.target, l.before])).toEqual([
+    ["import", "reminder:99", { id: 12 }],
+    ["edit", "reminder:99", { list: "Home" }],
   ]);
   expect(
     inbound(snap([rem({ id: 99, list: "Work" })]), [...base, ...moved], AT)

@@ -1,10 +1,9 @@
 import { type Action, stands } from "./schema";
 
-// His reminders as the ledger holds them (Stage 4b, his request of 21 Oct): what Life wrote (`act`, its intents too) and
-// what it read back as his (`madeBy: "reminders"`, src/sync.ts), walked in order, never stored. Reminders is one
-// interface to them: delete src/sync.ts and this still holds.
+// His reminders as the ledger holds them (Stage 4b, 21 Oct): what Life wrote (`act`, its intents too) and what it read
+// back as his (`madeBy: "reminders"`, src/reminders/inbound.ts), walked in order, never stored.
 
-/** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted (purged, or moved to a shared list). */
+/** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted. */
 export const FIELDS = [
   "completed",
   "deleted",
@@ -28,28 +27,20 @@ export const pick = (o: Record<string, unknown>): Fields =>
 
 export type Field = (typeof FIELDS)[number];
 
-/** A reminder Life links: the line that opened it (`key`: Life's id for it, `at`, the observation or words it came from), its id in Reminders now, what Life left on it. */
+/** A reminder Life links: `key`, Life's id for it (the line that opened it); its id in Reminders now; what Life left on it; when it was last removed and when Life last wrote to it. */
 export interface Linked {
-  at: string;
   fields: Fields;
   id: number;
   key: string;
   link?: string;
-  ref?: string;
-  /** When it was last removed (to Recently Deleted), by Life or by him. */
   removedAt?: string;
   tried: Map<string, unknown[]>;
-  /** When Life last wrote to it or tried to (src/sync.ts waits out Reminders' lag after it). */
   wrote?: string;
 }
 
-/**
- * One line's mark on a linked reminder: a try adds its values to `tried`, and so does a partial (a step failed, which
- * one is unknown: the next pass learns what is there); a write that went through, or his change seen, settles them.
- */
+/** One line's mark on a linked reminder: a try or a partial adds its values to `tried`; anything else settles them. */
 function apply(it: Linked, a: Action) {
   const after = pick(a.after);
-  // An intent or a failure: its outcome is not known to stand.
   const tried = !stands(a);
   const unsure = tried || Boolean(a.error?.startsWith("partial"));
   it.wrote = a.madeBy === "reminders" ? it.wrote : a.at;
@@ -73,22 +64,13 @@ export function linked(actions: Action[]) {
   const items = new Map<number, Linked>();
   for (const a of actions) {
     const n = Number(a.target.split(":")[1]);
-    // A move can give a new id (`edit` in src/sync.ts): the line's `before` has the old one.
+    // A move can give a new id: the line's `before` has the old one.
     const from = typeof a.before?.id === "number" ? a.before.id : n;
     const opens =
       (a.kind === "add" || a.kind === "import") && a.result === "ok";
     const it: Linked | undefined =
       items.get(from) ??
-      (opens
-        ? {
-            at: a.at,
-            fields: {},
-            id: n,
-            key: a.id,
-            ref: a.instruction?.ref,
-            tried: new Map(),
-          }
-        : undefined);
+      (opens ? { fields: {}, id: n, key: a.id, tried: new Map() } : undefined);
     if (
       it &&
       a.target.startsWith("reminder:") &&
