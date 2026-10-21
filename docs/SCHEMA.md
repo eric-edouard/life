@@ -111,6 +111,8 @@ and what the lines show ended is written as what happened, not as still open. Fr
 `person` type also holds what is between him and someone, in someone's name, and the earlier facts it may retire
 include the `person` facts of the last year about the people close to him (`priorFor`). The model context marks those
 people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones).
+From `memory-extract.v6` (21 Oct) a voice unit where he said "hey Life" is read whatever its salience, its marked
+lines shown `(marked)` for every fact in them to be written (`marksIn`, `src/hear.ts`).
 
 | Field | Meaning |
 |---|---|

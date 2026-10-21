@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { asksIn, hear, speechIn, type Turn, WAKE, whose } from "./hear";
+import {
+  asksIn,
+  hear,
+  MARK,
+  marksIn,
+  speechIn,
+  type Turn,
+  WAKE,
+  whose,
+} from "./hear";
 import { ACTIONS } from "./memory/ledger";
 import {
   turn as fed,
@@ -44,6 +53,27 @@ test("only “hey Atlas” or its misheard word, in order, wake it, whatever the
     "the Atlas",
   ]) {
     expect(WAKE.test(said)).toBe(false);
+  }
+});
+
+test('"hey Life" as lifelog writes it (audit of 21 Oct), never an idiom', () => {
+  for (const said of [
+    "Hey Life, remind me",
+    "Uh, hey, Life.",
+    "Hey, life log, let's",
+    "Hey, Live. I don't know",
+    "hej life",
+  ]) {
+    expect(MARK.test(said)).toBe(true);
+  }
+  for (const said of [
+    "Get a life",
+    "What a life",
+    "Life is long",
+    "hey lifelong friend",
+    "they live here",
+  ]) {
+    expect(MARK.test(said)).toBe(false);
   }
 });
 
@@ -283,4 +313,21 @@ test("a failed word fetch throws, so the watcher hears it again: never read as s
   );
   await expect(hear(store, "c1", "")).rejects.toThrow("404");
   server.close();
+});
+
+test('a "hey Life" span is his (high) or unattributed (low), never someone else\'s, and runs like an ask', () => {
+  const turns = [
+    turn(0, "other", "hey Life, you got me"),
+    turn(10, "me", "Hey life, I committed to two things.", 3),
+    turn(15, "me", "To vote for the stones.", 2),
+    turn(18, "other", "Nice."),
+    turn(30, "unknown", "hey Life, log this"),
+  ];
+  expect(marksIn(turns).map((m) => [m.confidence, m.turns])).toEqual([
+    ["high", [1, 2]],
+    ["low", [4]],
+  ]);
+  // A "hey Life" is never an ask, and a "hey Atlas" never a mark.
+  expect(asksIn(turns, "")).toEqual([]);
+  expect(marksIn([turn(0, "me", "hey Atlas, book it")])).toEqual([]);
 });
