@@ -112,7 +112,7 @@ test("unit ids are stable and hashes follow the content", () => {
   expect(unitId("x", "y")).not.toBe(unitId("x", "z"));
 });
 
-test("a chat-day groups one chat's messages of one day, names known senders and keeps only refs", () => {
+test("a chat-day groups one chat's messages of one day, names known senders in its text, keeps its senders unresolved and only refs", () => {
   const handles = (s: string) => (s === "+33600000002" ? "person:dad" : null);
   const built = messageUnits(
     [
@@ -135,19 +135,21 @@ test("a chat-day groups one chat's messages of one day, names known senders and 
   expect(built).toHaveLength(2);
   const day = built[0]?.unit;
   expect(day?.refs).toEqual(["beeper:!chat/1", "beeper:!chat/2"]);
-  expect(day?.people).toEqual(["person:dad", "person:me"]);
+  expect(day?.people).toEqual(["person:me", "unknown:+33600000002"]);
   expect(day?.stats).toEqual({ chars: 40, fromMe: 1, items: 2 });
   expect(day?.summary).toBeUndefined();
   expect(built[0]?.text).toContain("dad: Can you call the plumber today?");
 });
 
-test("a chat keeps a sender nobody resolves as unknown, a mail leaves it out, and who resolves never moves the hash", () => {
+test("a unit keeps its senders unresolved whoever they resolve to now (a reader maps them), a note's none, and its hash never moves", () => {
   const [unknown] = messageUnits([msg({})], () => null);
   const [known] = messageUnits([msg({})], () => "person:inf-plumber");
   const [mail] = messageUnits([msg({ source: "mail" })], () => null);
-  expect(unknown?.unit.people).toEqual(["unknown:+33600000002"]);
-  expect(known?.unit.people).toEqual(["person:inf-plumber"]);
-  expect(mail?.unit.people).toEqual([]);
+  const [note] = messageUnits([msg({ source: "notes" })], () => null);
+  expect(known?.unit.people).toEqual(["unknown:+33600000002"]);
+  expect(known?.text).toContain("inf-plumber: ");
+  expect(mail?.unit.people).toEqual(["unknown:+33600000002"]);
+  expect(note?.unit.people).toEqual([]);
   expect(known?.unit.hash).toBe(unknown?.unit.hash as string);
 });
 

@@ -18,12 +18,10 @@ import {
   readUnresolved,
   shownOf,
 } from "./ledger";
-import { nameIndex, normalize, personRef } from "./units";
+import { nameIndex, normalize, personRef, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people Life inferred and the owner's corrections, in that order
 // of trust under his word. Every reader and step resolves people through here.
-
-export const UNKNOWN = "unknown:";
 
 /** Follows the owner's `same-person` corrections: a person ref folded into another becomes that one. */
 export function merged(corrections: Correction[]) {

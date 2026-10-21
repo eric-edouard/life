@@ -29,8 +29,9 @@ import {
   type Resolve,
   SEARCHED,
   time,
+  UNKNOWN,
 } from "./units";
-import { meant, type People, readPeople, UNKNOWN } from "./who";
+import { meant, type People, readPeople } from "./who";
 import { localDate } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
@@ -84,6 +85,15 @@ export function chatLines(
   resolve: (surface: string) => string | null
 ): Line[] {
   const name = oneToOne(b);
+  // An agent's report is its own line, never resolved to a person, now or when read (`aboutNow`).
+  if (kindOf(b.unit.source) === "agent") {
+    return b.messages.map((m) => ({
+      at: m.at,
+      ref: m.id,
+      speaker: `agent:${m.sender}`,
+      text: redact(m.text),
+    }));
+  }
   return b.messages.map((m) => {
     const speaker = m.fromMe ? OWNER : resolve(m.sender);
     return {

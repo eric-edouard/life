@@ -9,8 +9,7 @@ import {
 import { kindOf } from "../sources";
 import { othersIn } from "../truth";
 import { digest } from "./ledger";
-import { areaOf, normalize } from "./units";
-import { UNKNOWN } from "./who";
+import { areaOf, normalize, UNKNOWN } from "./units";
 import { localDate, zoneAt } from "./zones";
 
 // The pure parts of stage 2 (memory-pipeline §3.3, §3.4): what the extractor may return, the quote check, entity

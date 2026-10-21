@@ -10,8 +10,9 @@ const ASK_MAX = 1500;
 
 /** The tasks Atlas closed done since `since`, from the actions ledger. */
 export function readAtlas(since: Date): SourceEvent[] {
-  return tasksOf().flatMap(({ ask, lines }) => {
-    const last = lastUpdate({ ask, lines });
+  return tasksOf().flatMap((task) => {
+    const { ask } = task;
+    const last = lastUpdate(task);
     if (last?.after.state !== "done" || Date.parse(last.at) < since.getTime()) {
       return [];
     }

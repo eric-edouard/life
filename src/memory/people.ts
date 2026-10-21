@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { INFERRED_PREFIX, type InferredPerson, type MadeBy } from "../schema";
+import { kindOf } from "../sources";
 import { digest } from "./ledger";
 import { locate } from "./observe";
-import { areaOf, type Built, slugOf } from "./units";
-import { UNKNOWN } from "./who";
+import { areaOf, type Built, slugOf, UNKNOWN } from "./units";
 
 // Who the people not on the map are: what the moments call is asked about a day, and its answer checked (every quote
 // must be in a unit it read). No disk, network or clock.
@@ -103,7 +103,9 @@ export function unknownIn(units: Built[], known: (s: string) => boolean) {
     }
   };
   for (const b of units) {
-    for (const p of b.unit.people) {
+    // Only where people speak for themselves: mail senders are organisations and lists.
+    const kind = kindOf(b.unit.source);
+    for (const p of kind === "chat" || kind === "voice" ? b.unit.people : []) {
       if (p.startsWith(UNKNOWN)) {
         add(p.slice(UNKNOWN.length), b);
       }

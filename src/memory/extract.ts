@@ -43,9 +43,10 @@ import {
   type Evidence,
   lifelogNames,
   localTime,
+  UNKNOWN,
   within,
 } from "./units";
-import { observationsNow, readPeople, UNKNOWN } from "./who";
+import { observationsNow, readPeople } from "./who";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (salience >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
