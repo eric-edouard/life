@@ -36,6 +36,7 @@ import {
   knownOn,
   layoutOf,
   liveLines,
+  newOn,
   oftenLine,
   ownerEdits,
   type PageLine,
@@ -51,7 +52,7 @@ import {
 } from "./page";
 import { begin, inBatches, refContext, type Step } from "./run";
 import { daysBefore, slugOf, within } from "./units";
-import { observationsNow, readPeople } from "./who";
+import { observationsNow, readPeople, type Shown } from "./who";
 
 // `bun life memory pages`: stage 3 of the memory cascade (memory-pipeline §3.5). One page per person who has enough to
 // say and per area. Each observation has one home page (`homeOf`). A page is rebuilt from its previous version: lines
@@ -71,7 +72,7 @@ interface Target {
   hold: string;
   name: string;
   /** Observations whose home is this page (salience 2+, replaced ones included), newest first. */
-  observations: Observation[];
+  observations: Shown[];
   path: string;
   ref: string;
 }
@@ -129,7 +130,7 @@ const exists = (path: string) => Bun.file(path).exists();
 
 /** Every page to keep: the owner's, a person with a page and something to say (or a file already), and every area. */
 async function targets(
-  observations: (Observation & { unmapped: boolean })[],
+  observations: Shown[],
   truth: Truth,
   inferred: InferredPerson[],
   standing: Standing
@@ -292,11 +293,11 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
   const layout = layoutOf(t.ref, t.close);
   const old = prev && !r.rebuild ? generated(prev) : perSection<PageLine>();
   const settled = settle(old, known);
-  const fresh = visible.filter(
-    (o) =>
-      !known.retired.has(o.id) &&
-      (!prev || r.rebuild || o.madeBy.run > prev.meta.seen)
+  const fresh = newOn(
+    visible.filter((o) => !known.retired.has(o.id)),
+    prev && !r.rebuild ? prev.meta : null
   );
+  const refiled = visible.flatMap((o) => (o.refiled ? [o.id] : [])).sort();
   const seen = visible.reduce(
     (m, o) => (o.madeBy.run > m ? o.madeBy.run : m),
     prev && !r.rebuild ? prev.meta.seen : ""
@@ -319,6 +320,7 @@ async function buildOne(t: Target, r: Run, dir: string): Promise<BuiltPage> {
         built,
         madeBy: by,
         name: t.name,
+        ...(refiled.length > 0 ? { offered: refiled } : {}),
         page: t.ref,
         schemaVersion: 1,
         seen,

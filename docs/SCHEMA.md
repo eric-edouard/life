@@ -209,7 +209,8 @@ area's id; an inferred person's id starts with `inf-`). Rewritten nightly by `bu
 version and the observations extracted since; git keeps every version (the nightly's "Memory: <date>" commits).
 
 Frontmatter (each value is JSON, which is YAML): `schemaVersion` 1, `page` (`person:<id>` or `area:<id>`), `name`, `built` (when written),
-`seen` (the newest extraction run, `madeBy.run`, the page has read), `madeBy` (engine, model, prompt, run) and
+`seen` (the newest extraction run, `madeBy.run`, the page has read), `offered` (optional: observations homed on it because who
+they are about changed after they were written, a move or a fold, each given to the page once as new), `madeBy` (engine, model, prompt, run) and
 `lines`: for every line Life wrote, a 10-hex hash of the line -> the observation ids it cites. A line not in `lines`
 is the owner's.
 
