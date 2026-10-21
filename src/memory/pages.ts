@@ -441,12 +441,20 @@ export async function removeOrphans(dir: string, keep: Set<string>) {
   return read;
 }
 
-/** For each person ref: the unit ids to count topics over (the units of their observations, the units they are in). */
-function oftenBy(units: Unit[], verdicts: Verdicts, day: string) {
+/**
+ * For each person ref: the unit ids to count topics over (the units of their observations, the units they are in, as
+ * of today: `refOf`).
+ */
+function oftenBy(
+  units: Unit[],
+  verdicts: Verdicts,
+  day: string,
+  refOf: (ref: string) => string
+) {
   const since = daysBefore(day, OFTEN_DAYS);
-  const recent = units.filter(
-    (u) => !u.drop && u.date >= since && u.date <= day
-  );
+  const recent = units
+    .filter((u) => !u.drop && u.date >= since && u.date <= day)
+    .map((u) => ({ ...u, people: u.people.map(refOf) }));
   return (t: Target) => {
     // His page would count every unit: he is in all of them.
     if (!t.ref.startsWith("person:") || t.ref === OWNER) {
@@ -500,7 +508,7 @@ export async function pages(opts: PagesOptions) {
   const r: Run = {
     at: now.toISOString(),
     context,
-    often: oftenBy(units, verdicts, day),
+    often: oftenBy(units, verdicts, day, people.refOf),
     rebuild: opts.rebuild ?? false,
     standing: current.standing,
     step,

@@ -10,7 +10,7 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { handleIndex, handlesOf, OWNER, ownerIn } from "../truth";
+import { handlesOf, OWNER, ownerIn } from "../truth";
 import { readRepoGuesses, readUnits } from "./ledger";
 import type { Line } from "./observe";
 import {
@@ -23,11 +23,10 @@ import {
   LIFE_CHAT,
   lifelogNames,
   localTime,
-  nameIndex,
   newestDays,
   normalize,
   oneToOne,
-  personRef,
+  type Resolve,
   SEARCHED,
   time,
 } from "./units";
@@ -86,7 +85,7 @@ export function chatLines(
 ): Line[] {
   const name = oneToOne(b);
   return b.messages.map((m) => {
-    const speaker = m.who ? `person:${m.who}` : resolve(m.sender);
+    const speaker = m.fromMe ? OWNER : resolve(m.sender);
     return {
       at: m.at,
       ...(m.fromMe ? {} : { from: m.sender }),
@@ -108,7 +107,7 @@ const fromOf = (t: ChapterTurn) => {
 export function voiceLines(
   turns: ChapterTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
-  names: Map<string, string | null>
+  resolve: Resolve
 ): Line[] {
   return turns.flatMap((t) => {
     const turn = jobs.get(t.jobId)?.[t.turnIndex];
@@ -123,7 +122,7 @@ export function voiceLines(
         at: t.at,
         ...fromOf(t),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
-        speaker: t.name ? personRef(t.name, names) : unnamed,
+        speaker: t.name ? (resolve(t.name) ?? `${UNKNOWN}${t.name}`) : unnamed,
         text: redact(turn.text),
       },
     ];
@@ -137,7 +136,7 @@ export function voiceLines(
 export async function unitLines(unit: Unit, { resolve, truth }: People) {
   const built = builtFor(
     unit,
-    handleIndex(truth.people),
+    resolve,
     repoMap(truth, await readRepoGuesses()),
     ownerIn(truth.people)
   );
@@ -187,11 +186,7 @@ export async function fetchOf(
     );
     total = turns.length;
     const shown = turns.slice(fromTurn, fromTurn + limit);
-    lines = voiceLines(
-      shown,
-      await transcripts(shown),
-      nameIndex(truth.people)
-    );
+    lines = voiceLines(shown, await transcripts(shown), people.resolve);
     if (shown.length > 0 && lines.length === 0) {
       return asData([
         head,

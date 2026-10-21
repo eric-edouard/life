@@ -249,7 +249,7 @@ test("two saves in a day are one unit of two lines, the same read from its start
     [],
   ]);
   const units = (since: Date) =>
-    messageUnits(showFiles(readNotes(since, dir), new Map()), new Map());
+    messageUnits(showFiles(readNotes(since, dir), new Map()), () => null);
   const built = units(yesterday);
   expect(built.map((b) => b.messages.map((m) => m.text))).toEqual([
     [
@@ -279,7 +279,7 @@ test("deletions on two days are two units, and a restore is dated when seen and 
   const built = applyRules(
     messageUnits(
       showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
-      new Map()
+      () => null
     )
   );
   expect(built.map((b) => [b.unit.drop, b.messages[0]?.text])).toEqual([
@@ -306,7 +306,7 @@ test("two notes restored unchanged on two days are two units", () => {
   const built = applyRules(
     messageUnits(
       showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
-      new Map()
+      () => null
     )
   );
   expect(built.map((b) => [b.unit.drop, b.messages[0]?.text])).toEqual([
@@ -321,7 +321,7 @@ test("a shared note's lines are never his: extract reads them as an unknown spea
   archiveNotesOnce(source, dir, now);
   const [unit] = messageUnits(
     readNotes(new Date(now - 3_600_000), dir),
-    new Map()
+    () => null
   );
   expect(unit && chatLines(unit, () => null).map((l) => l.speaker)).toEqual([
     "unknown:shared note",
