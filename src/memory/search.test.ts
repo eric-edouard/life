@@ -14,7 +14,7 @@ import {
 import { apply, readConversations } from "../sources/lifelog";
 import { tasksOf } from "../tasks";
 import { action } from "./fixtures";
-import { fuse, store } from "./meaning";
+import { store as cacheVectors, fuse } from "./meaning";
 import { layoutOf, perSection, renderPage } from "./page";
 import { byWords } from "./raw";
 import {
@@ -187,7 +187,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
   // By meaning: a hit no word of the query is in comes back marked; one both find ranks first.
   const glazier = { ...o, id: "obs_2", text: "Call the glazier." };
   buildIndex([o, glazier], path, standing, [{ unit }]);
-  store([
+  cacheVectors([
     [o.text, [0, 1]],
     [glazier.text, [1, 0]],
   ]);

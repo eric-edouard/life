@@ -231,10 +231,10 @@ test("search's chats: past 20 matches the newest are shown and the cut is said, 
     wa.add(i + 1, `C${i === 4 ? 5 : i}`, 0, text, 10_000 - i * 60);
   }
   archiveOnce(wa.source, wa.dir, wa.now);
-  const hits = async (words: string) =>
+  const hits = async (query: string) =>
     (
       await chatHits(
-        words,
+        query,
         {},
         {
           whatsapp: (since: Date) => readWhatsapp(since, wa.dir, wa.source),
