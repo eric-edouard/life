@@ -11,6 +11,7 @@ import {
   logEvents,
   recentEvents,
 } from "../log";
+import { listening } from "../sources/index";
 import { decode, encode, PAGE } from "./feed";
 import {
   lockedSince,
@@ -396,7 +397,9 @@ export async function lifeStatus(now = clock()) {
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
   let watcher: Record<string, unknown> = { state: "unknown" };
-  if (health) {
+  if (!listening()) {
+    watcher = { state: "off" };
+  } else if (health) {
     watcher = {
       ...health,
       state: polling(health, now.getTime()) ? "ok" : "not-polling",

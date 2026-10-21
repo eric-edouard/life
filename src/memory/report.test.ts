@@ -7,6 +7,7 @@ import {
   failureReport,
   lockReport,
   type Night,
+  notifyArgs,
   sendReport,
   successReport,
 } from "./report";
@@ -291,6 +292,8 @@ test("a failed action's alert carries his words and the error", () => {
 });
 
 test("the success email says the window it read and counts the new observations", () => {
+  // lifelog set up: the night says how its watcher stands.
+  process.env.LIFELOG_TOKEN ??= "test-token";
   const n = night(1);
   (n as { observed: number }).observed = 7;
   const { text } = successReport("2026-10-18", 1000, n);
@@ -338,4 +341,12 @@ test('each "hey Life" is listed with what the memory holds of it', () => {
   const { text } = successReport("2026-10-15", 1000, n);
   expect(text).toContain("Hey Life (1)");
   expect(text).toContain("nothing held");
+});
+
+test("a notification's words are the script's arguments, never its text", () => {
+  const title = 'Life · "night" \u0007 done';
+  const body = 'end run\ndisplay dialog "x"';
+  const args = notifyArgs(title, body);
+  expect(args.slice(-2)).toEqual([title, body]);
+  expect(args.slice(0, -2).join(" ")).not.toContain("night");
 });

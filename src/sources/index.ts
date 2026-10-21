@@ -1,5 +1,4 @@
 import { closeSync, existsSync, openSync } from "node:fs";
-import { log } from "../log";
 import type { Person, SourceEvent, Unit } from "../schema";
 import { settings } from "../settings";
 import { archiveDb } from "./archived";
@@ -19,6 +18,7 @@ import {
   newestImessage,
   readImessage,
 } from "./imessage";
+import { lifelogMissing } from "./lifelog";
 import { mailRoot, newestMail, readMail } from "./mail";
 import { newestNote, readNotes } from "./notes";
 import {
@@ -107,10 +107,7 @@ export const SOURCES: Descriptor[] = [
   {
     kind: "voice",
     label: "Pendant",
-    missing: () =>
-      settings().lifelog && process.env.LIFELOG_TOKEN
-        ? undefined
-        : "lifelog not set up",
+    missing: lifelogMissing,
     name: "lifelog",
     silentAfter: 6 * HOUR,
   },
@@ -220,21 +217,14 @@ export const enabledSources = (all = SOURCES, on = settings().sources) =>
   all.filter((s) => on.includes(s.name));
 
 /**
- * The enabled sources that can be read now. One that can't yet (`missing`) is logged with why and left out: not set
- * up is not broken, so it never fails a night; one that can be read and then throws still does (`safely`).
+ * The sources he turned on that can be read now. One that can't yet (`missing`) is left out: not set up is not broken,
+ * so it never fails a night (`gather` logs why); one that can be read and then throws still does (`safely`).
  */
-export const readableSources = (all = enabledSources()) =>
-  all.filter((s) => {
-    const why = s.missing?.();
-    if (why) {
-      log("source.read", { ok: true, skipped: why, source: s.name });
-    }
-    return !why;
-  });
+export const readySources = (all = enabledSources()) =>
+  all.filter((s) => !s.missing?.());
 
 /** Whether a voice source is on and set up: what the watcher listens to, and what voice search and `day` read. */
-export const listening = () =>
-  enabledSources().some((s) => s.kind === "voice" && !s.missing?.());
+export const listening = () => readySources().some((s) => s.kind === "voice");
 
 const BY_NAME = new Map(SOURCES.map((s) => [s.name, s]));
 /** A stored source name's descriptor: every name has one (`index.test.ts`). */

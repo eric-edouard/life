@@ -18,5 +18,5 @@ test("init makes a new owner's data that validates, commits it, and never runs t
   );
   expect(
     init({ email: [], name: "Someone Else", phone: [] }, data)
-  ).rejects.toThrow("already has a truth");
+  ).rejects.toThrow("is not empty");
 });

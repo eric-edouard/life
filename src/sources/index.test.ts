@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
 import { Unit } from "../schema";
-import { type Descriptor, enabledSources, readableSources, SOURCES } from ".";
+import { type Descriptor, enabledSources, readySources, SOURCES } from ".";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);
@@ -97,7 +97,7 @@ test("only the sources he turned on are read, and one not set up yet is left out
     name: "imessage",
   } as Descriptor;
   const on = enabledSources([ready, notYet], ["notes", "imessage"]);
-  expect(readableSources(on).map((s) => s.name)).toEqual(["notes"]);
+  expect(readySources(on).map((s) => s.name)).toEqual(["notes"]);
   expect(enabledSources([ready, notYet], ["imessage"])).toEqual([notYet]);
   // A fresh install turns nothing on: nothing is read, and nothing fails.
   expect(enabledSources(SOURCES, [])).toEqual([]);

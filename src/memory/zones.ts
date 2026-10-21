@@ -85,8 +85,12 @@ export function cutAt(now: Date, was: string, tz: string) {
  * ponytail: the Mac travels with him; the Mac mini (roadmap 4.7) stays home, so its zone will need another source then
  * (his phone's, or lifelog's stays).
  */
+/** The Mac's own time zone (the system's, whatever TZ the process runs with). */
+export const macZone = () =>
+  readlinkSync("/etc/localtime").split("zoneinfo/")[1];
+
 export async function noteZone(now = clock()) {
-  const [, tz] = readlinkSync("/etc/localtime").split("zoneinfo/");
+  const tz = macZone();
   const was = zones().at(-1)?.tz;
   if (tz && was && tz !== was) {
     const from = cutAt(now, was, tz).toISOString();

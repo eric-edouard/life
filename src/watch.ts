@@ -202,10 +202,6 @@ export async function watch(): Promise<number> {
     // The watcher matters more than the connector: it keeps polling and says why it is off.
     console.error("Connector is off:", (e as Error).message);
   }
-  if (!listening()) {
-    return quiet(running);
-  }
-  const store = openStore();
   // The connector's `reminders` acts from this process: its line in life-watch.log shows whether launchd reaches remctl.
   checks().then((problems) =>
     console.log(
@@ -220,6 +216,10 @@ export async function watch(): Promise<number> {
       ),
     TUNNEL_EVERY_MS
   );
+  if (!listening()) {
+    return quiet(running);
+  }
+  const store = openStore();
   const pending = resumed(store, clock().getTime());
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);

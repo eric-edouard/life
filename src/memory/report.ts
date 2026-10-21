@@ -5,6 +5,7 @@ import { log, recentEvents } from "../log";
 import { exec } from "../proc";
 import type { Action } from "../schema";
 import { settings } from "../settings";
+import { enabledSources, listening } from "../sources/index";
 import { STATE } from "../truth";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
@@ -109,6 +110,17 @@ const compose = (subject: string, d: Digest) => ({
   text: text(d),
 });
 
+/** What the night says of the watcher: off with no voice source, else polling or not. */
+function watcherLine(h: Night["watcher"]) {
+  if (!listening()) {
+    return "no voice source";
+  }
+  if (h && polling(h)) {
+    return "the watcher is polling";
+  }
+  return `the watcher is NOT POLLING (last good poll ${h?.lastOkAt ? localTime(h.lastOkAt) : "never"}), so its store, read as it stands, may lag`;
+}
+
 /** The email of a night that committed. */
 export function successReport(day: string, ms: number, n: Night) {
   const { date, weekday } = when(day);
@@ -132,7 +144,12 @@ export function successReport(day: string, ms: number, n: Night) {
             ]
           : []),
         `Verdicts agree with your labels ${percent(a.agreement)} of the time (${a.labeled} labels)`,
-        `Lifelog: ${n.watcher && polling(n.watcher) ? "the watcher is polling" : `the watcher is NOT POLLING (last good poll ${n.watcher?.lastOkAt ? localTime(n.watcher.lastOkAt) : "never"}), so its store, read as it stands, may lag`}`,
+        `Sources on: ${
+          enabledSources()
+            .map((s) => s.label)
+            .join(", ") || "none (turn one on to start)"
+        }`,
+        `Lifelog: ${watcherLine(n.watcher)}`,
         `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.archive,
@@ -395,19 +412,32 @@ export async function sendReport(id: string | string[], mail: Mail) {
   }
 }
 
-/** Where reports go with no mail: one file a report, the app's to show (and the HTML attachment is the same page). */
-export const REPORTS = join(STATE, "reports");
+/**
+ * A macOS notification: the title and body are the script's arguments, never quoted into its text, so no word of
+ * theirs can break it.
+ */
+export const notifyArgs = (title: string, body: string) => [
+  "osascript",
+  "-e",
+  "on run argv",
+  "-e",
+  "display notification (item 2 of argv) with title (item 1 of argv)",
+  "-e",
+  "end run",
+  title,
+  body,
+];
 
-/** A report kept as a page in `REPORTS` and announced by a macOS notification: no account, no address. Its id is its file. */
+/** A report kept as a page in the state's reports/ (the app shows it) and announced by a notification: no account, no address. Its id is its file. */
 async function onMac(keys: string[], mail: Mail) {
-  const file = join(REPORTS, `${keys[0]?.replaceAll("/", "-")}.html`);
+  const file = join(STATE, "reports", `${keys[0]?.replaceAll("/", "-")}.html`);
   await Bun.write(file, mail.html);
-  const quote = (s: string) => JSON.stringify(s.slice(0, 200));
-  await exec([
-    "osascript",
-    "-e",
-    `display notification ${quote(mail.text.split("\n")[0] ?? "")} with title ${quote(mail.subject)}`,
-  ]);
+  const r = await exec(
+    notifyArgs(mail.subject, mail.text.split("\n")[0] ?? "")
+  );
+  if (r.code !== 0) {
+    throw new Error(`notification: ${r.stderr.trim()}`);
+  }
   return file;
 }
 

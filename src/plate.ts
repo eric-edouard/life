@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { archiveFailing, STORES } from "./archive";
+import { archiveFailing, keptStores } from "./archive";
 import { backupOld, backupOn, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
 import { ATLAS, clientName, deliveryState, subscribed } from "./events";
@@ -26,7 +26,12 @@ import { git } from "./proc";
 import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { readContacts } from "./sources/contacts";
-import { type Descriptor, enabledSources, type Newest } from "./sources/index";
+import {
+  type Descriptor,
+  enabledSources,
+  listening,
+  type Newest,
+} from "./sources/index";
 import { lifelogStatus, newestTurn } from "./sources/lifelog";
 import { escalation, taskList } from "./tasks";
 import { DATA, loadTruth } from "./truth";
@@ -566,18 +571,21 @@ function captureCards(r: Reads): Card[] {
       ),
       beat: 5000,
       // Each store: copying or failing, and its last copy (lifeStatus's).
-      facts: STORES.map((s) => ({
+      facts: keptStores().map((s) => ({
         at: r.status.capture.archive[s.name],
         label: s.name,
         value: r.failingStores.has(s.name) ? "failing, last copy" : "last copy",
       })),
       group: "capture",
-      headline: archiveUp ? `every 5 s · ${STORES.length} stores` : "stopped",
+      headline: archiveUp
+        ? `every 5 s · ${keptStores().length} stores`
+        : "stopped",
       id: "archive",
       name: "Archive",
     },
     {
       ...firstOf(
+        [!listening(), { tone: "idle", word: "no voice source" }],
         [
           !watching,
           {
