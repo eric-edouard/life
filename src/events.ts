@@ -40,6 +40,16 @@ const AskData = z.object({
   title: z.string().optional().describe("The part of his words it is"),
 });
 
+/** Who a connector call came from, by its user agent: the names he knows them by. Atlas is ChatGPT's. */
+export const ATLAS = "ChatGPT (Atlas)";
+export function clientName(agent: unknown) {
+  const a = String(agent ?? "");
+  if (a.startsWith("openai-mcp")) {
+    return ATLAS;
+  }
+  return a.toLowerCase().includes("claude") ? "Claude" : a || "unknown client";
+}
+
 export const ASK_EVENT = {
   delivery: ["webhook"],
   description:
@@ -99,7 +109,7 @@ export interface State {
   subscription?: Subscription;
 }
 
-const readState = (): State =>
+export const deliveryState = (): State =>
   existsSync(STATE)
     ? JSON.parse(readFileSync(STATE, "utf8"))
     : { attempts: 0, delivered: linesOf(ACTIONS).length };
@@ -172,7 +182,7 @@ export const resumeAt = (
 export async function subscribe(p: z.infer<typeof Subscribe>) {
   const now = clock().getTime();
   const id = `sub_${digest("sha256", JSON.stringify([p.delivery.url, p.name, p.arguments]), 24)}`;
-  const cached = readState().subscription;
+  const cached = deliveryState().subscription;
   const sub: Subscription = {
     id,
     refreshBefore: new Date(
@@ -194,7 +204,7 @@ export async function subscribe(p: z.infer<typeof Subscribe>) {
     sub.verifiedAt = new Date(now).toISOString();
   }
   // Read again after the challenge: the watcher may have delivered meanwhile.
-  const state = readState();
+  const state = deliveryState();
   const old = state.subscription?.id === id;
   const delivered = resumeAt(
     p.cursor,
@@ -217,7 +227,7 @@ export async function subscribe(p: z.infer<typeof Subscribe>) {
 
 /** Stops the subscription to this callback, if it is the one; idempotent. */
 export function unsubscribe(p: z.infer<typeof Unsubscribe>) {
-  const state = readState();
+  const state = deliveryState();
   if (state.subscription?.url === p.delivery.url) {
     writeState({ attempts: 0, delivered: state.delivered });
     log("mcp.call", { tool: "events/unsubscribe" });
@@ -263,7 +273,7 @@ export function nextEvent(lines: string[], from: number) {
 /** Whether Atlas holds a subscription that has not expired (a retry may wait). */
 const current = (s: State, now: number) =>
   Date.parse(s.subscription?.refreshBefore ?? "") >= now;
-export const subscribed = (now: number) => current(readState(), now);
+export const subscribed = (now: number) => current(deliveryState(), now);
 
 /** Nothing goes out without a live subscription or while a retry waits. */
 const live = (
@@ -276,7 +286,7 @@ const live = (
  * What one delivery's HTTP status (0: unreachable) does: a 2xx or a 413 (never retried) moves past the event, a 410
  * drops the subscription, anything else retries it after 1, 2, 4… minutes, and after the 8th try moves on.
  */
-export function settle(
+export function settleDelivery(
   s: State,
   status: number,
   cursor: number,
@@ -295,7 +305,7 @@ export function settle(
 }
 
 /**
- * Delivers the asks past the cursor, one POST each, in order (the watcher calls it every loop), as `settle` says; an
+ * Delivers the asks past the cursor, one POST each, in order (the watcher calls it every loop), as `settleDelivery` says; an
  * ask passed over is emailed to him like a failed action. Nothing is sent before a subscription, after it expired, or
  * while a retry waits. A subscribe during a POST wins: the state is read again before each write.
  */
@@ -303,7 +313,7 @@ export async function deliver() {
   const now = clock().getTime();
   const lines = linesOf(ACTIONS);
   for (;;) {
-    const state = readState();
+    const state = deliveryState();
     const next = nextEvent(lines, state.delivered);
     if (!live(state, now)) {
       return;
@@ -324,10 +334,10 @@ export async function deliver() {
       (r) => r.status,
       () => 0
     );
-    if (JSON.stringify(readState()) !== JSON.stringify(state)) {
+    if (JSON.stringify(deliveryState()) !== JSON.stringify(state)) {
       continue;
     }
-    const after = settle(state, status, cursor, now);
+    const after = settleDelivery(state, status, cursor, now);
     writeState(after);
     if (status >= 200 && status < 300) {
       // When Atlas got it, for `bun life asks`.

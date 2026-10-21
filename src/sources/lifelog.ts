@@ -207,6 +207,17 @@ export async function withStore<T>(
   }
 }
 
+/** The newest speech turn the watcher folded in: lifelog sends turns once transcribed, minutes after they were spoken. */
+export const newestTurn = () =>
+  withStore(
+    (s) =>
+      s.db
+        .query<{ at: string | null }, []>(
+          "select max(start_at) as at from turns"
+        )
+        .get()?.at ?? null
+  );
+
 const DIGITS = /^\d+$/;
 
 export function readCursor(store: Store) {

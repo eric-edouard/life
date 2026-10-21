@@ -9,14 +9,13 @@ import {
   UNREACHABLE,
   type Verify,
 } from "./auth";
-import { cookie, cookieOf, redirect, text } from "./http";
+import { cookie, cookieOf, redirect, SESSION, text } from "./http";
 
 // The owner's sign-in for Life's pages (/check/, the status page at /): lifelog's OAuth with PKCE, the token in an
 // HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token. The
 // callback stays /check/callback, the one redirect lifelog knows for this client.
 
 const CALLBACK = `${ORIGIN}/check/callback`;
-const SESSION = "__Host-life";
 const LOGIN = "__Host-life-login";
 const LOGIN_MAX_S = 600;
 /** Where a sign-in may land: the pages behind it. */
