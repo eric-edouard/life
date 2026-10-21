@@ -19,7 +19,7 @@ export type Descriptor = {
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
   name: SourceName;
-  /** How many days back `search` reads its messages; without, `search` does not read them. */
+  /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
   searchDays?: number;
 } & (
   | {
