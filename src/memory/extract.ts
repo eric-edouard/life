@@ -69,10 +69,6 @@ const BOND_DAYS = 365;
 const BOND_MAX = 10;
 /** Facts from the moment's own units, of any age (a plan carried to its day), at most this many. */
 const MOMENT_MAX = 20;
-/** Open loops about its people (to-dos, promises, what is owed), from this far back, at most this many. */
-const LOOPS = new Set<Observation["type"]>(["todo", "promise", "waiting"]);
-const LOOP_DAYS = 60;
-const LOOP_MAX = 20;
 
 /** The ids of the lifelog conversations that are summarized and have been quiet for an hour. */
 export function closedConversations(
@@ -298,8 +294,8 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
  * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
  * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
  * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
- * units at any age, its people's open loops of the last 60 days (later evidence can close them), and the `person` facts
- * of the last year about its people `close` to him (what is between them lasts, and a newer fact must replace it).
+ * units at any age, and the `person` facts of the last year about its people `close` to him (what is between them
+ * lasts, and a newer fact must replace it).
  */
 export function priorFor(
   group: Group,
@@ -322,10 +318,6 @@ export function priorFor(
       (othersIn(o.entities).length === 0 && o.date >= daysBefore(day, 1)));
   const own = new Set(group.moment?.units);
   const ofMoment = (o: Observation) => own.has(o.unit);
-  const open = (o: Observation) =>
-    LOOPS.has(o.type) &&
-    o.date >= daysBefore(day, LOOP_DAYS) &&
-    o.entities.some((e) => people.has(e));
   const lasting = (o: Observation) =>
     o.type === "person" &&
     o.date >= daysBefore(day, BOND_DAYS) &&
@@ -333,7 +325,6 @@ export function priorFor(
   const slots: [(o: Observation) => boolean, number][] = [
     [about, max],
     [ofMoment, MOMENT_MAX],
-    [open, LOOP_MAX],
     [lasting, BOND_MAX],
   ];
   const candidates = shown
