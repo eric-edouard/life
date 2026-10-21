@@ -142,7 +142,16 @@ const Said = Moment.pick({
 });
 const at = (s: string | null) => (LocalTime.safeParse(s).success ? s : null);
 
-/** The verdicts of a day's reply for units of that day, once each; commits at salience 1 at most (never extracted). */
+/** Commits at salience 1 at most (never extracted), an agent's report at least KEEP_AT (read for the loops it may close). */
+function bounded(source: Unit["source"], salience: number) {
+  const kind = kindOf(source);
+  if (kind === "repo") {
+    return Math.min(salience, 1);
+  }
+  return kind === "agent" ? Math.max(salience, KEEP_AT) : salience;
+}
+
+/** The verdicts of a day's reply for units of that day, once each, their salience `bounded`. */
 function verdictsOf(
   list: unknown[],
   ctx: { areas: Map<string, string>; madeBy: MadeBy; units: Map<string, Unit> }
@@ -158,8 +167,7 @@ function verdictsOf(
         area: areaOf(area, ctx.areas),
         hash: u.hash,
         madeBy: ctx.madeBy,
-        salience:
-          kindOf(u.source) === "repo" ? Math.min(salience, 1) : salience,
+        salience: bounded(u.source, salience),
         schemaVersion: 1,
         topics: normalizeTopics(topics),
         unit: id,

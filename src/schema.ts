@@ -165,6 +165,7 @@ const SourceName = z.enum([
   "mail",
   "git",
   "notes",
+  "atlas",
 ]);
 
 /**
