@@ -2,6 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { STORES } from "./archive";
+import { clock } from "./clock";
 import { LOCK, locked } from "./memory/guard";
 import { readJson } from "./memory/ledger";
 import { INDEX } from "./memory/search";
@@ -72,7 +73,7 @@ export async function backup() {
     (r.code === 0 || r.code === 3) &&
     JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "");
   // ponytail: a Sunday the Mac never wakes skips that week's pass; track the last pass if that ever matters.
-  if (sum && new Date().getDay() === 0) {
+  if (sum && clock().getDay() === 0) {
     const forget =
       "forget --tag daily --group-by host,tags --keep-daily 14 --keep-weekly 8 --keep-monthly 24 --prune";
     await run(["restic", ...forget.split(" ")]);
@@ -89,6 +90,6 @@ export async function backup() {
   };
   writeFileSync(STATUS, `${JSON.stringify(status)}\n`);
   // The nightly's launchd log keeps every run's errors; the status only the last.
-  console.error(new Date().toISOString(), status.error ?? "ok");
+  console.error(clock().toISOString(), status.error ?? "ok");
   return Number(missed.length > 0);
 }

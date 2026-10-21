@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { clock } from "../clock";
 import { askOnce, llmFor, llmSpec, type Tier } from "../llm";
 import { log } from "../log";
 import { git } from "../proc";
@@ -20,7 +21,7 @@ const PARALLEL = 4;
  * and returns what it logged (`step` aside). No model: the sweeps use it as is, the steps through `begin`.
  */
 export function record(step: string, fields: Record<string, unknown>) {
-  const now = new Date();
+  const now = clock();
   const run = runId(now);
   const started = performance.now();
   log("run.start", { ...fields, run, step });

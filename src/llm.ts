@@ -1,6 +1,6 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
 // engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is.
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +8,7 @@ import { z } from "zod";
 import { log } from "./log";
 import { exec, firstLine } from "./proc";
 import { Engine, Runner } from "./schema";
-import { DATA, ROOT } from "./truth";
+import { DATA, isHis, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -96,8 +96,7 @@ export function llmOverride(
   if (!set) {
     return;
   }
-  const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
-  if (real(data) === real(join(homedir(), "Life"))) {
+  if (isHis(data)) {
     throw new Error(
       "LIFE_LLM is for a copy of the data (LIFE_DATA), never ~/Life"
     );

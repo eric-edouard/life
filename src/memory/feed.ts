@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { z } from "zod";
+import { clock } from "../clock";
 import { git } from "../proc";
 import {
   Action,
@@ -468,7 +469,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
         ? { ...it, ...diffs.get(`${c.sha}:${c.path}`) }
         : it;
     }),
-    observedAt: new Date().toISOString(),
+    observedAt: clock().toISOString(),
     remaining: page.remaining,
   };
 }
@@ -537,7 +538,7 @@ export async function claim(id: string) {
       ? { holds: ctx.index.has(id), supersededBy: ctx.index.get(id) ?? null }
       : null,
     observation: o,
-    observedAt: new Date().toISOString(),
+    observedAt: clock().toISOString(),
     pages: ctx.pages.cites.get(id) ?? [],
     read: unit
       ? [

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
+import { clock } from "./clock";
 import { parse } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
@@ -26,7 +27,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 const playbook = () => readFileSync(join(ROOT, "docs", "atlas.md"), "utf8");
 const WINDOW = 6 * HOUR;
 /** The playbook and its seal: a hash of the text and its 6 h window, so a seal recalled from memory dies within 12 h. */
-export const sealed = (now = Date.now(), text = playbook()) => ({
+export const sealed = (now = clock().getTime(), text = playbook()) => ({
   playbook: text,
   seal: digest("sha256", `${text}@${Math.floor(now / WINDOW)}`, 16),
 });
@@ -40,7 +41,7 @@ const askLine = (
   after: Action["after"],
   madeBy: "connector" | "session" | "watch",
   why: string,
-  now = Date.now(),
+  now = clock().getTime(),
   timing?: Action["timing"]
 ) =>
   ({
@@ -371,7 +372,7 @@ export function written(
 }
 
 /** Records Atlas's update when the rules allow it (synchronous, from reading the ledger to the lines); throws why not. */
-export function update(u: Update, now = Date.now()) {
+export function update(u: Update, now = clock().getTime()) {
   const { answer, lines } = written(u, tasksOf(), now);
   appendJsonl(ACTIONS, Action, lines);
   return answer;
@@ -381,7 +382,7 @@ export function update(u: Update, now = Date.now()) {
  * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (it cuts the
  * closed rows short).
  */
-export function taskList(now = Date.now()) {
+export function taskList(now = clock().getTime()) {
   return tasksOf().flatMap((t) => {
     const s = standing(t);
     const h = Math.floor((now - Date.parse(t.ask.at)) / HOUR);

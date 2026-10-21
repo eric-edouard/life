@@ -1,3 +1,4 @@
+import { clock } from "../clock";
 import { type Moment, Statement } from "../schema";
 import { pagedNow } from "./closeness";
 import {
@@ -21,7 +22,7 @@ import { when } from "./zones";
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
 export const plain = (t: string) =>
-  `${when(t.slice(0, 10)).date}${t.startsWith(String(new Date().getFullYear())) ? "" : ` ${t.slice(0, 4)}`}${t.slice(10)}`;
+  `${when(t.slice(0, 10)).date}${t.startsWith(String(clock().getFullYear())) ? "" : ` ${t.slice(0, 4)}`}${t.slice(10)}`;
 
 /** A moment in plain words: "Happened: Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé; told Dad." */
 export function momentText(m: Moment, name: (ref: string) => string) {

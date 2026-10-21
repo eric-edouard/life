@@ -12,6 +12,7 @@ import {
   UNREACHABLE,
   type Verify,
 } from "./auth";
+import { FROZEN } from "./clock";
 import {
   ASK_EVENT,
   Subscribe,
@@ -77,6 +78,19 @@ const WRITES = {
 const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
 const Reminders = Asked.omit({ why: true });
+
+/**
+ * In a frozen world (`LIFE_NOW`, the Atlas bench) a tool that acts outside Life's copy of the data (his Reminders,
+ * lifelog) does nothing: the call is logged as every call is (`mcp.call`, its arguments), and the answer says so.
+ * `task` still runs: it writes only to the copy's ledger.
+ */
+const dry = <S extends z.ZodObject>(run: Tool<S>): Tool<S> =>
+  FROZEN === undefined
+    ? run
+    : (args) =>
+        Promise.resolve(
+          `Not done: this is a frozen run (a benchmark), where nothing acts. Recorded: ${JSON.stringify(args)}`
+        );
 
 /** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
 async function request(a: Omit<Asked, "why">) {
@@ -171,7 +185,7 @@ function tool<S extends z.ZodObject>(
       inputSchema: unchecked(inputSchema) as unknown as z.ZodObject,
     },
     async (args, ctx) => {
-      const started = Date.now();
+      const started = performance.now();
       const parsed = inputSchema.safeParse(args);
       const result = await answer(() => {
         if (!parsed.success) {
@@ -188,7 +202,7 @@ function tool<S extends z.ZodObject>(
         chars: body.length,
         error: result.isError,
         ids: [...new Set(body.match(IDS))],
-        ms: Date.now() - started,
+        ms: Math.round(performance.now() - started),
         tool: name,
       });
       return result;
@@ -196,7 +210,8 @@ function tool<S extends z.ZodObject>(
   );
 }
 
-function buildServer() {
+/** The connector's tools and event, without its transport or auth: `createMcp` serves it over HTTP, the bench over stdio. */
+export function buildServer() {
   const server = new McpServer(
     {
       icons: [
@@ -346,7 +361,7 @@ function buildServer() {
     "correct",
     "Change something, only when the owner explicitly asked for that change: `memory` (a correction to Life's memory), `speaker` (who said a voice or a turn), `title` (a conversation's title), `rename_person`, `merge_people`. These write.",
     Correct,
-    correct,
+    dry(correct),
     WRITES
   );
   tool(
@@ -354,7 +369,7 @@ function buildServer() {
     "reminders",
     "Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask): add, edit, done, or remove (to Recently Deleted). Not the list `Atlas`: that is the board, changed with `task`. `target` is a reminder id (edit, done, remove). Logged in Life's history; `day` shows it.",
     Reminders,
-    (a) => request(a),
+    dry((a) => request(a)),
     REVERSIBLE
   );
   tool(
@@ -363,6 +378,10 @@ function buildServer() {
     "The owner's open Apple Reminders (JSON), of one list or all: each one's id, title, notes, due, list and section, and every list's sections, empty ones too. Not the list `Atlas`: that is the board, read with `tasks`.",
     z.object({ list: z.string().optional().describe("A list's name") }),
     async ({ list }) => {
+      if (FROZEN !== undefined) {
+        // His Reminders are live: a frozen world shows none rather than today's.
+        return { reminders: [], sections: [] };
+      }
       const [reminders, sections] = await Promise.all([
         openReminders(list),
         sectionsOf(list),
@@ -409,7 +428,16 @@ function buildServer() {
   server.server.setRequestHandler(
     "events/subscribe",
     { params: Subscribe },
-    subscribe
+    (p) => {
+      if (FROZEN !== undefined) {
+        log("mcp.call", {
+          error: true,
+          refused: "subscribe: a frozen run sends nothing",
+        });
+        throw new Error("A frozen run sends nothing: no subscriptions.");
+      }
+      return subscribe(p);
+    }
   );
   server.server.setRequestHandler(
     "events/unsubscribe",

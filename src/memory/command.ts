@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { clock } from "../clock";
 import { closeness } from "./closeness";
 import { extract } from "./extract";
 import { changeFeed, claim } from "./feed";
@@ -76,7 +77,7 @@ type Handler = (values: Values, rest: string[]) => Promise<number>;
 
 /** A hand-run step's evidence: its last `--days` days, gathered once for it (a sweep gathers once for all its steps). */
 const gathered = (v: Values) =>
-  gather(lastDays(new Date(), Number(v.days ?? DAYS)));
+  gather(lastDays(clock(), Number(v.days ?? DAYS)));
 
 const scan = step(() => mapRepos());
 
@@ -162,7 +163,7 @@ const HANDLERS: Record<string, Handler> = {
     await reindex();
     return 0;
   },
-  midday: (values) => midday(new Date(), values.force),
+  midday: (values) => midday(clock(), values.force),
   moments: step(async (v) => moments(await gathered(v))),
   nightly: (values) => nightly(Number(values.days ?? DAYS), values.force),
   pages: step((v) => pages({ only: v.only, rebuild: v.rebuild })),

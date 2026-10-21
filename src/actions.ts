@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { clock } from "./clock";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
@@ -289,7 +290,7 @@ export async function act(a: Act): Promise<Action> {
   }
   const action: Action = {
     ...done,
-    at: new Date().toISOString(),
+    at: clock().toISOString(),
     id,
     instruction,
     kind: c.kind,
@@ -309,7 +310,7 @@ export async function act(a: Act): Promise<Action> {
 export const requested = (
   madeBy: string,
   quote: string,
-  at = new Date().toISOString()
+  at = clock().toISOString()
 ) => ({ at, quote, ref: `${madeBy}:${at}` });
 
 /** `act` for a request that comes from a client (`requested`). */
