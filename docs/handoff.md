@@ -72,7 +72,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   forwarded correction a `lifelog.write`. Off when `LIFE_OWNER_SUB` is unset. The same server serves the check page (`/check/`, `src/check.ts`): the truth benchmark's statements, one tap or swipe each, behind the same lifelog sign-in.
 - A Telegram bot's token and an `INSTINCT_KEY` are parked in `.env`; nothing uses them.
 - **Removed on 14 Oct** (the old history in the backup has it, see the "Nuke" commit): the SwiftUI app, the Railway server, the Telegram bot's
-  cards, brief, gate, agents, logins and the calendar, notes, reminders, contacts and whereabouts sources. The owner
+  cards, brief, gate, agents, logins and the sources listed in `docs/sources.md`. The owner
   deleted the Railway project on 14 Oct (purged 16 Oct). The `life-vault-<signer>` Keychain items and
   `~/Library/Application Support/Life/Chrome` are his to delete.
 
