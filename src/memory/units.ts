@@ -10,14 +10,7 @@ import {
   type Store,
   withStore,
 } from "../sources/lifelog";
-import {
-  handleIndex,
-  loadTruth,
-  ownerIn,
-  resolveSender,
-  TEST,
-  type Truth,
-} from "../truth";
+import { loadTruth, OWNER, ownerIn, TEST, type Truth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { describeFiles, showFiles } from "./files";
 import { digest, readFiles, readRepoGuesses, readUnits, UNITS } from "./ledger";
@@ -32,6 +25,7 @@ const TEXT_MAX = 1500;
 const SHORT_CHARS = 12;
 const OTP_MAX = 200;
 const PAREN = /\(.*?\)/g;
+const PERSON = "person:";
 const MARKS = /\p{M}/gu;
 const NON_ALNUM = /[^a-z0-9]+/g;
 const OTP =
@@ -66,9 +60,10 @@ export interface Message {
   id: string;
   sender: string;
   text: string;
-  /** `me`, the person id on the map, or null. */
-  who: string | null;
 }
+
+/** Who a name, handle or address is (`resolver`, who.ts: the one resolver), or null. */
+export type Resolve = (surface: string) => string | null;
 
 export interface Built {
   messages: Message[];
@@ -301,33 +296,39 @@ const byDay = (events: SourceEvent[]) => [
 ];
 
 /** Chat-days, mail thread-days and note-days: every message of one chat, thread or note on one local day. */
-export const messageUnits = (
-  events: SourceEvent[],
-  handles: Map<string, string>
-) => byDay(events).map((list) => chatDay(list, handles));
+export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
+  byDay(events).map((list) => chatDay(list, resolve));
 
-/** The unit of one chat's (or thread's) messages. */
-function chatDay(list: SourceEvent[], handles: Map<string, string>): Built {
+/**
+ * The unit of one chat's (or thread's) messages. A chat keeps a sender nobody resolves as `unknown:<sender>`, so a
+ * reader maps them once they are known (`refOf`); a mail's or a note's are organisations and lists, left out.
+ */
+function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const sorted = list.sort((a, b) => a.at.localeCompare(b.at));
   const first = sorted[0] as SourceEvent;
   const last = sorted.at(-1) as SourceEvent;
-  const who = sorted.map((e) => resolveSender(e, handles));
+  const chat = kindOf(first.source) === "chat";
+  const who = sorted.map((e) =>
+    e.fromMe
+      ? OWNER
+      : (resolve(e.sender) ?? (chat ? `unknown:${e.sender}` : null))
+  );
   const lines = sorted.map(
-    (e, i) => `${time(e.at)} ${who[i] ?? e.sender}: ${redact(e.text)}`
+    (e, i) =>
+      `${time(e.at)} ${who[i]?.startsWith(PERSON) ? who[i].slice(PERSON.length) : e.sender}: ${redact(e.text)}`
   );
   const title =
     first.chatName ??
     (kindOf(first.source) === "mail" ? "(no subject)" : first.chat);
   const ids = sorted.map((e) => e.id);
   return {
-    messages: sorted.map((e, i) => ({
+    messages: sorted.map((e) => ({
       at: e.at,
       bulk: e.bulk,
       fromMe: e.fromMe,
       id: e.id,
       sender: e.sender,
       text: e.text,
-      who: who[i] ?? null,
     })),
     text: `${title}\n${lines.join("\n")}`,
     unit: {
@@ -339,9 +340,7 @@ function chatDay(list: SourceEvent[], handles: Map<string, string>): Built {
       ),
       id: dayUnitId(first),
       key: first.chat,
-      people: [
-        ...new Set(who.flatMap((p) => (p ? [`person:${p}`] : []))),
-      ].sort(),
+      people: [...new Set(who.flatMap((p) => (p ? [p] : [])))].sort(),
       refs:
         kindOf(first.source) === "mail"
           ? ids
@@ -381,7 +380,7 @@ export const repoUnits = (events: SourceEvent[]) => byDay(events).map(repoDay);
 /** The unit of one repo's commits. */
 function repoDay(list: SourceEvent[]): Built {
   const byId = new Map(list.map((e) => [e.id, e]));
-  const { messages, text, unit } = chatDay(list, new Map());
+  const { messages, text, unit } = chatDay(list, () => null);
   const sum = (k: "added" | "removed") =>
     messages.reduce((n, m) => n + (byId.get(m.id)?.[k] ?? 0), 0);
   const others: Record<string, number> = {};
@@ -549,7 +548,7 @@ export const { CHATS, SEARCHED, WITH_PEOPLE } = tablesOf(SOURCES);
  */
 export function builtFor(
   unit: Unit,
-  handles: Map<string, string>,
+  resolve: Resolve,
   repos: RepoMap,
   me: Person
 ) {
@@ -566,7 +565,7 @@ export function builtFor(
   // A repo's commits carry no files.
   const events = source.kind === "repo" ? read : showFiles(read, readFiles());
   if (events.length > 0) {
-    return source.kind === "repo" ? repoDay(events) : chatDay(events, handles);
+    return source.kind === "repo" ? repoDay(events) : chatDay(events, resolve);
   }
 }
 
@@ -599,14 +598,17 @@ export function lastDays(now: Date, days: number): Window {
 
 /**
  * The evidence of a window of local days: every source (lifelog,
- * chats, mail, notes, his commits), cut into units with the code rules applied, in time order across channels; also
+ * chats, mail, notes, his commits), cut into units with the code rules applied, senders resolved by `resolve`, in time order across channels; also
  * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
  * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
  * their salience at 1).
  */
-export async function gather(window: Window) {
+export async function gather(
+  window: Window,
+  { resolve, truth }: { resolve: Resolve; truth: Truth }
+) {
   // ponytail: the readers read from `since` to now and the window is cut after, so a backfill week of 2025 reads every
   // source up to today; give the readers an end if the pilot measures that slow next to the model calls.
   const since = dayStart(window.from);
@@ -614,7 +616,6 @@ export async function gather(window: Window) {
     // Unset, Life's own chat would read as facts.
     throw new Error("LIFE_CHAT is not set in .env");
   }
-  const truth = await loadTruth();
   const failed: string[] = [];
   const repos = repoMap(truth, await readRepoGuesses());
   const ctx = { me: ownerIn(truth.people), repos };
@@ -650,11 +651,10 @@ export async function gather(window: Window) {
     events: s.kind === "repo" ? events : showFiles(events, known),
     s,
   }));
-  const handles = handleIndex(truth.people);
   const built = applyRules([
     ...lifelogUnits(lifelog, nameIndex(truth.people)),
     ...shown.flatMap(({ events, s }) =>
-      s.kind === "repo" ? repoUnits(events) : messageUnits(events, handles)
+      s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
     ),
   ])
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)

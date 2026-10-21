@@ -98,11 +98,11 @@ const conversation: LifelogConversation = {
 };
 
 test("unit ids are stable and hashes follow the content", () => {
-  const [a] = messageUnits([msg({})], new Map());
-  const [b] = messageUnits([msg({})], new Map());
+  const [a] = messageUnits([msg({})], () => null);
+  const [b] = messageUnits([msg({})], () => null);
   const [edited] = messageUnits(
     [msg({ text: "Call the plumber tomorrow" })],
-    new Map()
+    () => null
   );
   expect(a?.unit.id).toMatch(UNIT_ID);
   expect(a?.unit.id).toBe(b?.unit.id as string);
@@ -113,7 +113,7 @@ test("unit ids are stable and hashes follow the content", () => {
 });
 
 test("a chat-day groups one chat's messages of one day, names known senders and keeps only refs", () => {
-  const handles = new Map([["+33600000002", "dad"]]);
+  const handles = (s: string) => (s === "+33600000002" ? "person:dad" : null);
   const built = messageUnits(
     [
       msg({ id: "beeper:!chat/1" }),
@@ -141,12 +141,22 @@ test("a chat-day groups one chat's messages of one day, names known senders and 
   expect(built[0]?.text).toContain("dad: Can you call the plumber today?");
 });
 
+test("a chat keeps a sender nobody resolves as unknown, a mail leaves it out, and who resolves never moves the hash", () => {
+  const [unknown] = messageUnits([msg({})], () => null);
+  const [known] = messageUnits([msg({})], () => "person:inf-plumber");
+  const [mail] = messageUnits([msg({ source: "mail" })], () => null);
+  expect(unknown?.unit.people).toEqual(["unknown:+33600000002"]);
+  expect(known?.unit.people).toEqual(["person:inf-plumber"]);
+  expect(mail?.unit.people).toEqual([]);
+  expect(known?.unit.hash).toBe(unknown?.unit.hash as string);
+});
+
 test("the same chat content seen twice hashes the same and the second unit is dropped as a duplicate", () => {
   const once = messageUnits(
     [msg({ chat: "+33600000002", id: "imessage:A", source: "imessage" })],
-    new Map()
+    () => null
   );
-  const again = messageUnits([msg({})], new Map());
+  const again = messageUnits([msg({})], () => null);
   const [first, second] = applyRules([...once, ...again]);
   expect(first?.unit.drop).toBeUndefined();
   expect(second?.unit.drop).toBe("duplicate");
@@ -206,9 +216,9 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           text: "Your verification code is 482913",
         }),
       ],
-      new Map()
+      () => null
     ),
-    ...messageUnits([mail({}, true)], new Map()),
+    ...messageUnits([mail({}, true)], () => null),
     ...messageUnits(
       [
         mail(
@@ -221,7 +231,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           true
         ),
       ],
-      new Map()
+      () => null
     ),
     ...messageUnits(
       [
@@ -235,11 +245,14 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           true
         ),
       ],
-      new Map()
+      () => null
     ),
-    ...messageUnits([msg({ chat: "short", id: "b:2", text: "ok" })], new Map()),
-    ...messageUnits([msg({ chat: "real", id: "b:3" })], new Map()),
-    ...messageUnits([msg({ chat: LIFE_CHAT, id: "b:4" })], new Map()),
+    ...messageUnits(
+      [msg({ chat: "short", id: "b:2", text: "ok" })],
+      () => null
+    ),
+    ...messageUnits([msg({ chat: "real", id: "b:3" })], () => null),
+    ...messageUnits([msg({ chat: LIFE_CHAT, id: "b:4" })], () => null),
   ]);
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
     "one-time-code",
@@ -302,7 +315,7 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
           "Are you free on Friday evening?"
         ),
       ],
-      new Map()
+      () => null
     )
   );
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
@@ -316,7 +329,7 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
 });
 
 test("a 1:1 chat's title names its unknown member; a group or a mail thread names nobody", () => {
-  const handles = new Map<string, string>();
+  const handles = () => null;
   const [one] = messageUnits(
     [msg({ chatName: "Anne-Sophie", sender: "@line_x:beeper.local" })],
     handles
@@ -440,7 +453,7 @@ test("a day read again in another country keeps its local dates, times and unit 
           process.env.TZ = tz;
           const [b] = messageUnits(
             [msg({ at, source: "whatsapp" })],
-            new Map()
+            () => null
           );
           return { date: b?.unit.date, id: b?.unit.id, line: b?.text };
         }

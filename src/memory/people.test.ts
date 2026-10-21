@@ -12,12 +12,11 @@ const chat = (unit: string, sender: string, texts: string[]) =>
       id: `${unit}-${i}`,
       sender: i === 0 ? "me" : sender,
       text,
-      who: i === 0 ? "me" : null,
     })),
     text: `Shop plumbing\n${texts.map((t, i) => `0${i}:00 ${i === 0 ? "me" : sender}: ${t}`).join("\n")}`,
     unit: {
       id: unit,
-      people: ["unknown:Cédric", "unknown:speaker_2"],
+      people: [`unknown:${sender}`, "unknown:Cédric", "unknown:speaker_2"],
       source: "whatsapp",
     },
   }) as unknown as Built;

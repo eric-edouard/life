@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { INFERRED_PREFIX, type InferredPerson, type MadeBy } from "../schema";
-import { kindOf } from "../sources";
 import { digest } from "./ledger";
 import { locate } from "./observe";
 import { areaOf, type Built, slugOf } from "./units";
@@ -92,8 +91,9 @@ export function checkPeople(
 }
 
 /**
- * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, Beeper) no
- * handle maps, and names lifelog gave a voice. `known` says which already resolve (truth, his corrections, a confident inferred person).
+ * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, Beeper) and
+ * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
+ * corrections, a confident inferred person).
  */
 export function unknownIn(units: Built[], known: (s: string) => boolean) {
   const out = new Map<string, Built[]>();
@@ -103,12 +103,6 @@ export function unknownIn(units: Built[], known: (s: string) => boolean) {
     }
   };
   for (const b of units) {
-    // Only where people speak for themselves: mail senders are organisations and lists, notes and commits his.
-    for (const m of kindOf(b.unit.source) === "chat" ? b.messages : []) {
-      if (!(m.fromMe || m.who)) {
-        add(m.sender, b);
-      }
-    }
     for (const p of b.unit.people) {
       if (p.startsWith(UNKNOWN)) {
         add(p.slice(UNKNOWN.length), b);

@@ -316,8 +316,17 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
     turnIndex,
   });
   expect(
-    voiceLines([t(0, true), t(1, false)], jobs, new Map()).map((l) => l.speaker)
+    voiceLines([t(0, true), t(1, false)], jobs, () => null).map(
+      (l) => l.speaker
+    )
   ).toEqual([OWNER, "unknown:speaker_1"]);
+  // A named voice goes through the one resolver: a person Life inferred too, and one nobody knows stays unknown.
+  const named = (name: string) => ({ ...t(1, false), name });
+  expect(
+    voiceLines([named("Nok"), named("Somchai")], jobs, (s) =>
+      s === "Nok" ? "person:inf-nok" : null
+    ).map((l) => l.speaker)
+  ).toEqual(["person:inf-nok", "unknown:Somchai"]);
 });
 
 /** The `before` a cut chats answer names. */

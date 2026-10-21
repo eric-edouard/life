@@ -43,7 +43,6 @@ import {
   type Evidence,
   lifelogNames,
   localTime,
-  nameIndex,
   within,
 } from "./units";
 import { observationsNow, readPeople, UNKNOWN } from "./who";
@@ -346,14 +345,20 @@ export async function extract(evidence: Evidence) {
   step.stats.failed += failed.length;
   // Today is not over: its chats are still growing, so they wait for tomorrow; only closed lifelog conversations go now.
   const closed = closedConversations(conversations, now);
-  const inWindow = built.filter(
-    (b) =>
-      b.unit.date < today ||
-      (kindOf(b.unit.source) === "voice" && closed.has(b.unit.key))
-  );
   const verdicts = await readVerdicts();
   const people = await readPeople();
-  const { corrections, inferred, resolve } = people;
+  const { corrections, inferred, refOf, resolve } = people;
+  // Who each unit is with as of now: the people the moments step just inferred included.
+  const inWindow = built
+    .filter(
+      (b) =>
+        b.unit.date < today ||
+        (kindOf(b.unit.source) === "voice" && closed.has(b.unit.key))
+    )
+    .map((b) => ({
+      ...b,
+      unit: { ...b.unit, people: b.unit.people.map(refOf) },
+    }));
   const [written, { observations: known, standing }] = await Promise.all([
     readMoments(),
     observationsNow(people),
@@ -382,7 +387,6 @@ export async function extract(evidence: Evidence) {
     momentsNow(written, corrections)
   );
 
-  const names = nameIndex(truth.people);
   const read = groups.flatMap((g) => g.units);
   const reread = new Set([...read, ...copies].map((b) => b.unit.id));
   const turns = await withStore(
@@ -411,7 +415,7 @@ export async function extract(evidence: Evidence) {
   const sourceOf = (b: Built): Source[] => {
     const all =
       kindOf(b.unit.source) === "voice"
-        ? voiceLines(turns.get(b.unit.id) ?? [], jobs, names)
+        ? voiceLines(turns.get(b.unit.id) ?? [], jobs, resolve)
         : chatLines(b, resolve);
     // ponytail: a unit longer than UNIT_MAX keeps its first lines only (a longer line cut to it, as a whole note's text
     // can be); split the unit if long chapters matter.
@@ -536,8 +540,10 @@ export async function extract(evidence: Evidence) {
       await one(call, k === 0 ? bdir : `${bdir}-${k}`);
     }
   });
-  // Names lifelog gave a voice that the map doesn't know.
-  for (const { unit } of finished) {
+  // Names lifelog gave a voice that the map doesn't know (a chat's unknown senders are handles, not names).
+  for (const { unit } of finished.filter(
+    (s) => kindOf(s.unit.source) === "voice"
+  )) {
     for (const p of unit.people.filter((x) => x.startsWith(UNKNOWN))) {
       unresolved.push({
         at,
