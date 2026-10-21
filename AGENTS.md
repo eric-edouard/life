@@ -68,12 +68,13 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
   Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
-  only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
+  only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`. One standing grant (his yes, decision 2 of the 21 Oct review)
-  is the only other authority: `reminders` with `obs` in place of `said` adds a reminder from his current salience-3 to-do
-  or promise in a lifelog turn the store credits to him at that moment, at most 3 a day, never on a shared list, and
-  never again once he removed one it made (`grantRefusal`, all derived from the ledger); its authority is the
-  observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
+  is the only other authority: `reminders` with `obs` in place of `said` adds a reminder (title, list, due, section)
+  from his current salience-3 to-do or promise in a lifelog turn the store credits to him at that moment, at most 3 a
+  day, one at a time, never on a shared list, and never again once he removed one it made through Life
+  (`grantRefusal`, all derived from the ledger); its authority is the observation alone, never the board, a /check tap
+  or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
   (`LIFE_MISHEARD`, a real name) `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
@@ -131,9 +132,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
-  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`), and logs Atlas's replies (`reply`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
+  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`), or on the one standing grant, and logs Atlas's replies (`reply`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
   `claim`, are the dashboard's JSON reads, `src/memory/history.ts` and `feed.ts`, contracts in `docs/dashboard.md`); `correct` (lifelog writes all go through the
-  table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
+  table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`, or an `obs` for the grant); `task` (Atlas's
   updates, through `update`); `reply` (what Atlas tells him, one `actions.jsonl` line, appended only: it sends nothing).
   `correct` is annotated destructive so clients ask first; `reminders`, `task` and `reply` are not
   (nothing they do is lost: a remove goes to Recently Deleted), so Atlas uses them unattended. Never add a tool that sends or edits anything else.

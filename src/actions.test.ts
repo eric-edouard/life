@@ -5,6 +5,7 @@ import {
   Change,
   changedFields,
   duplicateOf,
+  Granted,
   grantedFrom,
   grantRefusal,
   openOf,
@@ -232,14 +233,14 @@ test("the grant is off once he removed a reminder it added; removing one of his 
   ).toBeUndefined();
 });
 
-test("the grant refuses a shared list, or no list named", () => {
+test("the grant refuses a shared list, and fails closed when remctl does not say", () => {
   expect(
     grantRefusal({ ...mine, list: { shared: true, sharees: [{ name: "A" }] } })
   ).toContain("shared");
   expect(
     grantRefusal({ ...mine, list: { sharees: [{ name: "A" }] } })
   ).toContain("shared");
-  expect(grantRefusal({ ...mine, list: undefined })).toContain("list");
+  expect(grantRefusal({ ...mine, list: {} })).toContain("shared");
 });
 
 test("the same observation twice adds once: its standing add comes back, a failed one is tried again", () => {
@@ -249,4 +250,18 @@ test("the same observation twice adds once: its standing add comes back, a faile
     grantedFrom([{ ...made, result: "failed" }], "obs_000000000007")
   ).toBeUndefined();
   expect(grantedFrom([made], "obs_000000000008")).toBeUndefined();
+});
+
+test("the grant sets an add's title, named list, due and section only: no notes, link, subtasks or recurrence under its authority", () => {
+  const add = { kind: "add", list: "Personal", title: "Call the plumber" };
+  expect(Granted.safeParse({ ...add, due: "2026-10-22" }).success).toBe(true);
+  for (const bad of [
+    { ...add, notes: "x" },
+    { ...add, prompt: "x" },
+    { ...add, recurrence: "daily" },
+    { ...add, kind: "remove", target: 1 },
+    { kind: "add", title: "no list" },
+  ]) {
+    expect(Granted.safeParse(bad).success).toBe(false);
+  }
 });
