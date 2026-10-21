@@ -16,4 +16,8 @@ test("firstLine: stdin stays open until a whole line passes, then the server is 
   expect(
     await firstLine(["sh", "-c", "echo noise"], "", (l) => l === "x")
   ).toBeUndefined();
+  // Gone before reading its input: no answer, never a crash.
+  expect(
+    await firstLine(["sh", "-c", "exit 0"], "x".repeat(2e6), () => true)
+  ).toBeUndefined();
 });

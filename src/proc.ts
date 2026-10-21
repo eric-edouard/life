@@ -36,8 +36,8 @@ export async function exec(
 
 /**
  * Runs `cmd` with `input` on its stdin, kept open (a server that quits at the end of its input before answering), to
- * the first whole line of its output that `done` accepts: that line, or undefined when it exits or `timeout` ms pass
- * first. It is killed either way.
+ * the first whole line of its output that `done` accepts: that line, or undefined when it exits, refuses its input,
+ * `done` throws or `timeout` ms pass first. It is killed either way.
  */
 export async function firstLine(
   cmd: string[],
@@ -57,10 +57,10 @@ export async function firstLine(
   } catch {
     return;
   }
-  proc.stdin.write(input);
-  proc.stdin.flush();
   let out = "";
   try {
+    proc.stdin.write(input);
+    await proc.stdin.flush();
     for await (const chunk of proc.stdout.pipeThrough(
       new TextDecoderStream()
     )) {
@@ -70,6 +70,8 @@ export async function firstLine(
         return line;
       }
     }
+  } catch {
+    // No answer.
   } finally {
     proc.kill();
   }

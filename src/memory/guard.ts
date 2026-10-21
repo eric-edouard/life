@@ -60,7 +60,7 @@ export const backupDue = (
 const RESERVE = 75;
 
 /** True while `q` is over the reserve, until its window resets; an unread quota holds nothing. */
-export const reserved = (q: Quota | undefined, now = Date.now()): q is Quota =>
+export const reserved = (q: Quota | undefined, now = Date.now()) =>
   !!q && q.used > RESERVE && !(q.resetsAt && Date.parse(q.resetsAt) <= now);
 
 /** The nightly email's line on the quota. */
@@ -137,7 +137,7 @@ export function nextMidday(
   last: string | undefined,
   q?: Quota
 ): ReturnType<typeof windowAt> {
-  if (reserved(q, now.getTime())) {
+  if (q && reserved(q, now.getTime())) {
     const after = q.resetsAt ? new Date(q.resetsAt) : now;
     return {
       ...nextMidday(after, last),
