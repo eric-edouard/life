@@ -19,6 +19,7 @@ import {
   readRatings,
   readStatements,
 } from "./memory/ledger";
+import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
 import { git } from "./proc";
 import { checks } from "./reminders/remctl";
@@ -657,8 +658,8 @@ type Sweep =
   | Reads["status"]["midday"]
   | Omit<Reads["status"]["backfill"], "state">;
 
-/** A nightly report email's key (`sendReport`, nightly.ts): `nightly/<its run>`. */
-const isReport = (key: unknown) => String(key ?? "").startsWith("nightly/");
+/** A nightly report's email (`reportKey`), by its key. */
+const isReport = (key: unknown) => String(key ?? "").startsWith(reportKey(""));
 
 /**
  * A sweep's stations: the phases its last good run went through (its steps among them) and any its latest added,
@@ -760,7 +761,7 @@ function sweepCard(
             running,
             id === "nightly"
               ? r.sent.some(
-                  (e) => e.key === `nightly/${latest?.id.split("/")[1]}`
+                  (e) => e.key === reportKey(latest?.id.split("/")[1] ?? "")
                 )
               : null
           )
