@@ -9,6 +9,9 @@ export const HEADERS = {
   "x-content-type-options": "nosniff",
 };
 
+/** The owner's session cookie, set by the sign-in (`signin.ts`) and read by the status page's Worker too. */
+export const SESSION = "__Host-life";
+
 /** An HttpOnly, Secure, SameSite=Lax cookie for the whole site, as a Set-Cookie value. */
 export const cookie = (name: string, value: string, maxAge: number) =>
   new Bun.Cookie(name, value, {

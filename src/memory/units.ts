@@ -14,7 +14,14 @@ import {
 import { loadTruth, OWNER, ownerIn, TEST, type Truth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { describeFiles, showFiles } from "./files";
-import { digest, readFiles, readRepoGuesses, readUnits, UNITS } from "./ledger";
+import {
+  digest,
+  keptConversations,
+  readFiles,
+  readRepoGuesses,
+  readUnits,
+  UNITS,
+} from "./ledger";
 import { dayStart, localDate, wall } from "./zones";
 
 // L1 units (memory-pipeline §3.1): one lifelog chapter, one chat-day, mail thread-day, note-day or repo-day. Built by
@@ -459,10 +466,19 @@ export const searchableMail = (events: SourceEvent[]) =>
   });
 
 /** Cheap code rules for obvious noise (§3.3), in order. The first rule that matches drops the unit. */
-const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
+const RULES: [
+  string,
+  (b: Built, seen: Set<string>, kept: Set<string>) => boolean,
+][] = [
   ["no-summary", (b) => kindOf(b.unit.source) === "voice" && !b.unit.summary],
   // Life's own chat (see LIFE_CHAT) and mail.
   ["life-output", (b) => b.unit.key === LIFE_CHAT || lifeMail(b)],
+  // An imported conversation the import step did not keep as about his life (memory/imported.jsonl).
+  [
+    "not-kept",
+    (b, _seen, kept) =>
+      !!sourceOf(b.unit.source).imported && !kept.has(b.unit.key),
+  ],
   // The same content already seen. ponytail: a note-day whose change repeats one inside the window (a tick undone and
   // redone) keeps only the first; exempt notes from this rule if such repeats matter.
   ["duplicate", (b, seen) => seen.has(b.unit.hash)],
@@ -495,11 +511,11 @@ const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
   ],
 ];
 
-/** Marks each unit a rule drops (`unit.drop` names the rule). */
-export function applyRules(built: Built[]) {
+/** Marks each unit a rule drops (`unit.drop` names the rule); `kept`: the imported conversations the import kept. */
+export function applyRules(built: Built[], kept = new Set<string>()) {
   const seen = new Set<string>();
   for (const b of built) {
-    const rule = RULES.find(([, test]) => test(b, seen))?.[0];
+    const rule = RULES.find(([, test]) => test(b, seen, kept))?.[0];
     seen.add(b.unit.hash);
     if (rule) {
       b.unit.drop = rule;
@@ -688,12 +704,15 @@ export async function gather(
     events: s.kind === "repo" ? events : showFiles(events, known),
     s,
   }));
-  const built = applyRules([
-    ...lifelogUnits(lifelog),
-    ...shown.flatMap(({ events, s }) =>
-      s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
-    ),
-  ])
+  const built = applyRules(
+    [
+      ...lifelogUnits(lifelog),
+      ...shown.flatMap(({ events, s }) =>
+        s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
+      ),
+    ],
+    keptConversations()
+  )
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
   return {

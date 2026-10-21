@@ -93,6 +93,11 @@ export function gitOut(path: string, args: string[]) {
   return r.stdout.toString().trim();
 }
 
-/** The code the checkout at `root` holds (its committed src/ and prompts/): an always-on service exits when it changes, and launchd starts the new code. */
+/** The code the checkout at `root` holds (its committed src/, prompts/ and assets/, the pages it serves): an always-on service exits when it changes, and launchd starts the new code. */
 export const codeAt = (root: string) =>
-  git(root, ["rev-parse", "HEAD:src", "HEAD:prompts"]).stdout.toString();
+  git(root, [
+    "rev-parse",
+    "HEAD:src",
+    "HEAD:prompts",
+    "HEAD:assets",
+  ]).stdout.toString();

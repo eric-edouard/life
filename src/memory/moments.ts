@@ -36,7 +36,7 @@ import {
 } from "./ledger";
 import { linkOf } from "./observe";
 import { checkPeople, unknownIn } from "./people";
-import { begin, refContext } from "./run";
+import { begin, checkedEntries, refContext } from "./run";
 import {
   areaLookup,
   areaOf,
@@ -164,25 +164,32 @@ function verdictsOf(
   list: unknown[],
   ctx: { areas: Map<string, string>; madeBy: MadeBy; units: Map<string, Unit> }
 ) {
-  const verdicts = new Map<string, Verdict>();
-  for (const raw of list) {
-    const r = Judged.safeParse(raw);
-    const u = r.success ? ctx.units.get(r.data.id) : undefined;
-    if (r.success && u && !verdicts.has(u.id)) {
-      const { area, id, salience, topics, ...rest } = r.data;
-      verdicts.set(id, {
-        ...rest,
-        area: areaOf(area, ctx.areas),
-        hash: u.hash,
-        madeBy: ctx.madeBy,
-        salience: saliencyOf(u, salience),
-        schemaVersion: 1,
-        topics: normalizeTopics(topics),
-        unit: id,
-      });
-    }
-  }
-  return verdicts;
+  const { entries } = checkedEntries(
+    list,
+    Judged,
+    (e) => e.id,
+    (id) => ctx.units.has(id)
+  );
+  return new Map(
+    entries.map(
+      ({ area, id, salience, topics, ...rest }): [string, Verdict] => {
+        const u = ctx.units.get(id) as Unit;
+        return [
+          id,
+          {
+            ...rest,
+            area: areaOf(area, ctx.areas),
+            hash: u.hash,
+            madeBy: ctx.madeBy,
+            salience: saliencyOf(u, salience),
+            schemaVersion: 1,
+            topics: normalizeTopics(topics),
+            unit: id,
+          },
+        ];
+      }
+    )
+  );
 }
 
 /** A person the model named, as a ref: one it was given, or an `unknown:` name resolved by code; never the owner. */

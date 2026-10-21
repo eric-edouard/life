@@ -1,6 +1,13 @@
 import { join } from "node:path";
 import { type SourceEvent, sourceFile } from "../schema";
-import { ARCHIVE, BEEPER, phoneMap, type Row, readArchived } from "./archived";
+import {
+  ARCHIVE,
+  BEEPER,
+  newestArchived,
+  phoneMap,
+  type Row,
+  readArchived,
+} from "./archived";
 
 // LINE, Telegram and Instagram (the chats Beeper Desktop bridges) from Life's own archive. Beeper's API is not used: it
 // only works while Beeper runs and keeps no deleted text.
@@ -62,3 +69,13 @@ export function readBeeper(
     (r) => ({ files: filesOf(beeper, r.files) })
   );
 }
+
+/** Each network's newest message the archive holds (the status page). */
+export const newestBeeper = (dir = ARCHIVE) =>
+  newestArchived(
+    "beeper",
+    `select network as label, at, network || ': ' || coalesce(chatName, '?') || ': ' || text as words
+     from (select *, row_number() over (partition by network order by at desc) as n from messages)
+     where n = 1 order by at desc`,
+    dir
+  );
