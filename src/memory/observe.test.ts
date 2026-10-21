@@ -266,6 +266,64 @@ test("an extracted.jsonl line written with `people` (21 Oct only) still reads", 
   ).toBe(true);
 });
 
+test("a move stays out of a unit where that person still writes as themself, and never moves the owner", () => {
+  const facts = [
+    // A family group: one handle is Pops's now, but Gaston also writes there from his own.
+    {
+      entities: [],
+      id: "obs_1",
+      speaker: "person:gaston",
+      speakerFrom: "+66600000001",
+      text: "Gaston booked the table.",
+      unit: "u_000000000009",
+    },
+    {
+      entities: ["person:gaston"],
+      id: "obs_2",
+      speaker: "person:gaston",
+      speakerFrom: "Gaston",
+      text: "Gaston is bringing wine.",
+      unit: "u_000000000009",
+    },
+    // His own address resolving elsewhere moves no one: he stays him everywhere.
+    {
+      entities: ["person:me"],
+      id: "obs_3",
+      speaker: "person:me",
+      speakerFrom: "+66600000001",
+      text: "Jean will drive.",
+      unit: "u_000000000008",
+    },
+  ] as unknown as Observation[];
+  const now = aboutNow(facts, [], people, [], []);
+  expect(now.map((o) => o.speaker)).toEqual([
+    "person:dad",
+    "person:gaston",
+    "person:dad",
+  ]);
+  expect(now[1]?.entities).toEqual(["person:gaston"]);
+  expect(now[1]?.text).toBe("Gaston is bringing wine.");
+  expect(now[2]?.entities).toEqual(["person:me"]);
+  expect(now[2]?.text).toBe("Jean will drive.");
+});
+
+test("a voice kept by lifelog's id resolves by the name lifelog gave it when the map does not know the id", () => {
+  const facts = [
+    {
+      entities: [],
+      id: "obs_1",
+      speaker: "unknown:Pops",
+      speakerFrom: "lifelog-id-the-map-lacks",
+      speakerName: "Pops",
+      text: "Pops called.",
+      unit: "u_000000000007",
+    },
+  ] as unknown as Observation[];
+  const [o] = aboutNow(facts, [], people, [], []);
+  expect(o?.speaker).toBe("person:dad");
+  expect(o?.speakerName).toBeUndefined();
+});
+
 test("renaming takes whole words only, any case, longest name first", () => {
   expect(
     renamed(

@@ -125,32 +125,56 @@ export function aboutNow(
   const authors = observations.map((o) => {
     const was = canon(o.speaker);
     const unknown = was.startsWith(UNKNOWN);
-    const legacy = was === OWNER ? undefined : chatOf.get(o.unit);
+    const label = unknown ? was.slice(UNKNOWN.length) : undefined;
     const from =
-      o.speakerFrom ?? (unknown ? was.slice(UNKNOWN.length) : legacy);
-    return { now: (from && resolve(from)) || was, unknown, was };
+      o.speakerFrom ??
+      label ??
+      (was === OWNER ? undefined : chatOf.get(o.unit));
+    // A voice keeps lifelog's id, which the map may not know: then the name lifelog gave it.
+    const now = (from && resolve(from)) || (label && resolve(label)) || was;
+    return { now, unknown, was };
   });
-  // A person an author was filed as and is someone else now is that one in every fact of the unit, whoever wrote it.
+  // A person an author was filed as and is someone else now is that one in every fact of the unit, whoever wrote it:
+  // never the owner, and not someone who still writes in the unit as themself or whom two authors leave differently.
   const moves = new Map<string, Map<string, string>>();
+  const stays = new Set<string>();
   for (const [k, o] of observations.entries()) {
     const a = authors[k];
-    if (a && !a.unknown && a.now !== a.was) {
-      moves.set(o.unit, (moves.get(o.unit) ?? new Map()).set(a.was, a.now));
+    if (!a || a.unknown) {
+      continue;
+    }
+    const unit = moves.get(o.unit) ?? new Map<string, string>();
+    moves.set(o.unit, unit);
+    const clash = unit.has(a.was) && unit.get(a.was) !== a.now;
+    if (a.now === a.was || a.was === OWNER || clash) {
+      stays.add(`${o.unit}|${a.was}`);
+    } else {
+      unit.set(a.was, a.now);
+    }
+  }
+  for (const [unit, m] of moves) {
+    for (const was of m.keys()) {
+      if (stays.has(`${unit}|${was}`)) {
+        m.delete(was);
+      }
     }
   }
   return observations.map((o, k) => {
     const a = authors[k] ?? { now: o.speaker, unknown: false, was: o.speaker };
     const moved = moves.get(o.unit) ?? new Map<string, string>();
+    const resolvedNow = a.unknown && a.now !== a.was;
     return {
       ...o,
       entities: [
         ...new Set([
           ...o.entities.map(canon).map((e) => moved.get(e) ?? e),
           ...(named.get(o.id) ?? []).flatMap((n) => (n.ref ? [n.ref] : [])),
-          ...(a.unknown && a.now !== a.was ? [a.now] : []),
+          ...(resolvedNow ? [a.now] : []),
         ]),
       ].sort(),
       speaker: a.now,
+      // A chat title named an unknown author; once they resolve, their name is the map's.
+      speakerName: resolvedNow ? undefined : o.speakerName,
       // ponytail: a sentence written before tokens names people; a move swaps their names in it, for good (any later
       // remap too). Tokenized sentences (extract v6) will make this a no-op for new facts.
       text: [...moved].reduce(

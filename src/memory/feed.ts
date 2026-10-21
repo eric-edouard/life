@@ -478,29 +478,23 @@ export async function changeFeed(f: ChangeFilter = {}) {
 // --- one claim with its evidence -----------------------------------------------------------------------------------
 
 /**
- * Who wrote an observation's cited line: its `handle` and who that is `now`, read the way `fetch` and extraction read
- * it (`unitLines`: today's map and corrections), so a mapping corrected since shows here; else the speaker as filed.
+ * The handle an observation's cited line came from, read the way `fetch` and extraction read it (`unitLines`); else
+ * the one it kept (`speakerFrom`, an unknown author's label). Who that is now is `aboutNow`'s, like every reader's.
  */
-async function speakerOf(
+async function handleOf(
   o: Observation,
   unit: Unit | undefined,
   people: People
 ) {
   const read = unit && (await unitLines(unit, people));
-  const i = read?.built.messages.findIndex((x) => x.id === o.source.ref) ?? -1;
-  const m = read?.built.messages[i];
-  if (read && m) {
-    return {
-      handle: m.fromMe ? "me" : m.sender,
-      now: read.lines[i]?.speaker ?? null,
-    };
+  const m = read?.built.messages.find((x) => x.id === o.source.ref);
+  if (m) {
+    return m.fromMe ? "me" : m.sender;
   }
-  const surface = o.speaker.startsWith(UNKNOWN)
-    ? o.speaker.slice(UNKNOWN.length)
-    : null;
-  return surface
-    ? { handle: surface, now: people.resolve(surface) }
-    : { handle: null, now: people.canon(o.speaker) };
+  return (
+    o.speakerFrom ??
+    (o.speaker.startsWith(UNKNOWN) ? o.speaker.slice(UNKNOWN.length) : null)
+  );
 }
 
 /**
@@ -542,14 +536,12 @@ export async function claim(id: string) {
     chatHandles(unit ? [unit] : [])
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));
-  const who = await speakerOf(o, unit, people);
+  const handle = await handleOf(o, unit, people);
   const chat = unit && unit.source in CHATS;
   return {
     corrections: [
       ...hiding(ctx.corrections, id),
-      ...ctx.corrections.filter(
-        (c) => "surface" in c && c.surface === who.handle
-      ),
+      ...ctx.corrections.filter((c) => "surface" in c && c.surface === handle),
     ],
     entities: now.entities.map((ref) => {
       const guess = inferred.get(ref);
@@ -580,9 +572,10 @@ export async function claim(id: string) {
       (s) => s.by === id && s.observation !== id
     ),
     speaker: {
-      ...who,
       filed: o.speaker,
-      name: o.speakerName ?? people.names.get(o.speaker) ?? null,
+      handle,
+      name: now.speakerName ?? people.names.get(now.speaker) ?? null,
+      now: now.speaker,
     },
     status: stateOf(o, ctx),
     unit: unit
