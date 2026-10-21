@@ -94,7 +94,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   voice) and never goes through `act`. An item is found by the task id on its notes' first line. Life brings its notes
   and section (Open, Working: made by hand on 19 Oct, the code only assigns them) in line each pass and ticks the item
   when its task closes. It never alerts: what needs him is emailed (`chase`).
-- **Atlas is outside Life's boundary** (his choice, 21 Oct: kept, as named debt). With the Mac's terminal it can read `.env`, the archive and chat.db, and send
+- **Atlas is outside Life's boundary** (his choice, 21 Oct, kept as debt: an unattended run reads others' text with full access; revisit if sends should go out without his per-send yes). With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
   asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
   `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
@@ -213,7 +213,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   subscribes again with its cursor; the nightly's Actions section lists every ask either way). Its startup line `actions: remctl ready` in `~/Library/Logs/life-watch.log` is the check that launchd
   can reach remctl (the connector's `reminders` acts from the watcher).
 - **The laptop is the host, and offline means delayed, never lost** (decided 20 Oct, `~/Life/docs/server-scope-2026-10-20.md`): the lifelog cursor is gap-free, hearing reaches back a week (`RECENT_MS`, skipped turns are logged)
-  and delivery waits for a good poll, so nothing alerts on an outage. Reachability rests on the Mac kept awake on purpose (his choice, 21 Oct). Reconsider a server only on a measured loss (an
+  and delivery waits for a good poll, so nothing alerts on an outage. Reachability rests on the Mac kept awake on purpose (his choice, 21 Oct: a keep-awake setting he keeps on; nothing in Life sets it). Reconsider a server only on a measured loss (an
   ask lost, or acted on late with harm) or spoken asks above about one a day for a month (`actions.jsonl`).
 - The watcher heals the Mac's tunnel (`src/tunnel.ts`, every 2 min): it restarts `com.eric.cloudflared` only on a 530
   (Cloudflare has no tunnel to the Mac), never on no answer (offline, or the watcher busy) or an app's 5xx (a dead app behind the tunnel once
