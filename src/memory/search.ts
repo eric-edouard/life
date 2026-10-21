@@ -803,15 +803,23 @@ export function dueOf(
         ref: string;
         whom: string | null;
       },
-      [string, string, string, string]
+      [string, string, string, string, string, string]
     >(
       `select ${COLUMNS}, o.at, o.ref,
          (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
          (select entity from links where observation = o.id and entity like 'person:%' and entity != ? limit 1) as whom
-       from observations o where o.salience = 3 and ${CURRENT} and o."when" between ? and ?
+       from observations o where o.salience = 3 and ${CURRENT}
+       and (o."when" between ? and ? or (o."when" is null and o.date between ? and ?))
        and (o.type in ('promise', 'waiting') or (o.type = 'todo' and o.speaker = ?)) order by o.at, o.id`
     )
-    .all(OWNER, daysBefore(date, OVERDUE_DAYS), date, OWNER);
+    .all(
+      OWNER,
+      daysBefore(date, OVERDUE_DAYS),
+      date,
+      daysBefore(date, 3),
+      date,
+      OWNER
+    );
   const said: Candidate[] = rows.map((r) => ({
     at: r.at,
     id: r.id,
@@ -822,6 +830,7 @@ export function dueOf(
       r.speaker && r.speaker !== OWNER ? r.speaker : (r.whom ?? undefined),
     projects: r.projects?.split(",") ?? [],
     ref: r.ref,
+    said: r.when ? undefined : r.date,
     when: r.when ?? undefined,
   }));
   return openItems([...said, ...more], { ...context, date }).map(

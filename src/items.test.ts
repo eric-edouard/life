@@ -67,7 +67,12 @@ test("audit-5-reply-owed: a 1:1 chat whose last word is theirs is a reply he owe
   ).toEqual(["imessage:Q"]);
   const group = thread.map((e) => ({ ...e, chat: "group-1" }));
   expect(owed(group, oneToOne)).toEqual([]);
-  const reply = item({ id: "imessage:A", kind: "reply", when: "2026-10-17" });
+  const reply = item({
+    id: "imessage:A",
+    kind: "reply",
+    said: "2026-10-17",
+    when: undefined,
+  });
   const on = (date: string) => openItems([reply], { date }).length;
   // Tomorrow's `day`, read today, lists no reply: it shows only as its days come.
   expect(
@@ -91,7 +96,7 @@ test("a dated item shows on its day, then late only while a daily review has not
   expect(
     ids([item({})], { shown: new Map([["obs_000000000001", 1]]) })
   ).toEqual(["obs_000000000001"]);
-  // Waiting: its day only. Undated: not yet (Stage 4's re-read first).
+  // Waiting: its day only. With neither its day nor the day it was said: never.
   expect(
     ids([
       item({ kind: "waiting", when: "2026-10-18" }),
@@ -153,4 +158,28 @@ test("his goals' projects, in his order", () => {
       "1. Be free (`lynx`, `life`).\n2. Earn from `shop`\n   and more."
     )
   ).toEqual([["lynx", "life"], ["shop"]]);
+});
+
+test("an undated to-do or promise: the day after it was said and 3 days after, as those days come; then stale, never due", () => {
+  const undated = item({
+    kind: "promise",
+    said: "2026-10-18",
+    when: undefined,
+  });
+  const days = [
+    "2026-10-18",
+    "2026-10-19",
+    "2026-10-20",
+    "2026-10-21",
+    "2026-10-22",
+    "2026-10-28",
+  ];
+  expect(days.map((date) => openItems([undated], { date }).length)).toEqual([
+    0, 1, 0, 1, 0, 0,
+  ]);
+  // Read a day ahead (the review reads tomorrow), it is not shown early, and never overdue.
+  expect(
+    openItems([undated], { date: "2026-10-19", today: "2026-10-18" })
+  ).toEqual([]);
+  expect(openItems([undated], { date: "2026-10-19" })[0]?.overdue).toBe(false);
 });
