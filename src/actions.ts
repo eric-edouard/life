@@ -102,7 +102,7 @@ export async function act(a: Act): Promise<Action> {
   // Read from the ledger (src/items.ts), never from Reminders: his hand-made ones are there once sync read them.
   const open = openLinked(await readActions()).map((it) => ({
     id: it.id,
-    title: `${it.fields.title}`,
+    title: String(it.fields.title ?? ""),
   }));
   const same = duplicateOf(c, open);
   const line = (done: Done, result: Action["result"]): Action => ({

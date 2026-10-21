@@ -3,7 +3,7 @@ import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { readHealth } from "../health";
 import { quota } from "../llm";
-import { log, recentEvents } from "../log";
+import { type Call, isReviewCall, log, recentEvents } from "../log";
 import { type Action, isListed } from "../schema";
 import { checks } from "../sync";
 import { taskList, titleOf, unanswered } from "../tasks";
@@ -54,19 +54,8 @@ const DAY_MS = 24 * 3_600_000;
 
 /** Whether Atlas (ChatGPT's MCP client) read `day` in the last 24 h, as its daily review does (docs/atlas.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
-  (
-    await recentEvents<{
-      agent?: string;
-      at: string;
-      error?: boolean;
-      tool?: string;
-    }>(2, "mcp.call")
-  ).some(
-    (e) =>
-      e.tool === "day" &&
-      !e.error &&
-      e.agent?.startsWith("openai-mcp") &&
-      Date.parse(e.at) >= now.getTime() - DAY_MS
+  (await recentEvents<Call>(2, "mcp.call")).some(
+    (e) => isReviewCall(e) && Date.parse(e.at) >= now.getTime() - DAY_MS
   );
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */

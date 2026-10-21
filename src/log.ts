@@ -39,6 +39,17 @@ export interface LogEvent {
 
 const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
+/** A `mcp.call` line of Atlas's daily review reading `day` (ChatGPT's MCP client, no error). */
+export interface Call {
+  agent?: string;
+  at: string;
+  error?: boolean;
+  ids?: string[];
+  tool?: string;
+}
+export const isReviewCall = (e: Call) =>
+  e.tool === "day" && !e.error && Boolean(e.agent?.startsWith("openai-mcp"));
+
 /** derived/log's files, newest first (named by UTC day). */
 export const logDays = async (dir = LOG_DIR) =>
   (await filesIn(dir)).filter((n) => LOG_FILE.test(n)).reverse();

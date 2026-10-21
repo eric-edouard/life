@@ -107,8 +107,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   reminder's next due are Apple's, never read; shared lists are never read. The first pass imports a baseline.
 - **Open items are derived, never stored** (`openItems`, `src/items.ts`): from the observations, the ledger's reminders
   (`linked`: what `act` wrote and what sync read back) and his chats, ranked by code (his urgent flag and priority,
-  who owes whom, his goals' order, closeness, age), each shown to Atlas's review at most twice. `day`'s Due and
-  `act`'s duplicate check read it, never Reminders.
+  who owes whom, his goals' order, closeness, age), each shown to Atlas's review at most twice (counted from the ids its `day` calls were
+  logged with). `day`'s Due and `act`'s duplicate check read it, never Reminders (a reminder he made by hand counts once
+  sync read it, within a minute); `open_reminders` alone reads Reminders, for the sections the ledger does not hold. A
+  1:1 chat is `isDirect` (`src/sources/index.ts`), for replies owed and closeness alike.
 - **The board, his Reminders list `Atlas`, is a projection of the ledger, his receipt** (`wantOf` in `src/tasks.ts`,
   written by `push` in `src/sync.ts` each minute in the watcher): it writes no ledger line and never goes through `act`.
   The only thing read back is his tick or removal of an open task's receipt, which closes that task, done or dropped

@@ -215,7 +215,9 @@ export function openItems(
   };
   const key = (c: OpenItem): number[] => [
     c.urgent ? 0 : 1,
-    c.priority ? PRIORITY.indexOf(c.priority) : PRIORITY.length,
+    c.priority && PRIORITY.includes(c.priority)
+      ? PRIORITY.indexOf(c.priority)
+      : PRIORITY.length,
     KIND[c.kind],
     goal(c),
     (c.person ? levels.get(c.person) : undefined) ?? 4,
@@ -239,25 +241,30 @@ export function openItems(
 
 /**
  * The 1:1 chats whose last word is theirs (audit 5, the glazier): of each chat with words in `events` (oldest first, his
- * last 60 days), the last message, when it is theirs and he wrote in that chat. `oneToOne` is the source's own test (a
- * group is told by its id), never a name; an empty line (a system line, a bare reaction) is no word.
+ * last 60 days), the last message, when it is theirs and he wrote in that chat. `direct`: whether it is 1:1
+ * (`isDirect`), never a name; an empty line (a system line) is no word.
  */
 export function owed(
   events: SourceEvent[],
-  oneToOne: (e: SourceEvent) => boolean
+  direct: (e: SourceEvent, others: number) => boolean
 ) {
-  const last = new Map<string, SourceEvent>();
-  const his = new Set<string>();
-  for (const e of events) {
-    const chat = `${e.source}:${e.chat}`;
-    if (oneToOne(e) && e.text.trim()) {
-      last.set(chat, e);
-      if (e.fromMe) {
-        his.add(chat);
-      }
+  const out: SourceEvent[] = [];
+  for (const list of Map.groupBy(
+    events,
+    (e) => `${e.source}:${e.chat}`
+  ).values()) {
+    // A file alone (a photo, a voice note) is a word too.
+    const said = list.filter((e) => e.text.trim() || e.files?.length);
+    const last = said.at(-1);
+    const others = new Set(said.filter((e) => !e.fromMe).map((e) => e.sender));
+    if (
+      last &&
+      !last.fromMe &&
+      said.some((e) => e.fromMe) &&
+      direct(last, others.size)
+    ) {
+      out.push(last);
     }
   }
-  return [...last]
-    .filter(([chat, e]) => !e.fromMe && his.has(chat))
-    .map(([, e]) => e);
+  return out;
 }

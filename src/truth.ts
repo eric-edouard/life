@@ -198,7 +198,7 @@ function checkGoals(
   if (!goals) {
     issues.push("me.md has no ## Goals: every model call would miss them");
   }
-  for (const [, id = ""] of (goals ?? "").matchAll(PROJECT_ID)) {
+  for (const id of goalProjects(goals).flat()) {
     if (!projects.has(id)) {
       issues.push(`a goal in me.md names unknown project ${id}`);
     }

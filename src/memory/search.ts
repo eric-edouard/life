@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../clock";
 import { type Candidate, OVERDUE_DAYS, openItems, openLinked } from "../items";
-import { recentEvents } from "../log";
+import { type Call, isReviewCall, recentEvents } from "../log";
 import { redact } from "../redact";
 import {
   type Action,
@@ -797,21 +797,29 @@ export function dueOf(
 ) {
   const rows = db
     .query<
-      Row & { at: string; projects: string | null; ref: string },
-      [string, string, string]
+      Row & {
+        at: string;
+        projects: string | null;
+        ref: string;
+        whom: string | null;
+      },
+      [string, string, string, string]
     >(
       `select ${COLUMNS}, o.at, o.ref,
-         (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects
+         (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
+         (select entity from links where observation = o.id and entity like 'person:%' and entity != ? limit 1) as whom
        from observations o where o.salience = 3 and ${CURRENT} and o."when" between ? and ?
        and (o.type in ('promise', 'waiting') or (o.type = 'todo' and o.speaker = ?)) order by o.at, o.id`
     )
-    .all(daysBefore(date, OVERDUE_DAYS), date, OWNER);
+    .all(OWNER, daysBefore(date, OVERDUE_DAYS), date, OWNER);
   const said: Candidate[] = rows.map((r) => ({
     at: r.at,
     id: r.id,
     kind: r.type as Candidate["kind"],
     line: line(r),
-    person: r.speaker && r.speaker !== OWNER ? r.speaker : undefined,
+    // Whoever it is with: the speaker when not him, else the first person it names.
+    person:
+      r.speaker && r.speaker !== OWNER ? r.speaker : (r.whom ?? undefined),
     projects: r.projects?.split(",") ?? [],
     ref: r.ref,
     when: r.when ?? undefined,
@@ -835,9 +843,10 @@ async function dueContext(date: string, truth: Truth) {
     urgent: Boolean(f.urgent || f.flagged),
     when: f.due ? `${f.due}`.slice(0, 10) : undefined,
   }));
+  const today = localDate(clock().toISOString());
   const end = Math.min(
     clock().getTime(),
-    new Date(dayStart(date)).getTime() + 86_400_000
+    dayStart(daysBefore(date, -1)).getTime()
   );
   const levels = new Map(
     [...levelsWith(await readCorrections())].map(([p, l]) => [
@@ -852,7 +861,11 @@ async function dueContext(date: string, truth: Truth) {
   return {
     goals: goalProjects(truth.me.goals),
     levels,
-    more: [...reminders, ...(await repliesOwed(new Date(end)))],
+    // A reply owed is shown on its days only when they come: the review reads tomorrow too.
+    more: [
+      ...reminders,
+      ...(date > today ? [] : await repliesOwed(new Date(end))),
+    ],
     shown: await shownDays(date),
     tasks: new Set(open.map((t) => t.ask.instruction.ref)),
   };
@@ -861,21 +874,10 @@ async function dueContext(date: string, truth: Truth) {
 /** On how many of his days before `date` Atlas's daily review got each id from `day` (the logged `mcp.call` ids). */
 async function shownDays(date: string) {
   const days = new Map<string, Set<string>>();
-  const calls = await recentEvents<{
-    agent?: string;
-    at: string;
-    error?: boolean;
-    ids?: string[];
-    tool?: string;
-  }>(OVERDUE_DAYS + 2, "mcp.call");
+  const calls = await recentEvents<Call>(OVERDUE_DAYS + 2, "mcp.call");
   for (const c of calls) {
     const on = localDate(c.at);
-    if (
-      c.tool === "day" &&
-      !c.error &&
-      c.agent?.startsWith("openai-mcp") &&
-      on < date
-    ) {
+    if (isReviewCall(c) && on < date) {
       for (const id of c.ids ?? []) {
         days.set(id, (days.get(id) ?? new Set()).add(on));
       }
