@@ -60,6 +60,8 @@ const ABOUT = /^# Me\n\n(.+(?:\n.+)*)/;
 const GOALS = /(?:^|\n)## Goals\n([\s\S]*?)(?=\n## |$)/;
 /** The projects a goal serves: the ids in backticks it names. */
 const PROJECT_ID = /`([a-z0-9-]+)`/g;
+/** Where a numbered goal starts. */
+const GOAL_START = /^\d+\.\s/m;
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
 
 export interface Truth {
@@ -163,6 +165,13 @@ function checkRepos(projects: Truth["projects"], issues: string[]) {
   }
 }
 
+/** The project ids each of his goals names, in his order: what ranks an open item by the first goal it serves. */
+export const goalProjects = (goals = "") =>
+  goals
+    .split(GOAL_START)
+    .slice(1)
+    .map((g) => [...g.matchAll(PROJECT_ID)].map((m) => m[1] ?? ""));
+
 function checkGoals(
   goals: string | undefined,
   projects: Set<string>,
@@ -171,7 +180,7 @@ function checkGoals(
   if (!goals) {
     issues.push("me.md has no ## Goals: every model call would miss them");
   }
-  for (const [, id = ""] of (goals ?? "").matchAll(PROJECT_ID)) {
+  for (const id of goalProjects(goals).flat()) {
     if (!projects.has(id)) {
       issues.push(`a goal in me.md names unknown project ${id}`);
     }

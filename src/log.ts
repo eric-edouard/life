@@ -41,6 +41,15 @@ export interface LogEvent {
 
 const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
+/** A `mcp.call` line, as `isReviewCall` (src/events.ts) reads it. */
+export interface Call {
+  agent?: string;
+  at: string;
+  error?: boolean;
+  ids?: string[];
+  tool?: string;
+}
+
 /** derived/log's files, newest first (named by UTC day). */
 export const logDays = async (dir = LOG_DIR) =>
   (await filesIn(dir)).filter((n) => LOG_FILE.test(n)).reverse();

@@ -2,12 +2,16 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../clock";
+import { isReviewCall } from "../events";
+import { type Candidate, OVERDUE_DAYS, openItems, openLinked } from "../items";
+import { type Call, recentEvents } from "../log";
 import { redact } from "../redact";
 import {
   type Action,
   INFERRED_USE_AT,
   isListed,
   KEEP_AT,
+  Level,
   type Moment,
   type Observation,
   type Person,
@@ -24,8 +28,8 @@ import {
   turnPlace,
   withStore,
 } from "../sources/lifelog";
-import { nameOf, standing as taskStanding } from "../tasks";
-import { loadTruth, OWNER, type Truth } from "../truth";
+import { closed, nameOf, standing as taskStanding } from "../tasks";
+import { goalProjects, loadTruth, OWNER, type Truth } from "../truth";
 import { levelsWith } from "./closeness";
 import {
   daysOf,
@@ -46,11 +50,20 @@ import {
 } from "./ledger";
 import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page";
-import { asData, chatHits, focus, holdsAll, MAIL_HITS, mailHits } from "./raw";
+import {
+  asData,
+  chatHits,
+  focus,
+  holdsAll,
+  MAIL_HITS,
+  mailHits,
+  repliesOwed,
+} from "./raw";
 import { actionLine } from "./report";
 import {
   clip,
   dayRange,
+  daysBefore,
   lifelogNames,
   localTime,
   newestDays,
@@ -627,7 +640,7 @@ const linkedCount = (db: Database, id: string) =>
 const SUMMARY = 200;
 
 /**
- * The lines of `day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOn`), what happened (its moments,
+ * The lines of `day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what happened (its moments,
  * planned ones included), the day's conversations with their chapters, its chat and mail units, its key observations,
  * then what Life changed for him.
  */
@@ -653,7 +666,11 @@ export function dayLines({
       ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
       : []),
     ...(due.length > 0
-      ? ["Due (his own open to-dos and promises for this day):", ...due, ""]
+      ? [
+          "Due (open items, most pressing first: to-dos, promises and his reminders for this day or up to a week overdue, waiting items on their day, replies he owes):",
+          ...due,
+          "",
+        ]
       : []),
     ...(moments.length > 0
       ? [
@@ -694,6 +711,7 @@ export async function day(date: string) {
     (a) => isListed(a) && localDate(a.at) === date
   );
   const moments = await momentsWhere(inDays({ from: date, to: date }));
+  const context = await dueContext(date, truth);
   return withStore((store) =>
     withIndex((db) =>
       dayLines({
@@ -702,7 +720,7 @@ export async function day(date: string) {
         conversations: readConversations(store, dayStart(date), names).filter(
           (c) => localDate(c.startedAt) === date
         ),
-        due: dueOn(db, date),
+        due: dueOf(db, date, context),
         facts: db
           .query<Row, [string]>(
             `select ${COLUMNS} from observations o where o.date = ? and o.salience >= ${KEEP_AT} and ${CURRENT}
@@ -771,18 +789,102 @@ export const birthdaysNear = (
     .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
- * His open items due on `date` that must not be forgotten (salience 3), not retired: his promises (his to keep, even
- * when the quote opens with the other's request) and the to-dos he said (not a mail's). Atlas's daily review lists them
- * (docs/atlas.md).
+ * What `day` lists as due on `date` (`openItems`, src/items.ts, which merges, times and ranks): the salience-3 promises
+ * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
+ * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/atlas.md).
  */
-export const dueOn = (db: Database, date: string) =>
-  db
-    .query<Row, [string, string]>(
-      `select ${COLUMNS} from observations o where o."when" = ? and o.salience = 3 and ${CURRENT}
-       and (o.type = 'promise' or (o.type = 'todo' and o.speaker = ?)) order by o.at`
+export function dueOf(
+  db: Database,
+  date: string,
+  { more, ...context }: Awaited<ReturnType<typeof dueContext>>
+) {
+  const rows = db
+    .query<
+      Row & {
+        at: string;
+        projects: string | null;
+        ref: string;
+        whom: string | null;
+      },
+      [string, string, string, string]
+    >(
+      `select ${COLUMNS}, o.at, o.ref,
+         (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
+         (select entity from links where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
+       from observations o where o.salience = 3 and ${CURRENT} and o."when" between ? and ?
+       and (o.type in ('promise', 'waiting') or (o.type = 'todo' and o.speaker = ?)) order by o.at, o.id`
     )
-    .all(date, OWNER)
-    .map(line);
+    .all(OWNER, daysBefore(date, OVERDUE_DAYS), date, OWNER);
+  const said: Candidate[] = rows.map((r) => ({
+    at: r.at,
+    id: r.id,
+    kind: r.type as Candidate["kind"],
+    line: line(r),
+    // Whoever it is with: the speaker when not him, else the first person it names.
+    person:
+      r.speaker && r.speaker !== OWNER ? r.speaker : (r.whom ?? undefined),
+    projects: r.projects?.split(",") ?? [],
+    ref: r.ref,
+    when: r.when ?? undefined,
+  }));
+  return openItems([...said, ...more], { ...context, date }).map(
+    (i) =>
+      `${i.line}${i.overdue ? " (overdue)" : ""}${i.merged.length > 0 ? ` (also ${i.merged.join(", ")})` : ""}`
+  );
+}
+
+/** What `dueOf` needs besides the index, read before it opens (nothing awaits while the index is open). */
+async function dueContext(date: string, truth: Truth) {
+  const actions = readActions();
+  const reminders = openLinked(actions).map(({ at, fields: f, key, ref }) => ({
+    at,
+    id: key,
+    kind: "reminder" as const,
+    line: `- ${key} reminder: "${f.title}"${f.due ? ` (for ${f.due})` : ""}${f.list ? ` in ${f.list}` : ""}`,
+    obs: ref?.startsWith("obs_") ? ref : undefined,
+    priority: (f.priority as string | null) ?? undefined,
+    urgent: Boolean(f.urgent || f.flagged),
+    when: f.due ? `${f.due}`.slice(0, 10) : undefined,
+  }));
+  const today = localDate(clock().toISOString());
+  const end = Math.min(
+    clock().getTime(),
+    dayStart(daysBefore(date, -1)).getTime()
+  );
+  const levels = new Map(
+    [...levelsWith(await readCorrections())].map(([p, l]) => [
+      p,
+      Math.min(
+        Level.options.indexOf(l.personal),
+        Level.options.indexOf(l.work)
+      ),
+    ])
+  );
+  const open = tasksOf().filter((t) => !closed(taskStanding(t).state));
+  return {
+    goals: goalProjects(truth.me.goals),
+    levels,
+    more: [...reminders, ...(await repliesOwed(new Date(end)))],
+    shown: await shownDays(date),
+    tasks: new Set(open.map((t) => t.ask.instruction.ref)),
+    today,
+  };
+}
+
+/** The days before `date` on which Atlas's daily review got each id from `day` (the logged `mcp.call` ids). */
+async function shownDays(date: string) {
+  const days = new Map<string, Set<string>>();
+  const calls = await recentEvents<Call>(OVERDUE_DAYS + 2, "mcp.call");
+  for (const c of calls) {
+    const on = localDate(c.at);
+    if (isReviewCall(c) && on < date) {
+      for (const id of c.ids ?? []) {
+        days.set(id, (days.get(id) ?? new Set()).add(on));
+      }
+    }
+  }
+  return new Map([...days].map(([id, d]) => [id, [...d]]));
+}
 
 /** The area an id or a name (any case or accents) means: an area's own, or a project's, with the project. */
 export function areaFor(

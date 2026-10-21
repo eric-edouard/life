@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, unfrozen } from "./clock";
-import { log } from "./log";
+import { type Call, log } from "./log";
 import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { ROOT } from "./truth";
@@ -48,6 +48,9 @@ export function clientName(agent: unknown) {
   }
   return a.toLowerCase().includes("claude") ? "Claude" : a || "unknown client";
 }
+/** A call of Atlas's daily review: `day` read by Atlas, with no error (the nightly's `reviewed`, `shownDays`). */
+export const isReviewCall = (e: Call) =>
+  e.tool === "day" && !e.error && clientName(e.agent) === ATLAS;
 
 export const ASK_EVENT = {
   delivery: ["webhook"],
