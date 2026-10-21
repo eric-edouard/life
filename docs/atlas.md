@@ -57,7 +57,7 @@ Every event is `ask`; its `data` is the task: `id`, `quote` (his words, from the
 
 Read around his words: `fetch` a speech `ref`: it opens his conversation as it is now, 5 turns before his words. When
 the ask points at something it doesn't say ("this", "what we discussed"), also `search` or `day` over the day or two
-before its `at` (a section "cut at 12": narrow `from` and `to` before you conclude something is absent). Keep only what
+before its `at` (a `search` section "cut at 12": narrow `from` and `to` before you conclude something is absent). Keep only what
 he said or what was said to him, never a TV or someone else's call. Ask him what he meant only if it stays unclear.
 
 ## The process, on every run
