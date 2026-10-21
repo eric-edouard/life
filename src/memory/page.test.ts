@@ -619,3 +619,33 @@ test("new to a page: extracted since its last reading, or refiled onto it and no
     newOn(facts, { offered: ["obs_d"], seen: "r1" }).map((o) => o.id)
   ).toEqual(["obs_a", "obs_c"]);
 });
+
+test("a page keeps what it was offered: rendered and parsed back, nothing is new to it again", () => {
+  const offeredMeta = {
+    built: "2026-10-21T02:00:00.000Z",
+    lines: {},
+    madeBy: { engine: "claude" as const, model: "m", prompt: "p", run: "r1" },
+    name: "Sam",
+    offered: ["obs_c"],
+    page: "person:sam",
+    schemaVersion: 1 as const,
+    seen: "r1",
+  };
+  const rendered = renderPage({
+    hold: "",
+    layout: layoutOf("person:sam", false),
+    meta: offeredMeta,
+    often: [],
+    owner: [],
+    sections: perSection<PageLine>(),
+    title: "Sam",
+  });
+  const parsed = parsePage(rendered);
+  expect(parsed?.meta.offered).toEqual(["obs_c"]);
+  const refiled = {
+    id: "obs_c",
+    madeBy: { run: "r1" },
+    refiled: true,
+  } as unknown as Observation & { refiled: boolean };
+  expect(newOn([refiled], parsed?.meta ?? null)).toEqual([]);
+});

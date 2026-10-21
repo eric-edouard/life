@@ -295,16 +295,14 @@ export function placed<T extends Observation & { unmapped: boolean }>(
  * What is new to a page since `seen` (its last reading, null for a page built from scratch): extracted since, or
  * refiled onto it since it was written (who it is about changed) and not offered to it yet.
  */
-export function newOn<T extends Observation & { refiled?: boolean }>(
+export function newOn<T extends Observation & { refiled: boolean }>(
   observations: T[],
   seen: Pick<PageMeta, "offered" | "seen"> | null
 ) {
   const offered = new Set(seen?.offered ?? []);
   return observations.filter(
     (o) =>
-      !seen ||
-      o.madeBy.run > seen.seen ||
-      (o.refiled === true && !offered.has(o.id))
+      !seen || o.madeBy.run > seen.seen || (o.refiled && !offered.has(o.id))
   );
 }
 
