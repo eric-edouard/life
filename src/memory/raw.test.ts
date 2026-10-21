@@ -19,7 +19,14 @@ import { apply } from "../sources/lifelog";
 import { readNotes } from "../sources/notes";
 import { readWhatsapp } from "../sources/whatsapp";
 import { OWNER } from "../truth";
-import { chatHits, chatsOf, fetchOf, transcripts, voiceLines } from "./raw";
+import {
+  chatHits,
+  chatsOf,
+  fetchOf,
+  focus,
+  transcripts,
+  voiceLines,
+} from "./raw";
 import { LIFE_CHAT, localTime, time } from "./units";
 
 const words = ["Allo", "Salut", "", "Fin"];
@@ -201,6 +208,15 @@ test("search's chats: past 20 matches the newest are shown and the cut is said, 
   expect(out).toContain(": vitre 4");
   expect(out).toContain("vitre 24");
   expect(out).not.toContain(": vitre 2\n");
+});
+
+test("a long hit, a voice passage or a note, keeps its lines holding a word, cut to its max; a short one stays whole", () => {
+  const passage = `${"Ana: on se voit demain\n".repeat(20)}Ben: la VITRÉ est prête`;
+  expect(focus(passage, "vitre", 300)).toBe("Ben: la VITRÉ est prête");
+  expect(focus("Ana: la vitre", "piano", 300)).toBe("Ana: la vitre");
+  // No line holds a word (found by meaning): its start.
+  expect(focus(passage, "piano", 300)).toStartWith("Ana: on se voit demain");
+  expect(focus(passage, "piano", 300).length).toBeLessThanOrEqual(300);
 });
 
 test("chats never read Life's own chat with the bot", async () => {

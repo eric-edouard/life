@@ -262,6 +262,18 @@ export const holdsAll = (query: string) => {
 const queryWords = (query: string) =>
   normalize(query).split(" ").filter(Boolean);
 
+/** `text` cut to `max`; a longer one keeps only its lines holding a word of `query` (all of them when none does). */
+export function focus(text: string, query: string, max: number) {
+  if (text.length <= max) {
+    return text;
+  }
+  const words = queryWords(query);
+  const held = text
+    .split("\n")
+    .filter((l) => words.some((w) => normalize(l).includes(w)));
+  return clip(held.join("\n") || text, max);
+}
+
 /**
  * The newest `QUERY_HITS` messages whose text holds every word of `query` (case and accents ignored), each with
  * `QUERY_CONTEXT` messages of its chat before and after, and how many older matches were left out. `events` are oldest
@@ -269,7 +281,6 @@ const queryWords = (query: string) =>
  */
 function withContext(events: SourceEvent[], query: string) {
   const holds = holdsAll(query);
-  const words = queryWords(query);
   const byChat = chatGroups(events);
   const hits = events.filter((e) => holds(e.text));
   const keep = new Set(
@@ -279,19 +290,12 @@ function withContext(events: SourceEvent[], query: string) {
       return list.slice(Math.max(0, i - QUERY_CONTEXT), i + QUERY_CONTEXT + 1);
     })
   );
-  const shown = (e: SourceEvent) => {
-    const lines = e.text.split("\n").filter((l) => {
-      const n = normalize(l);
-      return words.some((w) => n.includes(w));
-    });
-    return { ...e, text: clip(lines.join("\n") || e.text, HIT_MAX) };
-  };
   return {
     // A match shown around a newer one is not cut.
     cut: hits.filter((h) => !keep.has(h)).length,
     events: events
       .filter((e) => keep.has(e))
-      .map((e) => (e.text.length > HIT_MAX ? shown(e) : e)),
+      .map((e) => ({ ...e, text: focus(e.text, query, HIT_MAX) })),
   };
 }
 
