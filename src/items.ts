@@ -134,6 +134,9 @@ export interface Candidate {
 }
 export type OpenItem = Candidate & { merged: string[]; overdue: boolean };
 
+/** When an item said with no day of its own is shown again, after the day after. */
+export const AGAIN_DAYS = 3;
+
 /** How many days late a dated item is still listed, labelled, so a missed daily review is caught up. */
 export const OVERDUE_DAYS = 7;
 
@@ -149,10 +152,10 @@ const daysFrom = (from: string, to: string) =>
  */
 function timely(c: Candidate, date: string, today: string, shown: number) {
   if (!c.when) {
-    // Said with no day of its own: the day after and 3 days after, only as those days come (the review reads
+    // Said with no day of its own: the day after and `AGAIN_DAYS` after, only as those days come (the review reads
     // tomorrow too); then stale, never due again.
-    const late = c.said ? daysFrom(c.said, date) : 0;
-    return (late === 1 || late === 3) && date <= today;
+    const late = c.said ? daysFrom(c.said, date) : Number.NaN;
+    return (late === 1 || late === AGAIN_DAYS) && date <= today;
   }
   const late = daysFrom(c.when, date);
   if (c.kind === "waiting") {
@@ -186,7 +189,7 @@ export function openItems(
     levels?: Map<string, number>;
     shown?: Map<string, number>;
     tasks?: Set<string>;
-    /** His day now: what the review reads ahead of it is shown no reply. */
+    /** His day now: what the review reads ahead of it shows no undated item. */
     today?: string;
   }
 ): OpenItem[] {
@@ -204,6 +207,8 @@ export function openItems(
       it.merged.push(c.id);
       it.urgent ||= c.urgent;
       it.priority ??= c.priority;
+      // A reminder with a due date gives an undated observation its day.
+      it.when ??= c.when;
     }
   }
   const goal = (c: Candidate) => {
