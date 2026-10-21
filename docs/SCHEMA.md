@@ -38,7 +38,7 @@ chapter) and checked by the nightly.
 | `schemaVersion` | `1` |
 | `id` | `u_` + 12 hex. Stable: the same chapter (lifelog's chapter id, which is stable per conversation and start), chat-day (source + chat + day) or thread-day always gets the same id. A lifelog conversation with no chapter yet has one unit with `drop: no-summary`, id from the conversation id. |
 | `hash` | 16 hex of SHA-256 over the unit's content (lifelog: titles + summary; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
-| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under ~/Work; commits are never extracted: code caps their salience at 1) |
+| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under ~/Work; commits are never extracted: code caps their salience at 1), `claude` and `chatgpt` (his own messages in his claude.ai and ChatGPT exports, imported once into `imports/<source>/conversations.json` beside `memory/`, only the conversations `imported.jsonl` keeps; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`) |
 | `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor's chapters bring their own), the chat id (a Beeper chat id, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the mail thread id, the note id, or the repo (its main folder name under ~/Work: worktrees fold into it) |
 | `date`, `start`, `end` | Local day; first and last instant |
 | `title` | Lifelog chapter title, chat name, mail subject, or note title (`(shared)` after a shared note's) |
@@ -169,6 +169,14 @@ id from `truth/projects/`, else null; `area` the project's area, else the repo's
 recorder") a project he might want, only a suggestion; `why` one sentence. Only a repo with his commits is asked about,
 once per prompt version. Model-owned: used at once, below `Project.repos` in `truth/` (his map); the latest record for a
 repo wins. A repo on a project (either way) counts every author's commits in its git units. It never writes `truth/`.
+
+## imported.jsonl
+
+Which conversations of his claude.ai and ChatGPT exports are about his life, written by `bun life memory import
+<folder>` (the fast-tier model, once per conversation and prompt version, from its title and the start of his pruned
+messages), append-only: `{schemaVersion: 1, conversation, keep, why, madeBy, at}`. `conversation` is
+`<source>:<id>`; the latest line per conversation wins. Only kept conversations are a source (`sources/assistants.ts`);
+the backfill reads their days.
 
 ## closeness.jsonl
 

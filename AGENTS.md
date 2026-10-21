@@ -1,6 +1,7 @@
 # Life
 
-A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes:
+A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes (and,
+imported once, his past claude.ai and ChatGPT conversations: `bun life memory import`):
 sources → units → verdicts → observations → people and area pages. Plus an always-on archive that keeps chat messages
 deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`. Relationships (arcs, closeness, the
 backfill): `docs/relationships.md`, the plan and his decisions.
