@@ -312,8 +312,6 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
     ],
     { env: modelEnv({ CODEX_HOME }), stdin: JSON.stringify(input) }
   );
-  // Every call leaves a reading, so what a run spent shows in the log.
-  await quota();
   return { text: await Bun.file(reply).text() };
 }
 
@@ -360,24 +358,27 @@ export function quotaOf(reply = ""): Quota | undefined {
 }
 
 /**
- * His Codex plan's usage, read from Codex's app-server (no model call, no quota spent) and logged: undefined, logged
- * as nothing, when this process's calls don't go to Codex or Codex doesn't answer.
+ * His Codex plan's usage, read from Codex's app-server (no model call, no quota spent) and logged, unread too, so the
+ * last line is the last reading: undefined when this process's calls don't go to Codex, Codex doesn't answer, or the
+ * engine setting is corrupt (the night's own calls fail on it, loudly). Never throws.
  */
 export async function quota() {
-  if (llmFor("main").engine !== "codex") {
-    return;
+  let q: Quota | undefined;
+  try {
+    if (llmFor("main").engine === "codex") {
+      q = quotaOf(
+        await firstLine(
+          [CODEX_BIN, "app-server"],
+          READ_LIMITS,
+          (l) => JSON.parse(l).id === 2,
+          { env: modelEnv({ CODEX_HOME }), timeout: 15_000 }
+        )
+      );
+    }
+  } catch {
+    // Unread.
   }
-  const q = quotaOf(
-    await firstLine(
-      [CODEX_BIN, "app-server"],
-      READ_LIMITS,
-      (l) => l.startsWith('{"id":2,'),
-      { env: modelEnv({ CODEX_HOME }), timeout: 15_000 }
-    )
-  );
-  if (q) {
-    log("quota.read", { ...q });
-  }
+  log("quota.read", { ...q });
   return q;
 }
 

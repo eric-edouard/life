@@ -139,7 +139,10 @@ if (!mode) {
     "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings"
   );
 }
-await spareQuota();
+// The bench (`--json`) checked before it started: its grading is the cheap end of a run already paid for.
+if (!asJson) {
+  await spareQuota();
+}
 const result =
   mode === "--ratings"
     ? await locked(ratedRun)

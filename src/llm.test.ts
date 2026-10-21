@@ -141,6 +141,6 @@ test("the Codex quota: the fuller window and its reset; no window or no answer i
     used: 60,
   });
   expect(quotaOf(limits(null))).toBeUndefined();
-  expect(quotaOf('{"id":2,"error":{"message":"no"}}')).toBeUndefined();
+  expect(quotaOf('{"error":{"message":"no"},"id":2}')).toBeUndefined();
   expect(quotaOf(undefined)).toBeUndefined();
 });
