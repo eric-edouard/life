@@ -185,16 +185,18 @@ test("search posts the words and the range with the device token and returns the
     }),
   });
   try {
-    const hits = await searchVoice("vitre", {
-      from: "2026-10-14T00:00:00.000Z",
-    });
+    const hits = await searchVoice(
+      "vitre",
+      { from: "2026-10-14T00:00:00.000Z" },
+      10
+    );
     expect(hits.map((h) => h.text)).toEqual(["Anne-Sophie: la vitre"]);
     expect(server.seen).toEqual([
       {
         auth: "Bearer test-token",
         body: {
           dateRange: { from: "2026-10-14T00:00:00.000Z" },
-          limit: 20,
+          limit: 10,
           query: "vitre",
         },
         path: "/search",
