@@ -21,6 +21,7 @@ import {
 } from "./memory/ledger";
 import { clip } from "./memory/units";
 import { git } from "./proc";
+import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { readContacts } from "./sources/contacts";
 import { type Descriptor, type Newest, SOURCES } from "./sources/index";
@@ -306,6 +307,7 @@ async function reads(now: Date) {
     sleepList,
     swept,
     actions,
+    remctl,
     newest,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
@@ -332,6 +334,7 @@ async function reads(now: Date) {
       })
     ),
     cached("actions", 15_000, readActions),
+    cached("remctl", 60_000, checks),
     newestOf(),
   ]);
   const of = (kind: string, days: number) =>
@@ -356,6 +359,7 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
+    remctl,
     sent: of("email.sent", 2),
     sleepList,
     status,
@@ -390,7 +394,8 @@ const pendantFacts = (
 ): Fact[] => [
   {
     at: p?.recordingKnownAt,
-    label: "Recording, as of",
+    // lifelog's phone reports each change as it happens: the state stands since then.
+    label: "Recording state, since",
     value: p?.recording ?? "unknown",
   },
   {
@@ -558,9 +563,11 @@ function captureCards(r: Reads): Card[] {
         [true, { tone: "ok", word: "copying" }]
       ),
       beat: 5000,
+      // Each store: copying or failing, and its last copy (lifeStatus's).
       facts: STORES.map((s) => ({
+        at: r.status.capture.archive[s.name],
         label: s.name,
-        value: r.failingStores.has(s.name) ? "failing" : "copying",
+        value: r.failingStores.has(s.name) ? "failing, last copy" : "last copy",
       })),
       group: "capture",
       headline: archiveUp ? `every 5 s · ${STORES.length} stores` : "stopped",
@@ -628,6 +635,8 @@ function captureCards(r: Reads): Card[] {
           label: "cloudflared",
           value: tunnel?.running ? "running" : (tunnel?.status ?? "?"),
         },
+        // The watcher heals the tunnel by restarting cloudflared (tunnel.ts): its start is the last heal or reboot.
+        { at: tunnel?.since, label: "Up since" },
       ],
       group: "capture",
       headline: tunnel?.running ? "connected" : "down",
@@ -651,8 +660,28 @@ type Sweep =
 const stepsOf = (children: string[] | undefined) =>
   new Set((children ?? []).map((c) => c.split("/")[0]));
 
-/** A sweep's stations: the steps its last good run and its latest ran, in their order, and the one running now. */
-function stationsOf(s: Sweep, proc: Processing) {
+/** What a sweep does after its steps (nightly.ts): index, and for the night its commit and its report. */
+const TAIL: Record<string, string[]> = {
+  backfill: ["index"],
+  midday: ["index"],
+  nightly: ["index", "commit", "email"],
+};
+
+/**
+ * A sweep's stations: the steps its last good run and its latest ran, in their order, the one running now, then what
+ * it does after them, done once its latest run ended well.
+ */
+function stationsOf(id: string, s: Sweep, proc: Processing, running: boolean) {
+  const tail = (TAIL[id] ?? []).map((name) => ({
+    name,
+    state: (s.latest?.outcome === "ok" && !running ? "done" : "todo") as
+      | "done"
+      | "todo",
+  }));
+  return [...stepStations(s, proc), ...tail];
+}
+
+function stepStations(s: Sweep, proc: Processing) {
   const ran = stepsOf([
     ...(s.lastOk?.children ?? []),
     ...(s.latest?.children ?? []),
@@ -725,7 +754,7 @@ function sweepCard(
     headline,
     id,
     name,
-    stations: running || latest ? stationsOf(s, proc) : undefined,
+    stations: running || latest ? stationsOf(id, s, proc, running) : undefined,
   };
 }
 
@@ -970,15 +999,29 @@ function outputCards(r: Reads): Card[] {
       word: byClient.size ? "connected" : "quiet",
     },
     {
-      ...(failed
-        ? { tone: "warn", word: "a failure" }
-        : { tone: "ok", word: "ready" }),
-      content: acts
-        .slice(-5)
-        .map(
-          (a) => `${a.kind} ${String(a.after?.title ?? a.before?.title ?? "")}`
-        ),
+      ...firstOf(
+        [
+          r.remctl.length > 0,
+          {
+            ask: ASK("that Life can't reach Reminders"),
+            tone: "bad",
+            word: "unreachable",
+          },
+        ],
+        [failed > 0, { tone: "warn", word: "a failure" }],
+        [true, { tone: "ok", word: "ready" }]
+      ),
+      content: [
+        ...r.remctl,
+        ...acts
+          .slice(-5)
+          .map(
+            (a) =>
+              `${a.kind} ${String(a.after?.title ?? a.before?.title ?? "")}`
+          ),
+      ],
       facts: [
+        { label: "remctl", value: r.remctl.length ? "can't act" : "ready" },
         { label: "Actions today", value: String(acts.length) },
         { label: "Failed today", value: String(failed) },
         { at: acts.at(-1)?.at, label: "Last action" },
@@ -992,6 +1035,13 @@ function outputCards(r: Reads): Card[] {
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),
       facts: [
         { label: "Sent today", value: String(mails.length) },
+        {
+          label: "Alerts today",
+          value: String(
+            mails.filter((m) => !String(m.key ?? "").startsWith("nightly/"))
+              .length
+          ),
+        },
         {
           at: mails.findLast((m) =>
             String(m.key ?? m.subject ?? "").includes("nightly")
@@ -1082,7 +1132,10 @@ function macCards(r: Reads): Card[] {
           [sv.running, { tone: "ok", word: "running" }],
           [true, { tone: "idle", word: "waiting" }]
         ),
-        facts: [{ label: "launchd", value: launchd }],
+        facts: [
+          { label: "launchd", value: launchd },
+          { at: sv.since, label: "Up since" },
+        ],
         group: "mac",
         headline,
         id: `service-${sv.name.replaceAll(" ", "-")}`,
@@ -1159,10 +1212,10 @@ export async function snapshot(now = clock()) {
   };
 }
 
-export type Snapshot = Awaited<ReturnType<typeof snapshot>>;
+export type Plate = Awaited<ReturnType<typeof snapshot>>;
 
 /** The plate as it may leave the Mac: each card and tick keeps only its listed fields, so none of his words go. */
-export const strip = (s: Snapshot): Snapshot => ({
+export const strip = (s: Plate): Plate => ({
   ...s,
   cards: s.cards.map((c) => ({
     at: c.at,
