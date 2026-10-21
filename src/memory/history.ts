@@ -11,7 +11,7 @@ import {
   logEvents,
   recentEvents,
 } from "../log";
-import { archiveDb } from "../sources/archived";
+import { lastCopied } from "../sources/archived";
 import { decode, encode, PAGE } from "./feed";
 import {
   lockedSince,
@@ -388,7 +388,6 @@ export async function lifeStatus(now = clock()) {
   const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
-  const archive = (name: string) => dbTime(archiveDb(name));
   let watcher: Record<string, unknown> = { state: "unknown" };
   if (health) {
     watcher = {
@@ -402,7 +401,9 @@ export async function lifeStatus(now = clock()) {
       state: readBackfill() ?? null,
     },
     capture: {
-      archive: Object.fromEntries(STORES.map((s) => [s.name, archive(s.name)])),
+      archive: Object.fromEntries(
+        STORES.map((s) => [s.name, lastCopied(s.name)])
+      ),
       // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,

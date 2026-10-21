@@ -18,7 +18,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | Field | Clock | From |
 |---|---|---|
 | `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
-| `capture.archive.{whatsapp,beeper,notes}` | last write to Life's archive (a new message or note version), not a health check | file times |
+| `capture.archive.{whatsapp,beeper,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
 | `capture.lastTriage` | the last run that judged units (the moments step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | midday (13:00, 19:00), nightly and backfill weeks | derived/log, `memory.extract` |
 | `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
@@ -43,7 +43,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it
 is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
-`memory.backfill` and the steps `memory.repos|files|moments|extract|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
+`memory.backfill` and the steps `memory.repos|files|moments|extract|closeness|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
 `outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`),

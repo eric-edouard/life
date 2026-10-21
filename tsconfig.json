@@ -4,8 +4,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
+    "lib": ["ESNext"],
     "verbatimModuleSyntax": true,
     "strict": true,
     "skipLibCheck": true,
@@ -17,5 +16,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["bun"]
   },
-  "include": ["src", "scripts", "assets/dashboard"]
+  "include": ["src", "scripts"]
 }

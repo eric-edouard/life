@@ -71,10 +71,11 @@ export function readBeeper(
 }
 
 /** Each network's newest message the archive holds (the status page). */
-export const newestBeeper = () =>
+export const newestBeeper = (dir = ARCHIVE) =>
   newestArchived(
     "beeper",
-    `select network as label, max(at) as at, max(seenAt) as seen,
-       network || ': ' || coalesce(chatName, '?') || ': ' || text as words
-     from messages group by network order by at desc`
+    `select network as label, at, network || ': ' || coalesce(chatName, '?') || ': ' || text as words
+     from (select *, row_number() over (partition by network order by at desc) as n from messages)
+     where n = 1 order by at desc`,
+    dir
   );

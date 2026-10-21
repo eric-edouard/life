@@ -271,6 +271,6 @@ export function readNotes(since: Date, archive = ARCHIVE): SourceEvent[] {
 export const newestNote = () =>
   newestArchived(
     "notes",
-    `select at, (select max(seenAt) from versions) as seen, 'Note: ' || coalesce(title, '') as words
+    `select at, 'Note: ' || coalesce(title, '') as words
      from versions order by at desc limit 1`
   );

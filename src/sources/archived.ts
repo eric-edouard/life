@@ -28,33 +28,53 @@ export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);
 
 /**
- * A store's newest items as the status page shows them: `sql` gives rows newest first, each its `at`, the newest copy
- * `seen`, his `words` and, for a store with parts, a `label`.
+ * A store's newest items as the status page shows them: `sql` gives rows newest first, each its `at`, his `words` and,
+ * for a store with parts, a `label`.
  */
 export function newestArchived(
   name: "beeper" | "notes" | "whatsapp",
-  sql: string
+  sql: string,
+  dir = ARCHIVE
 ): Newest {
-  const db = new Database(`file:${archiveDb(name)}?mode=ro`, {
-    readonly: true,
-  });
+  const db = new Database(archiveDb(name, dir), { readonly: true });
   try {
     const rows = db
-      .query<{ at: string; label?: string; seen: string; words: string }, []>(
-        sql
-      )
+      .query<{ at: string; label?: string; words: string }, []>(sql)
       .all();
     return {
       at: rows[0]?.at ?? null,
-      copiedAt: rows.reduce<string | null>(
-        (m, r) => (m && m > r.seen ? m : r.seen),
-        null
-      ),
       parts: rows.flatMap((r) =>
         r.label ? [{ at: r.at, label: r.label }] : []
       ),
       words: rows.map((r) => r.words),
     };
+  } finally {
+    db.close();
+  }
+}
+
+/** Each store's table of copies (`STORES`, src/archive.ts). */
+const COPIES: Record<string, string> = {
+  beeper: "messages",
+  notes: "versions",
+  whatsapp: "messages",
+};
+
+/** When the archive last copied anything into a store (a new message or note version); null: none, or no store. */
+export function lastCopied(name: string, dir = ARCHIVE) {
+  const path = archiveDb(name, dir);
+  if (!(existsSync(path) && COPIES[name])) {
+    return null;
+  }
+  const db = new Database(path, { readonly: true });
+  try {
+    return (
+      db
+        .query<{ at: string | null }, []>(
+          `select max(seenAt) as at from ${COPIES[name]}`
+        )
+        .get()?.at ?? null
+    );
   } finally {
     db.close();
   }

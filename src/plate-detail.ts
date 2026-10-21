@@ -4,15 +4,8 @@ import { recentEvents } from "./log";
 import { sleeps } from "./mac";
 import { changeFeed } from "./memory/feed";
 import { runs, STEPS, useText } from "./memory/history";
-import {
-  cached,
-  clip,
-  DAY,
-  type Line,
-  spent,
-  type Tone,
-  toneOfRun,
-} from "./plate";
+import { clip } from "./memory/units";
+import { cached, DAY, type Line, spent, type Tone, toneOfRun } from "./plate";
 import { SOURCES } from "./sources/index";
 import { taskList } from "./tasks";
 
@@ -207,7 +200,7 @@ async function ownHistory(id: string, older: (at: string) => boolean) {
  * history is its runs; the tasks' their list; the memory's its latest changes; any other card its log lines.
  */
 export async function detail(id: string, before?: string) {
-  const all = await cached("log7", 15_000, () => recentEvents<Line>(7, ""));
+  const all = await cached("log", 5000, () => recentEvents<Line>(8, ""));
   const older = (at: string) => !before || at < before;
   const pick = LOGS[id];
   const lines = pick

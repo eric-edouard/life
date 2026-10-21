@@ -159,8 +159,27 @@ async function call(
   return (await res.json()) as unknown;
 }
 
-/** lifelog's own `GET /status`: the Pendant and the phone as the phone last reported them (the status page reads it). */
-export const lifelogStatus = () => call("/status", 15);
+/**
+ * What the status page reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
+ * The contract leaves both objects untyped, so every field here may be absent or null.
+ */
+export const LifelogStatus = z.object({
+  pendant: z
+    .object({
+      batteryPercent: z.number().nullish(),
+      connection: z.string().nullish(),
+      recording: z.string().nullish(),
+      recordingKnownAt: z.string().nullish(),
+    })
+    .nullish(),
+  phoneHeartbeat: z
+    .object({
+      backlog: z.object({ pages: z.number().nullish() }).nullish(),
+    })
+    .nullish(),
+});
+export const lifelogStatus = async () =>
+  LifelogStatus.parse(await call("/status", 15));
 
 /** The store's file in `dir` and its cursor's. */
 export const storeFiles = (dir = WATCH) => ({
