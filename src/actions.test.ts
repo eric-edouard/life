@@ -8,15 +8,9 @@ import {
   grantRefusal,
   requested,
 } from "./actions";
+import { openOf, readable, unshared } from "./reminders/remctl";
+import { alarmArgs, changedFields, reminderArgs } from "./reminders/write";
 import type { Action } from "./schema";
-import {
-  alarmArgs,
-  changedFields,
-  openOf,
-  readable,
-  reminderArgs,
-  unshared,
-} from "./sync";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {
   expect(
