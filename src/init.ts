@@ -1,8 +1,11 @@
-import { readlinkSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { clock } from "./clock";
+import { appendJsonl } from "./memory/ledger";
+import { macZone } from "./memory/zones";
 import { git } from "./proc";
+import { Zone } from "./schema";
 import { DATA, integrity, loadTruth } from "./truth";
 
 // A new install's data: the smallest truth that validates (only the owner), his zone from now on, and the data repo
@@ -17,11 +20,11 @@ export interface Owner {
 const yaml = (key: string, list: unknown[]) =>
   `schemaVersion: 1\n${key}: ${list.length ? `\n${list.map((x) => `  - ${JSON.stringify(x)}`).join("\n")}` : "[]"}\n`;
 
-/** Creates `data` for a new owner; refuses a folder that already has a truth. */
+/** Creates `data` for a new owner; refuses a folder that is not empty. */
 export async function init(owner: Owner, data = DATA, now = clock()) {
   const truth = join(data, "truth");
-  if (await Bun.file(join(truth, "people.yaml")).exists()) {
-    throw new Error(`${data} already has a truth: nothing was changed`);
+  if (existsSync(data) && readdirSync(data).length > 0) {
+    throw new Error(`${data} is not empty: nothing was changed`);
   }
   await mkdir(join(truth, "projects"), { recursive: true });
   await mkdir(join(data, "memory"), { recursive: true });
@@ -30,17 +33,15 @@ export async function init(owner: Owner, data = DATA, now = clock()) {
     id: "me",
     name: owner.name,
   };
-  const [, tz] = readlinkSync("/etc/localtime").split("zoneinfo/");
   await Promise.all([
     writeFile(join(truth, "people.yaml"), yaml("people", [me])),
     writeFile(join(truth, "chats.yaml"), yaml("chats", [])),
     writeFile(join(truth, "areas.yaml"), yaml("areas", [])),
     writeFile(join(truth, "projects", ".gitkeep"), ""),
     writeFile(join(truth, "me.md"), `# Me\n\n${owner.name}.\n`),
-    writeFile(
-      join(data, "memory", "zones.jsonl"),
-      `${JSON.stringify({ from: now.toISOString(), schemaVersion: 1, tz })}\n`
-    ),
+    appendJsonl(join(data, "memory", "zones.jsonl"), Zone, [
+      { from: now.toISOString(), schemaVersion: 1, tz: macZone() ?? "UTC" },
+    ]),
   ]);
   const issues = integrity(await loadTruth(data));
   if (issues.length > 0) {

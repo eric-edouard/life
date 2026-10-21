@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { STORES } from "./archive";
+import { keptStores } from "./archive";
 import { clock } from "./clock";
 import { LOCK, locked } from "./memory/guard";
 import { readJson } from "./memory/ledger";
@@ -9,6 +9,7 @@ import { localTime } from "./memory/units";
 import { exec } from "./proc";
 import { expand, settings } from "./settings";
 import { ARCHIVE, archiveDb } from "./sources/archived";
+import { listening } from "./sources/index";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT, STATE } from "./truth";
 
@@ -70,8 +71,14 @@ export async function backup() {
   mkdirSync(STAGING);
   // The cursor before its store: the watcher writes it after, so a restored store never lags its cursor.
   const { cursor, file } = storeFiles();
-  await run(["cp", cursor, STAGING]);
-  for (const db of [...STORES.map((s) => archiveDb(s.name)), file]) {
+  const voice = listening();
+  if (voice) {
+    await run(["cp", cursor, STAGING]);
+  }
+  for (const db of [
+    ...keptStores().map((s) => archiveDb(s.name)),
+    ...(voice ? [file] : []),
+  ]) {
     const to = `${STAGING}/${basename(db)}`;
     // biome-ignore lint/performance/noAwaitInLoops: one copy at a time
     await run(["sqlite3", "-readonly", db, `.backup '${to}'`]);

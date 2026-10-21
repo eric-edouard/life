@@ -20,7 +20,6 @@ import type { Line } from "./observe";
 import {
   type Built,
   builtFor,
-  CHATS,
   clip,
   dayRange,
   dayUnitId,
@@ -31,10 +30,10 @@ import {
   normalize,
   oneToOne,
   type Resolve,
-  SEARCHED,
-  SEARCHED_MAIL,
   searchableMail,
   speakerOf,
+  type Tables,
+  tables,
   time,
   UNKNOWN,
   unitTitle,
@@ -321,7 +320,7 @@ function withContext(events: SourceEvent[], query: string) {
 function readChats(
   window: "chatDays" | "searchDays",
   range: { from?: string; to?: string },
-  sources: Partial<typeof SEARCHED>
+  sources: Partial<Tables["SEARCHED"]>
 ) {
   const end = range.to ? new Date(range.to) : clock();
   const days = (source: string) =>
@@ -354,7 +353,7 @@ function readChats(
 export async function chatHits(
   words: string,
   range: { from?: string; to?: string } = {},
-  sources: Partial<typeof SEARCHED> = SEARCHED
+  sources: Partial<Tables["SEARCHED"]> = tables().SEARCHED
 ) {
   const { events, failed } = readChats("searchDays", range, sources);
   const { cut, events: found } = withContext(events, words);
@@ -378,7 +377,7 @@ export async function chatHits(
 export async function mailHits(
   words: string,
   range: { from?: string; to?: string } = {},
-  sources: Partial<typeof SEARCHED_MAIL> = SEARCHED_MAIL
+  sources: Partial<Tables["SEARCHED_MAIL"]> = tables().SEARCHED_MAIL
 ) {
   const { events, failed } = readChats("searchDays", range, sources);
   const holds = holdsAll(words);
@@ -419,7 +418,7 @@ export async function chatsOf(
     to?: string;
     who?: string;
   },
-  sources: Partial<typeof CHATS> = CHATS
+  sources: Partial<Tables["CHATS"]> = tables().CHATS
 ) {
   if (!(o.who || o.chat)) {
     return null;
@@ -525,7 +524,7 @@ export async function repliesOwed(end: Date): Promise<Candidate[]> {
   const { events } = readChats(
     "chatDays",
     { from, to: end.toISOString() },
-    CHATS
+    tables().CHATS
   );
   const direct = (e: SourceEvent, others: number) =>
     isDirect(e.source, e.chat, others);

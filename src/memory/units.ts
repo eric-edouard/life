@@ -8,7 +8,7 @@ import {
   type Descriptor,
   enabledSources,
   kindOf,
-  readableSources,
+  readySources,
   sourceOf,
 } from "../sources";
 import { type RepoMap, repoMap } from "../sources/git";
@@ -600,9 +600,9 @@ export function tablesOf(sources: Descriptor[]) {
     ),
   };
 }
-export const { CHATS, SEARCHED, SEARCHED_MAIL, WITH_PEOPLE } = tablesOf(
-  enabledSources()
-);
+/** The tables of the sources that can be read now, worked out on each call (settings and permissions change). */
+export const tables = () => tablesOf(readySources());
+export type Tables = ReturnType<typeof tablesOf>;
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
@@ -679,7 +679,13 @@ export async function gather(
   const ctx = { me: ownerIn(truth.people), repos };
   // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
   // events, in the registry's order. Only the sources he turned on that can be read now.
-  const sources = readableSources();
+  for (const s of enabledSources()) {
+    const why = s.missing?.();
+    if (why) {
+      log("source.read", { ok: true, skipped: why, source: s.name });
+    }
+  }
+  const sources = readySources();
   const lifelog = sources.some((s) => s.kind === "voice")
     ? await safely(
         "lifelog",

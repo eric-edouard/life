@@ -163,7 +163,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   whose delivery failed, an Atlas task that needs him, once per cause, Atlas not subscribed to `ask` (one a day for all open tasks), a run holding the lock over 3 h (once per incident),
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
   while it lasts, `archiveFailing` in `src/archive.ts`), by
-  email to the owner only (`src/memory/report.ts`: sender and his address in the `mail` setting), one MCP event per ask (not one Atlas made) to the one subscriber,
+  email to the owner only, or with no `mail` setting a macOS notification and the report kept as a page in
+  `STATE/reports` (`src/memory/report.ts`: sender and his address in the `mail` setting), one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent), and the status page's
   plate without his words to its own Worker once a minute (`pushPlate`, `src/dashboard.ts`).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
@@ -203,7 +204,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   before that check.
 - **The archive is the only live copy of deleted messages and of old note versions** (the backup keeps snapshots). Never move, wipe or migrate its files (a new table is allowed
   with the owner's OK, never a rewrite of existing rows), and keep `com.ericedouard.life.archive` running. App stores
-  are opened read-only. The archive keeps the apps it copies from running (`app` in `STORES`): a closed one is opened
+  are opened read-only. The archive copies, and keeps running, only the apps of the sources he turned on (`keptStores`, `app` in `STORES`): a closed one is opened
   hidden.
 - lifelog is read through its REST API; its only writes are `forward`'s. The zod shapes Life reads it with take every
   null and absent field lifelog's contract allows (`apps/server/openapi.json`; `lifelog.test.ts` checks them when

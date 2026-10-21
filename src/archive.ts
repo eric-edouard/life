@@ -7,6 +7,7 @@ import { codeAt, exec } from "./proc";
 import { settings } from "./settings";
 import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
 import { fromAppleS, toAppleS } from "./sources/imessage";
+import { enabledSources, SOURCES } from "./sources/index";
 import { listNotes, NOTES, noteVersion } from "./sources/notes";
 import { ROOT } from "./truth";
 
@@ -388,8 +389,10 @@ export const STORES = [
 ];
 
 /** The stores of the sources he turned on (the `sources` setting): no other app is copied or kept open. */
-export const keptStores = (on = settings().sources) =>
-  STORES.filter((s) => (on as string[]).includes(s.name));
+export const keptStores = (on = settings().sources) => {
+  const names = new Set<string>(enabledSources(SOURCES, on).map((s) => s.name));
+  return STORES.filter((s) => names.has(s.name));
+};
 
 /** When the archive last copied anything into a store (a new message or note version); null: none yet, or no store. */
 export function lastCopied(store: (typeof STORES)[number], dir = ARCHIVE) {
