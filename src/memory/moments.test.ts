@@ -104,6 +104,14 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
     // Commits are never read in full, whatever the model said.
     expect.objectContaining({ salience: 1, unit: U2 }),
   ]);
+  // A unit he marked "hey Life" is read whatever the model said.
+  const marked = unit({ id: U3, marked: ["j:1@a"] });
+  expect(
+    parseDay(
+      { verdicts: [{ ...v, id: U3, salience: 0 }] },
+      { ...ctx, units: new Map([[U3, marked]]) }
+    ).verdicts.map((x) => x.salience)
+  ).toEqual([3]);
   expect(day.invalid).toBe(3);
   expect(day.moments).toHaveLength(3);
   const [first, twin, again] = day.moments;

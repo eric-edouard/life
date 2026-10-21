@@ -5,7 +5,12 @@ import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
 import { log, recentEvents } from "../log";
 import { checks } from "../reminders/remctl";
-import { type Action, isListed } from "../schema";
+import {
+  type Action,
+  type Extracted,
+  isListed,
+  type Observation,
+} from "../schema";
 import { taskList, titleOf, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
@@ -49,7 +54,14 @@ import {
   type RunRecord,
 } from "./run";
 import { reindex } from "./search";
-import { daysBefore, gather, lastDays, localTime, type Window } from "./units";
+import {
+  type Built,
+  daysBefore,
+  gather,
+  lastDays,
+  localTime,
+  type Window,
+} from "./units";
 import { observationsNow, readPeople } from "./who";
 import { dayStart, localDate, noteZone } from "./zones";
 
@@ -287,11 +299,42 @@ async function sweep(
 }
 
 /**
+ * Each unit he marked "hey Life" that an extract run read since `since` (midday ones too), with the observations citing its
+ * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
+ * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
+ */
+export function markedSince(
+  built: Built[],
+  latest: Map<string, Extracted>,
+  since: string,
+  observations: Observation[]
+) {
+  // Read on its marked content (its latest extraction): a reading before the mark landed doesn't count.
+  const read = (u: Built["unit"]) => {
+    const e = latest.get(u.id);
+    return !!e && e.unitHash === u.hash && e.at >= since;
+  };
+  return built.flatMap(({ unit }) => {
+    const marked = unit.marked ?? [];
+    if (marked.length === 0 || !read(unit)) {
+      return [];
+    }
+    const held = observations.filter((o) => marked.includes(o.source.ref));
+    return [
+      {
+        name: localTime(unit.start),
+        relation: `${unit.title} → ${held.length > 0 ? held.map((o) => o.text).join(" · ") : "nothing held"}`,
+      },
+    ];
+  });
+}
+
+/**
  * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`) and about
  * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
  * (`placed`), and the retirements those new observations made.
  */
-async function whatIsNew(since: string, from: string) {
+async function whatIsNew(since: string, from: string, built: Built[]) {
   const people = await readPeople();
   const { all, observations, standing } = await observationsNow(people);
   const isNew = newSince(all, since);
@@ -310,6 +353,7 @@ async function whatIsNew(since: string, from: string) {
           : []
       )
     ),
+    marked: markedSince(built, standing.latest, since, observations),
     observed: fresh.length,
     retired: [...standing.retired.values()].filter(
       (s) => ids.has(s.by) && s.by !== s.observation
@@ -360,7 +404,11 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
     await phase.step("closeness", () => closeness());
-    const { facts, observed, retired } = await whatIsNew(since, window.from);
+    const { facts, marked, observed, retired } = await whatIsNew(
+      since,
+      window.from,
+      evidence.built
+    );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
     phase.at = "index";
     await reindex();
@@ -380,6 +428,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       facts,
       files: evidence.files,
       from: window.from,
+      marked,
       moments: found,
       observed,
       paged,
