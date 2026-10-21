@@ -284,6 +284,7 @@ export function lockedSince(): Date | null {
   try {
     const since = statSync(LOCK).mtime;
     process.kill(Number(readFileSync(LOCK, "utf8")), 0);
+    // ponytail: the lock's real mtime and boot time against the clock; a frozen run (the bench) never takes the lock.
     return since.getTime() >= clock().getTime() - uptime() * 1000
       ? since
       : null;

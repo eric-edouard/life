@@ -109,10 +109,7 @@ test.if(FROZEN !== undefined)(
     expect(
       await call("correct", { kind: "rename_person", name: "x", personId: "p" })
     ).toStartWith("Not done");
-    expect(JSON.parse(await call("open_reminders", {}))).toEqual({
-      reminders: [],
-      sections: [],
-    });
+    expect(await call("open_reminders", {})).toStartWith("Not done");
     const sub = await rpc("events/subscribe", {
       delivery: {
         mode: "webhook",
@@ -121,6 +118,12 @@ test.if(FROZEN !== undefined)(
       },
       name: "ask",
     });
-    expect(sub.error?.message ?? "").toContain("frozen run sends nothing");
+    const unsub = await rpc("events/unsubscribe", {
+      delivery: { mode: "webhook", url: "https://api.openai.com/hook" },
+      name: "ask",
+    });
+    for (const r of [sub, unsub]) {
+      expect(r.error?.message ?? "").toContain("frozen run");
+    }
   }
 );

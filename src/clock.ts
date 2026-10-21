@@ -1,17 +1,39 @@
-import { DATA, isHis } from "./truth";
+import { statSync } from "node:fs";
+import { join } from "node:path";
+import { DATA, isHis, ROOT, TEST } from "./truth";
 
 // Life's one clock: every read of "now" goes through `clock()`. `LIFE_NOW` (an ISO instant) stops it there, for the
-// Atlas bench (scripts/bench-atlas.ts): the connector then serves the world as it was at that instant, and a frozen
-// world is a dry run (`FROZEN`, mcp.ts). Refused on his own data, like `LIFE_LLM`: only a copy is ever frozen.
+// Atlas bench (scripts/bench-atlas.ts). Frozen, the live sources (lifelog, chats, notes, places) are read up to that
+// instant (`dayRange`, `placesOf`); memory, the ledger and the lifelog store are what the bench copied as of then. A
+// frozen world is a dry run (`dry`, mcp.ts). Only a copy is ever frozen: never his ~/Life (like `LIFE_LLM`), and never
+// in the live checkout, whose derived/ (log, events.json) is production's.
 
-/** The instant `LIFE_NOW` freezes the clock at, in ms; none when unset. */
-export function frozenAt(set = process.env.LIFE_NOW, data = DATA) {
+/** Is `root` a checkout of its own (its .git a folder), not a throwaway worktree (a .git file)? */
+const isCheckout = (root: string) => {
+  try {
+    return statSync(join(root, ".git")).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+/** The instant `LIFE_NOW` freezes the clock at, in ms; none when unset. Tests log into their own copy. */
+export function frozenAt(
+  set = process.env.LIFE_NOW,
+  data = DATA,
+  live = !TEST && isCheckout(ROOT)
+) {
   if (!set) {
     return;
   }
   if (isHis(data)) {
     throw new Error(
       "LIFE_NOW is for a copy of the data (LIFE_DATA), never ~/Life"
+    );
+  }
+  if (live) {
+    throw new Error(
+      "LIFE_NOW runs in a worktree of its own: this checkout's derived/ is production's"
     );
   }
   const ms = Date.parse(set);

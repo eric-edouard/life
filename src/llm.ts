@@ -1,5 +1,6 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
-// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is.
+// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is. The
+// one call with tools is the Atlas bench's (scripts/bench-atlas.ts): Life's own connector, frozen, and nothing else.
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -116,12 +117,11 @@ export const llmSpec = (l: Llm) =>
 const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
-export function llmFor(tier: Tier): Llm {
+export function llmFor(tier: Tier, engine = readEngine()): Llm {
   const set = llmOverride();
   if (set) {
     return set;
   }
-  const engine = readEngine();
   return engine === "claude"
     ? { engine, model: CLAUDE_MODELS[tier] }
     : { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
@@ -190,6 +190,14 @@ const OpenRouterReply = z.object({
 const NOT_ALNUM = /[^a-z0-9]/g;
 const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
 
+/** An MCP server over stdio, `life`: the only tools a call may have (the Atlas bench's frozen connector). */
+export interface Tools {
+  command: string[];
+  cwd: string;
+  env: Record<string, string>;
+}
+const SERVER = "life";
+
 /** One call as a runner gets it. */
 interface Call {
   dir: string;
@@ -197,6 +205,7 @@ interface Call {
   input: unknown;
   llm: Llm;
   system: string;
+  tools?: Tools;
 }
 /**
  * A runner's reply: its text, and what the log records of the call besides the time. `refusal`: it answered, but the
@@ -237,7 +246,7 @@ async function cli(
   return stdout;
 }
 
-async function askClaude({ dir, images, input, llm, system }: Call) {
+async function askClaude({ dir, images, input, llm, system, tools }: Call) {
   const stdout = await cli(
     "claude",
     () => [
@@ -245,6 +254,21 @@ async function askClaude({ dir, images, input, llm, system }: Call) {
       ...(llm.effort ? ["--effort", llm.effort] : []),
       ...["--input-format", "stream-json", "--output-format", "stream-json"],
       ...["--tools", "", "--strict-mcp-config", "--setting-sources", ""],
+      ...(tools
+        ? [
+            ...["--allowedTools", `mcp__${SERVER}`, "--mcp-config"],
+            JSON.stringify({
+              mcpServers: {
+                [SERVER]: {
+                  args: tools.command.slice(1),
+                  command: tools.command[0],
+                  cwd: tools.cwd,
+                  env: tools.env,
+                },
+              },
+            }),
+          ]
+        : []),
       ...["--no-session-persistence", "--system-prompt", system],
     ],
     {
@@ -280,7 +304,7 @@ async function askClaude({ dir, images, input, llm, system }: Call) {
   };
 }
 
-async function askCodex({ dir, images, input, llm, system }: Call) {
+async function askCodex({ dir, images, input, llm, system, tools }: Call) {
   if (!(await Bun.file(join(CODEX_HOME, "auth.json")).exists())) {
     // codex refuses a CODEX_HOME that doesn't exist, even to log in.
     await mkdir(CODEX_HOME, { recursive: true });
@@ -293,7 +317,11 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
     "codex",
     (cwd) => [
       // The pinned binary, read-only, and none of the extras (CODEX_OFF).
-      ...[CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"],
+      // `exec` cancels every MCP call unless approvals are bypassed (openai/codex#24135); with tools it has no shell.
+      ...[CODEX_BIN, "exec", "--skip-git-repo-check"],
+      ...(tools
+        ? ["--dangerously-bypass-approvals-and-sandbox"]
+        : ["-s", "read-only"]),
       ...["-C", cwd, "-m", llm.model],
       ...CODEX_OFF.flatMap((f) => ["--disable", f]),
       ...["-", "--ephemeral", "--ignore-user-config", "--ignore-rules"],
@@ -304,6 +332,17 @@ async function askCodex({ dir, images, input, llm, system }: Call) {
         'web_search="disabled"',
         "skills.bundled.enabled=false",
         "skills.include_instructions=false",
+        ...(tools
+          ? [
+              `mcp_servers.${SERVER}.command=${toml(tools.command[0] ?? "")}`,
+              `mcp_servers.${SERVER}.args=[${tools.command.slice(1).map(toml).join(",")}]`,
+              `mcp_servers.${SERVER}.cwd=${toml(tools.cwd)}`,
+              `mcp_servers.${SERVER}.env={${Object.entries(tools.env)
+                .map(([k, v]) => `${k}=${toml(v)}`)
+                .join(",")}}`,
+              `mcp_servers.${SERVER}.default_tools_approval_mode="approve"`,
+            ]
+          : []),
       ].flatMap((c) => ["-c", c]),
       ...CODEX_TOOLS.flatMap((f) => ["--disable", f]),
       ...["-o", reply],
@@ -459,7 +498,7 @@ const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
 };
 
 /**
- * One shot with no tools, no MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
+ * One shot with no tools (but the bench's `tools`), no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
  * `input` (as JSON) the whole user message. Code assembles everything the model sees, so the call stays small.
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
  * The input and the raw reply are kept in `dir`, so anything made from a call can be checked against exactly what the
@@ -468,6 +507,8 @@ const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
  */
 export async function askOnce(opts: {
   context?: unknown;
+  /** The one exception to "no tools": the Atlas bench's frozen connector. */
+  tools?: Tools;
   dir: string;
   images?: string[];
   input: unknown;
@@ -476,6 +517,9 @@ export async function askOnce(opts: {
   run: string;
 }) {
   const { dir, llm } = opts;
+  if (opts.tools && llm.engine === "openrouter") {
+    throw new Error("tools run on his subscriptions only (claude or codex)");
+  }
   const context =
     opts.context === undefined
       ? ""
@@ -494,6 +538,7 @@ export async function askOnce(opts: {
       input: opts.input,
       llm,
       system,
+      tools: opts.tools,
     });
     ({ fields } = answer);
     if (answer.refusal) {
