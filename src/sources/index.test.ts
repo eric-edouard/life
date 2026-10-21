@@ -3,10 +3,19 @@ import { tablesOf } from "../memory/units";
 import { Unit } from "../schema";
 import { type Descriptor, SOURCES } from ".";
 
-test("every stored source name has one descriptor", () => {
-  expect(SOURCES.map((s) => s.name).toSorted()).toEqual(
-    Unit.shape.source.options.toSorted()
-  );
+test("every stored source name has one descriptor, in the cut order", () => {
+  const names = SOURCES.map((s) => s.name);
+  expect(names.toSorted()).toEqual(Unit.shape.source.options.toSorted());
+  // Of two units with the same content the first cut stays: moving a source changes which.
+  expect(names).toEqual([
+    "lifelog",
+    "imessage",
+    "whatsapp",
+    "beeper",
+    "mail",
+    "notes",
+    "git",
+  ]);
 });
 
 test("a new source is one descriptor: every table picks it up", () => {

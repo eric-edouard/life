@@ -41,6 +41,10 @@ const phonesOfLids = (dir: string) =>
     "select ZLID as key, ZPHONENUMBER as phone from ZWAADDRESSBOOKCONTACT where ZLID <> '' and ZPHONENUMBER <> ''"
   );
 
+/** The phone a `<number>@s.whatsapp.net` id holds (a 1:1 chat's key too); none in a `@lid` or a group's id. */
+export const phoneOf = (jid: string) =>
+  jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : undefined;
+
 /** Messages since `since` as events, oldest first. The sender is `+<phone>` when known, else the WhatsApp id. */
 export function readWhatsapp(
   since: Date,
@@ -53,9 +57,7 @@ export function readWhatsapp(
     SQL,
     since,
     archive,
-    (jid) =>
-      phones.get(jid) ??
-      (jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : jid),
+    (jid) => phones.get(jid) ?? phoneOf(jid) ?? jid,
     // The archive keeps a copy of each file under media/.
     (r) => ({
       files:

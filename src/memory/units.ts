@@ -277,7 +277,7 @@ export function oneToOne(b: Built) {
   const others = new Set(
     b.messages.filter((m) => !m.fromMe).map((m) => m.sender)
   );
-  const chat = b.unit.source in CHATS;
+  const chat = kindOf(b.unit.source) === "chat";
   return chat && others.size === 1 && b.unit.title !== b.unit.key
     ? b.unit.title
     : undefined;
@@ -564,9 +564,12 @@ export function builtFor(
   if (source.kind === "voice") {
     return;
   }
-  const read = source
-    .read(new Date(unit.start), { me, repos })
-    .filter((e) => e.chat === unit.key && e.at <= unit.end);
+  const since = new Date(unit.start);
+  const read = (
+    source.kind === "repo"
+      ? source.read(since, { me, repos })
+      : source.read(since)
+  ).filter((e) => e.chat === unit.key && e.at <= unit.end);
   // A repo's commits carry no files.
   const events = source.kind === "repo" ? read : showFiles(read, readFiles());
   if (events.length > 0) {
@@ -634,7 +637,11 @@ export async function gather(window: Window) {
   );
   const read = await Promise.all(
     SOURCES.flatMap((s) => (s.kind === "voice" ? [] : [s])).map(async (s) => ({
-      events: await safely(s.name, () => s.read(since, ctx), failed),
+      events: await safely(
+        s.name,
+        () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
+        failed
+      ),
       s,
     }))
   );
