@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { INFERRED_PREFIX, type InferredPerson, type MadeBy } from "../schema";
+import { kindOf } from "../sources";
 import { digest } from "./ledger";
 import { locate } from "./observe";
-import { areaOf, type Built, CHATS, slugOf } from "./units";
+import { areaOf, type Built, slugOf } from "./units";
 import { UNKNOWN } from "./who";
 
 // Who the people not on the map are: what the moments call is asked about a day, and its answer checked (every quote
@@ -103,7 +104,7 @@ export function unknownIn(units: Built[], known: (s: string) => boolean) {
   };
   for (const b of units) {
     // Only where people speak for themselves: mail senders are organisations and lists, notes and commits his.
-    for (const m of b.unit.source in CHATS ? b.messages : []) {
+    for (const m of kindOf(b.unit.source) === "chat" ? b.messages : []) {
       if (!(m.fromMe || m.who)) {
         add(m.sender, b);
       }

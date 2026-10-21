@@ -326,7 +326,7 @@ export async function chatHits(
 ) {
   const { events, failed } = readChats(SEARCH_DAYS, range, sources);
   const { cut, events: found } = withContext(events, words);
-  const units = found.some((e) => !(e.source in CHATS))
+  const units = found.some((e) => kindOf(e.source) !== "chat")
     ? new Set((await readUnits()).map((u) => u.id))
     : undefined;
   return [
@@ -420,7 +420,7 @@ function chatLinesOf(
   return [...byChat.values()].flatMap((list) => {
     const [first] = list;
     const more =
-      first && first.source in CHATS
+      first && kindOf(first.source) === "chat"
         ? `chat ${first.chat}`
         : noteUnits(list, units);
     return [

@@ -53,6 +53,9 @@ interface Row {
   text: string | null;
 }
 
+/** Whether a chat is a group: a group's identifier is `chat…`, a 1:1 chat's its handle. */
+export const isGroup = (chat: string) => chat.startsWith("chat");
+
 /** `names`: his Contacts, which name a 1:1 chat that has no name of its own (Messages keeps only the number). */
 export function readImessage(
   since: Date,
@@ -82,9 +85,7 @@ export function readImessage(
       // `chat…`), the name his Contacts give that handle: every message of the chat, his own included.
       const named =
         r.chatName ||
-        (r.chat && !r.chat.startsWith("chat")
-          ? names.get(handleKey(r.chat))
-          : undefined);
+        (r.chat && !isGroup(r.chat) ? names.get(handleKey(r.chat)) : undefined);
       return {
         at: fromAppleNs(r.date).toISOString(),
         chat: r.chat ?? r.sender ?? "unknown",
