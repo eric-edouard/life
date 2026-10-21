@@ -115,12 +115,15 @@ export async function importExport(folder: string) {
   mkdirSync(dirname(to), { recursive: true });
   copyFileSync(file, to);
   const step = await begin("import", "fast", { prompt: IMPORT_PROMPT, source });
-  const asked = new Set(
-    rowsOf(IMPORTED, Imported)
-      .filter((i) => i.madeBy.prompt === IMPORT_PROMPT)
-      .map((i) => i.conversation)
-  );
-  const due = conversations.filter((c) => !asked.has(`${source}:${c.id}`));
+  const unjudged = () => {
+    const judged = new Set(
+      rowsOf(IMPORTED, Imported)
+        .filter((i) => i.madeBy.prompt === IMPORT_PROMPT)
+        .map((i) => i.conversation)
+    );
+    return conversations.filter((c) => !judged.has(`${source}:${c.id}`));
+  };
+  const due = unjudged();
   const ctx = {
     at: step.now.toISOString(),
     madeBy: stamp(step.llm, IMPORT_PROMPT, step.run),
@@ -164,5 +167,7 @@ export async function importExport(folder: string) {
     kept: days.conversations.kept,
     read: summaryOf(all, conversations),
     source,
+    // A conversation a failed call left unjudged reads as not kept: run the import again until none is, then backfill.
+    unjudged: unjudged().length,
   });
 }

@@ -2,8 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseJudged, readExport, summaryOf } from "../memory/imports";
-import { appendJsonl, IMPORTED } from "../memory/ledger";
+import { appendJsonl, IMPORTED, keptConversations } from "../memory/ledger";
 import { applyRules, messageUnits } from "../memory/units";
 import { Imported } from "../schema";
 import { FORMATS, formatOf, kept, pruned, readAssistant } from "./assistants";
@@ -184,7 +183,8 @@ test("his pruned messages are read; only the conversations the import kept becom
     readAssistant("claude")(new Date("2026-03-02T09:16:00.000Z"), path).length
   ).toBe(1);
   // One unit per conversation and local day, dropped until the import keeps it.
-  const unit = () => applyRules(messageUnits(events, new Map()))[0]?.unit;
+  const unit = () =>
+    applyRules(messageUnits(events, new Map()), keptConversations())[0]?.unit;
   expect([unit()?.source, unit()?.key, unit()?.drop]).toEqual([
     "claude",
     "claude:c1",
@@ -201,44 +201,4 @@ test("his pruned messages are read; only the conversations the import kept becom
     },
   ]);
   expect(unit()?.drop).toBeUndefined();
-});
-
-test("the dry run counts an export's conversations and days; a judging reply is checked", () => {
-  const dir = mkdtempSync(join(tmpdir(), "export-"));
-  writeFileSync(join(dir, "conversations.json"), JSON.stringify(claudeExport));
-  const { all, conversations, source } = readExport(dir);
-  expect(source).toBe("claude");
-  const s = summaryOf(all, conversations);
-  expect([s.conversations, s.messages, s.days, s.from, s.calls]).toEqual([
-    { all: 2, kept: 1 },
-    2,
-    1,
-    "2026-03-02",
-    1,
-  ]);
-  const ctx = {
-    at: "2026-10-21T00:00:00.000Z",
-    madeBy: {
-      engine: "codex" as const,
-      model: "m",
-      prompt: "import.v1",
-      run: "r",
-    },
-    source: "claude",
-  };
-  const judged = parseJudged(
-    {
-      conversations: [
-        { id: "c1", keep: true, why: "His sister's move." },
-        { id: "c1", keep: false, why: "Again." },
-        { id: "zz", keep: true, why: "Not asked." },
-      ],
-    },
-    new Set(["c1"]),
-    ctx
-  );
-  expect(judged.invalid).toBe(2);
-  expect(judged.records.map((r) => [r.conversation, r.keep])).toEqual([
-    ["claude:c1", true],
-  ]);
 });

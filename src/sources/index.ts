@@ -80,22 +80,17 @@ export const SOURCES: Descriptor[] = [
     // text in index.sqlite if that grows slow.
     searchDays: Number.POSITIVE_INFINITY,
   },
-  // His claude.ai and ChatGPT history, imported once (memory/imports.ts). ponytail: search reads every kept message
+  // His claude.ai and ChatGPT history, imported once (memory/imports.ts). ponytail: search reads every pruned message
   // (the export parsed once per process, every sweep included); index them in index.sqlite if that grows slow.
-  {
-    imported: true,
-    kind: "notes",
-    name: "claude",
-    read: readAssistant("claude"),
-    searchDays: Number.POSITIVE_INFINITY,
-  },
-  {
-    imported: true,
-    kind: "notes",
-    name: "chatgpt",
-    read: readAssistant("chatgpt"),
-    searchDays: Number.POSITIVE_INFINITY,
-  },
+  ...(["claude", "chatgpt"] as const).map(
+    (name): Descriptor => ({
+      imported: true,
+      kind: "notes",
+      name,
+      read: readAssistant(name),
+      searchDays: Number.POSITIVE_INFINITY,
+    })
+  ),
   {
     kind: "repo",
     name: "git",
