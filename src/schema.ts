@@ -132,6 +132,8 @@ export const Action = z
       "edit",
       "done",
       "remove",
+      "undone",
+      "restore",
       "ask",
       "instinct",
       ...TASK_LINES,

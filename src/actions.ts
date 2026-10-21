@@ -5,8 +5,9 @@ import { clock, unfrozen } from "./clock";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
+import { localDate } from "./memory/zones";
 import { exec } from "./proc";
-import { Action, type Instruction } from "./schema";
+import { Action, type Instruction, type Observation } from "./schema";
 
 // The only code that writes outside Life on the owner's clear request: Apple Reminders through remctl (its signed
 // host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
@@ -25,7 +26,8 @@ const Due = z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/);
 export const Change = z.object({
   // With a time it alerts then; null clears it (edit only).
   due: Due.nullish(),
-  kind: z.enum(["add", "edit", "done", "remove"]),
+  // undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`.
+  kind: z.enum(["add", "edit", "done", "remove", "undone", "restore"]),
   list: z.string().optional(),
   notes: z.string().max(2000).nullish(),
   priority: z.enum(["high", "medium", "low"]).optional(),
@@ -207,18 +209,41 @@ async function edit(c: Change): Promise<Done> {
   };
 }
 
-/** Ticks a reminder off, or removes it (to Recently Deleted). */
-async function finish(c: Change): Promise<Done> {
-  const before = await info(c.target);
-  const done = c.kind === "done";
-  await remctl(
-    done ? ["done", `${c.target}`] : ["delete", `${c.target}`, "--force"]
-  );
-  return {
-    after: done ? { completed: true } : { deleted: true },
-    before,
-    target: `reminder:${c.target}`,
-  };
+/** The kinds that only change a reminder's state, each with its remctl call and what it leaves: `finish`'s table. */
+const FINISH = {
+  done: { after: { completed: true }, args: (id: string) => ["done", id] },
+  remove: {
+    after: { deleted: true },
+    args: (id: string) => ["delete", id, "--force"],
+  },
+  restore: {
+    after: { deleted: false },
+    args: (id: string, list?: string) => [
+      "restore",
+      "--private",
+      `--list=${list}`,
+      "--",
+      id,
+    ],
+  },
+  undone: { after: { completed: false }, args: (id: string) => ["undone", id] },
+};
+
+/** Ticks a reminder off or open, removes it (to Recently Deleted) or restores it from there into `list`. */
+async function finish(
+  c: Change & { kind: keyof typeof FINISH }
+): Promise<Done> {
+  const restore = c.kind === "restore";
+  if (restore && !(c.target && c.list)) {
+    throw new Error(
+      "a restore needs the reminder id and the list to put it in"
+    );
+  }
+  // A removed reminder has no info until it is back.
+  const before = restore ? undefined : await info(c.target);
+  const { after, args } = FINISH[c.kind];
+  await remctl(args(`${c.target}`, c.list));
+  return { after, before, target: `reminder:${c.target}` };
 }
 
 /** What a client passes (a Claude session through the CLI, a chat through the connector): a change, his words that asked for it, and why. */
@@ -279,7 +304,7 @@ export async function act(a: Act): Promise<Action> {
     } else if (c.kind === "edit") {
       done = await edit(c);
     } else {
-      done = await finish(c);
+      done = await finish({ ...c, kind: c.kind });
     }
   } catch (e) {
     result = "failed";
@@ -320,6 +345,63 @@ export function actAsked(
   madeBy: "connector" | "session"
 ) {
   return act({ change, instruction: requested(madeBy, said), madeBy, why });
+}
+
+/** The most reminders the grant adds in one of his days. */
+const GRANT_DAILY = 3;
+
+/** A reminder the standing grant added: an add whose instruction is an observation, not his words in a request. */
+const isGranted = (a: Action) =>
+  a.kind === "add" && Boolean(a.instruction?.ref.startsWith("obs_"));
+
+/** The grant's earlier add from this observation, if one stands: the same observation adds once. */
+export const grantedFrom = (actions: Action[], obs: string) =>
+  actions.find(
+    (a) => isGranted(a) && a.instruction?.ref === obs && a.result !== "failed"
+  );
+
+/**
+ * Why the standing grant (his yes, decision 2 of the 21 Oct review) may not add a reminder from this observation, or
+ * nothing when it may. All of it derived, nothing stored: it is off once a reminder it added was removed (his undo),
+ * it adds at most GRANT_DAILY a day (his local day), only from his current salience-3 to-do or promise in a lifelog
+ * turn the store credits to him now (`mine`), and never on a list shared with anyone (that would be a send).
+ */
+export function grantRefusal(g: {
+  actions: Action[];
+  list?: { sharees?: unknown[]; shared?: boolean };
+  mine: boolean;
+  now: string;
+  o: Pick<Observation, "salience" | "source" | "type">;
+  state: string;
+}) {
+  const made = g.actions.filter((a) => isGranted(a) && a.result === "ok");
+  const targets = new Set(made.map((a) => a.target));
+  if (
+    g.actions.some(
+      (a) => a.kind === "remove" && a.result === "ok" && targets.has(a.target)
+    )
+  ) {
+    return "the grant is off: he undid one of its reminders";
+  }
+  if (g.state !== "active") {
+    return `the observation is ${g.state}, not current`;
+  }
+  if (g.o.salience !== 3 || !["todo", "promise"].includes(g.o.type)) {
+    return "only his salience-3 to-dos and promises";
+  }
+  if (g.o.source.channel !== "lifelog" || !g.mine) {
+    return "only from a turn lifelog credits to his voice";
+  }
+  const today = localDate(g.now);
+  if (made.filter((a) => localDate(a.at) === today).length >= GRANT_DAILY) {
+    return `already ${GRANT_DAILY} today`;
+  }
+  if (!g.list) {
+    return "name the list";
+  }
+  if (g.list.shared || (g.list.sharees?.length ?? 0) > 0) {
+    return "the list is shared: that needs his words";
+  }
 }
 
 /** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */

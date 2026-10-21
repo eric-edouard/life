@@ -322,6 +322,8 @@ export function actionLine(a: Action) {
     // Until 19 Oct Life also emailed Instinct; those lines stay in actions.jsonl.
     instinct: `to Instinct: “${a.after.subject}”`,
     remove: `removed “${was}”`,
+    restore: `restored ${a.target}`,
+    undone: `reopened “${was}”`,
   };
   const what = kinds[a.kind] ?? a.kind;
   const outcome = {

@@ -223,6 +223,19 @@ export const parseTurnRef = (ref: string) => {
   return jobId ? { jobId, turnIndex: Number(turn) } : null;
 };
 
+/** Whether lifelog credits this turn (a turn ref) to the owner now, as the feed last sent it. */
+export const ownerSpoke = (store: Store, ref: string) => {
+  const t = parseTurnRef(ref);
+  return Boolean(
+    t &&
+      store.db
+        .query<{ is_owner: number }, [string, number]>(
+          "select is_owner from turns where job_id = ? and turn_index = ?"
+        )
+        .get(t.jobId, t.turnIndex)?.is_owner
+  );
+};
+
 /** The stored successor: null while live; "" when retired with none (lifelog dropped it), so `successor is null` stays "live". */
 const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
