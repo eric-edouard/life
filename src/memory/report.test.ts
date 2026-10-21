@@ -311,7 +311,6 @@ test("the success email says the window it read and counts the new observations"
 test("a send goes out once per id: a second one with the same id never reaches Resend", async () => {
   const env = { ...process.env };
   process.env.RESEND_PERSONAL_API_KEY = "test";
-  process.env.LIFE_MAIL_TO = "owner@example.test";
   const post = spyOn(globalThis, "fetch").mockResolvedValue(
     Response.json({ id: "email_1" })
   );

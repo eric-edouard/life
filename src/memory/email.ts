@@ -5,7 +5,7 @@ import { settings } from "../settings";
 
 /** Life's own mail: its sender (the `mail` setting; none set, no mail is Life's), and how `compose` (report.ts) starts every subject. */
 export const LIFE_MAIL = {
-  from: settings().mail?.from ?? "",
+  from: settings().mail?.from,
   subject: "Life · ",
 };
 

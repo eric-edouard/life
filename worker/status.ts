@@ -8,14 +8,12 @@ import { HEADERS, SESSION } from "../src/http";
 // takes those pushes (POST /__status/push, a shared secret). It decides nothing else.
 
 interface Env {
-  /** The `connector` setting's issuer, as the Mac checks it. */
+  /** The `connector` setting's issuer, as the Mac checks it (a secret, like OWNER_SUB). */
   ISSUER: string;
   /** The `connector` setting's owner, as the Mac checks it. */
   OWNER_SUB: string;
   /** LIFE_STATUS_PUSH_SECRET, the Mac's. */
   PUSH_SECRET: string;
-  /** The connector's resource (its origin + /mcp), as the Mac checks it. */
-  RESOURCE: string;
   STATUS: KVNamespace;
 }
 
@@ -43,7 +41,8 @@ async function isOwner(req: Request, env: Env) {
     issuer: env.ISSUER,
     jwks,
     ownerSub: env.OWNER_SUB,
-    resource: env.RESOURCE,
+    // The Worker serves the connector's own origin, so its resource is that origin's /mcp.
+    resource: `${new URL(req.url).origin}/mcp`,
   })(token);
   return !("refusal" in whose);
 }

@@ -8,7 +8,7 @@ import { z } from "zod";
 import { log } from "./log";
 import { exec, firstLine } from "./proc";
 import { type Engine, Runner } from "./schema";
-import { readSettings } from "./settings";
+import { settings } from "./settings";
 import { DATA, isHis, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
@@ -79,9 +79,8 @@ const CODEX_OFF =
     " "
   );
 
-/** The engine he chose (a test run reads its own settings: claude, so no test reaches Codex); a corrupt settings file
- * throws, never a silent switch of engine (his transcripts go where he said). */
-export const readEngine = (path?: string): Engine => readSettings(path).engine;
+/** The engine he chose (a test run reads its own settings: claude, so no test reaches Codex). */
+export const readEngine = (): Engine => settings().engine;
 
 /**
  * `LIFE_LLM=engine/model[/effort]`: one process's model for every tier, set by the bench for a candidate and for its
