@@ -7,7 +7,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../src/clock";
-import { askOnce, llmFor, llmSpec } from "../src/llm";
+import { llmFor, llmSpec } from "../src/llm";
 import { locked, spareQuota } from "../src/memory/guard";
 import {
   appendJsonl,
@@ -20,7 +20,7 @@ import {
 } from "../src/memory/ledger";
 import { chunks, inBatches } from "../src/memory/run";
 import { type Claim, claimsNow } from "../src/memory/statements";
-import { GRADES, tally } from "../src/memory/tally";
+import { type Grade, judge, tally } from "../src/memory/tally";
 import { Score } from "../src/schema";
 
 const Facts = z.object({
@@ -35,44 +35,16 @@ const ClaimLine = z.object({
   id: z.string(),
   text: z.string(),
 });
-const Grades = z.object({
-  grades: z.array(
-    z.object({
-      claims: z.array(z.string()).default([]),
-      fact: z.string(),
-      grade: z.enum(GRADES),
-      why: z.string().default(""),
-    })
-  ),
-});
-
 /** The claims `keep` keeps, as the judge reads them. */
 const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
   claims.flatMap((c) =>
     keep(c) ? [{ date: c.date, id: c.claim, text: c.text }] : []
   );
 
-type Fact = z.infer<typeof Facts>["facts"][number];
 const run = runId(clock());
 const DIR = join(OUT, "evals", run);
 /** Rated statements per judge call. */
 const PER_CALL = 30;
-
-/** The judge's grades of `facts` against `claims`: one call, its input and reply kept in `dir`. */
-const judge = async (
-  facts: Fact[],
-  claims: z.infer<typeof ClaimLine>[],
-  dir: string
-) =>
-  Grades.parse(
-    await askOnce({
-      dir,
-      input: { claims, facts: facts.map(({ fact, id }) => ({ fact, id })) },
-      llm: llmFor("main"),
-      prompt: "eval-judge.v1",
-      run,
-    })
-  ).grades;
 
 /**
  * `--ratings`: the statements he rated true or false, judged against what the memory holds now of the same units, 30
@@ -88,12 +60,12 @@ async function ratedRun() {
   const { gone = [], judged = [] } = Object.groupBy(rated, (f) =>
     f.units.some((u) => live.has(u)) ? "judged" : "gone"
   );
-  const grades: z.infer<typeof Grades>["grades"] = [];
+  const grades: Grade[] = [];
   const asked = judged.filter((f) => !f.outdated);
   await inBatches(chunks(asked, PER_CALL), DIR, async (part, dir) => {
     const near = new Set(part.flatMap((f) => f.units));
     const seen = lines(claims, (c) => c.units.some((u) => near.has(u)));
-    grades.push(...(await judge(part, seen, dir)));
+    grades.push(...(await judge(part, seen, { dir, run })));
   });
   const t = tally(judged, grades);
   if (judged.length > 0) {
@@ -128,7 +100,7 @@ async function factsRun(factsPath: string, claimsPath?: string) {
   return {
     facts,
     note: [],
-    t: tally(facts, await judge(facts, claims, DIR)),
+    t: tally(facts, await judge(facts, claims, { dir: DIR, run })),
     title: `${claims.length} claims, ${from} to ${to}`,
   };
 }

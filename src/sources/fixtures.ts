@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
+import { clock } from "../clock";
 import { toAppleNs, toAppleS } from "./imessage";
 import { openStore } from "./lifelog";
 
@@ -91,7 +92,7 @@ export function whatsappFixture() {
   contacts.run(
     "insert into ZWAADDRESSBOOKCONTACT values ('777@lid', '+66 60 000 0001')"
   );
-  const now = Date.now();
+  const now = clock().getTime();
   /** A message `agoS` seconds before `now`, with a file in WhatsApp's store at `media` (under Message/). */
   const add = (
     pk: number,
@@ -142,7 +143,7 @@ export function beeperFixture() {
     "insert into ghost values ('b', '7', '[\"tel:+66 60 000 0001\"]')"
   );
   ghosts.run("insert into message values ('b', '7', '@ana:tg')");
-  const now = Date.now();
+  const now = clock().getTime();
   const add = (
     id: number,
     room: string,
@@ -227,7 +228,7 @@ export function notesFixture() {
   db.run("create table ZICNOTEDATA (ZNOTE integer, ZDATA blob)");
   db.run(`insert into ZICCLOUDSYNCINGOBJECT (Z_PK, Z_ENT, ZIDENTIFIER, ZTITLE2, ZFOLDERTYPE) values
     (101, 15, 'F1', 'Notes', 0), (102, 15, 'F2', 'Recently Deleted', 1), (103, 14, 'ACC', null, null)`);
-  const now = Date.now();
+  const now = clock().getTime();
   const save = (
     pk: number,
     data: Uint8Array | null,
@@ -292,7 +293,7 @@ export function imessageFixture(
   // Messages leaves a 1:1 chat's name empty.
   db.run("insert into chat values (1, '+33611111111', '')");
   db.run("insert into message values (1, 'g1', ?, 0, ?, null, 1, 0)", [
-    toAppleNs(new Date(Date.now() - 60_000)),
+    toAppleNs(new Date(clock().getTime() - 60_000)),
     text,
   ]);
   db.run("insert into chat_message_join values (1, 1)");

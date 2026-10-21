@@ -80,17 +80,25 @@ const REVERSIBLE = { ...WRITES, destructiveHint: false };
 const Reminders = Asked.omit({ why: true });
 
 /**
- * In a frozen world (`LIFE_NOW`, the Atlas bench) a tool that acts outside Life's copy of the data (his Reminders,
- * lifelog) does nothing: the call is logged as every call is (`mcp.call`, its arguments), and the answer says so.
- * `task` still runs: it writes only to the copy's ledger.
+ * A frozen world (`LIFE_NOW`, the Atlas bench) reaches nothing outside Life's copy of the data: a tool that would read
+ * or change his live Reminders or lifelog answers that it did nothing (its call is logged as every call is, `mcp.call`
+ * with its arguments, so the bench grades it), and an event request is refused. `task` still runs: it writes only to
+ * the copy's ledger.
  */
+const NOT_DONE =
+  "Not done: this is a frozen run (a benchmark), where nothing acts or sends.";
 const dry = <S extends z.ZodObject>(run: Tool<S>): Tool<S> =>
   FROZEN === undefined
     ? run
     : (args) =>
-        Promise.resolve(
-          `Not done: this is a frozen run (a benchmark), where nothing acts. Recorded: ${JSON.stringify(args)}`
-        );
+        Promise.resolve(`${NOT_DONE} Recorded: ${JSON.stringify(args)}`);
+const sends = <P, R>(handle: (p: P) => R) =>
+  FROZEN === undefined
+    ? handle
+    : (): R => {
+        log("mcp.call", { error: true, refused: "events: a frozen run" });
+        throw new Error(NOT_DONE);
+      };
 
 /** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
 async function request(a: Omit<Asked, "why">) {
@@ -377,17 +385,13 @@ export function buildServer() {
     "open_reminders",
     "The owner's open Apple Reminders (JSON), of one list or all: each one's id, title, notes, due, list and section, and every list's sections, empty ones too. Not the list `Atlas`: that is the board, read with `tasks`.",
     z.object({ list: z.string().optional().describe("A list's name") }),
-    async ({ list }) => {
-      if (FROZEN !== undefined) {
-        // His Reminders are live: a frozen world shows none rather than today's.
-        return { reminders: [], sections: [] };
-      }
+    dry(async ({ list }) => {
       const [reminders, sections] = await Promise.all([
         openReminders(list),
         sectionsOf(list),
       ]);
       return { reminders: reminders.map(openOf), sections };
-    }
+    })
   );
   tool(
     server,
@@ -428,21 +432,12 @@ export function buildServer() {
   server.server.setRequestHandler(
     "events/subscribe",
     { params: Subscribe },
-    (p) => {
-      if (FROZEN !== undefined) {
-        log("mcp.call", {
-          error: true,
-          refused: "subscribe: a frozen run sends nothing",
-        });
-        throw new Error("A frozen run sends nothing: no subscriptions.");
-      }
-      return subscribe(p);
-    }
+    sends(subscribe)
   );
   server.server.setRequestHandler(
     "events/unsubscribe",
     { params: Unsubscribe },
-    unsubscribe
+    sends(unsubscribe)
   );
   return server;
 }
