@@ -41,7 +41,12 @@ const phonesOfLids = (dir: string) =>
     "select ZLID as key, ZPHONENUMBER as phone from ZWAADDRESSBOOKCONTACT where ZLID <> '' and ZPHONENUMBER <> ''"
   );
 
-/** The phone a `<number>@s.whatsapp.net` id holds (a 1:1 chat's key too); none in a `@lid` or a group's id. */
+/** Whether a chat is a group: a group's id is `…@g.us`. */
+export const isWhatsappGroup = (chat: string) => chat.endsWith("@g.us");
+/**
+ * The phone a `<number>@s.whatsapp.net` id holds (a 1:1 chat's key too); none in a group's id or a `@lid`.
+ * ponytail: a `@lid` 1:1 chat has no handle in its key (nor has Beeper's), so its older facts keep their author.
+ */
 export const phoneOf = (jid: string) =>
   jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : undefined;
 

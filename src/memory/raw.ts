@@ -1,6 +1,6 @@
 import { redact } from "../redact";
 import type { SourceEvent, Unit } from "../schema";
-import { kindOf } from "../sources";
+import { kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
 import {
   type ChapterTurn,
@@ -16,7 +16,6 @@ import type { Line } from "./observe";
 import {
   type Built,
   builtFor,
-  CHAT_DAYS,
   CHATS,
   clip,
   dayRange,
@@ -29,7 +28,6 @@ import {
   normalize,
   oneToOne,
   personRef,
-  SEARCH_DAYS,
   SEARCHED,
   time,
 } from "./units";
@@ -284,20 +282,22 @@ function withContext(events: SourceEvent[], query: string) {
 
 /**
  * Messages from each source inside `range`, oldest first, without Life's own chat, and the sources that could not be
- * read. With no `from`, a source reads its last `days[source]` days before the end.
+ * read. With no `from`, a source reads its last `chatDays` or `searchDays` (its descriptor's `window`) before the end.
  * ponytail: an early `from` reads every message since (iMessage holds years, 40k WhatsApp messages in a few hundred
  * ms, Oct 2026); bound the read in SQL by `before` if that grows slow.
  */
 function readChats(
-  days: Record<string, number>,
+  window: "chatDays" | "searchDays",
   range: { from?: string; to?: string },
   sources: Partial<typeof SEARCHED>
 ) {
   const end = range.to ? new Date(range.to) : new Date();
+  const days = (source: string) =>
+    sourceOf(source as Unit["source"])[window] ?? 0;
   const startOf = (source: string) =>
     range.from
       ? new Date(range.from)
-      : new Date(Math.max(0, end.getTime() - (days[source] ?? 0) * DAY_MS));
+      : new Date(Math.max(0, end.getTime() - days(source) * DAY_MS));
   const failed: string[] = [];
   const stop = end.toISOString();
   const read = Object.entries(sources).flatMap(([name, from]) => {
@@ -324,7 +324,7 @@ export async function chatHits(
   range: { from?: string; to?: string } = {},
   sources: Partial<typeof SEARCHED> = SEARCHED
 ) {
-  const { events, failed } = readChats(SEARCH_DAYS, range, sources);
+  const { events, failed } = readChats("searchDays", range, sources);
   const { cut, events: found } = withContext(events, words);
   const units = found.some((e) => kindOf(e.source) !== "chat")
     ? new Set((await readUnits()).map((u) => u.id))
@@ -361,9 +361,8 @@ export async function chatsOf(
   const people = await readPeople();
   const needles = o.who ? needlesOf(o.who, people) : [];
   const before = o.before ? new Date(o.before).toISOString() : undefined;
-  const days = o.who ? SEARCH_DAYS : CHAT_DAYS;
   const { end, events, failed, start } = readChats(
-    days,
+    o.who ? "searchDays" : "chatDays",
     dayRange(o.from, o.to),
     sources
   );
@@ -390,7 +389,7 @@ export async function chatsOf(
     ...(o.from
       ? []
       : [
-          `(no \`from\`: ${Math.max(...Object.keys(sources).map((name) => days[name] ?? 0))} days; give \`from\` to read further back)`,
+          `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY_MS)} days; give \`from\` to read further back)`,
         ]),
     ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
     ...(next

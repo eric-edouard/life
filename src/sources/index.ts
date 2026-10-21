@@ -1,10 +1,10 @@
 import type { Person, SourceEvent, Unit } from "../schema";
 import { readBeeper } from "./beeper";
 import { type RepoMap, readGit } from "./git";
-import { isGroup, readImessage } from "./imessage";
+import { handleOf, isImessageGroup, readImessage } from "./imessage";
 import { readMail } from "./mail";
 import { readNotes } from "./notes";
-import { phoneOf, readWhatsapp } from "./whatsapp";
+import { isWhatsappGroup, phoneOf, readWhatsapp } from "./whatsapp";
 
 // The registry: what Life knows about each source, in one descriptor. Code asks a source's kind or what it can do (a
 // field here), never its name; the tables of sources are derived from it (`tablesOf`, units.ts).
@@ -36,10 +36,6 @@ export type Descriptor = {
   | { kind: "voice" }
 );
 
-// A 1:1 iMessage chat's key is its handle (a number or an address).
-// ponytail: WhatsApp's `@lid` 1:1 chats and Beeper have no handle in their key, so their older facts keep their author.
-const IMESSAGE_HANDLE = /^(\+\d+|[^@\s]+@[^@\s]+)$/;
-
 /**
  * Every source, in the order units are cut (`gather` cuts lifelog's from the watcher's store first, then each other
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
@@ -48,8 +44,8 @@ export const SOURCES: Descriptor[] = [
   { kind: "voice", name: "lifelog" },
   {
     chatDays: 7,
-    group: isGroup,
-    handleOf: (key) => (IMESSAGE_HANDLE.test(key) ? key : undefined),
+    group: isImessageGroup,
+    handleOf,
     kind: "chat",
     name: "imessage",
     read: readImessage,
@@ -57,7 +53,7 @@ export const SOURCES: Descriptor[] = [
   },
   {
     chatDays: 7,
-    group: (chat) => chat.endsWith("@g.us"),
+    group: isWhatsappGroup,
     handleOf: phoneOf,
     kind: "chat",
     name: "whatsapp",

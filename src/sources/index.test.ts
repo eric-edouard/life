@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
 import { Unit } from "../schema";
 import { type Descriptor, SOURCES } from ".";
@@ -41,8 +42,6 @@ test("a new source is one descriptor: every table picks it up", () => {
     "mail",
     "radio",
   ]);
-  expect(t.CHAT_DAYS.radio).toBe(3);
-  expect(t.SEARCH_DAYS.radio).toBe(30);
   // A source with no search window is not searched; mail is not (yet).
   expect(Object.keys(tablesOf(SOURCES).SEARCHED)).toEqual([
     "imessage",
@@ -50,4 +49,30 @@ test("a new source is one descriptor: every table picks it up", () => {
     "beeper",
     "notes",
   ]);
+});
+
+test("a chat app's ids say which chats are groups: the closeness counts leave them out", () => {
+  const ann = "+15550000001";
+  const event = (
+    source: "imessage" | "whatsapp",
+    chat: string,
+    at: string
+  ) => ({
+    at,
+    chat,
+    fromMe: false,
+    id: `${source}:${chat}:${at}`,
+    sender: ann,
+    source,
+    text: "hi",
+  });
+  const days = chatDays(
+    [
+      event("imessage", "chat123", "2026-10-01T10:00:00.000Z"),
+      event("whatsapp", "120@g.us", "2026-10-02T10:00:00.000Z"),
+      event("imessage", ann, "2026-10-03T10:00:00.000Z"),
+    ],
+    (s) => (s === ann ? "person:ann" : null)
+  );
+  expect([...(days.get("person:ann")?.keys() ?? [])]).toEqual(["2026-10-03"]);
 });

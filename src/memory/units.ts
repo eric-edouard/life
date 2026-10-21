@@ -513,7 +513,7 @@ const withFiles =
 
 /**
  * The tables of sources the steps outside `gather` read, derived from a registry (`SOURCES`; another in a test): each
- * a source's name to its reader (its events showing their files) or its days, in cut order.
+ * a source's name to its reader (its events showing their files), in cut order.
  */
 export function tablesOf(sources: Descriptor[]) {
   const messages = sources.flatMap((s) =>
@@ -526,15 +526,9 @@ export function tablesOf(sources: Descriptor[]) {
     Object.fromEntries(
       messages.filter(keep).map((s) => [s.name, show(s.read)])
     );
-  const days = (of: (s: Descriptor) => number | undefined) =>
-    Object.fromEntries(sources.map((s) => [s.name, of(s) ?? 0]));
   return {
-    /** How many days back `chats` reads each chat app. */
-    CHAT_DAYS: days((s) => s.chatDays),
     /** The chat apps, where people speak for themselves (not mail, nor his notes). */
     CHATS: readers((s) => s.kind === "chat"),
-    /** How many days back `search` (and `chats --who`) reads each of them. */
-    SEARCH_DAYS: days((s) => s.searchDays),
     /** What `search` reads messages from: the sources it has a window for. */
     SEARCHED: readers((s) => s.searchDays !== undefined),
     /**
@@ -547,8 +541,7 @@ export function tablesOf(sources: Descriptor[]) {
     ),
   };
 }
-export const { CHAT_DAYS, CHATS, SEARCH_DAYS, SEARCHED, WITH_PEOPLE } =
-  tablesOf(SOURCES);
+export const { CHATS, SEARCHED, WITH_PEOPLE } = tablesOf(SOURCES);
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
