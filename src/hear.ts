@@ -15,18 +15,18 @@ import { TEST } from "./truth";
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
 
 /**
- * "hey Atlas" as lifelog may write it (`LIFE_MISHEARD` in `.env`): a real name people he knows go
- * by, so that one wakes only on his own turn, as `low` (Atlas confirms with him first).
+ * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or `LIFE_MISHEARD` in `.env`, a real name people
+ * he knows go by. Both are words of their own, so they wake only on his own turn, as `low` (Atlas confirms with him).
  */
 const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
 /**
- * "hey" as lifelog may write it, then the spaces and punctuation after it: "Hej" (21 Oct, audit 4), and its other
- * spellings of the greeting, never a word of its own. Shared by both wakes.
+ * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
+ * longer word. Shared by both wakes.
  */
-const GREETING = String.raw`\b(?:hey|hej|hei|hay|hé|ey)\W+`;
-/** "hey" then Atlas or its misheard word, whatever the case. */
+const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
+/** A greeting then Atlas or a misheard Atlas, whatever the case. */
 export const WAKE = new RegExp(
-  String.raw`${GREETING}(atlas${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
+  String.raw`${GREETING}(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
   "i"
 );
 /** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`); "Live" is lifelog's misspelling. */
@@ -55,7 +55,7 @@ function wakeOf(t: Turn): Confidence | undefined {
   return words.length > 0 && t.who === "me" ? "low" : undefined;
 }
 
-/** The wake words in a turn: "atlas", or its misheard one. */
+/** The wake words in a turn: "atlas", or a misheard one. */
 const wakeWords = (t: Turn) =>
   [...t.text.matchAll(new RegExp(WAKE, "gi"))].map((m) => m[1]?.toLowerCase());
 
