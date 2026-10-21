@@ -1,9 +1,11 @@
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
 import type { Action } from "../schema";
+import type { Task } from "../tasks";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
 import type { describeFiles } from "./files";
+import { digest } from "./ledger";
 import type { moments } from "./moments";
 import type { pages } from "./pages";
 import type { mapRepos } from "./repos";
@@ -45,6 +47,8 @@ export interface Night {
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): midday runs' included. */
   observed: number;
   paged: Result<typeof pages>;
+  /** His Codex quota as the night ended (`quotaLine`). */
+  quota: string;
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: midday runs' included. */
   retired: number;
@@ -125,6 +129,7 @@ export function successReport(day: string, ms: number, n: Night) {
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.archive,
         n.backup,
+        n.quota,
         "Failures: none",
       ],
       preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.moments.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
@@ -234,19 +239,27 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
-/** The alert for an Atlas task that needs him (`chase`, src/board.ts): why, and his words. */
-export const taskReport = (a: Action, title: string, cause: string) =>
-  alert(a.at, "Atlas task", {
-    failure: { error: cause, step: title },
+/** The alert for the Atlas tasks that newly need him, one per `chase` pass (src/board.ts): why, and his words. */
+export function taskReport(
+  list: { ask: Task["ask"]; cause: string; title: string }[],
+  now: number
+) {
+  const why = list.map((x) => `${x.title}: ${x.cause}`).join(" · ");
+  return alert(new Date(now).toISOString(), "Atlas tasks", {
+    failure: { error: why, step: "Atlas tasks" },
     notes: [
-      `You said: “${a.instruction?.quote}”`,
-      `Its task: ${a.id} (Life's \`tasks\`; memory/actions.jsonl).`,
+      ...list.map(
+        (x) =>
+          `${x.title}: you said “${x.ask.instruction.quote}” (asked ${time(x.ask.at)}, ${x.ask.id})`
+      ),
+      "Each is a task in Life's `tasks` (memory/actions.jsonl).",
     ],
-    preheader: `${cause}: ${title}`,
-    stats: [{ label: "asked", value: time(a.at) }],
-    subject: `Atlas: ${title} (${cause.split(":")[0]})`,
+    preheader: why,
+    stats: [{ label: "need you", value: String(list.length) }],
+    subject: `Atlas: ${list.map((x) => `${x.title} (${x.cause.split(":")[0]})`).join(", ")}`,
     verdict: "NEEDS YOU",
   });
+}
 
 /** The alert for a lapsed `ask` subscription: about Atlas, not one task. */
 export const lapseReport = (open: number, now: number) =>
@@ -324,21 +337,23 @@ export type Mail = ReturnType<typeof compose> & {
 };
 
 let sent: Set<string> | undefined;
-/** Whether `id` went out already: the `email.sent` log of the last 8 days, read once per process. */
-async function sentBefore(id: string) {
+/** The keys among `keys` not sent yet: the `email.sent` log of the last 8 days, read once per process. */
+export async function unsent(keys: string[]) {
   sent ??= new Set(
     (await recentEvents<{ key: string }>(8, "email.sent")).map((e) => e.key)
   );
-  return sent.has(id);
+  return keys.filter((k) => !sent?.has(k));
 }
 
 /**
- * Sends a report with Resend's API, once per `id` (`<kind>/<run or incident>`; the kind names the step in the log): an
- * id already sent (`sentBefore`) is skipped, and Resend's idempotency key covers a race. A failed send is logged and
- * returns null: it never changes how the night ended, and the caller may try again.
+ * Sends a report with Resend's API, once per key (`<kind>/<run or incident>`; the kind names the step in the log):
+ * skipped when every key went out already (`unsent`), one `email.sent` line per new key, and Resend's idempotency key
+ * covers a retry of the same keys. A failed send is logged and returns null: it never changes how the night ended, and the caller may
+ * try again.
  */
-export async function sendReport(id: string, mail: Mail) {
-  if (await sentBefore(id)) {
+export async function sendReport(id: string | string[], mail: Mail) {
+  const keys = await unsent([id].flat());
+  if (keys.length === 0) {
     return null;
   }
   try {
@@ -353,7 +368,7 @@ export async function sendReport(id: string, mail: Mail) {
       headers: {
         authorization: `Bearer ${key}`,
         "content-type": "application/json",
-        "idempotency-key": `life/${id}`,
+        "idempotency-key": `life/${digest("sha256", keys.join(" "), 32)}`,
       },
       method: "POST",
       signal: AbortSignal.timeout(30_000),
@@ -362,13 +377,15 @@ export async function sendReport(id: string, mail: Mail) {
     if (!(res.ok && body.id)) {
       throw new Error(`Resend ${res.status}: ${body.message ?? "no id"}`);
     }
-    log("email.sent", { id: body.id, key: id, subject: mail.subject });
-    sent?.add(id);
+    for (const k of keys) {
+      log("email.sent", { id: body.id, key: k, subject: mail.subject });
+      sent?.add(k);
+    }
     return body.id;
   } catch (e) {
     log("run.error", {
       error: (e as Error).message,
-      step: `email.${id.split("/")[0]}`,
+      step: `email.${keys[0]?.split("/")[0]}`,
     });
     return null;
   }

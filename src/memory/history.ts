@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import { z } from "zod";
 import { STORES } from "../archive";
 import { polling, readHealth } from "../health";
+import type { Quota } from "../llm";
 import {
   LOG_DIR,
   type LogEvent,
@@ -288,6 +289,8 @@ export async function lifeStatus(now = new Date()) {
   const night = readState();
   const middaySlot = readMidday();
   const events = await recentEvents(STATUS_DAYS);
+  // The tick reads the quota every 30 minutes: its last reading (an unread one has no figures) says whether middays wait.
+  const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
   const archive = (name: string) => dbTime(archiveDb(name));
@@ -315,7 +318,7 @@ export async function lifeStatus(now = new Date()) {
     lookbackDays: STATUS_DAYS,
     midday: {
       ...lastOf(list, "memory.midday"),
-      next: nextMidday(now, middaySlot),
+      next: nextMidday(now, middaySlot, quota),
       slotSpentAt: middaySlot ?? null,
     },
     nightly: {

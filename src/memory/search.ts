@@ -50,7 +50,7 @@ import {
   parsePage,
   renderLine,
 } from "./page";
-import { asData, chatHits, holdsAll } from "./raw";
+import { asData, chatHits, focus, holdsAll } from "./raw";
 import { actionLine } from "./report";
 import {
   clip,
@@ -102,7 +102,7 @@ const momentsWhere = async (keep: (m: Moment) => boolean) => {
 };
 const DAY_FACTS = 15;
 const VOICE_LIMIT = 20;
-const VOICE_MAX = 600;
+const VOICE_MAX = 300;
 const QUOTE_MAX = 140;
 const TITLE_MAX = 50;
 const WORD = /[\p{L}\p{N}]+/gu;
@@ -305,7 +305,7 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
               h.jobId,
               h.firstTurn
             );
-            return `- ${h.conversationId} ${at} turn ${turn}: ${clip(redact(h.text.replace(/\s*\n\s*/g, " / ")), VOICE_MAX)}`;
+            return `- ${h.conversationId} ${at} turn ${turn}: ${focus(redact(h.text), words, VOICE_MAX).replace(/\s*\n\s*/g, " / ")}`;
           })
         : ["(nothing found)"]
     );
@@ -335,7 +335,7 @@ export async function search(words: string, o: Days = {}) {
       : []),
     ...matches(db, words, o),
     "",
-    "Voice (exact spoken words; conversation id, time, turn: `fetch <id> --from-turn <turn>`):",
+    `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
     ...voice,
     "",
     "Chats and notes (messages and note versions holding all the words, with the ones around them; each heading says where to read more):",
