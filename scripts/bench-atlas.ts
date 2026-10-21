@@ -19,7 +19,7 @@ import { askOnce, llmFor, readEngine } from "../src/llm";
 import { recentEvents } from "../src/log";
 import { buildServer } from "../src/mcp";
 import { spareQuota } from "../src/memory/guard";
-import { ACTIONS, linesOf, runId } from "../src/memory/ledger";
+import { ACTIONS, linesOf, OUT, runId } from "../src/memory/ledger";
 import { judge, tally } from "../src/memory/tally";
 import { zoneAt } from "../src/memory/zones";
 import { exec, git } from "../src/proc";
@@ -68,6 +68,7 @@ interface Call {
 }
 
 const MINUTE_MS = 60_000;
+const ERROR_LINE = /^error: .*$/m;
 
 /** Does `args` hold every `want`ed argument: a string as a case-blind part, anything else as equal JSON? */
 export function holds(
@@ -172,7 +173,7 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
   });
   if (index.code !== 0) {
     throw new Error(
-      `index: ${index.stderr.match(/^error: .*$/m)?.[0] ?? index.stderr.trim().slice(-300)}`
+      `index: ${index.stderr.match(ERROR_LINE)?.[0] ?? index.stderr.trim().slice(-300)}`
     );
   }
   const event = {
@@ -199,12 +200,12 @@ async function runCase(
     engine: Engine;
     lines: string[];
     run: string;
-    tmp: string;
   }
 ) {
   const started = performance.now();
   const world = await freeze(c, o.lines, o.code, o.data);
-  const dir = join(o.tmp, "runs", c.id);
+  // Kept, like an eval's: what the agent and the judge read and answered.
+  const dir = join(OUT, "bench-atlas", o.run, c.id);
   const answer = (await askOnce({
     context: { now: stated(world.at) },
     dir,
@@ -314,7 +315,6 @@ async function bench(file: string, only: string[], engine: Engine) {
         engine,
         lines,
         run,
-        tmp,
       }).catch((e: Error) => ({ error: e.message, id: c.id }));
       rows.push(row);
       console.error(`${c.id}: ${"checks" in row ? "done" : row.error}`);
