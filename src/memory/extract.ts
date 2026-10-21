@@ -307,9 +307,10 @@ export function shownFor<O extends Observation>(
     if (fading(o)) {
       return false;
     }
+    // `known` shows (`shownOf`): active, or retired.
     const s = stateOf(o, standing);
     if (s.state !== "retired") {
-      return s.state === "active";
+      return true;
     }
     const by = byId.get(s.by);
     return !by || fading(by);

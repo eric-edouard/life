@@ -355,4 +355,10 @@ test("what extraction may show: none from a unit read again but what he rated tr
   expect(shown([["elsewhere", "unrated"]], [])).toEqual(["rated", "unrated"]);
   expect(shown([["elsewhere", "rated"]], [U1])).toEqual(["rated"]);
   expect(shown([["elsewhere", "elsewhere"]], [U1])).toEqual(["rated"]);
+  // Retired by a fact that no longer shows (hidden by his correction): offered again.
+  expect(shown([["elsewhere", "obs_gone"]], [])).toEqual([
+    "rated",
+    "unrated",
+    "elsewhere",
+  ]);
 });
