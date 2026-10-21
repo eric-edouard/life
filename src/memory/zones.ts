@@ -53,9 +53,9 @@ export function wall(iso: string, tz = zoneAt(iso)) {
   return { day, hms };
 }
 
-/** The instant local `date` starts in `tz`, by default where he was then (`cutAt` keeps that one instant). */
-export function dayStart(date: string, tz?: string) {
-  const utc = Date.parse(`${date}T00:00:00Z`);
+/** The instant local `date` starts (or reaches `hm`, "HH:MM") in `tz`, by default where he was then (`cutAt` keeps that one instant). */
+export function dayStart(date: string, tz?: string, hm = "00:00") {
+  const utc = Date.parse(`${date}T${hm}:00Z`);
   const offset = (at: number) => {
     const iso = new Date(at).toISOString();
     const { day, hms } = wall(iso, tz ?? zoneAt(iso));
