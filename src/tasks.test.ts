@@ -256,6 +256,10 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
       .map((e) => e.key)
       .filter((k) => k.includes("act_0000000c4a"));
     expect(keys).toHaveLength(3);
+    // No live subscription: one email for all the open tasks, once a day.
+    await chase(tasks, T0 + 52 * MIN, false);
+    await chase(tasks, T0 + 53 * MIN, false);
+    expect(subjects.slice(2)).toEqual(["Life · Atlas isn't receiving asks"]);
   } finally {
     post.mockRestore();
     process.env = env;
