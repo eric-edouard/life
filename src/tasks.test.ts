@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
-import { ACTIONS, appendJsonl, linesOf } from "./memory/ledger";
+import {
+  ACTIONS,
+  appendJsonl,
+  linesOf,
+  type Task,
+  tasksOf,
+} from "./memory/ledger";
 import { planOf } from "./reminders/board";
 import type { Reminder } from "./reminders/remctl";
 import { Action } from "./schema";
@@ -17,8 +23,6 @@ import {
   reply,
   sealed,
   standing,
-  type Task,
-  tasksOf,
   timings,
   type Update,
   unanswered,

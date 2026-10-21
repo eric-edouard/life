@@ -1,9 +1,10 @@
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
+import { isReviewCall } from "../events";
 import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
-import { type Call, isReviewCall, log, recentEvents } from "../log";
+import { type Call, log, recentEvents } from "../log";
 import { checks } from "../reminders/remctl";
 import {
   type Action,
@@ -42,6 +43,7 @@ import {
   failureReport,
   lockReport,
   type Mail,
+  reportKey,
   sendReport,
   successReport,
 } from "./report";
@@ -269,7 +271,7 @@ async function sweep(
   const phase = phases(rec);
   try {
     phase.at = "gather";
-    const evidence = await gather(window);
+    const evidence = await gather(window, await readPeople());
     const found = await phase.step("moments", () => moments(evidence));
     console.log(JSON.stringify(found));
     const extracted = await phase.step("extract", () => extract(evidence));
@@ -388,7 +390,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Every source is read once and handed to each step.
     phase.at = "gather";
     const watcher = readHealth();
-    const evidence = await gather(window);
+    const evidence = await gather(window, await readPeople());
     const found = await phase.step("moments", () => moments(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
@@ -435,7 +437,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   const { attempts } = recordState(day, !failure);
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
-    const id = await sendReport(`nightly/${rec.run}`, mail);
+    const id = await sendReport(reportKey(rec.run), mail);
     console.log(id ? `report emailed: ${id}` : "report email not sent");
   }
   return failure ? 1 : 0;

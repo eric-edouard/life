@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import { grantRefusal } from "../actions";
 import { action } from "../memory/fixtures";
+import { tasksOf } from "../memory/ledger";
 import { type Action, Action as ActionLine } from "../schema";
-import { closings, tasksOf } from "../tasks";
+import { closings } from "../tasks";
 import { marks } from "./board";
 import { inbound } from "./inbound";
 import type { Reminder, Snapshot } from "./remctl";

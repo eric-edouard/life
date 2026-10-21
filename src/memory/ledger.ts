@@ -15,7 +15,9 @@ import {
   Correction,
   Extracted,
   FileEntry,
+  Imported,
   InferredPerson,
+  type Instruction,
   MemoryLabel,
   Moment,
   Observation,
@@ -68,6 +70,7 @@ export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
 export const REPOS_INFERRED = join(MEMORY, "repos-inferred.jsonl");
+export const IMPORTED = join(MEMORY, "imported.jsonl");
 export const ACTIONS = join(MEMORY, "actions.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");
 const VERDICTS = join(MEMORY, "verdicts.jsonl");
@@ -410,12 +413,47 @@ export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
 
 export const readActions = () => rowsOf(ACTIONS, Action);
 
+/** One actions ledger line, null for a blank one. */
+export const parseAction = (line: string) =>
+  line ? Action.parse(JSON.parse(line)) : null;
+
+export interface Task {
+  ask: Action & { instruction: Instruction };
+  /** Its own lines in ledger order. */
+  lines: Action[];
+}
+
+/** The actions ledger as Atlas's tasks (tasks.ts): each ask with its own lines. */
+export function tasksOf(lines = linesOf(ACTIONS)) {
+  const tasks = new Map<string, Task>();
+  for (const a of lines.map(parseAction)) {
+    if (a?.kind === "ask" && a.instruction) {
+      tasks.set(a.id, { ask: { ...a, instruction: a.instruction }, lines: [] });
+    } else if (a) {
+      tasks.get(a.target)?.lines.push(a);
+    }
+  }
+  return [...tasks.values()];
+}
+
+/** Atlas's last update of a task: where it stands (`standing`, tasks.ts), and its outcome once done. */
+export const lastUpdate = (t: Task) =>
+  t.lines.findLast((l) => l.kind === "update");
+
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 
 /** Life's repo guesses: the latest record for each repo wins. */
 export const readRepoGuesses = () => [
   ...latestBy(rowsOf(REPOS_INFERRED, RepoGuess), (g) => g.repo).values(),
 ];
+
+/** The imported conversations the import step kept (`<source>:<id>`, a unit's key): the latest line for each wins. */
+export const keptConversations = () =>
+  new Set(
+    [
+      ...latestBy(rowsOf(IMPORTED, Imported), (i) => i.conversation).values(),
+    ].flatMap((i) => (i.keep ? [i.conversation] : []))
+  );
 
 /** The owner's labels: the latest one for each unit wins. */
 export const readLabels = () => [

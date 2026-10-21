@@ -14,7 +14,7 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { handleIndex, handlesOf, OWNER, ownerIn } from "../truth";
+import { handlesOf, OWNER, ownerIn } from "../truth";
 import { readRepoGuesses, readUnits } from "./ledger";
 import type { Line } from "./observe";
 import {
@@ -27,18 +27,19 @@ import {
   LIFE_CHAT,
   lifelogNames,
   localTime,
-  nameIndex,
   newestDays,
   normalize,
   oneToOne,
-  personRef,
+  type Resolve,
   SEARCHED,
   SEARCHED_MAIL,
   searchableMail,
+  speakerOf,
   time,
+  UNKNOWN,
   unitTitle,
 } from "./units";
-import { meant, type People, readPeople, UNKNOWN } from "./who";
+import { meant, type People, readPeople } from "./who";
 import { localDate } from "./zones";
 
 // The words of units: for the memory steps (`voiceLines`, `chatLines`), and on demand for `bun life memory fetch|chats` and the Chats section of `search`: Life stores no transcript text, so the spoken words are fetched
@@ -93,19 +94,19 @@ export async function transcripts(turns: ChapterTurn[]) {
 }
 
 /** The lines of a chat-day or mail thread-day, each cited to its message id. */
-export function chatLines(
-  b: Built,
-  resolve: (surface: string) => string | null
-): Line[] {
+export function chatLines(b: Built, resolve: Resolve): Line[] {
   const name = oneToOne(b);
+  const kind = kindOf(b.unit.source);
   return b.messages.map((m) => {
-    const speaker = m.who ? `person:${m.who}` : resolve(m.sender);
+    const speaker = speakerOf(kind, m, resolve);
+    // An agent's line keeps no handle, so it is never resolved to a person when read (`aboutNow`).
+    const from = m.fromMe || kind === "agent" ? {} : { from: m.sender };
     return {
       at: m.at,
-      ...(m.fromMe ? {} : { from: m.sender }),
+      ...from,
       ref: m.id,
-      speaker: speaker ?? `${UNKNOWN}${m.sender}`,
-      ...(!speaker && name ? { speakerName: name } : {}),
+      speaker,
+      ...(speaker.startsWith(UNKNOWN) && name ? { speakerName: name } : {}),
       text: redact(m.text),
     };
   });
@@ -121,7 +122,7 @@ const fromOf = (t: ChapterTurn) => {
 export function voiceLines(
   turns: ChapterTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
-  names: Map<string, string | null>
+  resolve: Resolve
 ): Line[] {
   return turns.flatMap((t) => {
     const turn = jobs.get(t.jobId)?.[t.turnIndex];
@@ -136,7 +137,7 @@ export function voiceLines(
         at: t.at,
         ...fromOf(t),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
-        speaker: t.name ? personRef(t.name, names) : unnamed,
+        speaker: t.name ? (resolve(t.name) ?? `${UNKNOWN}${t.name}`) : unnamed,
         text: redact(turn.text),
       },
     ];
@@ -150,7 +151,7 @@ export function voiceLines(
 export async function unitLines(unit: Unit, { resolve, truth }: People) {
   const built = builtFor(
     unit,
-    handleIndex(truth.people),
+    resolve,
     repoMap(truth, await readRepoGuesses()),
     ownerIn(truth.people)
   );
@@ -217,11 +218,7 @@ export async function fetchOf(
     );
     total = turns.length;
     const shown = turns.slice(fromTurn, fromTurn + limit);
-    lines = voiceLines(
-      shown,
-      await transcripts(shown),
-      nameIndex(truth.people)
-    );
+    lines = voiceLines(shown, await transcripts(shown), people.resolve);
     if (shown.length > 0 && lines.length === 0) {
       return asData([
         head,

@@ -23,15 +23,15 @@ import {
   lifelogUnits,
   MARKED,
   messageUnits,
-  nameIndex,
   normalizeTopics,
   oneToOne,
-  personRef,
   repoUnits,
+  speakerOf,
   syncLifelogUnits,
   unitId,
   writeUnits,
 } from "./units";
+import { resolver, unitNow } from "./who";
 import { cutAt, dayStart, firstZoneDay, zoneAt } from "./zones";
 
 const people = [
@@ -100,11 +100,11 @@ const conversation: LifelogConversation = {
 };
 
 test("unit ids are stable and hashes follow the content", () => {
-  const [a] = messageUnits([msg({})], new Map());
-  const [b] = messageUnits([msg({})], new Map());
+  const [a] = messageUnits([msg({})], () => null);
+  const [b] = messageUnits([msg({})], () => null);
   const [edited] = messageUnits(
     [msg({ text: "Call the plumber tomorrow" })],
-    new Map()
+    () => null
   );
   expect(a?.unit.id).toMatch(UNIT_ID);
   expect(a?.unit.id).toBe(b?.unit.id as string);
@@ -114,8 +114,8 @@ test("unit ids are stable and hashes follow the content", () => {
   expect(unitId("x", "y")).not.toBe(unitId("x", "z"));
 });
 
-test("a chat-day groups one chat's messages of one day, names known senders and keeps only refs", () => {
-  const handles = new Map([["+33600000002", "dad"]]);
+test("a chat-day groups one chat's messages of one day, names known senders in its text, keeps its senders unresolved and only refs", () => {
+  const handles = (s: string) => (s === "+33600000002" ? "person:dad" : null);
   const built = messageUnits(
     [
       msg({ id: "beeper:!chat/1" }),
@@ -137,27 +137,37 @@ test("a chat-day groups one chat's messages of one day, names known senders and 
   expect(built).toHaveLength(2);
   const day = built[0]?.unit;
   expect(day?.refs).toEqual(["beeper:!chat/1", "beeper:!chat/2"]);
-  expect(day?.people).toEqual(["person:dad", "person:me"]);
+  expect(day?.people).toEqual(["person:me", "unknown:+33600000002"]);
   expect(day?.stats).toEqual({ chars: 40, fromMe: 1, items: 2 });
   expect(day?.summary).toBeUndefined();
   expect(built[0]?.text).toContain("dad: Can you call the plumber today?");
 });
 
+test("a unit keeps its senders unresolved whoever they resolve to now (a reader maps them), a note's none, and its hash never moves", () => {
+  const [unknown] = messageUnits([msg({})], () => null);
+  const [known] = messageUnits([msg({})], () => "person:inf-plumber");
+  const [mail] = messageUnits([msg({ source: "mail" })], () => null);
+  const [note] = messageUnits([msg({ source: "notes" })], () => null);
+  expect(known?.unit.people).toEqual(["unknown:+33600000002"]);
+  expect(known?.text).toContain("inf-plumber: ");
+  expect(mail?.unit.people).toEqual(["unknown:+33600000002"]);
+  expect(note?.unit.people).toEqual([]);
+  expect(known?.unit.hash).toBe(unknown?.unit.hash as string);
+});
+
 test("the same chat content seen twice hashes the same and the second unit is dropped as a duplicate", () => {
   const once = messageUnits(
     [msg({ chat: "+33600000002", id: "imessage:A", source: "imessage" })],
-    new Map()
+    () => null
   );
-  const again = messageUnits([msg({})], new Map());
+  const again = messageUnits([msg({})], () => null);
   const [first, second] = applyRules([...once, ...again]);
   expect(first?.unit.drop).toBeUndefined();
   expect(second?.unit.drop).toBe("duplicate");
 });
 
-test("lifelog chapters become units with lifelog's summary, turn refs and resolved people", () => {
-  const units = lifelogUnits([conversation], nameIndex(people)).map(
-    (b) => b.unit
-  );
+test("lifelog chapters become units with lifelog's summary, turn refs and its names unresolved", () => {
+  const units = lifelogUnits([conversation]).map((b) => b.unit);
   expect(units).toHaveLength(2);
   expect(units[0]?.refs).toEqual([
     "00000000-0000-8000-8000-01a1210b4bdf#chapter-1",
@@ -165,32 +175,28 @@ test("lifelog chapters become units with lifelog's summary, turn refs and resolv
   ]);
   expect(units[0]?.id).toBe(unitId("lifelog", "chapter-1"));
   expect(units[0]?.stats.items).toBe(10);
-  expect(units[0]?.people).toEqual(["person:me", "unknown:Gaston"]);
+  expect(units[0]?.people).toEqual(["unknown:Jean (Me)", "unknown:Gaston"]);
   expect(units[0]?.end).toBe("2026-10-09T10:20:00.000Z");
   expect(units[1]?.end).toBe(conversation.endedAt);
   expect(units[0]?.summary).toBe("Jean and Gaston list the shop repairs.");
-  const unsummarized = lifelogUnits(
-    [{ ...conversation, chapters: [], state: "transcribed" }],
-    nameIndex(people)
-  );
+  const unsummarized = lifelogUnits([
+    { ...conversation, chapters: [], state: "transcribed" },
+  ]);
   expect(applyRules(unsummarized)[0]?.unit.drop).toBe("no-summary");
 });
 
 test('a chapter he marked "hey Life" says so in its text, so only its hash moves, and keeps the marked refs', () => {
-  const [plain, other] = lifelogUnits([conversation], nameIndex(people));
+  const [plain, other] = lifelogUnits([conversation]);
   const [first] = conversation.chapters;
-  const [marked, same] = lifelogUnits(
-    [
-      {
-        ...conversation,
-        chapters: [
-          { ...(first as LifelogChapter), marked: ["j:1@a"] },
-          ...conversation.chapters.slice(1),
-        ],
-      },
-    ],
-    nameIndex(people)
-  );
+  const [marked, same] = lifelogUnits([
+    {
+      ...conversation,
+      chapters: [
+        { ...(first as LifelogChapter), marked: ["j:1@a"] },
+        ...conversation.chapters.slice(1),
+      ],
+    },
+  ]);
   expect(marked?.unit.marked).toEqual(["j:1@a"]);
   expect(marked?.text).toEndWith(MARKED);
   expect(marked?.unit.hash).not.toBe(plain?.unit.hash);
@@ -198,13 +204,13 @@ test('a chapter he marked "hey Life" says so in its text, so only its hash moves
 });
 
 test("names: aliases resolve, parentheses are ignored, a shared name resolves to nobody", () => {
-  const index = nameIndex([
+  const resolve = resolver([
     ...people,
     { ...people[1], aliases: [], id: "other", name: "Pops" } as Person,
   ]);
-  expect(personRef("Jean (Me)", index)).toBe("person:me");
-  expect(personRef("Jean Senior", index)).toBe("person:dad");
-  expect(personRef("Pops", index)).toBe("unknown:Pops");
+  expect(resolve("Jean (Me)")).toBe("person:me");
+  expect(resolve("Jean Senior")).toBe("person:dad");
+  expect(resolve("Pops")).toBeNull();
 });
 
 test("the code rules drop login codes, newsletters and near-empty days, and keeps real messages", () => {
@@ -229,9 +235,9 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           text: "Your verification code is 482913",
         }),
       ],
-      new Map()
+      () => null
     ),
-    ...messageUnits([mail({}, true)], new Map()),
+    ...messageUnits([mail({}, true)], () => null),
     ...messageUnits(
       [
         mail(
@@ -244,7 +250,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           true
         ),
       ],
-      new Map()
+      () => null
     ),
     ...messageUnits(
       [
@@ -258,11 +264,14 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           true
         ),
       ],
-      new Map()
+      () => null
     ),
-    ...messageUnits([msg({ chat: "short", id: "b:2", text: "ok" })], new Map()),
-    ...messageUnits([msg({ chat: "real", id: "b:3" })], new Map()),
-    ...messageUnits([msg({ chat: LIFE_CHAT, id: "b:4" })], new Map()),
+    ...messageUnits(
+      [msg({ chat: "short", id: "b:2", text: "ok" })],
+      () => null
+    ),
+    ...messageUnits([msg({ chat: "real", id: "b:3" })], () => null),
+    ...messageUnits([msg({ chat: LIFE_CHAT, id: "b:4" })], () => null),
   ]);
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
     "one-time-code",
@@ -325,7 +334,7 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
           "Are you free on Friday evening?"
         ),
       ],
-      new Map()
+      () => null
     )
   );
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
@@ -339,7 +348,7 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
 });
 
 test("a 1:1 chat's title names its unknown member; a group or a mail thread names nobody", () => {
-  const handles = new Map<string, string>();
+  const handles = () => null;
   const [one] = messageUnits(
     [msg({ chatName: "Anne-Sophie", sender: "@line_x:beeper.local" })],
     handles
@@ -468,7 +477,7 @@ test("a day read again in another country keeps its local dates, times and unit 
           process.env.TZ = tz;
           const [b] = messageUnits(
             [msg({ at, source: "whatsapp" })],
-            new Map()
+            () => null
           );
           return { date: b?.unit.date, id: b?.unit.id, line: b?.text };
         }
@@ -577,12 +586,53 @@ test("a conversation from 23:40 to 00:30 at the window start is read whole: its 
     })
   );
   expect(
-    lifelogUnits(
-      readConversations(store, dayStart("2026-10-15")),
-      new Map()
-    ).map((b) => [b.unit.date, b.unit.start])
+    lifelogUnits(readConversations(store, dayStart("2026-10-15"))).map((b) => [
+      b.unit.date,
+      b.unit.start,
+    ])
   ).toEqual([
     ["2026-10-14", "2026-10-14T21:40:00.000Z"],
     ["2026-10-15", "2026-10-14T22:10:00.000Z"],
   ]);
+});
+
+test("who wrote a message, for every kind: him, an agent's own line, whom the resolver names, else unknown", () => {
+  const named = (s: string) => (s === "+33600000002" ? "person:dad" : null);
+  const of = (
+    kind: Parameters<typeof speakerOf>[0],
+    sender: string,
+    fromMe = false
+  ) => speakerOf(kind, { fromMe, sender }, named);
+  expect([
+    of("chat", "me", true),
+    of("chat", "+33600000002"),
+    of("mail", "a@b.c"),
+    of("agent", "atlas"),
+    of("agent", "+33600000002"),
+  ]).toEqual([
+    "person:me",
+    "person:dad",
+    "unknown:a@b.c",
+    "agent:atlas",
+    "agent:+33600000002",
+  ]);
+});
+
+test("a reader sees a unit's stored senders as whom they resolve to today, a mail's unknown senders left out", () => {
+  const resolve = resolver(people);
+  const refOf = (r: string) =>
+    r.startsWith("unknown:") ? (resolve(r.slice(8)) ?? r) : r;
+  const [chat] = messageUnits(
+    [msg({}), msg({ id: "b:2", sender: "+66600000009" })],
+    () => null
+  );
+  const [mail] = messageUnits(
+    [msg({ sender: "news@shop.example", source: "mail" })],
+    () => null
+  );
+  expect(chat && unitNow(chat.unit, refOf).people).toEqual([
+    "person:dad",
+    "unknown:+66600000009",
+  ]);
+  expect(mail && unitNow(mail.unit, refOf).people).toEqual([]);
 });
