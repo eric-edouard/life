@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
 import { clock } from "./clock";
-import { subscribed } from "./events";
+import { agentLive } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
 import {
   ACTIONS,
@@ -480,12 +480,8 @@ export const nameOf = (t: Task) =>
  * Emails him what newly needs him, one email a pass, each key once (`sendReport`): a lapsed subscription alone, else
  * every task with a new cause (one that goes silent again after an update is new).
  */
-export async function chase(
-  tasks: Task[],
-  now: number,
-  live = subscribed(now)
-) {
-  const due = alerts(tasks, now, live);
+export async function chase(tasks: Task[], now: number, live?: boolean) {
+  const due = alerts(tasks, now, live ?? (await agentLive(now)));
   const fresh = new Set(await unsent(due.map((a) => a.key)));
   const news = due.filter((a) => fresh.has(a.key));
   const [first] = news;

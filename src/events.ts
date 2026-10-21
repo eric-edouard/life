@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, unfrozen } from "./clock";
-import { type Call, log } from "./log";
+import { type Call, log, recentEvents } from "./log";
 import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { agentName, settings } from "./settings";
@@ -270,6 +270,29 @@ export function nextEvent(lines: string[], from: number) {
     }
   }
   return null;
+}
+
+/** How long a pulling agent may go without reading `tasks` before Life says it isn't receiving asks. */
+const PULL_MS = 24 * 3_600_000;
+
+/**
+ * Whether his asks reach his agent now: for one they are pushed to, a live subscription; for one that pulls them, a
+ * `tasks` call of its own in the last day (`calls`: the connector's log).
+ */
+export async function agentLive(
+  now: number,
+  calls = () => recentEvents<Call>(2, "mcp.call")
+) {
+  if (settings().agent?.transport !== "pull") {
+    return subscribed(now);
+  }
+  return (await calls()).some(
+    (e) =>
+      e.tool === "tasks" &&
+      !e.error &&
+      clientName(e.agent) === AGENT &&
+      now - Date.parse(e.at) < PULL_MS
+  );
 }
 
 /** Whether Atlas holds a subscription that has not expired (a retry may wait). */
