@@ -1,11 +1,19 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { appendJsonl, IMPORTED, keptConversations } from "../memory/ledger";
 import { applyRules, messageUnits } from "../memory/units";
 import { Imported } from "../schema";
-import { FORMATS, formatOf, kept, pruned, readAssistant } from "./assistants";
+import {
+  FORMATS,
+  formatOf,
+  importOf,
+  kept,
+  newestAssistant,
+  pruned,
+  readAssistant,
+} from "./assistants";
 
 // Made-up exports in the published shapes: claude.ai's chat_messages, ChatGPT's mapping tree.
 
@@ -201,4 +209,18 @@ test("his pruned messages are read; only the conversations the import kept becom
     },
   ]);
   expect(unit()?.drop).toBeUndefined();
+});
+
+test("the status card shows his newest imported message once an export is in", () => {
+  expect(newestAssistant("chatgpt")).toEqual({
+    at: null,
+    facts: [{ label: "Conversations", value: "0" }],
+  });
+  const to = importOf("chatgpt");
+  mkdirSync(dirname(to), { recursive: true });
+  writeFileSync(to, JSON.stringify(chatgptExport));
+  expect(newestAssistant("chatgpt")).toEqual({
+    at: new Date(1_772_000_100_000).toISOString(),
+    facts: [{ label: "Conversations", value: "1" }],
+  });
 });

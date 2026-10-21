@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { SourceEvent } from "../schema";
 import { DATA } from "../truth";
+import type { Newest } from ".";
 
 // His conversations with AI assistants, from the one-time exports of claude.ai and ChatGPT (~/Life/docs/
 // claude-import-scope-2026-10-21.md): his own messages only, pruned by code. An export is copied once to
@@ -209,6 +210,12 @@ export function pruned(all: Conversation[]) {
   });
 }
 
+/** An export as read: how many conversations it holds, and its conversations pruned. */
+export function parsedExport(source: Assistant, json: unknown) {
+  const all = FORMATS[source].parse(json);
+  return { all: all.length, conversations: pruned(all) };
+}
+
 /** Where an assistant's export is kept in his data. */
 export const importOf = (source: Assistant, data = DATA) =>
   join(data, "imports", source, "conversations.json");
@@ -227,8 +234,9 @@ export function conversationsOf(source: Assistant, path = importOf(source)) {
   }
   const { mtimeMs } = statSync(path);
   if (memo.get(path)?.mtime !== mtimeMs) {
-    const conversations = pruned(
-      FORMATS[source].parse(JSON.parse(readFileSync(path, "utf8")))
+    const { conversations } = parsedExport(
+      source,
+      JSON.parse(readFileSync(path, "utf8"))
     );
     memo.set(path, { conversations, mtime: mtimeMs });
   }
@@ -259,3 +267,16 @@ export const readAssistant =
       )
       .filter((e) => e.at >= since.toISOString())
       .sort((a, b) => a.at.localeCompare(b.at));
+
+/** The status page's card: when his newest imported message was, and how many conversations were imported. */
+export function newestAssistant(source: Assistant): Newest {
+  const conversations = conversationsOf(source);
+  return {
+    at:
+      conversations
+        .flatMap((c) => c.messages.map((m) => m.at))
+        .sort()
+        .at(-1) ?? null,
+    facts: [{ label: "Conversations", value: String(conversations.length) }],
+  };
+}
