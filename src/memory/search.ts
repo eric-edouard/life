@@ -839,7 +839,7 @@ async function dueContext(date: string, truth: Truth) {
     kind: "reminder" as const,
     line: `- ${key} reminder: "${f.title}"${f.due ? ` (for ${f.due})` : ""}${f.list ? ` in ${f.list}` : ""}`,
     obs: ref?.startsWith("obs_") ? ref : undefined,
-    priority: f.priority as string | undefined,
+    priority: (f.priority as string | null) ?? undefined,
     urgent: Boolean(f.urgent || f.flagged),
     when: f.due ? `${f.due}`.slice(0, 10) : undefined,
   }));
