@@ -54,8 +54,9 @@ const instant = (local: string) => {
   const [day = "", hm] = local.split(" ");
   return dayStart(day, undefined, hm).toISOString();
 };
-const ended = (allDay: boolean, to: string) =>
-  (allDay ? dayStart(to) : new Date(to)).getTime();
+/** An event's edge as an instant: a day's start in his zone then, or the instant itself. */
+const at = (allDay: boolean, edge: string) =>
+  (allDay ? dayStart(edge) : new Date(edge)).getTime();
 
 /** When a moment was: its timed start to its end (an hour when the sources don't say), else whole days. */
 function span(m: Moment) {
@@ -75,9 +76,6 @@ function span(m: Moment) {
   return { allDay: false, from, to };
 }
 
-const begun = (allDay: boolean, from: string) =>
-  (allDay ? dayStart(from) : new Date(from)).getTime();
-
 /**
  * Moments never overlap on the calendar (his rule, 21 Oct): of the timed and multi-day ones, one that covers another (a
  * stay, a trip) is left off, and one that runs into the next ends where it starts (a multi-day one is never cut). A
@@ -89,7 +87,7 @@ export function tiled<T extends { allDay: boolean; from: string; to: string }>(
   const band = (x: T) => x.allDay && x.to === nextDay(x.from);
   const ms = spans
     .filter((x) => !band(x))
-    .map((x) => ({ e: ended(x.allDay, x.to), s: begun(x.allDay, x.from), x }));
+    .map((x) => ({ e: at(x.allDay, x.to), s: at(x.allDay, x.from), x }));
   const kept = ms
     .filter(
       (a) =>
@@ -113,14 +111,14 @@ export function tiled<T extends { allDay: boolean; from: string; to: string }>(
   ];
 }
 
-/** The events the calendar should hold: every moment that happened and ended (`SETTLE` ago) by `now`, oldest first, none overlapping. */
+/** The events the calendar should hold: every moment that happened and ended (`SETTLE` ago) by `now`, none overlapping. */
 export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
   return tiled(
     moments
       .filter((m) => m.status === "happened")
       .map((m) => ({ m, ...span(m) }))
   )
-    .filter(({ allDay, to }) => ended(allDay, to) + SETTLE <= now.getTime())
+    .filter(({ allDay, to }) => at(allDay, to) + SETTLE <= now.getTime())
     .map(({ m, ...when }) => {
       const units = m.units.flatMap((id) => k.units.get(id) ?? []);
       const noted = [
