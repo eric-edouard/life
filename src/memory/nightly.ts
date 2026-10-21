@@ -77,7 +77,7 @@ export const reviewed = async (now: Date) =>
   );
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
-async function acted(now: Date, rec: RunRecord) {
+async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   const problems = await checks();
   if (!(await reviewed(now))) {
     problems.push("no daily review reached Life in the last 24 h");
@@ -119,7 +119,7 @@ async function acted(now: Date, rec: RunRecord) {
 }
 
 /** Yesterday's Code rows. Never fails the night: a failure is logged and there are no rows. */
-function coded(day: string, rec: RunRecord) {
+function coded(day: string, rec: Pick<RunRecord, "error">) {
   return codeOn(daysBefore(day, 1)).catch((e: Error) => {
     rec.error(e.message, { step: "memory.nightly.code" });
     return [];
