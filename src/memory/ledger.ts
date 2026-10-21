@@ -175,21 +175,18 @@ export const liveUnits = (units: Unit[]) =>
   new Set(units.flatMap((u) => (u.drop ? [] : [u.id])));
 
 /**
- * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), the
- * unit has none, or he rated `o` true, now or then (`rated`): a unit read again, under another content hash or another
- * prompt version, leaves its older facts in the ledger, replaced, except those he rated so, which only a newer
- * observation retires; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
+ * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), or
+ * the unit has none: a unit read again, under another content hash or another prompt version, leaves its older facts
+ * in the ledger, replaced; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
-  { latest, live, rated }: Pick<Standing, "latest" | "live" | "rated">,
+  { latest, live }: Pick<Standing, "latest" | "live">,
   o: Observation
 ) {
   const l = latest.get(o.unit);
   return (
     live.has(o.unit) &&
-    (!l ||
-      (l.unitHash === o.madeBy.unitHash && l.run === o.madeBy.run) ||
-      rated.has(o.id))
+    (!l || (l.unitHash === o.madeBy.unitHash && l.run === o.madeBy.run))
   );
 }
 
@@ -227,14 +224,6 @@ export const retiredBy = (list: Retirement[], current: Set<string>) => {
 export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.claim);
 
 export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
-
-/** The claims his latest answer calls true, now or then (`outdated`): an undo or a later answer lifts one. */
-export const ratedTrue = (latest: Map<string, Rating>) =>
-  new Set(
-    [...latest.values()].flatMap((r) =>
-      r.answer === "true" || r.answer === "outdated" ? [r.claim] : []
-    )
-  );
 
 /** The claims his latest answer calls false, as `wrong` corrections: an undo or a later answer lifts one. */
 export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
@@ -279,8 +268,6 @@ export interface Standing {
   corrections: Correction[];
   latest: Map<string, Extracted>;
   live: Set<string>;
-  /** What he rated true, now or then (his latest answer): a re-read of its unit does not replace it. */
-  rated: Set<string>;
   retired: Map<string, Retirement>;
 }
 
@@ -292,16 +279,11 @@ export async function readStanding(
   const [units, observations] = await Promise.all([readUnits(), read]);
   const extracted = rowsOf(EXTRACTED, Extracted);
   const supersessions = rowsOf(SUPERSESSIONS, Supersession);
-  const ratings = readRatings();
-  const c = {
-    latest: latestExtractions(extracted),
-    live: liveUnits(units),
-    rated: ratedTrue(ratings),
-  };
+  const c = { latest: latestExtractions(extracted), live: liveUnits(units) };
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
   );
-  const retirements = [...supersessions, ...ratedOutdated(ratings)];
+  const retirements = [...supersessions, ...ratedOutdated(readRatings())];
   return { corrections, ...c, retired: retiredBy(retirements, current) };
 }
 
@@ -332,7 +314,7 @@ export const hiding = (corrections: Correction[], id: string) =>
 /**
  * Where an observation stands: the one rule the index, the pages and the dashboard go by. First match wins: `hidden`
  * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
- * `replaced` (its unit was read again and the newer extraction counts, unless he rated it true), `retired` (a newer observation superseded it, or he rated it outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
+ * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he rated it outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
  * its quote checked against the source: `active` does not mean verified.
  */
@@ -382,15 +364,9 @@ export const shows = (s: State, page?: string) =>
   (s.state === "active" || s.state === "retired") &&
   !(page && s.hiddenOn.includes(page));
 
-/**
- * The observations that show in the index: neither hidden everywhere nor replaced; one line per id, the latest (a re-read
- * that writes a fact he rated true again, word for word, leaves two current lines of one id).
- */
-export const shownOf = (list: Observation[], standing: Standing) => [
-  ...new Map(
-    list.filter((o) => shows(stateOf(o, standing))).map((o) => [o.id, o])
-  ).values(),
-];
+/** The observations that show in the index: neither hidden everywhere nor replaced. */
+export const shownOf = (list: Observation[], standing: Standing) =>
+  list.filter((o) => shows(stateOf(o, standing)));
 
 /** Stamps and checks what the owner said (the CLI's `correct` and the connector's) and appends it; throws when invalid. */
 export async function recordCorrection(said: unknown) {
