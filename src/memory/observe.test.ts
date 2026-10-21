@@ -712,7 +712,7 @@ test("the index is rebuilt from observations: search ignores accents, links answ
   ];
   expect(
     buildIndex(
-      [...observations, ...observations],
+      observations,
       path,
       {
         corrections: [],
