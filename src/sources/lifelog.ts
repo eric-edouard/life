@@ -342,14 +342,14 @@ export async function poll(store: Store, wait: number) {
   };
 }
 
-/** His turns and the unattributed ones first seen since `since`: what a restarted watcher hears again (src/watch.ts). */
-export const turnsSeenSince = (store: Store, since: string) =>
+/** The turns first seen in the `seconds` before the newest one: what a restarted watcher hears again (src/watch.ts). */
+export const lastSeen = (store: Store, seconds: number) =>
   store.db
     .query<{ at: string; conversation: string }, [string]>(
       `select start_at as at, conversation_id as conversation from turns
-      where seen_at >= ? and (is_owner = 1 or (person_id is null and person_name is null))`
+      where seen_at >= strftime('%Y-%m-%dT%H:%M:%fZ', (select max(seen_at) from turns), ?)`
     )
-    .all(since);
+    .all(`-${seconds} seconds`);
 
 const nameOf = (
   personId: string | null,

@@ -1,6 +1,7 @@
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
 import type { Action } from "../schema";
+import type { Task } from "../tasks";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
 import type { describeFiles } from "./files";
@@ -237,7 +238,7 @@ export const lockReport = (since: string) =>
 
 /** The alert for the Atlas tasks that newly need him, one per `chase` pass (src/board.ts): why, and his words. */
 export function taskReport(
-  list: { ask: Action; cause: string; title: string }[],
+  list: { ask: Task["ask"]; cause: string; title: string }[],
   now: number
 ) {
   const why = list.map((x) => `${x.title}: ${x.cause}`).join(" · ");
@@ -246,7 +247,7 @@ export function taskReport(
     notes: [
       ...list.map(
         (x) =>
-          `${x.title}: you said “${x.ask.instruction?.quote}” (asked ${time(x.ask.at)}, ${x.ask.id})`
+          `${x.title}: you said “${x.ask.instruction.quote}” (asked ${time(x.ask.at)}, ${x.ask.id})`
       ),
       "Each is a task in Life's `tasks` (memory/actions.jsonl).",
     ],

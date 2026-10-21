@@ -9,7 +9,7 @@ import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
 import { serveConnector } from "./server";
-import { openStore, poll, type Store, turnsSeenSince } from "./sources/lifelog";
+import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
 import { ROOT } from "./truth";
 import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
@@ -34,8 +34,12 @@ const RETRY_MS = 30_000;
 const WAIT_MS = { complete: 5000, open: 60_000 };
 /** A replay of the store (after a restart or an outage) never acts on speech older than a week. */
 const RECENT_MS = 7 * 24 * 3_600_000;
-/** How far before its last poll a restarted watcher hears again: past any wait (2 min at most, 10–21 Oct), hold or retry. */
-const REPLAY_MS = 10 * 60_000;
+/**
+ * How far before the newest turn a restarted watcher hears again: past any wait (2 min at most, 10–21 Oct), hold or
+ * retry. ponytail: a hearing pending longer (five failed fetches while other turns arrive) is lost on a restart; mark
+ * heard turns in the store if that ever happens.
+ */
+const REPLAY_S = 600;
 
 /** The health after one poll. */
 export function afterPoll(
@@ -126,19 +130,12 @@ export const holdFor = (pending: Pending, now: number, speech: Speech) =>
   );
 
 /**
- * What a watcher starts with: `pending` lives in memory, so his and unattributed turns first seen in the `REPLAY_MS`
- * before the last poll are heard again (`ask` records an ask once, so a second hearing is harmless).
+ * What a watcher starts with: `pending` lives in memory, so the turns first seen in the `REPLAY_S` before the newest
+ * are heard again (`hear` finds the asks; `ask` records each once, so a second hearing is harmless).
  */
-export function resumed(
-  store: Store,
-  lastPollAt: string | undefined,
-  now: number
-) {
+export function resumed(store: Store, now: number) {
   const pending: Pending = new Map();
-  if (lastPollAt) {
-    const since = new Date(Date.parse(lastPollAt) - REPLAY_MS).toISOString();
-    fold(pending, turnsSeenSince(store, since), now);
-  }
+  fold(pending, lastSeen(store, REPLAY_S), now);
   return pending;
 }
 
@@ -181,10 +178,10 @@ export async function watch(): Promise<number> {
       ),
     TUNNEL_EVERY_MS
   );
-  let health = readHealth();
-  const pending = resumed(store, health?.lastPollAt, Date.now());
+  const pending = resumed(store, Date.now());
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
+  let health = readHealth();
   // Units follow the store even if the last run stopped between the two.
   let dirty = true;
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
