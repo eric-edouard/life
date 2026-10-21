@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { type Mark, marksNow } from "../hear";
 import { stamp } from "../llm";
 import {
   Extracted,
@@ -32,7 +31,6 @@ import {
   stateOf,
   UNRESOLVED,
   type Verdicts,
-  verdictKey,
   verdictOf,
 } from "./ledger";
 import { parseObservations, type Reject, type Source } from "./observe";
@@ -45,6 +43,7 @@ import {
   type Evidence,
   lifelogNames,
   localTime,
+  MARKED,
   nameIndex,
   within,
 } from "./units";
@@ -57,7 +56,7 @@ import { observationsNow, readPeople, UNKNOWN, who } from "./who";
 // entity against the candidate list, then appends them to memory/observations/<yyyy-mm>.jsonl, and the earlier facts
 // the moment's lines show are no longer true to memory/supersessions.jsonl. Nothing is sent.
 
-const EXTRACT_PROMPT = "memory-extract.v6";
+const EXTRACT_PROMPT = "memory-extract.v5";
 /** Characters of unit text per call: whole moments, as many as fit. */
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
@@ -203,31 +202,6 @@ export function byDays<T extends Group & { sources: Source[] }>(
       units: group.units.filter((b) => ids.has(b.unit.id)),
     };
   });
-}
-
-/** The voice unit each mark was said in: its conversation, from its start to its end. */
-export const markedUnits = (built: Built[], marks: Mark[]) =>
-  built.filter(({ unit }) =>
-    marks.some(
-      (m) =>
-        m.conversation === unit.key && m.at >= unit.start && m.at < unit.end
-    )
-  );
-
-/** The verdicts with each marked unit's lifted to KEEP_AT at least: one place where a mark keeps a unit read. */
-export function lifted(verdicts: Verdicts, built: Built[], marks: Mark[]) {
-  const out = new Map(verdicts);
-  for (const { unit } of markedUnits(built, marks)) {
-    const v = verdictOf(verdicts, unit);
-    if (v && v.salience < KEEP_AT) {
-      out.set(verdictKey(unit.id, unit.hash), {
-        ...v,
-        reason: `he said "hey Life"; ${v.reason}`,
-        salience: KEEP_AT,
-      });
-    }
-  }
-  return out;
 }
 
 /**
@@ -378,10 +352,7 @@ export async function extract(evidence: Evidence) {
       b.unit.date < today ||
       (kindOf(b.unit.source) === "voice" && closed.has(b.unit.key))
   );
-  // A unit where he said "hey Life" (the hearing's marks, the store) is kept whatever its salience, its lines marked.
-  const marks = await withStore(marksNow);
-  const markedLines = new Set(marks.flatMap((m) => m.refs));
-  const verdicts = lifted(await readVerdicts(), inWindow, marks);
+  const verdicts = await readVerdicts();
   const people = await readPeople();
   const { corrections, inferred, resolve } = people;
   const [written, { observations: known, standing }] = await Promise.all([
@@ -510,12 +481,14 @@ export async function extract(evidence: Evidence) {
             id: unit.id,
             lines: ls.map(
               (l, n) =>
-                `[${n}] ${localTime(l.at)} ${who(l)}${markedLines.has(l.ref) ? " (marked)" : ""}: ${l.text}`
+                `[${n}] ${localTime(l.at)} ${who(l)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
             ),
             people: unit.people,
             source: unit.source,
             title: unit.title,
-            triage: reasons.get(unit.id),
+            triage: unit.marked
+              ? `${MARKED} The lines marked (marked) are his to remember: write every fact in them. ${reasons.get(unit.id) ?? ""}`
+              : reasons.get(unit.id),
           })),
         })),
         prior: prior.map((o) => ({ date: o.date, id: o.id, text: o.text })),

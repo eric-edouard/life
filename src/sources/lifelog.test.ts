@@ -27,6 +27,7 @@ import {
   turnPlace,
   turnsBetween,
   visits,
+  writeMarks,
 } from "./lifelog";
 
 const since = new Date("2026-10-01T00:00:00Z");
@@ -407,4 +408,57 @@ test("visits: lifelog's 404 (no place the phone named matches) is no stays", asy
   } finally {
     server.close();
   }
+});
+
+test("a chapter holds the marks whose wake turn is in it, as lifelog has the turn now: re-cut, named or gone", () => {
+  const s = store();
+  const cut = (id: string) =>
+    page({
+      chapters: [
+        {
+          ...chapter(
+            "a",
+            "2026-10-14T10:00:00.000Z",
+            "2026-10-14T10:05:00.000Z"
+          ),
+          conversationId: id,
+        },
+        {
+          ...chapter(
+            "b",
+            "2026-10-14T10:05:00.000Z",
+            "2026-10-14T10:10:00.000Z"
+          ),
+          conversationId: id,
+        },
+      ],
+      conversations: [conversation(id)],
+      turns: [
+        turn(0, "2026-10-14T10:01:00.000Z", null, null, id, true),
+        turn(1, "2026-10-14T10:06:00.000Z", null, null, id),
+      ],
+    });
+  apply(s, cut("c1"));
+  writeMarks(s, "c1", "", [
+    { jobId: "job-1", refs: ["r0", "r0b"], turnIndex: 0 },
+    { jobId: "job-1", refs: ["r1"], turnIndex: 1 },
+  ]);
+  const marked = (id: string) =>
+    readConversations(s, since)
+      .find((c) => c.id === id)
+      ?.chapters.map((h) => h.marked);
+  expect(marked("c1")).toEqual([["r0", "r0b"], ["r1"]]);
+  // Re-cut into c2: the marks follow their turns. Heard again with no mark from 10:05: that one goes.
+  apply(s, cut("c2"));
+  expect(marked("c2")).toEqual([["r0", "r0b"], ["r1"]]);
+  writeMarks(s, "c2", "2026-10-14T10:05:00.000Z", []);
+  expect(marked("c2")).toEqual([["r0", "r0b"], undefined]);
+  // lifelog names someone else for the wake turn: no longer his mark.
+  apply(
+    s,
+    page({
+      turns: [turn(0, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie", "c2")],
+    })
+  );
+  expect(marked("c2")).toEqual([undefined, undefined]);
 });

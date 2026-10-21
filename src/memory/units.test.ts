@@ -9,6 +9,7 @@ import {
 } from "../sources/fixtures";
 import {
   apply,
+  type LifelogChapter,
   type LifelogConversation,
   readConversations,
 } from "../sources/lifelog";
@@ -20,6 +21,7 @@ import {
   LIFE_CHAT,
   lastDays,
   lifelogUnits,
+  MARKED,
   messageUnits,
   nameIndex,
   normalizeTopics,
@@ -172,6 +174,27 @@ test("lifelog chapters become units with lifelog's summary, turn refs and resolv
     nameIndex(people)
   );
   expect(applyRules(unsummarized)[0]?.unit.drop).toBe("no-summary");
+});
+
+test('a chapter he marked "hey Life" says so in its text, so only its hash moves, and keeps the marked refs', () => {
+  const [plain, other] = lifelogUnits([conversation], nameIndex(people));
+  const [first] = conversation.chapters;
+  const [marked, same] = lifelogUnits(
+    [
+      {
+        ...conversation,
+        chapters: [
+          { ...(first as LifelogChapter), marked: ["j:1@a"] },
+          ...conversation.chapters.slice(1),
+        ],
+      },
+    ],
+    nameIndex(people)
+  );
+  expect(marked?.unit.marked).toEqual(["j:1@a"]);
+  expect(marked?.text).toEndWith(MARKED);
+  expect(marked?.unit.hash).not.toBe(plain?.unit.hash);
+  expect(same?.unit.hash).toBe(other?.unit.hash);
 });
 
 test("names: aliases resolve, parentheses are ignored, a shared name resolves to nobody", () => {

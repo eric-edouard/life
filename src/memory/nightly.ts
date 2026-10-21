@@ -3,7 +3,7 @@ import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { readHealth } from "../health";
-import { type Mark, marksNow, titleOf } from "../hear";
+import { titleOf } from "../hear";
 import { quota } from "../llm";
 import { log, recentEvents } from "../log";
 import {
@@ -12,10 +12,9 @@ import {
   isTaskLine,
   type Observation,
 } from "../schema";
-import { withStore } from "../sources/lifelog";
 import { taskList, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
-import { extract, markedUnits } from "./extract";
+import { extract } from "./extract";
 import {
   afterWeek,
   backfillWeek,
@@ -294,12 +293,11 @@ async function sweep(
 }
 
 /**
- * Each "hey Life" whose unit an extract run read since `since` (midday ones too), with the observations citing its
+ * Each unit he marked "hey Life" that an extract run read since `since` (midday ones too), with the observations citing its
  * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
  * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
  */
 export function markedSince(
-  marks: Mark[],
   built: Built[],
   extracted: Extracted[],
   since: string,
@@ -308,15 +306,15 @@ export function markedSince(
   const read = new Set(
     extracted.filter((e) => e.at >= since).map((e) => e.unit)
   );
-  return marks.flatMap((m) => {
-    const unit = markedUnits(built, [m]).find((b) => read.has(b.unit.id))?.unit;
-    if (!unit) {
+  return built.flatMap(({ unit }) => {
+    const marked = unit.marked ?? [];
+    if (marked.length === 0 || !read.has(unit.id)) {
       return [];
     }
-    const held = observations.filter((o) => m.refs.includes(o.source.ref));
+    const held = observations.filter((o) => marked.includes(o.source.ref));
     return [
       {
-        name: `${localTime(m.at)}${m.confidence === "low" ? " · unattributed" : ""}`,
+        name: localTime(unit.start),
         relation: `${unit.title} → ${held.length > 0 ? held.map((o) => o.text).join(" · ") : "nothing held"}`,
       },
     ];
@@ -348,7 +346,6 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
       )
     ),
     marked: markedSince(
-      await withStore(marksNow),
       built,
       rowsOf(EXTRACTED, Extracted),
       since,

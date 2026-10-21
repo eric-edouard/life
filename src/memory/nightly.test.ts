@@ -15,39 +15,30 @@ test("a daily review reached Life only when ChatGPT read `day` without error in 
   expect(await reviewed(new Date(now.getTime() + 25 * 3_600_000))).toBe(false);
 });
 
-test('each "hey Life" is listed once its unit was read since the last night, with the observations citing it', () => {
-  const u = unit();
-  const built = [{ messages: [], text: "", unit: u }];
-  const mark = (at: string, refs: string[]) => ({
-    at,
-    confidence: "high" as const,
-    conversation: u.key,
-
-    refs,
-  });
-  const read = (at: string) => ({ at, unit: u.id }) as Extracted;
+test("each marked unit is listed once read since the last night, with the observations citing its marked lines", () => {
+  const u = unit({ marked: ["j:1@a", "j:2@a"] });
+  const built = [
+    { messages: [], text: "", unit: u },
+    { messages: [], text: "", unit: unit({ id: "u_000000000002" }) },
+  ];
+  const read = (at: string, id = u.id) => ({ at, unit: id }) as Extracted;
   const held = {
     source: { channel: "lifelog", ref: "j:2@a" },
     text: "He will vote for the stones.",
   } as Observation;
-  const marks = [
-    mark("2026-10-09T10:05:00.000Z", ["j:1@a", "j:2@a"]),
-    mark("2026-10-09T10:10:00.000Z", ["j:3@a"]),
-  ];
   const since = "2026-10-10T02:00:00.000Z";
+  const after = [
+    read("2026-10-10T13:00:00.000Z"),
+    read("2026-10-10T13:00:00.000Z", "u_000000000002"),
+  ];
   expect(
-    markedSince(marks, built, [read("2026-10-10T13:00:00.000Z")], since, [
-      held,
-    ]).map((m) => m.relation)
-  ).toEqual([
-    "Shop repairs → He will vote for the stones.",
-    "Shop repairs → nothing held",
-  ]);
-  // Read before the last night, or not read yet: not listed again.
+    markedSince(built, after, since, [held]).map((m) => m.relation)
+  ).toEqual(["Shop repairs → He will vote for the stones."]);
+  expect(markedSince(built, after, since, [])[0]?.relation).toBe(
+    "Shop repairs → nothing held"
+  );
+  // Read before the last night: not listed again.
   expect(
-    markedSince(marks, built, [read("2026-10-09T13:00:00.000Z")], since, [held])
-  ).toEqual([]);
-  expect(
-    markedSince(marks, [], [read("2026-10-10T13:00:00.000Z")], since, [held])
+    markedSince(built, [read("2026-10-09T13:00:00.000Z")], since, [held])
   ).toEqual([]);
 });
