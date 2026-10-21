@@ -190,7 +190,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   null and absent field lifelog's contract allows (`apps/server/openapi.json`; `lifelog.test.ts` checks them when
   `~/Work/lifelog` is there), so a contract-valid page never stops the watcher.
 - **Memory data is append-only and expensive:** never hand-edit `memory/` (except appending owner corrections or
-  labels; `actions.jsonl` is `act`'s, the tasks' and `setGrant`'s) or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
+  labels; `actions.jsonl` is `act`'s, the tasks', `setGrant`'s and the sync pass's) or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
   must never move. A change to how unit ids are made ships an old→new map applied to `memory/labels.jsonl` and
   `memory/statements.jsonl` (`units`). Code
   rewrites only `units/` and `moments/<day>.jsonl` (the day's moments, model-owned, read again with the day).

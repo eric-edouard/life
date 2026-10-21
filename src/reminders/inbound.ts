@@ -10,11 +10,10 @@ import {
 import { digest } from "../memory/ledger";
 import { normalize } from "../memory/units";
 import { type Action, stands } from "../schema";
-import { taskOf } from "./board";
-import { BOARD, isShared, openOf, type Reminder, remctl } from "./remctl";
+import { openOf, type Reminder, type Snapshot } from "./remctl";
 
 // His changes in Reminders come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
-// with what the ledger says Life left there, and a value Life wrote or tried since the field settled is Life's (#69).
+// with what the ledger says Life left there, and a field Life tried to write and could not confirm is learned, never his (#69).
 // They may close, reopen, reschedule, re-rank, rename, drop or add an item, never ask, send or grant. Section, order and
 // a repeating reminder's due are Apple's own, never compared; a shared list is never read.
 
@@ -22,14 +21,6 @@ import { BOARD, isShared, openOf, type Reminder, remctl } from "./remctl";
 const fieldsNow = (r: Reminder) =>
   pick({ ...r, deleted: false, due: openOf(r).due, lost: false });
 const linkOf = (r: Reminder) => r.deepLink?.split("/").at(-1);
-/** What one pass reads: his unshared lists' reminders (ticked too), the board's, and Recently Deleted. */
-export interface Snapshot {
-  board: Reminder[];
-  deleted: Reminder[];
-  live: Reminder[];
-  /** His shared lists, never read: a reminder Life knows there is left alone. */
-  shared: string[];
-}
 
 /** One line of his, read from Reminders: never his words (no `instruction`), so nothing can take it for a request. */
 const his = (
@@ -75,14 +66,15 @@ function linesOf(
   at: string
 ) {
   const now = r ? fieldsNow(r) : pick({ deleted: gone, lost: !gone });
+  // A field Life tried and could not confirm is learned as it is now (an import), never his change.
   const known = (f: Field) =>
-    !first && (f in it.fields || f === "deleted" || f === "lost");
+    !(first || it.tried.has(f)) &&
+    (f in it.fields || f === "deleted" || f === "lost");
   const changed = FIELDS.filter(
     (f) =>
       f in now &&
       known(f) &&
       now[f] !== norm(it.fields[f]) &&
-      !(it.tried.get(f) ?? []).includes(now[f]) &&
       !(f === "due" && r?.recurrence)
   );
   const unknown = FIELDS.filter((f) => f in now && !known(f));
@@ -160,42 +152,4 @@ function lostAdds(actions: Action[]) {
     (a) => a.kind === "add" && !(ok.has(a.id) || imported.has(title(a)))
   );
   return new Map(lost.map((a) => [title(a), a.at]));
-}
-
-/** What he did to each task's receipt: ticked it, or removed it (in Recently Deleted, none live). `closings` (src/tasks.ts) reads it for open tasks only. */
-export function marks(s: Snapshot) {
-  const live = new Map(s.board.map((r) => [taskOf(r), r.completed]));
-  const removed = s.deleted.filter((d) => !live.has(taskOf(d)));
-  return new Map<string, "removed" | "ticked">([
-    ...removed.map((d) => [taskOf(d), "removed"] as const),
-    ...[...live]
-      .filter(([, done]) => done)
-      .map(([t]) => [t, "ticked"] as const),
-  ]);
-}
-
-/** One read for the pass: every list but a shared one (never synced), ticked items too, and Recently Deleted. */
-export async function pull(): Promise<Snapshot> {
-  const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
-    ["lists"]
-  );
-  const mine = lists.filter((l) => !l.isGroup);
-  const [shared, bin] = await Promise.all([
-    Promise.all(mine.map((l) => l.title !== BOARD && isShared(l.title))),
-    remctl<{ items: Reminder[] }>(["deleted"]),
-  ]);
-  const rows = await Promise.all(
-    mine.map((l, i) =>
-      shared[i]
-        ? []
-        : remctl<Reminder[]>(["show", "--list-id", `${l.id}`, "--completed"])
-    )
-  );
-  const all = rows.flat();
-  return {
-    board: all.filter((r) => r.list === BOARD),
-    deleted: bin.items,
-    live: all.filter((r) => r.list !== BOARD),
-    shared: mine.filter((_, i) => shared[i]).map((l) => l.title),
-  };
 }

@@ -1,10 +1,10 @@
 import { log } from "../log";
-import { BOARD, partial, type Reminder, remctl } from "./remctl";
+import { BOARD, partial, type Reminder, remctl, type Snapshot } from "./remctl";
 import { add, reminderArgs } from "./write";
 
 // The board, his list `BOARD`: Atlas's tasks projected, one item per task, found by the task id on its notes' first line.
 // Each pass Life brings its own fields (notes, section) to what the ledger says and ticks the item when its task
-// closes: his receipt that he was heard. Only his tick or removal of one is read back (`marks`, inbound.ts).
+// closes: his receipt that he was heard. Only his tick or removal of one is read back (`marks`, below).
 
 /** What a task's item should say (`wantOf`, src/tasks.ts): `id` is the task's, the first line of `notes`. */
 export interface Receipt {
@@ -90,4 +90,16 @@ export async function push(receipts: Receipt[], board: Reminder[]) {
       await mirror(w, item);
     }
   }
+}
+
+/** What he did to each task's receipt: ticked it, or removed it (in Recently Deleted, none live). `closings` (src/tasks.ts) reads it for open tasks only. */
+export function marks(s: Snapshot) {
+  const live = new Map(s.board.map((r) => [taskOf(r), r.completed]));
+  const removed = s.deleted.filter((d) => !live.has(taskOf(d)));
+  return new Map<string, "removed" | "ticked">([
+    ...removed.map((d) => [taskOf(d), "removed"] as const),
+    ...[...live]
+      .filter(([, done]) => done)
+      .map(([t]) => [t, "ticked"] as const),
+  ]);
 }
