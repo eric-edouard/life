@@ -18,7 +18,7 @@ import { moments } from "../src/memory/moments";
 import { claimsNow } from "../src/memory/statements";
 import type { tally } from "../src/memory/tally";
 import { gather } from "../src/memory/units";
-import { exec, git } from "../src/proc";
+import { exec, git, gitOut } from "../src/proc";
 import { DATA, ROOT } from "../src/truth";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
@@ -115,16 +115,12 @@ async function run(
 /** The main checkout (this repo's first worktree): its dependencies, .env, lifelog store and engine setting. */
 export const mainCheckout = () =>
   dirname(
-    git(ROOT, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
-      .stdout.toString()
-      .trim()
+    gitOut(ROOT, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
   );
 
 /** This code at HEAD in `dir`, a throwaway worktree, with the main checkout's `links` (its dependencies, .env, …). */
 export async function checkout(dir: string, links: string[]) {
-  if (git(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]).exitCode !== 0) {
-    throw new Error(`git worktree add ${dir} failed`);
-  }
+  gitOut(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]);
   await mkdir(join(dir, "derived"), { recursive: true });
   const main = mainCheckout();
   for (const p of links) {

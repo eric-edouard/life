@@ -43,3 +43,10 @@ export function frozenAt(
 export const FROZEN = frozenAt();
 
 export const clock = () => new Date(FROZEN ?? Date.now());
+
+/** Throws in a frozen run: called by everything that acts outside the copy (Reminders, lifelog, email, events). */
+export function unfrozen(what: string) {
+  if (FROZEN !== undefined) {
+    throw new Error(`a frozen run does not ${what}`);
+  }
+}

@@ -24,7 +24,7 @@ import { spareQuota } from "../src/memory/guard";
 import { ACTIONS, linesOf, OUT, runId } from "../src/memory/ledger";
 import { judge, tally } from "../src/memory/tally";
 import { localDate, zoneAt } from "../src/memory/zones";
-import { exec, git } from "../src/proc";
+import { exec, git, gitOut } from "../src/proc";
 import { Engine } from "../src/schema";
 import { DATA, ROOT } from "../src/truth";
 import { checkout, mainCheckout } from "./bench";
@@ -105,15 +105,6 @@ export function checked(c: Case, calls: Call[]) {
   ];
 }
 
-/** `git` that throws on a failure; its output. */
-function must(path: string, args: string[]) {
-  const r = git(path, args);
-  if (r.exitCode !== 0) {
-    throw new Error(`git ${args[0]}: ${r.stderr.toString().trim()}`);
-  }
-  return r.stdout.toString().trim();
-}
-
 /** "Tuesday 20 October 2026, 11:10 (Europe/Paris)": the time the agent is told it is. */
 const stated = (iso: string) => {
   const tz = zoneAt(iso);
@@ -136,12 +127,11 @@ export function askAt(lines: string[], id: string) {
   if (!ask?.instruction) {
     throw new Error(`${id} is not an ask with his words`);
   }
-  const event = nextEvent(lines, k);
-  const delivered = event?.action.id === id;
+  const delivered = ask.madeBy !== "connector";
   return {
     at: ask.at,
     input: delivered
-      ? `An ask event from Life: ${JSON.stringify(event?.event)}`
+      ? `An ask event from Life: ${JSON.stringify(nextEvent(lines, k)?.event)}`
       : `His message in your chat: ${ask.instruction.quote}`,
     kept: lines.slice(0, delivered ? k + 1 : k),
   };
@@ -151,13 +141,13 @@ export function askAt(lines: string[], id: string) {
 async function freeze(c: Case, lines: string[], code: string, data: string) {
   const { at, input, kept } = askAt(lines, c.ask);
   await rm(data, { force: true, recursive: true });
-  must(tmpdir(), ["clone", "-q", DATA, data]);
-  const commit = must(data, ["rev-list", "-1", `--before=${at}`, "HEAD"]);
+  gitOut(tmpdir(), ["clone", "-q", DATA, data]);
+  const commit = gitOut(data, ["rev-list", "-1", `--before=${at}`, "HEAD"]);
   if (!commit) {
     throw new Error(`~/Life has no commit before ${at}`);
   }
-  must(data, ["checkout", "-q", commit]);
-  must(data, ["remote", "remove", "origin"]);
+  gitOut(data, ["checkout", "-q", commit]);
+  gitOut(data, ["remote", "remove", "origin"]);
   await Bun.write(
     join(data, "memory/actions.jsonl"),
     kept.map((l) => `${l}\n`).join("")
@@ -327,7 +317,7 @@ async function bench(file: string, only: string[], engine: Engine) {
       rows.push(row);
       console.error(`${c.id}: ${"checks" in row ? "done" : row.error}`);
     }
-    const head = must(ROOT, ["rev-parse", "--short", "HEAD"]);
+    const head = gitOut(ROOT, ["rev-parse", "--short", "HEAD"]);
     const what =
       engine === "codex"
         ? "Codex, as Atlas"

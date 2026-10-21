@@ -109,7 +109,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`), but the Atlas bench's agent: Life's connector, frozen
-  and dry, as its only tools, Codex still read-only. His Apple Notes are memory only, never his words for
+  and dry, as its only tools: Codex still read-only, with no shell but code mode's `exec` (its only way to MCP) and
+  its nested real-time clock, which the bench's prompt says not to read. His Apple Notes are memory only, never his words for
   actions.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates, and every quote is checked against its
   source (`src/memory/observe.ts`).
@@ -263,7 +264,8 @@ that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own 
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
 `LIFE_NOW` stops it for the Atlas bench, on a copy of the data and in a worktree of its own only; memory is the copy as
-of then, the live sources are cut at it, and a frozen connector acts on and sends nothing (`dry`, `sends`, `mcp.ts`); a source's behaviour is its descriptor in `src/sources/index.ts` (`SOURCES`, in cut order): code
+of then, the live sources are cut at it, and a frozen run acts on and sends nothing (`unfrozen` in each of remctl, lifelog's `forward`, `sendReport` and the
+events' `post`; the connector's `dry` and `sends` answer the bench); a source's behaviour is its descriptor in `src/sources/index.ts` (`SOURCES`, in cut order): code
 branches on its kind or capability, never on its name (only its own code, its reader and lifelog's units, names it),
 and every table of sources (`CHATS`, `SEARCHED`, `WITH_PEOPLE`, their days) is derived from it (`tablesOf`,
 `units.ts`); the memory steps get their units only from `gather` (`units.ts`: every channel, in time

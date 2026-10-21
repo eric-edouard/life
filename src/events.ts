@@ -3,7 +3,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { clock } from "./clock";
+import { clock, unfrozen } from "./clock";
 import { log } from "./log";
 import { ACTIONS, digest, linesOf } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
@@ -117,6 +117,7 @@ export const sign = (secret: string, id: string, ts: number, body: string) =>
 
 /** One signed POST, signed when sent (a retry gets a new timestamp and signature). Never follows a redirect. */
 const post = (s: Subscription, id: string, body: string) => {
+  unfrozen("send events");
   const ts = Math.floor(clock().getTime() / 1000);
   return fetch(s.url, {
     body,

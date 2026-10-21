@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock } from "./clock";
+import { clock, unfrozen } from "./clock";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
@@ -60,6 +60,7 @@ const parse = <T>(s: string) => {
  * Killed after a minute (exec's default), so a stuck Reminders host cannot hold the queue.
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
+  unfrozen("touch his Reminders");
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },

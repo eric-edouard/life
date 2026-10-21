@@ -1,3 +1,4 @@
+import { unfrozen } from "../clock";
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
 import type { Action } from "../schema";
@@ -352,6 +353,7 @@ export async function unsent(keys: string[]) {
  * try again.
  */
 export async function sendReport(id: string | string[], mail: Mail) {
+  unfrozen("send email");
   const keys = await unsent([id].flat());
   if (keys.length === 0) {
     return null;
