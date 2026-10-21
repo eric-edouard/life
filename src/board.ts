@@ -9,7 +9,7 @@ import {
 import { subscribed } from "./events";
 import { titleOf } from "./hear";
 import { log } from "./log";
-import { lapseReport, sendReport, taskReport } from "./memory/report";
+import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { alerts, closed, settled, standing, type Task, tasksOf } from "./tasks";
 
@@ -125,19 +125,34 @@ async function added({ notes, title }: Want): Promise<Item> {
 }
 
 /**
- * Emails him each task that needs him, once per key (`sendReport`): a task that goes silent again after an update is
- * a new email.
+ * Emails him what newly needs him, one email a pass, each key once (`sendReport`): a lapsed subscription alone, else
+ * every task with a new cause (one that goes silent again after an update is new).
  */
-async function chase(tasks: Task[], now: number) {
-  for (const a of alerts(tasks, now, subscribed(now))) {
-    // biome-ignore lint/performance/noAwaitInLoops: one email at a time
-    await sendReport(
-      a.key,
-      "t" in a
-        ? taskReport(a.t.ask, nameOf(a.t), a.cause)
-        : lapseReport(a.open, now)
-    );
+export async function chase(
+  tasks: Task[],
+  now: number,
+  live = subscribed(now)
+) {
+  const due = alerts(tasks, now, live);
+  const fresh = new Set(await unsent(due.map((a) => a.key)));
+  const news = due.filter((a) => fresh.has(a.key));
+  const [first] = news;
+  if (!first) {
+    return;
   }
+  await sendReport(
+    news.map((a) => a.key),
+    "open" in first
+      ? lapseReport(first.open, now)
+      : taskReport(
+          news.flatMap((a) =>
+            "t" in a
+              ? [{ ask: a.t.ask, cause: a.cause, title: nameOf(a.t) }]
+              : []
+          ),
+          now
+        )
+  );
 }
 
 let last = 0;

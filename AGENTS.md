@@ -85,7 +85,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `steer` lines (until 20 Oct) only parse. What needs him is one rule, `escalation`, for every task, chat ones too:
   unclaimed 30 min after the ask, claimed and past its deadline, waiting on him over 1 h, a week old, or no live
   subscription (one email a day); `chase` (`src/board.ts`, each minute in the watcher) emails him once per task, cause and
-  Atlas's last update. Every send goes out once per id (`sendReport` skips one in the last 8 days of `email.sent`). Task lines stay out of the Actions section and `day`; the nightly lists every open task and
+  Atlas's last update, a pass's new causes in one email. Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`). Task lines stay out of the Actions section and `day`; the nightly lists every open task and
   those closed in the last day.
 - **The board, his Reminders list `Atlas`, is a one-way projection of the ledger, his receipt** (`src/board.ts`, `tick`,
   each minute in the watcher): it writes no ledger line, reads nothing back as his (no steers: they once forged his
@@ -194,8 +194,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   runs its npm tools with `bun x --bun`).
 - Lifelog units come from the store `bun life watch` keeps (`derived/watch/`, always on; `bun life status`), one per chapter id.
   Only the watcher calls `poll`: a page folded in anywhere else would never be heard (#5).
-  When a commit changes `src/` or `prompts/` (`codeAt`), the watcher exits once no hearing is pending, the archive
-  after its pass, and launchd restarts each on the new code.
+  When a commit changes `src/` or `prompts/` (`codeAt`), the watcher exits (at start it hears again the turns first seen
+  in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title once), the archive after
+  its pass, and launchd restarts each on the new code.
 - The watcher hears a conversation once its speech is complete (`speechIn`, `hear.ts`): it reads a recording of under
   a minute of speech (lifelog's `durationSeconds`) as closed on 30 s of silence, lifelog's `cutter.ts` rule. If lifelog
   changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet
