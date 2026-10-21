@@ -74,6 +74,8 @@ export const PageMeta = z.object({
   lines: z.record(z.string(), z.array(z.string())),
   madeBy: MadeBy,
   name: z.string(),
+  /** Observations it was offered because who they are about changed since they were written (`refiled`): not again. */
+  offered: z.array(z.string()).optional(),
   page: z.string(),
   schemaVersion: z.literal(1),
   /** The newest extraction run (`madeBy.run`) the page has read; later observations are new to it. */
@@ -269,8 +271,8 @@ export function homeOf(
  * The page lines by home page (`homeOf`), given who has a page (`paged`: the closeness levels, `pagedNow`). A
  * conditional claim (a hypothesis, a quote, an AI's text read aloud) stays searchable, never a page line.
  */
-export function placed(
-  observations: (Observation & { unmapped: boolean })[],
+export function placed<T extends Observation & { unmapped: boolean }>(
+  observations: T[],
   truth: Pick<Truth, "projects">,
   paged: ReadonlySet<string>
 ) {
@@ -288,6 +290,21 @@ export function placed(
 }
 
 // --- merging the reply into the previous page --------------------------------------------------------------------
+
+/**
+ * What is new to a page since `seen` (its last reading, null for a page built from scratch): extracted since, or
+ * refiled onto it since it was written (who it is about changed) and not offered to it yet.
+ */
+export function newOn<T extends Observation & { refiled: boolean }>(
+  observations: T[],
+  seen: Pick<PageMeta, "offered" | "seen"> | null
+) {
+  const offered = new Set(seen?.offered ?? []);
+  return observations.filter(
+    (o) =>
+      !seen || o.madeBy.run > seen.seen || (o.refiled && !offered.has(o.id))
+  );
+}
 
 /** What a page may cite: the observations homed on it and shown (retired included), and which of them are retired. */
 export interface Known {

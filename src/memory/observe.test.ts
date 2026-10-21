@@ -390,6 +390,37 @@ test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never 
   ]);
 });
 
+test("a fact whose subjects changed since it was written is marked refiled", () => {
+  const facts = [
+    {
+      entities: ["person:inf-plumber"],
+      id: "obs_1",
+      speaker: "person:me",
+      text: "A fact.",
+    },
+    {
+      entities: ["person:gaston"],
+      id: "obs_2",
+      speaker: "person:me",
+      text: "A fact.",
+    },
+  ] as unknown as Observation[];
+  const fold = said({
+    from: "person:inf-plumber",
+    kind: "same-person",
+    to: "person:gaston",
+  });
+  expect(
+    aboutNow(
+      facts,
+      [],
+      people,
+      [inferred("inf-plumber", ["Plombier"])],
+      [fold]
+    ).map((o) => o.refiled)
+  ).toEqual([true, false]);
+});
+
 const madeBy = {
   engine: "claude" as const,
   model: "sonnet",
