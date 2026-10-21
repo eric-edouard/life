@@ -143,8 +143,9 @@ About 40 minutes; it prints the table and writes nothing of his. Not between 01:
   lists and sections at run time, so no code waits on them).
 - **Atlas, still open:** his test that a scheduled Atlas run can use the Mac with no approval prompt, then: rescan the
   connector in ChatGPT (for `tasks`, `task`, `open_reminders` and the new instructions), paste the bootstrap sentence (`docs/atlas.md`, "Set up once") as the dot's, the `ask` subscription's and the daily review's instructions, ask it to subscribe to `ask`, and `bun life ask "run date
-  on my Mac and message me the result"`. Not built: tagging what Atlas sends from his accounts (read back as his words),
-  "Atlas" in lifelog's transcription vocabulary and better speaker ids (lifelog's session), a mail fallback if MCP
+  on my Mac and message me the result"`. Atlas mails him from Life's sender, never his accounts, and drafts are
+  not read as mail (21 Oct, P21), so what Atlas sends him is never read as his words (a send to someone else is his words: he approved its exact text). Not built: "Atlas" in lifelog's
+  transcription vocabulary and better speaker ids (lifelog's session), a mail fallback if MCP
   Events fail on his plan.
 
 ## Lifelog (agreed with the lifelog rebuild session, 14 Oct)
