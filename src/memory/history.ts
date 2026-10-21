@@ -289,8 +289,8 @@ export async function lifeStatus(now = new Date()) {
   const night = readState();
   const middaySlot = readMidday();
   const events = await recentEvents(STATUS_DAYS);
-  // The tick reads the quota every 30 minutes: its last reading says whether the middays wait.
-  const quota = (await recentEvents<Quota>(2, "quota.read")).at(-1);
+  // The tick reads the quota every 30 minutes: its last reading (an unread one has no figures) says whether middays wait.
+  const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
   const archive = (name: string) => dbTime(archiveDb(name));

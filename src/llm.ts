@@ -1,5 +1,5 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
-// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter.
+// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is.
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";

@@ -182,7 +182,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   first, as a midday-like sweep (`backfilled`, `nightly.ts`), four weeks a day at most (`backfillWeek`, `guard.ts`),
   so it never takes their turn nor all of his subscriptions; three failures of a week stop it. What a tick runs is `turnOf` (`guard.ts`, tested).
   Over 75% of his Codex quota (`reserved`) a tick runs no midday and no backfill week, and `scripts/eval.ts` and the
-  bench refuse to start; the night always runs. The quota is read from `codex app-server` (no model call, no quota spent)
+  bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check: the bench made it); the night always runs. The quota is read from `codex app-server` (no model call, no quota spent)
   each tick, logged as `quota.read` (the status's `midday.next` reads the last line), and shown in the nightly email.
   Pages follow at the next night. Only the last 7 days' messages get their files described; older ones stay tags.
   Record his zones for the range first (`memory/zones.jsonl`, his own account of where he was): a past zone may be
