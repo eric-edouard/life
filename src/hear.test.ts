@@ -328,11 +328,11 @@ test('a "hey Life" span is his (high) or unattributed (low), never someone else\
     turn(18, "other", "Nice."),
     turn(30, "unknown", "hey Life, log this"),
   ];
-  expect(marksIn(turns).map((m) => [m.confidence, m.turns])).toEqual([
+  expect(marksIn(turns, "").map((m) => [m.confidence, m.turns])).toEqual([
     ["high", [1, 2]],
     ["low", [4]],
   ]);
   // A "hey Life" is never an ask, and a "hey Atlas" never a mark.
   expect(asksIn(turns, "")).toEqual([]);
-  expect(marksIn([turn(0, "me", "hey Atlas, book it")])).toEqual([]);
+  expect(marksIn([turn(0, "me", "hey Atlas, book it")], "")).toEqual([]);
 });

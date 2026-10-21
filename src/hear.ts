@@ -7,12 +7,14 @@ import {
   speechSeconds,
   turnRef,
   turnsBetween,
+  writeMarks,
 } from "./sources/lifelog";
 import { ask } from "./tasks";
 import { TEST } from "./truth";
 
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
-// event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
+// event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest. It
+// also records his "hey Life" spans in the store (`writeMarks`), for memory only: they never act.
 
 /**
  * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or `LIFE_MISHEARD` in `.env`, a real name people
@@ -78,8 +80,8 @@ export const asksIn = (turns: Turn[], from: string) =>
   spansIn(turns, from, wakeOf);
 
 /** His "hey Life" spans in a recording's turns: his own high, an unattributed one low, never someone else's. */
-export const marksIn = (turns: Turn[]) =>
-  spansIn(turns, "", (t): Confidence | undefined => {
+export const marksIn = (turns: Turn[], from: string) =>
+  spansIn(turns, from, (t): Confidence | undefined => {
     if (t.who === "other" || !MARK.test(t.text)) {
       return;
     }
@@ -132,20 +134,6 @@ export function whose(t: ChapterTurn): Turn["who"] {
   return t.personId || t.name ? "other" : "unknown";
 }
 
-/** A stored turn as the hearing sees it, its words from its recording's transcript (`words`, by job id), `who` lifelog's by default. */
-export const heardAs = (
-  t: ChapterTurn,
-  words: Map<string, { text: string }[]>,
-  who = whose(t)
-): Turn => ({
-  at: t.at,
-  end: t.end ?? t.at,
-  ref: turnRef(t.jobId, t.turnIndex, t.at),
-  seen: t.seen ?? t.at,
-  text: words.get(t.jobId)?.[t.turnIndex]?.text ?? "",
-  who,
-});
-
 /**
  * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's or
  * ends a recording lifelog closed on silence (no turn of an ask can follow), else `open` (the next recording may go
@@ -181,7 +169,16 @@ export async function hear(
       jobs.map(async (job) => [job, await readTranscript(job)] as const)
     )
   );
-  const turns = all.map((t) => heardAs(t, words));
+  const turns = all.map(
+    (t): Turn => ({
+      at: t.at,
+      end: t.end ?? t.at,
+      ref: turnRef(t.jobId, t.turnIndex, t.at),
+      seen: t.seen ?? t.at,
+      text: words.get(t.jobId)?.[t.turnIndex]?.text ?? "",
+      who: whose(t),
+    })
+  );
   // A wake with no speaker, younger than NAMING_MS: held, so lifelog can still name him.
   const held = (a: { timing: { arrived: string }; turns: number[] }) =>
     turns[a.turns[0] ?? -1]?.who === "unknown" &&
@@ -197,6 +194,18 @@ export async function hear(
       a.timing
     );
   }
+  // His "hey Life" spans, for memory only: extraction reads their units whatever their salience (extract.ts).
+  writeMarks(
+    store,
+    conversation,
+    from,
+    marksIn(turns, from).map((m) => ({
+      at: m.at,
+      confidence: m.confidence,
+      ref: m.ref,
+      refs: m.turns.map((i) => turns[i]?.ref ?? m.ref),
+    }))
+  );
   // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
   const misheard = turns.some(
     (t) =>

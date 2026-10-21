@@ -6,12 +6,12 @@ import {
   closedConversations,
   groupsOf,
   lanesOf,
+  lifted,
   packed,
   priorFor,
-  toExtract,
 } from "./extract";
 import { ledger, madeBy, unit, verdict } from "./fixtures";
-import { momentsNow } from "./ledger";
+import { momentsNow, verdictOf } from "./ledger";
 import type { Built } from "./units";
 
 const conversation = (
@@ -125,44 +125,32 @@ test("extraction reads each unit once and no copy ever; pending units in no mome
   ).toEqual([1, 2]);
 });
 
-test('a unit he marked with "hey Life" is read whatever its verdict, in its moment', () => {
-  const [b1, b2, b3] = [U1, U2, U3].map((id) => built(id)) as [
-    Built,
-    Built,
-    Built,
-  ];
+test('a unit he marked with "hey Life" is kept whatever its salience, once it has a verdict', () => {
+  // Three units of conv-1, 20 min each; U2 holds the mark.
+  const at = (hm: string) => `2026-10-15T${hm}:00.000Z`;
+  const b1 = built(U1, { end: at("10:20"), start: at("10:00") });
+  const b2 = built(U2, { end: at("10:40"), start: at("10:20") });
+  const b3 = built(U3, { end: at("11:00"), start: at("10:40") });
   const verdicts = ledger([
-    verdict(b1.unit),
+    verdict(b1.unit, { salience: 0 }),
     verdict(b2.unit, { salience: 0 }),
   ]);
-  const marked = new Set([U2, U3]);
-  const { kept, stale } = toExtract(
-    [b1, b2, b3],
-    verdicts,
-    [],
-    "p",
-    new Map(),
-    marked
-  );
+  const mark = {
+    at: "2026-10-15T10:25:00.000Z",
+    confidence: "high",
+    conversation: "conv-1",
+    ref: "j:1@x",
+    refs: ["j:1@x"],
+  };
+  const v = lifted(verdicts, [b1, b2, b3], [mark]);
+  expect([b1, b2].map((b) => verdictOf(v, b.unit)?.salience)).toEqual([0, 2]);
+  expect(verdictOf(v, b2.unit)?.reason).toStartWith('he said "hey Life"');
+  // Unchanged: the other units, and the ledger it was given.
+  expect(verdictOf(verdicts, b2.unit)?.salience).toBe(0);
+  // A marked unit with no verdict yet waits for one: its moment is not known.
   expect(
-    kept.map((k) => [k.b.unit.id, k.reason.startsWith('he said "hey Life"')])
-  ).toEqual([
-    [U1, false],
-    [U2, true],
-  ]);
-  // A mark lifts the salience bar, not the wait for a verdict: its moment is not known yet.
-  expect(stale).toBe(1);
-  // Unmarked, the salience-0 unit is not read.
-  expect(
-    toExtract([b1, b2, b3], verdicts, [], "p").kept.map((k) => k.b.unit.id)
-  ).toEqual([U1]);
-  // In its moment, not alone, though its verdict would leave it out.
-  const m = moment({ units: [U1, U2] });
-  expect(
-    groupsOf([b2], [b1, b2], verdicts, momentsNow([m], []), marked).groups.map(
-      (g) => [g.moment?.id ?? null, g.units.map((b) => b.unit.id)]
-    )
-  ).toEqual([[m.id, [U1, U2]]]);
+    lifted(verdicts, [b3], [{ ...mark, at: "2026-10-15T10:45:00.000Z" }]).size
+  ).toBe(2);
 });
 
 test("the calls of one moment share a lane, in order, even when a call joins two moments' lanes", () => {

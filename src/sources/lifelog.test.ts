@@ -16,6 +16,7 @@ import {
   apply,
   conversationsWith,
   Hits,
+  marksBetween,
   ownerSpoke,
   Page,
   poll,
@@ -27,6 +28,7 @@ import {
   turnPlace,
   turnsBetween,
   visits,
+  writeMarks,
 } from "./lifelog";
 
 const since = new Date("2026-10-01T00:00:00Z");
@@ -407,4 +409,29 @@ test("visits: lifelog's 404 (no place the phone named matches) is no stays", asy
   } finally {
     server.close();
   }
+});
+
+test("a conversation's marks from a point on are replaced by what the hearing finds now", () => {
+  const db = store();
+  const mark = (at: string, refs: string[]) => ({
+    at,
+    confidence: "high",
+    ref: refs[0] as string,
+    refs,
+  });
+  writeMarks(db, "c1", "", [
+    mark("2026-10-15T10:00:00.000Z", ["a"]),
+    mark("2026-10-15T11:00:00.000Z", ["b"]),
+  ]);
+  // His span went on: heard again from 10:30, the later mark grows; the earlier one stays.
+  writeMarks(db, "c1", "2026-10-15T10:30:00.000Z", [
+    mark("2026-10-15T11:00:00.000Z", ["b", "c"]),
+  ]);
+  writeMarks(db, "c2", "", [mark("2026-10-16T09:00:00.000Z", ["d"])]);
+  expect(marksBetween(db).map((m) => [m.conversation, m.refs])).toEqual([
+    ["c1", ["a"]],
+    ["c1", ["b", "c"]],
+    ["c2", ["d"]],
+  ]);
+  expect(marksBetween(db, "2026-10-16").map((m) => m.ref)).toEqual(["d"]);
 });
