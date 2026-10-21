@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { type SourceEvent, sourceFile } from "../schema";
 import { contacts, handleKey } from "./contacts";
+import type { Newest } from "./index";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 
@@ -105,6 +106,33 @@ export function readImessage(
         text: r.text ?? textFromAttributedBody(r.attributedBody),
       };
     });
+  } finally {
+    db.close();
+  }
+}
+
+/** The newest message in Messages (the status page). */
+export function newestImessage(): Newest {
+  const db = new Database(DB, { readonly: true });
+  try {
+    const r = db
+      .query<
+        {
+          attributedBody: Uint8Array | null;
+          date: number | bigint;
+          text: string | null;
+        },
+        []
+      >(
+        "select date, text, attributedBody from message order by date desc limit 1"
+      )
+      .get();
+    return r
+      ? {
+          at: fromAppleNs(r.date).toISOString(),
+          words: [r.text || textFromAttributedBody(r.attributedBody)],
+        }
+      : { at: null };
   } finally {
     db.close();
   }
