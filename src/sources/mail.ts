@@ -415,6 +415,24 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
   }
 }
 
+/**
+ * Each message file's text and files, read once per process: a file never changes (a partial one is replaced by the
+ * whole one, under another name), so `search` reads only new mail after its first call.
+ * Whether a partial message's saved attachment exists is read then too: one Mail downloads later shows at the next
+ * process. ponytail: keeps every message read (up to about 2 KB each) for the process's life: the nightly's three years
+ * for closeness, and in the server every mail any search's `from` reached; prune it if memory matters.
+ */
+const parsed = new Map<string, { files: SourceFile[]; snippet: string }>();
+function parse(path: string, id: string) {
+  const message = splitPart(rfc822(readFileSync(path)));
+  const read = {
+    files: filesOf(message, path, id),
+    snippet: snippetOf(message),
+  };
+  parsed.set(path, read);
+  return read;
+}
+
 export function readMail(
   since: Date,
   root = mailRoot(),
@@ -439,7 +457,7 @@ export function readMail(
     seen.add(id);
     const subject = r.subject ?? "";
     const path = emlxPath(root, r.mailbox, r.rowid);
-    const message = path ? splitPart(rfc822(readFileSync(path))) : null;
+    const read = path ? (parsed.get(path) ?? parse(path, id)) : null;
     const sender = (r.sender ?? "unknown").toLowerCase();
     events.push({
       at: new Date(r.received * 1000).toISOString(),
@@ -448,12 +466,12 @@ export function readMail(
         ? `mail:${r.conversation}`
         : `${r.mailbox}#${subject}`,
       ...(subject ? { chatName: subject } : {}),
-      files: path && message ? filesOf(message, path, id) : [],
+      files: read?.files ?? [],
       fromMe: mine.has(sender),
       id,
       sender,
       source: "mail",
-      text: `${r.prefix ?? ""}${subject}\n${message ? snippetOf(message) : ""}`.trim(),
+      text: `${r.prefix ?? ""}${subject}\n${read?.snippet ?? ""}`.trim(),
     });
   }
   return events;

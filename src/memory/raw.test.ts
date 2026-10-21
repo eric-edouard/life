@@ -1,5 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { archiveBeeperOnce, archiveNotesOnce, archiveOnce } from "../archive";
+import type { SourceEvent } from "../schema";
 import { readBeeper } from "../sources/beeper";
 import {
   beeperFixture,
@@ -19,11 +20,13 @@ import { apply } from "../sources/lifelog";
 import { readNotes } from "../sources/notes";
 import { readWhatsapp } from "../sources/whatsapp";
 import { OWNER } from "../truth";
+import { LIFE_MAIL } from "./email";
 import {
   chatHits,
   chatsOf,
   fetchOf,
   focus,
+  mailHits,
   transcripts,
   voiceLines,
 } from "./raw";
@@ -220,6 +223,65 @@ test("search's chats: all words, no accents or case, across the three apps, one 
   expect(await chatHits("vitre piano", {}, sources)).toEqual([
     "(nothing found)",
   ]);
+});
+
+test("search's mail: a line per thread-day, the newest 5 holding the most of the words, no newsletter nor Life's own mail, his agents' reports kept", async () => {
+  const mail = (i: number, text: string, more: Partial<SourceEvent> = {}) => ({
+    at: new Date(Date.now() - (30 - i) * 60_000).toISOString(),
+    chat: `mail:${i}`,
+    chatName: `Subject ${i}`,
+    fromMe: false,
+    id: `mail:m${i}`,
+    sender: "ann@example.com",
+    source: "mail" as const,
+    text: `Subject ${i}\n${text}`,
+    ...more,
+  });
+  const events = [
+    mail(0, "the glazier and the vitre"),
+    mail(1, "vitre 1"),
+    mail(2, "vitre 2", { chatName: "Life · nightly", sender: LIFE_MAIL.from }),
+    mail(3, "vitre 3", { chatName: "Agent report", sender: LIFE_MAIL.from }),
+    mail(4, "vitre sale", { bulk: true }),
+    // No subject: its text is its body alone, whose first line stays.
+    mail(5, "", { chatName: undefined, text: "vitre first\nsecond" }),
+    // A reply in the thread-day of 1: one line for both, its newest.
+    mail(6, "vitre again", { chat: "mail:1", chatName: "Subject 1" }),
+    mail(7, "vitre 7"),
+    mail(8, "vitre 8"),
+  ];
+  const hits = (query: string) =>
+    mailHits(
+      query,
+      {},
+      { mail: (since) => events.filter((e) => e.at >= since.toISOString()) }
+    );
+  const found = await hits("vitre");
+  expect(found[0]).toBe("(1 older matches not shown: narrow with `from`/`to`)");
+  expect(found).toHaveLength(6);
+  expect(found[1]).toStartWith("- (no unit) ");
+  expect(found[1]).toEndWith('ann@example.com: "Subject 8" vitre 8');
+  expect(found[3]).toEndWith('"Subject 1" vitre again');
+  expect(found[4]).toEndWith('"(no subject)" vitre first / second');
+  expect(found[5]).toContain('"Agent report" vitre 3');
+  expect(found.join("\n")).not.toContain("sale");
+  expect(found.join("\n")).not.toContain("nightly");
+  // The one holding both words alone, though the oldest.
+  expect(await hits("vitre glazier")).toEqual([
+    expect.stringContaining('"Subject 0" the glazier and the vitre'),
+  ]);
+  // A mail store that can't be read is said, and nothing found.
+  expect(
+    await mailHits(
+      "vitre",
+      {},
+      {
+        mail: () => {
+          throw new Error("locked");
+        },
+      }
+    )
+  ).toEqual(["(could not read: mail)", "(nothing found)"]);
 });
 
 test("search's chats: past 20 matches the newest are shown and the cut is said, with where to read on", async () => {

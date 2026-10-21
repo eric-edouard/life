@@ -32,7 +32,10 @@ import {
   oneToOne,
   personRef,
   SEARCHED,
+  SEARCHED_MAIL,
+  searchableMail,
   time,
+  unitTitle,
 } from "./units";
 import { meant, type People, readPeople, UNKNOWN } from "./who";
 import { localDate } from "./zones";
@@ -53,6 +56,10 @@ const QUERY_HITS = 20;
 /** A message longer than this (a note's whole text) shows in `search` as its lines holding a word, cut to it. */
 const HIT_MAX = 1000;
 const QUERY_CONTEXT = 1;
+/** A mail in `search` shows its lines holding a word, cut to this. */
+const MAIL_MAX = 200;
+/** Mail is the longest per hit: its section stops at this, `fetch <unit>` reads a thread whole. */
+export const MAIL_HITS = 5;
 const UNIT_ID = /^u_[0-9a-f]{12}$/;
 const DAY_MS = 86_400_000;
 
@@ -357,13 +364,51 @@ export async function chatHits(
     ? new Set((await readUnits()).map((u) => u.id))
     : undefined;
   return [
-    ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
+    ...unread(failed),
     ...(cut > 0
       ? [`(${cut} older matches not shown: narrow with \`from\`/\`to\`)`]
       : []),
     ...(found.length > 0
       ? chatLinesOf(found, await readPeople(), units)
       : ["(nothing found)"]),
+  ];
+}
+
+/**
+ * The Mail section of `search`: one line per thread-day (neither Life's own mail nor a newsletter, `searchableMail`),
+ * the newest `MAIL_HITS` holding all the words, each its newest message holding them: its unit to `fetch`, when, who
+ * sent it, its subject and its lines holding a word.
+ */
+export async function mailHits(
+  words: string,
+  range: { from?: string; to?: string } = {},
+  sources: Partial<typeof SEARCHED_MAIL> = SEARCHED_MAIL
+) {
+  const { events, failed } = readChats("searchDays", range, sources);
+  const holds = holdsAll(words);
+  const mail = searchableMail(events)
+    .flatMap((list) => list.findLast((e) => holds(e.text)) ?? [])
+    .sort((a, b) => b.at.localeCompare(a.at));
+  if (mail.length === 0) {
+    return [...unread(failed), "(nothing found)"];
+  }
+  const [people, units] = await Promise.all([readPeople(), readUnits()]);
+  const ids = new Set(units.map((u) => u.id));
+  return [
+    ...unread(failed),
+    ...(mail.length > MAIL_HITS
+      ? [
+          `(${mail.length - MAIL_HITS} older matches not shown: narrow with \`from\`/\`to\`)`,
+        ]
+      : []),
+    ...mail.slice(0, MAIL_HITS).map((e) => {
+      const unit = dayUnitId(e);
+      // The text is the subject, then the body: a mail with no subject is its body alone.
+      const body = e.chatName
+        ? e.text.slice(e.text.indexOf("\n") + 1 || e.text.length)
+        : e.text;
+      return `- ${ids.has(unit) ? unit : "(no unit)"} ${localTime(e.at)} ${senderOf(e, people)}: "${unitTitle(e)}" ${focus(redact(body), words, MAIL_MAX).replace(/\s*\n\s*/g, " / ")}`;
+    }),
   ];
 }
 
@@ -420,12 +465,22 @@ export async function chatsOf(
       : [
           `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY_MS)} days; give \`from\` to read further back)`,
         ]),
-    ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
+    ...unread(failed),
     ...(next
       ? [`(earlier not shown: the same call with \`before\` ${next})`]
       : []),
     ...chatLinesOf(page, people),
   ]);
+}
+
+/** The sources that could not be read, said in one line; nothing when none. */
+const unread = (names: string[]) =>
+  names.length > 0 ? [`(could not read: ${names.join(", ")})`] : [];
+
+/** Who wrote a message, named as everywhere else: the map, inferred people, and the handles the owner named. */
+function senderOf(e: SourceEvent, { names, resolve }: People) {
+  const who = e.fromMe ? null : resolve(e.sender);
+  return e.fromMe ? "me" : ((who && names.get(who)) ?? e.sender);
 }
 
 /** Where to read more of messages `chats` does not read (a note's versions): the units memory has (`units`) of their days. */
@@ -440,10 +495,9 @@ function noteUnits(list: SourceEvent[], units: Set<string>) {
  */
 function chatLinesOf(
   events: SourceEvent[],
-  { names, resolve }: People,
+  people: People,
   units = new Set<string>()
 ) {
-  // Senders named as everywhere else: the map, inferred people, and the handles the owner named.
   const byChat = chatGroups(events);
   return [...byChat.values()].flatMap((list) => {
     const [first] = list;
@@ -454,11 +508,10 @@ function chatLinesOf(
     return [
       "",
       `## ${first?.chatName ?? first?.chat} (${first?.source}, ${more})`,
-      ...list.map((e) => {
-        const who = e.fromMe ? null : resolve(e.sender);
-        const sender = e.fromMe ? "me" : ((who && names.get(who)) ?? e.sender);
-        return `${localTime(e.at)} ${sender}: ${redact(e.text).replaceAll("\n", " ")}${e.deleted ? " (deleted)" : ""}`;
-      }),
+      ...list.map(
+        (e) =>
+          `${localTime(e.at)} ${senderOf(e, people)}: ${redact(e.text).replaceAll("\n", " ")}${e.deleted ? " (deleted)" : ""}`
+      ),
     ];
   });
 }
