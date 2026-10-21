@@ -174,9 +174,9 @@ export const liveUnits = (units: Unit[]) =>
 
 /**
  * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), the
- * unit has none, or he rated `o` true (`rated`): a unit read again, under another content hash or another prompt
- * version, leaves its older facts in the ledger, replaced, except those he rated true, which only a newer observation
- * retires; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
+ * unit has none, or he rated `o` true, now or then (`rated`): a unit read again, under another content hash or another
+ * prompt version, leaves its older facts in the ledger, replaced, except those he rated so, which only a newer
+ * observation retires; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
   { latest, live, rated }: Pick<Standing, "latest" | "live" | "rated">,

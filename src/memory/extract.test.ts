@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Moment, Observation } from "../schema";
+import type { Moment, Observation, Supersession } from "../schema";
 import type { LifelogConversation } from "../sources/lifelog";
 import {
   byDays,
@@ -353,4 +353,13 @@ test("what extraction may show: none from a unit read again but what he rated tr
     "rated",
     "elsewhere",
   ]);
+  // A fact the rated one retired stays closed: a re-read keeps its retirer, so it is never offered again.
+  const closed = new Map([
+    ["elsewhere", { at: "t", by: "rated" } as Supersession],
+  ]);
+  expect(
+    shownFor(known, { ...standing, retired: closed }, new Set()).map(
+      (x) => x.o.id
+    )
+  ).toEqual(["rated", "unrated"]);
 });
