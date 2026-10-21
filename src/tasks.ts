@@ -516,6 +516,6 @@ export function wantOf(t: Task): Receipt {
   };
 }
 
-/** The board's receipts (`push`, src/sync.ts): every task but those closed over a day ago. */
+/** The board's receipts (`push`, src/sync.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
 export const receipts = (tasks: Task[], now: number) =>
   tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
