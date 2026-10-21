@@ -519,3 +519,39 @@ export function wantOf(t: Task): Receipt {
 /** The board's receipts (`push`, src/sync.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
 export const receipts = (tasks: Task[], now: number) =>
   tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
+
+/**
+ * His tick or removal of an open task's receipt in Reminders (`marks`, src/sync.ts) closes the task, done or dropped
+ * (his decision 17, 21 Oct), and its receipt is not added again. It only takes work away from Atlas: no step, reply or
+ * send follows from it, and Atlas sees why in `tasks`.
+ */
+export const closings = (
+  tasks: Task[],
+  marks: Map<string, "removed" | "ticked">,
+  at: string
+): Action[] =>
+  tasks.flatMap((t) => {
+    const mark = marks.get(t.ask.id);
+    if (!mark || closed(standing(t).state)) {
+      return [];
+    }
+    return [
+      {
+        after:
+          mark === "ticked"
+            ? { outcome: "he ticked its receipt in Reminders", state: "done" }
+            : {
+                reason: "he removed its receipt in Reminders",
+                state: "dropped",
+              },
+        at,
+        id: actionId(`${t.ask.id}@${at}`, "update", "reminders"),
+        kind: "update",
+        madeBy: "reminders",
+        result: "ok",
+        schemaVersion: 1,
+        target: t.ask.id,
+        why: "his change in Reminders",
+      },
+    ];
+  });
