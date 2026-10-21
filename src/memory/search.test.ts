@@ -15,12 +15,15 @@ import { apply, readConversations } from "../sources/lifelog";
 import { layoutOf, perSection, renderPage } from "./page";
 import { holdsAll } from "./raw";
 import {
+  birthdaysNear,
+  birthdayText,
   buildIndex,
   candidateLines,
   coverageLines,
   dayLines,
   dueOn,
   momentLine,
+  nextBirthday,
   readIndex,
   matches as searchMatches,
   withSpans,
@@ -391,4 +394,35 @@ test("a Between us line shows the days of its first and latest evidence", () => 
   expect(withSpans(text, (id) => (day[id] ? [day[id]] : []))).toContain(
     "agreed to keep money apart. [obs_aaaaaaaaaaaa, obs_bbbbbbbbbbbb] (since 2026-03-01 · last evidence 2026-09-12)"
   );
+});
+
+test("birthdays: the next date, days left and age; day lists this day and the next 7, soonest first", () => {
+  expect(nextBirthday("1993-11-12", "2026-11-09")).toEqual({
+    age: 33,
+    day: "2026-11-12",
+    left: 3,
+  });
+  // Passed this year: next year's; no year, no age.
+  expect(nextBirthday("--01-07", "2026-10-21")).toEqual({
+    age: null,
+    day: "2027-01-07",
+    left: 78,
+  });
+  expect(birthdayText(nextBirthday("--10-21", "2026-10-21"))).toBe(
+    "21 Oct (today)"
+  );
+  expect(
+    birthdaysNear(
+      [
+        { birthday: "2000-10-28", id: "ana", name: "Ana" },
+        { birthday: "--10-21", id: "jean", name: "Jean" },
+        { birthday: "--10-29", id: "late", name: "Late" },
+        { id: "none", name: "None" },
+      ],
+      "2026-10-21"
+    )
+  ).toEqual([
+    "- Jean (`person jean`): 21 Oct (today)",
+    "- Ana (`person ana`): 28 Oct (in 7 days, turns 26)",
+  ]);
 });

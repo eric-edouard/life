@@ -70,7 +70,7 @@ import {
   observationsNow,
   readPeople,
 } from "./who";
-import { dayStart, localDate } from "./zones";
+import { dayStart, localDate, when } from "./zones";
 
 // The read path, as `bun life memory search|person|area` (src/memory/command.ts): short cited results from the pages
 // and derived/memory/index.sqlite. It also owns the index: buildIndex writes it, nothing else here writes.
@@ -469,8 +469,17 @@ export async function person(name?: string, o: { before?: string } = {}) {
     file && (await file.exists()) ? { text: await file.text() } : null;
   const id = known ?? slugOf(name);
   const ref = `person:${id}`;
-  const lifelog = truth.people.find((p) => p.id === id)?.handles.lifelog;
-  const close = await closenessLine(ref);
+  const mapped = truth.people.find((p) => p.id === id);
+  const lifelog = mapped?.handles.lifelog;
+  const close = [
+    ...(mapped?.birthday
+      ? [
+          `Birthday: ${birthdayText(nextBirthday(mapped.birthday, localDate(new Date().toISOString())))}`,
+          "",
+        ]
+      : []),
+    ...(await closenessLine(ref)),
+  ];
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
   const moments = await momentsWhere((m) =>
@@ -627,14 +636,21 @@ export function dayLines(
 }
 
 export async function day(date: string) {
-  const names = lifelogNames(await loadTruth());
+  const truth = await loadTruth();
+  const names = lifelogNames(truth);
+  const born = birthdaysNear(truth.people, date);
   const actions = (await readActions()).filter(
     (a) => !isTaskLine(a) && localDate(a.at) === date
   );
   const moments = await momentsWhere(inDays({ from: date, to: date }));
+  const head =
+    born.length > 0
+      ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
+      : [];
   return withStore((store) =>
-    withIndex((db) =>
-      dayLines(
+    withIndex((db) => [
+      ...head,
+      ...dayLines(
         readConversations(store, dayStart(date), names).filter(
           (c) => localDate(c.startedAt) === date
         ),
@@ -655,10 +671,57 @@ export async function day(date: string) {
         actions,
         moments,
         dueOn(db, date)
-      )
-    )
+      ),
+    ])
   );
 }
+
+/** How far ahead `day` lists birthdays: Atlas reminds him a week before (gift ideas) and on the day (docs/atlas.md). */
+const BIRTHDAY_DAYS = 7;
+
+/**
+ * A birthday (`--MM-DD`, or `YYYY-MM-DD`) seen from `today`: its next date, the days left, and the age then when the
+ * year is known.
+ */
+export function nextBirthday(birthday: string, today: string) {
+  const [year = 0, month = 1, dom = 1] = birthday
+    .replace("--", "0-")
+    .split("-")
+    .map(Number);
+  const from = Date.parse(`${today}T00:00:00Z`);
+  const on = (y: number) => Date.UTC(y, month - 1, dom);
+  // ponytail: a 29 Feb birthday falls on 1 Mar in other years (Date.UTC rolls over).
+  let at = on(Number(today.slice(0, 4)));
+  if (at < from) {
+    at = on(Number(today.slice(0, 4)) + 1);
+  }
+  const next = new Date(at).toISOString().slice(0, 10);
+  return {
+    age: year ? Number(next.slice(0, 4)) - year : null,
+    day: next,
+    left: Math.round((at - from) / 86_400_000),
+  };
+}
+
+/** A `nextBirthday` as "12 Nov (in 3 days, turns 33)". */
+export const birthdayText = (b: ReturnType<typeof nextBirthday>) =>
+  `${when(b.day).date} (${b.left === 0 ? "today" : `in ${b.left} day${b.left === 1 ? "" : "s"}`}${b.age ? `, turns ${b.age}` : ""})`;
+
+/**
+ * The birthdays from `date` to `BIRTHDAY_DAYS` later of everyone on his map with one: he wrote each, so each person
+ * matters to him. Soonest first.
+ */
+export const birthdaysNear = (
+  people: { birthday?: string; id: string; name: string }[],
+  date: string
+) =>
+  people
+    .flatMap((p) =>
+      p.birthday ? [{ b: nextBirthday(p.birthday, date), p }] : []
+    )
+    .filter(({ b }) => b.left <= BIRTHDAY_DAYS)
+    .toSorted((x, y) => x.b.left - y.b.left)
+    .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
  * His open loops due on `date` that must not be forgotten (salience 3), not retired: his promises (his to keep, even
