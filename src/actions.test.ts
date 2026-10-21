@@ -1,20 +1,22 @@
 import { expect, test } from "bun:test";
 import {
   actionId,
-  alarmArgs,
   Change,
-  changedFields,
   duplicateOf,
   Granted,
   grantedFrom,
   grantRefusal,
+  requested,
+} from "./actions";
+import type { Action } from "./schema";
+import {
+  alarmArgs,
+  changedFields,
   openOf,
   readable,
   reminderArgs,
-  requested,
   unshared,
-} from "./actions";
-import type { Action } from "./schema";
+} from "./sync";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {
   expect(

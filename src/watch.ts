@@ -1,5 +1,3 @@
-import { checks } from "./actions";
-import { tick } from "./board";
 import { clock } from "./clock";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
@@ -11,6 +9,8 @@ import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
 import { serveConnector } from "./server";
 import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
+import { checks, push } from "./sync";
+import { chase, receipts, tasksOf } from "./tasks";
 import { ROOT } from "./truth";
 import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
@@ -19,9 +19,22 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
-// (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `tick` emails him the tasks that need him and mirrors them
-// on his board (src/board.ts); `deliver` pushes the asks not yet delivered to Atlas (src/events.ts).
+// (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
+// mirrors them on his board (src/sync.ts); `deliver` pushes the asks not yet delivered to Atlas (src/events.ts).
 // Every 2 minutes it also heals the Mac's tunnel (src/tunnel.ts).
+
+const MIN = 60_000;
+let last = 0;
+/** At most each minute: the chase (from the ledger alone, so a Reminders outage stops no email), then the board. */
+async function tick(now = clock().getTime()) {
+  if (now - last < MIN) {
+    return;
+  }
+  last = now;
+  const tasks = tasksOf();
+  await chase(tasks, now);
+  await push(receipts(tasks, now));
+}
 
 const WAIT_S = 60;
 const RETRY_MS = 30_000;

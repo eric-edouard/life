@@ -67,9 +67,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   a separate record, and observations carry no owner-only field.
 
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
-  Reminders (add, edit, done, undone, remove to Recently Deleted, restore, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
-  only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
-  the tasks' board below, written only by `src/board.ts`. One standing grant (decision 2 of the 21 Oct review)
+  Reminders (add, edit, done, undone, remove to Recently Deleted, restore), through `act` (`src/actions.ts`, the
+  only code that decides it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). `act` decides and records; `src/sync.ts` is the only code that touches Reminders (`~/bin/remctl`), for `act` and for the board. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
+  the tasks' board below. One standing grant (decision 2 of the 21 Oct review)
   is the only other authority, off until his words in a Claude session turn it on (`bun life grant on|off '<his
   words>'`, a `grant` line in the ledger, the latest standing; his "stop" may come through Atlas, as off only takes
   authority away): `reminders` with `obs` in place of `said` adds a
@@ -93,12 +93,12 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   history. The nightly counts the last day's asks with no reply logged (`unanswered`). `nudge` and
   `steer` lines (until 20 Oct) only parse. What needs him is one rule, `escalation`, for every task, chat ones too:
   unclaimed 30 min after the ask, claimed and past its deadline, waiting on him over 1 h, a week old, or no live
-  subscription (one email a day); `chase` (`src/board.ts`, each minute in the watcher) emails him once per task, cause and
+  subscription (one email a day); `chase` (`src/tasks.ts`, each minute in the watcher) emails him once per task, cause and
   Atlas's last update, a pass's new causes in one email. Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`). Task lines stay out of the Actions section and `day`; the nightly lists every open task and
   those closed in the last day. Its Actions say "no daily review reached Life" when ChatGPT made no successful `day` call in
   24 h (`reviewed`, `nightly.ts`): Atlas's daily review must keep reading `day`.
-- **The board, his Reminders list `Atlas`, is a one-way projection of the ledger, his receipt** (`src/board.ts`, `tick`,
-  each minute in the watcher): it writes no ledger line, reads nothing back as his (no steers: they once forged his
+- **The board, his Reminders list `Atlas`, is a one-way projection of the ledger, his receipt** (`wantOf` in `src/tasks.ts`,
+  written by `push` in `src/sync.ts` each minute in the watcher): it writes no ledger line, reads nothing back as his (no steers: they once forged his
   voice) and never goes through `act`. An item is found by the task id on its notes' first line. Life brings its notes
   and section (Open, Working: made by hand on 19 Oct, the code only assigns them) in line each pass and ticks the item
   when its task closes. It never alerts: what needs him is emailed (`chase`).

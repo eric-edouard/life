@@ -240,7 +240,7 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
-/** The alert for the Atlas tasks that newly need him, one per `chase` pass (src/board.ts): why, and his words. */
+/** The alert for the Atlas tasks that newly need him, one per `chase` pass (src/tasks.ts): why, and his words. */
 export function taskReport(
   list: { ask: Task["ask"]; cause: string; title: string }[],
   now: number
