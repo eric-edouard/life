@@ -11,6 +11,7 @@ import {
   alerts,
   chase,
   escalation,
+  receipts,
   refusal,
   reply,
   sealed,
@@ -482,4 +483,15 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
   } finally {
     rmSync(ACTIONS, { force: true });
   }
+});
+
+test("the board's receipts leave out a task closed over a day ago: he may have unticked its item", () => {
+  const closedAt = (min: number) =>
+    task([own("update", min, { outcome: "done", state: "done" })]);
+  const now = T0 + 25 * 60 * MIN;
+  expect(receipts([closedAt(0), closedAt(120)], now)).toHaveLength(1);
+  expect(receipts([task([])], now)[0]).toMatchObject({
+    completed: false,
+    id: ASK,
+  });
 });

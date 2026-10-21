@@ -110,7 +110,7 @@ export async function info(target: number | undefined) {
   return Object.fromEntries(KEEP.flatMap((k) => (k in r ? [[k, r[k]]] : [])));
 }
 
-export const partial = (r: Record<string, unknown>) =>
+const partial = (r: Record<string, unknown>) =>
   r.status === "partial"
     ? `partial: ${r.message ?? r.error ?? "a private step failed"}`
     : undefined;
