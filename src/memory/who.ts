@@ -7,8 +7,8 @@ import {
   type Unit,
   type Unresolved,
 } from "../schema";
-import { sourceOf } from "../sources";
-import { handleIndex, loadTruth, OWNER } from "../truth";
+import { kindOf, sourceOf } from "../sources";
+import { handlesOf, loadTruth, OWNER } from "../truth";
 import {
   readCorrections,
   readInferred,
@@ -18,12 +18,10 @@ import {
   readUnresolved,
   shownOf,
 } from "./ledger";
-import { nameIndex, normalize, personRef } from "./units";
+import { normalize, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people Life inferred and the owner's corrections, in that order
 // of trust under his word. Every reader and step resolves people through here.
-
-export const UNKNOWN = "unknown:";
 
 const WHO = /^(person|unknown):/;
 /** A speaker as a reader sees it: the readable name when there is one, else the id without its `person:` prefix. */
@@ -47,6 +45,24 @@ export function merged(corrections: Correction[]) {
     return r;
   };
 }
+
+const PAREN = /\(.*?\)/g;
+
+/** Names and aliases on the map, normalized, to the person; a name two people share maps to nobody. */
+function nameIndex(people: Person[]) {
+  const index = new Map<string, string | null>();
+  for (const p of people) {
+    for (const n of [p.name, ...p.aliases]) {
+      const k = normalize(n);
+      index.set(k, index.has(k) && index.get(k) !== p.id ? null : p.id);
+    }
+  }
+  return index;
+}
+
+/** Index of every handle in the map to the person who owns it. */
+const handleIndex = (people: Person[]): Map<string, string> =>
+  new Map(people.flatMap((p) => handlesOf(p).map((h) => [h, p.id])));
 
 /**
  * Maps a name, handle or address to `person:<slug>`, in this order: what the owner said it is (`this-is`), `truth/`
@@ -87,11 +103,12 @@ export function resolver(
   return (surface: string): string | null => {
     const ks = keys(surface);
     const truth = handles.get(ks[0] ?? "") ?? handles.get(ks[1] ?? "");
-    const named = personRef(surface.trim(), names);
+    // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
+    const named = names.get(normalize(surface.trim().replace(PAREN, "")));
     const ref = [
       ...ks.map((k) => said.get(k)),
       truth && `person:${truth}`,
-      named.startsWith("person:") ? named : undefined,
+      named && `person:${named}`,
       ...ks.map((k) => guessed.get(k)),
     ].find((r) => r && !ks.some((k) => not.has(`${k}|${r}`)));
     return ref ? canon(ref) : null;
@@ -229,6 +246,20 @@ export function chatHandles(units: Unit[]) {
   );
 }
 
+/**
+ * A unit as every reader of its people sees it today: each mapped by `refOf` (its units keep them unresolved), a mail's
+ * senders no one knows left out (lists and shops, not people).
+ */
+export const unitNow = <U extends Unit>(
+  u: U,
+  refOf: (ref: string) => string
+): U => ({
+  ...u,
+  people: u.people
+    .map(refOf)
+    .filter((p) => !(p.startsWith(UNKNOWN) && kindOf(u.source) === "mail")),
+});
+
 /** An observation as readers get it (`aboutNow`). */
 export type Shown = ReturnType<typeof aboutNow>[number];
 
@@ -350,8 +381,6 @@ export function nearNames<
     .slice(0, 5)
     .map(({ p }) => p);
 }
-
-const PERSON = /^person:/;
 
 /** Everyone a name can mean: the people on his map and those Life inferred (not folded into another), going by their surfaces too. */
 function nameable({

@@ -16,12 +16,12 @@ import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { FROZEN } from "../src/clock";
-import { nextEvent, parse } from "../src/events";
+import { nextEvent } from "../src/events";
 import { askOnce, llmFor } from "../src/llm";
 import { recentEvents } from "../src/log";
 import { buildServer } from "../src/mcp";
 import { spareQuota } from "../src/memory/guard";
-import { ACTIONS, linesOf, OUT } from "../src/memory/ledger";
+import { ACTIONS, linesOf, OUT, parseAction } from "../src/memory/ledger";
 import { ended, metered } from "../src/memory/run";
 import { judge, tally } from "../src/memory/tally";
 import { localDate, zoneAt } from "../src/memory/zones";
@@ -123,8 +123,8 @@ const stated = (iso: string) => {
  * his message: the ledger before it, and his words.
  */
 export function askAt(lines: string[], id: string) {
-  const k = lines.findIndex((l) => parse(l)?.id === id);
-  const ask = k < 0 ? null : parse(lines[k] ?? "");
+  const k = lines.findIndex((l) => parseAction(l)?.id === id);
+  const ask = k < 0 ? null : parseAction(lines[k] ?? "");
   if (!ask?.instruction) {
     throw new Error(`${id} is not an ask with his words`);
   }
@@ -233,7 +233,7 @@ async function runCase(
         .slice(world.cut)
         .map((l, i) => ({
           id: `task${i}`,
-          text: JSON.stringify(parse(l)?.after),
+          text: JSON.stringify(parseAction(l)?.after),
         })),
     ].map((s) => ({ ...s, date: localDate(world.at) }));
     const { marks } = tally(

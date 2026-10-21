@@ -46,9 +46,11 @@ import {
   head,
   localTime,
   normalizeTopics,
+  type Resolve,
+  UNKNOWN,
   writeUnits,
 } from "./units";
-import { readPeople, UNKNOWN } from "./who";
+import { readPeople, unitNow } from "./who";
 
 // `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
 // judged on its current content, the deep-tier model reads every unit of the day from every channel in time order,
@@ -142,15 +144,22 @@ const Said = Moment.pick({
 });
 const at = (s: string | null) => (LocalTime.safeParse(s).success ? s : null);
 
-/** Code's last word on a verdict's salience: commits 1 at most (never extracted), a unit he marked "hey Life" 3. */
-const saliencyOf = (u: Unit, salience: number) => {
-  if (kindOf(u.source) === "repo") {
+/**
+ * Code's last word on a verdict's salience: commits 1 at most (never extracted), a unit he marked "hey Life" 3, an
+ * agent's report at least KEEP_AT (always read, for what it may close).
+ */
+export function saliencyOf(u: Unit, salience: number) {
+  const kind = kindOf(u.source);
+  if (kind === "repo") {
     return Math.min(salience, 1);
   }
-  return u.marked ? 3 : salience;
-};
+  if (u.marked) {
+    return 3;
+  }
+  return kind === "agent" ? Math.max(salience, KEEP_AT) : salience;
+}
 
-/** The verdicts of a day's reply for units of that day, once each; commits at salience 1 at most (never extracted), a marked unit 3. */
+/** The verdicts of a day's reply for units of that day, once each, their salience `saliencyOf`. */
 function verdictsOf(
   list: unknown[],
   ctx: { areas: Map<string, string>; madeBy: MadeBy; units: Map<string, Unit> }
@@ -184,10 +193,7 @@ function verdictsOf(
 }
 
 /** A person the model named, as a ref: one it was given, or an `unknown:` name resolved by code; never the owner. */
-function personOf(
-  ref: string,
-  ctx: { people: Set<string>; resolve: (surface: string) => string | null }
-) {
+function personOf(ref: string, ctx: { people: Set<string>; resolve: Resolve }) {
   const link = linkOf(ref, ctx.people, ctx.resolve);
   if ("ref" in link) {
     return link.ref === OWNER ? null : link.ref;
@@ -210,7 +216,7 @@ export function parseDay(
     madeBy: MadeBy;
     /** The person refs the model was given. */
     people: Set<string>;
-    resolve: (surface: string) => string | null;
+    resolve: Resolve;
     units: Map<string, Unit>;
   }
 ) {
@@ -337,10 +343,8 @@ export async function moments(evidence: Evidence) {
       all.map((b) => b.unit)
     );
   }
-  const [verdicts, { corrections, inferred, resolve }] = await Promise.all([
-    readVerdicts(),
-    readPeople(),
-  ]);
+  const [verdicts, { corrections, inferred, refOf, resolve }] =
+    await Promise.all([readVerdicts(), readPeople()]);
   // Area hints: the chats' projects, and each repo's project or Life's guess.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
@@ -393,7 +397,7 @@ export async function moments(evidence: Evidence) {
             areaHint: hints.get(unit.key),
             end: localTime(unit.end),
             id: unit.id,
-            people: unit.people,
+            people: unitNow(unit, refOf).people,
             source: unit.source,
             start: localTime(unit.start),
             text: head(text),
