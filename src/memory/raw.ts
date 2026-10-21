@@ -2,7 +2,7 @@ import { clock } from "../clock";
 import { type Candidate, owed } from "../items";
 import { redact } from "../redact";
 import type { SourceEvent, Unit } from "../schema";
-import { kindOf, sourceOf } from "../sources";
+import { isDirect, kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
 import {
   type ChapterTurn,
@@ -530,11 +530,8 @@ export async function repliesOwed(end: Date): Promise<Candidate[]> {
     { from, to: end.toISOString() },
     CHATS
   );
-  // 1:1 by its source's own test of a group chat (a source that cannot tell is left out).
-  const direct = (e: SourceEvent) => {
-    const { group } = sourceOf(e.source);
-    return group !== undefined && !group(e.chat);
-  };
+  const direct = (e: SourceEvent, others: number) =>
+    isDirect(e.source, e.chat, others);
   return owed(events, direct).map((e) => ({
     at: e.at,
     id: e.id,

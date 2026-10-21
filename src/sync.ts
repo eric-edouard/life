@@ -310,7 +310,7 @@ async function listsOf(list?: string) {
   return lists.filter((l) => !l.isGroup && readable(l.title, list));
 }
 
-/** Every open top-level reminder, of one list or all, never the board: what an add's title is checked against, and the connector's `open_reminders`. */
+/** Every open top-level reminder, of one list or all, never the board: the connector's `open_reminders`. */
 export async function openReminders(list?: string) {
   const open = await Promise.all(
     (await listsOf(list)).map((l) =>

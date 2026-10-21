@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { type Candidate, openItems, owed } from "./items";
 import type { SourceEvent } from "./schema";
+import { goalProjects } from "./truth";
 
 const DATE = "2026-10-19";
 const item = (over: Partial<Candidate>): Candidate => ({
@@ -48,6 +49,22 @@ test("audit-5-reply-owed: a 1:1 chat whose last word is theirs is a reply he owe
     owed([...thread, msg({ fromMe: true, id: "imessage:C" })], oneToOne)
   ).toEqual([]);
   expect(owed([msg({})], oneToOne)).toEqual([]);
+  // His photo after their words is his answer; their photo alone is a word of theirs.
+  const photo = {
+    files: [{ mime: "image/jpeg", ref: "f1" }],
+    text: "",
+  } as Partial<SourceEvent>;
+  expect(
+    owed(
+      [...thread, msg({ ...photo, fromMe: true, id: "imessage:P" })],
+      oneToOne
+    )
+  ).toEqual([]);
+  expect(
+    owed([...thread, msg({ ...photo, id: "imessage:Q" })], oneToOne).map(
+      (e) => e.id
+    )
+  ).toEqual(["imessage:Q"]);
   const group = thread.map((e) => ({ ...e, chat: "group-1" }));
   expect(owed(group, oneToOne)).toEqual([]);
   const reply = item({ id: "imessage:A", kind: "reply", when: "2026-10-17" });
@@ -124,4 +141,12 @@ test("rank: his urgent flag and priority, then who owes whom, his goals in order
     "todo-old",
     "waiting",
   ]);
+});
+
+test("his goals' projects, in his order", () => {
+  expect(
+    goalProjects(
+      "1. Be free (`lynx`, `life`).\n2. Earn from `shop`\n   and more."
+    )
+  ).toEqual([["lynx", "life"], ["shop"]]);
 });

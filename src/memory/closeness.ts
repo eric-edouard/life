@@ -7,7 +7,7 @@ import {
   type MadeBy,
   type SourceEvent,
 } from "../schema";
-import { kindOf, sourceOf } from "../sources";
+import { isDirect, kindOf } from "../sources";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { OWNER, type Truth } from "../truth";
 import {
@@ -69,8 +69,7 @@ function chatPerson(
     list.filter((e) => !e.fromMe).map((e) => resolve(e.sender) ?? e.sender)
   );
   const [first] = list;
-  const byId = first && sourceOf(first.source).group;
-  if (!first || (others.size > 1 && !byId)) {
+  if (!(first && isDirect(first.source, first.chat, others.size))) {
     return null;
   }
   const named =
@@ -91,9 +90,7 @@ export function chatDays(
   resolve: (s: string) => string | null,
   days: Days = new Map()
 ) {
-  const one = events.filter(
-    (e) => !(e.bulk || sourceOf(e.source).group?.(e.chat))
-  );
+  const one = events.filter((e) => !e.bulk);
   for (const list of Map.groupBy(
     one,
     (e) => `${e.source}|${e.chat}`
