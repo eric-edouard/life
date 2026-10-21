@@ -351,3 +351,23 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
     useText({ quota: { after: reset, before: q(90) }, tokens: tokens(0) })
   ).toBe("the quota reset during it, 0k tokens (0k cached)");
 });
+
+test("a sweep's run holds its phases in the order it entered them", () => {
+  const at = "2026-10-15T00:31:00.000Z";
+  const phase = (p: string, s: number) =>
+    ev("run.phase", "memory.nightly", `2026-10-15T00:3${s}:00.000Z`, {
+      phase: p,
+      run: id(at),
+    });
+  const list = assembleRuns(
+    [
+      ev("run.start", "memory.nightly", at, { run: id(at) }),
+      phase("repos", 2),
+      phase("gather", 3),
+      phase("index", 4),
+    ],
+    new Set(["memory.nightly"]),
+    null
+  );
+  expect(list[0]?.phases).toEqual(["repos", "gather", "index"]);
+});

@@ -79,9 +79,17 @@ export async function ended<T extends Record<string, unknown>>(
  * A sweep's phases (the nightly's, the midday's): `at` is the one running. `step` runs a step, which fails the sweep if
  * it failed anything; `failed` logs the sweep's failure at the phase running and returns its end's fields.
  */
-export function phases(rec: Pick<RunRecord, "error" | "step">) {
+export function phases(rec: Pick<RunRecord, "error" | "run" | "step">) {
+  let at = "";
   const p = {
-    at: "",
+    /** The phase running; each one entered is logged (`run.phase`), so the run's record holds its phases in order. */
+    get at() {
+      return at;
+    },
+    set at(phase: string) {
+      at = phase;
+      log("run.phase", { phase, run: rec.run, step: rec.step });
+    },
     failed(e: unknown) {
       const error = (e as Error).message;
       rec.error(`${p.at}: ${error}`);

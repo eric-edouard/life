@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { CLOSED_ON_SILENCE_S } from "../hear";
@@ -17,6 +17,7 @@ import {
   conversationsWith,
   Hits,
   LifelogStatus,
+  newestTurn,
   ownerSpoke,
   Page,
   poll,
@@ -495,4 +496,11 @@ test("lifelog's /status is read whatever its untyped objects hold: absent, null,
       phoneHeartbeat: { backlog: null },
     }).pendant?.batteryPercent
   ).toBe(0);
+});
+
+test("the newest turn is read without creating or changing the store: no store, no file", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-newest-turn-"));
+  expect(await newestTurn(join(dir, "watch"))).toBeNull();
+  expect(existsSync(join(dir, "watch"))).toBe(false);
+  rmSync(dir, { force: true, recursive: true });
 });
