@@ -26,6 +26,7 @@ import {
   coverageLines,
   dayLines,
   dueOn,
+  momentHits,
   momentLine,
   nextBirthday,
   readIndex,
@@ -308,6 +309,36 @@ test("by words: those holding the most of them, in their order; case and accents
   ]);
   expect(byWords(["it is", "no"], "is at", (t) => t)).toEqual(["it is"]);
   expect(byWords(["anything"], "??", (t) => t)).toEqual([]);
+});
+
+test("moments: one holding the words, and one meaning alone found, marked; by date", () => {
+  const moment = (id: string, day: string, title: string) =>
+    ({
+      day,
+      id,
+      people: [],
+      start: null,
+      status: "happened",
+      title,
+      units: [],
+    }) as unknown as Moment;
+  const moments = [
+    moment("mom_1", "2026-10-14", "Dinner with the glazier"),
+    moment("mom_2", "2026-10-15", "Window repair booked"),
+    moment("mom_3", "2026-10-16", "Gym"),
+  ];
+  cacheVectors([
+    ["Window repair booked", [1, 0]],
+    ["Gym", [0, 1]],
+  ]);
+  const lines = momentHits(moments, "glazier", new Float32Array([1, 0.1]));
+  expect(lines).toHaveLength(2);
+  expect(lines[0]).toStartWith("- mom_1 ");
+  expect(lines[0]).not.toEndWith("(by meaning)");
+  expect(lines[1]).toStartWith("- mom_2 ");
+  expect(lines[1]).toEndWith("(by meaning)");
+  // With no query vector, words alone.
+  expect(momentHits(moments, "glazier", null)).toHaveLength(1);
 });
 
 test("fusion: a hit both lists rank beats one only one list ranks first; nothing is lost", () => {

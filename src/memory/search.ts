@@ -163,7 +163,8 @@ const ftsQuery = (q: string, op: "AND" | "OR") =>
 const POOL = 50;
 const BY_MEANING = " (by meaning)";
 /** The texts a unit and a moment are embedded as (`reindex`) and found by; a moment's is also its line's. */
-const unitText = (u: Unit) => `${u.title}\n${u.summary ?? ""}`;
+const unitText = (u: Pick<Unit, "summary" | "title">) =>
+  `${u.title}\n${u.summary ?? ""}`;
 const momentTitle = (m: Moment) =>
   `${m.title}${m.place ? ` @ ${m.place}` : ""}`;
 
@@ -244,10 +245,11 @@ export function matches(
     meaning,
     () =>
       db
-        .query<{ hash: string; id: string }, string[]>(
-          `select o.id, o.text_hash as hash from observations o where ${CURRENT}${o.sql}`
+        .query<{ id: string; text: string }, string[]>(
+          `select o.id, o.text from observations o where ${CURRENT}${o.sql}`
         )
         .all(...o.args)
+        .map((r) => ({ hash: hashOf(r.text), id: r.id }))
   ).map((h) => `${line(row.get(h.id) as Row)}${h.mark}`);
   const units = fused(
     ids(
@@ -258,10 +260,11 @@ export function matches(
     meaning,
     () =>
       db
-        .query<{ hash: string; id: string }, string[]>(
-          `select u.id, u.text_hash as hash from units u where 1 = 1${u.sql}`
+        .query<{ id: string; summary: string; title: string }, string[]>(
+          `select u.id, s.title, s.summary from units u join unit_search s on s.id = u.id where 1 = 1${u.sql}`
         )
         .all(...u.args)
+        .map((r) => ({ hash: hashOf(unitText(r)), id: r.id }))
   ).map((h) => `${unitLine(unitRow.get(h.id) as UnitRow)}${h.mark}`);
   return observations.length + units.length > 0
     ? [
@@ -390,6 +393,29 @@ export function taskHits(words: string, o: Days, tasks = tasksOf()) {
   });
 }
 
+/**
+ * The moments' lines for `words`: those holding the most of them (the newest first) fused with the nearest `meaning`,
+ * the best `LIMIT` shown by date, and a note when more were cut.
+ */
+export function momentHits(
+  moments: Moment[],
+  words: string,
+  meaning: Float32Array | null
+) {
+  const ranked = fused(
+    byWords(moments.toReversed(), words, momentTitle).map((m) => m.id),
+    meaning,
+    () => moments.map((m) => ({ hash: hashOf(momentTitle(m)), id: m.id }))
+  );
+  const best = new Map(ranked.slice(0, LIMIT).map((h) => [h.id, h.mark]));
+  return [
+    ...moments.flatMap((m) =>
+      best.has(m.id) ? [`${momentLine(m)}${best.get(m.id)}`] : []
+    ),
+    ...(ranked.length > LIMIT ? [CUT] : []),
+  ];
+}
+
 /** `from`/`to` (local days, both included) bound every section. */
 export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
@@ -400,26 +426,14 @@ export async function search(words: string, o: Days = {}) {
     momentsWhere(inDays(o)),
     queryVector(words),
   ]);
-  // Moments by how many words they hold (the newest first) fused with their meaning; the best shown by date.
-  const ranked = fused(
-    byWords(moments.toReversed(), words, momentTitle).map((m) => m.id),
-    meaning,
-    () => moments.map((m) => ({ hash: hashOf(momentTitle(m)), id: m.id }))
-  );
-  const best = new Map(ranked.slice(0, LIMIT).map((h) => [h.id, h.mark]));
-  const found = moments.filter((m) => best.has(m.id));
+  const found = momentHits(moments, words, meaning);
   const tasks = taskHits(words, o);
   return withIndex((db) => [
     ...(meaning
       ? []
       : ["(by words only: search by meaning is unavailable right now)", ""]),
     ...(found.length > 0
-      ? [
-          "Moments (what happened or is planned):",
-          ...found.map((m) => `${momentLine(m)}${best.get(m.id)}`),
-          ...(ranked.length > LIMIT ? [CUT] : []),
-          "",
-        ]
+      ? ["Moments (what happened or is planned):", ...found, ""]
       : []),
     ...(tasks.length > 0
       ? [
@@ -976,13 +990,12 @@ const INDEX_SCHEMA = `
 create table observations (
   id text primary key, unit text, date text, at text, type text, area text, salience integer, confidence real,
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
-  superseded_by text, text_hash text);
+  superseded_by text);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
 create table links (observation text, entity text, primary key (observation, entity));
 create index links_entity on links (entity);
 create table units (
-  id text primary key, date text, source text, title text, salience integer, type text, area text, topics text,
-  text_hash text);
+  id text primary key, date text, source text, title text, salience integer, type text, area text, topics text);
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
@@ -1030,10 +1043,10 @@ export function buildIndex(
       db.prepare(
         `insert or ignore into ${table} values (${new Array(n).fill("?").join(", ")})`
       );
-    const row = insert("observations", 18);
+    const row = insert("observations", 17);
     const text = insert("search", 3);
     const link = insert("links", 2);
-    const unitRow = insert("units", 9);
+    const unitRow = insert("units", 8);
     const unitSearch = insert("unit_search", 4);
     const unitTopic = insert("unit_topics", 2);
     const unitPerson = insert("unit_people", 2);
@@ -1056,8 +1069,7 @@ export function buildIndex(
         o.validFrom,
         retired?.validTo ?? o.validTo,
         o.when,
-        retired?.by ?? null,
-        hashOf(o.text)
+        retired?.by ?? null
       );
       text.run(o.id, o.text, o.quote);
       for (const e of o.entities) {
@@ -1074,8 +1086,7 @@ export function buildIndex(
         v?.salience ?? null,
         v?.type ?? null,
         v?.area ?? null,
-        tags.join(", "),
-        hashOf(unitText(u))
+        tags.join(", ")
       );
       unitSearch.run(u.id, u.title, u.summary ?? "", tags.join(" "));
       for (const t of tags) {
@@ -1103,14 +1114,17 @@ export async function reindex() {
     unit: { ...unit, people: unit.people.map(people.refOf) },
     verdict: verdictOf(verdicts, unit),
   }));
-  const { observations, standing } = await observationsNow(people);
-  // Every text search finds by meaning, embedded once (the cache) after the index is built, in the background.
-  embedSoon([
-    ...observations.map((o) => o.text),
-    ...units.map(({ unit }) => unitText(unit)),
-    ...(await momentsWhere(() => true)).map(momentTitle),
+  const [{ observations, standing }, moments] = await Promise.all([
+    observationsNow(people),
+    momentsWhere(() => true),
   ]);
   const n = buildIndex(observations, INDEX, standing, units);
+  // Every text search finds by meaning (the current ones), embedded once (the cache), in the background.
+  embedSoon([
+    ...observations.flatMap((o) => (retirement(o, standing) ? [] : [o.text])),
+    ...units.map(({ unit }) => unitText(unit)),
+    ...moments.map(momentTitle),
+  ]);
   console.log(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
   );

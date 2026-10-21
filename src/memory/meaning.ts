@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
+import { log } from "../log";
 import { DATA, TEST } from "../truth";
 import { digest, OUT } from "./ledger";
 
@@ -86,6 +87,7 @@ export function store(vectors: [string, number[]][]) {
 
 /** Embeds the texts not in the cache yet (`PER_CALL` at most), a batch at a time; false when it can't (no key, offline). */
 export async function embed(texts: string[]) {
+  let done = true;
   try {
     const have = vectorsOf(texts.map(hashOf));
     const todo = [
@@ -100,7 +102,7 @@ export async function embed(texts: string[]) {
       const res = await fetch("https://api.openai.com/v1/embeddings", {
         body: JSON.stringify({
           dimensions: DIMENSIONS,
-          // Within the model's input (8,191 tokens), so no text is refused and holds the backfill up.
+          // Within the model's input (8,191 tokens): a text refused anyway fails its batch alone, below.
           input: batch.map((t) => t.slice(0, MAX_CHARS)),
           model: MODEL,
         }),
@@ -111,19 +113,25 @@ export async function embed(texts: string[]) {
         method: "POST",
         signal: AbortSignal.timeout(15_000),
       });
-      if (!res.ok) {
-        throw new Error(`embeddings: ${res.status} ${await res.text()}`);
+      if (res.ok) {
+        const { data } = (await res.json()) as {
+          data: { embedding: number[]; index: number }[];
+        };
+        store(data.map((d) => [batch[d.index] as string, d.embedding]));
+      } else {
+        // A refused batch is skipped, not retried first next time: the batches after it still get embedded.
+        done = false;
+        log("run.error", {
+          error: `${res.status} ${(await res.text()).slice(0, 300)}`,
+          step: "embed",
+        });
       }
-      const { data } = (await res.json()) as {
-        data: { embedding: number[]; index: number }[];
-      };
-      store(data.map((d) => [batch[d.index] as string, d.embedding]));
     }
-    return true;
   } catch (e) {
-    console.error(`(not embedded: ${(e as Error).message})`);
-    return false;
+    done = false;
+    log("run.error", { error: (e as Error).message, step: "embed" });
   }
+  return done;
 }
 
 let running: Promise<boolean> | null = null;
