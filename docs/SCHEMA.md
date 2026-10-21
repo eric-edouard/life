@@ -43,6 +43,7 @@ chapter) and checked by the nightly.
 | `date`, `start`, `end` | Local day; first and last instant |
 | `title` | Lifelog chapter title, chat name, mail subject, or note title (`(shared)` after a shared note's) |
 | `summary` | Lifelog only: lifelog's own summary of the chapter (written by its model, not by Life) |
+| `marked` | Lifelog only, when he said "hey Life" in it: the refs of the turns of his marked spans (the hearing's marks); its text then ends with `MARKED`, so its hash moves and it is read again, at salience 3 |
 | `people` | `person:<id>` from `truth/people.yaml`; `unknown:<name>` for a name lifelog gives to someone who speaks in the chapter that the map doesn't know. A name given to one turn names that turn only |
 | `refs` | Where to find the raw material. Lifelog: `<conversation id>#<chapter id>` and `<jobId>:<turnIndex>@<turn start>` of the first turn in the chapter's range [`start`, `end`). Chats: first and last message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`), notes the first and last version (`notes:<note>/<version>`, the archive's rowid). Mail: every message id (`mail:<Message-ID header>`). |
 | `stats` | `items` (messages, or turns in the chapter for lifelog, or commits), `fromMe` (messages the owner sent, or his commits), `chars`. Git only: `added` and `removed` (lines, without lockfiles, binaries and single-file changes over 3,000 lines) and `others` (author name -> commits; in a repo of one of his projects every author's commits count, elsewhere only his). A git unit's `summary` is the day's commit subjects, which makes them searchable; its refs are the first and last `git:<repo>/<sha>` |
@@ -111,8 +112,6 @@ and what the lines show ended is written as what happened, not as still open. Fr
 `person` type also holds what is between him and someone, in someone's name, and the earlier facts it may retire
 include the `person` facts of the last year about the people close to him (`priorFor`). The model context marks those
 people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones).
-From `memory-extract.v6` (21 Oct) a voice unit where he said "hey Life" is read whatever its salience, its marked
-lines shown `(marked)` for every fact in them to be written (`marksIn`, `src/hear.ts`).
 
 | Field | Meaning |
 |---|---|

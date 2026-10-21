@@ -337,6 +337,8 @@ export const Unit = z
     id: UnitId,
     // The conversation, chat or mail thread the unit belongs to.
     key: z.string(),
+    // lifelog: the refs of the turns of his "hey Life" spans in it (the hearing's marks); absent when none.
+    marked: z.array(z.string()).optional(),
     // person:<slug> from truth/people.yaml, or unknown:<name> for a name lifelog knows and the map doesn't.
     people: z.array(z.string()),
     // lifelog: conversation#turns and jobId:turnIndex@capturedAt; chats: first and last message id; mail: message ids.

@@ -6,12 +6,11 @@ import {
   closedConversations,
   groupsOf,
   lanesOf,
-  lifted,
   packed,
   priorFor,
 } from "./extract";
 import { ledger, madeBy, unit, verdict } from "./fixtures";
-import { momentsNow, verdictOf } from "./ledger";
+import { momentsNow } from "./ledger";
 import type { Built } from "./units";
 
 const conversation = (
@@ -123,34 +122,6 @@ test("extraction reads each unit once and no copy ever; pending units in no mome
   expect(
     packed([sized(60), sized(50), sized(10)], 100).map((c) => c.length)
   ).toEqual([1, 2]);
-});
-
-test('a unit he marked with "hey Life" is kept whatever its salience, once it has a verdict', () => {
-  // Three units of conv-1, 20 min each; U2 holds the mark.
-  const at = (hm: string) => `2026-10-15T${hm}:00.000Z`;
-  const b1 = built(U1, { end: at("10:20"), start: at("10:00") });
-  const b2 = built(U2, { end: at("10:40"), start: at("10:20") });
-  const b3 = built(U3, { end: at("11:00"), start: at("10:40") });
-  const verdicts = ledger([
-    verdict(b1.unit, { salience: 0 }),
-    verdict(b2.unit, { salience: 0 }),
-  ]);
-  const mark = {
-    at: "2026-10-15T10:25:00.000Z",
-    confidence: "high" as const,
-    conversation: "conv-1",
-
-    refs: ["j:1@x"],
-  };
-  const v = lifted(verdicts, [b1, b2, b3], [mark]);
-  expect([b1, b2].map((b) => verdictOf(v, b.unit)?.salience)).toEqual([0, 2]);
-  expect(verdictOf(v, b2.unit)?.reason).toStartWith('he said "hey Life"');
-  // Unchanged: the other units, and the ledger it was given.
-  expect(verdictOf(verdicts, b2.unit)?.salience).toBe(0);
-  // A marked unit with no verdict yet waits for one: its moment is not known.
-  expect(
-    lifted(verdicts, [b3], [{ ...mark, at: "2026-10-15T10:45:00.000Z" }]).size
-  ).toBe(2);
 });
 
 test("the calls of one moment share a lane, in order, even when a call joins two moments' lanes", () => {

@@ -86,6 +86,8 @@ export interface LifelogChapter {
   id: string;
   /** Turns in it. */
   items: number;
+  /** The refs of his "hey Life" spans that start in it (the hearing's marks, `writeMarks`); absent when none. */
+  marked?: string[];
   /** Names lifelog gave the people who speak in it. */
   people: string[];
   /** `jobId:turnIndex@startAt` of its first turn, the stable quote ref; absent when it has no turn. */
@@ -408,6 +410,18 @@ export function readConversations(
       .all(from),
     (t) => t.conversation_id
   );
+  // His "hey Life" spans by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
+  const marks = new Map(
+    db
+      .query<{ job_id: string; refs: string; turn_index: number }, []>(
+        "select * from marks"
+      )
+      .all()
+      .map((m) => [
+        `${m.job_id}:${m.turn_index}`,
+        JSON.parse(m.refs) as string[],
+      ])
+  );
   const chapters = Map.groupBy(
     db
       .query<
@@ -429,6 +443,11 @@ export function readConversations(
           (t) => t.start_at >= c.start_at && t.start_at < c.end_at
         );
         const [first] = inside;
+        const marked = inside.flatMap((t) =>
+          whose(chapterTurn(t, byId)) === "other"
+            ? []
+            : (marks.get(`${t.job_id}:${t.turn_index}`) ?? [])
+        );
         const chapter: LifelogChapter = {
           end: c.end_at,
           id: c.id,
@@ -441,6 +460,7 @@ export function readConversations(
               })
             ),
           ],
+          ...(marked.length > 0 ? { marked } : {}),
           ...(first
             ? { ref: turnRef(first.job_id, first.turn_index, first.start_at) }
             : {}),
@@ -496,6 +516,14 @@ export function turnsBetween(
     )
     .all(conversationId, start, end)
     .map((t) => chapterTurn(t, byId));
+}
+
+/** Whose a turn is, as lifelog has it: his, someone lifelog named (by id or name), or nobody's. */
+export function whose(t: ChapterTurn): "me" | "unknown" | "other" {
+  if (t.owner) {
+    return "me";
+  }
+  return t.personId || t.name ? "other" : "unknown";
 }
 
 const chapterTurn = (t: TurnRow, byId: Map<string, string>): ChapterTurn => ({
@@ -654,19 +682,6 @@ export function writeMarks(
     }
   })();
 }
-
-/** The recorded marks, oldest first: each wake turn as lifelog has it now (its conversation included) and the span's refs. */
-export const markRows = (store: Store) =>
-  store.db
-    .query<TurnRow & { refs: string }, []>(
-      "select t.*, m.refs from marks m join turns t using (job_id, turn_index) order by t.start_at"
-    )
-    .all()
-    .map((t) => ({
-      conversation: t.conversation_id,
-      refs: JSON.parse(t.refs) as string[],
-      turn: chapterTurn(t, new Map()),
-    }));
 
 /** The live conversations that overlap [from, to): id, start and title. */
 export function conversationsBetween(store: Store, from: string, to: string) {

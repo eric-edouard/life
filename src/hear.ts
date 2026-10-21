@@ -1,13 +1,12 @@
 import { clock } from "./clock";
 import { clip } from "./memory/units";
 import {
-  type ChapterTurn,
-  markRows,
   readTranscript,
   type Store,
   speechSeconds,
   turnRef,
   turnsBetween,
+  whose,
   writeMarks,
 } from "./sources/lifelog";
 import { ask } from "./tasks";
@@ -47,7 +46,7 @@ export const CLOSED_ON_SILENCE_S = 60;
 /** How long a wake with no speaker waits for lifelog to name him (70% of recordings within 10 s, 5% more by 40 s). */
 const NAMING_MS = 40_000;
 
-export type Confidence = "high" | "low";
+type Confidence = "high" | "low";
 
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn): Confidence | undefined {
@@ -126,41 +125,6 @@ function spansIn(
     ];
   });
 }
-
-/** Whose a turn is, as the watcher's feed reads it (`poll`): his, someone lifelog named (by id or name), or nobody's. */
-export function whose(t: ChapterTurn): Turn["who"] {
-  if (t.owner) {
-    return "me";
-  }
-  return t.personId || t.name ? "other" : "unknown";
-}
-
-/** His "hey Life" span, as the store has it now (`marksNow`). */
-export interface Mark {
-  at: string;
-  confidence: Confidence;
-  conversation: string;
-  refs: string[];
-}
-
-/**
- * The marks the hearing recorded, as their wake turns stand now: in the conversation lifelog has them in, his (high)
- * or unattributed (low); one whose wake lifelog has since given to someone else, or dropped, is gone.
- */
-export const marksNow = (store: Store): Mark[] =>
-  markRows(store).flatMap(({ conversation, refs, turn }) => {
-    const who = whose(turn);
-    return who === "other"
-      ? []
-      : [
-          {
-            at: turn.at,
-            confidence: who === "me" ? "high" : "low",
-            conversation,
-            refs,
-          },
-        ];
-  });
 
 /**
  * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's or
