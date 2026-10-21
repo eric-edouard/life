@@ -9,7 +9,8 @@ import { agentName } from "../settings";
 // `act` decides, `board.ts` projects Atlas's tasks, `inbound.ts` reads his changes back as state. Delete the folder and
 // Life still knows every task and every action from the ledger (memory/actions.jsonl).
 
-const REMCTL = join(homedir(), "bin", "remctl");
+/** remctl, his; or the app's life-eventkit (EventKit, the same commands and answers), set by the app. */
+const REMCTL = process.env.LIFE_EVENTKIT ?? join(homedir(), "bin", "remctl");
 /** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
 export const BOARD = agentName();
 

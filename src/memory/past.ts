@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { clock, unfrozen } from "../clock";
 import { log } from "../log";
 import { exec } from "../proc";
@@ -325,13 +326,70 @@ function pastCalendar(calendar: string, account: string) {
   };
 }
 
+/**
+ * The Past calendar through the app's EventKit tool (`LIFE_EVENTKIT`): his Apple calendar, Life's events found by the
+ * moment and hash in their URL.
+ */
+function appleCalendar(calendar: string, tool: string) {
+  const run = async (args: string[]) => {
+    unfrozen("use his calendar");
+    const r = await exec([tool, "calendar", ...args, `--calendar=${calendar}`]);
+    if (r.code !== 0) {
+      throw new Error(`calendar ${args[0]}: ${r.stderr.trim()}`);
+    }
+    return r.stdout;
+  };
+  return {
+    async held(until: string) {
+      const rows = z
+        .array(
+          z.object({ hash: z.string(), id: z.string(), moment: z.string() })
+        )
+        .parse(JSON.parse(await run(["held", `--until=${until}`])));
+      const held: Held = new Map();
+      for (const r of rows) {
+        held.set(r.moment, [
+          ...(held.get(r.moment) ?? []),
+          { hash: r.hash, id: r.id },
+        ]);
+      }
+      return held;
+    },
+    async remove(moment: string, id: string) {
+      await run(["delete", id]);
+      log("calendar.write", { event: id, moment, op: "delete" });
+    },
+    async write(d: Draft, description: string, location: string | null) {
+      const out = await run([
+        "create",
+        `--summary=${redact(d.summary)}`,
+        `--from=${d.from}`,
+        `--to=${d.to}`,
+        ...(d.allDay ? ["--all-day"] : []),
+        `--description=${description}`,
+        ...(location ? [`--location=${redact(location)}`] : []),
+        `--moment=${d.moment}`,
+        `--hash=${d.hash}`,
+      ]);
+      const { id } = JSON.parse(out) as { id: string };
+      log("calendar.write", { event: id, moment: d.moment, op: "create" });
+    },
+  };
+}
+
 /** Brings the calendar in line with the moments; null when it is not set up. */
 export async function syncPast(now = clock()) {
   const { past } = settings();
   if (!past) {
     return null;
   }
-  const cal = pastCalendar(past.calendar, past.account);
+  const tool = process.env.LIFE_EVENTKIT;
+  if (!(past.account || tool)) {
+    return null;
+  }
+  const cal = past.account
+    ? pastCalendar(past.calendar, past.account)
+    : appleCalendar(past.calendar, tool as string);
   const want = await wanted(now);
   const { fresh, stale } = plan(
     want,

@@ -66,6 +66,10 @@ const bin = (
   )
 ).trim();
 await cp(join(bin, "LifeApp"), join(contents, "MacOS", "Life"));
+await cp(
+  join(bin, "life-eventkit"),
+  join(contents, "Helpers", "life-eventkit")
+);
 
 const helper = join(out, "helper");
 await run(["bun", join(ROOT, "scripts", "helper.ts"), helper]);
@@ -92,6 +96,14 @@ await run([
   "--entitlements",
   entitlements,
   join(contents, "Helpers", "life"),
+]);
+await run([
+  "codesign",
+  "--force",
+  "--sign",
+  identity,
+  ...hardened,
+  join(contents, "Helpers", "life-eventkit"),
 ]);
 await run(["codesign", "--force", "--sign", identity, ...hardened, app]);
 await run(["codesign", "--verify", "--deep", "--strict", app]);
