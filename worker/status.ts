@@ -1,5 +1,5 @@
 import { createRemoteJWKSet } from "jose";
-import { ISSUER, ownerTokens } from "../src/auth";
+import { ownerTokens } from "../src/auth";
 import { HEADERS, SESSION } from "../src/http";
 
 // The status page's always-on edge (Cloudflare Worker, routes in wrangler.jsonc): every request goes to the Mac as
@@ -8,17 +8,22 @@ import { HEADERS, SESSION } from "../src/http";
 // takes those pushes (POST /__status/push, a shared secret). It decides nothing else.
 
 interface Env {
-  /** LIFE_OWNER_SUB, as the Mac checks it. */
+  /** The `connector` setting's issuer, as the Mac checks it. */
+  ISSUER: string;
+  /** The `connector` setting's owner, as the Mac checks it. */
   OWNER_SUB: string;
   /** LIFE_STATUS_PUSH_SECRET, the Mac's. */
   PUSH_SECRET: string;
+  /** The connector's resource (its origin + /mcp), as the Mac checks it. */
+  RESOURCE: string;
   STATUS: KVNamespace;
 }
 
 const COOKIES = /;\s*/;
 /** How long the Mac gets to answer before the Worker answers for it (the stream's own data can take longer). */
 const WAIT_MS = 8000;
-const jwks = createRemoteJWKSet(new URL(`${ISSUER}/jwks`));
+/** The issuer's keys, fetched on the first sign-in check (the issuer is only known from `env` then). */
+let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 
 /** The Mac is out of reach: no answer in time, or Cloudflare's own answer that it has no tunnel or origin. */
 const unreachable = (r: Response | null) =>
@@ -33,7 +38,13 @@ async function isOwner(req: Request, env: Env) {
   if (!token) {
     return false;
   }
-  const whose = await ownerTokens({ jwks, ownerSub: env.OWNER_SUB })(token);
+  jwks ??= createRemoteJWKSet(new URL(`${env.ISSUER}/jwks`));
+  const whose = await ownerTokens({
+    issuer: env.ISSUER,
+    jwks,
+    ownerSub: env.OWNER_SUB,
+    resource: env.RESOURCE,
+  })(token);
   return !("refusal" in whose);
 }
 

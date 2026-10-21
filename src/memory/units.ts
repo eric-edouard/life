@@ -3,6 +3,7 @@ import { clock } from "../clock";
 import { log } from "../log";
 import { redact } from "../redact";
 import { type Person, type SourceEvent, Unit } from "../schema";
+import { settings } from "../settings";
 import { type Descriptor, kindOf, SOURCES, sourceOf } from "../sources";
 import { type RepoMap, repoMap } from "../sources/git";
 import {
@@ -11,7 +12,7 @@ import {
   type Store,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth, OWNER, ownerIn, TEST, type Truth } from "../truth";
+import { loadTruth, OWNER, ownerIn, type Truth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { describeFiles, showFiles } from "./files";
 import {
@@ -198,8 +199,8 @@ export const areaLookup = (areas: { id: string; name: string }[]) =>
 export const areaOf = (said: string | null, lookup: Map<string, string>) =>
   (said && lookup.get(normalize(said))) || null;
 
-/** Where his agents mail him their reports from (the older routines still use Make a Dent's). */
-const AGENT_REPORTS = [LIFE_MAIL.from, "alerts@send.make-a-dent.com"];
+/** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
+const AGENT_REPORTS = [LIFE_MAIL.from, ...settings().reports];
 
 /** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
 export const head = (text: string) =>
@@ -431,12 +432,10 @@ function repoDay(list: SourceEvent[]): Built {
 }
 
 /**
- * The chat with Life's retired Telegram bot (its Beeper chat id in `.env`): its briefs
- * and answers were Life's output, so neither memory nor the raw chat reads open it.
+ * The chat with Life's retired Telegram bot (its Beeper chat id, the `lifeChat` setting): its briefs and answers were
+ * Life's output, so neither memory nor the raw chat reads open it. Unset, no chat is Life's.
  */
-export const LIFE_CHAT = TEST
-  ? "!life:beeper.local"
-  : (process.env.LIFE_CHAT ?? "");
+export const LIFE_CHAT = settings().lifeChat;
 
 /** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
 interface Thread {
@@ -665,10 +664,6 @@ export async function gather(
   // ponytail: the readers read from `since` to now and the window is cut after, so a backfill week of 2025 reads every
   // source up to today; give the readers an end if the pilot measures that slow next to the model calls.
   const since = dayStart(window.from);
-  if (!LIFE_CHAT) {
-    // Unset, Life's own chat would read as facts.
-    throw new Error("LIFE_CHAT is not set in .env");
-  }
   const failed: string[] = [];
   const repos = repoMap(truth, await readRepoGuesses());
   const ctx = { me: ownerIn(truth.people), repos };

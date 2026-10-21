@@ -2,16 +2,7 @@ import { join } from "node:path";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { Asked, actAsked, actGranted, Change, Granted } from "./actions";
-import {
-  ISSUER,
-  METADATA,
-  ORIGIN,
-  RESOURCE,
-  type Refused,
-  SCOPE,
-  UNREACHABLE,
-  type Verify,
-} from "./auth";
+import { type Refused, SCOPE, UNREACHABLE, type Verify } from "./auth";
 import { FROZEN } from "./clock";
 import {
   ASK_EVENT,
@@ -32,6 +23,7 @@ import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { openOf, openReminders, sectionsOf } from "./reminders/remctl";
 import { type Action, ObservationId } from "./schema";
+import { connector, settings } from "./settings";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
 import {
   closed,
@@ -45,14 +37,13 @@ import {
 } from "./tasks";
 import { loadMe, ROOT } from "./truth";
 
-// Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; the Cloudflare tunnel forwards
-// life.ericedouard.com to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
+// Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; a tunnel forwards
+// the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct`), on his explicit request in a
 // chat changes his Reminders (`reminders`, through `act`) and records Atlas's updates to its tasks (`task`) and its replies to him (`reply`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
-// Auth: a Bearer JWT that lifelog's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
+// Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
-const CHALLENGE = `Bearer resource_metadata="${METADATA}", scope="${SCOPES.join(" ")}"`;
 
 const ICONS: Record<string, string> = {
   "/icon-512.png": "image/png",
@@ -256,20 +247,24 @@ function tool<S extends z.ZodObject>(
 
 /** The connector's tools and event, without its transport or auth: `createMcp` serves it over HTTP, the bench over stdio. */
 export function buildServer() {
+  // Over stdio (the bench) there may be no public origin, and no icons.
+  const origin = settings().connector?.origin;
   const server = new McpServer(
     {
-      icons: [
-        {
-          mimeType: "image/svg+xml",
-          sizes: ["any"],
-          src: `${ORIGIN}/icon.svg`,
-        },
-        {
-          mimeType: "image/png",
-          sizes: ["512x512"],
-          src: `${ORIGIN}/icon-512.png`,
-        },
-      ],
+      icons: origin
+        ? [
+            {
+              mimeType: "image/svg+xml",
+              sizes: ["any"],
+              src: `${origin}/icon.svg`,
+            },
+            {
+              mimeType: "image/png",
+              sizes: ["512x512"],
+              src: `${origin}/icon-512.png`,
+            },
+          ]
+        : undefined,
       name: "Life",
       title: "Life",
       version: "1.0.0",
@@ -497,6 +492,8 @@ export function buildServer() {
  * for any other path (the caller serves those).
  */
 export function createMcp(verify: Verify) {
+  const { issuer, metadata, resource } = connector();
+  const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="${SCOPES.join(" ")}"`;
   // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
   const handler = createMcpHandler(buildServer, {
     onerror: (e) =>
@@ -550,9 +547,9 @@ export function createMcp(verify: Verify) {
       case "/.well-known/oauth-protected-resource":
       case "/.well-known/oauth-protected-resource/mcp":
         return Response.json({
-          authorization_servers: [ISSUER],
+          authorization_servers: [issuer],
           bearer_methods_supported: ["header"],
-          resource: RESOURCE,
+          resource,
           scopes_supported: SCOPES,
         });
       default:

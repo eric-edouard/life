@@ -1,31 +1,34 @@
 import { createRemoteJWKSet } from "jose";
-import { ISSUER, ownerTokens } from "./auth";
+import { ownerTokens } from "./auth";
 import { createCheck } from "./check";
 import { createDashboard, pushPlate, warmPage } from "./dashboard";
 import { createMcp } from "./mcp";
 import { createPortrait } from "./portrait";
+import { connector, settings } from "./settings";
 import { createSignIn } from "./signin";
 
-// The watcher's one HTTP server, on loopback; the Cloudflare tunnel forwards life.ericedouard.com to it.
+// The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
-/** Serves the connector, the check page (`check.ts`), the status page (`dashboard.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set) on loopback (127.0.0.1:46200, bodies up to 256 KiB), 404 for any other path; off, with a line saying so, when LIFE_OWNER_SUB is not set. */
+/** Serves the connector, the check page (`check.ts`), the status page (`dashboard.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set) on loopback (127.0.0.1:46200, bodies up to 256 KiB), 404 for any other path; off, with a line saying so, when the connector is not set up. */
 export function serveConnector() {
-  const ownerSub = process.env.LIFE_OWNER_SUB;
-  if (!ownerSub) {
+  if (!settings().connector) {
     console.log(
-      "Connector: LIFE_OWNER_SUB is not set, /mcp, /check, /me and the status page are off"
+      "Connector: not set up (settings: connector), /mcp, /check, /me and the status page are off"
     );
     return;
   }
+  const { issuer, owner, resource } = connector();
   const verify = ownerTokens({
+    issuer,
     // lifelog's keys rarely change: kept a day (a key it dropped stops working within it), or refetched sooner when a
     // token names a key they lack, so its latency reaches about one request a day; a failed fetch answers 503 (jose
     // serves no stale keys, so lifelog down when the day ends is a 503 until it is back).
-    jwks: createRemoteJWKSet(new URL(`${ISSUER}/jwks`), {
+    jwks: createRemoteJWKSet(new URL(`${issuer}/jwks`), {
       cacheMaxAge: 24 * 3600 * 1000,
       timeoutDuration: 15_000,
     }),
-    ownerSub,
+    ownerSub: owner,
+    resource,
   });
   const mcp = createMcp(verify);
   const signIn = createSignIn(verify);

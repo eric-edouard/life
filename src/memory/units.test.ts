@@ -258,7 +258,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           {
             chat: "mail:9",
             id: "mail:z",
-            sender: "alerts@send.make-a-dent.com",
+            sender: "alerts@agents.example.test",
             text: "Bakery Ads report: approve 3 changes",
           },
           true

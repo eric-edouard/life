@@ -7,7 +7,7 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
-import { CHECK_CLIENT, ISSUER, ORIGIN, ownerTokens, RESOURCE } from "./auth";
+import { ownerTokens } from "./auth";
 import { createCheck } from "./check";
 import { changeFeed } from "./memory/feed";
 import {
@@ -16,7 +16,15 @@ import {
   readCorrections,
   readRatings,
 } from "./memory/ledger";
+import { connector } from "./settings";
 import { createSignIn } from "./signin";
+
+const {
+  client: CHECK_CLIENT,
+  issuer: ISSUER,
+  origin: ORIGIN,
+  resource: RESOURCE,
+} = connector();
 
 const SESSION_COOKIE =
   /^__Host-life=.+; Path=\/; Max-Age=3600; Secure; HttpOnly; SameSite=Lax$/;
@@ -25,8 +33,10 @@ const { privateKey, publicKey } = await generateKeyPair("EdDSA", {
 });
 const jwk: JWK = { ...(await exportJWK(publicKey)), alg: "EdDSA", kid: "k1" };
 const verify = ownerTokens({
+  issuer: ISSUER,
   jwks: createLocalJWKSet({ keys: [jwk] }),
   ownerSub: "owner",
+  resource: RESOURCE,
 });
 const token = (sub = "owner") =>
   new SignJWT({ aud: RESOURCE, iss: ISSUER, scope: "life:read", sub })

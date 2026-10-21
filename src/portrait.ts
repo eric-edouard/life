@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
-import { ORIGIN } from "./auth";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
+import { connector } from "./settings";
 import { DATA, ROOT } from "./truth";
 
 // The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data,
@@ -82,7 +82,7 @@ export function createPortrait(
   }
 
   async function login(req: Request, pathname: string) {
-    if (req.headers.get("origin") !== ORIGIN) {
+    if (req.headers.get("origin") !== connector().origin) {
       return text("forbidden", 403);
     }
     // Read the form before counting: nothing awaits between the check and the push, so a burst can't slip past.

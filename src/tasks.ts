@@ -18,17 +18,18 @@ import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
 import type { Receipt } from "./reminders/board";
 import { Action, type Instruction } from "./schema";
-import { ROOT, TEST } from "./truth";
+import { settings } from "./settings";
+import { ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
 // done or dropped. Its own lines: Atlas's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 
 /**
- * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or `LIFE_MISHEARD` in `.env`, a real name people
+ * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or the `misheard` setting, a real name people
  * he knows go by. Both are words of their own, so they wake only on his own turn, as `low` (Atlas confirms with him).
  */
-const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
+const MISHEARD = settings().misheard?.trim();
 /**
  * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
  * longer word. Shared by both wakes.

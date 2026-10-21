@@ -1,5 +1,4 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { STORES } from "./archive";
 import { clock } from "./clock";
@@ -8,18 +7,18 @@ import { readJson } from "./memory/ledger";
 import { INDEX } from "./memory/search";
 import { localTime } from "./memory/units";
 import { exec } from "./proc";
+import { expand, settings } from "./settings";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT } from "./truth";
 
-// The daily restic snapshot to iCloud Drive (AGENTS.md, "Backups"), run by the nightly's tick (`backupDue`).
+// The daily restic snapshot (AGENTS.md, "Backups") to the `backup` setting's repository, run by the nightly's tick
+// (`backupDue`). Without the setting there is no backup, and nothing says one is missing.
 const STAGING = join(dirname(ARCHIVE), "backup-staging");
 const STATUS = join(ROOT, "derived", "backup.json");
-const env = {
-  ...process.env,
-  RESTIC_PASSWORD_COMMAND: "security find-generic-password -s life-restic -w",
-  RESTIC_REPOSITORY: `${homedir()}/Library/Mobile Documents/com~apple~CloudDocs/Life backup/restic`,
-};
+
+/** Whether this install backs up at all. */
+export const backupOn = () => !!settings().backup;
 
 /** The last good snapshot (when, its size, its id) and what went wrong in the last run. */
 interface Status {
@@ -38,6 +37,9 @@ export const backupSize = (s = readBackup()) =>
 
 /** The nightly report's line, flagged when the last run went wrong or the last snapshot is over 48 h old. */
 export function backupLine(now: Date, s = readBackup()) {
+  if (!backupOn()) {
+    return "Backup: off";
+  }
   const size = backupSize(s);
   const last = s?.okAt ? `${localTime(s.okAt)}, ${size}` : "none";
   const old = backupOld(now, s);
@@ -46,6 +48,15 @@ export function backupLine(now: Date, s = readBackup()) {
 
 /** `bun life backup`: stages the databases and ~/Life, snapshots, and on Sundays forgets, prunes and checks. */
 export async function backup() {
+  const target = settings().backup;
+  if (!target) {
+    return 0;
+  }
+  const env = {
+    ...process.env,
+    RESTIC_PASSWORD_COMMAND: target.password,
+    RESTIC_REPOSITORY: expand(target.repository),
+  };
   const missed: string[] = [];
   const run = async (cmd: string[]) => {
     const r = await exec(cmd, { env, timeout: 3_600_000 });
