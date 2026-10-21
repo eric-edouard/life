@@ -149,7 +149,10 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     // biome-ignore lint/performance/noAwaitInLoops: three folders
     await rm(join(code, "derived", d), { force: true, recursive: true });
   }
-  await mkdir(join(code, "derived/watch"), { recursive: true });
+  for (const d of ["memory", "watch"]) {
+    // biome-ignore lint/performance/noAwaitInLoops: two folders
+    await mkdir(join(code, "derived", d), { recursive: true });
+  }
   const store = join(code, "derived/watch/lifelog.sqlite");
   const live = new Database(
     join(mainCheckout(), "derived/watch/lifelog.sqlite"),
@@ -168,7 +171,9 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     env,
   });
   if (index.code !== 0) {
-    throw new Error(`index: ${index.stderr.trim().slice(-300)}`);
+    throw new Error(
+      `index: ${index.stderr.match(/^error: .*$/m)?.[0] ?? index.stderr.trim().slice(-300)}`
+    );
   }
   const event = {
     ...ask.instruction,
@@ -280,7 +285,7 @@ export function table(rows: Row[], about: string) {
             .filter(([, ok]) => !ok)
             .map(([check]) => check.replaceAll("|", "/"))
             .join("; ")} |`
-        : `| ${r.id} | error |||| ${r.error.replaceAll("|", "/").slice(0, 200)} |`
+        : `| ${r.id} | error |||| ${r.error.replaceAll("|", "/").replaceAll("\n", " ").slice(0, 200)} |`
     ),
   ].join("\n");
 }
