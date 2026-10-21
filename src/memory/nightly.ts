@@ -51,7 +51,7 @@ const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
-/** Whether Atlas read `day` in the last 24 h, as its daily review does (docs/atlas.md): Atlas is ChatGPT's MCP client (decision 10, 21 Oct). */
+/** Whether Atlas (ChatGPT's MCP client) read `day` in the last 24 h, as its daily review does (docs/atlas.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
   (
     await recentEvents<{ agent?: string; at: string; tool?: string }>(
@@ -69,7 +69,7 @@ export const reviewed = async (now: Date) =>
 async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
   if (!(await reviewed(now))) {
-    problems.push("no daily review reached Life today");
+    problems.push("no daily review reached Life in the last 24 h");
   }
   let actions: Action[] = [];
   let tasks: ReturnType<typeof taskList> = [];
