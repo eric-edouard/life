@@ -86,7 +86,10 @@ const ENTRIES: Record<
       typeof e.used === "number" ? `quota ${e.used}%` : "quota unread",
   },
   "source.read": {
-    title: (e) => `read ${String(e.count ?? 0)} from ${String(e.source)}`,
+    title: (e) =>
+      e.skipped
+        ? `${String(e.source)} skipped: ${String(e.skipped)}`
+        : `read ${String(e.count ?? 0)} from ${String(e.source)}`,
   },
 };
 

@@ -6,7 +6,11 @@ import { readSettings, setSetting, settings } from "./settings";
 
 test("a corrupt settings file throws instead of switching engine; a missing one is every default", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
-  expect(readSettings(path)).toEqual({ engine: "claude", reports: [] });
+  expect(readSettings(path)).toEqual({
+    engine: "claude",
+    reports: [],
+    sources: [],
+  });
   writeFileSync(path, '{"engine": "co');
   expect(() => readSettings(path)).toThrow();
 });

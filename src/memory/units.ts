@@ -4,7 +4,13 @@ import { log } from "../log";
 import { redact } from "../redact";
 import { type Person, type SourceEvent, Unit } from "../schema";
 import { settings } from "../settings";
-import { type Descriptor, kindOf, SOURCES, sourceOf } from "../sources";
+import {
+  type Descriptor,
+  enabledSources,
+  kindOf,
+  readySources,
+  sourceOf,
+} from "../sources";
 import { type RepoMap, repoMap } from "../sources/git";
 import {
   type LifelogConversation,
@@ -594,8 +600,9 @@ export function tablesOf(sources: Descriptor[]) {
     ),
   };
 }
-export const { CHATS, SEARCHED, SEARCHED_MAIL, WITH_PEOPLE } =
-  tablesOf(SOURCES);
+/** The tables of the sources that can be read now, worked out on each call (settings and permissions change). */
+export const tables = () => tablesOf(readySources());
+export type Tables = ReturnType<typeof tablesOf>;
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
@@ -671,24 +678,35 @@ export async function gather(
   const repos = repoMap(truth, await readRepoGuesses());
   const ctx = { me: ownerIn(truth.people), repos };
   // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
-  // events, in the registry's order.
-  const lifelog = await safely(
-    "lifelog",
-    () =>
-      withStore((store) =>
-        readConversations(store, since, lifelogNames(truth))
-      ),
-    failed
-  );
-  const read = await Promise.all(
-    SOURCES.flatMap((s) => (s.kind === "voice" ? [] : [s])).map(async (s) => ({
-      events: await safely(
-        s.name,
-        () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
+  // events, in the registry's order. Only the sources he turned on that can be read now.
+  const sources = enabledSources().filter((s) => {
+    const why = s.missing?.();
+    if (why) {
+      log("source.read", { ok: true, skipped: why, source: s.name });
+    }
+    return !why;
+  });
+  const lifelog = sources.some((s) => s.kind === "voice")
+    ? await safely(
+        "lifelog",
+        () =>
+          withStore((store) =>
+            readConversations(store, since, lifelogNames(truth))
+          ),
         failed
-      ),
-      s,
-    }))
+      )
+    : [];
+  const read = await Promise.all(
+    sources
+      .flatMap((s) => (s.kind === "voice" ? [] : [s]))
+      .map(async (s) => ({
+        events: await safely(
+          s.name,
+          () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
+          failed
+        ),
+        s,
+      }))
   );
   // A repo's commits carry no files; the others' recent messages have theirs described, then shown.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();

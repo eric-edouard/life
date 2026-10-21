@@ -19,7 +19,7 @@ import {
   writtenPeople,
 } from "./ledger";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
-import { daysBefore, safely, WITH_PEOPLE } from "./units";
+import { daysBefore, safely, tables } from "./units";
 import { merged, readPeople } from "./who";
 import { localDate } from "./zones";
 
@@ -358,7 +358,7 @@ export async function closeness() {
   const failed: string[] = [];
   const events = (
     await Promise.all(
-      Object.entries(WITH_PEOPLE).map(([name, read]) =>
+      Object.entries(tables().WITH_PEOPLE).map(([name, read]) =>
         safely(name, () => read(since), failed)
       )
     )

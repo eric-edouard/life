@@ -4,8 +4,10 @@ import { dirname, join } from "node:path";
 import { clock } from "./clock";
 import { type LogEvent, log, recentEvents } from "./log";
 import { codeAt, exec } from "./proc";
+import { settings } from "./settings";
 import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
 import { fromAppleS, toAppleS } from "./sources/imessage";
+import { enabledSources, SOURCES } from "./sources/index";
 import { listNotes, NOTES, noteVersion } from "./sources/notes";
 import { ROOT } from "./truth";
 
@@ -386,6 +388,12 @@ export const STORES = [
   },
 ];
 
+/** The stores of the sources he turned on (the `sources` setting): no other app is copied or kept open. */
+export const keptStores = (on = settings().sources) => {
+  const names = new Set<string>(enabledSources(SOURCES, on).map((s) => s.name));
+  return STORES.filter((s) => names.has(s.name));
+};
+
 /** When the archive last copied anything into a store (a new message or note version); null: none yet, or no store. */
 export function lastCopied(store: (typeof STORES)[number], dir = ARCHIVE) {
   const path = archiveDb(store.name, dir);
@@ -410,11 +418,19 @@ export function lastCopied(store: (typeof STORES)[number], dir = ARCHIVE) {
 const REOPEN_MS = 600_000;
 const openedAt = new Map<string, number>();
 
-/** The stores' apps to open: not among `running` (process names) and not opened in the last 10 minutes. */
-export const appsToOpen = (running: string[], now: number, opened = openedAt) =>
-  STORES.map((s) => s.app).filter(
-    (app) => !running.includes(app) && now - (opened.get(app) ?? 0) >= REOPEN_MS
-  );
+/** The kept stores' apps to open: not among `running` (process names) and not opened in the last 10 minutes. */
+export const appsToOpen = (
+  running: string[],
+  now: number,
+  opened = openedAt,
+  stores = keptStores()
+) =>
+  stores
+    .map((s) => s.app)
+    .filter(
+      (app) =>
+        !running.includes(app) && now - (opened.get(app) ?? 0) >= REOPEN_MS
+    );
 
 /**
  * Opens each store's app that is not running, hidden and in the background (`ps -c` names them as STORES does), each
@@ -500,8 +516,10 @@ export function openIncidents(lines: LogEvent[]) {
 
 /** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
 export async function archiveFailing(ms = 0, now = clock().getTime()) {
+  const kept = new Set(keptStores().map((s) => s.name as string));
+  // A store he turned off since has no incident: it is no longer copied, so nothing would ever close it.
   return [...openIncidents(await recentEvents(ARCHIVE_LOOKBACK))].filter(
-    ([, e]) => now - Date.parse(e.at) >= ms
+    ([name, e]) => kept.has(name) && now - Date.parse(e.at) >= ms
   );
 }
 
@@ -517,7 +535,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
   const running = codeAt(ROOT);
   const failing = new Set((await archiveFailing()).map(([name]) => name));
   while (codeAt(ROOT) === running) {
-    for (const { copy, name } of STORES) {
+    for (const { copy, name } of keptStores()) {
       try {
         const added = copy();
         if (failing.delete(name)) {

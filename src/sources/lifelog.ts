@@ -123,15 +123,20 @@ export interface ChapterTurn {
 }
 
 /** lifelog's server (REST API): its address from settings (a test's stand-in sets `LIFELOG_URL`), its token from the environment. */
+const lifelogUrl = () => process.env.LIFELOG_URL ?? settings().lifelog?.url;
+
+/** What keeps lifelog from being read: its address or its token missing; nothing when it is set up. */
+export const lifelogMissing = () =>
+  lifelogUrl() && process.env.LIFELOG_TOKEN
+    ? undefined
+    : "lifelog not set up (settings: lifelog, env: LIFELOG_TOKEN)";
+
 function config() {
-  const url = process.env.LIFELOG_URL ?? settings().lifelog?.url;
-  const token = process.env.LIFELOG_TOKEN;
-  if (!(url && token)) {
-    throw new Error(
-      "lifelog is not set up (settings: lifelog, env: LIFELOG_TOKEN)"
-    );
+  const why = lifelogMissing();
+  if (why) {
+    throw new Error(why);
   }
-  return { token, url };
+  return { token: process.env.LIFELOG_TOKEN ?? "", url: lifelogUrl() ?? "" };
 }
 
 /** GET `path`, or send `body` to it (POST unless `method` says otherwise). */
@@ -440,9 +445,6 @@ export function readConversations(
   byId: Map<string, string> = new Map()
 ): LifelogConversation[] {
   const { db } = store;
-  if (!db.query("select 1 from conversations limit 1").get()) {
-    throw new Error("the lifelog store is empty: run `bun life watch`");
-  }
   const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(

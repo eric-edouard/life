@@ -13,9 +13,9 @@ the same process in its own repo.
   paths: `LIFE_CHAT` no longer required).
 - [ ] 1.3 `derived/` and the data root under Application Support for a new install; `isHis` by a marker, not a path.
 - [ ] 1.4 `bun life init`: an empty, valid `truth/`, Goals optional, zones seeded, the data repo created.
-- [ ] 1.5 Sources: `needs`, `probe`, the enabled set. A source not set up never fails the night; zero sources runs a
+- [ ] 1.5 Sources: the `sources` setting, each descriptor's `missing`, the ready set. A source not set up never fails the night; zero sources runs a
   clean night.
-- [ ] 1.6 Voice as a registry capability: no lifelog special cases in `gather`, `search.day` or the watcher.
+- [ ] 1.6 Life without a voice source: the watcher, `day`, search and the nightly run with lifelog off (a voice interface waits for a second voice source: Omi comes through lifelog).
 - [ ] 1.7 Archive stores as descriptors: only enabled, installed apps kept open.
 - [ ] 1.8 Handles as a record keyed by source (schema first).
 - [ ] 1.9 Notification sink: macOS notification and in-app report by default, email optional.
@@ -41,7 +41,8 @@ the same process in its own repo.
 
 - Write the owner's `derived/settings.json` from his `.env` and the values that were constants: `connector` (origin,
   issuer, client, owner), `lifelog.url`, `mail`, `lifeChat`, `misheard`, `past`, `reports`, `repos: "~/Work"`,
-  `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), and keep `engine`.
+  `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), `sources` (every source he
+  reads today: lifelog, imessage, whatsapp, beeper, mail, notes, claude, chatgpt, atlas, git), and keep `engine`.
 - Remove the moved keys from `.env` (`LIFE_OWNER_SUB`, `LIFE_MAIL_TO`, `LIFE_CHAT`, `LIFE_MISHEARD`, `LIFE_PAST_*`,
   `LIFELOG_URL`) and the parked `TELEGRAM_*` and `INSTINCT_KEY`.
 - Add the status Worker's new secret, `ISSUER` (`wrangler secret put ISSUER`, the connector's issuer), then redeploy it.
