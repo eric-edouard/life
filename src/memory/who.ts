@@ -150,15 +150,19 @@ export function aboutNow(
     const a = authors[k] as (typeof authors)[number];
     const moved = moves.get(o.unit) ?? new Map<string, string>();
     const resolvedNow = a.unknown && a.now !== a.was;
+    const entities = [
+      ...new Set([
+        ...o.entities.map(canon).map((e) => moved.get(e) ?? e),
+        ...(named.get(o.id) ?? []).flatMap((n) => (n.ref ? [n.ref] : [])),
+        ...(resolvedNow ? [a.now] : []),
+      ]),
+    ].sort();
     return {
       ...o,
-      entities: [
-        ...new Set([
-          ...o.entities.map(canon).map((e) => moved.get(e) ?? e),
-          ...(named.get(o.id) ?? []).flatMap((n) => (n.ref ? [n.ref] : [])),
-          ...(resolvedNow ? [a.now] : []),
-        ]),
-      ].sort(),
+      entities,
+      // Who it is about changed since it was written (a move, a fold, a name resolved since): a page it lands on
+      // has not read it (`pages.ts` offers it once).
+      refiled: entities.join() !== o.entities.toSorted().join(),
       speaker: a.now,
       // A chat title named an unknown author; once they resolve, their name is the map's.
       speakerName: resolvedNow ? undefined : o.speakerName,
@@ -256,6 +260,9 @@ export function chatHandles(units: Unit[]) {
     })
   );
 }
+
+/** An observation as readers get it (`aboutNow`). */
+export type Shown = ReturnType<typeof aboutNow>[number];
 
 /** truth/, Life's inferred people and the owner's corrections, read once, with the resolver and the folds over them. */
 export async function readPeople() {
