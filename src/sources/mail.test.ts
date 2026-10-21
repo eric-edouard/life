@@ -91,7 +91,7 @@ Content-Disposition: attachment; filename*0="Devis_cuisine_";
 `;
 
 // Also: text/plain is preferred and quoted-printable decoded (Devis); an empty text/plain falls back to stripped base64 HTML.
-test("readMail reads every account, dedupes, skips junk and knows the owner", () => {
+test("readMail reads every account, dedupes, skips junk and drafts, and knows the owner", () => {
   const base = mkdtempSync(join(tmpdir(), "mail-"));
   const root = join(base, "V10");
   mkdirSync(join(root, "MailData"), { recursive: true });
@@ -112,7 +112,7 @@ test("readMail reads every account, dedupes, skips junk and knows the owner", ()
   const acct = "AAAA-1111";
   db.run(`insert into mailboxes values (1, 'imap://${acct}/INBOX'),
             (2, 'imap://${acct}/%5BGmail%5D/Sent%20Mail'), (3, 'imap://${acct}/Junk'),
-            (4, 'imap://${acct}/%5BGmail%5D/All%20Mail')`);
+            (4, 'imap://${acct}/%5BGmail%5D/All%20Mail'), (5, 'imap://${acct}/%5BGmail%5D/Brouillons')`);
   db.run("insert into subjects values (1, 'Devis'), (2, 'Big prize')");
   db.run(
     "insert into addresses values (1, 'Ana@Example.com', 'Ana'), (2, 'Me@Mine.test', '')"
@@ -128,7 +128,8 @@ test("readMail reads every account, dedupes, skips junk and knows the owner", ()
             (1004, 12, 1, null, 2, ${t + 120}, 3, 0, 8, 0, null),
             (5, 13, 1, null, 1, ${t - 864_000}, 1, 0, 9, 0, null),
             (1006, 14, 1, null, 2, ${t + 180}, 1, 0, 10, 0, null),
-            (1007, 15, 1, null, 2, ${t + 240}, 1, 0, 11, 0, null)`);
+            (1007, 15, 1, null, 2, ${t + 240}, 1, 0, 11, 0, null),
+            (1008, 16, 2, null, 1, ${t + 300}, 5, 0, 12, 0, null)`);
   db.run("insert into labels values (1003, 2)");
   db.close();
   const dir = join(root, acct, "INBOX.mbox", "STORE", "Data", "1", "Messages");

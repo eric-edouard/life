@@ -10,7 +10,9 @@ const MAIL = join(homedir(), "Library", "Mail");
 const ACCOUNTS_DB = join(homedir(), "Library", "Accounts", "Accounts4.sqlite");
 const SNIPPET = 1500;
 const SENT = /sent|envoy/i;
-const SKIP = /junk|spam|trash|corbeille|deleted|supprim|indesirable/i;
+// Drafts were never sent: read as mail, an unsent draft would pass for something he wrote to someone.
+const SKIP =
+  /junk|spam|trash|corbeille|deleted|supprim|indesirable|draft|brouillon/i;
 const VERSION_DIR = /^V\d+$/;
 const MAILBOX_URL = /^\w+:\/\/([^/]+)\/(.*)$/;
 const BLANK_LINE = /\r?\n\r?\n/;
