@@ -560,6 +560,24 @@ test("about and modality are kept when valid; a replacement stands only for a pr
   }
 });
 
+test("a re-read that writes a prior fact again word for word and lists it never retires it with itself", () => {
+  const [first] = parseObservations(
+    { observations: [obs({})] },
+    ctx
+  ).observations;
+  const id = first?.id ?? "";
+  const { replaced } = parseObservations(
+    { observations: [obs({ replaces: [id] })] },
+    {
+      ...ctx,
+      prior: new Map([
+        [id, { at: "2026-10-01T10:00:00.000Z", id } as Observation],
+      ]),
+    }
+  );
+  expect(replaced).toEqual([]);
+});
+
 test("the observation schema refuses records a later reader could not trust", () => {
   const [good] = parseObservations(
     { observations: [obs({})] },
