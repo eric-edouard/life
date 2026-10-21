@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { stamp } from "../llm";
@@ -11,8 +11,9 @@ import {
   pruned,
 } from "../sources/assistants";
 import { loadTruth } from "../truth";
-import { appendJsonl, IMPORTED, rowsOf } from "./ledger";
-import { begin, chunks, inBatches, meContext } from "./run";
+import { spareQuota } from "./guard";
+import { appendJsonl, IMPORTED, keptConversations, rowsOf } from "./ledger";
+import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { clip } from "./units";
 import { localDate } from "./zones";
 
@@ -79,30 +80,38 @@ export function parseJudged(
   const list = z
     .object({ conversations: z.array(z.unknown()) })
     .parse(reply).conversations;
-  const records = new Map<string, Imported>();
-  let invalid = 0;
-  for (const raw of list) {
-    const r = Entry.safeParse(raw);
-    if (!(r.success && asked.has(r.data.id)) || records.has(r.data.id)) {
-      invalid += 1;
-      continue;
-    }
-    records.set(r.data.id, {
+  const { entries, invalid } = checkedEntries(
+    list,
+    Entry,
+    (e) => e.id,
+    (id) => asked.has(id)
+  );
+  const records = entries.map(
+    (e): Imported => ({
       at: ctx.at,
-      conversation: `${ctx.source}:${r.data.id}`,
-      keep: r.data.keep,
+      conversation: `${ctx.source}:${e.id}`,
+      keep: e.keep,
       madeBy: ctx.madeBy,
       schemaVersion: 1,
-      why: clip(r.data.why, 300),
-    });
-  }
-  return { invalid, records: [...records.values()] };
+      why: clip(e.why, 300),
+    })
+  );
+  return { invalid, records };
 }
 
-/** Copies the export into his data and judges each conversation not judged yet under this prompt. */
+/**
+ * Copies the export into his data and judges each conversation not judged yet under this prompt. A different export
+ * of the same assistant is refused: the copy is the only source of its units' words.
+ */
 export async function importExport(folder: string) {
   const { all, conversations, file, source } = readExport(folder);
   const to = importOf(source);
+  if (existsSync(to) && !readFileSync(to).equals(readFileSync(file))) {
+    throw new Error(
+      `${to} holds another ${FORMATS[source].label} export already`
+    );
+  }
+  await spareQuota();
   mkdirSync(dirname(to), { recursive: true });
   copyFileSync(file, to);
   const step = await begin("import", "fast", { prompt: IMPORT_PROMPT, source });
@@ -118,7 +127,6 @@ export async function importExport(folder: string) {
     source,
   };
   const context = meContext(await loadTruth());
-  const kept = new Set<string>();
   let invalid = 0;
   // One bad call costs only its conversations: they are asked again on the next run.
   await inBatches(chunks(due, PER_CALL), step.dir, (batch, dir) =>
@@ -139,24 +147,22 @@ export async function importExport(folder: string) {
       const checked = parseJudged(json, new Set(batch.map((c) => c.id)), ctx);
       // Written as each call ends: a stopped run resumes from them.
       appendJsonl(IMPORTED, Imported, checked.records);
-      for (const r of checked.records.filter((i) => i.keep)) {
-        kept.add(r.conversation);
-      }
       invalid += checked.invalid;
     })
   );
-  const read = summaryOf(all, conversations);
+  // Every kept one, this run's and earlier runs': their days are read by the backfill (`bun life memory backfill
+  // --from <from> --to <to>`), under the quota guard.
+  const kept = keptConversations();
   const days = summaryOf(
     all,
     conversations.filter((c) => kept.has(`${source}:${c.id}`))
   );
   return step.end({
     asked: due.length,
-    // The kept days are read by the backfill (`bun life memory backfill --from <from> --to <to>`), under the quota guard.
     backfill: { days: days.days, from: days.from, to: days.to },
     invalid,
-    kept: kept.size,
-    read,
+    kept: days.conversations.kept,
+    read: summaryOf(all, conversations),
     source,
   });
 }

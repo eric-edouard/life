@@ -1,14 +1,13 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { IMPORTED, latestBy, rowsOf } from "../memory/ledger";
-import { Imported, type SourceEvent } from "../schema";
+import type { SourceEvent } from "../schema";
 import { DATA } from "../truth";
 
 // His conversations with AI assistants, from the one-time exports of claude.ai and ChatGPT (~/Life/docs/
-// claude-import-scope-2026-10-21.md): his own messages only, pruned by code, and only the conversations the import step
-// kept as about his life (memory/imported.jsonl). An export is copied once to `imports/<source>/conversations.json` in
-// his data; it never changes after.
+// claude-import-scope-2026-10-21.md): his own messages only, pruned by code. An export is copied once to
+// `imports/<source>/conversations.json` in his data. Every pruned message is searched; only the conversations the import
+// step kept as about his life become memory (the `not-kept` rule, units.ts).
 
 type Assistant = "chatgpt" | "claude";
 
@@ -94,6 +93,17 @@ const ChatgptExport = z.array(
   })
 );
 
+/** A ChatGPT message part's words: a string, or what voice mode heard him say (`audio_transcription`); else none. */
+const partText = (p: unknown) =>
+  typeof p === "string"
+    ? p
+    : (z
+        .object({
+          content_type: z.literal("audio_transcription"),
+          text: z.string(),
+        })
+        .safeParse(p).data?.text ?? "");
+
 /**
  * ChatGPT's `conversations.json`: each conversation a tree of messages (`mapping`); the one he saw is the branch from
  * `current_node` back to the root (edited and regenerated turns are other branches). His are `author.role` user; a
@@ -121,7 +131,8 @@ function parseChatgpt(json: unknown): Conversation[] {
                 at: iso(m.create_time ?? c.create_time),
                 id: m.id,
                 text: (m.content.parts ?? [])
-                  .filter((p) => typeof p === "string")
+                  .map(partText)
+                  .filter(Boolean)
                   .join("\n")
                   .trim(),
               },
@@ -224,27 +235,14 @@ export function conversationsOf(source: Assistant, path = importOf(source)) {
   return memo.get(path)?.conversations ?? [];
 }
 
-/** The conversations the import step kept, as `<source>:<id>`. */
-export const keptConversations = () =>
-  new Set(
-    [
-      ...latestBy(rowsOf(IMPORTED, Imported), (i) => i.conversation).values(),
-    ].flatMap((i) => (i.keep ? [i.conversation] : []))
-  );
-
 /**
- * His messages since `since` in the conversations the import kept, as events, oldest first: a conversation is a chat
- * (its title says it was with an assistant, so the memory steps read it as such), cut into a unit per local day.
+ * His pruned messages since `since`, as events, oldest first: a conversation is a chat (its title says it was with an
+ * assistant, so the memory steps read it as such), cut into a unit per local day.
  */
 export const readAssistant =
   (source: Assistant) =>
-  (
-    since: Date,
-    path = importOf(source),
-    keep = keptConversations()
-  ): SourceEvent[] =>
+  (since: Date, path = importOf(source)): SourceEvent[] =>
     conversationsOf(source, path)
-      .filter((c) => keep.has(`${source}:${c.id}`))
       .flatMap((c) =>
         c.messages.map(
           (m): SourceEvent => ({

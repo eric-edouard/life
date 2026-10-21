@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import type { z } from "zod";
 import { clock } from "../clock";
 import { askOnce, llmFor, llmSpec, quota, type Tier } from "../llm";
 import { log } from "../log";
@@ -153,6 +154,29 @@ export async function begin(
 
 /** A run in progress, as the step functions receive it. */
 export type Step = Awaited<ReturnType<typeof begin>>;
+
+/**
+ * A model's reply list checked: each entry valid by `schema` and about one thing it was asked about (`asked`, by
+ * `keyOf`), once; anything else is counted invalid, never trusted.
+ */
+export function checkedEntries<T>(
+  list: unknown[],
+  schema: z.ZodType<T>,
+  keyOf: (entry: T) => string,
+  asked: (key: string) => boolean
+) {
+  const entries = new Map<string, T>();
+  let invalid = 0;
+  for (const raw of list) {
+    const r = schema.safeParse(raw);
+    if (r.success && asked(keyOf(r.data)) && !entries.has(keyOf(r.data))) {
+      entries.set(keyOf(r.data), r.data);
+    } else {
+      invalid += 1;
+    }
+  }
+  return { entries: [...entries.values()], invalid };
+}
 
 /** `list` in pieces of at most `n`. */
 export const chunks = <T>(list: T[], n: number) =>
