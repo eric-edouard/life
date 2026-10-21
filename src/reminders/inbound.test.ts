@@ -3,10 +3,13 @@ import { grantRefusal } from "../actions";
 import { action } from "../memory/fixtures";
 import { type Action, Action as ActionLine } from "../schema";
 import { closings, tasksOf } from "../tasks";
-import { inbound, marks, type Snapshot } from "./inbound";
-import type { Reminder } from "./remctl";
+import { marks } from "./board";
+import { inbound } from "./inbound";
+import type { Reminder, Snapshot } from "./remctl";
 
 const AT = "2026-10-21T12:00:00.000Z";
+/** His lines, without the imports (what Life only learns). */
+const ofHis = (lines: Action[]) => lines.filter((l) => l.kind !== "import");
 const LINK = "x-apple-reminderkit://REMCDReminder/AAAA-1";
 
 const rem = (over: Partial<Reminder> = {}): Reminder => ({
@@ -83,25 +86,34 @@ test("#69 forged steer: Life's own due time and subtasks read back the next pass
   expect(marks(snap([], { board: [receipt] })).size).toBe(0);
 });
 
-test("an echo of Life's own write whose answer was lost (offline, a timeout) is still Life's", () => {
-  const now = rem({ allDay: true, dueDate: "2026-10-23T00:00:00" });
-  expect(
-    inbound(snap([now]), [...base, ...wrote({ due: "2026-10-23" })], AT)
-  ).toEqual([]);
+test("an echo of Life's own write whose answer was lost (offline, a timeout) is still Life's: learned, never his", () => {
+  const due = (d: string) => rem({ allDay: true, dueDate: `${d}T00:00:00` });
+  // Whatever Reminders shows of a field Life could not confirm is imported, not his.
+  for (const outcome of [undefined, "failed"] as const) {
+    const ledger = [...base, ...wrote({ due: "2026-10-23" }, outcome)];
+    for (const shown of ["2026-10-23", "2026-10-21"]) {
+      expect(ofHis(inbound(snap([due(shown)]), ledger, AT))).toEqual([]);
+    }
+  }
+});
+
+test("a failed tick that never landed: learned once, then his own tick days later is his", () => {
+  const failed = [
+    ...base,
+    ...wrote({ completed: true }, "failed", { kind: "done" }),
+  ];
+  const learned = inbound(snap([rem()]), failed, AT);
+  expect(learned.map((l) => [l.kind, l.after])).toEqual([
+    ["import", { completed: null, link: "AAAA-1" }],
+  ]);
+  const later = "2026-10-23T12:00:00.000Z";
   expect(
     inbound(
-      snap([now]),
-      [...base, ...wrote({ due: "2026-10-23" }, "failed")],
-      AT
-    )
-  ).toEqual([]);
-  // A value Life never tried is his.
-  const his = inbound(
-    snap([rem({ allDay: true, dueDate: "2026-10-24T00:00:00" })]),
-    [...base, ...wrote({ due: "2026-10-23" })],
-    AT
-  );
-  expect(his).toMatchObject([{ after: { due: "2026-10-24" }, kind: "edit" }]);
+      snap([rem({ completed: true })]),
+      [...failed, ...learned],
+      later
+    ).map((l) => l.kind)
+  ).toEqual(["done"]);
 });
 
 test("the list's auto-sort moving a reminder to another section is no change", () => {
@@ -330,7 +342,9 @@ test("a partial write (a step failed after a move) settles nothing: what Reminde
     target: "reminder:99",
   });
   expect(
-    inbound(snap([rem({ id: 99, list: "Work" })]), [...base, ...partial], AT)
+    ofHis(
+      inbound(snap([rem({ id: 99, list: "Work" })]), [...base, ...partial], AT)
+    )
   ).toEqual([]);
 });
 

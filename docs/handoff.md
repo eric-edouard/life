@@ -92,7 +92,8 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   time went.
   Every ask is a task until Atlas closes it done or dropped (`tasks.ts`, its board `push` in `reminders/board.ts`): Atlas reports with `task` (also
   making a task from his chat words, or a split), Life emails him when one needs him and shows every task on the Reminders
-  list `Atlas` (made 19 Oct, with its sections), one way: his changes there reach no one. Rules and states: AGENTS.md and the playbook.
+  list `Atlas` (made 19 Oct, with its sections); his tick or removal of one closes its task, nothing else he changes there
+  reaches anyone. Rules and states: AGENTS.md and the playbook.
 
 ## Evals
 
