@@ -1,8 +1,11 @@
+import { join } from "node:path";
 import { unfrozen } from "../clock";
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
+import { exec } from "../proc";
 import type { Action } from "../schema";
 import { settings } from "../settings";
+import { STATE } from "../truth";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
 import type { describeFiles } from "./files";
@@ -364,10 +367,10 @@ export async function unsent(keys: string[]) {
 export const reportKey = (run: string) => `nightly/${run}`;
 
 /**
- * Sends a report with Resend's API, once per key (`<kind>/<run or incident>`; the kind names the step in the log):
- * skipped when every key went out already (`unsent`), one `email.sent` line per new key, and Resend's idempotency key
- * covers a retry of the same keys. A failed send is logged and returns null: it never changes how the night ended, and the caller may
- * try again.
+ * Delivers a report once per key (`<kind>/<run or incident>`; the kind names the step in the log): by mail when the
+ * `mail` setting is there, else on the Mac (`onMac`). Skipped when every key went out already (`unsent`), one
+ * `email.sent` line per new key, whichever way it went. A failed delivery is logged and returns null: it never changes
+ * how the night ended, and the caller may try again.
  */
 export async function sendReport(id: string | string[], mail: Mail) {
   unfrozen("send email");
@@ -376,31 +379,13 @@ export async function sendReport(id: string | string[], mail: Mail) {
     return null;
   }
   try {
-    const key = process.env.RESEND_PERSONAL_API_KEY;
-    // His address, the only recipient.
     const to = settings().mail?.to;
-    if (!(key && to)) {
-      throw new Error("RESEND_PERSONAL_API_KEY or the mail setting is not set");
-    }
-    const res = await fetch("https://api.resend.com/emails", {
-      body: JSON.stringify({ from: FROM, to: [to], ...mail }),
-      headers: {
-        authorization: `Bearer ${key}`,
-        "content-type": "application/json",
-        "idempotency-key": `life/${digest("sha256", keys.join(" "), 32)}`,
-      },
-      method: "POST",
-      signal: AbortSignal.timeout(30_000),
-    });
-    const body = (await res.json()) as { id?: string; message?: string };
-    if (!(res.ok && body.id)) {
-      throw new Error(`Resend ${res.status}: ${body.message ?? "no id"}`);
-    }
+    const sentAs = await (to ? byMail(keys, mail, to) : onMac(keys, mail));
     for (const k of keys) {
-      log("email.sent", { id: body.id, key: k, subject: mail.subject });
+      log("email.sent", { id: sentAs, key: k, subject: mail.subject });
       sent?.add(k);
     }
-    return body.id;
+    return sentAs;
   } catch (e) {
     log("run.error", {
       error: (e as Error).message,
@@ -408,4 +393,43 @@ export async function sendReport(id: string | string[], mail: Mail) {
     });
     return null;
   }
+}
+
+/** Where reports go with no mail: one file a report, the app's to show (and the HTML attachment is the same page). */
+export const REPORTS = join(STATE, "reports");
+
+/** A report kept as a page in `REPORTS` and announced by a macOS notification: no account, no address. Its id is its file. */
+async function onMac(keys: string[], mail: Mail) {
+  const file = join(REPORTS, `${keys[0]?.replaceAll("/", "-")}.html`);
+  await Bun.write(file, mail.html);
+  const quote = (s: string) => JSON.stringify(s.slice(0, 200));
+  await exec([
+    "osascript",
+    "-e",
+    `display notification ${quote(mail.text.split("\n")[0] ?? "")} with title ${quote(mail.subject)}`,
+  ]);
+  return file;
+}
+
+/** A report mailed with Resend's API to his address; its idempotency key covers a retry of the same keys. */
+async function byMail(keys: string[], mail: Mail, to: string) {
+  const key = process.env.RESEND_PERSONAL_API_KEY;
+  if (!key) {
+    throw new Error("RESEND_PERSONAL_API_KEY is not set");
+  }
+  const res = await fetch("https://api.resend.com/emails", {
+    body: JSON.stringify({ from: FROM, to: [to], ...mail }),
+    headers: {
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+      "idempotency-key": `life/${digest("sha256", keys.join(" "), 32)}`,
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(30_000),
+  });
+  const body = (await res.json()) as { id?: string; message?: string };
+  if (!(res.ok && body.id)) {
+    throw new Error(`Resend ${res.status}: ${body.message ?? "no id"}`);
+  }
+  return body.id;
 }
