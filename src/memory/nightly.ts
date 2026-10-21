@@ -41,7 +41,13 @@ import {
   successReport,
 } from "./report";
 import { codeOn, mapRepos } from "./repos";
-import { commitMemory, type Metered, metered, phases } from "./run";
+import {
+  commitMemory,
+  type Metered,
+  metered,
+  phases,
+  type RunRecord,
+} from "./run";
 import { reindex } from "./search";
 import { daysBefore, gather, lastDays, localTime, type Window } from "./units";
 import { observationsNow, readPeople } from "./who";
@@ -71,7 +77,7 @@ export const reviewed = async (now: Date) =>
   );
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
-async function acted(now: Date, rec: Pick<Metered, "error">) {
+async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
   if (!(await reviewed(now))) {
     problems.push("no daily review reached Life in the last 24 h");
@@ -113,7 +119,7 @@ async function acted(now: Date, rec: Pick<Metered, "error">) {
 }
 
 /** Yesterday's Code rows. Never fails the night: a failure is logged and there are no rows. */
-function coded(day: string, rec: Pick<Metered, "error">) {
+function coded(day: string, rec: RunRecord) {
   return codeOn(daysBefore(day, 1)).catch((e: Error) => {
     rec.error(e.message, { step: "memory.nightly.code" });
     return [];
@@ -326,7 +332,7 @@ async function spent(rec: Metered, now: Quota | undefined) {
     .reverse()
     .map((r) =>
       r.id === `memory.nightly/${rec.run}` && r.use
-        ? `Codex use, this night: ${useText({ ...r.use, quota: { after: now ?? null, before: rec.before } })}`
+        ? `Codex use, this night: ${useText({ ...r.use, quota: { after: now ?? null, before: r.use.quota?.before ?? null } })}`
         : `Codex use, ${r.step.replace("memory.", "")} of ${localTime(r.startedAt ?? "")}: ${useText(r.use ?? null)}`
     );
 }

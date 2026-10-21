@@ -378,7 +378,6 @@ export async function lifeStatus(now = clock()) {
   const middaySlot = readMidday();
   const events = (await logDays())
     .slice(0, STATUS_DAYS)
-    .reverse()
     .flatMap((n) => runEvents(n));
   // The tick reads the quota every 30 minutes: its last reading (an unread one has no figures) says whether middays wait.
   const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
