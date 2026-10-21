@@ -20,6 +20,7 @@ type LogKind =
   | "lifelog.write"
   | "mcp.call"
   | "model.run"
+  | "quota.read"
   | "run.start"
   | "run.end"
   | "run.error"

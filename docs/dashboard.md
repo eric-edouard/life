@@ -5,8 +5,8 @@ change to the memory and the evidence behind a claim. The CLI has the same reads
 `bun life memory status | runs | changes | claim`. Code: `src/memory/history.ts` (status, runs) and
 `src/memory/feed.ts` (changes, claim). They run no model, write nothing, log nothing and send nothing (a test checks
 the code; the connector logs each call as `mcp.call`), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again the way `fetch`
-reads it (to show who sent the line). Every answer is JSON (text content, and `structuredContent` for clients that take
-it) and carries `observedAt`, the server's time.
+reads it (to show who sent the line). Every answer is JSON, sent once as text content (no
+`structuredContent`: the model would read it twice), and carries `observedAt`, the server's time.
 
 Auth is the connector's, unchanged: lifelog's JWT for `https://life.ericedouard.com/mcp`, `life:read`, `sub` =
 `LIFE_OWNER_SUB`. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
@@ -34,7 +34,9 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
   of its current week (3 stop it), and `weeks` read on `day` (4 a day at most); null when none was set.
 - `nightly.next`, `midday.next`: `{earliest, latest, why}`. launchd ticks every 30 min, so a run is expected between
   the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures today: no
-  more tries until tomorrow", "today's night succeeded", "the next slot". Not a countdown.
+  more tries until tomorrow", "today's night succeeded", "the next slot", or "held: Codex quota 91% used, over 75%"
+  (the midday waits for the quota's reset: `earliest` is the first slot after it, or after the next tick when the
+  reading has no reset time). Not a countdown.
 - `timeZone`: the Mac's, which every schedule follows.
 
 ## runs
