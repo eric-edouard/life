@@ -46,7 +46,7 @@ import {
 } from "./ledger";
 import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page";
-import { asData, chatHits, focus, holdsAll } from "./raw";
+import { asData, chatHits, focus, holdsAll, MAIL_HITS, mailHits } from "./raw";
 import { actionLine } from "./report";
 import {
   clip,
@@ -342,9 +342,10 @@ export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
   // lifelog's search is a network call: the chats are read meanwhile.
   const holds = holdsAll(words);
-  const [voice, chats, found] = await Promise.all([
+  const [voice, chats, mail, found] = await Promise.all([
     voiceHits(words, range),
     chatHits(words, range),
+    mailHits(words, range),
     momentsWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
   ]);
   const tasks = taskHits(holds, o);
@@ -371,6 +372,9 @@ export async function search(words: string, o: Days = {}) {
     "",
     "Chats and notes (messages and note versions holding all the words, with the ones around them; each heading says where to read more):",
     ...chats,
+    "",
+    `Mail (no newsletters: the newest ${MAIL_HITS} holding all the words; each its unit, \`fetch <unit>\` for the thread):`,
+    ...mail,
   ]);
 }
 
