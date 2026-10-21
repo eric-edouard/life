@@ -106,10 +106,8 @@ describe("integrity", () => {
     );
   });
 
-  test("me.md needs its goals, and they name projects that exist", () => {
-    expect(integrity(truth({ me: readMe("# Me\n\nJean.") }))).toEqual([
-      "me.md has no ## Goals: every model call would miss them",
-    ]);
+  test("me.md's goals are optional, and name projects that exist", () => {
+    expect(integrity(truth({ me: readMe("# Me\n\nJean.") }))).toEqual([]);
     const me = readMe("# Me\n\nJean.\n\n## Goals\n1. Be free. (`ghost`)");
     expect(integrity(truth({ me }))).toEqual([
       "a goal in me.md names unknown project ghost",
