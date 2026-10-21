@@ -173,18 +173,21 @@ export const liveUnits = (units: Unit[]) =>
   new Set(units.flatMap((u) => (u.drop ? [] : [u.id])));
 
 /**
- * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), or
- * the unit has none: a unit read again, under another content hash or another prompt version, leaves its older facts
- * in the ledger, replaced; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
+ * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), the
+ * unit has none, or he rated `o` true (`kept`): a unit read again, under another content hash or another prompt
+ * version, leaves its older facts in the ledger, replaced, except those he rated true, which only a newer observation
+ * retires; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
-  { latest, live }: Pick<Standing, "latest" | "live">,
+  { kept, latest, live }: Pick<Standing, "kept" | "latest" | "live">,
   o: Observation
 ) {
   const l = latest.get(o.unit);
   return (
     live.has(o.unit) &&
-    (!l || (l.unitHash === o.madeBy.unitHash && l.run === o.madeBy.run))
+    (!l ||
+      (l.unitHash === o.madeBy.unitHash && l.run === o.madeBy.run) ||
+      kept.has(o.id))
   );
 }
 
@@ -222,6 +225,12 @@ export const retiredBy = (list: Retirement[], current: Set<string>) => {
 export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.claim);
 
 export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
+
+/** The claims his latest answer calls true: an undo or a later answer lifts one. */
+export const ratedTrue = (latest: Map<string, Rating>) =>
+  new Set(
+    [...latest.values()].flatMap((r) => (r.answer === "true" ? [r.claim] : []))
+  );
 
 /** The claims his latest answer calls false, as `wrong` corrections: an undo or a later answer lifts one. */
 export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
@@ -264,6 +273,8 @@ export function readCorrections(): Correction[] {
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
 export interface Standing {
   corrections: Correction[];
+  /** What he rated true (his latest answer): a re-read of its unit does not replace it. */
+  kept: Set<string>;
   latest: Map<string, Extracted>;
   live: Set<string>;
   retired: Map<string, Retirement>;
@@ -277,11 +288,16 @@ export async function readStanding(
   const [units, observations] = await Promise.all([readUnits(), read]);
   const extracted = rowsOf(EXTRACTED, Extracted);
   const supersessions = rowsOf(SUPERSESSIONS, Supersession);
-  const c = { latest: latestExtractions(extracted), live: liveUnits(units) };
+  const ratings = readRatings();
+  const c = {
+    kept: ratedTrue(ratings),
+    latest: latestExtractions(extracted),
+    live: liveUnits(units),
+  };
   const current = new Set(
     observations.flatMap((o) => (isCurrent(c, o) ? [o.id] : []))
   );
-  const retirements = [...supersessions, ...ratedOutdated(readRatings())];
+  const retirements = [...supersessions, ...ratedOutdated(ratings)];
   return { corrections, ...c, retired: retiredBy(retirements, current) };
 }
 
@@ -312,7 +328,7 @@ export const hiding = (corrections: Correction[], id: string) =>
 /**
  * Where an observation stands: the one rule the index, the pages and the dashboard go by. First match wins: `hidden`
  * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
- * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he rated it outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
+ * `replaced` (its unit was read again and the newer extraction counts, unless he rated it true), `retired` (a newer observation superseded it, or he rated it outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
  * its quote checked against the source: `active` does not mean verified.
  */

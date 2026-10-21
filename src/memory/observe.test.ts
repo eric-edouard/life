@@ -698,6 +698,7 @@ test("the index is rebuilt from observations: search ignores accents, links answ
       path,
       {
         corrections: [],
+        kept: new Set<string>(),
         latest: new Map(),
         live: new Set(["u_000000000001", "u_000000000002"]),
         retired: new Map(),

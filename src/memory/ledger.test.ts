@@ -17,6 +17,7 @@ import {
   newSince,
   ratedFalse,
   ratedOutdated,
+  ratedTrue,
   retiredBy,
   type Standing,
   shownOf,
@@ -48,6 +49,7 @@ test("a unit re-extracted under another hash or prompt keeps only its latest fac
     read("u_4", "h1", "r2"),
   ];
   const c = {
+    kept: new Set<string>(),
     latest: latestExtractions(ledger),
     live: new Set(["u_1", "u_2", "u_3", "u_4"]),
   };
@@ -195,6 +197,7 @@ test("the index, the pages and the dashboard agree on where each observation sta
 async function view(f: typeof fixture) {
   const standing = {
     corrections: f.corrections,
+    kept: new Set<string>(),
     latest: latestExtractions(f.extracted),
     live: f.live,
     retired: f.retired,
@@ -236,6 +239,7 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
   const x = obs("obs_000000000001", "u_1", "h1");
   const at = (over: Partial<Standing>): Standing => ({
     corrections: [],
+    kept: new Set(),
     latest: new Map(),
     live: new Set(["u_1"]),
     retired: new Map(),
@@ -296,6 +300,7 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
   const standing = (ratings: Rating[], first: Supersession[] = []) =>
     ({
       corrections: [],
+      kept: new Set(),
       latest: new Map(),
       live: new Set(["u_1"]),
       retired: retiredBy(
@@ -321,4 +326,37 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
   expect(
     stateOf(x, standing([rate("obs_a", "outdated")], [closed]))
   ).toMatchObject({ by: "obs_b", state: "retired" });
+});
+
+test("a re-read keeps a fact he rated true: not replaced when the new reading leaves it out, retired only by a newer fact", () => {
+  const rate = (answer: Rating["answer"]) =>
+    ({
+      answer,
+      at: "2026-10-19T08:00:00Z",
+      claim: "obs_a",
+      schemaVersion: 1,
+    }) as Rating;
+  const rated = obs("obs_a", "u_1", "h1");
+  const other = obs("obs_b", "u_1", "h1");
+  // u_1 was read again by a later run, which wrote neither fact again.
+  const latest = new Map([["u_1", read("u_1", "h1", "r2")]]);
+  const standing = (
+    ratings: Rating[],
+    retired = new Map<string, Supersession>()
+  ) =>
+    ({
+      corrections: [],
+      kept: ratedTrue(latestRatings(ratings)),
+      latest,
+      live: new Set(["u_1"]),
+      retired,
+    }) as Standing;
+  expect(stateOf(rated, standing([rate("true")])).state).toBe("active");
+  expect(stateOf(other, standing([rate("true")])).state).toBe("replaced");
+  // An undo or a later answer lifts it.
+  expect(stateOf(rated, standing([rate("true"), rate(null)])).state).toBe(
+    "replaced"
+  );
+  const by = new Map([["obs_a", { at: "t", by: "obs_c" } as Supersession]]);
+  expect(stateOf(rated, standing([rate("true")], by)).state).toBe("retired");
 });
