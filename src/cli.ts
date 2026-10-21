@@ -10,7 +10,8 @@ import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
 import { checks } from "./reminders/remctl";
 import { Engine } from "./schema";
-import { readSettings, type Settings, setSetting } from "./settings";
+import { readSettings, type Settings, setSetting, settings } from "./settings";
+import { SOURCES } from "./sources/index";
 import { connect } from "./tailscale";
 import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
@@ -173,6 +174,21 @@ const commands: Record<string, () => Promise<number>> = {
     }
     console.log(JSON.stringify(readSettings(), null, 2));
     return 0;
+  },
+  /** Every source as JSON: its name and label, whether he turned it on, and what keeps it from being read now. */
+  sources() {
+    const on = new Set<string>(settings().sources);
+    console.log(
+      JSON.stringify(
+        SOURCES.map((s) => ({
+          label: s.label,
+          missing: s.missing?.() ?? null,
+          name: s.name,
+          on: on.has(s.name),
+        }))
+      )
+    );
+    return Promise.resolve(0);
   },
   /** What the lifelog watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),
