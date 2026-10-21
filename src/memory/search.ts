@@ -861,13 +861,10 @@ async function dueContext(date: string, truth: Truth) {
   return {
     goals: goalProjects(truth.me.goals),
     levels,
-    // A reply owed is shown on its days only when they come: the review reads tomorrow too.
-    more: [
-      ...reminders,
-      ...(date > today ? [] : await repliesOwed(new Date(end))),
-    ],
+    more: [...reminders, ...(await repliesOwed(new Date(end)))],
     shown: await shownDays(date),
     tasks: new Set(open.map((t) => t.ask.instruction.ref)),
+    today,
   };
 }
 
