@@ -379,6 +379,36 @@ test("tokens: kept for the author, unknown names and listed refs; a ref the clai
   );
 });
 
+test("a token in a shape the format does not know is reduced to its name: no brace reaches a reader", () => {
+  const { observations } = parseObservations(
+    {
+      observations: [
+        obs({
+          entities: ["person:me"],
+          text: "{me|Jean} will call {area:shop|the shop}'s {Person:gaston|Gas} today.",
+        }),
+      ],
+    },
+    ctx
+  );
+  expect(observations[0]?.text).toBe("Jean will call the shop's Gas today.");
+});
+
+test("an unknown author resolved since shows the map's name, not the one the model wrote", () => {
+  const facts = [
+    {
+      entities: [],
+      id: "obs_1",
+      speaker: "unknown:+66600000001",
+      text: "{speaker|a caller} asked for the keys.",
+      unit: "u_000000000003",
+    },
+  ] as unknown as Observation[];
+  expect(aboutNow(facts, [], people, [], [])[0]?.text).toBe(
+    "Jean Senior Dupont asked for the keys."
+  );
+});
+
 test("a token shows the name as written, and a person's current name only when who it names changed", () => {
   const facts = [
     {

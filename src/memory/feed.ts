@@ -557,6 +557,8 @@ export async function claim(id: string) {
       now: now.speaker,
     },
     status: stateOf(o, ctx),
+    // Its sentence as every reader shows it (`aboutNow`: tokens rendered); `observation` is the line as written.
+    text: now.text,
     unit: unit
       ? {
           date: unit.date,

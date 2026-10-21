@@ -45,7 +45,7 @@ import {
   nameIndex,
   within,
 } from "./units";
-import { observationsNow, readPeople, UNKNOWN } from "./who";
+import { observationsNow, readPeople, sentence, UNKNOWN } from "./who";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (salience >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
@@ -512,7 +512,8 @@ export async function extract(evidence: Evidence) {
           observation: old.id,
           schemaVersion: 1,
           validTo: by.validFrom ?? by.date,
-          why: by.text.slice(0, 300),
+          // Plain words: this ledger is never rendered, and a cut must not split a token.
+          why: (sentence(by.text, (_, name) => name) ?? by.text).slice(0, 300),
         });
       }
       const date = new Map(sources.map((x) => [x.unit.id, x.unit.date]));

@@ -168,14 +168,12 @@ export function aboutNow(
       speakerName: resolvedNow ? undefined : o.speakerName,
       text:
         sentence(o.text, (ref, name) => {
-          // A token shows the name the model wrote, unless who it names is someone else now (a move, a fold).
+          // A token shows the name the model wrote, unless who it names is someone else now (a move, a fold, an
+          // unknown author resolved since: their name is the map's).
           const was = ref === SPEAKER ? a.was : ref;
           const now =
             ref === SPEAKER ? a.now : (moved.get(canon(ref)) ?? canon(ref));
-          const changed =
-            now !== was &&
-            !now.startsWith(UNKNOWN) &&
-            !(ref === SPEAKER && a.unknown);
+          const changed = now !== was && !now.startsWith(UNKNOWN);
           return changed ? (namesOf.get(now)?.[0] ?? name) : name;
         }) ??
         // ponytail: a sentence from before tokens (extract v6) names people as plain words; a move swaps them as it
@@ -207,7 +205,8 @@ export function authorFrom(o: Observation, chatOf: Map<string, string>) {
 /** The cited line's author in a token. */
 export const SPEAKER = "speaker";
 /** A person written into a fact's sentence (extract v6): `{ref|name}`, the ref or `speaker`, and the name as written. */
-const TOKEN = /\{(speaker|person:[^{}|]+|unknown:[^{}|]+)\|([^{}]*)\}/g;
+// Any ref: one the format does not know is reduced to its name when the fact is written (`recordOf`).
+const TOKEN = /\{([^{}|]+)\|([^{}]*)\}/g;
 
 /** A sentence with each token replaced by `show(ref, name)`; null for a sentence with no token (written before v6). */
 export function sentence(
