@@ -297,64 +297,57 @@ test("changes about task:<id> is one task's history: its ask, updates and replie
   }
 });
 
-test("a run's use: its calls' tokens and its steps', the quota read just before a sweep and at its end", () => {
+test("a run's use: its calls' tokens and its steps', and for a metered run the quota it logged at its start and end", () => {
   const night = "2026-10-15T00:31:00.000Z";
   const step = "2026-10-15T00:31:05.000Z";
   const tokens = (input: number) => ({ cached: input / 2, input, output: 10 });
-  const q = (used: number, at: string) => ({
-    at,
-    kind: "quota.read",
-    resetsAt: "2026-10-20T00:00:00.000Z",
-    used,
+  const q = (used: number) => ({ resetsAt: "2026-10-20T00:00:00.000Z", used });
+  const call = (run: string, input: number) => ({
+    at: step,
+    kind: "model.run",
+    run,
+    tokens: tokens(input),
   });
   const events = [
-    q(10, "2026-10-14T23:00:00.000Z"), // too early to count for the night's start
-    q(40, "2026-10-15T00:30:58.000Z"),
-    ev("run.start", "memory.nightly", night, { run: id(night) }),
+    ev("run.start", "memory.nightly", night, { quota: q(40), run: id(night) }),
     ev("run.start", "memory.moments", step, { run: id(step) }),
-    { at: step, kind: "model.run", run: id(step), tokens: tokens(1000) },
-    { at: step, kind: "model.run", run: id(step), tokens: tokens(3000) },
-    { at: step, kind: "model.run", run: "other", tokens: tokens(5) },
+    call(id(step), 1000),
+    call(id(step), 3000),
+    call("other", 5),
     ev("run.end", "memory.moments", "2026-10-15T00:40:00.000Z", {
       failed: 0,
       run: id(step),
     }),
-    q(43, "2026-10-15T00:41:00.000Z"),
     ev("run.end", "memory.nightly", "2026-10-15T00:41:01.000Z", {
       outcome: "ok",
+      quota: q(43),
       run: id(night),
     }),
   ];
   const list = assembleRuns(
-    // model.run and quota.read lines name no step.
+    // model.run lines name no step.
     events as Parameters<typeof assembleRuns>[0],
     new Set(["memory.nightly", "memory.moments"]),
     null
   );
   const by = (s: string) => list.find((r) => r.step === s);
-  const read = (used: number, at: string) => {
-    const { kind: _k, at: _a, ...rest } = q(used, at);
-    return rest;
-  };
-  expect(by("memory.moments")?.use).toEqual({
-    quota: null,
-    tokens: { cached: 2000, input: 4000, output: 20 },
+  const spent = { cached: 2000, input: 4000, output: 20 };
+  expect(by("memory.moments")?.use).toEqual({ quota: null, tokens: spent });
+  const use = by("memory.nightly")?.use;
+  expect(use).toEqual({
+    quota: { after: q(43), before: q(40) },
+    tokens: spent,
   });
-  expect(by("memory.nightly")?.use).toEqual({
-    quota: {
-      after: read(43, "2026-10-15T00:41:00.000Z"),
-      before: read(40, "2026-10-15T00:30:58.000Z"),
-    },
-    tokens: { cached: 2000, input: 4000, output: 20 },
-  });
-  const use = by("memory.nightly")?.use ?? null;
   expect(use && percentOf(use)).toBe(3);
-  expect(useText(use)).toBe("+3% of the quota, 4k tokens (2k cached)");
+  expect(useText(use ?? null)).toBe("+3% of the quota, 4k tokens (2k cached)");
   expect(
     useText({
-      quota: { after: read(40, ""), before: read(40, "") },
+      quota: { after: q(40), before: q(40) },
       tokens: tokens(2_000_000),
     })
   ).toBe("under 1% of the quota, 2.0M tokens (1.0M cached)");
-  expect(useText(null)).toBe("quota not read, 0k tokens (0k cached)");
+  const reset = { resetsAt: "2026-10-27T00:00:00.000Z", used: 1 };
+  expect(
+    useText({ quota: { after: reset, before: q(90) }, tokens: tokens(0) })
+  ).toBe("the quota reset during it, 0k tokens (0k cached)");
 });
