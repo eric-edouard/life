@@ -100,8 +100,8 @@ const momentsWhere = async (keep: (m: Moment) => boolean) => {
     .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
 };
 const DAY_FACTS = 15;
-const VOICE_LIMIT = 10;
-const VOICE_MAX = 600;
+const VOICE_LIMIT = 20;
+const VOICE_MAX = 300;
 const QUOTE_MAX = 140;
 const TITLE_MAX = 50;
 const WORD = /[\p{L}\p{N}]+/gu;
