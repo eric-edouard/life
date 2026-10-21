@@ -3,12 +3,14 @@ import { rmSync } from "node:fs";
 import { asksIn, hear, MARK, marksIn, speechIn, type Turn, WAKE } from "./hear";
 import { ACTIONS } from "./memory/ledger";
 import {
+  chapter,
+  conversation,
   turn as fed,
   lifelogServer,
   lifelogStore,
   page,
 } from "./sources/fixtures";
-import { apply, whose } from "./sources/lifelog";
+import { apply, readConversations, whose } from "./sources/lifelog";
 import { tasksOf } from "./tasks";
 
 test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
@@ -326,4 +328,53 @@ test('a "hey Life" span is his (high) or unattributed (low), never someone else\
   // A "hey Life" is never an ask, and a "hey Atlas" never a mark.
   expect(asksIn(turns, "")).toEqual([]);
   expect(marksIn([turn(0, "me", "hey Atlas, book it")], "")).toEqual([]);
+});
+
+test('his "hey Life" heard in a conversation marks its chapter; heard again from later, the earlier mark stays', async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [
+        { speakerId: null, text: "hey Life, the stones are for Alice" },
+        { speakerId: null, text: "and the vote is Sunday" },
+        { speakerId: null, text: "ok" },
+      ],
+    }),
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    page({
+      chapters: [
+        chapter("a", "2026-10-19T09:00:00.000Z", "2026-10-19T11:00:00.000Z"),
+      ],
+      conversations: [conversation("c1")],
+      turns: [
+        fed(0, "2026-10-19T10:00:00.000Z", "p-me", "Me", "c1", true),
+        fed(1, "2026-10-19T10:00:05.000Z", "p-me", "Me", "c1", true),
+        fed(2, "2026-10-19T10:00:10.000Z", "p-ana", "Ana"),
+      ],
+    }),
+    "2026-10-19T10:00:30.000Z"
+  );
+  const marked = () =>
+    readConversations(store, new Date("2026-10-01"))[0]?.chapters[0]?.marked;
+  try {
+    await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"));
+    expect(marked()).toEqual([
+      "job-1:0@2026-10-19T10:00:00.000Z",
+      "job-1:1@2026-10-19T10:00:05.000Z",
+    ]);
+    await hear(
+      store,
+      "c1",
+      "2026-10-19T10:00:10.000Z",
+      Date.parse("2026-10-19T10:06:00Z")
+    );
+    expect(marked()).toHaveLength(2);
+    // A "hey Life" is never an ask.
+    expect(tasksOf()).toEqual([]);
+  } finally {
+    server.close();
+    rmSync(ACTIONS, { force: true });
+  }
 });

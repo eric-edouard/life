@@ -660,13 +660,13 @@ export async function visits(q: Record<string, string | number | undefined>) {
 
 /**
  * Replaces the "hey Life" spans the hearing found in a conversation from `from` on (a span grows as he goes on): each
- * its wake turn and the refs of all its turns. Only refs are kept: where and whose a wake is stays the turn's row.
+ * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row.
  */
 export function writeMarks(
   store: Store,
   conversation: string,
   from: string,
-  marks: { jobId: string; refs: string[]; turnIndex: number }[]
+  marks: string[][]
 ) {
   store.db.transaction(() => {
     store.db.run(
@@ -674,11 +674,14 @@ export function writeMarks(
         (select job_id, turn_index from turns where conversation_id = ? and start_at >= ?)`,
       [conversation, from]
     );
-    for (const m of marks) {
-      store.db.run(
-        "insert or replace into marks (job_id, turn_index, refs) values (?, ?, ?)",
-        [m.jobId, m.turnIndex, JSON.stringify(m.refs)]
-      );
+    for (const refs of marks) {
+      const wake = parseTurnRef(refs[0] ?? "");
+      if (wake) {
+        store.db.run(
+          "insert or replace into marks (job_id, turn_index, refs) values (?, ?, ?)",
+          [wake.jobId, wake.turnIndex, JSON.stringify(refs)]
+        );
+      }
     }
   })();
 }

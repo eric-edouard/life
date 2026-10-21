@@ -303,12 +303,13 @@ export function markedSince(
   since: string,
   observations: Observation[]
 ) {
+  // Read on its marked content: a reading of the unit before the mark landed doesn't count.
   const read = new Set(
-    extracted.filter((e) => e.at >= since).map((e) => e.unit)
+    extracted.filter((e) => e.at >= since).map((e) => `${e.unit}|${e.unitHash}`)
   );
   return built.flatMap(({ unit }) => {
     const marked = unit.marked ?? [];
-    if (marked.length === 0 || !read.has(unit.id)) {
+    if (marked.length === 0 || !read.has(`${unit.id}|${unit.hash}`)) {
       return [];
     }
     const held = observations.filter((o) => marked.includes(o.source.ref));
