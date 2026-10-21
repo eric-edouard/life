@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { archiveFailing, keptStores } from "./archive";
 import { backupOld, backupOn, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
-import { ATLAS, clientName, deliveryState, subscribed } from "./events";
+import { AGENT, clientName, deliveryState, subscribed } from "./events";
 import { readHealth } from "./health";
 import { type LogEvent, recentEvents } from "./log";
 import { macState, sleeps } from "./mac";
@@ -948,7 +948,7 @@ function atlasCards(r: Reads): Card[] {
   const lines = linesOf(ACTIONS).length;
   const live = subscribed(r.t);
   const calls = since(r.mcp, DAY, r.t).filter(
-    (c) => clientName(c.agent) === ATLAS
+    (c) => clientName(c.agent) === AGENT
   );
   const tasks = taskList(r.t);
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
@@ -957,7 +957,7 @@ function atlasCards(r: Reads): Card[] {
       ...(live
         ? { tone: "ok", word: "subscribed" }
         : {
-            ask: ASK("that Atlas holds no live subscription to asks"),
+            ask: ASK(`that ${AGENT} holds no live subscription to asks`),
             tone: "bad",
             word: "no subscription",
           }),
@@ -975,7 +975,7 @@ function atlasCards(r: Reads): Card[] {
       group: "outputs",
       headline: live ? "subscribed" : "not subscribed",
       id: "atlas",
-      name: "Atlas",
+      name: AGENT,
     },
     {
       ...firstOf(
@@ -996,7 +996,7 @@ function atlasCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${tasks.length} open`,
       id: "tasks",
-      name: "Atlas tasks",
+      name: `${AGENT} tasks`,
     },
   ];
 }

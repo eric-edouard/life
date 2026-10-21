@@ -4,7 +4,7 @@ import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
 import { exec } from "../proc";
 import type { Action } from "../schema";
-import { settings } from "../settings";
+import { agentName, settings } from "../settings";
 import { enabledSources, listening } from "../sources/index";
 import { STATE } from "../truth";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
@@ -171,7 +171,7 @@ export function successReport(day: string, ms: number, n: Night) {
           ],
           title: "Actions",
         },
-        { kind: "pairs", list: n.acted.tasks, title: "Atlas tasks" },
+        { kind: "pairs", list: n.acted.tasks, title: `${agentName()} tasks` },
         {
           kind: "pairs",
           list: [
@@ -272,8 +272,8 @@ export function taskReport(
   now: number
 ) {
   const why = list.map((x) => `${x.title}: ${x.cause}`).join(" · ");
-  return alert(new Date(now).toISOString(), "Atlas tasks", {
-    failure: { error: why, step: "Atlas tasks" },
+  return alert(new Date(now).toISOString(), `${agentName()} tasks`, {
+    failure: { error: why, step: `${agentName()} tasks` },
     notes: [
       ...list.map(
         (x) =>
@@ -283,21 +283,21 @@ export function taskReport(
     ],
     preheader: why,
     stats: [{ label: "need you", value: String(list.length) }],
-    subject: `Atlas: ${list.map((x) => `${x.title} (${x.cause.split(":")[0]})`).join(", ")}`,
+    subject: `${agentName()}: ${list.map((x) => `${x.title} (${x.cause.split(":")[0]})`).join(", ")}`,
     verdict: "NEEDS YOU",
   });
 }
 
 /** The alert for a lapsed `ask` subscription: about Atlas, not one task. */
 export const lapseReport = (open: number, now: number) =>
-  alert(new Date(now).toISOString(), "Atlas", {
+  alert(new Date(now).toISOString(), agentName(), {
     failure: { error: "no live subscription to `ask`", step: "delivery" },
     notes: [
-      `${open} open tasks wait, and new asks are recorded but reach Atlas only once it subscribes again.`,
+      `${open} open tasks wait, and new asks are recorded but reach ${agentName()} only once it subscribes again.`,
     ],
-    preheader: `Atlas isn't receiving asks: ${open} open tasks`,
+    preheader: `${agentName()} isn't receiving asks: ${open} open tasks`,
     stats: [{ label: "open tasks", value: String(open) }],
-    subject: "Atlas isn't receiving asks",
+    subject: `${agentName()} isn't receiving asks`,
     verdict: "NEEDS YOU",
   });
 
@@ -340,7 +340,7 @@ export function actionLine(a: Action) {
     .join(", ");
   const kinds: Partial<Record<Action["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
-    ask: `to Atlas${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
+    ask: `to ${agentName()}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
     done: `done “${was}”`,
     edit: a.after.title
       ? `“${was}” → “${a.after.title}”`

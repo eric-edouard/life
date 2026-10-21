@@ -1,5 +1,5 @@
 import { clock } from "./clock";
-import { ATLAS, clientName } from "./events";
+import { AGENT, clientName } from "./events";
 import { recentEvents } from "./log";
 import { sleeps } from "./mac";
 import { changeFeed, encode } from "./memory/feed";
@@ -33,7 +33,7 @@ const LOGS: Record<string, (e: Line) => boolean> = {
   archive: (e) => e.step?.startsWith("archive.") ?? false,
   atlas: (e) =>
     e.kind === "event.sent" ||
-    (e.kind === "mcp.call" && clientName(e.agent) === ATLAS),
+    (e.kind === "mcp.call" && clientName(e.agent) === AGENT),
   backup: (e) => e.step === "backup",
   clients: (e) => e.kind === "mcp.call",
   connector: (e) => e.kind === "mcp.call",

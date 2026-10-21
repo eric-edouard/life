@@ -84,7 +84,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
-  (the `misheard` setting, a real name, or "at last") `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
+  (the `agent` setting's `misheard`: a real name, or "at last") `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
   `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`), the watcher delivers it (`src/events.ts`). Atlas also
   records one through `task` from his chat (`madeBy: "connector"`): his verbatim words with when he sent them (`said`,
   `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task (`parent`, `title`) that
@@ -241,7 +241,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   strict): the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos
   folder, his agents' report senders. A part left out is off, never an error: a fresh install with no settings runs.
   It is strict and read when modules load (units, tasks, email, git), so a new key lands in code first, and a bad file
-  stops the watcher and the nightly, like `truth/`.
+  stops the watcher and the nightly, like `truth/`. His agent is the `agent` setting (name, wake words, misheard forms,
+  client prefix): every "Atlas" Life writes is its name, and the ledger's `target: "atlas"` is the stored word for the
+  agent, kept as it is (append-only, like unit ids).
   Secrets stay in the environment (`.env`). Owner values are never defaults in code: tests read
   `src/test-data/state/settings.json`, made up.
 - **Where things live is two roots** (`truth.ts`): `DATA`, his data (`LIFE_DATA`, a checkout's default `~/Life`), and

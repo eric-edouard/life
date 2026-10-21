@@ -7,6 +7,7 @@ import { clock, unfrozen } from "./clock";
 import { type Call, log } from "./log";
 import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
+import { agentName, settings } from "./settings";
 import { STATE } from "./truth";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
@@ -39,23 +40,24 @@ const AskData = z.object({
   title: z.string().optional().describe("The part of his words it is"),
 });
 
-/** Who a connector call came from, by its user agent: the names he knows them by. Atlas is ChatGPT's. */
-export const ATLAS = "ChatGPT (Atlas)";
+/** His agent's name, as `clientName` gives it for its calls (the `agent` setting's `client`). */
+export const AGENT = agentName();
+/** Who a connector call came from, by its user agent: the names he knows them by. */
 export function clientName(agent: unknown) {
   const a = String(agent ?? "");
-  if (a.startsWith("openai-mcp")) {
-    return ATLAS;
+  const client = settings().agent?.client;
+  if (client && a.startsWith(client)) {
+    return AGENT;
   }
   return a.toLowerCase().includes("claude") ? "Claude" : a || "unknown client";
 }
-/** A call of Atlas's daily review: `day` read by Atlas, with no error (the nightly's `reviewed`, `shownDays`). */
+/** A call of his agent's daily review: `day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
 export const isReviewCall = (e: Call) =>
-  e.tool === "day" && !e.error && clientName(e.agent) === ATLAS;
+  e.tool === "day" && !e.error && clientName(e.agent) === AGENT;
 
 export const ASK_EVENT = {
   delivery: ["webhook"],
-  description:
-    "The owner asked Atlas for something: he said “hey Atlas, …” (heard in his recordings) or asked in a Claude session.",
+  description: `The owner asked ${AGENT} for something: he said “hey ${AGENT}, …” (heard in his recordings) or asked in a Claude session.`,
   inputSchema: { additionalProperties: false, properties: {}, type: "object" },
   name: "ask",
   payloadSchema: z.toJSONSchema(AskData),
@@ -344,7 +346,7 @@ export async function deliver() {
       log("event.sent", { event: event.eventId });
       continue;
     }
-    const error = `Atlas did not receive it (callback ${status || "unreachable"})`;
+    const error = `${AGENT} did not receive it (callback ${status || "unreachable"})`;
     log("run.error", { error, event: event.eventId, step: "events.deliver" });
     if (after.subscription && after.delivered === cursor) {
       await sendReport(
