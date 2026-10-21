@@ -34,11 +34,11 @@ export interface Linked {
   key: string;
   link?: string;
   removedAt?: string;
-  tried: Map<string, unknown[]>;
+  tried: Set<string>;
   wrote?: string;
 }
 
-/** One line's mark on a linked reminder: a try or a partial adds its values to `tried`; anything else settles them. */
+/** One line's mark on a linked reminder: a try or a partial leaves its fields unsettled (`tried`: the next pass imports what Reminders shows); anything else settles them. */
 function apply(it: Linked, a: Action) {
   const after = pick(a.after);
   const tried = !stands(a);
@@ -46,7 +46,7 @@ function apply(it: Linked, a: Action) {
   it.wrote = a.madeBy === "reminders" ? it.wrote : a.at;
   for (const [f, v] of Object.entries(after)) {
     if (unsure) {
-      it.tried.set(f, [...(it.tried.get(f) ?? []), v]);
+      it.tried.add(f);
     } else {
       it.fields[f as Field] = v;
       it.tried.delete(f);
@@ -59,7 +59,7 @@ function apply(it: Linked, a: Action) {
   return tried;
 }
 
-/** Every reminder Life links, by its id now: what the ledger says Life left on it, and the values Life tried since each settled. */
+/** Every reminder Life links, by its id now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
 export function linked(actions: Action[]) {
   const items = new Map<number, Linked>();
   for (const a of actions) {
@@ -70,7 +70,7 @@ export function linked(actions: Action[]) {
       (a.kind === "add" || a.kind === "import") && a.result === "ok";
     const it: Linked | undefined =
       items.get(from) ??
-      (opens ? { fields: {}, id: n, key: a.id, tried: new Map() } : undefined);
+      (opens ? { fields: {}, id: n, key: a.id, tried: new Set() } : undefined);
     if (
       it &&
       a.target.startsWith("reminder:") &&
