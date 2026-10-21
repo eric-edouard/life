@@ -3,8 +3,10 @@
 // a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--ratings` grades the statements the owner rated
 // (memory/ratings.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
 // `--json` prints the counts alone, for the bench (scripts/bench.ts).
+
 import { join } from "node:path";
 import { z } from "zod";
+import { clock } from "../src/clock";
 import { askOnce, llmFor, llmSpec } from "../src/llm";
 import { locked, spareQuota } from "../src/memory/guard";
 import {
@@ -51,7 +53,7 @@ const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
   );
 
 type Fact = z.infer<typeof Facts>["facts"][number];
-const run = runId(new Date());
+const run = runId(clock());
 const DIR = join(OUT, "evals", run);
 /** Rated statements per judge call. */
 const PER_CALL = 30;
@@ -98,7 +100,7 @@ async function ratedRun() {
     await appendJsonl(SCORES, Score, [
       {
         ...t.counts,
-        at: new Date().toISOString(),
+        at: clock().toISOString(),
         gone: gone.length,
         rated: judged.length,
         run,

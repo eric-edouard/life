@@ -3,10 +3,12 @@
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier then grades its claims against the week's
 // hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
+
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
+import { clock } from "../src/clock";
 import { llmFor, llmSpec } from "../src/llm";
 import { LOG_DIR, logDays, logEvents } from "../src/log";
 import { extract } from "../src/memory/extract";
@@ -251,7 +253,7 @@ export function table(rows: Row[], about: { facts: number; rated: number }) {
     return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed: invalid)` : ""} | ${r.minutes} min | ${r.cost} |`;
   };
   return [
-    `# Bench ${WEEK.from} to ${WEEK.to} (${new Date().toISOString().slice(0, 16)}Z, code ${git(ROOT, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
+    `# Bench ${WEEK.from} to ${WEEK.to} (${clock().toISOString().slice(0, 16)}Z, code ${git(ROOT, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
     `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
     "",

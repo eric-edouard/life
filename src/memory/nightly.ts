@@ -1,6 +1,7 @@
 import { checks } from "../actions";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
+import { clock } from "../clock";
 import { readHealth } from "../health";
 import { titleOf } from "../hear";
 import { quota } from "../llm";
@@ -113,7 +114,7 @@ export async function archiveLine(since: string) {
  * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
-  const now = new Date();
+  const now = clock();
   const held = lockedSince();
   if (held && now.getTime() - held.getTime() > STUCK_MS) {
     await sendReport(
@@ -174,7 +175,7 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
  * commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
  * never the lock. A failure is only logged, and the slot is spent.
  */
-export async function midday(now = new Date(), force = false) {
+export async function midday(now = clock(), force = false) {
   if (!(force || middayDue(now, readMidday()))) {
     return 0;
   }

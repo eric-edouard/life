@@ -1,6 +1,7 @@
 import { statSync } from "node:fs";
 import { z } from "zod";
 import { STORES } from "../archive";
+import { clock } from "../clock";
 import { polling, readHealth } from "../health";
 import type { Quota } from "../llm";
 import {
@@ -246,7 +247,7 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
     count: page.length,
     cursor: more && end ? encode([keyOf(end), end.id]) : null,
     items: page,
-    observedAt: new Date().toISOString(),
+    observedAt: clock().toISOString(),
   };
 }
 
@@ -283,7 +284,7 @@ function lastOf(list: Run[], step: string) {
  * (pages: midday and nightly) and the index (rebuilt by the watcher on any lifelog change and by every sweep: a new index is not new memory).
  * A missing record is "unknown", never healthy.
  */
-export async function lifeStatus(now = new Date()) {
+export async function lifeStatus(now = clock()) {
   const health = readHealth();
   const lock = lockedSince();
   const night = readState();

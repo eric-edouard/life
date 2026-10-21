@@ -244,7 +244,8 @@ that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own 
 `actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask` and `update`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
-the Mac's clock); a source's behaviour is its descriptor in `src/sources/index.ts` (`SOURCES`, in cut order): code
+the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
+`LIFE_NOW` stops it, on a copy only, for the Atlas bench, and a frozen connector acts on nothing (`dry`, `mcp.ts`); a source's behaviour is its descriptor in `src/sources/index.ts` (`SOURCES`, in cut order): code
 branches on its kind or capability, never on its name (only its own code, its reader and lifelog's units, names it),
 and every table of sources (`CHATS`, `SEARCHED`, `WITH_PEOPLE`, their days) is derived from it (`tablesOf`,
 `units.ts`); the memory steps get their units only from `gather` (`units.ts`: every channel, in time
