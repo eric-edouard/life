@@ -8,7 +8,7 @@ import { readHealth } from "./health";
 import { type LogEvent, recentEvents } from "./log";
 import { macState, sleeps } from "./mac";
 import { changeFeed } from "./memory/feed";
-import { lifeStatus, runs, STEPS, type Use, useText } from "./memory/history";
+import { lifeStatus, runs, type Use, useText } from "./memory/history";
 import {
   ACTIONS,
   CORRECTIONS,
@@ -657,43 +657,42 @@ type Sweep =
   | Reads["status"]["midday"]
   | Omit<Reads["status"]["backfill"], "state">;
 
-const stepsOf = (children: string[] | undefined) =>
-  new Set((children ?? []).map((c) => c.split("/")[0]));
-
-/** What a sweep does after its steps (nightly.ts): index, and for the night its commit and its report. */
-const TAIL: Record<string, string[]> = {
-  backfill: ["index"],
-  midday: ["index"],
-  nightly: ["index", "commit", "email"],
-};
+/** A nightly report email's key (`sendReport`, nightly.ts): `nightly/<its run>`. */
+const isReport = (key: unknown) => String(key ?? "").startsWith("nightly/");
 
 /**
- * A sweep's stations: the steps its last good run and its latest ran, in their order, the one running now, then what
- * it does after them, done once its latest run ended well.
+ * A sweep's stations: the phases its last good run went through (its steps among them) and any its latest added,
+ * done as its latest went through them, the one it is in now, the one it failed at left to do; for the night, then
+ * its report, done once that email went.
  */
-function stationsOf(id: string, s: Sweep, proc: Processing, running: boolean) {
-  const tail = (TAIL[id] ?? []).map((name) => ({
-    name,
-    state: (s.latest?.outcome === "ok" && !running ? "done" : "todo") as
-      | "done"
-      | "todo",
-  }));
-  return [...stepStations(s, proc), ...tail];
-}
-
-function stepStations(s: Sweep, proc: Processing) {
-  const ran = stepsOf([
-    ...(s.lastOk?.children ?? []),
-    ...(s.latest?.children ?? []),
-  ]);
-  const latest = stepsOf(s.latest?.children);
-  return STEPS.filter((o) => ran.has(o) || proc.phase === o).map((o) => {
-    let state: "done" | "now" | "todo" = latest.has(o) ? "done" : "todo";
-    if (proc.phase === o) {
-      state = "now";
+export function stationsOf(
+  s: Pick<Sweep, "lastOk" | "latest">,
+  running: boolean,
+  reported: boolean | null
+) {
+  const latest = s.latest?.phases ?? [];
+  const names = [...new Set([...(s.lastOk?.phases ?? []), ...latest])];
+  const now = running ? latest.at(-1) : undefined;
+  const failedAt =
+    s.latest?.outcome === "failed"
+      ? String(s.latest.result?.failedAt)
+      : undefined;
+  const stateOf = (name: string): "done" | "now" | "todo" => {
+    if (name === now) {
+      return "now";
     }
-    return { name: o.replace("memory.", ""), state };
-  });
+    return latest.includes(name) && name !== failedAt ? "done" : "todo";
+  };
+  const stations = names.map((name) => ({ name, state: stateOf(name) }));
+  return reported === null
+    ? stations
+    : [
+        ...stations,
+        {
+          name: "email",
+          state: reported ? ("done" as const) : ("todo" as const),
+        },
+      ];
 }
 
 const sweepFacts = (
@@ -754,7 +753,18 @@ function sweepCard(
     headline,
     id,
     name,
-    stations: running || latest ? stationsOf(id, s, proc, running) : undefined,
+    stations:
+      running || latest
+        ? stationsOf(
+            s,
+            running,
+            id === "nightly"
+              ? r.sent.some(
+                  (e) => e.key === `nightly/${latest?.id.split("/")[1]}`
+                )
+              : null
+          )
+        : undefined,
   };
 }
 
@@ -1021,7 +1031,6 @@ function outputCards(r: Reads): Card[] {
           ),
       ],
       facts: [
-        { label: "remctl", value: r.remctl.length ? "can't act" : "ready" },
         { label: "Actions today", value: String(acts.length) },
         { label: "Failed today", value: String(failed) },
         { at: acts.at(-1)?.at, label: "Last action" },
@@ -1037,15 +1046,10 @@ function outputCards(r: Reads): Card[] {
         { label: "Sent today", value: String(mails.length) },
         {
           label: "Alerts today",
-          value: String(
-            mails.filter((m) => !String(m.key ?? "").startsWith("nightly/"))
-              .length
-          ),
+          value: String(mails.filter((m) => !isReport(m.key)).length),
         },
         {
-          at: mails.findLast((m) =>
-            String(m.key ?? m.subject ?? "").includes("nightly")
-          )?.at,
+          at: mails.findLast((m) => isReport(m.key))?.at,
           label: "Last report",
         },
       ],
