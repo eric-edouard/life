@@ -366,7 +366,8 @@ export const grantedFrom = (actions: Action[], obs: string) =>
 
 /**
  * Why the standing grant (his yes, decision 2 of the 21 Oct review) may not add a reminder from this observation, or
- * nothing when it may. All of it derived, nothing stored: it is off once a reminder it added was removed (his undo),
+ * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
+ * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
  * it adds at most GRANT_DAILY a day (his local day), only from his current salience-3 to-do or promise in a lifelog
  * turn the store credits to him now (`mine`), and never on a list shared with anyone (that would be a send).
  */
@@ -378,6 +379,10 @@ export function grantRefusal(g: {
   o: Pick<Observation, "salience" | "source" | "type">;
   state: string;
 }) {
+  const on = g.actions.findLast((a) => a.kind === "grant");
+  if (!on?.after.on) {
+    return "the grant is off: only his own words in a conversation turn it on";
+  }
   const made = g.actions.filter((a) => isGranted(a) && a.result === "ok");
   // The grant's reminders, followed through moves to another list (a move gives a new id), in ledger order.
   const targets = new Set<string>();
@@ -387,7 +392,7 @@ export function grantRefusal(g: {
       (a.kind === "edit" && targets.has(`reminder:${a.before?.id}`))
     ) {
       targets.add(a.target);
-    } else if (a.kind === "remove" && targets.has(a.target)) {
+    } else if (a.kind === "remove" && targets.has(a.target) && a.at >= on.at) {
       return "the grant is off: he undid one of its reminders";
     }
   }
@@ -408,6 +413,25 @@ export function grantRefusal(g: {
   if (!(g.list.shared === false && g.list.sharees?.length === 0)) {
     return "the list is shared: that needs his words";
   }
+}
+
+/** Turns the standing grant on or off on his words in a Claude session (`bun life grant`): one ledger line, the latest standing. Never from the connector. */
+export async function setGrant(on: boolean, said: string) {
+  const instruction = requested("session", said);
+  const line: Action = {
+    after: { on },
+    at: instruction.at,
+    id: actionId(instruction.ref, "grant", `${on}`),
+    instruction,
+    kind: "grant",
+    madeBy: "session",
+    result: "ok",
+    schemaVersion: 1,
+    target: "grant",
+    why: "his words in a Claude session",
+  };
+  await appendJsonl(ACTIONS, Action, [line]);
+  return line;
 }
 
 /** What the grant may set: an add's title, list (always named: its sharing is checked), due and section, nothing else. */

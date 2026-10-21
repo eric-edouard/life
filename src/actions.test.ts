@@ -142,7 +142,7 @@ test("an edit changes the title and list only when they differ, and every other 
 
 /** A ledger line of an add (the grant's when `ref` is an observation) or a remove. */
 const line = (
-  kind: "add" | "edit" | "remove",
+  kind: "add" | "edit" | "remove" | "grant",
   target: string,
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
@@ -159,8 +159,13 @@ const line = (
   why: "",
 });
 const NOW = "2026-10-21T12:00:00.000Z";
+/** His yes, said in a Claude session before everything else here. */
+const yes = {
+  ...line("grant", "grant", "session:x", "2026-10-01T10:00:00.000Z"),
+  after: { on: true },
+};
 const mine = {
-  actions: [] as Action[],
+  actions: [yes],
   list: { shared: false, sharees: [] },
   mine: true,
   now: NOW,
@@ -203,16 +208,22 @@ test("the grant adds at most 3 in his day; the 4th is refused, yesterday's don't
   const three = ["1", "2", "3"].map((n) =>
     line("add", `reminder:${n}`, `obs_00000000000${n}`)
   );
-  expect(grantRefusal({ ...mine, actions: three.slice(0, 2) })).toBeUndefined();
-  expect(grantRefusal({ ...mine, actions: three })).toContain("3 today");
+  expect(
+    grantRefusal({ ...mine, actions: [yes, ...three.slice(0, 2)] })
+  ).toBeUndefined();
+  expect(grantRefusal({ ...mine, actions: [yes, ...three] })).toContain(
+    "3 today"
+  );
   const yesterday = three.map((a) => ({
     ...a,
     at: "2026-10-20T10:00:00.000Z",
   }));
-  expect(grantRefusal({ ...mine, actions: yesterday })).toBeUndefined();
+  expect(
+    grantRefusal({ ...mine, actions: [yes, ...yesterday] })
+  ).toBeUndefined();
   // His own asks are not the grant's.
   const asked = three.map((a) => line("add", a.target, "connector:x"));
-  expect(grantRefusal({ ...mine, actions: asked })).toBeUndefined();
+  expect(grantRefusal({ ...mine, actions: [yes, ...asked] })).toBeUndefined();
 });
 
 test("the grant is off once he removed a reminder it added; removing one of his own asks leaves it on", () => {
@@ -223,7 +234,9 @@ test("the grant is off once he removed a reminder it added; removing one of his 
     "2026-10-19T10:00:00.000Z"
   );
   const undo = line("remove", "reminder:7", "connector:y");
-  expect(grantRefusal({ ...mine, actions: [made, undo] })).toContain("off");
+  expect(grantRefusal({ ...mine, actions: [yes, made, undo] })).toContain(
+    "off"
+  );
   // Moved to another list first (a new id), then removed: still his undo.
   const moved = {
     ...line("edit", "reminder:9", "connector:z"),
@@ -232,15 +245,42 @@ test("the grant is off once he removed a reminder it added; removing one of his 
   expect(
     grantRefusal({
       ...mine,
-      actions: [made, moved, line("remove", "reminder:9", "connector:y")],
+      actions: [yes, made, moved, line("remove", "reminder:9", "connector:y")],
     })
   ).toContain("off");
   const own = line("add", "reminder:8", "connector:x");
   expect(
     grantRefusal({
       ...mine,
-      actions: [made, own, line("remove", "reminder:8", "connector:y")],
+      actions: [yes, made, own, line("remove", "reminder:8", "connector:y")],
     })
+  ).toBeUndefined();
+});
+
+test("the grant is off until his words in a session turn it on, off again on his no; a yes after an undo turns it back on", () => {
+  const no = { ...yes, after: { on: false }, at: "2026-10-02T10:00:00.000Z" };
+  expect(grantRefusal({ ...mine, actions: [] })).toContain("his own words");
+  expect(grantRefusal({ ...mine, actions: [yes, no] })).toContain(
+    "his own words"
+  );
+  const made = line(
+    "add",
+    "reminder:7",
+    "obs_000000000007",
+    "2026-10-03T10:00:00.000Z"
+  );
+  const undo = line(
+    "remove",
+    "reminder:7",
+    "connector:y",
+    "2026-10-04T10:00:00.000Z"
+  );
+  const again = { ...yes, at: "2026-10-05T10:00:00.000Z" };
+  expect(grantRefusal({ ...mine, actions: [yes, made, undo] })).toContain(
+    "undid"
+  );
+  expect(
+    grantRefusal({ ...mine, actions: [yes, made, undo, again] })
   ).toBeUndefined();
 });
 
