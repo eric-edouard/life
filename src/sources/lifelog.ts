@@ -564,8 +564,8 @@ export const Hits = z.object({
 /** lifelog's search of the exact spoken words, best first. `from` is inclusive, `to` exclusive (ISO instants). */
 export async function searchVoice(
   query: string,
-  range: { from?: string; to?: string } = {},
-  limit = 20
+  range: { from?: string; to?: string },
+  limit: number
 ) {
   return Hits.parse(
     await call("/search", 60, {

@@ -100,7 +100,7 @@ const momentsWhere = async (keep: (m: Moment) => boolean) => {
     .toSorted((a, b) => daysOf(a)[0].localeCompare(daysOf(b)[0]));
 };
 const DAY_FACTS = 15;
-const VOICE_LIMIT = 20;
+const VOICE_LIMIT = 10;
 const VOICE_MAX = 600;
 const QUOTE_MAX = 140;
 const TITLE_MAX = 50;
@@ -334,7 +334,7 @@ export async function search(words: string, o: Days = {}) {
       : []),
     ...matches(db, words, o),
     "",
-    "Voice (exact spoken words; conversation id, time, turn: `fetch <id> --from-turn <turn>`):",
+    `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
     ...voice,
     "",
     "Chats and notes (messages and note versions holding all the words, with the ones around them; each heading says where to read more):",
