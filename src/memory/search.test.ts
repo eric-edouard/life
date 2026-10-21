@@ -277,7 +277,7 @@ test("a day opens with what happened: its moments, when, what, where, how they s
   expect(dayLines({})[0]).toStartWith("Recorded conversations");
 });
 
-test("by words: those holding the most of them, the later first; case and accents ignored, short and common words left out unless they are all there is", () => {
+test("by words: those holding the most of them, in their order; case and accents ignored, short and common words left out unless they are all there is", () => {
   const texts = [
     "chateau de Pondres",
     "Dinner at the château",
@@ -287,8 +287,8 @@ test("by words: those holding the most of them, the later first; case and accent
   const query = "Is the château at Pondres?";
   expect(byWords(texts, query, (t) => t)).toEqual(["chateau de Pondres"]);
   expect(byWords(texts.slice(1), query, (t) => t)).toEqual([
-    "at Pondres",
     "Dinner at the château",
+    "at Pondres",
   ]);
   expect(byWords(["it is", "no"], "is at", (t) => t)).toEqual(["it is"]);
   expect(byWords(["anything"], "??", (t) => t)).toEqual([]);

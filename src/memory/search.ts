@@ -208,12 +208,16 @@ export function matches(
   const o = between("o.date", range);
   const u = between("u.date", range);
   const query = ftsQuery(q);
+  // FTS's best of the candidates holding the most of the words (`byWords`, as every section ranks by words).
   const ids = (sql: string, args: string[]) =>
     query
-      ? db
-          .query<{ id: string }, string[]>(sql)
-          .all(query, ...args)
-          .map((r) => r.id)
+      ? byWords(
+          db
+            .query<{ id: string; text: string }, string[]>(sql)
+            .all(query, ...args),
+          q,
+          (r) => r.text
+        ).map((r) => r.id)
       : [];
   const row = db.query<Row, [string]>(
     `select ${COLUMNS} from observations o where o.id = ?`
@@ -223,7 +227,7 @@ export function matches(
   );
   const observations = fused(
     ids(
-      `select o.id from search s join observations o on o.id = s.id
+      `select o.id, o.text || ' ' || o.quote as text from search s join observations o on o.id = s.id
         where search match ? and ${CURRENT}${o.sql} order by rank limit ${POOL}`,
       o.args
     ),
@@ -237,7 +241,7 @@ export function matches(
   ).map((h) => `${line(row.get(h.id) as Row)}${h.mark}`);
   const units = fused(
     ids(
-      `select u.id from unit_search s join units u on u.id = s.id
+      `select u.id, s.title || ' ' || s.summary || ' ' || s.topics as text from unit_search s join units u on u.id = s.id
         where unit_search match ?${u.sql} order by rank limit ${POOL}`,
       u.args
     ),
@@ -370,12 +374,10 @@ export function taskHits(words: string, o: Days, tasks = tasksOf()) {
       ]
         .filter((x) => typeof x === "string")
         .join(" ")
-  )
-    .toReversed()
-    .map((t) => {
-      const { state, word } = taskStanding(t);
-      return `- ${t.ask.id} ${localDate(t.ask.at)} ${state}: ${nameOf(t)}${word ? ` → ${clip(`${word}`, 200)}` : ""}`;
-    });
+  ).map((t) => {
+    const { state, word } = taskStanding(t);
+    return `- ${t.ask.id} ${localDate(t.ask.at)} ${state}: ${nameOf(t)}${word ? ` → ${clip(`${word}`, 200)}` : ""}`;
+  });
 }
 
 /** `from`/`to` (local days, both included) bound every section. */
@@ -390,7 +392,7 @@ export async function search(words: string, o: Days = {}) {
   ]);
   // Moments by how many words they hold (the newest first) fused with their meaning; the best shown by date.
   const ranked = fused(
-    byWords(moments, words, momentText).map((m) => m.id),
+    byWords(moments.toReversed(), words, momentText).map((m) => m.id),
     meaning,
     () => moments.map((m) => ({ hash: hashOf(momentText(m)), id: m.id }))
   );

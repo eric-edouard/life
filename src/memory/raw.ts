@@ -271,7 +271,7 @@ export const queryWords = (query: string) => {
   return content.length > 0 ? content : all;
 };
 
-/** The items holding the most of `query`'s words (case and accents ignored), the later in `items` first; none when none holds one. */
+/** The items holding the most of `query`'s words (case and accents ignored), in their order; none when none holds one. */
 export function byWords<T>(
   items: T[],
   query: string,
@@ -283,7 +283,7 @@ export function byWords<T>(
     return words.filter((w) => t.includes(w)).length;
   });
   const most = Math.max(0, ...held);
-  return items.filter((_, i) => most > 0 && held[i] === most).toReversed();
+  return items.filter((_, i) => most > 0 && held[i] === most);
 }
 
 /** `text` cut to `max`; a longer one keeps only its lines holding a word of `query` (all of them when none does). */
@@ -304,7 +304,7 @@ export function focus(text: string, query: string, max: number) {
  */
 function withContext(events: SourceEvent[], query: string) {
   const byChat = chatGroups(events);
-  const hits = byWords(events, query, (e) => e.text);
+  const hits = byWords(events.toReversed(), query, (e) => e.text);
   const keep = new Set(
     hits.slice(0, QUERY_HITS).flatMap((hit) => {
       const list = byChat.get(`${hit.source}|${hit.chat}`) ?? [];
