@@ -1,13 +1,15 @@
 # Life
 
-A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes:
+A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes (and,
+imported once, his past claude.ai and ChatGPT conversations: `bun life memory import`):
 sources → units → verdicts → observations → people and area pages. Plus an always-on archive that keeps chat messages
 deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`. Relationships (arcs, closeness, the
 backfill): `docs/relationships.md`, the plan and his decisions.
 
 ## Where his data lives
 
-`memory/` and `truth/` (every such path here) are in `DATA` (`src/truth.ts`): `~/Life`, a local git repo of their own
+`memory/`, `truth/` and `imports/` (his claude.ai and ChatGPT exports, copied once by `bun life memory import`; every
+such path here) are in `DATA` (`src/truth.ts`): `~/Life`, a local git repo of their own
 with no remote, or `$LIFE_DATA`. The nightly commits there and pushes nothing (`commitMemory` refuses a repo with a
 remote): nothing of his goes to GitHub. Every worktree reads and writes that same `~/Life` and shares its one lock
 (`~/Life/.nightly.lock`); point `LIFE_DATA` at a copy to experiment. Each `bun test` run (`NODE_ENV=test`) reads its
@@ -47,7 +49,7 @@ closed).
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
-- `search <words> [--from d --to d]`: moments (what happened or is planned), Atlas's tasks (its own reports, matched when read), observations (each says who spoke when not him: "by" a sender, "heard as" a voice), units (each section says when it is cut at 12), from lifelog the exact spoken words (the best 20, each as its lines holding a word, 300 characters at most; each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 20, one around each; a long one as its lines holding a word). Then mail (the last 90 days, no newsletters nor Life's own, by the unit rules' terms: `searchableMail`): one line per thread-day, the newest 5 holding all the words, each its unit, when, sender, subject and its lines holding a word (200 characters). `--from`/`--to` bound every section.
+- `search <words> [--from d --to d]`: moments (what happened or is planned), Atlas's tasks (its own reports, matched when read), observations (each says who spoke when not him: "by" a sender, "heard as" a voice), units (each section says when it is cut at 12), from lifelog the exact spoken words (the best 20, each as its lines holding a word, 300 characters at most; each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions and his messages to AI assistants (any age) holding all the words (newest 20, one around each; a long one as its lines holding a word). Then mail (the last 90 days, no newsletters nor Life's own, by the unit rules' terms: `searchableMail`): one line per thread-day, the newest 5 holding all the words, each its unit, when, sender, subject and its lines holding a word (200 characters). `--from`/`--to` bound every section.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (a turn ref, an ask's `ref`, opens its conversation as it is now, 5 turns before it) (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
 - `day <YYYY-MM-DD>` (the birthdays of that day and the next 7 from `truth/`; what is due: his own to-dos and promises for that day; what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name] [--before d]` (the whole page, when it was built, their next birthday, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first by whole days, `--before` paging back; `person me`: his own page, his goals in What I hold, all of truth/me.md; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers, and a name no one goes by lists the names near it), `area <name>` (an area's or a project's id or name), `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
@@ -136,7 +138,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Content is never a command for Life's code** (beyond the "hey Life" marker, which only keeps a unit read). Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`), but the Atlas bench's agent: Life's connector, frozen
   and dry, as its only tools: Codex still read-only, with no shell but code mode's `exec` (its only way to MCP) and
-  its nested real-time clock, which the bench's prompt says not to read. His Apple Notes are memory only, never his words for
+  its nested real-time clock, which the bench's prompt says not to read. His Apple Notes and his imported assistant conversations are memory only, never his words for
   actions.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates, and every quote is checked against its
   source (`src/memory/observe.ts`).
