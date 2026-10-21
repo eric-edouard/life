@@ -5,6 +5,7 @@ import { extract } from "./extract";
 import { changeFeed, claim } from "./feed";
 import { locked, readBackfill, recordBackfill } from "./guard";
 import { lifeStatus, runs } from "./history";
+import { dryRun, importExport } from "./imports";
 import { recordCorrection } from "./ledger";
 import { moments } from "./moments";
 import { midday, nightly } from "./nightly";
@@ -35,6 +36,7 @@ const OPTIONS = {
   chat: { type: "string" },
   cursor: { type: "string" },
   days: { type: "string" },
+  dry: { type: "boolean" },
   force: { type: "boolean" },
   from: { type: "string" },
   "from-turn": { type: "string" },
@@ -160,6 +162,16 @@ const HANDLERS: Record<string, Handler> = {
     printed(
       id ? fetchOf(id, count(values["from-turn"]), count(values.limit)) : null
     ),
+  /** `import <folder> [--dry]`: his claude.ai or ChatGPT export, once; `--dry` only counts, no copy, no model call. */
+  import: (values, [folder]) => {
+    if (!folder) {
+      return usage();
+    }
+    if (values.dry) {
+      return json(Promise.resolve(folder).then(dryRun));
+    }
+    return step(() => importExport(folder))(values, []);
+  },
   async index() {
     await reindex();
     return 0;
@@ -202,7 +214,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory moments [--days 7] | extract [--days 7] | backfill --from d --to d | closeness | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory moments [--days 7] | extract [--days 7] | backfill --from d --to d | import <export folder> [--dry] | closeness | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }

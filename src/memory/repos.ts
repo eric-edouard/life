@@ -27,7 +27,7 @@ import {
 } from "./ledger";
 import { topTopics } from "./moments";
 import { asData } from "./raw";
-import { begin, chunks, inBatches, meContext } from "./run";
+import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { areaLookup, areaOf, clip, lineCounts } from "./units";
 import { localDate } from "./zones";
 
@@ -68,32 +68,32 @@ export function parseGuesses(
   }
 ) {
   const list = z.object({ repos: z.array(z.unknown()) }).parse(reply).repos;
-  const records = new Map<string, RepoGuess>();
-  let invalid = 0;
+  const { entries, invalid } = checkedEntries(
+    list,
+    Entry,
+    (e) => e.key,
+    (key) => asked.has(key)
+  );
   let unknownProject = 0;
-  for (const raw of list) {
-    const r = Entry.safeParse(raw);
-    if (!(r.success && asked.has(r.data.key)) || records.has(r.data.key)) {
-      invalid += 1;
-      continue;
+  const records = entries.map(
+    ({ key, area, newProject, project, why }): RepoGuess => {
+      const ofProject = project ? ctx.projects.get(project) : undefined;
+      if (project && ofProject === undefined) {
+        unknownProject += 1;
+      }
+      return {
+        area: ofProject ?? areaOf(area ?? null, ctx.areas),
+        at: ctx.at,
+        madeBy: ctx.madeBy,
+        newProject: ofProject === undefined ? (newProject ?? null) : null,
+        project: ofProject === undefined ? null : (project ?? null),
+        repo: key,
+        schemaVersion: 1,
+        why: clip(why, 300),
+      };
     }
-    const { key, area, newProject, project, why } = r.data;
-    const ofProject = project ? ctx.projects.get(project) : undefined;
-    if (project && ofProject === undefined) {
-      unknownProject += 1;
-    }
-    records.set(key, {
-      area: ofProject ?? areaOf(area ?? null, ctx.areas),
-      at: ctx.at,
-      madeBy: ctx.madeBy,
-      newProject: ofProject === undefined ? (newProject ?? null) : null,
-      project: ofProject === undefined ? null : (project ?? null),
-      repo: key,
-      schemaVersion: 1,
-      why: clip(why, 300),
-    });
-  }
-  return { invalid, records: [...records.values()], unknownProject };
+  );
+  return { invalid, records, unknownProject };
 }
 
 function readme(path: string) {

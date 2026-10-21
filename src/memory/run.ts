@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import type { z } from "zod";
 import { clock } from "../clock";
 import { askOnce, llmFor, llmSpec, quota, type Tier } from "../llm";
 import { log } from "../log";
@@ -79,9 +80,17 @@ export async function ended<T extends Record<string, unknown>>(
  * A sweep's phases (the nightly's, the midday's): `at` is the one running. `step` runs a step, which fails the sweep if
  * it failed anything; `failed` logs the sweep's failure at the phase running and returns its end's fields.
  */
-export function phases(rec: Pick<RunRecord, "error" | "step">) {
+export function phases(rec: Pick<RunRecord, "error" | "run" | "step">) {
+  let at = "";
   const p = {
-    at: "",
+    /** The phase running; each one entered is logged (`run.phase`), so the run's record holds its phases in order. */
+    get at() {
+      return at;
+    },
+    set at(phase: string) {
+      at = phase;
+      log("run.phase", { phase, run: rec.run, step: rec.step });
+    },
     failed(e: unknown) {
       const error = (e as Error).message;
       rec.error(`${p.at}: ${error}`);
@@ -153,6 +162,29 @@ export async function begin(
 
 /** A run in progress, as the step functions receive it. */
 export type Step = Awaited<ReturnType<typeof begin>>;
+
+/**
+ * A model's reply list checked: each entry valid by `schema` and about one thing it was asked about (`asked`, by
+ * `keyOf`), once; anything else is counted invalid, never trusted.
+ */
+export function checkedEntries<T>(
+  list: unknown[],
+  schema: z.ZodType<T>,
+  keyOf: (entry: T) => string,
+  asked: (key: string) => boolean
+) {
+  const entries = new Map<string, T>();
+  let invalid = 0;
+  for (const raw of list) {
+    const r = schema.safeParse(raw);
+    if (r.success && asked(keyOf(r.data)) && !entries.has(keyOf(r.data))) {
+      entries.set(keyOf(r.data), r.data);
+    } else {
+      invalid += 1;
+    }
+  }
+  return { entries: [...entries.values()], invalid };
+}
 
 /** `list` in pieces of at most `n`. */
 export const chunks = <T>(list: T[], n: number) =>
