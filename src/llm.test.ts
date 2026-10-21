@@ -128,7 +128,7 @@ interface Run {
   cwd: string;
   /** Its folder had nothing in it. */
   empty: boolean;
-  env: string[];
+  env: Record<string, string>;
 }
 
 /** One claude call then one codex call, each CLI faked where it is spawned, with secrets in the environment. */
@@ -142,7 +142,7 @@ async function spawnBoth() {
       argv,
       cwd: o.cwd,
       empty: readdirSync(o.cwd).length === 0,
-      env: Object.keys(o.env),
+      env: o.env,
     });
     // Codex writes its reply to `-o`, claude streams events with the result last.
     if (argv.includes("-o")) {
@@ -210,8 +210,14 @@ test("a model call has no tools, no MCP, no settings, no secrets, and runs in an
   const allowed = "HOME LANG LC_ALL LOGNAME PATH SHELL TERM TMPDIR USER".split(
     " "
   );
-  expect(allowed).toEqual(expect.arrayContaining(claude.env));
-  expect([...allowed, "CODEX_HOME"]).toEqual(expect.arrayContaining(codex.env));
+  expect(allowed).toEqual(expect.arrayContaining(Object.keys(claude.env)));
+  expect([...allowed, "CODEX_HOME"]).toEqual(
+    expect.arrayContaining(Object.keys(codex.env))
+  );
+  // Its own home, so ~/.codex/AGENTS.md never reaches the model.
+  expect(codex.env.CODEX_HOME).toBe(
+    join(homedir(), "Library/Application Support/Life/codex")
+  );
   for (const r of [claude, codex]) {
     expect(r.empty).toBe(true);
     for (const root of [ROOT, DATA, join(homedir(), "Life")]) {
