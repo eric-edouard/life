@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { type Mark, marksNow } from "../hear";
 import { stamp } from "../llm";
 import {
   Extracted,
@@ -12,8 +13,6 @@ import {
 import { kindOf } from "../sources";
 import {
   type LifelogConversation,
-  type Mark,
-  marksBetween,
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
@@ -380,7 +379,7 @@ export async function extract(evidence: Evidence) {
       (kindOf(b.unit.source) === "voice" && closed.has(b.unit.key))
   );
   // A unit where he said "hey Life" (the hearing's marks, the store) is kept whatever its salience, its lines marked.
-  const marks = await withStore((store) => marksBetween(store));
+  const marks = await withStore(marksNow);
   const markedLines = new Set(marks.flatMap((m) => m.refs));
   const verdicts = lifted(await readVerdicts(), inWindow, marks);
   const people = await readPeople();

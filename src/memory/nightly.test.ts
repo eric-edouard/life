@@ -20,9 +20,9 @@ test('each "hey Life" is listed once its unit was read since the last night, wit
   const built = [{ messages: [], text: "", unit: u }];
   const mark = (at: string, refs: string[]) => ({
     at,
-    confidence: "high",
+    confidence: "high" as const,
     conversation: u.key,
-    ref: refs[0] as string,
+
     refs,
   });
   const read = (at: string) => ({ at, unit: u.id }) as Extracted;

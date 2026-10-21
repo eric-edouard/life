@@ -186,7 +186,7 @@ export function openStore(dir = WATCH) {
     primary key (job_id, turn_index));
   create table if not exists jobs (id text primary key, speech_seconds real not null);
   create table if not exists marks (
-    ref text primary key, conversation_id text not null, at text not null, confidence text not null, refs text not null);
+    job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists chapters_conversation on chapters (conversation_id);`);
   return { cursor, db };
@@ -495,17 +495,19 @@ export function turnsBetween(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
-    .map((t) => ({
-      at: t.start_at,
-      end: t.end_at,
-      jobId: t.job_id,
-      name: nameOf(t.person_id, t.person_name, byId),
-      owner: t.is_owner === 1,
-      personId: t.person_id,
-      seen: t.seen_at,
-      turnIndex: t.turn_index,
-    }));
+    .map((t) => chapterTurn(t, byId));
 }
+
+const chapterTurn = (t: TurnRow, byId: Map<string, string>): ChapterTurn => ({
+  at: t.start_at,
+  end: t.end_at,
+  jobId: t.job_id,
+  name: nameOf(t.person_id, t.person_name, byId),
+  owner: t.is_owner === 1,
+  personId: t.person_id,
+  seen: t.seen_at,
+  turnIndex: t.turn_index,
+});
 
 export const Transcript = z.object({
   turns: z.array(
@@ -628,59 +630,43 @@ export async function visits(q: Record<string, string | number | undefined>) {
   );
 }
 
-/** His "hey Life" spans, as the hearing found them (`marksIn`): the turn that opened it and every turn of it (`refs`). */
-export interface Mark {
-  at: string;
-  confidence: string;
-  conversation: string;
-  ref: string;
-  refs: string[];
-}
-
-/** Replaces a conversation's marks from `from` on with what the hearing found now (a span grows as he goes on). */
+/**
+ * Replaces the "hey Life" spans the hearing found in a conversation from `from` on (a span grows as he goes on): each
+ * its wake turn and the refs of all its turns. Only refs are kept: where and whose a wake is stays the turn's row.
+ */
 export function writeMarks(
   store: Store,
   conversation: string,
   from: string,
-  marks: Omit<Mark, "conversation">[]
+  marks: { jobId: string; refs: string[]; turnIndex: number }[]
 ) {
   store.db.transaction(() => {
-    store.db.run("delete from marks where conversation_id = ? and at >= ?", [
-      conversation,
-      from,
-    ]);
+    store.db.run(
+      `delete from marks where (job_id, turn_index) in
+        (select job_id, turn_index from turns where conversation_id = ? and start_at >= ?)`,
+      [conversation, from]
+    );
     for (const m of marks) {
       store.db.run(
-        "insert or replace into marks (ref, conversation_id, at, confidence, refs) values (?, ?, ?, ?, ?)",
-        [m.ref, conversation, m.at, m.confidence, JSON.stringify(m.refs)]
+        "insert or replace into marks (job_id, turn_index, refs) values (?, ?, ?)",
+        [m.jobId, m.turnIndex, JSON.stringify(m.refs)]
       );
     }
   })();
 }
 
-/** The marks said in [from, to), oldest first. */
-export const marksBetween = (store: Store, from = "", to = "9999") =>
+/** The recorded marks, oldest first: each wake turn as lifelog has it now (its conversation included) and the span's refs. */
+export const markRows = (store: Store) =>
   store.db
-    .query<
-      {
-        at: string;
-        confidence: string;
-        conversation_id: string;
-        ref: string;
-        refs: string;
-      },
-      [string, string]
-    >("select * from marks where at >= ? and at < ? order by at")
-    .all(from, to)
-    .map(
-      (m): Mark => ({
-        at: m.at,
-        confidence: m.confidence,
-        conversation: m.conversation_id,
-        ref: m.ref,
-        refs: JSON.parse(m.refs) as string[],
-      })
-    );
+    .query<TurnRow & { refs: string }, []>(
+      "select t.*, m.refs from marks m join turns t using (job_id, turn_index) order by t.start_at"
+    )
+    .all()
+    .map((t) => ({
+      conversation: t.conversation_id,
+      refs: JSON.parse(t.refs) as string[],
+      turn: chapterTurn(t, new Map()),
+    }));
 
 /** The live conversations that overlap [from, to): id, start and title. */
 export function conversationsBetween(store: Store, from: string, to: string) {
