@@ -224,8 +224,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - Secrets live in `.env` (gitignored): never print or commit them.
 - **A new key in `truth/` lands in code first.** The schemas are `.strict()`, and the watcher, the nightly and the
   connector read `~/Life/truth` with the code in `~/Work/life`: a key that code doesn't know stops them (21 Oct: the
-  watcher, for 2 min). Write it only once its schema change is merged and live, and check a `truth/` edit with
-  `bun life validate` run from `~/Work/life` before committing it.
+  watcher, for 2 min). Write it only once its schema change is merged and live (`validate` from `~/Work/life`, never
+  a worktree: `~/Life/AGENTS.md`).
 - **Nothing of his is committed here**, in code, tests, prompts or docs: tests use made-up people, phones and places;
   his material goes to `~/Life/docs/`, a setting of his to `.env` (`LIFE_MAIL_TO`, `LIFE_CHAT`). The `scrub` step of
   `bun run check` catches the tracked files that hold a full name, alias, surname, phone, email, handle or chat id
