@@ -2,8 +2,9 @@ import { expect, test } from "bun:test";
 import { appendFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { log } from "../log";
 import { feedPage, matchesFilter } from "./feed";
-import { assembleRuns, runs } from "./history";
+import { assembleRuns, lifeStatus, runs } from "./history";
 
 /** Pages through the sources with `limit`, appending `between` after each page, until the feed is drained. */
 function drain(
@@ -253,4 +254,13 @@ test("a run filter takes the id as runs gives it, or bare", () => {
   expect(
     matchesFilter(it, { run: "memory.extract/2026-10-17T00-00-00.000Z" })
   ).toBe(false);
+});
+
+test("the status holds the midday while the last quota reading is over the reserve; an unread one holds nothing", async () => {
+  const now = new Date();
+  const resetsAt = new Date(now.getTime() + 86_400_000).toISOString();
+  log("quota.read", { resetsAt, used: 80 });
+  expect((await lifeStatus(now)).midday.next.why).toStartWith("held");
+  log("quota.read");
+  expect((await lifeStatus(now)).midday.next.why).not.toStartWith("held");
 });

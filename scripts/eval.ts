@@ -6,7 +6,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { askOnce, llmFor, llmSpec } from "../src/llm";
-import { locked } from "../src/memory/guard";
+import { locked, spareQuota } from "../src/memory/guard";
 import {
   appendJsonl,
   liveUnits,
@@ -138,6 +138,10 @@ if (!mode) {
   throw new Error(
     "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings"
   );
+}
+// The bench (`--json`) checked before it started: its grading is the cheap end of a run already paid for.
+if (!asJson) {
+  await spareQuota();
 }
 const result =
   mode === "--ratings"
