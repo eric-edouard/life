@@ -26,7 +26,11 @@ test("a day's unknown people: chat senders no handle maps and names lifelog gave
   const b = chat("u_2", "+33600000002", ["Merci", "De rien"]);
   const mail = {
     ...chat("u_3", "billing@shop.example", ["Hi", "Invoice"]),
-    unit: { id: "u_3", people: [], source: "mail" },
+    unit: {
+      id: "u_3",
+      people: ["unknown:billing@shop.example"],
+      source: "mail",
+    },
   } as unknown as Built;
   const unknown = unknownIn([a, b, mail], (s) => s === "+33600000002");
   expect(

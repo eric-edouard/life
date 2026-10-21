@@ -3,8 +3,10 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { action } from "../memory/fixtures";
 import { ACTIONS, appendJsonl } from "../memory/ledger";
+import { bounded } from "../memory/moments";
+import { chatLines } from "../memory/raw";
 import { messageUnits } from "../memory/units";
-import { Action } from "../schema";
+import { Action, KEEP_AT } from "../schema";
 import { readAtlas } from "./atlas";
 
 const NON_DIGIT = /\D/g;
@@ -65,4 +67,9 @@ test("a task Atlas closed done is one event: its outcome with his ask's words, A
   // Its unit names no one: Atlas is no person, and his ask is quoted inside Atlas's report.
   const [unit] = messageUnits(events, () => null);
   expect([unit?.unit.source, unit?.unit.people]).toEqual(["atlas", []]);
+  // Its line is the agent's, never resolved to a person (not even one named Atlas), so never read as his.
+  const [line] = unit ? chatLines(unit, () => "person:atlas-the-plumber") : [];
+  expect([line?.speaker, line?.from]).toEqual(["agent:atlas", undefined]);
+  // Always read for what it may close: its salience never falls under KEEP_AT.
+  expect(bounded("atlas", 0)).toBe(KEEP_AT);
 });

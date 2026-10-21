@@ -25,7 +25,8 @@ const TEXT_MAX = 1500;
 const SHORT_CHARS = 12;
 const OTP_MAX = 200;
 const PAREN = /\(.*?\)/g;
-const PERSON = "person:";
+const PERSON = /^person:/;
+export const UNKNOWN = "unknown:";
 const MARKS = /\p{M}/gu;
 const NON_ALNUM = /[^a-z0-9]+/g;
 const OTP =
@@ -205,7 +206,7 @@ export function nameIndex(people: Person[]) {
 /** `person:<slug>` for a name lifelog gives ("Jean (Me)" -> person:me), else `unknown:<name>`. */
 export function personRef(name: string, index: Map<string, string | null>) {
   const id = index.get(normalize(name.replace(PAREN, "")));
-  return id ? `person:${id}` : `unknown:${name}`;
+  return id ? `person:${id}` : `${UNKNOWN}${name}`;
 }
 
 /** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
@@ -300,26 +301,22 @@ export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
   byDay(events).map((list) => chatDay(list, resolve));
 
 /**
- * The unit of one chat's (or thread's) messages. A chat keeps a sender nobody resolves as `unknown:<sender>`, so a
- * reader maps them once they are known (`refOf`); a mail's or a note's are organisations and lists, left out.
+ * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
+ * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`refOf`). Its text, read once by the
+ * moments step, names them as `resolve` does now.
  */
 function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const sorted = list.sort((a, b) => a.at.localeCompare(b.at));
   const first = sorted[0] as SourceEvent;
   const last = sorted.at(-1) as SourceEvent;
-  const chat = kindOf(first.source) === "chat";
-  const who = sorted.map((e) =>
-    e.fromMe
-      ? OWNER
-      : (resolve(e.sender) ?? (chat ? `unknown:${e.sender}` : null))
-  );
-  const lines = sorted.map(
-    (e, i) =>
-      `${time(e.at)} ${who[i]?.startsWith(PERSON) ? who[i].slice(PERSON.length) : e.sender}: ${redact(e.text)}`
-  );
+  const kind = kindOf(first.source);
+  const written = kind === "chat" || kind === "mail";
+  const lines = sorted.map((e) => {
+    const who = e.fromMe ? OWNER : resolve(e.sender);
+    return `${time(e.at)} ${who?.replace(PERSON, "") ?? e.sender}: ${redact(e.text)}`;
+  });
   const title =
-    first.chatName ??
-    (kindOf(first.source) === "mail" ? "(no subject)" : first.chat);
+    first.chatName ?? (kind === "mail" ? "(no subject)" : first.chat);
   const ids = sorted.map((e) => e.id);
   return {
     messages: sorted.map((e) => ({
@@ -340,7 +337,16 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
       ),
       id: dayUnitId(first),
       key: first.chat,
-      people: [...new Set(who.flatMap((p) => (p ? [p] : [])))].sort(),
+      people: [
+        ...new Set(
+          sorted.flatMap((e) => {
+            if (e.fromMe) {
+              return [OWNER];
+            }
+            return written ? [`${UNKNOWN}${e.sender}`] : [];
+          })
+        ),
+      ].sort(),
       refs:
         kindOf(first.source) === "mail"
           ? ids

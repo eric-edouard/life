@@ -46,9 +46,10 @@ import {
   head,
   localTime,
   normalizeTopics,
+  UNKNOWN,
   writeUnits,
 } from "./units";
-import { readPeople, UNKNOWN } from "./who";
+import { readPeople } from "./who";
 
 // `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
 // judged on its current content, the deep-tier model reads every unit of the day from every channel in time order,
@@ -143,7 +144,7 @@ const Said = Moment.pick({
 const at = (s: string | null) => (LocalTime.safeParse(s).success ? s : null);
 
 /** Commits at salience 1 at most (never extracted), an agent's report at least KEEP_AT (read for the loops it may close). */
-function bounded(source: Unit["source"], salience: number) {
+export function bounded(source: Unit["source"], salience: number) {
   const kind = kindOf(source);
   if (kind === "repo") {
     return Math.min(salience, 1);
@@ -331,10 +332,8 @@ export async function moments(evidence: Evidence) {
       all.map((b) => b.unit)
     );
   }
-  const [verdicts, { corrections, inferred, resolve }] = await Promise.all([
-    readVerdicts(),
-    readPeople(),
-  ]);
+  const [verdicts, { corrections, inferred, refOf, resolve }] =
+    await Promise.all([readVerdicts(), readPeople()]);
   // Area hints: the chats' projects, and each repo's project or Life's guess.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
@@ -387,7 +386,7 @@ export async function moments(evidence: Evidence) {
             areaHint: hints.get(unit.key),
             end: localTime(unit.end),
             id: unit.id,
-            people: unit.people,
+            people: unit.people.map(refOf),
             source: unit.source,
             start: localTime(unit.start),
             text: head(text),
