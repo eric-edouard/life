@@ -192,7 +192,10 @@ test("his pruned messages are read; only the conversations the import kept becom
   ).toBe(1);
   // One unit per conversation and local day, dropped until the import keeps it.
   const unit = () =>
-    applyRules(messageUnits(events, new Map()), keptConversations())[0]?.unit;
+    applyRules(
+      messageUnits(events, () => null),
+      keptConversations()
+    )[0]?.unit;
   expect([unit()?.source, unit()?.key, unit()?.drop]).toEqual([
     "claude",
     "claude:c1",

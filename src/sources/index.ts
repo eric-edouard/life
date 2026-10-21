@@ -1,5 +1,6 @@
 import type { Person, SourceEvent, Unit } from "../schema";
 import { FORMATS, newestAssistant, readAssistant } from "./assistants";
+import { newestAtlas, readAtlas } from "./atlas";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
@@ -55,8 +56,11 @@ export type Descriptor = {
   silentAfter: number;
 } & (
   | {
-      /** notes: his own writing, no one else's words (Apple Notes, his messages to AI assistants). */
-      kind: "chat" | "mail" | "notes";
+      /**
+       * notes: his own writing, no one else's words (Apple Notes, his messages to AI assistants); agent: what his agents
+       * report they did, evidence of it, never anyone's words.
+       */
+      kind: "agent" | "chat" | "mail" | "notes";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date) => SourceEvent[];
     }
@@ -145,6 +149,15 @@ export const SOURCES: Descriptor[] = [
       silentAfter: Number.POSITIVE_INFINITY,
     })
   ),
+  // Atlas's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
+  {
+    kind: "agent",
+    label: "Atlas",
+    name: "atlas",
+    newest: newestAtlas,
+    read: readAtlas,
+    silentAfter: Number.POSITIVE_INFINITY,
+  },
   {
     kind: "repo",
     label: "Git",

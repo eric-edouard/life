@@ -11,7 +11,6 @@ import {
   PeopleFile,
   type Person,
   Project,
-  type SourceEvent,
 } from "./schema";
 
 export const ROOT = join(import.meta.dir, "..");
@@ -122,23 +121,6 @@ export function handlesOf(p: Person): string[] {
     ...(lifelog ? [lifelog] : []),
     ...(telegram ? [telegram] : []),
   ];
-}
-
-/** Index of every handle in the map to the person who owns it. */
-export const handleIndex = (people: Person[]): Map<string, string> =>
-  new Map(people.flatMap((p) => handlesOf(p).map((h) => [h, p.id])));
-
-/** The person behind an event's sender, or null when the sender isn't on the map yet. */
-export function resolveSender(
-  event: SourceEvent,
-  index: Map<string, string>
-): string | null {
-  if (event.fromMe) {
-    return ME;
-  }
-  return (
-    index.get(event.sender) ?? index.get(event.sender.toLowerCase()) ?? null
-  );
 }
 
 function checkPeople(people: Person[], issues: string[]): Set<string> {

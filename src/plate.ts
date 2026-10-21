@@ -18,6 +18,7 @@ import {
   readActions,
   readRatings,
   readStatements,
+  tasksOf,
 } from "./memory/ledger";
 import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
@@ -27,7 +28,7 @@ import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { readContacts } from "./sources/contacts";
 import { type Descriptor, type Newest, SOURCES } from "./sources/index";
 import { lifelogStatus, newestTurn } from "./sources/lifelog";
-import { escalation, taskList, tasksOf } from "./tasks";
+import { escalation, taskList } from "./tasks";
 import { DATA, loadTruth } from "./truth";
 
 // The status page's plate (`src/dashboard.ts` serves it): every part of Life as a card in a group, each with its state

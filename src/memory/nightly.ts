@@ -282,7 +282,7 @@ async function sweep(
   const phase = phases(rec);
   try {
     phase.at = "gather";
-    const evidence = await gather(window);
+    const evidence = await gather(window, await readPeople());
     const found = await phase.step("moments", () => moments(evidence));
     console.log(JSON.stringify(found));
     const extracted = await phase.step("extract", () => extract(evidence));
@@ -401,7 +401,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     // Every source is read once and handed to each step.
     phase.at = "gather";
     const watcher = readHealth();
-    const evidence = await gather(window);
+    const evidence = await gather(window, await readPeople());
     const found = await phase.step("moments", () => moments(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.

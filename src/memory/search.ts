@@ -24,7 +24,7 @@ import {
   turnPlace,
   withStore,
 } from "../sources/lifelog";
-import { nameOf, standing as taskStanding, tasksOf } from "../tasks";
+import { nameOf, standing as taskStanding } from "../tasks";
 import { loadTruth, OWNER, type Truth } from "../truth";
 import { levelsWith } from "./closeness";
 import {
@@ -40,6 +40,7 @@ import {
   readVerdicts,
   type Standing,
   stateOf,
+  tasksOf,
   verdictOf,
   writtenPeople,
 } from "./ledger";
@@ -65,6 +66,7 @@ import {
   nearNames,
   observationsNow,
   readPeople,
+  unitNow,
 } from "./who";
 import { dayStart, localDate, when } from "./zones";
 
@@ -1033,8 +1035,8 @@ export function buildIndex(
 export async function reindex() {
   const [people, verdicts] = await Promise.all([readPeople(), readVerdicts()]);
   const units = (await readUnits()).map((unit) => ({
-    // Who a unit is with as of today (`refOf`); the table keeps each once.
-    unit: { ...unit, people: unit.people.map(people.refOf) },
+    // Who a unit is with as of today; the table keeps each once.
+    unit: unitNow(unit, people.refOf),
     verdict: verdictOf(verdicts, unit),
   }));
   const { observations, standing } = await observationsNow(people);

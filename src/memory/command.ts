@@ -24,6 +24,7 @@ import {
 } from "./search";
 import { addStatements } from "./statements";
 import { DAYS, gather, lastDays } from "./units";
+import { readPeople } from "./who";
 import { firstZoneDay } from "./zones";
 
 // The memory command line: parses the arguments and calls the steps.
@@ -78,8 +79,8 @@ const step =
 type Handler = (values: Values, rest: string[]) => Promise<number>;
 
 /** A hand-run step's evidence: its last `--days` days, gathered once for it (a sweep gathers once for all its steps). */
-const gathered = (v: Values) =>
-  gather(lastDays(clock(), Number(v.days ?? DAYS)));
+const gathered = async (v: Values) =>
+  gather(lastDays(clock(), Number(v.days ?? DAYS)), await readPeople());
 
 const scan = step(() => mapRepos());
 

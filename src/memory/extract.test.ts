@@ -294,3 +294,49 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
     priorFor(group, bond, new Set([U1, U2]), "now", new Set()).map((x) => x.id)
   ).not.toContain("bond");
 });
+
+test("earlier facts also hold the moment's own units at any age, in their own slot; another moment's older facts stay out", () => {
+  const o = (id: string, over: Partial<Observation>) =>
+    ({
+      at: `${over.date}T10:00:00.000Z`,
+      entities: ["person:bastien"],
+      id,
+      madeBy: { ...madeBy, unitHash: "h" },
+      type: "decision",
+      unit: U3,
+      ...over,
+    }) as Observation;
+  const group = {
+    moment: moment({ units: [U1, U4] }),
+    units: [built(U1, { date: "2026-10-15" })],
+  };
+  const shown = [
+    // From the moment's own earlier unit, 20 days back: any type, his own too.
+    { o: o("plan", { date: "2026-09-25", type: "todo", unit: U4 }) },
+    {
+      o: o("his-plan", {
+        date: "2026-09-25",
+        entities: ["person:me"],
+        unit: U4,
+      }),
+    },
+    // From another moment, older than two weeks: none, an open loop neither.
+    { o: o("owed", { date: "2026-09-25", type: "waiting" }) },
+    { o: o("decided", { date: "2026-09-25" }) },
+    { o: o("too-old", { date: "2026-08-10", type: "promise" }) },
+    {
+      o: o("his-loop", {
+        date: "2026-09-25",
+        entities: ["person:me"],
+        type: "todo",
+      }),
+    },
+    // Recent facts never crowd the slot out.
+    ...Array.from({ length: 3 }, (_, k) => ({
+      o: o(`recent-${k}`, { date: "2026-10-14" }),
+    })),
+  ];
+  expect(
+    priorFor(group, shown, new Set([U1]), "now", new Set(), 2).map((x) => x.id)
+  ).toEqual(["recent-0", "recent-1", "plan", "his-plan"]);
+});

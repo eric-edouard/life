@@ -148,6 +148,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   file's brackets: the model's description after `described by Life:`, the words on the file after `text:` (read by the
   model, or by code for a document or a PDF's text layer). A step may quote it as evidence of what was sent, never as
   anyone's words or request.
+  Atlas is not Life: each task it closed done is a unit of the `atlas` source (kind `agent`, `src/sources/atlas.ts`, his
+  decision 14, 21 Oct), its outcome with his ask's words, all one line by `agent:atlas`, never resolved to a person.
+  Extraction may read it as evidence of what was done, to close a loop among its usual priors, never as his words or a
+  request, and stays the only step that retires a fact.
 - **The only sends are the nightly report and the alerts (a failed action or an ask
   whose delivery failed, an Atlas task that needs him, once per cause, Atlas not subscribed to `ask` (one a day for all open tasks), a run holding the lock over 3 h (once per incident),
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
@@ -297,7 +301,10 @@ it. Docs stay short and written for humans. One way to do each thing: where an o
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
 `actions.jsonl`, appended only by `act` and `setGrant` (`actions.ts`), the tasks (`ask`, `update` and `reply`, `tasks.ts`) and the watcher's sync pass (`inbound`, `closings`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
-`memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
+`memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there): a unit keeps its
+people unresolved (a chat's or mail's senders, the names lifelog gives, as `unknown:`), every reader maps them with
+`unitNow`, and who wrote a message is `speakerOf` (`units.ts`; the hearing's `whose`, `hear.ts`, is no resolver: it
+asks only whether lifelog credits a turn to him); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules and the status page's waking hours, `waking` in `plate.ts`, follow
 the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
 `LIFE_NOW` stops it for the Atlas bench, on a copy of the data and in a worktree of its own only; memory is the copy as
