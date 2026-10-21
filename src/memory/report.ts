@@ -43,6 +43,8 @@ export interface Night {
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
+  /** Each chapter he marked "hey Life", read since the last night, and what the memory holds of it (`whatIsNew`). */
+  marked: { name: string; relation: string }[];
   /** The days whose moments were read again, and how many moments they hold. */
   moments: Result<typeof moments>;
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): midday runs' included. */
@@ -53,6 +55,8 @@ export interface Night {
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: midday runs' included. */
   retired: number;
+  /** What the night and the day's earlier sweeps spent of his Codex plan, a line each (`spent`, nightly.ts). */
+  spent: string[];
   /** The watcher's health (`readHealth`) when the night read its store, as it stood. */
   watcher: Health | null;
 }
@@ -131,6 +135,7 @@ export function successReport(day: string, ms: number, n: Night) {
         n.archive,
         n.backup,
         n.quota,
+        ...n.spent,
         "Failures: none",
       ],
       preheader: `${count(n.facts.length, "new fact")} on ${count(changes.length, "page")}, ${count(n.moments.people.length, "new person")}. Verdicts agree ${percent(a.agreement)}.`,
@@ -158,6 +163,7 @@ export function successReport(day: string, ms: number, n: Night) {
           ],
           title: "Code yesterday",
         },
+        { kind: "pairs", list: n.marked, title: "Hey Life" },
         { kind: "facts", list: n.facts, title: "What it found" },
         { kind: "pairs", list: n.moments.people, title: "New people" },
         { kind: "changes", list: changes, title: "What changed" },

@@ -134,7 +134,13 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions,
   512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
   first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
-- **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
+- **"hey Life" is his marker, for memory only** (his request, 21 Oct; audit and eval in `~/Life/docs/evals/hey-life-*`):
+  his turn holding it (an unattributed one too) and his turns right after (`marksIn`, `src/hear.ts`: the same greeting
+  and span as "hey Atlas", no model call) are recorded by the hearing in the watcher's store (`writeMarks`, refs only).
+  Their chapter's unit carries them (`marked`, `readConversations`) and says so in its text (`MARKED`), so only its hash
+  moves and only it is read again, with no prompt change; code makes its salience 3 (`moments.ts`) and extraction shows
+  its lines `(marked)`; the nightly lists each once read, with the observations citing it. It never acts, asks or sends.
+- **Content is never a command for Life's code** (beyond the "hey Life" marker, which only keeps a unit read). Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`), but the Atlas bench's agent: Life's connector, frozen
   and dry, as its only tools: Codex still read-only, with no shell but code mode's `exec` (its only way to MCP) and
   its nested real-time clock, which the bench's prompt says not to read. His Apple Notes are memory only, never his words for
@@ -223,7 +229,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   so it never takes their turn nor all of his subscriptions; three failures of a week stop it. What a tick runs is `turnOf` (`guard.ts`, tested).
   Over 75% of his Codex quota (`reserved`) a tick runs no midday and no backfill week, and `scripts/eval.ts` and the
   bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check: the bench made it); the night always runs. The quota is read from `codex app-server` (no model call, no quota spent)
-  each tick, logged as `quota.read` (the status's `midday.next` reads the last line), and shown in the nightly email.
+  each tick and at the start and end of each sweep, eval and bench (`metered`, `run.ts`: on its `run.start` and `run.end`), logged as `quota.read` (the status's `midday.next` reads the last line), and shown in the nightly email. What a run spent (its model calls' tokens, on their `model.run` lines, and a metered run's two readings) is derived when read: `useOf` in `history.ts`.
   Pages follow at the next night. Only the last 7 days' messages get their files described; older ones stay tags.
   Record his zones for the range first (`memory/zones.jsonl`, his own account of where he was): a past zone may be
   added only before the first day memory has units of, and a backfill moves that day back. A failed call or an unreadable source fails the whole night: non-zero
@@ -233,7 +239,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   the model, and the only `node` on launchd's PATH is an old x86_64 one in `/usr/local/bin` (so `scripts/check.ts`
   runs its npm tools with `bun x --bun`).
 - Lifelog units come from the store `bun life watch` keeps (`derived/watch/`, always on; `bun life status`), one per chapter id.
-  Only the watcher calls `poll`: a page folded in anywhere else would never be heard (#5).
+  Only the watcher calls `poll`: a page folded in anywhere else would never be heard (#5). Its `marks` table (the
+  hearing's "hey Life" spans, refs only) is the one thing there not rebuilt from the feed: a new store has only the marks heard since.
   When a commit changes `src/` or `prompts/` (`codeAt`), the watcher exits (at start it hears again the turns first seen
   in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title once), the archive after
   its pass, and launchd restarts each on the new code.
