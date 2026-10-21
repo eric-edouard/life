@@ -1,3 +1,4 @@
+import { clock } from "./clock";
 import { clip } from "./memory/units";
 import {
   type ChapterTurn,
@@ -127,7 +128,7 @@ export async function hear(
   store: Store,
   conversation: string,
   from: string,
-  now = Date.now()
+  now = clock().getTime()
 ) {
   const all = turnsBetween(store, conversation);
   const jobs = [

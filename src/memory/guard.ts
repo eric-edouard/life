@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { uptime } from "node:os";
 import { join } from "node:path";
+import { clock } from "../clock";
 import { type Quota, quota } from "../llm";
 import { DATA } from "../truth";
 import { OUT, readJson, writeJson } from "./ledger";
@@ -60,7 +61,10 @@ export const backupDue = (
 const RESERVE = 75;
 
 /** True while `q` is over the reserve, until its window resets; an unread quota holds nothing. */
-export const reserved = (q: Partial<Quota> | undefined, now = Date.now()) =>
+export const reserved = (
+  q: Partial<Quota> | undefined,
+  now = clock().getTime()
+) =>
   (q?.used ?? 0) > RESERVE && !(q?.resetsAt && Date.parse(q.resetsAt) <= now);
 
 /** The nightly email's line on the quota. */
@@ -257,7 +261,7 @@ export const readMidday = () => readJson<string>(MIDDAY);
 
 /** Marks a midday slot as used, failed or not: a failed run waits for the next slot, the nightly reports. */
 export function recordMidday() {
-  writeJson(MIDDAY, new Date().toISOString());
+  writeJson(MIDDAY, clock().toISOString());
 }
 
 /** Records the outcome of a night (or of a `job`'s run); a new day starts at zero attempts. */
@@ -267,8 +271,8 @@ export function recordState(day: string, ok: boolean, job: Job = "nightly") {
   const state: NightState = {
     attempts: ok ? attempts : attempts + 1,
     date: day,
-    lastAt: new Date().toISOString(),
-    okAt: ok ? new Date().toISOString() : prev?.okAt,
+    lastAt: clock().toISOString(),
+    okAt: ok ? clock().toISOString() : prev?.okAt,
     status: ok ? "ok" : "failed",
   };
   writeJson(stateFile(job), state);
@@ -280,7 +284,10 @@ export function lockedSince(): Date | null {
   try {
     const since = statSync(LOCK).mtime;
     process.kill(Number(readFileSync(LOCK, "utf8")), 0);
-    return since.getTime() >= Date.now() - uptime() * 1000 ? since : null;
+    // ponytail: the lock's real mtime and boot time against the clock; a frozen run (the bench) never takes the lock.
+    return since.getTime() >= clock().getTime() - uptime() * 1000
+      ? since
+      : null;
   } catch {
     return null; // no lock, or a stale pid
   }

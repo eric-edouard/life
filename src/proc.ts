@@ -84,6 +84,15 @@ export const git = (path: string, args: string[]) =>
     stdout: "pipe",
   });
 
+/** `git` that throws on a failure; its output, trimmed. */
+export function gitOut(path: string, args: string[]) {
+  const r = git(path, args);
+  if (r.exitCode !== 0) {
+    throw new Error(`git ${args[0]}: ${r.stderr.toString().trim()}`);
+  }
+  return r.stdout.toString().trim();
+}
+
 /** The code the checkout at `root` holds (its committed src/ and prompts/): an always-on service exits when it changes, and launchd starts the new code. */
 export const codeAt = (root: string) =>
   git(root, ["rev-parse", "HEAD:src", "HEAD:prompts"]).stdout.toString();

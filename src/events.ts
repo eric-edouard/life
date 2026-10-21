@@ -3,6 +3,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { clock, unfrozen } from "./clock";
 import { log } from "./log";
 import { ACTIONS, digest, linesOf } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
@@ -116,7 +117,8 @@ export const sign = (secret: string, id: string, ts: number, body: string) =>
 
 /** One signed POST, signed when sent (a retry gets a new timestamp and signature). Never follows a redirect. */
 const post = (s: Subscription, id: string, body: string) => {
-  const ts = Math.floor(Date.now() / 1000);
+  unfrozen("send events");
+  const ts = Math.floor(clock().getTime() / 1000);
   return fetch(s.url, {
     body,
     headers: {
@@ -168,7 +170,7 @@ export const resumeAt = (
  * subscription starts now. History is never truncated: the ledger is append-only.
  */
 export async function subscribe(p: z.infer<typeof Subscribe>) {
-  const now = Date.now();
+  const now = clock().getTime();
   const id = `sub_${digest("sha256", JSON.stringify([p.delivery.url, p.name, p.arguments]), 24)}`;
   const cached = readState().subscription;
   const sub: Subscription = {
@@ -298,7 +300,7 @@ export function settle(
  * while a retry waits. A subscribe during a POST wins: the state is read again before each write.
  */
 export async function deliver() {
-  const now = Date.now();
+  const now = clock().getTime();
   const lines = linesOf(ACTIONS);
   for (;;) {
     const state = readState();

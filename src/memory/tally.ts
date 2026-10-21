@@ -1,7 +1,41 @@
-// How the memory did on facts whose truth is known (the hand-made evals and his ratings), from a judge's grades.
+// How the memory (or Atlas, in its bench) did on facts whose truth is known (the hand-made evals, his ratings, the
+// bench's checks): a judge's grades, and what they come to.
+import { z } from "zod";
+import { askOnce, llmFor } from "../llm";
 
 /** What a judge may say of a fact against the claims. */
 export const GRADES = ["stated", "contradicted", "both", "absent"] as const;
+
+const Grades = z.object({
+  grades: z.array(
+    z.object({
+      claims: z.array(z.string()).default([]),
+      fact: z.string(),
+      grade: z.enum(GRADES),
+      why: z.string().default(""),
+    })
+  ),
+});
+export type Grade = z.infer<typeof Grades>["grades"][number];
+
+/**
+ * A judge's grades (his engine's main tier) of `facts` against `claims` (`text` is what was said, `id` names it): one
+ * call, its input and reply kept in `dir`. Facts go without their truth: the judge isn't told which should hold.
+ */
+export const judge = async (
+  facts: { fact: string; id: string }[],
+  claims: { date: string; id: string; text: string }[],
+  o: { dir: string; engine?: Parameters<typeof llmFor>[1]; run: string }
+) =>
+  Grades.parse(
+    await askOnce({
+      dir: o.dir,
+      input: { claims, facts: facts.map(({ fact, id }) => ({ fact, id })) },
+      llm: llmFor("main", o.engine),
+      prompt: "eval-judge.v1",
+      run: o.run,
+    })
+  ).grades;
 
 /** A fact's mark by its truth and its grade: a true must be stated, a false must not be. */
 const MARKS = {

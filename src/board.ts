@@ -6,6 +6,7 @@ import {
   remctl,
   reminderArgs,
 } from "./actions";
+import { clock } from "./clock";
 import { subscribed } from "./events";
 import { titleOf } from "./hear";
 import { log } from "./log";
@@ -160,7 +161,7 @@ let last = 0;
  * The watcher's pass, at most each minute: the chase (from the ledger alone, so a Reminders outage stops no email),
  * then the board: each item is brought in line (a deleted one of an open task comes back).
  */
-export async function tick(now = Date.now()) {
+export async function tick(now = clock().getTime()) {
   if (now - last < MIN) {
     return;
   }

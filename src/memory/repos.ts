@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { clock } from "../clock";
 import { stamp } from "../llm";
 import { redact } from "../redact";
 import { type MadeBy, RepoGuess, type Unit } from "../schema";
@@ -241,7 +242,7 @@ export async function reposOf(filter?: string) {
   const local = new Map(listRepos().map((r) => [r.key, r.path]));
   const active = new Map<string, { last: string; n: number }>();
   for (const e of readGit(
-    new Date(Date.now() - ACTIVE_DAYS * DAY_MS),
+    new Date(clock().getTime() - ACTIVE_DAYS * DAY_MS),
     map,
     ownerIn(truth.people)
   )) {

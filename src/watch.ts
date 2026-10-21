@@ -1,5 +1,6 @@
 import { checks } from "./actions";
 import { tick } from "./board";
+import { clock } from "./clock";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
@@ -148,14 +149,14 @@ async function syncUnits(store: Store, cursor: string) {
   });
   if (n) {
     console.log(
-      `${new Date().toISOString()} cursor ${cursor}: ${n.added} built, ${n.changed} updated, ${n.removed} removed`
+      `${clock().toISOString()} cursor ${cursor}: ${n.added} built, ${n.changed} updated, ${n.removed} removed`
     );
   }
   return n !== null;
 }
 
 export async function watch(): Promise<number> {
-  const started = new Date();
+  const started = clock();
   const running = codeAt(ROOT);
   try {
     serveConnector();
@@ -167,7 +168,7 @@ export async function watch(): Promise<number> {
   // The connector's `reminders` acts from this process: its line in life-watch.log shows whether launchd reaches remctl.
   checks().then((problems) =>
     console.log(
-      `${new Date().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
+      `${clock().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
     )
   );
   // Beside the loop, so a slow probe never holds up hearing; the process exits on new code all the same.
@@ -178,7 +179,7 @@ export async function watch(): Promise<number> {
       ),
     TUNNEL_EVERY_MS
   );
-  const pending = resumed(store, Date.now());
+  const pending = resumed(store, clock().getTime());
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
   let health = readHealth();
@@ -193,11 +194,16 @@ export async function watch(): Promise<number> {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
       const page = await poll(
         store,
-        more ? 0 : holdFor(pending, Date.now(), speech)
+        more ? 0 : holdFor(pending, clock().getTime(), speech)
       );
       ({ more } = page);
       dirty ||= page.changed;
-      for (const h of hearings(pending, page.owner, Date.now(), speech)) {
+      for (const h of hearings(
+        pending,
+        page.owner,
+        clock().getTime(),
+        speech
+      )) {
         // Heard again after the next wait: words not fetched (never read as silence), or a wake still waiting for
         // its speaker. `again` is the tries it carries, null when done or lost.
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
@@ -213,7 +219,7 @@ export async function watch(): Promise<number> {
           fold(
             pending,
             [{ at: h.from, conversation: h.conversation }],
-            Date.now(),
+            clock().getTime(),
             again
           );
         }
@@ -233,9 +239,9 @@ export async function watch(): Promise<number> {
       result = { cursor: page.cursor };
     } catch (e) {
       result = { error: (e as Error).message };
-      console.error(new Date().toISOString(), result.error);
+      console.error(clock().toISOString(), result.error);
     }
-    health = afterPoll(health, new Date(), result, started);
+    health = afterPoll(health, clock(), result, started);
     if ("error" in result && health.consecutiveErrors === 1) {
       log("run.error", { error: result.error, step: "watch" });
     }
@@ -244,7 +250,7 @@ export async function watch(): Promise<number> {
       await Bun.sleep(RETRY_MS);
     }
   }
-  console.log(`${new Date().toISOString()} new code: restarting`);
+  console.log(`${clock().toISOString()} new code: restarting`);
   return 0;
 }
 
@@ -257,7 +263,7 @@ export function status(): number {
   }
   const ago = (iso: string | null) =>
     iso
-      ? `${Math.round((Date.now() - new Date(iso).getTime()) / 1000)}s ago`
+      ? `${Math.round((clock().getTime() - new Date(iso).getTime()) / 1000)}s ago`
       : "never";
   const healthy = polling(h);
   console.log(
