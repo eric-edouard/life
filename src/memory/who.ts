@@ -162,8 +162,8 @@ export function aboutNow(
       speaker: a.now,
       // A chat title named an unknown author; once they resolve, their name is the map's.
       speakerName: resolvedNow ? undefined : o.speakerName,
-      // ponytail: a sentence written before tokens names people; a move swaps their names in it, for good (any later
-      // remap too). Tokenized sentences (extract v6) will make this a no-op for new facts.
+      // ponytail: a sentence written before tokens names people; a move swaps their names in it as it is read (never
+      // stored). Tokenized sentences (extract v6) will make this a no-op for new facts.
       text: [...moved].reduce(
         (t, [was, now]) =>
           renamed(t, namesOf.get(was) ?? [], namesOf.get(now)?.[0] ?? now),
