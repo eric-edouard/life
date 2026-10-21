@@ -501,10 +501,9 @@ const RULES: [
   ],
 ];
 
-/** Marks each unit a rule drops (`unit.drop` names the rule). */
-export function applyRules(built: Built[]) {
+/** Marks each unit a rule drops (`unit.drop` names the rule); `kept`: the imported conversations the import kept. */
+export function applyRules(built: Built[], kept = new Set<string>()) {
   const seen = new Set<string>();
-  const kept = keptConversations();
   for (const b of built) {
     const rule = RULES.find(([, test]) => test(b, seen, kept))?.[0];
     seen.add(b.unit.hash);
@@ -694,12 +693,15 @@ export async function gather(window: Window) {
     s,
   }));
   const handles = handleIndex(truth.people);
-  const built = applyRules([
-    ...lifelogUnits(lifelog, nameIndex(truth.people)),
-    ...shown.flatMap(({ events, s }) =>
-      s.kind === "repo" ? repoUnits(events) : messageUnits(events, handles)
-    ),
-  ])
+  const built = applyRules(
+    [
+      ...lifelogUnits(lifelog, nameIndex(truth.people)),
+      ...shown.flatMap(({ events, s }) =>
+        s.kind === "repo" ? repoUnits(events) : messageUnits(events, handles)
+      ),
+    ],
+    keptConversations()
+  )
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
   return {
