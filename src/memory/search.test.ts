@@ -376,6 +376,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
     more: [],
     shown: new Map(),
     tasks: new Set(),
+    today: "2026-10-19",
   });
   // Ranked: his promises first, then his to-dos, then what he waits on.
   expect(lines.map((l) => l.split(" ")[1])).toEqual([

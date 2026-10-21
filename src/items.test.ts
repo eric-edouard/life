@@ -69,6 +69,10 @@ test("audit-5-reply-owed: a 1:1 chat whose last word is theirs is a reply he owe
   expect(owed(group, oneToOne)).toEqual([]);
   const reply = item({ id: "imessage:A", kind: "reply", when: "2026-10-17" });
   const on = (date: string) => openItems([reply], { date }).length;
+  // Tomorrow's `day`, read today, lists no reply: it shows only as its days come.
+  expect(
+    openItems([reply], { date: "2026-10-18", today: "2026-10-17" })
+  ).toEqual([]);
   expect(
     ["2026-10-17", "2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21"].map(
       on

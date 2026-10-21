@@ -148,13 +148,14 @@ const daysFrom = (from: string, to: string) =>
  * waiting one on its day; a reply he owes the day after their last word and 3 days after. Undated ones wait for
  * Stage 4's re-read (the review's PR 2).
  */
-function timely(c: Candidate, date: string, shown: number) {
+function timely(c: Candidate, date: string, today: string, shown: number) {
   if (!c.when) {
     return false;
   }
   const late = daysFrom(c.when, date);
   if (c.kind === "reply") {
-    return late === 1 || late === 3;
+    // Only as its days come: the review reads tomorrow too, which would show it four times.
+    return (late === 1 || late === 3) && date <= today;
   }
   if (c.kind === "waiting") {
     return late === 0;
@@ -180,12 +181,15 @@ export function openItems(
     levels = new Map(),
     shown = new Map(),
     tasks = new Set(),
+    today = date,
   }: {
     date: string;
     goals?: string[][];
     levels?: Map<string, number>;
     shown?: Map<string, number>;
     tasks?: Set<string>;
+    /** His day now: what the review reads ahead of it is shown no reply. */
+    today?: string;
   }
 ): OpenItem[] {
   const byId = new Map(candidates.map((c) => [c.id, c]));
@@ -227,7 +231,8 @@ export function openItems(
   return [...items.values()]
     .filter(
       (c) =>
-        !(c.ref && tasks.has(c.ref)) && timely(c, date, shown.get(c.id) ?? 0)
+        !(c.ref && tasks.has(c.ref)) &&
+        timely(c, date, today, shown.get(c.id) ?? 0)
     )
     .map((c) => ({
       ...c,
