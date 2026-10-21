@@ -97,7 +97,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   when its task closes. It never alerts: what needs him is emailed (`chase`).
 - **The Past calendar, his Google calendar `LIFE_PAST_CALENDAR`, is a one-way projection of the moments** (his request,
   21 Oct; `src/memory/past.ts`, `syncPast`, each nightly tick, through `gog` as `LIFE_PAST_ACCOUNT`): one event per
-  moment that happened, found by its private properties `lifeMoment` and `lifeHash`; a changed moment is written again,
+  moment that happened, none overlapping (`tiled`: what covers another is left off), found by its private properties `lifeMoment` and `lifeHash`; a changed moment is written again,
   a gone one deleted, events without `lifeMoment` never touched. It reads nothing back and never alerts. Should
   Google Calendar ever become a source, its events with `lifeMoment` are Life's output and must be dropped.
 - **Atlas is outside Life's boundary** (his choice, 21 Oct, kept as debt: an unattended run reads others' text with full access; revisit if sends should go out without his per-send yes). With the Mac's terminal it can read `.env`, the archive and chat.db, and send
