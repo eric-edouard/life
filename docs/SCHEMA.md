@@ -23,6 +23,8 @@ whole transcripts or message bodies (but an ask's words, `actions.jsonl`).
   act or must not forget.
 - **Entity refs**: `person:<slug>` (`truth/people.yaml`), `project:<slug>` (`truth/projects/`), `area:<slug>`
   (`truth/areas.yaml`).
+- **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is
+  known.
 
 ## units/YYYY-MM-DD.jsonl (layer L1)
 
