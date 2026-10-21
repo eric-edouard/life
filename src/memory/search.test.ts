@@ -443,6 +443,17 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
     "- Jean (`person jean`): 21 Oct (today)",
     "- Ana (`person ana`): 28 Oct (in 7 days, turns 26)",
   ]);
+  // Across the new year.
+  expect(
+    birthdaysNear(
+      [{ birthday: "--01-02", id: "jan", name: "Jan" }],
+      "2026-12-28"
+    )
+  ).toEqual(["- Jan (`person jan`): 2 Jan (in 5 days)"]);
+  // First in `day`, before what is due.
+  expect(
+    dayLines([], [], [], [], [], ["- due"], ["- born"]).slice(0, 3)
+  ).toEqual(["Birthdays (this day and the next 7):", "- born", ""]);
 });
 
 test("area: an area's or a project's id or name, never a part of one", () => {

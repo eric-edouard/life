@@ -498,15 +498,13 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const ref = `person:${id}`;
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
-  const close = [
-    ...(mapped?.birthday
-      ? [
-          `Birthday: ${birthdayText(nextBirthday(mapped.birthday, localDate(new Date().toISOString())))}`,
-          "",
-        ]
-      : []),
-    ...(await closenessLine(ref)),
-  ];
+  const birthday = mapped?.birthday
+    ? [
+        `Birthday: ${birthdayText(nextBirthday(mapped.birthday, localDate(new Date().toISOString())))}`,
+        "",
+      ]
+    : [];
+  const close = await closenessLine(ref);
   // Pages go by whole local days: a day is never cut between two answers.
   const before = o.before?.slice(0, 10);
   const moments = await momentsWhere((m) =>
@@ -560,6 +558,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
         ...(before
           ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
+              ...birthday,
               ...close,
               ...entity(db, found?.text ?? null, obsLines),
               "",
@@ -629,9 +628,13 @@ export function dayLines(
   facts: string[] = [],
   actions: Action[] = [],
   moments: Moment[] = [],
-  due: string[] = []
+  due: string[] = [],
+  born: string[] = []
 ) {
   return [
+    ...(born.length > 0
+      ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
+      : []),
     ...(due.length > 0
       ? ["Due (his own open to-dos and promises for this day):", ...due, ""]
       : []),
@@ -674,14 +677,9 @@ export async function day(date: string) {
     (a) => !isTaskLine(a) && localDate(a.at) === date
   );
   const moments = await momentsWhere(inDays({ from: date, to: date }));
-  const head =
-    born.length > 0
-      ? [`Birthdays (this day and the next ${BIRTHDAY_DAYS}):`, ...born, ""]
-      : [];
   return withStore((store) =>
-    withIndex((db) => [
-      ...head,
-      ...dayLines(
+    withIndex((db) =>
+      dayLines(
         readConversations(store, dayStart(date), names).filter(
           (c) => localDate(c.startedAt) === date
         ),
@@ -701,13 +699,14 @@ export async function day(date: string) {
           .map(line),
         actions,
         moments,
-        dueOn(db, date)
-      ),
-    ])
+        dueOn(db, date),
+        born
+      )
+    )
   );
 }
 
-/** How far ahead `day` lists birthdays: Atlas reminds him a week before (gift ideas) and on the day (docs/atlas.md). */
+/** How far ahead `day` lists birthdays: a week, so Atlas sees one coming a week ahead and on the day. */
 const BIRTHDAY_DAYS = 7;
 
 /**
