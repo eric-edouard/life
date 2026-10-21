@@ -19,6 +19,8 @@ export type Descriptor = {
   group?: (chat: string) => boolean;
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
+  /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
+  imported?: boolean;
   name: SourceName;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
   searchDays?: number;
@@ -79,14 +81,16 @@ export const SOURCES: Descriptor[] = [
     searchDays: Number.POSITIVE_INFINITY,
   },
   // His claude.ai and ChatGPT history, imported once (memory/imports.ts). ponytail: search reads every kept message
-  // (parsed once per process); index them in index.sqlite if that grows slow.
+  // (the export parsed once per process, every sweep included); index them in index.sqlite if that grows slow.
   {
+    imported: true,
     kind: "notes",
     name: "claude",
     read: readAssistant("claude"),
     searchDays: Number.POSITIVE_INFINITY,
   },
   {
+    imported: true,
     kind: "notes",
     name: "chatgpt",
     read: readAssistant("chatgpt"),

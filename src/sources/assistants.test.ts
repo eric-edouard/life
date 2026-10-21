@@ -3,6 +3,9 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseJudged, readExport, summaryOf } from "../memory/imports";
+import { appendJsonl, IMPORTED } from "../memory/ledger";
+import { applyRules, messageUnits } from "../memory/units";
+import { Imported } from "../schema";
 import { FORMATS, formatOf, kept, pruned, readAssistant } from "./assistants";
 
 // Made-up exports in the published shapes: claude.ai's chat_messages, ChatGPT's mapping tree.
@@ -74,7 +77,7 @@ const chatgptExport = [
   {
     conversation_id: "g1",
     create_time: 1_772_000_000,
-    current_node: "a2",
+    current_node: "u3",
     mapping: {
       a1: node("a1", "u1", "assistant", "Sure."),
       a2: node("a2", "u2b", "assistant", "Done."),
@@ -90,6 +93,23 @@ const chatgptExport = [
       ),
       u2a: node("u2a", "a1", "user", "Make it shorter."),
       u2b: node("u2b", "a1", "user", "Make it warmer."),
+      u3: {
+        ...node("u3", "a2", "user", ""),
+        message: {
+          author: { role: "user" },
+          content: {
+            content_type: "multimodal_text",
+            parts: [
+              {
+                content_type: "audio_transcription",
+                text: "And sign it from me.",
+              },
+            ],
+          },
+          create_time: 1_772_000_100,
+          id: "u3",
+        },
+      },
     },
     title: "Landlord note",
   },
@@ -111,6 +131,7 @@ test("each export reads as his messages only, on the branch he saw", () => {
   ).toEqual([
     "Draft a note to my landlord Bo about the leak.",
     "Make it warmer.",
+    "And sign it from me.",
   ]);
 });
 
@@ -147,13 +168,11 @@ test("pruning drops code, pasted documents, tool notices, agent briefs and repea
   expect(twice.map((c) => c.id)).toEqual(["a"]);
 });
 
-test("only the conversations the import kept are read, as his own messages", () => {
+test("his pruned messages are read; only the conversations the import kept become memory", () => {
   const dir = mkdtempSync(join(tmpdir(), "assistants-"));
   const path = join(dir, "conversations.json");
   writeFileSync(path, JSON.stringify(claudeExport));
-  const read = readAssistant("claude");
-  expect(read(new Date(0), path, new Set())).toEqual([]);
-  const events = read(new Date(0), path, new Set(["claude:c1", "claude:c2"]));
+  const events = readAssistant("claude")(new Date(0), path);
   // c2 was all code: pruned before anything judged it.
   expect(
     events.map((e) => [e.id, e.chat, e.chatName, e.fromMe, e.sender])
@@ -162,9 +181,26 @@ test("only the conversations the import kept are read, as his own messages", () 
     ["claude:c1/m3", "claude:c1", "Chat with Claude: Ada's move", true, "me"],
   ]);
   expect(
-    read(new Date("2026-03-02T09:16:00.000Z"), path, new Set(["claude:c1"]))
-      .length
+    readAssistant("claude")(new Date("2026-03-02T09:16:00.000Z"), path).length
   ).toBe(1);
+  // One unit per conversation and local day, dropped until the import keeps it.
+  const unit = () => applyRules(messageUnits(events, new Map()))[0]?.unit;
+  expect([unit()?.source, unit()?.key, unit()?.drop]).toEqual([
+    "claude",
+    "claude:c1",
+    "not-kept",
+  ]);
+  appendJsonl(IMPORTED, Imported, [
+    {
+      at: "2026-10-21T00:00:00.000Z",
+      conversation: "claude:c1",
+      keep: true,
+      madeBy: { engine: "codex", model: "m", prompt: "import.v1", run: "r" },
+      schemaVersion: 1,
+      why: "His sister's move.",
+    },
+  ]);
+  expect(unit()?.drop).toBeUndefined();
 });
 
 test("the dry run counts an export's conversations and days; a judging reply is checked", () => {

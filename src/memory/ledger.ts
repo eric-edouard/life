@@ -15,6 +15,7 @@ import {
   Correction,
   Extracted,
   FileEntry,
+  Imported,
   InferredPerson,
   MemoryLabel,
   Moment,
@@ -417,6 +418,14 @@ export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 export const readRepoGuesses = () => [
   ...latestBy(rowsOf(REPOS_INFERRED, RepoGuess), (g) => g.repo).values(),
 ];
+
+/** The imported conversations the import step kept (`<source>:<id>`, a unit's key): the latest line for each wins. */
+export const keptConversations = () =>
+  new Set(
+    [
+      ...latestBy(rowsOf(IMPORTED, Imported), (i) => i.conversation).values(),
+    ].flatMap((i) => (i.keep ? [i.conversation] : []))
+  );
 
 /** The owner's labels: the latest one for each unit wins. */
 export const readLabels = () => [
