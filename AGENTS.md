@@ -222,6 +222,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Host, only by absolute path (`~/bin/remctl`, not on launchd's PATH), and a read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
 - Secrets live in `.env` (gitignored): never print or commit them.
+- **A new key in `truth/` lands in code first.** The schemas are `.strict()`, and the watcher, the nightly and the
+  connector read `~/Life/truth` with the code in `~/Work/life`: a key that code doesn't know stops them (21 Oct: the
+  watcher, for 2 min). Write it only once its schema change is merged and live, and check a `truth/` edit with
+  `bun life validate` run from `~/Work/life` before committing it.
 - **Nothing of his is committed here**, in code, tests, prompts or docs: tests use made-up people, phones and places;
   his material goes to `~/Life/docs/`, a setting of his to `.env` (`LIFE_MAIL_TO`, `LIFE_CHAT`). The `scrub` step of
   `bun run check` catches the tracked files that hold a full name, alias, surname, phone, email, handle or chat id
