@@ -132,7 +132,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`), but the Atlas bench's agent: Life's connector, frozen
   and dry, as its only tools: Codex still read-only, with no shell but code mode's `exec` (its only way to MCP) and
-  its nested real-time clock, which the bench's prompt says not to read. His Apple Notes are memory only, never his words for
+  its nested real-time clock, which the bench's prompt says not to read. His Apple Notes and his imported assistant conversations are memory only, never his words for
   actions.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates, and every quote is checked against its
   source (`src/memory/observe.ts`).
