@@ -271,14 +271,14 @@ export function buildServer() {
   tool(
     server,
     "day",
-    "Everything on one day: what is due (his own open to-dos and promises), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
+    "Everything on one day: the birthdays of that day and the next 7 (name, date, days left, age), what is due (his own open to-dos and promises), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
     z.object({ date: Day }),
     ({ date }) => day(date)
   );
   tool(
     server,
     "person",
-    "A person's page, whole (who they are to the owner, where things stand, History), what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first, and recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
+    "A person's page, whole (who they are to the owner, where things stand, History), their next birthday, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first, and recorded conversations. For their history or the arc of the relationship, page back with `before` (each answer names the next) and read old chats with `chats` (`who`, `from`). A name no one goes by lists the names near it. With no name, lists who has a page.",
     z.object({
       before: Day.optional().describe(
         "Page back: only what is older than this day"

@@ -18,12 +18,15 @@ import { layoutOf, perSection, renderPage } from "./page";
 import { holdsAll } from "./raw";
 import {
   areaFor,
+  birthdaysNear,
+  birthdayText,
   buildIndex,
   candidateLines,
   coverageLines,
   dayLines,
   dueOn,
   momentLine,
+  nextBirthday,
   readIndex,
   matches as searchMatches,
   taskHits,
@@ -44,9 +47,10 @@ test("day: the conversations with their chapters and people, then the chat and m
       turns: [turn(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie")],
     })
   );
-  const lines = dayLines(
-    readConversations(store, new Date("2026-10-14T00:00:00Z")),
-    [
+  const lines = dayLines({
+    conversations: readConversations(store, new Date("2026-10-14T00:00:00Z")),
+    facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
+    units: [
       {
         date: "2026-10-14",
         id: "u_000000000001",
@@ -55,8 +59,7 @@ test("day: the conversations with their chapters and people, then the chat and m
         topics: "glass",
       },
     ],
-    ['- obs_1 2026-10-14 todo: Call the glazier "call him"']
-  );
+  });
   expect(lines).toContain("Recorded conversations (1; `fetch <id>`):");
   expect(
     lines.some((l) => l.includes("- c1 ") && l.endsWith("The plumber"))
@@ -254,11 +257,11 @@ test("a day opens with what happened: its moments, when, what, where, how they s
   expect(momentLine(m)).toBe(
     "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [u_000000000001]"
   );
-  expect(dayLines([], [], [], [], [m]).slice(0, 2)).toEqual([
+  expect(dayLines({ moments: [m] }).slice(0, 2)).toEqual([
     "Moments (what happened or is planned):",
     momentLine(m),
   ]);
-  expect(dayLines([], [])[0]).toStartWith("Recorded conversations");
+  expect(dayLines({})[0]).toStartWith("Recorded conversations");
 });
 
 test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
@@ -373,7 +376,7 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
     "",
     " heard as jean",
   ]);
-  expect(dayLines([], [], [], [], [], lines)[0]).toBe(
+  expect(dayLines({ due: lines })[0]).toBe(
     "Due (his own open to-dos and promises for this day):"
   );
 });
@@ -409,6 +412,55 @@ test("a Between us line shows the days of its first and latest evidence", () => 
   expect(withSpans(text, (id) => (day[id] ? [day[id]] : []))).toContain(
     "agreed to keep money apart. [obs_aaaaaaaaaaaa, obs_bbbbbbbbbbbb] (since 2026-03-01 · last evidence 2026-09-12)"
   );
+});
+
+test("birthdays: the next date, days left and age; day lists this day and the next 7, soonest first", () => {
+  expect(nextBirthday("1993-11-12", "2026-11-09")).toEqual({
+    age: 33,
+    day: "2026-11-12",
+    left: 3,
+  });
+  // Passed this year: next year's; no year, no age.
+  expect(nextBirthday("--01-07", "2026-10-21")).toEqual({
+    age: null,
+    day: "2027-01-07",
+    left: 78,
+  });
+  expect(birthdayText(nextBirthday("--10-21", "2026-10-21"))).toBe(
+    "21 Oct (today)"
+  );
+  expect(
+    birthdaysNear(
+      [
+        { birthday: "2000-10-28", id: "ana", name: "Ana" },
+        { birthday: "--10-21", id: "jean", name: "Jean" },
+        { birthday: "--10-29", id: "late", name: "Late" },
+        { id: "none", name: "None" },
+      ],
+      "2026-10-21"
+    )
+  ).toEqual([
+    "- Jean (`person jean`): 21 Oct (today)",
+    "- Ana (`person ana`): 28 Oct (in 7 days, turns 26)",
+  ]);
+  // 29 Feb falls on 1 Mar in other years.
+  expect(nextBirthday("--02-29", "2027-02-28")).toMatchObject({
+    day: "2027-03-01",
+    left: 1,
+  });
+  // Across the new year.
+  expect(
+    birthdaysNear(
+      [{ birthday: "--01-02", id: "jan", name: "Jan" }],
+      "2026-12-28"
+    )
+  ).toEqual(["- Jan (`person jan`): 2 Jan (in 5 days)"]);
+  // First in `day`, before what is due.
+  expect(dayLines({ born: ["- born"], due: ["- due"] }).slice(0, 3)).toEqual([
+    "Birthdays (this day and the next 7):",
+    "- born",
+    "",
+  ]);
 });
 
 test("area: an area's or a project's id or name, never a part of one", () => {
