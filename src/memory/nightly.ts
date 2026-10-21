@@ -51,9 +51,29 @@ const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
+/** Whether Atlas (ChatGPT's MCP client) read `day` in the last 24 h, as its daily review does (docs/atlas.md): a review that found Life unreachable leaves no other trace. */
+export const reviewed = async (now: Date) =>
+  (
+    await recentEvents<{
+      agent?: string;
+      at: string;
+      error?: boolean;
+      tool?: string;
+    }>(2, "mcp.call")
+  ).some(
+    (e) =>
+      e.tool === "day" &&
+      !e.error &&
+      e.agent?.startsWith("openai-mcp") &&
+      Date.parse(e.at) >= now.getTime() - DAY_MS
+  );
+
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: RunRecord) {
   const problems = await checks();
+  if (!(await reviewed(now))) {
+    problems.push("no daily review reached Life in the last 24 h");
+  }
   let actions: Action[] = [];
   let tasks: ReturnType<typeof taskList> = [];
   let gaps = 0;

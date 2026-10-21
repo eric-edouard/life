@@ -88,7 +88,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   unclaimed 30 min after the ask, claimed and past its deadline, waiting on him over 1 h, a week old, or no live
   subscription (one email a day); `chase` (`src/board.ts`, each minute in the watcher) emails him once per task, cause and
   Atlas's last update, a pass's new causes in one email. Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`). Task lines stay out of the Actions section and `day`; the nightly lists every open task and
-  those closed in the last day.
+  those closed in the last day. Its Actions say "no daily review reached Life" when ChatGPT made no successful `day` call in
+  24 h (`reviewed`, `nightly.ts`): Atlas's daily review must keep reading `day`.
 - **The board, his Reminders list `Atlas`, is a one-way projection of the ledger, his receipt** (`src/board.ts`, `tick`,
   each minute in the watcher): it writes no ledger line, reads nothing back as his (no steers: they once forged his
   voice) and never goes through `act`. An item is found by the task id on its notes' first line. Life brings its notes
