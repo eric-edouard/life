@@ -287,7 +287,7 @@ export function buildServer() {
   tool(
     server,
     "search",
-    "Find a topic across the owner's memory (moments: what happened or is planned; Atlas's tasks, as Atlas reported them; observations, each saying who spoke when not him; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from `from`) and Apple Notes versions (any age) holding all the words. `from`/`to` bound every section; one cut at 12 says so. Returns cited passages with ids; `fetch` one for more.",
+    "Find a topic across the owner's memory (moments: what happened or is planned; Atlas's tasks, as Atlas reported them; observations, each saying who spoke when not him; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from `from`) and Apple Notes versions (any age) and mail (the last 90 days, no newsletters, the newest 5 thread-days) holding all the words. `from`/`to` bound every section; one cut at 12 says so. Returns cited passages with ids; `fetch` one for more.",
     z.object({ query: z.string().min(2).max(500), ...range }),
     ({ query, ...rest }) => search(query, rest)
   );
