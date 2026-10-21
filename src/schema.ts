@@ -195,6 +195,8 @@ const SourceName = z.enum([
   "mail",
   "git",
   "notes",
+  "claude",
+  "chatgpt",
 ]);
 
 /**
@@ -730,6 +732,24 @@ export const RepoGuess = z
   })
   .strict();
 export type RepoGuess = z.infer<typeof RepoGuess>;
+
+/**
+ * memory/imported.jsonl: whether a conversation of his claude.ai or ChatGPT export is about his life (people, plans,
+ * decisions, himself) or only work with the assistant, as the fast model judged it from his pruned messages
+ * (`memory/imports.ts`). Model-owned and append-only, the latest line per conversation wins; only kept ones are read
+ * (`sources/assistants.ts`).
+ */
+export const Imported = z
+  .object({
+    at: isoDateTime,
+    conversation: z.string().min(1),
+    keep: z.boolean(),
+    madeBy: MadeBy,
+    schemaVersion: z.literal(1),
+    why: z.string().min(1).max(300),
+  })
+  .strict();
+export type Imported = z.infer<typeof Imported>;
 
 /**
  * memory/closeness.jsonl: how close each person is to the owner, personal and work apart, as the fast model judged it
