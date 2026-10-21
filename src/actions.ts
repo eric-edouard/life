@@ -234,7 +234,10 @@ interface Act {
 }
 
 /** The open reminder an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. */
-export function duplicateOf(c: Change, open?: Reminder[]) {
+export function duplicateOf(
+  c: Change,
+  open?: Pick<Reminder, "id" | "title">[]
+) {
   const same =
     c.kind === "add"
       ? open?.find((r) => normalize(r.title) === normalize(c.title))
@@ -322,13 +325,33 @@ export function actAsked(
 
 /** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */
 export interface Reminder {
+  allDay?: boolean;
   completed: boolean;
   dueDate?: string;
   id: number;
+  list?: string;
   notes?: string;
   section?: string;
   title: string;
 }
+
+/** An open reminder as `open_reminders` promises it: `due` as a change takes it, notes whole (an edit replaces them). */
+export const openOf = (r: Reminder) => ({
+  due:
+    r.dueDate &&
+    (r.allDay
+      ? r.dueDate.slice(0, 10)
+      : r.dueDate.slice(0, 16).replace("T", " ")),
+  id: r.id,
+  list: r.list,
+  notes: r.notes,
+  section: r.section,
+  title: r.title,
+});
+
+/** The lists read for his reminders: one or all, never the board (its tasks are read with `tasks`). */
+const readable = (title: string, list?: string) =>
+  title !== BOARD && (list === undefined || title === list);
 
 /** Every open top-level reminder, of one list or all: what an add's title is checked against, and the connector's `open_reminders`. */
 export async function openReminders(list?: string) {
@@ -337,10 +360,18 @@ export async function openReminders(list?: string) {
   );
   const open = await Promise.all(
     lists
-      .filter((l) => !l.isGroup && (list === undefined || l.title === list))
+      .filter((l) => !l.isGroup && readable(l.title, list))
       .map((l) => remctl<Reminder[]>(["show", "--list-id", `${l.id}`]))
   );
-  return open.flat();
+  return open.flat().map(openOf);
+}
+
+/** Each list's sections by its name, empty ones too, from one call: `open_reminders`'s. */
+export async function sectionsOf(list?: string) {
+  const all = await remctl<Record<string, string[]>>(["sections"]);
+  return Object.fromEntries(
+    Object.entries(all).filter(([title]) => readable(title, list))
+  );
 }
 
 /**
