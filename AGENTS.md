@@ -239,6 +239,15 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `assets/dashboard/styles.css` and its tab icon's `TONES` (`src/dashboard.ts`) copy its values (email takes no
   CSS variables): a brand change lands in the skill first.
 
+## The app
+
+A friend's install is `Life.app` (`app/`, SwiftUI, menu bar; assembled by `bun scripts/app.ts`): it runs the compiled
+helper (`scripts/helper.ts`) as launchd runs the checkout for him: `archive` and `watch` kept running, `memory nightly`
+every 30 minutes, its data and state under `~/Library/Application Support/Life` (`LIFE_DATA`, `LIFE_STATE`), its files
+as `LIFE_ROOT`, its secrets from the Keychain. The app never reads Life's files: it asks the helper (`settings`,
+`sources`, `init`, `pair`, `connect`), so their shape lives in one place. His own install stays the checkout under
+launchd.
+
 ## Gotchas
 
 - **One settings file says how this install differs from another** (`src/settings.ts`, `derived/settings.json`, zod

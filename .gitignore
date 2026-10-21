@@ -7,3 +7,4 @@ derived/
 /memory/
 /truth/
 dist/
+app/.build/
