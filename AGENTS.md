@@ -102,7 +102,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `madeBy: "reminders"` line each, with no `instruction` (they are not his quoted words). They may close, reopen,
   reschedule, re-rank, rename, drop or add an item, never ask, send, approve or grant: an inbound change can take
   authority away or reorder, never add it. A value Life wrote or tried to write since the field last settled is
-  Life's own (`act` records its intent first: #69), whatever Reminders shows; section, order and a repeating
+  Life's own (`act` records its intent first: #69), whatever Reminders shows, and so is a partial write's, and anything
+  read within 30 s of a write of Life's (reads lag writes); section, order and a repeating
   reminder's next due are Apple's, never read; shared lists are never read. The first pass imports a baseline.
 - **The board, his Reminders list `Atlas`, is a projection of the ledger, his receipt** (`wantOf` in `src/tasks.ts`,
   written by `push` in `src/sync.ts` each minute in the watcher): it writes no ledger line and never goes through `act`.

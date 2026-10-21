@@ -1,11 +1,8 @@
 import type { Action } from "./schema";
 
-// Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
-// every read from the records that already hold each fact, never stored. Reminders is one interface to it
-// (src/sync.ts): delete that file and this still holds.
-
-// His reminders as the ledger holds them: what Life wrote (`act`, its intents too) and what it read back as his
-// (`madeBy: "reminders"`, src/sync.ts), walked in order.
+// His reminders as the ledger holds them (Stage 4b, his request of 21 Oct): what Life wrote (`act`, its intents too) and
+// what it read back as his (`madeBy: "reminders"`, src/sync.ts), walked in order, never stored. Reminders is one
+// interface to them: delete src/sync.ts and this still holds.
 
 /** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted (purged, or moved to a shared list). */
 export const FIELDS = [
@@ -40,14 +37,25 @@ export interface Linked {
   /** When it was last removed (to Recently Deleted), by Life or by him. */
   removedAt?: string;
   tried: Map<string, unknown[]>;
+  /** When Life last wrote to it or tried to (src/sync.ts waits out Reminders' lag after it). */
+  wrote?: string;
 }
 
-/** One line's mark on a linked reminder: a try adds its values to `tried`; a write that went through, or his change seen, settles its fields. */
+/** A write whose outcome is not known to stand: one about to be made, or one that failed (it may have landed). */
+export const isTry = (a: Action) =>
+  a.result === "intent" || a.result === "failed";
+
+/**
+ * One line's mark on a linked reminder: a try adds its values to `tried`, and so does a partial (a step failed, which
+ * one is unknown: the next pass learns what is there); a write that went through, or his change seen, settles them.
+ */
 function apply(it: Linked, a: Action) {
   const after = pick(a.after);
-  const tried = a.result === "intent" || a.result === "failed";
+  const tried = isTry(a);
+  const unsure = tried || Boolean(a.error?.startsWith("partial"));
+  it.wrote = a.madeBy === "reminders" ? it.wrote : a.at;
   for (const [f, v] of Object.entries(after)) {
-    if (tried) {
+    if (unsure) {
       it.tried.set(f, [...(it.tried.get(f) ?? []), v]);
     } else {
       it.fields[f as Field] = v;

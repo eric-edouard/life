@@ -6,6 +6,7 @@ import {
   FIELDS,
   type Field,
   type Fields,
+  isTry,
   type Linked,
   linked,
   pick,
@@ -14,7 +15,7 @@ import { log } from "./log";
 import { digest } from "./memory/ledger";
 import { normalize } from "./memory/units";
 import { exec } from "./proc";
-import { type Action, stands } from "./schema";
+import type { Action } from "./schema";
 
 // The only code that touches his Apple Reminders, through remctl (its signed host, `--json`): Reminders is an
 // interface to Life, never its truth. `act` (src/actions.ts) decides and records each change he asked for and has
@@ -89,8 +90,7 @@ export function reminderArgs(c: Partial<Change>) {
 }
 
 /** The fields a change writes, for the record. */
-export const fieldsOf = ({ kind, target, ...fields }: Partial<Change>) =>
-  fields;
+const fieldsOf = ({ kind, target, ...fields }: Partial<Change>) => fields;
 
 /** What an edit changes: the new title and list when they differ from the reminder's, and every other field that is set. */
 export function changedFields(
@@ -200,13 +200,17 @@ async function edit(c: Change): Promise<Done> {
 
 /** The kinds that only change a reminder's state, each with its remctl call and what it leaves: `finish`'s table. */
 const FINISH = {
-  done: { after: { completed: true }, args: (id: string) => ["done", id] },
+  done: {
+    after: () => ({ completed: true }),
+    args: (id: string) => ["done", id],
+  },
   remove: {
-    after: { deleted: true },
+    after: () => ({ deleted: true }),
     args: (id: string) => ["delete", id, "--force"],
   },
   restore: {
-    after: { deleted: false },
+    // Back in `list`, under its id and deepLink (checked 21 Oct).
+    after: (c: Change) => ({ deleted: false, list: c.list }),
     args: (id: string, list?: string) => [
       "restore",
       "--private",
@@ -215,7 +219,10 @@ const FINISH = {
       id,
     ],
   },
-  undone: { after: { completed: false }, args: (id: string) => ["undone", id] },
+  undone: {
+    after: () => ({ completed: false }),
+    args: (id: string) => ["undone", id],
+  },
 };
 
 /** Ticks a reminder off or open, removes it (to Recently Deleted) or restores it from there into `list`. */
@@ -225,8 +232,9 @@ async function finish(
   // A removed reminder has no info until it is back.
   const before = c.kind === "restore" ? undefined : await info(c.target);
   const { after, args } = FINISH[c.kind];
+  const left = after(c);
   await remctl(args(`${c.target}`, c.list));
-  return { after, before, target: `reminder:${c.target}` };
+  return { after: left, before, target: `reminder:${c.target}` };
 }
 
 /** Makes one change `act` decided, and says what it left (`after`, `before`, a partial's `error`); throws when it failed. */
@@ -239,7 +247,9 @@ export function write(c: Change): Promise<Done> {
 
 /** What a change sets, for its intent and a failed try: its fields, or the state a tick, a removal or a restore leaves. */
 export const intended = (c: Change) =>
-  c.kind in FINISH ? FINISH[c.kind as keyof typeof FINISH].after : fieldsOf(c);
+  c.kind in FINISH
+    ? FINISH[c.kind as keyof typeof FINISH].after(c)
+    : fieldsOf(c);
 
 /** Whether a list is plainly nobody else's: the grant never adds to a shared one (that would be a send). Fails closed. */
 export const unshared = (list: { sharees?: unknown[]; shared?: boolean }) =>
@@ -549,6 +559,9 @@ const baseline = (
     r && r.id !== it.id ? { id: it.id } : {}
   );
 
+/** How long after Life's write to a reminder it is left alone: reads lag writes about 2 s, and a pass reads for seconds. */
+const LAG_MS = 30_000;
+
 /** A linked reminder's lines this pass: the first pass's baseline, or its changes. */
 function linesOf(
   it: Linked,
@@ -561,8 +574,10 @@ function linesOf(
     (d) => d.id === it.id || (it.link !== undefined && linkOf(d) === it.link)
   );
   const now = r ? fieldsNow(r) : pick({ deleted: gone, lost: !gone });
-  // Left alone: one on a shared list (never read), one removed and then purged.
+  // Left alone: one Life wrote to moments ago (Reminders' reads lag its writes, and a write may land during the read),
+  // one on a shared list (never read), one removed and then purged.
   if (
+    Date.parse(at) - Date.parse(it.wrote ?? "") < LAG_MS ||
     s.shared.includes(`${it.fields.list}`) ||
     !(r || gone || !it.fields.deleted)
   ) {
@@ -604,7 +619,7 @@ export function inbound(s: Snapshot, actions: Action[], at: string) {
 
 /** The titles of Life's adds that never got their answer (an intent or a failure, no ok): such a reminder is Life's. */
 function lostAdds(actions: Action[]) {
-  const ok = new Set(actions.filter(stands).map((a) => a.id));
+  const ok = new Set(actions.filter((a) => !isTry(a)).map((a) => a.id));
   const titles = new Set(
     actions
       .filter((a) => a.kind === "add" && !ok.has(a.id))
