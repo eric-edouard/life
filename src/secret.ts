@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -7,7 +8,8 @@ import { dirname } from "node:path";
  */
 export function writeSecret(path: string, text: string) {
   mkdirSync(dirname(path), { mode: 0o700, recursive: true });
-  const tmp = `${path}.tmp`;
+  // Its own temporary name: two processes writing at once never rename each other's.
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
   writeFileSync(tmp, text, { mode: 0o600 });
   chmodSync(tmp, 0o600);
   renameSync(tmp, path);
