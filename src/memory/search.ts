@@ -243,6 +243,8 @@ export function matches(
       o.args
     ),
     meaning,
+    // ponytail: hashes every current claim and unit on each search by meaning (about 8,000, a few ms, Oct 2026); keep
+    // the hash in the index if that grows slow.
     () =>
       db
         .query<{ id: string; text: string }, string[]>(

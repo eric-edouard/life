@@ -119,7 +119,8 @@ export async function embed(texts: string[]) {
         };
         store(data.map((d) => [batch[d.index] as string, d.embedding]));
       } else {
-        // A refused batch is skipped, not retried first next time: the batches after it still get embedded.
+        // A refused batch is skipped, so the batches after it still get embedded; it is sent again (and logged) at
+        // each rebuild until it goes through.
         done = false;
         log("run.error", {
           error: `${res.status} ${(await res.text()).slice(0, 300)}`,
