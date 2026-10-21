@@ -179,8 +179,11 @@ test("search's chats: any of the words, no accents or case, across the three app
   }
   expect(found).not.toContain(": a2");
   expect(found).not.toContain(": b2");
-  // A message holding one of the words is found; one holding none is not.
-  expect((await chatHits("vitre glazier", {}, sources)).join("\n")).toContain(
+  // Only the messages holding the most of the words: one when one holds both, else every one holding one.
+  const both = (await chatHits("vitre glazier", {}, sources)).join("\n");
+  expect(both).toContain("the glazier can fix the vitre");
+  expect(both).not.toContain("prête");
+  expect((await chatHits("vitre piano", {}, sources)).join("\n")).toContain(
     "prête"
   );
   expect(await chatHits("piano", {}, sources)).toEqual(["(nothing found)"]);
@@ -207,9 +210,7 @@ test("search's chats: past 20 matches the newest are shown and the cut is said, 
   // The oldest holds both words of a sentence: it ranks first, past the newer ones.
   expect(await hits("vitre piano")).toContain(": vitre 0 piano");
   const out = await hits("vitre");
-  expect(out).toContain(
-    "(4 more matches not shown, older or holding fewer of the words: narrow with `from`/`to`)"
-  );
+  expect(out).toContain("(4 older matches not shown: narrow with `from`/`to`)");
   expect(out).toContain(": vitre 4");
   expect(out).toContain("vitre 24");
   expect(out).not.toContain(": vitre 2\n");

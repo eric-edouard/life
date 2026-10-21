@@ -16,6 +16,11 @@ const BATCH = 128;
 const PER_CALL = 2000;
 const CACHE = join(TEST ? DATA : OUT, "embeddings.sqlite");
 const KEY = TEST ? undefined : process.env.OPENAI_API_KEY;
+/**
+ * How near in meaning an item must be to be a hit: below it, a hit meaning alone finds is padding (the replay of 21 Oct:
+ * the best item's median cosine was 0.39, items holding all the words 0.26; at 0.4 the index answers grow 1.3x, not 3.3x).
+ */
+const NEAR = 0.4;
 /** Reciprocal rank fusion's constant: a hit's score is Σ 1/(K + rank) over the lists it is in. */
 const K = 60;
 
@@ -139,7 +144,7 @@ const cosine = (a: Float32Array, b: Float32Array) => {
   return dot / Math.sqrt(na * nb);
 };
 
-/** The ids of the `n` items whose text (by its hash) is nearest `q` in meaning, nearest first; one not embedded is left out. */
+/** The ids of the `n` items whose text (by its hash) is nearest `q` in meaning and `NEAR` it, nearest first; one not embedded is left out. */
 export function nearest(
   q: Float32Array,
   items: { hash: string; id: string }[],
@@ -151,6 +156,7 @@ export function nearest(
       const v = vectors.get(i.hash);
       return v ? [{ id: i.id, score: cosine(q, v) }] : [];
     })
+    .filter((i) => i.score >= NEAR)
     .sort((a, b) => b.score - a.score)
     .slice(0, n)
     .map((i) => i.id);

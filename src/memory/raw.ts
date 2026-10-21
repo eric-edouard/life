@@ -250,24 +250,19 @@ export const queryWords = (query: string) => {
   return content.length > 0 ? content : all;
 };
 
-/**
- * The items holding any of `query`'s words (case and accents ignored), those holding the most first, then the later in
- * `items` first.
- */
+/** The items holding the most of `query`'s words (case and accents ignored), the later in `items` first; none when none holds one. */
 export function byWords<T>(
   items: T[],
   query: string,
   textOf: (x: T) => string
 ) {
   const words = queryWords(query);
-  return items
-    .map((x, i) => {
-      const t = normalize(textOf(x));
-      return { i, n: words.filter((w) => t.includes(w)).length, x };
-    })
-    .filter((h) => h.n > 0)
-    .sort((a, b) => b.n - a.n || b.i - a.i)
-    .map((h) => h.x);
+  const held = items.map((x) => {
+    const t = normalize(textOf(x));
+    return words.filter((w) => t.includes(w)).length;
+  });
+  const most = Math.max(0, ...held);
+  return items.filter((_, i) => most > 0 && held[i] === most).toReversed();
 }
 
 /** `text` cut to `max`; a longer one keeps only its lines holding a word of `query` (all of them when none does). */
@@ -283,9 +278,8 @@ export function focus(text: string, query: string, max: number) {
 }
 
 /**
- * The `QUERY_HITS` messages holding the most words of `query` (case and accents ignored), the newest first among
- * equals, each with `QUERY_CONTEXT` messages of its chat before and after, and how many other matches were left out.
- * `events` are oldest first.
+ * The newest `QUERY_HITS` messages holding the most of `query`'s words (`byWords`), each with `QUERY_CONTEXT` messages
+ * of its chat before and after, and how many older matches were left out. `events` are oldest first.
  */
 function withContext(events: SourceEvent[], query: string) {
   const byChat = chatGroups(events);
@@ -342,8 +336,8 @@ function readChats(
 }
 
 /**
- * The Chats section of `search`: the chat messages and note versions holding all the words, from the last 90 days at
- * most for a chat and of any age for a note (inside `range`): `withContext`'s.
+ * The Chats section of `search`: the chat messages and note versions holding the most of the words, from the last 90
+ * days at most for a chat and of any age for a note (inside `range`): `withContext`'s.
  */
 export async function chatHits(
   words: string,
@@ -358,9 +352,7 @@ export async function chatHits(
   return [
     ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
     ...(cut > 0
-      ? [
-          `(${cut} more matches not shown, older or holding fewer of the words: narrow with \`from\`/\`to\`)`,
-        ]
+      ? [`(${cut} older matches not shown: narrow with \`from\`/\`to\`)`]
       : []),
     ...(found.length > 0
       ? chatLinesOf(found, await readPeople(), units)
