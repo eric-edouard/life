@@ -31,13 +31,21 @@ import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
-import { closed, sealed, taskList, Update, update } from "./tasks";
+import {
+  closed,
+  Reply,
+  reply,
+  sealed,
+  taskList,
+  Update,
+  update,
+} from "./tasks";
 import { loadMe, ROOT } from "./truth";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; the Cloudflare tunnel forwards
 // life.ericedouard.com to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct`), on his explicit request in a
-// chat changes his Reminders (`reminders`, through `act`) and records Atlas's updates to its tasks (`task`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
+// chat changes his Reminders (`reminders`, through `act`) and records Atlas's updates to its tasks (`task`) and its replies to him (`reply`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
 // Auth: a Bearer JWT that lifelog's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
@@ -71,7 +79,7 @@ const WRITES = {
 };
 
 /**
- * `reminders` and `task` write, but only his own Reminders (a remove goes to Recently Deleted) and Life's ledger, and
+ * `reminders`, `task` and `reply` write, but only his own Reminders (a remove goes to Recently Deleted) and Life's ledger, and
  * nothing they do is lost or hard to undo: not destructive, so Atlas uses them unattended.
  */
 const REVERSIBLE = { ...WRITES, destructiveHint: false };
@@ -116,7 +124,7 @@ type Tool<S extends z.ZodObject> = (
   args: z.infer<S>
 ) => Promise<string | Record<string, unknown> | null>;
 
-const reply = (body: string, isError: boolean) => ({
+const respond = (body: string, isError: boolean) => ({
   content: [{ text: body, type: "text" as const }],
   isError,
 });
@@ -126,10 +134,10 @@ async function answer(run: () => ReturnType<Tool<z.ZodObject>>) {
   try {
     const a = await run();
     return a !== null && typeof a === "object"
-      ? reply(JSON.stringify(a), false)
-      : reply(a ?? "Give more to look for.", a === null);
+      ? respond(JSON.stringify(a), false)
+      : respond(a ?? "Give more to look for.", a === null);
   } catch (e) {
-    return reply((e as Error).message, true);
+    return respond((e as Error).message, true);
   }
 }
 
@@ -220,17 +228,19 @@ function buildServer() {
   tool(
     server,
     "search",
-    "Find a topic across the owner's memory (moments: what happened or is planned; observations; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from `from`) and Apple Notes versions (any age) holding all the words. `from`/`to` bound every section. Returns cited passages with ids; `fetch` one for more.",
+    "Find a topic across the owner's memory (moments: what happened or is planned; Atlas's tasks, as Atlas reported them; observations, each saying who spoke when not him; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from `from`) and Apple Notes versions (any age) holding all the words. `from`/`to` bound every section; one cut at 12 says so. Returns cited passages with ids; `fetch` one for more.",
     z.object({ query: z.string().min(2).max(500), ...range }),
     ({ query, ...rest }) => search(query, rest)
   );
   tool(
     server,
     "fetch",
-    "Read one recorded conversation, or a chat or mail unit, by id: who spoke and the words, a page of turns at a time.",
+    "Read one recorded conversation, or a chat or mail unit, by id: who spoke and the words, a page of turns at a time. An ask's `ref` (a turn) opens its conversation as it is now, 5 turns before his words.",
     z.object({
       fromTurn: z.int().min(0).optional(),
-      id: z.string().describe("Conversation id or unit id from another tool"),
+      id: z
+        .string()
+        .describe("Conversation id, unit id or turn ref from another tool"),
       limit: z.int().min(1).max(500).optional(),
     }),
     ({ id, fromTurn, limit }) => fetchOf(id, fromTurn, limit)
@@ -257,8 +267,10 @@ function buildServer() {
   tool(
     server,
     "area",
-    "An area's page (a part of the owner's life or work): the page and its latest observations.",
-    z.object({ name: z.string().min(1).describe("Area id or name") }),
+    "An area's page (a part of the owner's life or work): the page and its latest observations. A project's id or name reads its area, after the project's line; a name that is neither lists the ids.",
+    z.object({
+      name: z.string().min(1).describe("Area or project id or name"),
+    }),
     ({ name }) => area(name)
   );
   tool(
@@ -321,14 +333,16 @@ function buildServer() {
       about: z
         .string()
         .optional()
-        .describe("person:<id>, area:<id> or project:<id>"),
+        .describe(
+          "person:<id>, area:<id>, project:<id> or task:<id> (one task's ask, updates and replies)"
+        ),
       run: z.string().optional().describe("A run id"),
       since: z.string().optional().describe("Recorded at or after (ISO)"),
       types: z
         .array(z.string())
         .optional()
         .describe(
-          "Types or prefixes: observation, correction, identity, action, action.failed, rating, page"
+          "Types or prefixes: observation, correction, identity, action, action.failed, action.reply, rating, page"
         ),
       ...page,
     }),
@@ -373,11 +387,11 @@ function buildServer() {
   tool(
     server,
     "tasks",
-    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; his `goals` (truth/me.md, his priority order); each open task (an ask of his) with its state, deadline, steps and last note, and those closed in the last day as id, state, title and the start of their last note. A task's whole history: `changes` with type action.update (action.nudge and action.steer until 20 Oct).",
+    "Atlas's board (JSON): `playbook`, Atlas's instructions, and `seal`, for `task`; `me`, all of truth/me.md (who he is, his goals in priority order); each open task (an ask of his) with its state, deadline, steps and last note, and those closed in the last day as id, state, title and the start of their last note. A task's whole history (its ask, updates and replies): `changes` with about task:<id>.",
     z.object({}),
     async () => ({
       ...sealed(),
-      goals: (await loadMe()).goals,
+      me: (await loadMe()).text,
       // Closed rows stay short (the nightly's `taskList` keeps them whole): what was done, not how.
       tasks: taskList().map((t) =>
         closed(t.state)
@@ -397,6 +411,14 @@ function buildServer() {
     "Atlas reports on a task, always with the `seal` from `tasks`: working (claim: true the first time; deadline at most 24 h ahead, note, on), waiting-eric (question, deadline), done (outcome) or dropped (reason); steps: the full list every time. Instead of `task`, `said` and `at` (his words from his message) or `parent` and `title` (a split) make a new task, claimed by this update. Refused when the rules say no.",
     Update,
     async (u) => update(u),
+    REVERSIBLE
+  );
+  tool(
+    server,
+    "reply",
+    "Log what you tell the owner, just before you send it: the text as sent, and the task it answers if any. Appends to Life's ledger only; sends nothing.",
+    Reply,
+    async (r) => reply(r),
     REVERSIBLE
   );
   // The SDK's types predate events; it advertises the capability as given on server/discover.
