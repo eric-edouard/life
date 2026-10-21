@@ -6,3 +6,4 @@ derived/
 .claude/worktrees/
 /memory/
 /truth/
+dist/

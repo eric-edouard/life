@@ -226,7 +226,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   and against his ratings with `bun scripts/eval.ts --ratings`.
 - **Model output is cached** by unit hash and prompt version. Bump a prompt's version only when its meaning changes,
   and ask before re-running the whole archive.
-- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`), never an API key.
+- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`); an install with none uses an API key (engine `anthropic` or `openai`, its key passed in by the app), never his.
   The one exception (his OK, 20 Oct): the bench's OpenRouter calls (`askOpenRouter`, `OPENROUTER_API_KEY`), each pinned
   to one host on OpenRouter's zero-retention list, and only through `LIFE_LLM` on a copy; his engine setting stays
   `claude | codex`. `LIFE_LLM`
