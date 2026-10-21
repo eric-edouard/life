@@ -31,6 +31,12 @@ import { LIFE_CHAT, localTime, time } from "./units";
 
 const words = ["Allo", "Salut", "", "Fin"];
 const server = lifelogServer({
+  "/transcription-jobs/job-0/transcript": () => ({
+    turns: Array.from({ length: 8 }, (_, n) => ({
+      speakerId: null,
+      text: `Earlier ${n}`,
+    })),
+  }),
   "/transcription-jobs/job-1/transcript": () => ({
     turns: words.map((text) => ({ speakerId: "speaker_0", text })),
   }),
@@ -76,6 +82,34 @@ test("fetch: who spoke and when come from the store, the words from lifelog, a p
   expect(server.seen.every((r) => r.auth === "Bearer test-token")).toBe(true);
   expect(await fetchOf("nope", 0, 200, open)).toContain("(nothing found)");
   expect(await fetchOf("u_000000000000")).toContain("(no unit u_000000000000)");
+});
+
+test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns before his words", async () => {
+  const ref = "job-1:3@2026-10-14T10:06:00.000Z";
+  const late = () => {
+    const store = open();
+    // Eight turns of a recording made before job-1, brought by the feed after the ask was heard: job-1's turns move down.
+    apply(
+      store,
+      page({
+        turns: Array.from({ length: 8 }, (_, n) => ({
+          ...turn(n, `2026-10-14T09:5${n}:00.000Z`, null, null),
+          jobId: "job-0",
+        })),
+      })
+    );
+    return store;
+  };
+  expect(await fetchOf(ref, undefined, 200, open)).toContain(
+    "Conversation c1: 1–4 of 4"
+  );
+  const moved = await fetchOf(ref, undefined, 6, late);
+  expect(moved).toContain("Conversation c1: 7–12 of 12");
+  expect(moved).toContain("Earlier 6");
+  expect(moved).toContain("unknown:speaker_0: Fin");
+  expect(
+    await fetchOf("job-9:0@2026-10-14T10:00:00.000Z", undefined, 200, open)
+  ).toContain("(no turn job-9:0@2026-10-14T10:00:00.000Z");
 });
 
 test("transcripts: a recording lifelog no longer has is silent, a failed fetch throws", async () => {
