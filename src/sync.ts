@@ -8,6 +8,7 @@ import {
   type Fields,
   type Linked,
   linked,
+  norm,
   pick,
 } from "./items";
 import { log } from "./log";
@@ -518,7 +519,7 @@ function linesFor(
     (f) =>
       f in now &&
       known(f) &&
-      now[f] !== it.fields[f] &&
+      now[f] !== norm(it.fields[f]) &&
       !(it.tried.get(f) ?? []).includes(now[f]) &&
       !(f === "due" && r?.recurrence)
   );
@@ -528,7 +529,11 @@ function linesFor(
   const rest = changed.filter((f) => f !== "completed" && f !== "deleted");
   const unknown = FIELDS.filter((f) => f in now && !known(f));
   // A new id first (the edit's `before.id`), so the lines after it find the reminder by it.
-  const moved = r && r.id !== it.id ? [line("edit", rest, { id: it.id })] : [];
+  // A new id with nothing else of his (Life's move whose answer was lost) is no change: an import.
+  const moved =
+    r && r.id !== it.id
+      ? [line(rest.length > 0 ? "edit" : "import", rest, { id: it.id })]
+      : [];
   return [
     ...(moved.length || rest.length === 0 ? moved : [line("edit", rest)]),
     ...(r && unknown.length > 0

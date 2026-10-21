@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { grantRefusal } from "./actions";
 import { action } from "./memory/fixtures";
-import type { Action } from "./schema";
+import { type Action, Action as ActionLine } from "./schema";
 import { inbound, marks, type Reminder, type Snapshot } from "./sync";
 import { closings, tasksOf } from "./tasks";
 
@@ -40,7 +40,7 @@ const wrote = (
 ) => {
   const line = action({
     after,
-    id: "act_000000edit01",
+    id: "act_0000000ed001",
     kind: "edit",
     result: "intent",
     ...over,
@@ -373,4 +373,32 @@ test("an add that lands during the read, before its answer is recorded, waits fo
   expect(
     inbound(snap([rem(), order]), [...base, intent, answered], later)
   ).toMatchObject([{ kind: "import" }]);
+});
+
+/** What the ledger gives back: each line written as JSON and parsed again (a key whose value is undefined is gone). */
+const ledger = (lines: Action[]) =>
+  lines.map((l) => ActionLine.parse(JSON.parse(JSON.stringify(l))));
+
+test("through the ledger's JSON: a quiet second pass, then his tick as his", () => {
+  const first = ledger([added, ...inbound(snap([rem()]), ledger([added]), AT)]);
+  expect(inbound(snap([rem()]), first, AT)).toEqual([]);
+  const ticked = inbound(snap([rem({ completed: true })]), first, AT);
+  expect(ticked.map((l) => [l.kind, l.after])).toEqual([
+    ["done", { completed: true }],
+  ]);
+  expect(
+    inbound(snap([rem({ completed: true })]), ledger([...first, ...ticked]), AT)
+  ).toEqual([]);
+});
+
+test("Life's move whose answer was lost is no change of his: an import under the new id", () => {
+  const lostMove = wrote({ list: "Work" }, "failed");
+  const lines = inbound(
+    snap([rem({ id: 99, list: "Work" })]),
+    ledger([...base, ...lostMove]),
+    AT
+  );
+  expect(lines.map((l) => [l.kind, l.target, l.before])).toEqual([
+    ["import", "reminder:99", { id: 12 }],
+  ]);
 });
