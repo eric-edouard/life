@@ -26,7 +26,7 @@ import {
   recordState,
   turnOf,
 } from "./guard";
-import { runs } from "./history";
+import { runs, useText } from "./history";
 import { newSince, readActions } from "./ledger";
 import { moments } from "./moments";
 import { placed } from "./page";
@@ -41,14 +41,7 @@ import {
   successReport,
 } from "./report";
 import { codeOn, mapRepos } from "./repos";
-import {
-  commitMemory,
-  phases,
-  type RunRecord,
-  record,
-  type Use,
-  useText,
-} from "./run";
+import { commitMemory, phases, type RunRecord, record } from "./run";
 import { reindex } from "./search";
 import { daysBefore, gather, lastDays, localTime, type Window } from "./units";
 import { observationsNow, readPeople } from "./who";
@@ -279,10 +272,13 @@ async function sweep(
     }
     phase.at = "index";
     await reindex();
-    await rec.end({ outcome: "ok" });
+    await quota();
+    rec.end({ outcome: "ok" });
     return 0;
   } catch (e) {
-    await rec.end(phase.failed(e));
+    const failed = phase.failed(e);
+    await quota();
+    rec.end(failed);
     return 1;
   }
 }
@@ -318,23 +314,23 @@ async function whatIsNew(since: string, from: string) {
   };
 }
 
-/** What this night, and the middays and backfill weeks of the 24 h before it, spent of his Codex plan: a line each. */
+/**
+ * What the sweeps of the last 24 h spent of his Codex plan, this night included (its quota read for the email just
+ * before), a line each, oldest first.
+ */
 async function spent(rec: RunRecord) {
   const since = new Date(rec.now.getTime() - DAY_MS).toISOString();
   const { items } = await runs({
     limit: 20,
-    steps: ["memory.midday", "memory.backfill"],
+    steps: ["memory.nightly", "memory.midday", "memory.backfill"],
   });
-  const earlier = items
-    .filter((r) => (r.startedAt ?? "") >= since && r.result?.use)
-    .reverse();
-  return [
-    ...earlier.map(
+  return items
+    .filter((r) => (r.startedAt ?? "") >= since && r.use)
+    .reverse()
+    .map(
       (r) =>
-        `Codex use, ${r.step.replace("memory.", "")} of ${localTime(r.startedAt ?? "")}: ${useText(r.result?.use as Use)}`
-    ),
-    `Codex use, this night: ${useText(await rec.use())}`,
-  ];
+        `Codex use, ${r.id === `memory.nightly/${rec.run}` ? "this night" : `${r.step.replace("memory.", "")} of ${localTime(r.startedAt ?? "")}`}: ${useText(r.use ?? null)}`
+    );
 }
 
 async function runNight(days: number, now: Date, day: string, force: boolean) {
@@ -394,7 +390,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     mail = failureReport(day, rec.ms(), failure.failedAt, failure.error);
   }
   const { attempts } = recordState(day, !failure);
-  await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
+  rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
     const id = await sendReport(`nightly/${rec.run}`, mail);
     console.log(id ? `report emailed: ${id}` : "report email not sent");

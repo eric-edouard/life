@@ -17,7 +17,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { FROZEN } from "../src/clock";
 import { nextEvent, parse } from "../src/events";
-import { askOnce, llmFor } from "../src/llm";
+import { askOnce, llmFor, quota } from "../src/llm";
 import { recentEvents } from "../src/log";
 import { buildServer } from "../src/mcp";
 import { spareQuota } from "../src/memory/guard";
@@ -300,8 +300,10 @@ async function bench(file: string, only: string[], engine: Engine) {
   }
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-atlas-"));
   const code = join(tmp, "code");
-  // Recorded, so what the agent's calls spent of his Codex plan is in its run (`use`).
+  // A recorded run, so what the agent's calls spent of his Codex plan is in its `use` (the quota read just before, and
+  // at its end).
   const rec = record("bench.atlas", { cases: cases.length, engine });
+  let failure: string | undefined;
   const { run } = rec;
   const lines = linesOf(ACTIONS);
   try {
@@ -326,8 +328,14 @@ async function bench(file: string, only: string[], engine: Engine) {
         ? "Codex, as Atlas"
         : `${engine}: a harness check, not Atlas's result`;
     console.log(table(rows, `${run}, ${what}, code ${head}`));
+  } catch (e) {
+    failure = (e as Error).message;
+    throw e;
   } finally {
-    await rec.end({});
+    await quota();
+    rec.end(
+      failure ? { error: failure, outcome: "failed" } : { outcome: "ok" }
+    );
     git(ROOT, ["worktree", "remove", "--force", code]);
     await rm(tmp, { force: true, recursive: true });
   }

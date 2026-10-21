@@ -151,27 +151,19 @@ const ClaudeResult = z.object({
   usage: z.record(z.string(), z.unknown()).optional(),
 });
 
-/** The tokens of a call, or of every call a process made: input (cached included), cached input, output. */
+/** The tokens of a call (on its `model.run` line), or of a run's calls: input (cached included), cached input, output. */
 export interface Tokens {
   cached: number;
   input: number;
   output: number;
 }
-const NONE: Tokens = { cached: 0, input: 0, output: 0 };
-const add = (a: Tokens, b: Tokens): Tokens => ({
+export const NONE: Tokens = { cached: 0, input: 0, output: 0 };
+export const add = (a: Tokens, b: Tokens): Tokens => ({
   cached: a.cached + b.cached,
   input: a.input + b.input,
   output: a.output + b.output,
 });
-export const minus = (a: Tokens, b: Tokens): Tokens => ({
-  cached: a.cached - b.cached,
-  input: a.input - b.input,
-  output: a.output - b.output,
-});
 const num = (v: unknown) => (typeof v === "number" ? v : 0);
-let spent = NONE;
-/** Every token this process's model calls used so far: a run's own is the difference between its end and its start. */
-export const tokensSpent = () => spent;
 
 /** codex's `--json` events: the tokens of each `turn.completed`, summed. */
 export function codexTokens(jsonl: string): Tokens {
@@ -197,7 +189,7 @@ export function codexTokens(jsonl: string): Tokens {
 }
 
 /** claude's usage: input counts cache reads and writes too, as codex's does. */
-const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
+export const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
   cached: num(u.cache_read_input_tokens),
   input:
     num(u.input_tokens) +
@@ -606,7 +598,6 @@ export async function askOnce(opts: {
       tools: opts.tools,
     });
     ({ fields } = answer);
-    spent = add(spent, (fields?.tokens as Tokens | undefined) ?? NONE);
     if (answer.refusal) {
       throw new Error(answer.refusal);
     }

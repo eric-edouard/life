@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   askOnce,
+  claudeTokens,
   codexTokens,
   extractJson,
   llmOverride,
@@ -335,4 +336,15 @@ test("codex's tokens: each turn.completed's usage, summed; other lines ignored",
     output: 10,
   });
   expect(codexTokens("")).toEqual({ cached: 0, input: 0, output: 0 });
+});
+
+test("claude's tokens: input counts its cache reads and writes, as codex's does", () => {
+  expect(
+    claudeTokens({
+      cache_creation_input_tokens: 30,
+      cache_read_input_tokens: 200,
+      input_tokens: 5,
+      output_tokens: 7,
+    })
+  ).toEqual({ cached: 200, input: 235, output: 7 });
 });
