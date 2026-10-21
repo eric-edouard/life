@@ -293,22 +293,31 @@ test("a failed action's alert carries his words and the error", () => {
 
 test("the success email says the window it read and counts the new observations", () => {
   // lifelog set up: the night says how its watcher stands.
-  process.env.LIFELOG_TOKEN ??= "test-token";
-  const n = night(1);
-  (n as { observed: number }).observed = 7;
-  const { text } = successReport("2026-10-18", 1000, n);
-  expect(text).toContain("Read 12 Oct–18 Oct: 9 units");
-  expect(text).toContain("7 new observations since the last night");
-  // A failed files call or a missing tool is told here, never a failed night.
-  expect(text).toContain(
-    "Files: 4 described, 2 read by code, 1 copied; 1 call failed (a file still not described stays a tag until the next night); not on PATH: pdftotext"
-  );
-  // The night reads lifelog from the watcher's store as it stands: a stopped watcher is said here.
-  expect(text).toContain("Lifelog: the watcher is polling");
-  (n as { watcher: null }).watcher = null;
-  expect(successReport("2026-10-18", 1000, n).text).toContain(
-    "the watcher is NOT POLLING (last good poll never)"
-  );
+  const token = process.env.LIFELOG_TOKEN;
+  process.env.LIFELOG_TOKEN = "test-token";
+  try {
+    const n = night(1);
+    (n as { observed: number }).observed = 7;
+    const { text } = successReport("2026-10-18", 1000, n);
+    expect(text).toContain("Read 12 Oct–18 Oct: 9 units");
+    expect(text).toContain("7 new observations since the last night");
+    // A failed files call or a missing tool is told here, never a failed night.
+    expect(text).toContain(
+      "Files: 4 described, 2 read by code, 1 copied; 1 call failed (a file still not described stays a tag until the next night); not on PATH: pdftotext"
+    );
+    // The night reads lifelog from the watcher's store as it stands: a stopped watcher is said here.
+    expect(text).toContain("Lifelog: the watcher is polling");
+    (n as { watcher: null }).watcher = null;
+    expect(successReport("2026-10-18", 1000, n).text).toContain(
+      "the watcher is NOT POLLING (last good poll never)"
+    );
+  } finally {
+    if (token === undefined) {
+      delete process.env.LIFELOG_TOKEN;
+    } else {
+      process.env.LIFELOG_TOKEN = token;
+    }
+  }
 });
 
 test("a send goes out once per id: a second one with the same id never reaches Resend", async () => {

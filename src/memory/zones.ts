@@ -79,16 +79,16 @@ export function cutAt(now: Date, was: string, tz: string) {
   return dayStart(next.toISOString().slice(0, 10), ahead);
 }
 
+/** The Mac's own time zone (the system's, whatever TZ the process runs with). */
+export const macZone = () =>
+  readlinkSync("/etc/localtime").split("zoneinfo/")[1];
+
 /**
  * Records the Mac's zone (the system's, whatever TZ the process runs with) when it is not the last one recorded:
  * launchd's tick calls it, every 30 minutes, holding the lock. What happened before it was noticed keeps its zone.
  * ponytail: the Mac travels with him; the Mac mini (roadmap 4.7) stays home, so its zone will need another source then
  * (his phone's, or lifelog's stays).
  */
-/** The Mac's own time zone (the system's, whatever TZ the process runs with). */
-export const macZone = () =>
-  readlinkSync("/etc/localtime").split("zoneinfo/")[1];
-
 export async function noteZone(now = clock()) {
   const tz = macZone();
   const was = zones().at(-1)?.tz;
