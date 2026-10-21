@@ -3,17 +3,42 @@ import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
 import { clock } from "./clock";
-import { parse } from "./events";
+import { parse, subscribed } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
 import { ACTIONS, appendJsonl, digest, linesOf } from "./memory/ledger";
-import { clip } from "./memory/units";
+import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
+import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
+import type { Receipt } from "./reminders/board";
 import { Action, type Instruction } from "./schema";
-import { ROOT } from "./truth";
+import { ROOT, TEST } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
 // done or dropped. Its own lines: Atlas's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`, src/board.ts).
+// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
+
+/**
+ * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or `LIFE_MISHEARD` in `.env`, a real name people
+ * he knows go by. Both are words of their own, so they wake only on his own turn, as `low` (Atlas confirms with him).
+ */
+const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
+/**
+ * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
+ * longer word. Shared by both wakes.
+ */
+const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
+/** A greeting then Atlas or a misheard Atlas, whatever the case. */
+export const WAKE = new RegExp(
+  String.raw`${GREETING}(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
+  "i"
+);
+/** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is lifelog's misspelling. */
+export const MARK = new RegExp(String.raw`${GREETING}li[fv]e\b`, "i");
+/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
+const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
+/** A task's name: its title, else his words from "hey Atlas" on. */
+export const titleOf = (t: { quote: string; title?: string }) =>
+  clip(t.title ?? (t.quote.replace(TO_WAKE, "") || t.quote), 80);
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -80,17 +105,18 @@ const taskLine = (
   task: string,
   after: Action["after"],
   now: number,
-  salt = ""
+  salt = "",
+  // Atlas, through the connector; or his own tick or removal of the receipt (`closings`).
+  by: Pick<Action, "madeBy" | "why"> = { madeBy: "connector", why: "Atlas" }
 ): Action => ({
   after,
   at: iso(now),
   id: actionId(`${task}@${iso(now)}`, kind, salt),
   kind,
-  madeBy: "connector",
+  ...by,
   result: "ok",
   schemaVersion: 1,
   target: task,
-  why: "Atlas",
 });
 
 export interface Task {
@@ -151,7 +177,11 @@ export async function timings(
           ["arrived", a.timing?.arrived ?? null],
           ["recorded", a.at],
           ["delivered", sent.get(a.id) ?? null],
-          ["claimed", updates[0]?.at ?? null],
+          // Atlas's first update; one Life wrote from his tick in Reminders is no claim.
+          [
+            "claimed",
+            updates.find((u) => u.madeBy !== "reminders")?.at ?? null,
+          ],
           [
             "closed",
             updates.find((u) => closed(u.after.state as State))?.at ?? null,
@@ -434,3 +464,85 @@ export function taskList(now = clock().getTime()) {
     };
   });
 }
+
+/** A task's name, as the board, the email and `search` show it. */
+export const nameOf = (t: Task) =>
+  titleOf({
+    quote: t.ask.instruction.quote,
+    title: t.ask.after.title as string | undefined,
+  });
+
+/**
+ * Emails him what newly needs him, one email a pass, each key once (`sendReport`): a lapsed subscription alone, else
+ * every task with a new cause (one that goes silent again after an update is new).
+ */
+export async function chase(
+  tasks: Task[],
+  now: number,
+  live = subscribed(now)
+) {
+  const due = alerts(tasks, now, live);
+  const fresh = new Set(await unsent(due.map((a) => a.key)));
+  const news = due.filter((a) => fresh.has(a.key));
+  const [first] = news;
+  if (!first) {
+    return;
+  }
+  await sendReport(
+    news.map((a) => a.key),
+    "open" in first
+      ? lapseReport(first.open, now)
+      : taskReport(
+          news.flatMap((a) =>
+            "t" in a
+              ? [{ ask: a.t.ask, cause: a.cause, title: nameOf(a.t) }]
+              : []
+          ),
+          now
+        )
+  );
+}
+
+/** What a task's item on the board should say: notes (id, his words, state, latest note). */
+export function wantOf(t: Task): Receipt {
+  const { deadline, end, state, word } = standing(t);
+  const { quote } = t.ask.instruction;
+  const until = !closed(state) && deadline && `until ${localTime(deadline)}`;
+  const line = [state, until, end.on && `on ${end.on}`];
+  const notes = [
+    t.ask.id,
+    clip(quote, 1000),
+    line.filter(Boolean).join(" · "),
+    word,
+  ];
+  const low = t.ask.after.confidence === "low" ? " (to confirm)" : "";
+  return {
+    completed: closed(state),
+    id: t.ask.id,
+    notes: notes.filter(Boolean).join("\n").trim(),
+    section: state === "open" ? "Open" : "Working",
+    title: `Atlas${low}: ${nameOf(t)}`,
+  };
+}
+
+/** The board's receipts (`push`, src/reminders/board.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
+export const receipts = (tasks: Task[], now: number) =>
+  tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
+
+/** His tick or removal of an open task's receipt (`marks`, src/reminders/board.ts) closes it, done or dropped (decision 17): it only takes work away. */
+export const closings = (
+  tasks: Task[],
+  marks: Map<string, "removed" | "ticked">,
+  at: string
+): Action[] =>
+  tasks.flatMap((t) => {
+    const mark = marks.get(t.ask.id);
+    const after =
+      mark === "ticked"
+        ? { outcome: "he ticked its receipt in Reminders", state: "done" }
+        : { reason: "he removed its receipt in Reminders", state: "dropped" };
+    const by = { madeBy: "reminders", why: "his change in Reminders" } as const;
+    return mark && !closed(standing(t).state)
+      ? [taskLine("update", t.ask.id, after, Date.parse(at), "reminders", by)]
+      : [];
+  });

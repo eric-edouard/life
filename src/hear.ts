@@ -1,5 +1,4 @@
 import { clock } from "./clock";
-import { clip } from "./memory/units";
 import {
   readTranscript,
   type Store,
@@ -9,35 +8,11 @@ import {
   whose,
   writeMarks,
 } from "./sources/lifelog";
-import { ask } from "./tasks";
-import { TEST } from "./truth";
+import { ask, MARK, WAKE } from "./tasks";
 
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest. It
 // also records his "hey Life" spans in the store (`writeMarks`), for memory only: they never act.
-
-/**
- * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or `LIFE_MISHEARD` in `.env`, a real name people
- * he knows go by. Both are words of their own, so they wake only on his own turn, as `low` (Atlas confirms with him).
- */
-const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
-/**
- * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
- * longer word. Shared by both wakes.
- */
-const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
-/** A greeting then Atlas or a misheard Atlas, whatever the case. */
-export const WAKE = new RegExp(
-  String.raw`${GREETING}(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
-  "i"
-);
-/** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`); "Live" is lifelog's misspelling. */
-export const MARK = new RegExp(String.raw`${GREETING}li[fv]e\b`, "i");
-/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
-const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
-/** A task's name: its title, else his words from "hey Atlas" on. */
-export const titleOf = (t: { quote: string; title?: string }) =>
-  clip(t.title ?? (t.quote.replace(TO_WAKE, "") || t.quote), 80);
 
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { asksIn, hear, MARK, marksIn, speechIn, type Turn, WAKE } from "./hear";
+import { asksIn, hear, marksIn, speechIn, type Turn } from "./hear";
 import { ACTIONS } from "./memory/ledger";
 import {
   chapter,
@@ -11,7 +11,7 @@ import {
   page,
 } from "./sources/fixtures";
 import { apply, readConversations, whose } from "./sources/lifelog";
-import { tasksOf } from "./tasks";
+import { MARK, tasksOf, WAKE } from "./tasks";
 
 test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
@@ -334,7 +334,7 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
-        { speakerId: null, text: "hey Life, the stones are for Alice" },
+        { speakerId: null, text: "hey Life, the stones are for Nina" },
         { speakerId: null, text: "and the vote is Sunday" },
         { speakerId: null, text: "ok" },
       ],
