@@ -154,3 +154,30 @@ owner's workspace.
 What holds either way: only the owner's token passes, so other workspace members get 403 even if the Site is shared,
 and nothing is copied into a shared cache by Life. Live reads need the Mac online; a Site that keeps a last-known
 snapshot must date it and mark it stale, and where it is stored is a separate decision.
+
+# The status page
+
+`https://life.ericedouard.com/`: Life's architecture as a plate of live cards, scoped with the owner in eight rounds of
+questions on 21 Oct. **Read-only**: it changes nothing, sends nothing of his but the plate below, and adds no connector
+tool.
+
+- **Code.** `src/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
+  (`snapshot`) and a card's history and log lines (`detail`, `runDetail`: a run's steps and what it wrote, from
+  `runs` and `changes`). `src/dashboard.ts` serves `/`, its files and its reads under `/status/`, and the stream.
+  `assets/dashboard/` is the React and Motion page, bundled by Bun on first request (no build step). Sign-in is
+  `src/signin.ts`, shared with `/check`.
+- **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
+  limit (`LIMITS`: Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and Git 3 d,
+  Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
+- **Live.** One server-sent-events stream, a plate every 3 s when anything but its time changed; edge dots run when a
+  group's `flow` grew between two plates. The Pendant's recording state is lifelog's `GET /status` (live since
+  lifelog's PR 23).
+- **Content.** In full (a message's first words, ask quotes, call arguments) with a privacy switch remembered per
+  device (`localStorage`) that hides it.
+- **Always on.** A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
+  request to the Mac and, when the Mac is out of reach (no answer in 8 s, or Cloudflare's 502, 504, 52x), answers
+  itself behind the same owner check with the page and the last plate the Mac pushed: once a minute, without his words
+  (`strip`), the page's files on a process's first push (`pushPlate`). Deploy: `worker/wrangler.jsonc`.
+- **Look.** Ledger, softened at his word: round surfaces, soft shadows, status as a coloured dot and a word, no
+  coloured borders.
+- Shipped as one PR (the spec said two: the reads and the page were built and reviewed together).

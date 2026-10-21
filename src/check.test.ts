@@ -9,7 +9,6 @@ import {
 } from "jose";
 import { CHECK_CLIENT, ISSUER, ORIGIN, ownerTokens, RESOURCE } from "./auth";
 import { createCheck } from "./check";
-import { createSignIn } from "./signin";
 import { changeFeed } from "./memory/feed";
 import {
   RATINGS,
@@ -17,6 +16,7 @@ import {
   readCorrections,
   readRatings,
 } from "./memory/ledger";
+import { createSignIn } from "./signin";
 
 const SESSION_COOKIE =
   /^__Host-life=.+; Path=\/; Max-Age=3600; Secure; HttpOnly; SameSite=Lax$/;

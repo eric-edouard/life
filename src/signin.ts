@@ -52,7 +52,10 @@ export function createSignIn(verify: Verify, lifelog: typeof fetch = fetch) {
       !(state && verifier && code) ||
       url.searchParams.get("state") !== state
     ) {
-      return text("Sign-in did not complete. Open the page again to retry.", 400);
+      return text(
+        "Sign-in did not complete. Open the page again to retry.",
+        400
+      );
     }
     const res = await lifelog(`${ISSUER}/oauth2/token`, {
       body: new URLSearchParams({
