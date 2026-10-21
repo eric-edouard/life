@@ -43,7 +43,7 @@ import {
   verdictOf,
   writtenPeople,
 } from "./ledger";
-import { who as named, SURE_AT } from "./observe";
+import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page";
 import { asData, chatHits, focus, holdsAll } from "./raw";
 import { actionLine } from "./report";
@@ -60,6 +60,7 @@ import {
 } from "./units";
 import {
   meant,
+  who as named,
   namedLike,
   nearNames,
   observationsNow,

@@ -8,13 +8,9 @@ import {
   whereAt,
   withStore,
 } from "../sources/lifelog";
-import {
-  digest,
-  momentsNow,
-  readCorrections,
-  readMoments,
-  readUnits,
-} from "./ledger";
+import { digest, momentsNow, readMoments, readUnits } from "./ledger";
+import { where } from "./places";
+import { momentText } from "./statements";
 import { clip, daysBefore, time } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { dayStart, localDate } from "./zones";
@@ -24,10 +20,12 @@ import { dayStart, localDate } from "./zones";
 // the conversations recorded, what Life noted and every unit it was read from. A one-way projection of the moments,
 // like the board: each event carries its moment's id and a hash of what it shows (private properties), a moment that
 // changed is written again, one gone (hidden, cancelled, never happened) is deleted. Nothing is read back. Each
-// nightly tick runs it after its turn, so a moment is on the calendar within 30 minutes of being read.
+// nightly tick runs it after its turn.
 
 const HOUR = 3_600_000;
-const REF_KIND = /^(person|unknown):/;
+// ponytail: a moment goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
+// is written, and are not in its hash. Hash them (a read per moment each tick) if late stays turn out to matter.
+const SETTLE = 2 * HOUR;
 // Google takes 8,192 characters; a busy moment's units would pass it.
 const DESCRIPTION_MAX = 7500;
 
@@ -45,10 +43,9 @@ export interface Draft {
 }
 
 interface Known {
-  names: Map<string, string>;
+  nameOf: (ref: string) => string;
   /** What Life noted, by unit: the observations that show. */
   noted: Map<string, string[]>;
-  refOf: (ref: string) => string;
   units: Map<string, Unit>;
 }
 
@@ -57,6 +54,8 @@ const instant = (local: string) => {
   const [day = "", hm] = local.split(" ");
   return dayStart(day, undefined, hm).toISOString();
 };
+const ended = (allDay: boolean, to: string) =>
+  (allDay ? dayStart(to) : new Date(to)).getTime();
 
 /** When a moment was: its timed start to its end (an hour when the sources don't say), else whole days. */
 function span(m: Moment) {
@@ -76,37 +75,24 @@ function span(m: Moment) {
   return { allDay: false, from, to };
 }
 
-/** The events the calendar should hold: every moment that happened and had started by `now`, oldest first. */
+/** The events the calendar should hold: every moment that happened and ended (`SETTLE` ago) by `now`, oldest first. */
 export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
   return moments
     .filter((m) => m.status === "happened")
     .map((m) => ({ m, ...span(m) }))
-    .filter(
-      ({ allDay, from }) =>
-        (allDay ? dayStart(from) : new Date(from)).getTime() <= now.getTime()
-    )
+    .filter(({ allDay, to }) => ended(allDay, to) + SETTLE <= now.getTime())
     .toSorted((a, b) => a.from.localeCompare(b.from))
     .map(({ m, ...when }) => {
-      const name = (ref: string) => {
-        const r = k.refOf(ref);
-        return k.names.get(r) ?? r.replace(REF_KIND, "");
-      };
       const units = m.units.flatMap((id) => k.units.get(id) ?? []);
-      const noted = m.units.flatMap((id) => k.noted.get(id) ?? []);
+      const noted = [
+        ...new Set(m.units.flatMap((id) => k.noted.get(id) ?? [])),
+      ];
       const text = [
         m.why,
         "",
-        m.people.length > 0
-          ? `With: ${m.people.map((p) => (p.role === "with" ? name(p.ref) : `${name(p.ref)} (${p.role})`)).join(", ")}`
-          : "Alone, or no one named",
-        ...(m.place ? [`Place: ${m.place}`] : []),
-        `Importance: ${["ordinary", "worth remembering in a month", "a landmark"][m.importance - 1]}`,
+        momentText(m, k.nameOf),
         ...(noted.length > 0
-          ? [
-              "",
-              "What Life noted:",
-              ...[...new Set(noted)].map((t) => `- ${t}`),
-            ]
+          ? ["", "What Life noted:", ...noted.map((t) => `- ${t}`)]
           : []),
         "",
         `Read from ${units.length} unit${units.length === 1 ? "" : "s"}:`,
@@ -128,27 +114,48 @@ export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
     });
 }
 
-const maps = (s: Stay) =>
-  `https://maps.google.com/?q=${s.latitude.toFixed(5)},${s.longitude.toFixed(5)}`;
+type Held = Map<string, { hash?: string; id: string }[]>;
 
-/** The stays and conversations of a timed event, read now (lifelog's stays of its days, Life's store), as description lines. */
-async function located(d: Draft, staysOn: (day: string) => Promise<Stay[]>) {
-  if (d.allDay) {
-    return { lines: [], location: d.place };
+/** What a sync does: the events to delete (of a moment gone or changed, and any second copy) and the drafts to write. */
+export function plan(want: Draft[], held: Held) {
+  const keep = new Set(
+    want.flatMap((d) => {
+      const [e, ...more] = held.get(d.moment) ?? [];
+      return e?.hash === d.hash && more.length === 0 ? [d.moment] : [];
+    })
+  );
+  return {
+    fresh: want.filter((d) => !keep.has(d.moment)),
+    stale: [...held].flatMap(([moment, events]) =>
+      keep.has(moment) ? [] : events.map((e) => ({ id: e.id, moment }))
+    ),
+  };
+}
+
+/** The days a timed event spans, in his zone then. */
+function daysOf(d: Draft) {
+  const days = [localDate(d.from)];
+  while ((days.at(-1) as string) < localDate(d.to)) {
+    days.push(nextDay(days.at(-1) as string));
   }
-  const days = [...new Set([localDate(d.from), localDate(d.to)])];
-  const stays = (await Promise.all(days.map(staysOn)))
+  return days;
+}
+
+/** A timed event's stays (read when it is written) and conversations, as description lines and a location. */
+async function located(
+  d: Draft,
+  talks: { id: string; start_at: string; title: string }[],
+  staysOn: (day: string) => Promise<Stay[]>
+) {
+  const stays = (await Promise.all(daysOf(d).map(staysOn)))
     .flat()
     .filter((s) => s.arrivedAt < d.to && (s.leftAt ?? d.to) > d.from)
     .toSorted((a, b) => a.arrivedAt.localeCompare(b.arrivedAt));
-  const talks = await withStore((store) =>
-    conversationsBetween(store, d.from, d.to)
-  );
-  const [longest] = stays.toSorted(
-    (a, b) =>
-      Date.parse(a.arrivedAt) -
-      Date.parse(a.leftAt ?? d.to) -
-      (Date.parse(b.arrivedAt) - Date.parse(b.leftAt ?? d.to))
+  const length = (s: Stay) =>
+    Date.parse(s.leftAt ?? d.to) - Date.parse(s.arrivedAt);
+  const longest = stays.reduce<Stay | undefined>(
+    (a, s) => (a && length(a) >= length(s) ? a : s),
+    undefined
   );
   return {
     lines: [
@@ -158,7 +165,7 @@ async function located(d: Draft, staysOn: (day: string) => Promise<Stay[]>) {
             "Where he was (lifelog):",
             ...stays.map(
               (s) =>
-                `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${s.place ?? "unnamed place"} ${maps(s)}`
+                `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} https://maps.google.com/?q=${s.latitude},${s.longitude}`
             ),
           ]
         : []),
@@ -170,12 +177,7 @@ async function located(d: Draft, staysOn: (day: string) => Promise<Stay[]>) {
           ]
         : []),
     ],
-    location:
-      d.place ??
-      (longest
-        ? (longest.place ??
-          `${longest.latitude.toFixed(5)},${longest.longitude.toFixed(5)}`)
-        : null),
+    location: d.place ?? (longest ? where(longest) : null),
   };
 }
 
@@ -197,16 +199,15 @@ async function wanted(now: Date) {
     readMoments(),
   ]);
   return drafts(
-    momentsNow(moments, readCorrections()),
+    momentsNow(moments, people.corrections),
     {
-      names: people.names,
+      nameOf: people.nameOf,
       noted: new Map(
         [...Map.groupBy(observations, (o) => o.unit)].map(([u, os]) => [
           u,
           os.map((o) => o.text),
         ])
       ),
-      refOf: people.refOf,
       units: new Map(units.map((u) => [u.id, u])),
     },
     now
@@ -215,13 +216,13 @@ async function wanted(now: Date) {
 
 /** The Past calendar through `gog`: what it holds of Life's (events with a moment id, by moment), and its writes. */
 function pastCalendar(calendar: string, account: string) {
+  // Values go as `--flag=value`: a model-written title starting with "-" must not read as a flag.
   const run = async (args: string[]) => {
     const r = await exec([
       "gog",
       "calendar",
       ...args,
-      "--account",
-      account,
+      `--account=${account}`,
       "--json",
       "--no-input",
     ]);
@@ -232,7 +233,7 @@ function pastCalendar(calendar: string, account: string) {
   };
   return {
     async held(until: string) {
-      const held = new Map<string, { hash?: string; id: string }[]>();
+      const held: Held = new Map();
       let page = "";
       do {
         const r = PastEvents(
@@ -240,13 +241,10 @@ function pastCalendar(calendar: string, account: string) {
           await run([
             "events",
             calendar,
-            "--from",
-            "2000-01-01",
-            "--to",
-            until,
-            "--max",
-            "2500",
-            ...(page ? ["--page", page] : []),
+            "--from=2000-01-01",
+            `--to=${until}`,
+            "--max=2500",
+            ...(page ? [`--page=${page}`] : []),
           ])
         );
         for (const e of r.events ?? []) {
@@ -270,24 +268,16 @@ function pastCalendar(calendar: string, account: string) {
       const out = await run([
         "create",
         calendar,
-        "--summary",
-        redact(d.summary),
-        "--from",
-        d.from,
-        "--to",
-        d.to,
+        `--summary=${redact(d.summary)}`,
+        `--from=${d.from}`,
+        `--to=${d.to}`,
         ...(d.allDay ? ["--all-day"] : []),
-        "--description",
-        description,
-        ...(location ? ["--location", redact(location)] : []),
-        "--transparency",
-        "free",
-        "--send-updates",
-        "none",
-        "--private-prop",
-        `lifeMoment=${d.moment}`,
-        "--private-prop",
-        `lifeHash=${d.hash}`,
+        `--description=${description}`,
+        ...(location ? [`--location=${redact(location)}`] : []),
+        "--transparency=free",
+        "--send-updates=none",
+        `--private-prop=lifeMoment=${d.moment}`,
+        `--private-prop=lifeHash=${d.hash}`,
       ]);
       const { id } = (JSON.parse(out) as { event: { id: string } }).event;
       log("calendar.write", { event: id, moment: d.moment, op: "create" });
@@ -304,40 +294,33 @@ export async function syncPast(now = new Date()) {
   }
   const cal = pastCalendar(calendar, account);
   const want = await wanted(now);
-  const held = await cal.held(nextDay(nextDay(now.toISOString().slice(0, 10))));
-  // A moment shown as it is now, once, stays as it is.
-  const keep = new Set(
-    want.flatMap((d) => {
-      const [e, ...more] = held.get(d.moment) ?? [];
-      return e?.hash === d.hash && more.length === 0 ? [d.moment] : [];
-    })
-  );
-  // Every event of a moment gone or changed goes; a changed one is written again below.
-  const stale = [...held].flatMap(([moment, events]) =>
-    keep.has(moment) ? [] : events.map((e) => ({ id: e.id, moment }))
+  const { fresh, stale } = plan(
+    want,
+    await cal.held(nextDay(nextDay(now.toISOString().slice(0, 10))))
   );
   for (const e of stale) {
     // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
     await cal.remove(e.moment, e.id);
   }
+  // The store is read before any network call, so it is never held open across them.
+  const talks = await withStore((store) =>
+    fresh.map((d) =>
+      d.allDay ? [] : conversationsBetween(store, d.from, d.to)
+    )
+  );
   // A day's stays, asked once per sync.
   const days = new Map<string, Promise<Stay[]>>();
   const staysOn = (day: string) =>
     days.get(day) ?? (days.set(day, whereAt(day)).get(day) as Promise<Stay[]>);
-  const fresh = want.filter((d) => !keep.has(d.moment));
-  for (const d of fresh) {
-    // biome-ignore lint/performance/noAwaitInLoops: one moment at a time
-    const { lines, location } = await located(d, staysOn);
+  for (const [i, d] of fresh.entries()) {
+    const { lines, location } = d.allDay
+      ? { lines: [], location: d.place }
+      : // biome-ignore lint/performance/noAwaitInLoops: one moment at a time
+        await located(d, talks[i] ?? [], staysOn);
+    const body = clip(redact([d.text, ...lines].join("\n")), DESCRIPTION_MAX);
     await cal.write(
       d,
-      clip(
-        redact(
-          [d.text, ...lines, "", `Moment ${d.moment}, written by Life.`].join(
-            "\n"
-          )
-        ),
-        DESCRIPTION_MAX
-      ),
+      `${body}\n\nMoment ${d.moment}, written by Life.`,
       location
     );
   }
