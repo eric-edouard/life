@@ -66,7 +66,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
         400
       );
     }
-    const res = await lifelog(`${issuer}/oauth2/token`, {
+    const res = await exchange({
       body: new URLSearchParams({
         client_id: client,
         code,
@@ -77,6 +77,9 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       }),
       method: "POST",
     });
+    if (!res) {
+      return text(UNREACHABLE, 503);
+    }
     const token = Tokens.safeParse(res.ok ? await res.json() : null);
     if (!token.success) {
       return text("Not signed in as the owner.", 403);
@@ -112,8 +115,28 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (whose.refusal === "unreachable") {
       return text(UNREACHABLE, 503);
     }
-    return page ? login(page) : text("sign in again", 401);
+    // A refresh token the issuer refused is dropped, or every request would try it again.
+    const dropped = cookieOf(req, REFRESH) ? [cookie(REFRESH, "", 0)] : [];
+    if (page) {
+      const answer = login(page);
+      for (const c of dropped) {
+        answer.headers.append("set-cookie", c);
+      }
+      return answer;
+    }
+    return text(
+      "sign in again",
+      401,
+      dropped.length ? { "set-cookie": dropped[0] as string } : {}
+    );
   }
+
+  /** A call to the issuer's token endpoint; null when it can't be reached in time. */
+  const exchange = (init: RequestInit) =>
+    lifelog(`${issuer}/oauth2/token`, {
+      ...init,
+      signal: AbortSignal.timeout(15_000),
+    }).catch(() => null);
 
   /** A spent session renewed with its refresh token: the same address again, with the new cookies; null when it can't be. */
   async function renew(req: Request) {
@@ -121,7 +144,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (!refresh) {
       return null;
     }
-    const res = await lifelog(`${issuer}/oauth2/token`, {
+    const res = await exchange({
       body: new URLSearchParams({
         client_id: client,
         grant_type: "refresh_token",
@@ -129,7 +152,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       }),
       method: "POST",
     });
-    const token = Tokens.safeParse(res.ok ? await res.json() : null);
+    const token = Tokens.safeParse(res?.ok ? await res.json() : null);
     if (
       !token.success ||
       "refusal" in (await verify(token.data.access_token))
@@ -137,7 +160,8 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       return null;
     }
     const { pathname, search } = new URL(req.url);
-    return redirect(`${pathname}${search}`, sessionCookies(token.data));
+    // 307: a rating posted as the session ran out is posted again, with the new session.
+    return redirect(`${pathname}${search}`, sessionCookies(token.data), 307);
   }
 
   return { callback, login, refusal };

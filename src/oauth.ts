@@ -4,13 +4,7 @@ import {
   randomInt,
   timingSafeEqual,
 } from "node:crypto";
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -24,6 +18,7 @@ import { z } from "zod";
 import { SCOPE } from "./auth";
 import { clock } from "./clock";
 import { HEADERS, text } from "./http";
+import { writeSecret } from "./secret";
 import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
 import { STATE } from "./truth";
 
@@ -33,8 +28,7 @@ import { STATE } from "./truth";
 // authorization code serves once, a refresh token is replaced each time it is used, and every token is for this one
 // resource and owner.
 
-const DIR = join(STATE, "oauth");
-const FILE = join(DIR, "state.json");
+const FILE = join(STATE, "oauth", "state.json");
 
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;
@@ -74,9 +68,7 @@ const read = (): Stored =>
     : { clients: {}, refresh: {} };
 /** Changes the state as it is on disk now (read and written with nothing awaited between), for its owner only. */
 function update(change: (s: Stored) => Stored) {
-  mkdirSync(DIR, { mode: 0o700, recursive: true });
-  writeFileSync(FILE, `${JSON.stringify(change(read()), null, 2)}\n`);
-  chmodSync(FILE, 0o600);
+  writeSecret(FILE, `${JSON.stringify(change(read()), null, 2)}\n`);
 }
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const same = (a: string, b: string) =>
