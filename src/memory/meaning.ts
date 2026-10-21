@@ -12,8 +12,9 @@ const DIMENSIONS = 1536;
 /** What a vector is cached under besides its text: another model or size never matches it. */
 const SPACE = `${MODEL}:${DIMENSIONS}`;
 const BATCH = 128;
-/** At most this many texts a call (about 20 s): the first rebuild's backfill spreads over the next ones, never holding the lock long. */
+/** At most this many texts a call (about 20 s): the first backfill spreads over the next rebuilds. */
 const PER_CALL = 2000;
+const MAX_CHARS = 8000;
 const CACHE = join(TEST ? DATA : OUT, "embeddings.sqlite");
 const KEY = TEST ? undefined : process.env.OPENAI_API_KEY;
 /**
@@ -99,7 +100,8 @@ export async function embed(texts: string[]) {
       const res = await fetch("https://api.openai.com/v1/embeddings", {
         body: JSON.stringify({
           dimensions: DIMENSIONS,
-          input: batch,
+          // Within the model's input (8,191 tokens), so no text is refused and holds the backfill up.
+          input: batch.map((t) => t.slice(0, MAX_CHARS)),
           model: MODEL,
         }),
         headers: {
@@ -121,6 +123,19 @@ export async function embed(texts: string[]) {
   } catch (e) {
     console.error(`(not embedded: ${(e as Error).message})`);
     return false;
+  }
+}
+
+let running: Promise<boolean> | null = null;
+/**
+ * Embeds the texts in the background, one run at a time (a call meanwhile is skipped: the next rebuild brings its texts
+ * again), so a rebuild never waits on the network nor holds the lock for it.
+ */
+export function embedSoon(texts: string[]) {
+  if (!running) {
+    running = embed(texts).finally(() => {
+      running = null;
+    });
   }
 }
 

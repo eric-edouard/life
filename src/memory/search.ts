@@ -43,7 +43,7 @@ import {
   verdictOf,
   writtenPeople,
 } from "./ledger";
-import { embed, fuse, hashOf, nearest, queryVector } from "./meaning";
+import { embedSoon, fuse, hashOf, nearest, queryVector } from "./meaning";
 import { who as named, SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page";
 import { asData, byWords, chatHits, focus, queryWords } from "./raw";
@@ -90,7 +90,7 @@ const cut = (lines: string[], newest = false) =>
 
 /** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
 export const momentLine = (m: Moment) =>
-  `- ${m.id} ${m.start ?? `${m.day} (undated)`}${m.end ? ` to ${m.end}` : ""} ${m.title}${m.place ? ` @ ${m.place}` : ""} (${m.status}${m.people.length > 0 ? `; ${m.people.map((p) => `${named({ speaker: p.ref })} ${p.role}`).join(", ")}` : ""}) [${m.units.slice(0, 3).join(" ")}]`;
+  `- ${m.id} ${m.start ?? `${m.day} (undated)`}${m.end ? ` to ${m.end}` : ""} ${momentTitle(m)} (${m.status}${m.people.length > 0 ? `; ${m.people.map((p) => `${named({ speaker: p.ref })} ${p.role}`).join(", ")}` : ""}) [${m.units.slice(0, 3).join(" ")}]`;
 
 /** The moments as they stand now that `keep` keeps, by when they happen. */
 const momentsWhere = async (keep: (m: Moment) => boolean) => {
@@ -152,18 +152,19 @@ const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.confidence,
   (select group_concat(replace(replace(person, 'person:', ''), 'unknown:', ''), ', ') from unit_people where unit = o.unit) as people`;
 const CURRENT = "o.superseded_by is null";
 
-/** The query's words (as every section reads them, `queryWords`) quoted for FTS5; any of them matches, best ranked first. */
-const ftsQuery = (q: string) =>
+/** The query's words (as every section reads them, `queryWords`) quoted for FTS5: all of them, or any. */
+const ftsQuery = (q: string, op: "AND" | "OR") =>
   queryWords(q)
     .map((w) => `"${w}"`)
-    .join(" OR ");
+    .join(` ${op} `);
 
 /** How many ranked candidates each of words and meaning brings to the fusion. */
 const POOL = 50;
 const BY_MEANING = " (by meaning)";
-/** The texts a unit and a moment are embedded as (`reindex`) and found by meaning by. */
+/** The texts a unit and a moment are embedded as (`reindex`) and found by; a moment's is also its line's. */
 const unitText = (u: Unit) => `${u.title}\n${u.summary ?? ""}`;
-const momentText = (m: Moment) => `${m.title}${m.place ? ` @ ${m.place}` : ""}`;
+const momentTitle = (m: Moment) =>
+  `${m.title}${m.place ? ` @ ${m.place}` : ""}`;
 
 /**
  * The best `LIMIT` (and one more, to say a cut) of the ids `held` ranks by words fused with the `items` nearest the query's vector `meaning` (their
@@ -207,18 +208,26 @@ export function matches(
 ) {
   const o = between("o.date", range);
   const u = between("u.date", range);
-  const query = ftsQuery(q);
-  // FTS's best of the candidates holding the most of the words (`byWords`, as every section ranks by words).
+  // FTS's best of the candidates holding the most of the words (`byWords`, as every section ranks by words); those
+  // holding all of them first, so none is lost below the pool of those holding any.
   const ids = (sql: string, args: string[]) =>
-    query
-      ? byWords(
-          db
-            .query<{ id: string; text: string }, string[]>(sql)
-            .all(query, ...args),
-          q,
-          (r) => r.text
-        ).map((r) => r.id)
-      : [];
+    byWords(
+      [
+        ...new Map(
+          (["AND", "OR"] as const).flatMap((op) => {
+            const query = ftsQuery(q, op);
+            return query
+              ? db
+                  .query<{ id: string; text: string }, string[]>(sql)
+                  .all(query, ...args)
+                  .map((r) => [r.id, r] as const)
+              : [];
+          })
+        ).values(),
+      ],
+      q,
+      (r) => r.text
+    ).map((r) => r.id);
   const row = db.query<Row, [string]>(
     `select ${COLUMNS} from observations o where o.id = ?`
   );
@@ -235,7 +244,7 @@ export function matches(
     () =>
       db
         .query<{ hash: string; id: string }, string[]>(
-          `select o.id, o.meaning as hash from observations o where ${CURRENT}${o.sql}`
+          `select o.id, o.text_hash as hash from observations o where ${CURRENT}${o.sql}`
         )
         .all(...o.args)
   ).map((h) => `${line(row.get(h.id) as Row)}${h.mark}`);
@@ -249,7 +258,7 @@ export function matches(
     () =>
       db
         .query<{ hash: string; id: string }, string[]>(
-          `select u.id, u.meaning as hash from units u where 1 = 1${u.sql}`
+          `select u.id, u.text_hash as hash from units u where 1 = 1${u.sql}`
         )
         .all(...u.args)
   ).map((h) => `${unitLine(unitRow.get(h.id) as UnitRow)}${h.mark}`);
@@ -392,9 +401,9 @@ export async function search(words: string, o: Days = {}) {
   ]);
   // Moments by how many words they hold (the newest first) fused with their meaning; the best shown by date.
   const ranked = fused(
-    byWords(moments.toReversed(), words, momentText).map((m) => m.id),
+    byWords(moments.toReversed(), words, momentTitle).map((m) => m.id),
     meaning,
-    () => moments.map((m) => ({ hash: hashOf(momentText(m)), id: m.id }))
+    () => moments.map((m) => ({ hash: hashOf(momentTitle(m)), id: m.id }))
   );
   const best = new Map(ranked.slice(0, LIMIT).map((h) => [h.id, h.mark]));
   const found = moments.filter((m) => best.has(m.id));
@@ -966,13 +975,13 @@ const INDEX_SCHEMA = `
 create table observations (
   id text primary key, unit text, date text, at text, type text, area text, salience integer, confidence real,
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
-  superseded_by text, meaning text);
+  superseded_by text, text_hash text);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
 create table links (observation text, entity text, primary key (observation, entity));
 create index links_entity on links (entity);
 create table units (
   id text primary key, date text, source text, title text, salience integer, type text, area text, topics text,
-  meaning text);
+  text_hash text);
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
@@ -1094,11 +1103,11 @@ export async function reindex() {
     verdict: verdictOf(verdicts, unit),
   }));
   const { observations, standing } = await observationsNow(people);
-  // Every text search finds by meaning, embedded once (the cache); the index is built whether or not that worked.
-  await embed([
+  // Every text search finds by meaning, embedded once (the cache) after the index is built, in the background.
+  embedSoon([
     ...observations.map((o) => o.text),
     ...units.map(({ unit }) => unitText(unit)),
-    ...(await momentsWhere(() => true)).map(momentText),
+    ...(await momentsWhere(() => true)).map(momentTitle),
   ]);
   const n = buildIndex(observations, INDEX, standing, units);
   console.log(

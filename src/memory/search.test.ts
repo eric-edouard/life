@@ -184,6 +184,22 @@ test("search: an observation hit names the unit it comes from and who is in it",
   expect(searchMatches(db, "beautify", { to: "2026-10-13" })).toEqual([
     "(nothing found)",
   ]);
+  // One holding every word is found though a hundred holding one outrank it by FTS's rank.
+  const many = ["glazier", "vitre"].flatMap((w) =>
+    Array.from({ length: 60 }, (_, i) => ({
+      ...o,
+      id: `obs_${w}${i}`,
+      quote: w,
+      text: `${w} ${w} ${w}`,
+    }))
+  );
+  const both = {
+    ...o,
+    id: "obs_both",
+    text: `The vitre ${"and more words ".repeat(40)}then the glazier.`,
+  };
+  buildIndex([...many, both], path, standing);
+  expect(searchMatches(db, "glazier vitre")[0]).toStartWith("- obs_both ");
   // By meaning: a hit no word of the query is in comes back marked; one both find ranks first.
   const glazier = { ...o, id: "obs_2", text: "Call the glazier." };
   buildIndex([o, glazier], path, standing, [{ unit }]);
@@ -191,10 +207,10 @@ test("search: an observation hit names the unit it comes from and who is in it",
     [o.text, [0, 1]],
     [glazier.text, [1, 0]],
   ]);
-  const both = searchMatches(db, "beautify", {}, new Float32Array([1, 0.1]));
-  expect(both[0]).toBe(hit);
-  expect(both[1]).toContain("Call the glazier.");
-  expect(both[1]).toEndWith("(by meaning)");
+  const fused = searchMatches(db, "beautify", {}, new Float32Array([1, 0.1]));
+  expect(fused[0]).toBe(hit);
+  expect(fused[1]).toContain("Call the glazier.");
+  expect(fused[1]).toEndWith("(by meaning)");
   buildIndex([o], path, standing, [{ unit }]);
   // What Life holds about someone: by source and by month, and what it can't hold.
   const cover = coverageLines(db, "person:jerome", []);
