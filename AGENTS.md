@@ -96,8 +96,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
   asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
   `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
-  answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions
-  one line in their first 512 characters; events carry data only. It has Atlas confirm a low-confidence ask with him
+  answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions,
+  512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
   first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
 - **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`). His Apple Notes are memory only, never his words for
@@ -117,7 +117,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
   Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
-  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`; four of them, `status`, `runs`, `changes`,
+  acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
   `claim`, are the dashboard's JSON reads, `src/memory/history.ts` and `feed.ts`, contracts in `docs/dashboard.md`); `correct` (lifelog writes all go through the
   table in `forward`, `sources/lifelog.ts`); `reminders` (through `act`, his words in `said`); `task` (Atlas's
   updates, through `update`). `correct` is annotated destructive so clients ask first; `reminders` and `task` are not

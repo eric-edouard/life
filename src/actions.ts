@@ -234,10 +234,7 @@ interface Act {
 }
 
 /** The open reminder an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. */
-export function duplicateOf(
-  c: Change,
-  open?: Pick<Reminder, "id" | "title">[]
-) {
+export function duplicateOf(c: Change, open?: Reminder[]) {
   const same =
     c.kind === "add"
       ? open?.find((r) => normalize(r.title) === normalize(c.title))
@@ -350,10 +347,10 @@ export const openOf = (r: Reminder) => ({
 });
 
 /** The lists read for his reminders: one or all, never the board (its tasks are read with `tasks`). */
-const readable = (title: string, list?: string) =>
+export const readable = (title: string, list?: string) =>
   title !== BOARD && (list === undefined || title === list);
 
-/** Every open top-level reminder, of one list or all: what an add's title is checked against, and the connector's `open_reminders`. */
+/** Every open top-level reminder, of one list or all, never the board: what an add's title is checked against, and the connector's `open_reminders`. */
 export async function openReminders(list?: string) {
   const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
     ["lists"]
@@ -363,7 +360,7 @@ export async function openReminders(list?: string) {
       .filter((l) => !l.isGroup && readable(l.title, list))
       .map((l) => remctl<Reminder[]>(["show", "--list-id", `${l.id}`]))
   );
-  return open.flat().map(openOf);
+  return open.flat();
 }
 
 /** Each list's sections by its name, empty ones too, from one call: `open_reminders`'s. */

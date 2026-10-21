@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { Asked, actAsked, openReminders, sectionsOf } from "./actions";
+import { Asked, actAsked, openOf, openReminders, sectionsOf } from "./actions";
 import {
   ISSUER,
   METADATA,
@@ -362,7 +362,7 @@ function buildServer() {
         openReminders(list),
         sectionsOf(list),
       ]);
-      return { reminders, sections };
+      return { reminders: reminders.map(openOf), sections };
     }
   );
   tool(

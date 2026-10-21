@@ -5,6 +5,7 @@ import {
   changedFields,
   duplicateOf,
   openOf,
+  readable,
   reminderArgs,
   requested,
 } from "./actions";
@@ -90,6 +91,14 @@ test("an open reminder keeps the six fields `open_reminders` promises, its due a
     openOf({ ...r, allDay: true, dueDate: "2026-10-22T00:00:00" }).due
   ).toBe("2026-10-22");
   expect(openOf({ ...r, dueDate: undefined }).due).toBeUndefined();
+});
+
+test("his reminders are read from one list or all, never the board", () => {
+  expect(readable("Home")).toBe(true);
+  expect(readable("Home", "Home")).toBe(true);
+  expect(readable("Home", "Work")).toBe(false);
+  expect(readable("Atlas")).toBe(false);
+  expect(readable("Atlas", "Atlas")).toBe(false);
 });
 
 test("the same words asking for the same thing get the same id, whatever the case and accents", () => {
