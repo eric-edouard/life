@@ -121,6 +121,7 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 | `source` | `{channel, ref}`: channel `lifelog`, `whatsapp`, `beeper`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: lifelog `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
 | `speaker` | Who said or wrote the cited line: `person:<slug>`, or `unknown:<label>` (a phone, an address, lifelog's `speaker_1`, or a name lifelog knows and the map doesn't). |
 | `speakerName` | Optional, from 11 Oct: a readable name for an `unknown:` chat sender, the title of the 1:1 chat they wrote in. |
+| `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, lifelog's id for a voice). Readers resolve the author again from it (`aboutNow`; for a fact from before it, a 1:1 chat's handle). An author who is someone else now is that person in every fact of the unit (speaker, entities), never the owner, nor someone who still writes in that unit as themself, and their old name is swapped in the sentences (worked out at every read, never stored). A voice keeps lifelog's id; an unknown voice whose id the map lacks resolves by lifelog's name for it, while a known one keeps its filing: a later identity fix of an author needs no new reading. A non-author misfiled in a group chat still needs `reread`. |
 | `at`, `date`, `tz` | When the cited line was said or written (ISO with zone), its local day, and the IANA time zone that day is in (`zones.jsonl` at `at`; before 18 Oct, the Mac's when the record was made). |
 | `about` | From `memory-extract.v3`: the one person or project the claim is about (`person:me` for the owner himself), also in `entities`. |
 | `modality` | From `memory-extract.v3`: `fact`, `plan` (settled for later), `reported` (someone says it of a third person) or `conditional` (a hypothesis, a joke, a quote, an AI's text read aloud). |
@@ -131,13 +132,11 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 
 ## extracted.jsonl
 
-Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, people, at}`, one
-line per unit and run, `observations` being how many it kept (often 0), `people` the unit's people as the model read them
-(sorted; absent before 21 Oct 2026, read as today). A unit is read again when its `unitHash` or the prompt version
-changes, when its people are someone else since (`truth/` changed who a handle or name is, an unknown name now
-known included), or when a `reread` correction names it after its last reading. Either takes effect when the unit's day
-is next read: the night reads the last 7 days, `backfill` older ones. Folds, `this-is` and inferred names need no new
-reading: readers file observations as of today. Only the latest extraction of a unit counts: observations from an older one are ignored
+Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, at}`, one
+line per unit and run, `observations` being how many it kept (often 0); lines of 21 Oct 2026 also carry `people`, ignored. A unit is read again when its `unitHash` or
+the prompt version changes, or when a `reread` correction names it after its last reading (the night reads the last
+7 days, `backfill` older ones). Who someone is needs no new reading: readers resolve a fact's author and entities as of
+today. Only the latest extraction of a unit counts: observations from an older one are ignored
 (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
 re-cut, Life's own mail).
 
@@ -198,7 +197,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
-| `reread` | `units: [u_…]` | Those units were read wrong (a fact under the wrong person, say): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
+| `reread` | `units: [u_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
 | `closeness` | `person`, `personal` and/or `work` (a level) | His word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
