@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Moment, Observation } from "../schema";
+import type { Moment, Observation, Supersession } from "../schema";
 import type { LifelogConversation } from "../sources/lifelog";
 import {
   byDays,
@@ -8,9 +8,10 @@ import {
   lanesOf,
   packed,
   priorFor,
+  shownFor,
 } from "./extract";
 import { ledger, madeBy, unit, verdict } from "./fixtures";
-import { momentsNow } from "./ledger";
+import { momentsNow, type Standing } from "./ledger";
 import type { Built } from "./units";
 
 const conversation = (
@@ -227,7 +228,7 @@ test("a moment is read whole across its days: the 16 Oct ask goes with the 17 Oc
   ]);
 });
 
-test("earlier facts for a moment: its people's from two weeks before, Jean's own from its day and the day before, a fact retired from its own units again", () => {
+test("earlier facts for a moment: its people's from two weeks before, Jean's own from its day and the day before, newest first", () => {
   const o = (id: string, over: Partial<Observation>) =>
     ({
       at: `${over.date}T10:00:00.000Z`,
@@ -242,57 +243,39 @@ test("earlier facts for a moment: its people's from two weeks before, Jean's own
     units: [built(U1, { date: "2026-10-14" }), built(U2)],
   };
   const shown = [
-    { o: o("old", { date: "2026-09-20" }) },
-    { o: o("near", { date: "2026-10-14" }) },
-    { o: o("own", { date: "2026-10-15", unit: U1 }) },
-    { o: o("his", { date: "2026-10-14", entities: ["person:me"] }) },
-    { o: o("his-old", { date: "2026-10-10", entities: ["person:me"] }) },
-    { by: U1, o: o("retired-here", { date: "2026-10-13" }) },
-    { by: U3, o: o("retired-elsewhere", { date: "2026-10-13" }) },
-    { o: o("same", { date: "2026-10-15" }) },
-    // Facts of a unit read again elsewhere in the run are about to be replaced: never shown; one it retired is.
-    { o: o("crowding", { date: "2026-10-15", unit: U3 }) },
-    { by: U3, o: o("retired-by-reread", { date: "2026-10-12" }) },
-    // What this run already wrote for a unit it read is its reading now: shown, newest first.
-    {
-      o: o("written-now", {
-        at: "2026-10-18T10:00:00.000Z",
-        date: "2026-10-13",
-        madeBy: { ...madeBy, run: "now", unitHash: "h" },
-        unit: U3,
-      }),
-    },
+    o("old", { date: "2026-09-20" }),
+    o("near", { date: "2026-10-14" }),
+    o("his", { date: "2026-10-14", entities: ["person:me"] }),
+    o("his-old", { date: "2026-10-10", entities: ["person:me"] }),
+    o("same", { date: "2026-10-15" }),
+    // What this run already wrote is its reading now: shown, newest first.
+    o("written-now", {
+      at: "2026-10-18T10:00:00.000Z",
+      date: "2026-10-13",
+      madeBy: { ...madeBy, run: "now", unitHash: "h" },
+      unit: U3,
+    }),
   ];
-  expect(
-    priorFor(group, shown, new Set([U1, U2, U3]), "now", new Set()).map(
-      (x) => x.id
-    )
-  ).toEqual([
+  expect(priorFor(group, shown, new Set()).map((x) => x.id)).toEqual([
     "written-now",
     "same",
     "near",
     "his",
-    "retired-here",
-    "retired-elsewhere",
-    "retired-by-reread",
   ]);
-  expect(
-    priorFor(group, shown, new Set([U1, U2]), "now", new Set()).map((x) => x.id)
-  ).toEqual(["written-now", "same", "crowding", "near", "his", "retired-here"]);
   // Someone close: what is between them is shown from up to a year back, after the recent facts.
   const bond = [
     ...shown,
-    { o: o("bond", { date: "2026-03-01", type: "person" }) },
-    { o: o("bond-too-old", { date: "2025-09-01", type: "person" }) },
+    o("bond", { date: "2026-03-01", type: "person" }),
+    o("bond-too-old", { date: "2025-09-01", type: "person" }),
   ];
   expect(
-    priorFor(group, bond, new Set([U1, U2]), "now", new Set(["person:bastien"]))
+    priorFor(group, bond, new Set(["person:bastien"]))
       .map((x) => x.id)
       .at(-1)
   ).toBe("bond");
-  expect(
-    priorFor(group, bond, new Set([U1, U2]), "now", new Set()).map((x) => x.id)
-  ).not.toContain("bond");
+  expect(priorFor(group, bond, new Set()).map((x) => x.id)).not.toContain(
+    "bond"
+  );
 });
 
 test("earlier facts also hold the moment's own units at any age, in their own slot; another moment's older facts stay out", () => {
@@ -312,31 +295,70 @@ test("earlier facts also hold the moment's own units at any age, in their own sl
   };
   const shown = [
     // From the moment's own earlier unit, 20 days back: any type, his own too.
-    { o: o("plan", { date: "2026-09-25", type: "todo", unit: U4 }) },
-    {
-      o: o("his-plan", {
-        date: "2026-09-25",
-        entities: ["person:me"],
-        unit: U4,
-      }),
-    },
+    o("plan", { date: "2026-09-25", type: "todo", unit: U4 }),
+    o("his-plan", {
+      date: "2026-09-25",
+      entities: ["person:me"],
+      unit: U4,
+    }),
     // From another moment, older than two weeks: none, an open loop neither.
-    { o: o("owed", { date: "2026-09-25", type: "waiting" }) },
-    { o: o("decided", { date: "2026-09-25" }) },
-    { o: o("too-old", { date: "2026-08-10", type: "promise" }) },
-    {
-      o: o("his-loop", {
-        date: "2026-09-25",
-        entities: ["person:me"],
-        type: "todo",
-      }),
-    },
+    o("owed", { date: "2026-09-25", type: "waiting" }),
+    o("decided", { date: "2026-09-25" }),
+    o("too-old", { date: "2026-08-10", type: "promise" }),
+    o("his-loop", {
+      date: "2026-09-25",
+      entities: ["person:me"],
+      type: "todo",
+    }),
     // Recent facts never crowd the slot out.
-    ...Array.from({ length: 3 }, (_, k) => ({
-      o: o(`recent-${k}`, { date: "2026-10-14" }),
-    })),
+    ...Array.from({ length: 3 }, (_, k) =>
+      o(`recent-${k}`, { date: "2026-10-14" })
+    ),
   ];
-  expect(
-    priorFor(group, shown, new Set([U1]), "now", new Set(), 2).map((x) => x.id)
-  ).toEqual(["recent-0", "recent-1", "plan", "his-plan"]);
+  expect(priorFor(group, shown, new Set(), 2).map((x) => x.id)).toEqual([
+    "recent-0",
+    "recent-1",
+    "plan",
+    "his-plan",
+  ]);
+});
+
+test("what extraction may show: none from a unit read again but what he rated true; a retired fact only while its retirer is about to be replaced", () => {
+  const o = (id: string, of: string) =>
+    ({ id, madeBy: { ...madeBy, unitHash: "h" }, unit: of }) as Observation;
+  const known = [o("rated", U1), o("unrated", U1), o("elsewhere", U2)];
+  const standing = {
+    corrections: [],
+    latest: new Map(),
+    live: new Set([U1, U2]),
+    rated: new Set(["rated"]),
+    retired: new Map(),
+  } as Standing;
+  const shown = (retired: [string, string][], reread: string[]) =>
+    shownFor(
+      known,
+      {
+        ...standing,
+        retired: new Map(
+          retired.map(([id, by]) => [id, { at: "t", by } as Supersession])
+        ),
+      },
+      new Set(reread)
+    ).map((x) => x.id);
+  expect(shown([], [U1])).toEqual(["rated", "elsewhere"]);
+  // Retired by a fact about to be replaced: offered again, so the new reading can bring it back.
+  expect(shown([["elsewhere", "unrated"]], [U1])).toEqual([
+    "rated",
+    "elsewhere",
+  ]);
+  // Retired by a fact that stays (not read again, or rated true), or by his own answer: closed.
+  expect(shown([["elsewhere", "unrated"]], [])).toEqual(["rated", "unrated"]);
+  expect(shown([["elsewhere", "rated"]], [U1])).toEqual(["rated"]);
+  expect(shown([["elsewhere", "elsewhere"]], [U1])).toEqual(["rated"]);
+  // Retired by a fact that no longer shows (hidden by his correction): offered again.
+  expect(shown([["elsewhere", "obs_gone"]], [])).toEqual([
+    "rated",
+    "unrated",
+    "elsewhere",
+  ]);
 });
