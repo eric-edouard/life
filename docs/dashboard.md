@@ -87,7 +87,7 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `observation.superseded` | supersession | |
 | `correction.<kind>` | owner correction | `reflected` |
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
-| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
+| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line: Life's act, or his own change in Reminders (`record.madeBy` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
 | `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
 | `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
 | `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim, an outdated retires it) | |

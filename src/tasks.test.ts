@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
 import { ACTIONS, appendJsonl, linesOf } from "./memory/ledger";
+import { planOf } from "./reminders/board";
+import type { Reminder } from "./reminders/remctl";
 import { Action } from "./schema";
-import { type Item, planOf } from "./sync";
 import {
   alerts,
   chase,
@@ -270,11 +271,12 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
   }
 });
 
-const look = (over: Partial<Item> = {}): Item => ({
+const look = (over: Partial<Reminder> = {}): Reminder => ({
   completed: false,
   id: 1,
   notes: "",
   section: "",
+  title: "Atlas: Book visits",
   ...over,
 });
 

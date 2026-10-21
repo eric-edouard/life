@@ -259,8 +259,8 @@ line he deletes is recorded as `not-important` for its observations on that page
 
 ## actions.jsonl
 
-What Life did outside itself on the owner's clear request (appended by `act`, `src/actions.ts`), and Atlas's tasks
-(`src/tasks.ts`: his asks and their lines):
+What Life did outside itself on the owner's clear request (appended by `act`, `src/actions.ts`), what he changed in
+Reminders by hand (read back by the watcher, `src/reminders/inbound.ts`), and Atlas's tasks (`src/tasks.ts`: his asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
 - `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
@@ -268,7 +268,8 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
 - `instruction`: his words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
   act` or `ask`) or `connector:<at>` (a chat; for a task Atlas made, the instant he sent the message) or an observation's id (an add of the
   standing grant: his quote and when he said it). `at`: when he said it.
-- `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
+- `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a reminder
+  Life links with no change: the first sync's baseline, fields it learns, its own add whose answer was lost), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
   his words in `instruction`; the latest one stands). A task's own lines,
   with no `instruction` and the task's (its ask's) id as `target`: `update` (Atlas, the connector's `task`: `after` is
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
@@ -278,16 +279,23 @@ What Life did outside itself on the owner's clear request (appended by `act`, `s
   `<task>@<at> | kind` (a reply's also over its text).
 - `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask), a task's id (its lines) or `chat`
   (a reply on no task).
-  `before` / `after`: the reminder's fields before, and what was written; never a transcript. An ask's
+  `before` / `after`: the reminder's fields before, and what was written; never a transcript. An add's `after.link` is
+  the reminder's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
+  `lost` (gone from his lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
+  `id` of a reminder whose move gave it a new one. An ask's
   `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker, or his own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); for a task Atlas made, `title` (one part of
   his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (his last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
   `instruction.at`, `at` and the `event.sent` log line it is what `bun life asks` lists.
-- `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once) or
-  `duplicate` (an open reminder had the title; nothing written). `madeBy`: `session` (a Claude session), `connector` (a
-  chat, Atlas's updates and replies) or `watch` (the watcher: a "hey Atlas" heard; a nudge or a steer until 20 Oct).
+- `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
+  `duplicate` (an open reminder had the title; nothing written) or `intent` (written by `act` just before a Reminders
+  write, with the same `id` as the outcome line after it: a value it tried is Life's, never his). `madeBy`: `session`
+  (a Claude session), `connector` (a chat, Atlas's updates and replies), `watch` (the watcher: a "hey Atlas" heard; a
+  nudge or a steer until 20 Oct) or `reminders` (his own change in Reminders, with no `instruction`: state, never his
+  words; on a task, an `update` closing it because he ticked or removed its receipt). Intents and imports are left out
+  of `day`'s and the nightly's Actions and of the change feed.
 - Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
   `modelMs` and `actMs`, and a model as `madeBy`; they still parse.
 

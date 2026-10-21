@@ -4,13 +4,17 @@ import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
+import { ACTIONS, appendJsonl, readActions } from "./memory/ledger";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
+import { marks, push } from "./reminders/board";
+import { inbound } from "./reminders/inbound";
+import { checks, pull } from "./reminders/remctl";
+import { Action } from "./schema";
 import { serveConnector } from "./server";
 import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
-import { checks, push } from "./sync";
-import { chase, receipts, tasksOf } from "./tasks";
+import { chase, closings, receipts, tasksOf } from "./tasks";
 import { ROOT } from "./truth";
 import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
@@ -20,20 +24,40 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey Atlas": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
-// mirrors them on his board (src/sync.ts); `deliver` pushes the asks not yet delivered to Atlas (src/events.ts).
+// mirrors them on his board (src/reminders); `deliver` pushes the asks not yet delivered to Atlas (src/events.ts).
 // Every 2 minutes it also heals the Mac's tunnel (src/tunnel.ts).
 
 const MIN = 60_000;
 let last = 0;
-/** At most each minute: the chase (from the ledger alone, so a Reminders outage stops no email), then the board. */
+let ticking = false;
+/** At most each minute, one at a time, beside the loop (reading his lists takes about 10 s): the chase, then Reminders both ways. */
 async function tick(now = clock().getTime()) {
-  if (now - last < MIN) {
+  if (ticking || now - last < MIN) {
     return;
   }
   last = now;
-  const tasks = tasksOf();
-  await chase(tasks, now);
-  await push(receipts(tasks, now));
+  ticking = true;
+  await pass(now).finally(() => {
+    ticking = false;
+  });
+}
+
+async function pass(now: number) {
+  await chase(tasksOf(), now);
+  // Reminders both ways (src/reminders): one read, his changes recorded as state, then the board brought in line. `at`
+  // is taken before the read: what Life writes during it falls in the lag window.
+  const at = clock().toISOString();
+  const read = performance.now();
+  const s = await pull();
+  log("sync.pull", { ms: Math.round(performance.now() - read) });
+  const lines = [
+    ...inbound(s, readActions(), at),
+    ...closings(tasksOf(), marks(s), at),
+  ];
+  if (lines.length > 0) {
+    appendJsonl(ACTIONS, Action, lines);
+  }
+  await push(receipts(tasksOf(), now), s.board);
 }
 
 const WAIT_S = 60;
@@ -241,7 +265,7 @@ export async function watch(): Promise<number> {
       await deliver().catch((e: Error) =>
         log("run.error", { error: e.message, step: "events.deliver" })
       );
-      await tick().catch((e: Error) =>
+      tick().catch((e: Error) =>
         log("run.error", { error: e.message, step: "tasks.tick" })
       );
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
