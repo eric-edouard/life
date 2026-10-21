@@ -49,7 +49,7 @@ import {
   parsePage,
   renderLine,
 } from "./page";
-import { asData, chatHits, holdsAll } from "./raw";
+import { asData, chatHits, focus, holdsAll } from "./raw";
 import { actionLine } from "./report";
 import {
   clip,
@@ -304,7 +304,7 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
               h.jobId,
               h.firstTurn
             );
-            return `- ${h.conversationId} ${at} turn ${turn}: ${clip(redact(h.text.replace(/\s*\n\s*/g, " / ")), VOICE_MAX)}`;
+            return `- ${h.conversationId} ${at} turn ${turn}: ${focus(redact(h.text), words, VOICE_MAX).replace(/\s*\n\s*/g, " / ")}`;
           })
         : ["(nothing found)"]
     );
