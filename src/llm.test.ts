@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   askOnce,
+  codexTokens,
   extractJson,
   llmOverride,
   quotaOf,
@@ -308,4 +309,30 @@ test("the bench's one call with tools: Life's connector only, read-only; codex k
       .filter((a) => a.startsWith("mcp_servers."))
       .every((a) => a.startsWith("mcp_servers.life."))
   ).toBe(true);
+});
+
+test("codex's tokens: each turn.completed's usage, summed; other lines ignored", () => {
+  const turn = (input: number, cached: number, output: number) =>
+    JSON.stringify({
+      type: "turn.completed",
+      usage: {
+        cached_input_tokens: cached,
+        input_tokens: input,
+        output_tokens: output,
+        reasoning_output_tokens: 0,
+      },
+    });
+  const events = [
+    '{"type":"thread.started","thread_id":"t"}',
+    turn(21_195, 12_288, 9),
+    "not json",
+    turn(5, 0, 1),
+    "",
+  ].join("\n");
+  expect(codexTokens(events)).toEqual({
+    cached: 12_288,
+    input: 21_200,
+    output: 10,
+  });
+  expect(codexTokens("")).toEqual({ cached: 0, input: 0, output: 0 });
 });

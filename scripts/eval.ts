@@ -15,10 +15,9 @@ import {
   OUT,
   ratedFacts,
   readUnits,
-  runId,
   SCORES,
 } from "../src/memory/ledger";
-import { chunks, inBatches } from "../src/memory/run";
+import { chunks, inBatches, record } from "../src/memory/run";
 import { type Claim, claimsNow } from "../src/memory/statements";
 import { type Grade, judge, tally } from "../src/memory/tally";
 import { Score } from "../src/schema";
@@ -41,7 +40,9 @@ const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
     keep(c) ? [{ date: c.date, id: c.claim, text: c.text }] : []
   );
 
-const run = runId(clock());
+// Recorded, so what the judge's calls spent of his Codex plan is in its run (`use`).
+const rec = record("eval", { args: process.argv.slice(2) });
+const { run } = rec;
 const DIR = join(OUT, "evals", run);
 /** Rated statements per judge call. */
 const PER_CALL = 30;
@@ -141,3 +142,4 @@ console.log(
         ...rows,
       ].join("\n")
 );
+await rec.end({ ...t.counts });

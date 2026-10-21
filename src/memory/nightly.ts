@@ -26,6 +26,7 @@ import {
   recordState,
   turnOf,
 } from "./guard";
+import { runs } from "./history";
 import { newSince, readActions } from "./ledger";
 import { moments } from "./moments";
 import { placed } from "./page";
@@ -40,7 +41,14 @@ import {
   successReport,
 } from "./report";
 import { codeOn, mapRepos } from "./repos";
-import { commitMemory, phases, type RunRecord, record } from "./run";
+import {
+  commitMemory,
+  phases,
+  type RunRecord,
+  record,
+  type Use,
+  useText,
+} from "./run";
 import { reindex } from "./search";
 import { daysBefore, gather, lastDays, localTime, type Window } from "./units";
 import { observationsNow, readPeople } from "./who";
@@ -271,10 +279,10 @@ async function sweep(
     }
     phase.at = "index";
     await reindex();
-    rec.end({ outcome: "ok" });
+    await rec.end({ outcome: "ok" });
     return 0;
   } catch (e) {
-    rec.end(phase.failed(e));
+    await rec.end(phase.failed(e));
     return 1;
   }
 }
@@ -308,6 +316,25 @@ async function whatIsNew(since: string, from: string) {
       (s) => ids.has(s.by) && s.by !== s.observation
     ).length,
   };
+}
+
+/** What this night, and the middays and backfill weeks of the 24 h before it, spent of his Codex plan: a line each. */
+async function spent(rec: RunRecord) {
+  const since = new Date(rec.now.getTime() - DAY_MS).toISOString();
+  const { items } = await runs({
+    limit: 20,
+    steps: ["memory.midday", "memory.backfill"],
+  });
+  const earlier = items
+    .filter((r) => (r.startedAt ?? "") >= since && r.result?.use)
+    .reverse();
+  return [
+    ...earlier.map(
+      (r) =>
+        `Codex use, ${r.step.replace("memory.", "")} of ${localTime(r.startedAt ?? "")}: ${useText(r.result?.use as Use)}`
+    ),
+    `Codex use, this night: ${useText(await rec.use())}`,
+  ];
 }
 
 async function runNight(days: number, now: Date, day: string, force: boolean) {
@@ -358,6 +385,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       quota: quotaLine(await quota()),
       repos,
       retired,
+      spent: await spent(rec),
       watcher,
     });
     listed = facts.map((f) => f.id);
@@ -366,7 +394,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     mail = failureReport(day, rec.ms(), failure.failedAt, failure.error);
   }
   const { attempts } = recordState(day, !failure);
-  rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
+  await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
     const id = await sendReport(`nightly/${rec.run}`, mail);
     console.log(id ? `report emailed: ${id}` : "report email not sent");

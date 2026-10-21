@@ -15,13 +15,14 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
-import { clock, FROZEN } from "../src/clock";
+import { FROZEN } from "../src/clock";
 import { nextEvent, parse } from "../src/events";
 import { askOnce, llmFor } from "../src/llm";
 import { recentEvents } from "../src/log";
 import { buildServer } from "../src/mcp";
 import { spareQuota } from "../src/memory/guard";
-import { ACTIONS, linesOf, OUT, runId } from "../src/memory/ledger";
+import { ACTIONS, linesOf, OUT } from "../src/memory/ledger";
+import { record } from "../src/memory/run";
 import { judge, tally } from "../src/memory/tally";
 import { localDate, zoneAt } from "../src/memory/zones";
 import { exec, git, gitOut } from "../src/proc";
@@ -299,7 +300,9 @@ async function bench(file: string, only: string[], engine: Engine) {
   }
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-atlas-"));
   const code = join(tmp, "code");
-  const run = runId(clock());
+  // Recorded, so what the agent's calls spent of his Codex plan is in its run (`use`).
+  const rec = record("bench.atlas", { cases: cases.length, engine });
+  const { run } = rec;
   const lines = linesOf(ACTIONS);
   try {
     await checkout(code, ["node_modules", ".env", "derived/settings.json"]);
@@ -324,6 +327,7 @@ async function bench(file: string, only: string[], engine: Engine) {
         : `${engine}: a harness check, not Atlas's result`;
     console.log(table(rows, `${run}, ${what}, code ${head}`));
   } finally {
+    await rec.end({});
     git(ROOT, ["worktree", "remove", "--force", code]);
     await rm(tmp, { force: true, recursive: true });
   }
