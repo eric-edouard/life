@@ -285,7 +285,11 @@ async function sweep(
  * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
  * (`placed`), and the retirements those new observations made.
  */
-async function whatIsNew(since: string, from: string) {
+async function whatIsNew(
+  since: string,
+  from: string,
+  marks: Awaited<ReturnType<typeof extract>>["marks"]
+) {
   const people = await readPeople();
   const { all, observations, standing } = await observationsNow(people);
   const isNew = newSince(all, since);
@@ -304,6 +308,16 @@ async function whatIsNew(since: string, from: string) {
           : []
       )
     ),
+    // Each "hey Life" since `since` with the observations citing its lines: a miss shows the next morning.
+    marked: marks
+      .filter((m) => m.at >= since)
+      .map((m) => {
+        const held = observations.filter((o) => m.refs.includes(o.source.ref));
+        return {
+          name: `${localTime(m.at)}${m.confidence === "low" ? " · unattributed" : ""}`,
+          relation: `“${m.quote}” → ${held.length > 0 ? held.map((o) => o.text).join(" · ") : "nothing held"}`,
+        };
+      }),
     observed: fresh.length,
     retired: [...standing.retired.values()].filter(
       (s) => ids.has(s.by) && s.by !== s.observation
@@ -334,7 +348,11 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const extracted = await phase.step("extract", () => extract(evidence));
     // Who is close decides who has a page: judged before the pages and the report's homes.
     await phase.step("closeness", () => closeness());
-    const { facts, observed, retired } = await whatIsNew(since, window.from);
+    const { facts, marked, observed, retired } = await whatIsNew(
+      since,
+      window.from,
+      extracted.marks
+    );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
     phase.at = "index";
     await reindex();
@@ -353,6 +371,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       facts,
       files: evidence.files,
       from: window.from,
+      marked,
       moments: found,
       observed,
       paged,

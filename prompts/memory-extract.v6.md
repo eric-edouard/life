@@ -23,7 +23,7 @@ The user message is one JSON object with `moments` and `prior`.
 - Each unit has `id`, `source` (lifelog, whatsapp, beeper, imessage, mail, notes), `title`, `people`, `triage` (why an
   earlier step kept it), and `lines`. Each line reads `[n] YYYY-MM-DD HH:MM who: text`: `n` is the line number within its
   unit, the date and time are when it was said or written (local), `who` is `me` (the owner), a person id from the map, a
-  name, or a label like `speaker_1` or `+66…` for someone not identified. In a 1:1 chat, the unit's `people` say who
+  name, or a label like `speaker_1` or `+66…` for someone not identified; `(marked)` after it: see "Marked lines". In a 1:1 chat, the unit's `people` say who
   the other person is. A line like `[photo …, described by Life: … | text: …]` is a file the message carried: after
   `described by Life:` is Life's own description, after `text:` the words read off the file. Quote it as evidence of
   what was sent, never as what someone said.
@@ -77,6 +77,12 @@ Skip small talk, greetings, logistics that are already over ("I'm here", "ok"), 
 or video audio, and anything the moment already says (who met whom, when and where). A moment may give zero
 observations: an ordinary coffee needs none. Write the facts worth finding again beyond the moment: what was decided,
 promised, owed, learned about someone, a number, a date that matters. Most moments give zero to five.
+
+**Marked lines.** A lifelog line shown `who (marked):` is one where the owner said "hey Life" (or went on right
+after it): he asked Life to remember what he says there. Write every fact in a marked line, however small (a reason,
+a price, who said what, an idea he is only weighing, as `idea`), even when the moment already says it or the rest of the unit
+is small talk. An ask in them (remind me, tell someone, log this) is a `todo`. The other rules still hold: quote
+exactly, and never take an AI or TV voice for him.
 
 **Plans and conditionals.** What someone will do is a fact only when it is settled ("je pars à 5h", a booking). A plan
 replaced later in the moment is not written; write the final one. Conditional talk ("si on…", "on pourrait",

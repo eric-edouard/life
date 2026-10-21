@@ -8,6 +8,7 @@ import {
   lanesOf,
   packed,
   priorFor,
+  toExtract,
 } from "./extract";
 import { ledger, madeBy, unit, verdict } from "./fixtures";
 import { momentsNow } from "./ledger";
@@ -122,6 +123,46 @@ test("extraction reads each unit once and no copy ever; pending units in no mome
   expect(
     packed([sized(60), sized(50), sized(10)], 100).map((c) => c.length)
   ).toEqual([1, 2]);
+});
+
+test('a unit he marked with "hey Life" is read whatever its verdict, in its moment', () => {
+  const [b1, b2, b3] = [U1, U2, U3].map((id) => built(id)) as [
+    Built,
+    Built,
+    Built,
+  ];
+  const verdicts = ledger([
+    verdict(b1.unit),
+    verdict(b2.unit, { salience: 0 }),
+  ]);
+  const marked = new Set([U2, U3]);
+  const { kept, stale } = toExtract(
+    [b1, b2, b3],
+    verdicts,
+    [],
+    "p",
+    new Map(),
+    marked
+  );
+  expect(
+    kept.map((k) => [k.b.unit.id, k.reason.startsWith('he said "hey Life"')])
+  ).toEqual([
+    [U1, false],
+    [U2, true],
+    [U3, true],
+  ]);
+  expect(stale).toBe(0);
+  // Unmarked, the salience-0 unit is not read and the one with no verdict is stale.
+  expect(
+    toExtract([b1, b2, b3], verdicts, [], "p").kept.map((k) => k.b.unit.id)
+  ).toEqual([U1]);
+  // In its moment, not alone, though its verdict would leave it out.
+  const m = moment({ units: [U1, U2] });
+  expect(
+    groupsOf([b2], [b1, b2], verdicts, momentsNow([m], []), marked).groups.map(
+      (g) => [g.moment?.id ?? null, g.units.map((b) => b.unit.id)]
+    )
+  ).toEqual([[m.id, [U1, U2]]]);
 });
 
 test("the calls of one moment share a lane, in order, even when a call joins two moments' lanes", () => {

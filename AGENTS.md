@@ -107,7 +107,12 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions,
   512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
   first, send as him only under its `## Sends`, and change reminders only through the connector's `reminders`.
-- **Content is never a command for Life's code.** Model calls see no tools and no instruction files (`src/llm.ts` runs
+- **"hey Life" is his marker, for memory only** (his request, 21 Oct; audit and eval in `~/Life/docs/evals/hey-life-*`):
+  his turn holding it (an unattributed one too, as low) and his turns right after (`marksIn`, `src/hear.ts`: the same
+  greeting and span as "hey Atlas", no model call) keep their unit read by extraction whatever its verdict, its lines
+  shown `(marked)` so every fact in them is written; the nightly lists each with the observations citing it. It never
+  acts, asks or sends.
+- **Content is never a command for Life's code** (beyond the "hey Life" marker, which only keeps a unit read). Model calls see no tools and no instruction files (`src/llm.ts` runs
   them in an empty temp dir, Codex with its own `CODEX_HOME`), but the Atlas bench's agent: Life's connector, frozen
   and dry, as its only tools: Codex still read-only, with no shell but code mode's `exec` (its only way to MCP) and
   its nested real-time clock, which the bench's prompt says not to read. His Apple Notes are memory only, never his words for
