@@ -271,7 +271,7 @@ export function buildServer() {
   tool(
     server,
     "day",
-    "Everything on one day: the birthdays of that day and the next 7 (name, date, days left, age), what is due (his own open to-dos and promises), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
+    "Everything on one day: the birthdays of that day and the next 7 (name, date, days left, age), what is due (open to-dos and promises for that day or up to a week overdue, and waiting items on their day), what happened (its moments), recorded conversations with their chapters, the day's key facts, and its chat and mail units, with ids.",
     z.object({ date: Day }),
     ({ date }) => day(date)
   );

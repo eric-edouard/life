@@ -358,8 +358,9 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises due that d
       loop("obs_000000000009", { type: "news" }),
       // His promise whose quote opens with the other's request is still his to keep.
       loop("obs_000000000010", { speaker: "person:jean", type: "promise" }),
-      // Late: 3 days overdue is listed (labelled), 8 days is not.
+      // Late: 3 and 7 days overdue are listed (labelled), 8 days is not.
       loop("obs_000000000011", { when: "2026-10-16" }),
+      loop("obs_000000000015", { when: "2026-10-12" }),
       loop("obs_000000000012", { when: "2026-10-11" }),
       // What he waits on from someone: on its day only.
       loop("obs_000000000013", { speaker: "person:jean", type: "waiting" }),
@@ -370,6 +371,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises due that d
   );
   const lines = dueOn(new Database(path, { readonly: true }), "2026-10-19");
   expect(lines.map((l) => l.split(" ")[1])).toEqual([
+    "obs_000000000015",
     "obs_000000000011",
     "obs_000000000001",
     "obs_000000000002",
@@ -378,10 +380,11 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises due that d
     "obs_000000000013",
   ]);
   expect(lines.filter((l) => l.endsWith(" (overdue)"))).toEqual(
-    lines.slice(0, 1)
+    lines.slice(0, 2)
   );
   // Who spoke, when not him: "by" a sender, "heard as" a voice (lifelog misnames some).
   expect(lines.map((l) => l.match(SAID_BY)?.[0] ?? "")).toEqual([
+    "",
     "",
     "",
     " by jean",
