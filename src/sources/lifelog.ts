@@ -157,6 +157,9 @@ async function call(
   return (await res.json()) as unknown;
 }
 
+/** lifelog's own `GET /status`: the Pendant and the phone as the phone last reported them (the status page reads it). */
+export const lifelogStatus = () => call("/status", 15);
+
 /** The store's file in `dir` and its cursor's. */
 export const storeFiles = (dir = WATCH) => ({
   cursor: join(dir, "cursor.json"),
