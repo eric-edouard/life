@@ -93,13 +93,15 @@ export const openOf = (r: Reminder) => ({
 export const readable = (title: string, list?: string) =>
   title !== BOARD && (list === undefined || title === list);
 
-/** His lists read for both reads below: `readable` ones, not groups. */
-async function listsOf(list?: string) {
-  const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
-    ["lists"]
-  );
-  return lists.filter((l) => !l.isGroup && readable(l.title, list));
-}
+/** His lists, not groups. */
+const hisLists = async () =>
+  (
+    await remctl<{ id: number; isGroup: boolean; title: string }[]>(["lists"])
+  ).filter((l) => !l.isGroup);
+
+/** His lists read for both reads below: `readable` ones. */
+const listsOf = async (list?: string) =>
+  (await hisLists()).filter((l) => readable(l.title, list));
 
 /** Every open top-level reminder, of one list or all, never the board: the connector's `open_reminders`. */
 export async function openReminders(list?: string) {
@@ -133,4 +135,37 @@ export async function checks() {
   } catch (e) {
     return [`Reminders: ${(e as Error).message}`];
   }
+}
+
+/** What one pass reads: his unshared lists' reminders (ticked too), the board's, and Recently Deleted. */
+export interface Snapshot {
+  board: Reminder[];
+  deleted: Reminder[];
+  live: Reminder[];
+  /** His shared lists, never read: a reminder Life knows there is left alone. */
+  shared: string[];
+}
+
+/** One read for the minute pass (board.ts, inbound.ts): every list but a shared one, ticked items too, then Recently Deleted. */
+export async function pull(): Promise<Snapshot> {
+  const mine = await hisLists();
+  const shared = await Promise.all(
+    mine.map((l) => l.title !== BOARD && isShared(l.title))
+  );
+  const rows = await Promise.all(
+    mine.map((l, i) =>
+      shared[i]
+        ? []
+        : remctl<Reminder[]>(["show", "--list-id", `${l.id}`, "--completed"])
+    )
+  );
+  // After the lists: a reminder he removes meanwhile is live or in the bin, never neither.
+  const bin = await remctl<{ items: Reminder[] }>(["deleted"]);
+  const all = rows.flat();
+  return {
+    board: all.filter((r) => r.list === BOARD),
+    deleted: bin.items,
+    live: all.filter((r) => r.list !== BOARD),
+    shared: mine.filter((_, i) => shared[i]).map((l) => l.title),
+  };
 }

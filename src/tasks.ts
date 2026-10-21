@@ -525,7 +525,7 @@ export function wantOf(t: Task): Receipt {
 export const receipts = (tasks: Task[], now: number) =>
   tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
 
-/** His tick or removal of an open task's receipt (`marks`, src/reminders/inbound.ts) closes it, done or dropped (decision 17): it only takes work away. */
+/** His tick or removal of an open task's receipt (`marks`, src/reminders/board.ts) closes it, done or dropped (decision 17): it only takes work away. */
 export const closings = (
   tasks: Task[],
   marks: Map<string, "removed" | "ticked">,
