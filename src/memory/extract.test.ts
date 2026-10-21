@@ -137,9 +137,9 @@ test('a unit he marked with "hey Life" is kept whatever its salience, once it ha
   ]);
   const mark = {
     at: "2026-10-15T10:25:00.000Z",
-    confidence: "high",
+    confidence: "high" as const,
     conversation: "conv-1",
-    ref: "j:1@x",
+
     refs: ["j:1@x"],
   };
   const v = lifted(verdicts, [b1, b2, b3], [mark]);

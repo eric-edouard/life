@@ -2,6 +2,7 @@ import { clock } from "./clock";
 import { clip } from "./memory/units";
 import {
   type ChapterTurn,
+  markRows,
   readTranscript,
   type Store,
   speechSeconds,
@@ -46,7 +47,7 @@ export const CLOSED_ON_SILENCE_S = 60;
 /** How long a wake with no speaker waits for lifelog to name him (70% of recordings within 10 s, 5% more by 40 s). */
 const NAMING_MS = 40_000;
 
-type Confidence = "high" | "low";
+export type Confidence = "high" | "low";
 
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn): Confidence | undefined {
@@ -134,6 +135,33 @@ export function whose(t: ChapterTurn): Turn["who"] {
   return t.personId || t.name ? "other" : "unknown";
 }
 
+/** His "hey Life" span, as the store has it now (`marksNow`). */
+export interface Mark {
+  at: string;
+  confidence: Confidence;
+  conversation: string;
+  refs: string[];
+}
+
+/**
+ * The marks the hearing recorded, as their wake turns stand now: in the conversation lifelog has them in, his (high)
+ * or unattributed (low); one whose wake lifelog has since given to someone else, or dropped, is gone.
+ */
+export const marksNow = (store: Store): Mark[] =>
+  markRows(store).flatMap(({ conversation, refs, turn }) => {
+    const who = whose(turn);
+    return who === "other"
+      ? []
+      : [
+          {
+            at: turn.at,
+            confidence: who === "me" ? "high" : "low",
+            conversation,
+            refs,
+          },
+        ];
+  });
+
 /**
  * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's or
  * ends a recording lifelog closed on silence (no turn of an ask can follow), else `open` (the next recording may go
@@ -200,10 +228,9 @@ export async function hear(
     conversation,
     from,
     marksIn(turns, from).map((m) => ({
-      at: m.at,
-      confidence: m.confidence,
-      ref: m.ref,
+      jobId: all[m.turns[0] ?? 0]?.jobId ?? "",
       refs: m.turns.map((i) => turns[i]?.ref ?? m.ref),
+      turnIndex: all[m.turns[0] ?? 0]?.turnIndex ?? 0,
     }))
   );
   // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.

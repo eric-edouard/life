@@ -5,6 +5,7 @@ import {
   hear,
   MARK,
   marksIn,
+  marksNow,
   speechIn,
   type Turn,
   WAKE,
@@ -17,7 +18,7 @@ import {
   lifelogStore,
   page,
 } from "./sources/fixtures";
-import { apply } from "./sources/lifelog";
+import { apply, writeMarks } from "./sources/lifelog";
 import { tasksOf } from "./tasks";
 
 test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
@@ -335,4 +336,34 @@ test('a "hey Life" span is his (high) or unattributed (low), never someone else\
   // A "hey Life" is never an ask, and a "hey Atlas" never a mark.
   expect(asksIn(turns, "")).toEqual([]);
   expect(marksIn([turn(0, "me", "hey Atlas, book it")], "")).toEqual([]);
+});
+
+test("a mark is its wake turn as lifelog has it now: re-cut into another conversation, named, or gone", () => {
+  const db = lifelogStore();
+  const row = (job: string, i: number, owner: number) =>
+    db.db.run(
+      "insert into turns (job_id, turn_index, conversation_id, start_at, is_owner) values (?, ?, 'c1', ?, ?)",
+      [job, i, `2026-10-15T10:0${i}:00.000Z`, owner]
+    );
+  row("j", 0, 1);
+  row("j", 1, 0);
+  writeMarks(db, "c1", "", [
+    { jobId: "j", refs: ["j:0@a", "j:1@a"], turnIndex: 0 },
+    { jobId: "j", refs: ["j:1@a"], turnIndex: 1 },
+  ]);
+  expect(
+    marksNow(db).map((m) => [m.conversation, m.confidence, m.refs])
+  ).toEqual([
+    ["c1", "high", ["j:0@a", "j:1@a"]],
+    ["c1", "low", ["j:1@a"]],
+  ]);
+  // lifelog re-cut the conversation and named the unattributed speaker: the first moves, the second is gone.
+  db.db.run("update turns set conversation_id = 'c2'");
+  db.db.run("update turns set person_id = 'p1' where turn_index = 1");
+  expect(marksNow(db).map((m) => [m.conversation, m.confidence])).toEqual([
+    ["c2", "high"],
+  ]);
+  // Heard again from 10:00, with no mark now: the conversation's marks from then on go.
+  writeMarks(db, "c2", "2026-10-15T10:00:00.000Z", []);
+  expect(marksNow(db)).toEqual([]);
 });

@@ -3,7 +3,7 @@ import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { readHealth } from "../health";
-import { titleOf } from "../hear";
+import { type Mark, marksNow, titleOf } from "../hear";
 import { quota } from "../llm";
 import { log, recentEvents } from "../log";
 import {
@@ -12,7 +12,7 @@ import {
   isTaskLine,
   type Observation,
 } from "../schema";
-import { type Mark, marksBetween, withStore } from "../sources/lifelog";
+import { withStore } from "../sources/lifelog";
 import { taskList, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract, markedUnits } from "./extract";
@@ -294,13 +294,9 @@ async function sweep(
 }
 
 /**
- * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`) and about
- * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
- * (`placed`), and the retirements those new observations made.
- */
-/**
  * Each "hey Life" whose unit an extract run read since `since` (midday ones too), with the observations citing its
- * lines, or "nothing held": a miss shows the next morning.
+ * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
+ * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
  */
 export function markedSince(
   marks: Mark[],
@@ -327,6 +323,11 @@ export function markedSince(
   });
 }
 
+/**
+ * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`) and about
+ * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
+ * (`placed`), and the retirements those new observations made.
+ */
 async function whatIsNew(since: string, from: string, built: Built[]) {
   const people = await readPeople();
   const { all, observations, standing } = await observationsNow(people);
@@ -347,7 +348,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
       )
     ),
     marked: markedSince(
-      await withStore((store) => marksBetween(store)),
+      await withStore(marksNow),
       built,
       rowsOf(EXTRACTED, Extracted),
       since,
