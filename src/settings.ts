@@ -26,7 +26,7 @@ export const Settings = z
      */
     agent: z
       .object({
-        client: z.string().optional(),
+        client: z.string(),
         misheard: z.array(z.string()).default([]),
         name: z.string(),
         /** How asks reach it: pushed as the MCP event `ask` (ChatGPT), or pulled by its own `tasks` calls (Claude). */

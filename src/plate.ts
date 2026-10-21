@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { archiveFailing, keptStores } from "./archive";
 import { backupOld, backupOn, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
-import { AGENT, agentLive, clientName, deliveryState, isAgent } from "./events";
+import { agentLive, clientName, deliveryState, isAgent } from "./events";
 import { readHealth } from "./health";
 import type { Call } from "./log";
 import { type LogEvent, recentEvents } from "./log";
@@ -26,7 +26,7 @@ import { clip } from "./memory/units";
 import { git } from "./proc";
 import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
-import { settings } from "./settings";
+import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
 import {
   type Descriptor,
@@ -346,18 +346,13 @@ async function reads(now: Date) {
     cached("remctl", 60_000, checks),
     newestOf(),
   ]);
-  const mcpCalls = since(
-    log.filter((e) => e.kind === "mcp.call"),
-    2 * DAY,
-    t
-  );
   const of = (kind: string, days: number) =>
     since(
       log.filter((e) => e.kind === kind),
       days * DAY,
       t
     );
-  const mcp = mcpCalls;
+  const mcp = of("mcp.call", 2);
   return {
     actions,
     agentLive: await agentLive(t, async () => mcp as Call[]),
@@ -964,7 +959,7 @@ function atlasCards(r: Reads): Card[] {
       ...(live
         ? { tone: "ok", word: pulls ? "checking in" : "subscribed" }
         : {
-            ask: ASK(`that ${AGENT} isn't receiving asks`),
+            ask: ASK(`that ${agentName()} isn't receiving asks`),
             tone: "bad",
             word: pulls ? "not checking in" : "no subscription",
           }),
@@ -982,7 +977,7 @@ function atlasCards(r: Reads): Card[] {
       group: "outputs",
       headline: live ? "receiving asks" : "not receiving asks",
       id: "atlas",
-      name: AGENT,
+      name: agentName(),
     },
     {
       ...firstOf(
@@ -1003,7 +998,7 @@ function atlasCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${tasks.length} open`,
       id: "tasks",
-      name: `${AGENT} tasks`,
+      name: `${agentName()} tasks`,
     },
   ];
 }
