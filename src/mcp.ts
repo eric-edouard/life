@@ -1,16 +1,7 @@
 import { join } from "node:path";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import {
-  Asked,
-  actAsked,
-  actGranted,
-  Change,
-  Granted,
-  openOf,
-  openReminders,
-  sectionsOf,
-} from "./actions";
+import { Asked, actAsked, actGranted, Change, Granted } from "./actions";
 import {
   ISSUER,
   METADATA,
@@ -29,7 +20,6 @@ import {
   Unsubscribe,
   unsubscribe,
 } from "./events";
-import { titleOf } from "./hear";
 import { text } from "./http";
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
@@ -42,12 +32,14 @@ import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
 import { type Action, ObservationId } from "./schema";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
+import { openOf, openReminders, sectionsOf } from "./sync";
 import {
   closed,
   Reply,
   reply,
   sealed,
   taskList,
+  titleOf,
   Update,
   update,
 } from "./tasks";

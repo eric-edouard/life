@@ -1,13 +1,12 @@
-import { checks } from "../actions";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { readHealth } from "../health";
-import { titleOf } from "../hear";
 import { quota } from "../llm";
 import { log, recentEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
-import { taskList, unanswered } from "../tasks";
+import { checks } from "../sync";
+import { taskList, titleOf, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
