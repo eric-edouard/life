@@ -241,10 +241,9 @@ test("the dashboard reads: refused without the owner's token, JSON with it", asy
     (await call(await token({ sub: "someone" }), "changes")).res.status
   ).toBe(403);
   const { json } = await call(await token(), "status");
-  expect(json.result.isError).toBe(false);
-  expect(json.result.structuredContent.observedAt).toBe(
-    JSON.parse(json.result.content[0].text).observedAt
-  );
+  expect(json.result).toMatchObject({ isError: false });
+  expect(json.result.structuredContent).toBeUndefined();
+  expect(JSON.parse(json.result.content[0].text).observedAt).toBeString();
   const bad = await call(await token(), "changes", { cursor: "nope" });
   expect(bad.json.result).toMatchObject({ isError: true });
 });
@@ -355,7 +354,9 @@ test("tasks hands out the playbook, docs/atlas.md, with its seal, his goals and 
   } finally {
     rmSync(ACTIONS, { force: true });
   }
-  const { goals, playbook, seal, tasks } = json.result.structuredContent;
+  const { goals, playbook, seal, tasks } = JSON.parse(
+    json.result.content[0].text
+  );
   expect(playbook).toBe(
     readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
   );
@@ -438,7 +439,7 @@ test("server/discover offers events and events/list one event, ask; a subscribe 
   expect(res.status).toBe(401);
 });
 
-test("the server is named Life, carries its icons, and its instructions open with the pointer to Atlas's playbook, not a copy", async () => {
+test("the server is named Life, carries its icons, and its instructions open with the pointer to Atlas's playbook, not a copy, in 512 characters at most", async () => {
   const { json } = await rpc(await token(), "initialize", {
     capabilities: {},
     clientInfo: { name: "test", version: "1" },
@@ -450,6 +451,7 @@ test("the server is named Life, carries its icons, and its instructions open wit
     "Atlas: call `tasks` first; its `playbook` field is your instructions."
   );
   expect(instructions).not.toContain("# Atlas: the playbook");
+  expect(instructions.length).toBeLessThanOrEqual(512);
   expect(
     json.result.serverInfo.icons.map((i: { src: string }) => i.src)
   ).toEqual([
