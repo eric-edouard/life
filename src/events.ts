@@ -7,7 +7,7 @@ import { clock, unfrozen } from "./clock";
 import { type Call, log } from "./log";
 import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
-import { ROOT } from "./truth";
+import { STATE } from "./truth";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
 // subscriber, his ChatGPT agent Atlas. The connector answers events/list|subscribe|unsubscribe (src/mcp.ts); the
@@ -15,7 +15,7 @@ import { ROOT } from "./truth";
 // after it, and derived/events.json (mode 600: it holds the signing secret) keeps the subscription and how far it was
 // delivered, so a restart or a retry loses nothing.
 
-const STATE = join(ROOT, "derived", "events.json");
+const SUBSCRIPTION = join(STATE, "events.json");
 /** The lifetime granted when none or a longer one is asked for. */
 const TTL_MS = 30 * 24 * 3_600_000;
 /** A verified callback is not challenged again for a day. */
@@ -112,13 +112,15 @@ export interface State {
 }
 
 export const deliveryState = (): State =>
-  existsSync(STATE)
-    ? JSON.parse(readFileSync(STATE, "utf8"))
+  existsSync(SUBSCRIPTION)
+    ? JSON.parse(readFileSync(SUBSCRIPTION, "utf8"))
     : { attempts: 0, delivered: linesOf(ACTIONS).length };
 
 function writeState(s: State) {
-  writeFileSync(STATE, `${JSON.stringify(s, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(STATE, 0o600);
+  writeFileSync(SUBSCRIPTION, `${JSON.stringify(s, null, 2)}\n`, {
+    mode: 0o600,
+  });
+  chmodSync(SUBSCRIPTION, 0o600);
 }
 
 /** A Standard Webhooks signature: HMAC-SHA256 of `id.timestamp.body` with the secret's key. */
