@@ -3,6 +3,7 @@ import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { readHealth } from "../health";
 import { titleOf } from "../hear";
+import { quota } from "../llm";
 import { recentEvents } from "../log";
 import { type Action, isTaskLine } from "../schema";
 import { taskList } from "../tasks";
@@ -16,6 +17,7 @@ import {
   lockedSince,
   MAX_ATTEMPTS,
   middayDue,
+  quotaLine,
   readBackfill,
   readMidday,
   readState,
@@ -106,7 +108,8 @@ export async function archiveLine(since: string) {
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (guard.ts), and
  * only the 3rd failure of a day sends the failure email. What a tick runs is `turnOf`'s: the night, else the midday
- * pass (moments, extract, pages) when its slot is open, else a backfill week. Then the daily backup, when it is due
+ * pass (moments, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
+ * (`reserved`), read each tick. Then the daily backup, when it is due
  * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
@@ -136,7 +139,9 @@ export async function nightly(days: number, force = false) {
     midday: readMidday(),
     night: readState(),
   });
-  const turn = force ? "night" : turnOf(now, day, states());
+  const turn = force
+    ? "night"
+    : turnOf(now, day, { ...states(), quota: await quota() });
   const code =
     turn === "night"
       ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
@@ -311,6 +316,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       moments: found,
       observed,
       paged,
+      quota: quotaLine(await quota()),
       repos,
       retired,
       watcher,

@@ -118,6 +118,7 @@ const night = (facts: number) =>
       model: "codex/m/medium",
       retired: 1,
     },
+    quota: "Codex quota: 40% used, resets 2026-10-27 08:16",
     repos: { suggestions: [] },
     retired: 1,
     watcher: { lastOkAt: new Date().toISOString() },
@@ -143,6 +144,7 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("3m 41s");
   expect(text).toContain("Shop: +2 added, 1 moved to History, 0 removed");
   expect(text).toContain("75%");
+  expect(text).toContain("Codex quota: 40% used");
   expect(text).toContain("Last backup: 2026-10-15 05:00, 5.5 GB");
   expect(text).toContain("Archive: no failure");
   expect(html).not.toMatch(MORE);
