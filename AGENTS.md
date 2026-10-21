@@ -71,7 +71,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below, written only by `src/board.ts`. One standing grant (decision 2 of the 21 Oct review)
   is the only other authority, off until his words in a Claude session turn it on (`bun life grant on|off '<his
-  words>'`, a `grant` line in the ledger, the latest standing): `reminders` with `obs` in place of `said` adds a
+  words>'`, a `grant` line in the ledger, the latest standing; his "stop" may come through Atlas, as off only takes
+  authority away): `reminders` with `obs` in place of `said` adds a
   reminder (title, list, due, section) from his current salience-3 to-do or promise in a lifelog turn the store
   credits to him at that moment, at most 3 a day, one at a time, never on a shared list, and not again once he removed
   one it made through Life, until his next yes (`grantRefusal`, all derived from the ledger); its authority is the
@@ -170,7 +171,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   null and absent field lifelog's contract allows (`apps/server/openapi.json`; `lifelog.test.ts` checks them when
   `~/Work/lifelog` is there), so a contract-valid page never stops the watcher.
 - **Memory data is append-only and expensive:** never hand-edit `memory/` (except appending owner corrections or
-  labels; `actions.jsonl` is `act`'s and the tasks') or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
+  labels; `actions.jsonl` is `act`'s, the tasks' and `setGrant`'s) or wipe it. The dashboard's `changes` cursor counts ledger lines, so a line
   must never move. A change to how unit ids are made ships an old→new map applied to `memory/labels.jsonl` and
   `memory/statements.jsonl` (`units`). Code
   rewrites only `units/` and `moments/<day>.jsonl` (the day's moments, model-owned, read again with the day).
@@ -265,7 +266,7 @@ asks replayed frozen, cases in `~/Life/docs/evals/atlas-bench-cases.json`). Comm
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,
 retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages and the dashboard alike; what is new since a night is `newSince` (a source line first cited), for the email's facts and count; everything
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
-`actions.jsonl`, appended only by `act` (`actions.ts`) and the tasks (`ask`, `update` and `reply`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
+`actions.jsonl`, appended only by `act` and `setGrant` (`actions.ts`) and the tasks (`ask`, `update` and `reply`, `tasks.ts`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
 the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
 the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
