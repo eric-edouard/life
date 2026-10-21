@@ -90,19 +90,21 @@ test("after a 3-day outage, his turns from before it are still heard, once, from
   expect(hearings(pending, [], back + 120_000, open)).toEqual([]);
 });
 
-test("a restart inside the wait hears again his and unattributed turns seen in the 10 minutes before the last poll: the ask is recorded once", async () => {
+test("a restart hears again every turn first seen in the 10 minutes before the newest, even after an outage: the ask is recorded once", async () => {
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: null, text: "hey Atlas, call the bank" },
         { speakerId: null, text: "hey Atlas, buy me a car" },
         { speakerId: null, text: "nice weather" },
+        { speakerId: null, text: "see you" },
       ],
     }),
   });
   const store = lifelogStore();
   const said = "2026-10-19T10:00:00.000Z";
   const seen = Date.parse("2026-10-19T10:00:10.000Z");
+  const iso = (ms: number) => new Date(ms).toISOString();
   apply(
     store,
     page({
@@ -112,13 +114,12 @@ test("a restart inside the wait hears again his and unattributed turns seen in t
         fed(2, said, null, null, "c3"),
       ],
     }),
-    new Date(seen).toISOString()
+    iso(seen)
   );
   const complete = () => "complete" as const;
-  const iso = (ms: number) => new Date(ms).toISOString();
-  /** A watcher started at `now` whose last poll was at `lastPoll`, run until nothing is pending. */
-  const restart = async (lastPoll: number, now: number) => {
-    const pending = resumed(store, iso(lastPoll), now);
+  /** A watcher started at `now`, run until nothing is pending: the conversations it heard again. */
+  const restart = async (now: number) => {
+    const pending = resumed(store, now);
     const keys = [...pending.keys()];
     for (const h of hearings(pending, [], now + 5000, complete)) {
       // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time, as the watcher
@@ -131,17 +132,19 @@ test("a restart inside the wait hears again his and unattributed turns seen in t
     expect(
       hearings(new Map(), [{ at: said, conversation: "c1" }], seen, complete)
     ).toEqual([]);
-    expect(await restart(seen, seen + 30_000)).toEqual(["c1", "c3"]);
-    // Restarted again after it heard them, its last poll 9 min after they were seen: heard again, recorded once.
-    expect(await restart(seen + 9 * 60_000, seen + 9 * 60_000)).toEqual([
-      "c1",
-      "c3",
-    ]);
+    expect(await restart(seen + 30_000)).toEqual(["c1", "c2", "c3"]);
+    // Restarted after it heard them, 30 min of failed polls later (nothing new arrived): heard again, recorded once.
+    expect(await restart(seen + 30 * 60_000)).toEqual(["c1", "c2", "c3"]);
     expect(tasksOf().map((t) => t.ask.instruction.quote)).toEqual([
       "hey Atlas, call the bank",
     ]);
-    // Seen over 10 min before the last poll: long heard, never again.
-    expect(await restart(seen + 11 * 60_000, seen + 11 * 60_000)).toEqual([]);
+    // Seen over 10 min before the newest turn: long heard, never again.
+    apply(
+      store,
+      page({ turns: [fed(3, said, "p-ana", "Ana", "c4")] }),
+      iso(seen + 11 * 60_000)
+    );
+    expect(await restart(seen + 40 * 60_000)).toEqual(["c4"]);
   } finally {
     server.close();
     rmSync(ACTIONS, { force: true });
