@@ -1,38 +1,32 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
-import {
-  CHECK_CLIENT,
-  ISSUER,
-  ORIGIN,
-  RESOURCE,
-  SCOPE,
-  UNREACHABLE,
-  type Verify,
-} from "./auth";
+import { SCOPE, UNREACHABLE, type Verify } from "./auth";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
+import { connector } from "./settings";
 
-// The owner's sign-in for Life's pages (/check/, the status page at /): lifelog's OAuth with PKCE, the token in an
-// HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token. The
-// callback stays /check/callback, the one redirect lifelog knows for this client.
+// The owner's sign-in for Life's pages (/check/, the status page at /): the connector's OAuth server with PKCE, the
+// token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.
+// The callback stays /check/callback, the one redirect the issuer knows for this client.
 
-const CALLBACK = `${ORIGIN}/check/callback`;
 const LOGIN = "__Host-life-login";
 const LOGIN_MAX_S = 600;
 /** Where a sign-in may land: the pages behind it. */
 const PAGES = new Set(["/", "/check/"]);
 
 export function createSignIn(verify: Verify, lifelog: typeof fetch = fetch) {
+  const { client, issuer, origin, resource } = connector();
+  const CALLBACK = `${origin}/check/callback`;
   /** Off to lifelog's sign-in (silent once he is signed in there and consented), with PKCE; back to `next` after. */
   function login(next = "/check/") {
     const state = randomBytes(16).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
-    const url = new URL(`${ISSUER}/oauth2/authorize`);
+    const url = new URL(`${issuer}/oauth2/authorize`);
     url.search = new URLSearchParams({
-      client_id: CHECK_CLIENT,
+      client_id: client,
       code_challenge: createHash("sha256").update(verifier).digest("base64url"),
       code_challenge_method: "S256",
       redirect_uri: CALLBACK,
-      resource: RESOURCE,
+      resource,
       response_type: "code",
       scope: SCOPE,
       state,
@@ -56,14 +50,14 @@ export function createSignIn(verify: Verify, lifelog: typeof fetch = fetch) {
         400
       );
     }
-    const res = await lifelog(`${ISSUER}/oauth2/token`, {
+    const res = await lifelog(`${issuer}/oauth2/token`, {
       body: new URLSearchParams({
-        client_id: CHECK_CLIENT,
+        client_id: client,
         code,
         code_verifier: verifier,
         grant_type: "authorization_code",
         redirect_uri: CALLBACK,
-        resource: RESOURCE,
+        resource,
       }),
       method: "POST",
     });

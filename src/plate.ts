@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { archiveFailing, STORES } from "./archive";
-import { backupOld, backupSize, readBackup } from "./backup";
+import { backupOld, backupOn, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
 import { ATLAS, clientName, deliveryState, subscribed } from "./events";
 import { readHealth } from "./health";
@@ -775,6 +775,7 @@ function backupCard(r: Reads): Card {
   const old = backupOld(r.now, b);
   return {
     ...firstOf(
+      [!backupOn(), { tone: "idle", word: "off" }],
       [
         !!b?.error,
         { ask: ASK("the backup failing"), tone: "bad", word: "failed" },

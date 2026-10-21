@@ -44,4 +44,4 @@ the same process in its own repo.
   `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), and keep `engine`.
 - Remove the moved keys from `.env` (`LIFE_OWNER_SUB`, `LIFE_MAIL_TO`, `LIFE_CHAT`, `LIFE_MISHEARD`, `LIFE_PAST_*`,
   `LIFELOG_URL`) and the parked `TELEGRAM_*` and `INSTINCT_KEY`.
-- Redeploy the status Worker (its `ISSUER` and `RESOURCE` vars are new).
+- Add the status Worker's new secret, `ISSUER` (`wrangler secret put ISSUER`, the connector's issuer), then redeploy it.

@@ -69,8 +69,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   read functions as seven tools, four JSON reads for a dashboard (`status`, `runs`, `changes`, `claim`: `docs/dashboard.md`), plus `tasks` (it also returns Atlas's playbook, the seal `task` needs and his goals), `open_reminders`, `correct` (annotated so clients ask first), `reminders` and `task` (writes, not destructive: Atlas uses them unattended), and one MCP event, `ask`. The watcher serves it on 127.0.0.1:46200 (`serveConnector`, `src/server.ts`), reached through
   the Cloudflare tunnel (`~/.cloudflared/config.yml`, proxied CNAME `life`). Its rules are in AGENTS.md; auth, tools and the wave icon are in the code,
   and in `derived/log` each call is an `mcp.call` (who asked, the arguments, what surfaced: `tool` in `src/mcp.ts`; a refused request too, with `refused`), each
-  forwarded correction a `lifelog.write`. Off when `LIFE_OWNER_SUB` is unset. The same server serves the check page (`/check/`, `src/check.ts`): the truth benchmark's statements, one tap or swipe each, behind the same lifelog sign-in.
-- A Telegram bot's token and an `INSTINCT_KEY` are parked in `.env`; nothing uses them.
+  forwarded correction a `lifelog.write`. Off without the `connector` setting (`src/settings.ts`). The same server serves the check page (`/check/`, `src/check.ts`): the truth benchmark's statements, one tap or swipe each, behind the same lifelog sign-in.
 - **Removed on 14 Oct** (the old history in the backup has it, see the "Nuke" commit): the SwiftUI app, the Railway server, the Telegram bot's
   cards, brief, gate, agents, logins and the sources listed in `docs/sources.md`. The owner
   deleted the Railway project on 14 Oct (purged 16 Oct). The `life-vault-<signer>` Keychain items and
@@ -85,7 +84,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   Life's connector, its cloud computer and his Mac's terminal. "Hey Atlas" anywhere in one of his turns (`hear.ts`, no
   model) makes an ask: that turn and his following ones until another speaker or a 15 s pause, with the conversation
   and turn numbers; an unattributed turn makes a `low` confidence ask, someone else's none, and his own "hey" + the word lifelog
-  mishears for Atlas (`LIFE_MISHEARD`, "at last") a `low` one. `bun life ask '<words>'`
+  mishears for Atlas (the `misheard` setting, "at last") a `low` one. `bun life ask '<words>'`
   makes one from a Claude session. An ask is an Action (`kind: ask`), delivered as the MCP event `ask`
   (`events.ts`, OpenAI's spec: `events/subscribe` with a verified callback on OpenAI's hosts, Standard Webhooks
   signatures, the ledger line as the replay cursor, `derived/events.json`). `bun life asks` lists where each ask's

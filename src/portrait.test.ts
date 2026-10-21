@@ -2,8 +2,10 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ORIGIN } from "./auth";
 import { createPortrait } from "./portrait";
+import { connector } from "./settings";
+
+const ORIGIN = connector().origin;
 
 const dir = await mkdtemp(join(tmpdir(), "portrait-"));
 await writeFile(join(dir, "index.html"), "<h1>Someone, as Life knows him</h1>");
