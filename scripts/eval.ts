@@ -7,7 +7,7 @@
 import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../src/clock";
-import { llmFor, llmSpec, quota } from "../src/llm";
+import { llmFor, llmSpec } from "../src/llm";
 import { locked, spareQuota } from "../src/memory/guard";
 import {
   appendJsonl,
@@ -17,7 +17,7 @@ import {
   readUnits,
   SCORES,
 } from "../src/memory/ledger";
-import { chunks, inBatches, record } from "../src/memory/run";
+import { chunks, ended, inBatches, metered } from "../src/memory/run";
 import { type Claim, claimsNow } from "../src/memory/statements";
 import { type Grade, judge, tally } from "../src/memory/tally";
 import { Score } from "../src/schema";
@@ -114,41 +114,34 @@ if (!mode) {
 if (!asJson) {
   await spareQuota();
 }
-// A recorded run, so what the judge's calls spent of his Codex plan is in its `use` (the quota read just before, and
-// at its end).
-const rec = record("eval", { args });
+// A metered run: what the judge's calls spent of his Codex plan is in its `use`.
+const rec = await metered("eval", { args });
 const { run } = rec;
 const DIR = join(OUT, "evals", run);
-const failed = async (error: string) => {
-  await quota();
-  rec.end({ error, outcome: "failed" });
-  return new Error(error);
-};
-const result = await (mode === "--ratings"
-  ? locked(ratedRun)
-  : factsRun(mode, claimsFile)
-).catch(async (e: Error) => {
-  throw await failed(e.message);
+await ended(rec, async () => {
+  const result =
+    mode === "--ratings"
+      ? await locked(ratedRun)
+      : await factsRun(mode, claimsFile);
+  if (!result) {
+    throw new Error("a run holds the lock: score when it is done");
+  }
+  const { t } = result;
+  const rows = result.facts.map((f) => {
+    const g = t.grades.get(f.id);
+    return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.claims.join(" ") ?? ""} | ${g?.why ?? ""} |`;
+  });
+  console.log(
+    asJson
+      ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("main")) })
+      : [
+          `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
+          ...result.note,
+          "",
+          "| fact | is | memory | result | claims | why |",
+          "|---|---|---|---|---|---|",
+          ...rows,
+        ].join("\n")
+  );
+  return t.counts;
 });
-if (!result) {
-  throw await failed("a run holds the lock: score when it is done");
-}
-const { t } = result;
-const rows = result.facts.map((f) => {
-  const g = t.grades.get(f.id);
-  return `| ${f.id} | ${f.true ? "true" : "false"} | ${g?.grade ?? "-"} | ${t.marks.get(f.id)} | ${g?.claims.join(" ") ?? ""} | ${g?.why ?? ""} |`;
-});
-console.log(
-  asJson
-    ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("main")) })
-    : [
-        `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
-        ...result.note,
-        "",
-        "| fact | is | memory | result | claims | why |",
-        "|---|---|---|---|---|---|",
-        ...rows,
-      ].join("\n")
-);
-await quota();
-rec.end({ ...t.counts, outcome: "ok" });
