@@ -801,7 +801,7 @@ export const birthdaysNear = (
 /**
  * What `day` lists as due on `date` (`openItems`, src/items.ts, which merges, times and ranks): the salience-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
- * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/atlas.md).
+ * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/agent.md).
  */
 export function dueOf(
   db: Database,

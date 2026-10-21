@@ -131,7 +131,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Google Calendar ever become a source, its events with `lifeMoment` are Life's output and must be dropped.
 - **Atlas is outside Life's boundary** (his choice, 21 Oct, kept as debt: an unattended run reads others' text with full access; revisit if sends should go out without his per-send yes). With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
-  asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
+  asks; nothing else Life reads ever does. Its playbook is `docs/agent.md` (the protocol, `{agent}` its name) then his own part, `playbook.md` in his data, read fresh by `tasks` (its
   `playbook`, with a `seal`: a hash of the text and a 6 h window); `task` refuses a write without the current seal and
   answers with the text. What he pastes in ChatGPT is one fixed sentence pointing there, the connector's instructions,
   512 characters at most, open with that line; events carry data only. It has Atlas confirm a low-confidence ask with him
@@ -317,7 +317,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 
 `bun run check` must pass before every commit; the pre-push hook runs it. When he says something didn't work, it is
 audited by `docs/audits.md`. A fix from an audit names its audit file in its PR and merges only with its regression
-case; a PR that changes `prompts/` or `docs/atlas.md` says in its description which cases of those stages it re-checked
+case; a PR that changes `prompts/`, `docs/agent.md` or his `playbook.md` says in its description which cases of those stages it re-checked
 and how they came out (a review refuses either without it); Atlas end to end is `bun scripts/bench-atlas.ts` (his past
 asks replayed frozen, cases in `~/Life/docs/evals/atlas-bench-cases.json`). Commit small. Prefer deleting code to adding
 it. Docs stay short and written for humans. One way to do each thing: where an observation stands (hidden, gone, replaced,

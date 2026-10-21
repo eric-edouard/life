@@ -335,7 +335,7 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   await res?.body?.cancel();
 });
 
-test("tasks hands out the playbook, docs/atlas.md, with its seal, all of truth/me.md and closed tasks cut short; task refuses another seal with both", async () => {
+test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal, all of truth/me.md and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
   const now = new Date().toISOString();
   const words = { at: now, claim: true, seal: sealed().seal };
@@ -364,7 +364,10 @@ test("tasks hands out the playbook, docs/atlas.md, with its seal, all of truth/m
   }
   const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
   expect(playbook).toBe(
-    readFileSync(join(import.meta.dir, "..", "docs", "atlas.md"), "utf8")
+    readFileSync(
+      join(import.meta.dir, "..", "docs", "agent.md"),
+      "utf8"
+    ).replaceAll("{agent}", "Atlas")
   );
   expect(me).toBe(readFileSync(join(DATA, "truth", "me.md"), "utf8"));
   expect(me).toContain("1. Be well.");
