@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commitMemory } from "./memory/run";
 import { git } from "./proc";
-import type { Chat, Person } from "./schema";
+import { type Chat, Person } from "./schema";
 import {
   DATA,
   FIXTURES,
@@ -156,4 +156,15 @@ test("me.md's goals are the block under Goals; its first paragraph is who he is"
   );
   expect(me.about).toBe("Jean, in Oslo. Two lines.");
   expect(me.goals).toBe("1. Be free.\n2. Be well.");
+});
+
+test("a birthday is --MM-DD or YYYY-MM-DD, and a real date", () => {
+  const ok = (birthday: string) =>
+    Person.safeParse({ birthday, id: "ana", name: "Ana" }).success;
+  expect([ok("--02-29"), ok("1993-11-12")]).toEqual([true, true]);
+  expect([ok("--02-30"), ok("11-12"), ok("1993-13-01")]).toEqual([
+    false,
+    false,
+    false,
+  ]);
 });
