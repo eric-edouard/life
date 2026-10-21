@@ -120,47 +120,34 @@ export function aboutNow(
       [p.name, ...p.aliases],
     ]),
   ]);
-  // Who wrote each fact, then and now: from the handle or name they came from (`speakerFrom`; an unknown author's
-  // label; before `speakerFrom`, a 1:1 chat's handle), resolved today. The one place a fact's author is decided.
+  // Who wrote each fact, then and now: resolved today from where they came from. The one place an author is decided.
   const authors = observations.map((o) => {
     const was = canon(o.speaker);
     const unknown = was.startsWith(UNKNOWN);
-    const label = unknown ? was.slice(UNKNOWN.length) : undefined;
-    const from =
-      o.speakerFrom ??
-      label ??
-      (was === OWNER ? undefined : chatOf.get(o.unit));
-    // A voice keeps lifelog's id, which the map may not know: then the name lifelog gave it.
-    const now = (from && resolve(from)) || (label && resolve(label)) || was;
-    return { now, unknown, was };
+    const from = authorFrom(o, chatOf);
+    // A voice keeps lifelog's id, which the map may not know: then, for an unknown one, the name lifelog gave it.
+    const now =
+      (from && resolve(from)) ||
+      (unknown && resolve(was.slice(UNKNOWN.length))) ||
+      was;
+    return { now, unit: o.unit, unknown, was };
   });
-  // A person an author was filed as and is someone else now is that one in every fact of the unit, whoever wrote it:
-  // never the owner, and not someone who still writes in the unit as themself or whom two authors leave differently.
+  // A person an author was filed as is someone else in every fact of the unit, whoever wrote it, when every author
+  // filed as them now is that one person: never the owner, nor someone who still writes in the unit as themself.
   const moves = new Map<string, Map<string, string>>();
-  const stays = new Set<string>();
-  for (const [k, o] of observations.entries()) {
-    const a = authors[k];
-    if (!a || a.unknown) {
-      continue;
-    }
-    const unit = moves.get(o.unit) ?? new Map<string, string>();
-    moves.set(o.unit, unit);
-    const clash = unit.has(a.was) && unit.get(a.was) !== a.now;
-    if (a.now === a.was || a.was === OWNER || clash) {
-      stays.add(`${o.unit}|${a.was}`);
-    } else {
-      unit.set(a.was, a.now);
-    }
-  }
-  for (const [unit, m] of moves) {
-    for (const was of m.keys()) {
-      if (stays.has(`${unit}|${was}`)) {
-        m.delete(was);
-      }
+  for (const [key, group] of Map.groupBy(
+    authors.filter((a) => !a.unknown && a.was !== OWNER),
+    (a) => `${a.unit}|${a.was}`
+  )) {
+    const now = new Set(group.map((a) => a.now));
+    const [first] = group;
+    if (first && now.size === 1 && !now.has(first.was)) {
+      const unit = key.slice(0, key.indexOf("|"));
+      moves.set(unit, (moves.get(unit) ?? new Map()).set(first.was, first.now));
     }
   }
   return observations.map((o, k) => {
-    const a = authors[k] ?? { now: o.speaker, unknown: false, was: o.speaker };
+    const a = authors[k] as (typeof authors)[number];
     const moved = moves.get(o.unit) ?? new Map<string, string>();
     const resolvedNow = a.unknown && a.now !== a.was;
     return {
@@ -185,6 +172,20 @@ export function aboutNow(
       unmapped: !!named.get(o.id)?.some((n) => !n.ref),
     };
   });
+}
+
+/**
+ * The handle or name a fact's author came from: the one it kept (`speakerFrom`), an unknown author's label, or for a
+ * fact from before `speakerFrom`, its 1:1 chat's handle (`chatHandles`); none for the owner.
+ */
+export function authorFrom(o: Observation, chatOf: Map<string, string>) {
+  if (o.speakerFrom) {
+    return o.speakerFrom;
+  }
+  if (o.speaker.startsWith(UNKNOWN)) {
+    return o.speaker.slice(UNKNOWN.length);
+  }
+  return o.speaker === OWNER ? undefined : chatOf.get(o.unit);
 }
 
 /** `text` with each whole-word `names` (any case) replaced by `name`. */
