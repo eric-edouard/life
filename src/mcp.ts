@@ -1,7 +1,18 @@
 import { join } from "node:path";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { Asked, actAsked, openOf, openReminders, sectionsOf } from "./actions";
+import {
+  Asked,
+  act,
+  actAsked,
+  Change,
+  grantedFrom,
+  grantRefusal,
+  openOf,
+  openReminders,
+  remctl,
+  sectionsOf,
+} from "./actions";
 import {
   ISSUER,
   METADATA,
@@ -12,7 +23,7 @@ import {
   UNREACHABLE,
   type Verify,
 } from "./auth";
-import { FROZEN } from "./clock";
+import { clock, FROZEN } from "./clock";
 import {
   ASK_EVENT,
   Subscribe,
@@ -25,13 +36,20 @@ import { text } from "./http";
 import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
 import { lifeStatus, runs } from "./memory/history";
-import { recordCorrection } from "./memory/ledger";
+import { readActions, recordCorrection } from "./memory/ledger";
 import { placesOf } from "./memory/places";
 import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
-import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
+import { ObservationId } from "./schema";
+import {
+  Fix,
+  FORWARD_KINDS,
+  forward,
+  ownerSpoke,
+  withStore,
+} from "./sources/lifelog";
 import {
   closed,
   Reply,
@@ -85,7 +103,12 @@ const WRITES = {
  */
 const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
-const Reminders = Asked.omit({ why: true });
+const Reminders = Change.extend({
+  obs: ObservationId.optional().describe(
+    "Instead of `said`, for an add only (the standing grant): the obs_ id of his own spoken to-do or promise. Life checks it and quotes it; at most 3 a day, off once he undoes one."
+  ),
+  said: Asked.shape.said.optional(),
+});
 
 /**
  * A frozen world (`LIFE_NOW`, the Atlas bench) reaches nothing outside Life's copy of the data: a tool that would read
@@ -108,9 +131,65 @@ const sends = <P, R>(handle: (p: P) => R) =>
         throw new Error(NOT_DONE);
       };
 
+/**
+ * The standing grant's add (the connector's `reminders` with `obs`): the instruction is the observation itself (its
+ * id, his quote, when he said it), never words a client passes, and the checks are re-read at this moment (the turn's
+ * credit, the list's sharing). It binds the connector only, not what Atlas does in its terminal.
+ */
+async function actGranted(obs: string, change: Change) {
+  if (change.kind !== "add") {
+    throw new Error(
+      "`obs` grants an add only: anything else needs his words as `said`"
+    );
+  }
+  const actions = await readActions();
+  const old = grantedFrom(actions, obs);
+  if (old) {
+    return old;
+  }
+  const { observation: o, status } = await claim(obs);
+  const mine =
+    o.source.channel === "lifelog" &&
+    (await withStore((s) => ownerSpoke(s, o.source.ref)));
+  const list = change.list
+    ? await remctl<{ sharees?: unknown[]; shared?: boolean }>([
+        "list-info",
+        "--",
+        change.list,
+      ])
+    : undefined;
+  const no = grantRefusal({
+    actions,
+    list,
+    mine,
+    now: clock().toISOString(),
+    o,
+    state: status.state,
+  });
+  if (no) {
+    throw new Error(`Not done: ${no}.`);
+  }
+  return act({
+    change,
+    instruction: { at: o.at, quote: o.quote, ref: o.id },
+    madeBy: "connector",
+    why: "the standing grant: his own spoken to-do",
+  });
+}
+
 /** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
-async function request(a: Omit<Asked, "why">) {
-  const done = await actAsked({ ...a, why: "asked in a chat" }, "connector");
+async function request({ obs, said, ...change }: z.infer<typeof Reminders>) {
+  if (!(obs || said)) {
+    throw new Error(
+      "Not done: pass his own words as `said` (or, for an add, `obs`)."
+    );
+  }
+  const done = obs
+    ? await actGranted(obs, change)
+    : await actAsked(
+        { ...change, said: said as string, why: "asked in a chat" },
+        "connector"
+      );
   const line = actionLine(done);
   if (done.result === "failed") {
     throw new Error(line);
@@ -389,7 +468,7 @@ export function buildServer() {
   tool(
     server,
     "reminders",
-    "Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask): add, edit, done, or remove (to Recently Deleted). Not the list `Atlas`: that is the board, changed with `task`. `target` is a reminder id (edit, done, remove). Logged in Life's history; `day` shows it.",
+    "Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask): add, edit, done, undone (ticked back open), remove (to Recently Deleted) or restore (back from there, into `list`); undo one with its inverse. Not the list `Atlas`: that is the board, changed with `task`. `target` is a reminder id (edit, done, remove). Logged in Life's history; `day` shows it.",
     Reminders,
     dry((a) => request(a)),
     REVERSIBLE

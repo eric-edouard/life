@@ -5,11 +5,14 @@ import {
   Change,
   changedFields,
   duplicateOf,
+  grantedFrom,
+  grantRefusal,
   openOf,
   readable,
   reminderArgs,
   requested,
 } from "./actions";
+import type { Action } from "./schema";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {
   expect(
@@ -134,4 +137,116 @@ test("an edit changes the title and list only when they differ, and every other 
     list: "Travel",
     title: "Same",
   });
+});
+
+/** A ledger line of an add (the grant's when `ref` is an observation) or a remove. */
+const line = (
+  kind: "add" | "remove",
+  target: string,
+  ref: string,
+  at = "2026-10-21T10:00:00.000Z"
+): Action => ({
+  after: {},
+  at,
+  id: "act_000000000000",
+  instruction: { at, quote: "q", ref },
+  kind,
+  madeBy: "connector",
+  result: "ok",
+  schemaVersion: 1,
+  target,
+  why: "",
+});
+const NOW = "2026-10-21T12:00:00.000Z";
+const mine = {
+  actions: [] as Action[],
+  list: { shared: false, sharees: [] },
+  mine: true,
+  now: NOW,
+  o: {
+    salience: 3,
+    source: { channel: "lifelog" as const, ref: "job:3@2026-10-21T09:00:00Z" },
+    type: "todo" as const,
+  },
+  state: "active",
+};
+
+test("the grant adds his own current salience-3 to-do from a turn lifelog credits to him, on a list nobody shares", () => {
+  expect(grantRefusal(mine)).toBeUndefined();
+  expect(
+    grantRefusal({ ...mine, o: { ...mine.o, type: "promise" } })
+  ).toBeUndefined();
+});
+
+test("the grant refuses a chat or mail observation, another speaker's or an unnamed turn, and anything not current, salient, a to-do or promise", () => {
+  for (const channel of ["whatsapp", "mail"] as const) {
+    expect(
+      grantRefusal({
+        ...mine,
+        o: { ...mine.o, source: { channel, ref: "m1" } },
+      })
+    ).toContain("lifelog credits to his voice");
+  }
+  // Re-read at act time: someone else's turn, or one lifelog no longer names him on.
+  expect(grantRefusal({ ...mine, mine: false })).toContain("his voice");
+  expect(grantRefusal({ ...mine, state: "retired" })).toContain("not current");
+  expect(grantRefusal({ ...mine, o: { ...mine.o, salience: 2 } })).toContain(
+    "salience"
+  );
+  expect(grantRefusal({ ...mine, o: { ...mine.o, type: "idea" } })).toContain(
+    "promises"
+  );
+});
+
+test("the grant adds at most 3 in his day; the 4th is refused, yesterday's don't count", () => {
+  const three = ["1", "2", "3"].map((n) =>
+    line("add", `reminder:${n}`, `obs_00000000000${n}`)
+  );
+  expect(grantRefusal({ ...mine, actions: three.slice(0, 2) })).toBeUndefined();
+  expect(grantRefusal({ ...mine, actions: three })).toContain("3 today");
+  const yesterday = three.map((a) => ({
+    ...a,
+    at: "2026-10-20T10:00:00.000Z",
+  }));
+  expect(grantRefusal({ ...mine, actions: yesterday })).toBeUndefined();
+  // His own asks are not the grant's.
+  const asked = three.map((a) => line("add", a.target, "connector:x"));
+  expect(grantRefusal({ ...mine, actions: asked })).toBeUndefined();
+});
+
+test("the grant is off once he removed a reminder it added; removing one of his own asks leaves it on", () => {
+  const made = line(
+    "add",
+    "reminder:7",
+    "obs_000000000007",
+    "2026-10-19T10:00:00.000Z"
+  );
+  const undo = line("remove", "reminder:7", "connector:y");
+  expect(grantRefusal({ ...mine, actions: [made, undo] })).toContain("off");
+  const own = line("add", "reminder:8", "connector:x");
+  expect(
+    grantRefusal({
+      ...mine,
+      actions: [made, own, line("remove", "reminder:8", "connector:y")],
+    })
+  ).toBeUndefined();
+});
+
+test("the grant refuses a shared list, or no list named", () => {
+  expect(
+    grantRefusal({ ...mine, list: { shared: true, sharees: [{ name: "A" }] } })
+  ).toContain("shared");
+  expect(
+    grantRefusal({ ...mine, list: { sharees: [{ name: "A" }] } })
+  ).toContain("shared");
+  expect(grantRefusal({ ...mine, list: undefined })).toContain("list");
+});
+
+test("the same observation twice adds once: its standing add comes back, a failed one is tried again", () => {
+  const made = line("add", "reminder:7", "obs_000000000007");
+  expect(grantedFrom([made], "obs_000000000007")).toBe(made);
+  expect(
+    grantedFrom([{ ...made, result: "failed" }], "obs_000000000007")
+  ).toBeUndefined();
+  expect(grantedFrom([made], "obs_000000000008")).toBeUndefined();
 });

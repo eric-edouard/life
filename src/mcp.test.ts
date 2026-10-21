@@ -387,6 +387,8 @@ test("reminders takes no instinct kind and needs his words: refused before anyth
     [
       { kind: "instinct", said: "send it to Instinct", title: "x" },
       { kind: "add", said: "", title: "x" },
+      { kind: "add", title: "x" },
+      { kind: "remove", obs: "obs_000000000001", target: 1, title: "x" },
     ].map((arguments_) =>
       rpc(bearer, "tools/call", { arguments: arguments_, name: "reminders" })
     )

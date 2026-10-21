@@ -69,7 +69,11 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
   Reminders (add, edit, done, remove to Recently Deleted, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
   only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act. `act` refuses the list `Atlas` (`BOARD`): that list is
-  the tasks' board below, written only by `src/board.ts`.
+  the tasks' board below, written only by `src/board.ts`. One standing grant (his yes, decision 2 of the 21 Oct review)
+  is the only other authority: `reminders` with `obs` in place of `said` adds a reminder from his current salience-3 to-do
+  or promise in a lifelog turn the store credits to him at that moment, at most 3 a day, never on a shared list, and
+  never again once he removed one it made (`grantRefusal`, all derived from the ledger); its authority is the
+  observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
   (`LIFE_MISHEARD`, a real name) `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
