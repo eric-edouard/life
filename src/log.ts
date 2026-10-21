@@ -26,7 +26,8 @@ type LogKind =
   | "run.start"
   | "run.end"
   | "run.error"
-  | "source.read";
+  | "source.read"
+  | "sync.pull";
 
 /** A run event's line (`run.start`, `run.end`, `run.error`): every one names its step. */
 export interface LogEvent {

@@ -233,7 +233,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   changes how it closes a recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet
   waits longer (`NAMING_MS`, 40 s), for lifelog to name him: a `low` ask stays low. So does a turn with no speaker yet
   that holds his misheard wake: it becomes an ask only once lifelog names him.
-- The watcher also hears "hey Atlas" (`hear`), runs the tasks' minute pass (`tick`, `watch.ts`: `chase`, then the board) and delivers the asks (`deliver`, `derived/events.json`, mode 600: the
+- The watcher also hears "hey Atlas" (`hear`), runs the tasks' minute pass (`tick`, `watch.ts`, beside the hearing loop, never awaited by it: `chase`, then
+  Reminders both ways, whose read takes about 10 s, `sync.pull` in the log) and delivers the asks (`deliver`, `derived/events.json`, mode 600: the
   subscription, its secret and how far it was delivered; a failed delivery retries for about 2 hours, then is emailed to
   him like a failed action and passed over (offline, nothing is delivered: `deliver` runs only after a good poll); with no live subscription asks wait, unsent, until Atlas
   subscribes again with its cursor; the nightly's Actions section lists every ask either way). Its startup line `actions: remctl ready` in `~/Library/Logs/life-watch.log` is the check that launchd

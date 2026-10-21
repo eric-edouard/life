@@ -101,17 +101,18 @@ const taskLine = (
   task: string,
   after: Action["after"],
   now: number,
-  salt = ""
+  salt = "",
+  // Atlas, through the connector; or his own tick or removal of the receipt (`closings`).
+  by: Pick<Action, "madeBy" | "why"> = { madeBy: "connector", why: "Atlas" }
 ): Action => ({
   after,
   at: iso(now),
   id: actionId(`${task}@${iso(now)}`, kind, salt),
   kind,
-  madeBy: "connector",
+  ...by,
   result: "ok",
   schemaVersion: 1,
   target: task,
-  why: "Atlas",
 });
 
 export interface Task {
@@ -543,12 +544,10 @@ export const closings = (
       mark === "ticked"
         ? { outcome: "he ticked its receipt in Reminders", state: "done" }
         : { reason: "he removed its receipt in Reminders", state: "dropped" };
-    const line = taskLine(
-      "update",
-      t.ask.id,
-      after,
-      Date.parse(at),
-      "reminders"
-    );
-    return [{ ...line, madeBy: "reminders", why: "his change in Reminders" }];
+    return [
+      taskLine("update", t.ask.id, after, Date.parse(at), "reminders", {
+        madeBy: "reminders",
+        why: "his change in Reminders",
+      }),
+    ];
   });
