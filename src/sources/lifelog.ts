@@ -440,9 +440,6 @@ export function readConversations(
   byId: Map<string, string> = new Map()
 ): LifelogConversation[] {
   const { db } = store;
-  if (!db.query("select 1 from conversations limit 1").get()) {
-    throw new Error("the lifelog store is empty: run `bun life watch`");
-  }
   const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(

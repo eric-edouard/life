@@ -232,6 +232,10 @@ export const readableSources = (all = enabledSources()) =>
     return !why;
   });
 
+/** Whether a voice source is on and set up: what the watcher listens to, and what voice search and `day` read. */
+export const listening = () =>
+  enabledSources().some((s) => s.kind === "voice" && !s.missing?.());
+
 const BY_NAME = new Map(SOURCES.map((s) => [s.name, s]));
 /** A stored source name's descriptor: every name has one (`index.test.ts`). */
 export const sourceOf = (name: SourceName) => BY_NAME.get(name) as Descriptor;

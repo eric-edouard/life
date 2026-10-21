@@ -24,7 +24,7 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
-import { kindOf } from "../sources";
+import { kindOf, listening } from "../sources";
 import {
   conversationsWith,
   type LifelogConversation,
@@ -308,6 +308,9 @@ function entity(db: Database, text: string | null, found: string[]) {
 
 /** The voice section of `search`: lifelog's best passages for the words, each with its place in its conversation. */
 async function voiceHits(words: string, range: { from?: string; to?: string }) {
+  if (!listening()) {
+    return ["(no voice source)"];
+  }
   try {
     const hits = await searchVoice(words, range, VOICE_LIMIT);
     return withStore((store) =>

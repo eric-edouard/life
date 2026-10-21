@@ -15,7 +15,7 @@ the same process in its own repo.
 - [ ] 1.4 `bun life init`: an empty, valid `truth/`, Goals optional, zones seeded, the data repo created.
 - [ ] 1.5 Sources: `needs`, `probe`, the enabled set. A source not set up never fails the night; zero sources runs a
   clean night.
-- [ ] 1.6 Voice as a registry capability: no lifelog special cases in `gather`, `search.day` or the watcher.
+- [ ] 1.6 Life without a voice source: the watcher, `day`, search and the nightly run with lifelog off (a voice interface waits for a second voice source: Omi comes through lifelog).
 - [ ] 1.7 Archive stores as descriptors: only enabled, installed apps kept open.
 - [ ] 1.8 Handles as a record keyed by source (schema first).
 - [ ] 1.9 Notification sink: macOS notification and in-app report by default, email optional.
