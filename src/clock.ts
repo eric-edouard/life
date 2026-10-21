@@ -9,13 +9,9 @@ import { DATA, isHis, ROOT, TEST } from "./truth";
 // in the live checkout, whose derived/ (log, events.json) is production's.
 
 /** Is `root` a checkout of its own (its .git a folder), not a throwaway worktree (a .git file)? */
-const isCheckout = (root: string) => {
-  try {
-    return statSync(join(root, ".git")).isDirectory();
-  } catch {
-    return false;
-  }
-};
+const isCheckout = (root: string) =>
+  statSync(join(root, ".git"), { throwIfNoEntry: false })?.isDirectory() ??
+  false;
 
 /** The instant `LIFE_NOW` freezes the clock at, in ms; none when unset. Tests log into their own copy. */
 export function frozenAt(

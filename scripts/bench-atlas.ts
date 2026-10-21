@@ -14,7 +14,7 @@ import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { clock, FROZEN } from "../src/clock";
-import { parse } from "../src/events";
+import { nextEvent, parse } from "../src/events";
 import { askOnce, llmFor, readEngine } from "../src/llm";
 import { recentEvents } from "../src/log";
 import { buildServer } from "../src/mcp";
@@ -131,8 +131,10 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     throw new Error(`${c.ask} is not an ask with his words`);
   }
   const { at } = ask;
-  // His chat's asks are Atlas's own line, written after his message: the world before it. An ask event's line is there.
-  const chat = ask.madeBy === "connector";
+  // The event Life delivered for it; none for his chat's asks, Atlas's own line written after his message: the world
+  // before it.
+  const event = nextEvent(lines, k);
+  const chat = event?.action.id !== ask.id;
   await rm(data, { force: true, recursive: true });
   must(tmpdir(), ["clone", "-q", DATA, data]);
   const commit = must(data, ["rev-list", "-1", `--before=${at}`, "HEAD"]);
@@ -176,18 +178,12 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
       `index: ${index.stderr.match(ERROR_LINE)?.[0] ?? index.stderr.trim().slice(-300)}`
     );
   }
-  const event = {
-    ...ask.instruction,
-    confidence: ask.after.confidence === "low" ? "low" : "high",
-    conversation: ask.after.conversation,
-    id: ask.id,
-  };
   return {
     at,
     cut: kept.length,
     input: chat
       ? `His message in your chat: ${ask.instruction.quote}`
-      : `An ask event from Life: ${JSON.stringify(event)}`,
+      : `An ask event from Life: ${JSON.stringify(event?.event)}`,
   };
 }
 
