@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { Asked, actAsked, checks, requested } from "./actions";
+import { Asked, actAsked, checks, requested, setGrant } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { readEngine, setEngine } from "./llm";
@@ -103,6 +103,21 @@ const commands: Record<string, () => Promise<number>> = {
     }
     await setEngine(engine.data);
     console.log(`engine: ${engine.data}`);
+    return 0;
+  },
+  /**
+   * The standing grant (decision 2), only on his own words in this conversation: `grant on|off '<his words>'`. Off
+   * until he says yes; his undo of one of its reminders turns it off again.
+   */
+  async grant() {
+    const [state, ...words] = process.argv.slice(3);
+    const said = words.join(" ").trim();
+    if (!(state === "on" || state === "off") || said.length < 3) {
+      console.error("usage: bun life grant on|off '<his words>'");
+      return 2;
+    }
+    const done = await setGrant(state === "on", said);
+    console.log(`${done.id}: ${actionLine(done)}`);
     return 0;
   },
   /** The memory pipeline and its read path: `memory nightly|moments|extract|search…` (src/memory/command.ts). */
