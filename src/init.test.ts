@@ -1,0 +1,22 @@
+import { expect, test } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { init } from "./init";
+import { git } from "./proc";
+import { integrity, loadTruth, ownerIn } from "./truth";
+
+test("init makes a new owner's data that validates, commits it, and never runs twice", async () => {
+  const data = join(mkdtempSync(join(tmpdir(), "life-init-")), "data");
+  await init({ email: ["sam@example.com"], name: "Sam Doe", phone: [] }, data);
+  const truth = await loadTruth(data);
+  expect(integrity(truth)).toEqual([]);
+  expect(ownerIn(truth.people).handles.email).toEqual(["sam@example.com"]);
+  expect(truth.me.about).toBe("Sam Doe.");
+  expect(git(data, ["log", "--format=%s"]).stdout.toString().trim()).toBe(
+    "Life: start"
+  );
+  expect(
+    init({ email: [], name: "Someone Else", phone: [] }, data)
+  ).rejects.toThrow("already has a truth");
+});
