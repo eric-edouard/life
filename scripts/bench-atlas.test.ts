@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { askAt, checked, holds, table } from "./bench-atlas";
+import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { askAt, checked, clearDerived, holds, table } from "./bench-atlas";
 
 test("a call holds the wanted arguments: text as a case-blind part, anything else equal", () => {
   const args = {
@@ -112,4 +115,32 @@ test("an ask as it reached Atlas: a delivered one is its event, its line kept; a
   expect(chat.kept).toEqual(lines.slice(0, 1));
   expect(chat.input).toBe("His message in your chat: what is due today?");
   expect(() => askAt(lines, "act_cccccccccccc")).toThrow("not an ask");
+});
+
+test("a case's derived/ is emptied but for the embeddings cache", async () => {
+  const code = await mkdtemp(join(tmpdir(), "bench-atlas-"));
+  await Promise.all(
+    ["log", "watch", "memory"].map((d) =>
+      mkdir(join(code, "derived", d), { recursive: true })
+    )
+  );
+  await Promise.all(
+    [
+      "log/2026-10-20.jsonl",
+      "watch/lifelog.sqlite",
+      "memory/index.sqlite",
+      "memory/embeddings.sqlite",
+      "memory/embeddings.sqlite-wal",
+    ].map((f) => writeFile(join(code, "derived", f), "x"))
+  );
+  await clearDerived(code);
+  expect((await readdir(join(code, "derived/memory"))).sort()).toEqual([
+    "embeddings.sqlite",
+    "embeddings.sqlite-wal",
+  ]);
+  expect(await readdir(join(code, "derived/watch"))).toEqual([]);
+  expect((await readdir(join(code, "derived"))).sort()).toEqual([
+    "memory",
+    "watch",
+  ]);
 });
