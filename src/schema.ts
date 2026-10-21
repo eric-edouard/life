@@ -135,8 +135,15 @@ export const Action = z
       .object({ at: isoDateTime, quote: z.string(), ref: z.string() })
       .strict()
       .optional(),
-    // "instinct": an email to Instinct, until 19 Oct.
-    kind: z.enum([...REMINDER_KINDS, "ask", "instinct", ...TASK_LINES]),
+    // "instinct": an email to Instinct, until 19 Oct. "grant": his words in a Claude session turning the standing grant
+    // on or off (`after.on`), the latest one standing.
+    kind: z.enum([
+      ...REMINDER_KINDS,
+      "ask",
+      "grant",
+      "instinct",
+      ...TASK_LINES,
+    ]),
     // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct).
     madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
     result: z.enum(["ok", "failed", "duplicate"]),

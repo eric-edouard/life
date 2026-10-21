@@ -69,12 +69,13 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **Life's own code acts in one place only, on the owner's clear request in a Claude session or a chat:** Apple
   Reminders (add, edit, done, undone, remove to Recently Deleted, restore, through `~/bin/remctl`), through `act` (`src/actions.ts`, the
   only code that does it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
-  the tasks' board below, written only by `src/board.ts`. One standing grant (his yes, decision 2 of the 21 Oct review)
-  is the only other authority: `reminders` with `obs` in place of `said` adds a reminder (title, list, due, section)
-  from his current salience-3 to-do or promise in a lifelog turn the store credits to him at that moment, at most 3 a
-  day, one at a time, never on a shared list, and never again once he removed one it made through Life
-  (`grantRefusal`, all derived from the ledger); its authority is the observation alone, never the board, a /check tap
-  or a chat `said`, and it binds the connector, not Atlas's terminal.
+  the tasks' board below, written only by `src/board.ts`. One standing grant (decision 2 of the 21 Oct review)
+  is the only other authority, off until his words in a Claude session turn it on (`bun life grant on|off '<his
+  words>'`, a `grant` line in the ledger, the latest standing): `reminders` with `obs` in place of `said` adds a
+  reminder (title, list, due, section) from his current salience-3 to-do or promise in a lifelog turn the store
+  credits to him at that moment, at most 3 a day, one at a time, never on a shared list, and not again once he removed
+  one it made through Life, until his next yes (`grantRefusal`, all derived from the ledger); its authority is the
+  observation alone, never the board, a /check tap or a chat `said`, and it binds the connector, not Atlas's terminal.
 - **An ask for Atlas is his words handed over, never acted on by Life:** a "hey Atlas" turn (`src/hear.ts`: the two
   words, no model call; his turn is `confidence: "high"`, an unattributed one `"low"`, his own "hey" + the word lifelog hears for Atlas
   (`LIFE_MISHEARD`, a real name) `"low"`, and one lifelog gives to someone else is dropped before the ledger), or `bun life ask` from a Claude session. `ask` (`src/tasks.ts`) records it in
