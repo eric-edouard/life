@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { titleOf } from "../hear";
 import { redact } from "../redact";
 import {
   type Action,
@@ -20,10 +20,11 @@ import {
   readConversations,
   searchVoice,
   speakers,
-  turnOffset,
+  turnPlace,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth, OWNER } from "../truth";
+import { standing as taskStanding, tasksOf } from "../tasks";
+import { loadTruth, OWNER, type Truth } from "../truth";
 import { levelsWith } from "./closeness";
 import {
   daysOf,
@@ -85,6 +86,14 @@ import { dayStart, localDate } from "./zones";
 
 export const INDEX = join(OUT, "index.sqlite");
 const LIMIT = 12;
+/** A section's first LIMIT lines (its last, `newest`), saying so when there were more. */
+const cut = (lines: string[], newest = false) =>
+  lines.length > LIMIT
+    ? [
+        ...(newest ? lines.slice(-LIMIT) : lines.slice(0, LIMIT)),
+        `(cut at ${LIMIT}: narrow with \`from\` and \`to\`)`,
+      ]
+    : lines;
 
 /** A moment as the read path prints it: its id (to correct it), when, what, where, how it stands, with whom, and units to `fetch`. */
 export const momentLine = (m: Moment) =>
@@ -108,23 +117,30 @@ const TITLE_MAX = 50;
 const WORD = /[\p{L}\p{N}]+/gu;
 
 interface Row {
-  channel: string;
+  channel: Unit["source"];
   confidence: number;
   date: string;
   id: string;
   people: string | null;
   quote: string;
+  speaker: string | null;
   text: string;
   title: string | null;
   type: string;
   when: string | null;
 }
 
-/** An observation hit, with its date if it carries one, a doubt, and where it comes from: `(channel "unit title"; people ids)`. */
+/** Who said it, when not him: "by" a sender (exact), "heard as" a voice (lifelog names one wrongly about 5% of the time). Labelled, never filtered. */
+const byOf = ({ channel, speaker }: Row) =>
+  !speaker || speaker === OWNER
+    ? ""
+    : ` ${kindOf(channel) === "voice" ? "heard as" : "by"} ${named({ speaker })}`;
+
+/** An observation hit, with its date if it carries one, who said it when not him, a doubt, and where it comes from: `(channel "unit title"; people ids)`. */
 const line = (r: Row) => {
   const q = r.quote.replace(/\s+/g, " ");
   const from = `${r.channel} "${clip(r.title ?? "", TITLE_MAX)}"${r.people ? `; ${r.people}` : ""}`;
-  const about = `${r.when ? ` (for ${r.when})` : ""}${r.confidence < SURE_AT ? " (unsure)" : ""}`;
+  const about = `${r.when ? ` (for ${r.when})` : ""}${byOf(r)}${r.confidence < SURE_AT ? " (unsure)" : ""}`;
   return `- ${r.id} ${r.date} ${r.type}: ${r.text}${about} "${q.length > QUOTE_MAX ? `${q.slice(0, QUOTE_MAX)}…` : q}" (${from})`;
 };
 
@@ -139,7 +155,7 @@ interface UnitRow {
 const unitLine = (u: UnitRow) =>
   `- ${u.id} ${u.date} ${u.source}: ${clip(u.title, 80)}${u.topics ? ` [${u.topics}]` : ""}`;
 
-const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.confidence, o."when",
+const COLUMNS = `o.id, o.date, o.type, o.text, o.quote, o.channel, o.confidence, o."when", o.speaker,
   (select title from units where id = o.unit) as title,
   (select group_concat(replace(replace(person, 'person:', ''), 'unknown:', ''), ', ') from unit_people where unit = o.unit) as people`;
 const CURRENT = "o.superseded_by is null";
@@ -159,22 +175,20 @@ const between = (col: string, r: Days) => ({
     .map((d) => d.slice(0, 10)),
   sql: `${r.from ? ` and ${col} >= ?` : ""}${r.to ? ` and ${col} <= ?` : ""}`,
 });
+/** Days `first` to `last` reach inside `r`. */
+const within = (r: Days, first: string, last = first) =>
+  (!r.from || last >= r.from.slice(0, 10)) &&
+  (!r.to || first <= r.to.slice(0, 10));
 /** A moment that has a day inside `r`. */
-const inDays = (r: Days) => (m: Moment) => {
-  const [first, last] = daysOf(m);
-  return (
-    (!r.from || last >= r.from.slice(0, 10)) &&
-    (!r.to || first <= r.to.slice(0, 10))
-  );
-};
+const inDays = (r: Days) => (m: Moment) => within(r, ...daysOf(m));
 
 export function matches(db: Database, q: string, range: Days = {}) {
   const o = between("o.date", range);
   const u = between("u.date", range);
   const sql = `select ${COLUMNS} from search s join observations o on o.id = s.id
-    where search match ? and ${CURRENT}${o.sql} order by rank limit ${LIMIT}`;
+    where search match ? and ${CURRENT}${o.sql} order by rank limit ${LIMIT + 1}`;
   const unitSql = `select u.id, u.date, u.source, u.title, u.topics from unit_search s join units u on u.id = s.id
-    where unit_search match ?${u.sql} order by rank limit ${LIMIT}`;
+    where unit_search match ?${u.sql} order by rank limit ${LIMIT + 1}`;
   const found = (query: string) => ({
     observations: db
       .query<Row, string[]>(sql)
@@ -192,24 +206,14 @@ export function matches(db: Database, q: string, range: Days = {}) {
       : { observations: [], units: [] };
     if (observations.length + units.length > 0) {
       return [
-        ...observations,
+        ...cut(observations),
         ...(units.length > 0
-          ? ["", "Units (titles, summaries, topics):", ...units]
+          ? ["", "Units (titles, summaries, topics):", ...cut(units)]
           : []),
       ];
     }
   }
   return ["(nothing found)"];
-}
-
-/** The text of the area page whose file is `name` (an id or a name's slug), else the first whose file name holds it. */
-async function areaPage(name: string) {
-  const slug = slugOf(name);
-  const files = await readdir(join(PAGES, "areas")).catch(() => [] as string[]);
-  const file = files.includes(`${slug}.md`)
-    ? `${slug}.md`
-    : files.find((f) => f.includes(slug));
-  return file ? await Bun.file(join(PAGES, "areas", file)).text() : null;
 }
 
 /** The observations `where` finds worth a page line, newest first: `limit` of them (-1: all). */
@@ -299,19 +303,43 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
       hits.length > 0
         ? hits.map((h) => {
             const at = h.capturedFrom ? `${localTime(h.capturedFrom)}` : "?";
-            const turn = turnOffset(
-              store,
-              h.conversationId,
-              h.jobId,
-              h.firstTurn
-            );
-            return `- ${h.conversationId} ${at} turn ${turn}: ${focus(redact(h.text), words, VOICE_MAX).replace(/\s*\n\s*/g, " / ")}`;
+            const p = turnPlace(store, h.jobId, h.firstTurn);
+            return `- ${p?.conversation ?? h.conversationId} ${at} turn ${p?.offset ?? 0}: ${focus(redact(h.text), words, VOICE_MAX).replace(/\s*\n\s*/g, " / ")}`;
           })
         : ["(nothing found)"]
     );
   } catch (e) {
     return [`(voice search unavailable: ${(e as Error).message})`];
   }
+}
+
+/**
+ * The tasks whose words (his ask, its title) or Atlas's own lines (notes, outcomes, replies) hold every word, asked
+ * between `from` and `to`, oldest first; matched when read, never checked against his memory.
+ */
+export function taskHits(
+  holds: (text: string) => boolean,
+  o: Days,
+  tasks = tasksOf()
+) {
+  return tasks
+    .filter(
+      (t) =>
+        within(o, localDate(t.ask.at)) &&
+        holds(
+          [
+            t.ask.instruction.quote,
+            t.ask.after.title,
+            ...t.lines.flatMap((l) => Object.values(l.after)),
+          ]
+            .filter((x) => typeof x === "string")
+            .join(" ")
+        )
+    )
+    .map((t) => {
+      const { state, word } = taskStanding(t);
+      return `- ${t.ask.id} ${localDate(t.ask.at)} ${state}: ${titleOf({ ...t.ask.instruction, title: t.ask.after.title as string | undefined })}${word ? ` → ${clip(`${word}`, 200)}` : ""}`;
+    });
 }
 
 /** `from`/`to` (local days, both included) bound every section. */
@@ -324,15 +352,23 @@ export async function search(words: string, o: Days = {}) {
     chatHits(words, range),
     momentsWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
   ]);
+  const tasks = taskHits(holds, o);
   return withIndex((db) => [
     ...(found.length > 0
       ? [
           "Moments (what happened or is planned):",
-          ...found.slice(-LIMIT).map(momentLine),
+          ...cut(found.map(momentLine), true),
           "",
-          "Observations and units:",
         ]
       : []),
+    ...(tasks.length > 0
+      ? [
+          "Atlas's tasks (Atlas's own reports, not checked by Life):",
+          ...cut(tasks, true),
+          "",
+        ]
+      : []),
+    ...(found.length + tasks.length > 0 ? ["Observations and units:"] : []),
     ...matches(db, words, o),
     "",
     `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
@@ -600,7 +636,11 @@ export function dayLines(
       ? ["Due (his own open to-dos and promises for this day):", ...due, ""]
       : []),
     ...(moments.length > 0
-      ? ["What happened (moments):", ...moments.map(momentLine), ""]
+      ? [
+          "Moments (what happened or is planned):",
+          ...moments.map(momentLine),
+          "",
+        ]
       : []),
     `Recorded conversations (${conversations.length}; \`fetch <id>\`):`,
     ...conversations.flatMap((c) => [
@@ -674,18 +714,38 @@ export const dueOn = (db: Database, date: string) =>
     .all(date, OWNER)
     .map(line);
 
-/** `bun life memory area <id or name>`: an area's page and latest observations. */
+/** The area an id or a name (any case or accents) means: an area's own, or a project's, with the project. */
+export function areaFor(
+  name: string,
+  { areas, projects }: Pick<Truth, "areas" | "projects">
+) {
+  const is = (x: { id: string; name: string }) =>
+    x.id === name || normalize(x.name) === normalize(name);
+  const project = projects.find(is);
+  return { id: project?.area ?? areas.find(is)?.id, project };
+}
+
+/**
+ * `bun life memory area <id or name>`: an area's page and latest observations. A project's id or name reads its area,
+ * after the project's line; a name that is neither lists the ids.
+ */
 export async function area(name: string) {
-  const text = await areaPage(name);
-  return withIndex((db) =>
-    entity(db, text, (meta) =>
-      meta?.page.startsWith("area:")
-        ? latest(db, "where o.area = ?", meta.page.slice("area:".length)).map(
-            line
-          )
-        : []
-    )
-  );
+  const truth = await loadTruth();
+  const { id, project } = areaFor(name, truth);
+  if (!id) {
+    return `No area or project "${name}". Areas: ${truth.areas.map((a) => a.id).join(", ")}. Projects: ${truth.projects.map((p) => p.id).join(", ")}.`;
+  }
+  const file = Bun.file(join(PAGES, "areas", `${id}.md`));
+  const text = (await file.exists()) ? await file.text() : null;
+  return withIndex((db) => [
+    ...(project
+      ? [
+          `Project ${project.name} (${project.id}, ${project.status}), in area ${id}${project.deadlines.map((d) => `; ${d.date}: ${d.what}`).join("")}`,
+          "",
+        ]
+      : []),
+    ...entity(db, text, () => latest(db, "where o.area = ?", id).map(line)),
+  ]);
 }
 
 /**

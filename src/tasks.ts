@@ -11,8 +11,8 @@ import { Action, type Instruction } from "./schema";
 import { ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
-// done or dropped. Its own lines: Atlas's updates (the connector's `task`); Life's nudges and his steers (until 20 Oct) are
-// only history. What needs him is `escalation`, emailed once (`chase`, src/board.ts).
+// done or dropped. Its own lines: Atlas's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
+// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`, src/board.ts).
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -376,6 +376,42 @@ export function update(u: Update, now = Date.now()) {
   appendJsonl(ACTIONS, Action, lines);
   return answer;
 }
+
+export const Reply = z.object({
+  task: z.string().optional().describe("The task it answers, if any"),
+  text: z.string().min(1).describe("What you are telling him, as sent"),
+});
+
+/** Records what Atlas tells him (the connector's `reply`), on a task or none (`chat`); throws when the task is unknown. */
+export function reply({ task, text }: z.infer<typeof Reply>, now = Date.now()) {
+  if (task && !taskOf(tasksOf(), task)) {
+    throw new Error(`no task ${task}`);
+  }
+  const target = task ?? "chat";
+  appendJsonl(ACTIONS, Action, [
+    {
+      after: { text: clip(text, 4000) },
+      at: iso(now),
+      id: actionId(`${target}@${iso(now)}`, "reply", text),
+      kind: "reply",
+      madeBy: "connector",
+      result: "ok",
+      schemaVersion: 1,
+      target,
+      why: "Atlas",
+    },
+  ]);
+  return `${target}: reply logged`;
+}
+
+/** The asks recorded since `since` (his spoken ones, Life's and the tasks Atlas made from his chat words; not splits) with no reply line: the nightly's gap count. */
+export const unanswered = (since: number, tasks = tasksOf()) =>
+  tasks.filter(
+    (t) =>
+      !t.ask.after.parent &&
+      Date.parse(t.ask.at) >= since &&
+      !t.lines.some((l) => l.kind === "reply")
+  ).length;
 
 /**
  * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (it cuts the

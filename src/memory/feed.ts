@@ -272,7 +272,7 @@ function reflected(c: Correction, ctx: Context) {
 }
 
 interface Item {
-  /** Refs the item is about: person:, area:, project: (what `about` filters on). */
+  /** Refs the item is about: person:, area:, project:, task: (what `about` filters on). */
   about: string[];
   /** When it happened in his life (a line said, a request made); null when it is Life's own act. */
   happenedAt: string | null;
@@ -286,6 +286,12 @@ interface Item {
   type: string;
   [extra: string]: unknown;
 }
+
+/** The task an action line belongs to, as a ref: an ask's own id, a task line's target (only those target a task's id). */
+const taskOf = (a: Action) => {
+  const id = a.kind === "ask" ? a.id : a.target;
+  return id.startsWith("act_") ? `task:${id}` : null;
+};
 
 const refs = (list: unknown[]) =>
   list.filter((x): x is string => typeof x === "string" && x !== "");
@@ -363,7 +369,7 @@ function itemOf(
     const a = Action.parse(raw);
     const run = typeof a.madeBy === "string" ? null : a.madeBy.run;
     return {
-      about: [],
+      about: refs([taskOf(a)]),
       happenedAt: a.instruction?.at ?? a.at,
       id,
       record: a,
@@ -402,7 +408,7 @@ function itemOf(
 }
 
 export interface ChangeFilter {
-  /** A ref the change is about: person:<id>, area:<id>, project:<id>. */
+  /** A ref the change is about: person:<id>, area:<id>, project:<id>, task:<id> (an ask and its lines). */
   about?: string;
   cursor?: string;
   limit?: number;

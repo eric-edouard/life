@@ -15,6 +15,7 @@ import { apply, readConversations } from "../sources/lifelog";
 import { layoutOf, perSection, renderPage } from "./page";
 import { holdsAll } from "./raw";
 import {
+  areaFor,
   buildIndex,
   candidateLines,
   coverageLines,
@@ -251,7 +252,7 @@ test("a day opens with what happened: its moments, when, what, where, how they s
     "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [u_000000000001]"
   );
   expect(dayLines([], [], [], [], [m]).slice(0, 2)).toEqual([
-    "What happened (moments):",
+    "Moments (what happened or is planned):",
     momentLine(m),
   ]);
   expect(dayLines([], [])[0]).toStartWith("Recorded conversations");
@@ -297,6 +298,8 @@ test("a name means who it resolves to, listed first among those going by it; a n
   expect(ids(mean("Clai", () => null))).toEqual([undefined, []]);
 });
 
+const SAID_BY = / (by|heard as) jean/;
+
 // audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no
 // one nudged him. `day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
 test("audit-1-apple-open-loop: day lists his own open to-dos and promises due that day, and nothing else", async () => {
@@ -333,7 +336,12 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
   buildIndex(
     [
       loop("obs_000000000001", {}),
-      loop("obs_000000000002", { type: "promise" }),
+      // His promise whose words a sender wrote: labelled "by", never left out (decision 11b).
+      loop("obs_000000000002", {
+        source: { channel: "whatsapp", ref: "m1" },
+        speaker: "person:jean",
+        type: "promise",
+      }),
       loop("obs_000000000003", { speaker: "person:jean" }),
       loop("obs_000000000004", { speaker: "unknown:shop@mail.test" }),
       // His own to-do filed under a project is still his.
@@ -354,6 +362,13 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
     "obs_000000000002",
     "obs_000000000005",
     "obs_000000000010",
+  ]);
+  // Who spoke, when not him: "by" a sender, "heard as" a voice (lifelog misnames some).
+  expect(lines.map((l) => l.match(SAID_BY)?.[0] ?? "")).toEqual([
+    "",
+    " by jean",
+    "",
+    " heard as jean",
   ]);
   expect(dayLines([], [], [], [], [], lines)[0]).toBe(
     "Due (his own open to-dos and promises for this day):"
@@ -391,4 +406,19 @@ test("a Between us line shows the days of its first and latest evidence", () => 
   expect(withSpans(text, (id) => (day[id] ? [day[id]] : []))).toContain(
     "agreed to keep money apart. [obs_aaaaaaaaaaaa, obs_bbbbbbbbbbbb] (since 2026-03-01 · last evidence 2026-09-12)"
   );
+});
+
+test("area: an area's or a project's id or name, never a part of one", () => {
+  const truth = {
+    areas: [{ id: "construction", name: "Construction" }],
+    projects: [{ area: "construction", id: "house", name: "The House" }],
+  } as unknown as Parameters<typeof areaFor>[1];
+  expect(areaFor("construction", truth)).toEqual({
+    id: "construction",
+    project: undefined,
+  });
+  expect(areaFor("CONSTRUCTION", truth).id).toBe("construction");
+  expect(areaFor("house", truth).project?.id).toBe("house");
+  expect(areaFor("the house", truth).id).toBe("construction");
+  expect(areaFor("constr", truth).id).toBeUndefined();
 });
