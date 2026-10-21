@@ -112,9 +112,10 @@ const PAGE = 40;
 
 /** A sweep's runs, newest first, each one the page can open. */
 async function runHistory(step: string, older: (at: string) => boolean) {
-  const { items } = await runs({ limit: PAGE, steps: [step] });
+  const { items } = await runs({ limit: 500, steps: [step] });
   return items
     .filter((r) => older(r.startedAt ?? ""))
+    .slice(0, PAGE)
     .map(
       (r): Entry => ({
         at: r.startedAt ?? r.endedAt ?? "",
@@ -140,10 +141,11 @@ async function runHistory(step: string, older: (at: string) => boolean) {
 }
 
 /** The memory's latest changes, of the last two days. */
-async function changeHistory(older: (at: string) => boolean) {
+async function changeHistory(older: (at: string) => boolean, before?: string) {
+  const until = before ? Date.parse(before) : clock().getTime();
   const feed = await changeFeed({
     limit: 500,
-    since: new Date(clock().getTime() - 2 * DAY).toISOString(),
+    since: new Date(until - 2 * DAY).toISOString(),
   });
   return feed.items
     .filter((it) => older(it.recordedAt))
@@ -163,7 +165,11 @@ async function changeHistory(older: (at: string) => boolean) {
 }
 
 /** A history that is not its log lines: a sweep's runs, the tasks, the memory's changes, the Mac's sleeps. */
-async function ownHistory(id: string, older: (at: string) => boolean) {
+async function ownHistory(
+  id: string,
+  older: (at: string) => boolean,
+  before?: string
+) {
   const step = RUN_CARDS[id];
   if (step) {
     return runHistory(step, older);
@@ -180,7 +186,7 @@ async function ownHistory(id: string, older: (at: string) => boolean) {
     );
   }
   if (id === "memory") {
-    return changeHistory(older);
+    return changeHistory(older, before);
   }
   if (id === "mac") {
     const s = await cached("sleeps", 5 * 60_000, () =>
@@ -200,17 +206,28 @@ async function ownHistory(id: string, older: (at: string) => boolean) {
  * history is its runs; the tasks' their list; the memory's its latest changes; any other card its log lines.
  */
 export async function detail(id: string, before?: string) {
-  const all = await cached("log", 5000, () => recentEvents<Line>(8, ""));
+  // The last 8 days, or as far back as `before` and 8 days more: paging goes back through the whole log.
+  const days = before
+    ? Math.ceil((clock().getTime() - Date.parse(before)) / DAY) + 8
+    : 8;
+  const all = before
+    ? await recentEvents<Line>(days, "")
+    : await cached("log", 5000, () => recentEvents<Line>(8, ""));
   const older = (at: string) => !before || at < before;
   const pick = LOGS[id];
   const lines = pick
     ? all.filter((e) => pick(e) && older(e.at)).toReversed()
     : [];
   const page = lines.slice(0, PAGE);
+  const history = (await ownHistory(id, older, before)) ?? page.map(entryOf);
   return {
-    history: (await ownHistory(id, older)) ?? page.map(entryOf),
+    history,
     log: page.map((e) => JSON.stringify(e)),
-    next: page.length === PAGE ? page.at(-1)?.at : null,
+    /** Where each list goes on: pass it back as `before` for its next page; null at its end. */
+    next: {
+      history: history.length === PAGE ? (history.at(-1)?.at ?? null) : null,
+      log: page.length === PAGE ? (page.at(-1)?.at ?? null) : null,
+    },
   };
 }
 

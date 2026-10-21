@@ -182,4 +182,11 @@ tool.
   push (`pushPlate`). A push needs the shared secret; with none set the Worker takes none. Deploy: `worker/wrangler.jsonc`.
 - **Look.** Ledger, softened at his word: round surfaces, soft shadows, status as a coloured dot and a word, no
   coloured borders.
-- Shipped as one PR (the spec said two: the reads and the page were built and reviewed together).
+- **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
+  its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
+  steps, their counts and what it wrote. A sweep's line runs through its steps, then what it does after them (index;
+  the night's commit and report). The tunnel and each service show when their process started (a heal or a
+  restart), Reminders whether remctl can act, Email the alerts apart from the report.
+- **Pendant.** Recording or not, as the phone reports each change (lifelog's PRs 23 and 24), and the newest speech
+  heard; its silence counts from 08:00 at the earliest.
+- Shipped as PRs 108 (Codex use per run), 110 (the page) and the follow-up for these details; the spec said two.
