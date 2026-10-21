@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { titleOf } from "../hear";
+import { nameOf } from "../board";
 import { redact } from "../redact";
 import {
   type Action,
@@ -30,7 +30,6 @@ import {
   daysOf,
   momentsNow,
   OUT,
-  PAGES,
   pagePath,
   readActions,
   readCorrections,
@@ -44,13 +43,7 @@ import {
   writtenPeople,
 } from "./ledger";
 import { who as named, SURE_AT } from "./observe";
-import {
-  bodyOf,
-  generated,
-  type PageMeta,
-  parsePage,
-  renderLine,
-} from "./page";
+import { bodyOf, generated, parsePage, renderLine } from "./page";
 import { asData, chatHits, focus, holdsAll } from "./raw";
 import { actionLine } from "./report";
 import {
@@ -176,11 +169,11 @@ const between = (col: string, r: Days) => ({
   sql: `${r.from ? ` and ${col} >= ?` : ""}${r.to ? ` and ${col} <= ?` : ""}`,
 });
 /** Days `first` to `last` reach inside `r`. */
-const within = (r: Days, first: string, last = first) =>
+const daysMeet = (r: Days, first: string, last = first) =>
   (!r.from || last >= r.from.slice(0, 10)) &&
   (!r.to || first <= r.to.slice(0, 10));
 /** A moment that has a day inside `r`. */
-const inDays = (r: Days) => (m: Moment) => within(r, ...daysOf(m));
+const inDays = (r: Days) => (m: Moment) => daysMeet(r, ...daysOf(m));
 
 export function matches(db: Database, q: string, range: Days = {}) {
   const o = between("o.date", range);
@@ -271,14 +264,9 @@ export function withSpans(text: string, dateOf: (id: string) => string[]) {
   return body;
 }
 
-/** A page, whole, with when it was built, when it has one; then the observations `rows` finds for it. */
-function entity(
-  db: Database,
-  text: string | null,
-  rows: (meta?: PageMeta) => string[]
-) {
+/** A page, whole, with when it was built, when it has one; then the observations found for it. */
+function entity(db: Database, text: string | null, found: string[]) {
   const meta = text ? parsePage(text)?.meta : undefined;
-  const found = rows(meta);
   const dates = db.query<{ date: string }, [string]>(
     "select date from observations where id = ?"
   );
@@ -313,6 +301,9 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
   }
 }
 
+/** What Atlas wrote on a task's lines: its words, not its fields (a state or a deadline matches nothing). */
+const REPORTS = ["note", "outcome", "reason", "question", "text"];
+
 /**
  * The tasks whose words (his ask, its title) or Atlas's own lines (notes, outcomes, replies) hold every word, asked
  * between `from` and `to`, oldest first; matched when read, never checked against his memory.
@@ -325,12 +316,12 @@ export function taskHits(
   return tasks
     .filter(
       (t) =>
-        within(o, localDate(t.ask.at)) &&
+        daysMeet(o, localDate(t.ask.at)) &&
         holds(
           [
             t.ask.instruction.quote,
             t.ask.after.title,
-            ...t.lines.flatMap((l) => Object.values(l.after)),
+            ...t.lines.flatMap((l) => REPORTS.map((k) => l.after[k])),
           ]
             .filter((x) => typeof x === "string")
             .join(" ")
@@ -338,7 +329,7 @@ export function taskHits(
     )
     .map((t) => {
       const { state, word } = taskStanding(t);
-      return `- ${t.ask.id} ${localDate(t.ask.at)} ${state}: ${titleOf({ ...t.ask.instruction, title: t.ask.after.title as string | undefined })}${word ? ` → ${clip(`${word}`, 200)}` : ""}`;
+      return `- ${t.ask.id} ${localDate(t.ask.at)} ${state}: ${nameOf(t)}${word ? ` → ${clip(`${word}`, 200)}` : ""}`;
     });
 }
 
@@ -561,7 +552,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
           ? [`Before ${before}:`, "Observations:", ...orNone(obsLines)]
           : [
               ...close,
-              ...entity(db, found?.text ?? null, () => obsLines),
+              ...entity(db, found?.text ?? null, obsLines),
               "",
               ...coverageLines(db, ref, timeline),
             ]),
@@ -735,7 +726,7 @@ export async function area(name: string) {
   if (!id) {
     return `No area or project "${name}". Areas: ${truth.areas.map((a) => a.id).join(", ")}. Projects: ${truth.projects.map((p) => p.id).join(", ")}.`;
   }
-  const file = Bun.file(join(PAGES, "areas", `${id}.md`));
+  const file = Bun.file(pagePath(`area:${id}`));
   const text = (await file.exists()) ? await file.text() : null;
   return withIndex((db) => [
     ...(project
@@ -744,7 +735,7 @@ export async function area(name: string) {
           "",
         ]
       : []),
-    ...entity(db, text, () => latest(db, "where o.area = ?", id).map(line)),
+    ...entity(db, text, latest(db, "where o.area = ?", id).map(line)),
   ]);
 }
 

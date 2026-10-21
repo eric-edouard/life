@@ -73,16 +73,18 @@ export function ask(...a: Parameters<typeof askLine>) {
   return old ?? action;
 }
 
-/** Atlas's update of a task, as a ledger line. */
-const updateLine = (
+/** Atlas's own line on a task (or `chat`), as a ledger line: an update, or a reply (its id also over its text). */
+const taskLine = (
+  kind: "update" | "reply",
   task: string,
   after: Action["after"],
-  now: number
+  now: number,
+  salt = ""
 ): Action => ({
   after,
   at: iso(now),
-  id: actionId(`${task}@${iso(now)}`, "update", ""),
-  kind: "update",
+  id: actionId(`${task}@${iso(now)}`, kind, salt),
+  kind,
   madeBy: "connector",
   result: "ok",
   schemaVersion: 1,
@@ -366,7 +368,7 @@ export function written(
   if (u.state === "waiting-eric") {
     after.deadline ??= iso(now + DAY);
   }
-  const line = updateLine(id, after, now);
+  const line = taskLine("update", id, after, now);
   return { answer: `${id}: ${u.state}`, lines: fresh ? [fresh, line] : [line] };
 }
 
@@ -389,17 +391,7 @@ export function reply({ task, text }: z.infer<typeof Reply>, now = Date.now()) {
   }
   const target = task ?? "chat";
   appendJsonl(ACTIONS, Action, [
-    {
-      after: { text: clip(text, 4000) },
-      at: iso(now),
-      id: actionId(`${target}@${iso(now)}`, "reply", text),
-      kind: "reply",
-      madeBy: "connector",
-      result: "ok",
-      schemaVersion: 1,
-      target,
-      why: "Atlas",
-    },
+    taskLine("reply", target, { text: clip(text, 4000) }, now, text),
   ]);
   return `${target}: reply logged`;
 }

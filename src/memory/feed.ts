@@ -287,10 +287,12 @@ interface Item {
   [extra: string]: unknown;
 }
 
-/** The task an action line belongs to, as a ref: an ask's own id, a task line's target (only those target a task's id). */
-const taskOf = (a: Action) => {
-  const id = a.kind === "ask" ? a.id : a.target;
-  return id.startsWith("act_") ? `task:${id}` : null;
+/** The task an action line is part of, as a ref: an ask's own id, a task line's target (a reply on no task has none). */
+const taskRef = (a: Action) => {
+  if (a.kind === "ask") {
+    return `task:${a.id}`;
+  }
+  return isTaskLine(a) && a.target !== "chat" ? `task:${a.target}` : null;
 };
 
 const refs = (list: unknown[]) =>
@@ -369,7 +371,7 @@ function itemOf(
     const a = Action.parse(raw);
     const run = typeof a.madeBy === "string" ? null : a.madeBy.run;
     return {
-      about: refs([taskOf(a)]),
+      about: refs([taskRef(a)]),
       happenedAt: a.instruction?.at ?? a.at,
       id,
       record: a,
