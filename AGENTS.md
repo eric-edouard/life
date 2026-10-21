@@ -170,7 +170,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (one process's model, `llmOverride`) is the bench's and its judge's only (`scripts/bench.ts`), refused on `~/Life`; launchd never sets it.
   The other exception (21 Oct, his words): "allow the API-key exception for embeddings only, same model as lifelog":
   `OPENAI_API_KEY`, lifelog's `text-embedding-3-large`, only in `src/memory/meaning.ts` (cached by text in
-  `derived/memory/embeddings.sqlite`); without it, or offline, search is by words only and says so.
+  `derived/memory/embeddings.sqlite`, by the text's hash, which the index keeps per row); without it, or offline,
+  search is by words only and says so. Each rebuild embeds what is new, 2,000 texts at most (the first one's backfill,
+  about 7,000 texts and $0.10, spreads over a few rebuilds).
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
 - **Everything Life shows him follows the owner's Ledger brand** (emails, `/check`, `/me`, its icon, any new screen),

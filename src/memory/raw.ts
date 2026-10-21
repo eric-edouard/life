@@ -244,20 +244,31 @@ const STOP = new Set(
   )
 );
 /** The words of `query` worth matching: 3 letters or more and not too common; all of them when none is. */
-const queryWords = (query: string) => {
+export const queryWords = (query: string) => {
   const all = normalize(query).split(" ").filter(Boolean);
   const content = all.filter((w) => w.length >= 3 && !STOP.has(w));
   return content.length > 0 ? content : all;
 };
 
-/** How many of `query`'s words a text holds, case and accents ignored. */
-export const wordsIn = (query: string) => {
+/**
+ * The items holding any of `query`'s words (case and accents ignored), those holding the most first, then the later in
+ * `items` first.
+ */
+export function byWords<T>(
+  items: T[],
+  query: string,
+  textOf: (x: T) => string
+) {
   const words = queryWords(query);
-  return (text: string) => {
-    const t = normalize(text);
-    return words.filter((w) => t.includes(w)).length;
-  };
-};
+  return items
+    .map((x, i) => {
+      const t = normalize(textOf(x));
+      return { i, n: words.filter((w) => t.includes(w)).length, x };
+    })
+    .filter((h) => h.n > 0)
+    .sort((a, b) => b.n - a.n || b.i - a.i)
+    .map((h) => h.x);
+}
 
 /** `text` cut to `max`; a longer one keeps only its lines holding a word of `query` (all of them when none does). */
 export function focus(text: string, query: string, max: number) {
@@ -277,13 +288,8 @@ export function focus(text: string, query: string, max: number) {
  * `events` are oldest first.
  */
 function withContext(events: SourceEvent[], query: string) {
-  const count = wordsIn(query);
   const byChat = chatGroups(events);
-  const hits = events
-    .map((e, i) => ({ e, i, n: count(e.text) }))
-    .filter((h) => h.n > 0)
-    .sort((a, b) => b.n - a.n || b.i - a.i)
-    .map((h) => h.e);
+  const hits = byWords(events, query, (e) => e.text);
   const keep = new Set(
     hits.slice(0, QUERY_HITS).flatMap((hit) => {
       const list = byChat.get(`${hit.source}|${hit.chat}`) ?? [];

@@ -12,9 +12,9 @@ import {
   turn,
 } from "../sources/fixtures";
 import { apply, readConversations } from "../sources/lifelog";
-import { fuse } from "./meaning";
+import { fuse, store } from "./meaning";
 import { layoutOf, perSection, renderPage } from "./page";
-import { wordsIn } from "./raw";
+import { byWords } from "./raw";
 import {
   buildIndex,
   candidateLines,
@@ -177,6 +177,18 @@ test("search: an observation hit names the unit it comes from and who is in it",
   expect(searchMatches(db, "beautify", { to: "2026-10-13" })).toEqual([
     "(nothing found)",
   ]);
+  // By meaning: a hit no word of the query is in comes back marked; one both find ranks first.
+  const glazier = { ...o, id: "obs_2", text: "Call the glazier." };
+  buildIndex([o, glazier], path, standing, [{ unit }]);
+  store([
+    [o.text, [0, 1]],
+    [glazier.text, [1, 0]],
+  ]);
+  const both = searchMatches(db, "beautify", {}, new Float32Array([1, 0.1]));
+  expect(both[0]).toBe(hit);
+  expect(both[1]).toContain("Call the glazier.");
+  expect(both[1]).toEndWith("(by meaning)");
+  buildIndex([o], path, standing, [{ unit }]);
   // What Life holds about someone: by source and by month, and what it can't hold.
   const cover = coverageLines(db, "person:jerome", []);
   expect(cover[0]).toContain("its memory starts on 2026-10-14");
@@ -258,13 +270,20 @@ test("a day opens with what happened: its moments, when, what, where, how they s
   expect(dayLines([], [])[0]).toStartWith("Recorded conversations");
 });
 
-test("words held: case and accents ignored, short and common words left out unless they are all there is", () => {
-  const count = wordsIn("Is the château at Pondres?");
-  expect(count("Dinner at the chateau de Pondres")).toBe(2);
-  expect(count("Dinner at the château")).toBe(1);
-  expect(count("is at")).toBe(0);
-  expect(wordsIn("is at")("it is")).toBe(1);
-  expect(wordsIn("??")("anything")).toBe(0);
+test("by words: the most held first, the later first among equals; case and accents ignored, short and common words left out unless they are all there is", () => {
+  const texts = [
+    "Dinner at the château",
+    "chateau de Pondres",
+    "Pondres",
+    "a walk",
+  ];
+  expect(byWords(texts, "Is the château at Pondres?", (t) => t)).toEqual([
+    "chateau de Pondres",
+    "Pondres",
+    "Dinner at the château",
+  ]);
+  expect(byWords(["it is", "no"], "is at", (t) => t)).toEqual(["it is"]);
+  expect(byWords(["anything"], "??", (t) => t)).toEqual([]);
 });
 
 test("fusion: a hit both lists rank beats one only one list ranks first; nothing is lost", () => {
