@@ -145,7 +145,7 @@ const at = (s: string | null) => (LocalTime.safeParse(s).success ? s : null);
 
 /**
  * Code's last word on a verdict's salience: commits 1 at most (never extracted), a unit he marked "hey Life" 3, an
- * agent's report at least KEEP_AT (read for the loops it may close).
+ * agent's report at least KEEP_AT (always read, for what it may close).
  */
 export function saliencyOf(u: Unit, salience: number) {
   const kind = kindOf(u.source);

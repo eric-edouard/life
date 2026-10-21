@@ -18,7 +18,7 @@ import {
   readUnresolved,
   shownOf,
 } from "./ledger";
-import { nameIndex, normalize, personRef, UNKNOWN } from "./units";
+import { normalize, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people Life inferred and the owner's corrections, in that order
 // of trust under his word. Every reader and step resolves people through here.
@@ -44,6 +44,26 @@ export function merged(corrections: Correction[]) {
     }
     return r;
   };
+}
+
+const PAREN = /\(.*?\)/g;
+
+/** Names and aliases on the map, normalized, to the person; a name two people share maps to nobody. */
+function nameIndex(people: Person[]) {
+  const index = new Map<string, string | null>();
+  for (const p of people) {
+    for (const n of [p.name, ...p.aliases]) {
+      const k = normalize(n);
+      index.set(k, index.has(k) && index.get(k) !== p.id ? null : p.id);
+    }
+  }
+  return index;
+}
+
+/** `person:<slug>` for a name lifelog gives ("Jean (Me)" -> person:me), else `unknown:<name>`. */
+function personRef(name: string, index: Map<string, string | null>) {
+  const id = index.get(normalize(name.replace(PAREN, "")));
+  return id ? `person:${id}` : `${UNKNOWN}${name}`;
 }
 
 /**
@@ -348,8 +368,6 @@ export function nearNames<
     .slice(0, 5)
     .map(({ p }) => p);
 }
-
-const PERSON = /^person:/;
 
 /** Everyone a name can mean: the people on his map and those Life inferred (not folded into another), going by their surfaces too. */
 function nameable({

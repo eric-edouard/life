@@ -68,7 +68,11 @@ test("a task Atlas closed done is one event: its outcome with his ask's words, A
   const [unit] = messageUnits(events, () => null);
   expect([unit?.unit.source, unit?.unit.people]).toEqual(["atlas", []]);
   // Its line is the agent's, never resolved to a person (not even one named Atlas), so never read as his.
-  const [line] = unit ? chatLines(unit, () => "person:atlas-the-plumber") : [];
+  const named = () => "person:atlas-the-plumber";
+  const [line] = unit ? chatLines(unit, named) : [];
+  expect(messageUnits(events, named)[0]?.text).not.toContain(
+    "atlas-the-plumber"
+  );
   expect([line?.speaker, line?.from]).toEqual(["agent:atlas", undefined]);
   // Always read for what it may close: its salience never falls under KEEP_AT.
   expect(unit && saliencyOf(unit.unit, 0)).toBe(KEEP_AT);
