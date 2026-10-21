@@ -27,8 +27,8 @@ import { judge, tally } from "../src/memory/tally";
 import { localDate, zoneAt } from "../src/memory/zones";
 import { exec, git, gitOut } from "../src/proc";
 import { Engine } from "../src/schema";
-import { DATA, ROOT } from "../src/truth";
-import { checkout, mainCheckout } from "./bench";
+import { DATA, ROOT, STATE } from "../src/truth";
+import { checkout } from "./bench";
 
 const CASES = join(DATA, "docs/evals/atlas-bench-cases.json");
 const Case = z.object({
@@ -162,10 +162,9 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     await mkdir(join(code, "derived", d), { recursive: true });
   }
   const store = join(code, "derived/watch/lifelog.sqlite");
-  const live = new Database(
-    join(mainCheckout(), "derived/watch/lifelog.sqlite"),
-    { readonly: true }
-  );
+  const live = new Database(join(STATE, "watch/lifelog.sqlite"), {
+    readonly: true,
+  });
   live.run("vacuum into ?", [store]);
   live.close();
   const cut = new Database(store);
@@ -173,7 +172,12 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     cut.run(`delete from ${t} where start_at > ?`, [at]);
   }
   cut.close();
-  const env = { ...process.env, LIFE_DATA: data, LIFE_NOW: at };
+  const env = {
+    ...process.env,
+    LIFE_DATA: data,
+    LIFE_NOW: at,
+    LIFE_STATE: join(code, "derived"),
+  };
   const index = await exec(["bun", "src/cli.ts", "memory", "index"], {
     cwd: code,
     env,
@@ -211,7 +215,11 @@ async function runCase(
     tools: {
       // Its worktree's code, and the .env there (lifelog's token).
       command: ["bun", "--cwd", o.code, "scripts/bench-atlas.ts", "--serve"],
-      env: { LIFE_DATA: o.data, LIFE_NOW: world.at },
+      env: {
+        LIFE_DATA: o.data,
+        LIFE_NOW: world.at,
+        LIFE_STATE: join(o.code, "derived"),
+      },
     },
   })) as { reply?: string };
   const calls = (
@@ -306,7 +314,7 @@ async function bench(file: string, only: string[], engine: Engine) {
   const lines = linesOf(ACTIONS);
   try {
     await ended(rec, async () => {
-      await checkout(code, ["node_modules", ".env", "derived/settings.json"]);
+      await checkout(code, ["node_modules", ".env"], ["settings.json"]);
       const rows: Row[] = [];
       for (const c of cases) {
         // One at a time: the cases share the worktree's derived/.

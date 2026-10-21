@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, isHis, ROOT, TEST } from "./truth";
+import { DATA, isHis, ROOT, STATE, TEST } from "./truth";
 
 // Life's one clock: every read of "now" goes through `clock()`. `LIFE_NOW` (an ISO instant) stops it there, for the
 // Atlas bench (scripts/bench-atlas.ts). Frozen, the live sources (lifelog, chats, notes, places) are read up to that
@@ -17,7 +17,7 @@ const isCheckout = (root: string) =>
 export function frozenAt(
   set = process.env.LIFE_NOW,
   data = DATA,
-  live = !TEST && isCheckout(ROOT)
+  live = !TEST && (isCheckout(ROOT) || !STATE.startsWith(ROOT))
 ) {
   if (!set) {
     return;
@@ -29,7 +29,7 @@ export function frozenAt(
   }
   if (live) {
     throw new Error(
-      "LIFE_NOW runs in a worktree of its own: this checkout's derived/ is production's"
+      "LIFE_NOW runs in a worktree of its own, with its own state: this checkout's derived/ (or LIFE_STATE) is production's"
     );
   }
   const ms = Date.parse(set);
