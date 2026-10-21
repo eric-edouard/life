@@ -208,7 +208,7 @@ async function runCase(
   const dir = join(OUT, "bench-atlas", o.run, c.id);
   const answer = (await askOnce({
     context: { now: stated(world.at) },
-    dir,
+    dir: join(dir, "agent"),
     input: world.input,
     llm: llmFor("main", o.engine),
     prompt: "atlas-bench.v1",
@@ -243,7 +243,11 @@ async function runCase(
     ].map((s) => ({ ...s, date: world.at.slice(0, 10) }));
     const { marks } = tally(
       facts,
-      await judge(facts, said, { dir, engine: o.engine, run: o.run })
+      await judge(facts, said, {
+        dir: join(dir, "judge"),
+        engine: o.engine,
+        run: o.run,
+      })
     );
     checks.push(
       ...facts.map(

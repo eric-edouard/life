@@ -3,13 +3,13 @@ import { checked, holds, table } from "./bench-atlas";
 
 test("a call holds the wanted arguments: text as a case-blind part, anything else equal", () => {
   const args = {
-    due: "2026-10-21T09:00:00+02:00",
+    due: "2026-10-21 09:00",
     kind: "add",
     list: ["a"],
     title: "Call Ploy",
   };
   expect(holds(args, { kind: "add", title: "ploy" })).toBe(true);
-  expect(holds(args, { due: "2026-10-21T09" })).toBe(true);
+  expect(holds(args, { due: "2026-10-21 09" })).toBe(true);
   expect(holds(args, { list: ["a"] })).toBe(true);
   expect(holds(args, { title: "notary" })).toBe(false);
   expect(holds(args, { list: ["b"] })).toBe(false);
