@@ -53,33 +53,6 @@ export function newestArchived(
   }
 }
 
-/** Each store's table of copies (`STORES`, src/archive.ts). */
-const COPIES: Record<string, string> = {
-  beeper: "messages",
-  notes: "versions",
-  whatsapp: "messages",
-};
-
-/** When the archive last copied anything into a store (a new message or note version); null: none, or no store. */
-export function lastCopied(name: string, dir = ARCHIVE) {
-  const path = archiveDb(name, dir);
-  if (!(existsSync(path) && COPIES[name])) {
-    return null;
-  }
-  const db = new Database(path, { readonly: true });
-  try {
-    return (
-      db
-        .query<{ at: string | null }, []>(
-          `select max(seenAt) as at from ${COPIES[name]}`
-        )
-        .get()?.at ?? null
-    );
-  } finally {
-    db.close();
-  }
-}
-
 const MARKS = /[‪-‮]/g;
 
 /** `key` -> `+<digits>` from the `key` and `phone` columns of `sql`, read from an app's store. {} if it is not there. */

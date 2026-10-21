@@ -52,7 +52,10 @@ export async function newestCommit(now = clock().getTime()): Promise<Newest> {
   const all = await Promise.all(
     listRepos().map(async (r) => ({
       at: (
-        await exec(["git", "-C", r.path, "log", "-1", "--all", "--format=%cI"])
+        await exec(
+          ["git", "-C", r.path, "log", "-1", "--all", "--format=%cI"],
+          { timeout: 10_000 }
+        )
       ).stdout.trim(),
       repo: r.key,
     }))

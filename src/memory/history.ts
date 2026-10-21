@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { z } from "zod";
-import { STORES } from "../archive";
+import { lastCopied, STORES } from "../archive";
 import { clock } from "../clock";
 import { polling, readHealth } from "../health";
 import { add, NONE, type Quota, type Tokens } from "../llm";
@@ -11,7 +11,6 @@ import {
   logEvents,
   recentEvents,
 } from "../log";
-import { lastCopied } from "../sources/archived";
 import { decode, encode, PAGE } from "./feed";
 import {
   lockedSince,
@@ -401,9 +400,7 @@ export async function lifeStatus(now = clock()) {
       state: readBackfill() ?? null,
     },
     capture: {
-      archive: Object.fromEntries(
-        STORES.map((s) => [s.name, lastCopied(s.name)])
-      ),
+      archive: Object.fromEntries(STORES.map((s) => [s.name, lastCopied(s)])),
       // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,
