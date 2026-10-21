@@ -19,7 +19,14 @@ import { apply } from "../sources/lifelog";
 import { readNotes } from "../sources/notes";
 import { readWhatsapp } from "../sources/whatsapp";
 import { OWNER } from "../truth";
-import { chatHits, chatsOf, fetchOf, transcripts, voiceLines } from "./raw";
+import {
+  chatHits,
+  chatsOf,
+  fetchOf,
+  focus,
+  transcripts,
+  voiceLines,
+} from "./raw";
 import { LIFE_CHAT, localTime, time } from "./units";
 
 const words = ["Allo", "Salut", "", "Fin"];
@@ -138,16 +145,14 @@ test("chats: WhatsApp, Beeper and iMessage together, deleted messages shown mark
   expect(broken).toContain("(could not read: imessage)");
 });
 
-test("search's chats: all words, no accents or case, across the three apps, two messages of context", async () => {
+test("search's chats: all words, no accents or case, across the three apps, one message of context", async () => {
   const wa = whatsappFixture();
   const lines = [
-    "a1",
     "a2",
     "a3",
     "Le VITRÉ est cassé, la vitre fait 80 x 120",
     "b1",
     "b2",
-    "b3",
   ];
   for (const [i, text] of lines.entries()) {
     wa.add(i + 1, `Q${i}`, 0, text, 700 - i * 100);
@@ -168,12 +173,12 @@ test("search's chats: all words, no accents or case, across the three apps, two 
   expect(found).toContain("(imessage, chat +33611111111)");
   expect(found).toContain("the glazier can fix the vitre");
   expect(found).toContain("la vitre sera prête mardi");
-  // Case and accents ignored; two messages before and two after, no more.
-  for (const near of ["a2", "a3", "b1", "b2"]) {
+  // Case and accents ignored; one message before and one after, no more.
+  for (const near of ["a3", "b1"]) {
     expect(found).toContain(`: ${near}`);
   }
-  expect(found).not.toContain(": a1");
-  expect(found).not.toContain(": b3");
+  expect(found).not.toContain(": a2");
+  expect(found).not.toContain(": b2");
   // Every word must be there.
   expect((await chatHits("vitre 120", {}, sources)).join("\n")).not.toContain(
     "glazier"
@@ -183,10 +188,11 @@ test("search's chats: all words, no accents or case, across the three apps, two 
   ]);
 });
 
-test("search's chats: past 100 matches the newest are shown and the cut is said", async () => {
+test("search's chats: past 20 matches the newest are shown and the cut is said, with where to read on", async () => {
   const wa = whatsappFixture();
-  for (let i = 0; i < 105; i += 1) {
-    wa.add(i + 1, `C${i}`, 0, `vitre ${i}`, 10_000 - i * 60);
+  for (let i = 0; i < 25; i += 1) {
+    // The newest cut match (4) is in the chat of the oldest shown one (5): shown around it, so not cut.
+    wa.add(i + 1, `C${i === 4 ? 5 : i}`, 0, `vitre ${i}`, 10_000 - i * 60);
   }
   archiveOnce(wa.source, wa.dir, wa.now);
   const out = (
@@ -198,9 +204,19 @@ test("search's chats: past 100 matches the newest are shown and the cut is said"
       }
     )
   ).join("\n");
-  expect(out).toContain("(5 older matches not shown)");
-  expect(out).toContain("vitre 104");
+  expect(out).toContain("(4 older matches not shown: narrow with `from`/`to`)");
+  expect(out).toContain(": vitre 4");
+  expect(out).toContain("vitre 24");
   expect(out).not.toContain(": vitre 2\n");
+});
+
+test("a long hit, a voice passage or a note, keeps its lines holding a word, cut to its max; a short one stays whole", () => {
+  const passage = `${"Ana: on se voit demain\n".repeat(20)}Ben: la VITRÉ est prête`;
+  expect(focus(passage, "vitre", 300)).toBe("Ben: la VITRÉ est prête");
+  expect(focus("Ana: la vitre", "piano", 300)).toBe("Ana: la vitre");
+  // No line holds a word (found by meaning): its start.
+  expect(focus(passage, "piano", 300)).toStartWith("Ana: on se voit demain");
+  expect(focus(passage, "piano", 300).length).toBeLessThanOrEqual(300);
 });
 
 test("chats never read Life's own chat with the bot", async () => {
