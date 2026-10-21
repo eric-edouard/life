@@ -180,6 +180,11 @@ export const isTaskLine = (a: Action) =>
 /** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (src/sync.ts). */
 export const isBookkeeping = (a: Action) =>
   a.result === "intent" || a.kind === "import";
+/** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */
+export const isListed = (a: Action) => !(isTaskLine(a) || isBookkeeping(a));
+/** A line whose outcome stands: done, or found already done. */
+export const stands = (a: Action) =>
+  a.result === "ok" || a.result === "duplicate";
 
 /** Where a unit or an observation comes from. */
 const SourceName = z.enum([

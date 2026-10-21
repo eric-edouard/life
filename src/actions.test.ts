@@ -150,9 +150,10 @@ const line = (
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
 ): Action => ({
-  after: {},
+  // As `act` writes them: a removal leaves `deleted`, and each line has its own id.
+  after: kind === "remove" ? { deleted: true } : {},
   at,
-  id: "act_000000000000",
+  id: actionId(ref, kind, target),
   instruction: { at, quote: "q", ref },
   kind,
   madeBy: "connector",

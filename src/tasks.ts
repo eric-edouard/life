@@ -172,7 +172,11 @@ export async function timings(
           ["arrived", a.timing?.arrived ?? null],
           ["recorded", a.at],
           ["delivered", sent.get(a.id) ?? null],
-          ["claimed", updates[0]?.at ?? null],
+          // Atlas's first update; one Life wrote from his tick in Reminders is no claim.
+          [
+            "claimed",
+            updates.find((u) => u.madeBy !== "reminders")?.at ?? null,
+          ],
           [
             "closed",
             updates.find((u) => closed(u.after.state as State))?.at ?? null,
@@ -535,23 +539,16 @@ export const closings = (
     if (!mark || closed(standing(t).state)) {
       return [];
     }
-    return [
-      {
-        after:
-          mark === "ticked"
-            ? { outcome: "he ticked its receipt in Reminders", state: "done" }
-            : {
-                reason: "he removed its receipt in Reminders",
-                state: "dropped",
-              },
-        at,
-        id: actionId(`${t.ask.id}@${at}`, "update", "reminders"),
-        kind: "update",
-        madeBy: "reminders",
-        result: "ok",
-        schemaVersion: 1,
-        target: t.ask.id,
-        why: "his change in Reminders",
-      },
-    ];
+    const after =
+      mark === "ticked"
+        ? { outcome: "he ticked its receipt in Reminders", state: "done" }
+        : { reason: "he removed its receipt in Reminders", state: "dropped" };
+    const line = taskLine(
+      "update",
+      t.ask.id,
+      after,
+      Date.parse(at),
+      "reminders"
+    );
+    return [{ ...line, madeBy: "reminders", why: "his change in Reminders" }];
   });
