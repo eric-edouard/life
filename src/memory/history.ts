@@ -431,7 +431,11 @@ export async function lifeStatus(now = clock()) {
     observedAt: now.toISOString(),
     processing: lock
       ? {
-          phase: running.find((r) => !SWEEPS.has(r.step))?.step ?? null,
+          // The phase the sweep last entered (`phases`, run.ts), else the step running (runs from before 21 Oct).
+          phase:
+            running.find((r) => SWEEPS.has(r.step))?.phases?.at(-1) ??
+            running.find((r) => !SWEEPS.has(r.step))?.step ??
+            null,
           since: lock.toISOString(),
           state: "running",
           sweep: running.find((r) => SWEEPS.has(r.step))?.id ?? null,

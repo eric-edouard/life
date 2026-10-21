@@ -366,6 +366,9 @@ export async function unsent(keys: string[]) {
  * covers a retry of the same keys. A failed send is logged and returns null: it never changes how the night ended, and the caller may
  * try again.
  */
+/** The nightly report's key for the night run `run` (`sendReport`): the status page knows the report went by it. */
+export const reportKey = (run: string) => `nightly/${run}`;
+
 export async function sendReport(id: string | string[], mail: Mail) {
   unfrozen("send email");
   const keys = await unsent([id].flat());

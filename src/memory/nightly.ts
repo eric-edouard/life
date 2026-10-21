@@ -43,6 +43,7 @@ import {
   failureReport,
   lockReport,
   type Mail,
+  reportKey,
   sendReport,
   successReport,
 } from "./report";
@@ -447,7 +448,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   const { attempts } = recordState(day, !failure);
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
-    const id = await sendReport(`nightly/${rec.run}`, mail);
+    const id = await sendReport(reportKey(rec.run), mail);
     console.log(id ? `report emailed: ${id}` : "report email not sent");
   }
   return failure ? 1 : 0;

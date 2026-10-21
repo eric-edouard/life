@@ -49,7 +49,9 @@ A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written
 `outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`),
 `force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's
 counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a
-nightly's `listed`: the observation ids its report held, sent or not), `errors`. A sweep lists its steps in
+nightly's `listed`: the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases
+it entered, in order (its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being
+`status`'s `processing.phase`. A sweep lists its steps in
 `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of his Codex plan,
 derived from the log (`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each
 `model.run` line's) and its steps'; a metered run (a sweep, the eval `eval`, the Atlas bench `bench.atlas`: `metered`,
