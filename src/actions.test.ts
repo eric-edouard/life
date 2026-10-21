@@ -12,6 +12,7 @@ import {
   readable,
   reminderArgs,
   requested,
+  unshared,
 } from "./actions";
 import type { Action } from "./schema";
 
@@ -285,13 +286,10 @@ test("the grant is off until his words in a session turn it on, off again on his
 });
 
 test("the grant refuses a shared list, and fails closed when remctl does not say", () => {
-  expect(
-    grantRefusal({ ...mine, list: { shared: true, sharees: [{ name: "A" }] } })
-  ).toContain("shared");
-  expect(
-    grantRefusal({ ...mine, list: { sharees: [{ name: "A" }] } })
-  ).toContain("shared");
-  expect(grantRefusal({ ...mine, list: {} })).toContain("shared");
+  expect(unshared({ shared: false, sharees: [] })).toBe(true);
+  expect(unshared({ shared: true, sharees: [{ name: "A" }] })).toBe(false);
+  expect(unshared({ sharees: [{ name: "A" }] })).toBe(false);
+  expect(unshared({})).toBe(false);
 });
 
 test("the same observation twice adds once: its standing add comes back, a failed one is tried again", () => {

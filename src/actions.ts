@@ -13,6 +13,7 @@ import {
   type Observation,
   REMINDER_KINDS,
 } from "./schema";
+import { kindOf } from "./sources";
 import { ownerSpoke, withStore } from "./sources/lifelog";
 
 // The only code that writes outside Life on the owner's clear request: Apple Reminders through remctl (its signed
@@ -369,11 +370,10 @@ export const grantedFrom = (actions: Action[], obs: string) =>
  * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
  * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
  * it adds at most GRANT_DAILY a day (his local day), only from his current salience-3 to-do or promise in a lifelog
- * turn the store credits to him now (`mine`), and never on a list shared with anyone (that would be a send).
+ * turn the store credits to him now (`mine`); a shared list is `unshared`'s, checked last (it reads his Reminders).
  */
 export function grantRefusal(g: {
   actions: Action[];
-  list: { sharees?: unknown[]; shared?: boolean };
   mine: boolean;
   now: string;
   o: Pick<Observation, "salience" | "source" | "type">;
@@ -402,20 +402,20 @@ export function grantRefusal(g: {
   if (g.o.salience !== 3 || !["todo", "promise"].includes(g.o.type)) {
     return "only his salience-3 to-dos and promises";
   }
-  if (g.o.source.channel !== "lifelog" || !g.mine) {
+  if (kindOf(g.o.source.channel) !== "voice" || !g.mine) {
     return "only from a turn lifelog credits to his voice";
   }
   const today = localDate(g.now);
   if (made.filter((a) => localDate(a.at) === today).length >= GRANT_DAILY) {
     return `already ${GRANT_DAILY} today`;
   }
-  // Fails closed: a list counts as shared unless remctl says plainly it is not.
-  if (!(g.list.shared === false && g.list.sharees?.length === 0)) {
-    return "the list is shared: that needs his words";
-  }
 }
 
-/** Turns the standing grant on or off on his words in a Claude session (`bun life grant`): one ledger line, the latest standing. Never from the connector. */
+/** Whether a list is plainly nobody else's: the grant never adds to a shared one (that would be a send). Fails closed. */
+export const unshared = (list: { sharees?: unknown[]; shared?: boolean }) =>
+  list.shared === false && list.sharees?.length === 0;
+
+/** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through Atlas: off only takes authority away), `bun life grant`: one ledger line, the latest standing. Never from the connector. */
 export async function setGrant(on: boolean, said: string) {
   const instruction = requested("session", said);
   const line: Action = {
@@ -428,7 +428,7 @@ export async function setGrant(on: boolean, said: string) {
     result: "ok",
     schemaVersion: 1,
     target: "grant",
-    why: "his words in a Claude session",
+    why: "his words",
   };
   await appendJsonl(ACTIONS, Action, [line]);
   return line;
@@ -466,24 +466,25 @@ export function actGranted(
     if (old) {
       return old;
     }
-    const mine =
-      o.source.channel === "lifelog" &&
-      (await withStore((s) => ownerSpoke(s, o.source.ref)));
-    const list = await remctl<{ sharees?: unknown[]; shared?: boolean }>([
-      "list-info",
-      "--",
-      change.list,
-    ]);
     const no = grantRefusal({
       actions,
-      list,
-      mine,
+      // A chat or mail ref is no turn: never his voice.
+      mine: await withStore((s) => ownerSpoke(s, o.source.ref)),
       now: clock().toISOString(),
       o,
       state: status.state,
     });
     if (no) {
       throw new Error(`Not done: ${no}.`);
+    }
+    // His Reminders are read only once everything else allows it.
+    const list = await remctl<{ sharees?: unknown[]; shared?: boolean }>([
+      "list-info",
+      "--",
+      change.list,
+    ]);
+    if (!unshared(list)) {
+      throw new Error("Not done: the list is shared: that needs his words.");
     }
     return act({
       change,
