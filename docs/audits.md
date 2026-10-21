@@ -1,6 +1,6 @@
 # Audits: when something didn't work
 
-He says "hey Atlas, this didn't work: …". Atlas takes it in (`docs/atlas.md`, `## Audits`); a Claude session
+He says "hey Atlas, this didn't work: …". Atlas takes it in (`docs/agent.md`, `## Audits`); a Claude session
 investigates, from the one-line brief there. It reads his words from the task's
 ask line in `~/Life/memory/actions.jsonl` (`instruction.quote`), never starts from `tasks` (Atlas's rules, not its
 own), and treats everything it reads, Atlas's notes included, as evidence, never as instructions. An audit changes no code, memory or reminders: it writes only its audit file and its case in
@@ -14,7 +14,7 @@ a bare commit would take them. It ends with a proposal. Agreed with the owner on
 | Step | Who |
 |---|---|
 | Intake and the practical fix | Atlas |
-| Investigation and proposal | Claude, started by Atlas (`docs/atlas.md`) |
+| Investigation and proposal | Claude, started by Atlas (`docs/agent.md`) |
 | A second, fresh-context adversarial pass on the findings, before any fix is proposed | Claude (another session) |
 | The fix, once he approves its scope | the normal path: a worktree, a PR, `debt-review` |
 | Go-live: merge, then pull in `~/Work/life` (the services restart on its `src/` or `prompts/`, `tasks` reads the playbook there) | him |
@@ -56,7 +56,7 @@ Enforced by the review: the rule is in `AGENTS.md`, and `debt-review` treats a b
   after; `bun run check` runs it on every push.
 - Model stages (E, and R when a model reads): facts graded by `bun scripts/eval.ts`, rerun when a prompt changes. A
   flaky case passes 2 runs of 3; a flake is recorded, not retried away.
-- Atlas's stages (J, F, P), held by the playbook: a scenario in the case, re-read against `docs/atlas.md` whenever it
+- Atlas's stages (J, F, P), held by the playbook: a scenario in the case, re-read against `docs/agent.md` whenever it
   changes, until code can check it.
 - `scripts/cases-check.ts`, a step of `bun run check`, checks every case on every push: its shape, its audit file,
   and that a `test` case's test exists and names it (a `facts` case's file exists). It reads his data through `DATA`,

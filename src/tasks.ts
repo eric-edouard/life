@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
@@ -19,7 +19,7 @@ import { localDate } from "./memory/zones";
 import type { Receipt } from "./reminders/board";
 import { Action, type Instruction } from "./schema";
 import { agentName, settings } from "./settings";
-import { ROOT } from "./truth";
+import { DATA, ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
 // done or dropped. Its own lines: Atlas's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
@@ -67,8 +67,17 @@ const CLAIM_MS = 30 * MIN;
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
-/** Atlas's playbook, read from its one source on every call: `tasks` returns it, `task` refuses a write without its seal. */
-const playbook = () => readFileSync(join(ROOT, "docs", "atlas.md"), "utf8");
+/** The agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `tasks` returns it, `task` refuses a write without its seal. */
+const playbook = () => {
+  const own = join(DATA, "playbook.md");
+  return [
+    readFileSync(join(ROOT, "docs", "agent.md"), "utf8").replaceAll(
+      "{agent}",
+      agentName()
+    ),
+    ...(existsSync(own) ? [readFileSync(own, "utf8")] : []),
+  ].join("\n");
+};
 const WINDOW = 6 * HOUR;
 /** The playbook and its seal: a hash of the text and its 6 h window, so a seal recalled from memory dies within 12 h. */
 export const sealed = (now = clock().getTime(), text = playbook()) => ({
