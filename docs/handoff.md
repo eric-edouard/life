@@ -35,7 +35,7 @@ encrypted backup. This file says what is true now.
 - Raw search scales, reading does not: a day of speech is about 110-150k tokens, the largest context holds about 8
   days. Hence one compressed layer, the people and project pages, each line cited. Not justified: an atomic-fact
   database, graph databases, contradiction resolvers, summary hierarchies. This limits memory structures, not
-  initiative: Life's code acts only on his request, and surfacing things to him is not acting.
+  initiative: raising things unasked is Atlas's (21 Oct), and Life acts and sends only as AGENTS.md says.
 
 ## How it runs
 
