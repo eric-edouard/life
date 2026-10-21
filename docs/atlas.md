@@ -83,7 +83,8 @@ for today and tomorrow and sends one message from Life's lines and ids (not othe
 - **Due, uncapped:** `day`'s Due as given, with each line's id: Life has left out what is on the board, folded a
   reminder into what he said it came from, shown each at most twice and ranked it, most pressing first; send two lines
   about the same thing (a reminder he made by hand, and his words) as one. Before a `waiting` one, check `chats` it hasn't
-  arrived; list a reply owed only when their message asks something of him (drop closers). Missed days: only Sunday.
+  arrived; list a reply owed only when their message asks something of him (drop closers). An undated one shows up to twice, then
+  is stale: only Sunday's review lists what is still open.
 - **Planned:** today's and tomorrow's planned moments; per moment with someone who has a page, at most two lines from
   `person` (what is owed either way, the last open thread), never from the invite.
 - **Birthdays,** from today's `day` only: 7 days before, a line and 2–3 gift ideas from `person`, each citing its `obs_`

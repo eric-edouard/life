@@ -535,6 +535,6 @@ export async function repliesOwed(end: Date): Promise<Candidate[]> {
     kind: "reply",
     line: `- ${e.id} ${localDate(e.at)} reply owed: ${senderOf(e, people)} wrote "${clip(redact(e.text).replace(/\s+/g, " "), 200)}" (\`chats --chat ${e.chat}\`)`,
     person: people.resolve(e.sender) ?? undefined,
-    when: localDate(e.at),
+    said: localDate(e.at),
   }));
 }
