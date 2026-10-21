@@ -15,6 +15,7 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
+import { kindOf } from "../sources";
 import { OWNER, type Truth } from "../truth";
 import { closeNow } from "./closeness";
 import {
@@ -157,7 +158,8 @@ function verdictsOf(
         area: areaOf(area, ctx.areas),
         hash: u.hash,
         madeBy: ctx.madeBy,
-        salience: u.source === "git" ? Math.min(salience, 1) : salience,
+        salience:
+          kindOf(u.source) === "repo" ? Math.min(salience, 1) : salience,
         schemaVersion: 1,
         topics: normalizeTopics(topics),
         unit: id,
