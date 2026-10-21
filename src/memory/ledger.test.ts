@@ -360,3 +360,28 @@ test("a re-read keeps a fact he rated true: not replaced when the new reading le
   const by = new Map([["obs_a", { at: "t", by: "obs_c" } as Supersession]]);
   expect(stateOf(rated, standing([rate("true")], by)).state).toBe("retired");
 });
+
+test("a fact he rated true and a re-read wrote again word for word shows once, its latest line; one he rated outdated keeps its history", () => {
+  const rate = (claim: string, answer: Rating["answer"]) =>
+    ({ answer, at: "2026-10-19T08:00:00Z", claim, schemaVersion: 1 }) as Rating;
+  const again = obs("obs_a", "u_1", "h1", "r2");
+  const latest = new Map([["u_1", read("u_1", "h1", "r2")]]);
+  const ratings = latestRatings([
+    rate("obs_a", "true"),
+    rate("obs_o", "outdated"),
+  ]);
+  const rated = ratedTrue(ratings);
+  const standing = {
+    corrections: [],
+    latest,
+    live: new Set(["u_1"]),
+    rated,
+    retired: retiredBy(ratedOutdated(ratings), new Set(["obs_o"])),
+  } as Standing;
+  expect(
+    shownOf([obs("obs_a", "u_1", "h1"), again], standing).map(
+      (o) => o.madeBy.run
+    )
+  ).toEqual(["r2"]);
+  expect(stateOf(obs("obs_o", "u_1", "h1"), standing).state).toBe("retired");
+});
