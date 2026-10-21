@@ -90,8 +90,8 @@ const Reminders = Asked.omit({ why: true });
 /**
  * A frozen world (`LIFE_NOW`, the Atlas bench) reaches nothing outside Life's copy of the data: a tool that would read
  * or change his live Reminders or lifelog answers that it did nothing (its call is logged as every call is, `mcp.call`
- * with its arguments, so the bench grades it), and an event request is refused. `task` still runs: it writes only to
- * the copy's ledger.
+ * with its arguments, so the bench grades it), and an event request is refused. `task` and `reply` still run: they
+ * write only to the copy's ledger.
  */
 const NOT_DONE =
   "Not done: this is a frozen run (a benchmark), where nothing acts or sends.";

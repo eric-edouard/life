@@ -386,7 +386,10 @@ export const Reply = z.object({
 });
 
 /** Records what Atlas tells him (the connector's `reply`), on a task or none (`chat`); throws when the task is unknown. */
-export function reply({ task, text }: z.infer<typeof Reply>, now = Date.now()) {
+export function reply(
+  { task, text }: z.infer<typeof Reply>,
+  now = clock().getTime()
+) {
   if (task && !taskOf(tasksOf(), task)) {
     throw new Error(`no task ${task}`);
   }
