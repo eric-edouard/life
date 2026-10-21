@@ -32,8 +32,8 @@ const phrase = (w: string) =>
   w.trim().split(SPACES).map(RegExp.escape).join(String.raw`\W+`);
 /** A wake word as heard, compared: lower case, one space between words. */
 const asHeard = (w: string) => w.toLowerCase().replace(NON_WORD, " ").trim();
-const AGENT = settings().agent;
-const NAMES = new Set((AGENT?.wake ?? []).map(asHeard));
+const agentSetting = settings().agent;
+const NAMES = new Set((agentSetting?.wake ?? []).map(asHeard));
 /**
  * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: "at last" for "Atlas" on 20 Oct,
  * audit 4, or a real name people he knows go by). A misheard one wakes only on his own turn, as `low` (the agent
@@ -45,7 +45,10 @@ export const isName = (word: string) => NAMES.has(asHeard(word));
  * longer word. Shared by both wakes.
  */
 const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
-const WAKES = [...(AGENT?.wake ?? []), ...(AGENT?.misheard ?? [])].map(phrase);
+const WAKES = [
+  ...(agentSetting?.wake ?? []),
+  ...(agentSetting?.misheard ?? []),
+].map(phrase);
 /** A greeting then the agent's name or a mishearing of it, whatever the case; with no agent, nothing wakes. */
 export const WAKE = new RegExp(
   WAKES.length > 0 ? String.raw`${GREETING}(${WAKES.join("|")})\b` : "(?!)",

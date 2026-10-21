@@ -121,3 +121,49 @@ test("an app names itself by its document on Claude's or ChatGPT's hosts, and no
     await signIn("https://evil.example/client.json", pair())
   ).toHaveProperty("page");
 });
+
+test("a code serves once and only with its verifier; an unpaired registration is not kept", async () => {
+  const verifier = randomBytes(32).toString("base64url");
+  const ask = {
+    client_id: DOC,
+    code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+    code_challenge_method: "S256",
+    redirect_uri: CALLBACK,
+    resource: RESOURCE,
+    response_type: "code",
+  };
+  const back = await call(
+    "/auth/oauth2/authorize",
+    form({ ...ask, pairing: pair() })
+  );
+  const code = new URL(back.headers.get("location") ?? "").searchParams.get(
+    "code"
+  );
+  const trade = (v: string) =>
+    call(
+      "/auth/oauth2/token",
+      form({
+        client_id: DOC,
+        code: code ?? "",
+        code_verifier: v,
+        grant_type: "authorization_code",
+        redirect_uri: CALLBACK,
+      })
+    );
+  expect((await trade("not-the-verifier")).status).toBe(400);
+  // The wrong try spent it: the right verifier comes too late.
+  expect((await trade(verifier)).status).toBe(400);
+
+  // Twenty-one registrations: the first is gone before anyone paired it.
+  const ids: string[] = [];
+  for (let i = 0; i < 21; i += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: in order
+    const reg = await call("/auth/oauth2/register", {
+      body: JSON.stringify({ redirect_uris: [CALLBACK] }),
+      method: "POST",
+    });
+    ids.push(((await reg.json()) as { client_id: string }).client_id);
+  }
+  expect(await signIn(ids[0] ?? "", pair())).toHaveProperty("page");
+  expect(await signIn(ids[20] ?? "", pair())).toHaveProperty("access_token");
+});

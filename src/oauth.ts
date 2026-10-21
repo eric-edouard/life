@@ -4,7 +4,13 @@ import {
   randomInt,
   timingSafeEqual,
 } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -34,6 +40,8 @@ const ACCESS_S = 3600;
 const CODE_MS = 60_000;
 const PAIRING_MS = 5 * 60_000;
 const PAIRING_TRIES = 5;
+/** How many registered apps may wait for their pairing at once. */
+const PENDING = 20;
 /** Where a client may be sent back: ChatGPT's and Claude's callbacks, and a desktop app's loopback. */
 const REDIRECTS = [
   /^https:\/\/chatgpt\.com\/connector_platform_oauth_redirect$/,
@@ -64,10 +72,12 @@ const read = (): Stored =>
   existsSync(FILE)
     ? Stored.parse(JSON.parse(readFileSync(FILE, "utf8")))
     : { clients: {}, refresh: {} };
-const write = (s: Stored) => {
-  mkdirSync(DIR, { recursive: true });
-  writeFileSync(FILE, `${JSON.stringify(s, null, 2)}\n`, { mode: 0o600 });
-};
+/** Changes the state as it is on disk now (read and written with nothing awaited between), for its owner only. */
+function update(change: (s: Stored) => Stored) {
+  mkdirSync(DIR, { mode: 0o700, recursive: true });
+  writeFileSync(FILE, `${JSON.stringify(change(read()), null, 2)}\n`);
+  chmodSync(FILE, 0o600);
+}
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const same = (a: string, b: string) =>
   a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -83,48 +93,79 @@ export function pair(now = clock().getTime()) {
     { length: 6 },
     () => ALPHABET[randomInt(ALPHABET.length)]
   ).join("");
-  write({
-    ...read(),
+  update((s) => ({
+    ...s,
     pairing: { expires: now + PAIRING_MS, hash: hash(code), tries: 0 },
-  });
+  }));
   return code;
 }
 
 /** Whether `code` is the live pairing code; a right one is spent, a wrong one spends a try. */
 function paired(code: string, now: number) {
-  const s = read();
-  const p = s.pairing;
+  const p = read().pairing;
   if (!p || p.expires < now || p.tries >= PAIRING_TRIES) {
     return false;
   }
   const ok = same(hash(code.trim().toUpperCase()), p.hash);
-  write({ ...s, pairing: ok ? undefined : { ...p, tries: p.tries + 1 } });
+  update((s) => ({
+    ...s,
+    pairing: ok ? undefined : { ...p, tries: p.tries + 1 },
+  }));
   return ok;
 }
 
-/** The signing key, made once and kept with the rest of Life's sign-in state. */
-async function signingKey() {
-  const s = read();
-  if (s.key) {
-    return { key: await importJWK(s.key as JWK, "EdDSA"), pub: s.key };
+/** The signing key, made once and kept with the rest of Life's sign-in state; loaded once per process. */
+async function loadKey() {
+  const kept = read().key;
+  if (kept) {
+    return { key: await importJWK(kept as JWK, "EdDSA"), pub: kept };
   }
   const { privateKey } = await generateKeyPair("EdDSA", {
     extractable: true,
   });
   const kid = randomBytes(8).toString("hex");
   const priv = { ...(await exportJWK(privateKey)), alg: "EdDSA", kid };
-  write({ ...s, key: priv });
+  update((s) => ({ ...s, key: priv }));
   return { key: privateKey, pub: priv };
 }
+let keyed: ReturnType<typeof loadKey> | undefined;
+const signingKey = () => {
+  keyed ??= loadKey();
+  return keyed;
+};
 /** The public half: what /jwks shows and what `verify` checks against. */
 const publicJwk = ({ d: _, ...pub }: Record<string, unknown>) => pub as JWK;
 
-/** A client: one Life registered, or one that names itself by a metadata document on ChatGPT's or Claude's hosts. */
-async function clientOf(id: string, fetchDoc: typeof fetch, origin: string) {
+interface Client {
+  name: string;
+  redirects: string[];
+}
+const parsed = (raw: string): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+/** How big a client's metadata document may be. */
+const DOC_BYTES = 64 * 1024;
+
+/**
+ * A client: Life's own pages, one paired before, one registered and not paired yet (`pending`, in memory only), or
+ * one that names itself by a metadata document on ChatGPT's or Claude's hosts (fetched with no redirect followed).
+ */
+async function clientOf(
+  id: string,
+  {
+    fetchDoc,
+    origin,
+    pending,
+  }: { fetchDoc: typeof fetch; origin: string; pending: Map<string, Client> }
+): Promise<Client | null> {
   if (id === PAGES_CLIENT) {
     return { name: "Life", redirects: [`${origin}/check/callback`] };
   }
-  const known = read().clients[id];
+  const known = read().clients[id] ?? pending.get(id);
   if (known) {
     return known;
   }
@@ -132,14 +173,18 @@ async function clientOf(id: string, fetchDoc: typeof fetch, origin: string) {
   if (!(url && url.protocol === "https:" && DOCUMENT_HOSTS.has(url.host))) {
     return null;
   }
-  const res = await fetchDoc(url, { signal: AbortSignal.timeout(10_000) });
+  const res = await fetchDoc(url, {
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  const body = res?.ok ? await res.text() : "";
   const doc = z
     .object({
       client_id: z.literal(id),
-      client_name: z.string().default(url.host),
+      client_name: z.string().max(100).default(url.host),
       redirect_uris: z.array(z.string()),
     })
-    .safeParse(res.ok ? await res.json() : null);
+    .safeParse(body && body.length <= DOC_BYTES ? parsed(body) : null);
   if (!(doc.success && doc.data.redirect_uris.every(allowed))) {
     return null;
   }
@@ -157,9 +202,11 @@ const Authorize = z.object({
   state: z.string().optional(),
 });
 
+/** The approval page's look: Ledger's paper, serif and mono (its CSP takes no inline style). */
+const CSS = `body{font:17px/1.55 "Source Serif 4",Georgia,serif;max-width:30rem;margin:4rem auto;padding:0 16px;background:#f7f7f5;color:#1b1d1f}h1{font-size:1.6rem;font-weight:600;margin:0 0 .5rem}input[name=pairing]{font:1.4rem "IBM Plex Mono",Menlo,monospace;letter-spacing:.2em;width:8em;padding:6px 8px;border:1px solid #e1e2de;border-radius:5px}button{font:600 15px Georgia,serif;padding:8px 14px;border-radius:5px;border:1px solid #1b1d1f;background:#1b1d1f;color:#fff}.bad{color:#c4382c}code,.host{font-family:"IBM Plex Mono",Menlo,monospace;font-size:.86em}`;
 const page = (body: string) =>
   new Response(
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Life</title><body style="font:17px/1.5 Georgia,serif;max-width:28rem;margin:4rem auto;padding:0 1rem;background:#f7f7f5;color:#1b1d1f">${body}</body>`,
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Life</title><link rel="stylesheet" href="/auth/page.css"><body>${body}</body>`,
     { headers: { ...HEADERS, "content-type": "text/html; charset=utf-8" } }
   );
 const escapeHtml = (s: string) =>
@@ -178,6 +225,8 @@ export function createIssuer(
   { fetchDoc = fetch, now = () => clock().getTime() } = {}
 ) {
   const issuer = `${origin}/auth`;
+  /** Registered and not paired yet: kept in memory, a few at most, so no caller can fill the disk. */
+  const pending = new Map<string, Client>();
   const codes = new Map<
     string,
     { challenge: string; client: string; expires: number; redirect: string }
@@ -198,9 +247,16 @@ export function createIssuer(
       .setExpirationTime(at + ACCESS_S)
       .sign(key);
     const refresh = randomBytes(32).toString("base64url");
-    const s = read();
-    s.refresh[hash(refresh)] = { client, expires: now() + 90 * 86_400_000 };
-    write(s);
+    update((s) => ({
+      ...s,
+      // Expired ones go as a new one comes.
+      refresh: {
+        ...Object.fromEntries(
+          Object.entries(s.refresh).filter(([, r]) => r.expires >= now())
+        ),
+        [hash(refresh)]: { client, expires: now() + 90 * 86_400_000 },
+      },
+    }));
     return Response.json(
       {
         access_token: access,
@@ -234,7 +290,11 @@ export function createIssuer(
     if (!a.success || a.data.resource !== resource) {
       return text("This sign-in request is not one Life can answer.", 400);
     }
-    const client = await clientOf(a.data.client_id, fetchDoc, origin);
+    const client = await clientOf(a.data.client_id, {
+      fetchDoc,
+      origin,
+      pending,
+    });
     if (!client?.redirects.includes(a.data.redirect_uri)) {
       return text("Unknown app or return address.", 400);
     }
@@ -246,9 +306,19 @@ export function createIssuer(
             `<input type="hidden" name="${escapeHtml(k)}" value="${escapeHtml(String(v))}">`
         )
         .join("");
+      const back = new URL(a.data.redirect_uri).host;
       return page(
-        `<h1 style="font-size:1.6rem">Connect ${escapeHtml(client.name)} to Life?</h1><p>It will read your memory. Type the pairing code your Mac shows (<code>bun life pair</code>).</p>${req.method === "POST" ? "<p><b>That code did not match, or it expired.</b></p>" : ""}<form method="post">${hidden}<input name="pairing" autocomplete="one-time-code" autofocus style="font:1.4rem monospace;letter-spacing:.2em;width:8em"> <button>Connect</button></form>`
+        `<h1>Connect ${escapeHtml(client.name)} to Life?</h1><p>It will read your memory, and it goes back to <span class="host">${escapeHtml(back)}</span>. Type the pairing code your Mac shows (<code>bun life pair</code>), only if you started this.</p>${req.method === "POST" ? '<p class="bad">That code did not match, or it expired.</p>' : ""}<form method="post">${hidden}<input name="pairing" autocomplete="one-time-code" autofocus> <button>Connect</button></form>`
       );
+    }
+    // Paired: a registered client is kept from now on.
+    const registered = pending.get(a.data.client_id);
+    if (registered) {
+      pending.delete(a.data.client_id);
+      update((s) => ({
+        ...s,
+        clients: { ...s.clients, [a.data.client_id]: registered },
+      }));
     }
     const code = randomBytes(24).toString("base64url");
     codes.set(code, {
@@ -289,11 +359,12 @@ export function createIssuer(
       return tokens(c.client);
     }
     if (f.grant_type === "refresh_token") {
-      const s = read();
       const key = hash(f.refresh_token ?? "");
-      const r = s.refresh[key];
-      delete s.refresh[key];
-      write(s);
+      const r = read().refresh[key];
+      update((s) => {
+        const { [key]: _, ...rest } = s.refresh;
+        return { ...s, refresh: rest };
+      });
       if (!r || r.expires < now() || r.client !== f.client_id) {
         return Response.json({ error: "invalid_grant" }, { status: 400 });
       }
@@ -313,12 +384,14 @@ export function createIssuer(
       return Response.json({ error: "invalid_redirect_uri" }, { status: 400 });
     }
     const id = randomBytes(16).toString("hex");
-    const s = read();
-    s.clients[id] = {
+    pending.set(id, {
       name: m.data.client_name,
       redirects: m.data.redirect_uris,
-    };
-    write(s);
+    });
+    // The oldest goes first past a few: registering is open to anyone, pairing is not.
+    for (const old of [...pending.keys()].slice(0, -PENDING)) {
+      pending.delete(old);
+    }
     return Response.json(
       {
         client_id: id,
@@ -336,6 +409,10 @@ export function createIssuer(
       case "/.well-known/oauth-authorization-server":
       case "/.well-known/oauth-authorization-server/auth":
         return metadata();
+      case "/auth/page.css":
+        return new Response(CSS, {
+          headers: { ...HEADERS, "content-type": "text/css" },
+        });
       case "/auth/jwks":
         return Response.json({ keys: [publicJwk((await signingKey()).pub)] });
       case "/auth/oauth2/authorize":

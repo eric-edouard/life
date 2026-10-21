@@ -10,6 +10,19 @@ import { connector } from "./settings";
 
 const LOGIN = "__Host-life-login";
 const LOGIN_MAX_S = 600;
+/** The issuer's refresh token, when it gives one: the session is renewed with it, no sign-in again each hour. */
+const REFRESH = "__Host-life-refresh";
+const REFRESH_MAX_S = 90 * 86_400;
+const Tokens = z.object({
+  access_token: z.string(),
+  expires_in: z.number(),
+  refresh_token: z.string().optional(),
+});
+/** The cookies a token response becomes: the session, and its refresh token when there is one. */
+const sessionCookies = (t: z.infer<typeof Tokens>) => [
+  cookie(SESSION, t.access_token, t.expires_in),
+  ...(t.refresh_token ? [cookie(REFRESH, t.refresh_token, REFRESH_MAX_S)] : []),
+];
 /** Where a sign-in may land: the pages behind it. */
 const PAGES = new Set(["/", "/check/"]);
 
@@ -64,9 +77,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       }),
       method: "POST",
     });
-    const token = z
-      .object({ access_token: z.string(), expires_in: z.number() })
-      .safeParse(res.ok ? await res.json() : null);
+    const token = Tokens.safeParse(res.ok ? await res.json() : null);
     if (!token.success) {
       return text("Not signed in as the owner.", 403);
     }
@@ -77,7 +88,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
         : text("Not signed in as the owner.", 403);
     }
     return redirect(next && PAGES.has(next) ? next : "/check/", [
-      cookie(SESSION, token.data.access_token, token.data.expires_in),
+      ...sessionCookies(token.data),
       cookie(LOGIN, "", 0),
     ]);
   }
@@ -91,6 +102,10 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (!("refusal" in whose)) {
       return null;
     }
+    const renewed = whose.refusal === "invalid" && (await renew(req));
+    if (renewed) {
+      return renewed;
+    }
     if (whose.refusal === "forbidden") {
       return text("forbidden", 403);
     }
@@ -98,6 +113,31 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       return text(UNREACHABLE, 503);
     }
     return page ? login(page) : text("sign in again", 401);
+  }
+
+  /** A spent session renewed with its refresh token: the same address again, with the new cookies; null when it can't be. */
+  async function renew(req: Request) {
+    const refresh = cookieOf(req, REFRESH);
+    if (!refresh) {
+      return null;
+    }
+    const res = await lifelog(`${issuer}/oauth2/token`, {
+      body: new URLSearchParams({
+        client_id: client,
+        grant_type: "refresh_token",
+        refresh_token: refresh,
+      }),
+      method: "POST",
+    });
+    const token = Tokens.safeParse(res.ok ? await res.json() : null);
+    if (
+      !token.success ||
+      "refusal" in (await verify(token.data.access_token))
+    ) {
+      return null;
+    }
+    const { pathname, search } = new URL(req.url);
+    return redirect(`${pathname}${search}`, sessionCookies(token.data));
   }
 
   return { callback, login, refusal };

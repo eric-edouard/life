@@ -3,8 +3,9 @@ import { join } from "node:path";
 import { archiveFailing, keptStores } from "./archive";
 import { backupOld, backupOn, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
-import { AGENT, clientName, deliveryState, subscribed } from "./events";
+import { AGENT, agentLive, clientName, deliveryState, isAgent } from "./events";
 import { readHealth } from "./health";
+import type { Call } from "./log";
 import { type LogEvent, recentEvents } from "./log";
 import { macState, sleeps } from "./mac";
 import { changeFeed } from "./memory/feed";
@@ -25,6 +26,7 @@ import { clip } from "./memory/units";
 import { git } from "./proc";
 import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
+import { settings } from "./settings";
 import { readContacts } from "./sources/contacts";
 import {
   type Descriptor,
@@ -344,15 +346,21 @@ async function reads(now: Date) {
     cached("remctl", 60_000, checks),
     newestOf(),
   ]);
+  const mcpCalls = since(
+    log.filter((e) => e.kind === "mcp.call"),
+    2 * DAY,
+    t
+  );
   const of = (kind: string, days: number) =>
     since(
       log.filter((e) => e.kind === kind),
       days * DAY,
       t
     );
-  const mcp = of("mcp.call", 2);
+  const mcp = mcpCalls;
   return {
     actions,
+    agentLive: await agentLive(t, async () => mcp as Call[]),
     contacts,
     errorsToday: of("run.error", 1),
     failingStores: new Map(failing),
@@ -946,20 +954,19 @@ function memoryCards(r: Reads): Card[] {
 function atlasCards(r: Reads): Card[] {
   const events = deliveryState();
   const lines = linesOf(ACTIONS).length;
-  const live = subscribed(r.t);
-  const calls = since(r.mcp, DAY, r.t).filter(
-    (c) => clientName(c.agent) === AGENT
-  );
+  const live = r.agentLive;
+  const pulls = settings().agent?.transport === "pull";
+  const calls = since(r.mcp, DAY, r.t).filter((c) => isAgent(c.agent));
   const tasks = taskList(r.t);
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
   return [
     {
       ...(live
-        ? { tone: "ok", word: "subscribed" }
+        ? { tone: "ok", word: pulls ? "checking in" : "subscribed" }
         : {
-            ask: ASK(`that ${AGENT} holds no live subscription to asks`),
+            ask: ASK(`that ${AGENT} isn't receiving asks`),
             tone: "bad",
-            word: "no subscription",
+            word: pulls ? "not checking in" : "no subscription",
           }),
       facts: [
         { at: events.subscription?.verifiedAt, label: "Subscription verified" },
@@ -973,7 +980,7 @@ function atlasCards(r: Reads): Card[] {
       ],
       flow: events.delivered,
       group: "outputs",
-      headline: live ? "subscribed" : "not subscribed",
+      headline: live ? "receiving asks" : "not receiving asks",
       id: "atlas",
       name: AGENT,
     },

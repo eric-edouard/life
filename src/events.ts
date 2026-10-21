@@ -42,18 +42,22 @@ const AskData = z.object({
 
 /** His agent's name, as `clientName` gives it for its calls (the `agent` setting's `client`). */
 export const AGENT = agentName();
+/** Whether a connector call came from his agent: its user agent starts with the `agent` setting's `client`. */
+export const isAgent = (agent: unknown) => {
+  const client = settings().agent?.client;
+  return !!client && String(agent ?? "").startsWith(client);
+};
 /** Who a connector call came from, by its user agent: the names he knows them by. */
 export function clientName(agent: unknown) {
   const a = String(agent ?? "");
-  const client = settings().agent?.client;
-  if (client && a.startsWith(client)) {
+  if (isAgent(a)) {
     return AGENT;
   }
   return a.toLowerCase().includes("claude") ? "Claude" : a || "unknown client";
 }
 /** A call of his agent's daily review: `day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
 export const isReviewCall = (e: Call) =>
-  e.tool === "day" && !e.error && clientName(e.agent) === AGENT;
+  e.tool === "day" && !e.error && isAgent(e.agent);
 
 export const ASK_EVENT = {
   delivery: ["webhook"],
@@ -290,7 +294,7 @@ export async function agentLive(
     (e) =>
       e.tool === "tasks" &&
       !e.error &&
-      clientName(e.agent) === AGENT &&
+      isAgent(e.agent) &&
       now - Date.parse(e.at) < PULL_MS
   );
 }

@@ -78,7 +78,7 @@ const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
-/** Whether Atlas (ChatGPT's MCP client) read `day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
+/** Whether his agent (the `agent` setting's client) read `day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
   (await recentEvents<Call>(2, "mcp.call")).some(
     (e) => isReviewCall(e) && Date.parse(e.at) >= now.getTime() - DAY_MS

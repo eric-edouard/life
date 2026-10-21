@@ -291,9 +291,15 @@ export function taskReport(
 /** The alert for a lapsed `ask` subscription: about Atlas, not one task. */
 export const lapseReport = (open: number, now: number) =>
   alert(new Date(now).toISOString(), agentName(), {
-    failure: { error: "no live subscription to `ask`", step: "delivery" },
+    failure: {
+      error:
+        settings().agent?.transport === "pull"
+          ? "no tasks call from it in a day"
+          : "no live subscription to `ask`",
+      step: "delivery",
+    },
     notes: [
-      `${open} open tasks wait, and new asks are recorded but reach ${agentName()} only once it subscribes again.`,
+      `${open} open tasks wait, and new asks are recorded but reach ${agentName()} only once it reads them again.`,
     ],
     preheader: `${agentName()} isn't receiving asks: ${open} open tasks`,
     stats: [{ label: "open tasks", value: String(open) }],
