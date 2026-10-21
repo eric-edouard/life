@@ -291,7 +291,12 @@ function buildServer() {
     (a) => placesOf(a)
   );
   const page = {
-    cursor: z.string().optional().describe("The `cursor` of the previous page"),
+    cursor: z
+      .string()
+      .optional()
+      .describe(
+        "The `cursor` of the previous page; follow it until it is null or `remaining` is 0"
+      ),
     limit: z.int().min(1).max(MAX_PAGE).optional().describe("Default 50"),
   };
   tool(

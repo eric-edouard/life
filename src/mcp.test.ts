@@ -241,7 +241,6 @@ test("the dashboard reads: refused without the owner's token, JSON with it", asy
     (await call(await token({ sub: "someone" }), "changes")).res.status
   ).toBe(403);
   const { json } = await call(await token(), "status");
-  // JSON goes once, as text.
   expect(json.result).toMatchObject({ isError: false });
   expect(json.result.structuredContent).toBeUndefined();
   expect(JSON.parse(json.result.content[0].text).observedAt).toBeString();

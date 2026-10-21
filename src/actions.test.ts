@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   actionId,
   alarmArgs,
+  Change,
   changedFields,
   duplicateOf,
   openOf,
@@ -91,6 +92,8 @@ test("an open reminder keeps the six fields `open_reminders` promises, its due a
     openOf({ ...r, allDay: true, dueDate: "2026-10-22T00:00:00" }).due
   ).toBe("2026-10-22");
   expect(openOf({ ...r, dueDate: undefined }).due).toBeUndefined();
+  // What it reads is what a change takes.
+  expect(Change.shape.due.safeParse(openOf(r).due).success).toBe(true);
 });
 
 test("his reminders are read from one list or all, never the board", () => {
