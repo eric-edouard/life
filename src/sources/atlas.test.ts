@@ -34,7 +34,7 @@ test("a task Atlas closed done is one event: its outcome with his ask's words, A
   mkdirSync(dirname(ACTIONS), { recursive: true });
   rmSync(ACTIONS, { force: true });
   appendJsonl(ACTIONS, Action, [
-    ask("act_aaaaaaaaaaaa", "hey Atlas, find Ploy's number"),
+    ask("act_aaaaaaaaaaaa", "hey Atlas, find the plumber's number"),
     update("act_aaaaaaaaaaaa", "2026-10-20T14:52:00.000Z", {
       claim: true,
       state: "working",
@@ -60,7 +60,7 @@ test("a task Atlas closed done is one event: its outcome with his ask's words, A
     ["atlas:act_aaaaaaaaaaaa", "2026-10-20T14:55:00.000Z", "atlas", false],
   ]);
   expect(events[0]?.text).toContain("not his words");
-  expect(events[0]?.text).toContain(`"hey Atlas, find Ploy's number"`);
+  expect(events[0]?.text).toContain(`"hey Atlas, find the plumber's number"`);
   expect(events[0]?.text).toContain("Outcome: Found it: +66 600 000 001");
   // Its unit names no one: Atlas is no person, and his ask is quoted inside Atlas's report.
   const [unit] = messageUnits(events, () => null);
