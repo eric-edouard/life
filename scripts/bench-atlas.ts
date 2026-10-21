@@ -21,7 +21,7 @@ import { buildServer } from "../src/mcp";
 import { spareQuota } from "../src/memory/guard";
 import { ACTIONS, linesOf, OUT, runId } from "../src/memory/ledger";
 import { judge, tally } from "../src/memory/tally";
-import { zoneAt } from "../src/memory/zones";
+import { localDate, zoneAt } from "../src/memory/zones";
 import { exec, git } from "../src/proc";
 import { Engine } from "../src/schema";
 import { DATA, ROOT } from "../src/truth";
@@ -123,18 +123,31 @@ const stated = (iso: string) => {
   return `${words} (${tz})`;
 };
 
-/** The world as it was at the ask: data, store and index in `code`'s worktree; how the ask reached Atlas. */
-async function freeze(c: Case, lines: string[], code: string, data: string) {
-  const k = lines.findIndex((l) => l.includes(`"id":"${c.ask}"`));
+/**
+ * The ask `id` in the ledger's `lines`: when it was recorded, the ledger as Atlas found it, and how it reached Atlas.
+ * An ask Life delivered is the event `deliver` sent, its line kept; his chat's asks are Atlas's own line, written after
+ * his message: the ledger before it, and his words.
+ */
+export function askAt(lines: string[], id: string) {
+  const k = lines.findIndex((l) => parse(l)?.id === id);
   const ask = k < 0 ? null : parse(lines[k] ?? "");
   if (!ask?.instruction) {
-    throw new Error(`${c.ask} is not an ask with his words`);
+    throw new Error(`${id} is not an ask with his words`);
   }
-  const { at } = ask;
-  // The event Life delivered for it; none for his chat's asks, Atlas's own line written after his message: the world
-  // before it.
   const event = nextEvent(lines, k);
-  const chat = event?.action.id !== ask.id;
+  const delivered = event?.action.id === id;
+  return {
+    at: ask.at,
+    input: delivered
+      ? `An ask event from Life: ${JSON.stringify(event?.event)}`
+      : `His message in your chat: ${ask.instruction.quote}`,
+    kept: lines.slice(0, delivered ? k + 1 : k),
+  };
+}
+
+/** The world as it was at the ask: data, store and index in `code`'s worktree; how the ask reached Atlas. */
+async function freeze(c: Case, lines: string[], code: string, data: string) {
+  const { at, input, kept } = askAt(lines, c.ask);
   await rm(data, { force: true, recursive: true });
   must(tmpdir(), ["clone", "-q", DATA, data]);
   const commit = must(data, ["rev-list", "-1", `--before=${at}`, "HEAD"]);
@@ -143,7 +156,6 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
   }
   must(data, ["checkout", "-q", commit]);
   must(data, ["remote", "remove", "origin"]);
-  const kept = lines.slice(0, chat ? k : k + 1);
   await Bun.write(
     join(data, "memory/actions.jsonl"),
     kept.map((l) => `${l}\n`).join("")
@@ -178,13 +190,7 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
       `index: ${index.stderr.match(ERROR_LINE)?.[0] ?? index.stderr.trim().slice(-300)}`
     );
   }
-  return {
-    at,
-    cut: kept.length,
-    input: chat
-      ? `His message in your chat: ${ask.instruction.quote}`
-      : `An ask event from Life: ${JSON.stringify(event?.event)}`,
-  };
+  return { at, cut: kept.length, input };
 }
 
 /** One case, frozen, run and graded. */
@@ -236,7 +242,7 @@ async function runCase(
           id: `task${i}`,
           text: JSON.stringify(parse(l)?.after),
         })),
-    ].map((s) => ({ ...s, date: world.at.slice(0, 10) }));
+    ].map((s) => ({ ...s, date: localDate(world.at) }));
     const { marks } = tally(
       facts,
       await judge(facts, said, {

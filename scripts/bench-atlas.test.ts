@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { checked, holds, table } from "./bench-atlas";
+import { askAt, checked, holds, table } from "./bench-atlas";
 
 test("a call holds the wanted arguments: text as a case-blind part, anything else equal", () => {
   const args = {
@@ -70,4 +70,46 @@ test("the table: one row per case, what failed named, an error kept", () => {
   expect(out).toContain("1/2 checks passed.");
   expect(out).toContain("| a | 1/2 | 4 | 1200 | 2 min | no reminders |");
   expect(out).toContain("| b | error |||| index: boom |");
+});
+
+test("an ask as it reached Atlas: a delivered one is its event, its line kept; a chat one is his words, the ledger before it", () => {
+  const ask = (id: string, madeBy: string, quote: string, at: string) =>
+    JSON.stringify({
+      after: { confidence: "high" },
+      at,
+      id,
+      instruction: { at, quote, ref: `session:${at}` },
+      kind: "ask",
+      madeBy,
+      result: "ok",
+      schemaVersion: 1,
+      target: "atlas",
+      why: "asked",
+    });
+  const lines = [
+    ask(
+      "act_aaaaaaaaaaaa",
+      "watch",
+      "remind me to call the bank",
+      "2026-10-20T08:00:00.000Z"
+    ),
+    ask(
+      "act_bbbbbbbbbbbb",
+      "connector",
+      "what is due today?",
+      "2026-10-20T09:00:00.000Z"
+    ),
+  ];
+  const heard = askAt(lines, "act_aaaaaaaaaaaa");
+  expect(heard.at).toBe("2026-10-20T08:00:00.000Z");
+  expect(heard.kept).toEqual(lines.slice(0, 1));
+  const event = JSON.parse(heard.input.replace("An ask event from Life: ", ""));
+  expect([event.eventId, event.data.quote]).toEqual([
+    "act_aaaaaaaaaaaa",
+    "remind me to call the bank",
+  ]);
+  const chat = askAt(lines, "act_bbbbbbbbbbbb");
+  expect(chat.kept).toEqual(lines.slice(0, 1));
+  expect(chat.input).toBe("His message in your chat: what is due today?");
+  expect(() => askAt(lines, "act_cccccccccccc")).toThrow("not an ask");
 });
