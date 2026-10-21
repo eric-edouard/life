@@ -7,6 +7,7 @@ import {
   Correction,
   INFERRED_USE_AT,
   InferredPerson,
+  isBookkeeping,
   isTaskLine,
   Observation,
   ObservationId,
@@ -370,6 +371,9 @@ function itemOf(
   }
   if (source === "actions") {
     const a = Action.parse(raw);
+    if (isBookkeeping(a)) {
+      return null;
+    }
     const run = typeof a.madeBy === "string" ? null : a.madeBy.run;
     return {
       about: refs([taskRef(a)]),

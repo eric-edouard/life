@@ -14,8 +14,9 @@ import { kindOf } from "./sources";
 import { ownerSpoke, withStore } from "./sources/lifelog";
 import {
   BOARD,
-  fieldsOf,
+  type Done,
   info,
+  intended,
   isShared,
   openReminders,
   type Reminder,
@@ -79,9 +80,11 @@ export function duplicateOf(c: Change, open?: Reminder[]) {
   return same && `reminder:${same.id}`;
 }
 
-/** The record of an action already done (or asked) with this id: the same words act once, unless that try failed. */
+/** The record of an action already done (or asked) with this id: the same words act once, unless that try failed (or never ended). */
 export const recorded = async (id: string) =>
-  (await readActions()).find((x) => x.id === id && x.result !== "failed");
+  (await readActions()).find(
+    (x) => x.id === id && (x.result === "ok" || x.result === "duplicate")
+  );
 
 /**
  * Does one change and records it in memory/actions.jsonl; a failure is recorded too, and emailed at once with his words
@@ -108,24 +111,7 @@ export async function act(a: Act): Promise<Action> {
   const open =
     c.kind === "add" ? await openReminders().catch(() => undefined) : undefined;
   const same = duplicateOf(c, open);
-  let result: Action["result"] = "ok";
-  let done: Awaited<ReturnType<typeof write>>;
-  try {
-    if (same) {
-      result = "duplicate";
-      done = { after: { title: c.title }, target: same };
-    } else {
-      done = await write(c);
-    }
-  } catch (e) {
-    result = "failed";
-    done = {
-      after: fieldsOf(c),
-      error: (e as Error).message,
-      target: `reminder:${c.target ?? "new"}`,
-    };
-  }
-  const action: Action = {
+  const line = (done: Done, result: Action["result"]): Action => ({
     ...done,
     at: clock().toISOString(),
     id,
@@ -135,9 +121,22 @@ export async function act(a: Act): Promise<Action> {
     result,
     schemaVersion: 1,
     why: a.why,
-  };
+  });
+  const tried = { after: intended(c), target: `reminder:${c.target ?? "new"}` };
+  let action: Action;
+  if (same) {
+    action = line({ after: { title: c.title }, target: same }, "duplicate");
+  } else {
+    // Recorded before the write: whatever happens next, Reminders showing this value is Life's doing, never his (#69).
+    await appendJsonl(ACTIONS, Action, [line(tried, "intent")]);
+    try {
+      action = line(await write(c), "ok");
+    } catch (e) {
+      action = line({ ...tried, error: (e as Error).message }, "failed");
+    }
+  }
   await appendJsonl(ACTIONS, Action, [action]);
-  if (result === "failed") {
+  if (action.result === "failed") {
     await sendReport(`action/${id}`, actionFailedReport(action));
   }
   return action;
@@ -168,7 +167,10 @@ const isGranted = (a: Action) =>
 /** The grant's earlier add from this observation, if one stands: the same observation adds once. */
 export const grantedFrom = (actions: Action[], obs: string) =>
   actions.find(
-    (a) => isGranted(a) && a.instruction?.ref === obs && a.result !== "failed"
+    (a) =>
+      isGranted(a) &&
+      a.instruction?.ref === obs &&
+      (a.result === "ok" || a.result === "duplicate")
   );
 
 /**

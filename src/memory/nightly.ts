@@ -4,7 +4,7 @@ import { clock } from "../clock";
 import { readHealth } from "../health";
 import { quota } from "../llm";
 import { log, recentEvents } from "../log";
-import { type Action, isTaskLine } from "../schema";
+import { type Action, isBookkeeping, isTaskLine } from "../schema";
 import { checks } from "../sync";
 import { taskList, titleOf, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
@@ -90,7 +90,9 @@ async function acted(now: Date, rec: RunRecord) {
   // A task's own lines (Atlas's updates) are its rows, not actions.
   return {
     actions: actions.filter(
-      (a) => !isTaskLine(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
+      (a) =>
+        !(isTaskLine(a) || isBookkeeping(a)) &&
+        Date.parse(a.at) >= now.getTime() - DAY_MS
     ),
     problems,
     tasks: [

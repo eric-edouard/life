@@ -4,13 +4,15 @@ import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
+import { ACTIONS, appendJsonl, readActions } from "./memory/ledger";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
+import { Action } from "./schema";
 import { serveConnector } from "./server";
 import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
-import { checks, push } from "./sync";
-import { chase, receipts, tasksOf } from "./tasks";
+import { checks, inbound, marks, pull, push } from "./sync";
+import { chase, closings, receipts, tasksOf } from "./tasks";
 import { ROOT } from "./truth";
 import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
@@ -25,15 +27,25 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
 const MIN = 60_000;
 let last = 0;
-/** At most each minute: the chase (from the ledger alone, so a Reminders outage stops no email), then the board. */
+/** At most each minute: the chase (from the ledger alone, so a Reminders outage stops no email), then Reminders both ways. */
 async function tick(now = clock().getTime()) {
   if (now - last < MIN) {
     return;
   }
   last = now;
-  const tasks = tasksOf();
-  await chase(tasks, now);
-  await push(receipts(tasks, now));
+  await chase(tasksOf(), now);
+  // Reminders both ways (src/sync.ts): one read, his changes recorded as state (his tick or removal of a receipt
+  // closes its task), then the board brought in line.
+  const s = await pull();
+  const at = new Date(now).toISOString();
+  const lines = [
+    ...inbound(s, readActions(), at),
+    ...closings(tasksOf(), marks(s), at),
+  ];
+  if (lines.length > 0) {
+    appendJsonl(ACTIONS, Action, lines);
+  }
+  await push(receipts(tasksOf(), now), s.board);
 }
 
 const WAIT_S = 60;

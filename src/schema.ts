@@ -141,12 +141,19 @@ export const Action = z
       ...REMINDER_KINDS,
       "ask",
       "grant",
+      // A reminder Life links without a change: the first sync's baseline, or fields it learns (src/sync.ts).
+      "import",
       "instinct",
       ...TASK_LINES,
     ]),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct).
-    madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
-    result: z.enum(["ok", "failed", "duplicate"]),
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct);
+    // "reminders": his own change read back from Reminders (src/sync.ts), state only, never his words.
+    madeBy: z.union([
+      MadeBy,
+      z.enum(["connector", "reminders", "session", "watch"]),
+    ]),
+    // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).
+    result: z.enum(["ok", "failed", "duplicate", "intent"]),
     schemaVersion: z.literal(1),
     // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
@@ -170,6 +177,9 @@ export type Instruction = NonNullable<Action["instruction"]>;
 /** A task's own line (Atlas's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: Action) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
+/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (src/sync.ts). */
+export const isBookkeeping = (a: Action) =>
+  a.result === "intent" || a.kind === "import";
 
 /** Where a unit or an observation comes from. */
 const SourceName = z.enum([
