@@ -142,7 +142,7 @@ test("an edit changes the title and list only when they differ, and every other 
 
 /** A ledger line of an add (the grant's when `ref` is an observation) or a remove. */
 const line = (
-  kind: "add" | "remove",
+  kind: "add" | "edit" | "remove",
   target: string,
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
@@ -224,6 +224,17 @@ test("the grant is off once he removed a reminder it added; removing one of his 
   );
   const undo = line("remove", "reminder:7", "connector:y");
   expect(grantRefusal({ ...mine, actions: [made, undo] })).toContain("off");
+  // Moved to another list first (a new id), then removed: still his undo.
+  const moved = {
+    ...line("edit", "reminder:9", "connector:z"),
+    before: { id: 7 },
+  };
+  expect(
+    grantRefusal({
+      ...mine,
+      actions: [made, moved, line("remove", "reminder:9", "connector:y")],
+    })
+  ).toContain("off");
   const own = line("add", "reminder:8", "connector:x");
   expect(
     grantRefusal({

@@ -51,7 +51,6 @@ export const Change = z.object({
   urgent: z.boolean().optional(),
 });
 export type Change = z.infer<typeof Change>;
-export type Granted = z.infer<typeof Granted>;
 type Done = Pick<Action, "after" | "before" | "error" | "target">;
 
 const parse = <T>(s: string) => {
@@ -239,14 +238,8 @@ const FINISH = {
 async function finish(
   c: Change & { kind: keyof typeof FINISH }
 ): Promise<Done> {
-  const restore = c.kind === "restore";
-  if (restore && !(c.target && c.list)) {
-    throw new Error(
-      "a restore needs the reminder id and the list to put it in"
-    );
-  }
   // A removed reminder has no info until it is back.
-  const before = restore ? undefined : await info(c.target);
+  const before = c.kind === "restore" ? undefined : await info(c.target);
   const { after, args } = FINISH[c.kind];
   await remctl(args(`${c.target}`, c.list));
   return { after, before, target: `reminder:${c.target}` };
@@ -287,6 +280,11 @@ export const recorded = async (id: string) =>
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
+  if (c.kind === "restore" && !(c.target && c.list)) {
+    throw new Error(
+      "a restore needs the reminder id and the list to put it in"
+    );
+  }
   const on = c.target && (await info(c.target).catch(() => undefined))?.list;
   if (c.list === BOARD || on === BOARD) {
     throw new Error(`the list ${BOARD} is Atlas's board: use \`task\``);
@@ -381,13 +379,17 @@ export function grantRefusal(g: {
   state: string;
 }) {
   const made = g.actions.filter((a) => isGranted(a) && a.result === "ok");
-  const targets = new Set(made.map((a) => a.target));
-  if (
-    g.actions.some(
-      (a) => a.kind === "remove" && a.result === "ok" && targets.has(a.target)
-    )
-  ) {
-    return "the grant is off: he undid one of its reminders";
+  // The grant's reminders, followed through moves to another list (a move gives a new id), in ledger order.
+  const targets = new Set<string>();
+  for (const a of g.actions.filter((x) => x.result === "ok")) {
+    if (
+      isGranted(a) ||
+      (a.kind === "edit" && targets.has(`reminder:${a.before?.id}`))
+    ) {
+      targets.add(a.target);
+    } else if (a.kind === "remove" && targets.has(a.target)) {
+      return "the grant is off: he undid one of its reminders";
+    }
   }
   if (g.state !== "active") {
     return `the observation is ${g.state}, not current`;
@@ -417,6 +419,7 @@ export const Granted = Change.pick({
 })
   .extend({ kind: z.literal("add"), list: z.string() })
   .strict();
+export type Granted = z.infer<typeof Granted>;
 
 /** One grant at a time: the cap and the dedupe read the ledger, and only `act` appends to it. */
 let granting: Promise<unknown> = Promise.resolve();
