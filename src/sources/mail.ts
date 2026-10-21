@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { type SourceEvent, type SourceFile, sourceFile } from "../schema";
+import type { Newest } from "./index";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.
 
@@ -35,6 +36,31 @@ export function mailRoot(base = MAIL): string {
 
 const openIndex = (root: string) =>
   new Database(join(root, "MailData", "Envelope Index"), { readonly: true });
+
+/** The newest message in Mail's store, its sender and subject (the status page). */
+export function newestMail(): Newest {
+  const db = openIndex(mailRoot());
+  try {
+    const r = db
+      .query<
+        { at: number; comment: string | null; subject: string | null },
+        []
+      >(
+        `select m.date_received as at, s.subject, a.comment from messages m
+           left join subjects s on s.ROWID = m.subject left join addresses a on a.ROWID = m.sender
+         order by m.date_received desc limit 1`
+      )
+      .get();
+    return r
+      ? {
+          at: new Date(r.at * 1000).toISOString(),
+          words: [`${r.comment || "?"}: ${r.subject ?? ""}`],
+        }
+      : { at: null };
+  } finally {
+    db.close();
+  }
+}
 
 // "imap://<uuid>/%5BGmail%5D/Sent%20Mail" -> { account: uuid, path: ["[Gmail]", "Sent Mail"] }
 function parseMailboxUrl(url: string) {

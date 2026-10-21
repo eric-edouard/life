@@ -2,11 +2,10 @@ import { unfrozen } from "../clock";
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
 import type { Action } from "../schema";
-import type { Task } from "../tasks";
 import { type Digest, LIFE_MAIL, renderHtml, type Section } from "./email";
 import type { extract } from "./extract";
 import type { describeFiles } from "./files";
-import { digest } from "./ledger";
+import { digest, type Task } from "./ledger";
 import type { moments } from "./moments";
 import type { pages } from "./pages";
 import type { mapRepos } from "./repos";
@@ -359,6 +358,9 @@ export async function unsent(keys: string[]) {
   );
   return keys.filter((k) => !sent?.has(k));
 }
+
+/** The nightly report's key for the night run `run` (`sendReport`): the status page knows the report went by it. */
+export const reportKey = (run: string) => `nightly/${run}`;
 
 /**
  * Sends a report with Resend's API, once per key (`<kind>/<run or incident>`; the kind names the step in the log):

@@ -3,8 +3,7 @@ import { INFERRED_PREFIX, type InferredPerson, type MadeBy } from "../schema";
 import { kindOf } from "../sources";
 import { digest } from "./ledger";
 import { locate } from "./observe";
-import { areaOf, type Built, slugOf } from "./units";
-import { UNKNOWN } from "./who";
+import { areaOf, type Built, slugOf, UNKNOWN } from "./units";
 
 // Who the people not on the map are: what the moments call is asked about a day, and its answer checked (every quote
 // must be in a unit it read). No disk, network or clock.
@@ -92,8 +91,9 @@ export function checkPeople(
 }
 
 /**
- * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, Beeper) no
- * handle maps, and names lifelog gave a voice. `known` says which already resolve (truth, his corrections, a confident inferred person).
+ * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, Beeper) and
+ * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
+ * corrections, a confident inferred person).
  */
 export function unknownIn(units: Built[], known: (s: string) => boolean) {
   const out = new Map<string, Built[]>();
@@ -103,13 +103,9 @@ export function unknownIn(units: Built[], known: (s: string) => boolean) {
     }
   };
   for (const b of units) {
-    // Only where people speak for themselves: mail senders are organisations and lists, notes and commits his.
-    for (const m of kindOf(b.unit.source) === "chat" ? b.messages : []) {
-      if (!(m.fromMe || m.who)) {
-        add(m.sender, b);
-      }
-    }
-    for (const p of b.unit.people) {
+    // Only where people speak for themselves: mail senders are organisations and lists.
+    const kind = kindOf(b.unit.source);
+    for (const p of kind === "chat" || kind === "voice" ? b.unit.people : []) {
       if (p.startsWith(UNKNOWN)) {
         add(p.slice(UNKNOWN.length), b);
       }

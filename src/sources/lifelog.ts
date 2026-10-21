@@ -159,6 +159,28 @@ async function call(
   return (await res.json()) as unknown;
 }
 
+/**
+ * What the status page reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
+ * The contract leaves both objects untyped, so every field here may be absent or null.
+ */
+export const LifelogStatus = z.object({
+  pendant: z
+    .object({
+      batteryPercent: z.number().nullish(),
+      connection: z.string().nullish(),
+      recording: z.string().nullish(),
+      recordingKnownAt: z.string().nullish(),
+    })
+    .nullish(),
+  phoneHeartbeat: z
+    .object({
+      backlog: z.object({ pages: z.number().nullish() }).nullish(),
+    })
+    .nullish(),
+});
+export const lifelogStatus = async () =>
+  LifelogStatus.parse(await call("/status", 15));
+
 /** The store's file in `dir` and its cursor's. */
 export const storeFiles = (dir = WATCH) => ({
   cursor: join(dir, "cursor.json"),
@@ -207,6 +229,26 @@ export async function withStore<T>(
     store.db.close();
   }
 }
+
+/** The store opened read-only, for a reader that must not create or change it (the status page). */
+export const readStore = (dir = WATCH): Store => ({
+  cursor: storeFiles(dir).cursor,
+  db: new Database(storeFiles(dir).file, { readonly: true }),
+});
+
+/** The newest speech turn the watcher folded in (null with no store yet): lifelog sends turns once transcribed, minutes after they were spoken. */
+export const newestTurn = (dir = WATCH) =>
+  existsSync(storeFiles(dir).file)
+    ? withStore(
+        (s) =>
+          s.db
+            .query<{ at: string | null }, []>(
+              "select max(start_at) as at from turns"
+            )
+            .get()?.at ?? null,
+        () => readStore(dir)
+      )
+    : null;
 
 const DIGITS = /^\d+$/;
 

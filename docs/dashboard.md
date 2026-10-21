@@ -18,7 +18,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | Field | Clock | From |
 |---|---|---|
 | `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
-| `capture.archive.{whatsapp,beeper,notes}` | last write to Life's archive (a new message or note version), not a health check | file times |
+| `capture.archive.{whatsapp,beeper,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
 | `capture.lastTriage` | the last run that judged units (the moments step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | midday (13:00, 19:00), nightly and backfill weeks | derived/log, `memory.extract` |
 | `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
@@ -43,13 +43,15 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 
 Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it
 is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
-`memory.backfill` and the steps `memory.repos|files|moments|extract|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
+`memory.backfill` and the steps `memory.repos|files|moments|extract|closeness|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
 `outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`),
 `force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's
 counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a
-nightly's `listed`: the observation ids its report held, sent or not), `errors`. A sweep lists its steps in
+nightly's `listed`: the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases
+it entered, in order (its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being
+`status`'s `processing.phase`. A sweep lists its steps in
 `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of his Codex plan,
 derived from the log (`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each
 `model.run` line's) and its steps'; a metered run (a sweep, the eval `eval`, the Atlas bench `bench.atlas`: `metered`,
@@ -154,3 +156,39 @@ owner's workspace.
 What holds either way: only the owner's token passes, so other workspace members get 403 even if the Site is shared,
 and nothing is copied into a shared cache by Life. Live reads need the Mac online; a Site that keeps a last-known
 snapshot must date it and mark it stale, and where it is stored is a separate decision.
+
+# The status page
+
+`https://life.ericedouard.com/`: Life's architecture as a plate of live cards, scoped with the owner in eight rounds of
+questions on 21 Oct. **Read-only**: it changes nothing, sends nothing of his but the plate below, and adds no connector
+tool.
+
+- **Code.** `src/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
+  (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
+  source's own module), the Mac's probes are `src/mac.ts`. `src/plate-detail.ts` gives a card's history and log lines
+  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `src/dashboard.ts` serves `/`, its files and its reads under `/status/`, and the stream.
+  `assets/dashboard/` is the React and Motion page, bundled by Bun on first request (no build step). Sign-in is
+  `src/signin.ts`, shared with `/check`.
+- **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
+  source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
+  Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
+- **Live.** One server-sent-events stream, a plate every 3 s when anything but its time changed; edge dots run when a
+  group's `flow` grew between two plates. The Pendant's recording state is lifelog's `GET /status` (live since
+  lifelog's PR 23).
+- **Content.** In full (a message's first words, ask quotes, call arguments) with a privacy switch remembered per
+  device (`localStorage`) that hides it.
+- **Always on.** A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
+  request to the Mac and, when the Mac is out of reach (no answer in 8 s, or Cloudflare's 502, 504, 52x), answers
+  itself behind the same owner check (`ownerTokens`) with the page and the last plate the Mac pushed: once a minute,
+  only its listed fields (`strip`: his words and errors' text stay on the Mac), the page's files on a process's first
+  push (`pushPlate`). A push needs the shared secret; with none set the Worker takes none. Deploy: `worker/wrangler.jsonc`.
+- **Look.** Ledger, softened at his word: round surfaces, soft shadows, status as a coloured dot and a word, no
+  coloured borders.
+- **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
+  its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
+  steps, their counts and what it wrote. A sweep's line runs through its steps, then what it does after them (index;
+  the night's commit and report). The tunnel and each service show when their process started (a heal or a
+  restart), Reminders whether remctl can act, Email the alerts apart from the report.
+- **Pendant.** Recording or not, as the phone reports each change (lifelog's PRs 23 and 24), and the newest speech
+  heard; its silence counts from 08:00 at the earliest.
+- Shipped as PRs 108 (Codex use per run), 110 (the page) and the follow-up for these details; the spec said two.

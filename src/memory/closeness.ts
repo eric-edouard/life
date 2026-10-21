@@ -18,7 +18,7 @@ import {
   rowsOf,
   writtenPeople,
 } from "./ledger";
-import { begin, chunks, inBatches, meContext } from "./run";
+import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { daysBefore, safely, WITH_PEOPLE } from "./units";
 import { merged, readPeople } from "./who";
 import { localDate } from "./zones";
@@ -215,27 +215,22 @@ export function parseLevels(
   ctx: { at: string; madeBy: MadeBy }
 ) {
   const list = z.object({ people: z.array(z.unknown()) }).parse(reply).people;
-  const rows = new Map<string, Closeness>();
-  let invalid = 0;
-  for (const raw of list) {
-    const r = Entry.safeParse(raw);
-    const counts = r.success ? asked.get(r.data.person) : undefined;
-    if (!(r.success && counts !== undefined) || rows.has(r.data.person)) {
-      invalid += 1;
-      continue;
-    }
-    rows.set(
-      r.data.person,
-      Closeness.parse({
-        ...r.data,
-        at: ctx.at,
-        counts,
-        madeBy: ctx.madeBy,
-        schemaVersion: 1,
-      })
-    );
-  }
-  return { invalid, rows: [...rows.values()] };
+  const { entries, invalid } = checkedEntries(
+    list,
+    Entry,
+    (e) => e.person,
+    (person) => asked.has(person)
+  );
+  const rows = entries.map((e) =>
+    Closeness.parse({
+      ...e,
+      at: ctx.at,
+      counts: asked.get(e.person),
+      madeBy: ctx.madeBy,
+      schemaVersion: 1,
+    })
+  );
+  return { invalid, rows };
 }
 
 export const readCloseness = () =>
