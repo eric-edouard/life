@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, realpathSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +26,12 @@ export const FIXTURES = join(ROOT, "src", "test-data");
 export const DATA = TEST
   ? copied(FIXTURES)
   : (process.env.LIFE_DATA ?? join(homedir(), "Life"));
+
+/** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
+export function isHis(data = DATA) {
+  const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
+  return real(data) === real(join(homedir(), "Life"));
+}
 
 // ponytail: each run leaves its ~24 KB copy for the OS to clear (an exit hook doesn't fire under bun test); delete
 // old ones here if the temp folder ever matters.

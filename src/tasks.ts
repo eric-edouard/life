@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions";
+import { clock } from "./clock";
 import { LOG_DIR, logDays, logEvents } from "./log";
 import {
   ACTIONS,
@@ -17,8 +18,8 @@ import { Action, type Instruction } from "./schema";
 import { ROOT } from "./truth";
 
 // Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
-// done or dropped. Its own lines: Atlas's updates (the connector's `task`); Life's nudges and his steers (until 20 Oct) are
-// only history. What needs him is `escalation`, emailed once (`chase`, src/board.ts).
+// done or dropped. Its own lines: Atlas's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
+// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`, src/board.ts).
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -32,7 +33,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 const playbook = () => readFileSync(join(ROOT, "docs", "atlas.md"), "utf8");
 const WINDOW = 6 * HOUR;
 /** The playbook and its seal: a hash of the text and its 6 h window, so a seal recalled from memory dies within 12 h. */
-export const sealed = (now = Date.now(), text = playbook()) => ({
+export const sealed = (now = clock().getTime(), text = playbook()) => ({
   playbook: text,
   seal: digest("sha256", `${text}@${Math.floor(now / WINDOW)}`, 16),
 });
@@ -46,7 +47,7 @@ const askLine = (
   after: Action["after"],
   madeBy: "connector" | "session" | "watch",
   why: string,
-  now = Date.now(),
+  now = clock().getTime(),
   timing?: Action["timing"]
 ) =>
   ({
@@ -79,16 +80,18 @@ export function ask(...a: Parameters<typeof askLine>) {
   return old ?? action;
 }
 
-/** Atlas's update of a task, as a ledger line. */
-const updateLine = (
+/** Atlas's own line on a task (or `chat`), as a ledger line: an update, or a reply (its id also over its text). */
+const taskLine = (
+  kind: "update" | "reply",
   task: string,
   after: Action["after"],
-  now: number
+  now: number,
+  salt = ""
 ): Action => ({
   after,
   at: iso(now),
-  id: actionId(`${task}@${iso(now)}`, "update", ""),
-  kind: "update",
+  id: actionId(`${task}@${iso(now)}`, kind, salt),
+  kind,
   madeBy: "connector",
   result: "ok",
   schemaVersion: 1,
@@ -351,22 +354,51 @@ export function written(
   if (u.state === "waiting-eric") {
     after.deadline ??= iso(now + DAY);
   }
-  const line = updateLine(id, after, now);
+  const line = taskLine("update", id, after, now);
   return { answer: `${id}: ${u.state}`, lines: fresh ? [fresh, line] : [line] };
 }
 
 /** Records Atlas's update when the rules allow it (synchronous, from reading the ledger to the lines); throws why not. */
-export function update(u: Update, now = Date.now()) {
+export function update(u: Update, now = clock().getTime()) {
   const { answer, lines } = written(u, tasksOf(), now);
   appendJsonl(ACTIONS, Action, lines);
   return answer;
 }
 
+export const Reply = z.object({
+  task: z.string().optional().describe("The task it answers, if any"),
+  text: z.string().min(1).describe("What you are telling him, as sent"),
+});
+
+/** Records what Atlas tells him (the connector's `reply`), on a task or none (`chat`); throws when the task is unknown. */
+export function reply(
+  { task, text }: z.infer<typeof Reply>,
+  now = clock().getTime()
+) {
+  if (task && !taskOf(tasksOf(), task)) {
+    throw new Error(`no task ${task}`);
+  }
+  const target = task ?? "chat";
+  appendJsonl(ACTIONS, Action, [
+    taskLine("reply", target, { text: clip(text, 4000) }, now, text),
+  ]);
+  return `${target}: reply logged`;
+}
+
+/** The asks recorded since `since` (his spoken ones, Life's and the tasks Atlas made from his chat words; not splits) with no reply line: the nightly's gap count. */
+export const unanswered = (since: number, tasks = tasksOf()) =>
+  tasks.filter(
+    (t) =>
+      !t.ask.after.parent &&
+      Date.parse(t.ask.at) >= since &&
+      !t.lines.some((l) => l.kind === "reply")
+  ).length;
+
 /**
  * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (it cuts the
  * closed rows short).
  */
-export function taskList(now = Date.now()) {
+export function taskList(now = clock().getTime()) {
   return tasksOf().flatMap((t) => {
     const s = standing(t);
     const h = Math.floor((now - Date.parse(t.ask.at)) / HOUR);

@@ -10,7 +10,9 @@ const MAIL = join(homedir(), "Library", "Mail");
 const ACCOUNTS_DB = join(homedir(), "Library", "Accounts", "Accounts4.sqlite");
 const SNIPPET = 1500;
 const SENT = /sent|envoy/i;
-const SKIP = /junk|spam|trash|corbeille|deleted|supprim|indesirable/i;
+// Drafts were never sent: read as mail, an unsent draft would pass for something he wrote to someone.
+const SKIP =
+  /junk|spam|trash|corbeille|deleted|supprim|indesirable|draft|brouillon/i;
 const VERSION_DIR = /^V\d+$/;
 const MAILBOX_URL = /^\w+:\/\/([^/]+)\/(.*)$/;
 const BLANK_LINE = /\r?\n\r?\n/;
@@ -413,6 +415,24 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
   }
 }
 
+/**
+ * Each message file's text and files, read once per process: a file never changes (a partial one is replaced by the
+ * whole one, under another name), so `search` reads only new mail after its first call.
+ * Whether a partial message's saved attachment exists is read then too: one Mail downloads later shows at the next
+ * process. ponytail: keeps every message read (up to about 2 KB each) for the process's life: the nightly's three years
+ * for closeness, and in the server every mail any search's `from` reached; prune it if memory matters.
+ */
+const parsed = new Map<string, { files: SourceFile[]; snippet: string }>();
+function parse(path: string, id: string) {
+  const message = splitPart(rfc822(readFileSync(path)));
+  const read = {
+    files: filesOf(message, path, id),
+    snippet: snippetOf(message),
+  };
+  parsed.set(path, read);
+  return read;
+}
+
 export function readMail(
   since: Date,
   root = mailRoot(),
@@ -421,17 +441,23 @@ export function readMail(
   const mine = new Set(
     mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
   );
-  const seen = new Set<string>();
+  const rows = messagesSince(since, root);
+  const idOf = (r: Row) =>
+    `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
+  // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
+  const seen = new Set(
+    rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
+  );
   const events: SourceEvent[] = [];
-  for (const r of messagesSince(since, root)) {
-    const id = `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
-    if (seen.has(id) || SKIP.test(mailboxName(r.mailbox))) {
+  for (const r of rows) {
+    const id = idOf(r);
+    if (seen.has(id)) {
       continue;
     }
     seen.add(id);
     const subject = r.subject ?? "";
     const path = emlxPath(root, r.mailbox, r.rowid);
-    const message = path ? splitPart(rfc822(readFileSync(path))) : null;
+    const read = path ? (parsed.get(path) ?? parse(path, id)) : null;
     const sender = (r.sender ?? "unknown").toLowerCase();
     events.push({
       at: new Date(r.received * 1000).toISOString(),
@@ -440,12 +466,12 @@ export function readMail(
         ? `mail:${r.conversation}`
         : `${r.mailbox}#${subject}`,
       ...(subject ? { chatName: subject } : {}),
-      files: path && message ? filesOf(message, path, id) : [],
+      files: read?.files ?? [],
       fromMe: mine.has(sender),
       id,
       sender,
       source: "mail",
-      text: `${r.prefix ?? ""}${subject}\n${message ? snippetOf(message) : ""}`.trim(),
+      text: `${r.prefix ?? ""}${subject}\n${read?.snippet ?? ""}`.trim(),
     });
   }
   return events;

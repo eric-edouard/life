@@ -25,7 +25,6 @@ import {
   type Verdicts,
   verdictOf,
 } from "./ledger";
-import { who } from "./observe";
 import {
   assemble,
   bare,
@@ -52,7 +51,7 @@ import {
 } from "./page";
 import { begin, inBatches, refContext, type Step } from "./run";
 import { daysBefore, slugOf, within } from "./units";
-import { observationsNow, readPeople, type Shown } from "./who";
+import { observationsNow, readPeople, type Shown, who } from "./who";
 
 // `bun life memory pages`: stage 3 of the memory cascade (memory-pipeline §3.5). One page per person who has enough to
 // say and per area. Each observation has one home page (`homeOf`). A page is rebuilt from its previous version: lines

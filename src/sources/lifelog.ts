@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { clock, unfrozen } from "../clock";
 import { log } from "../log";
 import { digest, readJson } from "../memory/ledger";
 import { ROOT } from "../truth";
@@ -215,6 +216,24 @@ const LIVE = "c.successor is null and c.kind in ('conversation', 'imported')";
 /** A transcript turn's ref, the `<job>:<turn>@<instant>` every reader cites. */
 export const turnRef = (job: string, turn: number, at: string) =>
   `${job}:${turn}@${at}`;
+const TURN_REF = /^([^:\s]+):(\d+)@\S+$/;
+/** A turn ref's recording and turn, or null for any other id. */
+export const parseTurnRef = (ref: string) => {
+  const [, jobId, turn] = ref.match(TURN_REF) ?? [];
+  return jobId ? { jobId, turnIndex: Number(turn) } : null;
+};
+
+/** A stored turn's owner flag, by recording and turn. */
+const ownerRow = (store: Store) =>
+  store.db.query<{ is_owner: number }, [string, number]>(
+    "select is_owner from turns where job_id = ? and turn_index = ?"
+  );
+
+/** Whether lifelog credits this turn (a turn ref) to the owner now, as the feed last sent it. */
+export const ownerSpoke = (store: Store, ref: string) => {
+  const t = parseTurnRef(ref);
+  return Boolean(t && ownerRow(store).get(t.jobId, t.turnIndex)?.is_owner);
+};
 
 /** The stored successor: null while live; "" when retired with none (lifelog dropped it), so `successor is null` stays "live". */
 const successor = (c: { retired: { successorId: string | null } | null }) =>
@@ -237,11 +256,7 @@ function drop(db: Database, r: Page["removed"][number]) {
  * Folds one page into the store: whole rows replace the ones with the same key, `removed` ones go. Idempotent. A turn
  * keeps when it was first `seen`: when the hearing could first have heard it.
  */
-export function apply(
-  store: Store,
-  page: Page,
-  seen = new Date().toISOString()
-) {
+export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   const { db } = store;
   const conversation = db.prepare(
     "insert or replace into conversations values (?, ?, ?, ?, ?, ?, ?)"
@@ -319,9 +334,7 @@ export async function poll(store: Store, wait: number) {
   );
   // Before the page is folded in. A turn lifelog re-sends is not news; one it only now marks as his (it identifies the
   // owner late) is. A new turn with no speaker at all may be his too (a low-confidence ask, src/hear.ts).
-  const stored = store.db.query<{ is_owner: number }, [string, number]>(
-    "select is_owner from turns where job_id = ? and turn_index = ?"
-  );
+  const stored = ownerRow(store);
   const owner = page.turns.filter((t) => {
     const row = stored.get(t.jobId, t.turnIndex);
     return t.speaker.isOwner
@@ -508,21 +521,18 @@ export async function readTranscript(jobId: string) {
   ).turns;
 }
 
-/** How many turns of a conversation come before one turn: its place in the conversation, for `fetch --from-turn`. */
-export function turnOffset(
-  store: Store,
-  conversationId: string,
-  jobId: string,
-  turnIndex: number
-) {
-  return (
-    store.db
-      .query<{ n: number }, [string, string, number]>(
-        `select count(*) as n from turns where conversation_id = ?1
-          and (start_at, job_id, turn_index) < (select start_at, job_id, turn_index from turns where job_id = ?2 and turn_index = ?3)`
-      )
-      .get(conversationId, jobId, turnIndex)?.n ?? 0
-  );
+/**
+ * Where one turn is now: its conversation (lifelog may have moved it since it was cited) and how many turns come
+ * before it there, for `fetch --from-turn`; null once lifelog dropped it.
+ */
+export function turnPlace(store: Store, jobId: string, turnIndex: number) {
+  return store.db
+    .query<{ conversation: string; offset: number }, [string, number]>(
+      `select t.conversation_id as conversation, (select count(*) from turns o where o.conversation_id = t.conversation_id
+        and (o.start_at, o.job_id, o.turn_index) < (t.start_at, t.job_id, t.turn_index)) as offset
+        from turns t where t.job_id = ?1 and t.turn_index = ?2`
+    )
+    .get(jobId, turnIndex);
 }
 
 /** The people lifelog names in the store's turns: its person id and the name it gave. */
@@ -716,7 +726,7 @@ const FORWARDS: Record<
     request: (a) => [
       "PUT",
       `/conversations/${seg(a.id)}/title`,
-      { editedAt: new Date().toISOString(), title: a.title },
+      { editedAt: clock().toISOString(), title: a.title },
     ],
   },
 };
@@ -724,6 +734,7 @@ export const FORWARD_KINDS = Object.keys(FORWARDS);
 
 /** Sends one correction the owner approved, logging the request before it and the answer after it. */
 export async function forward(kind: string, a: Fix) {
+  unfrozen("write to lifelog");
   const f = FORWARDS[kind];
   if (!f) {
     throw new Error(`not a forwardable correction: ${kind}`);

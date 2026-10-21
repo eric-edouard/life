@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { clock } from "./clock";
 import { readJson } from "./memory/ledger";
 import { WATCH } from "./sources/lifelog";
 
@@ -20,5 +21,5 @@ export interface Health {
 export const readHealth = () => readJson<Health>(HEALTH) ?? null;
 
 /** The watcher is polling: a good poll in the last 15 minutes. */
-export const polling = (h: Health, now = Date.now()) =>
+export const polling = (h: Health, now = clock().getTime()) =>
   h.lastOkAt !== null && now - Date.parse(h.lastOkAt) < POLLING_MS;

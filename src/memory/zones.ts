@@ -1,4 +1,5 @@
 import { readlinkSync, statSync } from "node:fs";
+import { clock } from "../clock";
 import { Zone } from "../schema";
 import { appendJsonl, rowsOf, ZONES } from "./ledger";
 
@@ -39,22 +40,22 @@ export function zoneAt(iso: string) {
 const clocks = new Map<string, Intl.DateTimeFormat>();
 /** An instant's wall clock in `tz` (by default where he was then): `YYYY-MM-DD` and `HH:MM:SS`. */
 export function wall(iso: string, tz = zoneAt(iso)) {
-  let clock = clocks.get(tz);
-  if (!clock) {
-    clock = new Intl.DateTimeFormat("sv-SE", {
+  let format = clocks.get(tz);
+  if (!format) {
+    format = new Intl.DateTimeFormat("sv-SE", {
       dateStyle: "short",
       timeStyle: "medium",
       timeZone: tz,
     });
-    clocks.set(tz, clock);
+    clocks.set(tz, format);
   }
-  const [day = "", hms = ""] = clock.format(new Date(iso)).split(" ");
+  const [day = "", hms = ""] = format.format(new Date(iso)).split(" ");
   return { day, hms };
 }
 
-/** The instant local `date` starts in `tz`, by default where he was then (`cutAt` keeps that one instant). */
-export function dayStart(date: string, tz?: string) {
-  const utc = Date.parse(`${date}T00:00:00Z`);
+/** The instant local `date` starts (or reaches `hm`, "HH:MM") in `tz`, by default where he was then (`cutAt` keeps that one instant). */
+export function dayStart(date: string, tz?: string, hm = "00:00") {
+  const utc = Date.parse(`${date}T${hm}:00Z`);
   const offset = (at: number) => {
     const iso = new Date(at).toISOString();
     const { day, hms } = wall(iso, tz ?? zoneAt(iso));
@@ -84,7 +85,7 @@ export function cutAt(now: Date, was: string, tz: string) {
  * ponytail: the Mac travels with him; the Mac mini (roadmap 4.7) stays home, so its zone will need another source then
  * (his phone's, or lifelog's stays).
  */
-export async function noteZone(now = new Date()) {
+export async function noteZone(now = clock()) {
   const [, tz] = readlinkSync("/etc/localtime").split("zoneinfo/");
   const was = zones().at(-1)?.tz;
   if (tz && was && tz !== was) {

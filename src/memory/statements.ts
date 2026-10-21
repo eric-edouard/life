@@ -1,3 +1,4 @@
+import { clock } from "../clock";
 import { type Moment, Statement } from "../schema";
 import { pagedNow } from "./closeness";
 import {
@@ -10,7 +11,6 @@ import {
   shows,
   stateOf,
 } from "./ledger";
-import { who } from "./observe";
 import { placed } from "./page";
 import { record } from "./run";
 import { observationsNow, readPeople } from "./who";
@@ -21,7 +21,7 @@ import { when } from "./zones";
 
 /** A local `YYYY-MM-DD[ HH:MM]` as he'd say it: "7 Sep 23:00", with the year when it isn't this one. */
 export const plain = (t: string) =>
-  `${when(t.slice(0, 10)).date}${t.startsWith(String(new Date().getFullYear())) ? "" : ` ${t.slice(0, 4)}`}${t.slice(10)}`;
+  `${when(t.slice(0, 10)).date}${t.startsWith(String(clock().getFullYear())) ? "" : ` ${t.slice(0, 4)}`}${t.slice(10)}`;
 
 /** A moment in plain words: "Happened: Dinner, 7 Sep 20:00–22:30, at Chez Paul; with Zoé; told Dad." */
 export function momentText(m: Moment, name: (ref: string) => string) {
@@ -122,8 +122,6 @@ export async function claimsNow(): Promise<Claim[]> {
       },
     ];
   });
-  const name = (ref: string) =>
-    people.names.get(people.refOf(ref)) ?? who({ speaker: ref });
   const moments = momentsNow(await readMoments(), people.corrections).map(
     (m) => ({
       claim: m.id,
@@ -131,7 +129,7 @@ export async function claimsNow(): Promise<Claim[]> {
       group: momentGroup(m, paged, people.refOf),
       kind: "moment" as const,
       source: null,
-      text: momentText(m, name),
+      text: momentText(m, people.nameOf),
       units: m.units,
     })
   );

@@ -1,4 +1,5 @@
 import { METADATA } from "./auth";
+import { clock } from "./clock";
 import { exec } from "./proc";
 
 // The Mac's Cloudflare tunnel (`com.eric.cloudflared`, `~/.cloudflared/config.yml`) carries the connector and the
@@ -24,9 +25,7 @@ export async function healTunnel() {
   if (!tunnelDown(await statusOf(METADATA))) {
     return;
   }
-  console.log(
-    `${new Date().toISOString()} tunnel: 530, restarting cloudflared`
-  );
+  console.log(`${clock().toISOString()} tunnel: 530, restarting cloudflared`);
   const { code, stderr } = await exec([
     "launchctl",
     "kickstart",

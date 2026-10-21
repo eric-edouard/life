@@ -34,11 +34,6 @@ export interface Source {
   unit: Unit;
 }
 
-const WHO = /^(person|unknown):/;
-/** A speaker as a reader sees it: the readable name when there is one, else the id without its `person:` prefix. */
-export const who = (x: { speaker: string; speakerName?: string }) =>
-  x.speakerName ?? x.speaker.replace(WHO, "");
-
 const MARKS = /\p{M}/gu;
 const SPACE = /\s/u;
 const MIN_QUOTE = 8;

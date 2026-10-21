@@ -1,6 +1,7 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { clock } from "./clock";
 import { type LogEvent, log, recentEvents } from "./log";
 import { codeAt, exec } from "./proc";
 import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
@@ -72,7 +73,7 @@ const open = (dir: string) =>
 export function archiveOnce(
   source = WHATSAPP,
   dir = ARCHIVE,
-  now = Date.now()
+  now = clock().getTime()
 ): number {
   const archive = open(dir);
   const whatsapp = new Database(join(source, "ChatStorage.sqlite"), {
@@ -178,7 +179,7 @@ const openBeeper = (dir: string) =>
 export function archiveBeeperOnce(
   source = BEEPER,
   dir = ARCHIVE,
-  now = Date.now()
+  now = clock().getTime()
 ): number {
   const path = join(source, "index.db");
   if (!existsSync(path)) {
@@ -280,7 +281,7 @@ function goneRows(
 export function archiveNotesOnce(
   source = NOTES,
   dir = ARCHIVE,
-  now = Date.now()
+  now = clock().getTime()
 ): number {
   const path = join(source, "NoteStore.sqlite");
   if (!existsSync(path)) {
@@ -397,7 +398,7 @@ export const appsToOpen = (running: string[], now: number, opened = openedAt) =>
  * `open` given 5 s at most, so a hung LaunchServices never holds up the copies.
  */
 async function keepAppsOpen() {
-  const now = Date.now();
+  const now = clock().getTime();
   const running = (await exec(["ps", "-axco", "comm="])).stdout.split("\n");
   await Promise.all(
     appsToOpen(running, now).map(async (app) => {
@@ -440,7 +441,7 @@ function deletedIn(name: string, media: string, since: string) {
 }
 
 function printDeleted(days: number) {
-  const since = new Date(Date.now() - days * 864e5).toISOString();
+  const since = new Date(clock().getTime() - days * 864e5).toISOString();
   const rows = STORES.flatMap((s) => deletedIn(s.name, s.media, since)).sort(
     (a, b) => a.at.localeCompare(b.at)
   );
@@ -475,7 +476,7 @@ export function openIncidents(lines: LogEvent[]) {
 }
 
 /** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
-export async function archiveFailing(ms = 0, now = Date.now()) {
+export async function archiveFailing(ms = 0, now = clock().getTime()) {
   return [...openIncidents(await recentEvents(ARCHIVE_LOOKBACK))].filter(
     ([, e]) => now - Date.parse(e.at) >= ms
   );
@@ -500,10 +501,10 @@ export async function archiveCommand(args: string[]): Promise<number> {
           log("run.end", { step: `archive.${name}` });
         }
         if (added > 0) {
-          console.log(`${new Date().toISOString()} archived ${added} ${name}`);
+          console.log(`${clock().toISOString()} archived ${added} ${name}`);
         }
       } catch (error) {
-        console.error(new Date().toISOString(), name, error);
+        console.error(clock().toISOString(), name, error);
         if (!failing.has(name)) {
           failing.add(name);
           log("run.error", {
@@ -520,6 +521,6 @@ export async function archiveCommand(args: string[]): Promise<number> {
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
   }
-  console.log(`${new Date().toISOString()} new code: restarting`);
+  console.log(`${clock().toISOString()} new code: restarting`);
   return 0;
 }

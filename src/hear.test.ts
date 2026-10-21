@@ -18,6 +18,11 @@ test("only “hey Atlas” or its misheard word, in order, wake it, whatever the
     "so... hey — atlas, remind me",
     "and then hey atlas",
     "hey, zorba: call",
+    "Hej Atlas test.",
+    "hei atlas",
+    "Hey, at last remind me",
+    "Hé Atlas, rappelle-moi",
+    "ey Atlas",
   ]) {
     expect(WAKE.test(said)).toBe(true);
   }
@@ -30,6 +35,14 @@ test("only “hey Atlas” or its misheard word, in order, wake it, whatever the
     "Atlas hey",
     "hey atlases",
     "hey zorbas",
+    "envoie-le à Atlas",
+    "a Atlas",
+    "Atlas is okay.",
+    "they Atlas",
+    "okey Atlas",
+    "the Atlas",
+    "hay Atlas",
+    "ok, at last",
   ]) {
     expect(WAKE.test(said)).toBe(false);
   }
@@ -79,6 +92,25 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
     ref: "job:0@x",
     turns: [0],
   });
+});
+
+// audit-4-hej-atlas: lifelog wrote his "hey Atlas" as "Hej Atlas" (no speaker) and "Hey, at last": no ask was made.
+test("“Hej Atlas” from an unattributed voice is a low ask, from a named other none; “hey, at last” is his low ask only", () => {
+  const asks = asksIn(
+    [
+      turn(0, "unknown", "Hej Atlas test."),
+      turn(60, "other", "Hej Atlas, buy me a car"),
+      turn(120, "me", "Hé Atlas, rappelle-moi"),
+      turn(180, "me", "Hey, at last remind me to call"),
+      turn(240, "unknown", "hey, at last you're here"),
+    ],
+    ""
+  );
+  expect(asks.map((a) => [a.quote, a.confidence])).toEqual([
+    ["Hej Atlas test.", "low"],
+    ["Hé Atlas, rappelle-moi", "high"],
+    ["Hey, at last remind me to call", "low"],
+  ]);
 });
 
 test("his own “hey Zorba” (LIFE_MISHEARD) is lifelog mishearing “hey Atlas”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
