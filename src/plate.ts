@@ -471,9 +471,7 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   const n: Newest = read.ok ? read.value : { at: null };
   const broken = r.failingStores.get(d.name);
   // The archive's stores: when it last copied one in (lifeStatus).
-  const copiedAt = (r.status.capture.archive as Record<string, string | null>)[
-    d.name
-  ];
+  const copiedAt = r.status.capture.archive[d.name];
   const tone = toneOf(n.at, d.silentAfter, r.t, read.ok && !broken);
   const why = broken?.error ?? (read.ok ? undefined : read.error);
   return {
