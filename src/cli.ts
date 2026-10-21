@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 import { Asked, actAsked, requested, setGrant } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
+import { init } from "./init";
 import { readEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
 import { actionLine, duration } from "./memory/report";
@@ -120,6 +121,26 @@ const commands: Record<string, () => Promise<number>> = {
     }
     const done = await setGrant(state === "on", said);
     console.log(`${done.id}: ${actionLine(done)}`);
+    return 0;
+  },
+  /** A new install's data, once: `init --name <his name> [--email a]… [--phone +33…]…`. */
+  async init() {
+    const { values: v } = parseArgs({
+      args: process.argv.slice(3),
+      options: {
+        email: { multiple: true, type: "string" },
+        name: { type: "string" },
+        phone: { multiple: true, type: "string" },
+      },
+    });
+    if (!v.name) {
+      console.error(
+        "usage: bun life init --name <name> [--email a]… [--phone +33…]…"
+      );
+      return 2;
+    }
+    await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
+    console.log("Life: data ready");
     return 0;
   },
   /** The memory pipeline and its read path: `memory nightly|moments|extract|search…` (src/memory/command.ts). */

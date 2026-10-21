@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { Engine } from "./schema";
+import { Engine, SourceName } from "./schema";
 import { STATE } from "./truth";
 
 // What makes one install differ from another, in one file: who it serves, where its parts are, what is turned on.
@@ -51,6 +51,8 @@ export const Settings = z
     reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */
     repos: z.string().optional(),
+    /** The sources he turned on, by name: no other is read, searched or shown. */
+    sources: z.array(SourceName).default([]),
   })
   .strict();
 export type Settings = z.infer<typeof Settings>;

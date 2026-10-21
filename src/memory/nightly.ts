@@ -1,4 +1,9 @@
-import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
+import {
+  ARCHIVE_LOOKBACK,
+  archiveFailing,
+  keptStores,
+  openIncidents,
+} from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { isReviewCall } from "../events";
@@ -133,11 +138,12 @@ function coded(day: string, rec: Pick<RunRecord, "error">) {
 export async function archiveLine(since: string) {
   const lines = await recentEvents(ARCHIVE_LOOKBACK);
   const still = new Set(openIncidents(lines).values());
+  const kept = new Set(keptStores().map((s) => `archive.${s.name}`));
   const listed = lines
     .filter(
       (e) =>
         e.kind === "run.error" &&
-        e.step.startsWith("archive.") &&
+        kept.has(e.step) &&
         (e.at >= since || still.has(e))
     )
     .map(

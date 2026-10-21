@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Person, SourceEvent, Unit } from "../schema";
+import { readSettings, setSetting } from "../settings";
 import {
   chapter,
   conversation as feedConversation,
@@ -13,11 +14,13 @@ import {
   type LifelogConversation,
   readConversations,
 } from "../sources/lifelog";
+import { loadTruth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { readUnits, UNITS } from "./ledger";
 import {
   applyRules,
   dayRange,
+  gather,
   LIFE_CHAT,
   lastDays,
   lifelogUnits,
@@ -635,4 +638,20 @@ test("a reader sees a unit's stored senders as whom they resolve to today, a mai
     "unknown:+66600000009",
   ]);
   expect(mail && unitNow(mail.unit, refOf).people).toEqual([]);
+});
+
+test("with no source turned on, a sweep reads nothing and fails nothing", async () => {
+  const before = readSettings().sources;
+  try {
+    await setSetting("sources", []);
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.built).toEqual([]);
+    expect(e.conversations).toEqual([]);
+    expect(e.failed).toEqual([]);
+  } finally {
+    await setSetting("sources", before);
+  }
 });

@@ -1,15 +1,25 @@
+import { closeSync, existsSync, openSync } from "node:fs";
 import type { Person, SourceEvent, Unit } from "../schema";
-import { FORMATS, newestAssistant, readAssistant } from "./assistants";
+import { settings } from "../settings";
+import { archiveDb } from "./archived";
+import {
+  FORMATS,
+  importOf,
+  newestAssistant,
+  readAssistant,
+} from "./assistants";
 import { newestAtlas, readAtlas } from "./atlas";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
+  DB,
   handleOf,
   isImessageGroup,
   newestImessage,
   readImessage,
 } from "./imessage";
-import { newestMail, readMail } from "./mail";
+import { lifelogMissing } from "./lifelog";
+import { mailRoot, newestMail, readMail } from "./mail";
 import { newestNote, readNotes } from "./notes";
 import {
   isWhatsappGroup,
@@ -36,6 +46,19 @@ export interface Newest {
 
 const HOUR = 3_600_000;
 
+/** `why`, unless this process can open `path` (macOS refuses it without Full Disk Access). */
+function unreadable(path: string, why: string) {
+  try {
+    closeSync(openSync(path, "r"));
+  } catch {
+    return why;
+  }
+}
+const FULL_DISK = "Full Disk Access for Life";
+/** An archived app's store: there once the archive has copied it (`archive.ts`). */
+const archived = (name: string, app: string) => () =>
+  unreadable(archiveDb(name), `${app} not archived yet`);
+
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */
   chatDays?: number;
@@ -43,6 +66,8 @@ export type Descriptor = {
   group?: (chat: string) => boolean;
   /** The handle a 1:1 chat's key holds (who wrote a fact that predates `speakerFrom`). */
   handleOf?: (key: string) => string | undefined;
+  /** What keeps it from being read now (a permission, an app never opened, a part not set up); nothing when it can be. */
+  missing?: () => string | undefined;
   /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
   /** What he calls it. */
@@ -79,13 +104,20 @@ export type Descriptor = {
  */
 export const SOURCES: Descriptor[] = [
   // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, plate.ts).
-  { kind: "voice", label: "Pendant", name: "lifelog", silentAfter: 6 * HOUR },
+  {
+    kind: "voice",
+    label: "Pendant",
+    missing: lifelogMissing,
+    name: "lifelog",
+    silentAfter: 6 * HOUR,
+  },
   {
     chatDays: 7,
     group: isImessageGroup,
     handleOf,
     kind: "chat",
     label: "iMessage",
+    missing: () => unreadable(DB, FULL_DISK),
     name: "imessage",
     newest: newestImessage,
     read: readImessage,
@@ -98,6 +130,7 @@ export const SOURCES: Descriptor[] = [
     handleOf: phoneOf,
     kind: "chat",
     label: "WhatsApp",
+    missing: archived("whatsapp", "WhatsApp"),
     name: "whatsapp",
     newest: newestWhatsapp,
     read: readWhatsapp,
@@ -108,6 +141,7 @@ export const SOURCES: Descriptor[] = [
     chatDays: 7,
     kind: "chat",
     label: "Beeper",
+    missing: archived("beeper", "Beeper"),
     name: "beeper",
     newest: newestBeeper,
     read: readBeeper,
@@ -117,6 +151,13 @@ export const SOURCES: Descriptor[] = [
   {
     kind: "mail",
     label: "Mail",
+    missing: () => {
+      try {
+        mailRoot();
+      } catch {
+        return FULL_DISK;
+      }
+    },
     name: "mail",
     newest: newestMail,
     read: readMail,
@@ -126,6 +167,7 @@ export const SOURCES: Descriptor[] = [
   {
     kind: "notes",
     label: "Notes",
+    missing: archived("notes", "Notes"),
     name: "notes",
     newest: newestNote,
     read: readNotes,
@@ -142,6 +184,7 @@ export const SOURCES: Descriptor[] = [
       imported: true,
       kind: "notes",
       label: FORMATS[name].label,
+      missing: () => (existsSync(importOf(name)) ? undefined : "not imported"),
       name,
       newest: () => newestAssistant(name),
       read: readAssistant(name),
@@ -161,12 +204,27 @@ export const SOURCES: Descriptor[] = [
   {
     kind: "repo",
     label: "Git",
+    missing: () => (settings().repos ? undefined : "no repos folder set"),
     name: "git",
     newest: newestCommit,
     read: (since, { me, repos }) => readGit(since, repos, me),
     silentAfter: 72 * HOUR,
   },
 ];
+
+/** The sources he turned on (the `sources` setting), in cut order: no other is read, searched or shown. */
+export const enabledSources = (all = SOURCES, on = settings().sources) =>
+  all.filter((s) => on.includes(s.name));
+
+/**
+ * The sources he turned on that can be read now. One that can't yet (`missing`) is left out: not set up is not broken,
+ * so it never fails a night (`gather` logs why); one that can be read and then throws still does (`safely`).
+ */
+export const readySources = (all = enabledSources()) =>
+  all.filter((s) => !s.missing?.());
+
+/** Whether a voice source is on and set up: what the watcher listens to, and what voice search and `day` read. */
+export const listening = () => readySources().some((s) => s.kind === "voice");
 
 const BY_NAME = new Map(SOURCES.map((s) => [s.name, s]));
 /** A stored source name's descriptor: every name has one (`index.test.ts`). */

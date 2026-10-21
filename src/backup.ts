@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { STORES } from "./archive";
 import { clock } from "./clock";
@@ -68,10 +68,15 @@ export async function backup() {
   };
   rmSync(STAGING, { force: true, recursive: true });
   mkdirSync(STAGING);
-  // The cursor before its store: the watcher writes it after, so a restored store never lags its cursor.
+  // Every store there is, on or off: an archive turned off still holds the only copy of what was deleted. The cursor
+  // before its store: the watcher writes it after, so a restored store never lags its cursor.
   const { cursor, file } = storeFiles();
-  await run(["cp", cursor, STAGING]);
-  for (const db of [...STORES.map((s) => archiveDb(s.name)), file]) {
+  if (existsSync(cursor)) {
+    await run(["cp", cursor, STAGING]);
+  }
+  for (const db of [...STORES.map((s) => archiveDb(s.name)), file].filter(
+    existsSync
+  )) {
     const to = `${STAGING}/${basename(db)}`;
     // biome-ignore lint/performance/noAwaitInLoops: one copy at a time
     await run(["sqlite3", "-readonly", db, `.backup '${to}'`]);
