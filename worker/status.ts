@@ -2,12 +2,16 @@ import { createRemoteJWKSet } from "jose";
 import { ISSUER, ownerTokens } from "../src/auth";
 import { HEADERS, SESSION } from "../src/http";
 
-// The status page's always-on edge (Cloudflare Worker, routes in wrangler.jsonc): every request goes to the Mac as
-// before; only when the Mac can't be reached does the Worker answer itself, behind the same owner check as the Mac,
-// with the page and the last plate the Mac pushed: metadata only (src/plate.ts `strip`), never his words. It also
-// takes those pushes (POST /__status/push, a shared secret). It decides nothing else.
+// Life's public edge (Cloudflare Worker on every path of life.ericedouard.com, wrangler.jsonc): every request goes to
+// the Mac through Tailscale Funnel (`MAC_ORIGIN`, HTTPS 443-class ports any network and VPN lets through, unlike the
+// Cloudflare tunnel's 7844). For the status page only, when the Mac can't be reached, the Worker answers itself,
+// behind the same owner check as the Mac, with the page and the last plate the Mac pushed: metadata only
+// (src/plate.ts `strip`), never his words. It also takes those pushes (POST /__status/push, a shared secret). It
+// decides nothing else.
 
 interface Env {
+  /** The Mac's Funnel origin (`tailscale funnel --https=8443 http://127.0.0.1:46200`), set in wrangler.jsonc. */
+  MAC_ORIGIN: string;
   /** LIFE_OWNER_SUB, as the Mac checks it. */
   OWNER_SUB: string;
   /** LIFE_STATUS_PUSH_SECRET, the Mac's. */
@@ -117,8 +121,17 @@ export default {
     if (pathname === "/__status/push" && req.method === "POST") {
       return push(req, env);
     }
+    const { search } = new URL(req.url);
+    // The Mac answers as is: its redirects (sign-in) go back to the browser, not followed here.
+    const toMac = () =>
+      fetch(new Request(`${env.MAC_ORIGIN}${pathname}${search}`, req), {
+        redirect: "manual",
+      });
+    if (!(pathname === "/" || pathname.startsWith("/status/"))) {
+      return toMac();
+    }
     const mac = await Promise.race([
-      fetch(req).catch(() => null),
+      toMac().catch(() => null),
       new Promise<null>((done) => setTimeout(() => done(null), WAIT_MS)),
     ]);
     return mac && !unreachable(mac) ? mac : offline(req, env, pathname);

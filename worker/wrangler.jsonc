@@ -1,7 +1,8 @@
-// The status page's always-on edge (status.ts). Deploy from ~/Work/life with .env loaded:
+// Life's public edge (status.ts). Deploy from ~/Work/life with .env loaded:
 //   set -a; . ./.env; set +a; bun x wrangler@4.40.0 deploy -c worker/wrangler.jsonc
 // Secrets (once): OWNER_SUB (= LIFE_OWNER_SUB) and PUSH_SECRET (= LIFE_STATUS_PUSH_SECRET), `wrangler secret put`.
-// Only the page's paths are routed here: /mcp, /check and /me never pass through the Worker.
+// Every path is routed here and passed to the Mac over Tailscale Funnel (MAC_ORIGIN); only the status page has an
+// offline fallback.
 {
   "name": "life-status",
   "main": "status.ts",
@@ -10,15 +11,10 @@
     { "binding": "STATUS", "id": "c103c8e20e3f47ad8de4465839b682b9" }
   ],
   "routes": [
-    { "pattern": "life.ericedouard.com/", "zone_name": "ericedouard.com" },
-    {
-      "pattern": "life.ericedouard.com/status/*",
-      "zone_name": "ericedouard.com"
-    },
-    {
-      "pattern": "life.ericedouard.com/__status/*",
-      "zone_name": "ericedouard.com"
-    }
+    { "pattern": "life.ericedouard.com/*", "zone_name": "ericedouard.com" }
   ],
+  "vars": {
+    "MAC_ORIGIN": "https://eric-edouards-macbook-pro.example.ts.net:8443"
+  },
   "workers_dev": false
 }

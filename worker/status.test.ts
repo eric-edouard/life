@@ -8,6 +8,7 @@ const kv = {
 };
 const env = (secret: string) =>
   ({
+    MAC_ORIGIN: "http://127.0.0.1:1",
     OWNER_SUB: "owner",
     PUSH_SECRET: secret,
     STATUS: kv,

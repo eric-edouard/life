@@ -177,8 +177,8 @@ tool.
   lifelog's PR 23).
 - **Content.** In full (a message's first words, ask quotes, call arguments) with a privacy switch remembered per
   device (`localStorage`) that hides it.
-- **Always on.** A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
-  request to the Mac and, when the Mac is out of reach (no answer in 8 s, or Cloudflare's 502, 504, 52x), answers
+- **Always on.** A Cloudflare Worker (`worker/status.ts`, Life's public edge on every path, reaching the Mac over Tailscale
+  Funnel) passes every request to the Mac and, when the Mac is out of reach (no answer in 8 s, or Cloudflare's 502, 504, 52x), answers
   itself behind the same owner check (`ownerTokens`) with the page and the last plate the Mac pushed: once a minute,
   only its listed fields (`strip`: his words and errors' text stay on the Mac), the page's files on a process's first
   push (`pushPlate`). A push needs the shared secret; with none set the Worker takes none. Deploy: `worker/wrangler.jsonc`.

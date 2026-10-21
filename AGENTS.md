@@ -182,8 +182,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never a refused token.
 - **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
   reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages): never serve anything of his before
-  that check. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to
-  the Mac and answers only when the Mac is out of reach, behind the same owner check, with what the Mac pushed: the plate
+  that check. Its Worker (`worker/status.ts`, Cloudflare, Life's public edge) passes every request to
+  the Mac and, for this page only, answers when the Mac is out of reach, behind the same owner check, with what the Mac pushed: the plate
   without his words (`strip`) and the page's files. `docs/dashboard.md`.
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly
@@ -271,6 +271,11 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 - **The laptop is the host, and offline means delayed, never lost** (decided 20 Oct, `~/Life/docs/server-scope-2026-10-20.md`): the lifelog cursor is gap-free, hearing reaches back a week (`RECENT_MS`, skipped turns are logged)
   and delivery waits for a good poll, so nothing alerts on an outage. Reachability rests on the Mac kept awake on purpose (his choice, 21 Oct: a keep-awake setting he keeps on; nothing in Life sets it). Reconsider a server only on a measured loss (an
   ask lost, or acted on late with harm) or spoken asks above about one a day for a month (`actions.jsonl`).
+- **Life's public address reaches the Mac over Tailscale Funnel, not the Cloudflare tunnel** (21 Oct: Mullvad, which
+  he needs on for ChatGPT, blocks the tunnel's port 7844, and its split tunnel cuts the Mac's internet). Every path of
+  `life.ericedouard.com` is routed to the Worker (`worker/status.ts`), which fetches `MAC_ORIGIN` (`tailscale funnel
+  --bg --https=8443 http://127.0.0.1:46200`, HTTPS any network lets through). The connector's URL and OAuth resource
+  are unchanged, so no client reconnects. The Funnel needs Tailscale running on the Mac.
 - The watcher heals the Mac's tunnel (`src/tunnel.ts`, every 2 min): it restarts `com.eric.cloudflared` only on a 530
   (Cloudflare has no tunnel to the Mac), never on no answer (offline, or the watcher busy) or an app's 5xx (a dead app behind the tunnel once
   had another repo's watchdog restart it 35,000 times). It is the tunnel's only heal; other hostnames ride on it.
