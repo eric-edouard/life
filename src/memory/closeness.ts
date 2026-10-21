@@ -58,7 +58,7 @@ const dayOf = (days: Days, who: string, day: string) => {
 /**
  * Who one chat's messages are with: the person among its other senders, else (a chat only he wrote in) its id's, else
  * its name's (a mail thread's is its subject: never). A source whose ids say whether a chat is a group (`group`:
- * WhatsApp, iMessage; `chatDays` leaves those out) has the rest 1:1 whatever handles one person wrote from; elsewhere
+ * WhatsApp, iMessage; `isDirect`) has the rest 1:1 whatever handles one person wrote from; elsewhere
  * (Beeper, mail) more than one other sender is a group: none.
  */
 function chatPerson(
