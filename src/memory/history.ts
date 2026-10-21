@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { z } from "zod";
-import { STORES } from "../archive";
+import { lastCopied, STORES } from "../archive";
 import { clock } from "../clock";
 import { polling, readHealth } from "../health";
 import { add, NONE, type Quota, type Tokens } from "../llm";
@@ -11,7 +11,6 @@ import {
   logEvents,
   recentEvents,
 } from "../log";
-import { archiveDb } from "../sources/archived";
 import { decode, encode, PAGE } from "./feed";
 import {
   lockedSince,
@@ -34,17 +33,22 @@ import { localDate } from "./zones";
 
 /** The sweeps: one launchd start that runs several steps. */
 const SWEEPS = new Set(["memory.nightly", "memory.midday", "memory.backfill"]);
+/** The steps a sweep runs, in their order (the night alone maps repos and judges closeness). */
+export const STEPS = [
+  "memory.repos",
+  "memory.files",
+  "memory.moments",
+  "memory.extract",
+  "memory.closeness",
+  "memory.pages",
+];
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
   ...SWEEPS,
-  "memory.repos",
-  "memory.files",
-  // Until 18 Oct the verdicts had a step of their own.
+  ...STEPS,
+  // Until 18 Oct the verdicts had a step of their own, and inferring people another.
   "memory.triage",
-  "memory.moments",
-  "memory.extract",
   "memory.infer",
-  "memory.pages",
 ];
 
 const omit = (e: LogEvent | undefined) => {
@@ -342,6 +346,10 @@ const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
 
 // --- status --------------------------------------------------------------------------------------------------------
 
+/** Each archive store's last copy (`lastCopied`), by store name. */
+const copiedByStore = (): Record<string, string | null> =>
+  Object.fromEntries(STORES.map((s) => [s.name, lastCopied(s)]));
+
 /** When a SQLite file last changed, its write-ahead log included (written before the file); null: no file. */
 function dbTime(path: string) {
   const ms = Math.max(
@@ -383,7 +391,6 @@ export async function lifeStatus(now = clock()) {
   const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
-  const archive = (name: string) => dbTime(archiveDb(name));
   let watcher: Record<string, unknown> = { state: "unknown" };
   if (health) {
     watcher = {
@@ -397,7 +404,7 @@ export async function lifeStatus(now = clock()) {
       state: readBackfill() ?? null,
     },
     capture: {
-      archive: Object.fromEntries(STORES.map((s) => [s.name, archive(s.name)])),
+      archive: copiedByStore(),
       // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,
