@@ -1,6 +1,17 @@
 import { expect, test } from "bun:test";
+import { rmSync } from "node:fs";
 import type { Health } from "./health";
-import { afterPoll, hearings, holdFor, type Pending } from "./watch";
+import { hear } from "./hear";
+import { ACTIONS } from "./memory/ledger";
+import {
+  turn as fed,
+  lifelogServer,
+  lifelogStore,
+  page,
+} from "./sources/fixtures";
+import { apply } from "./sources/lifelog";
+import { tasksOf } from "./tasks";
+import { afterPoll, hearings, holdFor, type Pending, resumed } from "./watch";
 
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
@@ -77,4 +88,65 @@ test("after a 3-day outage, his turns from before it are still heard, once, from
     { conversation: "d", from: said, tries: 0 },
   ]);
   expect(hearings(pending, [], back + 120_000, open)).toEqual([]);
+});
+
+test("a restart hears again every turn first seen in the 10 minutes before the newest, even after an outage: the ask is recorded once", async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [
+        { speakerId: null, text: "hey Atlas, call the bank" },
+        { speakerId: null, text: "hey Atlas, buy me a car" },
+        { speakerId: null, text: "nice weather" },
+        { speakerId: null, text: "see you" },
+      ],
+    }),
+  });
+  const store = lifelogStore();
+  const said = "2026-10-19T10:00:00.000Z";
+  const seen = Date.parse("2026-10-19T10:00:10.000Z");
+  const iso = (ms: number) => new Date(ms).toISOString();
+  apply(
+    store,
+    page({
+      turns: [
+        fed(0, said, "p-me", "Me", "c1", true),
+        fed(1, said, "p-ana", "Ana", "c2"),
+        fed(2, said, null, null, "c3"),
+      ],
+    }),
+    iso(seen)
+  );
+  const complete = () => "complete" as const;
+  /** A watcher started at `now`, run until nothing is pending: the conversations it heard again. */
+  const restart = async (now: number) => {
+    const pending = resumed(store, now);
+    const keys = [...pending.keys()];
+    for (const h of hearings(pending, [], now + 5000, complete)) {
+      // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time, as the watcher
+      await hear(store, h.conversation, h.from, now + 5000);
+    }
+    return keys;
+  };
+  try {
+    // The poll at `seen` brought the turns, then the watcher stopped inside the wait: its pending map is gone.
+    expect(
+      hearings(new Map(), [{ at: said, conversation: "c1" }], seen, complete)
+    ).toEqual([]);
+    expect(await restart(seen + 30_000)).toEqual(["c1", "c2", "c3"]);
+    // Restarted after it heard them, 30 min of failed polls later (nothing new arrived): heard again, recorded once.
+    expect(await restart(seen + 30 * 60_000)).toEqual(["c1", "c2", "c3"]);
+    expect(tasksOf().map((t) => t.ask.instruction.quote)).toEqual([
+      "hey Atlas, call the bank",
+    ]);
+    // Seen over 10 min before the newest turn: long heard, never again.
+    apply(
+      store,
+      page({ turns: [fed(3, said, "p-ana", "Ana", "c4")] }),
+      iso(seen + 11 * 60_000)
+    );
+    expect(await restart(seen + 40 * 60_000)).toEqual(["c4"]);
+  } finally {
+    server.close();
+    rmSync(ACTIONS, { force: true });
+  }
 });

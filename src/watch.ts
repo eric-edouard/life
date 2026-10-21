@@ -9,7 +9,7 @@ import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
 import { serveConnector } from "./server";
-import { openStore, poll, type Store } from "./sources/lifelog";
+import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
 import { ROOT } from "./truth";
 import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
@@ -34,6 +34,12 @@ const RETRY_MS = 30_000;
 const WAIT_MS = { complete: 5000, open: 60_000 };
 /** A replay of the store (after a restart or an outage) never acts on speech older than a week. */
 const RECENT_MS = 7 * 24 * 3_600_000;
+/**
+ * How far before the newest turn a restarted watcher hears again: past any wait (2 min at most, 10–21 Oct), hold or
+ * retry. ponytail: a hearing pending longer (five failed fetches while other turns arrive) is lost on a restart; mark
+ * heard turns in the store if that ever happens.
+ */
+const REPLAY_S = 600;
 
 /** The health after one poll. */
 export function afterPoll(
@@ -55,9 +61,9 @@ export function afterPoll(
   };
 }
 
-/** Conversations where he spoke (or someone unnamed did): `at` is when the last such turn arrived, `from` the earliest not yet heard, `tries` its failed hearings. */
+/** Conversations to hear (new turns of his or unattributed ones, at start every recent one): `at` is when the last such turn arrived, `from` the earliest not yet heard, `tries` its failed hearings. */
 export type Pending = Map<string, { at: number; from: string; tries: number }>;
-/** A hearing whose words could not be fetched is tried again this many times, then logged lost (a restart waits on it). */
+/** A hearing whose words could not be fetched is tried again this many times, then logged lost. */
 const TRIES = 5;
 
 /** Folds turns into `pending`, each conversation due after its last one arrived (`dueAt`); speech older than a week is left out, and logged. */
@@ -94,7 +100,7 @@ const dueAt = (
 
 /**
  * Folds the turns of one poll into `pending` and takes out the conversations due (`dueAt`, measured on arrival, not on
- * speech time), ready for `hear`. ponytail: `pending` lives in memory; a restart inside the wait drops those turns.
+ * speech time), ready for `hear`.
  */
 export function hearings(
   pending: Pending,
@@ -123,9 +129,15 @@ export const holdFor = (pending: Pending, now: number, speech: Speech) =>
     )
   );
 
-/** A commit changed src/ or prompts/ and no hearing waits: exit, launchd starts the new code (old code lost a request on 15 Oct by reading a renamed prompt). */
-const restartDue = (running: string, pending: Pending) =>
-  pending.size === 0 && codeAt(ROOT) !== running;
+/**
+ * What a watcher starts with: `pending` lives in memory, so the turns first seen in the `REPLAY_S` before the newest
+ * are heard again (`hear` finds the asks; `ask` records each once, so a second hearing is harmless).
+ */
+export function resumed(store: Store, now: number) {
+  const pending: Pending = new Map();
+  fold(pending, lastSeen(store, REPLAY_S), now);
+  return pending;
+}
 
 /** Rebuilds the lifelog units and the index holding the lock; false, nothing done, when another run holds it. */
 async function syncUnits(store: Store, cursor: string) {
@@ -166,7 +178,7 @@ export async function watch(): Promise<number> {
       ),
     TUNNEL_EVERY_MS
   );
-  const pending: Pending = new Map();
+  const pending = resumed(store, Date.now());
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
   let health = readHealth();
@@ -174,7 +186,8 @@ export async function watch(): Promise<number> {
   let dirty = true;
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
-  while (!restartDue(running, pending)) {
+  // A commit changed src/ or prompts/: exit, launchd starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
+  while (codeAt(ROOT) === running) {
     let result: { cursor: string } | { error: string };
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
