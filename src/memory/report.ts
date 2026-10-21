@@ -348,7 +348,7 @@ export async function unsent(keys: string[]) {
 /**
  * Sends a report with Resend's API, once per key (`<kind>/<run or incident>`; the kind names the step in the log):
  * skipped when every key went out already (`unsent`), one `email.sent` line per new key, and Resend's idempotency key
- * covers a race. A failed send is logged and returns null: it never changes how the night ended, and the caller may
+ * covers a retry of the same keys. A failed send is logged and returns null: it never changes how the night ended, and the caller may
  * try again.
  */
 export async function sendReport(id: string | string[], mail: Mail) {
