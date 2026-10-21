@@ -94,6 +94,10 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   voice) and never goes through `act`. An item is found by the task id on its notes' first line. Life brings its notes
   and section (Open, Working: made by hand on 19 Oct, the code only assigns them) in line each pass and ticks the item
   when its task closes. It never alerts: what needs him is emailed (`chase`).
+- **The Past calendar, his Google calendar `LIFE_PAST_CALENDAR`, is a one-way projection of the moments** (his request,
+  21 Oct; `src/memory/past.ts`, `syncPast`, each nightly tick, through `gog` as `LIFE_PAST_ACCOUNT`): one event per
+  moment that happened, found by its private properties `lifeMoment` and `lifeHash`; a changed moment is written again,
+  a gone one deleted, events without `lifeMoment` never touched. It reads nothing back and never alerts.
 - **Atlas is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and chat.db, and send
   from every account. Only "hey Atlas" turns that aren't someone else's, his chats with Atlas and `bun life ask` become
   asks; nothing else Life reads ever does. Its playbook is `docs/atlas.md` alone, read fresh by `tasks` (its
