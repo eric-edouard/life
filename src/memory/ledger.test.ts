@@ -26,7 +26,7 @@ import { knownOn } from "./page";
 import { buildIndex } from "./search";
 
 const obs = (id: string, unit: string, unitHash: string, run = "r1") =>
-  ({ id, madeBy: { run, unitHash }, text: id, unit }) as Observation;
+  ({ id, madeBy: { run, unitHash }, unit }) as Observation;
 const read = (unit: string, unitHash: string, run = "r1") =>
   ({ run, unit, unitHash }) as Extracted;
 

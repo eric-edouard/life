@@ -360,6 +360,4 @@ how unit ids are made ships an old→new id map applied to `labels.jsonl` in the
 table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones), full-text table
 `search` (claim and quote, accent-insensitive) and table `links` (observation, entity); and the units: table `units`,
 full-text table `unit_search` (title, lifelog summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
-`-wal` and `-shm` files) any time. Its texts' vectors (observations, units' title and summary, moments; and queries) are
-in `derived/memory/embeddings.sqlite`, keyed by model and the text's hash, appended by each rebuild and never rewritten:
-deleting it costs one paid re-embedding. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|unresolved|chats|places` (read-only).
+`-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|unresolved|chats|places` (read-only).

@@ -9,7 +9,7 @@
 // `not.contain`: nothing invented).
 // Prints one row per case; writes nothing of his. `--serve` is the frozen connector over stdio, for the agent.
 import { Database } from "bun:sqlite";
-import { cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -59,30 +59,6 @@ const Case = z.object({
   outcome: z.string().default(""),
 });
 type Case = z.infer<typeof Case>;
-
-const EMBEDDINGS = "derived/memory/embeddings.sqlite";
-
-/**
- * Empties `code`'s derived/ for a case: its log, the watcher's store and memory's files, all but the embeddings cache
- * (vectors by the text's hash, never wrong, and a backfill to rebuild), so every case searches by meaning as production does.
- */
-export async function clearDerived(code: string) {
-  const memory = join(code, "derived/memory");
-  const files = await readdir(memory).catch(() => [] as string[]);
-  await Promise.all(
-    [
-      ...["log", "watch"].map((d) => join(code, "derived", d)),
-      ...files
-        .filter((f) => !f.startsWith("embeddings.sqlite"))
-        .map((f) => join(memory, f)),
-    ].map((p) => rm(p, { force: true, recursive: true }))
-  );
-  await Promise.all(
-    ["memory", "watch"].map((d) =>
-      mkdir(join(code, "derived", d), { recursive: true })
-    )
-  );
-}
 
 /** One connector call as the frozen server logged it (`mcp.call`, mcp.ts). */
 interface Call {
@@ -176,7 +152,14 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     join(data, "memory/actions.jsonl"),
     kept.map((l) => `${l}\n`).join("")
   );
-  await clearDerived(code);
+  for (const d of ["log", "memory", "watch"]) {
+    // biome-ignore lint/performance/noAwaitInLoops: three folders
+    await rm(join(code, "derived", d), { force: true, recursive: true });
+  }
+  for (const d of ["memory", "watch"]) {
+    // biome-ignore lint/performance/noAwaitInLoops: two folders
+    await mkdir(join(code, "derived", d), { recursive: true });
+  }
   const store = join(code, "derived/watch/lifelog.sqlite");
   const live = new Database(
     join(mainCheckout(), "derived/watch/lifelog.sqlite"),
@@ -320,11 +303,6 @@ async function bench(file: string, only: string[], engine: Engine) {
   const lines = linesOf(ACTIONS);
   try {
     await checkout(code, ["node_modules", ".env", "derived/settings.json"]);
-    // Production's embeddings cache, copied (a link would leave its write-ahead log beside the link): the cases search by meaning as he does.
-    await mkdir(join(code, "derived/memory"), { recursive: true });
-    await cp(join(mainCheckout(), EMBEDDINGS), join(code, EMBEDDINGS)).catch(
-      () => undefined
-    );
     const rows: Row[] = [];
     for (const c of cases) {
       // One at a time: the cases share the worktree's derived/.

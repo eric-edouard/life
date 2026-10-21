@@ -44,7 +44,6 @@ import {
   verdictOf,
   writtenPeople,
 } from "./ledger";
-import { embedSoon, fuse, hashOf, nearest, queryVector } from "./meaning";
 import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page";
 import { asData, byWords, chatHits, focus, queryWords } from "./raw";
@@ -160,29 +159,11 @@ const ftsQuery = (q: string, op: "AND" | "OR") =>
     .map((w) => `"${w}"`)
     .join(` ${op} `);
 
-/** How many ranked candidates each of words and meaning brings to the fusion. */
+/** How many FTS candidates each of its queries (all the words, any of them) brings to the words rank. */
 const POOL = 50;
-const BY_MEANING = " (by meaning)";
-/** The texts a unit and a moment are embedded as (`reindex`) and found by; a moment's is also its line's. */
-const unitText = (u: Pick<Unit, "summary" | "title">) =>
-  `${u.title}\n${u.summary ?? ""}`;
+/** A moment's title and place: its line's, and what search reads its words in. */
 const momentTitle = (m: Moment) =>
   `${m.title}${m.place ? ` @ ${m.place}` : ""}`;
-
-/**
- * The best `LIMIT` (and one more, to say a cut) of the ids `held` ranks by words fused with the `items` nearest the query's vector `meaning` (their
- * text's hash: `hashOf`), each marked when meaning alone found it.
- */
-function fused(
-  held: string[],
-  meaning: Float32Array | null,
-  items: () => { hash: string; id: string }[]
-) {
-  const words = new Set(held);
-  return fuse([held, meaning ? nearest(meaning, items(), POOL) : []])
-    .slice(0, LIMIT + 1)
-    .map((id) => ({ id, mark: words.has(id) ? "" : BY_MEANING }));
-}
 
 interface Days {
   from?: string;
@@ -202,13 +183,8 @@ const daysMeet = (r: Days, first: string, last = first) =>
 /** A moment that has a day inside `r`. */
 const inDays = (r: Days) => (m: Moment) => daysMeet(r, ...daysOf(m));
 
-/** The observations and units best matching `q`, by its words (FTS rank) and, with its vector `meaning`, by meaning. */
-export function matches(
-  db: Database,
-  q: string,
-  range: Days = {},
-  meaning: Float32Array | null = null
-) {
+/** The observations and units best matching `q`: FTS's best of those holding the most of its words. */
+export function matches(db: Database, q: string, range: Days = {}) {
   const o = between("o.date", range);
   const u = between("u.date", range);
   // FTS's best of the candidates holding the most of the words (`byWords`, as every section ranks by words); those
@@ -230,45 +206,25 @@ export function matches(
       ],
       q,
       (r) => r.text
-    ).map((r) => r.id);
+    )
+      .slice(0, LIMIT + 1)
+      .map((r) => r.id);
   const row = db.query<Row, [string]>(
     `select ${COLUMNS} from observations o where o.id = ?`
   );
   const unitRow = db.query<UnitRow, [string]>(
     "select id, date, source, title, topics from units where id = ?"
   );
-  const observations = fused(
-    ids(
-      `select o.id, o.text || ' ' || o.quote as text from search s join observations o on o.id = s.id
-        where search match ? and ${CURRENT}${o.sql} order by rank limit ${POOL}`,
-      o.args
-    ),
-    meaning,
-    // ponytail: hashes every current claim and unit on each search by meaning (about 8,000, a few ms, Oct 2026); keep
-    // the hash in the index if that grows slow.
-    () =>
-      db
-        .query<{ id: string; text: string }, string[]>(
-          `select o.id, o.text from observations o where ${CURRENT}${o.sql}`
-        )
-        .all(...o.args)
-        .map((r) => ({ hash: hashOf(r.text), id: r.id }))
-  ).map((h) => `${line(row.get(h.id) as Row)}${h.mark}`);
-  const units = fused(
-    ids(
-      `select u.id, s.title || ' ' || s.summary || ' ' || s.topics as text from unit_search s join units u on u.id = s.id
-        where unit_search match ?${u.sql} order by rank limit ${POOL}`,
-      u.args
-    ),
-    meaning,
-    () =>
-      db
-        .query<{ id: string; summary: string; title: string }, string[]>(
-          `select u.id, s.title, s.summary from units u join unit_search s on s.id = u.id where 1 = 1${u.sql}`
-        )
-        .all(...u.args)
-        .map((r) => ({ hash: hashOf(unitText(r)), id: r.id }))
-  ).map((h) => `${unitLine(unitRow.get(h.id) as UnitRow)}${h.mark}`);
+  const observations = ids(
+    `select o.id, o.text || ' ' || o.quote as text from search s join observations o on o.id = s.id
+      where search match ? and ${CURRENT}${o.sql} order by rank limit ${POOL}`,
+    o.args
+  ).map((id) => line(row.get(id) as Row));
+  const units = ids(
+    `select u.id, s.title || ' ' || s.summary || ' ' || s.topics as text from unit_search s join units u on u.id = s.id
+      where unit_search match ?${u.sql} order by rank limit ${POOL}`,
+    u.args
+  ).map((id) => unitLine(unitRow.get(id) as UnitRow));
   return observations.length + units.length > 0
     ? [
         ...cut(observations),
@@ -396,45 +352,28 @@ export function taskHits(words: string, o: Days, tasks = tasksOf()) {
   });
 }
 
-/**
- * The moments' lines for `words`: those holding the most of them (the newest first) fused with the nearest `meaning`,
- * the best `LIMIT` shown by date, and a note when more were cut.
- */
-export function momentHits(
-  moments: Moment[],
-  words: string,
-  meaning: Float32Array | null
-) {
-  const ranked = fused(
-    byWords(moments.toReversed(), words, momentTitle).map((m) => m.id),
-    meaning,
-    () => moments.map((m) => ({ hash: hashOf(momentTitle(m)), id: m.id }))
-  );
-  const best = new Map(ranked.slice(0, LIMIT).map((h) => [h.id, h.mark]));
+/** The moments' lines for `words`: the newest `LIMIT` holding the most of them, shown by date, and a note when more were cut. */
+export function momentHits(moments: Moment[], words: string) {
+  const held = byWords(moments.toReversed(), words, momentTitle);
+  const best = new Set(held.slice(0, LIMIT));
   return [
-    ...moments.flatMap((m) =>
-      best.has(m.id) ? [`${momentLine(m)}${best.get(m.id)}`] : []
-    ),
-    ...(ranked.length > LIMIT ? [CUT] : []),
+    ...moments.filter((m) => best.has(m)).map(momentLine),
+    ...(held.length > LIMIT ? [CUT] : []),
   ];
 }
 
 /** `from`/`to` (local days, both included) bound every section. */
 export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
-  // lifelog's search and the query's embedding are network calls: the chats are read meanwhile.
-  const [voice, chats, moments, meaning] = await Promise.all([
+  // lifelog's search is a network call: the chats are read meanwhile.
+  const [voice, chats, moments] = await Promise.all([
     voiceHits(words, range),
     chatHits(words, range),
     momentsWhere(inDays(o)),
-    queryVector(words),
   ]);
-  const found = momentHits(moments, words, meaning);
+  const found = momentHits(moments, words);
   const tasks = taskHits(words, o);
   return withIndex((db) => [
-    ...(meaning
-      ? []
-      : ["(by words only: search by meaning is unavailable right now)", ""]),
     ...(found.length > 0
       ? ["Moments (what happened or is planned):", ...found, ""]
       : []),
@@ -446,7 +385,7 @@ export async function search(words: string, o: Days = {}) {
         ]
       : []),
     ...(found.length + tasks.length > 0 ? ["Observations and units:"] : []),
-    ...matches(db, words, o, meaning),
+    ...matches(db, words, o),
     "",
     `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
     ...voice,
@@ -1117,17 +1056,8 @@ export async function reindex() {
     unit: { ...unit, people: unit.people.map(people.refOf) },
     verdict: verdictOf(verdicts, unit),
   }));
-  const [{ observations, standing }, moments] = await Promise.all([
-    observationsNow(people),
-    momentsWhere(() => true),
-  ]);
+  const { observations, standing } = await observationsNow(people);
   const n = buildIndex(observations, INDEX, standing, units);
-  // Every text search finds by meaning (the current ones), embedded once (the cache), in the background.
-  embedSoon([
-    ...observations.flatMap((o) => (retirement(o, standing) ? [] : [o.text])),
-    ...units.map(({ unit }) => unitText(unit)),
-    ...moments.map(momentTitle),
-  ]);
   console.log(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
   );

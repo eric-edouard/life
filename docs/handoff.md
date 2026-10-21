@@ -31,8 +31,7 @@ encrypted backup. This file says what is true now.
 - Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge). For
   anything else it needs from lifelog, write an ask for a lifelog session.
 - Memory does **not** move into lifelog (rejected 13 Oct): memory about one person comes from voice, chats and mail
-  together, and chats must not go to Railway nor their raw text to OpenAI. Life's own search embeds its index's
-  texts with lifelog's model, his one API-key exception (21 Oct, AGENTS.md).
+  together, and chats must not go to Railway or their text to OpenAI for embeddings.
 - Raw search scales, reading does not: a day of speech is about 110-150k tokens, the largest context holds about 8
   days. Hence one compressed layer, the people and project pages, each line cited. Not justified: an atomic-fact
   database, graph databases, contradiction resolvers, summary hierarchies. This limits memory structures, not

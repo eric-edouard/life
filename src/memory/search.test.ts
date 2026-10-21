@@ -14,7 +14,6 @@ import {
 import { apply, readConversations } from "../sources/lifelog";
 import { tasksOf } from "../tasks";
 import { action } from "./fixtures";
-import { store as cacheVectors, fuse } from "./meaning";
 import { layoutOf, perSection, renderPage } from "./page";
 import { byWords } from "./raw";
 import {
@@ -201,17 +200,6 @@ test("search: an observation hit names the unit it comes from and who is in it",
   };
   buildIndex([...many, both], path, standing);
   expect(searchMatches(db, "glazier vitre")[0]).toStartWith("- obs_both ");
-  // By meaning: a hit no word of the query is in comes back marked; one both find ranks first.
-  const glazier = { ...o, id: "obs_2", text: "Call the glazier." };
-  buildIndex([o, glazier], path, standing, [{ unit }]);
-  cacheVectors([
-    [o.text, [0, 1]],
-    [glazier.text, [1, 0]],
-  ]);
-  const fused = searchMatches(db, "beautify", {}, new Float32Array([1, 0.1]));
-  expect(fused[0]).toBe(hit);
-  expect(fused[1]).toContain("Call the glazier.");
-  expect(fused[1]).toEndWith("(by meaning)");
   buildIndex([o], path, standing, [{ unit }]);
   // What Life holds about someone: by source and by month, and what it can't hold.
   const cover = coverageLines(db, "person:jerome", []);
@@ -311,7 +299,7 @@ test("by words: those holding the most of them, in their order; case and accents
   expect(byWords(["anything"], "??", (t) => t)).toEqual([]);
 });
 
-test("moments: one holding the words, and one meaning alone found, marked; by date", () => {
+test("moments: the newest holding the most of the words, shown by date, a cut said", () => {
   const moment = (id: string, day: string, title: string) =>
     ({
       day,
@@ -324,31 +312,20 @@ test("moments: one holding the words, and one meaning alone found, marked; by da
     }) as unknown as Moment;
   const moments = [
     moment("mom_1", "2026-10-14", "Dinner with the glazier"),
-    moment("mom_2", "2026-10-15", "Window repair booked"),
+    moment("mom_2", "2026-10-15", "Window repair with the glazier booked"),
     moment("mom_3", "2026-10-16", "Gym"),
   ];
-  cacheVectors([
-    ["Window repair booked", [1, 0]],
-    ["Gym", [0, 1]],
-  ]);
-  const lines = momentHits(moments, "glazier", new Float32Array([1, 0.1]));
-  expect(lines).toHaveLength(2);
-  expect(lines[0]).toStartWith("- mom_1 ");
-  expect(lines[0]).not.toEndWith("(by meaning)");
-  expect(lines[1]).toStartWith("- mom_2 ");
-  expect(lines[1]).toEndWith("(by meaning)");
-  // With no query vector, words alone.
-  expect(momentHits(moments, "glazier", null)).toHaveLength(1);
-});
-
-test("fusion: a hit both lists rank beats one only one list ranks first; nothing is lost", () => {
-  expect(
-    fuse([
-      ["a", "b", "c"],
-      ["d", "b"],
-    ])
-  ).toEqual(["b", "a", "d", "c"]);
-  expect(fuse([[], ["x"]])).toEqual(["x"]);
+  const lines = momentHits(moments, "glazier window");
+  expect(lines).toHaveLength(1);
+  expect(lines[0]).toStartWith("- mom_2 ");
+  const many = Array.from({ length: 13 }, (_, i) =>
+    moment(`mom_g${i}`, `2026-10-${10 + i}`, "glazier")
+  );
+  const cutLines = momentHits(many, "glazier");
+  expect(cutLines).toHaveLength(13);
+  // The newest 12, by date: the oldest is left out.
+  expect(cutLines[0]).toStartWith("- mom_g1 ");
+  expect(cutLines.at(-1)).toStartWith("(cut at 12");
 });
 
 test("a name means who it resolves to, listed first among those going by it; a name nothing resolves means no one", () => {
