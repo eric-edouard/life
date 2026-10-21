@@ -50,11 +50,12 @@ A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written
 `force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's
 counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a
 nightly's `listed`: the observation ids its report held, sent or not), `errors`. A sweep lists its steps in
-`children`; a step names its `sweep`. Since 21 Oct every run has `use`, what it spent of his Codex plan, derived from the log
-(`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each `model.run` line's) and
-its steps', and for a sweep, the eval (`eval`) and the Atlas bench (`bench.atlas`) the quota read around it (`before`,
-`after`: whole percents of the fuller window; null when unread, e.g. on the claude engine). The nightly email has a
-line per sweep of the last 24 h.
+`children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of his Codex plan,
+derived from the log (`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each
+`model.run` line's) and its steps'; a metered run (a sweep, the eval `eval`, the Atlas bench `bench.atlas`: `metered`,
+run.ts) also has the `quota` it read as it started and ended (`before`, `after`: whole percents of the fuller window;
+null when unread, e.g. on the claude engine, and `after` while it runs). The nightly email has a line per sweep of the
+last 24 h.
 
 `outcome`: `ok`; `failed` (it ended with failures, or a sweep's `outcome: failed` with `failedAt`, the phase that
 stopped it); `running` (no end yet, and it started after the lock was taken); `unfinished` (no end and nothing holds
