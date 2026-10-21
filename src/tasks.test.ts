@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Item, planOf, wantOf } from "./board";
+import { chase, type Item, planOf, wantOf } from "./board";
+import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
 import type { Action } from "./schema";
 import {
@@ -126,9 +127,8 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   ).toBe("the task is done: no update after that");
 });
 
-test("an open task is due 30 min after it was recorded, a claimed one at its own deadline; extensions count", () => {
+test("an open task is due 30 min after it was recorded, a claimed one at its own deadline", () => {
   expect(standing(task([])).deadline).toBe(at(30));
-  // An extension is an update that moved the deadline later, whatever its offset.
   const later = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
     own("update", 6, {
@@ -139,7 +139,6 @@ test("an open task is due 30 min after it was recorded, a claimed one at its own
     own("update", 7, { deadline: at(60), note: "c", state: "working" }),
   ]);
   expect(standing(later).deadline).toBe(at(60));
-  expect(standing(later).extensions).toBe(1);
 });
 
 test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Atlas isn't subscribed; once per cause and update", () => {
@@ -213,6 +212,56 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
       open: 2,
     },
   ]);
+});
+
+test("chase sends one email a pass, listing every task that newly needs him; each cause is sent once", async () => {
+  const env = { ...process.env };
+  process.env.RESEND_PERSONAL_API_KEY = "test";
+  process.env.LIFE_MAIL_TO = "owner@example.test";
+  const subjects: string[] = [];
+  const post = spyOn(globalThis, "fetch").mockImplementation(((
+    _url: string,
+    init: RequestInit
+  ) => {
+    subjects.push(JSON.parse(String(init.body)).subject);
+    return Promise.resolve(Response.json({ id: `email_${subjects.length}` }));
+  }) as unknown as typeof fetch);
+  const spoken = (id: string, min: number, quote: string) =>
+    JSON.stringify(
+      action({
+        ...asked,
+        at: at(min),
+        id,
+        instruction: { at: at(min), quote, ref: `job-9:${min}@${at(min)}` },
+      })
+    );
+  const tasks = tasksOf([
+    spoken("act_0000000c4a5e", 0, "hey Atlas, book the table"),
+    spoken("act_0000000c4a5f", 0, "hey Atlas, call the bank"),
+    spoken("act_0000000c4a60", 20, "hey Atlas, water the plant"),
+  ]);
+  const late = "(not claimed 30 min after the ask)";
+  try {
+    await chase(tasks, T0 + 31 * MIN, true);
+    await chase(tasks, T0 + 32 * MIN, true);
+    await chase(tasks, T0 + 51 * MIN, true);
+    expect(subjects).toEqual([
+      `Life · Atlas: book the table ${late}, call the bank ${late}`,
+      `Life · Atlas: water the plant ${late}`,
+    ]);
+    // One `email.sent` line per key, so each cause is remembered on its own.
+    const keys = (await recentEvents<{ key: string }>(1, "email.sent"))
+      .map((e) => e.key)
+      .filter((k) => k.includes("act_0000000c4a"));
+    expect(keys).toHaveLength(3);
+    // No live subscription: one email for all the open tasks, once a day.
+    await chase(tasks, T0 + 52 * MIN, false);
+    await chase(tasks, T0 + 53 * MIN, false);
+    expect(subjects.slice(2)).toEqual(["Life · Atlas isn't receiving asks"]);
+  } finally {
+    post.mockRestore();
+    process.env = env;
+  }
 });
 
 const look = (over: Partial<Item> = {}): Item => ({

@@ -17,7 +17,7 @@ import { ROOT } from "./truth";
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
-/** An ask is due to be claimed 30 min after it was recorded (Atlas picks events up 5 to 22 min late). */
+/** An ask is due to be claimed 30 min after it was recorded (since events, a healthy claim takes 3 to 27 min, a median of 7). */
 const CLAIM_MS = 30 * MIN;
 
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -168,12 +168,9 @@ export function standing(t: Task) {
   const deadline = updates.length
     ? end.deadline
     : iso(Date.parse(since) + CLAIM_MS);
-  const ends = updates.map((u) => Date.parse(`${u.after.deadline}`));
   return {
     deadline,
     end,
-    // Updates that moved the deadline later.
-    extensions: ends.filter((d, i) => d > (ends[i - 1] ?? d)).length,
     since,
     state,
     steps: (updates.findLast((u) => u.after.steps)?.after.steps ??
@@ -395,7 +392,6 @@ export function taskList(now = Date.now()) {
       age: h < 48 ? `${h} h` : `${Math.floor(h / 24)} d`,
       confidence: t.ask.after.confidence,
       deadline: s.deadline,
-      extensions: s.extensions,
       id: t.ask.id,
       note: s.word,
       parent: t.ask.after.parent,

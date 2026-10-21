@@ -1,4 +1,4 @@
-// Running other programs: one process to its end, or one git command.
+// Running other programs: one process to its end, one line from a server, or one git command.
 
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
@@ -32,6 +32,49 @@ export async function exec(
     proc.exited,
   ]);
   return { code, killed: proc.signalCode, stderr, stdout };
+}
+
+/**
+ * Runs `cmd` with `input` on its stdin, kept open (a server that quits at the end of its input before answering), to
+ * the first whole line of its output that `done` accepts: that line, or undefined when it exits, refuses its input,
+ * `done` throws or `timeout` ms pass first. It is killed either way.
+ */
+export async function firstLine(
+  cmd: string[],
+  input: string,
+  done: (line: string) => boolean,
+  o: { env?: Record<string, string>; timeout?: number } = {}
+) {
+  let proc: Bun.Subprocess<"pipe", "pipe", "ignore">;
+  try {
+    proc = Bun.spawn(cmd, {
+      env: o.env,
+      stderr: "ignore",
+      stdin: "pipe",
+      stdout: "pipe",
+      timeout: o.timeout ?? 60_000,
+    });
+  } catch {
+    return;
+  }
+  let out = "";
+  try {
+    proc.stdin.write(input);
+    await proc.stdin.flush();
+    for await (const chunk of proc.stdout.pipeThrough(
+      new TextDecoderStream()
+    )) {
+      out += chunk;
+      const line = out.split("\n").slice(0, -1).find(done);
+      if (line !== undefined) {
+        return line;
+      }
+    }
+  } catch {
+    // No answer.
+  } finally {
+    proc.kill();
+  }
 }
 
 /** One git command in the repo at `path`, synchronously. */

@@ -11,8 +11,10 @@ import {
   type NightState,
   nextMidday,
   nextNight,
+  quotaLine,
   turnOf,
 } from "./guard";
+import { localTime } from "./units";
 
 const day = "2026-10-15";
 const st = (status: "ok" | "failed", attempts = 1, date = day): NightState => ({
@@ -162,4 +164,40 @@ test("a tick runs the night when due, else the midday slot, else a backfill week
   expect(
     turnOf(at(14), today, { backup: backedUp, midday: spent, night: ok })
   ).toBe("none");
+});
+
+test("over 75% of his Codex quota a tick runs only the night, until the quota resets", () => {
+  const today = "2026-10-21";
+  const at = (h: number, d = 21) => new Date(2026, 9, d, h, 30);
+  const ok = st("ok", 1, today);
+  const backup = st("ok", 1, today);
+  const backfill = { failures: 0, next: "2025-07-01", to: "2025-08-01" };
+  const spent = new Date(2026, 9, 21, 13, 0).toISOString();
+  const quota = (used: number) => ({
+    resetsAt: at(7, 27).toISOString(),
+    used,
+  });
+  expect(turnOf(at(14), today, { night: ok, quota: quota(80) })).toBe("none");
+  expect(turnOf(at(14), today, { night: ok, quota: quota(75) })).toBe("midday");
+  const week = { backfill, backup, midday: spent, night: ok };
+  expect(turnOf(at(14), today, { ...week, quota: quota(80) })).toBe("none");
+  expect(turnOf(at(14), today, week)).toBe("backfill"); // unread: nothing waits
+  expect(turnOf(at(3), today, { quota: quota(99) })).toBe("night");
+  // A reading from before its reset holds nothing.
+  expect(
+    turnOf(at(14, 28), "2026-10-28", {
+      night: st("ok", 1, "2026-10-28"),
+      quota: quota(99),
+    })
+  ).toBe("midday");
+  expect(quotaLine(quota(80))).toBe(
+    `Codex quota: 80% used, resets ${localTime(at(7, 27).toISOString())}: over 75%, the middays, backfill and evals wait`
+  );
+  expect(quotaLine({ resetsAt: null, used: 12 })).toBe("Codex quota: 12% used");
+  expect(quotaLine(undefined)).toBe("Codex quota: not read");
+  // The status says why and when: the first slot after the reset.
+  expect(nextMidday(at(14), spent, quota(80))).toMatchObject({
+    earliest: new Date(2026, 9, 27, 13).toISOString(),
+    why: "held: Codex quota 80% used, over 75%",
+  });
 });

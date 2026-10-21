@@ -10,7 +10,7 @@ import { parseArgs } from "node:util";
 import { llmFor, llmSpec } from "../src/llm";
 import { LOG_DIR, logDays, logEvents } from "../src/log";
 import { extract } from "../src/memory/extract";
-import { locked } from "../src/memory/guard";
+import { locked, spareQuota } from "../src/memory/guard";
 import { ratedFacts } from "../src/memory/ledger";
 import { moments } from "../src/memory/moments";
 import { claimsNow } from "../src/memory/statements";
@@ -273,6 +273,7 @@ if (import.meta.main) {
   if (values["read-week"]) {
     await readWeek();
   } else {
+    await spareQuota();
     await bench(
       (values.models ?? Object.keys(MODELS).join(",")).split(","),
       Number(values.runs ?? 1)
