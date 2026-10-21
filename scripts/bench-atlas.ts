@@ -9,7 +9,7 @@
 // `not.contain`: nothing invented).
 // Prints one row per case; writes nothing of his. `--serve` is the frozen connector over stdio, for the agent.
 import { Database } from "bun:sqlite";
-import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -152,19 +152,14 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     join(data, "memory/actions.jsonl"),
     kept.map((l) => `${l}\n`).join("")
   );
-  // Each case's own log, store and index; derived/memory's caches (embeddings) carry over.
-  const indexFile = "memory/index.sqlite";
-  for (const d of [
-    "log",
-    "watch",
-    indexFile,
-    `${indexFile}-wal`,
-    `${indexFile}-shm`,
-  ]) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few paths
+  for (const d of ["log", "memory", "watch"]) {
+    // biome-ignore lint/performance/noAwaitInLoops: three folders
     await rm(join(code, "derived", d), { force: true, recursive: true });
   }
-  await mkdir(join(code, "derived/watch"), { recursive: true });
+  for (const d of ["memory", "watch"]) {
+    // biome-ignore lint/performance/noAwaitInLoops: two folders
+    await mkdir(join(code, "derived", d), { recursive: true });
+  }
   const store = join(code, "derived/watch/lifelog.sqlite");
   const live = new Database(
     join(mainCheckout(), "derived/watch/lifelog.sqlite"),
@@ -308,12 +303,6 @@ async function bench(file: string, only: string[], engine: Engine) {
   const lines = linesOf(ACTIONS);
   try {
     await checkout(code, ["node_modules", ".env", "derived/settings.json"]);
-    // A copy of this checkout's embeddings, when it has them: never written back.
-    await mkdir(join(code, "derived/memory"), { recursive: true });
-    const embeddings = join(ROOT, "derived/memory/embeddings.sqlite");
-    if (await Bun.file(embeddings).exists()) {
-      await cp(embeddings, join(code, "derived/memory/embeddings.sqlite"));
-    }
     const rows: Row[] = [];
     for (const c of cases) {
       // One at a time: the cases share the worktree's derived/.
