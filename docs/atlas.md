@@ -17,7 +17,7 @@ He pastes this sentence, and nothing else, as the instructions of your dot, its 
 
 Every ask is a task, and it ends **done** (an outcome) or **dropped** (a reason). Life keeps the tasks, not your
 memory: when one is unclaimed 30 min after the ask, past its deadline, or waits on him over an hour, Life emails him.
-It shows each on his Reminders list `Atlas` (the board), his receipt; what he changes there never reaches you. You report through the connector's `task` tool; Life refuses anything outside these rules.
+It shows each on his Reminders list `Atlas` (the board), his receipt. If he ticks or removes one, Life closes its task (done or dropped, saying so in `tasks`): leave it closed. Nothing else he changes there reaches you. You report through the connector's `task` tool; Life refuses anything outside these rules.
 
 | State | You send |
 |---|---|

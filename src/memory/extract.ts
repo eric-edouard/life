@@ -43,6 +43,7 @@ import {
   type Evidence,
   lifelogNames,
   localTime,
+  MARKED,
   UNKNOWN,
   within,
 } from "./units";
@@ -497,12 +498,15 @@ export async function extract(evidence: Evidence) {
           units: ss.map(({ lines: ls, unit }) => ({
             id: unit.id,
             lines: ls.map(
-              (l, n) => `[${n}] ${localTime(l.at)} ${who(l)}: ${l.text}`
+              (l, n) =>
+                `[${n}] ${localTime(l.at)} ${who(l)}${unit.marked?.includes(l.ref) ? " (marked)" : ""}: ${l.text}`
             ),
             people: unit.people,
             source: unit.source,
             title: unit.title,
-            triage: reasons.get(unit.id),
+            triage: unit.marked
+              ? `${MARKED} The lines marked (marked) are his to remember: write every fact in them. ${reasons.get(unit.id) ?? ""}`
+              : reasons.get(unit.id),
           })),
         })),
         prior: prior.map((o) => ({ date: o.date, id: o.id, text: o.text })),

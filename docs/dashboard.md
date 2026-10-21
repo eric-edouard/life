@@ -50,7 +50,12 @@ A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written
 `force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's
 counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a
 nightly's `listed`: the observation ids its report held, sent or not), `errors`. A sweep lists its steps in
-`children`; a step names its `sweep`.
+`children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of his Codex plan,
+derived from the log (`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each
+`model.run` line's) and its steps'; a metered run (a sweep, the eval `eval`, the Atlas bench `bench.atlas`: `metered`,
+run.ts) also has the `quota` it read as it started and ended (`before`, `after`: whole percents of the fuller window;
+null when unread, e.g. on the claude engine, and `after` while it runs). The nightly email has a line per sweep of the
+last 24 h.
 
 `outcome`: `ok`; `failed` (it ended with failures, or a sweep's `outcome: failed` with `failedAt`, the phase that
 stopped it); `running` (no end yet, and it started after the lock was taken); `unfinished` (no end and nothing holds
@@ -83,7 +88,7 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `observation.superseded` | supersession | |
 | `correction.<kind>` | owner correction | `reflected` |
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
-| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
+| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line: Life's act, or his own change in Reminders (`record.madeBy` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
 | `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
 | `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
 | `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim, an outdated retires it) | |

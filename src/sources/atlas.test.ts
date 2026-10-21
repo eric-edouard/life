@@ -3,7 +3,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { action } from "../memory/fixtures";
 import { ACTIONS, appendJsonl } from "../memory/ledger";
-import { bounded } from "../memory/moments";
+import { saliencyOf } from "../memory/moments";
 import { chatLines } from "../memory/raw";
 import { messageUnits } from "../memory/units";
 import { Action, KEEP_AT } from "../schema";
@@ -71,5 +71,5 @@ test("a task Atlas closed done is one event: its outcome with his ask's words, A
   const [line] = unit ? chatLines(unit, () => "person:atlas-the-plumber") : [];
   expect([line?.speaker, line?.from]).toEqual(["agent:atlas", undefined]);
   // Always read for what it may close: its salience never falls under KEEP_AT.
-  expect(bounded("atlas", 0)).toBe(KEEP_AT);
+  expect(unit && saliencyOf(unit.unit, 0)).toBe(KEEP_AT);
 });

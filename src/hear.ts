@@ -1,37 +1,18 @@
 import { clock } from "./clock";
-import { clip } from "./memory/units";
 import {
-  type ChapterTurn,
   readTranscript,
   type Store,
   speechSeconds,
   turnRef,
   turnsBetween,
+  whose,
+  writeMarks,
 } from "./sources/lifelog";
-import { ask } from "./tasks";
-import { TEST } from "./truth";
+import { ask, MARK, WAKE } from "./tasks";
 
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
-// event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest.
-
-/**
- * "hey Atlas" as lifelog may write it: "at last" (20 Oct, audit 4) or `LIFE_MISHEARD` in `.env`, a real name people
- * he knows go by. Both are words of their own, so they wake only on his own turn, as `low` (Atlas confirms with him).
- */
-const MISHEARD = (TEST ? "Zorba" : process.env.LIFE_MISHEARD)?.trim();
-/**
- * A greeting then Atlas or a misheard Atlas, whatever the case and the punctuation around or between them. The
- * greeting is "hey" as lifelog writes it ("Hej" on 21 Oct, audit 4), never the end of a longer word.
- */
-export const WAKE = new RegExp(
-  String.raw`\b(?:hey|hej|hei|hé|ey)\W+(atlas|at\W+last${MISHEARD ? `|${RegExp.escape(MISHEARD)}` : ""})\b`,
-  "i"
-);
-/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
-const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
-/** A task's name: its title, else his words from "hey Atlas" on. */
-export const titleOf = (t: { quote: string; title?: string }) =>
-  clip(t.title ?? (t.quote.replace(TO_WAKE, "") || t.quote), 80);
+// event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest. It
+// also records his "hey Life" spans in the store (`writeMarks`), for memory only: they never act.
 
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;
@@ -40,8 +21,10 @@ export const CLOSED_ON_SILENCE_S = 60;
 /** How long a wake with no speaker waits for lifelog to name him (70% of recordings within 10 s, 5% more by 40 s). */
 const NAMING_MS = 40_000;
 
+type Confidence = "high" | "low";
+
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
-function wakeOf(t: Turn) {
+function wakeOf(t: Turn): Confidence | undefined {
   const words = wakeWords(t);
   if (words.includes("atlas") && t.who !== "other") {
     return t.who === "me" ? "high" : "low";
@@ -66,12 +49,31 @@ export interface Turn {
 
 /**
  * The asks in a conversation's turns (all of them, in order, so the indexes are `fetch --from-turn`'s), woken at or
- * after `from`. An ask is a wake turn that is not someone else's, then the following turns of the same speaker until
- * another speaker, a 15 s pause or a new wake. Its confidence is `wakeOf`'s.
+ * after `from`. Its confidence is `wakeOf`'s.
  */
-export function asksIn(turns: Turn[], from: string) {
+export const asksIn = (turns: Turn[], from: string) =>
+  spansIn(turns, from, wakeOf);
+
+/** His "hey Life" spans in a recording's turns: his own high, an unattributed one low, never someone else's. */
+export const marksIn = (turns: Turn[], from: string) =>
+  spansIn(turns, from, (t): Confidence | undefined => {
+    if (t.who === "other" || !MARK.test(t.text)) {
+      return;
+    }
+    return t.who === "me" ? "high" : "low";
+  });
+
+/**
+ * The spans `wake` opens in turns, at or after `from`: a wake turn, then the following turns of the same speaker until
+ * another speaker, a 15 s pause or a new wake.
+ */
+function spansIn(
+  turns: Turn[],
+  from: string,
+  wake: (t: Turn) => Confidence | undefined
+) {
   return turns.flatMap((t, i) => {
-    const confidence = wakeOf(t);
+    const confidence = wake(t);
     if (t.at < from || !confidence) {
       return [];
     }
@@ -79,7 +81,7 @@ export function asksIn(turns: Turn[], from: string) {
     const cut = rest.findIndex(
       (n, k) =>
         n.who !== t.who ||
-        wakeOf(n) ||
+        wake(n) ||
         Date.parse(n.at) - Date.parse((rest[k - 1] ?? t).end) > GAP_MS
     );
     const span = turns.slice(i, cut < 0 ? turns.length : i + 1 + cut);
@@ -99,14 +101,6 @@ export function asksIn(turns: Turn[], from: string) {
   });
 }
 
-/** Whose a turn is, as the watcher's feed reads it (`poll`): his, someone lifelog named (by id or name), or nobody's. */
-export function whose(t: ChapterTurn): Turn["who"] {
-  if (t.owner) {
-    return "me";
-  }
-  return t.personId || t.name ? "other" : "unknown";
-}
-
 /**
  * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's or
  * ends a recording lifelog closed on silence (no turn of an ask can follow), else `open` (the next recording may go
@@ -124,7 +118,8 @@ export function speechIn(store: Store, conversation: string, from: string) {
 
 /**
  * Hears one conversation from `from` on and records its asks, except a wake with no speaker younger than NAMING_MS
- * (lifelog may still name him: a `low` ask stays low): false while one is held. The words are fetched from lifelog; a
+ * (lifelog may still name him: a `low` ask stays low): `heard` false while one is held; `marked` when its "hey Life"
+ * marks changed. The words are fetched from lifelog; a
  * failed fetch throws (the watcher hears the conversation again), never reads as silence.
  */
 export async function hear(
@@ -167,6 +162,13 @@ export async function hear(
       a.timing
     );
   }
+  // His "hey Life" spans, for memory only: their chapter's unit carries them, read again at salience 3 (units.ts, moments.ts).
+  const marked = writeMarks(
+    store,
+    conversation,
+    from,
+    marksIn(turns, from).map((m) => m.turns.flatMap((i) => turns[i]?.ref ?? []))
+  );
   // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
   const misheard = turns.some(
     (t) =>
@@ -174,5 +176,5 @@ export async function hear(
       wakeWords(t).some((w) => w !== "atlas") &&
       now - Date.parse(t.seen) < NAMING_MS
   );
-  return !(asks.some(held) || misheard);
+  return { heard: !(asks.some(held) || misheard), marked };
 }
