@@ -350,25 +350,31 @@ export const openOf = (r: Reminder) => ({
 export const readable = (title: string, list?: string) =>
   title !== BOARD && (list === undefined || title === list);
 
-/** Every open top-level reminder, of one list or all, never the board: what an add's title is checked against, and the connector's `open_reminders`. */
-export async function openReminders(list?: string) {
+/** His lists read for both reads below: `readable` ones, not groups. */
+async function listsOf(list?: string) {
   const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
     ["lists"]
   );
+  return lists.filter((l) => !l.isGroup && readable(l.title, list));
+}
+
+/** Every open top-level reminder, of one list or all, never the board: what an add's title is checked against, and the connector's `open_reminders`. */
+export async function openReminders(list?: string) {
   const open = await Promise.all(
-    lists
-      .filter((l) => !l.isGroup && readable(l.title, list))
-      .map((l) => remctl<Reminder[]>(["show", "--list-id", `${l.id}`]))
+    (await listsOf(list)).map((l) =>
+      remctl<Reminder[]>(["show", "--list-id", `${l.id}`])
+    )
   );
   return open.flat();
 }
 
-/** Each list's sections by its name, empty ones too, from one call: `open_reminders`'s. */
+/** Each of those lists' sections by its name, empty ones too, from one call: `open_reminders`'s. */
 export async function sectionsOf(list?: string) {
-  const all = await remctl<Record<string, string[]>>(["sections"]);
-  return Object.fromEntries(
-    Object.entries(all).filter(([title]) => readable(title, list))
-  );
+  const [lists, all] = await Promise.all([
+    listsOf(list),
+    remctl<Record<string, string[]>>(["sections"]),
+  ]);
+  return Object.fromEntries(lists.map((l) => [l.title, all[l.title] ?? []]));
 }
 
 /**
