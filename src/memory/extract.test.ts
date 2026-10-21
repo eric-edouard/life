@@ -340,3 +340,21 @@ test("earlier facts also hold the moment's own units at any age, in their own sl
     priorFor(group, shown, new Set([U1]), "now", new Set(), 2).map((x) => x.id)
   ).toEqual(["recent-0", "recent-1", "plan", "his-plan"]);
 });
+
+test("a fact he rated true is shown again when its unit is read again, so the new reading corrects it rather than drops it", () => {
+  const o = (id: string) =>
+    ({
+      at: "2026-10-15T10:00:00.000Z",
+      date: "2026-10-15",
+      entities: ["person:bastien"],
+      id,
+      madeBy: { ...madeBy, unitHash: "h" },
+      type: "decision",
+      unit: U1,
+    }) as Observation;
+  const group = { moment: moment(), units: [built(U1)] };
+  const shown = [{ kept: true, o: o("rated") }, { o: o("unrated") }];
+  expect(
+    priorFor(group, shown, new Set([U1]), "now", new Set()).map((x) => x.id)
+  ).toEqual(["rated"]);
+});

@@ -293,14 +293,14 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
  * Earlier facts for a group, newest first, shown to the model as a reading to correct, never as evidence: about its
  * people from the two weeks before it, and about the owner alone from its day and the day before. `shown` are the active
  * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
- * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
- * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
+ * this run reads again: their earlier facts are replaced, or about to be, so none is shown but those he rated true
+ * (`kept`: never replaced, so shown to be corrected), and one they retired is offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
  * units at any age, and the `person` facts of the last year about its people `close` to him (what is between them
  * lasts, and a newer fact must replace it).
  */
 export function priorFor(
   group: Group,
-  shown: { by?: string; o: Observation }[],
+  shown: { by?: string; kept?: boolean; o: Observation }[],
   reread: Set<string>,
   run: string,
   close: ReadonlySet<string>,
@@ -330,9 +330,9 @@ export function priorFor(
   ];
   const candidates = shown
     .filter(
-      ({ by, o }) =>
+      ({ by, kept, o }) =>
         o.date <= day &&
-        (o.madeBy.run === run || !reread.has(o.unit)) &&
+        (kept || o.madeBy.run === run || !reread.has(o.unit)) &&
         (!by || reread.has(by)) &&
         slots.some(([fits]) => fits(o))
     )
@@ -386,13 +386,13 @@ export async function extract(evidence: Evidence) {
     rereadAt(corrections)
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
-  const shown = known.flatMap((o) => {
+  const shown = known.flatMap((o): Parameters<typeof priorFor>[1] => {
     const s = stateOf(o, standing);
     if (s.state === "retired") {
       // One he rated outdated (retired by itself) is closed for good.
       return s.by === o.id ? [] : [{ by: unitOf.get(s.by), o }];
     }
-    return s.state === "active" ? [{ o }] : [];
+    return s.state === "active" ? [{ kept: standing.kept.has(o.id), o }] : [];
   });
   const { copies, groups } = groupsOf(
     pending.map((p) => p.b),
