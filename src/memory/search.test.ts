@@ -47,9 +47,10 @@ test("day: the conversations with their chapters and people, then the chat and m
       turns: [turn(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie")],
     })
   );
-  const lines = dayLines(
-    readConversations(store, new Date("2026-10-14T00:00:00Z")),
-    [
+  const lines = dayLines({
+    conversations: readConversations(store, new Date("2026-10-14T00:00:00Z")),
+    facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
+    units: [
       {
         date: "2026-10-14",
         id: "u_000000000001",
@@ -58,8 +59,7 @@ test("day: the conversations with their chapters and people, then the chat and m
         topics: "glass",
       },
     ],
-    ['- obs_1 2026-10-14 todo: Call the glazier "call him"']
-  );
+  });
   expect(lines).toContain("Recorded conversations (1; `fetch <id>`):");
   expect(
     lines.some((l) => l.includes("- c1 ") && l.endsWith("The plumber"))
@@ -257,11 +257,11 @@ test("a day opens with what happened: its moments, when, what, where, how they s
   expect(momentLine(m)).toBe(
     "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [u_000000000001]"
   );
-  expect(dayLines([], [], [], [], [m]).slice(0, 2)).toEqual([
+  expect(dayLines({ moments: [m] }).slice(0, 2)).toEqual([
     "Moments (what happened or is planned):",
     momentLine(m),
   ]);
-  expect(dayLines([], [])[0]).toStartWith("Recorded conversations");
+  expect(dayLines({})[0]).toStartWith("Recorded conversations");
 });
 
 test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
@@ -376,7 +376,7 @@ test("audit-1-apple-open-loop: day lists his own open to-dos and promises due th
     "",
     " heard as jean",
   ]);
-  expect(dayLines([], [], [], [], [], lines)[0]).toBe(
+  expect(dayLines({ due: lines })[0]).toBe(
     "Due (his own open to-dos and promises for this day):"
   );
 });
@@ -443,6 +443,11 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
     "- Jean (`person jean`): 21 Oct (today)",
     "- Ana (`person ana`): 28 Oct (in 7 days, turns 26)",
   ]);
+  // 29 Feb falls on 1 Mar in other years.
+  expect(nextBirthday("--02-29", "2027-02-28")).toMatchObject({
+    day: "2027-03-01",
+    left: 1,
+  });
   // Across the new year.
   expect(
     birthdaysNear(
@@ -451,9 +456,11 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
     )
   ).toEqual(["- Jan (`person jan`): 2 Jan (in 5 days)"]);
   // First in `day`, before what is due.
-  expect(
-    dayLines([], [], [], [], [], ["- due"], ["- born"]).slice(0, 3)
-  ).toEqual(["Birthdays (this day and the next 7):", "- born", ""]);
+  expect(dayLines({ born: ["- born"], due: ["- due"] }).slice(0, 3)).toEqual([
+    "Birthdays (this day and the next 7):",
+    "- born",
+    "",
+  ]);
 });
 
 test("area: an area's or a project's id or name, never a part of one", () => {
