@@ -1,10 +1,12 @@
 import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { clock } from "../clock";
 import { log } from "../log";
-import { git } from "../proc";
+import { exec, git } from "../proc";
 import type { Person, RepoGuess, SourceEvent } from "../schema";
 import type { Truth } from "../truth";
+import type { Newest } from "./index";
 
 // Git commits as a source: local `git log` of every repo under ~/Work, read-only. A repo-day is a unit like a chat-day.
 
@@ -43,6 +45,32 @@ export function listRepos(root = WORK): Repo[] {
     }
   }
   return [...repos.values()];
+}
+
+/** The newest commit in any repo, and how many repos had one in the last day (the status page). */
+export async function newestCommit(now = clock().getTime()): Promise<Newest> {
+  const all = await Promise.all(
+    listRepos().map(async (r) => ({
+      at: (
+        await exec(
+          ["git", "-C", r.path, "log", "-1", "--all", "--format=%cI"],
+          { timeout: 10_000 }
+        )
+      ).stdout.trim(),
+      repo: r.key,
+    }))
+  );
+  const dated = all
+    .filter((r) => r.at)
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const day = dated.filter((r) => now - Date.parse(r.at) < 86_400_000).length;
+  return {
+    at: dated[0] ? new Date(dated[0].at).toISOString() : null,
+    facts: [
+      { label: "Repo", value: dated[0]?.repo ?? "?" },
+      { label: "Repos with commits in a day", value: String(day) },
+    ],
+  };
 }
 
 /** Which project and area a repo belongs to: his map (`Project.repos`), else Life's guess (`guess`, set when it is one). */

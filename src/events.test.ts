@@ -4,7 +4,7 @@ import {
   resumeAt,
   type State,
   Subscribe,
-  settle,
+  settleDelivery,
   sign,
 } from "./events";
 import { action } from "./memory/fixtures";
@@ -103,24 +103,26 @@ test("a delivery moves on after a 2xx or a 413, retries others with a growing pa
       verifiedAt: "",
     },
   };
-  expect(settle(s, 202, 2, now)).toEqual({
+  expect(settleDelivery(s, 202, 2, now)).toEqual({
     ...s,
     delivered: 2,
     retryAt: undefined,
   });
-  expect(settle(s, 413, 2, now).delivered).toBe(2);
-  const failed = settle(s, 503, 2, now);
+  expect(settleDelivery(s, 413, 2, now).delivered).toBe(2);
+  const failed = settleDelivery(s, 503, 2, now);
   expect(failed).toMatchObject({
     attempts: 1,
     delivered: 1,
     retryAt: "2026-10-19T10:01:00.000Z",
   });
-  expect(settle(failed, 0, 2, now).retryAt).toBe("2026-10-19T10:02:00.000Z");
-  expect(settle({ ...s, attempts: 7 }, 500, 2, now)).toMatchObject({
+  expect(settleDelivery(failed, 0, 2, now).retryAt).toBe(
+    "2026-10-19T10:02:00.000Z"
+  );
+  expect(settleDelivery({ ...s, attempts: 7 }, 500, 2, now)).toMatchObject({
     attempts: 0,
     delivered: 2,
   });
-  expect(settle(s, 410, 2, now)).toEqual({ attempts: 0, delivered: 1 });
+  expect(settleDelivery(s, 410, 2, now)).toEqual({ attempts: 0, delivered: 1 });
 });
 
 test("only asks go out, not one Atlas made from a chat; old nudge and steer lines parse and go nowhere", () => {

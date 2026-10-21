@@ -1,0 +1,24 @@
+// The status page's always-on edge (status.ts). Deploy from ~/Work/life with .env loaded:
+//   set -a; . ./.env; set +a; bun x wrangler@4.40.0 deploy -c worker/wrangler.jsonc
+// Secrets (once): OWNER_SUB (= LIFE_OWNER_SUB) and PUSH_SECRET (= LIFE_STATUS_PUSH_SECRET), `wrangler secret put`.
+// Only the page's paths are routed here: /mcp, /check and /me never pass through the Worker.
+{
+  "name": "life-status",
+  "main": "status.ts",
+  "compatibility_date": "2026-10-01",
+  "kv_namespaces": [
+    { "binding": "STATUS", "id": "c103c8e20e3f47ad8de4465839b682b9" }
+  ],
+  "routes": [
+    { "pattern": "life.ericedouard.com/", "zone_name": "ericedouard.com" },
+    {
+      "pattern": "life.ericedouard.com/status/*",
+      "zone_name": "ericedouard.com"
+    },
+    {
+      "pattern": "life.ericedouard.com/__status/*",
+      "zone_name": "ericedouard.com"
+    }
+  ],
+  "workers_dev": false
+}
