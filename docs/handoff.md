@@ -34,7 +34,8 @@ encrypted backup. This file says what is true now.
   together, and chats must not go to Railway or their text to OpenAI for embeddings.
 - Raw search scales, reading does not: a day of speech is about 110-150k tokens, the largest context holds about 8
   days. Hence one compressed layer, the people and project pages, each line cited. Not justified: an atomic-fact
-  database, graph databases, contradiction resolvers, summary hierarchies, decision models.
+  database, graph databases, contradiction resolvers, summary hierarchies. This limits memory structures, not
+  initiative: Life's code acts only on his request, and surfacing things to him is not acting.
 
 ## How it runs
 
@@ -120,7 +121,7 @@ About 40 minutes; it prints the table and writes nothing of his. Not between 01:
 - **The owner model (18 Oct):** his own page has Views, values and habits (never ages, his own words only), Health
   (ages at 60 days) and Now, 2,000 words; his goals are in `truth/me.md`. For the event rebuild (step 3): a claim
   carries **who it is about** apart from who it mentions (`about`, from `memory-extract.v3`; `homeOf` goes by it),
-  and conditional speech stays as such (`modality`, never a page line). Still open: a type for a belief or value.
+  and conditional speech stays as such (`modality`, never a page line). A belief or value needs no type of its own: his Views section holds them (closed 21 Oct).
   Extraction should also decide that an unnamed voice in a recording where nobody
   else is identified is his (`speaker: person:me`): then code can hold views lines to
   his words (`speaker === OWNER` in `checkReply`), which only the prompt asks today. The 55 earlier conversations about his views (triage 0-1 before
@@ -130,9 +131,7 @@ About 40 minutes; it prints the table and writes nothing of his. Not between 01:
 - Phase 6: re-run the evals against the baseline.
 - Stale 9 Oct lifelog bugs with no end state, sensitive lines on pages, near-duplicate observations from two copies of
   one recording.
-- Observations pointing at units that no longer exist: 5 mail and 8 Beeper (cited by id only) and some labels on
-  re-cut lifelog chapters. Older observations from multi-line messages may have a wrong speaker, ref or time (a fixed
-  quote-check bug).
+- Older observations from multi-line messages may have a wrong speaker, ref or time (a fixed quote-check bug).
 - The codex login for the engine switch.
 - **Life as the single connector** (plan: `squishy-gliding-kazoo`): PR1 and lifelog PR-A are done; PR2 (`src/mcp.ts`)
   is built, see "Connector" above. To go live: merge, restart the watcher, add `https://life.ericedouard.com/mcp` in

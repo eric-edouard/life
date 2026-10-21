@@ -28,7 +28,8 @@ the archive's media copy); Life copies none, and a description outlives its file
 
 ## Removed in the 14 Oct reset (restore from git when a layer needs one)
 
-Reminders (JXA), Calendar, Apple Notes (now from the archive), Whereabouts, the Gmail connector.
+Reminders (JXA), Apple Notes (now from the archive), Whereabouts, the Gmail connector. Calendar is not coming back:
+it is Atlas's to read (decided 20 Oct), and its events are content to Atlas, never instructions.
 
 ## Not used yet
 
