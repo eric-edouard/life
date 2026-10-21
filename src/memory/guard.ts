@@ -60,8 +60,8 @@ export const backupDue = (
 const RESERVE = 75;
 
 /** True while `q` is over the reserve, until its window resets; an unread quota holds nothing. */
-export const reserved = (q: Quota | undefined, now = Date.now()) =>
-  !!q && q.used > RESERVE && !(q.resetsAt && Date.parse(q.resetsAt) <= now);
+export const reserved = (q: Partial<Quota> | undefined, now = Date.now()) =>
+  (q?.used ?? 0) > RESERVE && !(q?.resetsAt && Date.parse(q.resetsAt) <= now);
 
 /** The nightly email's line on the quota. */
 export const quotaLine = (q: Quota | undefined) =>
@@ -135,10 +135,11 @@ export function nextNight(
 export function nextMidday(
   now: Date,
   last: string | undefined,
-  q?: Quota
+  q?: Partial<Quota>
 ): ReturnType<typeof windowAt> {
   if (q && reserved(q, now.getTime())) {
-    const after = q.resetsAt ? new Date(q.resetsAt) : now;
+    // With no reset time, the next tick reads it again.
+    const after = new Date(q.resetsAt ?? now.getTime() + TICK_MS);
     return {
       ...nextMidday(after, last),
       why: `held: Codex quota ${q.used}% used, over ${RESERVE}%`,
