@@ -186,16 +186,12 @@ export async function hear(
       a.timing
     );
   }
-  // His "hey Life" spans, for memory only: extraction reads their units whatever their salience (extract.ts).
+  // His "hey Life" spans, for memory only: their chapter's unit carries them, read again at salience 3 (units.ts, moments.ts).
   writeMarks(
     store,
     conversation,
     from,
-    marksIn(turns, from).map((m) => ({
-      jobId: all[m.turns[0] ?? 0]?.jobId ?? "",
-      refs: m.turns.map((i) => turns[i]?.ref ?? m.ref),
-      turnIndex: all[m.turns[0] ?? 0]?.turnIndex ?? 0,
-    }))
+    marksIn(turns, from).map((m) => m.turns.flatMap((i) => turns[i]?.ref ?? []))
   );
   // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
   const misheard = turns.some(

@@ -21,7 +21,8 @@ test("each marked unit is listed once read since the last night, with the observ
     { messages: [], text: "", unit: u },
     { messages: [], text: "", unit: unit({ id: "u_000000000002" }) },
   ];
-  const read = (at: string, id = u.id) => ({ at, unit: id }) as Extracted;
+  const read = (at: string, id = u.id, unitHash = u.hash) =>
+    ({ at, unit: id, unitHash }) as Extracted;
   const held = {
     source: { channel: "lifelog", ref: "j:2@a" },
     text: "He will vote for the stones.",
@@ -37,7 +38,15 @@ test("each marked unit is listed once read since the last night, with the observ
   expect(markedSince(built, after, since, [])[0]?.relation).toBe(
     "Shop repairs → nothing held"
   );
-  // Read before the last night: not listed again.
+  // Read before the last night, or since but before the mark changed its content: not listed.
+  expect(
+    markedSince(
+      built,
+      [read("2026-10-10T13:00:00.000Z", u.id, "unmarked0000000")],
+      since,
+      [held]
+    )
+  ).toEqual([]);
   expect(
     markedSince(built, [read("2026-10-09T13:00:00.000Z")], since, [held])
   ).toEqual([]);
