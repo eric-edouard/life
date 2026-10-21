@@ -91,7 +91,7 @@ Content-Disposition: attachment; filename*0="Devis_cuisine_";
 `;
 
 // Also: text/plain is preferred and quoted-printable decoded (Devis); an empty text/plain falls back to stripped base64 HTML.
-test("readMail reads every account, dedupes, skips junk and knows the owner", () => {
+test("readMail reads every account, dedupes, skips junk and drafts, and knows the owner", () => {
   const base = mkdtempSync(join(tmpdir(), "mail-"));
   const root = join(base, "V10");
   mkdirSync(join(root, "MailData"), { recursive: true });
@@ -112,7 +112,7 @@ test("readMail reads every account, dedupes, skips junk and knows the owner", ()
   const acct = "AAAA-1111";
   db.run(`insert into mailboxes values (1, 'imap://${acct}/INBOX'),
             (2, 'imap://${acct}/%5BGmail%5D/Sent%20Mail'), (3, 'imap://${acct}/Junk'),
-            (4, 'imap://${acct}/%5BGmail%5D/All%20Mail')`);
+            (4, 'imap://${acct}/%5BGmail%5D/All%20Mail'), (5, 'imap://${acct}/%5BGmail%5D/Brouillons')`);
   db.run("insert into subjects values (1, 'Devis'), (2, 'Big prize')");
   db.run(
     "insert into addresses values (1, 'Ana@Example.com', 'Ana'), (2, 'Me@Mine.test', '')"
@@ -128,14 +128,16 @@ test("readMail reads every account, dedupes, skips junk and knows the owner", ()
             (1004, 12, 1, null, 2, ${t + 120}, 3, 0, 8, 0, null),
             (5, 13, 1, null, 1, ${t - 864_000}, 1, 0, 9, 0, null),
             (1006, 14, 1, null, 2, ${t + 180}, 1, 0, 10, 0, null),
-            (1007, 15, 1, null, 2, ${t + 240}, 1, 0, 11, 0, null)`);
+            (1007, 15, 1, null, 2, ${t + 240}, 1, 0, 11, 0, null),
+            (1008, 16, 2, null, 1, ${t + 300}, 5, 0, 12, 0, null),
+            (1009, 16, 2, null, 1, ${t + 300}, 4, 0, 12, 0, null)`);
   db.run("insert into labels values (1003, 2)");
   db.close();
   const dir = join(root, acct, "INBOX.mbox", "STORE", "Data", "1", "Messages");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "1001.emlx"), emlx(ALTERNATIVE));
   writeFileSync(join(dir, "1006.emlx"), emlx(WITH_FILES));
-  writeFileSync(join(dir, "1007.emlx"), emlx(HTML_ONLY));
+  writeFileSync(join(dir, "1007.partial.emlx"), emlx(HTML_ONLY));
   const saved = join(dir, "..", "Attachments", "1006", "3");
   mkdirSync(saved, { recursive: true });
   writeFileSync(join(saved, "vue été.jpg"), "bytes");
@@ -220,4 +222,15 @@ test("readMail reads every account, dedupes, skips junk and knows the owner", ()
   expect(
     emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#9")
   ).toBeUndefined();
+  // Each file is read once; a partial message is read again once Mail has it whole, under its own name.
+  writeFileSync(join(dir, "1007.emlx"), emlx(ALTERNATIVE));
+  expect(
+    readMail(
+      new Date("2026-10-08T00:00:00Z"),
+      root,
+      join(base, "none.sqlite")
+    ).at(-1)?.text
+  ).toBe(
+    "Big prize\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
+  );
 });

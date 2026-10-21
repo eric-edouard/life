@@ -1,11 +1,20 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { clock, unfrozen } from "./clock";
 import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
+import { localDate } from "./memory/zones";
 import { exec } from "./proc";
-import { Action, type Instruction } from "./schema";
+import {
+  Action,
+  type Instruction,
+  type Observation,
+  REMINDER_KINDS,
+} from "./schema";
+import { kindOf } from "./sources";
+import { ownerSpoke, withStore } from "./sources/lifelog";
 
 // The only code that writes outside Life on the owner's clear request: Apple Reminders through remctl (its signed
 // host, `--json`). Every call is one `act`, which records an Action (memory/actions.jsonl) and tells the owner
@@ -24,7 +33,7 @@ const Due = z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/);
 export const Change = z.object({
   // With a time it alerts then; null clears it (edit only).
   due: Due.nullish(),
-  kind: z.enum(["add", "edit", "done", "remove"]),
+  kind: z.enum(REMINDER_KINDS),
   list: z.string().optional(),
   notes: z.string().max(2000).nullish(),
   priority: z.enum(["high", "medium", "low"]).optional(),
@@ -59,6 +68,7 @@ const parse = <T>(s: string) => {
  * Killed after a minute (exec's default), so a stuck Reminders host cannot hold the queue.
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
+  unfrozen("touch his Reminders");
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },
@@ -205,18 +215,35 @@ async function edit(c: Change): Promise<Done> {
   };
 }
 
-/** Ticks a reminder off, or removes it (to Recently Deleted). */
-async function finish(c: Change): Promise<Done> {
-  const before = await info(c.target);
-  const done = c.kind === "done";
-  await remctl(
-    done ? ["done", `${c.target}`] : ["delete", `${c.target}`, "--force"]
-  );
-  return {
-    after: done ? { completed: true } : { deleted: true },
-    before,
-    target: `reminder:${c.target}`,
-  };
+/** The kinds that only change a reminder's state, each with its remctl call and what it leaves: `finish`'s table. */
+const FINISH = {
+  done: { after: { completed: true }, args: (id: string) => ["done", id] },
+  remove: {
+    after: { deleted: true },
+    args: (id: string) => ["delete", id, "--force"],
+  },
+  restore: {
+    after: { deleted: false },
+    args: (id: string, list?: string) => [
+      "restore",
+      "--private",
+      `--list=${list}`,
+      "--",
+      id,
+    ],
+  },
+  undone: { after: { completed: false }, args: (id: string) => ["undone", id] },
+};
+
+/** Ticks a reminder off or open, removes it (to Recently Deleted) or restores it from there into `list`. */
+async function finish(
+  c: Change & { kind: keyof typeof FINISH }
+): Promise<Done> {
+  // A removed reminder has no info until it is back.
+  const before = c.kind === "restore" ? undefined : await info(c.target);
+  const { after, args } = FINISH[c.kind];
+  await remctl(args(`${c.target}`, c.list));
+  return { after, before, target: `reminder:${c.target}` };
 }
 
 /** What a client passes (a Claude session through the CLI, a chat through the connector): a change, his words that asked for it, and why. */
@@ -254,6 +281,11 @@ export const recorded = async (id: string) =>
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
+  if (c.kind === "restore" && !(c.target && c.list)) {
+    throw new Error(
+      "a restore needs the reminder id and the list to put it in"
+    );
+  }
   const on = c.target && (await info(c.target).catch(() => undefined))?.list;
   if (c.list === BOARD || on === BOARD) {
     throw new Error(`the list ${BOARD} is Atlas's board: use \`task\``);
@@ -277,7 +309,7 @@ export async function act(a: Act): Promise<Action> {
     } else if (c.kind === "edit") {
       done = await edit(c);
     } else {
-      done = await finish(c);
+      done = await finish({ ...c, kind: c.kind });
     }
   } catch (e) {
     result = "failed";
@@ -289,7 +321,7 @@ export async function act(a: Act): Promise<Action> {
   }
   const action: Action = {
     ...done,
-    at: new Date().toISOString(),
+    at: clock().toISOString(),
     id,
     instruction,
     kind: c.kind,
@@ -309,7 +341,7 @@ export async function act(a: Act): Promise<Action> {
 export const requested = (
   madeBy: string,
   quote: string,
-  at = new Date().toISOString()
+  at = clock().toISOString()
 ) => ({ at, quote, ref: `${madeBy}:${at}` });
 
 /** `act` for a request that comes from a client (`requested`). */
@@ -318,6 +350,151 @@ export function actAsked(
   madeBy: "connector" | "session"
 ) {
   return act({ change, instruction: requested(madeBy, said), madeBy, why });
+}
+
+/** The most reminders the grant adds in one of his days. */
+const GRANT_DAILY = 3;
+
+/** A reminder the standing grant added: an add whose instruction is an observation, not his words in a request. */
+const isGranted = (a: Action) =>
+  a.kind === "add" && Boolean(a.instruction?.ref.startsWith("obs_"));
+
+/** The grant's earlier add from this observation, if one stands: the same observation adds once. */
+export const grantedFrom = (actions: Action[], obs: string) =>
+  actions.find(
+    (a) => isGranted(a) && a.instruction?.ref === obs && a.result !== "failed"
+  );
+
+/**
+ * Why the standing grant (his yes, decision 2 of the 21 Oct review) may not add a reminder from this observation, or
+ * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
+ * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
+ * it adds at most GRANT_DAILY a day (his local day), only from his current salience-3 to-do or promise in a lifelog
+ * turn the store credits to him now (`mine`); a shared list is `unshared`'s, checked last (it reads his Reminders).
+ */
+export function grantRefusal(g: {
+  actions: Action[];
+  mine: boolean;
+  now: string;
+  o: Pick<Observation, "salience" | "source" | "type">;
+  state: string;
+}) {
+  const on = g.actions.findLast((a) => a.kind === "grant");
+  if (!on?.after.on) {
+    return "the grant is off: only his own words in a conversation turn it on";
+  }
+  const made = g.actions.filter((a) => isGranted(a) && a.result === "ok");
+  // The grant's reminders, followed through moves to another list (a move gives a new id), in ledger order.
+  const targets = new Set<string>();
+  for (const a of g.actions.filter((x) => x.result === "ok")) {
+    if (
+      isGranted(a) ||
+      (a.kind === "edit" && targets.has(`reminder:${a.before?.id}`))
+    ) {
+      targets.add(a.target);
+    } else if (a.kind === "remove" && targets.has(a.target) && a.at >= on.at) {
+      return "the grant is off: he undid one of its reminders";
+    }
+  }
+  if (g.state !== "active") {
+    return `the observation is ${g.state}, not current`;
+  }
+  if (g.o.salience !== 3 || !["todo", "promise"].includes(g.o.type)) {
+    return "only his salience-3 to-dos and promises";
+  }
+  if (kindOf(g.o.source.channel) !== "voice" || !g.mine) {
+    return "only from a turn lifelog credits to his voice";
+  }
+  const today = localDate(g.now);
+  if (made.filter((a) => localDate(a.at) === today).length >= GRANT_DAILY) {
+    return `already ${GRANT_DAILY} today`;
+  }
+}
+
+/** Whether a list is plainly nobody else's: the grant never adds to a shared one (that would be a send). Fails closed. */
+export const unshared = (list: { sharees?: unknown[]; shared?: boolean }) =>
+  list.shared === false && list.sharees?.length === 0;
+
+/** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through Atlas: off only takes authority away), `bun life grant`: one ledger line, the latest standing. Never from the connector. */
+export async function setGrant(on: boolean, said: string) {
+  const instruction = requested("session", said);
+  const line: Action = {
+    after: { on },
+    at: instruction.at,
+    id: actionId(instruction.ref, "grant", `${on}`),
+    instruction,
+    kind: "grant",
+    madeBy: "session",
+    result: "ok",
+    schemaVersion: 1,
+    target: "grant",
+    why: "his words",
+  };
+  await appendJsonl(ACTIONS, Action, [line]);
+  return line;
+}
+
+/** What the grant may set: an add's title, list (always named: its sharing is checked), due and section, nothing else. */
+export const Granted = Change.pick({
+  due: true,
+  list: true,
+  section: true,
+  title: true,
+})
+  .extend({ kind: z.literal("add"), list: z.string() })
+  .strict();
+export type Granted = z.infer<typeof Granted>;
+
+/** One grant at a time: the cap and the dedupe read the ledger, and only `act` appends to it. */
+let granting: Promise<unknown> = Promise.resolve();
+
+/**
+ * The standing grant's add (the connector's `reminders` with `obs`), from the observation as `claim` reads it: the
+ * instruction is the observation itself (its id, his quote, when he said it), never words a client passes, and the
+ * turn's credit and the list's sharing are re-read now. It binds the connector only, not what Atlas does in its terminal.
+ */
+export function actGranted(
+  {
+    observation: o,
+    status,
+  }: { observation: Observation; status: { state: string } },
+  change: Granted
+) {
+  const run = granting.then(async () => {
+    const actions = await readActions();
+    const old = grantedFrom(actions, o.id);
+    if (old) {
+      return old;
+    }
+    const no = grantRefusal({
+      actions,
+      // A chat or mail ref is no turn: never his voice.
+      mine: await withStore((s) => ownerSpoke(s, o.source.ref)),
+      now: clock().toISOString(),
+      o,
+      state: status.state,
+    });
+    if (no) {
+      throw new Error(`Not done: ${no}.`);
+    }
+    // His Reminders are read only once everything else allows it.
+    const list = await remctl<{ sharees?: unknown[]; shared?: boolean }>([
+      "list-info",
+      "--",
+      change.list,
+    ]);
+    if (!unshared(list)) {
+      throw new Error("Not done: the list is shared: that needs his words.");
+    }
+    return act({
+      change,
+      instruction: { at: o.at, quote: o.quote, ref: o.id },
+      madeBy: "connector",
+      why: "the standing grant: his own spoken to-do",
+    });
+  });
+  granting = run.catch(() => undefined);
+  return run;
 }
 
 /** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */

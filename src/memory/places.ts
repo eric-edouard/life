@@ -1,3 +1,4 @@
+import { clock } from "../clock";
 import { redact } from "../redact";
 import {
   conversationsBetween,
@@ -29,7 +30,7 @@ export interface PlacesQuery {
   to?: string;
 }
 
-const where = (s: Stay) =>
+export const where = (s: Stay) =>
   `${s.place ?? "unnamed place"} (${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)})`;
 
 /** The stays for a question, newest first; null when it names nothing to look for. */
@@ -43,6 +44,7 @@ export async function placesOf(
     return null;
   }
   const range = dayRange(q.from, q.to);
+  const now = clock().toISOString();
   const stays = (
     q.at
       ? await read.where(q.at)
@@ -54,8 +56,11 @@ export async function placesOf(
           radiusM: q.radiusM,
           to: range.to,
         })
-  ).slice(0, MAX);
-  const now = new Date().toISOString();
+  )
+    // Nothing after now (a frozen clock included): a stay not left by then is open.
+    .filter((s) => s.arrivedAt <= now)
+    .map((s) => (s.leftAt && s.leftAt > now ? { ...s, leftAt: null } : s))
+    .slice(0, MAX);
   return withStore(
     (store) =>
       asData([

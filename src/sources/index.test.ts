@@ -43,13 +43,14 @@ test("a new source is one descriptor: every table picks it up", () => {
     "mail",
     "radio",
   ]);
-  // A source with no search window is not searched; mail is not (yet).
+  // A source with no search window is not searched (git); mail is searched in its own section.
   expect(Object.keys(tablesOf(SOURCES).SEARCHED)).toEqual([
     "imessage",
     "whatsapp",
     "beeper",
     "notes",
   ]);
+  expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual(["mail"]);
 });
 
 test("a chat app's ids say which chats are groups: the closeness counts leave them out", () => {

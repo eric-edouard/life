@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { clock } from "./clock";
 import { filesIn, linesOf } from "./memory/ledger";
 import { DATA, ROOT, TEST } from "./truth";
 
@@ -14,6 +15,7 @@ export const LOG_DIR = TEST ? join(DATA, "log") : join(ROOT, "derived", "log");
 
 type LogKind =
   | "board.write"
+  | "calendar.write"
   | "email.sent"
   | "event.sent"
   | "file.read"
@@ -72,7 +74,7 @@ export const recentEvents = async <T = LogEvent>(
     .flatMap((n) => logEvents<T>(n, kind, dir));
 
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
-  const at = new Date().toISOString();
+  const at = clock().toISOString();
   const line = JSON.stringify({ at, kind, ...fields });
   try {
     mkdirSync(LOG_DIR, { recursive: true });

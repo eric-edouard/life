@@ -16,6 +16,7 @@ import {
   apply,
   conversationsWith,
   Hits,
+  ownerSpoke,
   Page,
   poll,
   readConversations,
@@ -23,7 +24,7 @@ import {
   searchVoice,
   speakers,
   Transcript,
-  turnOffset,
+  turnPlace,
   turnsBetween,
   visits,
 } from "./lifelog";
@@ -61,6 +62,27 @@ test("a name given to one turn names that turn, not the whole voice", () => {
       "2026-10-14T10:05:00.000Z"
     ).map((t) => t.name)
   ).toEqual([null, "Anne-Sophie", null]);
+});
+
+test("a turn is his while the store credits him now: one lifelog later names someone else, or no one, is not", () => {
+  const s = store();
+  const at = "2026-10-14T10:00:00.000Z";
+  const ref = `job-1:0@${at}`;
+  const sent = (owner: boolean, id: string | null) =>
+    apply(
+      s,
+      page({
+        conversations: [conversation("c1")],
+        turns: [turn(0, at, id, id, "c1", owner)],
+      })
+    );
+  sent(true, JEAN);
+  expect(ownerSpoke(s, ref)).toBe(true);
+  sent(false, ANNE);
+  expect(ownerSpoke(s, ref)).toBe(false);
+  sent(false, null);
+  expect(ownerSpoke(s, ref)).toBe(false);
+  expect(ownerSpoke(s, "msg-1")).toBe(false);
 });
 
 test("a chapter holds its turns, its first turn's ref, and names the map gives its people", () => {
@@ -161,8 +183,9 @@ test("a turn's place in its conversation, and a person's conversations newest fi
       ].map((t) => ({ ...t, jobId: `job-${t.conversationId?.slice(1)}` })),
     })
   );
-  expect(turnOffset(s, "c1", "job-1", 0)).toBe(0);
-  expect(turnOffset(s, "c1", "job-1", 2)).toBe(2);
+  expect(turnPlace(s, "job-1", 0)).toEqual({ conversation: "c1", offset: 0 });
+  expect(turnPlace(s, "job-1", 2)).toEqual({ conversation: "c1", offset: 2 });
+  expect(turnPlace(s, "job-1", 9)).toBeNull();
   expect(conversationsWith(s, [ANNE]).map((c) => c.id)).toEqual(["c2", "c1"]);
   expect(conversationsWith(s, [ANNE, "nobody"])).toHaveLength(2);
   expect(speakers(s)).toEqual([{ id: ANNE, name: "Anne-Sophie" }]);

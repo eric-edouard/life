@@ -6,6 +6,7 @@ import {
   remctl,
   reminderArgs,
 } from "./actions";
+import { clock } from "./clock";
 import { subscribed } from "./events";
 import { titleOf } from "./hear";
 import { log } from "./log";
@@ -20,8 +21,8 @@ import { alerts, closed, settled, standing } from "./tasks";
 // closes: his receipt that he was heard. What needs him (`escalation`, src/tasks.ts) is emailed by `chase`, never shown here.
 
 const MIN = 60_000;
-/** A task's name, as the board and the email show it. */
-const nameOf = (t: Task) =>
+/** A task's name, as the board, the email and `search` show it. */
+export const nameOf = (t: Task) =>
   titleOf({
     quote: t.ask.instruction.quote,
     title: t.ask.after.title as string | undefined,
@@ -161,7 +162,7 @@ let last = 0;
  * The watcher's pass, at most each minute: the chase (from the ledger alone, so a Reminders outage stops no email),
  * then the board: each item is brought in line (a deleted one of an open task comes back).
  */
-export async function tick(now = Date.now()) {
+export async function tick(now = clock().getTime()) {
   if (now - last < MIN) {
     return;
   }

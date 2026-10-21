@@ -1,3 +1,4 @@
+import { unfrozen } from "../clock";
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
 import type { Action } from "../schema";
@@ -319,8 +320,11 @@ export function actionLine(a: Action) {
       ? `“${was}” → “${a.after.title}”`
       : `“${was}”: ${changed}`,
     // Until 19 Oct Life also emailed Instinct; those lines stay in actions.jsonl.
+    grant: `the standing grant ${a.after.on ? "on" : "off"}`,
     instinct: `to Instinct: “${a.after.subject}”`,
     remove: `removed “${was}”`,
+    restore: `restored ${a.target}`,
+    undone: `reopened “${was}”`,
   };
   const what = kinds[a.kind] ?? a.kind;
   const outcome = {
@@ -352,6 +356,7 @@ export async function unsent(keys: string[]) {
  * try again.
  */
 export async function sendReport(id: string | string[], mail: Mail) {
+  unfrozen("send email");
   const keys = await unsent([id].flat());
   if (keys.length === 0) {
     return null;

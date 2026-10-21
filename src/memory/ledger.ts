@@ -9,6 +9,7 @@ import {
 import { readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { z } from "zod";
+import { clock } from "../clock";
 import {
   Action,
   Correction,
@@ -370,7 +371,7 @@ export async function recordCorrection(said: unknown) {
   // Stamped when recorded, whatever the caller sent: a future `at` would re-read a unit every night until then.
   const correction = Correction.parse({
     ...(said as object),
-    at: new Date().toISOString(),
+    at: clock().toISOString(),
     schemaVersion: 1,
   });
   await appendJsonl(CORRECTIONS, Correction, [correction]);
@@ -403,7 +404,7 @@ export function ratedFacts() {
 /** Appends the owner's answer to one statement's claim (the check page); null takes his last one back. */
 export const recordRating = (claim: string, answer: Rating["answer"]) =>
   appendJsonl(RATINGS, Rating, [
-    { answer, at: new Date().toISOString(), claim, schemaVersion: 1 },
+    { answer, at: clock().toISOString(), claim, schemaVersion: 1 },
   ]);
 
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);

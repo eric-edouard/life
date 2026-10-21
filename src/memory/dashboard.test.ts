@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
-import { appendFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { log } from "../log";
-import { feedPage, matchesFilter } from "./feed";
+import { Action } from "../schema";
+import { changeFeed, feedPage, matchesFilter } from "./feed";
+import { action } from "./fixtures";
 import { assembleRuns, lifeStatus, runs } from "./history";
+import { ACTIONS, appendJsonl } from "./ledger";
 
 /** Pages through the sources with `limit`, appending `between` after each page, until the feed is drained. */
 function drain(
@@ -263,4 +266,33 @@ test("the status holds the midday while the last quota reading is over the reser
   expect((await lifeStatus(now)).midday.next.why).toStartWith("held");
   log("quota.read");
   expect((await lifeStatus(now)).midday.next.why).not.toStartWith("held");
+});
+
+test("changes about task:<id> is one task's history: its ask, updates and replies, no other action", async () => {
+  const ask = "act_00000000000a";
+  const own = (kind: Action["kind"], target: string, n: number) =>
+    action({
+      id: `act_${String(n).padStart(12, "0")}`,
+      instruction: undefined,
+      kind,
+      target,
+    });
+  try {
+    appendJsonl(ACTIONS, Action, [
+      action({ id: ask, kind: "ask", target: "atlas" }),
+      own("update", ask, 1),
+      own("reply", ask, 2),
+      own("reply", "chat", 3),
+      own("update", "act_00000000000b", 4),
+      own("add", "reminder:12", 5),
+    ]);
+    const { items } = await changeFeed({ about: `task:${ask}` });
+    expect(items.map((i) => i.type)).toEqual([
+      "action.ask",
+      "action.update",
+      "action.reply",
+    ]);
+  } finally {
+    rmSync(ACTIONS, { force: true });
+  }
 });

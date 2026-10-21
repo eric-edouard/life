@@ -69,7 +69,7 @@ export const SOURCES: Descriptor[] = [
     read: readBeeper,
     searchDays: 90,
   },
-  { kind: "mail", name: "mail", read: readMail },
+  { kind: "mail", name: "mail", read: readMail, searchDays: 90 },
   {
     kind: "notes",
     name: "notes",

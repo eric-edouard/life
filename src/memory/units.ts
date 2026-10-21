@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { clock } from "../clock";
 import { log } from "../log";
 import { redact } from "../redact";
 import { type Person, type SourceEvent, Unit } from "../schema";
@@ -83,7 +84,7 @@ const contentHash = (s: string) => digest("sha256", s, 16);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * `from`..`to` as ISO instants. A date is a local day: `from` starts it, `to` is inclusive (it ends after that day).
- * Either may be missing.
+ * `from` may be missing; `to` never passes now, so a frozen clock (`LIFE_NOW`) bounds every live source read through it.
  */
 export function dayRange(from?: string, to?: string) {
   const edge = (d: string | undefined, plus: number) => {
@@ -94,7 +95,9 @@ export function dayRange(from?: string, to?: string) {
       ? dayStart(daysBefore(d, -plus)).toISOString()
       : new Date(d).toISOString();
   };
-  return { from: edge(from, 0), to: edge(to, 1) };
+  const now = clock().toISOString();
+  const end = edge(to, 1);
+  return { from: edge(from, 0), to: end && end < now ? end : now };
 }
 
 /** Lower case, no accents, letters and digits only: how names, quotes and titles are compared. */
@@ -300,6 +303,11 @@ const byDay = (events: SourceEvent[]) => [
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
   byDay(events).map((list) => chatDay(list, resolve));
 
+/** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
+export const unitTitle = (first: SourceEvent) =>
+  first.chatName ??
+  (kindOf(first.source) === "mail" ? "(no subject)" : first.chat);
+
 /**
  * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
  * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`refOf`). Its text, read once by the
@@ -315,8 +323,7 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
     const who = e.fromMe ? OWNER : resolve(e.sender);
     return `${time(e.at)} ${who?.replace(PERSON, "") ?? e.sender}: ${redact(e.text)}`;
   });
-  const title =
-    first.chatName ?? (kind === "mail" ? "(no subject)" : first.chat);
+  const title = unitTitle(first);
   const ids = sorted.map((e) => e.id);
   return {
     messages: sorted.map((e) => ({
@@ -420,16 +427,32 @@ export const LIFE_CHAT = TEST
   ? "!life:beeper.local"
   : (process.env.LIFE_CHAT ?? "");
 
+/** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
+interface Thread {
+  messages: Pick<Message, "bulk" | "fromMe" | "sender">[];
+  unit: Pick<Unit, "source" | "title">;
+}
 /** Mail the owner never wrote in, other than his agents' reports (the model judges those: he asked for their to-dos). */
-const isMail = (b: Built) =>
-  kindOf(b.unit.source) === "mail" &&
-  b.unit.stats.fromMe === 0 &&
-  !b.messages.some((m) => AGENT_REPORTS.includes(m.sender));
+const isMail = (t: Thread) =>
+  kindOf(t.unit.source) === "mail" &&
+  !t.messages.some((m) => m.fromMe || AGENT_REPORTS.includes(m.sender));
 /** Life's nightly report and alerts: reading them back would turn its own output into facts. */
-const lifeMail = (b: Built) =>
-  kindOf(b.unit.source) === "mail" &&
-  b.unit.title.startsWith(LIFE_MAIL.subject) &&
-  b.messages.every((m) => m.sender === LIFE_MAIL.from);
+const lifeMail = (t: Thread) =>
+  kindOf(t.unit.source) === "mail" &&
+  t.unit.title.startsWith(LIFE_MAIL.subject) &&
+  t.messages.every((m) => m.sender === LIFE_MAIL.from);
+/** A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered. */
+const newsletter = (t: Thread) => isMail(t) && t.messages.every((m) => m.bulk);
+/** The mail thread-days (each its messages) `search` shows: by the rules' own terms, neither Life's own mail nor a newsletter. */
+export const searchableMail = (events: SourceEvent[]) =>
+  byDay(events).filter((list) => {
+    const first = list[0] as SourceEvent;
+    const t = {
+      messages: list,
+      unit: { source: first.source, title: unitTitle(first) },
+    };
+    return !(lifeMail(t) || newsletter(t));
+  });
 
 /** Cheap code rules for obvious noise (§3.3), in order. The first rule that matches drops the unit. */
 const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
@@ -457,8 +480,7 @@ const RULES: [string, (b: Built, seen: Set<string>) => boolean][] = [
             m.text.length <= CODE_MAIL_MAX)
       ),
   ],
-  // A newsletter or marketing send (Mail saw a list id or an unsubscribe link) the owner never answered.
-  ["newsletter", (b) => isMail(b) && b.messages.every((m) => m.bulk)],
+  ["newsletter", newsletter],
   // Vendor and notification mail from a no-reply or alerts address the owner never answered, with nothing in it that matters.
   [
     "automated",
@@ -534,8 +556,12 @@ export function tablesOf(sources: Descriptor[]) {
   return {
     /** The chat apps, where people speak for themselves (not mail, nor his notes). */
     CHATS: readers((s) => s.kind === "chat"),
-    /** What `search` reads messages from: the sources it has a window for. */
-    SEARCHED: readers((s) => s.searchDays !== undefined),
+    /** What `search` reads chat messages and notes from: the sources it has a window for. */
+    SEARCHED: readers((s) => s.kind !== "mail" && s.searchDays !== undefined),
+    /** The mail `search` reads, in a section of its own. */
+    SEARCHED_MAIL: readers(
+      (s) => s.kind === "mail" && s.searchDays !== undefined
+    ),
     /**
      * Where he writes with people, as the sources give it (no file lines): the chat apps and mail. The closeness counts
      * read it over years (closeness.ts), the one memory step reading sources outside `gather`: it counts days, never units.
@@ -546,7 +572,8 @@ export function tablesOf(sources: Descriptor[]) {
     ),
   };
 }
-export const { CHATS, SEARCHED, WITH_PEOPLE } = tablesOf(SOURCES);
+export const { CHATS, SEARCHED, SEARCHED_MAIL, WITH_PEOPLE } =
+  tablesOf(SOURCES);
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
@@ -646,7 +673,7 @@ export async function gather(
     }))
   );
   // A repo's commits carry no files; the others' recent messages have theirs described, then shown.
-  const recent = dayStart(lastDays(new Date(), DAYS).from).toISOString();
+  const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
   const files = await describeFiles(
     read
       .flatMap(({ events, s }) => (s.kind === "repo" ? [] : events))
