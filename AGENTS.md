@@ -144,8 +144,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   whose delivery failed, an Atlas task that needs him, once per cause, Atlas not subscribed to `ask` (one a day for all open tasks), a run holding the lock over 3 h (once per incident),
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily
   while it lasts, `archiveFailing` in `src/archive.ts`), by
-  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), and one MCP event per ask (not one Atlas made) to the one subscriber,
-  Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent).** Add no other.
+  email to the owner only (`src/memory/report.ts`: a fixed sender, his address as `LIFE_MAIL_TO` in `.env`), one MCP event per ask (not one Atlas made) to the one subscriber,
+  Atlas (`src/events.ts`: callbacks on OpenAI's hosts only, verified before anything is sent), and the status page's
+  plate without his words to its own Worker once a minute (`pushPlate`, `src/dashboard.ts`).** Add no other.
 - **The connector** (`src/mcp.ts`, `/mcp` for Claude and ChatGPT) **reads, forwards the owner's explicit corrections, and
   acts only on his explicit request, in the chat or in an ask (Atlas's `reminders` and `task`), or on the one standing grant, and logs Atlas's replies (`reply`):** thirteen read-only tools (`tasks`; `open_reminders`, through the same `openReminders` as `duplicateOf`, never the board; four of them, `status`, `runs`, `changes`,
   `claim`, are the dashboard's JSON reads, `src/memory/history.ts` and `feed.ts`, contracts in `docs/dashboard.md`); `correct` (lifelog writes all go through the
@@ -160,6 +161,11 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   logged as `mcp.call` with `error`; nothing reads a response back. Every request
   needs lifelog's JWT for this resource, `life:read`, `sub` = `LIFE_OWNER_SUB` (`ownerTokens`, `src/auth.ts`). lifelog's
   keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never a refused token.
+- **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
+  reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages): never serve anything of his before
+  that check. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to
+  the Mac and answers only when the Mac is out of reach, behind the same owner check, with what the Mac pushed: the plate
+  without his words (`strip`) and the page's files. `docs/dashboard.md`.
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
   to `memory/ratings.jsonl`, nothing else. It signs him in with the same lifelog OAuth (PKCE, the token in an HttpOnly
   cookie, checked by `ownerTokens` on every request): never serve anything of his before that check. A `false` is a
