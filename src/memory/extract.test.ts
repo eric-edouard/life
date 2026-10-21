@@ -149,10 +149,10 @@ test('a unit he marked with "hey Life" is read whatever its verdict, in its mome
   ).toEqual([
     [U1, false],
     [U2, true],
-    [U3, true],
   ]);
-  expect(stale).toBe(0);
-  // Unmarked, the salience-0 unit is not read and the one with no verdict is stale.
+  // A mark lifts the salience bar, not the wait for a verdict: its moment is not known yet.
+  expect(stale).toBe(1);
+  // Unmarked, the salience-0 unit is not read.
   expect(
     toExtract([b1, b2, b3], verdicts, [], "p").kept.map((k) => k.b.unit.id)
   ).toEqual([U1]);

@@ -132,17 +132,18 @@ export function whose(t: ChapterTurn): Turn["who"] {
   return t.personId || t.name ? "other" : "unknown";
 }
 
-/** A stored turn as the hearing sees it, its words from its recording's transcript (`words`, by job id). */
+/** A stored turn as the hearing sees it, its words from its recording's transcript (`words`, by job id), `who` lifelog's by default. */
 export const heardAs = (
   t: ChapterTurn,
-  words: Map<string, { text: string }[]>
+  words: Map<string, { text: string }[]>,
+  who = whose(t)
 ): Turn => ({
   at: t.at,
   end: t.end ?? t.at,
   ref: turnRef(t.jobId, t.turnIndex, t.at),
   seen: t.seen ?? t.at,
   text: words.get(t.jobId)?.[t.turnIndex]?.text ?? "",
-  who: whose(t),
+  who,
 });
 
 /**

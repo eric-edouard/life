@@ -35,7 +35,7 @@ import {
   verdictOf,
 } from "./ledger";
 import { parseObservations, type Reject, type Source } from "./observe";
-import { chatLines, transcripts, voiceLines } from "./raw";
+import { chatLines, transcripts, voiceLines, whoIn } from "./raw";
 import { begin, inBatches, refContext } from "./run";
 import {
   areaLookup,
@@ -207,6 +207,24 @@ export function byDays<T extends Group & { sources: Source[] }>(
   });
 }
 
+/** Whether this prompt read a unit's current content, and after his last `reread` of it (memory/extracted.jsonl). */
+function wasRead(
+  ledger: Extracted[],
+  prompt: string,
+  rereads: Map<string, string>
+) {
+  // The latest reading of each unit's content by this prompt.
+  const done = latestBy(
+    ledger.filter((e) => e.prompt === prompt),
+    (e) => `${e.unit}|${e.unitHash}`
+  );
+  return ({ unit }: Built) => {
+    const e = done.get(`${unit.id}|${unit.hash}`);
+    const since = rereads.get(unit.id);
+    return !!e && !(since && Date.parse(since) > Date.parse(e.at));
+  };
+}
+
 /**
  * The units to read: kept (salience >= KEEP_AT, or `marked`: he said "hey Life" in it, whatever its verdict) on their current content, and not yet extracted by this prompt
  * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl), unless the
@@ -221,16 +239,7 @@ export function toExtract(
   rereads = new Map<string, string>(),
   marked = new Set<string>()
 ) {
-  // The latest reading of each unit's content by this prompt.
-  const done = latestBy(
-    ledger.filter((e) => e.prompt === prompt),
-    (e) => `${e.unit}|${e.unitHash}`
-  );
-  const readAs = ({ unit }: Built) => {
-    const e = done.get(`${unit.id}|${unit.hash}`);
-    const since = rereads.get(unit.id);
-    return !!e && !(since && Date.parse(since) > Date.parse(e.at));
-  };
+  const readAs = wasRead(ledger, prompt, rereads);
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
   for (const b of built) {
@@ -239,10 +248,10 @@ export function toExtract(
       continue;
     }
     const v = verdictOf(verdicts, b.unit);
-    if (marked.has(b.unit.id)) {
-      kept.push({ b, reason: `he said "hey Life"${v ? `; ${v.reason}` : ""}` });
-    } else if (!v) {
+    if (!v) {
       stale += 1;
+    } else if (marked.has(b.unit.id)) {
+      kept.push({ b, reason: `he said "hey Life"; ${v.reason}` });
     } else if (v.salience >= KEEP_AT) {
       kept.push({ b, reason: v.reason });
     }
@@ -365,31 +374,34 @@ export async function extract(evidence: Evidence) {
     readMoments(),
     observationsNow(people),
   ]);
-  // Every voice unit's words, read or not: a "hey Life" in one keeps it read (`marksIn`), whatever its verdict.
-  const turns = await withStore(
-    (store) =>
-      new Map(
-        inWindow.flatMap(({ unit }) =>
-          kindOf(unit.source) === "voice" && !unit.drop
-            ? [
-                [
-                  unit.id,
-                  turnsBetween(
-                    store,
-                    unit.key,
-                    unit.start,
-                    unit.end,
-                    lifelogNames(truth)
-                  ),
-                ] as const,
-              ]
-            : []
+  const ledger = rowsOf(EXTRACTED, Extracted);
+  const rereads = rereadAt(corrections);
+  const names = nameIndex(truth.people);
+  const lifelogIds = lifelogNames(truth);
+  /** The stored turns of these voice units and their recordings' words. */
+  const voices = async (units: Built[]) => {
+    const turns = await withStore(
+      (store) =>
+        new Map(
+          units.map(({ unit }) => [
+            unit.id,
+            turnsBetween(store, unit.key, unit.start, unit.end, lifelogIds),
+          ])
         )
-      )
+    );
+    return { jobs: await transcripts([...turns.values()].flat()), turns };
+  };
+  // The voice units this prompt has not read yet: a "hey Life" in one keeps it read (`marksIn`), whatever its salience.
+  const isRead = wasRead(ledger, EXTRACT_PROMPT, rereads);
+  const scanned = await voices(
+    inWindow.filter(
+      (b) => kindOf(b.unit.source) === "voice" && !b.unit.drop && !isRead(b)
+    )
   );
-  const jobs = await transcripts([...turns.values()].flat());
-  const marks = [...turns].flatMap(([unit, list]) => {
-    const said = list.map((t) => heardAs(t, jobs));
+  const marks = [...scanned.turns].flatMap(([unit, list]) => {
+    const said = list.map((t) =>
+      heardAs(t, scanned.jobs, whoIn(t, scanned.jobs, names))
+    );
     return marksIn(said).map((m) => ({
       ...m,
       refs: m.turns.map((i) => said[i]?.ref ?? ""),
@@ -401,9 +413,9 @@ export async function extract(evidence: Evidence) {
   const { kept, pending, stale } = toExtract(
     inWindow,
     verdicts,
-    rowsOf(EXTRACTED, Extracted),
+    ledger,
     EXTRACT_PROMPT,
-    rereadAt(corrections),
+    rereads,
     marked
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
@@ -424,9 +436,16 @@ export async function extract(evidence: Evidence) {
     marked
   );
 
-  const names = nameIndex(truth.people);
   const read = groups.flatMap((g) => g.units);
   const reread = new Set([...read, ...copies].map((b) => b.unit.id));
+  // The read units' words: the scan's, and the rest's (already read units of a moment read again).
+  const more = await voices(
+    read.filter(
+      (b) => kindOf(b.unit.source) === "voice" && !scanned.turns.has(b.unit.id)
+    )
+  );
+  const turns = new Map([...scanned.turns, ...more.turns]);
+  const jobs = new Map([...scanned.jobs, ...more.jobs]);
   let truncated = 0;
   const sourceOf = (b: Built): Source[] => {
     const all =
