@@ -7,7 +7,7 @@ import { saliencyOf } from "../memory/moments";
 import { chatLines } from "../memory/raw";
 import { messageUnits } from "../memory/units";
 import { Action, KEEP_AT } from "../schema";
-import { readAtlas } from "./atlas";
+import { newestAtlas, readAtlas } from "./atlas";
 
 const NON_DIGIT = /\D/g;
 
@@ -56,7 +56,17 @@ test("a task Atlas closed done is one event: its outcome with his ask's words, A
       outcome: "done long ago",
       state: "done",
     }),
+    // He ticked its receipt in Reminders: his tick, not Atlas's report of work done.
+    ask("act_dddddddddddd", "hey Atlas, call the bank"),
+    {
+      ...update("act_dddddddddddd", "2026-10-20T16:00:00.000Z", {
+        outcome: "he ticked its receipt in Reminders",
+        state: "done",
+      }),
+      madeBy: "reminders",
+    },
   ]);
+  expect(newestAtlas().at).toBe("2026-10-20T14:55:00.000Z");
   const events = readAtlas(new Date("2026-10-14T00:00:00.000Z"));
   expect(events.map((e) => [e.id, e.at, e.sender, e.fromMe])).toEqual([
     ["atlas:act_aaaaaaaaaaaa", "2026-10-20T14:55:00.000Z", "atlas", false],
