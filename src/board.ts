@@ -11,7 +11,8 @@ import { titleOf } from "./hear";
 import { log } from "./log";
 import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
-import { alerts, closed, settled, standing, type Task, tasksOf } from "./tasks";
+import { type Task, tasksOf } from "./memory/ledger";
+import { alerts, closed, settled, standing } from "./tasks";
 
 // Atlas's board, his Reminders list `BOARD`: a one-way projection of the tasks (src/tasks.ts), never through `act`, that
 // writes no ledger line and reads nothing back as his. One item per task, found by the task id on its notes' first
