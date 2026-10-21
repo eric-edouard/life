@@ -6,7 +6,7 @@ import { readHealth } from "../health";
 import { titleOf } from "../hear";
 import { quota } from "../llm";
 import { log, recentEvents } from "../log";
-import { type Action, isTaskLine } from "../schema";
+import { type Action, isTaskLine, type Observation } from "../schema";
 import { taskList, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
@@ -285,11 +285,41 @@ async function sweep(
  * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
  * (`placed`), and the retirements those new observations made.
  */
-async function whatIsNew(
+/** An extract run's end in the log: the "hey Life" spans it found in units it had not read yet, so each once. */
+interface MarkEvent {
+  at: string;
+  kind: string;
+  marks?: Awaited<ReturnType<typeof extract>>["marks"];
+  step?: string;
+}
+/** Days of log read for them. ponytail: a mark read longer ago than this before a good night is left out of its report. */
+const MARK_DAYS = 8;
+
+/**
+ * Each "hey Life" read by an extract run since `since` (midday ones too), with what the memory holds of it: the
+ * observations citing its lines, or "nothing held", so a miss shows the next morning.
+ */
+export function markedSince(
+  events: MarkEvent[],
   since: string,
-  from: string,
-  marks: Awaited<ReturnType<typeof extract>>["marks"]
+  observations: Observation[]
 ) {
+  return events
+    .filter(
+      (e) =>
+        e.kind === "run.end" && e.step === "memory.extract" && e.at >= since
+    )
+    .flatMap((e) => e.marks ?? [])
+    .map((m) => {
+      const held = observations.filter((o) => m.refs.includes(o.source.ref));
+      return {
+        name: `${localTime(m.at)}${m.confidence === "low" ? " · unattributed" : ""}`,
+        relation: `“${m.quote}” → ${held.length > 0 ? held.map((o) => o.text).join(" · ") : "nothing held"}`,
+      };
+    });
+}
+
+async function whatIsNew(since: string, from: string) {
   const people = await readPeople();
   const { all, observations, standing } = await observationsNow(people);
   const isNew = newSince(all, since);
@@ -308,16 +338,11 @@ async function whatIsNew(
           : []
       )
     ),
-    // Each "hey Life" since `since` with the observations citing its lines: a miss shows the next morning.
-    marked: marks
-      .filter((m) => m.at >= since)
-      .map((m) => {
-        const held = observations.filter((o) => m.refs.includes(o.source.ref));
-        return {
-          name: `${localTime(m.at)}${m.confidence === "low" ? " · unattributed" : ""}`,
-          relation: `“${m.quote}” → ${held.length > 0 ? held.map((o) => o.text).join(" · ") : "nothing held"}`,
-        };
-      }),
+    marked: markedSince(
+      await recentEvents<MarkEvent>(MARK_DAYS),
+      since,
+      observations
+    ),
     observed: fresh.length,
     retired: [...standing.retired.values()].filter(
       (s) => ids.has(s.by) && s.by !== s.observation
@@ -350,8 +375,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     await phase.step("closeness", () => closeness());
     const { facts, marked, observed, retired } = await whatIsNew(
       since,
-      window.from,
-      extracted.marks
+      window.from
     );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
     phase.at = "index";
