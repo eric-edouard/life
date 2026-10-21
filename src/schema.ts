@@ -467,6 +467,8 @@ export const Extracted = z
   .object({
     at: isoDateTime,
     observations: z.int().min(0),
+    /** Written 21 Oct 2026 only (the unit's people then); ignored since: who someone is is resolved when read. */
+    people: z.array(z.string()).optional(),
     prompt: z.string(),
     run: z.string(),
     schemaVersion: z.literal(1),

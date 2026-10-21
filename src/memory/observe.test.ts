@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type Correction,
+  Extracted,
   type InferredPerson,
   Observation,
   Person,
@@ -215,9 +216,9 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
       text: "Gaston will call back.",
       unit: "u_000000000002",
     },
-    // The owner, and a fact whose author did not change, stay as written.
+    // His own fact in that chat follows the move (its author stays him); one whose author did not change stays as is.
     {
-      entities: [],
+      entities: ["person:gaston"],
       id: "obs_3",
       speaker: "person:me",
       text: "Jean paid Gaston.",
@@ -241,12 +242,28 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
     "person:gaston",
   ]);
   expect(now[0]?.entities).toEqual(["person:dad"]);
+  expect(now[2]?.entities).toEqual(["person:dad"]);
   expect(now.map((o) => o.text)).toEqual([
     "Jean Senior Dupont asked Jean for the keys.",
     "Jean Senior Dupont will call back.",
-    "Jean paid Gaston.",
+    "Jean paid Jean Senior Dupont.",
     "Gaston is late.",
   ]);
+});
+
+test("an extracted.jsonl line written with `people` (21 Oct only) still reads", () => {
+  expect(
+    Extracted.safeParse({
+      at: "2026-10-21T00:30:00.000Z",
+      observations: 0,
+      people: ["person:me"],
+      prompt: "memory-extract.v5",
+      run: "r",
+      schemaVersion: 1,
+      unit: "u_000000000001",
+      unitHash: "0000000000000000",
+    }).success
+  ).toBe(true);
 });
 
 test("renaming takes whole words only, any case, longest name first", () => {

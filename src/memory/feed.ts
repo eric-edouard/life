@@ -40,7 +40,7 @@ import { type Key, PageMeta, parsePage, readLine } from "./page";
 import { unitLines } from "./raw";
 import { readIndex } from "./search";
 import { CHATS } from "./units";
-import { aboutNow, type People, readPeople, UNKNOWN } from "./who";
+import { aboutNow, chatHandles, type People, readPeople, UNKNOWN } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,
 // correction, inferred identity, action and page change, by cursor) and `claim` (one observation with its evidence).
@@ -532,15 +532,16 @@ export async function claim(id: string) {
   const o = (versions.find((v) => isCurrent(ctx, v.o)) ?? versions.at(-1))
     ?.o as Observation;
   const people = await readPeople();
+  const unit = (await readUnits()).find((u) => u.id === o.unit);
   const now = aboutNow(
     [o],
     await readUnresolved(),
     people.truth.people,
     people.inferred,
-    people.corrections
+    people.corrections,
+    chatHandles(unit ? [unit] : [])
   )[0] as Observation;
   const inferred = new Map(people.inferred.map((p) => [`person:${p.id}`, p]));
-  const unit = (await readUnits()).find((u) => u.id === o.unit);
   const who = await speakerOf(o, unit, people);
   const chat = unit && unit.source in CHATS;
   return {
