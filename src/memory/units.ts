@@ -25,8 +25,7 @@ import { dayStart, localDate, wall } from "./zones";
 const TEXT_MAX = 1500;
 const SHORT_CHARS = 12;
 const OTP_MAX = 200;
-const PAREN = /\(.*?\)/g;
-const PERSON = /^person:/;
+export const PERSON = /^person:/;
 export const UNKNOWN = "unknown:";
 const MARKS = /\p{M}/gu;
 const NON_ALNUM = /[^a-z0-9]+/g;
@@ -194,24 +193,6 @@ export const areaOf = (said: string | null, lookup: Map<string, string>) =>
 /** Where his agents mail him their reports from (the older routines still use Make a Dent's). */
 const AGENT_REPORTS = [LIFE_MAIL.from, "alerts@send.make-a-dent.com"];
 
-/** Names and aliases on the map, normalized, to the person; a name two people share maps to nobody. */
-export function nameIndex(people: Person[]) {
-  const index = new Map<string, string | null>();
-  for (const p of people) {
-    for (const n of [p.name, ...p.aliases]) {
-      const k = normalize(n);
-      index.set(k, index.has(k) && index.get(k) !== p.id ? null : p.id);
-    }
-  }
-  return index;
-}
-
-/** `person:<slug>` for a name lifelog gives ("Jean (Me)" -> person:me), else `unknown:<name>`. */
-export function personRef(name: string, index: Map<string, string | null>) {
-  const id = index.get(normalize(name.replace(PAREN, "")));
-  return id ? `person:${id}` : `${UNKNOWN}${name}`;
-}
-
 /** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
 export const head = (text: string) =>
   text.length <= TEXT_MAX
@@ -222,10 +203,8 @@ export const head = (text: string) =>
 export const MARKED =
   '[He said "hey Life" here: he asked Life to remember what he says after it.]';
 
-export function lifelogUnits(
-  conversations: LifelogConversation[],
-  names: Map<string, string | null>
-): Built[] {
+/** Its chapters as units, each with the names lifelog gave its people kept unresolved (`unknown:`, read by `refOf`). */
+export function lifelogUnits(conversations: LifelogConversation[]): Built[] {
   return conversations.flatMap((c): Built[] => {
     if (c.chapters.length === 0) {
       // Not summarized (yet): kept in units/ so the gap is counted, dropped by rule `no-summary`.
@@ -263,7 +242,7 @@ export function lifelogUnits(
           id: unitId("lifelog", ch.id),
           key: c.id,
           ...(ch.marked ? { marked: ch.marked } : {}),
-          people: [...new Set(ch.people.map((n) => personRef(n, names)))],
+          people: [...new Set(ch.people.map((n) => `${UNKNOWN}${n}`))],
           refs: [`${c.id}#${ch.id}`, ...(ch.ref ? [ch.ref] : [])],
           schemaVersion: 1,
           source: "lifelog",
@@ -326,7 +305,8 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const kind = kindOf(first.source);
   const written = kind === "chat" || kind === "mail";
   const lines = sorted.map((e) => {
-    const who = e.fromMe ? OWNER : resolve(e.sender);
+    const named = written ? resolve(e.sender) : null;
+    const who = e.fromMe ? OWNER : named;
     return `${time(e.at)} ${who?.replace(PERSON, "") ?? e.sender}: ${redact(e.text)}`;
   });
   const title = unitTitle(first);
@@ -691,7 +671,7 @@ export async function gather(
     s,
   }));
   const built = applyRules([
-    ...lifelogUnits(lifelog, nameIndex(truth.people)),
+    ...lifelogUnits(lifelog),
     ...shown.flatMap(({ events, s }) =>
       s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
     ),
@@ -741,10 +721,7 @@ export async function writeUnits(dates: string[], units: Unit[]) {
 export async function syncLifelogUnits(store: Store) {
   const truth = await loadTruth();
   const want = applyRules(
-    lifelogUnits(
-      readConversations(store, new Date(0), lifelogNames(truth)),
-      nameIndex(truth.people)
-    )
+    lifelogUnits(readConversations(store, new Date(0), lifelogNames(truth)))
   ).map((b) => Unit.parse(b.unit));
   const all = await readUnits();
   const have = all.filter((u) => u.source === "lifelog");

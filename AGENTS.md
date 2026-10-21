@@ -148,8 +148,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   anyone's words or request.
   Atlas is not Life: each task it closed done is a unit of the `atlas` source (kind `agent`, `src/sources/atlas.ts`, his
   decision 14, 21 Oct), its outcome with his ask's words, all one line by `agent:atlas`, never resolved to a person.
-  Extraction may read it as evidence of what was done, to close a loop, never as his words or a request, and stays the
-  only step that retires a fact.
+  Extraction may read it as evidence of what was done, to close a loop among its usual priors, never as his words or a
+  request, and stays the only step that retires a fact.
 - **The only sends are the nightly report and the alerts (a failed action or an ask
   whose delivery failed, an Atlas task that needs him, once per cause, Atlas not subscribed to `ask` (one a day for all open tasks), a run holding the lock over 3 h (once per incident),
   an archive store failing for an hour: sent by the nightly tick from derived/log, once per incident and again daily

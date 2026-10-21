@@ -23,15 +23,14 @@ import {
   lifelogUnits,
   MARKED,
   messageUnits,
-  nameIndex,
   normalizeTopics,
   oneToOne,
-  personRef,
   repoUnits,
   syncLifelogUnits,
   unitId,
   writeUnits,
 } from "./units";
+import { resolver } from "./who";
 import { cutAt, dayStart, firstZoneDay, zoneAt } from "./zones";
 
 const people = [
@@ -166,10 +165,8 @@ test("the same chat content seen twice hashes the same and the second unit is dr
   expect(second?.unit.drop).toBe("duplicate");
 });
 
-test("lifelog chapters become units with lifelog's summary, turn refs and resolved people", () => {
-  const units = lifelogUnits([conversation], nameIndex(people)).map(
-    (b) => b.unit
-  );
+test("lifelog chapters become units with lifelog's summary, turn refs and its names unresolved", () => {
+  const units = lifelogUnits([conversation]).map((b) => b.unit);
   expect(units).toHaveLength(2);
   expect(units[0]?.refs).toEqual([
     "00000000-0000-8000-8000-01a1210b4bdf#chapter-1",
@@ -177,32 +174,28 @@ test("lifelog chapters become units with lifelog's summary, turn refs and resolv
   ]);
   expect(units[0]?.id).toBe(unitId("lifelog", "chapter-1"));
   expect(units[0]?.stats.items).toBe(10);
-  expect(units[0]?.people).toEqual(["person:me", "unknown:Gaston"]);
+  expect(units[0]?.people).toEqual(["unknown:Jean (Me)", "unknown:Gaston"]);
   expect(units[0]?.end).toBe("2026-10-09T10:20:00.000Z");
   expect(units[1]?.end).toBe(conversation.endedAt);
   expect(units[0]?.summary).toBe("Jean and Gaston list the shop repairs.");
-  const unsummarized = lifelogUnits(
-    [{ ...conversation, chapters: [], state: "transcribed" }],
-    nameIndex(people)
-  );
+  const unsummarized = lifelogUnits([
+    { ...conversation, chapters: [], state: "transcribed" },
+  ]);
   expect(applyRules(unsummarized)[0]?.unit.drop).toBe("no-summary");
 });
 
 test('a chapter he marked "hey Life" says so in its text, so only its hash moves, and keeps the marked refs', () => {
-  const [plain, other] = lifelogUnits([conversation], nameIndex(people));
+  const [plain, other] = lifelogUnits([conversation]);
   const [first] = conversation.chapters;
-  const [marked, same] = lifelogUnits(
-    [
-      {
-        ...conversation,
-        chapters: [
-          { ...(first as LifelogChapter), marked: ["j:1@a"] },
-          ...conversation.chapters.slice(1),
-        ],
-      },
-    ],
-    nameIndex(people)
-  );
+  const [marked, same] = lifelogUnits([
+    {
+      ...conversation,
+      chapters: [
+        { ...(first as LifelogChapter), marked: ["j:1@a"] },
+        ...conversation.chapters.slice(1),
+      ],
+    },
+  ]);
   expect(marked?.unit.marked).toEqual(["j:1@a"]);
   expect(marked?.text).toEndWith(MARKED);
   expect(marked?.unit.hash).not.toBe(plain?.unit.hash);
@@ -210,13 +203,13 @@ test('a chapter he marked "hey Life" says so in its text, so only its hash moves
 });
 
 test("names: aliases resolve, parentheses are ignored, a shared name resolves to nobody", () => {
-  const index = nameIndex([
+  const resolve = resolver([
     ...people,
     { ...people[1], aliases: [], id: "other", name: "Pops" } as Person,
   ]);
-  expect(personRef("Jean (Me)", index)).toBe("person:me");
-  expect(personRef("Jean Senior", index)).toBe("person:dad");
-  expect(personRef("Pops", index)).toBe("unknown:Pops");
+  expect(resolve("Jean (Me)")).toBe("person:me");
+  expect(resolve("Jean Senior")).toBe("person:dad");
+  expect(resolve("Pops")).toBeNull();
 });
 
 test("the code rules drop login codes, newsletters and near-empty days, and keeps real messages", () => {
@@ -592,10 +585,10 @@ test("a conversation from 23:40 to 00:30 at the window start is read whole: its 
     })
   );
   expect(
-    lifelogUnits(
-      readConversations(store, dayStart("2026-10-15")),
-      new Map()
-    ).map((b) => [b.unit.date, b.unit.start])
+    lifelogUnits(readConversations(store, dayStart("2026-10-15"))).map((b) => [
+      b.unit.date,
+      b.unit.start,
+    ])
   ).toEqual([
     ["2026-10-14", "2026-10-14T21:40:00.000Z"],
     ["2026-10-15", "2026-10-14T22:10:00.000Z"],
