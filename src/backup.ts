@@ -85,7 +85,7 @@ export async function backup() {
   const r = await run([
     ..."restic backup --json --quiet --tag daily --host life".split(" "),
     ...[basename(LOCK), `${INDEX}*`, WATCH].map((p) => `--exclude=${p}`),
-    ...[STAGING, `${ARCHIVE}/media`, `${ROOT}/.env`, `${ROOT}/derived`],
+    ...[STAGING, `${ARCHIVE}/media`, `${ROOT}/.env`, STATE],
   ]);
   const sum =
     (r.code === 0 || r.code === 3) &&
