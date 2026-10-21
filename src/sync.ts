@@ -6,7 +6,6 @@ import {
   FIELDS,
   type Field,
   type Fields,
-  isTry,
   type Linked,
   linked,
   pick,
@@ -15,7 +14,7 @@ import { log } from "./log";
 import { digest } from "./memory/ledger";
 import { normalize } from "./memory/units";
 import { exec } from "./proc";
-import type { Action } from "./schema";
+import { type Action, stands } from "./schema";
 
 // The only code that touches his Apple Reminders, through remctl (its signed host, `--json`): Reminders is an
 // interface to Life, never its truth. `act` (src/actions.ts) decides and records each change he asked for and has
@@ -604,8 +603,12 @@ export function inbound(s: Snapshot, actions: Action[], at: string) {
   // What is left is open and linked to nothing: his new reminder, or Life's own add whose answer was lost.
   const lost = lostAdds(actions);
   for (const r of byId.values()) {
-    if (!r.completed) {
-      const kind = first || lost.has(normalize(r.title)) ? "import" : "add";
+    const tried = lost.get(normalize(r.title));
+    // An add whose answer may still come (it landed during the read): its ok line links it, next pass.
+    if (
+      !(r.completed || (tried && Date.parse(at) - Date.parse(tried) < LAG_MS))
+    ) {
+      const kind = first || tried ? "import" : "add";
       const after = {
         ...fieldsNow(r),
         created: r.createdDate,
@@ -617,13 +620,13 @@ export function inbound(s: Snapshot, actions: Action[], at: string) {
   return lines;
 }
 
-/** The titles of Life's adds that never got their answer (an intent or a failure, no ok): such a reminder is Life's. */
+/** The titles of Life's adds with no answer yet (an intent or a failure, no ok), each with when it was tried: such a reminder is Life's. */
 function lostAdds(actions: Action[]) {
-  const ok = new Set(actions.filter((a) => !isTry(a)).map((a) => a.id));
-  const titles = new Set(
+  const ok = new Set(actions.filter(stands).map((a) => a.id));
+  const titles = new Map(
     actions
       .filter((a) => a.kind === "add" && !ok.has(a.id))
-      .map((a) => normalize(`${a.after.title}`))
+      .map((a) => [normalize(`${a.after.title}`), a.at])
   );
   // Once imported, the title is free again: a later reminder of his by that name is his.
   for (const a of actions) {

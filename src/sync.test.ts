@@ -348,3 +348,29 @@ test("a restore into another list is Life's move, not his", () => {
     inbound(snap([rem({ list: "Work" })]), [...base, out, back], AT)
   ).toEqual([]);
 });
+
+test("an add that lands during the read, before its answer is recorded, waits for it: no import under another key", () => {
+  const order = rem({
+    deepLink: `${LINK}E`,
+    id: 33,
+    title: "Book the dentist",
+  });
+  const intent = action({
+    after: { title: "Book the dentist" },
+    at: "2026-10-21T11:59:58.000Z",
+    id: "act_0000000race1",
+    result: "intent",
+    target: "reminder:new",
+  });
+  expect(inbound(snap([rem(), order]), [...base, intent], AT)).toEqual([]);
+  const answered = {
+    ...intent,
+    after: { id: 33, link: "AAAA-1E", title: "Book the dentist" },
+    result: "ok" as const,
+    target: "reminder:33",
+  };
+  const later = "2026-10-21T12:05:00.000Z";
+  expect(
+    inbound(snap([rem(), order]), [...base, intent, answered], later)
+  ).toMatchObject([{ kind: "import" }]);
+});
