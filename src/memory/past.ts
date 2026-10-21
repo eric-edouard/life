@@ -256,7 +256,7 @@ async function wanted(now: Date) {
 function pastCalendar(calendar: string, account: string) {
   // Values go as `--flag=value`: a model-written title starting with "-" must not read as a flag.
   const run = async (args: string[]) => {
-    unfrozen("write his calendar");
+    unfrozen("use his calendar");
     const r = await exec([
       "gog",
       "calendar",
