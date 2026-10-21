@@ -220,7 +220,7 @@ function buildServer() {
   tool(
     server,
     "search",
-    "Find a topic across the owner's memory (moments: what happened or is planned; observations; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from `from`) and Apple Notes versions (any age) holding all the words. `from`/`to` bound every section. Returns cited passages with ids; `fetch` one for more.",
+    "Find a topic across the owner's memory (moments: what happened or is planned; observations; units), the exact words spoken in recordings and the chat messages (the last 90 days, or from `from`) and Apple Notes versions (any age) holding the most of the words. Ranked by words and by meaning: ask in a sentence. `from`/`to` bound every section. Returns cited passages with ids; `fetch` one for more.",
     z.object({ query: z.string().min(2).max(500), ...range }),
     ({ query, ...rest }) => search(query, rest)
   );

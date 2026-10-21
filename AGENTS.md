@@ -47,7 +47,7 @@ closed).
 
 Everything is in the memory CLI (`bun life memory ...`); the connector's tools are these:
 
-- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (the best 20, each as its lines holding a word, 300 characters at most; each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding all the words (newest 20, one around each; a long one as its lines holding a word). `--from`/`--to` bound every section.
+- `search <words> [--from d --to d]`: moments (what happened or is planned), observations, units, from lifelog the exact spoken words (the best 20, each as its lines holding a word, 300 characters at most; each hit gives a conversation id and a turn) and the chat messages (the last 90 days, or from `--from`) and note versions (any age) holding the most of the words (20, the newest among equals, one around each; a long one as its lines holding a word). The index's sections are ranked by words and by meaning together (`fuse`), a hit meaning alone found marked `(by meaning)`, so a sentence works. `--from`/`--to` bound every section.
 - `fetch <id> [--from-turn n]`: a conversation's or a unit's lines, 200 at a time (who spoke and when from Life's store, the words fetched from lifelog, not stored but in an ask's quote; chat and mail units from the archive).
 - `day <YYYY-MM-DD>` (what is due: his own to-dos and promises for that day; what happened: the moments dated that day, then conversations, chat units, the day's key observations, and what Life changed that day and why), `person [name] [--before d]` (the whole page, when it was built, what Life holds about them by source and month, then every observation linked to them and the moments with them, newest first by whole days, `--before` paging back; `person me`: his own page, his goals in What I hold, all of truth/me.md; no name: who has a page, latest seen first; a name two people go by lists both; an unknown name is looked for among lifelog's speakers, and a name no one goes by lists the names near it), `area <name>`, `topics [tag]`.
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where he was (lifelog's location stays, the whole history, 200 at most), each stay with the conversations recorded during it. You supply coordinates; Life does no geocoding.
@@ -168,6 +168,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   to one host on OpenRouter's zero-retention list, and only through `LIFE_LLM` on a copy; his engine setting stays
   `claude | codex`. `LIFE_LLM`
   (one process's model, `llmOverride`) is the bench's and its judge's only (`scripts/bench.ts`), refused on `~/Life`; launchd never sets it.
+  The other exception (21 Oct, his words): "allow the API-key exception for embeddings only, same model as lifelog":
+  `OPENAI_API_KEY`, lifelog's `text-embedding-3-large`, only in `src/memory/meaning.ts` (cached by text in
+  `derived/memory/embeddings.sqlite`); without it, or offline, search is by words only and says so.
 - **Nightly emails include every row** in HTML, plain text and a complete HTML attachment (mail clients can clip long bodies).
   Never cap a report list or replace its tail with “+N more”.
 - **Everything Life shows him follows the owner's Ledger brand** (emails, `/check`, `/me`, its icon, any new screen),

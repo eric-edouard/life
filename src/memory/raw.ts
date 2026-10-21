@@ -237,16 +237,27 @@ function needlesOf(who: string, people: People) {
 const chatGroups = (events: SourceEvent[]) =>
   Map.groupBy(events, (e) => `${e.source}|${e.chat}`);
 
-/** Whether a text holds every word of `query`, case and accents ignored; a query with no word holds nothing. */
-export const holdsAll = (query: string) => {
+// Words too common to rank by, French and English.
+const STOP = new Set(
+  "and are avec but dans des est for from has have les not par pas pour que qui sur the this une was what when with you".split(
+    " "
+  )
+);
+/** The words of `query` worth matching: 3 letters or more and not too common; all of them when none is. */
+const queryWords = (query: string) => {
+  const all = normalize(query).split(" ").filter(Boolean);
+  const content = all.filter((w) => w.length >= 3 && !STOP.has(w));
+  return content.length > 0 ? content : all;
+};
+
+/** How many of `query`'s words a text holds, case and accents ignored. */
+export const wordsIn = (query: string) => {
   const words = queryWords(query);
   return (text: string) => {
     const t = normalize(text);
-    return words.length > 0 && words.every((w) => t.includes(w));
+    return words.filter((w) => t.includes(w)).length;
   };
 };
-const queryWords = (query: string) =>
-  normalize(query).split(" ").filter(Boolean);
 
 /** `text` cut to `max`; a longer one keeps only its lines holding a word of `query` (all of them when none does). */
 export function focus(text: string, query: string, max: number) {
@@ -261,16 +272,20 @@ export function focus(text: string, query: string, max: number) {
 }
 
 /**
- * The newest `QUERY_HITS` messages whose text holds every word of `query` (case and accents ignored), each with
- * `QUERY_CONTEXT` messages of its chat before and after, and how many older matches were left out. `events` are oldest
- * first.
+ * The `QUERY_HITS` messages holding the most words of `query` (case and accents ignored), the newest first among
+ * equals, each with `QUERY_CONTEXT` messages of its chat before and after, and how many other matches were left out.
+ * `events` are oldest first.
  */
 function withContext(events: SourceEvent[], query: string) {
-  const holds = holdsAll(query);
+  const count = wordsIn(query);
   const byChat = chatGroups(events);
-  const hits = events.filter((e) => holds(e.text));
+  const hits = events
+    .map((e, i) => ({ e, i, n: count(e.text) }))
+    .filter((h) => h.n > 0)
+    .sort((a, b) => b.n - a.n || b.i - a.i)
+    .map((h) => h.e);
   const keep = new Set(
-    hits.slice(-QUERY_HITS).flatMap((hit) => {
+    hits.slice(0, QUERY_HITS).flatMap((hit) => {
       const list = byChat.get(`${hit.source}|${hit.chat}`) ?? [];
       const i = list.indexOf(hit);
       return list.slice(Math.max(0, i - QUERY_CONTEXT), i + QUERY_CONTEXT + 1);
@@ -337,7 +352,9 @@ export async function chatHits(
   return [
     ...(failed.length > 0 ? [`(could not read: ${failed.join(", ")})`] : []),
     ...(cut > 0
-      ? [`(${cut} older matches not shown: narrow with \`from\`/\`to\`)`]
+      ? [
+          `(${cut} more matches not shown, older or holding fewer of the words: narrow with \`from\`/\`to\`)`,
+        ]
       : []),
     ...(found.length > 0
       ? chatLinesOf(found, await readPeople(), units)

@@ -12,8 +12,9 @@ import {
   turn,
 } from "../sources/fixtures";
 import { apply, readConversations } from "../sources/lifelog";
+import { fuse } from "./meaning";
 import { layoutOf, perSection, renderPage } from "./page";
-import { holdsAll } from "./raw";
+import { wordsIn } from "./raw";
 import {
   buildIndex,
   candidateLines,
@@ -257,11 +258,23 @@ test("a day opens with what happened: its moments, when, what, where, how they s
   expect(dayLines([], [])[0]).toStartWith("Recorded conversations");
 });
 
-test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
-  const holds = holdsAll("Château pondres");
-  expect(holds("Dinner at the chateau de Pondres")).toBe(true);
-  expect(holds("Dinner at the château")).toBe(false);
-  expect(holdsAll("??")("anything")).toBe(false);
+test("words held: case and accents ignored, short and common words left out unless they are all there is", () => {
+  const count = wordsIn("Is the château at Pondres?");
+  expect(count("Dinner at the chateau de Pondres")).toBe(2);
+  expect(count("Dinner at the château")).toBe(1);
+  expect(count("is at")).toBe(0);
+  expect(wordsIn("is at")("it is")).toBe(1);
+  expect(wordsIn("??")("anything")).toBe(0);
+});
+
+test("fusion: a hit both lists rank beats one only one list ranks first; nothing is lost", () => {
+  expect(
+    fuse([
+      ["a", "b", "c"],
+      ["d", "b"],
+    ])
+  ).toEqual(["b", "a", "d", "c"]);
+  expect(fuse([[], ["x"]])).toEqual(["x"]);
 });
 
 test("a name means who it resolves to, listed first among those going by it; a name nothing resolves means no one", () => {

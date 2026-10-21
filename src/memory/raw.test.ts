@@ -145,7 +145,7 @@ test("chats: WhatsApp, Beeper and iMessage together, deleted messages shown mark
   expect(broken).toContain("(could not read: imessage)");
 });
 
-test("search's chats: all words, no accents or case, across the three apps, one message of context", async () => {
+test("search's chats: any of the words, no accents or case, across the three apps, one message of context", async () => {
   const wa = whatsappFixture();
   const lines = [
     "a2",
@@ -179,32 +179,37 @@ test("search's chats: all words, no accents or case, across the three apps, one 
   }
   expect(found).not.toContain(": a2");
   expect(found).not.toContain(": b2");
-  // Every word must be there.
-  expect((await chatHits("vitre 120", {}, sources)).join("\n")).not.toContain(
-    "glazier"
+  // A message holding one of the words is found; one holding none is not.
+  expect((await chatHits("vitre glazier", {}, sources)).join("\n")).toContain(
+    "prête"
   );
-  expect(await chatHits("vitre piano", {}, sources)).toEqual([
-    "(nothing found)",
-  ]);
+  expect(await chatHits("piano", {}, sources)).toEqual(["(nothing found)"]);
 });
 
 test("search's chats: past 20 matches the newest are shown and the cut is said, with where to read on", async () => {
   const wa = whatsappFixture();
   for (let i = 0; i < 25; i += 1) {
     // The newest cut match (4) is in the chat of the oldest shown one (5): shown around it, so not cut.
-    wa.add(i + 1, `C${i === 4 ? 5 : i}`, 0, `vitre ${i}`, 10_000 - i * 60);
+    const text = `vitre ${i}${i === 0 ? " piano" : ""}`;
+    wa.add(i + 1, `C${i === 4 ? 5 : i}`, 0, text, 10_000 - i * 60);
   }
   archiveOnce(wa.source, wa.dir, wa.now);
-  const out = (
-    await chatHits(
-      "vitre",
-      {},
-      {
-        whatsapp: (since: Date) => readWhatsapp(since, wa.dir, wa.source),
-      }
-    )
-  ).join("\n");
-  expect(out).toContain("(4 older matches not shown: narrow with `from`/`to`)");
+  const hits = async (words: string) =>
+    (
+      await chatHits(
+        words,
+        {},
+        {
+          whatsapp: (since: Date) => readWhatsapp(since, wa.dir, wa.source),
+        }
+      )
+    ).join("\n");
+  // The oldest holds both words of a sentence: it ranks first, past the newer ones.
+  expect(await hits("vitre piano")).toContain(": vitre 0 piano");
+  const out = await hits("vitre");
+  expect(out).toContain(
+    "(4 more matches not shown, older or holding fewer of the words: narrow with `from`/`to`)"
+  );
   expect(out).toContain(": vitre 4");
   expect(out).toContain("vitre 24");
   expect(out).not.toContain(": vitre 2\n");
