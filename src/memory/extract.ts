@@ -60,12 +60,18 @@ const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
 /** A conversation this quiet and summarized is closed: its units are final enough to read before the day is over. */
 const QUIET_MS = 60 * 60_000;
-/** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40. */
+/** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
 const PRIOR_MAX = 40;
 /** What lasts between him and someone close (`person` facts), shown from this far back, at most this many. */
 const BOND_DAYS = 365;
 const BOND_MAX = 10;
+/** Facts from the moment's own units, of any age (a plan carried to its day), at most this many. */
+const MOMENT_MAX = 20;
+/** Open loops about its people (to-dos, promises, what is owed), from this far back, at most this many. */
+const LOOPS = new Set<Observation["type"]>(["todo", "promise", "waiting"]);
+const LOOP_DAYS = 60;
+const LOOP_MAX = 20;
 
 /** The ids of the lifelog conversations that are summarized and have been quiet for an hour. */
 export function closedConversations(
@@ -135,8 +141,8 @@ export function groupsOf(
   const groups: Group[] = read.flatMap(({ moment, units }) => {
     const own = units.filter((b) => readBy.get(b.unit.id) === moment);
     const first = own.find((b) => waiting.has(b.unit.id))?.unit.date;
-    // ponytail: read from the day before its first pending unit, so a new day does not re-read a whole trip; a moment
-    // whose ask and answer are further apart needs a summary of its earlier days.
+    // Read from the day before its first pending unit, so a new day does not re-read a whole trip: the facts of its
+    // earlier days come as priors (`priorFor`).
     return first
       ? [
           {
@@ -290,8 +296,9 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
  * people from the two weeks before it, and about the owner alone from its day and the day before. `shown` are the active
  * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
  * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
- * offered again. Beyond those, the `person` facts of the last year about its people `close` to him: what is between
- * them lasts, and a newer fact must be able to replace it.
+ * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
+ * units at any age, its people's open loops of the last 60 days (later evidence can close them), and the `person` facts
+ * of the last year about its people `close` to him (what is between them lasts, and a newer fact must replace it).
  */
 export function priorFor(
   group: Group,
@@ -312,25 +319,40 @@ export function priorFor(
     o.date >= daysBefore(day, PRIOR_DAYS) &&
     (o.entities.some((e) => people.has(e)) ||
       (othersIn(o.entities).length === 0 && o.date >= daysBefore(day, 1)));
+  const own = new Set(group.moment?.units);
+  const ofMoment = (o: Observation) => own.has(o.unit);
+  const open = (o: Observation) =>
+    LOOPS.has(o.type) &&
+    o.date >= daysBefore(day, LOOP_DAYS) &&
+    o.entities.some((e) => people.has(e));
   const lasting = (o: Observation) =>
     o.type === "person" &&
     o.date >= daysBefore(day, BOND_DAYS) &&
     o.entities.some((e) => people.has(e) && close.has(e));
+  const slots: [(o: Observation) => boolean, number][] = [
+    [about, max],
+    [ofMoment, MOMENT_MAX],
+    [open, LOOP_MAX],
+    [lasting, BOND_MAX],
+  ];
   const candidates = shown
     .filter(
       ({ by, o }) =>
         o.date <= day &&
         (o.madeBy.run === run || !reread.has(o.unit)) &&
         (!by || reread.has(by)) &&
-        (about(o) || lasting(o))
+        slots.some(([fits]) => fits(o))
     )
     .map(({ o }) => o)
     .toSorted((a, b) => b.at.localeCompare(a.at));
-  const recent = candidates.filter(about).slice(0, max);
-  const older = candidates
-    .filter((o) => !recent.includes(o) && lasting(o))
-    .slice(0, BOND_MAX);
-  return [...recent, ...older];
+  const taken = new Set<Observation>();
+  return slots.flatMap(([fits, n]) => {
+    const got = candidates.filter((o) => !taken.has(o) && fits(o)).slice(0, n);
+    for (const o of got) {
+      taken.add(o);
+    }
+    return got;
+  });
 }
 
 /** Extracts the kept units of `evidence` (its window, `gather`) not read yet by this prompt. */
