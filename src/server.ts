@@ -1,7 +1,7 @@
 import { createRemoteJWKSet } from "jose";
 import { ISSUER, ownerTokens } from "./auth";
 import { createCheck } from "./check";
-import { createDashboard, pushPlate } from "./dashboard";
+import { createDashboard, pushPlate, warmPage } from "./dashboard";
 import { createMcp } from "./mcp";
 import { createPortrait } from "./portrait";
 import { createSignIn } from "./signin";
@@ -46,5 +46,6 @@ export function serveConnector() {
     port: 46_200,
   });
   console.log("Connector: listening on 127.0.0.1:46200");
+  warmPage();
   pushPlate();
 }

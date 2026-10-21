@@ -1,4 +1,6 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet } from "jose";
+import { ISSUER, ownerTokens } from "../src/auth";
+import { HEADERS, SESSION } from "../src/http";
 
 // The status page's always-on edge (Cloudflare Worker, routes in wrangler.jsonc): every request goes to the Mac as
 // before; only when the Mac can't be reached does the Worker answer itself, behind the same owner check as the Mac,
@@ -13,49 +15,40 @@ interface Env {
   STATUS: KVNamespace;
 }
 
-const ISSUER = "https://lifelog.ericedouard.com/api/auth";
-const RESOURCE = "https://life.ericedouard.com/mcp";
-/** The session cookie the Mac sets (`src/signin.ts`). */
-const SESSION = "__Host-life=";
 const COOKIES = /;\s*/;
 /** How long the Mac gets to answer before the Worker answers for it (the stream's own data can take longer). */
 const WAIT_MS = 8000;
-const HEADERS = {
-  "cache-control": "no-store",
-  "content-security-policy":
-    "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'",
-  "referrer-policy": "same-origin",
-  "x-content-type-options": "nosniff",
-};
 const jwks = createRemoteJWKSet(new URL(`${ISSUER}/jwks`));
 
 /** The Mac is out of reach: no answer in time, or Cloudflare's own answer that it has no tunnel or origin. */
 const unreachable = (r: Response | null) =>
   !r || r.status === 502 || r.status === 504 || r.status >= 520;
 
+/** The Mac's own check (`ownerTokens`) on the session cookie the Mac set. */
 async function isOwner(req: Request, env: Env) {
   const token = (req.headers.get("cookie") ?? "")
     .split(COOKIES)
-    .find((c) => c.startsWith(SESSION))
-    ?.slice(SESSION.length);
+    .find((c) => c.startsWith(`${SESSION}=`))
+    ?.slice(SESSION.length + 1);
   if (!token) {
     return false;
   }
-  try {
-    const { payload } = await jwtVerify(token, jwks, {
-      algorithms: ["EdDSA"],
-      audience: RESOURCE,
-      issuer: ISSUER,
-    });
-    return (
-      payload.sub === env.OWNER_SUB &&
-      String(payload.scope ?? "")
-        .split(" ")
-        .includes("life:read")
-    );
-  } catch {
+  const whose = await ownerTokens({ jwks, ownerSub: env.OWNER_SUB })(token);
+  return !("refusal" in whose);
+}
+
+/** The Mac's push secret, compared in constant time; no secret set, no push. */
+function pushAllowed(req: Request, env: Env) {
+  if (!env.PUSH_SECRET) {
     return false;
   }
+  const enc = new TextEncoder();
+  const got = enc.encode(req.headers.get("authorization") ?? "");
+  const want = enc.encode(`Bearer ${env.PUSH_SECRET}`);
+  return (
+    got.byteLength === want.byteLength &&
+    crypto.subtle.timingSafeEqual(got, want)
+  );
 }
 
 const page = (body: string, status: number) =>
@@ -66,7 +59,7 @@ const page = (body: string, status: number) =>
 
 /** The Mac's push: the plate (metadata only) and, when they changed, the page's files. */
 async function push(req: Request, env: Env) {
-  if (req.headers.get("authorization") !== `Bearer ${env.PUSH_SECRET}`) {
+  if (!pushAllowed(req, env)) {
     return page("no", 401);
   }
   const body = (await req.json()) as {

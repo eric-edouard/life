@@ -211,7 +211,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Never cap a report list or replace its tail with “+N more”.
 - **Everything Life shows him follows the owner's Ledger brand** (emails, `/check`, `/me`, its icon, any new screen),
   one source: agent-config's `ledger-brand` skill (`~/.agents/skills/ledger-brand`: `SKILL.md`, its email rules, and
-  `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts` and `assets/icon/` copy its values (email takes no
+  `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `assets/icon/`, the status page's
+  `assets/dashboard/styles.css` and its tab icon's `TONES` (`src/dashboard.ts`) copy its values (email takes no
   CSS variables): a brand change lands in the skill first.
 
 ## Gotchas
@@ -288,7 +289,7 @@ retired, hidden on a page) is `stateOf` (`ledger.ts`), for the index, the pages 
 that writes `memory/` holds the one lock (`locked`, `guard.ts`), except his own single lines (a correction, a rating) and
 `actions.jsonl`, appended only by `act` and `setGrant` (`actions.ts`), the tasks (`ask`, `update` and `reply`, `tasks.ts`) and the watcher's sync pass (`inbound`, `closings`) and delivered as events only by `deliver` (`events.ts`); who has a page is the closeness levels (`pagedNow`, `closeness.ts`; one not judged yet keeps a written page and is judged next night, `waitingOf`), never a list, and who is close to him personally (Between us, `close: true` for the models) is `personallyClose` there; who a name, handle or ref is goes through
 `memory/who.ts` (`readPeople`; which person a name means, for `person` and `chats`, is `meant` there); a local day or time is `localDate`, `dayStart` (`zones.ts`) or `time` (`units.ts`), in
-the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules follow
+the zone he was in then (`zoneAt`, `memory/zones.jsonl`), never the process's zone (only `guard.ts`'s schedules and the status page's waking hours, `waking` in `plate.ts`, follow
 the Mac's clock); now is `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()` (a duration is `performance.now()`):
 `LIFE_NOW` stops it for the Atlas bench, on a copy of the data and in a worktree of its own only; memory is the copy as
 of then, the live sources are cut at it, and a frozen run acts on and sends nothing (`unfrozen` in each of remctl, lifelog's `forward`, `sendReport`, the

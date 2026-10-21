@@ -1,6 +1,7 @@
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
+import { ATLAS, clientName } from "../events";
 import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
 import { log, recentEvents } from "../log";
@@ -72,7 +73,7 @@ export const reviewed = async (now: Date) =>
     (e) =>
       e.tool === "day" &&
       !e.error &&
-      e.agent?.startsWith("openai-mcp") &&
+      clientName(e.agent) === ATLAS &&
       Date.parse(e.at) >= now.getTime() - DAY_MS
   );
 

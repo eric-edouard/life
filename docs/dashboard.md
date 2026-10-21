@@ -162,13 +162,14 @@ questions on 21 Oct. **Read-only**: it changes nothing, sends nothing of his but
 tool.
 
 - **Code.** `src/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
-  (`snapshot`) and a card's history and log lines (`detail`, `runDetail`: a run's steps and what it wrote, from
-  `runs` and `changes`). `src/dashboard.ts` serves `/`, its files and its reads under `/status/`, and the stream.
+  (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
+  source's own module), the Mac's probes are `src/mac.ts`. `src/plate-detail.ts` gives a card's history and log lines
+  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `src/dashboard.ts` serves `/`, its files and its reads under `/status/`, and the stream.
   `assets/dashboard/` is the React and Motion page, bundled by Bun on first request (no build step). Sign-in is
   `src/signin.ts`, shared with `/check`.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
-  limit (`LIMITS`: Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and Git 3 d,
-  Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
+  source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
+  Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
 - **Live.** One server-sent-events stream, a plate every 3 s when anything but its time changed; edge dots run when a
   group's `flow` grew between two plates. The Pendant's recording state is lifelog's `GET /status` (live since
   lifelog's PR 23).
@@ -176,8 +177,9 @@ tool.
   device (`localStorage`) that hides it.
 - **Always on.** A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
   request to the Mac and, when the Mac is out of reach (no answer in 8 s, or Cloudflare's 502, 504, 52x), answers
-  itself behind the same owner check with the page and the last plate the Mac pushed: once a minute, without his words
-  (`strip`), the page's files on a process's first push (`pushPlate`). Deploy: `worker/wrangler.jsonc`.
+  itself behind the same owner check (`ownerTokens`) with the page and the last plate the Mac pushed: once a minute,
+  only its listed fields (`strip`: his words and errors' text stay on the Mac), the page's files on a process's first
+  push (`pushPlate`). A push needs the shared secret; with none set the Worker takes none. Deploy: `worker/wrangler.jsonc`.
 - **Look.** Ledger, softened at his word: round surfaces, soft shadows, status as a coloured dot and a word, no
   coloured borders.
 - Shipped as one PR (the spec said two: the reads and the page were built and reviewed together).

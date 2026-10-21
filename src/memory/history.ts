@@ -34,17 +34,22 @@ import { localDate } from "./zones";
 
 /** The sweeps: one launchd start that runs several steps. */
 const SWEEPS = new Set(["memory.nightly", "memory.midday", "memory.backfill"]);
+/** The steps a sweep runs, in their order (the night alone maps repos and judges closeness). */
+export const STEPS = [
+  "memory.repos",
+  "memory.files",
+  "memory.moments",
+  "memory.extract",
+  "memory.closeness",
+  "memory.pages",
+];
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
   ...SWEEPS,
-  "memory.repos",
-  "memory.files",
-  // Until 18 Oct the verdicts had a step of their own.
+  ...STEPS,
+  // Until 18 Oct the verdicts had a step of their own, and inferring people another.
   "memory.triage",
-  "memory.moments",
-  "memory.extract",
   "memory.infer",
-  "memory.pages",
 ];
 
 const omit = (e: LogEvent | undefined) => {

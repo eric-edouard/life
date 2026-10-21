@@ -2,7 +2,8 @@ import { join } from "node:path";
 import { ORIGIN } from "./auth";
 import { FROZEN } from "./clock";
 import { HEADERS, text } from "./http";
-import { detail, runDetail, snapshot, strip } from "./plate";
+import { snapshot, strip } from "./plate";
+import { detail, runDetail } from "./plate-detail";
 import type { SignIn } from "./signin";
 import { ROOT } from "./truth";
 
@@ -121,6 +122,11 @@ const icon = async (tone: string) =>
     (await ICON.text()).replace(ICON_DOT, `$1${TONES[tone] ?? TONES.idle}"`),
     { headers: { ...HEADERS, "content-type": "image/svg+xml" } }
   );
+
+/** Builds the page ahead of its first visit, so neither he nor the Worker's 8 s race waits for the bundle. */
+export const warmPage = () => {
+  bundled().catch((e: Error) => console.error(`status page: ${e.message}`));
+};
 
 /** How often the Mac sends the always-on Worker (worker/status.ts) the plate it shows while the Mac is away. */
 export const PUSH_MS = 60_000;

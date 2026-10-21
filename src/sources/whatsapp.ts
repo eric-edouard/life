@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,
+  newestArchived,
   phoneMap,
   type Row,
   readArchived,
@@ -79,3 +80,12 @@ export function readWhatsapp(
     })
   );
 }
+
+/** The newest message the archive holds, and when it last copied one (the status page). */
+export const newestWhatsapp = () =>
+  newestArchived(
+    "whatsapp",
+    `select at, (select max(seenAt) from messages) as seen,
+       coalesce(chatName, '?') || coalesce(' · ' || senderName, '') || ': ' || text as words
+     from messages order by at desc limit 1`
+  );

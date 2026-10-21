@@ -14,7 +14,8 @@ import {
   useState,
 } from "react";
 import { createRoot } from "react-dom/client";
-import type { Card, Entry, Fact, Snapshot, Tick, Tone } from "../../src/plate";
+import type { Card, Fact, Snapshot, Tick, Tone } from "../../src/plate";
+import type { Entry, runDetail } from "../../src/plate-detail";
 
 // The status page (src/dashboard.ts serves it, src/plate.ts makes its data): the plate of groups, a group opened to
 // its cards, a card opened to its detail. It only reads.
@@ -90,42 +91,49 @@ function usePlate() {
   const [link, setLink] = useState<Link>({ kind: "live" });
   useEffect(() => {
     let poll: ReturnType<typeof setInterval> | undefined;
-    const source = new EventSource("/status/stream");
+    let source: EventSource;
+    /** The Mac's live stream. A browser gives up on a stream that answered an error (the Worker's, while the Mac was
+     * away), so it is opened again as soon as the Mac answers a plain read. */
+    const listen = () => {
+      source = new EventSource("/status/stream");
+      source.onmessage = (e) => {
+        clearInterval(poll);
+        poll = undefined;
+        setPlate(JSON.parse(e.data));
+        setLink({ kind: "live" });
+      };
+      source.onerror = () => {
+        setLink((l) =>
+          l.kind === "live" ? { kind: "offline", since: Date.now() } : l
+        );
+        if (!poll) {
+          fallback();
+          poll = setInterval(fallback, 20_000);
+        }
+      };
+    };
     const fallback = async () => {
       try {
         const res = await fetch("/status/snapshot", { cache: "no-store" });
-        if (res.ok) {
-          const pushedAt = res.headers.get("x-life-pushed-at");
-          setPlate(await res.json());
-          setLink((l) =>
-            pushedAt
-              ? {
-                  kind: "stale",
-                  pushedAt,
-                  since: "since" in l ? l.since : Date.now(),
-                }
-              : l
-          );
+        if (!res.ok) {
+          return;
+        }
+        const pushedAt = res.headers.get("x-life-pushed-at");
+        setPlate(await res.json());
+        if (pushedAt) {
+          setLink((l) => ({
+            kind: "stale",
+            pushedAt,
+            since: "since" in l ? l.since : Date.now(),
+          }));
+        } else if (source.readyState === EventSource.CLOSED) {
+          listen();
         }
       } catch {
         // Nothing reachable: the page keeps what it last showed.
       }
     };
-    source.onmessage = (e) => {
-      clearInterval(poll);
-      poll = undefined;
-      setPlate(JSON.parse(e.data));
-      setLink({ kind: "live" });
-    };
-    source.onerror = () => {
-      setLink((l) =>
-        l.kind === "live" ? { kind: "offline", since: Date.now() } : l
-      );
-      if (!poll) {
-        fallback();
-        poll = setInterval(fallback, 20_000);
-      }
-    };
+    listen();
     return () => {
       source.close();
       clearInterval(poll);
@@ -603,7 +611,18 @@ function Plate({
 }
 
 /** The last 24 h: runs as spans, failures and sends as ticks, the Mac's sleeps as hatched bands. */
-function Today({ now, ticks }: { now: number; ticks: Tick[] }) {
+function Today({
+  now,
+  privacy,
+  ticks,
+}: {
+  now: number;
+  privacy: boolean;
+  ticks: Tick[];
+}) {
+  /** A tick's tooltip: what and when, and an error's text unless privacy is on. */
+  const tip = (t: Tick) =>
+    `${t.label}, ${clock(t.at)}${t.end ? ` to ${clock(t.end)}` : ""}${t.detail && !privacy ? `: ${t.detail}` : ""}`;
   const from = now - 86_400_000;
   const x = (at: string) =>
     `${Math.max(0, Math.min(100, ((Date.parse(at) - from) / 86_400_000) * 100))}%`;
@@ -652,14 +671,14 @@ function Today({ now, ticks }: { now: number; ticks: Tick[] }) {
                 left: x(t.at),
                 width: `calc(${x(t.end ?? new Date(now).toISOString())} - ${x(t.at)} + 2px)`,
               }}
-              title={`${t.label}, ${clock(t.at)}${t.end ? ` to ${clock(t.end)}` : ""}`}
+              title={tip(t)}
             />
           ) : (
             <span
               className={`tick ${t.tone}`}
               key={`${t.at}${t.label}`}
               style={{ left: x(t.at) }}
-              title={`${t.label}, ${clock(t.at)}`}
+              title={tip(t)}
             />
           )
         )}
@@ -753,30 +772,7 @@ interface Detail {
   next: string | null;
 }
 
-interface RunView {
-  steps: {
-    endedAt: string | null;
-    errors: number;
-    id: string;
-    outcome: string;
-    result: Record<string, unknown> | null;
-    startedAt: string | null;
-    step: string;
-    use: string | null;
-  }[];
-  use: string | null;
-  wrote: {
-    byType: Record<string, number>;
-    items: { at: string; content: string; id: string; type: string }[];
-  };
-}
-
-const TONE_OF_OUTCOME: Record<string, Tone> = {
-  failed: "bad",
-  ok: "ok",
-  running: "busy",
-  unfinished: "warn",
-};
+type RunView = NonNullable<Awaited<ReturnType<typeof runDetail>>>;
 
 function Run({ id, privacy }: { id: string; privacy: boolean }) {
   const [run, setRun] = useState<RunView | null | "missing">(null);
@@ -816,10 +812,7 @@ function Run({ id, privacy }: { id: string; privacy: boolean }) {
             <tr key={s.id}>
               <td>{s.step}</td>
               <td>
-                <Pill
-                  tone={TONE_OF_OUTCOME[s.outcome] ?? "idle"}
-                  word={s.outcome}
-                />
+                <Pill tone={s.tone} word={s.outcome} />
               </td>
               <td>{minutes(s)}</td>
               <td>
@@ -1114,7 +1107,7 @@ function App() {
       {plate ? (
         <>
           <Plate link={link} onOpen={setGroup} plate={plate} />
-          <Today now={now} ticks={plate.today} />
+          <Today now={now} privacy={privacy} ticks={plate.today} />
         </>
       ) : (
         <div aria-label="Reading the plate" className="skeleton" role="status">
