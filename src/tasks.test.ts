@@ -126,9 +126,8 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   ).toBe("the task is done: no update after that");
 });
 
-test("an open task is due 30 min after it was recorded, a claimed one at its own deadline; extensions count", () => {
+test("an open task is due 30 min after it was recorded, a claimed one at its own deadline", () => {
   expect(standing(task([])).deadline).toBe(at(30));
-  // An extension is an update that moved the deadline later, whatever its offset.
   const later = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
     own("update", 6, {
@@ -139,7 +138,6 @@ test("an open task is due 30 min after it was recorded, a claimed one at its own
     own("update", 7, { deadline: at(60), note: "c", state: "working" }),
   ]);
   expect(standing(later).deadline).toBe(at(60));
-  expect(standing(later).extensions).toBe(1);
 });
 
 test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Atlas isn't subscribed; once per cause and update", () => {

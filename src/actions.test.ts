@@ -2,8 +2,11 @@ import { expect, test } from "bun:test";
 import {
   actionId,
   alarmArgs,
+  Change,
   changedFields,
   duplicateOf,
+  openOf,
+  readable,
   reminderArgs,
   requested,
 } from "./actions";
@@ -62,6 +65,43 @@ test("an add repeats an open reminder with the same title, whatever the case and
   ).toBeUndefined();
   expect(duplicateOf({ ...add, kind: "edit" }, open)).toBeUndefined();
   expect(duplicateOf(add, undefined)).toBeUndefined();
+});
+
+test("an open reminder keeps the six fields `open_reminders` promises, its due as a change takes it", () => {
+  const r = {
+    allDay: false,
+    completed: false,
+    deepLink: "x-apple-reminderkit://REMCDReminder/1",
+    dueDate: "2026-10-22T09:30:00",
+    flagged: false,
+    id: 1,
+    list: "Home",
+    notes: "a\nb",
+    section: "Soon",
+    title: "Call the bank",
+  };
+  expect(openOf(r)).toEqual({
+    due: "2026-10-22 09:30",
+    id: 1,
+    list: "Home",
+    notes: "a\nb",
+    section: "Soon",
+    title: "Call the bank",
+  });
+  expect(
+    openOf({ ...r, allDay: true, dueDate: "2026-10-22T00:00:00" }).due
+  ).toBe("2026-10-22");
+  expect(openOf({ ...r, dueDate: undefined }).due).toBeUndefined();
+  // What it reads is what a change takes.
+  expect(Change.shape.due.safeParse(openOf(r).due).success).toBe(true);
+});
+
+test("his reminders are read from one list or all, never the board", () => {
+  expect(readable("Home")).toBe(true);
+  expect(readable("Home", "Home")).toBe(true);
+  expect(readable("Home", "Work")).toBe(false);
+  expect(readable("Atlas")).toBe(false);
+  expect(readable("Atlas", "Atlas")).toBe(false);
 });
 
 test("the same words asking for the same thing get the same id, whatever the case and accents", () => {

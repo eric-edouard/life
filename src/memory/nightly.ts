@@ -72,7 +72,7 @@ async function acted(now: Date, rec: RunRecord) {
     problems,
     tasks: tasks.map((t) => ({
       name: `${t.state} · ${t.age}`,
-      relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"} · ${t.extensions} extensions`,
+      relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
     })),
   };
 }

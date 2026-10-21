@@ -322,25 +322,59 @@ export function actAsked(
 
 /** A reminder as remctl's `show` gives it (`--completed`: ticked ones too). */
 export interface Reminder {
+  allDay?: boolean;
   completed: boolean;
   dueDate?: string;
   id: number;
+  list?: string;
   notes?: string;
   section?: string;
   title: string;
 }
 
-/** Every open top-level reminder, of one list or all: what an add's title is checked against, and the connector's `open_reminders`. */
-export async function openReminders(list?: string) {
+/** An open reminder as `open_reminders` promises it: `due` as a change takes it, notes whole (an edit replaces them). */
+export const openOf = (r: Reminder) => ({
+  due:
+    r.dueDate &&
+    (r.allDay
+      ? r.dueDate.slice(0, 10)
+      : r.dueDate.slice(0, 16).replace("T", " ")),
+  id: r.id,
+  list: r.list,
+  notes: r.notes,
+  section: r.section,
+  title: r.title,
+});
+
+/** The lists read for his reminders: one or all, never the board (its tasks are read with `tasks`). */
+export const readable = (title: string, list?: string) =>
+  title !== BOARD && (list === undefined || title === list);
+
+/** His lists read for both reads below: `readable` ones, not groups. */
+async function listsOf(list?: string) {
   const lists = await remctl<{ id: number; isGroup: boolean; title: string }[]>(
     ["lists"]
   );
+  return lists.filter((l) => !l.isGroup && readable(l.title, list));
+}
+
+/** Every open top-level reminder, of one list or all, never the board: what an add's title is checked against, and the connector's `open_reminders`. */
+export async function openReminders(list?: string) {
   const open = await Promise.all(
-    lists
-      .filter((l) => !l.isGroup && (list === undefined || l.title === list))
-      .map((l) => remctl<Reminder[]>(["show", "--list-id", `${l.id}`]))
+    (await listsOf(list)).map((l) =>
+      remctl<Reminder[]>(["show", "--list-id", `${l.id}`])
+    )
   );
   return open.flat();
+}
+
+/** Each of those lists' sections by its name, empty ones too, from one call: `open_reminders`'s. */
+export async function sectionsOf(list?: string) {
+  const [lists, all] = await Promise.all([
+    listsOf(list),
+    remctl<Record<string, string[]>>(["sections"]),
+  ]);
+  return Object.fromEntries(lists.map((l) => [l.title, all[l.title] ?? []]));
 }
 
 /**
