@@ -179,8 +179,12 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. A refused token (not a missing one,
   never its body), the SDK's own rejections (`onerror`) and invalid arguments (`tool()` validates them itself) are
   logged as `mcp.call` with `error`; nothing reads a response back. Every request
-  needs lifelog's JWT for this resource, `life:read`, `sub` = the `connector` setting's owner (`ownerTokens`, `src/auth.ts`). lifelog's
-  keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never a refused token.
+  needs a JWT for this resource, `life:read`, from its issuer: Life's own (`src/oauth.ts`, at `<origin>/auth`: an app
+  is approved with a pairing code from `bun life pair`, PKCE, one-use codes, refresh tokens replaced on use, its key in
+  `STATE/oauth`), or the `connector` setting's (his lifelog, `sub` = its owner) (`ownerTokens`, `src/auth.ts`). Another
+  issuer's keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never
+  a refused token. The origin is his Mac's tailnet name (`bun life connect`, `--public` through Funnel for ChatGPT and
+  Claude.ai, `src/tailscale.ts`) or his own Cloudflare tunnel (`tunnel: cloudflare`, the only one `tunnel.ts` heals).
 - **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
   reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages): never serve anything of his before
   that check. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to

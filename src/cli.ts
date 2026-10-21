@@ -7,9 +7,11 @@ import { readEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
 import { actionLine, duration } from "./memory/report";
 import { dayRange } from "./memory/units";
+import { pair } from "./oauth";
 import { checks } from "./reminders/remctl";
 import { Engine } from "./schema";
 import { setSetting } from "./settings";
+import { connect } from "./tailscale";
 import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
@@ -92,6 +94,12 @@ const commands: Record<string, () => Promise<number>> = {
   },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (src/backup.ts). */
   backup,
+  /** Puts Life on this Mac's tailnet name: `connect` for his own devices, `connect --public` for ChatGPT and Claude.ai too. */
+  async connect() {
+    const origin = await connect(process.argv.includes("--public"));
+    console.log(`Life: ${origin}/mcp`);
+    return 0;
+  },
   /** Which engine runs the model steps: `engine [claude|codex]`; with no argument, prints the current one. */
   async engine() {
     const [, , , arg] = process.argv;
@@ -145,6 +153,11 @@ const commands: Record<string, () => Promise<number>> = {
   },
   /** The memory pipeline and its read path: `memory nightly|moments|extract|search…` (src/memory/command.ts). */
   memory: () => memoryCommand(process.argv.slice(3)),
+  /** A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes. */
+  pair() {
+    console.log(pair());
+    return Promise.resolve(0);
+  },
   /** What the lifelog watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),
   /** Validates truth/: schemas plus every reference between people, chats, projects and areas. */

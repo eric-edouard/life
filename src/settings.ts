@@ -3,6 +3,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./schema";
+
+/** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
+export const PAGES_CLIENT = "life";
+export const OWNER_SUB = "owner";
+
 import { STATE } from "./truth";
 
 // What makes one install differ from another, in one file: who it serves, where its parts are, what is turned on.
@@ -38,16 +43,21 @@ export const Settings = z
     /** The connector (/mcp) and its sign-in; without it Life serves no HTTP at all. */
     connector: z
       .object({
-        /** The check page's public client at the issuer (PKCE, no secret). */
-        client: z.string(),
-        /** The OAuth server whose tokens it accepts. */
-        issuer: z.url(),
+        /** The check page's public client at another issuer (PKCE, no secret). */
+        client: z.string().optional(),
+        /** Another OAuth server whose tokens it accepts; without it Life issues them itself (`oauth.ts`). */
+        issuer: z.url().optional(),
         /** Its public address, where clients reach /mcp. */
         origin: z.url(),
-        /** The one subject (`sub`) let in: the owner. */
-        owner: z.string(),
+        /** The one subject (`sub`) another issuer lets in: the owner. */
+        owner: z.string().optional(),
+        /** What carries the origin to this Mac: Tailscale (`bun life connect`), or his own Cloudflare tunnel. */
+        tunnel: z.enum(["tailscale", "cloudflare"]).default("tailscale"),
       })
       .strict()
+      .refine((c) => !c.issuer || (c.client && c.owner), {
+        message: "another issuer needs its client and owner",
+      })
       .optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
@@ -102,8 +112,13 @@ export function connector() {
   }
   return {
     ...c,
+    client: c.client ?? PAGES_CLIENT,
+    /** Life's own issuer (`oauth.ts`) unless another is set. */
+    issuer: c.issuer ?? `${c.origin}/auth`,
     /** The resource's OAuth metadata; also the tunnel's health probe (src/tunnel.ts). */
     metadata: `${c.origin}/.well-known/oauth-protected-resource/mcp`,
+    own: !c.issuer,
+    owner: c.owner ?? OWNER_SUB,
     resource: `${c.origin}/mcp`,
   };
 }
