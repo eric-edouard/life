@@ -78,7 +78,7 @@ test.if(FROZEN !== undefined)(
 test.if(FROZEN !== undefined)(
   "what acts outside the copy refuses to run frozen",
   async () => {
-    const { remctl } = await import("./actions");
+    const { remctl } = await import("./reminders/remctl");
     const { forward } = await import("./sources/lifelog");
     const { sendReport } = await import("./memory/report");
     await expect(remctl(["lists"])).rejects.toThrow("frozen run");

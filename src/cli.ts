@@ -1,11 +1,12 @@
 import { parseArgs } from "node:util";
-import { Asked, actAsked, checks, requested, setGrant } from "./actions";
+import { Asked, actAsked, requested, setGrant } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { readEngine, setEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
 import { actionLine, duration } from "./memory/report";
 import { dayRange } from "./memory/units";
+import { checks } from "./reminders/remctl";
 import { Engine } from "./schema";
 import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";

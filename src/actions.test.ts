@@ -1,19 +1,15 @@
 import { expect, test } from "bun:test";
 import {
   actionId,
-  alarmArgs,
   Change,
-  changedFields,
   duplicateOf,
   Granted,
   grantedFrom,
   grantRefusal,
-  openOf,
-  readable,
-  reminderArgs,
   requested,
-  unshared,
 } from "./actions";
+import { openOf, readable, unshared } from "./reminders/remctl";
+import { alarmArgs, changedFields, reminderArgs } from "./reminders/write";
 import type { Action } from "./schema";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {
@@ -148,9 +144,10 @@ const line = (
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
 ): Action => ({
-  after: {},
+  // As `act` writes them: a removal leaves `deleted`, and each line has its own id.
+  after: kind === "remove" ? { deleted: true } : {},
   at,
-  id: "act_000000000000",
+  id: actionId(ref, kind, target),
   instruction: { at, quote: "q", ref },
   kind,
   madeBy: "connector",

@@ -1,14 +1,17 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { asksIn, hear, speechIn, type Turn, WAKE, whose } from "./hear";
+import { asksIn, hear, marksIn, speechIn, type Turn } from "./hear";
 import { ACTIONS, tasksOf } from "./memory/ledger";
 import {
+  chapter,
+  conversation,
   turn as fed,
   lifelogServer,
   lifelogStore,
   page,
 } from "./sources/fixtures";
-import { apply } from "./sources/lifelog";
+import { apply, readConversations, whose } from "./sources/lifelog";
+import { MARK, WAKE } from "./tasks";
 
 test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
@@ -45,6 +48,27 @@ test("only “hey Atlas” or its misheard word, in order, wake it, whatever the
     "ok, at last",
   ]) {
     expect(WAKE.test(said)).toBe(false);
+  }
+});
+
+test('"hey Life" as lifelog writes it (audit of 21 Oct), never an idiom', () => {
+  for (const said of [
+    "Hey Life, remind me",
+    "Uh, hey, Life.",
+    "Hey, life log, let's",
+    "Hey, Live. I don't know",
+    "hej life",
+  ]) {
+    expect(MARK.test(said)).toBe(true);
+  }
+  for (const said of [
+    "Get a life",
+    "What a life",
+    "Life is long",
+    "hey lifelong friend",
+    "they live here",
+  ]) {
+    expect(MARK.test(said)).toBe(false);
   }
 });
 
@@ -226,11 +250,11 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
   const quotes = () => tasksOf().map((t) => t.ask.instruction.quote);
   try {
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:09Z"))).heard
     ).toBe(false);
     expect(quotes()).toEqual(["hey Zorba, call the bank"]);
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:11Z"))).heard
     ).toBe(true);
     expect(quotes()).toEqual([
       "hey Zorba, call the bank",
@@ -258,7 +282,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
   const quotes = () => tasksOf().map((t) => t.ask.instruction.quote);
   try {
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:00:50Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:00:50Z"))).heard
     ).toBe(false);
     expect(quotes()).toEqual([]);
     apply(
@@ -267,7 +291,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
       "2026-10-19T10:00:55.000Z"
     );
     expect(
-      await hear(store, "c1", "", Date.parse("2026-10-19T10:01:00Z"))
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:01:00Z"))).heard
     ).toBe(true);
     expect(quotes()).toEqual(["hey Zorba, buy milk"]);
   } finally {
@@ -287,4 +311,72 @@ test("a failed word fetch throws, so the watcher hears it again: never read as s
   );
   await expect(hear(store, "c1", "")).rejects.toThrow("404");
   server.close();
+});
+
+test('a "hey Life" span is his (high) or unattributed (low), never someone else\'s, and runs like an ask', () => {
+  const turns = [
+    turn(0, "other", "hey Life, you got me"),
+    turn(10, "me", "Hey life, I committed to two things.", 3),
+    turn(15, "me", "To vote for the stones.", 2),
+    turn(18, "other", "Nice."),
+    turn(30, "unknown", "hey Life, log this"),
+  ];
+  expect(marksIn(turns, "").map((m) => [m.confidence, m.turns])).toEqual([
+    ["high", [1, 2]],
+    ["low", [4]],
+  ]);
+  // A "hey Life" is never an ask, and a "hey Atlas" never a mark.
+  expect(asksIn(turns, "")).toEqual([]);
+  expect(marksIn([turn(0, "me", "hey Atlas, book it")], "")).toEqual([]);
+});
+
+test('his "hey Life" heard in a conversation marks its chapter; heard again from later, the earlier mark stays', async () => {
+  const server = lifelogServer({
+    "/transcription-jobs/job-1/transcript": () => ({
+      turns: [
+        { speakerId: null, text: "hey Life, the stones are for Nina" },
+        { speakerId: null, text: "and the vote is Sunday" },
+        { speakerId: null, text: "ok" },
+      ],
+    }),
+  });
+  const store = lifelogStore();
+  apply(
+    store,
+    page({
+      chapters: [
+        chapter("a", "2026-10-19T09:00:00.000Z", "2026-10-19T11:00:00.000Z"),
+      ],
+      conversations: [conversation("c1")],
+      turns: [
+        fed(0, "2026-10-19T10:00:00.000Z", "p-me", "Me", "c1", true),
+        fed(1, "2026-10-19T10:00:05.000Z", "p-me", "Me", "c1", true),
+        fed(2, "2026-10-19T10:00:10.000Z", "p-ana", "Ana"),
+      ],
+    }),
+    "2026-10-19T10:00:30.000Z"
+  );
+  const marked = () =>
+    readConversations(store, new Date("2026-10-01"))[0]?.chapters[0]?.marked;
+  try {
+    expect(
+      (await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"))).marked
+    ).toBe(true);
+    expect(marked()).toEqual([
+      "job-1:0@2026-10-19T10:00:00.000Z",
+      "job-1:1@2026-10-19T10:00:05.000Z",
+    ]);
+    await hear(
+      store,
+      "c1",
+      "2026-10-19T10:00:10.000Z",
+      Date.parse("2026-10-19T10:06:00Z")
+    );
+    expect(marked()).toHaveLength(2);
+    // A "hey Life" is never an ask.
+    expect(tasksOf()).toEqual([]);
+  } finally {
+    server.close();
+    rmSync(ACTIONS, { force: true });
+  }
 });

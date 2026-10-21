@@ -141,12 +141,19 @@ export const Action = z
       ...REMINDER_KINDS,
       "ask",
       "grant",
+      // A reminder Life links without a change: the first sync's baseline, or fields it learns (src/reminders/inbound.ts).
+      "import",
       "instinct",
       ...TASK_LINES,
     ]),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct).
-    madeBy: z.union([MadeBy, z.enum(["connector", "session", "watch"])]),
-    result: z.enum(["ok", "failed", "duplicate"]),
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct);
+    // "reminders": his own change read back from Reminders (src/reminders/inbound.ts), state only, never his words.
+    madeBy: z.union([
+      MadeBy,
+      z.enum(["connector", "reminders", "session", "watch"]),
+    ]),
+    // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).
+    result: z.enum(["ok", "failed", "duplicate", "intent"]),
     schemaVersion: z.literal(1),
     // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
@@ -170,6 +177,14 @@ export type Instruction = NonNullable<Action["instruction"]>;
 /** A task's own line (Atlas's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: Action) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
+/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (src/reminders/inbound.ts). */
+export const isBookkeeping = (a: Action) =>
+  a.result === "intent" || a.kind === "import";
+/** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */
+export const isListed = (a: Action) => !(isTaskLine(a) || isBookkeeping(a));
+/** A line whose outcome stands: done, or found already done. */
+export const stands = (a: Action) =>
+  a.result === "ok" || a.result === "duplicate";
 
 /** Where a unit or an observation comes from. */
 const SourceName = z.enum([
@@ -338,6 +353,8 @@ export const Unit = z
     id: UnitId,
     // The conversation, chat or mail thread the unit belongs to.
     key: z.string(),
+    // lifelog: the refs of the turns of his "hey Life" spans in it (the hearing's marks); absent when none.
+    marked: z.array(z.string()).optional(),
     // person:<slug> from truth/people.yaml, or unknown:<name> for a name lifelog knows and the map doesn't.
     people: z.array(z.string()),
     // lifelog: conversation#turns and jobId:turnIndex@capturedAt; chats: first and last message id; mail: message ids.
