@@ -185,6 +185,8 @@ export function openStore(dir = WATCH) {
     person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
     primary key (job_id, turn_index));
   create table if not exists jobs (id text primary key, speech_seconds real not null);
+  create table if not exists marks (
+    ref text primary key, conversation_id text not null, at text not null, confidence text not null, refs text not null);
   create index if not exists turns_conversation on turns (conversation_id, start_at);
   create index if not exists chapters_conversation on chapters (conversation_id);`);
   return { cursor, db };
@@ -625,6 +627,60 @@ export async function visits(q: Record<string, string | number | undefined>) {
     )
   );
 }
+
+/** His "hey Life" spans, as the hearing found them (`marksIn`): the turn that opened it and every turn of it (`refs`). */
+export interface Mark {
+  at: string;
+  confidence: string;
+  conversation: string;
+  ref: string;
+  refs: string[];
+}
+
+/** Replaces a conversation's marks from `from` on with what the hearing found now (a span grows as he goes on). */
+export function writeMarks(
+  store: Store,
+  conversation: string,
+  from: string,
+  marks: Omit<Mark, "conversation">[]
+) {
+  store.db.transaction(() => {
+    store.db.run("delete from marks where conversation_id = ? and at >= ?", [
+      conversation,
+      from,
+    ]);
+    for (const m of marks) {
+      store.db.run(
+        "insert or replace into marks (ref, conversation_id, at, confidence, refs) values (?, ?, ?, ?, ?)",
+        [m.ref, conversation, m.at, m.confidence, JSON.stringify(m.refs)]
+      );
+    }
+  })();
+}
+
+/** The marks said in [from, to), oldest first. */
+export const marksBetween = (store: Store, from = "", to = "9999") =>
+  store.db
+    .query<
+      {
+        at: string;
+        confidence: string;
+        conversation_id: string;
+        ref: string;
+        refs: string;
+      },
+      [string, string]
+    >("select * from marks where at >= ? and at < ? order by at")
+    .all(from, to)
+    .map(
+      (m): Mark => ({
+        at: m.at,
+        confidence: m.confidence,
+        conversation: m.conversation_id,
+        ref: m.ref,
+        refs: JSON.parse(m.refs) as string[],
+      })
+    );
 
 /** The live conversations that overlap [from, to): id, start and title. */
 export function conversationsBetween(store: Store, from: string, to: string) {

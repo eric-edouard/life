@@ -1,5 +1,4 @@
 import { clock } from "../clock";
-import type { Turn } from "../hear";
 import { redact } from "../redact";
 import type { SourceEvent, Unit } from "../schema";
 import { kindOf, sourceOf } from "../sources";
@@ -117,31 +116,6 @@ const fromOf = (t: ChapterTurn) => {
   return from ? { from } : {};
 };
 
-/** Who spoke a turn as memory reads it: a name through the map, else his when lifelog says so, else unnamed. */
-function speakerOf(
-  t: ChapterTurn,
-  speakerId: string | null,
-  names: Map<string, string | null>
-) {
-  if (t.name) {
-    return personRef(t.name, names);
-  }
-  return t.owner ? OWNER : `${UNKNOWN}${speakerId ?? "speaker"}`;
-}
-
-/** A turn's speaker for the wake rules (`hear.ts`), as memory reads it: his, someone named, or nobody. */
-export function whoIn(
-  t: ChapterTurn,
-  jobs: Map<string, { speakerId: string | null }[]>,
-  names: Map<string, string | null>
-): Turn["who"] {
-  const id = jobs.get(t.jobId)?.[t.turnIndex]?.speakerId ?? null;
-  if (speakerOf(t, id, names) === OWNER) {
-    return "me";
-  }
-  return t.name || t.personId ? "other" : "unknown";
-}
-
 /** The lines of recorded turns, each cited `jobId:turnIndex@capturedAt`; a turn with no words is left out, an unnamed one lifelog says is his is the owner's. */
 export function voiceLines(
   turns: ChapterTurn[],
@@ -153,12 +127,15 @@ export function voiceLines(
     if (!turn?.text.trim()) {
       return [];
     }
+    const unnamed = t.owner
+      ? OWNER
+      : `${UNKNOWN}${turn.speakerId ?? "speaker"}`;
     return [
       {
         at: t.at,
         ...fromOf(t),
         ref: turnRef(t.jobId, t.turnIndex, t.at),
-        speaker: speakerOf(t, turn.speakerId, names),
+        speaker: t.name ? personRef(t.name, names) : unnamed,
         text: redact(turn.text),
       },
     ];
