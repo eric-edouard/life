@@ -1,11 +1,6 @@
-import { z } from "zod";
-import { clock, HOUR, unfrozen } from "../core/clock";
+import { HOUR } from "../core/clock";
 import { digest } from "../core/hash";
-import { log } from "../core/log";
-import { isOn } from "../core/outputs";
-import { execOk } from "../core/proc";
 import { redact } from "../core/redact";
-import { settings } from "../core/settings";
 import type { Moment } from "../records/moments";
 import type { Unit } from "../records/units";
 import {
@@ -21,12 +16,11 @@ import { clip, daysBefore, time } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { dayStart, localDate } from "./zones";
 
-// The Past calendar (his request, 21 Oct): every moment that happened, as an event in his Google calendar
-// the `past` setting's calendar (of its account, through `gog`), with who, where he was (lifelog's stays),
-// the conversations recorded, what Life noted and every unit it was read from. A one-way projection of the moments,
-// like the board: each event carries its moment's id and a hash of what it shows (private properties), a moment that
-// changed is written again, one gone (hidden, cancelled, never happened) is deleted. Nothing is read back. Each
-// nightly tick runs it after its turn.
+// The Past calendar (his request, 21 Oct): what it should hold. Every moment that happened, as an event with who,
+// where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
+// one-way projection of the moments, like the board: each event carries its moment's id and a hash of what it shows,
+// a moment that changed is written again, one gone (hidden, cancelled, never happened) is deleted.
+// `host/past-calendar.ts` writes it.
 
 // ponytail: a moment goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
 // is written, and are not in its hash. Hash them (a read per moment each tick) if late stays turn out to matter.
@@ -156,7 +150,7 @@ export function drafts(moments: Moment[], k: Known, now: Date): Draft[] {
     });
 }
 
-type Held = Map<string, { hash?: string; id: string }[]>;
+export type Held = Map<string, { hash?: string; id: string }[]>;
 
 /** What a sync does: the events to delete (of a moment gone or changed, and any second copy) and the drafts to write. */
 export function plan(want: Draft[], held: Held) {
@@ -223,17 +217,8 @@ async function located(
   };
 }
 
-const PastEvents = (stdout: string) =>
-  JSON.parse(stdout) as {
-    events?: {
-      extendedProperties?: { private?: Record<string, string> };
-      id: string;
-    }[];
-    nextPageToken?: string;
-  };
-
 /** The drafts of every moment as memory holds it now. */
-async function wanted(now: Date) {
+export async function wanted(now: Date) {
   const people = await readPeople();
   const [{ observations }, units, moments] = await Promise.all([
     observationsNow(people),
@@ -256,143 +241,8 @@ async function wanted(now: Date) {
   );
 }
 
-/** One of Life's events in a calendar: its moment, the hash it was written with, its id there. */
-const Row = z.object({ hash: z.string(), id: z.string(), moment: z.string() });
-type Row = z.infer<typeof Row>;
-/** Life's events by moment, whichever calendar holds them. */
-export const heldOf = (rows: Row[]): Held =>
-  new Map(
-    [...Map.groupBy(rows, (r) => r.moment)].map(([moment, rs]) => [
-      moment,
-      rs.map(({ hash, id }) => ({ hash, id })),
-    ])
-  );
-
-/** The Past calendar through `gog`: what it holds of Life's (events with a moment id, by moment), and its writes. */
-function pastCalendar(calendar: string, account: string) {
-  // Values go as `--flag=value`: a model-written title starting with "-" must not read as a flag.
-  const run = (args: string[]) => {
-    unfrozen("use his calendar");
-    return execOk([
-      "gog",
-      "calendar",
-      ...args,
-      `--account=${account}`,
-      "--json",
-      "--no-input",
-    ]);
-  };
-  return {
-    async held(until: string) {
-      const rows: Row[] = [];
-      let page = "";
-      do {
-        const r = PastEvents(
-          // biome-ignore lint/performance/noAwaitInLoops: pages follow one another
-          await run([
-            "events",
-            calendar,
-            "--from=2000-01-01",
-            `--to=${until}`,
-            "--max=2500",
-            ...(page ? [`--page=${page}`] : []),
-          ])
-        );
-        for (const e of r.events ?? []) {
-          const p = e.extendedProperties?.private;
-          if (p?.lifeMoment) {
-            rows.push({
-              hash: p.lifeHash ?? "",
-              id: e.id,
-              moment: p.lifeMoment,
-            });
-          }
-        }
-        page = r.nextPageToken ?? "";
-      } while (page);
-      return heldOf(rows);
-    },
-    async remove(moment: string, id: string) {
-      await run(["delete", calendar, id, "--force"]);
-      log("calendar.write", { event: id, moment, op: "delete" });
-    },
-    async write(d: Draft, description: string, location: string | null) {
-      const out = await run([
-        "create",
-        calendar,
-        `--summary=${redact(d.summary)}`,
-        `--from=${d.from}`,
-        `--to=${d.to}`,
-        ...(d.allDay ? ["--all-day"] : []),
-        `--description=${description}`,
-        ...(location ? [`--location=${redact(location)}`] : []),
-        "--transparency=free",
-        "--send-updates=none",
-        `--private-prop=lifeMoment=${d.moment}`,
-        `--private-prop=lifeHash=${d.hash}`,
-      ]);
-      const { id } = (JSON.parse(out) as { event: { id: string } }).event;
-      log("calendar.write", { event: id, moment: d.moment, op: "create" });
-    },
-  };
-}
-
-/**
- * The Past calendar through the app's EventKit tool (`LIFE_EVENTKIT`): his Apple calendar, Life's events found by the
- * moment and hash in their URL.
- */
-function appleCalendar(calendar: string, tool: string) {
-  const run = (args: string[]) => {
-    unfrozen("use his calendar");
-    return execOk([tool, "calendar", ...args, `--calendar=${calendar}`]);
-  };
-  return {
-    async held(until: string) {
-      return heldOf(
-        z.array(Row).parse(JSON.parse(await run(["held", `--until=${until}`])))
-      );
-    },
-    async remove(moment: string, id: string) {
-      await run(["delete", id]);
-      log("calendar.write", { event: id, moment, op: "delete" });
-    },
-    async write(d: Draft, description: string, location: string | null) {
-      const out = await run([
-        "create",
-        `--summary=${redact(d.summary)}`,
-        `--from=${d.from}`,
-        `--to=${d.to}`,
-        ...(d.allDay ? ["--all-day"] : []),
-        `--description=${description}`,
-        ...(location ? [`--location=${redact(location)}`] : []),
-        `--moment=${d.moment}`,
-        `--hash=${d.hash}`,
-      ]);
-      const { id } = JSON.parse(out) as { id: string };
-      log("calendar.write", { event: id, moment: d.moment, op: "create" });
-    },
-  };
-}
-
-/** Brings the calendar in line with the moments; null when it is not set up. */
-export async function syncPast(now = clock()) {
-  const { past } = settings();
-  if (!(past && isOn("past"))) {
-    return null;
-  }
-  // On: an account, else the app's EventKit tool.
-  const cal = past.account
-    ? pastCalendar(past.calendar, past.account)
-    : appleCalendar(past.calendar, process.env.LIFE_EVENTKIT as string);
-  const want = await wanted(now);
-  const { fresh, stale } = plan(
-    want,
-    await cal.held(nextDay(nextDay(now.toISOString().slice(0, 10))))
-  );
-  for (const e of stale) {
-    // biome-ignore lint/performance/noAwaitInLoops: one call at a time, Google's rate limit
-    await cal.remove(e.moment, e.id);
-  }
+/** Each draft with the description and location it is written with, one at a time (stays are read as it comes). */
+export async function* described(fresh: Draft[]) {
   // The store is read before any network call, so it is never held open across them.
   const talks = await withStore((store) =>
     fresh.map((d) =>
@@ -409,11 +259,10 @@ export async function syncPast(now = clock()) {
       : // biome-ignore lint/performance/noAwaitInLoops: one moment at a time
         await located(d, talks[i] ?? [], staysOn);
     const body = clip(redact([d.text, ...lines].join("\n")), DESCRIPTION_MAX);
-    await cal.write(
+    yield {
       d,
-      `${body}\n\nMoment ${d.moment}, written by Life.`,
-      location
-    );
+      description: `${body}\n\nMoment ${d.moment}, written by Life.`,
+      location,
+    };
   }
-  return { events: want.length, removed: stale.length, written: fresh.length };
 }
