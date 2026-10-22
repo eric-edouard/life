@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
+import { join } from "node:path";
 import { z } from "zod";
 import { SCOPE, UNREACHABLE, type Verify } from "./auth";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
+import { same, secretIn } from "./secret";
 import { connector } from "./settings";
+import { STATE } from "./truth";
 
 // The owner's sign-in for Life's pages (/check/, the status page at /): the connector's OAuth server with PKCE, the
 // token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.
@@ -176,3 +179,24 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
 }
 
 export type SignIn = ReturnType<typeof createSignIn>;
+
+/** The key the app opens the status page with on this Mac, kept in Life's state (mode 600), made on first use. */
+export const localKey = () => secretIn(LOCAL_KEY);
+const LOCAL_KEY = join(STATE, "local.key");
+/** The cookie the app's status window carries the key in. */
+export const LOCAL = "life_local";
+const BEARER = /^Bearer /;
+
+/**
+ * The local port's gate: the key (its cookie, or a bearer), compared in constant time, else refused. Read once: a new
+ * key takes a restart.
+ */
+export function keyRefusal(key = localKey()) {
+  return (req: Request) => {
+    const given =
+      cookieOf(req, LOCAL) ??
+      req.headers.get("authorization")?.replace(BEARER, "") ??
+      "";
+    return Promise.resolve(same(given, key) ? null : text("local only", 401));
+  };
+}
