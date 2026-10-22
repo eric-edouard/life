@@ -33,7 +33,6 @@ function dbTime(path: string) {
   );
   return ms ? new Date(ms).toISOString() : null;
 }
-// --- status --------------------------------------------------------------------------------------------------------
 /** How far back `status` looks in derived/log for the last runs of each kind. */
 const STATUS_DAYS = 7;
 /** The latest run of a step, and the latest that succeeded and failed, within what `status` read. */

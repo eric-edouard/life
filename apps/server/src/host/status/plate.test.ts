@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
+import { DAY } from "../../core/clock";
 import { clientName } from "../events";
 import { snapshot, stationsOf, toneOf, waking, wokeAt } from "./plate";
 
 const now = Date.parse("2026-10-21T15:00:00.000Z");
 const ago = (ms: number) => new Date(now - ms).toISOString();
-const DAY = 86_400_000;
 
 test("a source is red only when Life can't read it; silence is quiet, then amber past its limit", () => {
   expect(toneOf(ago(10 * 60_000), DAY, now)).toEqual({

@@ -7,99 +7,44 @@ import { clip } from "./units";
 // The agent's tasks as the ledger holds them (memory/actions.jsonl): how an ask is told from his words ("hey <agent>"),
 // its name, the updates the agent may write, and where each task stands. host/tasks.ts writes them and chases.
 
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
-
 const SPACES = /\s+/;
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 const NON_WORD = /\W+/g;
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** One wake word as lifelog may write it: its words, with any spaces or punctuation between them. */
 const phrase = (w: string) =>
   w.trim().split(SPACES).map(RegExp.escape).join(String.raw`\W+`);
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** A wake word as heard, compared: lower case, one space between words. */
 const asHeard = (w: string) => w.toLowerCase().replace(NON_WORD, " ").trim();
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 const agentSetting = settings().agent;
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 const NAMES = new Set((agentSetting?.wake ?? []).map(asHeard));
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /**
  * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: a mishearing lifelog made on 20 Oct,
  * audit 4, or a real name people he knows go by). A misheard one wakes only on his own turn, as `low` (the agent
  * confirms with him).
  */
 export const isName = (word: string) => NAMES.has(asHeard(word));
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /**
  * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
  * longer word. Shared by both wakes.
  */
 const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 const WAKES = [
   ...(agentSetting?.wake ?? []),
   ...(agentSetting?.misheard ?? []),
 ].map(phrase);
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** A greeting then the agent's name or a mishearing of it, whatever the case; with no agent, nothing wakes. */
 export const WAKE = new RegExp(
   WAKES.length > 0 ? String.raw`${GREETING}(${WAKES.join("|")})\b` : "(?!)",
   "i"
 );
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is lifelog's misspelling. */
 export const MARK = new RegExp(String.raw`${GREETING}li[fv]e\b`, "i");
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** Everything up to "hey <agent>" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** A task's name: its title, else his words from "hey <agent>" on. */
 export const titleOf = (t: { quote: string; title?: string }) =>
   clip(t.title ?? (t.quote.replace(TO_WAKE, "") || t.quote), 80);
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** An ask is due to be claimed 30 min after it was recorded (since events, a healthy claim takes 3 to 27 min, a median of 7). */
 const CLAIM_MS = 30 * MIN;
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
-// his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 export const closed = (s: TaskState) => s === "done" || s === "dropped";
 /** Where a task stands: its last update (`end`), deadline (an open one's: 30 min after it was recorded), steps. */
 export function standing(t: Task) {

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
@@ -35,7 +35,6 @@ const PER_CALL = 20;
 const README_FILES = ["README.md", "AGENTS.md", "CLAUDE.md"];
 const README_MAX = 600;
 const NOTES_MAX = 200;
-const DAY_MS = 86_400_000;
 
 const Entry = z.object({
   area: z.string().nullish(),
@@ -236,7 +235,7 @@ export async function reposOf(filter?: string) {
   const local = new Map(listRepos().map((r) => [r.key, r.path]));
   const active = new Map<string, { last: string; n: number }>();
   for (const e of readGit(
-    new Date(clock().getTime() - ACTIVE_DAYS * DAY_MS),
+    new Date(clock().getTime() - ACTIVE_DAYS * DAY),
     map,
     ownerIn(truth.people)
   )) {

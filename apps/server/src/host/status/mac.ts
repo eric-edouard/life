@@ -1,3 +1,4 @@
+import { DAY } from "../../core/clock";
 import { holder } from "../../core/lock";
 import { TEST } from "../../core/paths";
 import { exec } from "../../core/proc";
@@ -11,7 +12,6 @@ const BATTERY = /(\d+)%;\s*([^;]+)/;
 const POWER_LINE =
   /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}) (Sleep|Wake)\s/;
 const ZONE_OFFSET = / ([+-]\d{2})(\d{2})$/;
-const DAY = 86_400_000;
 const PS_LINE = /^(\d+)\s+(.+)$/;
 
 /** One read of this computer; a test run reads none, as it reads its own data and never this computer's. */

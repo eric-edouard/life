@@ -367,7 +367,7 @@ export interface Task {
   lines: Action[];
 }
 
-/** The actions ledger as the agent's tasks (tasks.ts): each ask with its own lines. */
+/** The actions ledger as the agent's tasks (memory/tasks.ts): each ask with its own lines. */
 export function tasksOf(lines = linesOf(ACTIONS)) {
   const tasks = new Map<string, Task>();
   for (const a of lines.map(parseAction)) {

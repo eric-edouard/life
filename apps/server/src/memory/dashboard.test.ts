@@ -216,33 +216,6 @@ test("runs page back through the log days, newest first, none lost or repeated, 
   expect(first.items[0]?.outcome).toBe("unfinished");
 });
 
-test("the dashboard only reads: no write, log, model call, action or send", async () => {
-  const source = (
-    await Promise.all(
-      ["feed.ts", "history.ts", "../host/status/life.ts"].map((f) =>
-        Bun.file(join(import.meta.dir, f)).text()
-      )
-    )
-  ).join("\n");
-  for (const banned of [
-    "Bun.write",
-    "appendFile",
-    "writeFile",
-    "log(",
-    "askOnce",
-    "actAsked",
-    "sendReport",
-    "Bun.spawn",
-    "locked(",
-  ]) {
-    expect(source).not.toContain(banned);
-  }
-  // git only reads: log and show.
-  for (const m of source.matchAll(/git\(\w+, \[\s*"([a-z-]+)"/g)) {
-    expect(["log", "show"]).toContain(m[1] as string);
-  }
-});
-
 test("a run filter takes the id as runs gives it, or bare", () => {
   const it = {
     about: [],

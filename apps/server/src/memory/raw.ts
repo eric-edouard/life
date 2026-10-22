@@ -1,5 +1,5 @@
 import { type Candidate, owed } from "../actions/items";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { redact } from "../core/redact";
 import type { SourceEvent, SourceName, Unit } from "../schema";
 import { isDirect, kindOf, sourceOf } from "../sources";
@@ -62,7 +62,6 @@ const MAIL_MAX = 200;
 /** Mail is the longest per hit: its section stops at this, `fetch <unit>` reads a thread whole. */
 export const MAIL_HITS = 5;
 const UNIT_ID = /^u_[0-9a-f]{12}$/;
-const DAY_MS = 86_400_000;
 
 const FETCHES = 8;
 
@@ -327,7 +326,7 @@ function readChats(
   const startOf = (source: string) =>
     range.from
       ? new Date(range.from)
-      : new Date(Math.max(0, end.getTime() - days(source) * DAY_MS));
+      : new Date(Math.max(0, end.getTime() - days(source) * DAY));
   const failed: string[] = [];
   const stop = end.toISOString();
   const read = Object.entries(sources).flatMap(([name, from]) => {
@@ -453,7 +452,7 @@ export async function chatsOf(
     ...(o.from
       ? []
       : [
-          `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY_MS)} days; give \`from\` to read further back)`,
+          `(no \`from\`: ${Math.round((end.getTime() - start.getTime()) / DAY)} days; give \`from\` to read further back)`,
         ]),
     ...unread(failed),
     ...(next
@@ -519,7 +518,7 @@ const WROTE_DAYS = 60;
  */
 export async function repliesOwed(end: Date): Promise<Candidate[]> {
   const people = await readPeople();
-  const from = new Date(end.getTime() - WROTE_DAYS * DAY_MS).toISOString();
+  const from = new Date(end.getTime() - WROTE_DAYS * DAY).toISOString();
   const { events } = readChats(
     "chatDays",
     { from, to: end.toISOString() },

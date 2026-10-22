@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { planOf } from "../actions/board";
 import type { Item } from "../actions/contract";
+import { MIN } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { ROOT } from "../core/paths";
@@ -27,7 +28,6 @@ import {
 } from "./tasks";
 
 const T0 = Date.parse("2026-10-19T10:00:00.000Z");
-const MIN = 60_000;
 const at = (min: number) => new Date(T0 + min * MIN).toISOString();
 const ASK = "act_00000000000a";
 

@@ -1,6 +1,6 @@
 import { checks, pull } from "../actions/backend";
 import { marks, push } from "../actions/board";
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
@@ -31,7 +31,6 @@ import { chase, closings, receipts } from "./tasks";
 // mirrors them on his board (apps/server/src/actions); `deliver` pushes the asks not yet delivered to the agent (apps/server/src/host/events.ts).
 // Every 2 minutes it probes the Mac's Cloudflare tunnel (apps/server/src/host/http/tunnel.ts), which no longer fires behind the edge Worker (#133).
 
-const MIN = 60_000;
 let last = 0;
 let ticking = false;
 /** At most each minute, one at a time, beside the loop (reading his lists takes about 10 s): the chase, then Reminders both ways. */

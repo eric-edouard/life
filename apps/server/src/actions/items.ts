@@ -1,3 +1,4 @@
+import { DAY } from "../core/clock";
 import { agentName } from "../core/settings";
 import { type Action, type SourceEvent, stands } from "../schema";
 
@@ -146,9 +147,8 @@ export const AGAIN_DAYS = 3;
 /** How many days late a dated item is still listed, labelled, so a missed daily review is caught up. */
 export const OVERDUE_DAYS = 7;
 
-const DAY_MS = 86_400_000;
 const daysFrom = (from: string, to: string) =>
-  Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
+  Math.round((Date.parse(to) - Date.parse(from)) / DAY);
 
 /**
  * Whether an item shows on `date`, each at most twice: a dated one on its day (the daily review reads tomorrow too, so

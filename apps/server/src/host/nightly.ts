@@ -1,5 +1,5 @@
 import { checks } from "../actions/backend";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { holder, isOtherLife } from "../core/lock";
 import { type Call, isReviewCall, log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
@@ -73,12 +73,10 @@ import { taskList, unanswered } from "./tasks";
 const STUCK_MS = 3 * 3_600_000;
 const ALERT_MS = 3_600_000;
 
-const DAY_MS = 24 * 3_600_000;
-
 /** Whether his agent (the `agent` setting's client) read `day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
   (await recentEvents<Call>(2, "mcp.call")).some(
-    (e) => isReviewCall(e) && Date.parse(e.at) >= now.getTime() - DAY_MS
+    (e) => isReviewCall(e) && Date.parse(e.at) >= now.getTime() - DAY
   );
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
@@ -93,7 +91,7 @@ async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   try {
     actions = readActions();
     tasks = taskList(now.getTime());
-    gaps = unanswered(now.getTime() - DAY_MS);
+    gaps = unanswered(now.getTime() - DAY);
   } catch (e) {
     const { message } = e as Error;
     problems.push(`actions.jsonl: ${message}`);
@@ -102,7 +100,7 @@ async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   // A task's own lines (the agent's updates) are its rows, not actions.
   return {
     actions: actions.filter(
-      (a) => isListed(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
+      (a) => isListed(a) && Date.parse(a.at) >= now.getTime() - DAY
     ),
     problems,
     tasks: [
@@ -367,7 +365,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
  * quota just read for the email.
  */
 async function spent(rec: Metered, now: Quota | undefined) {
-  const since = new Date(rec.now.getTime() - DAY_MS).toISOString();
+  const since = new Date(rec.now.getTime() - DAY).toISOString();
   const { items } = await runs({
     limit: 20,
     steps: ["memory.nightly", "memory.midday", "memory.backfill"],
