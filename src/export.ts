@@ -28,7 +28,7 @@ import { DATA, ROOT, STATE } from "./truth";
 
 export const FORMAT = 1;
 
-/** In Life's state but never exported: rebuilt (the index), secrets, and live locks. The watcher's store is copied whole on its own. */
+/** In Life's state but never exported: rebuilt (the index), and the watcher's store (copied whole on its own). */
 const KEPT_OUT = [WATCH, INDEX].map((p) => relative(STATE, p));
 /** A secret is a file only its owner may read (`writeSecret`, `secretIn` write them so): never exported. */
 const secret = (path: string) => statSync(path).mode % 0o100 === 0; // no group or other bits
@@ -132,9 +132,7 @@ function leftOut() {
     keychain:
       "every item of the service Life (the app keeps its secrets there)",
     secrets:
-      "every file only its owner reads (Life's sign-in, the agent's subscription, the app's key)",
-    signIn:
-      "apps connected to Life's own sign-in pair again; the agent subscribes again",
+      "every file only its owner reads (Life's sign-in, the agent's subscription, the app's key): apps pair again and the agent subscribes again, unless they are copied by hand",
   };
 }
 
