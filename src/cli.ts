@@ -76,11 +76,16 @@ const commands: Record<string, () => Promise<number>> = {
     console.log(
       JSON.stringify({
         lastReport: reports[0] ?? null,
-        reminders: {
-          installed: await remctlVersion(),
-          on: remindersOn(),
-          release: REMCTL_RELEASE,
-        },
+        reminders: await (async () => {
+          const installed = await remctlVersion();
+          return {
+            installed,
+            on: remindersOn(),
+            /** remctl as Life wants it: installed, at the pinned release. */
+            ready: installed === REMCTL_RELEASE.version,
+            release: REMCTL_RELEASE,
+          };
+        })(),
         sources: SOURCES.map((s) => {
           const missing = s.missing?.() ?? null;
           return {
