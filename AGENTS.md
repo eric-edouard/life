@@ -339,7 +339,9 @@ hand `--force` always runs. The status page reads those locks (`holder`, mac.ts)
   the secrets left out by name). Restore: `restic restore latest --tag daily --target <dir>` puts the export at `<dir>`
   + its absolute path (`MAC/backup-staging`); `data/` goes to his data, `state/` to Life's state, `archive/` to the
   archive (delete each database's old `-wal`/`-shm` first), then the secrets the manifest names by hand (T4 makes this
-  `bun life import`).
+  `bun life import`). Secrets are in no backup (Life's sign-in and the agent's subscription pair again). Snapshots from
+  before 22 Oct have the old layout: `backup-staging/Life/` is `~/Life`, its `*.sqlite` the archive's and
+  `lifelog.sqlite` and `cursor.json` the watcher's, and the archive's media, `.env` and `derived/` at their own paths.
 
 ## Working here
 

@@ -1,9 +1,10 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256Of, stage } from "./export";
+import { LOCK } from "./memory/guard";
 import { STATE } from "./truth";
 
 const SECRET = /oauth|events\.json|local\.key|\.bak$/;
@@ -37,4 +38,20 @@ test("an export holds everything with its checksum and counts, and never a secre
   expect(Object.keys(m.counts.lines).length).toBeGreaterThan(0);
   // A folder with something in it is never written into.
   await expect(stage(dir, archive)).rejects.toThrow("not empty");
+});
+
+test("an export goes to any folder name, an apostrophe too; it is refused while a run holds memory's lock", async () => {
+  const archive = mkdtempSync(join(tmpdir(), "life-archive-"));
+  const db = new Database(join(archive, "notes.sqlite"));
+  db.run("create table versions (id text)");
+  db.close();
+  const base = mkdtempSync(join(tmpdir(), "life-export-"));
+  const m = await stage(join(base, "Sam's export"), archive);
+  expect(m.counts.rows["archive/notes.sqlite"]).toEqual({ versions: 0 });
+  writeFileSync(LOCK, String(process.ppid));
+  try {
+    await expect(stage(join(base, "held"), archive)).rejects.toThrow("lock");
+  } finally {
+    rmSync(LOCK, { force: true });
+  }
 });

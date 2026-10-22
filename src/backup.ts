@@ -66,12 +66,21 @@ export async function backup() {
   try {
     await stage(STAGING);
   } catch (e) {
-    missed.push(`staging: ${(e as Error).message}`);
+    // No snapshot of half a staging: the day's tries go on (the lock is free again soon), the report says why.
+    writeFileSync(
+      STATUS,
+      `${JSON.stringify({ ...readJson<Status>(STATUS), error: `staging: ${(e as Error).message}` })}\n`
+    );
+    console.error(clock().toISOString(), `staging: ${(e as Error).message}`);
+    return 1;
   }
-  // Host `life`: the Mac's name changes with the network, and restic groups snapshots by host. Exit 3: saved
-  // without the paths it could not read.
+  // Host `life`: the Mac's name changes with the network, and restic groups snapshots by host. The staging is
+  // cloned anew each night (new inodes and ctimes, the same mtimes): only content changes are read again. Exit 3:
+  // saved without the paths it could not read.
   const r = await run([
-    ..."restic backup --json --quiet --tag daily --host life".split(" "),
+    ..."restic backup --json --quiet --tag daily --host life --ignore-inode --ignore-ctime".split(
+      " "
+    ),
     STAGING,
   ]);
   const sum =
