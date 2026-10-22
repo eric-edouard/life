@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { exec } from "../src/proc";
+import { execOk } from "../src/proc";
 
 // Life.app, assembled: the menu-bar app (app/, Swift) as its executable, the helper (scripts/helper.ts) in
 // Contents/Helpers with its files in Contents/Resources/life, signed: with `LIFE_SIGN_IDENTITY` (a Developer ID,
@@ -15,15 +15,8 @@ const contents = join(app, "Contents");
 const identity = process.env.LIFE_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFE_VERSION ?? "0.1.0";
 
-async function run(cmd: string[], cwd = ROOT) {
-  const r = await exec(cmd, { cwd, timeout: 900_000 });
-  if (r.code !== 0) {
-    throw new Error(
-      `${cmd.slice(0, 2).join(" ")}: ${r.stderr.trim().slice(-800)}`
-    );
-  }
-  return r.stdout;
-}
+const run = (cmd: string[], cwd = ROOT) =>
+  execOk(cmd, { cwd, timeout: 900_000 });
 
 /** Sparkle, pinned: its release for Swift packages, checked against this checksum before it is unpacked. */
 const SPARKLE = {

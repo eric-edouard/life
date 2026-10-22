@@ -74,7 +74,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   only code that decides it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). `act` decides and records (its intent before each write, its outcome after); `src/reminders/` is the only code that touches Reminders (`~/bin/remctl`), one job per module: `remctl.ts` the
   calls and his lists, `write.ts` the changes `act` decided, `board.ts` the projection of the tasks, `inbound.ts` his
   changes read back. In a friend's app the same commands go to `life-eventkit` (`LIFE_EVENTKIT`, Swift, EventKit): no
-  sections and no Recently Deleted there (a removal is final), and it serves the Past calendar too, on an Apple calendar
+  sections there (`SECTIONS`: the board asks for none), and no Recently Deleted (a removal is final; its `deleted` lists
+  what vanished since its last call, kept 30 days, so the board and `inbound` read a removal as remctl's), and it serves the Past calendar too, on an Apple calendar
   (the `past` setting without a Google `account`), Life's events marked by their URL. It answers in remctl's shapes,
   the contract in `src/reminders/answers.json` (tested); a list it can't tell is unshared (any iCloud list) counts as
   shared, so Life adds nothing there unasked and reads nothing back from it. Delete the folder and Life still works from the ledger. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is

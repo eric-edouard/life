@@ -1,7 +1,7 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { CODEX } from "../src/llm";
-import { exec } from "../src/proc";
+import { execOk } from "../src/proc";
 
 // The app's helper: Life compiled to one binary (`bun build --compile`), and the files it reads at run time (prompts,
 // the agent's protocol, every page's assets, the pinned codex) beside it, at the paths the code reads them from, for the app to pass as `LIFE_ROOT`. Usage:
@@ -13,7 +13,7 @@ const resources = join(out, "resources");
 
 await rm(out, { force: true, recursive: true });
 await mkdir(join(resources, "docs"), { recursive: true });
-const built = await exec(
+await execOk(
   [
     "bun",
     "build",
@@ -25,9 +25,6 @@ const built = await exec(
   ],
   { timeout: 300_000 }
 );
-if (built.code !== 0) {
-  throw new Error(`bun build: ${built.stderr.trim()}`);
-}
 await Promise.all([
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
   cp(join(ROOT, "docs", "agent.md"), join(resources, "docs", "agent.md")),

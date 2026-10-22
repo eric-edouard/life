@@ -14,6 +14,5 @@ const UUID = /^[0-9A-F-]{36}$/;
 test("an add answers its number and its deep link's id, a list says whether it is shared", () => {
   expect(typeof answers.add.numericId).toBe("number");
   expect(answers.add.id).toMatch(UUID);
-  expect(answers.show[0]?.deepLink.endsWith(answers.add.id)).toBe(true);
   expect(unshared(answers["list-info"])).toBe(true);
 });

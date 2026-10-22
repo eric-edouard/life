@@ -239,7 +239,7 @@ const OPENROUTER = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI = "https://api.openai.com/v1/chat/completions";
 /** Room for a day's moments and their reasoning; every bench host allows at least this much. */
 const OPENROUTER_MAX_TOKENS = 131_072;
-const OpenRouterReply = z.object({
+const Choices = z.object({
   choices: z
     .array(
       z.object({
@@ -248,6 +248,8 @@ const OpenRouterReply = z.object({
       })
     )
     .min(1),
+});
+const OpenRouterReply = Choices.extend({
   // Not in OpenRouter's documented schema, but sent: without it the host can't be checked, so the call fails.
   provider: z.string(),
   usage: z.object({ cost: z.number().optional() }).loose(),
@@ -504,24 +506,49 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
   if (images.length > 0) {
     throw new Error("the bench sends no images through OpenRouter");
   }
-  const res = await fetch(OPENROUTER, {
-    body: JSON.stringify({
-      max_tokens: OPENROUTER_MAX_TOKENS,
-      messages: [
-        { content: system, role: "system" },
-        { content: JSON.stringify(input), role: "user" },
-      ],
-      model,
-      provider: {
-        allow_fallbacks: false,
-        data_collection: "deny",
-        only: [host],
-        quantizations: ["fp8"],
-        require_parameters: true,
-        zdr: true,
-      },
-      ...(llm.effort ? { reasoning: { effort: llm.effort } } : {}),
-    }),
+  const answer = await chatCompletion("openrouter", OPENROUTER, key, dir, {
+    max_tokens: OPENROUTER_MAX_TOKENS,
+    messages: [
+      { content: system, role: "system" },
+      { content: JSON.stringify(input), role: "user" },
+    ],
+    model,
+    provider: {
+      allow_fallbacks: false,
+      data_collection: "deny",
+      only: [host],
+      quantizations: ["fp8"],
+      require_parameters: true,
+      zdr: true,
+    },
+    ...(llm.effort ? { reasoning: { effort: llm.effort } } : {}),
+  });
+  const reply = OpenRouterReply.parse(answer.json);
+  const fields = {
+    costUsd: reply.usage.cost,
+    host: reply.provider,
+    usage: reply.usage,
+  };
+  const refusal =
+    slug(reply.provider) === slug(host)
+      ? undefined
+      : `openrouter: served by ${reply.provider}, not ${host}`;
+  return { fields, refusal: refusal ?? answer.refusal, text: answer.text };
+}
+
+/**
+ * One chat-completions call (OpenRouter's or OpenAI's), no idle cut: its answer kept in the call's folder, its first
+ * choice's text, and a refusal unless it stopped with some.
+ */
+async function chatCompletion(
+  name: string,
+  url: string,
+  key: string,
+  dir: string,
+  body: Record<string, unknown>
+) {
+  const res = await fetch(url, {
+    body: JSON.stringify(body),
     headers: {
       authorization: `Bearer ${key}`,
       "content-type": "application/json",
@@ -532,28 +559,18 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
     timeout: false,
   });
   const text = await res.text();
-  await Bun.write(join(dir, "openrouter.json"), text);
+  await Bun.write(join(dir, `${name}.json`), text);
   if (!res.ok) {
-    throw new Error(`openrouter ${res.status}: ${text.slice(-300)}`);
+    throw new Error(`${name} ${res.status}: ${text.slice(-300)}`);
   }
-  const reply = OpenRouterReply.parse(JSON.parse(text));
-  const [choice] = reply.choices;
-  const fields = {
-    costUsd: reply.usage.cost,
-    host: reply.provider,
-    usage: reply.usage,
-  };
-  const refusal =
-    slug(reply.provider) === slug(host)
-      ? undefined
-      : `openrouter: served by ${reply.provider}, not ${host}`;
+  const json: unknown = JSON.parse(text);
+  const [choice] = Choices.parse(json).choices;
   return {
-    fields,
+    json,
     refusal:
-      refusal ??
-      (choice?.finish_reason === "stop" && choice.message.content
+      choice?.finish_reason === "stop" && choice.message.content
         ? undefined
-        : `openrouter: stopped (${choice?.finish_reason})`),
+        : `${name}: stopped (${choice?.finish_reason})`,
     text: choice?.message.content ?? "",
   };
 }
@@ -636,36 +653,18 @@ async function askOpenAI({ dir, images, input, llm, system }: Call) {
       };
     })
   );
-  const res = await fetch(OPENAI, {
-    body: JSON.stringify({
-      messages: [
-        { content: system, role: "system" },
-        {
-          content: [{ text: JSON.stringify(input), type: "text" }, ...pictures],
-          role: "user",
-        },
-      ],
-      model: llm.model,
-      reasoning_effort: llm.effort,
-    }),
-    headers: {
-      authorization: `Bearer ${key}`,
-      "content-type": "application/json",
-    },
-    method: "POST",
-    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-    timeout: false,
+  const answer = await chatCompletion("openai", OPENAI, key, dir, {
+    messages: [
+      { content: system, role: "system" },
+      {
+        content: [{ text: JSON.stringify(input), type: "text" }, ...pictures],
+        role: "user",
+      },
+    ],
+    model: llm.model,
+    reasoning_effort: llm.effort,
   });
-  const body = await res.text();
-  await Bun.write(join(dir, "openai.json"), body);
-  if (!res.ok) {
-    throw new Error(`openai ${res.status}: ${body.slice(-300)}`);
-  }
-  const reply = OpenRouterReply.pick({ choices: true })
-    .extend({ usage: OpenAIUsage })
-    .parse(JSON.parse(body));
-  const [choice] = reply.choices;
-  const u = reply.usage;
+  const u = z.object({ usage: OpenAIUsage }).parse(answer.json).usage;
   return {
     fields: u
       ? {
@@ -676,11 +675,8 @@ async function askOpenAI({ dir, images, input, llm, system }: Call) {
           },
         }
       : undefined,
-    refusal:
-      choice?.finish_reason === "stop" && choice.message.content
-        ? undefined
-        : `openai: stopped (${choice?.finish_reason})`,
-    text: choice?.message.content ?? "",
+    refusal: answer.refusal,
+    text: answer.text,
   };
 }
 

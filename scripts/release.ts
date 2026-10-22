@@ -1,6 +1,6 @@
 import { mkdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
-import { exec } from "../src/proc";
+import { execOk } from "../src/proc";
 
 // A release a friend can open, published: Life.app signed with the owner's Developer ID under the hardened runtime,
 // notarized and stapled; a zip of it (what Sparkle downloads, listed in appcast.xml with its EdDSA signature) and a DMG
@@ -33,15 +33,7 @@ if (
 // The app's feed: the latest release's appcast.
 process.env.LIFE_APPCAST_URL = `https://github.com/${repo}/releases/latest/download/appcast.xml`;
 
-async function run(cmd: string[]) {
-  const r = await exec(cmd, { cwd: ROOT, timeout: 3_600_000 });
-  if (r.code !== 0) {
-    throw new Error(
-      `${cmd.slice(0, 2).join(" ")}: ${(r.stderr || r.stdout).trim().slice(-800)}`
-    );
-  }
-  return r.stdout;
-}
+const run = (cmd: string[]) => execOk(cmd, { cwd: ROOT, timeout: 3_600_000 });
 
 /** Sends a file to Apple's notary service, waits for its answer, and staples the ticket to `staple`. */
 async function notarize(file: string, staple: string) {
