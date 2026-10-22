@@ -23,18 +23,21 @@ import { daysBefore, safely, tables } from "./units";
 import { merged, readPeople } from "./who";
 import { localDate } from "./zones";
 
-// Who matters to the owner, and how (docs/relationships.md, step 3). Code counts what happened with each person from
-// the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his recordings, how recent. The
-// fast model reads those counts with who they are on his map and judges a level, personal and work apart
-// (memory/closeness.jsonl); his `closeness` correction wins. The levels decide who has a page. No model output is
-// counted (a level never feeds the counts that judge it), so a level cannot raise itself.
+// Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened
+// with each person from the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his
+// recordings, how recent. The fast model reads those counts with who they are on his map and judges a level,
+// personal and work apart (memory/closeness.jsonl); his `closeness` correction wins. The levels decide who has a
+// page. No model output is counted (a level never feeds the counts that judge it), so a level cannot raise itself.
 
 const CLOSENESS_PROMPT = "closeness.v1";
 const PER_CALL = 40;
 /** How far back the counts read: a day older than this weighs under an eighth of a recent one in `lasting`. */
 const YEARS = 3;
 
-/** One day with someone: messages each way in a 1:1 chat and in mail (mostly work), and whether they spoke in a recording. */
+/**
+ * One day with someone: messages each way in a 1:1 chat and in mail (mostly work), and whether they spoke in a
+ * recording.
+ */
 interface Day {
   chat: { got: number; sent: number };
   mail: { got: number; sent: number };

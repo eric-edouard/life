@@ -5,11 +5,11 @@ import { execOk } from "../src/proc";
 // A release a friend can open, published: Life.app signed with the owner's Developer ID under the hardened runtime,
 // notarized and stapled; a zip of it (what Sparkle downloads, listed in appcast.xml with its EdDSA signature) and a DMG
 // holding it, Lifelog Host beside it when its path is given (`LIFELOG_HOST_APP`); all three as a GitHub release of the
-// public releases-only repo (`LIFE_RELEASES_REPO`, owner/name: the source stays private). Usage:
+// repository the releases go to (`LIFE_RELEASES_REPO`, owner/name). Usage:
 //   LIFE_SIGN_IDENTITY="Developer ID Application: …" LIFE_NOTARY_PROFILE=<notarytool profile> \
 //   LIFE_RELEASES_REPO=<owner/name> LIFE_SPARKLE_KEY=<public EdDSA key> LIFE_VERSION=0.1.0 bun scripts/release.ts
-// Set up once by the owner (docs/packaging.md, "Release"): the Developer ID certificate, `xcrun notarytool
-// store-credentials`, Sparkle's `generate_keys` (its private key stays in his Keychain), the public repo.
+// Set up once by the maintainer (docs/releasing.md): the Developer ID certificate, `xcrun notarytool
+// store-credentials`, Sparkle's `generate_keys` (its private key stays in the Keychain), the repo.
 
 const ROOT = join(import.meta.dir, "..");
 const out = join(ROOT, "dist");
