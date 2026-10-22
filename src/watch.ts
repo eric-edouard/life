@@ -2,8 +2,9 @@ import { clock } from "./clock";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
+import { hold } from "./lock";
 import { log } from "./log";
-import { hold, isLocked, locked } from "./memory/guard";
+import { isLocked, locked } from "./memory/guard";
 import { ACTIONS, appendJsonl, readActions, tasksOf } from "./memory/ledger";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
@@ -194,9 +195,10 @@ async function syncUnits(store: Store, cursor: string) {
 }
 
 export async function watch(): Promise<number> {
+  // The code it runs, read before it may wait for another install: new code meanwhile restarts it on taking over.
+  const running = codeAt(ROOT);
   await hold("watch");
   const started = clock();
-  const running = codeAt(ROOT);
   try {
     serveConnector();
   } catch (e) {
