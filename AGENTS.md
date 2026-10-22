@@ -251,7 +251,13 @@ helper (`scripts/helper.ts`) as launchd runs the checkout for him: `archive` and
 every 30 minutes, its data and state under `~/Library/Application Support/Life` (`LIFE_DATA`, `LIFE_STATE`), its files
 as `LIFE_ROOT`, every secret the Keychain keeps under "Life" in its environment. The app never reads Life's files: it
 asks the helper (`app` for what it shows, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. His own install stays the checkout under
-launchd.
+launchd until the move (`docs/transition.md`).
+
+**One Life per Mac.** The archive and the watcher each hold a lock in `MAC` (`~/Library/Application Support/Life`,
+shared by every install: `hold`, `src/lock.ts`), so a second install's copy waits instead of running beside it (two
+archivers would write the one live copy twice, two watchers would deliver every ask twice). On his own data, a nightly
+tick runs only for the install whose watcher holds the lock, or when none does (`isOtherLife`, nightly.ts); a copy or a
+hand `--force` always runs. The status page reads those locks (`holder`, mac.ts), whoever runs them.
 
 ## Gotchas
 

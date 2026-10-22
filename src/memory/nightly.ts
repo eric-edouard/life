@@ -9,6 +9,7 @@ import { clock } from "../clock";
 import { isReviewCall } from "../events";
 import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
+import { holder, isOtherLife } from "../lock";
 import { type Call, log, recentEvents } from "../log";
 import { checks } from "../reminders/remctl";
 import {
@@ -18,6 +19,7 @@ import {
   type Observation,
 } from "../schema";
 import { taskList, titleOf, unanswered } from "../tasks";
+import { isHis } from "../truth";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
@@ -163,6 +165,13 @@ export async function archiveLine(since: string) {
  * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
+  // His own data while another install's watcher runs on this Mac (the move to the app): only that install's ticks
+  // run (two would each send a report and fight over the Past calendar). A copy or a hand `--force` always runs.
+  const live = holder("watch");
+  if (!force && isHis() && isOtherLife(live)) {
+    console.log(`another Life runs here (${live?.note}): no tick`);
+    return 0;
+  }
   const now = clock();
   const held = lockedSince();
   if (held && now.getTime() - held.getTime() > STUCK_MS) {
