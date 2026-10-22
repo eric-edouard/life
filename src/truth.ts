@@ -43,9 +43,11 @@ export const STATE = TEST
   ? join(DATA, "state")
   : (process.env.LIFE_STATE ?? join(ROOT, "derived"));
 
+/** A path with its links resolved, or as it is when it doesn't exist. */
+export const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
+
 /** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
 export function isHis(data = DATA) {
-  const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
   return real(data) === real(join(homedir(), "Life"));
 }
 
