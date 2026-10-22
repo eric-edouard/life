@@ -1,3 +1,4 @@
+import { holder } from "./memory/guard";
 import { exec } from "./proc";
 
 // The Mac Life runs on, as the status page shows it (src/plate.ts): awake since, battery, disk, the LaunchAgents and
@@ -12,10 +13,8 @@ const ZONE_OFFSET = / ([+-]\d{2})(\d{2})$/;
 const DAY = 86_400_000;
 const PS_LINE = /^(\d+)\s+(.+)$/;
 
-/** The services Life runs on the Mac; the nightly tick runs every 30 min, so no process between ticks is fine. */
+/** The services launchd runs; the nightly tick runs every 30 min, so no process between ticks is fine. */
 const SERVICES = [
-  { label: "com.ericedouard.life.archive", name: "archive", ticks: false },
-  { label: "com.ericedouard.life.watch", name: "watch", ticks: false },
   {
     label: "com.ericedouard.life.memory-nightly",
     name: "nightly tick",
@@ -66,22 +65,36 @@ export async function macState() {
   const sec = Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0);
   const free =
     Number(disk.stdout.trim().split("\n").at(-1)?.split(SPACES)[3] ?? 0) * 1024;
+  // The archive and the watcher, whoever runs them (launchd or the app): who holds each one's lock (`hold`, guard.ts).
+  const held = (["archive", "watch"] as const).map((name) => {
+    const h = holder(name);
+    return {
+      name,
+      ok: !!h,
+      running: !!h,
+      since: h?.since.toISOString() ?? null,
+      status: h ? h.state : "not running",
+    };
+  });
   return {
     awakeSince: sec ? new Date(sec * 1000).toISOString() : null,
     battery: batt.stdout.match(BATTERY)?.slice(1, 3).join(", ") ?? "?",
     freeGb: Math.round(free / 1e9),
-    services: SERVICES.map((s) => {
-      const r = rows.get(s.label);
-      const running = !!r && r.pid !== "-";
-      return {
-        name: s.name,
-        ok: running || (s.ticks && r?.status === "0"),
-        running,
-        /** When its process started: launchd's restart after a crash or a commit, the tunnel's after a heal. */
-        since: r ? (started.get(r.pid ?? "") ?? null) : null,
-        status: r?.status ?? "not loaded",
-      };
-    }),
+    services: [
+      ...held,
+      ...SERVICES.map((s) => {
+        const r = rows.get(s.label);
+        const running = !!r && r.pid !== "-";
+        return {
+          name: s.name,
+          ok: running || (s.ticks && r?.status === "0"),
+          running,
+          /** When its process started: launchd's restart after a crash or a commit, the tunnel's after a heal. */
+          since: r ? (started.get(r.pid ?? "") ?? null) : null,
+          status: r?.status ?? "not loaded",
+        };
+      }),
+    ],
   };
 }
 

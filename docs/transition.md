@@ -10,7 +10,7 @@ review (`debt-review`), and `transition` into `main` on his OK.
 
 ## Items, in order
 
-- [ ] T1 One Life per Mac: the archive and the watcher each hold a lock in `~/Library/Application Support/Life` (shared
+- [x] T1 One Life per Mac: the archive and the watcher each hold a lock in `~/Library/Application Support/Life` (shared
   by every install), so a second copy refuses to start; the status page reads those locks, not launchd.
 - [ ] R0 Reminders as an optional plugin (a setting, like a source): off, nothing touches Reminders (no minute pass, no
   board, no reading back, no `reminders`/`open_reminders` tools, no grant) and the rest of Life runs as before.

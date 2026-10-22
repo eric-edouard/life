@@ -18,12 +18,14 @@ import {
   type Observation,
 } from "../schema";
 import { taskList, titleOf, unanswered } from "../tasks";
+import { STATE } from "../truth";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
   afterWeek,
   backfillWeek,
   backupDue,
+  holder,
   locked,
   lockedSince,
   MAX_ATTEMPTS,
@@ -163,6 +165,12 @@ export async function archiveLine(since: string) {
  * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
+  // Another install's watcher runs on this Mac (the move to the app): only that install's ticks run.
+  const live = holder("watch");
+  if (live && live.state !== STATE) {
+    console.log(`another Life runs here (${live.state}): no tick`);
+    return 0;
+  }
   const now = clock();
   const held = lockedSince();
   if (held && now.getTime() - held.getTime() > STUCK_MS) {
