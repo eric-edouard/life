@@ -9,7 +9,7 @@ A private memory. Calm by nature, personal by design. Everything Life shows foll
 
 ## The values
 
-One source: [`assets/brand/tokens.css`](../assets/brand/tokens.css). Pages link it or inline it; the surfaces that
+One source: [`assets/brand/tokens.css`](../assets/brand/tokens.css). Pages link it or inline it; the two surfaces that
 can't read CSS variables copy its values, and `src/brand.test.ts` fails when a copy drifts:
 
 | Surface | How it takes the tokens |
@@ -18,9 +18,8 @@ can't read CSS variables copy its values, and `src/brand.test.ts` fails when a c
 | `/me` password page, pairing page | `TOKENS` (`src/http.ts`) inlined in their styles (`src/portrait.ts`, `src/oauth.ts`) |
 | Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `src/memory/email.ts`, copied (mail takes no variables), light only |
 | The app | `Brand` and `Tone.color` in `app/Sources/LifeApp/Brand.swift`, copied, light and dark |
-| The Windows tray | Brushes and radii in `app-windows/Life.Tray/Brand.xaml`, copied, light and dark |
 
-No other file writes a colour: the test also fails on a hex colour anywhere else in `src`, `assets`, `app` or `app-windows`.
+No other file writes a colour: the test also fails on a hex colour anywhere else in `src`, `assets` or `app`.
 
 - **Colour.** Monochrome: ink `#181818`, white `#FFFFFF`, surface `#F3F3F3`, rule `#E4E4E4`, muted `#707070`.
   Status colours are for dots, short stripes and small marks, always beside a word, never as text: synced

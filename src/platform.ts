@@ -60,7 +60,7 @@ export const systemZone = (): string | undefined =>
     : readlinkSync("/etc/localtime").split("zoneinfo/")[1];
 
 /**
- * The command that shows a notification, or none where Life has no way to show one yet (Windows: the tray will). On
+ * The command that shows a notification, or none where Life has no way to show one yet (Windows: none yet). On
  * the Mac the title and body are the script's arguments, never quoted into its text, so no word of theirs can break it.
  */
 export const notifyArgs = (title: string, body: string) =>
