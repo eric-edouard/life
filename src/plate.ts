@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { archiveFailing, keptStores } from "./archive";
-import { backupOld, backupOn, backupSize, readBackup } from "./backup";
+import { backupOld, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
 import { agentLive, clientName, deliveryState, isAgent } from "./events";
 import { readHealth } from "./health";
@@ -23,8 +23,9 @@ import {
 } from "./memory/ledger";
 import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
+import { isOn } from "./outputs";
 import { git } from "./proc";
-import { checks, remindersOn } from "./reminders/remctl";
+import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
@@ -779,7 +780,7 @@ function backupCard(r: Reads): Card {
   const old = backupOld(r.now, b);
   return {
     ...firstOf(
-      [!backupOn(), { tone: "idle", word: "off" }],
+      [!isOn("backup"), { tone: "idle", word: "off" }],
       [
         !!b?.error,
         { ask: ASK("the backup failing"), tone: "bad", word: "failed" },
@@ -1012,7 +1013,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!remindersOn(), { tone: "idle", word: "off" }],
+        [!isOn("reminders"), { tone: "idle", word: "off" }],
         [
           r.remctl.length > 0,
           {

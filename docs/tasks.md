@@ -177,8 +177,9 @@ grant, and logs the agent's replies.
 
 ## The only sends
 
-What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). How the
-report and the alerts go out:
+What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
+Life can turn on (Reminders, the Past calendar, the connector, the agent's asks, the backup) has one switch, read in one
+place: `isOn` in `src/outputs.ts`. How the report and the alerts go out:
 
 - To the owner only (`src/memory/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `STATE/reports`. Either way the log's `email.sent`

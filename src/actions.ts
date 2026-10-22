@@ -5,6 +5,7 @@ import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
 import { normalize } from "./memory/units";
 import { localDate } from "./memory/zones";
+import { isOn } from "./outputs";
 import { BOARD, isShared } from "./reminders/remctl";
 import { type Done, info, intended, write } from "./reminders/write";
 import {
@@ -86,6 +87,9 @@ export const recorded = async (id: string) =>
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
+  if (!isOn("reminders")) {
+    throw new Error("Reminders is off (settings: reminders)");
+  }
   if (c.kind === "restore" && !(c.target && c.list)) {
     throw new Error(
       "a restore needs the reminder id and the list to put it in"
