@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { linesIn, rowsIn, stage } from "./export";
 import { restore } from "./import";
+import { started } from "./init";
 import { DATA } from "./truth";
 
 const temp = (name: string) => mkdtempSync(join(tmpdir(), `life-${name}-`));
@@ -71,4 +73,26 @@ test("an import changes nothing when a file is not as exported, his data is ther
   expect(rowsIn(join(thin.archive, "whatsapp.sqlite"))).toEqual({
     messages: 1,
   });
+});
+
+test("an import that fails partway leaves nothing: no data, no half-made install, nothing beside it", async () => {
+  const dir = await exported();
+  const m = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as {
+    files: { path: string }[];
+  };
+  // The last file listed is changed: everything before it was checked and copied aside.
+  const last = m.files.at(-1)?.path as string;
+  appendFileSync(join(dir, last), "x");
+  const to = install();
+  await expect(restore(dir, to)).rejects.toThrow("not as exported");
+  expect(started(to.data)).toBe(false);
+  for (const p of [
+    to.data,
+    to.archive,
+    `${to.data}.importing`,
+    `${to.archive}.importing`,
+    `${to.state}.importing`,
+  ]) {
+    expect(existsSync(p)).toBe(false);
+  }
 });

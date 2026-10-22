@@ -35,7 +35,6 @@ const OPTIONS = {
   chat: { type: "string" },
   cursor: { type: "string" },
   days: { type: "string" },
-  dry: { type: "boolean" },
   force: { type: "boolean" },
   from: { type: "string" },
   "from-turn": { type: "string" },
@@ -64,7 +63,7 @@ type Values = ReturnType<typeof parse>["values"];
  * A step command: prints the step's summary; a non-zero exit when anything failed. It holds the nightly's lock, so the
  * watcher doesn't sync while a hand-run step writes memory/.
  */
-const step =
+export const step =
   (run: (values: Values) => Promise<{ failed: number }>): Handler =>
   async (values) => {
     const summary = await locked(() => run(values));

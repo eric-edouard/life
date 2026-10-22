@@ -20,6 +20,10 @@ export interface Owner {
 const yaml = (key: string, list: unknown[]) =>
   `schemaVersion: 1\n${key}: ${list.length ? `\n${list.map((x) => `  - ${JSON.stringify(x)}`).join("\n")}` : "[]"}\n`;
 
+/** Whether `dir` has nothing in it (or isn't there): the one folder Life writes a new whole into. */
+export const isEmpty = (dir: string) =>
+  !existsSync(dir) || readdirSync(dir).length === 0;
+
 /** Whether `data` holds an owner's truth: Life is set up there. */
 export const started = (data = DATA) =>
   existsSync(join(data, "truth", "people.yaml"));
@@ -27,7 +31,7 @@ export const started = (data = DATA) =>
 /** Creates `data` for a new owner; refuses a folder that is not empty. */
 export async function init(owner: Owner, data = DATA, now = clock()) {
   const truth = join(data, "truth");
-  if (existsSync(data) && readdirSync(data).length > 0) {
+  if (!isEmpty(data)) {
     throw new Error(`${data} is not empty: nothing was changed`);
   }
   await mkdir(join(truth, "projects"), { recursive: true });
