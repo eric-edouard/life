@@ -1,0 +1,116 @@
+{
+  "cards": [
+    {
+      "at": "2026-10-21T14:48:00.000Z",
+      "content": ["A made-up line."],
+      "facts": [{ "at": "2026-10-21T14:48:00.000Z", "label": "Last item" }],
+      "group": "sources",
+      "headline": "receiving",
+      "id": "beeper",
+      "name": "Beeper",
+      "tone": "ok",
+      "word": "receiving"
+    },
+    {
+      "ask": "Life's status shows that the Pendant can't be read: look into it.",
+      "facts": [],
+      "group": "sources",
+      "headline": "lifelog not set up",
+      "id": "lifelog",
+      "name": "Pendant",
+      "tone": "bad",
+      "word": "can't read"
+    },
+    {
+      "facts": [
+        { "label": "Last poll" },
+        { "label": "Asks heard today", "value": "0" }
+      ],
+      "group": "capture",
+      "headline": "not polling",
+      "id": "watcher",
+      "name": "Watcher",
+      "tone": "idle",
+      "word": "no voice source"
+    },
+    {
+      "at": "2026-10-21T14:30:00Z",
+      "facts": [{ "at": null, "label": "Last ok" }],
+      "group": "pipeline",
+      "headline": "moments",
+      "id": "nightly",
+      "name": "Nightly",
+      "stations": [
+        { "name": "repos", "state": "done" },
+        { "name": "moments", "state": "now" },
+        { "name": "pages", "state": "todo" }
+      ],
+      "tone": "busy",
+      "word": "running"
+    },
+    {
+      "facts": [{ "label": "Size", "value": "1.2 GB" }],
+      "group": "pipeline",
+      "headline": "over 48 h old",
+      "id": "backup",
+      "name": "Backup",
+      "tone": "warn",
+      "word": "old"
+    },
+    {
+      "facts": [{ "label": "Observations", "value": "12" }],
+      "group": "memory",
+      "headline": "12 observations",
+      "id": "memory",
+      "name": "Memory",
+      "tone": "ok",
+      "word": "current"
+    },
+    {
+      "content": [],
+      "facts": [{ "label": "Open", "value": "1" }],
+      "group": "outputs",
+      "headline": "1 open",
+      "id": "tasks",
+      "name": "Tasks",
+      "tone": "teal",
+      "word": "waiting"
+    },
+    {
+      "facts": [{ "label": "state", "value": "running" }],
+      "group": "mac",
+      "headline": "running",
+      "id": "service-watch",
+      "name": "watch",
+      "tone": "ok",
+      "word": "running"
+    }
+  ],
+  "groups": [
+    { "id": "sources", "name": "Sources" },
+    { "id": "capture", "name": "Capture" },
+    { "id": "pipeline", "name": "Pipeline" },
+    { "id": "memory", "name": "Memory" },
+    { "id": "outputs", "name": "Outputs" },
+    { "id": "mac", "name": "The Mac" }
+  ],
+  "observedAt": "2026-10-21T15:00:00.000Z",
+  "today": [
+    {
+      "at": "2026-10-21T02:00:00.000Z",
+      "end": "2026-10-21T02:40:00.000Z",
+      "label": "nightly",
+      "tone": "ok"
+    },
+    { "at": "2026-10-21T06:00:00.000Z", "label": "report", "tone": "teal" },
+    {
+      "at": "2026-10-20T23:00:00.000Z",
+      "end": "2026-10-21T06:30:00.000Z",
+      "label": "asleep",
+      "sleep": true,
+      "tone": "idle"
+    }
+  ],
+  "trouble": ["lifelog", "backup"],
+  "worst": "bad"
+}
