@@ -1238,6 +1238,10 @@ export async function snapshot(now = clock()) {
     observedAt: now.toISOString(),
     problems: cards.filter((c) => c.tone === "bad" || c.tone === "warn").length,
     today: todayOf(r),
+    /** The cards in trouble, by id: what the app's menu lists (the same rule as `problems`). */
+    trouble: cards
+      .filter((c) => c.tone === "bad" || c.tone === "warn")
+      .map((c) => c.id),
     worst: cards.reduce<Tone>(
       (w, c) => (RANK[c.tone] > RANK[w] ? c.tone : w),
       "ok"

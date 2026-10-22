@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDashboard } from "./dashboard";
-import { createSignIn, LOCAL, localKey } from "./signin";
+import { createSignIn, keyRefusal, LOCAL, localKey } from "./signin";
 
 // The status page answers nothing of his before the owner's sign-in: a page sends him to sign in, a read is refused.
 const verify = async (token: string) =>
@@ -11,7 +11,7 @@ const signIn = createSignIn(
   verify,
   (async () => new Response("no", { status: 400 })) as unknown as typeof fetch
 );
-const page = createDashboard(signIn);
+const page = createDashboard(signIn.refusal);
 const get = (path: string) =>
   page.handle(new Request(`https://life.example${path}`));
 
@@ -47,24 +47,27 @@ test("a history that doesn't page back offers no older page: the tasks and the M
   expect((await detail("tasks")).next.history).toBeNull();
 });
 
-test("the app opens the page with the local key: its cookie or a bearer, the exact key only; without a connector nothing else", async () => {
-  const local = createDashboard(null);
+test("the app's page opens with the local key only, a cookie or a bearer; the public page never takes the key", async () => {
+  const local = createDashboard(keyRefusal());
   const key = localKey();
   const with_ = (headers: Record<string, string>) =>
     local.handle(
-      new Request("http://127.0.0.1:46200/status/icon.svg", { headers })
+      new Request("http://127.0.0.1:46201/status/icon.svg", { headers })
     );
   expect((await with_({ cookie: `${LOCAL}=${key}` }))?.status).toBe(200);
   expect((await with_({ authorization: `Bearer ${key}` }))?.status).toBe(200);
   expect(
     (await with_({ authorization: `Bearer ${key.slice(1)}x` }))?.status
   ).toBe(401);
+  // As many characters as the key, more bytes: refused, not a crash.
+  expect(
+    (await with_({ authorization: `Bearer ${"é".repeat(key.length)}` }))?.status
+  ).toBe(401);
   expect((await with_({}))?.status).toBe(401);
-  // With the connector the page still takes the key, and his sign-in as before.
-  const signed = await page.handle(
+  const pub = await page.handle(
     new Request("https://life.example/status/icon.svg", {
-      headers: { authorization: `Bearer ${key}` },
+      headers: { authorization: `Bearer ${key}`, cookie: `${LOCAL}=${key}` },
     })
   );
-  expect(signed?.status).toBe(200);
+  expect(pub?.status).toBe(401);
 });

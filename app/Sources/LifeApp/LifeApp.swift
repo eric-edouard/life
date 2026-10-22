@@ -42,6 +42,8 @@ struct LifeApp: App {
     Window("Life status", id: "status") {
       if let status = supervisor.info?.status {
         StatusPage(status: status).frame(minWidth: 900, minHeight: 700)
+      } else {
+        Text("Life isn't answering yet.").padding()
       }
     }
     Window("Life", id: "settings") {
@@ -62,12 +64,12 @@ struct Menu: View {
     if supervisor.info?.started == true {
       // The status page's own truth: its worst tone, every card in trouble, the page itself one click away.
       if let plate = supervisor.plate {
-        Text(plate.trouble.isEmpty ? "Life: all good" : "Life: \(plate.trouble.count) to look at")
-        ForEach(plate.trouble) { card in
-          Text("\(card.name): \(card.word ?? card.headline)")
+        Text(plate.troubled.isEmpty ? "Life: all good" : "Life: \(plate.troubled.count) to look at")
+        ForEach(plate.troubled) { card in
+          Text("\(card.name): \(card.word)")
         }
       } else {
-        Text("Life: starting…")
+        Text("Life: not answering")
       }
       Button("Open status…", action: openStatus)
       Divider()
