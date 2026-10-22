@@ -18,7 +18,7 @@ What Life is building next, in order, and what is parked. Each item gets its own
 
 ## Next
 
-- A server version with a web UI. Life runs on a server as well as on a Mac, and has a web interface built with
+- A server version with a web UI ([server plan](plans/2026-10-22-server.md)). Life runs on a server as well as on a Mac, and has a web interface built with
   Better-T-Stack: Vite, Better Auth and Tailwind. People choose a Mac-only install or a full server.
 - A rework of the memory layer: how sources become units, moments, observations and pages
   ([architecture](architecture.md)).

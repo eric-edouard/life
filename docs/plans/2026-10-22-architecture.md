@@ -1,0 +1,109 @@
+# Architecture plan: one codebase, two hosts (22 Oct 2026)
+
+Explanation and plan: the code and repo shape Life needs before the [server plan](2026-10-22-server.md) adds a web UI,
+a messaging layer and a second host. Nothing is built yet. Measured on `main` at ebcb851.
+
+## Where the code is today
+
+`apps/server/src` is 25,000 lines in one package: 45 files at the top, plus `memory/`, `sources/` and `actions/`.
+The contracts from the modules rework hold (sources, outputs, providers, the actions backend, the platform), but the
+folders do not say what depends on what, and nothing stops a file reaching across:
+
+- **Ten import cycles**: the actions backend with its backends (`act` ↔ `backend` ↔ `remctl`, `google`), and the
+  source registry with its readers (`sources/index` ↔ `agent`, `archived`, `assistants`, `git`, `imessage`, `mail`).
+- **The memory reaches up into the host**: `memory/nightly` imports the archive, the backup, events, tasks and the
+  actions backend; `memory/history` imports the archive; `memory/search` imports events and tasks.
+- **The top folder mixes four jobs**: foundations (`clock`, `proc`, `lock`, `log`, `secret`, `settings`, `platform`),
+  HTTP (`server`, `oauth`, `mcp`, `check`, `portrait`, `dashboard`), Mac host code (`mac`, `plate`, `tailscale`,
+  `tunnel`, `archive`) and jobs (`watch`, `tasks`, `events`, `cli`).
+- **One schema file** (`schema.ts`, 783 lines, 80 exports) holds every record of every module.
+- `clock` imports `truth` (for the root folder), so the lowest layer depends on a higher one.
+
+None of this is broken. It is what makes the next 20,000 lines expensive: a second host, a messaging layer and a web UI
+would each add their branches into these same files.
+
+## The rule
+
+Dependencies point one way, and `bun run check` enforces it with fallow's boundary zones (fallow already runs in the
+check; zones are one config key, `boundaries` in `.fallowrc.json`), so the shape cannot erode, whichever agent writes the code:
+
+```
+core  ←  models, sources, messaging, actions  ←  memory  ←  host (jobs, routes, CLI)  ←  apps
+```
+
+- **core**: clock, paths and the platform, settings, process, lock, log, secrets, redaction, local time. No Life
+  concept above "a file" and "a time".
+- **Capabilities**, each one contract plus its implementations, none importing another:
+  - `models`: `PROVIDERS`, the call, the cache.
+  - `sources`: the input descriptor and its readers; the Mac's stores (iMessage, Mail, Notes, Contacts, the WhatsApp
+    and Beeper stores) under `sources/mac/`, the network ones (lifelog, git, IMAP, CardDAV) beside them.
+  - `messaging`: the messaging contract (list chats, read since a cursor, save on arrival, send with the owner's
+    yes) and its one backend, Matrix. Each enabled network gives a source descriptor, so the memory sees one more
+    input and never the word "WhatsApp".
+  - `actions`: the actions contract and its backends (Reminders, Google Tasks).
+- **memory**: units, moments, observations, pages, the ledger, search, statements. It reads capabilities through
+  their contracts and never schedules, serves or sends anything.
+- **host**: what runs: the jobs (nightly, watch, archive, backup), the HTTP routes (connector, issuer, pages, the web
+  UI's API), the CLI. It composes the capabilities into a running Life. This is the only layer that knows which host
+  it is on.
+- **apps**: entry points only.
+
+The two hosts are not two code paths. A host is a set of capabilities, read once like the settings: which sources
+exist, which model engines, how services are supervised (Life.app or Compose), how the connector is reached (Tailscale
+or a reverse proxy), how the archive is fed (copying stores or saving on arrival). Code asks for a capability, never
+"am I the Mac", the rule sources already follow.
+
+## The repo
+
+```
+apps/
+  server/      the host layer and its entry (CLI, jobs, routes): what Life.app compiles and the container runs
+  web/         the web UI (Vite, Tailwind): onboarding, settings, status
+  mac/         Life.app (today's app/), two modes: full local Life, or companion to a server
+  edge/        the edge Worker (today's worker/)
+packages/
+  api/         the HTTP contract (zod schemas) the server serves and the web UI calls: types from one source
+  brand/       assets/brand/tokens.css and what the web UI, the email and the app copy from it
+  config/      the TypeScript base
+deploy/        compose.yaml, the DigitalOcean cloud-init, Coolify's notes
+prompts/ scripts/ docs/
+```
+
+Inside `apps/server/src`, the layers are folders, and each folder is a fallow zone: `core/`, `models/`, `sources/`,
+`messaging/`, `actions/`, `memory/`, `host/`. Schemas move next to the module that owns each record; `schema.ts` goes.
+
+**Why folders and not a package per layer.** A package earns its cost (its own `package.json`, tsconfig, build
+config and import name across 150 files) when a second app imports it. Today only `api` and `brand` have two
+consumers (the server and the web UI; the email, the app and the web UI). The layers have one consumer, the server, so
+zones give the same enforced boundary for less. A zone becomes a package the day a second app needs it: a mechanical
+move, because the boundary already holds. Turborepo arrives with `apps/web`, as the platforms plan said, and runs each
+app's check and build.
+
+## The order
+
+Each step is one PR that changes no behaviour, passes `bun run check`, and leaves no old path alive:
+
+1. **Zones and the rule.** Fallow's boundary zones over today's folders, at "warn", listing every violation.
+2. **core.** The foundations into `core/`; `clock` stops importing `truth` (the root folder moves to `core/paths`).
+3. **The cycles.** Each source and backend registers in a registry the host builds, so readers never import the
+   registry, and backends never import `act`. The ten cycles go.
+4. **The memory stops reaching up.** The nightly, the history's archive check and search's events move into
+   `host/jobs`; the memory exposes steps, the host runs them in order.
+5. **Schemas by owner.** `schema.ts` split into the modules that own each record.
+6. **The rule at "error".** From here, a violation fails the check.
+7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
+   and Turborepo through `create-better-t-stack add`.
+
+Then the server plan's phases build on it: messaging lands in its own zone, the server host as a capability set,
+and nothing in the memory changes for either.
+
+`docs/architecture.md` takes the rule and the map when step 6 lands, and AGENTS.md gains one line: dependencies point
+one way, and the check enforces it.
+
+## Decided (22 Oct)
+
+| Question | Decision |
+|---|---|
+| Layers | Folders as fallow zones inside `apps/server`; a package only for a second consumer |
+| Order | All seven steps before any server feature |
+| Sessions | One session, steps 1–6 in order; step 7 may run in parallel |
