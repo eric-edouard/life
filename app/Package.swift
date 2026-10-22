@@ -1,6 +1,6 @@
 // swift-tools-version: 6.0
-// Life.app: the menu-bar app that runs Life's helper (updated by Sparkle), and life-eventkit, Apple Reminders and
-// Calendar through EventKit (`scripts/app.ts` assembles the bundle around them).
+// Life.app: the menu-bar app that runs Life's helper (updated by Sparkle), and life-eventkit, the Past calendar on an
+// Apple calendar through EventKit (`scripts/app.ts` assembles the bundle around them).
 import PackageDescription
 
 let package = Package(

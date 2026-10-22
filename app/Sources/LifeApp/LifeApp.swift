@@ -92,6 +92,8 @@ struct SettingsView: View {
   @State private var transport = "mcp-event"
   /// The agent as saved, so a save keeps what this form doesn't show (`misheard`, `client`).
   @State private var agentSaved: [String: Any] = [:]
+  /// remctl's download and installer are under way: the Reminders controls wait.
+  @State private var installing = false
   @State private var lifelogURL = ""
   @State private var lifelogToken = ""
   @State private var origin = ""
@@ -148,9 +150,15 @@ struct SettingsView: View {
               get: { r.on },
               set: { on in Task { await setReminders(on, r) } }
             ))
+            .disabled(installing)
+            if r.on, !r.ready {
+              // An update of Life moved the pin: remctl is behind (or gone) while Reminders is on.
+              Button("Install remctl \(r.release.version)") { Task { await installRemctl(r) } }
+                .disabled(installing)
+            }
             Text(r.ready
               ? "Life adds reminders when you ask, keeps your agent's list and reads your changes back."
-              : "Life uses remctl for Reminders. Turning this on installs remctl \(r.release.version) with its own installer.")
+              : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
               .font(.caption).foregroundStyle(.secondary)
           }
         }
@@ -251,11 +259,17 @@ struct SettingsView: View {
   /// once, then its own permission steps), and the toggle takes once `life app` sees it.
   private func setReminders(_ on: Bool, _ r: Reminders) async {
     if on, !r.ready {
-      status = await Remctl.install(r.release)
+      await installRemctl(r)
       return
     }
     await set(["reminders": on])
     await supervisor.restart()
+  }
+
+  private func installRemctl(_ r: Reminders) async {
+    installing = true
+    status = await Remctl.install(r.release)
+    installing = false
   }
 
   private func connect(public publicToo: Bool) async {

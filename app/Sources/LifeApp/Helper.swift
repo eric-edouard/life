@@ -65,18 +65,18 @@ struct Info: Decodable {
   let reminders: Reminders
 }
 
-/// The Reminders plugin: on or not, the remctl installed (its version) and the release Life installs.
+/// The Reminders plugin: on or not, the remctl installed (its version), whether that is the release Life installs
+/// (`ready`, decided by the helper), and that release.
 struct Reminders: Decodable {
   let on: Bool
   let installed: String?
+  let ready: Bool
   let release: Release
   struct Release: Decodable {
     let version: String
     let url: String
     let sha256: String
   }
-  /// remctl as Life wants it: installed, at the pinned release.
-  var ready: Bool { installed == release.version }
 }
 
 /// One source: whether he turned it on, what keeps it from being read now, and whether that is Full Disk Access.
