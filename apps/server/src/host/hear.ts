@@ -1,10 +1,10 @@
 import { clock } from "../core/clock";
 import { isName, MARK, WAKE } from "../memory/tasks";
 import {
-  CLOSED_ON_SILENCE_S,
+  endedOnSilence,
+  isConversationClosed,
   readTranscript,
   type Store,
-  speechSeconds,
   turnRef,
   turnsBetween,
   whose,
@@ -102,18 +102,19 @@ function spansIn(
 }
 
 /**
- * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's or
- * ends a recording lifelog closed on silence (no turn of an ask can follow), else `open` (the next recording may go
- * on with it).
+ * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's,
+ * ends a recording nobody spoke after for 30 s (`endedOnSilence`), or lifelog has settled the conversation (`closed`):
+ * lifelog's own signals, never a timing rule of Life's. Else `open` (the next recording may go on with it).
  */
 export function speechIn(store: Store, conversation: string, from: string) {
   const last = turnsBetween(store, conversation, from).at(-1);
   if (!last || whose(last) === "other") {
     return "complete";
   }
-  const seconds = speechSeconds(store, last.jobId);
-  // lifelog sends 0 for a recording it could not measure: unknown, like a missing one.
-  return seconds && seconds < CLOSED_ON_SILENCE_S ? "complete" : "open";
+  return endedOnSilence(store, last.jobId) ||
+    isConversationClosed(store, conversation)
+    ? "complete"
+    : "open";
 }
 
 /**

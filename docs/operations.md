@@ -113,9 +113,9 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per chapter id. Only
   the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (the "hey Life"
   spans, refs only) is the one thing there not rebuilt from the feed.
-- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`): a recording of under a minute of speech
-  (lifelog's `durationSeconds`) is closed on 30 s of silence, lifelog's own rule. If lifelog changes how it closes a
-  recording, change `CLOSED_ON_SILENCE_S` (`sources/lifelog.ts`) with it. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
+- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by lifelog's own signals (its
+  voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation lifelog settled
+  (`closed`); never a timing rule of Life's. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
   40 s) for lifelog to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
   becomes an ask only once lifelog names the owner.
 - The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both

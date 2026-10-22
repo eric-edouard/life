@@ -1,15 +1,18 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import {
   apply,
-  CLOSED_ON_SILENCE_S,
   conversationsWith,
+  endedOnSilence,
   Hits,
+  isConversationClosed,
   LifelogStatus,
   newestTurn,
+  openStore,
   ownerSpoke,
   Page,
   poll,
@@ -17,6 +20,7 @@ import {
   Stays,
   searchVoice,
   speakers,
+  storeFiles,
   Transcript,
   turnPlace,
   turnsBetween,
@@ -316,21 +320,37 @@ test("poll also lists a new turn nobody is named for, once", async () => {
   }
 });
 
-const CUTTER = join(homedir(), "Work/lifelog/apps/server/src/cutter.ts");
-
-test.skipIf(!existsSync(CUTTER))(
-  "lifelog still closes a recording of less speech than CLOSED_ON_SILENCE_S only on 30 s of silence (hear.ts reads it so)",
-  () => {
-    const ms = (name: string) =>
-      Number(
-        readFileSync(CUTTER, "utf8")
-          .match(new RegExp(`const ${name} = ([\\d_]+)`))?.[1]
-          ?.replaceAll("_", "")
-      );
-    expect(ms("LONG_MS")).toBe(CLOSED_ON_SILENCE_S * 1000);
-    expect(ms("CLOCK_MS")).toBe(30_000);
+test("a store made before the contract's closed and endedOnSilence opens, drops its old jobs table and reads both", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-lifelog-"));
+  try {
+    const old = new Database(storeFiles(dir).file);
+    old.run(`create table conversations (
+      id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
+      title text not null, successor text);
+    create table jobs (id text primary key, speech_seconds real not null);`);
+    old.close();
+    const upgraded = openStore(dir);
+    apply(
+      upgraded,
+      Page.parse(
+        pageFixture({
+          conversations: [conversation("c1", { closed: true })],
+          jobs: [{ endedOnSilence: true, id: "job-1" }],
+        })
+      )
+    );
+    expect(isConversationClosed(upgraded, "c1")).toBe(true);
+    expect(endedOnSilence(upgraded, "job-1")).toBe(true);
+    expect(
+      upgraded.db
+        .query("select name from sqlite_master where name = 'jobs'")
+        .get()
+    ).toBeNull();
+    upgraded.db.close();
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
   }
-);
+});
 
 // lifelog's published contract, kept current by its own gate. On a Mac without the checkout there is nothing to check.
 const CONTRACT = join(homedir(), "Work/lifelog/apps/server/openapi.json");
