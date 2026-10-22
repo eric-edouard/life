@@ -15,8 +15,7 @@ const tailscale = (args: string[]) =>
   execOk([existsSync(BIN) ? BIN : "tailscale", ...args], { timeout: 30_000 });
 
 const TRAILING_DOT = /\.$/;
-/** Where Life's server listens (`server.ts`). */
-/** Life's public port, the one a tunnel may reach. */
+/** Life's public port (`server.ts`), the one a tunnel may reach. */
 const SERVER = `http://127.0.0.1:${PUBLIC_PORT}`;
 
 const Status = z.object({
