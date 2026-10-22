@@ -111,7 +111,7 @@ struct SettingsView: View {
   @State private var transport = "mcp-event"
   /// The agent as saved, so a save keeps what this form doesn't show (`misheard`, `client`).
   @State private var agentSaved: [String: Any] = [:]
-  /// remctl's download and installer are under way: the Reminders controls wait.
+  /// remctl's download and installer, or an import, are under way: the controls they touch wait.
   @State private var installing = false
   @State private var lifelogURL = ""
   @State private var lifelogToken = ""
@@ -129,7 +129,13 @@ struct SettingsView: View {
           TextField("Your name", text: $name)
           TextField("Your email", text: $email)
           Button("Start Life") { Task { await start() } }
-            .disabled(name.isEmpty)
+            .disabled(name.isEmpty || installing)
+        }
+        Section("Or bring your Life") {
+          Button("Import an export…") { Task { await importExport() } }
+            .disabled(installing)
+          Text("A folder made by Export everything…, on this Mac or another: checked, then counted again.")
+            .font(.caption).foregroundStyle(.secondary)
         }
       } else {
         Section("Thinking") {
@@ -290,6 +296,23 @@ struct SettingsView: View {
     installing = true
     status = await Remctl.install(r.release)
     installing = false
+  }
+
+  /// A Life export into this new install (`life import`): checked against its manifest, never over anything.
+  private func importExport() async {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = true
+    panel.canChooseFiles = false
+    guard panel.runModal() == .OK, let url = panel.url else { return }
+    status = "Importing…"
+    installing = true
+    let r = await Helper.run(["import", url.path])
+    installing = false
+    status = (r.code == 0 ? r.out : r.err).trimmingCharacters(in: .whitespacesAndNewlines)
+    if r.code == 0 {
+      await supervisor.start()
+      await load()
+    }
   }
 
   /// Everything Life holds into a new folder, with its manifest (`life export`): no secrets, they are listed.

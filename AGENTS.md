@@ -1,14 +1,14 @@
 # Life
 
 A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes (and,
-imported once, his past claude.ai and ChatGPT conversations: `bun life memory import`):
+imported once, his past claude.ai and ChatGPT conversations: `bun life import`):
 sources → units → verdicts → observations → people and area pages. Plus an always-on archive that keeps chat messages
 deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`. Relationships (arcs, closeness, the
 backfill): `docs/relationships.md`, the plan and his decisions.
 
 ## Where his data lives
 
-`memory/`, `truth/` and `imports/` (his claude.ai and ChatGPT exports, copied once by `bun life memory import`; every
+`memory/`, `truth/` and `imports/` (his claude.ai and ChatGPT exports, copied once by `bun life import`; every
 such path here) are in `DATA` (`src/truth.ts`): `~/Life`, a local git repo of their own
 with no remote, or `$LIFE_DATA`. The nightly commits there and pushes nothing (`commitMemory` refuses a repo with a
 remote): nothing of his goes to GitHub. Every worktree reads and writes that same `~/Life` and shares its one lock
@@ -338,8 +338,8 @@ hand `--force` always runs. The status page reads those locks (`holder`, mac.ts)
   store and cursor, `archive/` every store and its media, and `manifest.json` (every file's sha256, what each part holds,
   the secrets left out by name). Restore: `restic restore latest --tag daily --target <dir>` puts the export at `<dir>`
   + its absolute path (`MAC/backup-staging`); `data/` goes to his data, `state/` to Life's state, `archive/` to the
-  archive (delete each database's old `-wal`/`-shm` first), then the secrets the manifest names by hand (T4 makes this
-  `bun life import`). Secrets are in no backup (Life's sign-in and the agent's subscription pair again). Snapshots from
+  archive: `bun life import <dir>/…/backup-staging` into a new install (checked, never over his data, never into an
+  existing archive), then the secrets the manifest names by hand. Secrets are in no backup (Life's sign-in and the agent's subscription pair again). Snapshots from
   before 22 Oct have the old layout: `backup-staging/Life/` is `~/Life`, its `*.sqlite` the archive's and
   `lifelog.sqlite` and `cursor.json` the watcher's, and the archive's media, `.env` and `derived/` at their own paths.
 

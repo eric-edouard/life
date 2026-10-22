@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import {
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -13,6 +14,7 @@ import { basename, isAbsolute, join, relative } from "node:path";
 import { STORES } from "./archive";
 import { clock } from "./clock";
 import { SUBSCRIPTION } from "./events";
+import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
 import { INDEX } from "./memory/search";
 import { OAUTH } from "./oauth";
@@ -36,7 +38,7 @@ const KEPT_OUT = [WATCH, INDEX, OAUTH, SUBSCRIPTION, LOCAL_KEY].map((p) =>
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
-const filesUnder = (dir: string) =>
+export const filesUnder = (dir: string) =>
   (readdirSync(dir, { recursive: true }) as string[]).filter((p) =>
     lstatSync(join(dir, p)).isFile()
   );
@@ -51,8 +53,8 @@ export async function sha256Of(path: string) {
 }
 
 /**
- * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), then
- * made a file of its own (no WAL beside it): it opens anywhere, read-only too, and restores as one file.
+ * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), as a
+ * file of its own (a rollback journal, no WAL beside it): it opens anywhere, read-only too, and restores as one file.
  */
 function copyDb(from: string, to: string) {
   const source = new Database(from, { readonly: true });
@@ -61,62 +63,62 @@ function copyDb(from: string, to: string) {
   } finally {
     source.close();
   }
-  const copy = new Database(to);
-  try {
-    copy.run("PRAGMA journal_mode=DELETE");
-  } finally {
-    copy.close();
-  }
 }
 
-/** What a staged folder holds: lines per JSONL file of his data, rows per table of each store, the data's commit. */
-export async function inventory(dir: string) {
-  const lines = Object.fromEntries(
-    filesUnder(join(dir, "data"))
+/** Lines per JSONL file of a data folder (its repo's own files aside). */
+export const linesIn = (data: string) =>
+  Object.fromEntries(
+    filesUnder(data)
       .filter((p) => p.endsWith(".jsonl") && !p.startsWith(".git"))
       .map((p) => [
         p,
-        readFileSync(join(dir, "data", p), "utf8")
-          .split("\n")
-          .filter(Boolean).length,
+        readFileSync(join(data, p), "utf8").split("\n").filter(Boolean).length,
       ])
   );
-  const rows = Object.fromEntries(
-    filesUnder(dir)
-      .filter((p) => p.endsWith(".sqlite"))
-      .map((p) => {
-        const db = new Database(join(dir, p), { readonly: true });
-        try {
-          const tables = db
-            .query<{ name: string }, []>(
-              "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'"
-            )
-            .all();
-          return [
-            p,
-            Object.fromEntries(
-              tables.map(({ name }) => [
-                name,
-                (
-                  db.query(`select count(*) as n from "${name}"`).get() as {
-                    n: number;
-                  }
-                ).n,
-              ])
-            ),
-          ];
-        } finally {
-          db.close();
-        }
-      })
-  );
-  const head = existsSync(join(dir, "data", ".git"))
-    ? (
-        await execOk(["git", "-C", join(dir, "data"), "rev-parse", "HEAD"])
-      ).trim()
-    : null;
-  return { head, lines, rows };
+
+/** Rows per table of one SQLite file. */
+export function rowsIn(path: string) {
+  const db = new Database(path, { readonly: true });
+  try {
+    return Object.fromEntries(
+      db
+        .query<{ name: string }, []>(
+          "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'"
+        )
+        .all()
+        .map(({ name }) => [
+          name,
+          (
+            db.query(`select count(*) as n from "${name}"`).get() as {
+              n: number;
+            }
+          ).n,
+        ])
+    );
+  } finally {
+    db.close();
+  }
 }
+
+/** A data folder's commit, or null when it is no repo. */
+export const headOf = async (data: string) =>
+  existsSync(join(data, ".git"))
+    ? (await execOk(["git", "-C", data, "rev-parse", "HEAD"])).trim()
+    : null;
+
+/** What a staged folder holds: lines per JSONL file of his data, rows per table of each store, the data's commit. */
+export async function inventory(dir: string) {
+  return {
+    head: await headOf(join(dir, "data")),
+    lines: linesIn(join(dir, "data")),
+    rows: Object.fromEntries(
+      filesUnder(dir)
+        .filter((p) => p.endsWith(".sqlite"))
+        .map((p) => [p, rowsIn(join(dir, p))])
+    ),
+  };
+}
+export type Manifest = Awaited<ReturnType<typeof stage>>;
 
 const ENV_KEY = /^([A-Z0-9_]+)=/;
 /** What a new install is given by hand, named only: never their values. */
@@ -142,13 +144,14 @@ function leftOut() {
  * watcher writes it after, so a restored store never lags its cursor). Throws when the lock is held.
  */
 export async function stage(dir: string, archive = ARCHIVE) {
-  if (existsSync(dir) && readdirSync(dir).length > 0) {
+  if (!isEmpty(dir)) {
     throw new Error(`${dir} is not empty`);
   }
   mkdirSync(join(dir, "archive"), { recursive: true });
-  const cloned = await locked(() =>
-    execOk(["cp", "-cR", DATA, join(dir, "data")])
-  );
+  const cloned = await locked(() => {
+    cpSync(DATA, join(dir, "data"), { recursive: true });
+    return Promise.resolve(true);
+  });
   if (cloned === null) {
     throw new Error("a run holds memory's lock: try again when it is done");
   }
@@ -158,7 +161,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   if (!(inData.startsWith("..") || isAbsolute(inData))) {
     rmSync(join(dir, "data", inData), { force: true, recursive: true });
   }
-  await execOk(["cp", "-cR", STATE, join(dir, "state")]);
+  cpSync(STATE, join(dir, "state"), { recursive: true });
   for (const p of filesUnder(join(dir, "state"))) {
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
@@ -171,7 +174,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   mkdirSync(watch, { recursive: true });
   const { cursor, file } = storeFiles();
   if (existsSync(cursor)) {
-    await execOk(["cp", cursor, watch]);
+    cpSync(cursor, join(watch, basename(cursor)));
   }
   if (existsSync(file)) {
     await copyDb(file, join(watch, basename(file)));
@@ -183,7 +186,9 @@ export async function stage(dir: string, archive = ARCHIVE) {
     await copyDb(db, join(dir, "archive", basename(db)));
   }
   if (existsSync(join(archive, "media"))) {
-    await execOk(["cp", "-cR", join(archive, "media"), join(dir, "archive")]);
+    cpSync(join(archive, "media"), join(dir, "archive", "media"), {
+      recursive: true,
+    });
   }
   const files: { path: string; sha256: string; size: number }[] = [];
   for (const path of filesUnder(dir)) {
