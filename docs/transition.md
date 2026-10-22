@@ -33,24 +33,29 @@ running until the app's takes over. `MAC` is `~/Library/Application Support/Life
 `H="/Applications/Life.app/Contents/Helpers/life"` run with `LIFE_ROOT=/Applications/Life.app/Contents/Resources/life`,
 `LIFE_DATA="$MAC/data"`, `LIFE_STATE="$MAC/state"` (never the app's own Import button, which starts it all at once).
 
-1. **The checkout on the new code.** `launchctl disable` then `bootout` the nightly first, wait until memory's lock is
-   free, then the watcher (`gui/$UID/com.ericedouard.life.memory-nightly`, `…watch`; disabled, they don't come back at
-   login). The archive keeps running. Pull `~/Work/life` (now with `transition`); `bun install`; add
-   `"reminders": true` to `derived/settings.json`; `bun life validate`; `bun life act --check` (remctl ready).
-2. **Export:** `bun life export ~/LifeExport-<date>` from the checkout.
-3. **Life.app** built (`bun scripts/app.ts`) into /Applications. By his hand: the Keychain items of service `Life`
-   from `.env` (a script he runs, names only printed), and Full Disk Access, Automation and Contacts for Life.app.
+1. **The checkout on the new code.** `launchctl disable` the nightly and the watcher
+   (`gui/$UID/com.ericedouard.life.memory-nightly`, `…watch`: they don't come back at login); wait until
+   `~/Life/.nightly.lock` is free (a tick finishes, never killed mid-commit); then `launchctl bootout` both. The
+   archive keeps running. With `transition` merged into `main` on GitHub: `git -C ~/Work/life pull --ff-only`;
+   `bun install`; add `"reminders": true` to `derived/settings.json`; `bun life validate`; `bun life act --check`
+   (remctl ready).
+2. **Export:** `bun life export ~/LifeExport-<date>` from the checkout, then at once `chmod -R a-w ~/Life`: a Claude
+   session's `bun life correct` or `act` meanwhile fails loudly instead of landing in a copy the app never reads.
+3. **Life.app** built (`bun scripts/app.ts`) into /Applications. By his hand: `scripts/keychain-from-env.sh` (the
+   Keychain items of service `Life` from `.env`, readable by Life.app without a prompt; names only printed), and Full
+   Disk Access, Automation and Contacts for Life.app.
 4. **Import** with the helper as above: `$H import ~/LifeExport-<date>` (the archive is kept as it is: the same
    folder), then `$H memory index`; copy `derived/events.json` (and `derived/oauth/` when there is one) to `$MAC/state/`
    with their modes (`cp -pR`), so Atlas keeps its subscription.
-5. **One live copy:** `~/Life` becomes `~/Life.before-app` and `~/Work/life/derived` `derived.before-app`, both made
-   read-only for 30 days; `~/Life` and `~/Work/life/derived` become links to `$MAC/data` and `$MAC/state`.
+5. **One live copy:** `~/Life` becomes `~/Life.before-app` and `~/Work/life/derived` moves out of the repo to
+   `$MAC/derived.before-app` (never committed), both read-only for 30 days, then removed with `~/LifeExport-<date>`
+   (gigabytes); `~/Life` and `~/Work/life/derived` become links to `$MAC/data` and `$MAC/state`.
 6. **Start:** `launchctl disable` and `bootout` the archive, then launch Life.app (Reminders on, login item); its
    archive takes the lock. Check: the status page's cards as before, the watcher polling, both locks in `MAC` held by
    the app, `actions: remctl ready`, the connector's tools in ChatGPT, the next nightly's report and backup.
-7. **Rollback, nothing lost:** quit Life.app; keep the links; `launchctl enable` and `bootstrap` the three jobs: the
-   checkout runs the same code on the same live copy. The `.before-app` folders matter only if the import itself was
-   wrong.
+7. **Rollback, nothing lost:** turn off Life.app's "Open Life at login" and quit it; keep the links; `launchctl enable`
+   and `bootstrap` the three jobs: the checkout runs the same code on the same live copy. The `.before-app` folders
+   matter only if the import itself was wrong.
 
 Debt until T5: the secrets live in both `.env` (the checkout) and the Keychain (the app).
 
