@@ -7,7 +7,9 @@ import {
   claudeTokens,
   codexTokens,
   extractJson,
+  llmFor,
   llmOverride,
+  quota,
   quotaOf,
   type Tools,
 } from "./llm";
@@ -336,4 +338,33 @@ test("claude's tokens: input counts its cache reads and writes, as codex's does"
       output_tokens: 7,
     })
   ).toEqual({ cached: 200, input: 235, output: 7 });
+});
+
+test("each provider's model and effort by tier; tools only on his subscriptions", async () => {
+  expect(llmFor("deep", "anthropic")).toEqual({
+    effort: "high",
+    engine: "anthropic",
+    model: "claude-opus-5-5",
+  });
+  expect(llmFor("fast", "claude")).toEqual({
+    effort: undefined,
+    engine: "claude",
+    model: "haiku",
+  });
+  expect(llmFor("main", "openai").model).toBe(llmFor("main", "codex").model);
+  await expect(
+    askOnce({
+      dir: mkdtempSync(join(tmpdir(), "life-llm-")),
+      input: {},
+      llm: llmFor("main", "openai"),
+      prompt: "files.v1",
+      run: "test",
+      tools: { command: [], env: {} },
+    })
+  ).rejects.toThrow("runs no tools");
+});
+
+test("only a provider with a quota reads one: a Claude run reads none, whatever his setting", async () => {
+  expect(await quota("claude")).toBeUndefined();
+  expect(await quota("anthropic")).toBeUndefined();
 });
