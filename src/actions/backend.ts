@@ -87,7 +87,6 @@ export interface ActionsBackend {
   undone: (id: string) => Promise<unknown>;
 }
 
-/** This install's backend; throws while the actions output is off. */
 let built: { b: ActionsBackend; of: unknown } | undefined;
 /**
  * This install's backend, made once per settings read (once per process: the watcher's is the one that writes the
