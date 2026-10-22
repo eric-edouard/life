@@ -6,8 +6,9 @@ plus an always-on archive of deleted messages and old note versions. Shipped as 
 
 Read before changing an area: `docs/architecture.md` (shape and reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
-backups, evals, the read CLI), `docs/dashboard.md` (status reads and page), `docs/releasing.md`, `SECURITY.md`.
-`docs/agent.md` is not documentation: it is the agent's playbook, read at run time.
+backups, evals, the read CLI), `docs/dashboard.md` (the connector's status reads), `docs/releasing.md`,
+`SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
+documentation: it is the agent's playbook, read at run time.
 
 ## Commands
 

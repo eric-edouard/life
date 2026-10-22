@@ -1,6 +1,6 @@
 # Architecture
 
-Life is a memory of one person's life, built from his own sources and kept on his own Mac. This page explains its
+Explanation: how Life is built and why. Life is a memory of one person's life, built from their own sources and kept on their own Mac. This page explains its
 shape and the reasons for it. Record formats are in `docs/SCHEMA.md`, sources in `docs/sources.md`, the agent and the
 connector in `docs/tasks.md`, how it runs in `docs/operations.md`.
 
@@ -23,9 +23,22 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 
 ## The pipeline
 
-```
-sources → units → moments (with a verdict per unit) → observations → people and area pages
-                                                                  ↘ the search index
+```mermaid
+flowchart LR
+  subgraph Mac["The Mac"]
+    direction LR
+    S["Sources<br/>voice · chats · mail · notes · git"] --> U["Units<br/>a chapter, a chat-day, a thread-day"]
+    U --> M["Moments<br/>one read per day,<br/>a verdict per unit"]
+    M --> O["Observations<br/>quote-checked facts"]
+    O --> P["Pages<br/>people · areas · the owner"]
+    O --> I[("Search index")]
+    A[("Archive<br/>deleted messages,<br/>note versions")] --> S
+    P --> C{{"Connector<br/>/mcp"}}
+    I --> C
+  end
+  C <--> AI["Claude · ChatGPT"]
+  C -- "ask events" --> AG["The agent"]
+  AG -- "task updates" --> C
 ```
 
 - **Sources** (`src/sources/`, one descriptor each in `src/sources/index.ts`) return events with stable ids, so reading
@@ -57,7 +70,7 @@ Time is modeled without a new store: said (`at`), valid (`validFrom`/`validTo`),
 ### The owner's own page
 
 `memory/pages/people/me.md` (`OWNER` in `truth.ts`) is built from the observations like every page, with its own
-sections (`layoutOf`, `page.ts`), so changing its shape costs a rebuild of one page. `person me` adds his goals, read
+sections (`layoutOf`, `page.ts`), so changing its shape costs a rebuild of one page. `person me` adds the owner's goals, read
 from `truth/me.md`.
 
 ## Relationships and closeness
@@ -67,7 +80,7 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **Who gets a page is a closeness level** (`src/memory/closeness.ts`), judged by a model on numbers code counts from
   raw signals only (two-way 1:1 message days, voice presence, recency), never from model output, so there is no
   feedback loop. Personal and work closeness are separate scores. Service accounts are not people. Close family keeps a
-  floor. The owner can override any level in a sentence; there is no list for him to keep.
+  floor. The owner can override any level in a sentence; there is no list for the owner to keep.
 - **A section that does not age:** close people's pages have "Between us" (role, agreements, boundaries, dynamics,
   turning points), each line cited and attributed; a line with no new evidence in 12 months moves to History.
   Close means close personally now or once, so a dip never empties the section.
@@ -91,7 +104,7 @@ someone else is capped at 0.6 confidence.
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
   the prompt.
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
-- The connector is reached through the owner's tailnet (or a tunnel he controls), behind his sign-in.
+- The connector is reached through the owner's tailnet (or a tunnel the owner controls), behind the owner's sign-in.
 
 ## The app
 
@@ -107,13 +120,13 @@ reading the plate from the watcher's local status reads (`src/dashboard.ts`, `LO
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
 
 - **The check page** (`src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false
-  when he likes, never a queue Life waits on) and appends his answers to `memory/ratings.jsonl`, nothing else. Same
+  when the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else. Same
   OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a `wrong`
   correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
-- **The portrait** (`src/portrait.ts`, `/me`) serves pages about the owner and his people from `DATA/docs/portrait/`
-  (written in a session from his memory, never in this repo): `/me` is `index.html`, `/me/<name>` is `<name>.html`,
+- **The portrait** (`src/portrait.ts`, `/me`) serves pages about the owner and the owner's people from `DATA/docs/portrait/`
+  (written in a session from the owner's memory, never in this repo): `/me` is `index.html`, `/me/<name>` is `<name>.html`,
   `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player (`assets/portrait/`); nothing
   else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a password
   (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with the

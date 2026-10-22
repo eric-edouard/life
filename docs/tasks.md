@@ -1,5 +1,7 @@
 # The agent, the connector and actions
 
+Developer reference: how Life acts, hands work to the agent and serves the connector.
+
 Life is a memory: it reads. It acts in a few narrow ways, each logged in `memory/actions.jsonl`, and hands deep work
 to the owner's agent. This page holds the developer-facing rules. The agent's own instructions are
 the playbook, `docs/agent.md`: it is read at run time, so it is not repeated here.
@@ -18,7 +20,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   `playbook.md` in the data root. `tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
   hash of the text and a 6-hour window); `task` refuses a write without the current seal and answers with the text.
   The text between `<!-- reminders -->` markers is cut while the Reminders plugin is off: keep the markers.
-- What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ("Set up once" in `docs/agent.md`).
+- What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
   The connector's instructions (512 characters at most) open with that line. Events carry data only.
 - The playbook makes the agent confirm a low-confidence ask with the owner first, send as the owner only under its
   `## Sends`, and change reminders only through the connector's `reminders`.
@@ -27,17 +29,17 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 - An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`src/hear.ts`:
   the two words, no model call), or from `bun life ask` in a Claude session.
-  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. His own "hey" plus the word lifelog
+  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. The owner's own "hey" plus the word lifelog
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
 - `ask` (`src/tasks.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
   it (`src/events.ts`).
-- The agent also records one through `task` from the owner's chat (`madeBy: "connector"`): his verbatim words and when
-  he sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
-  (`parent`, `title`) that inherits its words. Never a task without his words. It is claimed in the same call, so it
+- The agent also records one through `task` from the owner's chat (`madeBy: "connector"`): the owner's verbatim words and when
+  the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
+  (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is claimed in the same call, so it
   sends no `ask` event.
-- An ask line's `instruction.quote` keeps his words whole (clipped at 50,000 characters). This is the one place memory
+- An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded, delivered,
   claimed, closed.
@@ -51,8 +53,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   lines are what the agent told the owner (one on no task targets `chat`).
 - `changes` with `about` `task:<id>` is a task's whole history. `nudge` and `steer` lines are old kinds that only parse.
 - **What needs the owner is one rule, `escalation`**, for every task: unclaimed 30 min after the ask, claimed and past
-  its deadline, waiting on him over 1 h, a week old, or no live subscription (one email a day). `chase` (each minute in
-  the watcher) emails him once per task with the cause and the agent's last update; a pass's new causes go in one email.
+  its deadline, waiting on the owner over 1 h, a week old, or no live subscription (one email a day). `chase` (each minute in
+  the watcher) emails the owner once per task with the cause and the agent's last update; a pass's new causes go in one email.
 - Task lines stay out of the report's Actions section and out of `day`. The nightly lists every open task and those
   closed in the last day, counts the last day's asks with no reply logged (`unanswered`), and says "no daily review
   reached Life" when the agent made no successful `day` call in 24 h (`reviewed`, `nightly.ts`): the agent's daily
@@ -63,7 +65,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - **Life's code acts in one place only, on the owner's clear request in a Claude session or a chat: Apple Reminders**
   (add, edit, done, undone, remove to Recently Deleted, restore), through `act` (`src/actions.ts`). `act` is the only
   code that decides an action. It records its intent before each write and its outcome after.
-- When he asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
+- When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
   `src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why.
 - `act` refuses an add whose title an open reminder has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time. `act` refuses the agent's list (`BOARD`): that list is the board, below.
@@ -83,7 +85,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 ### Reading Reminders back
 
 The owner's changes in Reminders (tick, untick, edit, priority, urgent, add, delete) come back through `inbound.ts`
-each minute as state only: one `madeBy: "reminders"` line each, with no `instruction` (they are not his quoted words).
+each minute as state only: one `madeBy: "reminders"` line each, with no `instruction` (they are not the owner's quoted words).
 
 - They may close, reopen, reschedule, re-rank, rename, drop or add an item, and nothing else (no ask, send, approval
   or grant).
@@ -95,7 +97,7 @@ each minute as state only: one `madeBy: "reminders"` line each, with no `instruc
 ### Open items
 
 `openItems` (`src/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
-what sync read back) and the chats. Code ranks them (his urgent flag and priority, who owes whom, his goals' order,
+what sync read back) and the chats. Code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to the agent's review at most twice (counted from the ids its `day` calls were logged
 with). `day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
 it, within a minute. `open_reminders` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
@@ -109,22 +111,22 @@ never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
   dropped (`closings`), so it is not added again. The agent sees why in `tasks`. Nothing else on the board is read as
-  his: steers from it once forged his voice.
+  the owner's: steers from it once forged the owner's voice.
 - An item is found by the task id on its notes' first line. Each pass brings its notes and section (Open, Working:
   made by hand; the code only assigns them) in line, and ticks the item when its task closes, and only then, so a
-  ticked receipt of an open task is always his.
-- It never alerts: what needs him is emailed (`chase`).
+  ticked receipt of an open task is always the owner's.
+- It never alerts: what needs the owner is emailed (`chase`).
 
 ### The standing grant
 
-The only other authority, off until the owner's words in a Claude session turn it on (`bun life grant on|off '<his
-words>'`, a `grant` line in the ledger, the latest standing). His "stop" may come through the agent, because off only
+The only other authority, off until the owner's words in a Claude session turn it on (`bun life grant on|off '<their
+words>'`, a `grant` line in the ledger, the latest standing). The owner's "stop" may come through the agent, because off only
 takes authority away.
 
-- While on, `reminders` with `obs` in place of `said` adds a reminder (title, list, due, section) from his current
-  salience-3 to-do or promise in a lifelog turn the store credits to him at that moment.
+- While on, `reminders` with `obs` in place of `said` adds a reminder (title, list, due, section) from the owner's current
+  salience-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
-  by hand) until his next yes (`grantRefusal`, all derived from the ledger).
+  by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
 - Its authority is the observation alone: never the board, a `/check` tap or a chat `said`. It binds the connector, not
   the agent's terminal.
 
@@ -138,7 +140,7 @@ events with `lifeMoment` are Life's output and must be dropped.
 
 ## "hey Life"
 
-The owner's marker, for memory only. His turn holding it (an unattributed one too) and his turns right after
+The owner's marker, for memory only. The owner's turn holding it (an unattributed one too) and the owner's turns right after
 (`marksIn`, `src/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
 watcher's store (`writeMarks`, refs only). Their chapter's unit carries them (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
@@ -148,12 +150,12 @@ observations citing it. It never acts, asks or sends.
 ## The connector
 
 `src/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections, acts only
-on his explicit request (in the chat, or in an ask through the agent's `reminders` and `task`) or on the standing
+on the owner's explicit request (in the chat, or in an ask through the agent's `reminders` and `task`) or on the standing
 grant, and logs the agent's replies.
 
 - **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the dashboard's
   JSON reads `status`, `runs`, `changes`, `claim`, see `docs/dashboard.md`; and the memory reads); `correct` (lifelog
-  writes all go through the table in `forward`, `src/sources/lifelog.ts`); `reminders` (through `act`, with his words
+  writes all go through the table in `forward`, `src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `actions.jsonl`
   line, appended only: it sends nothing).
 - `correct` is annotated destructive so clients ask first. `reminders`, `task` and `reply` are not (a remove goes to
@@ -180,7 +182,7 @@ How each one goes out:
 - The nightly report and the alerts, to the owner only (`src/memory/report.ts`: sender and address in the `mail`
   setting), by email, or with no `mail` setting as a macOS notification with the report kept as a page in
   `STATE/reports`. Either way the log's `email.sent` means delivered. The alerts: a failed action or an ask whose
-  delivery failed; a task that needs him, once per cause; the agent not subscribed to `ask` (one a day for all open
+  delivery failed; a task that needs the owner, once per cause; the agent not subscribed to `ask` (one a day for all open
   tasks); a run holding the lock over 3 h (once per incident); an archive store failing for an hour (`archiveFailing`
   in `src/archive.ts`, once per incident and again daily while it lasts). Every send goes out once per key
   (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).

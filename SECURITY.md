@@ -44,7 +44,7 @@ and what it does not.
 
 **Actions**
 
-- Life's code acts in one place: Apple Reminders, on the owner's explicit request (or a standing grant he turns on),
+- Life's code acts in one place: Apple Reminders, on the owner's explicit request (or a standing grant the owner turns on),
   every action logged. Nothing Life hears or reads makes it act by itself.
 
 ## Known risks

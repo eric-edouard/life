@@ -1,5 +1,7 @@
 # Dashboard reads
 
+Developer reference for the connector's four JSON status reads. Most people never need it: the status window in Life.app shows the same.
+
 Four read-only tools on Life's connector (`/mcp`) let a private dashboard show whether Life works, what it ran, every
 change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code:
 `bun life memory status | runs | changes | claim`. Code: `src/memory/history.ts` (status, runs) and
@@ -52,7 +54,7 @@ counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `rea
 nightly's `listed`: the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases
 it entered, in order (its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being
 `status`'s `processing.phase`. A sweep lists its steps in
-`children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of his Codex plan,
+`children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of the owner's Codex plan,
 derived from the log (`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each
 `model.run` line's) and its steps'; a metered run (a sweep, the eval `eval`, the agent bench `bench.agent`: `metered`,
 run.ts) also has the `quota` it read as it started and ended (`before`, `after`: whole percents of the fuller window;
@@ -81,7 +83,7 @@ refresh from it returns only what was appended since (about 40 ms).
 
 Every item: `id` (stable: `observations/2026-10#1234`, `corrections#24`, `page:<sha>:<path>`), `type`, `record`
 (the ledger line as written; a page change: its `sha`, `path`, `subject`), `recordedAt` (when Life recorded it; for an
-observation, the start of the run that wrote it), `happenedAt` (when it happened in his life: the cited line, his
+observation, the start of the run that wrote it), `happenedAt` (when it happened in the owner's life: the cited line, the owner's
 request; null for Life's own acts), `run` and `about`. By type:
 
 | `type` | One item per | Also |
@@ -90,10 +92,10 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `observation.superseded` | supersession | |
 | `correction.<kind>` | owner correction | `reflected` |
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
-| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line: Life's act, or his own change in Reminders (`record.madeBy` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
+| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line: Life's act, or the owner's own change in Reminders (`record.madeBy` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
 | `action.ask` | an ask for the agent in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
 | `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
-| `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim, an outdated retires it) | |
+| `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (the owner's answer on the check page; a false hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
 Filters: `types` (types or prefixes: `observation`, `correction`, `action.failed`…), `about` (`person:<id>`,
@@ -102,7 +104,7 @@ reach: every match is still returned, page by page.
 
 - **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its
   unit no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced`
-  (its unit was read again; the newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when he rated it outdated; still indexed, still
+  (its unit was read again; the newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner rated it outdated; still indexed, still
   cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is hidden on (pages
   carry salience 2+ only). It is the rule the index and the pages go by (`stateOf`, `src/memory/ledger.ts`), so it
   says what they show. An observation is a model's reading of the source with its quote checked against it: `active`
