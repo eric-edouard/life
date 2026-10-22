@@ -5,13 +5,14 @@ import { stage } from "./export";
 import { readJson } from "./memory/ledger";
 import { localTime } from "./memory/units";
 import { isOn } from "./outputs";
+import { MACHINE } from "./platform";
 import { exec } from "./proc";
 import { expand, settings } from "./settings";
-import { MAC, STATE } from "./truth";
+import { STATE } from "./truth";
 
 // The daily restic snapshot (docs/operations.md, "Backups and exports") to the `backup` setting's repository, run by
 // the nightly's tick (`backupDue`). Without the setting there is no backup, and the report says it is off.
-const STAGING = join(MAC, "backup-staging");
+const STAGING = join(MACHINE, "backup-staging");
 const STATUS = join(STATE, "backup.json");
 
 /** The last good snapshot (when, its size, its id) and what went wrong in the last run. */

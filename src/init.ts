@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { clock } from "./clock";
 import { appendJsonl } from "./memory/ledger";
-import { macZone } from "./memory/zones";
+import { systemZone } from "./platform";
 import { git } from "./proc";
 import { Zone } from "./schema";
 import { DATA, integrity, loadTruth } from "./truth";
@@ -48,7 +48,7 @@ export async function init(owner: Owner, data = DATA, now = clock()) {
     writeFile(join(truth, "projects", ".gitkeep"), ""),
     writeFile(join(truth, "me.md"), `# Me\n\n${owner.name}.\n`),
     appendJsonl(join(data, "memory", "zones.jsonl"), Zone, [
-      { from: now.toISOString(), schemaVersion: 1, tz: macZone() ?? "UTC" },
+      { from: now.toISOString(), schemaVersion: 1, tz: systemZone() ?? "UTC" },
     ]),
   ]);
   const issues = integrity(await loadTruth(data));

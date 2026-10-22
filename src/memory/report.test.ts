@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { notifyArgs, WINDOWS } from "../platform";
 import { Action, AGENT_WORD } from "../schema";
 import { action, madeBy } from "./fixtures";
 import {
@@ -7,7 +8,6 @@ import {
   failureReport,
   lockReport,
   type Night,
-  notifyArgs,
   sendReport,
   successReport,
 } from "./report";
@@ -352,10 +352,13 @@ test('each "hey Life" is listed with what the memory holds of it', () => {
   expect(text).toContain("nothing held");
 });
 
-test("a notification's words are the script's arguments, never its text", () => {
-  const title = 'Life · "night" \u0007 done';
-  const body = 'end run\ndisplay dialog "x"';
-  const args = notifyArgs(title, body);
-  expect(args.slice(-2)).toEqual([title, body]);
-  expect(args.slice(0, -2).join(" ")).not.toContain("night");
-});
+test.skipIf(WINDOWS)(
+  "a notification's words are the script's arguments, never its text",
+  () => {
+    const title = 'Life · "night" \u0007 done';
+    const body = 'end run\ndisplay dialog "x"';
+    const args = notifyArgs(title, body) ?? [];
+    expect(args.slice(-2)).toEqual([title, body]);
+    expect(args.slice(0, -2).join(" ")).not.toContain("night");
+  }
+);

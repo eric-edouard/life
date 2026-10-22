@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { MACHINE } from "../src/platform";
 
 test("every fact and moment the README cites is in the demo scripts/demo.ts writes", () => {
   const out = join(mkdtempSync(join(tmpdir(), "life-demo-")), "demo");
@@ -27,7 +28,7 @@ test("the demo refuses a folder inside Life's own data", () => {
   const run = Bun.spawnSync([
     "bun",
     join(import.meta.dir, "demo.ts"),
-    join(process.env.HOME ?? "", "Library/Application Support/Life/demo"),
+    join(MACHINE, "demo"),
   ]);
   expect(run.exitCode).toBe(1);
 });
