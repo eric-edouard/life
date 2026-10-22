@@ -44,8 +44,7 @@ struct LifeApp: App {
         }
       )
       .task {
-        // Started at launch (`AppDelegate`); the first run's setup opens with the menu.
-        await supervisor.refresh()
+        await supervisor.start()
         if supervisor.info?.started == false {
           NSApp.activate()
           openWindow(id: "settings")
