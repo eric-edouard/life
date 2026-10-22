@@ -6,3 +6,6 @@ derived/
 .claude/worktrees/
 /memory/
 /truth/
+dist/
+app/.build/
+app/Frameworks/

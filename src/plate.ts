@@ -1,10 +1,11 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { archiveFailing, STORES } from "./archive";
-import { backupOld, backupSize, readBackup } from "./backup";
+import { archiveFailing, keptStores } from "./archive";
+import { backupOld, backupOn, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
-import { ATLAS, clientName, deliveryState, subscribed } from "./events";
+import { agentLive, clientName, deliveryState, isAgent } from "./events";
 import { readHealth } from "./health";
+import type { Call } from "./log";
 import { type LogEvent, recentEvents } from "./log";
 import { macState, sleeps } from "./mac";
 import { changeFeed } from "./memory/feed";
@@ -25,8 +26,14 @@ import { clip } from "./memory/units";
 import { git } from "./proc";
 import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
+import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
-import { type Descriptor, type Newest, SOURCES } from "./sources/index";
+import {
+  type Descriptor,
+  enabledSources,
+  listening,
+  type Newest,
+} from "./sources/index";
 import { lifelogStatus, newestTurn } from "./sources/lifelog";
 import { escalation, taskList } from "./tasks";
 import { DATA, loadTruth } from "./truth";
@@ -274,7 +281,7 @@ const firstOf = (
 const newestOf = async () =>
   new Map(
     await Promise.all(
-      SOURCES.map(
+      enabledSources().map(
         async (d) =>
           [
             d.name,
@@ -348,6 +355,7 @@ async function reads(now: Date) {
   const mcp = of("mcp.call", 2);
   return {
     actions,
+    agentLive: await agentLive(t, async () => mcp as Call[]),
     contacts,
     errorsToday: of("run.error", 1),
     failingStores: new Map(failing),
@@ -507,13 +515,28 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   };
 }
 
+/** A source he turned on that can't be read now (not set up, or its access gone): what it needs. Its units are kept. */
+const unreadableCard = (d: Descriptor, why: string): Card => ({
+  facts: [],
+  group: "sources",
+  headline: why,
+  id: d.name,
+  name: d.label,
+  tone: "bad",
+  word: "can't read",
+});
+
 function sourceCards(r: Reads): Card[] {
   return [
-    ...SOURCES.flatMap((d) =>
-      d.kind === "voice"
+    ...enabledSources().flatMap((d) => {
+      const why = d.missing?.();
+      if (why) {
+        return [unreadableCard(d, why)];
+      }
+      return d.kind === "voice"
         ? [pendantCard(r, d), lifelogCard(r)]
-        : [sourceCard(r, d)]
-    ),
+        : [sourceCard(r, d)];
+    }),
     {
       ...(r.contacts.ok
         ? { tone: "ok", word: "readable" }
@@ -566,18 +589,21 @@ function captureCards(r: Reads): Card[] {
       ),
       beat: 5000,
       // Each store: copying or failing, and its last copy (lifeStatus's).
-      facts: STORES.map((s) => ({
+      facts: keptStores().map((s) => ({
         at: r.status.capture.archive[s.name],
         label: s.name,
         value: r.failingStores.has(s.name) ? "failing, last copy" : "last copy",
       })),
       group: "capture",
-      headline: archiveUp ? `every 5 s · ${STORES.length} stores` : "stopped",
+      headline: archiveUp
+        ? `every 5 s · ${keptStores().length} stores`
+        : "stopped",
       id: "archive",
       name: "Archive",
     },
     {
       ...firstOf(
+        [!listening(), { tone: "idle", word: "no voice source" }],
         [
           !watching,
           {
@@ -775,6 +801,7 @@ function backupCard(r: Reads): Card {
   const old = backupOld(r.now, b);
   return {
     ...firstOf(
+      [!backupOn(), { tone: "idle", word: "off" }],
       [
         !!b?.error,
         { ask: ASK("the backup failing"), tone: "bad", word: "failed" },
@@ -922,20 +949,19 @@ function memoryCards(r: Reads): Card[] {
 function atlasCards(r: Reads): Card[] {
   const events = deliveryState();
   const lines = linesOf(ACTIONS).length;
-  const live = subscribed(r.t);
-  const calls = since(r.mcp, DAY, r.t).filter(
-    (c) => clientName(c.agent) === ATLAS
-  );
+  const live = r.agentLive;
+  const pulls = settings().agent?.transport === "pull";
+  const calls = since(r.mcp, DAY, r.t).filter((c) => isAgent(c.agent));
   const tasks = taskList(r.t);
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
   return [
     {
       ...(live
-        ? { tone: "ok", word: "subscribed" }
+        ? { tone: "ok", word: pulls ? "checking in" : "subscribed" }
         : {
-            ask: ASK("that Atlas holds no live subscription to asks"),
+            ask: ASK(`that ${agentName()} isn't receiving asks`),
             tone: "bad",
-            word: "no subscription",
+            word: pulls ? "not checking in" : "no subscription",
           }),
       facts: [
         { at: events.subscription?.verifiedAt, label: "Subscription verified" },
@@ -949,9 +975,9 @@ function atlasCards(r: Reads): Card[] {
       ],
       flow: events.delivered,
       group: "outputs",
-      headline: live ? "subscribed" : "not subscribed",
+      headline: live ? "receiving asks" : "not receiving asks",
       id: "atlas",
-      name: "Atlas",
+      name: agentName(),
     },
     {
       ...firstOf(
@@ -972,7 +998,7 @@ function atlasCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${tasks.length} open`,
       id: "tasks",
-      name: "Atlas tasks",
+      name: `${agentName()} tasks`,
     },
   ];
 }

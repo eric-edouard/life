@@ -1,10 +1,11 @@
+import { settings } from "../settings";
 // The nightly report as an HTML email in the owner's Ledger brand (AGENTS.md): paper page, one
 // white card, serif to read, mono to count; tables and inline styles only, no web fonts, no images, no links, no
 // tracking. Light only.
 
-/** Life's own mail: its sender, and how `compose` (report.ts) starts every subject. */
+/** Life's own mail: its sender (the `mail` setting; none set, no mail is Life's), and how `compose` (report.ts) starts every subject. */
 export const LIFE_MAIL = {
-  from: "alerts@send.ericedouard.com",
+  from: settings().mail?.from,
   subject: "Life · ",
 };
 

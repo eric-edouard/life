@@ -8,7 +8,7 @@ import {
   whose,
   writeMarks,
 } from "./sources/lifelog";
-import { ask, MARK, WAKE } from "./tasks";
+import { ask, isName, MARK, WAKE } from "./tasks";
 
 // Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
 // event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest. It
@@ -26,13 +26,13 @@ type Confidence = "high" | "low";
 /** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn): Confidence | undefined {
   const words = wakeWords(t);
-  if (words.includes("atlas") && t.who !== "other") {
+  if (words.some((w) => w && isName(w)) && t.who !== "other") {
     return t.who === "me" ? "high" : "low";
   }
   return words.length > 0 && t.who === "me" ? "low" : undefined;
 }
 
-/** The wake words in a turn: "atlas", or a misheard one. */
+/** The wake words in a turn: the agent's name, or a misheard one. */
 const wakeWords = (t: Turn) =>
   [...t.text.matchAll(new RegExp(WAKE, "gi"))].map((m) => m[1]?.toLowerCase());
 
@@ -173,7 +173,7 @@ export async function hear(
   const misheard = turns.some(
     (t) =>
       t.who === "unknown" &&
-      wakeWords(t).some((w) => w !== "atlas") &&
+      wakeWords(t).some((w) => w && !isName(w)) &&
       now - Date.parse(t.seen) < NAMING_MS
   );
   return { heard: !(asks.some(held) || misheard), marked };

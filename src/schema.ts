@@ -89,7 +89,11 @@ export const Project = z
 export type Project = z.infer<typeof Project>;
 
 /** The model runner he chooses for every step (src/llm.ts, `bun life engine`). */
-export const Engine = z.enum(["claude", "codex"]);
+/**
+ * claude and codex: the owner's subscriptions, through their CLIs; anthropic and openai: an API key
+ * (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`), for an install that has none.
+ */
+export const Engine = z.enum(["claude", "codex", "anthropic", "openai"]);
 export type Engine = z.infer<typeof Engine>;
 /** What can run one call: his engines, and OpenRouter for the bench alone (`llmOverride`, only on a copy of his data). */
 export const Runner = z.enum([...Engine.options, "openrouter"]);
@@ -187,7 +191,7 @@ export const stands = (a: Action) =>
   a.result === "ok" || a.result === "duplicate";
 
 /** Where a unit or an observation comes from. */
-const SourceName = z.enum([
+export const SourceName = z.enum([
   "lifelog",
   "beeper",
   "whatsapp",

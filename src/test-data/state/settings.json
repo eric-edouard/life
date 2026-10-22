@@ -1,0 +1,40 @@
+{
+  "agent": {
+    "client": "openai-mcp",
+    "misheard": ["at last", "Zorba"],
+    "name": "Atlas",
+    "wake": ["atlas"]
+  },
+  "backup": {
+    "password": "echo made-up",
+    "repository": "~/made-up-backup"
+  },
+  "connector": {
+    "client": "test-check-client",
+    "issuer": "https://voice.example.test/api/auth",
+    "origin": "https://life.example.test",
+    "owner": "owner-sub"
+  },
+  "lifeChat": "!life:beeper.local",
+  "lifelog": {
+    "url": "https://voice.example.test"
+  },
+  "mail": {
+    "from": "alerts@life.example.test",
+    "to": "owner@example.test"
+  },
+  "reports": ["alerts@agents.example.test"],
+  "repos": "~/Work",
+  "sources": [
+    "lifelog",
+    "imessage",
+    "whatsapp",
+    "beeper",
+    "mail",
+    "notes",
+    "claude",
+    "chatgpt",
+    "atlas",
+    "git"
+  ]
+}

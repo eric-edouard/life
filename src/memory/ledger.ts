@@ -29,7 +29,7 @@ import {
   Unresolved,
   Verdict,
 } from "../schema";
-import { DATA, ROOT } from "../truth";
+import { DATA, STATE } from "../truth";
 
 // memory/ on disk: every path, one JSON Lines reader and appender, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
@@ -48,7 +48,7 @@ export const latestBy = <T>(list: T[], key: (x: T) => string) =>
 export const runAt = (run: string) => run.replace(RUN_TIME, "T$1:$2:$3");
 
 /** Runs and the search index: generated, rebuildable, not in git. */
-export const OUT = join(ROOT, "derived", "memory");
+export const OUT = join(STATE, "memory");
 
 export const UNITS = join(MEMORY, "units");
 export const OBSERVATIONS = join(MEMORY, "observations");
@@ -141,6 +141,9 @@ const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
 
 /** Every unit in memory/units/, oldest day first. */
 export const readUnits = () => readFolder(UNITS, Unit);
+/** The units of these days only. */
+export const readUnitsOf = (dates: string[]) =>
+  dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
 
 export const readObservations = () => readFolder(OBSERVATIONS, Observation);
 

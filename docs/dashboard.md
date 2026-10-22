@@ -9,7 +9,7 @@ reads it (to show who sent the line). Every answer is JSON, sent once as text co
 `structuredContent`: the model would read it twice), and carries `observedAt`, the server's time.
 
 Auth is the connector's, unchanged: lifelog's JWT for `https://life.ericedouard.com/mcp`, `life:read`, `sub` =
-`LIFE_OWNER_SUB`. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
+the `connector` setting's owner. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
 
 ## status
 
@@ -24,7 +24,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
 | `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
 
-- `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, or `unknown` (no health file).
+- `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no health file).
 - `extraction`, `consolidation`, `nightly`, `midday` each give `latest`, `lastOk`, `lastFailed` (whole run records, see
   `runs`) within the last `lookbackDays` (7) of logs; null means none recorded in that time, not success.
 - `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else `idle`.

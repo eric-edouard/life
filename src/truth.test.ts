@@ -2,15 +2,21 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { LOG_DIR } from "./log";
+import { OUT } from "./memory/ledger";
 import { commitMemory } from "./memory/run";
 import { git } from "./proc";
 import { type Chat, Person } from "./schema";
+import { SETTINGS } from "./settings";
+import { WATCH } from "./sources/lifelog";
 import {
   DATA,
   FIXTURES,
   integrity,
   loadTruth,
+  ROOT,
   readMe,
+  STATE,
   type Truth,
 } from "./truth";
 
@@ -100,10 +106,8 @@ describe("integrity", () => {
     );
   });
 
-  test("me.md needs its goals, and they name projects that exist", () => {
-    expect(integrity(truth({ me: readMe("# Me\n\nJean.") }))).toEqual([
-      "me.md has no ## Goals: every model call would miss them",
-    ]);
+  test("me.md's goals are optional, and name projects that exist", () => {
+    expect(integrity(truth({ me: readMe("# Me\n\nJean.") }))).toEqual([]);
     const me = readMe("# Me\n\nJean.\n\n## Goals\n1. Be free. (`ghost`)");
     expect(integrity(truth({ me }))).toEqual([
       "a goal in me.md names unknown project ghost",
@@ -167,4 +171,11 @@ test("a birthday is --MM-DD or YYYY-MM-DD, and a real date", () => {
     false,
     false,
   ]);
+});
+
+test("a test run's state is all in its copy of the data, never the checkout's derived/", () => {
+  for (const path of [STATE, SETTINGS, LOG_DIR, OUT, WATCH]) {
+    expect(path.startsWith(DATA)).toBe(true);
+    expect(path.startsWith(ROOT)).toBe(false);
+  }
 });

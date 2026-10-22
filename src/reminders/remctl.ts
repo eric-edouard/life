@@ -2,15 +2,19 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
 import { exec } from "../proc";
+import { agentName } from "../settings";
 
 // How Life talks to his Apple Reminders: remctl (its signed host, `--json`), the shape of a reminder, his lists. This
 // folder is the only code that touches Reminders, an interface to Life, never its truth: `write.ts` makes the changes
 // `act` decides, `board.ts` projects Atlas's tasks, `inbound.ts` reads his changes back as state. Delete the folder and
 // Life still knows every task and every action from the ledger (memory/actions.jsonl).
 
-const REMCTL = join(homedir(), "bin", "remctl");
+/** remctl, his; or the app's life-eventkit (EventKit, the same commands and answers), set by the app. */
+const REMCTL = process.env.LIFE_EVENTKIT ?? join(homedir(), "bin", "remctl");
+/** Whether lists have sections: remctl's do, EventKit has none (the board then asks for none). */
+export const SECTIONS = !process.env.LIFE_EVENTKIT;
 /** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
-export const BOARD = "Atlas";
+export const BOARD = agentName();
 
 const parse = <T>(s: string) => {
   try {
@@ -107,7 +111,7 @@ const listsOf = async (list?: string) =>
 export async function openReminders(list?: string) {
   const open = await Promise.all(
     (await listsOf(list)).map((l) =>
-      remctl<Reminder[]>(["show", "--list-id", `${l.id}`])
+      remctl<Reminder[]>(["show", `--list-id=${l.id}`])
     )
   );
   return open.flat();
@@ -156,7 +160,7 @@ export async function pull(): Promise<Snapshot> {
     mine.map((l, i) =>
       shared[i]
         ? []
-        : remctl<Reminder[]>(["show", "--list-id", `${l.id}`, "--completed"])
+        : remctl<Reminder[]>(["show", `--list-id=${l.id}`, "--completed"])
     )
   );
   // After the lists: a reminder he removes meanwhile is live or in the bin, never neither.

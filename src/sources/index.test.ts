@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
 import { Unit } from "../schema";
-import { type Descriptor, SOURCES } from ".";
+import { type Descriptor, enabledSources, readySources, SOURCES } from ".";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);
@@ -81,4 +81,24 @@ test("a chat app's ids say which chats are groups: the closeness counts leave th
     (s) => (s === ann ? "person:ann" : null)
   );
   expect([...(days.get("person:ann")?.keys() ?? [])]).toEqual(["2026-10-03"]);
+});
+
+test("only the sources he turned on are read, and one not set up yet is left out, never a failure", () => {
+  const ready = {
+    kind: "notes",
+    label: "Ready",
+    name: "notes",
+    read: () => [],
+    silentAfter: 1,
+  } as Descriptor;
+  const notYet = {
+    ...ready,
+    missing: () => "Full Disk Access for Life",
+    name: "imessage",
+  } as Descriptor;
+  const on = enabledSources([ready, notYet], ["notes", "imessage"]);
+  expect(readySources(on).map((s) => s.name)).toEqual(["notes"]);
+  expect(enabledSources([ready, notYet], ["imessage"])).toEqual([notYet]);
+  // A fresh install turns nothing on: nothing is read, and nothing fails.
+  expect(enabledSources(SOURCES, [])).toEqual([]);
 });

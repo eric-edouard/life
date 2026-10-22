@@ -9,7 +9,6 @@ import {
   extractJson,
   llmOverride,
   quotaOf,
-  readEngine,
   type Tools,
 } from "./llm";
 import { LOG_DIR } from "./log";
@@ -24,16 +23,6 @@ test("a model reply: bare or fenced JSON, and a self-correction's last object wi
     )
   ).toEqual({ a: 2 });
   expect(() => extractJson("no json")).toThrow();
-});
-
-test("a corrupt settings file throws instead of switching engine; a missing one is the default", () => {
-  const path = join(
-    mkdtempSync(join(tmpdir(), "life-settings-")),
-    "settings.json"
-  );
-  expect(readEngine(path)).toBe("claude");
-  writeFileSync(path, '{"engine": "co');
-  expect(() => readEngine(path)).toThrow();
 });
 
 test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own", () => {
