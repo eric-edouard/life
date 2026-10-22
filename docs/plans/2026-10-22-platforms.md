@@ -1,151 +1,150 @@
-# Platforms plan: Windows, Android, Better-T-Stack (22 Oct 2026)
+# Platforms and modules plan: Life (22 Oct 2026)
 
-A scope, not a build: what a working Windows Life and an Android capture app take, the decisions taken on 22 Oct, and
-the order to build in. Line numbers are from `main` at 3baf0e6 (Life) and lifelog's `claude/publish-prep` branch (which
-holds the SQLite port and Lifelog Host). The long-form report, with the same tables, is
-https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a real Windows machine.
+What it takes for Life to run on Windows and on Better-T-Stack, and the modules rework that comes first. Life only:
+lifelog is one of Life's inputs and has its own report (its phone apps, the Android MVP, its desktop host, and
+transcription). Line numbers are from `main` at 3baf0e6. The long-form scope report is
+https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a real Windows 11 machine.
 
-## Decisions (22 Oct)
+## Decisions
 
 | Question | Decision |
 |---|---|
-| Base | Better-T-Stack, set up with its CLI (`create-better-t-stack` 3.47.0) |
-| Repos | Two repos, each re-scaffolded: Life (public) and lifelog (private) stay apart |
-| Server | Hono on Bun in both. Life's `Bun.serve` routes move to Hono in the same change |
-| API layer | None from Better-T-Stack: Hono with `@hono/zod-openapi`; the OpenAPI contract generates the Swift and Kotlin clients |
-| Database | lifelog: SQLite with Drizzle. Life: none (its memory stays files and JSONL; `index.sqlite` stays raw `bun:sqlite`) |
-| Auth | lifelog keeps Better Auth; Life keeps its own OAuth issuer (`src/oauth.ts`) |
-| Add-ons | Turborepo, Biome with Ultracite, Skills. The hand-written `.githooks` stay |
-| Phones | Native iOS (Swift) and native Android (Kotlin), for performance and battery; no Expo, no Tauri on the phone |
-| Android MVP | Pair with the server by QR, drain an Omi over Bluetooth in a foreground service, upload, one status screen; new Life branding |
-| Desktop | Native per OS: SwiftUI on the Mac (Life.app, Lifelog Host as they are), WinUI 3 tray on Windows. All logic stays in the Bun helper |
+| Base | Better-T-Stack, set up with its CLI (`create-better-t-stack` 3.47.0); Life and lifelog stay two repos |
+| Server | Hono on Bun; every route moves off `Bun.serve` |
+| API layer | None from Better-T-Stack: Hono with `@hono/zod-openapi` |
+| Database | None: the memory stays files and JSONL in its git repo; `index.sqlite` stays raw `bun:sqlite` |
+| Auth | Life's own OAuth issuer (`src/oauth.ts`) |
+| Add-ons | Turborepo, Biome with Ultracite, Skills; the hand-written `.githooks` stay |
+| Desktop | SwiftUI on the Mac (Life.app as it is); a WinUI 3 tray on Windows, which lifelog's host joins. All logic stays in the helper |
+| Mail on Windows | Gmail through `gog` |
+| Actions on Windows | Off |
+| iMessage from iPhone backups | Not now |
+| Windows signing | Unsigned builds first; the signing step is wired so an Authenticode certificate drops in |
+| Verification | GitHub Actions' Windows runner: build, tests, a headless night with zero sources, the connector answering |
 
-The scaffold commands, checked with `--dry-run`:
+The scaffold command, checked with `--dry-run`:
 
 ```sh
 bun create better-t-stack@latest life --frontend none --backend hono --runtime bun --database none --orm none --api none --auth none --payments none --addons turborepo biome ultracite skills --examples none --db-setup none --web-deploy none --server-deploy none --no-git --package-manager bun --no-install
-bun create better-t-stack@latest lifelog --frontend none --backend hono --runtime bun --database sqlite --orm drizzle --api none --auth better-auth --payments none --addons turborepo biome ultracite skills --examples none --db-setup none --web-deploy none --server-deploy none --no-git --package-manager bun --no-install
 ```
 
-Better-T-Stack has no Swift or Kotlin frontends (its "native" ones are Expo), so `apps/ios`, `apps/android` and the
-desktop shells sit in the workspace as plain folders beside the scaffolded TypeScript apps.
+## Phase 0: the modules rework
 
-## What cannot be done on Windows
+Four kinds of module, one contract each. Today's code moves onto them before anything is ported, each move finished
+in its PR: no second path left alive.
 
-- **iMessage, live.** No Messages app; Phone Link has no history. An iPhone backup made by Apple Devices holds
-  `sms.db` (same schema as `chat.db`), but only as fresh as the last backup.
-- **Apple Notes and its versions.** iCloud for Windows has no Notes; Notes is web-only at iCloud.com, with no API.
-- **Apple Reminders as the action surface.** No API off Apple devices. Another backend needs the invariant "Life acts
-  in one place: Apple Reminders" changed first.
-- **WhatsApp's own store.** The Windows app is a WebView2 wrapper with an encrypted, machine-bound database. WhatsApp
-  comes through Beeper's bridge instead.
-- **The Mac's Contacts.** No local address book on Windows.
+### Inputs
 
-## Life's macOS dependencies
+The contract exists: the source descriptor (`Descriptor`, `src/sources/index.ts:67`). Memory steps already branch on
+`kind`, never on a name. What is missing:
 
-Size in agent-days: S ≤ 1, M 2–4, L 5–10.
+- **The archive is a capability, not a second list.** `STORES` (`archive.ts:368`) repeats each archived source's name
+  and app, joined back by name (`keptStores`, `:394`), a third time in `archived(...)` (`index.ts:64`) and a fourth in
+  `archived.ts:33,89`. The descriptor gets `store` (`app`, `copy`, `copies`, `media`); `STORES`, `keptStores` and the
+  `missing` of archived sources derive from `SOURCES`.
+- **Voice by kind, not by name.** `gather` (`units.ts:690,738`), `syncLifelogUnits` (`:793,808`), the plate
+  (`plate.ts:458`, `plate-detail.ts:41`) and `schema.ts:265` say `"lifelog"`; they say `kind: "voice"`.
+- **The platform says what it lacks.** A source whose store does not exist on this OS reports it through `missing()`
+  (the platform module below), so `init`, the plate and `readySources` need nothing new.
 
-| Dependency | Where | On Windows | Lost | Size |
-|---|---|---|---|---|
-| iMessage `chat.db` | `sources/imessage.ts:10` | none; optional iPhone backups | live reading | M, optional |
-| WhatsApp Mac store, archived | `sources/archived.ts:17`, `archive.ts:368` | WhatsApp through Beeper's bridge | `@lid` phones, media clones | S |
-| Beeper `index.db` | `sources/archived.ts:21` | `%APPDATA%\BeeperTexts\index.db`, same SQLite (verify, and that it opens read-only while Beeper runs) | nothing | S + spike |
-| Apple Notes | `sources/notes.ts:14`, `archive.ts:384` | none (OneNote through Graph would be a new source) | notes and their versions | L if OneNote |
-| Apple Mail `.emlx` | `sources/mail.ts:10–11` | Thunderbird mbox (same MIME parser) or Gmail through `gog` | all-accounts coverage | M |
-| Contacts | `sources/contacts.ts:11` | Google Contacts through `gog`, or none | names for bare handles | S–M |
-| Git, imports, the agent's tasks | `sources/git.ts`, `assistants.ts`, `agent.ts` | as is | nothing | S |
-| Reminders through `remctl` | `reminders/*.ts` | none; Microsoft To Do or Google Tasks as a second backend | sections, urgent flag | L if built |
-| Past calendar | `memory/past.ts:274`, `LifeEventKit/main.swift` | `gog` as is; EventKit has no equivalent | Apple calendars | S |
-| Notifications | `memory/report.ts:429` (`osascript`) | the shell posts them | nothing | S |
-| `MAC` root | `truth.ts:40` | `%LOCALAPPDATA%\Life` | nothing | S |
-| Keychain | `LifeApp/Helper.swift:130` | Credential Manager, read by the shell | nothing | S |
-| Secrets known by mode 600 | `export.ts:34`, `secret.ts` | **Windows ignores modes: an export would include secrets.** Mark them by place | nothing once fixed | S |
-| launchd | `scripts/install.ts`, `tunnel.ts:35`, `mac.ts` | the shell supervises, as Life.app does | nothing | S |
-| Full Disk Access | `sources/index.ts:54–62` | not needed | a gain | – |
-| Host state (`pmset`, `sysctl`, `df`, `launchctl`) | `mac.ts:31–103` | `Get-CimInstance`, `powercfg` | a coarser sleep log | M |
-| Keeping apps open (`ps`, `open -g`) | `archive.ts:437–452` | `tasklist`, `Start-Process` | nothing | S |
-| APFS clones | `archive.ts:119`, `export.ts:141` | full copies on NTFS | disk, staging time | S |
-| `textutil`, `sips`, `pdftotext` | `memory/files.ts:114–126` | Poppler's `pdftotext`; HEIC needs a converter | HEIC descriptions | M |
-| `/etc/localtime` | `memory/zones.ts:84` | `Intl` on both systems | nothing | S |
-| Tailscale app path | `tailscale.ts:13` | `tailscale.exe`; Serve and Funnel from its CLI (verify) | nothing | S |
-| cloudflared restart | `tunnel.ts:34` | a Windows service, or Tailscale only | nothing | S |
-| restic to iCloud Drive | `backup.ts` | restic to a OneDrive folder | nothing | S |
-| Codex binary path | `llm.ts:61` (darwin-arm64 only, also wrong on Intel Macs) | per-platform path; the pinned package ships win32 builds | nothing | S |
-| Model CLI environment | `llm.ts:216` (Unix names only) | add `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `SystemRoot`, `TEMP`, `PATHEXT` | nothing | S |
-| Helper build | `scripts/helper.ts` | `--target=bun-windows-x64` | nothing | S |
-| Signing, DMG, Sparkle | `scripts/app.ts`, `scripts/release.ts` | Authenticode; WinSparkle reads Sparkle's appcast and EdDSA signatures | nothing | M |
-| The gate | `scripts/check.ts:36`, `scripts/scrub-check.ts:13` | `taskkill /T`; ship a word list | nothing | S |
+**What Life expects from a voice input** (lifelog today, any voice source tomorrow), over its REST API:
 
-The engines run natively: Claude Code on Windows 10 1809+ (x64, arm64), Codex in PowerShell.
+- a change feed of chapters: id, time span, title, summary, and turn refs (speaker, start, end), summary empty until
+  done (`/changes`);
+- a transcript per job, turns with speaker and words, fetched on demand (`/transcription-jobs/{id}/transcript`);
+- exact-word search over transcripts (`POST /search`);
+- the owner's corrections written back: speaker, title, rename, merge (`forward`, the only write);
+- optional: where he was (`/where`, `/visits`) and the source's own status (`/status`).
 
-## lifelog
+Life never receives audio and keeps no transcript text (except an ask's words). This list is lifelog's input contract
+with Life; lifelog's report owns how it is met.
 
-The server (Bun, Hono, Drizzle, SQLite; ElevenLabs and OpenAI in the cloud) is already cross-platform. Mac-only:
+### Outputs
 
-- **The helper** (`apps/mac-quiet`, 687 lines plus 1,202 of QuietCore): dictation detection through Core Audio's
-  per-process microphone flag (`main.swift:37–80`) becomes WASAPI session enumeration on Windows; model calls,
-  keep-awake (`SetThreadExecutionState`) and the WebSocket move as they are.
-- **Lifelog Host** (926 lines of SwiftUI): on Windows, part of the WinUI 3 tray.
-- **The phone app** is iOS only (37k lines of Swift). The iPhone works against any server by URL; Android gets its own
-  Kotlin app (below).
+Today each output has its own switch and shape: `reminders` (a boolean), `past` (an object plus `LIFE_EVENTKIT`),
+`mail` (whose absence swaps email for a notification), `connector`, `agent.transport`, `backup`, `lifelog` (for
+`forward`). The only thing they share is `unfrozen`. `act` does not check the Reminders switch itself (`actions.ts:86`),
+so the CLI (`cli.ts:33`) and the connector (`mcp.ts:418`) each check it again.
 
-To keep one copy of the rules, QuietCore's dictation-range and model-call rules move into the Bun server first; each
-platform's helper is then a thin sensor and runner.
+The contract, in one registry `OUTPUTS`: each output has a `name`, a `label`, `on()` (read from settings) and
+`missing()` (what keeps it from working now). Its own code stays its own; the registry is what `init`, the plate,
+the CLI and the connector ask. `act` checks `on()` itself and the two extra checks go. The outputs: Reminders, the Past
+calendar, the report (email or a local page), the connector, the ask event, the backup, the voice corrections.
 
-## Phases
+### Model providers
 
-| # | Phase | Repo | Agent-days |
-|---|---|---|---|
-| 0 | Mac-side refactors and a Windows CI job | Life, lifelog | 5–7 |
-| 1 | Re-scaffold both repos with Better-T-Stack | Life, lifelog | 6–10 |
-| 2 | Android MVP | lifelog | 8–12 |
-| 3 | Headless Windows Life | Life | 10–15 |
-| 4 | WinUI 3 tray, signing, updates | Life, lifelog | 10–15 |
-| 5 | lifelog's Windows helper and host | lifelog | 8–12 |
-| 6 | Optional: actions backend, Contacts, iMessage backups, OneNote | Life | 5–10 each |
+`llm.ts` already dispatches through one table (`RUNNERS`, `:683`), but the rest is spread: model tables per engine
+(`:49`, `:56`, `:119`), the effort table shared across vendors (`CODEX_EFFORT` for `anthropic`, `:136`), the quota
+deciding again whether the engine is Codex (`:476`). The contract, one entry per provider in one registry: its models
+per tier (`fast`, `main`, `deep`), its effort, whether it may use tools, `ask`, and `quota` when it has one; the binary
+path and the environment it runs with come from the platform module. Providers: `claude` (CLI), `codex` (CLI),
+`anthropic` and `openai` (API keys), `openrouter` (the bench only).
 
-**0. Mac-side refactors.** Each its own PR, no Windows code, no bigger:
-1. One platform module for every path and tool location (`MAC`, app stores, Tailscale, remctl, Codex), one table per OS.
-2. A Mac-only source's `missing()` says "macOS only" on Windows; no new descriptor field.
-3. Secrets by place, not by mode (`export.ts:34`).
-4. Codex's path and the model environment per platform (`llm.ts:61`, `llm.ts:216`).
-5. The shell posts notifications; `Intl` for the time zone.
-6. One function per file-reading job in `files.ts`, with a per-OS command.
-7. A GitHub Actions job running `bun test` on macOS and Windows.
+### Transcription providers
 
-Done when `bun run check` passes with net-zero or fewer lines and the Windows job runs.
+Transcription belongs to lifelog, not Life: lifelog holds the audio and Life never sees it (an invariant: memory does
+not move into lifelog, and audio does not move into Life). The contract lives in lifelog's report. From the Transcription
+v2 benchmark (interim, 22 Oct), the shape a provider must give: timed words, each with a speaker label (nullable) and an
+optional confidence; a language per job, better per turn. Diarization can be a separate stage (pyannote) merged onto
+the words. The likely winner routes by language (local models for English and French, Scribe or a Thai model for
+Thai), and the same audio is never transcribed twice. Life depends only on the voice input above, whatever produces it.
 
-**1. Re-scaffold.** Run the commands above into a fresh folder, then move each repo's code into the skeleton within the
-repo (`git mv`, so history follows) and delete what the skeleton replaces. Life's server routes (connector, issuer,
-`/check`, `/me`, status reads) move to Hono in the same PR; no route is left on `Bun.serve`. Done when each repo's
-`bun run check` passes, the connector and lifelog's contract test answer as before, and nothing of the old layout is
-left.
+### The platform module
 
-**2. Android MVP** (`apps/android` in lifelog; Kotlin, Jetpack Compose, Life's new branding): QR pairing (the same
-`lifelog://pair` link), Omi over Bluetooth in a foreground service (the protocol from the iOS Kit's Omi codec), upload
-with the device token through the OpenAPI client, one status screen. Nothing else. Done when an Omi paired to an
-Android phone records a conversation that the server transcribes and Life reads.
+Every OS difference in one module, one table per OS, so Windows is a second table and not a branch in nine files:
 
-**3. Headless Windows Life.** Beeper (with WhatsApp through its bridge), mail, git, imports, the agent; the archive for
-Beeper; the nightly; the connector over Tailscale Funnel; Codex or Claude; restic to OneDrive; the Past calendar
-through `gog`. Actions off. Set up by a script with Task Scheduler until phase 4. Done when a fresh install on Windows
-11 runs a clean night with zero sources, a night with Beeper writes moments and pages, ChatGPT answers through the
-connector, and a deleted Telegram message shows in `archive deleted`.
+- paths: the `MAC` root (`truth.ts:40`, `%LOCALAPPDATA%\Life` on Windows), the app stores (`archived.ts:17,21`,
+  `notes.ts:14`, `mail.ts:10`, `contacts.ts:11`, `imessage.ts:10`);
+- tools: Tailscale (`tailscale.ts:13`), remctl (`remctl.ts:13`), Codex's binary (`llm.ts:61`, darwin-arm64 only today,
+  also wrong on Intel Macs);
+- the model CLIs' environment (`llm.ts:216`: Windows needs `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `SystemRoot`,
+  `TEMP`, `PATHEXT`);
+- the host's state for the plate (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open
+  (`archive.ts:437`), the notification (`report.ts:429`), the time zone (`zones.ts:84`, `Intl` on both).
 
-**4. WinUI 3 tray.** One Windows app for Life and lifelog's host duties, reading the helpers' JSON status as the Mac
-apps do: H.NotifyIcon for the tray, app notifications, Credential Manager, unpackaged and self-contained first.
-Authenticode (Azure Artifact Signing, under an organisation, or an OV certificate) and WinSparkle on the same appcast as
-Sparkle. Done when a friend installs from one signed download with no terminal and the next release reaches them.
+### Secrets by place
 
-**5. lifelog on Windows.** The server's Windows build, the thin helper (WASAPI dictation detection, keep-awake, model
-calls), host duties in the tray (tokens, QR pairing, Tailscale Serve, restic). Done when an iPhone or Android phone
-paired to a Windows host gets transcripts, chapters and summaries.
+The export leaves out "every file only its owner reads" by its Unix mode (`export.ts:34`). Windows has no such modes,
+so an export there would carry the secrets. The secret files are named in one list (the sign-in's local key, the
+agent's subscription, the OAuth issuer's state); `writeSecret` and `secretIn` write only those, and the export leaves
+out exactly those.
 
-Total for phases 0–5: about 47–71 agent-days.
+### CI
 
-## Open
+A GitHub Actions job runs `bun run check`'s tests on macOS and Windows. Until it exists, nothing in this plan is
+verified off the Mac.
 
-- Mail on Windows: Thunderbird or Gmail through `gog`.
-- Actions on Windows: off, Microsoft To Do or Google Tasks (needs the Reminders invariant changed).
-- iMessage from iPhone backups for iPhone owners on Windows.
-- The signer for Windows builds.
+**Done when** the four contracts hold today's code with nothing left on the old paths, `bun run check` passes on the
+Mac, the Windows job runs, and the change is net zero or fewer lines.
+
+## Phase 1: Better-T-Stack
+
+Run the scaffold command into a fresh folder, then move Life into its skeleton within the repo (`git mv`, so history
+follows), and delete what the skeleton replaces. Every route moves to Hono in the same PR: the connector and its OAuth
+issuer, `/check`, `/me`, the status reads. **Done when** `bun run check` passes, the connector, `/check` and the
+status reads answer as before, Life.app builds and runs from the new layout, and no route is left on `Bun.serve`.
+
+## Phase 3: headless Windows Life
+
+What runs on Windows: Beeper (with WhatsApp through its bridge) and its archive, Gmail through `gog` (a new mail input),
+git, imported assistant chats, the agent's tasks; the nightly; the connector over Tailscale Funnel; Codex or Claude;
+restic to a OneDrive folder; the Past calendar through `gog`. Actions off. Set up by a script with Task Scheduler until
+the tray exists. What cannot run there: iMessage, Apple Notes, Apple Mail, Apple Reminders, the Mac's Contacts.
+
+**Done when**, on the Windows runner: the helper compiles for `bun-windows-x64`, the tests pass, a headless night with
+zero sources ends clean, and the connector answers a sign-in-free probe. **Hand checks on a Windows 11 machine:**
+Beeper's `index.db` at `%APPDATA%\BeeperTexts` opens read-only while Beeper runs; a night with Beeper writes moments;
+Tailscale Funnel serves the connector; Gmail through `gog` signs in.
+
+## Phase 4: the WinUI 3 tray
+
+A Windows tray app reading the helper's JSON status and editing settings through it, as Life.app does: H.NotifyIcon,
+app notifications, Credential Manager, unpackaged and self-contained. Built so lifelog's host joins it (its own
+section, its own helper), coordinated with lifelog's session. WinSparkle reads the same appcast as Sparkle. The signing
+step takes an Authenticode certificate when there is one. **Done when** the CI builds the tray; a hand check on
+Windows 11 installs it, sees the status and survives a restart.
+
+## Hand steps left to the owner
+
+- A Windows 11 machine (or VM) for the hand checks above.
+- An Authenticode certificate, when Life goes to friends on Windows.
