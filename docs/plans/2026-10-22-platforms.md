@@ -96,7 +96,8 @@ system and architecture, the model CLIs' environment, the system time zone (`Int
 Notes) is `macOnly` and reads "macOS only" elsewhere. Left for phase 3, where they are exercised: the plate's host
 state (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open (`archive.ts`: `ps`, `open`), the
 Cloudflare tunnel's restart (`tunnel.ts`), the Contacts reader (`contacts.ts`: no address book on Windows), Tailscale's
-binary (`tailscale.ts`: falls back to `tailscale` on PATH) and the archive alert's log path (`report.ts`).
+binary (`tailscale.ts`: falls back to `tailscale` on PATH), the archive alert's log path (`report.ts`), remctl's path
+(`remctl.ts`: Reminders is Mac-only; Windows acts through Google Tasks) and the checkout's LaunchAgents (`scripts/install.ts`).
 
 ### Secrets by place
 

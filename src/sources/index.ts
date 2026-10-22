@@ -271,8 +271,10 @@ export const enabledSources = <T extends Descriptor>(
 ) => all.filter((s) => on.includes(s.name));
 
 export type Archived = Descriptor & { store: AppStore };
-/** The sources whose app store the archive copies. */
-export const ARCHIVED = SOURCES.filter((s): s is Archived => Boolean(s.store));
+/** The sources whose app store the archive copies on this system (a Mac-only app is never opened elsewhere). */
+export const ARCHIVED = SOURCES.filter(
+  (s): s is Archived => Boolean(s.store) && !(s.macOnly && WINDOWS)
+);
 /** The archived sources he turned on: no other app is copied or kept open. */
 export const keptStores = (on = settings().sources) =>
   enabledSources(ARCHIVED, on);
