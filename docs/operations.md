@@ -83,8 +83,9 @@ those locks (`holder`, `src/mac.ts`).
 - Everything looks back 7 days.
 - **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
   `STATE/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
-  oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`): four weeks a day at most (`backfillWeek`), so it
-  never takes the night's turn nor the whole subscription. Three failures of a week stop it. Record the owner's zones
+  oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
+  the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
+  subscription. Three failures of a week stop it. Record the owner's zones
   for the range first (`memory/zones.jsonl`): a past zone may be added only before the first day memory has units of,
   and a backfill moves that day back. Pages follow at the next night. Only the last 7 days' messages get their files
   described; older ones stay tags.
