@@ -2,9 +2,11 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import {
   chmodSync,
   existsSync,
+  linkSync,
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
@@ -22,24 +24,37 @@ export function writeSecret(path: string, text: string) {
   renameSync(tmp, path);
 }
 
-/** Whether two secrets are equal, in constant time: compared as bytes (a string's length in characters is not). */
-export function same(a: string, b: string) {
-  const [x, y] = [Buffer.from(a), Buffer.from(b)];
-  return x.length === y.length && timingSafeEqual(x, y);
+/**
+ * Whether `given` is the secret `want`, in constant time, compared as bytes (a string's length in characters is not);
+ * never for an empty secret.
+ */
+export function same(given: string, want: string) {
+  const [x, y] = [Buffer.from(given), Buffer.from(want)];
+  return y.length > 0 && x.length === y.length && timingSafeEqual(x, y);
 }
 
-/** A random secret in `path`, made once, exclusively (two first runs at once keep one), then read. */
-export function secretIn(path: string) {
-  if (!existsSync(path)) {
-    mkdirSync(dirname(path), { mode: 0o700, recursive: true });
-    try {
-      writeFileSync(path, randomBytes(32).toString("hex"), {
-        flag: "wx",
-        mode: 0o600,
-      });
-    } catch {
-      // Another process made it first: its key it is.
+const KEY = /^[0-9a-f]{64}$/;
+/**
+ * A random secret in `path`, made once, then read: written whole to a file of its own, then linked in place, which
+ * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
+ */
+export function secretIn(path: string): string {
+  if (existsSync(path)) {
+    const key = readFileSync(path, "utf8");
+    if (KEY.test(key)) {
+      return key;
     }
+    rmSync(path, { force: true });
+  }
+  mkdirSync(dirname(path), { mode: 0o700, recursive: true });
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  writeFileSync(tmp, randomBytes(32).toString("hex"), { mode: 0o600 });
+  try {
+    linkSync(tmp, path);
+  } catch {
+    // Linked by another process meanwhile: read its key.
+  } finally {
+    rmSync(tmp, { force: true });
   }
   return readFileSync(path, "utf8");
 }
