@@ -14,7 +14,7 @@ import { dryRun, importExport } from "./memory/imports";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
-import { isOn } from "./outputs";
+import { isOn, off } from "./outputs";
 import { checks, REMCTL_RELEASE, remctlVersion } from "./reminders/remctl";
 import { Engine } from "./schema";
 import { readSettings, type Settings, setSettings, settings } from "./settings";
@@ -27,10 +27,11 @@ import { status, watch } from "./watch";
 
 /** `act` and the grant need the Reminders plugin: off, they say so and do nothing. */
 const pluginOff = () => {
-  if (!isOn("reminders")) {
-    console.error("Reminders is off (settings: reminders)");
+  const why = off("reminders");
+  if (why) {
+    console.error(why);
   }
-  return !isOn("reminders");
+  return Boolean(why);
 };
 
 const commands: Record<string, () => Promise<number>> = {

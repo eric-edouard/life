@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
-import { isOn } from "../outputs";
+import { isOn, off } from "../outputs";
 import { exec } from "../proc";
 import { agentName } from "../settings";
 
@@ -46,8 +46,9 @@ const parse = <T>(s: string) => {
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
   unfrozen("touch his Reminders");
-  if (!isOn("reminders")) {
-    throw new Error("Reminders is off (settings: reminders)");
+  const why = off("reminders");
+  if (why) {
+    throw new Error(why);
   }
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {

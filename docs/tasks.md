@@ -72,7 +72,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - `src/reminders/` is the only code that touches Reminders (through `remctl`), one job per module: `remctl.ts` the
   calls and the lists, `write.ts` the changes `act` decided, `board.ts` the board, `inbound.ts` the owner's changes
   read back.
-- **Reminders is a plugin**, input and output, on only with the `reminders` setting (`remindersOn`). Off: `remctl`
+- **Reminders is a plugin**, input and output, on only with the `reminders` setting (`isOn("reminders")`). Off: `remctl`
   refuses every call, the minute pass skips it, the connector offers no `reminders` or `open_reminders` tool, `act`
   refuses, and the rest of Life runs the same. The board, the read-back, the grant and the playbook's Reminders parts
   exist only while it is on. Settings are read once per process: turning it on or off takes a restart of the watcher.
@@ -178,8 +178,9 @@ grant, and logs the agent's replies.
 ## The only sends
 
 What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
-Life can turn on (Reminders, the Past calendar, the connector, the agent's asks, the backup) has one switch, read in one
-place: `isOn` in `src/outputs.ts`. How the report and the alerts go out:
+Life can turn on or off (Reminders, the Past calendar, the connector, the backup) is an entry in `OUTPUTS`
+(`src/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
+reads the rest of its settings. How the report and the alerts go out:
 
 - To the owner only (`src/memory/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `STATE/reports`. Either way the log's `email.sent`
