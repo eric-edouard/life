@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   appendFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -469,40 +470,44 @@ test("a run cut off while building is built again; memory/ was never touched", a
   expect(existsSync(join(dir, "memory/units/x.jsonl"))).toBe(false);
 });
 
-test("a run cut off after the swap is settled: late lines renamed onto the new memory, the old copy gone", async () => {
+/** The state right after the swap: the new memory in place, the old one beside it. */
+function swapped() {
   const dir = dataDir();
-  const swapped = renameStored(before);
-  // The state right after the swap: the new memory in place, the old one beside it, with a line appended late.
+  const out = renameStored(before);
   renameSync(join(dir, "memory"), join(dir, "memory.old"));
   for (const [path, text] of before) {
-    const to = swapped.moves.find(([from]) => from === path)?.[1] ?? path;
+    const to = out.moves.find(([from]) => from === path)?.[1] ?? path;
     mkdirSync(join(dir, to, ".."), { recursive: true });
-    writeFileSync(join(dir, to), swapped.files.get(path) ?? text);
+    writeFileSync(join(dir, to), out.files.get(path) ?? text);
   }
   writeFileSync(
     join(dir, "memory/migrations.jsonl"),
     `${JSON.stringify({ name: "stored-names-2026-10-22" })}\n`
   );
-  writeFileSync(
-    join(dir, "memory.read.json"),
-    JSON.stringify(
-      Object.fromEntries([...before].map(([p, t]) => [p, t.length]))
-    )
-  );
-  appendFileSync(
-    join(dir, "memory.old/actions.jsonl"),
-    jsonl({
-      id: "act_00000000000e",
-      instruction: { ref: obs },
-      kind: "add",
-      madeBy: "session",
-    })
-  );
-  await migrateStored(dir);
-  const lines = read(dir, "memory/ledger.jsonl")
+  return dir;
+}
+const late = jsonl({
+  id: "act_00000000000e",
+  instruction: { ref: obs },
+  kind: "add",
+  madeBy: "session",
+});
+const ledgerRows = (dir: string) =>
+  read(dir, "memory/ledger.jsonl")
     .trim()
     .split("\n")
     .map((l) => JSON.parse(l));
+
+test("a run cut off after the swap is settled: a late line renamed onto the new memory, once, the old copy gone", async () => {
+  const dir = swapped();
+  appendFileSync(join(dir, "memory.old/actions.jsonl"), late);
+  // Cut off again mid-settle: the old copy is still there; settled twice, nothing is added twice.
+  const copy = mkdtempSync(join(tmpdir(), "life-old-"));
+  cpSync(join(dir, "memory.old"), copy, { recursive: true });
+  await migrateStored(dir);
+  cpSync(copy, join(dir, "memory.old"), { recursive: true });
+  await migrateStored(dir);
+  const lines = ledgerRows(dir);
   expect(lines).toHaveLength(4);
   expect(lines[3]).toEqual({
     id: "entry_00000000000e",
@@ -511,5 +516,18 @@ test("a run cut off after the swap is settled: late lines renamed onto the new m
     via: "session",
   });
   expect(existsSync(join(dir, "memory.old"))).toBe(false);
-  expect(existsSync(join(dir, "memory.read.json"))).toBe(false);
+});
+
+test("a memory/ made between the two renames is kept and settled, never dropped", async () => {
+  const dir = swapped();
+  // Back to the moment between the renames: the new memory not yet in place, a stray memory/ written meanwhile.
+  renameSync(join(dir, "memory"), join(dir, "memory.renamed"));
+  mkdirSync(join(dir, "memory"));
+  writeFileSync(join(dir, "memory/actions.jsonl"), late);
+  await migrateStored(dir);
+  expect(ledgerRows(dir)).toHaveLength(4);
+  expect(read(dir, "memory/units/2026-10-20.jsonl")).toContain(unit);
+  for (const d of ["memory.old", "memory.renamed", "memory.stray"]) {
+    expect(existsSync(join(dir, d))).toBe(false);
+  }
 });

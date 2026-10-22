@@ -383,7 +383,7 @@ the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledg
 `act_` and `inf-`, the types `todo`, `waiting` and `person`, `importance` was `salience`, a ledger entry's `via` was
 `madeBy`, a statement's and a rating's `ref` was `claim`, and the agent's word was `atlas`. The data repo's commits
 "Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides. The renamed memory is built
-beside it (`memory.renamed/`) and swapped in; `memory.old/` and `memory.read.json` exist only for that moment.
+beside it (`memory.renamed/`) and swapped in; `memory.old/` (and `memory.stray/`) exist only until it is settled.
 
 ## The search index (not in memory/)
 

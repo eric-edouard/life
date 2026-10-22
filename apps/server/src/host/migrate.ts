@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { clock } from "../core/clock";
+import { holder } from "../core/lock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { mayMigrate, OWNER_DATA_DIR } from "../core/paths";
@@ -38,8 +39,8 @@ const DONE = "memory/migrations.jsonl";
 /** The renamed memory while it is built, and the old one for the moment of the swap. */
 const STAGED = "memory.renamed";
 const OLD_MEMORY = "memory.old";
-/** How much of each file the rename read, kept until the old copy is settled. */
-const READ = "memory.read.json";
+/** A memory/ made between the two renames of the swap (by a writer that never waited): settled like the old copy. */
+const STRAY = "memory.stray";
 const OLD_LEDGER = "memory/actions.jsonl";
 const NEW_LEDGER = "memory/ledger.jsonl";
 const PATHS = ["memory", "docs/evals/cases"];
@@ -350,13 +351,14 @@ const done = (dir: string) =>
   linesOf(readFileSync(join(dir, DONE), "utf8")).some(
     (l) => JSON.parse(l).name === STEP
   );
+const oldLedgers = (dir: string) =>
+  readdirSync(join(dir, "memory")).filter((f) => f.startsWith("actions.jsonl"));
 
-/** Is there anything for the rename to do: memory not renamed yet, a run to finish, or the old ledger written again? */
+/** Is there anything for the rename to do: memory not renamed yet, a run to finish, or an old ledger written since? */
 export const needsRename = (dir = OWNER_DATA_DIR) =>
-  existsSync(join(dir, STAGED)) ||
-  existsSync(join(dir, OLD_MEMORY)) ||
+  [STAGED, OLD_MEMORY, STRAY].some((d) => existsSync(join(dir, d))) ||
   (existsSync(join(dir, "memory")) &&
-    (!done(dir) || existsSync(join(dir, OLD_LEDGER))));
+    (!done(dir) || oldLedgers(dir).length > 0));
 
 /** Every file under `folder`, by its path relative to `dir`. */
 function filesUnder(dir: string, folder: string) {
@@ -392,25 +394,30 @@ function writeWhole(path: string, text: string) {
   renameSync(`${path}.${process.pid}.tmp`, path);
 }
 
+const ensureNewline = (s: string) => (s.endsWith("\n") ? s : `${s}\n`);
+
 /**
- * The renamed memory, built whole beside it (memory.renamed/: every file copied, the renamed ones written, the moved
- * ones moved), then swapped in by two renames and settled (`settle`). A run cut off before the swap leaves memory/ as
- * it was (the half-built copy is dropped and built again); one cut off after it is settled at the next start.
+ * The renamed memory, built whole beside it (memory.renamed/), then swapped in by two renames and settled (`settle`).
+ * At a start: a half-built copy with memory/ untouched is built again; a copy built but not swapped in (a crash between
+ * the two renames) is swapped in, a memory/ made meanwhile kept aside as a stray; an old copy beside the new memory is
+ * settled. Nothing is deleted while an old copy is unsettled.
  */
 function renameIn(dir: string) {
   const at = (p: string) => join(dir, p);
-  if (existsSync(at(STAGED)) && !existsSync(at("memory"))) {
+  if (existsSync(at(OLD_MEMORY)) && existsSync(at(STAGED))) {
+    if (existsSync(at("memory"))) {
+      renameSync(at("memory"), at(STRAY));
+    }
     renameSync(at(STAGED), at("memory"));
   }
-  if (existsSync(at(OLD_MEMORY))) {
+  if (existsSync(at(OLD_MEMORY)) || existsSync(at(STRAY))) {
     return settle(dir);
   }
   rmSync(at(STAGED), { force: true, recursive: true });
   if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
     commitMemory(PATHS, "Memory: before the stored names' rename");
   }
-  const files = readStored(dir);
-  const { files: renamed, moves } = renameStored(files);
+  const { files: renamed, moves } = renameStored(readStored(dir));
   const staged = (p: string) => join(dir, STAGED, relative("memory", p));
   for (const p of filesUnder(dir, "memory")) {
     mkdirSync(dirname(staged(p)), { recursive: true });
@@ -428,87 +435,115 @@ function renameIn(dir: string) {
     staged(DONE),
     `${JSON.stringify({ at: clock().toISOString(), name: STEP, schemaVersion: 1 })}\n`
   );
-  // How much of each file was read: what an old process appends after it is a late line (`settle`).
-  writeFileSync(
-    at(READ),
-    JSON.stringify(
-      Object.fromEntries([...files].map(([p, t]) => [p, t.length]))
-    )
-  );
   renameSync(at("memory"), at(OLD_MEMORY));
   renameSync(at(STAGED), at("memory"));
   return settle(dir);
 }
 
 /**
- * After the swap: the lines appended to the old memory past what was read (a correction, a rating, an old process's
- * ledger line, all written without the lock) renamed onto the new one, the old copy gone, the regression cases
- * renamed, and the commit. The names are read off the old copy, so a settle at a later start renames the same way.
+ * After the swap, from the old copy (and a stray memory/ made during it): every line of it, renamed, that the new
+ * memory lacks is appended to it (a line written meanwhile without the lock: a correction, a rating, a ledger line);
+ * every other stored file of it, renamed, replaces the new one where they differ (a page he edited meanwhile). The
+ * names come from the old copy, so a settle cut off and run again renames the same way, and adds nothing twice.
+ * Then the old copy goes, the regression cases are renamed, and the commit.
  */
 function settle(dir: string) {
   const at = (p: string) => join(dir, p);
-  const old = (p: string) => join(dir, OLD_MEMORY, relative("memory", p));
-  const read = JSON.parse(readFileSync(at(READ), "utf8")) as Record<
-    string,
-    number
-  >;
-  const files = new Map([
-    ...filesUnder(dir, OLD_MEMORY)
-      .map((p) => join("memory", relative(OLD_MEMORY, p)))
-      .filter((p) => STORED.test(p))
-      .map((p) => [p, readFileSync(old(p), "utf8")] as const),
-    ...[...readStored(dir)].filter(([p]) => !under(p, "memory")),
-  ]);
-  // A file not read at all was made after the read: all of it is late.
-  const {
-    files: renamed,
-    moves,
-    rename,
-  } = renameStored(
-    new Map([...files].map(([p, t]) => [p, t.slice(0, read[p] ?? 0)]))
+  const sourceOf = (source: string) =>
+    new Map(
+      filesUnder(dir, source)
+        .map((p) => join("memory", relative(source, p)))
+        .filter((p) => STORED.test(p))
+        .map(
+          (p) =>
+            [
+              p,
+              readFileSync(join(dir, source, relative("memory", p)), "utf8"),
+            ] as const
+        )
+    );
+  // The old copy's names (the new prefixes alone once it is gone: a settle cut off after it ran again).
+  const { rename } = renameStored(
+    existsSync(at(OLD_MEMORY)) ? sourceOf(OLD_MEMORY) : new Map()
   );
-  for (const [p, text] of files) {
-    const late = text.slice(read[p] ?? 0);
-    if (isJsonl(p) && late.trim()) {
-      const to = moves.find(([from]) => from === p)?.[1] ?? p;
-      appendFileSync(at(to), ensureNewline(jsonl(p, late, rename)));
+  // The regression cases first, while the old copy still holds the names they cite.
+  for (const [p, text] of readStored(dir)) {
+    const next = under(p, "memory") ? text : file(p, text, rename);
+    if (next !== text) {
+      writeWhole(at(p), next);
     }
   }
-  for (const [p, text] of renamed) {
-    if (!under(p, "memory")) {
-      writeWhole(at(p), text);
-    }
+  for (const source of [OLD_MEMORY, STRAY].filter((d) => existsSync(at(d)))) {
+    carryOver(dir, source, sourceOf(source));
+    rmSync(at(source), { force: true, recursive: true });
   }
-  rmSync(at(OLD_MEMORY), { force: true, recursive: true });
-  rmSync(at(READ), { force: true });
   if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
     commitMemory(PATHS, "Memory: stored names renamed (docs/glossary.md)");
   }
-  log("memory.renamed", { files: renamed.size, moves: moves.length });
+  log("memory.renamed", {});
   return rename;
 }
 
-const ensureNewline = (s: string) => (s.endsWith("\n") ? s : `${s}\n`);
-
-/** Lines appended to the old ledger after the rename (by a process still on the old code): renamed onto the new one. */
-function lateLines(dir: string) {
-  const at = (p: string) => join(dir, p);
-  // Taken whole first: a line appended meanwhile starts a new file, renamed at the next start.
-  const taken = `${OLD_LEDGER}.${process.pid}`;
-  renameSync(at(OLD_LEDGER), at(taken));
-  const text = readFileSync(at(taken), "utf8");
-  const files = new Map([...readStored(dir), [OLD_LEDGER, text]]);
-  appendFileSync(
-    at(NEW_LEDGER),
-    ensureNewline(jsonl(OLD_LEDGER, text, renameStored(files).rename))
-  );
-  rmSync(at(taken));
-  log("memory.renamed", { late: linesOf(text).length });
+/**
+ * What the new memory lacks of an old copy, renamed: each missing line of a JSON Lines file appended, any other stored
+ * file written where it differs (a stray's only where the new memory has none). Run twice, it adds nothing.
+ */
+function carryOver(dir: string, source: string, old: Map<string, string>) {
+  const result = renameStored(old);
+  const moved = new Map(result.moves);
+  for (const [p, text] of old) {
+    const to = join(dir, moved.get(p) ?? p);
+    const now = existsSync(to) ? readFileSync(to, "utf8") : "";
+    const next = result.files.get(p) ?? text;
+    if (isJsonl(p)) {
+      const have = new Set(linesOf(now));
+      const missing = linesOf(next).filter((l) => !have.has(l));
+      if (missing.length > 0) {
+        writeWhole(to, `${now && ensureNewline(now)}${missing.join("\n")}\n`);
+      }
+    } else if (next !== now && !(source === STRAY && now)) {
+      writeWhole(to, next);
+    }
+  }
 }
 
 /**
- * Runs the rename once, holding memory's lock: the callers (every command, cli.ts) wait while another process runs
- * it. Only the app runs it on his own data (`mayMigrate`): a checkout stops instead.
+ * Lines a process still on the old code appended to the old ledger after the rename: renamed onto the new one (with
+ * today's names: an old observation id in them keeps its old form). Taken whole first, so a line appended meanwhile
+ * starts a new file, renamed at the next start; one taken by a run cut off is picked up again.
+ */
+function lateLines(dir: string) {
+  const at = (p: string) => join(dir, "memory", p);
+  if (existsSync(at("actions.jsonl"))) {
+    renameSync(at("actions.jsonl"), at(`actions.jsonl.${process.pid}`));
+  }
+  const { rename } = renameStored(new Map());
+  for (const f of oldLedgers(dir)) {
+    const text = readFileSync(at(f), "utf8");
+    const now = existsSync(at("ledger.jsonl"))
+      ? readFileSync(at("ledger.jsonl"), "utf8")
+      : "";
+    const have = new Set(linesOf(now));
+    const missing = linesOf(jsonl(OLD_LEDGER, text, rename)).filter(
+      (l) => !have.has(l)
+    );
+    if (missing.length > 0) {
+      appendFileSync(at("ledger.jsonl"), `${missing.join("\n")}\n`);
+    }
+    rmSync(at(f));
+    log("memory.renamed", { late: missing.length });
+  }
+}
+
+/** Another Life's watcher still running (the old app's, or a checkout's): it may write memory/ without the lock. */
+const otherWatcher = () => {
+  const h = holder("watch");
+  return h !== null && h.pid !== String(process.pid);
+};
+
+/**
+ * Runs the rename once, holding memory's lock, while no other watcher runs: the callers (every command, cli.ts) wait
+ * meanwhile. Only the app runs it on his own data (`mayMigrate`): a checkout stops instead.
  */
 export async function migrateStored(dir = OWNER_DATA_DIR) {
   while (needsRename(dir)) {
@@ -519,11 +554,14 @@ export async function migrateStored(dir = OWNER_DATA_DIR) {
     }
     // biome-ignore lint/performance/noAwaitInLoops: waits for the process that holds the lock to finish the rename
     const ran = await locked(async () => {
-      if (done(dir) && existsSync(join(dir, OLD_LEDGER))) {
-        lateLines(dir);
-        return true;
+      if (dir === OWNER_DATA_DIR && otherWatcher()) {
+        return false;
       }
-      if (!needsRename(dir)) {
+      if (
+        done(dir) &&
+        ![STAGED, OLD_MEMORY, STRAY].some((d) => existsSync(join(dir, d)))
+      ) {
+        lateLines(dir);
         return true;
       }
       const rename = renameIn(dir);
