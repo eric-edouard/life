@@ -48,7 +48,7 @@ export type RunRecord = ReturnType<typeof record>;
 
 /**
  * A run whose share of his Codex plan is measured (the sweeps, the eval, the agent bench): the quota read as it starts
- * and as it ends, logged on its `run.start` and `run.end` (what it spent is derived from them: `useOf`, runs.ts).
+ * and as it ends, logged on its `run.start` and `run.end` (what it spent is derived from them: `useOf`, run-log.ts).
  */
 export async function metered(step: string, fields: Record<string, unknown>) {
   const before = (await quota()) ?? null;

@@ -13,7 +13,7 @@ import {
   whatsappFixture,
 } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
-import { showFiles, triage } from "./attachments";
+import { showFiles, triage } from "./message-files";
 import { locate } from "./observe";
 
 const madeBy = {

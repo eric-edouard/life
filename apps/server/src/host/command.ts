@@ -4,12 +4,13 @@ import { changeFeed, claim } from "../memory/changes";
 import { closeness } from "../memory/closeness";
 import { extract } from "../memory/extract";
 import { recordCorrection } from "../memory/ledger";
+import { locked } from "../memory/memory-lock";
 import { moments } from "../memory/moments";
 import { pages } from "../memory/pages";
 import { placesOf } from "../memory/places";
 import { mapRepos, reposOf } from "../memory/repos";
-import { runs } from "../memory/runs";
-import { locked, readBackfill, recordBackfill } from "../memory/schedule";
+import { runs } from "../memory/run-log";
+import { readBackfill, recordBackfill } from "../memory/schedule";
 import {
   area,
   day,

@@ -477,7 +477,7 @@ interface PagesOptions {
   rebuild?: boolean;
 }
 
-/** `bun life memory pages`. Its callers hold the memory lock (`locked`, schedule.ts); the nightly commits what it writes. */
+/** `bun life memory pages`. Its callers hold the memory lock (`locked`, memory-lock.ts); the nightly commits what it writes. */
 export async function pages(opts: PagesOptions) {
   const step = await begin("pages", "main", { prompt: PAGES_PROMPT });
   const { now, today: day } = step;

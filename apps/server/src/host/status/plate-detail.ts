@@ -1,7 +1,7 @@
 import { clock, DAY } from "../../core/clock";
 import { isAgent, recentEvents } from "../../core/log";
 import { changeFeed, encode } from "../../memory/changes";
-import { runs, STEPS, useText } from "../../memory/runs";
+import { runs, STEPS, useText } from "../../memory/run-log";
 import { SOURCES } from "../../memory/sources";
 import { clip } from "../../memory/units";
 import { taskList } from "../agent";

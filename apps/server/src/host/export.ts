@@ -16,7 +16,7 @@ import { DATA, ROOT, STATE } from "../core/paths";
 import { slashed } from "../core/platform";
 import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
-import { LOCK, locked } from "../memory/schedule";
+import { LOCK, locked } from "../memory/memory-lock";
 import { INDEX } from "../memory/search";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";

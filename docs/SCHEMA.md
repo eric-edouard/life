@@ -69,7 +69,7 @@ not judged yet; a dropped unit's lines are ignored.
 ## files.jsonl
 
 What Life read off the files messages carry, append-only, one line per file and reading, written by the sweeps
-(`describeFiles`, `apps/server/src/memory/attachments.ts`): `{schemaVersion: 1, ref, hash, what?, text?, madeBy?}`. `ref` is where the file
+(`describeFiles`, `apps/server/src/memory/message-files.ts`): `{schemaVersion: 1, ref, hash, what?, text?, madeBy?}`. `ref` is where the file
 was met (`imessage:<attachment guid>`, `whatsapp:<chat>/<message>`, `beeper:<mxc url>`, `mail:<Message-ID>#<MIME part>`, `notes:<attachment id>`);
 `hash`: 16 hex of SHA-256 over its bytes. `what`: the model's one sentence on what it is and shows (`madeBy` as for
 verdicts, prompt `files.v1`); `text`: the words on it, on one line, at most 1,000 characters (a photo's from the model,

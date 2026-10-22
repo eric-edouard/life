@@ -14,7 +14,7 @@ import { changeFeed, claim, MAX_PAGE } from "../../memory/changes";
 import { recordCorrection } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
 import { loadMe } from "../../memory/read-truth";
-import { runs } from "../../memory/runs";
+import { runs } from "../../memory/run-log";
 import { area, day, person, search } from "../../memory/search";
 import { closed, titleOf, Update } from "../../memory/tasks";
 import { clip } from "../../memory/units";

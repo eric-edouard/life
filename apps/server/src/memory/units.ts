@@ -15,7 +15,6 @@ import {
   type Store,
   withStore,
 } from "../sources/lifelog";
-import { describeFiles, showFiles } from "./attachments";
 import { LIFE_MAIL } from "./email";
 import {
   keptConversations,
@@ -25,6 +24,7 @@ import {
   readUnitsOf,
   UNITS,
 } from "./ledger";
+import { describeFiles, showFiles } from "./message-files";
 import { loadTruth, OWNER, ownerIn, type Truth } from "./read-truth";
 import { enabledSources, kindOf, readySources, sourceOf } from "./sources";
 import { dayStart, localDate, wall } from "./zones";

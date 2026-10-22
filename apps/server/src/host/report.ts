@@ -7,7 +7,6 @@ import { STATE } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { agentName, settings } from "../core/settings";
-import type { describeFiles } from "../memory/attachments";
 import {
   type Digest,
   LIFE_MAIL,
@@ -16,6 +15,7 @@ import {
 } from "../memory/email";
 import type { extract } from "../memory/extract";
 import type { Task } from "../memory/ledger";
+import type { describeFiles } from "../memory/message-files";
 import type { moments } from "../memory/moments";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";

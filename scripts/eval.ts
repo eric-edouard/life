@@ -14,8 +14,9 @@ import {
   readUnits,
   SCORES,
 } from "server/src/memory/ledger";
+import { locked } from "server/src/memory/memory-lock";
 import { chunks, ended, inBatches, metered } from "server/src/memory/run";
-import { locked, spareQuota } from "server/src/memory/schedule";
+import { spareQuota } from "server/src/memory/schedule";
 import { type Claim, claimsNow } from "server/src/memory/statements";
 import { type Grade, judge, tally } from "server/src/memory/tally";
 import { llmFor, llmSpec } from "server/src/models/llm";

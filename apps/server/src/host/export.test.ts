@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SECRETS, writeSecret } from "../core/secret";
-import { LOCK } from "../memory/schedule";
+import { LOCK } from "../memory/memory-lock";
 import { sha256Of, stage } from "./export";
 
 const SECRET = /oauth|events\.json|local\.key|\.bak$/;

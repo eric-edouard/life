@@ -15,8 +15,8 @@ test("the status holds the midday while the last quota reading is over the reser
 test("the dashboard only reads: no write, log, model call, action or send", async () => {
   const source = (
     await Promise.all(
-      ["../../memory/changes.ts", "../../memory/runs.ts", "life.ts"].map((f) =>
-        Bun.file(join(import.meta.dir, f)).text()
+      ["../../memory/changes.ts", "../../memory/run-log.ts", "life.ts"].map(
+        (f) => Bun.file(join(import.meta.dir, f)).text()
       )
     )
   ).join("\n");

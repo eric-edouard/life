@@ -1,15 +1,13 @@
-import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
-import { held, take } from "../core/lock";
 import type { Engine } from "../core/names";
-import { DATA } from "../core/paths";
 import { type Quota, quota } from "../models/llm";
 import { OUT } from "./ledger";
 import { daysBefore, localTime, type Window } from "./units";
 
-// launchd starts the nightly every 30 minutes; this guard decides whether a start does anything.
+// The nightly's schedule: launchd starts it every 30 minutes, and this decides whether a start does anything (what
+// runs, the backup's turn, the midday slot, the night's state).
 
 const FIRST_HOUR = 2;
 export const MAX_ATTEMPTS = 3;
@@ -248,9 +246,6 @@ export function turnOf(
 type Job = "nightly" | "backup";
 const stateFile = (job: Job) => join(OUT, `${job}.json`);
 const MIDDAY = join(OUT, "midday.json");
-/** In the data repo, not in derived/: every worktree shares one lock with production. */
-export const LOCK = join(DATA, ".nightly.lock");
-
 export const readState = (job: Job = "nightly") =>
   readJson<NightState>(stateFile(job));
 export const readMidday = () => readJson<string>(MIDDAY);
@@ -273,24 +268,4 @@ export function recordState(day: string, ok: boolean, job: Job = "nightly") {
   };
   writeJson(stateFile(job), state);
   return state;
-}
-
-/** When the run holding memory's lock took it, or null when none holds it. */
-export const lockedSince = () => held(LOCK)?.since ?? null;
-
-/** True while a run holds the lock: the watcher then leaves memory/ and the index alone. */
-export const isLocked = () => lockedSince() !== null;
-
-/** Runs `run` holding the lock, so nothing else writes memory/ meanwhile; `null`, without running, when a run holds it. */
-export async function locked<T>(run: () => Promise<T>) {
-  mkdirSync(OUT, { recursive: true });
-  if (!take(LOCK)) {
-    console.error("another run is still going");
-    return null;
-  }
-  try {
-    return await run();
-  } finally {
-    rmSync(LOCK, { force: true });
-  }
 }

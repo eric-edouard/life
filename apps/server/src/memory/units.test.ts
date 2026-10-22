@@ -27,9 +27,9 @@ import {
   page,
   run,
 } from "../sources/store-fixtures";
-import { showFiles } from "./attachments";
 import { LIFE_MAIL } from "./email";
 import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
+import { showFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
 import {

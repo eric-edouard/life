@@ -9,7 +9,7 @@ its kind (agent, chat, mail, notes, repo, voice), its reader, how far back `sear
 `apps/server/src/core/redact.ts` removes key blocks, card numbers, IBANs, long tokens and lines that look like passwords or codes.
 
 Each chat and mail reader also names a message's files (`SourceFile`, `records/source.ts`: where it was met, name, type, and the
-path when the file is on this Mac). One place, `showFiles` in `apps/server/src/memory/attachments.ts`, turns them into lines of the message,
+path when the file is on this Mac). One place, `showFiles` in `apps/server/src/memory/message-files.ts`, turns them into lines of the message,
 such as `[photo IMG_2910.HEIC, described by Life: … | text: …]` or `[video clip.mp4, not on this Mac]`, so every memory
 step, search and the connector see them. Each file on this Mac is read once into `memory/files.jsonl`: a document's text
 (`textutil`) and a PDF's text layer (`pdftotext`) by code, a photo or a scanned PDF's first page (`sips`, as JPEG) by

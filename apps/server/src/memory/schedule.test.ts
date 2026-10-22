@@ -1,12 +1,11 @@
 import { expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
+import { LOCK, locked } from "./memory-lock";
 import {
   afterWeek,
   backfillWeek,
   backupDue,
   decide,
-  LOCK,
-  locked,
   middayDue,
   type NightState,
   nextMidday,

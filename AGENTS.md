@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
   writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
-- **One lock.** Everything that writes `memory/` holds it (`locked`, `schedule.ts`), except his single lines (a
+- **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, a rating) and `actions.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
@@ -151,7 +151,7 @@ Before adding a helper, use the one that exists:
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
 | A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
-| A message's files as lines | `showFiles` (`memory/attachments.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
+| A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Running another program | `apps/server/src/core/proc.ts` |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |

@@ -8,7 +8,7 @@ import { isOn } from "../core/outputs";
 import { ROOT } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { ACTIONS, readActions, tasksOf } from "../memory/ledger";
-import { isLocked, locked } from "../memory/schedule";
+import { isLocked, locked } from "../memory/memory-lock";
 import { reindex } from "../memory/search";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";

@@ -5,6 +5,7 @@ import { type Call, isReviewCall, log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
 import { extract } from "../memory/extract";
 import { newSince, readActions } from "../memory/ledger";
+import { locked, lockedSince } from "../memory/memory-lock";
 import { moments } from "../memory/moments";
 import { placed } from "../memory/page-format";
 import { pages } from "../memory/pages";
@@ -16,13 +17,11 @@ import {
   phases,
   type RunRecord,
 } from "../memory/run";
-import { runs, useText } from "../memory/runs";
+import { runs, useText } from "../memory/run-log";
 import {
   afterWeek,
   backfillWeek,
   backupDue,
-  locked,
-  lockedSince,
   MAX_ATTEMPTS,
   middayDue,
   quotaLine,
