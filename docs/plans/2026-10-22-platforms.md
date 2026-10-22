@@ -128,7 +128,7 @@ only how a change is written and read back. One contract for both: list its list
 items, add, edit, complete, reopen, delete and restore an item, and the board's list. What one backend lacks (Reminders'
 sections and urgent flag, Google Tasks' none) the contract says by capability, never by the backend's name. The
 `reminders` setting becomes the actions output's backend choice (done: `actions` in settings, `src/actions/`). The
-connector's tools keep their names; phase 1 (#this PR), in one batch (one reconnect), let `reminders`'s `target` take
+connector's tools keep their names; phase 1 (#159), in one batch (one reconnect), let `reminders`'s `target` take
 a string id (`idOf`, `src/actions/backend.ts`) and changed the descriptions from "Reminders" to "actions".
 
 ## Windows: parked
