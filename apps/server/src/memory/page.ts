@@ -7,7 +7,7 @@ import { type Standing, shows, stateOf } from "./ledger";
 import { OWNER, othersIn, type Truth } from "./truth";
 import { daysBefore } from "./units";
 
-// The pure parts of stage 3 (memory-pipeline §3.5): a page's file format, where each observation lives, the owner's
+// The pure parts of pages (docs/architecture.md, "The pipeline"): a page's file format, where each observation lives, the owner's
 // edits found in a page, the consolidation reply checked and merged into the previous page, and the rules code
 // enforces (no churn, aging, the word budget). No disk, network or clock.
 

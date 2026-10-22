@@ -53,7 +53,7 @@ import { OWNER, type Truth } from "./truth";
 import { daysBefore, slugOf, within } from "./units";
 import { observationsNow, readPeople, type Shown, unitNow, who } from "./who";
 
-// `bun life memory pages`: stage 3 of the memory cascade (memory-pipeline §3.5). One page per person who has enough to
+// `bun life memory pages`: the pages step (docs/architecture.md, "The pipeline"). One page per person who has enough to
 // say and per area. Each observation has one home page (`homeOf`). A page is rebuilt from its previous version: lines
 // whose observations are unchanged stay word for word, the model only adds lines for new observations, finishes
 // lines or fixes lines whose observations changed, and code ages lines into History and keeps the page within
