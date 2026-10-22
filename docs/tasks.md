@@ -111,7 +111,7 @@ never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
   dropped (`closings`), so it is not added again. The agent sees why in `tasks`. Nothing else on the board is read as
-  the owner's: steers from it once forged the owner's voice.
+  coming from the owner: steers read from it once put words in the owner's mouth.
 - An item is found by the task id on its notes' first line. Each pass brings its notes and section (Open, Working:
   made by hand; the code only assigns them) in line, and ticks the item when its task closes, and only then, so a
   ticked receipt of an open task is always the owner's.

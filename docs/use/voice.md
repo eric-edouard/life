@@ -3,33 +3,37 @@
 How-to: add your recorded conversations to Life. Voice is optional; everything else works without it.
 
 Voice comes from lifelog, a companion project that records your conversations on your phone, transcribes them, tells
-the speakers apart and keeps where you were. lifelog runs its own server; Life reads it through lifelog's API and never
-keeps the transcripts, only short quotes. lifelog is not public yet, so this page assumes you already run it.
+the speakers apart and keeps where you were. lifelog runs its own server, and Life reads it through lifelog's API. Life
+keeps short quotes, not transcripts, with one exception: what you ask your agent out loud is kept word for word (up to
+50,000 characters), so the agent gets your exact request. lifelog is not public yet, so this page assumes you already
+run it.
 
 With voice on, Life also gets:
 
 - what was said in conversations, searchable word for word;
-- where you were (`places`), from lifelog's location stays;
+- where you were, from the places lifelog saw you stay;
 - "hey Life", which marks a moment in a conversation as one to remember;
 - "hey" and your agent's name, which hands what you say next to [your agent](agent.md).
 
 ## In the app
 
 1. In lifelog, create a device token for Life.
-2. Open Life's settings. Under Sources, turn on **Pendant**.
-3. Fill in lifelog's address (for example `https://lifelog.your-tailnet.ts.net`) and the token, then press **Save**.
-   The token goes to the Keychain; Life restarts its services to read the new settings.
+2. Open Life's settings. Under **Sources**, turn on **Pendant**, Life's name for the lifelog source.
+3. Fill in **lifelog address** (for example `https://lifelog.your-tailnet.ts.net`) and **lifelog token**, then press
+   **Save**. The token goes to the Keychain, and Life restarts its services to read the new settings.
 
-Open the status window: the Watcher card says when Life last heard from lifelog. Conversations show up in answers after
-the next midday or nightly pass.
+Open the status window: the **Watcher** card says when Life last heard from lifelog. Conversations show up in answers
+after the next pass, at 13:00, 19:00 or overnight.
 
 ## From a checkout
 
+`settings set` replaces the whole `sources` list, so name every source you want on, the ones already on included:
+
 ```sh
-bun life settings set '{"lifelog":{"url":"https://lifelog.your-tailnet.ts.net"}}'
+bun life settings set '{"lifelog":{"url":"https://lifelog.your-tailnet.ts.net"},"sources":["lifelog","imessage","mail","notes"]}'
 echo 'LIFELOG_TOKEN=<the token>' >> .env
 ```
 
-Add `lifelog` to the `sources` setting the same way, then restart the watcher.
+`bun life settings` shows the current list. Restart the watcher afterwards.
 
 Next: [set up your agent](agent.md).

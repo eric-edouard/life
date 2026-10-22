@@ -23,22 +23,28 @@ and cites where each answer comes from.
 
 > **You:** What did I promise my landlord last week? Did I keep it?
 >
-> *Claude reads Life: `search landlord`, `search rent`, `day 2026-10-14`, `day 2026-10-18`*
+> *Claude reads Life: `search landlord`, `search rent`, `search apartment`, `day 2026-10-14`, `person jean-dupont`,
+> `search plumber`, `day 2026-10-17`*
 >
-> **Claude:** On 14 October you made two promises to your landlord, Jean Dupont, over WhatsApp. You kept both.
+> **Claude:** You made your landlord, Jean Dupont, two promises on Tuesday 13 October over WhatsApp, and you kept both.
 >
-> 1. Pay the October rent by Friday 17 October. Kept, one day early. The promise (obs_99b039b6b84d): *"I'll send the
->    rent by Friday, sorry for the delay."* You paid on 16 October (obs_f36ccacbdafe): *"Done, the October rent is
->    sent."*
-> 2. Be home on Saturday 18 October to let the plumber in. Kept. Hans came at 10:00 and fixed the sink
->    (obs_73b0b2b233a0): *"the drain pipe was cracked, I put in a new one."*
+> **1. Pay the October rent by Friday 16 October:** kept, a day early.
+> - The promise: *"I'll send the rent by Friday, sorry for the delay"* (obs_0764db530f56)
+> - On 15 October at 18:40 you wrote *"Done, the October rent is sent"* (obs_744a681f06d3, mom_33cb4cebbcea).
 >
-> Separately, Claire Dupont is due to send you the 2027 lease to sign by 31 October (obs_c64a9899753a).
+> **2. Be home Saturday 17 October to let the plumber in for the kitchen sink:** kept.
+> - The promise: *"I'll be home Saturday morning to let the plumber in"* (obs_529af414c4f7)
+> - Your lifelog shows Hans fixed the sink at the flat at 10:00 that Saturday. He told you *"the drain pipe was cracked,
+>   I put in a new one"* (obs_42581ef7537c, mom_3d2da4745984).
+>
+> **Coming up:** on 21 October, Claire Dupont said she'll send the 2027 lease for you to sign before the end of October
+> (obs_0fc1405bd0e4). That's something you're waiting on from her, not a promise you made.
 
-This ran on made-up demo data: Claude Code, with Life's read commands as its only tool. Claude.ai and ChatGPT get the
+This is a real run, trimmed, on made-up demo data written by [`scripts/demo.ts`](scripts/demo.ts), whose header has
+the command to run it again: Claude Code, with Life's read commands as its only tool. Claude.ai and ChatGPT get the
 same reads through Life's connector. Each `obs_…` id opens the fact and the message it was quoted from.
 
-<!-- DRAFT: the owner rewrites this in his own words -->
+<!-- draft: to be rewritten -->
 ## Why I built this
 
 Most of what I need to remember I have already said or written somewhere: in a chat, an email, a note, a conversation.
@@ -54,7 +60,8 @@ Required:
   Anthropic or OpenAI API key.
 - [Tailscale](https://tailscale.com), signed in on the Mac. It is how Claude and ChatGPT reach Life; without it you can
   only ask from a terminal on the Mac.
-- [Bun](https://bun.sh) 1.4 and Xcode's command line tools, to build the app. There is no prebuilt release yet.
+- To build the app, as there is no prebuilt release yet: [Bun](https://bun.sh) 1.4, Xcode's command line tools and
+  `rsvg-convert` (`brew install librsvg`).
 
 Life reads iMessage, Mail, Apple Notes and your contacts with nothing else installed, once you give it Full Disk
 Access. Each of these adds something if you have it:
@@ -63,12 +70,13 @@ Access. Each of these adds something if you have it:
 - Beeper Desktop: LINE, Telegram and Instagram chats.
 - lifelog, a companion project that records and transcribes your conversations from your phone: voice, where you were,
   and "hey <agent>" requests. It is not public yet. [Set up voice](docs/use/voice.md).
-- Your code: the commits in every git repository under one folder (the `repos` setting).
-- Your claude.ai and ChatGPT exports: what you told those assistants, read once with `bun life import <folder>`.
+- [remctl](https://github.com/viticci/remctl): Life changes Apple Reminders when you ask it to. Turn on **Use your
+  Reminders** in Life's settings and the app installs it.
 - [restic](https://restic.net): a daily encrypted backup, for example into iCloud Drive.
   [Back up and restore](docs/use/backup.md).
-- A [Resend](https://resend.com) account: the nightly report by email instead of a notification.
-- [remctl](https://github.com/viticci/remctl): Life changes Apple Reminders when you ask it to.
+- A [Resend](https://resend.com) account: the nightly report by email instead of a notification. Your code's commits,
+  older months and your past claude.ai and ChatGPT chats can come in too. These have no screen in the app yet:
+  [settings with no screen yet](docs/use/settings.md).
 
 ## Install
 
@@ -80,9 +88,9 @@ bun scripts/app.ts      # builds dist/Life.app, signed ad hoc
 open dist/Life.app
 ```
 
-Life's settings open on first launch. Enter your name and press Start Life. Then pick the model, turn on the sources
-you want, and press Open Full Disk Access to allow Life there. Life lives in the menu bar from then on; turn on Open
-Life at login so it starts with the Mac.
+Life's settings open on first launch. Enter your name and press **Start Life**. Then pick the model under
+**Thinking**, turn on the sources you want, and press **Open Full Disk Access** to allow Life there. Life lives in the
+menu bar from then on; turn on **Open Life at login** so it starts with the Mac.
 
 ## What happens next
 
@@ -94,56 +102,49 @@ happened each day, the facts worth keeping, and a page for each person who matte
 report, by email or as a notification. Tomorrow morning you can ask about last week.
 
 From then on it reads again each night, and at 13:00 and 19:00 it reads the day so far. Older months come in through a
-backfill: `bun life memory backfill --from 2026-01-01 --to 2026-09-30` from a checkout, read a week at a time, at most
-four weeks a day, oldest first.
+backfill, at most four weeks a day ([settings with no screen yet](docs/use/settings.md#older-months)).
 
-The cost is your model usage, nothing else. Each night makes up to one model call per day of the week it reads, then more
-for the facts and pages that changed; the status window's engine card shows the tokens used this week. On a ChatGPT
-subscription Life reads your Codex quota first and, above 75% used, skips the 13:00 and 19:00 passes and the backfill.
-The nightly always runs.
+The cost is your model usage, nothing else. Each night makes up to one model call per day of the week it reads, then
+more for the facts and pages that changed; the status window's engine card shows the tokens used this week. On a
+ChatGPT subscription Life reads your Codex quota first and, above 75% used, skips the 13:00 and 19:00 passes and the
+backfill. The nightly always runs.
 
 ## Connect your assistant
 
-Your assistant reaches Life at an address on your Mac's Tailscale name, like
-`https://your-mac.your-tailnet.ts.net/mcp`, and you approve it once with a pairing code shown on the Mac. Claude.ai,
-the Claude apps and ChatGPT call from their makers' servers, so that address has to be public, through Tailscale
-Funnel; Claude Code on your own devices can keep it private to your tailnet.
-
-- [Connect Claude](docs/use/connect-claude.md) (Claude.ai, the Claude apps, Claude Code)
-- [Connect ChatGPT](docs/use/connect-chatgpt.md)
+Put Life on your tailnet from its settings, add its address as a custom connector in Claude or ChatGPT, and approve it
+with a pairing code from Life's menu: [connect your assistant](docs/use/connect.md).
 
 ## Where your data goes
 
-Your memory is plain text in a git repository of its own, on your Mac, with no remote: Life commits to it every night
-and never pushes. Raw messages stay in their apps. What leaves the Mac, and only that:
-
-- the text Life reads, sent to the model you chose (Anthropic or OpenAI, through your own subscription's command line
-  or an API key), with no tools and nothing but the prompt;
-- what your assistant reads through the connector, when you ask it;
-- the encrypted backup, if you set one up, to the folder you chose.
+Your memory is plain text in a git repository of its own, on your Mac, with no remote, and Life never pushes it. What
+does leave the Mac (the text sent to your model, what your assistant reads, the backup and Life's few sends) is listed
+in [SECURITY.md](SECURITY.md#what-leaves-the-mac).
 
 ## Status and limitations
 
 Life was built for one person and has one user so far. Its author uses it every day, and it shows: backups, email and
 the backfill have no screen in the app yet, only commands.
 
-The app is not signed with a Developer ID or notarized. You build it yourself, and macOS treats it as an app from an
-unidentified developer.
+The app is not signed with a Developer ID or notarized; you build it yourself, and macOS treats it as an app from an
+unidentified developer. An ad hoc build also loses its Keychain items and its Full Disk Access every time you rebuild
+it, unless you set `LIFE_SIGN_IDENTITY` to an Apple-issued certificate ([app/README.md](app/README.md)).
 
 The models misread. A fact can have the wrong person, the wrong day, or miss that something was done. Every fact
 cites its source, so check it before you act on it, and tell your assistant when something is wrong: the correction is
 kept and wins over the memory.
 
-If you set up an agent (an assistant that acts on "hey <agent>" requests), it runs outside Life's boundary, with full
-access to your Mac's terminal. [SECURITY.md](SECURITY.md) has the threat model and how to report a vulnerability.
+If you set up an agent (an assistant that acts on "hey <agent>" requests), it runs outside Life's boundary, with
+whatever access its own app gives it. [SECURITY.md](SECURITY.md) has the threat model and how to report a
+vulnerability.
 
 ## Docs
 
 Use Life:
 
-- [Connect Claude](docs/use/connect-claude.md) and [connect ChatGPT](docs/use/connect-chatgpt.md)
+- [Connect your assistant](docs/use/connect.md)
 - [Set up voice](docs/use/voice.md)
 - [Set up your agent](docs/use/agent.md)
+- [Settings with no screen yet](docs/use/settings.md): email, code, older months, past assistant chats
 - [Back up and restore](docs/use/backup.md)
 - [Move to a new Mac](docs/use/move.md)
 
@@ -156,23 +157,8 @@ How Life works:
 - [Operations](docs/operations.md): schedule, services, backups, measuring, the read commands
 - [Dashboard reads](docs/dashboard.md): the connector's JSON status reads, for developers
 
-Develop:
-
-- [AGENTS.md](AGENTS.md): rules for contributors and coding agents
-- [Writing docs](docs/STYLE.md)
-- [Building the app](app/README.md) and [releasing](docs/releasing.md)
-
-## Development
-
-```sh
-bun install
-bun run check                 # lint, types, tests, scrub and case checks: run before every commit
-bun test src/memory/units.test.ts
-bun life <command>            # the command line, from the checkout (src/cli.ts)
-```
-
-Tests run on made-up data (`src/test-data`), each run in its own temp folder. Point `LIFE_DATA` and `LIFE_STATE` at a
-copy to experiment; never experiment on live data.
+Develop: the commands and rules are in [AGENTS.md](AGENTS.md#commands); also [writing docs](docs/STYLE.md),
+[building the app](app/README.md) and [releasing](docs/releasing.md).
 
 ## License
 

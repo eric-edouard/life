@@ -14,8 +14,8 @@ whole transcripts or message bodies (but an ask's words, `actions.jsonl`).
 
 ## Words used below
 
-- **Type**, what a unit or observation is. One of: `todo` (To-do), `promise` (Promise: The owner told someone the owner'd do
-  it), `waiting` (Waiting on: someone owes the owner something), `decision` (Decision), `person` (About someone: who they
+- **Type**, what a unit or observation is. One of: `todo` (To-do), `promise` (Promise: the owner
+  promised someone to do it), `waiting` (Waiting on: someone owes the owner something), `decision` (Decision), `person` (About someone: who they
   are, how they're doing, gift ideas), `preference` (Preference: what someone likes or dislikes, the owner included),
   `idea` (Idea), `news` (News: something changed in an area: status, problem, progress), `nothing` (Nothing).
 - **When**, a date or deadline (`YYYY-MM-DD`) any type can carry, or null.
@@ -231,8 +231,8 @@ Sections, in order:
 - **What I hold**: quoted read-only from `truth/` (the owner's; on the owner's own page all of `truth/me.md`, the owner's goals included),
   or for an inferred person what Life guesses; never generated.
 - **Views, values and habits** (the owner's own page only): what the owner believes and values, their philosophy, the priorities they state,
-  habits and tastes, `- <text> [obs_…]`, from what the owner said the owner (the prompt's rule: `speaker` is not yet reliable
-  enough for code to check it); never ages: a line leaves when it is done, replaced or the owner's.
+  habits and tastes, `- <text> [obs_…]`, from what the owner said in their own words (the prompt's rule: `speaker` is not yet reliable
+  enough for code to check it); never ages: a line leaves when it is done, replaced, or rewritten by the owner.
 - **Health** (the owner's own page only): as Now, but a line ages into History after 60 days.
 - **Between us** (the page of someone close to the owner personally, now or once, `personallyClose`): what lasts between them, the
   relationship, agreements, boundaries, turning points, each view in its speaker's name; ages into History after 365
@@ -328,7 +328,7 @@ where a later run's claims about the same thing are). The draw is spread over gr
 
 The owner's answers to the statements, append-only, from the check page (`<your connector origin>/check`,
 `src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
-recorded it, not anymore), `skip` or null (the owner took the owner's last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
+recorded it, not anymore), `skip` or null (the owner took their last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would
 (`ratedOutdated`, `by` the claim itself, `why` `rated outdated`, `validTo` the answer's UTC day), after extraction's own; on a
@@ -360,7 +360,7 @@ read in `from` order (the earliest also covers everything before it). Every loca
 read again from another country. The nightly tick (every 30 minutes) appends a line when the Mac's own zone (never a `TZ`
 variable) differs from the latest one, taking effect at once, or at the next midnight of the zone ahead when the two are
 on different days (`cutAt`: a local day never goes back); what came before it was noticed keeps the old zone. `bun life init`
-seeds it with the Mac's zone. The owner's past may be appended later (the owner's own account of where the owner lived) only
+seeds it with the Mac's zone. The owner's past may be appended later (their own account of where they lived) only
 before the first day memory has units of: an earlier unit's day, and so its id, would move.
 
 ## labels.jsonl

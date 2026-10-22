@@ -247,7 +247,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   day's moments, conversations, chat units, key observations, and what Life changed that day and why.
 - `person [name] [--before d]`: the whole page, when it was built, the next birthday, what Life holds by source and
   month, then every observation and moment linked to them, newest first, paging back with `--before`. `person me` is
-  the owner's own page with the owner's goals. No name lists who has a page; an unknown name is looked for among lifelog's
+  the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.
 - `area <name>`, `topics [tag]`, `unresolved` (what Life inferred, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where

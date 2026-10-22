@@ -1,6 +1,8 @@
 # Architecture
 
-Explanation: how Life is built and why. Life is a memory of one person's life, built from their own sources and kept on their own Mac. This page explains its
+Explanation: how Life is built and why.
+
+Life is a memory of one person's life, built from their own sources and kept on their own Mac. This page explains its
 shape and the reasons for it. Record formats are in `docs/SCHEMA.md`, sources in `docs/sources.md`, the agent and the
 connector in `docs/tasks.md`, how it runs in `docs/operations.md`.
 

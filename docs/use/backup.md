@@ -47,9 +47,9 @@ The nightly report's Last backup line, and the Backup card in the status window,
    ```
 
    The export lands inside it at its original path, ending in `Library/Application Support/Life/backup-staging`.
-2. On a Mac where Life has never been set up, open Life. Instead of Start Life, press **Import an export…** and pick
+2. On a Mac where Life has never been set up, open Life. Instead of **Start Life**, press **Import an export…** and pick
    that `backup-staging` folder. Life checks every file against the export's list before it starts.
 3. Give the secrets again in Life's settings, and pair your assistants again.
 
-An export from Export everything… in Life's settings restores the same way, from step 2:
+An export from **Export everything…** in Life's settings restores the same way, from step 2:
 [move to a new Mac](move.md).
