@@ -11,3 +11,4 @@ app/.build/
 app/Frameworks/
 app-windows/**/bin/
 app-windows/**/obj/
+app-windows/out/
