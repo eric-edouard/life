@@ -1,5 +1,6 @@
 import { cp, mkdir, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import { BUILT, PAGE } from "../src/dashboard";
 import { CODEX } from "../src/llm";
 import { execOk } from "../src/proc";
 
@@ -31,4 +32,12 @@ await Promise.all([
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
   cp(join(ROOT, CODEX), join(resources, CODEX)),
 ]);
+// The status page, bundled once here: the app carries no React to bundle it with at run time (src/dashboard.ts).
+const page = await Bun.build({
+  ...PAGE,
+  outdir: join(resources, relative(ROOT, BUILT)),
+});
+if (!page.success) {
+  throw new Error(`status page: ${page.logs.map(String).join("\n")}`);
+}
 console.log(`helper: ${join(out, "life")}, resources: ${resources}`);
