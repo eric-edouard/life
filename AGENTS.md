@@ -143,6 +143,9 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
 
 - Every worktree reads and writes the same live data and lock. Point `LIFE_DATA` at a copy to experiment; copy
   `derived/settings.json` into a worktree before model runs. `bun test` uses its own made-up copy.
+- Dependencies point one way between `apps/server/src`'s zones (`boundaries` in `.fallowrc.json`; the layers are in
+  `docs/plans/2026-10-22-architecture.md`). `.fallow-baseline.json` lists the violations left from before: it only
+  shrinks (`bun x --bun fallow --save-baseline .fallow-baseline.json` after removing one), never grows.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows

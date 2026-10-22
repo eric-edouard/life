@@ -5,7 +5,15 @@ import process from "node:process";
 const steps: Record<string, string[]> = {
   biome: ["bun", "x", "--bun", "ultracite", "check"],
   cases: ["bun", "scripts/cases-check.ts"],
-  fallow: ["bun", "x", "--bun", "fallow", "--fail-on-issues"],
+  fallow: [
+    "bun",
+    "x",
+    "--bun",
+    "fallow",
+    "--fail-on-issues",
+    "--baseline",
+    ".fallow-baseline.json",
+  ],
   scrub: ["bun", "scripts/scrub-check.ts"],
   test: ["bun", "test", "./apps/server/src/", "./scripts/", "./worker/"],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],

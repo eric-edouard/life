@@ -83,14 +83,16 @@ app's check and build.
 
 Each step is one PR that changes no behaviour, passes `bun run check`, and leaves no old path alive:
 
-1. **Zones and the rule.** Fallow's boundary zones over today's folders, at "warn", listing every violation.
+1. **Zones and the rule.** Fallow's boundary zones over today's folders (`boundaries` in `.fallowrc.json`). Today's
+   49 violations (21 outside tests) sit in a baseline, `.fallow-baseline.json`, which the check reads: a new
+   violation fails from the first PR, and each step below re-saves a smaller baseline.
 2. **core.** The foundations into `core/`; `clock` stops importing `truth` (the root folder moves to `core/paths`).
 3. **The cycles.** Each source and backend registers in a registry the host builds, so readers never import the
    registry, and backends never import `act`. The ten cycles go.
 4. **The memory stops reaching up.** The nightly, the history's archive check and search's events move into
    `host/jobs`; the memory exposes steps, the host runs them in order.
 5. **Schemas by owner.** `schema.ts` split into the modules that own each record.
-6. **The rule at "error".** From here, a violation fails the check.
+6. **No baseline.** The last violations go, and `.fallow-baseline.json` with them.
 7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
    and Turborepo through `create-better-t-stack add`.
 
