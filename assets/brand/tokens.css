@@ -1,0 +1,31 @@
+/* Life's brand (docs/brand.md): the one source of its values. Pages link this file; the email (src/memory/email.ts)
+   and the app (app/Sources/LifeApp/Brand.swift) copy them, and brand.test.ts fails when a copy drifts. */
+:root {
+  --ink: #181818;
+  --white: #ffffff;
+  --surface: #f3f3f3;
+  --rule: #e4e4e4;
+  --muted: #707070;
+  /* Status: dots, short stripes and small marks only, always beside a word, never as text. */
+  --synced: #22c55e;
+  --open: #f59e0b;
+  --error: #ef4444;
+  --progress: #3b82f6;
+  --confirmation: #14b8a6;
+  --unknown: #8b8f97;
+  --serif: "Source Serif 4", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --control-radius: 12px;
+  --panel-radius: 18px;
+  color-scheme: light dark;
+}
+/* Dark, derived (the guide is light only): its calm inverse, white on ink; status colours unchanged. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ffffff;
+    --white: #181818;
+    --surface: #242424;
+    --rule: #333333;
+    --muted: #a3a3a3;
+  }
+}

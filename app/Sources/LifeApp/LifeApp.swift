@@ -29,10 +29,10 @@ struct LifeApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @Environment(\.openWindow) private var openWindow
   private var supervisor: Supervisor { delegate.supervisor }
-  /// Life's L for the menu bar (`menubar.pdf`, from assets/icon/menubar.svg by `scripts/app.ts`): a template image,
-  /// so macOS paints it for a light or a dark bar.
-  private static let mark: NSImage = {
-    let image = NSImage(named: "menubar")!
+  /// Life's L (`life-l.pdf`, from assets/brand/life-l.svg by `scripts/app.ts`), in the menu bar and the wordmark: a
+  /// template image, so macOS paints it for a light or a dark bar and SwiftUI in the text's colour.
+  static let mark: NSImage = {
+    let image = NSImage(named: "life-l")!
     image.isTemplate = true
     return image
   }()
@@ -65,7 +65,7 @@ struct LifeApp: App {
       if let status = supervisor.info?.status {
         StatusWindow(supervisor: supervisor, status: status)
       } else {
-        Text("Not answering").font(Ledger.serif(18)).foregroundStyle(Ledger.muted).padding(40)
+        Text("Not answering").font(Brand.serif(18)).foregroundStyle(Brand.muted).padding(40)
       }
     }
     .windowStyle(.hiddenTitleBar)
@@ -195,6 +195,8 @@ struct SettingsView: View {
       }
     }
     .formStyle(.grouped)
+    .font(Brand.serif(13))
+    .tint(Brand.ink)
     .task { await load() }
     .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
       // Full Disk Access is granted in System Settings: the sources' state is read again until it shows.

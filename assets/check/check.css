@@ -1,19 +1,7 @@
-/* Ledger (agent-config's ledger-brand skill, tokens.css): paper white, serif to read, mono to count. Light only. */
+/* Life's brand (docs/brand.md): its values are tokens.css's, linked before this file. */
 @import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@500&display=swap");
 :root {
-  --bg: #f7f7f5;
-  --panel: #fff;
-  --sunk: #f1f1ee;
-  --line: #e1e2de;
-  --ink: #1b1d1f;
-  --muted: #6d7176;
-  --ok: #2f8f4e;
-  --bad: #c4382c;
-  --idle: #7d8186;
-  --serif: "Source Serif 4", Georgia, serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   font: 16px / 1.55 var(--serif);
-  color-scheme: light;
 }
 body {
   box-sizing: border-box;
@@ -26,7 +14,7 @@ body {
   margin: 0 auto;
   overflow: hidden;
   color: var(--ink);
-  background: var(--bg);
+  background: var(--white);
 }
 select {
   width: 100%;
@@ -42,15 +30,15 @@ progress {
   height: 8px;
   overflow: hidden;
   appearance: none;
-  background: var(--sunk);
+  background: var(--surface);
   border: 0;
   border-radius: 8px;
 }
 progress::-webkit-progress-bar {
-  background: var(--sunk);
+  background: var(--surface);
 }
 progress::-webkit-progress-value {
-  background: var(--ok);
+  background: var(--synced);
 }
 .note,
 #status,
@@ -76,21 +64,21 @@ article {
   padding: 24px;
   touch-action: none;
   user-select: none;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  background: var(--white);
+  border: 1px solid var(--rule);
+  border-radius: var(--panel-radius);
   transition:
     transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 0.3s;
 }
 article[data-lean="true"] {
-  border-color: rgb(from var(--ok) r g b / var(--lean));
+  border-color: rgb(from var(--synced) r g b / var(--lean));
 }
 article[data-lean="false"] {
-  border-color: rgb(from var(--bad) r g b / var(--lean));
+  border-color: rgb(from var(--error) r g b / var(--lean));
 }
 article[data-lean="outdated"] {
-  border-color: rgb(from var(--idle) r g b / var(--lean));
+  border-color: rgb(from var(--unknown) r g b / var(--lean));
 }
 .dragging {
   transition: none;
@@ -113,20 +101,20 @@ button {
   font: 600 17px var(--serif);
   color: var(--ink);
   touch-action: manipulation;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 5px;
+  background: var(--white);
+  border: 1px solid var(--rule);
+  border-radius: var(--control-radius);
 }
 .main {
   height: 64px;
 }
 [data-verdict="true"] {
-  color: var(--panel);
+  color: var(--white);
   background: var(--ink);
   border-color: var(--ink);
 }
 [data-verdict="false"] {
-  border-color: var(--bad);
+  border-color: var(--error);
 }
 button:disabled,
 #deck:not(:has(article)) [data-verdict] {

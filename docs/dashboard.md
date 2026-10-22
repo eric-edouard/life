@@ -172,7 +172,7 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
   Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
-- **Look.** Ledger (its fonts bundled from `app/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
+- **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `app/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
   left to right as data does, a card opening in place over the plate.
 - **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its

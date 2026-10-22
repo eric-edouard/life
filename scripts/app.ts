@@ -120,14 +120,15 @@ await cp(join(helper, "life"), join(contents, "Helpers", "life"));
 await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
   recursive: true,
 });
-// Ledger's type, Source Serif 4 and IBM Plex Mono (OFL, their licences beside them), registered by ATSApplicationFontsPath.
+// Life's type (docs/brand.md): Source Serif 4, IBM Plex Mono and Cormorant Garamond Bold for the wordmark (OFL, their
+// licences beside them), registered by ATSApplicationFontsPath.
 await cp(join(ROOT, "app", "Fonts"), join(contents, "Resources", "Fonts"), {
   recursive: true,
 });
 await writeFile(join(contents, "Info.plist"), PLIST);
 
 // Life's icon from assets/icon (rsvg-convert, Homebrew's librsvg): app.svg as the bundle's icon at every size macOS
-// asks for, menubar.svg as the menu bar's template image.
+// asks for; the L alone, assets/brand/life-l.svg, as the menu bar's and the wordmark's template image.
 const ICON = join(ROOT, "assets", "icon");
 const iconset = join(out, "Life.iconset");
 await mkdir(iconset, { recursive: true });
@@ -159,14 +160,16 @@ await run([
   "rsvg-convert",
   "-f",
   "pdf",
-  // At 72 dpi its 18 px are 18 pt, the menu bar's size.
+  // At 72 dpi its 18 px high are 18 pt, the menu bar's size.
   "-d",
   "72",
   "-p",
   "72",
+  "-h",
+  "18",
   "-o",
-  join(contents, "Resources", "menubar.pdf"),
-  join(ICON, "menubar.svg"),
+  join(contents, "Resources", "life-l.pdf"),
+  join(ROOT, "assets", "brand", "life-l.svg"),
 ]);
 
 // Inside out: the helper first, then the app around it.

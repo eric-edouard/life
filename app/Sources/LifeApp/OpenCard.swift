@@ -22,11 +22,11 @@ struct OpenCard: View {
         facts
         if showContent, let lines = card.content, !lines.isEmpty {
           VStack(alignment: .leading, spacing: 6) {
-            ForEach(lines, id: \.self) { Text($0).font(Ledger.serif(14)).textSelection(.enabled) }
+            ForEach(lines, id: \.self) { Text($0).font(Brand.serif(14)).textSelection(.enabled) }
           }
           .padding(12)
           .frame(maxWidth: .infinity, alignment: .leading)
-          .background(Ledger.sunk, in: .rect(cornerRadius: 8))
+          .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
         }
         if let ask = card.ask, showContent { askBox(ask) }
         section("History") { historyList }
@@ -38,9 +38,8 @@ struct OpenCard: View {
     .scrollIndicators(.never)
     .frame(width: 720)
     .frame(maxHeight: 700)
-    .background(Ledger.panel, in: .rect(cornerRadius: 16))
-    .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(Ledger.line) }
-    .shadow(color: .black.opacity(0.35), radius: 50, y: 30)
+    .background(Brand.page, in: .rect(cornerRadius: Brand.panel))
+    .overlay { RoundedRectangle(cornerRadius: Brand.panel).strokeBorder(Brand.rule) }
     .task(id: card.id) {
       guard let d = await status.detail(card.id) else { return }
       detail = d
@@ -54,8 +53,8 @@ struct OpenCard: View {
     HStack(alignment: .top) {
       VStack(alignment: .leading, spacing: 6) {
         Text(card.group == "mac" ? "The Mac" : card.group.capitalized).label()
-        Text(card.name).font(Ledger.serif(34, .semibold))
-        Text(card.headline).font(Ledger.serif(15)).foregroundStyle(Ledger.muted)
+        Text(card.name).font(Brand.serif(36, .semibold))
+        Text(card.headline).font(Brand.serif(15)).foregroundStyle(Brand.muted)
       }
       Spacer()
       Pill(tone: card.tone, word: card.word)
@@ -63,7 +62,7 @@ struct OpenCard: View {
         .labelStyle(.iconOnly)
         .buttonStyle(.plain)
         .frame(width: 28, height: 28)
-        .background(Ledger.sunk, in: .circle)
+        .background(Brand.surface, in: .circle)
         .keyboardShortcut(.cancelAction)
     }
   }
@@ -72,11 +71,11 @@ struct OpenCard: View {
     LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 18, alignment: .topLeading)], spacing: 16) {
       ForEach(card.facts, id: \.self) { f in
         VStack(alignment: .leading, spacing: 3) {
-          Text(f.value ?? f.at.map(ago) ?? "never").font(Ledger.mono(17, .medium)).lineLimit(2)
-          Text(f.label).font(Ledger.serif(12)).foregroundStyle(Ledger.muted).lineLimit(2)
+          Text(f.value ?? f.at.map(ago) ?? "never").font(Brand.mono(17, .medium)).lineLimit(2)
+          Text(f.label).font(Brand.serif(12)).foregroundStyle(Brand.muted).lineLimit(2)
         }
         .padding(.top, 9)
-        .overlay(alignment: .top) { Rectangle().fill(Ledger.line).frame(height: 2) }
+        .overlay(alignment: .top) { Rectangle().fill(Brand.rule).frame(height: 1) }
       }
     }
   }
@@ -84,7 +83,7 @@ struct OpenCard: View {
   private func askBox(_ ask: String) -> some View {
     VStack(alignment: .leading, spacing: 8) {
       Text("For Claude").label()
-      Text(ask).font(Ledger.serif(14)).textSelection(.enabled)
+      Text(ask).font(Brand.serif(14)).textSelection(.enabled)
       Button(copied ? "Copied" : "Copy") {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(ask, forType: .string)
@@ -93,14 +92,14 @@ struct OpenCard: View {
     }
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Ledger.sunk, in: .rect(cornerRadius: 8))
+    .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
   }
 
   @ViewBuilder private var historyList: some View {
     if detail == nil {
-      Text("Reading…").foregroundStyle(Ledger.muted)
+      Text("Reading…").foregroundStyle(Brand.muted)
     } else if history.isEmpty {
-      Text("Nothing in 7 days").foregroundStyle(Ledger.muted)
+      Text("Nothing in 7 days").foregroundStyle(Brand.muted)
     } else {
       VStack(alignment: .leading, spacing: 0) {
         ForEach(Array(history.enumerated()), id: \.offset) { _, e in
@@ -119,38 +118,38 @@ struct OpenCard: View {
         Circle().fill(e.tone.color).frame(width: 7, height: 7)
         if let id = e.run {
           Button(e.title) { withAnimation(.smooth) { run = run == id ? nil : id } }
-            .buttonStyle(.plain).font(Ledger.serif(14, .semibold))
+            .buttonStyle(.plain).font(Brand.serif(14, .semibold))
         } else {
-          Text(e.title).font(Ledger.serif(14, .semibold))
+          Text(e.title).font(Brand.serif(14, .semibold))
         }
         Spacer()
-        if let sub = e.sub { Text(sub).font(Ledger.mono(11)).foregroundStyle(Ledger.muted).lineLimit(1) }
-        if let at = e.at { Text(ago(at)).font(Ledger.mono(11)).foregroundStyle(Ledger.muted) }
+        if let sub = e.sub { Text(sub).font(Brand.mono(11)).foregroundStyle(Brand.muted).lineLimit(1) }
+        if let at = e.at { Text(ago(at)).font(Brand.mono(11)).foregroundStyle(Brand.muted) }
       }
       if showContent, let content = e.content {
-        Text(content).font(Ledger.serif(12.5)).foregroundStyle(Ledger.muted).padding(.leading, 19).textSelection(.enabled)
+        Text(content).font(Brand.serif(12.5)).foregroundStyle(Brand.muted).padding(.leading, 19).textSelection(.enabled)
       }
       if let id = e.run, run == id {
         RunSteps(id: id, status: status).padding(.leading, 19).transition(.opacity)
       }
     }
     .padding(.vertical, 10)
-    .overlay(alignment: .top) { Rectangle().fill(Ledger.line).frame(height: 1) }
+    .overlay(alignment: .top) { Rectangle().fill(Brand.rule).frame(height: 1) }
   }
 
   @ViewBuilder private var logList: some View {
     if !showContent {
-      Text("Hidden").foregroundStyle(Ledger.muted)
+      Text("Hidden").foregroundStyle(Brand.muted)
     } else if log.isEmpty {
-      Text("Nothing in 7 days").foregroundStyle(Ledger.muted)
+      Text("Nothing in 7 days").foregroundStyle(Brand.muted)
     } else {
       VStack(alignment: .leading, spacing: 10) {
         Text(log.joined(separator: "\n"))
-          .font(Ledger.mono(11))
+          .font(Brand.mono(11))
           .textSelection(.enabled)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(12)
-          .background(Ledger.sunk, in: .rect(cornerRadius: 8))
+          .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
         if let before = next.log {
           Button("Older") { Task { await more(before, history: false) } }
         }

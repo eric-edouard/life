@@ -9,15 +9,15 @@ struct CardTile: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
       HStack(alignment: .firstTextBaseline, spacing: 8) {
-        Text(card.name).font(Ledger.serif(14, .semibold)).foregroundStyle(Ledger.ink).lineLimit(1)
+        Text(card.name).font(Brand.serif(14, .semibold)).foregroundStyle(Brand.ink).lineLimit(1)
         Spacer(minLength: 0)
         Pill(tone: card.tone, word: card.word)
       }
       if card.headline != card.word {
-        Text(card.headline).font(Ledger.serif(12.5)).foregroundStyle(Ledger.muted).lineLimit(2)
+        Text(card.headline).font(Brand.serif(12.5)).foregroundStyle(Brand.muted).lineLimit(2)
       }
       if let at = card.at {
-        Text(ago(at)).font(Ledger.mono(10.5)).foregroundStyle(Ledger.muted)
+        Text(ago(at)).font(Brand.mono(10.5)).foregroundStyle(Brand.muted)
       }
       if let stations = card.stations, !stations.isEmpty {
         HStack(spacing: 3) {
@@ -31,20 +31,23 @@ struct CardTile: View {
     .padding(.horizontal, 12)
     .padding(.vertical, 11)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Ledger.panel, in: .rect(cornerRadius: 10))
+    .background(Brand.page, in: .rect(cornerRadius: Brand.control))
     .overlay {
-      RoundedRectangle(cornerRadius: 10)
-        .strokeBorder(trouble ? card.tone.color.opacity(0.55) : Ledger.line, lineWidth: 1)
+      RoundedRectangle(cornerRadius: Brand.control)
+        .strokeBorder(Brand.rule, lineWidth: 1)
     }
-    .shadow(color: trouble ? card.tone.color.opacity(0.14) : .clear, radius: 14)
-    .contentShape(.rect(cornerRadius: 10))
+    // In trouble: a short stripe in its colour.
+    .overlay(alignment: .leading) {
+      if trouble { Capsule().fill(card.tone.color).frame(width: 3).padding(.vertical, 12) }
+    }
+    .contentShape(.rect(cornerRadius: Brand.control))
   }
 
   private func color(_ state: String) -> Color {
     switch state {
     case "done": Tone.ok.color
     case "now": Tone.busy.color
-    default: Ledger.line
+    default: Brand.rule
     }
   }
 }
