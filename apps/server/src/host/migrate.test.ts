@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,6 +25,7 @@ import { LedgerEntry } from "../records/ledger-entry";
 import { InferredPerson, Observation } from "../records/observation";
 import { Rating, Statement } from "../records/statement";
 import { MemoryLabel, Unit, Verdict } from "../records/unit";
+import { entryId } from "./act";
 import { migrateStored, relabeled, renameStored } from "./migrate";
 
 // Made-up memory as it was written before the rename: old ids minted by the old recipes, old keys and values.
@@ -384,11 +387,26 @@ test("the agent's old word changes only where it was a stored value; words read 
   expect(renamed.has("memory/files.jsonl")).toBe(false);
 });
 
-test("a board item's notes get the task's new id on their first line, his words untouched", () => {
-  expect(
-    relabeled("act_0123456789ab\nhey Orbit, act_0123456789ab\nworking")
-  ).toBe("entry_0123456789ab\nhey Orbit, act_0123456789ab\nworking");
-  expect(relabeled("act_0123456789ab")).toBe("entry_0123456789ab");
+test("a board item's notes get the task's new id on their first line, a split's minted again; his words untouched", () => {
+  const parent = "act_0123456789ab";
+  const split = `act_${entryId(parent, "ask", "call the bank").slice(6)}`;
+  const { rename } = renameStored(
+    new Map([
+      [
+        "memory/actions.jsonl",
+        jsonl(
+          { id: parent, instruction: { ref: "session:x" }, kind: "ask" },
+          { after: { parent, title: "call the bank" }, id: split, kind: "ask" }
+        ),
+      ],
+    ])
+  );
+  expect(relabeled(`${parent}\nhey Orbit, ${parent}\nworking`, rename)).toBe(
+    `entry_0123456789ab\nhey Orbit, ${parent}\nworking`
+  );
+  expect(relabeled(split, rename)).toBe(
+    entryId("entry_0123456789ab", "ask", "call the bank")
+  );
 });
 
 test("in a data dir: renamed once and recorded; lines an old process appends later join the new ledger", async () => {
@@ -429,4 +447,69 @@ test("in a data dir: renamed once and recorded; lines an old process appends lat
     via: "session",
   });
   expect(existsSync(join(dir, "memory/actions.jsonl"))).toBe(false);
+});
+
+/** A data dir holding `before`, plus `extra` files. */
+function dataDir(extra: [string, string][] = []) {
+  const dir = mkdtempSync(join(tmpdir(), "life-rename-"));
+  for (const [path, text] of [...before, ...extra]) {
+    mkdirSync(join(dir, path, ".."), { recursive: true });
+    writeFileSync(join(dir, path), text);
+  }
+  return dir;
+}
+const read = (dir: string, path: string) =>
+  readFileSync(join(dir, path), "utf8");
+
+test("a run cut off while building is built again; memory/ was never touched", async () => {
+  const dir = dataDir([["memory.renamed/units/x.jsonl", "half"]]);
+  await migrateStored(dir);
+  expect(existsSync(join(dir, "memory.renamed"))).toBe(false);
+  expect(read(dir, "memory/ledger.jsonl").trim().split("\n")).toHaveLength(3);
+  expect(existsSync(join(dir, "memory/units/x.jsonl"))).toBe(false);
+});
+
+test("a run cut off after the swap is settled: late lines renamed onto the new memory, the old copy gone", async () => {
+  const dir = dataDir();
+  const swapped = renameStored(before);
+  // The state right after the swap: the new memory in place, the old one beside it, with a line appended late.
+  renameSync(join(dir, "memory"), join(dir, "memory.old"));
+  for (const [path, text] of before) {
+    const to = swapped.moves.find(([from]) => from === path)?.[1] ?? path;
+    mkdirSync(join(dir, to, ".."), { recursive: true });
+    writeFileSync(join(dir, to), swapped.files.get(path) ?? text);
+  }
+  writeFileSync(
+    join(dir, "memory/migrations.jsonl"),
+    `${JSON.stringify({ name: "stored-names-2026-10-22" })}\n`
+  );
+  writeFileSync(
+    join(dir, "memory.read.json"),
+    JSON.stringify(
+      Object.fromEntries([...before].map(([p, t]) => [p, t.length]))
+    )
+  );
+  appendFileSync(
+    join(dir, "memory.old/actions.jsonl"),
+    jsonl({
+      id: "act_00000000000e",
+      instruction: { ref: obs },
+      kind: "add",
+      madeBy: "session",
+    })
+  );
+  await migrateStored(dir);
+  const lines = read(dir, "memory/ledger.jsonl")
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+  expect(lines).toHaveLength(4);
+  expect(lines[3]).toEqual({
+    id: "entry_00000000000e",
+    instruction: { ref: newObs },
+    kind: "add",
+    via: "session",
+  });
+  expect(existsSync(join(dir, "memory.old"))).toBe(false);
+  expect(existsSync(join(dir, "memory.read.json"))).toBe(false);
 });

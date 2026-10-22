@@ -1162,7 +1162,8 @@ export async function reindex() {
   }));
   const { observations, standing } = await observationsNow(people);
   const n = buildIndex(observations, INDEX, standing, units);
-  console.log(
+  // On stderr: the app reads a command's stdout as its answer, and the first command after an update may rebuild.
+  console.error(
     `${n} observations and ${units.length} units indexed in ${INDEX}`
   );
 }

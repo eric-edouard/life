@@ -2,7 +2,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./names";
-import { isCheckout, LIFE_STATE_DIR, real } from "./paths";
+import { LIFE_STATE_DIR, real, runsFromRepo } from "./paths";
 import { HOME, MACHINE_DIR } from "./platform";
 
 /** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
@@ -101,7 +101,7 @@ export function readSettings(path = SETTINGS): Settings {
   const renamed = renamedSettings(raw);
   if (renamed !== raw) {
     // The app's settings (a checkout's link to them included) only the app renames: it is still reading them.
-    if (isCheckout() && real(path).startsWith(real(MACHINE_DIR))) {
+    if (runsFromRepo() && real(path).startsWith(real(MACHINE_DIR))) {
       throw new Error(
         `${path} has the names from before 22 Oct 2026: the new Life.app renames them, never a checkout`
       );
@@ -133,8 +133,12 @@ export function renamedSettings(raw: Record<string, unknown>) {
 
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
 function writeWhole(path: string, value: unknown) {
-  writeFileSync(`${path}.tmp`, `${JSON.stringify(value, null, 2)}\n`);
-  renameSync(`${path}.tmp`, path);
+  // Each process its own temp file: the app starts several at once, each may rename an old file.
+  writeFileSync(
+    `${path}.${process.pid}.tmp`,
+    `${JSON.stringify(value, null, 2)}\n`
+  );
+  renameSync(`${path}.${process.pid}.tmp`, path);
 }
 
 let read: Settings | undefined;

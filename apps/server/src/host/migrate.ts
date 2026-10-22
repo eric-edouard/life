@@ -1,5 +1,6 @@
 import {
   appendFileSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -13,7 +14,6 @@ import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { mayMigrate, OWNER_DATA_DIR } from "../core/paths";
-import { git } from "../core/proc";
 import { locked } from "../memory/memory-lock";
 import { momentId } from "../memory/moments";
 import { observationId } from "../memory/observe";
@@ -35,8 +35,11 @@ import { entryId } from "./act";
 /** The migrations done, one line each (memory/migrations.jsonl): this one's name. */
 const STEP = "stored-names-2026-10-22";
 const DONE = "memory/migrations.jsonl";
-/** Set while the rewrite runs: found at a start, the last one stopped part-way and its files are restored first. */
-const RUNNING = "memory/.migrating";
+/** The renamed memory while it is built, and the old one for the moment of the swap. */
+const STAGED = "memory.renamed";
+const OLD_MEMORY = "memory.old";
+/** How much of each file the rename read, kept until the old copy is settled. */
+const READ = "memory.read.json";
 const OLD_LEDGER = "memory/actions.jsonl";
 const NEW_LEDGER = "memory/ledger.jsonl";
 const PATHS = ["memory", "docs/evals/cases"];
@@ -53,7 +56,7 @@ const INFERRED = /\bperson:inf-/g;
 const AGENT_REF = /^(unknown:|agent:)?atlas(?=$|:)/;
 const INFERRED_ID = /^inf-/;
 const INFERRED_PAGE = /^(memory\/pages\/people\/)inf-/;
-const OLD_TASK_LINE = /^act_([0-9a-f]{12})(?=\n|$)/;
+const OLD_TASK_LINE = /^act_[0-9a-f]{12}(?=\n|$)/;
 const STORED = /\.(jsonl|md|json)$/;
 
 /** Keys whose values are someone's words or what Life read off a file: never rewritten, by the files they are in. */
@@ -65,7 +68,6 @@ const WORDS: [RegExp, string[]][] = [
 /** Keys where the agent's old word is a stored value: a source, a target, a sender, a ref or a speaker. */
 const AGENT_KEYS = new Set([
   "channel",
-  "people",
   "ref",
   "refs",
   "sender",
@@ -85,6 +87,17 @@ const KEYS: [RegExp, [string, string][]][] = [
 const TYPED = /^memory\/(verdicts\.jsonl|labels\.jsonl|observations\/)/;
 
 const isJsonl = (path: string) => path.endsWith(".jsonl");
+/** A line of a stored file, or an error that names the file and the line. */
+function parsed(path: string, line: string, i: number) {
+  try {
+    return JSON.parse(line);
+  } catch (e) {
+    throw new Error(
+      `${path}, line ${i + 1}: not JSON, so its names can't be renamed`,
+      { cause: e }
+    );
+  }
+}
 const under = (path: string, dir: string) => path.startsWith(`${dir}/`);
 const type = (t: string) => TYPES[t] ?? t;
 const linesOf = (text: string) => text.split("\n").filter((l) => l.trim());
@@ -94,8 +107,7 @@ const linesOf = (text: string) => text.split("\n").filter((l) => l.trim());
 const rowsIn = (files: Map<string, string>, path: string): any[] =>
   [...files]
     .filter(([p]) => (p === path || under(p, path)) && isJsonl(p))
-    .flatMap(([, text]) => linesOf(text))
-    .map((l) => JSON.parse(l));
+    .flatMap(([p, text]) => linesOf(text).map((l, i) => parsed(p, l, i)));
 
 /** The old unit recipe: the same parts as `unitId`, the old prefix. */
 const oldUnitId = (...parts: string[]) => `u_${unitId(...parts).slice(5)}`;
@@ -157,8 +169,12 @@ function momentIds(files: Map<string, string>, unit: (id: string) => string) {
  * Ledger entries minted from an id: an add from an observation (a grant's quote), a split from its parent ask. Minted
  * again from the new id, so the same words still act or ask once; the rest only change their prefix.
  */
-function entryIds(files: Map<string, string>, rename: (s: string) => string) {
-  const ids = new Map<string, string>();
+function entryIds(
+  files: Map<string, string>,
+  rename: (s: string) => string,
+  ids: Map<string, string>
+) {
+  // In file order, so a split's parent (itself maybe a split) has its new id before it.
   for (const a of rowsIn(files, OLD_LEDGER)) {
     const ref = String(a.after?.parent ?? a.instruction?.ref ?? "");
     const title = [String(a.after?.title ?? ""), `${a.after?.on}`].find(
@@ -168,7 +184,6 @@ function entryIds(files: Map<string, string>, rename: (s: string) => string) {
       ids.set(a.id, entryId(rename(ref), a.kind, title));
     }
   }
-  return ids;
 }
 
 /** Each old id's new one: minted again where an id is minted from another, else the new prefix. */
@@ -178,7 +193,7 @@ function idMaps(files: Map<string, string>) {
     id.startsWith("u_") ? (agents.get(id) ?? `unit_${id.slice(2)}`) : id;
   const observations = observationIds(files, unit);
   const moments = momentIds(files, unit);
-  const ids = (entries: Map<string, string>) => (s: string) =>
+  const ids = (known: Map<string, string>) => (s: string) =>
     s
       .replace(ID, (id, p, hex) => {
         if (p === "u") {
@@ -190,10 +205,13 @@ function idMaps(files: Map<string, string>) {
         if (p === "mom") {
           return moments.get(id) ?? id;
         }
-        return entries.get(id) ?? entry(hex);
+        return known.get(id) ?? entry(hex);
       })
       .replace(INFERRED, "person:inf_");
-  return ids(entryIds(files, ids(new Map())));
+  const entries = new Map<string, string>();
+  const rename = ids(entries);
+  entryIds(files, rename, entries);
+  return rename;
 }
 
 type Rename = ReturnType<typeof idMaps>;
@@ -255,7 +273,7 @@ const jsonl = (path: string, text: string, rename: Rename) =>
       if (!l.trim()) {
         return l;
       }
-      const was = JSON.parse(l) as Record<string, unknown>;
+      const was = parsed(path, l, 0) as Record<string, unknown>;
       const now = JSON.stringify(row(path, was, rename));
       return now === JSON.stringify(was) ? l : now;
     })
@@ -323,122 +341,169 @@ export function renameStored(files: Map<string, string>) {
       moves.push([path, moved]);
     }
   }
-  return { files: out, moves };
+  return { files: out, moves, rename };
 }
 
-/** A data dir's files, by their path in it. */
-const inDir = (dir: string) => (path: string) => join(dir, path);
+/** The stored files of one data dir, by their path in it. */
 const done = (dir: string) =>
   existsSync(join(dir, DONE)) &&
   linesOf(readFileSync(join(dir, DONE), "utf8")).some(
     (l) => JSON.parse(l).name === STEP
   );
 
-/** Is there anything for the rename to do: memory not renamed yet, or the old ledger written again since? */
+/** Is there anything for the rename to do: memory not renamed yet, a run to finish, or the old ledger written again? */
 export const needsRename = (dir = OWNER_DATA_DIR) =>
-  existsSync(join(dir, "memory")) &&
-  (!done(dir) || existsSync(join(dir, OLD_LEDGER)));
+  existsSync(join(dir, STAGED)) ||
+  existsSync(join(dir, OLD_MEMORY)) ||
+  (existsSync(join(dir, "memory")) &&
+    (!done(dir) || existsSync(join(dir, OLD_LEDGER))));
 
-/** The files the rename reads: memory/ (JSON Lines and pages) and the regression cases. */
-function readStored(dir: string) {
-  const at = inDir(dir);
-  const files = new Map<string, string>();
-  const walk = (folder: string) => {
-    for (const e of readdirSync(folder, { withFileTypes: true })) {
-      const p = join(folder, e.name);
+/** Every file under `folder`, by its path relative to `dir`. */
+function filesUnder(dir: string, folder: string) {
+  const out: string[] = [];
+  const walk = (at: string) => {
+    for (const e of readdirSync(at, { withFileTypes: true })) {
+      const p = join(at, e.name);
       if (e.isDirectory()) {
         walk(p);
-      } else if (STORED.test(e.name)) {
-        files.set(relative(dir, p), readFileSync(p, "utf8"));
+      } else {
+        out.push(relative(dir, p));
       }
     }
   };
-  for (const path of PATHS.filter((p) => existsSync(at(p)))) {
-    walk(at(path));
+  if (existsSync(join(dir, folder))) {
+    walk(join(dir, folder));
   }
-  return files;
+  return out;
 }
 
+/** The stored files the rename reads: memory/ (JSON Lines and pages) and the regression cases. */
+const readStored = (dir: string) =>
+  new Map(
+    PATHS.flatMap((p) => filesUnder(dir, p))
+      .filter((p) => STORED.test(p))
+      .map((p) => [p, readFileSync(join(dir, p), "utf8")])
+  );
+
 /** Writes a file whole: a reader never meets half of it. */
-function writeWhole(dir: string, path: string, text: string) {
-  const at = inDir(dir);
-  mkdirSync(dirname(at(path)), { recursive: true });
-  writeFileSync(at(`${path}.migrating`), text);
-  renameSync(at(`${path}.migrating`), at(path));
+function writeWhole(path: string, text: string) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(`${path}.${process.pid}.tmp`, text);
+  renameSync(`${path}.${process.pid}.tmp`, path);
 }
 
 /**
- * The last run stopped part-way: its files go back to the last commit (the one made before it), and the lines an old
- * process appended to the old ledger meanwhile are kept.
+ * The renamed memory, built whole beside it (memory.renamed/: every file copied, the renamed ones written, the moved
+ * ones moved), then swapped in by two renames and settled (`settle`). A run cut off before the swap leaves memory/ as
+ * it was (the half-built copy is dropped and built again); one cut off after it is settled at the next start.
  */
-function restore(dir: string) {
-  const at = inDir(dir);
-  const head = git(dir, ["show", `HEAD:${OLD_LEDGER}`]);
-  const kept = new Set(
-    head.exitCode === 0 ? linesOf(head.stdout.toString()) : []
-  );
-  const late = existsSync(at(OLD_LEDGER))
-    ? linesOf(readFileSync(at(OLD_LEDGER), "utf8")).filter((l) => !kept.has(l))
-    : [];
-  git(dir, [
-    "checkout",
-    "HEAD",
-    "--",
-    ...PATHS.filter((p) => existsSync(at(p))),
-  ]);
-  git(dir, ["clean", "-fq", "--", NEW_LEDGER, "memory/pages/people"]);
-  if (late.length > 0) {
-    appendFileSync(at(OLD_LEDGER), `${late.join("\n")}\n`);
+function renameIn(dir: string) {
+  const at = (p: string) => join(dir, p);
+  if (existsSync(at(STAGED)) && !existsSync(at("memory"))) {
+    renameSync(at(STAGED), at("memory"));
   }
+  if (existsSync(at(OLD_MEMORY))) {
+    return settle(dir);
+  }
+  rmSync(at(STAGED), { force: true, recursive: true });
+  if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
+    commitMemory(PATHS, "Memory: before the stored names' rename");
+  }
+  const files = readStored(dir);
+  const { files: renamed, moves } = renameStored(files);
+  const staged = (p: string) => join(dir, STAGED, relative("memory", p));
+  for (const p of filesUnder(dir, "memory")) {
+    mkdirSync(dirname(staged(p)), { recursive: true });
+    copyFileSync(at(p), staged(p));
+  }
+  for (const [p, text] of renamed) {
+    if (under(p, "memory")) {
+      writeFileSync(staged(p), text);
+    }
+  }
+  for (const [from, to] of moves) {
+    renameSync(staged(from), staged(to));
+  }
+  appendFileSync(
+    staged(DONE),
+    `${JSON.stringify({ at: clock().toISOString(), name: STEP, schemaVersion: 1 })}\n`
+  );
+  // How much of each file was read: what an old process appends after it is a late line (`settle`).
+  writeFileSync(
+    at(READ),
+    JSON.stringify(
+      Object.fromEntries([...files].map(([p, t]) => [p, t.length]))
+    )
+  );
+  renameSync(at("memory"), at(OLD_MEMORY));
+  renameSync(at(STAGED), at("memory"));
+  return settle(dir);
 }
+
+/**
+ * After the swap: the lines appended to the old memory past what was read (a correction, a rating, an old process's
+ * ledger line, all written without the lock) renamed onto the new one, the old copy gone, the regression cases
+ * renamed, and the commit. The names are read off the old copy, so a settle at a later start renames the same way.
+ */
+function settle(dir: string) {
+  const at = (p: string) => join(dir, p);
+  const old = (p: string) => join(dir, OLD_MEMORY, relative("memory", p));
+  const read = JSON.parse(readFileSync(at(READ), "utf8")) as Record<
+    string,
+    number
+  >;
+  const files = new Map([
+    ...filesUnder(dir, OLD_MEMORY)
+      .map((p) => join("memory", relative(OLD_MEMORY, p)))
+      .filter((p) => STORED.test(p))
+      .map((p) => [p, readFileSync(old(p), "utf8")] as const),
+    ...[...readStored(dir)].filter(([p]) => !under(p, "memory")),
+  ]);
+  // A file not read at all was made after the read: all of it is late.
+  const {
+    files: renamed,
+    moves,
+    rename,
+  } = renameStored(
+    new Map([...files].map(([p, t]) => [p, t.slice(0, read[p] ?? 0)]))
+  );
+  for (const [p, text] of files) {
+    const late = text.slice(read[p] ?? 0);
+    if (isJsonl(p) && late.trim()) {
+      const to = moves.find(([from]) => from === p)?.[1] ?? p;
+      appendFileSync(at(to), ensureNewline(jsonl(p, late, rename)));
+    }
+  }
+  for (const [p, text] of renamed) {
+    if (!under(p, "memory")) {
+      writeWhole(at(p), text);
+    }
+  }
+  rmSync(at(OLD_MEMORY), { force: true, recursive: true });
+  rmSync(at(READ), { force: true });
+  if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
+    commitMemory(PATHS, "Memory: stored names renamed (docs/glossary.md)");
+  }
+  log("memory.renamed", { files: renamed.size, moves: moves.length });
+  return rename;
+}
+
+const ensureNewline = (s: string) => (s.endsWith("\n") ? s : `${s}\n`);
 
 /** Lines appended to the old ledger after the rename (by a process still on the old code): renamed onto the new one. */
 function lateLines(dir: string) {
-  const at = inDir(dir);
-  const files = readStored(dir);
-  const text =
-    renameStored(files).files.get(OLD_LEDGER) ?? files.get(OLD_LEDGER) ?? "";
+  const at = (p: string) => join(dir, p);
+  // Taken whole first: a line appended meanwhile starts a new file, renamed at the next start.
+  const taken = `${OLD_LEDGER}.${process.pid}`;
+  renameSync(at(OLD_LEDGER), at(taken));
+  const text = readFileSync(at(taken), "utf8");
+  const files = new Map([...readStored(dir), [OLD_LEDGER, text]]);
   appendFileSync(
     at(NEW_LEDGER),
-    text.endsWith("\n") || !text ? text : `${text}\n`
+    ensureNewline(jsonl(OLD_LEDGER, text, renameStored(files).rename))
   );
-  rmSync(at(OLD_LEDGER));
+  rmSync(at(taken));
   log("memory.renamed", { late: linesOf(text).length });
-}
-
-function renameIn(dir: string) {
-  const at = inDir(dir);
-  // Only his data dir is a repo to commit in (commitMemory's); a copy is renamed as it is.
-  const repo = dir === OWNER_DATA_DIR && existsSync(at(".git"));
-  if (existsSync(at(RUNNING)) && repo) {
-    restore(dir);
-  }
-  if (repo) {
-    commitMemory(PATHS, "Memory: before the stored names' rename");
-  }
-  writeFileSync(at(RUNNING), `${clock().toISOString()}\n`);
-  const { files, moves } = renameStored(readStored(dir));
-  for (const [path, text] of files) {
-    writeWhole(dir, path, text);
-  }
-  for (const [from, to] of moves) {
-    if (existsSync(at(to))) {
-      // Never over the new ledger: what it holds stays, the old lines go after it.
-      appendFileSync(at(to), readFileSync(at(from), "utf8"));
-      rmSync(at(from));
-    } else {
-      renameSync(at(from), at(to));
-    }
-  }
-  appendFileSync(
-    at(DONE),
-    `${JSON.stringify({ at: clock().toISOString(), name: STEP, schemaVersion: 1 })}\n`
-  );
-  rmSync(at(RUNNING));
-  if (repo) {
-    commitMemory(PATHS, "Memory: stored names renamed (docs/glossary.md)");
-  }
-  log("memory.renamed", { files: files.size, moves: moves.length });
 }
 
 /**
@@ -456,13 +521,21 @@ export async function migrateStored(dir = OWNER_DATA_DIR) {
     const ran = await locked(async () => {
       if (done(dir) && existsSync(join(dir, OLD_LEDGER))) {
         lateLines(dir);
-      } else if (!done(dir)) {
-        renameIn(dir);
-        // The index and the board are his live data's.
-        if (dir === OWNER_DATA_DIR) {
-          await reindex();
-          await relabelBoard();
-        }
+        return true;
+      }
+      if (!needsRename(dir)) {
+        return true;
+      }
+      const rename = renameIn(dir);
+      // The board and the index are his live data's.
+      if (dir === OWNER_DATA_DIR) {
+        await relabelBoard(rename);
+        await reindex().catch((e) =>
+          log("run.error", {
+            error: (e as Error).message,
+            step: "memory.renamed.index",
+          })
+        );
       }
       return true;
     });
@@ -473,11 +546,11 @@ export async function migrateStored(dir = OWNER_DATA_DIR) {
 }
 
 /** A board item's notes with its task's new id on their first line (the rest is his words, untouched). */
-export const relabeled = (notes: string) =>
-  notes.replace(OLD_TASK_LINE, "entry_$1");
+export const relabeled = (notes: string, rename: (s: string) => string) =>
+  notes.replace(OLD_TASK_LINE, (id) => rename(id));
 
 /** The board's items name their task on their notes' first line: the new id, so `push` finds them (no second copy). */
-async function relabelBoard() {
+async function relabelBoard(rename: (s: string) => string) {
   if (!isOn("todo_list")) {
     return;
   }
@@ -487,9 +560,7 @@ async function relabelBoard() {
     for (const it of board) {
       if (OLD_TASK_LINE.test(taskOf(it))) {
         // biome-ignore lint/performance/noAwaitInLoops: one item at a time
-        await b.edit(it.id, {
-          notes: relabeled(it.notes ?? ""),
-        });
+        await b.edit(it.id, { notes: relabeled(it.notes ?? "", rename) });
       }
     }
   } catch (e) {
