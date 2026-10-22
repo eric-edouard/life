@@ -1,6 +1,5 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -13,19 +12,14 @@ import { z } from "zod";
 import { SCOPE } from "./auth";
 import { clock } from "./clock";
 import { HEADERS, TOKENS, text } from "./http";
-import { same, writeSecret } from "./secret";
+import { SECRETS, same, writeSecret } from "./secret";
 import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
-import { STATE } from "./truth";
 
 // Life's own sign-in for one owner, when no other OAuth server issues its tokens (the `connector` setting has no
 // `issuer`): the endpoints ChatGPT and Claude look for, under `<origin>/auth`. An app is approved by a pairing code
 // shown on the Mac (`bun life pair`, the app's menu later): whoever holds the Mac approves. PKCE is required, an
 // authorization code serves once, a refresh token is replaced each time it is used, and every token is for this one
 // resource and owner.
-
-/** Life's own sign-in: its key, the apps and their tokens. A secret: never exported. */
-export const OAUTH = join(STATE, "oauth");
-const FILE = join(OAUTH, "state.json");
 
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;
@@ -60,12 +54,12 @@ const Stored = z.object({
 type Stored = z.infer<typeof Stored>;
 
 const read = (): Stored =>
-  existsSync(FILE)
-    ? Stored.parse(JSON.parse(readFileSync(FILE, "utf8")))
+  existsSync(SECRETS.oauth)
+    ? Stored.parse(JSON.parse(readFileSync(SECRETS.oauth, "utf8")))
     : { clients: {}, refresh: {} };
 /** Changes the state as it is on disk now (read and written with nothing awaited between), for its owner only. */
 function update(change: (s: Stored) => Stored) {
-  writeSecret(FILE, `${JSON.stringify(change(read()), null, 2)}\n`);
+  writeSecret("oauth", `${JSON.stringify(change(read()), null, 2)}\n`);
 }
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const allowed = (uri: string) => REDIRECTS.some((r) => r.test(uri));

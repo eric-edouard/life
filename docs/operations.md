@@ -23,8 +23,8 @@ Three roots, defined in `src/truth.ts`:
   default engine).
 - Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`src/test-data`) in a temp folder
   outside any repo, its lock and log there too: two runs at once share nothing.
-- A secret file in `STATE` is written only by `writeSecret` or `secretIn` (mode 600); that mode is what keeps it out of
-  an export (`secret`, `src/export.ts`).
+- Life's secret files are the ones `SECRETS` names (`src/secret.ts`), written only by `writeSecret` or `secretIn`
+  (mode 600 where the system has modes); the export leaves exactly those out (`src/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 
 ## Settings

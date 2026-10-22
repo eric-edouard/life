@@ -9,13 +9,29 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { STATE } from "./truth";
+
+/**
+ * Every secret file Life keeps, in its state: the OAuth issuer's clients and tokens, the agent's events subscription,
+ * the key of the app's local reads. Only `writeSecret` and `secretIn` write them, and an export leaves exactly these out
+ * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
+ */
+export const SECRETS = {
+  events: join(STATE, "events.json"),
+  localKey: join(STATE, "local.key"),
+  /** Life's own sign-in: its key, the apps and their tokens. */
+  oauth: join(STATE, "oauth", "state.json"),
+};
+
+type Secret = keyof typeof SECRETS;
 
 /**
  * Writes a file only its owner reads (the events subscription's secret, the sign-in's key), whole or not at all: to a
  * temporary file beside it, then renamed over it, so a crash mid-write never leaves a key that no longer parses.
  */
-export function writeSecret(path: string, text: string) {
+export function writeSecret(name: Secret, text: string) {
+  const path = SECRETS[name];
   mkdirSync(dirname(path), { mode: 0o700, recursive: true });
   // Its own temporary name: two processes writing at once never rename each other's.
   const tmp = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
@@ -35,10 +51,11 @@ export function same(given: string, want: string) {
 
 const KEY = /^[0-9a-f]{64}$/;
 /**
- * A random secret in `path`, made once, then read: written whole to a file of its own, then linked in place, which
+ * A random secret in its file, made once, then read: written whole to a file of its own, then linked in place, which
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
-export function secretIn(path: string): string {
+export function secretIn(name: "localKey"): string {
+  const path = SECRETS[name];
   if (existsSync(path)) {
     const key = readFileSync(path, "utf8");
     if (KEY.test(key)) {
