@@ -28,6 +28,8 @@ What Life is building next, in order, and what is parked. Each item gets its own
   ([releasing](releasing.md)) and the server alike.
 - Onboarding, scoped for both the Mac and the server: the first-run experience and connecting each source and
   assistant.
+- An investigation of on-device transcription: what speech models running on the phone or the Mac can do (accuracy,
+  speakers, languages, battery), compared with lifelog's cloud transcription.
 
 ## Parked
 
