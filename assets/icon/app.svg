@@ -1,68 +1,9 @@
 <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <title>Life</title>
-  <defs>
-    <linearGradient id="ground" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#2d2f33" />
-      <stop offset="1" stop-color="#141517" />
-    </linearGradient>
-    <linearGradient id="paper" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" />
-      <stop offset="1" stop-color="#e8e8e3" />
-    </linearGradient>
-    <filter height="140%" id="lift" width="140%" x="-20%" y="-20%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="14" />
-      <feOffset dy="12" />
-      <feComponentTransfer>
-        <feFuncA slope="0.3" type="linear" />
-      </feComponentTransfer>
-      <feMerge>
-        <feMergeNode />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-    <filter
-      filterUnits="userSpaceOnUse"
-      height="1024"
-      id="ink"
-      width="1024"
-      x="0"
-      y="0"
-    >
-      <feGaussianBlur in="SourceAlpha" stdDeviation="9" />
-      <feOffset dy="8" />
-      <feComponentTransfer>
-        <feFuncA slope="0.45" type="linear" />
-      </feComponentTransfer>
-      <feMerge>
-        <feMergeNode />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-  </defs>
-  <rect
-    fill="url(#ground)"
-    filter="url(#lift)"
-    height="824"
-    rx="185"
-    width="824"
-    x="100"
-    y="100"
-  />
-  <rect
-    fill="none"
-    height="822"
-    rx="184"
-    stroke="#ffffff"
-    stroke-opacity="0.09"
-    stroke-width="2"
-    width="822"
-    x="101"
-    y="101"
-  />
+  <!-- icon.svg on macOS's icon grid: the 824 px tile with 22% corners, flat. -->
+  <rect fill="#181818" height="824" rx="181" width="824" x="100" y="100" />
   <use
-    fill="url(#paper)"
-    filter="url(#ink)"
     href="icon.svg#l"
-    transform="translate(512 512) scale(0.78125) translate(-512 -512)"
+    transform="translate(512 512) scale(0.8047) translate(-512 -512)"
   />
 </svg>
