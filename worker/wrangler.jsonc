@@ -9,8 +9,5 @@
   "routes": [
     { "pattern": "life.ericedouard.com/*", "zone_name": "ericedouard.com" }
   ],
-  "vars": {
-    "MAC_ORIGIN": "https://eric-edouards-macbook-pro.example.ts.net:8443"
-  },
   "workers_dev": false
 }

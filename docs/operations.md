@@ -124,9 +124,9 @@ Reachability rests on the Mac being kept awake. Reconsider a server only on a me
 late with harm), or spoken asks above about one a day for a month.
 
 **The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once Funnel is in place: [#137](https://github.com/eric-edouard/life/issues/137)). The
-watcher heals it every 2 min (`src/tunnel.ts`): it restarts the `cloudflared` service only on a 530 (Cloudflare has no tunnel to the Mac), never on no answer (offline, or
-the watcher busy) and never on an app's 5xx: a dead app behind a tunnel once had a restart loop run 35,000 times. It is
-the tunnel's only healer.
+watcher's heal (`src/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
+loop once ran 35,000 times). Behind the edge Worker (`docs/architecture.md`) the connector's address never answers 530,
+so the heal no longer fires; deleting it is [#133](https://github.com/eric-edouard/life/issues/133).
 
 ## remctl and Reminders quirks
 
