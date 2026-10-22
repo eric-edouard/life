@@ -19,4 +19,4 @@ test("init makes a new owner's data that validates, commits it, and never runs t
   expect(
     init({ email: [], name: "Someone Else", phone: [] }, data)
   ).rejects.toThrow("is not empty");
-});
+}, 20_000); // eight git runs: seconds on Windows, where a process starts slowly
