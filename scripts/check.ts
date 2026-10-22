@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import process from "node:process";
 
 const steps: Record<string, string[]> = {
+  baseline: ["bun", "scripts/baseline-check.ts"],
   biome: ["bun", "x", "--bun", "ultracite", "check"],
   cases: ["bun", "scripts/cases-check.ts"],
   fallow: [

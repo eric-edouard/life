@@ -97,6 +97,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls use the owner's subscriptions**, or an API key on an install with neither; never another provider
   except the bench's (`docs/operations.md`, "Model engines").
+- **Dependencies point one way** between `apps/server/src`'s zones (`boundaries` in `.fallowrc.json`; the layers are in
+  `docs/plans/2026-10-22-architecture.md`). `.fallow-baseline.json` lists the violations left from before and only
+  shrinks: after removing one, re-save it from a passing check (`bun x --bun fallow --save-baseline
+  .fallow-baseline.json`); `scripts/baseline-check.ts` fails a baseline that holds anything else or grows.
 - **Settings are one strict file, read once per process** (`apps/server/src/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
@@ -143,9 +147,6 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
 
 - Every worktree reads and writes the same live data and lock. Point `LIFE_DATA` at a copy to experiment; copy
   `derived/settings.json` into a worktree before model runs. `bun test` uses its own made-up copy.
-- Dependencies point one way between `apps/server/src`'s zones (`boundaries` in `.fallowrc.json`; the layers are in
-  `docs/plans/2026-10-22-architecture.md`). `.fallow-baseline.json` lists the violations left from before: it only
-  shrinks (`bun x --bun fallow --save-baseline .fallow-baseline.json` after removing one), never grows.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
