@@ -199,17 +199,22 @@ test("the pause is measured from a turn's end; the ask keeps when its last turn 
   expect(ask?.timing).toEqual({ arrived: iso(100), ended: iso(43) });
 });
 
-test("speech is complete once its last turn is someone else's or ends a recording closed on silence (under a minute of speech)", () => {
+test("speech is complete once its last turn is someone else's, ends a recording nobody spoke after, or lifelog settled the conversation", () => {
   const store = lifelogStore();
   const at = "2026-10-19T10:00:00.000Z";
-  const state = (seconds: number | null, turns: ReturnType<typeof fed>[]) => {
+  const state = (
+    silence: boolean | null,
+    turns: ReturnType<typeof fed>[],
+    closed = false
+  ) => {
     store.db.run("delete from turns");
-    store.db.run("delete from jobs");
+    store.db.run("delete from transcription_jobs");
+    store.db.run("delete from conversations");
     apply(
       store,
       pageFixture({
-        jobs:
-          seconds === null ? [] : [{ durationSeconds: seconds, id: "job-1" }],
+        conversations: [conversation("c1", { closed })],
+        jobs: [{ endedOnSilence: silence, id: "job-1" }],
         turns,
       })
     );
@@ -218,13 +223,15 @@ test("speech is complete once its last turn is someone else's or ends a recordin
   const his = fed(0, at, "p-me", "Me", "c1", true);
   const other = fed(1, "2026-10-19T10:00:09.000Z", "p-ana", "Ana");
   const nobody = fed(1, "2026-10-19T10:00:09.000Z", null, null);
-  expect(state(8, [his])).toBe("complete");
-  expect(state(90, [his])).toBe("open");
+  expect(state(true, [his])).toBe("complete");
+  expect(state(false, [his])).toBe("open");
+  // lifelog could not tell (an older recording): unknown, so wait.
   expect(state(null, [his])).toBe("open");
-  expect(state(0, [his])).toBe("open");
-  expect(state(90, [his, other])).toBe("complete");
+  // Settled: nothing more will join it.
+  expect(state(false, [his], true)).toBe("complete");
+  expect(state(false, [his, other])).toBe("complete");
   // A turn with no speaker yet is no reason to wait: only an ask's own wake is (`hear`).
-  expect(state(8, [his, nobody])).toBe("complete");
+  expect(state(true, [his, nobody])).toBe("complete");
 });
 
 test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds back only itself (his misheard one waits for nothing)", async () => {

@@ -41,6 +41,8 @@ export const Page = z.object({
   ),
   conversations: z.array(
     z.object({
+      // Settled (the contract's `closed`): grouping adds nothing more to it; late audio or an edit can reopen it.
+      closed: z.boolean().nullish(),
       endAt: z.string(),
       id: z.string(),
       kind: z.string(),
@@ -53,8 +55,10 @@ export const Page = z.object({
     })
   ),
   cursor: z.string(),
-  // Each recording and how many seconds of speech it holds (`speechSeconds`).
-  jobs: z.array(z.object({ durationSeconds: z.number(), id: z.string() })),
+  // Each recording, and whether nobody spoke for 30 s after it (`endedOnSilence`; null on older ones).
+  jobs: z.array(
+    z.object({ endedOnSilence: z.boolean().nullish(), id: z.string() })
+  ),
   more: z.boolean(),
   removed: z.array(z.object({ kind: z.string(), ref: z.string() })),
   turns: z
@@ -207,7 +211,7 @@ export function openStore(dir = WATCH) {
   db.run("pragma busy_timeout = 5000");
   db.run(`create table if not exists conversations (
     id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
-    title text not null, successor text);
+    title text not null, successor text, closed integer);
   create table if not exists chapters (
     id text primary key, conversation_id text not null, start_at text not null, end_at text not null,
     title text not null, summary text not null);
@@ -215,11 +219,20 @@ export function openStore(dir = WATCH) {
     job_id text not null, turn_index integer not null, conversation_id text not null, start_at text not null,
     person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
     primary key (job_id, turn_index));
-  create table if not exists jobs (id text primary key, speech_seconds real not null);
+  create table if not exists transcription_jobs (id text primary key, ended_on_silence integer);
   create table if not exists marks (
     job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
-  create index if not exists chapters_conversation on chapters (conversation_id);`);
+  create index if not exists chapters_conversation on chapters (conversation_id);
+  drop table if exists jobs;`);
+  // The contract's `closed`, on a store made before it: rows fill it as they come again.
+  // ponytail: this and the drop above are a one-time upgrade of older stores; delete once every install has run it.
+  const columns = db
+    .query<{ name: string }, []>("pragma table_info(conversations)")
+    .all();
+  if (!columns.some((c) => c.name === "closed")) {
+    db.run("alter table conversations add column closed integer");
+  }
   return { cursor, db };
 }
 export type Store = ReturnType<typeof openStore>;
@@ -312,7 +325,8 @@ function drop(db: Database, r: Page["removed"][number]) {
 export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   const { db } = store;
   const conversation = db.prepare(
-    "insert or replace into conversations values (?, ?, ?, ?, ?, ?, ?)"
+    `insert or replace into conversations (id, start_at, end_at, kind, state, title, successor, closed)
+    values (?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const chapter = db.prepare(
     "insert or replace into chapters values (?, ?, ?, ?, ?, ?)"
@@ -324,10 +338,15 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
     person_name = excluded.person_name, is_owner = excluded.is_owner, end_at = excluded.end_at,
     seen_at = coalesce(turns.seen_at, excluded.seen_at)`
   );
-  const job = db.prepare("insert or replace into jobs values (?, ?)");
+  const job = db.prepare(
+    "insert or replace into transcription_jobs values (?, ?)"
+  );
   db.transaction(() => {
     for (const j of page.jobs) {
-      job.run(j.id, j.durationSeconds);
+      job.run(
+        j.id,
+        typeof j.endedOnSilence === "boolean" ? Number(j.endedOnSilence) : null
+      );
     }
     for (const c of page.conversations) {
       conversation.run(
@@ -337,7 +356,8 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
         c.kind,
         c.state,
         c.ownerTitle ?? c.title ?? "",
-        successor(c)
+        successor(c),
+        c.closed ? 1 : 0
       );
     }
     for (const c of page.chapters) {
@@ -545,16 +565,21 @@ export function readConversations(
     }));
 }
 
-/** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts). */
-export const CLOSED_ON_SILENCE_S = 60;
-
-/** Seconds of speech in one recording, or null before lifelog sent it. */
-export const speechSeconds = (store: Store, jobId: string) =>
+/** Whether lifelog says nobody spoke for 30 s after a recording (the contract's `endedOnSilence`). */
+export const endedOnSilence = (store: Store, jobId: string) =>
   store.db
-    .query<{ speech_seconds: number }, [string]>(
-      "select speech_seconds from jobs where id = ?"
+    .query<{ ended_on_silence: number | null }, [string]>(
+      "select ended_on_silence from transcription_jobs where id = ?"
     )
-    .get(jobId)?.speech_seconds ?? null;
+    .get(jobId)?.ended_on_silence === 1;
+
+/** Whether lifelog has settled a conversation (the contract's `closed`). */
+export const isConversationClosed = (store: Store, conversation: string) =>
+  store.db
+    .query<{ closed: number | null }, [string]>(
+      "select closed from conversations where id = ?"
+    )
+    .get(conversation)?.closed === 1;
 
 /** The turns of a conversation between two instants (a chapter's range; the whole conversation by default), in order. */
 export function turnsBetween(
