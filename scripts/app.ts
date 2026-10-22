@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { exec } from "../src/proc";
@@ -23,6 +25,31 @@ async function run(cmd: string[], cwd = ROOT) {
   return r.stdout;
 }
 
+/** Sparkle, pinned: its release for Swift packages, checked against this checksum before it is unpacked. */
+const SPARKLE = {
+  sha256: "17e28312b8e18ab7cdbbe09a6fb28cc55a5479ec6c371dbc07cdecd2a14fd959",
+  url: "https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-for-Swift-Package-Manager.zip",
+};
+const FRAMEWORKS = join(ROOT, "app", "Frameworks");
+
+/** Sparkle's xcframework in app/Frameworks, once. */
+async function sparkle() {
+  if (existsSync(join(FRAMEWORKS, "Sparkle.xcframework"))) {
+    return;
+  }
+  const zip = join(out, "sparkle.zip");
+  await mkdir(out, { recursive: true });
+  await run(["curl", "-sSL", "--max-time", "300", "-o", zip, SPARKLE.url]);
+  const sum = createHash("sha256")
+    .update(await Bun.file(zip).bytes())
+    .digest("hex");
+  if (sum !== SPARKLE.sha256) {
+    throw new Error(`Sparkle's download does not match its checksum (${sum})`);
+  }
+  await mkdir(FRAMEWORKS, { recursive: true });
+  await run(["ditto", "-x", "-k", zip, FRAMEWORKS]);
+}
+
 /** What macOS shows when Life asks for a permission, and what keeps it a menu-bar app. */
 const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -35,6 +62,8 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundleVersion</key><string>${version}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
+  <key>SUFeedURL</key><string>${process.env.LIFE_APPCAST_URL ?? ""}</string>
+  <key>SUPublicEDKey</key><string>${process.env.LIFE_SPARKLE_KEY ?? ""}</string>
   <key>NSContactsUsageDescription</key><string>Life reads your contacts to know who wrote to you.</string>
   <key>NSRemindersFullAccessUsageDescription</key><string>Life adds and updates reminders when you ask it to.</string>
   <key>NSCalendarsFullAccessUsageDescription</key><string>Life writes what happened as past events, when you turn that on.</string>
@@ -58,6 +87,7 @@ await mkdir(join(contents, "MacOS"), { recursive: true });
 await mkdir(join(contents, "Helpers"), { recursive: true });
 await mkdir(join(contents, "Resources"), { recursive: true });
 
+await sparkle();
 await run(["swift", "build", "-c", "release"], join(ROOT, "app"));
 const bin = (
   await run(
@@ -66,6 +96,13 @@ const bin = (
   )
 ).trim();
 await cp(join(bin, "LifeApp"), join(contents, "MacOS", "Life"));
+await mkdir(join(contents, "Frameworks"), { recursive: true });
+const framework = join(contents, "Frameworks", "Sparkle.framework");
+await run(["ditto", join(bin, "Sparkle.framework"), framework]);
+await rm(join(framework, "Versions", "B", "XPCServices"), {
+  force: true,
+  recursive: true,
+});
 await cp(
   join(bin, "life-eventkit"),
   join(contents, "Helpers", "life-eventkit")
@@ -105,6 +142,15 @@ await run([
   ...hardened,
   join(contents, "Helpers", "life-eventkit"),
 ]);
+// Sparkle's parts, inside out (no --deep): its Autoupdate tool and Updater.app, then the framework.
+for (const part of [
+  join(framework, "Versions", "B", "Autoupdate"),
+  join(framework, "Versions", "B", "Updater.app"),
+  framework,
+]) {
+  // biome-ignore lint/performance/noAwaitInLoops: signing order matters
+  await run(["codesign", "--force", "--sign", identity, ...hardened, part]);
+}
 await run(["codesign", "--force", "--sign", identity, ...hardened, app]);
 await run(["codesign", "--verify", "--deep", "--strict", app]);
 console.log(`Life.app: ${app} (${identity === "-" ? "ad hoc" : identity})`);

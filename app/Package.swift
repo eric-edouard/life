@@ -1,6 +1,6 @@
 // swift-tools-version: 6.0
-// Life.app: the menu-bar app that runs Life's helper, and life-eventkit, Apple Reminders and Calendar through EventKit
-// (`scripts/app.ts` assembles the bundle around them).
+// Life.app: the menu-bar app that runs Life's helper (updated by Sparkle), and life-eventkit, Apple Reminders and
+// Calendar through EventKit (`scripts/app.ts` assembles the bundle around them).
 import PackageDescription
 
 let package = Package(
@@ -11,7 +11,11 @@ let package = Package(
     .executable(name: "life-eventkit", targets: ["LifeEventKit"]),
   ],
   targets: [
-    .executableTarget(name: "LifeApp", path: "Sources/LifeApp"),
+    // Sparkle's release build, fetched and checked by `scripts/app.ts` (SwiftPM's own download stalls here).
+    .binaryTarget(name: "Sparkle", path: "Frameworks/Sparkle.xcframework"),
+    .executableTarget(
+      name: "LifeApp", dependencies: ["Sparkle"], path: "Sources/LifeApp",
+      linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]),
     // A one-shot command: its top-level state is single-threaded.
     .executableTarget(
       name: "LifeEventKit", path: "Sources/LifeEventKit",

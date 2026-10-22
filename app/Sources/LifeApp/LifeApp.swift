@@ -1,6 +1,15 @@
 import AppKit
 import ServiceManagement
+import Sparkle
 import SwiftUI
+
+/// Sparkle, when the bundle carries the release key (`scripts/app.ts`, `LIFE_SPARKLE_KEY`): a build without one never
+/// looks for updates.
+@MainActor let updates: SPUStandardUpdaterController? = {
+  let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String ?? ""
+  return key.isEmpty
+    ? nil : SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+}()
 
 /// The menu-bar app: runs Life (`Supervisor`), shows how it stands, and opens Settings, which is also the first run's
 /// setup until the owner's data exists.
@@ -56,6 +65,9 @@ struct Menu: View {
       Text("Life is not set up yet")
     }
     Divider()
+    if let updates {
+      Button("Check for Updates…") { updates.checkForUpdates(nil) }
+    }
     Button("Settings…", action: openSettings)
     Button("Quit Life") {
       supervisor.stop()
