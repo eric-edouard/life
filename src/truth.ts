@@ -19,14 +19,19 @@ export const ROOT = process.env.LIFE_ROOT ?? join(import.meta.dir, "..");
 export const TEST = process.env.NODE_ENV === "test";
 /** The made-up data tests read (src/test-data). */
 export const FIXTURES = join(ROOT, "src", "test-data");
+/** A path with its links resolved, or as it is when it doesn't exist. */
+export const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
+
 /**
- * His data: a local git repo of its own (memory/ and truth/), never pushed. A test run reads its own copy of the
+ * His data: a local git repo of its own (memory/ and truth/), never pushed. Resolved once, here, like `STATE`: when
+ * `~/Life` is a link (to the app's folder), every path Life makes is the real one, so nothing copies or removes
+ * through a link. A test run reads its own copy of the
  * made-up data, outside any repo: two runs at once (a push's check beside another session's tests) share no lock or
  * ledger, and none can commit.
  */
-export const DATA = TEST
-  ? copied(FIXTURES)
-  : (process.env.LIFE_DATA ?? join(homedir(), "Life"));
+export const DATA = real(
+  TEST ? copied(FIXTURES) : (process.env.LIFE_DATA ?? join(homedir(), "Life"))
+);
 
 /**
  * Life's folder on this Mac, shared by every install on it (the checkout's and the app's): the archive, Codex's home,
@@ -39,12 +44,9 @@ export const MAC = join(homedir(), "Library/Application Support/Life");
  * it in its own derived/ (each worktree apart from production); the app sets `LIFE_STATE`. A test run keeps it in its
  * copy of the data.
  */
-export const STATE = TEST
-  ? join(DATA, "state")
-  : (process.env.LIFE_STATE ?? join(ROOT, "derived"));
-
-/** A path with its links resolved, or as it is when it doesn't exist. */
-export const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
+export const STATE = real(
+  TEST ? join(DATA, "state") : (process.env.LIFE_STATE ?? join(ROOT, "derived"))
+);
 
 /** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
 export function isHis(data = DATA) {

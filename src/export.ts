@@ -13,13 +13,10 @@ import {
 import { basename, isAbsolute, join, relative } from "node:path";
 import { STORES } from "./archive";
 import { clock } from "./clock";
-import { SUBSCRIPTION } from "./events";
 import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
 import { INDEX } from "./memory/search";
-import { OAUTH } from "./oauth";
 import { execOk } from "./proc";
-import { LOCAL_KEY } from "./signin";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT, STATE } from "./truth";
@@ -31,10 +28,10 @@ import { DATA, ROOT, STATE } from "./truth";
 
 export const FORMAT = 1;
 
-/** In Life's state but never exported: rebuilt (the index), secrets, and live locks. The watcher's store is copied whole on its own. */
-const KEPT_OUT = [WATCH, INDEX, OAUTH, SUBSCRIPTION, LOCAL_KEY].map((p) =>
-  relative(STATE, p)
-);
+/** In Life's state but never exported: rebuilt (the index), and the watcher's store (copied whole on its own). */
+const KEPT_OUT = [WATCH, INDEX].map((p) => relative(STATE, p));
+/** A secret is a file only its owner may read (`writeSecret`, `secretIn` write them so): never exported. */
+const secret = (path: string) => statSync(path).mode % 0o100 === 0; // no group or other bits
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
@@ -125,7 +122,8 @@ const ENV_KEY = /^([A-Z0-9_]+)=/;
 function leftOut() {
   const env = join(ROOT, ".env");
   return {
-    codex: "Codex's login (`codex login` again, for the codex engine)",
+    codex:
+      "Codex's login, on another Mac (`codex login`, for the codex engine)",
     env: existsSync(env)
       ? readFileSync(env, "utf8")
           .split("\n")
@@ -133,8 +131,8 @@ function leftOut() {
       : [],
     keychain:
       "every item of the service Life (the app keeps its secrets there)",
-    signIn:
-      "apps connected to Life's own sign-in pair again; the agent subscribes again",
+    secrets:
+      "every file only its owner reads (Life's sign-in, the agent's subscription, the app's key): apps pair again and the agent subscribes again, unless they are copied by hand",
   };
 }
 
@@ -165,7 +163,8 @@ export async function stage(dir: string, archive = ARCHIVE) {
   for (const p of filesUnder(join(dir, "state"))) {
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
-      KEPT_OUT_END.some((e) => p.endsWith(e))
+      KEPT_OUT_END.some((e) => p.endsWith(e)) ||
+      secret(join(dir, "state", p))
     ) {
       rmSync(join(dir, "state", p), { force: true });
     }

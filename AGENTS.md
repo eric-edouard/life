@@ -10,7 +10,11 @@ backfill): `docs/relationships.md`, the plan and his decisions.
 
 `memory/`, `truth/` and `imports/` (his claude.ai and ChatGPT exports, copied once by `bun life import`; every
 such path here) are in `DATA` (`src/truth.ts`): `~/Life`, a local git repo of their own
-with no remote, or `$LIFE_DATA`. The nightly commits there and pushes nothing (`commitMemory` refuses a repo with a
+with no remote, or `$LIFE_DATA`. Since the move to Life.app (`docs/transition.md`) `~/Life` and `~/Work/life/derived` are
+links to the app's `MAC/data` and `MAC/state`: one live copy, read by the app and by `bun life` from the checkout
+alike; `DATA` and `STATE` are resolved to their real paths where they are defined (`truth.ts`), so no code copies or
+removes through those links. A secret file in `STATE` is written only by `writeSecret` or `secretIn` (mode 600), and
+that mode is what keeps it out of an export (`secret`, export.ts). The nightly commits there and pushes nothing (`commitMemory` refuses a repo with a
 remote): nothing of his goes to GitHub. Every worktree reads and writes that same `~/Life` and shares its one lock
 (`~/Life/.nightly.lock`); point `LIFE_DATA` at a copy to experiment. Each `bun test` run (`NODE_ENV=test`) reads its
 own copy of the made-up data (`src/test-data`), in a temp folder outside any repo, its lock and log there too: two runs

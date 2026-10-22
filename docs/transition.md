@@ -26,11 +26,37 @@ review (`debt-review`), and `transition` into `main` on his OK.
 - [ ] The switch (runbook below), then the connector on Life's own sign-in through Tailscale Funnel.
 - [ ] T5 Delete the launchd setup; T6 delete the Cloudflare tunnel and the status Worker.
 
-## The switch (runbook, filled in by T3/T4)
+## The switch (runbook)
 
-1. Stop the three `com.ericedouard.life.*` jobs; export; put the secrets in the Keychain (service `Life`) by hand.
-   `transition` reaches `main` only as part of this step: his settings get `"reminders": true` (R0: off by default;
-   the old code's strict schema refuses the key, so not before) in the same step, then the watcher restarts.
-2. Launch Life.app, import; check the counts equal the export's, the cards match, the watcher and archive run.
-3. Reconnect ChatGPT and Claude with a pairing code to the Funnel address (asks wait unsent meanwhile).
-4. Keep `~/Life` and `derived/` read-only 30 days. Rollback: quit the app, start the old jobs on the app's folders.
+Nothing restarts between the export and the app's start, so nothing the old install writes is lost; the archive keeps
+running until the app's takes over. `MAC` is `~/Library/Application Support/Life`; the app's helper is
+`H="/Applications/Life.app/Contents/Helpers/life"` run with `LIFE_ROOT=/Applications/Life.app/Contents/Resources/life`,
+`LIFE_DATA="$MAC/data"`, `LIFE_STATE="$MAC/state"` (never the app's own Import button, which starts it all at once).
+
+1. **The checkout on the new code.** `launchctl disable` the nightly and the watcher
+   (`gui/$UID/com.ericedouard.life.memory-nightly`, `…watch`: they don't come back at login); wait until
+   `~/Life/.nightly.lock` is free (a tick finishes, never killed mid-commit); then `launchctl bootout` both. The
+   archive keeps running. With `transition` merged into `main` on GitHub: `git -C ~/Work/life pull --ff-only`;
+   `bun install`; add `"reminders": true` to `derived/settings.json`; `bun life validate`; `bun life act --check`
+   (remctl ready).
+2. **Export:** `bun life export ~/LifeExport-<date>` from the checkout, then at once `chmod -R a-w ~/Life`: a Claude
+   session's `bun life correct` or `act` meanwhile fails loudly instead of landing in a copy the app never reads.
+3. **Life.app** built (`bun scripts/app.ts`) into /Applications. By his hand: `scripts/keychain-from-env.sh` (the
+   Keychain items of service `Life` from `.env`, readable by Life.app without a prompt; names only printed), and Full
+   Disk Access, Automation and Contacts for Life.app.
+4. **Import** with the helper as above: `$H import ~/LifeExport-<date>` (the archive is kept as it is: the same
+   folder), then `$H memory index`; copy `derived/events.json` (and `derived/oauth/` when there is one) to `$MAC/state/`
+   with their modes (`cp -pR`), so Atlas keeps its subscription.
+5. **One live copy:** `~/Life` becomes `~/Life.before-app` and `~/Work/life/derived` moves out of the repo to
+   `$MAC/derived.before-app` (never committed), both read-only for 30 days, then removed with `~/LifeExport-<date>`
+   (gigabytes); `~/Life` and `~/Work/life/derived` become links to `$MAC/data` and `$MAC/state`.
+6. **Start:** `launchctl disable` and `bootout` the archive, then launch Life.app (Reminders on, login item); its
+   archive takes the lock. Check: the status page's cards as before, the watcher polling, both locks in `MAC` held by
+   the app, `actions: remctl ready`, the connector's tools in ChatGPT, the next nightly's report and backup.
+7. **Rollback, nothing lost:** turn off Life.app's "Open Life at login" and quit it; keep the links; `launchctl enable`
+   and `bootstrap` the three jobs: the checkout runs the same code on the same live copy. The `.before-app` folders
+   matter only if the import itself was wrong.
+
+Debt until T5: the secrets live in both `.env` (the checkout) and the Keychain (the app).
+
+Later, separately: ChatGPT and Claude to Life's own sign-in through Tailscale Funnel (the costly reconnect), then T6.

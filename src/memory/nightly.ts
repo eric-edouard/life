@@ -19,7 +19,6 @@ import {
   type Observation,
 } from "../schema";
 import { taskList, titleOf, unanswered } from "../tasks";
-import { isHis } from "../truth";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";
 import {
@@ -165,10 +164,10 @@ export async function archiveLine(since: string) {
  * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
-  // His own data while another install's watcher runs on this Mac (the move to the app): only that install's ticks
-  // run (two would each send a report and fight over the Past calendar). A copy or a hand `--force` always runs.
+  // Another install's watcher runs on this Mac (the move to the app, or a copy's own state): only that install's ticks
+  // run (two would each send a report and fight over the Past calendar). Only a hand `--force` runs beside it.
   const live = holder("watch");
-  if (!force && isHis() && isOtherLife(live)) {
+  if (!force && isOtherLife(live)) {
     console.log(`another Life runs here (${live?.note}): no tick`);
     return 0;
   }
