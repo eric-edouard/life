@@ -24,7 +24,8 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
-import { kindOf } from "../sources";
+import { agentName } from "../settings";
+import { kindOf, listening } from "../sources";
 import {
   conversationsWith,
   type LifelogConversation,
@@ -308,6 +309,9 @@ function entity(db: Database, text: string | null, found: string[]) {
 
 /** The voice section of `search`: lifelog's best passages for the words, each with its place in its conversation. */
 async function voiceHits(words: string, range: { from?: string; to?: string }) {
+  if (!listening()) {
+    return ["(no voice source)"];
+  }
   try {
     const hits = await searchVoice(words, range, VOICE_LIMIT);
     return withStore((store) =>
@@ -378,7 +382,7 @@ export async function search(words: string, o: Days = {}) {
       : []),
     ...(tasks.length > 0
       ? [
-          "Atlas's tasks (Atlas's own reports, not checked by Life):",
+          `${agentName()}'s tasks (its own reports, not checked by Life):`,
           ...cut(tasks, true),
           "",
         ]
@@ -797,7 +801,7 @@ export const birthdaysNear = (
 /**
  * What `day` lists as due on `date` (`openItems`, src/items.ts, which merges, times and ranks): the salience-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
- * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/atlas.md).
+ * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/agent.md).
  */
 export function dueOf(
   db: Database,
@@ -1056,7 +1060,7 @@ interface IndexedUnit {
 }
 
 /**
- * derived/memory/index.sqlite, rebuilt from scratch: observations, one line per id (`shownOf`; with the observation that replaced each retired
+ * derived/memory/index.sqlite, rebuilt from scratch: observations (with the observation that replaced each retired
  * one, and its end date), full-text search over claims and quotes, links; and the units (titles, lifelog summaries and
  * the topics of their verdicts), so today's material is searchable before the nightly pass. Rebuilt in place, in one
  * write-ahead-log transaction, so a reader holding the file keeps the old index until the commit and sees the new one
@@ -1071,6 +1075,7 @@ export function buildIndex(
   const db = new Database(path);
   db.run("pragma busy_timeout = 30000");
   db.run("pragma journal_mode = wal");
+  const unique = new Map(observations.map((o) => [o.id, o]));
   const rebuild = db.transaction(() => {
     // Every table the file holds, whatever schema built it (a virtual table takes its shadow tables along).
     const tables = db
@@ -1091,7 +1096,7 @@ export function buildIndex(
     const unitText = insert("unit_search", 4);
     const unitTopic = insert("unit_topics", 2);
     const unitPerson = insert("unit_people", 2);
-    for (const o of observations) {
+    for (const o of unique.values()) {
       const retired = retirement(o, standing);
       row.run(
         o.id,
@@ -1144,7 +1149,7 @@ export function buildIndex(
     // `true`: every statement is finalized first, so the file is let go (and its log checkpointed) at once.
     db.close(true);
   }
-  return observations.length;
+  return unique.size;
 }
 
 /** Rebuilds the index from the ledger and the units; what the owner said is wrong or unimportant is not searchable. */

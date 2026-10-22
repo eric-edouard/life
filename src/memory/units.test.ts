@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Person, SourceEvent, Unit } from "../schema";
+import { readSettings, setSettings } from "../settings";
+import { SOURCES } from "../sources";
 import {
   chapter,
   conversation as feedConversation,
@@ -13,11 +15,13 @@ import {
   type LifelogConversation,
   readConversations,
 } from "../sources/lifelog";
+import { loadTruth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { readUnits, UNITS } from "./ledger";
 import {
   applyRules,
   dayRange,
+  gather,
   LIFE_CHAT,
   lastDays,
   lifelogUnits,
@@ -258,7 +262,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
           {
             chat: "mail:9",
             id: "mail:z",
-            sender: "alerts@send.make-a-dent.com",
+            sender: "alerts@agents.example.test",
             text: "Bakery Ads report: approve 3 changes",
           },
           true
@@ -317,13 +321,13 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
         ),
         mail(
           "m4",
-          LIFE_MAIL.from,
+          LIFE_MAIL.from as string,
           "Bakery · 18 oct. — the shop slips again",
           "Two forward bookings are inactive."
         ),
         mail(
           "m6",
-          LIFE_MAIL.from,
+          LIFE_MAIL.from as string,
           "Life · 17 Oct · 108 new facts, 20 pages",
           "Facts: Jean must pay the cladding deposit."
         ),
@@ -562,6 +566,10 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
       "2026-10-14": ["whatsapp"],
       "2026-10-15": ["lifelog"],
     });
+    // A night that could not read WhatsApp (its access gone) rewrites the day without losing its units.
+    const mail = { ...chat, id: "u_00000000000b", source: "mail" as const };
+    await writeUnits([chat.date], [mail], (u) => u.source === "whatsapp");
+    expect(await days()).toMatchObject({ "2026-10-14": ["whatsapp", "mail"] });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
   }
@@ -635,4 +643,39 @@ test("a reader sees a unit's stored senders as whom they resolve to today, a mai
     "unknown:+66600000009",
   ]);
   expect(mail && unitNow(mail.unit, refOf).people).toEqual([]);
+});
+
+test("with no source turned on, a sweep reads nothing and fails nothing", async () => {
+  const before = readSettings().sources;
+  try {
+    setSettings({ sources: [] });
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.built).toEqual([]);
+    expect(e.conversations).toEqual([]);
+    expect(e.failed).toEqual([]);
+  } finally {
+    setSettings({ sources: before });
+  }
+});
+
+test("a source turned on that can't be read now is skipped, by name, never a failure", async () => {
+  const before = readSettings().sources;
+  const unreadable = SOURCES.find((s) => s.missing?.());
+  if (!unreadable) {
+    throw new Error("the test data has no source that can't be read");
+  }
+  try {
+    setSettings({ sources: [unreadable.name] });
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.skipped).toEqual([unreadable.name]);
+    expect(e.failed).toEqual([]);
+  } finally {
+    setSettings({ sources: before });
+  }
 });

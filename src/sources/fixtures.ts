@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { clock } from "../clock";
+import { setSettings, settings } from "../settings";
 import { toAppleNs, toAppleS } from "./imessage";
 import { openStore } from "./lifelog";
 
@@ -316,8 +317,8 @@ export function imessageFixture(
 }
 
 /**
- * A stand-in for lifelog's REST API: `routes` map a path to what it answers (given the POSTed body). LIFELOG_URL and
- * LIFELOG_TOKEN point at it until `close`. `seen` records each request.
+ * A stand-in for lifelog's REST API: `routes` map a path to what it answers (given the POSTed body). The `lifelog`
+ * setting and LIFELOG_TOKEN point at it until `close`. `seen` records each request.
  */
 export function lifelogServer(
   routes: Record<string, (body: unknown) => unknown>
@@ -335,21 +336,17 @@ export function lifelogServer(
     },
     port: 0,
   });
-  const before = {
-    LIFELOG_TOKEN: process.env.LIFELOG_TOKEN,
-    LIFELOG_URL: process.env.LIFELOG_URL,
-  };
-  process.env.LIFELOG_URL = `http://localhost:${server.port}`;
+  const [token, lifelog] = [process.env.LIFELOG_TOKEN, settings().lifelog];
+  setSettings({ lifelog: { url: `http://localhost:${server.port}` } });
   process.env.LIFELOG_TOKEN = "test-token";
   return {
     close() {
       server.stop(true);
-      for (const [key, value] of Object.entries(before)) {
-        if (value === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = value;
-        }
+      setSettings({ lifelog });
+      if (token === undefined) {
+        delete process.env.LIFELOG_TOKEN;
+      } else {
+        process.env.LIFELOG_TOKEN = token;
       }
     },
     seen,

@@ -1,10 +1,11 @@
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { ORIGIN } from "./auth";
 import { FROZEN } from "./clock";
 import { HEADERS, text } from "./http";
 import { snapshot, strip } from "./plate";
 import { detail, runDetail } from "./plate-detail";
-import type { SignIn } from "./signin";
+import { connector } from "./settings";
+
 import { ROOT } from "./truth";
 
 // The status page (`/`, its files and reads under /status/): Life's architecture as a plate of live cards
@@ -16,30 +17,37 @@ const APP = join(ROOT, "assets", "dashboard", "index.html");
 /** How often an open page gets the plate again (only when something on it changed; a ping in between keeps it open). */
 export const EVERY_MS = 3000;
 
-/** The page and its files, bundled by Bun on first use (React and Motion, no build step), by published path. */
+/** How the page is bundled (React and Motion, by Bun): on first use in a checkout, once by the app's build. */
+export const PAGE: Bun.BuildConfig = {
+  define: { "process.env.NODE_ENV": '"production"' },
+  entrypoints: [APP],
+  minify: true,
+  naming: "[name]-[hash].[ext]",
+  publicPath: "/status/",
+};
+/** The page as the app ships it, bundled with `PAGE` by scripts/helper.ts (the app carries no React to bundle with). */
+export const BUILT = join(ROOT, "assets", "dashboard", "built");
+
+/** The page itself is served at /, under one name; its files under /status/ by their hashed names. */
+const served = (name: string) =>
+  name.endsWith(".html") ? "index.html" : name.replace(LEADING_DOT, "");
+
+/** The page and its files, by published path: as the app shipped them (`BUILT`), else bundled on first use. */
 let bundle: Promise<Map<string, Blob>> | undefined;
 const bundled = () => {
-  bundle ??= Bun.build({
-    define: { "process.env.NODE_ENV": '"production"' },
-    entrypoints: [APP],
-    minify: true,
-    naming: "[name]-[hash].[ext]",
-    publicPath: "/status/",
-  }).then((b) => {
-    if (!b.success) {
-      bundle = undefined;
-      throw new Error(b.logs.map(String).join("\n"));
-    }
-    // The page itself is served at /, under one name; its files under /status/ by their hashed names.
-    return new Map(
-      b.outputs.map((o) => [
-        o.type.startsWith("text/html")
-          ? "index.html"
-          : o.path.replace(LEADING_DOT, ""),
-        o,
-      ])
-    );
-  });
+  bundle ??= existsSync(BUILT)
+    ? Promise.resolve(
+        new Map(
+          readdirSync(BUILT).map((f) => [served(f), Bun.file(join(BUILT, f))])
+        )
+      )
+    : Bun.build(PAGE).then((b) => {
+        if (!b.success) {
+          bundle = undefined;
+          throw new Error(b.logs.map(String).join("\n"));
+        }
+        return new Map(b.outputs.map((o) => [served(o.path), o]));
+      });
   return bundle;
 };
 
@@ -154,7 +162,7 @@ export function pushPlate() {
               )
             )
           );
-      const res = await fetch(`${ORIGIN}/__status/push`, {
+      const res = await fetch(`${connector().origin}/__status/push`, {
         body: JSON.stringify({ files, snapshot: strip(await snapshot()) }),
         headers: {
           authorization: `Bearer ${secret}`,
@@ -181,7 +189,13 @@ async function card(id: string, url: URL) {
   return json(await detail(id, before));
 }
 
-export function createDashboard(signIn: SignIn) {
+/**
+ * The status page behind `refusal`: his sign-in on the public port (`signIn.refusal`), the local key the app holds on
+ * the local one (`keyRefusal`).
+ */
+export function createDashboard(
+  refusal: (req: Request, page?: string) => Promise<Response | null>
+) {
   /** Everything past sign-in. */
   async function owned(url: URL) {
     const { pathname } = url;
@@ -223,10 +237,7 @@ export function createDashboard(signIn: SignIn) {
     ) {
       return null;
     }
-    const refused = await signIn.refusal(
-      req,
-      url.pathname === "/" ? "/" : undefined
-    );
+    const refused = await refusal(req, url.pathname === "/" ? "/" : undefined);
     return refused ?? owned(url);
   }
 

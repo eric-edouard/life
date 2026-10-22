@@ -1,6 +1,7 @@
 // Life's public edge (status.ts). Deploy from ~/Work/life with .env loaded:
 //   set -a; . ./.env; set +a; bun x wrangler@4.40.0 deploy -c worker/wrangler.jsonc
-// Secrets (once): OWNER_SUB (= LIFE_OWNER_SUB) and PUSH_SECRET (= LIFE_STATUS_PUSH_SECRET), `wrangler secret put`.
+// Secrets (once): ISSUER and OWNER_SUB (= the connector setting's issuer and owner) and PUSH_SECRET (= LIFE_STATUS_PUSH_SECRET), `wrangler secret put`.
+// Only with another issuer (lifelog): Life's own issuer's keys are on the Mac, out of reach exactly when this answers.
 // Every path is routed here and passed to the Mac over Tailscale Funnel (MAC_ORIGIN); only the status page has an
 // offline fallback.
 {

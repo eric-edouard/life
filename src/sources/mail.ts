@@ -404,7 +404,7 @@ function emlxPath(root: string, url: string, rowid: number): string | null {
 
 // --- messages ------------------------------------------------------------------------------------
 
-export interface Row {
+interface Row {
   bulk: number;
   conversation: number;
   globalId: number;

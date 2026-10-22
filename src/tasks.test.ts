@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { recentEvents } from "./log";
@@ -18,6 +18,7 @@ import {
   alerts,
   chase,
   escalation,
+  protocol,
   receipts,
   refusal,
   reply,
@@ -29,6 +30,7 @@ import {
   wantOf,
   written,
 } from "./tasks";
+import { ROOT } from "./truth";
 
 const T0 = Date.parse("2026-10-19T10:00:00.000Z");
 const MIN = 60_000;
@@ -228,7 +230,6 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
 test("chase sends one email a pass, listing every task that newly needs him; each cause is sent once", async () => {
   const env = { ...process.env };
   process.env.RESEND_PERSONAL_API_KEY = "test";
-  process.env.LIFE_MAIL_TO = "owner@example.test";
   const subjects: string[] = [];
   const post = spyOn(globalThis, "fetch").mockImplementation(((
     _url: string,
@@ -500,4 +501,16 @@ test("the board's receipts leave out a task closed over a day ago: he may have u
     completed: false,
     id: ASK,
   });
+});
+
+test("the playbook's Reminders parts only while the plugin is on: on, the protocol reads as it always did", () => {
+  const text = "A.<!-- reminders --> B.<!-- /reminders --> C.";
+  expect(protocol(text, true)).toBe("A. B. C.");
+  expect(protocol(text, false)).toBe("A. C.");
+  const off = protocol(
+    readFileSync(join(ROOT, "docs", "agent.md"), "utf8"),
+    false
+  );
+  expect(off).not.toContain("open_reminders");
+  expect(off).not.toContain("standing grant");
 });

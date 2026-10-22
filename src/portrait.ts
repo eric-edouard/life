@@ -1,7 +1,8 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { join } from "node:path";
-import { ORIGIN } from "./auth";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
+import { same } from "./secret";
+import { connector } from "./settings";
 import { DATA, ROOT } from "./truth";
 
 // The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data,
@@ -73,8 +74,6 @@ export function createPortrait(
   let fails: number[] = [];
   const sign = (exp: string) =>
     createHmac("sha256", key).update(`me:${exp}`).digest("base64url");
-  const same = (a: string, b: string) =>
-    a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
   function signedIn(req: Request) {
     const [exp = "", mac = ""] = (cookieOf(req, SESSION) ?? "").split(".");
@@ -82,7 +81,7 @@ export function createPortrait(
   }
 
   async function login(req: Request, pathname: string) {
-    if (req.headers.get("origin") !== ORIGIN) {
+    if (req.headers.get("origin") !== connector().origin) {
       return text("forbidden", 403);
     }
     // Read the form before counting: nothing awaits between the check and the push, so a burst can't slip past.

@@ -140,8 +140,7 @@ line per unit and run, `observations` being how many it kept (often 0); lines of
 the prompt version changes, or when a `reread` correction names it after its last reading (the night reads the last
 7 days, `backfill` older ones). Who someone is needs no new reading: readers resolve a fact's author and entities as of
 today. Only the latest extraction of a unit counts: observations from an older one are ignored
-(`replaced`), except one he rated true (his latest answer, `rated`): shown to the new reading as a prior, it stays until a
-newer observation retires it. So are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
+(`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
 re-cut, Life's own mail).
 
 ## unresolved.jsonl
@@ -174,7 +173,7 @@ repo wins. A repo on a project (either way) counts every author's commits in its
 
 ## imported.jsonl
 
-Which conversations of his claude.ai and ChatGPT exports are about his life, written by `bun life memory import
+Which conversations of his claude.ai and ChatGPT exports are about his life, written by `bun life import
 <folder>` (the fast-tier model, once per conversation and prompt version, from its title and the start of his pruned
 messages), append-only: `{schemaVersion: 1, conversation, keep, why, madeBy, at}`. `conversation` is
 `<source>:<id>`; the latest line per conversation wins. Every pruned message is searched; the units of a conversation

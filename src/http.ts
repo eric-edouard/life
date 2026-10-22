@@ -22,12 +22,13 @@ export const cookie = (name: string, value: string, maxAge: number) =>
     secure: true,
   }).serialize();
 
-export const redirect = (to: string, cookies: string[] = []) => {
+/** A redirect with cookies: 302, or 307 to send a request again as it was (a POST stays a POST). */
+export const redirect = (to: string, cookies: string[] = [], status = 302) => {
   const headers = new Headers({ ...HEADERS, location: to });
   for (const c of cookies) {
     headers.append("set-cookie", c);
   }
-  return new Response(null, { headers, status: 302 });
+  return new Response(null, { headers, status });
 };
 
 export const cookieOf = (req: Request, name: string) =>
@@ -38,3 +39,8 @@ export const text = (
   status: number,
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
+
+/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me, his page). */
+export const PUBLIC_PORT = 46_200;
+/** The status page for the app alone, by its local key: no tunnel ever points here. */
+export const LOCAL_PORT = 46_201;

@@ -1,9 +1,15 @@
-import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
+import {
+  ARCHIVE_LOOKBACK,
+  archiveFailing,
+  keptStores,
+  openIncidents,
+} from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { isReviewCall } from "../events";
 import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
+import { holder, isOtherLife } from "../lock";
 import { type Call, log, recentEvents } from "../log";
 import { checks } from "../reminders/remctl";
 import {
@@ -73,7 +79,7 @@ const ALERT_MS = 3_600_000;
 
 const DAY_MS = 24 * 3_600_000;
 
-/** Whether Atlas (ChatGPT's MCP client) read `day` in the last 24 h, as its daily review does (docs/atlas.md): a review that found Life unreachable leaves no other trace. */
+/** Whether his agent (the `agent` setting's client) read `day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
   (await recentEvents<Call>(2, "mcp.call")).some(
     (e) => isReviewCall(e) && Date.parse(e.at) >= now.getTime() - DAY_MS
@@ -133,11 +139,12 @@ function coded(day: string, rec: Pick<RunRecord, "error">) {
 export async function archiveLine(since: string) {
   const lines = await recentEvents(ARCHIVE_LOOKBACK);
   const still = new Set(openIncidents(lines).values());
+  const kept = new Set(keptStores().map((s) => `archive.${s.name}`));
   const listed = lines
     .filter(
       (e) =>
         e.kind === "run.error" &&
-        e.step.startsWith("archive.") &&
+        kept.has(e.step) &&
         (e.at >= since || still.has(e))
     )
     .map(
@@ -157,6 +164,13 @@ export async function archiveLine(since: string) {
  * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
+  // Another install's watcher runs on this Mac (the move to the app, or a copy's own state): only that install's ticks
+  // run (two would each send a report and fight over the Past calendar). Only a hand `--force` runs beside it.
+  const live = holder("watch");
+  if (!force && isOtherLife(live)) {
+    console.log(`another Life runs here (${live?.note}): no tick`);
+    return 0;
+  }
   const now = clock();
   const held = lockedSince();
   if (held && now.getTime() - held.getTime() > STUCK_MS) {
@@ -438,7 +452,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
   if (!failure || force || attempts >= MAX_ATTEMPTS) {
     const id = await sendReport(reportKey(rec.run), mail);
-    console.log(id ? `report emailed: ${id}` : "report email not sent");
+    console.log(id ? `report delivered: ${id}` : "report not delivered");
   }
   return failure ? 1 : 0;
 }

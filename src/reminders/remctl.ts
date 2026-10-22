@@ -2,15 +2,35 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
 import { exec } from "../proc";
+import { agentName, settings } from "../settings";
 
 // How Life talks to his Apple Reminders: remctl (its signed host, `--json`), the shape of a reminder, his lists. This
 // folder is the only code that touches Reminders, an interface to Life, never its truth: `write.ts` makes the changes
 // `act` decides, `board.ts` projects Atlas's tasks, `inbound.ts` reads his changes back as state. Delete the folder and
 // Life still knows every task and every action from the ledger (memory/actions.jsonl).
 
+/** remctl (github.com/viticci/remctl), where its installer puts it, for every install. */
 const REMCTL = join(homedir(), "bin", "remctl");
+/**
+ * The remctl release Life is tested against (its answers: answers.json): what the app installs, and what it offers
+ * to update to. Its own installer (signed, notarized) asks for the Mac's password once and grants its permissions.
+ */
+export const REMCTL_RELEASE = {
+  sha256: "acff84893036ddf5e1d9a0c67bd227dcbeb4c413366623c21036a22c54029ee3",
+  url: "https://github.com/viticci/remctl/releases/download/v2.3.1/RemCTL-arm64.dmg",
+  version: "2.3.1",
+};
+
+/** The installed remctl's version, or null when there is none. */
+export async function remctlVersion() {
+  const r = await exec([REMCTL, "--version"]);
+  return r.code === 0 ? r.stdout.trim() : null;
+}
+/** Whether the Reminders plugin is on (the `reminders` setting): off, nothing in Life touches Reminders. */
+export const remindersOn = () => settings().reminders;
+
 /** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
-export const BOARD = "Atlas";
+export const BOARD = agentName();
 
 const parse = <T>(s: string) => {
   try {
@@ -27,6 +47,9 @@ const parse = <T>(s: string) => {
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
   unfrozen("touch his Reminders");
+  if (!remindersOn()) {
+    throw new Error("Reminders is off (settings: reminders)");
+  }
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },
@@ -107,7 +130,7 @@ const listsOf = async (list?: string) =>
 export async function openReminders(list?: string) {
   const open = await Promise.all(
     (await listsOf(list)).map((l) =>
-      remctl<Reminder[]>(["show", "--list-id", `${l.id}`])
+      remctl<Reminder[]>(["show", `--list-id=${l.id}`])
     )
   );
   return open.flat();
@@ -129,6 +152,9 @@ export async function sectionsOf(list?: string) {
  * the log.
  */
 export async function checks() {
+  if (!remindersOn()) {
+    return [];
+  }
   try {
     await remctl(["lists"]);
     return [];
@@ -156,7 +182,7 @@ export async function pull(): Promise<Snapshot> {
     mine.map((l, i) =>
       shared[i]
         ? []
-        : remctl<Reminder[]>(["show", "--list-id", `${l.id}`, "--completed"])
+        : remctl<Reminder[]>(["show", `--list-id=${l.id}`, "--completed"])
     )
   );
   // After the lists: a reminder he removes meanwhile is live or in the bin, never neither.

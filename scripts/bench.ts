@@ -4,6 +4,7 @@
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier then grades its claims against the week's
 // hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
 
+import { cpSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -20,7 +21,7 @@ import type { tally } from "../src/memory/tally";
 import { gather } from "../src/memory/units";
 import { readPeople } from "../src/memory/who";
 import { exec, git, gitOut } from "../src/proc";
-import { DATA, ROOT } from "../src/truth";
+import { DATA, ROOT, STATE } from "../src/truth";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(DATA, "docs/evals/events-2026-10-16.json");
@@ -106,6 +107,8 @@ async function run(
       ),
       LIFE_DATA: data,
       ...(llm ? { LIFE_LLM: llm } : {}),
+      // Its worktree's own state, whatever this process was given.
+      LIFE_STATE: join(code, "derived"),
     },
     timeout: 3 * HOUR_MS,
   });
@@ -122,8 +125,11 @@ export const mainCheckout = () =>
     gitOut(ROOT, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
   );
 
-/** This code at HEAD in `dir`, a throwaway worktree, with the main checkout's `links` (its dependencies, .env, …). */
-export async function checkout(dir: string, links: string[]) {
+/**
+ * This code at HEAD in `dir`, a throwaway worktree, with the main checkout's `links` (its dependencies, .env, …) and
+ * `state` from this process's state root (`STATE`: production's when run from the main checkout) in its own derived/.
+ */
+export async function checkout(dir: string, links: string[], state: string[]) {
   gitOut(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]);
   await mkdir(join(dir, "derived"), { recursive: true });
   const main = mainCheckout();
@@ -131,18 +137,17 @@ export async function checkout(dir: string, links: string[]) {
     // biome-ignore lint/performance/noAwaitInLoops: a few links
     await symlink(join(main, p), join(dir, p));
   }
+  for (const p of state) {
+    // biome-ignore lint/performance/noAwaitInLoops: a few links
+    await symlink(join(STATE, p), join(dir, "derived", p));
+  }
 }
 
 async function bench(models: string[], runs: number) {
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
   const base = join(tmp, "base");
   const worktrees: string[] = [];
-  const links = [
-    "node_modules",
-    ".env",
-    "derived/watch",
-    "derived/settings.json",
-  ];
+  const links = ["node_modules", ".env"];
   try {
     await mkdir(join(base, "memory"), { recursive: true });
     for (const p of SEED) {
@@ -171,10 +176,8 @@ async function bench(models: string[], runs: number) {
         const code = join(tmp, p.label, "code");
         const data = join(tmp, p.label, "data");
         worktrees.push(code);
-        await checkout(code, links);
-        if ((await exec(["cp", "-cR", base, data])).code !== 0) {
-          throw new Error(`could not copy the data to ${data}`);
-        }
+        await checkout(code, links, ["watch", "settings.json"]);
+        cpSync(base, data, { recursive: true });
         const started = performance.now();
         try {
           const read = await run(code, data, p.llm, [

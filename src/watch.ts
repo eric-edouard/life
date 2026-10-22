@@ -2,6 +2,7 @@ import { clock } from "./clock";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
+import { hold } from "./lock";
 import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
 import { ACTIONS, appendJsonl, readActions, tasksOf } from "./memory/ledger";
@@ -10,9 +11,10 @@ import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
 import { marks, push } from "./reminders/board";
 import { inbound } from "./reminders/inbound";
-import { checks, pull } from "./reminders/remctl";
+import { checks, pull, remindersOn } from "./reminders/remctl";
 import { Action } from "./schema";
-import { serveConnector } from "./server";
+import { serve } from "./server";
+import { listening } from "./sources/index";
 import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
 import { chase, closings, receipts } from "./tasks";
 import { ROOT } from "./truth";
@@ -44,6 +46,9 @@ async function tick(now = clock().getTime()) {
 
 async function pass(now: number) {
   await chase(tasksOf(), now);
+  if (!remindersOn()) {
+    return;
+  }
   // Reminders both ways (src/reminders): one read, his changes recorded as state, then the board brought in line. `at`
   // is taken before the read: what Life writes during it falls in the lag window.
   const at = clock().toISOString();
@@ -192,22 +197,31 @@ async function syncUnits(store: Store, cursor: string) {
   return n !== null;
 }
 
-export async function watch(): Promise<number> {
-  const started = clock();
-  const running = codeAt(ROOT);
-  try {
-    serveConnector();
-  } catch (e) {
-    // The watcher matters more than the connector: it keeps polling and says why it is off.
-    console.error("Connector is off:", (e as Error).message);
+/** Whether Life can act on Reminders from here, in life-watch.log at start (the connector's `reminders` acts from this process). */
+function sayActions() {
+  if (!remindersOn()) {
+    console.log(`${clock().toISOString()} actions: Reminders off`);
+    return;
   }
-  const store = openStore();
-  // The connector's `reminders` acts from this process: its line in life-watch.log shows whether launchd reaches remctl.
   checks().then((problems) =>
     console.log(
       `${clock().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
     )
   );
+}
+
+export async function watch(): Promise<number> {
+  // The code it runs, read before it may wait for another install: new code meanwhile restarts it on taking over.
+  const running = codeAt(ROOT);
+  await hold("watch");
+  const started = clock();
+  try {
+    serve();
+  } catch (e) {
+    // The watcher matters more than its server: it keeps polling and says why the server is off.
+    console.error("Life's server is off:", (e as Error).message);
+  }
+  sayActions();
   // Beside the loop, so a slow probe never holds up hearing; the process exits on new code all the same.
   setInterval(
     () =>
@@ -216,6 +230,10 @@ export async function watch(): Promise<number> {
       ),
     TUNNEL_EVERY_MS
   );
+  if (!listening()) {
+    return quiet(running);
+  }
+  const store = openStore();
   const pending = resumed(store, clock().getTime());
   const speech: Speech = (conversation, from) =>
     speechIn(store, conversation, from);
@@ -265,13 +283,7 @@ export async function watch(): Promise<number> {
           );
         }
       }
-      // Delivery first: a slow Reminders host holds up the board, never an ask.
-      await deliver().catch((e: Error) =>
-        log("run.error", { error: e.message, step: "events.deliver" })
-      );
-      tick().catch((e: Error) =>
-        log("run.error", { error: e.message, step: "tasks.tick" })
-      );
+      await minute();
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
       // each poll), `dirty` keeps the sync due.
       if (dirty && !more && !isLocked()) {
@@ -295,8 +307,35 @@ export async function watch(): Promise<number> {
   return 0;
 }
 
+/** No voice source: nothing to hear or fold, but asks still go out and the tasks' minute still runs. */
+async function quiet(running: string) {
+  console.log(
+    `${clock().toISOString()} watcher: no voice source, not listening`
+  );
+  while (codeAt(ROOT) === running) {
+    // biome-ignore lint/performance/noAwaitInLoops: one pass a minute
+    await minute();
+    await Bun.sleep(RETRY_MS);
+  }
+  return 0;
+}
+
+/** What runs on every pass, heard or not: delivery first (a slow Reminders host holds up the board, never an ask), then the tasks' minute. */
+async function minute() {
+  await deliver().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "events.deliver" })
+  );
+  tick().catch((e: Error) =>
+    log("run.error", { error: e.message, step: "tasks.tick" })
+  );
+}
+
 /** `status`: what the watcher says about itself. Non-zero when it is not polling. */
 export function status(): number {
+  if (!listening()) {
+    console.log("watcher: no voice source, not listening");
+    return 0;
+  }
   const h = readHealth();
   if (!h) {
     console.log("watcher: never ran (no derived/watch/health.json)");
