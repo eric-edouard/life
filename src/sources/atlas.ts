@@ -19,7 +19,7 @@ const done = () =>
       : [];
   });
 
-/** The status page's card: when Atlas last closed a task done. */
+/** The status plate's card: when Atlas last closed a task done. */
 export const newestAtlas = (): Newest => ({
   at:
     done()

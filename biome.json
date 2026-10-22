@@ -4,11 +4,5 @@
   "files": {
     "includes": ["!!.claude"]
   },
-  "javascript": { "globals": ["Bun"] },
-  "overrides": [
-    {
-      "includes": ["assets/dashboard/**"],
-      "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } }
-    }
-  ]
+  "javascript": { "globals": ["Bun"] }
 }

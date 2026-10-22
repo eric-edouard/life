@@ -56,7 +56,7 @@ every Keychain secret in its environment:
 **One Life per Mac.** The archive and the watcher each hold a lock in `MAC` (`hold`, `src/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
-lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status page reads
+lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status plate reads
 those locks (`holder`, `src/mac.ts`).
 
 ### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))

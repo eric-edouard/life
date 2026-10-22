@@ -9,7 +9,7 @@ export const HEADERS = {
   "x-content-type-options": "nosniff",
 };
 
-/** The owner's session cookie, set by the sign-in (`signin.ts`) and read by the status page's Worker too. */
+/** The owner's session cookie, set by the sign-in (`signin.ts`). */
 export const SESSION = "__Host-life";
 
 /** An HttpOnly, Secure, SameSite=Lax cookie for the whole site, as a Set-Cookie value. */
@@ -40,7 +40,7 @@ export const text = (
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
 
-/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me, his page). */
+/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me). */
 export const PUBLIC_PORT = 46_200;
-/** The status page for the app alone, by its local key: no tunnel ever points here. */
+/** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = 46_201;

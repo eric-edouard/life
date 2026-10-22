@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Life's helper: the compiled binary in the bundle (`Contents/Helpers/life`), run with its files (`LIFE_ROOT`), the
 /// owner's data and Life's state under Application Support, and every secret the Keychain holds for it. The app never
@@ -66,31 +67,39 @@ struct Info: Decodable {
   let status: Status
 }
 
-/// The status page the watcher serves on this Mac, and the key that opens it.
+/// The watcher's status reads on this Mac (`src/dashboard.ts`, the local port) and the key that opens them.
 struct Status: Decodable {
   let url: String
   let key: String
 
-  /// The plate the page shows (`/status/snapshot`), nil while the watcher doesn't answer.
-  func plate() async -> Plate? {
-    guard let url = URL(string: url + "status/snapshot") else { return nil }
+  /// One read, decoded: nil while the watcher doesn't answer.
+  func read<T: Decodable>(_ path: String) async -> T? {
+    guard let url = URL(string: url + path) else { return nil }
     var req = URLRequest(url: url)
     req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-    guard let (data, _) = try? await URLSession.shared.data(for: req) else { return nil }
-    return try? JSONDecoder().decode(Plate.self, from: data)
+    guard let (data, res) = try? await URLSession.shared.data(for: req),
+      (res as? HTTPURLResponse)?.statusCode == 200
+    else { return nil }
+    do {
+      return try JSONDecoder.life().decode(T.self, from: data)
+    } catch {
+      // The watcher answered in a shape the app doesn't know: an update of one without the other.
+      Logger(subsystem: "app.life.mac", category: "status").error("\(path): \(error)")
+      return nil
+    }
   }
-}
 
-/// What the menu shows of the status page: the cards the plate says are in trouble (`trouble`, plate.ts).
-struct Plate: Decodable {
-  let cards: [Card]
-  let trouble: [String]
-  struct Card: Decodable, Identifiable {
-    let id: String
-    let name: String
-    let word: String
+  func plate() async -> Plate? { await read("status/snapshot") }
+
+  func detail(_ card: String, before: String? = nil) async -> Detail? {
+    let id = card.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? card
+    let page = before.map { "?before=\($0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0)" } ?? ""
+    return await read("status/card/\(id)\(page)")
   }
-  var troubled: [Card] { cards.filter { trouble.contains($0.id) } }
+
+  func run(_ id: String) async -> RunView? {
+    await read("status/run?id=\(id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? id)")
+  }
 }
 
 /// The Reminders plugin: on or not, the remctl installed (its version), whether that is the release Life installs

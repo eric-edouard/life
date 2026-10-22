@@ -70,7 +70,7 @@ export function readBeeper(
   );
 }
 
-/** Each network's newest message the archive holds (the status page). */
+/** Each network's newest message the archive holds (the status plate). */
 export const newestBeeper = (dir = ARCHIVE) =>
   newestArchived(
     "beeper",

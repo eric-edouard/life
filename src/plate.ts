@@ -38,15 +38,14 @@ import { lifelogStatus, newestTurn } from "./sources/lifelog";
 import { escalation, taskList } from "./tasks";
 import { DATA, loadTruth } from "./truth";
 
-// The status page's plate (`src/dashboard.ts` serves it): every part of Life as a card in a group, each with its state
-// now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only when Life
-// can't read or run a part, grey when it is just quiet, amber when quiet past its source's `silentAfter`. His words and
-// any error's text live only in `content` (a card's) and `detail` (a tick's): the page hides them in privacy mode, and
-// `strip` keeps only the rest when the plate leaves the Mac.
+// The status plate (`src/dashboard.ts` serves it to the app): every part of Life as a card in a group, each with its
+// state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only
+// when Life can't read or run a part, grey when it is just quiet, amber when quiet past its source's `silentAfter`. His
+// words and any error's text live only in a card's `content`: the app hides them when its "Show content" is off.
 
 export type Tone = "bad" | "busy" | "idle" | "ok" | "teal" | "warn";
 
-/** One line of a card: a value, or an instant the page shows as "3 min ago". Never his words, never an error's text. */
+/** One line of a card: a value, or an instant the app shows as "3 min ago". Never his words, never an error's text. */
 export interface Fact {
   at?: string | null;
   label: string;
@@ -56,20 +55,14 @@ export interface Fact {
 export interface Card {
   /** A sentence to paste into a Claude session, when the part is in trouble. */
   ask?: string;
-  /** When its headline happened: the page adds "3 h ago". */
+  /** When its headline happened: the app adds "3 h ago". */
   at?: string | null;
-  /** A running process's beat, in ms: the card pulses on it. */
-  beat?: number;
-  /** His words and errors' text on the card: hidden in privacy mode, never pushed. */
+  /** His words and errors' text on the card: hidden while the app's Show content is off. */
   content?: string[];
   facts: Fact[];
-  /** Counts that grow when this part moves data: the page runs dots along its edge when one grows. */
-  flow?: number;
   group: string;
   headline: string;
   id: string;
-  /** The Pendant is recording now: the card's waveform plays. */
-  listening?: boolean;
   name: string;
   /** A running sweep's stations and where it is. */
   stations?: { name: string; state: "done" | "now" | "todo" }[];
@@ -79,10 +72,10 @@ export interface Card {
 
 export interface Tick {
   at: string;
-  /** An error's text: hidden in privacy mode, never pushed. */
-  detail?: string;
   end?: string;
   label: string;
+  /** The Mac asleep: drawn as a band, not a run. */
+  sleep?: true;
   tone: Tone;
 }
 
@@ -130,7 +123,7 @@ export function wokeAt(d: Date) {
   return w;
 }
 
-/** A run's outcome as a colour: the plate, its details and the page use this one. */
+/** A run's outcome as a colour: the plate and its details use this one. */
 const RUN_TONES: Record<string, Tone> = {
   ok: "ok",
   running: "busy",
@@ -152,7 +145,7 @@ export function cached<T>(key: string, ms: number, read: () => Promise<T> | T) {
   return value;
 }
 
-/** A read that may fail: its error, never a throw (one broken store never blanks the page). */
+/** A read that may fail: its error, never a throw (one broken store never blanks the plate). */
 async function safe<T>(read: () => Promise<T> | T) {
   try {
     return { ok: true as const, value: await read() };
@@ -254,19 +247,11 @@ export const GROUPS = [
   { id: "mac", name: "The Mac" },
 ] as const;
 
-/** The plate's edges, between groups, in data's direction. */
-export const EDGES = [
-  ["sources", "capture"],
-  ["capture", "pipeline"],
-  ["pipeline", "memory"],
-  ["memory", "outputs"],
-] as const;
-
 /** A run that recorded any use: runs from before 21 Oct have no tokens and no readings. */
 export const spent = (u: Use | null | undefined) =>
   !!u && (u.tokens.input > 0 || !!u.quota?.before || !!u.quota?.after);
 
-const ASK = (what: string) => `Life's status page shows ${what}: look into it.`;
+const ASK = (what: string) => `Life's status shows ${what}: look into it.`;
 
 /** The first state whose condition holds: a card's tone and word (and its ask) by precedence. */
 const firstOf = (
@@ -432,7 +417,6 @@ function pendantCard(r: Reads, d: Descriptor): Card {
     group: "sources",
     headline: pendant?.recording ?? "unknown",
     id: "pendant",
-    listening: recording && !!spokeAt && r.t - Date.parse(spokeAt) < 15 * MIN,
     name: d.label,
   };
 }
@@ -469,7 +453,6 @@ function lifelogCard(r: Reads): Card {
         value: r.life.ok ? `${backlog ?? "?"} pages` : "unreachable",
       },
     ],
-    flow: Number(r.health?.cursor ?? 0),
     group: "sources",
     headline: r.health?.lastOkAt ? "polling" : "never polled",
     id: "lifelog",
@@ -507,7 +490,6 @@ function sourceCard(r: Reads, d: Descriptor): Card {
       ...(n.facts ?? []),
       ...(broken ? [{ at: broken.at, label: "Failing since" }] : []),
     ],
-    flow: copiedAt ? Date.parse(copiedAt) : undefined,
     group: "sources",
     headline: tone.word,
     id: d.name,
@@ -587,7 +569,6 @@ function captureCards(r: Reads): Card[] {
         ],
         [true, { tone: "ok", word: "copying" }]
       ),
-      beat: 5000,
       // Each store: copying or failing, and its last copy (lifeStatus's).
       facts: keptStores().map((s) => ({
         at: r.status.capture.archive[s.name],
@@ -622,12 +603,10 @@ function captureCards(r: Reads): Card[] {
         ],
         [true, { tone: "ok", word: "hearing" }]
       ),
-      beat: 2000,
       facts: [
         { at: r.health?.lastPollAt, label: "Last poll" },
         { label: "Asks heard today", value: String(asksToday) },
       ],
-      flow: Number(r.health?.cursor ?? 0),
       group: "capture",
       headline: polling(r) ? "hearing" : "not polling",
       id: "watcher",
@@ -642,7 +621,6 @@ function captureCards(r: Reads): Card[] {
           value: String(calls.filter((c) => c.error || c.refused).length),
         },
       ],
-      flow: r.mcp.length,
       group: "capture",
       headline: `${calls.length} calls today`,
       id: "connector",
@@ -875,7 +853,6 @@ function pipelineCards(r: Reads): Card[] {
         { at: r.writes.at(-1)?.at, label: "Last event written" },
         { label: "Written in 2 days", value: String(n) },
       ],
-      flow: n,
       group: "pipeline",
       headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
       id: "past",
@@ -909,7 +886,6 @@ function memoryCards(r: Reads): Card[] {
         },
         { at: mem.commitAt, label: "Last commit" },
       ],
-      flow: mem.observations,
       group: "memory",
       headline: `${mem.observations.toLocaleString("en-US")} observations`,
       id: "memory",
@@ -973,7 +949,6 @@ function atlasCards(r: Reads): Card[] {
         },
         { at: calls.at(-1)?.at, label: "Last call" },
       ],
-      flow: events.delivered,
       group: "outputs",
       headline: live ? "receiving asks" : "not receiving asks",
       id: "atlas",
@@ -1028,7 +1003,6 @@ function outputCards(r: Reads): Card[] {
         label: name,
         value: `${list.length} calls, last ${list.at(-1)?.tool}`,
       })),
-      flow: r.mcp.length,
       group: "outputs",
       headline: `${byClient.size} client${byClient.size === 1 ? "" : "s"} today`,
       id: "clients",
@@ -1082,7 +1056,6 @@ function outputCards(r: Reads): Card[] {
           label: "Last report",
         },
       ],
-      flow: r.sent.length,
       group: "outputs",
       headline: `${mails.length} sent today`,
       id: "email",
@@ -1192,7 +1165,6 @@ function todayOf(r: Reads): Tick[] {
     // The watcher retries lifelog on its own: a timeout is a retry, not a failure.
     ...r.errorsToday.map((e) => ({
       at: e.at,
-      detail: clip(String(e.error), 200),
       label: `${e.step} ${e.step === "watch" ? "retried" : "failed"}`,
       tone: (e.step === "watch" ? "warn" : "bad") as Tone,
     })),
@@ -1205,6 +1177,7 @@ function todayOf(r: Reads): Tick[] {
       ? r.sleepList.value.map((x) => ({
           ...x,
           label: "Mac asleep",
+          sleep: true as const,
           tone: "idle" as Tone,
         }))
       : []),
@@ -1231,16 +1204,14 @@ export async function snapshot(now = clock()) {
     ...outputCards(r),
     ...macCards(r),
   ];
-  // One rule for a card in trouble: the page counts them, the app's menu lists them.
+  // One rule for a card in trouble: the app's menu and window list them.
   const trouble = cards
     .filter((c) => c.tone === "bad" || c.tone === "warn")
     .map((c) => c.id);
   return {
     cards,
-    edges: EDGES,
     groups: GROUPS,
     observedAt: now.toISOString(),
-    problems: trouble.length,
     today: todayOf(r),
     trouble,
     worst: cards.reduce<Tone>(
@@ -1249,30 +1220,3 @@ export async function snapshot(now = clock()) {
     ),
   };
 }
-
-export type Plate = Awaited<ReturnType<typeof snapshot>>;
-
-/** The plate as it may leave the Mac: each card and tick keeps only its listed fields, so none of his words go. */
-export const strip = (s: Plate): Plate => ({
-  ...s,
-  cards: s.cards.map((c) => ({
-    at: c.at,
-    beat: c.beat,
-    facts: c.facts,
-    flow: c.flow,
-    group: c.group,
-    headline: c.headline,
-    id: c.id,
-    listening: c.listening,
-    name: c.name,
-    stations: c.stations,
-    tone: c.tone,
-    word: c.word,
-  })),
-  today: s.today.map((t) => ({
-    at: t.at,
-    end: t.end,
-    label: t.label,
-    tone: t.tone,
-  })),
-});

@@ -386,7 +386,7 @@ export async function unsent(keys: string[]) {
   return keys.filter((k) => !sent?.has(k));
 }
 
-/** The nightly report's key for the night run `run` (`sendReport`): the status page knows the report went by it. */
+/** The nightly report's key for the night run `run` (`sendReport`): the status plate knows the report went by it. */
 export const reportKey = (run: string) => `nightly/${run}`;
 
 /**

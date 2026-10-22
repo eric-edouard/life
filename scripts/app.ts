@@ -59,6 +59,7 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundleVersion</key><string>${version}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
+  <key>ATSApplicationFontsPath</key><string>Fonts</string>
   <key>SUFeedURL</key><string>${process.env.LIFE_APPCAST_URL ?? ""}</string>
   <key>SUPublicEDKey</key><string>${process.env.LIFE_SPARKLE_KEY ?? ""}</string>
   <key>NSContactsUsageDescription</key><string>Life reads your contacts to know who wrote to you.</string>
@@ -117,6 +118,10 @@ const helper = join(out, "helper");
 await run(["bun", join(ROOT, "scripts", "helper.ts"), helper]);
 await cp(join(helper, "life"), join(contents, "Helpers", "life"));
 await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
+  recursive: true,
+});
+// Ledger's type, Source Serif 4 and IBM Plex Mono (OFL, their licences beside them), registered by ATSApplicationFontsPath.
+await cp(join(ROOT, "app", "Fonts"), join(contents, "Resources", "Fonts"), {
   recursive: true,
 });
 await writeFile(join(contents, "Info.plist"), PLIST);
