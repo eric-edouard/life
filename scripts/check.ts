@@ -7,7 +7,7 @@ const steps: Record<string, string[]> = {
   cases: ["bun", "scripts/cases-check.ts"],
   fallow: ["bun", "x", "--bun", "fallow", "--fail-on-issues"],
   scrub: ["bun", "scripts/scrub-check.ts"],
-  test: ["bun", "test", "./apps/server/src/", "./scripts/", "./worker/"],
+  test: ["bun", "test", "./apps/server/src/", "./scripts/", "./apps/edge/"],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
 };
 

@@ -13,7 +13,7 @@ enum Brand {
   static let control: CGFloat = 12
   static let panel: CGFloat = 18
 
-  /// Source Serif 4 and IBM Plex Mono ship in the bundle (`app/Fonts`, `ATSApplicationFontsPath`).
+  /// Source Serif 4 and IBM Plex Mono ship in the bundle (`apps/mac/Fonts`, `ATSApplicationFontsPath`).
   static func serif(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
     .custom("Source Serif 4", size: size).weight(weight)
   }

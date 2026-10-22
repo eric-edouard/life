@@ -111,8 +111,9 @@ Each step is one PR that changes no behaviour, passes `bun run check`, and leave
    which reads Life's own ledger; `digest` to `core/hash.ts`; `CLOSED_ON_SILENCE_S` to lifelog's reader; the tests
    that ran a reader through memory move to the memory's tests. No violation is left, and `.fallow-baseline.json`
    and its check go. `docs/architecture.md` ("The code") has the rule and the map.
-7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
-   and Turborepo through `create-better-t-stack add`.
+7. **The repo** (#168). `app/` → `apps/mac`, `worker/` → `apps/edge`, each a workspace package. `packages/brand`
+   waits for its second consumer: it comes with `apps/web`, `packages/api` and Turborepo, through
+   `create-better-t-stack add`, as the first PR of the server plan.
 
 Then the server plan's phases build on it: messaging lands in its own zone, the server host as a capability set,
 and nothing in the memory changes for either.

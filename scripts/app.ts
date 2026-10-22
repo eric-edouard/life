@@ -26,9 +26,9 @@ const SPARKLE = {
   sha256: "17e28312b8e18ab7cdbbe09a6fb28cc55a5479ec6c371dbc07cdecd2a14fd959",
   url: "https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-for-Swift-Package-Manager.zip",
 };
-const FRAMEWORKS = join(ROOT, "app", "Frameworks");
+const FRAMEWORKS = join(ROOT, "apps", "mac", "Frameworks");
 
-/** Sparkle's xcframework in app/Frameworks, once. */
+/** Sparkle's xcframework in apps/mac/Frameworks, once. */
 async function sparkle() {
   if (existsSync(join(FRAMEWORKS, "Sparkle.xcframework"))) {
     return;
@@ -94,11 +94,11 @@ await mkdir(join(contents, "Helpers"), { recursive: true });
 await mkdir(join(contents, "Resources"), { recursive: true });
 
 await sparkle();
-await run(["swift", "build", "-c", "release"], join(ROOT, "app"));
+await run(["swift", "build", "-c", "release"], join(ROOT, "apps", "mac"));
 const bin = (
   await run(
     ["swift", "build", "-c", "release", "--show-bin-path"],
-    join(ROOT, "app")
+    join(ROOT, "apps", "mac")
   )
 ).trim();
 await cp(join(bin, "LifeApp"), join(contents, "MacOS", "Life"));
@@ -122,9 +122,13 @@ await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
 });
 // Life's type (docs/brand.md), Source Serif 4 and IBM Plex Mono (OFL, their licences beside them), registered by
 // ATSApplicationFontsPath.
-await cp(join(ROOT, "app", "Fonts"), join(contents, "Resources", "Fonts"), {
-  recursive: true,
-});
+await cp(
+  join(ROOT, "apps", "mac", "Fonts"),
+  join(contents, "Resources", "Fonts"),
+  {
+    recursive: true,
+  }
+);
 await writeFile(join(contents, "Info.plist"), PLIST);
 
 // Life's icon from assets/icon (rsvg-convert, Homebrew's librsvg): app.svg as the bundle's icon at every size macOS

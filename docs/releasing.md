@@ -13,7 +13,7 @@ GitHub release (`scripts/release.ts`).
   certificate keeps the app's Keychain items and Full Disk Access across builds, and Sparkle loads only from the same
   team, so a self-signed one does not work.
 - `xcrun notarytool store-credentials <profile>` with an app-specific password: `LIFE_NOTARY_PROFILE`.
-- Sparkle's key pair: `app/Frameworks/bin/generate_keys` (after one `bun scripts/app.ts`). The private half stays in
+- Sparkle's key pair: `apps/mac/Frameworks/bin/generate_keys` (after one `bun scripts/app.ts`). The private half stays in
   the maintainer's Keychain; the public one is `LIFE_SPARKLE_KEY`.
 - The GitHub repository the releases go to: `LIFE_RELEASES_REPO` (`owner/name`). The app's update feed is its latest
   release's `appcast.xml`.

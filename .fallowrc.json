@@ -5,7 +5,7 @@
     "assets/**/*.js",
     "assets/**/*.tsx",
     "assets/**/*.css",
-    "worker/*.ts"
+    "apps/edge/*.ts"
   ],
   "ignoreUnresolvedImports": ["./tokens.css"],
   "ignoreDependencies": ["@openai/codex", "fallow", "ultracite"],

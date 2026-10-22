@@ -6,7 +6,7 @@ import { connector, settings } from "../../core/settings";
 // connections die but the process never exits, so launchd's KeepAlive never fires. Every 2 minutes the watcher probes
 // the connector's metadata and restarts cloudflared only when Cloudflare answers that it has no tunnel to us (530). No
 // answer is not the tunnel: the Mac is offline, or this process (which also serves the connector) was busy past the
-// timeout, as on 20 Oct when it restarted a healthy tunnel. Behind the edge Worker (worker/edge.ts) that address never
+// timeout, as on 20 Oct when it restarted a healthy tunnel. Behind the edge Worker (apps/edge/edge.ts) that address never
 // answers 530, so this no longer fires and the tunnel's other hostnames have no heal: deleting it is #133.
 
 export const TUNNEL_EVERY_MS = 2 * 60_000;

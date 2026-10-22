@@ -49,7 +49,7 @@ const tones: Record<string, string> = {
 };
 
 test("the app's colours are tokens.css's, light and dark", async () => {
-  const swift = await asset("app/Sources/LifeApp/Brand.swift");
+  const swift = await asset("apps/mac/Sources/LifeApp/Brand.swift");
   const pairs = [
     ...swift.matchAll(
       /static let (\w+) = Color\(light: (0x\w+), dark: (0x\w+)\)/g
@@ -84,7 +84,7 @@ test("the email's and the app's radii and the email's font stacks are tokens.css
     stack(value("serif")),
     stack(value("mono")),
   ]);
-  const swift = await asset("app/Sources/LifeApp/Brand.swift");
+  const swift = await asset("apps/mac/Sources/LifeApp/Brand.swift");
   const radius = (name: string) =>
     Number(
       swift.match(new RegExp(`static let ${name}: CGFloat = (\\d+)`))?.[1]
@@ -96,13 +96,13 @@ test("the email's and the app's radii and the email's font stacks are tokens.css
 
 test("no colour is written anywhere else: every hex colour is in tokens.css or a checked copy", async () => {
   const allowed = new Set([
-    "app/Sources/LifeApp/Brand.swift",
+    "apps/mac/Sources/LifeApp/Brand.swift",
     "assets/brand/tokens.css",
     "apps/server/src/memory/email.ts",
   ]);
   const read = repoFiles(
     ROOT,
-    ["apps/server/src", "assets", "app/Sources"],
+    ["apps/server/src", "assets", "apps/mac/Sources"],
     ".ts .js .css .html .swift .json .jsonl .md".split(" ")
   );
   expect(read).toContain("apps/server/src/memory/email.ts");

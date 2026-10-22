@@ -120,7 +120,7 @@ the backfill have no screen in the app yet, only commands.
 
 The app is not signed with a Developer ID or notarized; you build it yourself, and macOS treats it as an app from an
 unidentified developer. An ad hoc build also loses its Keychain items and its Full Disk Access every time you rebuild
-it, unless you set `LIFE_SIGN_IDENTITY` to an Apple-issued certificate ([app/README.md](app/README.md)).
+it, unless you set `LIFE_SIGN_IDENTITY` to an Apple-issued certificate ([apps/mac/README.md](apps/mac/README.md)).
 
 The models misread. A fact can have the wrong person, the wrong day, or miss that something was done. Every fact
 cites its source, so check it before you act on it, and tell your assistant when something is wrong: the correction is
@@ -153,7 +153,7 @@ How Life works:
 - [Dashboard reads](docs/dashboard.md): the connector's JSON status reads, for developers
 
 Develop: the commands and rules are in [AGENTS.md](AGENTS.md#commands); also [writing docs](docs/STYLE.md),
-[building the app](app/README.md) and [releasing](docs/releasing.md).
+[building the app](apps/mac/README.md) and [releasing](docs/releasing.md).
 
 ## License
 
