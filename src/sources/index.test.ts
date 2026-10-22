@@ -112,9 +112,7 @@ test("only the sources he turned on are read, and one not set up yet is left out
 });
 
 test("an archived source can't be read until the archive copied its store; others keep their own reason", () => {
-  const copied = existsSync(archiveDb("notes"));
-  expect(sourceOf("notes").missing?.()).toBe(
-    copied ? undefined : "Notes not archived yet"
-  );
-  expect(sourceOf("mail").missing).not.toBe(sourceOf("notes").missing);
+  expect(existsSync(archiveDb("notes"))).toBe(false);
+  expect(sourceOf("notes").missing?.()).toBe("Notes not archived yet");
+  expect(sourceOf("mail").missing?.()).not.toBe("Mail not archived yet");
 });

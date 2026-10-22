@@ -93,7 +93,7 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 
 Every OS difference in one module, one table per OS, so Windows is a second table and not a branch in nine files:
 
-- paths: the `MAC` root (`truth.ts:40`, `%LOCALAPPDATA%\Life` on Windows), the app stores (`archived.ts:17,21`,
+- paths: the `MAC` root (`truth.ts:40`, `%LOCALAPPDATA%\Life` on Windows), the app stores (`whatsapp.ts`, `beeper.ts`,
   `notes.ts:14`, `mail.ts:10`, `contacts.ts:11`, `imessage.ts:10`);
 - tools: Tailscale (`tailscale.ts:13`), remctl (`remctl.ts:13`), Codex's binary (`llm.ts:61`, darwin-arm64 only today,
   also wrong on Intel Macs);

@@ -2,14 +2,15 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { SourceEvent, SourceFile } from "../schema";
-import { MAC } from "../truth";
+import { MAC, STATE, TEST } from "../truth";
 import type { Newest } from "./index";
 
 // Life's archive (src/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and Beeper's
 // chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
 // of a note as what it changed.
 
-export const ARCHIVE = join(MAC, "archive");
+/** A test run keeps its archive in its own state, never the Mac's. */
+export const ARCHIVE = join(TEST ? STATE : MAC, "archive");
 
 /** One archive store's database (an archived source's name). */
 export const archiveDb = (name: string, dir = ARCHIVE) =>
