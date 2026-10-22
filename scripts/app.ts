@@ -5,8 +5,11 @@ import { join } from "node:path";
 import { execOk } from "../src/proc";
 
 // Life.app, assembled: the menu-bar app (app/, Swift) as its executable, the helper (scripts/helper.ts) in
-// Contents/Helpers with its files in Contents/Resources/life, signed: with `LIFE_SIGN_IDENTITY` (a Developer ID,
-// for a release) under the hardened runtime, else ad hoc (this Mac only). Usage: `bun scripts/app.ts [out]`.
+// Contents/Helpers with its files in Contents/Resources/life, signed: with `LIFE_SIGN_IDENTITY` (an Apple-issued
+// certificate, Apple Development or Developer ID, by hash or name, from `.env`) under the hardened runtime, which
+// loads Sparkle only from the same team (so no self-signed one), else ad hoc. An ad hoc app is a new app to macOS at each build, so
+// it loses its Keychain items and Full Disk Access; one certificate keeps them (a Developer ID for a release).
+// Usage: `bun scripts/app.ts [out]`.
 
 const ROOT = join(import.meta.dir, "..");
 const out = process.argv[2] ?? join(ROOT, "dist");

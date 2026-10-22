@@ -251,13 +251,14 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 ## The app
 
 A friend's install is `Life.app` (`app/`, SwiftUI, menu bar; assembled by `bun scripts/app.ts`): it runs the compiled
-helper (`scripts/helper.ts`) as launchd runs the checkout for him: `archive` and `watch` kept running, `memory nightly`
+helper (`scripts/helper.ts`) as launchd ran the checkout for him: `archive` and `watch` kept running, `memory nightly`
 every 30 minutes, its data and state under `~/Library/Application Support/Life` (`LIFE_DATA`, `LIFE_STATE`), its files
 as `LIFE_ROOT`, every secret the Keychain keeps under "Life" in its environment. The app never reads Life's files: it
 asks the helper (`app` for what it shows, `settings`, `init`, `pair`, `connect`), so their shape lives in one place.
 It starts Life at launch (`AppDelegate`; opening the menu retries a start that failed), and ships the status page
-bundled by its build (`BUILT`, scripts/helper.ts, with the page's one config `PAGE`): a checkout bundles it on first use. His own install stays the checkout under
-launchd until the move (`docs/transition.md`).
+bundled by its build (`BUILT`, scripts/helper.ts, with the page's one config `PAGE`): a checkout bundles it on first use. Build it signed with one certificate
+(`LIFE_SIGN_IDENTITY` in `.env`, scripts/app.ts): macOS knows an ad hoc build as a new app each time, so it would lose
+its Keychain items and Full Disk Access. His own install has been the app since 22 Oct (`docs/transition.md`).
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MAC` (`~/Library/Application Support/Life`,
 shared by every install: `hold`, `src/lock.ts`), so a second install's copy waits instead of running beside it (two
