@@ -46,17 +46,22 @@ only copy of what gets deleted.
 
 1. Before pulling, write the owner's `derived/settings.json` (main's code ignores the new keys) from his `.env` and the
    values that were constants on main (`git show origin/main:<file>`): `connector` (origin, issuer, client and owner
-   from `src/auth.ts`, and `tunnel: "cloudflare"`, or the healer stops), `lifelog.url` (`LIFELOG_URL`), `mail` (`from`
+   from `src/auth.ts`, and `tunnel: "cloudflare"`, or the healer stops), `lifelog.url` (`LIFELOG_URL`, or main's default
+   in `src/sources/lifelog.ts`), `mail` (`from`
    in `src/memory/email.ts`, `to` = `LIFE_MAIL_TO`), `lifeChat` (`LIFE_CHAT`: unset, Life's old bot would read as
    facts), `past` (`LIFE_PAST_*`), `reports` (the agents' report senders in `src/memory/units.ts`), `repos: "~/Work"`,
    `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), `sources` (every source he
    reads today: lifelog, imessage, whatsapp, beeper, mail, notes, claude, chatgpt, atlas, git), `agent` (`{name:
    "Atlas", wake: ["atlas"], misheard: ["at last", <LIFE_MISHEARD>], client: "openai-mcp"}`: without it nothing wakes
-   and `act` no longer refuses his Atlas list), and keep `engine`.
-2. Pull, then `bun life settings` from `~/Work/life` (it validates the file) and `bun life status`.
-3. Restart what launchd runs, which read their settings once: `launchctl kickstart -k gui/$(id -u)/<label>` for the
-   watch, the archive and the nightly. Check `actions: remctl ready` in `~/Library/Logs/life-watch.log` and that the
-   archive's stores are copying.
+   and `act` no longer refuses his Atlas list), and keep `engine`. Until the pull, never run `bun life engine`: main's
+   rewrites the file with the engine alone.
+2. Pull, then at once `bun install` (the new code imports `@anthropic-ai/sdk`: until it is there the watcher and the
+   archive, restarted on the new code, fail to start), then `bun life settings` from `~/Work/life` (it validates the
+   file) and `bun life status`.
+3. Restart the watch and the archive, which read their settings once: `launchctl kickstart -k gui/$(id -u)/<label>`
+   (labels in `src/mac.ts`). Not the nightly: each tick is a new process with the new settings, and a running one is
+   left to finish. Check `actions: remctl ready` in `~/Library/Logs/life-watch.log` and that the archive's stores are
+   copying.
 - Move his own part of the playbook from `~/Life/docs/packaging/playbook.md` to `~/Life/playbook.md` (audits, his plan,
   what his Mac reaches, his send accounts: without it Atlas loses them).
 - Remove the moved keys from `.env` (`LIFE_OWNER_SUB`, `LIFE_MAIL_TO`, `LIFE_CHAT`, `LIFE_MISHEARD`, `LIFE_PAST_*`,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Person, SourceEvent, Unit } from "../schema";
 import { readSettings, setSettings } from "../settings";
+import { SOURCES } from "../sources";
 import {
   chapter,
   conversation as feedConversation,
@@ -654,6 +655,25 @@ test("with no source turned on, a sweep reads nothing and fails nothing", async 
     );
     expect(e.built).toEqual([]);
     expect(e.conversations).toEqual([]);
+    expect(e.failed).toEqual([]);
+  } finally {
+    setSettings({ sources: before });
+  }
+});
+
+test("a source turned on that can't be read now is skipped, by name, never a failure", async () => {
+  const before = readSettings().sources;
+  const unreadable = SOURCES.find((s) => s.missing?.());
+  if (!unreadable) {
+    throw new Error("the test data has no source that can't be read");
+  }
+  try {
+    setSettings({ sources: [unreadable.name] });
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.skipped).toEqual([unreadable.name]);
     expect(e.failed).toEqual([]);
   } finally {
     setSettings({ sources: before });
