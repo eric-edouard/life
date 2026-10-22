@@ -5,13 +5,13 @@ must not break are in `AGENTS.md`; this page has the details.
 
 ## Where things live
 
-Three roots, defined in `src/truth.ts`:
+Three roots, defined in `src/truth.ts` and `src/platform.ts`:
 
 | Root | What | Default |
 |---|---|---|
-| `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MAC/data`; a checkout: `~/Life` |
-| `STATE` (`LIFE_STATE`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MAC/state`; a checkout: its own `derived/` |
-| `MAC` | Fixed: `~/Library/Application Support/Life`, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
+| `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE/data`; a checkout: `~/Life` |
+| `STATE` (`LIFE_STATE`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE/state`; a checkout: its own `derived/` |
+| `MACHINE` | Fixed per computer (`src/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
 - `DATA` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
@@ -49,11 +49,11 @@ every Keychain secret in its environment:
 
 | Service | What it does |
 |---|---|
-| `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, and each new version of every Apple Note into `MAC/archive/`, opening a closed app hidden. See `docs/sources.md`. |
+| `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, and each new version of every Apple Note into `MACHINE/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its guard decides what is due (below). |
 
-**One Life per Mac.** The archive and the watcher each hold a lock in `MAC` (`hold`, `src/lock.ts`), so a second
+**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE` (`hold`, `src/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
 lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status plate reads
@@ -142,7 +142,7 @@ the tunnel's only healer.
   claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
   entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
-- Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MAC/codex`, with no instruction
+- Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
 - Model calls see no tools and no instruction files: `src/llm.ts` runs them in an empty temp folder. The one exception
   is the agent bench's agent, whose only tools are Life's connector, frozen and dry: Codex still read-only, with no
@@ -260,5 +260,5 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   `Project.repos` in `truth/`, Life's guesses marked inferred.
 - `status`, `runs`, `changes`, `claim`: the dashboard reads (`docs/dashboard.md`).
 
-Read a source directly only if the CLI is unavailable: `MAC/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,
+Read a source directly only if the CLI is unavailable: `MACHINE/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,
 `notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only.

@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { clock } from "../clock";
+import { APP_DATA } from "../platform";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,
@@ -15,10 +15,7 @@ import {
 } from "./archived";
 
 // Beeper Desktop's own store, opened read-only by its copy into the archive.
-export const BEEPER = join(
-  homedir(),
-  "Library/Application Support/BeeperTexts"
-);
+export const BEEPER = join(APP_DATA, "BeeperTexts");
 
 // LINE, Telegram and Instagram (the chats Beeper Desktop bridges) from Life's own archive. Beeper's API is not used: it
 // only works while Beeper runs and keeps no deleted text.

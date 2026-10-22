@@ -1,4 +1,5 @@
 import { closeSync, existsSync, openSync } from "node:fs";
+import { WINDOWS } from "../platform";
 import {
   AGENT_WORD,
   type Person,
@@ -84,6 +85,8 @@ export type Descriptor = {
   missing?: () => string | undefined;
   /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
+  /** Its app's store exists only on the Mac (`platform.ts`): elsewhere it is never ready. */
+  macOnly?: true;
   /** What he calls it. */
   label: string;
   /** The app store the archive keeps a copy of; its units are read from that copy. */
@@ -133,6 +136,7 @@ const LISTED: Descriptor[] = [
     handleOf,
     kind: "chat",
     label: "iMessage",
+    macOnly: true,
     missing: () => unreadable(DB, FULL_DISK),
     name: "imessage",
     newest: newestImessage,
@@ -146,6 +150,7 @@ const LISTED: Descriptor[] = [
     handleOf: phoneOf,
     kind: "chat",
     label: "WhatsApp",
+    macOnly: true,
     name: "whatsapp",
     newest: newestWhatsapp,
     read: readWhatsapp,
@@ -177,6 +182,7 @@ const LISTED: Descriptor[] = [
   {
     kind: "mail",
     label: "Mail",
+    macOnly: true,
     missing: () => {
       try {
         mailRoot();
@@ -193,6 +199,7 @@ const LISTED: Descriptor[] = [
   {
     kind: "notes",
     label: "Notes",
+    macOnly: true,
     name: "notes",
     newest: newestNote,
     read: readNotes,
@@ -243,17 +250,19 @@ const LISTED: Descriptor[] = [
   },
 ];
 
-export const SOURCES = LISTED.map(
-  (s): Descriptor =>
-    // An archived source is there once the archive has copied its store.
-    s.store
-      ? {
-          ...s,
-          missing: () =>
-            unreadable(archiveDb(s.name), `${s.label} not archived yet`),
-        }
-      : s
-);
+export const SOURCES = LISTED.map((s): Descriptor => {
+  if (s.macOnly && WINDOWS) {
+    return { ...s, missing: () => "macOS only" };
+  }
+  // An archived source is there once the archive has copied its store.
+  return s.store
+    ? {
+        ...s,
+        missing: () =>
+          unreadable(archiveDb(s.name), `${s.label} not archived yet`),
+      }
+    : s;
+});
 
 /** The sources he turned on (the `sources` setting), in cut order: no other is read, searched or shown. */
 export const enabledSources = <T extends Descriptor>(
