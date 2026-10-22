@@ -4,6 +4,7 @@ import { clock } from "./clock";
 import { stage } from "./export";
 import { readJson } from "./memory/ledger";
 import { localTime } from "./memory/units";
+import { isOn } from "./outputs";
 import { exec } from "./proc";
 import { expand, settings } from "./settings";
 import { MAC, STATE } from "./truth";
@@ -12,9 +13,6 @@ import { MAC, STATE } from "./truth";
 // the nightly's tick (`backupDue`). Without the setting there is no backup, and the report says it is off.
 const STAGING = join(MAC, "backup-staging");
 const STATUS = join(STATE, "backup.json");
-
-/** Whether this install backs up at all. */
-export const backupOn = () => !!settings().backup;
 
 /** The last good snapshot (when, its size, its id) and what went wrong in the last run. */
 interface Status {
@@ -33,7 +31,7 @@ export const backupSize = (s = readBackup()) =>
 
 /** The nightly report's line, flagged when the last run went wrong or the last snapshot is over 48 h old. */
 export function backupLine(now: Date, s = readBackup()) {
-  if (!backupOn()) {
+  if (!isOn("backup")) {
     return "Backup: off";
   }
   const size = backupSize(s);

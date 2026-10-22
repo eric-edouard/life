@@ -16,8 +16,8 @@ import {
 import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
+import { isOn } from "./outputs";
 import type { Receipt } from "./reminders/board";
-import { remindersOn } from "./reminders/remctl";
 import { Action, AGENT_WORD, type Instruction } from "./schema";
 import { agentName, settings } from "./settings";
 import { DATA, ROOT } from "./truth";
@@ -73,7 +73,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 
 /** The protocol's Reminders parts (`<!-- reminders -->…<!-- /reminders -->`): the markers always go, the parts too while the plugin is off. */
 const REMINDERS_PART = /<!-- reminders -->([\s\S]*?)<!-- \/reminders -->/g;
-export const protocol = (text: string, reminders = remindersOn()) =>
+export const protocol = (text: string, reminders = isOn("reminders")) =>
   text
     .replace(REMINDERS_PART, (_, part: string) => (reminders ? part : ""))
     .replaceAll("{agent}", agentName());
