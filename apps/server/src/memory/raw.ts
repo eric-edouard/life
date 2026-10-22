@@ -1,7 +1,7 @@
 import { clock } from "../core/clock";
 import { redact } from "../core/redact";
 import { type Candidate, owed } from "../items";
-import type { SourceEvent, Unit } from "../schema";
+import type { SourceEvent, SourceName, Unit } from "../schema";
 import { isDirect, kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
 import {
@@ -323,8 +323,7 @@ function readChats(
   sources: Partial<Tables["SEARCHED"]>
 ) {
   const end = range.to ? new Date(range.to) : clock();
-  const days = (source: string) =>
-    sourceOf(source as Unit["source"])[window] ?? 0;
+  const days = (source: string) => sourceOf(source as SourceName)[window] ?? 0;
   const startOf = (source: string) =>
     range.from
       ? new Date(range.from)

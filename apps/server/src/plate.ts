@@ -31,13 +31,8 @@ import { loadTruth } from "./memory/truth";
 import { clip } from "./memory/units";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { readContacts } from "./sources/contacts";
-import {
-  type Descriptor,
-  enabledSources,
-  keptStores,
-  listening,
-  type Newest,
-} from "./sources/index";
+import type { Descriptor, Newest } from "./sources/contract";
+import { enabledSources, keptStores, listening } from "./sources/index";
 import { lifelogStatus, newestTurn } from "./sources/lifelog";
 import { escalation, taskList } from "./tasks";
 

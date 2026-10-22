@@ -90,8 +90,9 @@ Each step is one PR that changes no behaviour, passes `bun run check`, and leave
    a smaller one (`scripts/baseline-check.ts` refuses a baseline that grows).
 2. **core** (#163). The foundations into `core/`; `clock` stops importing `truth` (the root folder moves to `core/paths`), and
    `truth.ts` joins the memory.
-3. **The cycles.** Each source and backend registers in a registry the host builds, so readers never import the
-   registry, and backends never import `act`. The ten cycles go.
+3. **The cycles** (#164). Each capability's contract in its own `contract.ts` (the source descriptor; the actions
+   backend and `Change`): implementations import the contract, the registry (`sources/index.ts`, `actions/backend.ts`)
+   imports the implementations, so nothing imports back. The ten cycles go.
 4. **The memory stops reaching up.** The nightly, the history's archive check and search's events move into
    `host/jobs`; the memory exposes steps, the host runs them in order.
 5. **Schemas by owner.** `schema.ts` split into the modules that own each record; the `records` zone goes. `core/settings`

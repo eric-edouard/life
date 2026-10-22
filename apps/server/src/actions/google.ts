@@ -1,6 +1,6 @@
 import { unfrozen } from "../core/clock";
 import { execOk } from "../core/proc";
-import type { ActionsBackend, Item, List } from "./backend";
+import type { ActionsBackend, Item, List } from "./contract";
 
 // The Google Tasks backend: his tasks through `gog tasks … --json` as `account`. Only `backend.ts` uses it. A task's
 // id in the contract is `<list id>/<task id>`: Google names a task within its list. It has notes, a day (no time),

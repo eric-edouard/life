@@ -4,8 +4,9 @@ import { tasksOf } from "../memory/ledger";
 import { type Action, Action as ActionLine, AGENT_WORD } from "../schema";
 import { closings } from "../tasks";
 import { grantRefusal } from "./act";
-import type { Item, Snapshot } from "./backend";
+import type { Snapshot } from "./backend";
 import { marks } from "./board";
+import type { Item } from "./contract";
 import { inbound } from "./inbound";
 
 const AT = "2026-10-21T12:00:00.000Z";

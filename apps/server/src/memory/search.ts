@@ -22,6 +22,7 @@ import {
   type Moment,
   type Observation,
   type Person,
+  type SourceName,
   type Unit,
   type Verdict,
 } from "../schema";
@@ -134,7 +135,7 @@ const TITLE_MAX = 50;
 const WORD = /[\p{L}\p{N}]+/gu;
 
 interface Row {
-  channel: Unit["source"];
+  channel: SourceName;
   confidence: number;
   date: string;
   id: string;
@@ -164,7 +165,7 @@ const line = (r: Row) => {
 interface UnitRow {
   date: string;
   id: string;
-  source: Unit["source"];
+  source: SourceName;
   title: string;
   topics: string;
 }
