@@ -139,6 +139,9 @@ export async function sectionsOf(list?: string) {
  * the log.
  */
 export async function checks() {
+  if (!remindersOn()) {
+    return [];
+  }
   try {
     await remctl(["lists"]);
     return [];
