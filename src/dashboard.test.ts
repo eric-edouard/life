@@ -71,3 +71,17 @@ test("the app's page opens with the local key only, a cookie or a bearer; the pu
   );
   expect(pub?.status).toBe(401);
 });
+
+test("the tab's icon is Life's L in the colour of the page's worst state", async () => {
+  const key = localKey();
+  const svg = async (tone: string) =>
+    (
+      await createDashboard(keyRefusal()).handle(
+        new Request(`http://127.0.0.1:46201/status/icon.svg?tone=${tone}`, {
+          headers: { authorization: `Bearer ${key}` },
+        })
+      )
+    )?.text();
+  expect(await svg("bad")).toContain(`fill="#c4382c"`);
+  expect(await svg("nonsense")).toContain(`fill="#7d8186"`);
+});
