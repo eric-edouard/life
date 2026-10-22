@@ -333,11 +333,13 @@ hand `--force` always runs. The status page reads those locks (`holder`, mac.ts)
 - **Backups**: `src/backup.ts` (the `memory-nightly` tick, once the night is done or from 06:00: once a day, 3 tries, `backupDue`; by hand only from `~/Work/life`) snapshots with restic into
   `~/Library/Mobile Documents/com~apple~CloudDocs/Life backup/restic`; the password is in the Keychain
   (the `backup` setting's password command) and his password manager.
-  It holds what its `restic backup` lists, `~/Life` cloned under the lock (the one reader that takes it). Restore:
-  `restic restore latest --tag daily --target <dir>` puts every file at `<dir>` + its absolute path. From
-  `<dir>`'s `~/Library/Application Support/Life/backup-staging/`: `Life/` goes to `~/Life`,
-  the archive's `*.sqlite` back to the archive, `lifelog.sqlite` and `cursor.json` to `STATE/watch/` (`derived/watch/` in a checkout) (delete each
-  database's old `-wal`/`-shm` first). Everything else goes back to its own path.
+  It holds one export (`stage`, `src/export.ts`, the same as `bun life export` and the app's Export…): `data/` his data
+  cloned under the lock (the one reader that takes it), `state/` Life's state without secrets or the index, its watcher
+  store and cursor, `archive/` every store and its media, and `manifest.json` (every file's sha256, what each part holds,
+  the secrets left out by name). Restore: `restic restore latest --tag daily --target <dir>` puts the export at `<dir>`
+  + its absolute path (`MAC/backup-staging`); `data/` goes to his data, `state/` to Life's state, `archive/` to the
+  archive (delete each database's old `-wal`/`-shm` first), then the secrets the manifest names by hand (T4 makes this
+  `bun life import`).
 
 ## Working here
 

@@ -202,6 +202,7 @@ struct SettingsView: View {
               try? on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
             }
           Button("Save") { Task { await save() } }
+          Button("Export everything…") { Task { await export() } }
         }
       }
       if !status.isEmpty {
@@ -289,6 +290,16 @@ struct SettingsView: View {
     installing = true
     status = await Remctl.install(r.release)
     installing = false
+  }
+
+  /// Everything Life holds into a new folder, with its manifest (`life export`): no secrets, they are listed.
+  private func export() async {
+    let panel = NSSavePanel()
+    panel.nameFieldStringValue = "Life export \(Date().formatted(.iso8601.year().month().day()))"
+    guard panel.runModal() == .OK, let url = panel.url else { return }
+    status = "Exporting…"
+    let r = await Helper.run(["export", url.path])
+    status = (r.code == 0 ? r.out : r.err).trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   private func connect(public publicToo: Bool) async {

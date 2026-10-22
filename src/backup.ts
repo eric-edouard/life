@@ -1,16 +1,12 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
-import { STORES } from "./archive";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { clock } from "./clock";
-import { LOCK, locked } from "./memory/guard";
+import { stage } from "./export";
 import { readJson } from "./memory/ledger";
-import { INDEX } from "./memory/search";
 import { localTime } from "./memory/units";
 import { exec } from "./proc";
 import { expand, settings } from "./settings";
-import { ARCHIVE, archiveDb } from "./sources/archived";
-import { storeFiles, WATCH } from "./sources/lifelog";
-import { DATA, MAC, ROOT, STATE } from "./truth";
+import { MAC, STATE } from "./truth";
 
 // The daily restic snapshot (AGENTS.md, "Backups") to the `backup` setting's repository, run by the nightly's tick
 // (`backupDue`). Without the setting there is no backup, and the report says it is off.
@@ -46,7 +42,7 @@ export function backupLine(now: Date, s = readBackup()) {
   return `Last backup: ${[last, s?.error, old && "OVER 48 H OLD"].filter(Boolean).join(" · ")}`;
 }
 
-/** `bun life backup`: stages the databases and ~/Life, snapshots, and on Sundays forgets, prunes and checks. */
+/** `bun life backup`: stages everything Life holds (`stage`, an export), snapshots it, and on Sundays forgets, prunes and checks. */
 export async function backup() {
   const target = settings().backup;
   if (!target) {
@@ -67,30 +63,16 @@ export async function backup() {
     return r;
   };
   rmSync(STAGING, { force: true, recursive: true });
-  mkdirSync(STAGING);
-  // Every store there is, on or off: an archive turned off still holds the only copy of what was deleted. The cursor
-  // before its store: the watcher writes it after, so a restored store never lags its cursor.
-  const { cursor, file } = storeFiles();
-  if (existsSync(cursor)) {
-    await run(["cp", cursor, STAGING]);
-  }
-  for (const db of [...STORES.map((s) => archiveDb(s.name)), file].filter(
-    existsSync
-  )) {
-    const to = `${STAGING}/${basename(db)}`;
-    // biome-ignore lint/performance/noAwaitInLoops: one copy at a time
-    await run(["sqlite3", "-readonly", db, `.backup '${to}'`]);
-  }
-  // ~/Life holds ledger lines not committed yet, so git alone is not whole: an APFS clone under the lock is, in ms.
-  if (!(await locked(() => run(["cp", "-cR", DATA, `${STAGING}/Life`])))) {
-    missed.push("Life's lock was held");
+  try {
+    await stage(STAGING);
+  } catch (e) {
+    missed.push(`staging: ${(e as Error).message}`);
   }
   // Host `life`: the Mac's name changes with the network, and restic groups snapshots by host. Exit 3: saved
   // without the paths it could not read.
   const r = await run([
     ..."restic backup --json --quiet --tag daily --host life".split(" "),
-    ...[basename(LOCK), `${INDEX}*`, WATCH].map((p) => `--exclude=${p}`),
-    ...[STAGING, `${ARCHIVE}/media`, `${ROOT}/.env`, STATE],
+    STAGING,
   ]);
   const sum =
     (r.code === 0 || r.code === 3) &&
