@@ -12,9 +12,9 @@ The agent runs outside Life's boundary. It acts with whatever access its own app
 the rules it follows itself: [SECURITY.md](../SECURITY.md) explains the risk.
 
 1. [Connect ChatGPT or Claude](connect.md) first.
-2. In Life's settings, under **Your agent**, enter its name and the wake word as your phone hears it (usually the name in
-   lowercase). Under **It gets your asks**, pick **Pushed to it** for ChatGPT, or **When it checks in** for Claude. Press
-   **Save**.
+2. In Life's settings, under **Your agent**, enter its name and the wake word as your phone hears it (usually the name
+   in lowercase). Under **It gets your asks**, pick **Pushed to it** for ChatGPT, or **When it checks in** for Claude.
+   Press **Save**.
 3. Paste this sentence, and nothing else, as the agent's instructions (in ChatGPT, the project's or the custom
    instructions of the chat you use for it):
 

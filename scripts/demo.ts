@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { join, relative, resolve } from "node:path";
+import { madeBy, unit } from "../src/memory/fixtures";
 import { execOk } from "../src/proc";
+import { DATA, MAC, STATE } from "../src/truth";
 
 // A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
 // src/test-data, plus a week of invented memory about a landlord, a plumber and a friend) and builds its search index.
-// It touches no source and no live data: its settings turn every source off.
+// It reads no source: its settings turn every source off. `demo.test.ts` checks the README's ids against it.
 //
 // The README's transcript is Claude Code with Life's read commands on that copy as its only tool:
 //   cd "$(mktemp -d)" && claude -p --setting-sources "" --strict-mcp-config --tools Bash \
@@ -13,13 +16,19 @@ import { execOk } from "../src/proc";
 //     --append-system-prompt "Read the user's memory only with: env LIFE_DATA=<out>/data LIFE_STATE=<out>/state \
 //       bun <repo>/src/cli.ts memory search|person|day …. Today is Thursday 22 October 2026. Cite observation ids." \
 //     "What did I promise my landlord last week? Did I keep it?"
-// The README's screenshot is Life.app's StatusWindow drawn offscreen (NSHostingView, cacheDisplay) from `snapshot()`
-// (src/plate.ts) run with the same LIFE_DATA and LIFE_STATE, without the cards that read this Mac's own services.
+//
+// The README's screenshots were made by hand, with no script kept: `snapshot()` (src/plate.ts), run with the same
+// LIFE_DATA and LIFE_STATE, printed the plate as JSON; the cards about the Mac's own services were deleted from it
+// (the tunnel, cloudflared, the nightly tick, /me and the whole Mac row), and Life.app's StatusWindow was drawn from
+// what was left, offscreen. The other cards still show what the Mac that drew them reported about itself, such as
+// Contacts readable and the archive copying, but none of its data.
 
 const out = resolve(process.argv[2] ?? "");
-if (!process.argv[2] || existsSync(out)) {
+const inside = (root: string) => !relative(root, out).startsWith("..");
+const live = [DATA, STATE, MAC, join(homedir(), "Life")];
+if (!process.argv[2] || existsSync(out) || live.some(inside)) {
   console.error(
-    "usage: bun scripts/demo.ts <a folder that does not exist yet>"
+    "usage: bun scripts/demo.ts <a new folder, outside Life's data and state>"
   );
   process.exit(1);
 }
@@ -29,12 +38,12 @@ cpSync(join(import.meta.dir, "../src/test-data/truth"), join(data, "truth"), {
   recursive: true,
 });
 mkdirSync(join(state, "memory"), { recursive: true });
-const write = (path: string, text: string) => {
+const write = (path: string, rows: object[]) => {
   mkdirSync(join(path, ".."), { recursive: true });
-  writeFileSync(path, text, { flag: "a" });
+  writeFileSync(path, rows.map((r) => `${JSON.stringify(r)}\n`).join(""), {
+    flag: "a",
+  });
 };
-const lines = (rows: object[]) =>
-  rows.map((r) => `${JSON.stringify(r)}\n`).join("");
 const hex = (s: string, n: number) =>
   createHash("sha256").update(s).digest("hex").slice(0, n);
 
@@ -42,12 +51,9 @@ writeFileSync(
   join(state, "settings.json"),
   JSON.stringify({ agent: { name: "Orbit", wake: ["orbit"] }, sources: [] })
 );
-write(
-  join(data, "memory/zones.jsonl"),
-  lines([
-    { from: "2019-01-01T00:00:00.000Z", schemaVersion: 1, tz: "Europe/Lisbon" },
-  ])
-);
+write(join(data, "memory/zones.jsonl"), [
+  { from: "2019-01-01T00:00:00.000Z", schemaVersion: 1, tz: "Europe/Lisbon" },
+]);
 writeFileSync(
   join(data, "truth/me.md"),
   "# Me\n\nSam, Life's made-up demo owner.\n\n## Goals\n1. Keep the flat in order.\n"
@@ -64,18 +70,21 @@ people:
 `
 );
 
-// Each unit: its day and local time, source, chat or thread, title, the cited message, and its facts:
-// [type, claim, quote, speaker, people, when?].
+/** A fact: type, claim, quote, who said it, who else it is about, and its date when it has one. */
 type Fact = [string, string, string, string, string[], string?];
-const UNITS: [string, string, string, string, string, string, Fact[]][] = [
-  [
-    "2026-10-13",
-    "09:12",
-    "whatsapp",
-    "351910000001@s.whatsapp.net",
-    "Jean Dupont",
-    "whatsapp:351910000001@s.whatsapp.net/A1",
-    [
+interface Demo {
+  at: string;
+  facts: Fact[];
+  key: string;
+  moment?: { place: string | null; title: string; with: string };
+  ref: string;
+  source: "lifelog" | "mail" | "whatsapp";
+  title: string;
+}
+const DEMO: Demo[] = [
+  {
+    at: "2026-10-13 09:12",
+    facts: [
       [
         "promise",
         "Sam promised Jean Dupont to pay the October rent by Friday 16 October.",
@@ -93,15 +102,14 @@ const UNITS: [string, string, string, string, string, string, Fact[]][] = [
         "2026-10-17",
       ],
     ],
-  ],
-  [
-    "2026-10-15",
-    "18:40",
-    "whatsapp",
-    "351910000001@s.whatsapp.net",
-    "Jean Dupont",
-    "whatsapp:351910000001@s.whatsapp.net/B7",
-    [
+    key: "351910000001@s.whatsapp.net",
+    ref: "whatsapp:351910000001@s.whatsapp.net/A1",
+    source: "whatsapp",
+    title: "Jean Dupont",
+  },
+  {
+    at: "2026-10-15 18:40",
+    facts: [
       [
         "news",
         "Sam sent the October rent to Jean Dupont on 15 October.",
@@ -117,15 +125,19 @@ const UNITS: [string, string, string, string, string, string, Fact[]][] = [
         ["hans"],
       ],
     ],
-  ],
-  [
-    "2026-10-17",
-    "10:05",
-    "lifelog",
-    "conv-demo-1",
-    "Kitchen sink repair with the plumber",
-    "job-demo-1:4@2026-10-17T09:05:00.000Z",
-    [
+    key: "351910000001@s.whatsapp.net",
+    moment: {
+      place: null,
+      title: "Paid the October rent to Jean Dupont",
+      with: "jean-dupont",
+    },
+    ref: "whatsapp:351910000001@s.whatsapp.net/B7",
+    source: "whatsapp",
+    title: "Jean Dupont",
+  },
+  {
+    at: "2026-10-17 10:05",
+    facts: [
       [
         "news",
         "Hans fixed the kitchen sink on 17 October by replacing the cracked drain pipe.",
@@ -134,15 +146,19 @@ const UNITS: [string, string, string, string, string, string, Fact[]][] = [
         [],
       ],
     ],
-  ],
-  [
-    "2026-10-20",
-    "21:30",
-    "whatsapp",
-    "351910000002@s.whatsapp.net",
-    "Ana",
-    "whatsapp:351910000002@s.whatsapp.net/C3",
-    [
+    key: "conv-demo-1",
+    moment: {
+      place: "the flat, Rua das Flores",
+      title: "Hans fixed the kitchen sink at the flat",
+      with: "hans",
+    },
+    ref: "job-demo-1:4@2026-10-17T09:05:00.000Z",
+    source: "lifelog",
+    title: "Kitchen sink repair with the plumber",
+  },
+  {
+    at: "2026-10-20 21:30",
+    facts: [
       [
         "promise",
         "Sam told Ana he would bring the cake to her birthday dinner on Saturday 24 October.",
@@ -152,15 +168,15 @@ const UNITS: [string, string, string, string, string, string, Fact[]][] = [
         "2026-10-24",
       ],
     ],
-  ],
-  [
-    "2026-10-21",
-    "11:02",
-    "mail",
-    "thread-lease",
-    "Lease renewal 2027",
-    "mail:<lease-2027@example.test>",
-    [
+    key: "351910000002@s.whatsapp.net",
+    moment: { place: "Luna", title: "Ana's birthday dinner", with: "ana" },
+    ref: "whatsapp:351910000002@s.whatsapp.net/C3",
+    source: "whatsapp",
+    title: "Ana",
+  },
+  {
+    at: "2026-10-21 11:02",
+    facts: [
       [
         "waiting",
         "Claire Dupont will send the 2027 lease for Sam to sign by the end of October.",
@@ -170,113 +186,73 @@ const UNITS: [string, string, string, string, string, string, Fact[]][] = [
         "2026-10-31",
       ],
     ],
-  ],
-];
-const MOMENTS: [number, string, string, string, string, string | null][] = [
-  [
-    1,
-    "Paid the October rent to Jean Dupont",
-    "happened",
-    "2026-10-15 18:40",
-    "jean-dupont",
-    null,
-  ],
-  [
-    2,
-    "Hans fixed the kitchen sink at the flat",
-    "happened",
-    "2026-10-17 10:00",
-    "hans",
-    "the flat, Rua das Flores",
-  ],
-  [3, "Ana's birthday dinner", "planned", "2026-10-24 20:00", "ana", "Luna"],
+    key: "thread-lease",
+    ref: "mail:<lease-2027@example.test>",
+    source: "mail",
+    title: "Lease renewal 2027",
+  },
 ];
 
-const madeBy = { engine: "claude", model: "demo", run: "demo-1" };
-const units = UNITS.map(([day, time, source, key, title, ref, facts]) => {
-  const at = new Date(`${day}T${time}:00+01:00`).toISOString();
-  const unit = {
-    at,
-    day,
-    hash: hex(`${ref}#`, 16),
-    id: `u_${hex(ref, 12)}`,
-    ref,
-    source,
-  };
-  write(
-    join(data, `memory/units/${day}.jsonl`),
-    lines([
-      {
-        date: day,
-        end: at,
-        hash: unit.hash,
-        id: unit.id,
-        key,
-        people: [`unknown:${title}`, "person:me"],
-        refs: [ref],
-        schemaVersion: 1,
-        source,
-        start: at,
-        stats: { chars: 400, fromMe: 2, items: 6 },
-        title,
-      },
-    ])
-  );
+const extract = { ...madeBy, prompt: "memory-extract.v5" };
+for (const d of DEMO) {
+  const day = d.at.slice(0, 10);
+  const at = new Date(`${d.at.replace(" ", "T")}:00+01:00`).toISOString();
+  const u = unit({
+    date: day,
+    end: at,
+    hash: hex(`${d.ref}#`, 16),
+    id: `u_${hex(d.ref, 12)}`,
+    key: d.key,
+    people: [`unknown:${d.title}`, "person:me"],
+    refs: [d.ref],
+    source: d.source,
+    start: at,
+    title: d.title,
+  });
+  write(join(data, `memory/units/${day}.jsonl`), [u]);
   write(
     join(data, "memory/observations/2026-10.jsonl"),
-    lines(
-      facts.map(([type, text, quote, speaker, people, when]) => ({
-        about: `person:${speaker}`,
-        area: null,
-        at,
-        confidence: 0.9,
-        date: day,
-        entities: [
-          ...new Set([
-            `person:${speaker}`,
-            "person:me",
-            ...people.map((p) => `person:${p}`),
-          ]),
-        ],
-        id: `obs_${hex(unit.id + type + quote + text, 12)}`,
-        madeBy: { ...madeBy, prompt: "memory-extract.v5", unitHash: unit.hash },
-        modality: when ? "plan" : "fact",
-        quote,
-        salience: when ? 3 : 2,
-        schemaVersion: 1,
-        source: { channel: source, ref },
-        speaker: `person:${speaker}`,
-        text,
-        type,
-        tz: "Europe/Lisbon",
-        unit: unit.id,
-        validFrom: null,
-        validTo: null,
-        when: when ?? null,
-      }))
-    )
+    d.facts.map(([type, text, quote, speaker, people, when]) => ({
+      about: `person:${speaker}`,
+      area: null,
+      at,
+      confidence: 0.9,
+      date: day,
+      entities: [
+        ...new Set([speaker, "me", ...people].map((p) => `person:${p}`)),
+      ],
+      id: `obs_${hex(u.id + type + quote + text, 12)}`,
+      madeBy: { ...extract, unitHash: u.hash },
+      modality: when ? "plan" : "fact",
+      quote,
+      salience: when ? 3 : 2,
+      schemaVersion: 1,
+      source: { channel: d.source, ref: d.ref },
+      speaker: `person:${speaker}`,
+      text,
+      type,
+      tz: "Europe/Lisbon",
+      unit: u.id,
+      validFrom: null,
+      validTo: null,
+      when: when ?? null,
+    }))
   );
-  write(
-    join(data, "memory/extracted.jsonl"),
-    lines([
-      {
-        at: "2026-10-22T02:30:00.000Z",
-        observations: facts.length,
-        prompt: "memory-extract.v5",
-        run: madeBy.run,
-        schemaVersion: 1,
-        unit: unit.id,
-        unitHash: unit.hash,
-      },
-    ])
-  );
-  return unit;
-});
-for (const [i, title, status, start, person, place] of MOMENTS) {
-  const { day, id } = units[i] as (typeof units)[number];
-  write(
-    join(data, `memory/moments/${day}.jsonl`),
-    lines([
+  write(join(data, "memory/extracted.jsonl"), [
+    {
+      at: "2026-10-22T02:30:00.000Z",
+      observations: d.facts.length,
+      prompt: extract.prompt,
+      run: extract.run,
+      schemaVersion: 1,
+      unit: u.id,
+      unitHash: u.hash,
+    },
+  ]);
+  if (d.moment) {
+    const { place, title } = d.moment;
+    const planned = d.facts.some((f) => f[5]);
+    write(join(data, `memory/moments/${day}.jsonl`), [
       {
         copies: [],
         day,
@@ -284,22 +260,23 @@ for (const [i, title, status, start, person, place] of MOMENTS) {
         id: `mom_${hex(day + title, 12)}`,
         importance: 1,
         madeBy: { ...madeBy, prompt: "memory-moments.v4" },
-        people: [{ ref: `person:${person}`, role: "with" }],
+        people: [{ ref: `person:${d.moment.with}`, role: "with" }],
         place,
         schemaVersion: 1,
-        start,
-        status,
+        start: planned ? `${d.facts[0]?.[5]} 20:00` : d.at,
+        status: planned ? "planned" : "happened",
         title,
-        units: [id],
+        units: [u.id],
         why: "demo",
       },
-    ])
-  );
+    ]);
+  }
 }
+// NODE_ENV=test (a `bun test` run) would point the CLI at the tests' own copy instead.
 await execOk(
   ["bun", join(import.meta.dir, "../src/cli.ts"), "memory", "index"],
   {
-    env: { ...process.env, LIFE_DATA: data, LIFE_STATE: state },
+    env: { ...process.env, LIFE_DATA: data, LIFE_STATE: state, NODE_ENV: "" },
   }
 );
 console.log(`LIFE_DATA=${data} LIFE_STATE=${state}`);

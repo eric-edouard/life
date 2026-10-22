@@ -177,13 +177,15 @@ grant, and logs the agent's replies.
 
 ## The only sends
 
-How each one goes out:
+What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). How the
+report and the alerts go out:
 
-- The nightly report and the alerts, to the owner only (`src/memory/report.ts`: sender and address in the `mail`
-  setting), by email, or with no `mail` setting as a macOS notification with the report kept as a page in
-  `STATE/reports`. Either way the log's `email.sent` means delivered. The alerts: a failed action or an ask whose
-  delivery failed; a task that needs the owner, once per cause; the agent not subscribed to `ask` (one a day for all open
-  tasks); a run holding the lock over 3 h (once per incident); an archive store failing for an hour (`archiveFailing`
-  in `src/archive.ts`, once per incident and again daily while it lasts). Every send goes out once per key
-  (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
-- One MCP event per ask (not one the agent made itself) to the one subscriber (`src/events.ts`).
+- To the owner only (`src/memory/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
+  setting as a macOS notification with the report kept as a page in `STATE/reports`. Either way the log's `email.sent`
+  means delivered.
+- The alerts: a failed action or an ask whose delivery failed; a task that needs the owner, once per cause; the agent
+  not subscribed to `ask` (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an
+  archive store failing for an hour (`archiveFailing` in `src/archive.ts`, once per incident and again daily while it
+  lasts).
+- Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
+- The ask events (`src/events.ts`) go to the one subscriber, one per ask the agent did not make itself.

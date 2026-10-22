@@ -78,7 +78,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words or a request.
 - **Life acts in one place: Apple Reminders**, through `act`, on his clear request or the standing grant. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
-- **The only sends** are the report and alerts to the owner and one MCP event per ask to his agent. Add no other (`docs/tasks.md`, "The only sends").
+- **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections, and acts only through `reminders`, `task` and `reply`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.

@@ -95,7 +95,7 @@ happened each day, the facts worth keeping, and a page for each person who matte
 report, by email or as a notification. Tomorrow morning you can ask about last week.
 
 From then on it reads again each night, and at 13:00 and 19:00 it reads the day so far. Older months come in through a
-backfill, at most four weeks a day ([settings with no screen yet](docs/use/settings.md#older-months)).
+[backfill](docs/use/settings.md#older-months).
 
 The cost is your model usage, nothing else. Each night makes up to one model call per day of the week it reads, then
 more for the facts and pages that changed; the status window's engine card shows the tokens used this week. On a

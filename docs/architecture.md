@@ -45,8 +45,9 @@ flowchart LR
 
 - **Sources** (`src/sources/`, one descriptor each in `src/sources/index.ts`) return events with stable ids, so reading
   twice never duplicates anything. Raw data stays in its own app.
-- **Units** (`src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a note-day,
-  a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees it.
+- **Units** (`src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a
+  note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees
+  it.
 - **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
   writes a verdict per unit (type, salience, area) and what happened or is planned. The same call says who the day's
   unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later).
@@ -72,8 +73,8 @@ Time is modeled without a new store: said (`at`), valid (`validFrom`/`validTo`),
 ### The owner's own page
 
 `memory/pages/people/me.md` (`OWNER` in `truth.ts`) is built from the observations like every page, with its own
-sections (`layoutOf`, `page.ts`), so changing its shape costs a rebuild of one page. `person me` adds the owner's goals, read
-from `truth/me.md`.
+sections (`layoutOf`, `page.ts`), so changing its shape costs a rebuild of one page. `person me` adds the owner's goals,
+read from `truth/me.md`.
 
 ## Relationships and closeness
 
@@ -110,32 +111,33 @@ someone else is capped at 0.6 confidence.
 
 ## The app
 
-`Life.app` (`app/`, SwiftUI, menu bar) is how Life is installed. It runs the compiled helper (`scripts/helper.ts`):
-the archive and the watcher kept running, the nightly tick every 30 minutes, data and state under
-`~/Library/Application Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper
-(`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle. Its menu-bar panel and status window are native SwiftUI,
-reading the plate from the watcher's local status reads (`src/dashboard.ts`, `LOCAL_PORT`, behind its local key
-`keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points there): `docs/dashboard.md`.
+`Life.app` (`app/`, SwiftUI, menu bar) is how Life is installed. It runs the compiled helper (`scripts/helper.ts`): the
+archive and the watcher kept running, the nightly tick every 30 minutes, data and state under `~/Library/Application
+Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
+`init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
+Its menu-bar panel and status window are native SwiftUI, reading the plate from the watcher's local status reads
+(`src/dashboard.ts`, `LOCAL_PORT`, behind its local key `keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points
+there): `docs/dashboard.md`.
 
 ## Pages
 
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
 
-- **The check page** (`src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false
-  when the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else. Same
-  OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a `wrong`
-  correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
+- **The check page** (`src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
+  the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else.
+  Same OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a
+  `wrong` correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
-- **The portrait** (`src/portrait.ts`, `/me`) serves pages about the owner and the owner's people from `DATA/docs/portrait/`
-  (written in a session from the owner's memory, never in this repo): `/me` is `index.html`, `/me/<name>` is `<name>.html`,
-  `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player (`assets/portrait/`); nothing
-  else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a password
-  (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with the
-  password, failed tries capped.
+- **The portrait** (`src/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
+  `DATA/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
+  `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player
+  (`assets/portrait/`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a
+  password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with
+  the password, failed tries capped.
 
-Everything Life shows follows one brand, Ledger (emails, `/check`, `/me`, the app, the icon): the values are copied
-into `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `Ledger` in
+Everything Life shows follows one brand, Ledger (emails, `/check`, `/me`, the app, the icon): the values are copied into
+`C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `Ledger` in
 `app/Sources/LifeApp/Ledger.swift` (with a dark variant of each, at the owner's word: the app follows the Mac's
-appearance) and `assets/icon/`. The icon is a bold italic L: `assets/icon/icon.svg` holds its one outline (`#l`), which `app.svg` (the app icon) and
-`menubar.svg` (a template image) reuse; `scripts/app.ts` renders them into the bundle.
+appearance) and `assets/icon/`. The icon is a bold italic L: `assets/icon/icon.svg` holds its one outline (`#l`), which
+`app.svg` (the app icon) and `menubar.svg` (a template image) reuse; `scripts/app.ts` renders them into the bundle.
