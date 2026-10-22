@@ -27,9 +27,9 @@ const WAIT_MS = 8000;
 /** The issuer's keys, fetched on the first sign-in check (the issuer is only known from `env` then). */
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 
-/** The Mac is out of reach: no answer in time, or Cloudflare's own answer that it has no tunnel or origin. */
+/** The Mac is out of reach: no answer in time, or a gateway's answer that it has none. */
 const unreachable = (r: Response | null) =>
-  !r || r.status === 502 || r.status === 504 || r.status >= 520;
+  !r || r.status === 502 || r.status === 504;
 
 /** The Mac's own check (`ownerTokens`) on the session cookie the Mac set. */
 async function isOwner(req: Request, env: Env) {
@@ -138,7 +138,7 @@ export default {
         redirect: "manual",
       });
     if (!(pathname === "/" || pathname.startsWith("/status/"))) {
-      return toMac();
+      return toMac().catch(() => page("Life's Mac is offline.", 503));
     }
     const mac = await Promise.race([
       toMac().catch(() => null),

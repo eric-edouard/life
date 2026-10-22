@@ -67,7 +67,7 @@ from `~/Work/life`). Logs are in `~/Library/Logs/life-*.log`.
   extraction, from the moment's evidence, and recorded as supersessions.
 - **Connector** (`src/mcp.ts`, `https://life.ericedouard.com/mcp`): Life's one MCP server for Claude and ChatGPT, the CLI's
   read functions as seven tools, four JSON reads for a dashboard (`status`, `runs`, `changes`, `claim`: `docs/dashboard.md`), plus `tasks` (it also returns Atlas's playbook, the seal `task` needs and his goals), `open_reminders` (only while the Reminders plugin is on), `correct` (annotated so clients ask first), `reminders` (likewise) and `task` (writes, not destructive: Atlas uses them unattended), and one MCP event, `ask`. The watcher serves it on 127.0.0.1:46200 (`serve`, `src/server.ts`), reached through
-  the Cloudflare tunnel (`~/.cloudflared/config.yml`, proxied CNAME `life`). Its rules are in AGENTS.md; auth, tools and the wave icon are in the code,
+  the Worker (`worker/status.ts`) and the Mac's Tailscale Funnel on 8443. Its rules are in AGENTS.md; auth, tools and the wave icon are in the code,
   and in `derived/log` each call is an `mcp.call` (who asked, the arguments, what surfaced: `tool` in `src/mcp.ts`; a refused request too, with `refused`), each
   forwarded correction a `lifelog.write`. Off without the `connector` setting (`src/settings.ts`). The same server serves the check page (`/check/`, `src/check.ts`): the truth benchmark's statements, one tap or swipe each, behind the same lifelog sign-in.
 - **Removed on 14 Oct** (the old history in the backup has it, see the "Nuke" commit): the SwiftUI app, the Railway server, the Telegram bot's

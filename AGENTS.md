@@ -190,7 +190,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `STATE/oauth`), or the `connector` setting's (his lifelog, `sub` = its owner) (`ownerTokens`, `src/auth.ts`). Another
   issuer's keys are kept a day (`server.ts`); a failure to fetch them is `unreachable`, a 503 on /mcp and /check, never
   a refused token. The origin is his Mac's tailnet name (`bun life connect`, `--public` through Funnel for ChatGPT and
-  Claude.ai, `src/tailscale.ts`) or his own Cloudflare tunnel (`tunnel: cloudflare`, the only one `tunnel.ts` heals).
+  Claude.ai, `src/tailscale.ts`) or his own domain, through the Worker to the Mac's Funnel (below; until T6,
+  `docs/transition.md`).
 - **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
   reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages) on the public port (`PUBLIC_PORT`,
   where a tunnel forwards the connector's origin), or for the app on the local port (`LOCAL_PORT`, served even without
@@ -327,7 +328,8 @@ hand `--force` always runs. The status page reads those locks (`holder`, mac.ts)
   are unchanged, so no client reconnects. The Funnel needs Tailscale running on the Mac.
 - The watcher heals the Mac's tunnel (`src/tunnel.ts`, every 2 min): it restarts `com.eric.cloudflared` only on a 530
   (Cloudflare has no tunnel to the Mac), never on no answer (offline, or the watcher busy) or an app's 5xx (a dead app behind the tunnel once
-  had another repo's watchdog restart it 35,000 times). It is the tunnel's only heal; other hostnames ride on it.
+  had another repo's watchdog restart it 35,000 times). It is the tunnel's only heal; other hostnames ride on it. Since
+  Life's origin goes through the Worker and Funnel, its probe never meets the tunnel, so it can't fire (#133).
 - `bun life act --check` says whether remctl can act now (read-only). remctl works through its signed Capability
   Host, only by absolute path (`~/bin/remctl`, not on launchd's PATH), and a read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.

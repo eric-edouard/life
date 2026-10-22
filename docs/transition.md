@@ -25,7 +25,9 @@ review (`debt-review`), and `transition` into `main` on his OK.
   writing to an existing archive; or an assistant export, what `memory import` was), also in the app's first run.
 - [x] The switch (runbook below), 22 Oct.
 - [ ] The connector on Life's own sign-in through Tailscale Funnel.
-- [ ] T5 Delete the launchd setup; T6 delete the Cloudflare tunnel and the status Worker.
+- [ ] T5 Delete the launchd setup; T6 delete the Cloudflare tunnel and the status Worker. Since #114 that Worker is
+  the connector's whole edge (every path, to the Mac's Funnel on 8443, a bridge that keeps the URL): T6 moves the
+  connector to `bun life connect --public` and deletes both (#133).
 
 ## The switch (runbook)
 
