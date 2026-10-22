@@ -70,6 +70,8 @@ those locks (`holder`, `src/mac.ts`).
   the archive after its pass, and launchd restarts each on the new code.
 - remctl is not on launchd's PATH: it is called by absolute path (below).
 - launchd's PATH may hold an old `node`, so `scripts/check.ts` runs its npm tools with `bun x --bun`.
+- No CI: the pre-push hook runs `bun run check` on the Mac. On Windows it runs by hand on the owner's PC over SSH
+  (pending: `docs/plans/2026-10-22-platforms.md`, "Verification").
 - Its secrets are in `.env`, while Life.app's are in the Keychain: two copies until [#136](https://github.com/eric-edouard/life/issues/136).
 
 ## The schedule
