@@ -14,11 +14,11 @@ test("an empty secret never matches, not even an empty answer; a different lengt
 
 test("a key file is made whole once; an empty or broken one is replaced, never used", () => {
   const path = SECRETS.localKey;
-  const key = secretIn(path);
+  const key = secretIn("localKey");
   expect(key).toMatch(KEY);
-  expect(secretIn(path)).toBe(key);
+  expect(secretIn("localKey")).toBe(key);
   writeFileSync(path, "");
-  const fresh = secretIn(path);
+  const fresh = secretIn("localKey");
   expect(fresh).toMatch(KEY);
   expect(readFileSync(path, "utf8")).toBe(fresh);
 });

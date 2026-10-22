@@ -22,7 +22,6 @@ import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
 // resource and owner.
 
 /** Life's own sign-in: its key, the apps and their tokens. A secret: never exported. */
-const FILE = SECRETS.oauth;
 
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;
@@ -57,12 +56,12 @@ const Stored = z.object({
 type Stored = z.infer<typeof Stored>;
 
 const read = (): Stored =>
-  existsSync(FILE)
-    ? Stored.parse(JSON.parse(readFileSync(FILE, "utf8")))
+  existsSync(SECRETS.oauth)
+    ? Stored.parse(JSON.parse(readFileSync(SECRETS.oauth, "utf8")))
     : { clients: {}, refresh: {} };
 /** Changes the state as it is on disk now (read and written with nothing awaited between), for its owner only. */
 function update(change: (s: Stored) => Stored) {
-  writeSecret(FILE, `${JSON.stringify(change(read()), null, 2)}\n`);
+  writeSecret("oauth", `${JSON.stringify(change(read()), null, 2)}\n`);
 }
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const allowed = (uri: string) => REDIRECTS.some((r) => r.test(uri));

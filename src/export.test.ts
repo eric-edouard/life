@@ -3,20 +3,18 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SUBSCRIPTION } from "./events";
 import { sha256Of, stage } from "./export";
 import { LOCK } from "./memory/guard";
-import { SECRETS, writeSecret } from "./secret";
-import { LOCAL_KEY } from "./signin";
+import { writeSecret } from "./secret";
 
 const SECRET = /oauth|events\.json|local\.key|\.bak$/;
 
 test("an export holds everything with its checksum and counts, and never a secret", async () => {
   // A secret and a key in Life's state, as a real install has them: never exported.
   // Written as Life writes them: only their owner may read them.
-  writeSecret(SECRETS.oauth, "{}");
-  writeSecret(SUBSCRIPTION, "{}");
-  writeSecret(LOCAL_KEY, "k");
+  writeSecret("oauth", "{}");
+  writeSecret("events", "{}");
+  writeSecret("localKey", "k");
   const archive = mkdtempSync(join(tmpdir(), "life-archive-"));
   const db = new Database(join(archive, "whatsapp.sqlite"));
   db.run("create table messages (id text)");

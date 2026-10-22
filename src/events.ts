@@ -15,7 +15,6 @@ import { agentName, settings } from "./settings";
 // after it, and derived/events.json (mode 600: it holds the signing secret) keeps the subscription and how far it was
 // delivered, so a restart or a retry loses nothing.
 
-export const SUBSCRIPTION = SECRETS.events;
 /** The lifetime granted when none or a longer one is asked for. */
 const TTL_MS = 30 * 24 * 3_600_000;
 /** A verified callback is not challenged again for a day. */
@@ -117,12 +116,12 @@ export interface State {
 }
 
 export const deliveryState = (): State =>
-  existsSync(SUBSCRIPTION)
-    ? JSON.parse(readFileSync(SUBSCRIPTION, "utf8"))
+  existsSync(SECRETS.events)
+    ? JSON.parse(readFileSync(SECRETS.events, "utf8"))
     : { attempts: 0, delivered: linesOf(ACTIONS).length };
 
 function writeState(s: State) {
-  writeSecret(SUBSCRIPTION, `${JSON.stringify(s, null, 2)}\n`);
+  writeSecret("events", `${JSON.stringify(s, null, 2)}\n`);
 }
 
 /** A Standard Webhooks signature: HMAC-SHA256 of `id.timestamp.body` with the secret's key. */
