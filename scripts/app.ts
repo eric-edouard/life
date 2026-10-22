@@ -126,25 +126,22 @@ await writeFile(join(contents, "Info.plist"), PLIST);
 const ICON = join(ROOT, "assets", "icon");
 const iconset = join(out, "Life.iconset");
 await mkdir(iconset, { recursive: true });
-for (const size of [16, 32, 128, 256, 512]) {
-  for (const [scale, suffix] of [
-    [1, ""],
-    [2, "@2x"],
-  ] as const) {
-    const px = String(size * scale);
-    // biome-ignore lint/performance/noAwaitInLoops: ten small renders
-    await run([
-      "rsvg-convert",
-      "-w",
-      px,
-      "-h",
-      px,
-      "-o",
-      join(iconset, `icon_${size}x${size}${suffix}.png`),
-      join(ICON, "app.svg"),
-    ]);
-  }
-}
+await Promise.all(
+  [16, 32, 128, 256, 512].flatMap((size) =>
+    [1, 2].map((scale) =>
+      run([
+        "rsvg-convert",
+        "-w",
+        String(size * scale),
+        "-h",
+        String(size * scale),
+        "-o",
+        join(iconset, `icon_${size}x${size}${scale === 2 ? "@2x" : ""}.png`),
+        join(ICON, "app.svg"),
+      ])
+    )
+  )
+);
 await run([
   "iconutil",
   "-c",

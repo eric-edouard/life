@@ -12,7 +12,7 @@ import { ROOT } from "./truth";
 // (`plate.ts`), read-only, behind the owner's sign-in (`signin.ts`). It changes nothing and sends nothing.
 
 const LEADING_DOT = /^\.\//;
-const ICON_MARK = /(<path[^>]*fill=")[^"]*"/;
+const ICON_MARK = /(<g[^>]*fill=")[^"]*"/;
 const APP = join(ROOT, "assets", "dashboard", "index.html");
 /** How often an open page gets the plate again (only when something on it changed; a ping in between keeps it open). */
 export const EVERY_MS = 3000;
