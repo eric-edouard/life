@@ -15,7 +15,7 @@ import { clock } from "../core/clock";
 import { holder } from "../core/lock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
-import { mayMigrate, OWNER_DATA_DIR } from "../core/paths";
+import { isHis, mayMigrate, OWNER_DATA_DIR } from "../core/paths";
 import { locked } from "../memory/memory-lock";
 import { momentId } from "../memory/moments";
 import { observationId } from "../memory/observe";
@@ -617,8 +617,9 @@ export async function migrateStored(dir = OWNER_DATA_DIR) {
         lateLines(dir);
         return true;
       }
-      // The rename itself waits for any other watcher (the old app's, a checkout's on his data) to stop.
-      if (dir === OWNER_DATA_DIR && otherWatcher()) {
+      // On his own data the rename waits for any other watcher (the old app's, a checkout's) to stop; a copy (the demo,
+      // a bench) is never another Life's to watch.
+      if (isHis(dir) && otherWatcher()) {
         if (!said) {
           console.error(
             `the stored names' rename waits for the watcher of ${holder("watch")?.note} to stop`
