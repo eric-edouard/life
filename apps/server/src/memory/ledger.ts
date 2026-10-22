@@ -4,25 +4,20 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
 import { DATA, STATE } from "../core/paths";
+import { Action, type Instruction } from "../records/ledger";
+import { Moment } from "../records/moments";
 import {
-  Action,
   Correction,
   Extracted,
-  FileEntry,
   Imported,
   InferredPerson,
-  type Instruction,
-  MemoryLabel,
-  Moment,
   Observation,
-  Rating,
   RepoGuess,
-  Statement,
   Supersession,
-  Unit,
   Unresolved,
-  Verdict,
-} from "../schema";
+} from "../records/observations";
+import { Rating, Statement } from "../records/statements";
+import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/units";
 
 // memory/ on disk: every path, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.

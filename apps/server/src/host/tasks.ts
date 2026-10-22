@@ -5,6 +5,7 @@ import type { Receipt } from "../actions/board";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { LOG_DIR, logDays, logEvents } from "../core/log";
+import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { DATA, ROOT } from "../core/paths";
 import { agentName } from "../core/settings";
@@ -19,7 +20,7 @@ import {
 } from "../memory/tasks";
 import { clip, localTime } from "../memory/units";
 import { localDate } from "../memory/zones";
-import { Action, AGENT_WORD, type Instruction } from "../schema";
+import { Action, type Instruction } from "../records/ledger";
 import { actionId, requested } from "./act";
 import { agentLive } from "./events";
 import { lapseReport, sendReport, taskReport, unsent } from "./report";

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import type { RepoGuess, Unit } from "../schema";
+import type { RepoGuess } from "../records/observations";
+import type { Unit } from "../records/units";
 import { repoMap } from "../sources/git";
 import { ledger, unit, verdict } from "./fixtures";
 import { codeRows, parseGuesses } from "./repos";

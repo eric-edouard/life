@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import type { Moment, Observation } from "../schema";
+import type { Moment } from "../records/moments";
+import type { Observation } from "../records/observations";
 import type { LifelogConversation } from "../sources/lifelog";
 import {
   byDays,

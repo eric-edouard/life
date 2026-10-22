@@ -23,7 +23,7 @@ import {
 } from "../../memory/ledger";
 import { loadTruth } from "../../memory/truth";
 import { clip } from "../../memory/units";
-import { isBookkeeping, REMINDER_KINDS } from "../../schema";
+import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
 import { enabledSources, keptStores, listening } from "../../sources/index";

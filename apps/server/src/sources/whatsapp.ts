@@ -3,7 +3,7 @@ import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock } from "../core/clock";
 import { HOME } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../schema";
+import { type SourceEvent, sourceFile } from "../records/sources";
 import {
   ARCHIVE,
   insertAll,

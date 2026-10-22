@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import type { Correction, MemoryLabel, Moment, Unit, Verdict } from "../schema";
+import type { Moment } from "../records/moments";
+import type { Correction } from "../records/observations";
+import type { MemoryLabel, Unit, Verdict } from "../records/units";
 import { ledger, madeBy, unit, verdict } from "./fixtures";
 import { daysOf, momentsNow } from "./ledger";
 import {

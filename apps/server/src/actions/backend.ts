@@ -1,6 +1,6 @@
 import { isOn, off } from "../core/outputs";
 import { agentName, settings } from "../core/settings";
-import type { Action } from "../schema";
+import type { Action } from "../records/ledger";
 import type { ActionsBackend, Can, Change, Item } from "./contract";
 import { google } from "./google";
 import { reminders } from "./remctl";

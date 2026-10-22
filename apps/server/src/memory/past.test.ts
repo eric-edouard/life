@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../schema";
+import type { Moment } from "../records/moments";
 import { madeBy, unit } from "./fixtures";
 import { type Draft, drafts, heldOf, plan, tiled } from "./past";
 

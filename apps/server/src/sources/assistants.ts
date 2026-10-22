@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { DATA } from "../core/paths";
-import type { SourceEvent } from "../schema";
+import type { SourceEvent } from "../records/sources";
 import type { Newest } from "./contract";
 
 // His conversations with AI assistants, from the one-time exports of claude.ai and ChatGPT (~/Life/docs/

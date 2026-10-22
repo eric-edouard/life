@@ -41,7 +41,6 @@
   "dev_dependencies_in_production": [],
   "boundary_violations": [
     "boundary-violation:apps/server/src/actions/items.test.ts:apps/server/src/memory/truth.ts",
-    "boundary-violation:apps/server/src/core/settings.ts:apps/server/src/schema.ts",
     "boundary-violation:apps/server/src/sources/agent.test.ts:apps/server/src/memory/fixtures.ts",
     "boundary-violation:apps/server/src/sources/agent.test.ts:apps/server/src/memory/ledger.ts",
     "boundary-violation:apps/server/src/sources/agent.test.ts:apps/server/src/memory/moments.ts",

@@ -3,12 +3,10 @@ import { expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  AGENT_WORD,
-  type Moment,
-  type Observation,
-  type Unit,
-} from "../schema";
+import { AGENT_WORD } from "../core/names";
+import type { Moment } from "../records/moments";
+import type { Observation } from "../records/observations";
+import type { Unit } from "../records/units";
 import {
   chapter,
   conversation,

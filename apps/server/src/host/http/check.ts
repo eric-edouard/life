@@ -5,7 +5,7 @@ import { connector } from "../../core/settings";
 import { readRatings, readStatements, recordRating } from "../../memory/ledger";
 import { plain as asOf } from "../../memory/statements";
 import { readPeople } from "../../memory/who";
-import { Rating } from "../../schema";
+import { Rating } from "../../records/statements";
 import { HEADERS, redirect, text } from "./http";
 import type { SignIn } from "./signin";
 

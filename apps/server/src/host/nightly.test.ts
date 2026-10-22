@@ -5,7 +5,7 @@ import { log } from "../core/log";
 import { MACHINE } from "../core/platform";
 import { unit } from "../memory/fixtures";
 import { latestExtractions } from "../memory/ledger";
-import type { Extracted, Observation } from "../schema";
+import type { Extracted, Observation } from "../records/observations";
 import { markedSince, nightly, reviewed } from "./nightly";
 
 test("a daily review reached Life only when ChatGPT read `day` without error in the last 24 h", async () => {

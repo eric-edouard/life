@@ -20,7 +20,7 @@ import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
 import { count, localTime, time } from "../memory/units";
 import { localDate, when } from "../memory/zones";
-import type { Action } from "../schema";
+import type { Action } from "../records/ledger";
 import { enabledSources, listening } from "../sources/index";
 import { type Health, polling } from "./health";
 

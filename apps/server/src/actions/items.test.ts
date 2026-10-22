@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { goalProjects } from "../memory/truth";
-import type { SourceEvent } from "../schema";
+import type { SourceEvent } from "../records/sources";
 import { type Candidate, openItems, owed } from "./items";
 
 const DATE = "2026-10-19";

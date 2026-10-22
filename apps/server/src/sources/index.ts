@@ -1,8 +1,8 @@
 import { closeSync, existsSync, openSync } from "node:fs";
 import { HOUR } from "../core/clock";
+import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
 import { agentName, settings } from "../core/settings";
-import { AGENT_WORD, type SourceName } from "../schema";
 import { newestAgent, readAgent } from "./agent";
 import { archiveDb } from "./archived";
 import {

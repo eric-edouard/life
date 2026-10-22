@@ -7,7 +7,7 @@ import { log } from "../core/log";
 import { DATA } from "../core/paths";
 import { git } from "../core/proc";
 import { askOnce, llmFor, llmSpec, quota, type Tier } from "../models/llm";
-import { INFERRED_USE_AT, type InferredPerson } from "../schema";
+import { INFERRED_USE_AT, type InferredPerson } from "../records/observations";
 import { OUT, runId } from "./ledger";
 import type { Truth } from "./truth";
 import { localDate } from "./zones";

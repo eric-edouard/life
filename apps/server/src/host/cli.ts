@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { checks } from "../actions/backend";
 import { actionLine } from "../actions/items";
 import { REMCTL_RELEASE, remctlVersion } from "../actions/remctl";
+import { Engine } from "../core/names";
 import { off } from "../core/outputs";
 import {
   readSettings,
@@ -15,7 +16,6 @@ import { dryRun, importExport } from "../memory/imports";
 import { integrity, loadTruth } from "../memory/truth";
 import { dayRange } from "../memory/units";
 import { readEngine } from "../models/llm";
-import { Engine } from "../schema";
 import { FULL_DISK, SOURCES } from "../sources/index";
 import { Asked, actAsked, requested, setGrant } from "./act";
 import { archiveCommand } from "./archive";

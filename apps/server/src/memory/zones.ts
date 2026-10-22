@@ -2,7 +2,7 @@ import { statSync } from "node:fs";
 import { clock } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { systemZone } from "../core/platform";
-import { Zone } from "../schema";
+import { Zone } from "../records/units";
 import { ZONES } from "./ledger";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, the Mac's zone from each `from` on, and the wall clock

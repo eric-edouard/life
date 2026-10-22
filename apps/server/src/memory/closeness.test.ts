@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
-import { type Closeness, Correction, type SourceEvent } from "../schema";
+import { type Closeness, Correction } from "../records/observations";
+import type { SourceEvent } from "../records/sources";
 import {
   chapter,
   conversation,

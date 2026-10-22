@@ -1,6 +1,7 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import { type Moment, Statement } from "../schema";
+import type { Moment } from "../records/moments";
+import { Statement } from "../records/statements";
 import { pagedNow } from "./closeness";
 import {
   digest,

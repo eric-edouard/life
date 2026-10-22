@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { unzipSync } from "node:zlib";
 import { clock } from "../core/clock";
 import { HOME } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../schema";
+import { type SourceEvent, sourceFile } from "../records/sources";
 import {
   ARCHIVE,
   insertAll,

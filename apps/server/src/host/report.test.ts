@@ -1,8 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
 import { actionLine } from "../actions/items";
+import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
 import { action, madeBy } from "../memory/fixtures";
-import { Action, AGENT_WORD } from "../schema";
+import { Action } from "../records/ledger";
 import {
   actionFailedReport,
   failureReport,

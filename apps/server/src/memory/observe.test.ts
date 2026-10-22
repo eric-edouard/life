@@ -8,10 +8,10 @@ import {
   Extracted,
   type InferredPerson,
   Observation,
-  Person,
-  type Unit,
   type Unresolved,
-} from "../schema";
+} from "../records/observations";
+import { Person } from "../records/truth";
+import type { Unit } from "../records/units";
 import { toExtract } from "./extract";
 import { ledger, unit, verdict } from "./fixtures";
 import { locate, parseObservations, type Source } from "./observe";

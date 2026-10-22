@@ -1,15 +1,15 @@
 import { join } from "node:path";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
+import type { Moment } from "../records/moments";
 import {
   Extracted,
   KEEP_AT,
-  type Moment,
   Observation,
   SEARCHABLE_AT,
   Supersession,
   Unresolved,
-} from "../schema";
+} from "../records/observations";
 import { kindOf } from "../sources";
 import {
   type LifelogConversation,

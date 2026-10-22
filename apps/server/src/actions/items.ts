@@ -1,6 +1,7 @@
 import { DAY } from "../core/clock";
 import { agentName } from "../core/settings";
-import { type Action, type SourceEvent, stands } from "../schema";
+import { type Action, stands } from "../records/ledger";
+import type { SourceEvent } from "../records/sources";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
 // every read from the records that already hold each fact (the observations, memory/actions.jsonl, his chats), never

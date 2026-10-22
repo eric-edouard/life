@@ -1,7 +1,9 @@
 import { type Candidate, owed } from "../actions/items";
 import { clock, DAY } from "../core/clock";
+import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
-import type { SourceEvent, SourceName, Unit } from "../schema";
+import type { SourceEvent } from "../records/sources";
+import type { Unit } from "../records/units";
 import { isDirect, kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
 import {

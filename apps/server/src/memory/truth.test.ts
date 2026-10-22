@@ -6,7 +6,7 @@ import { LOG_DIR } from "../core/log";
 import { DATA, FIXTURES, ROOT, real, STATE } from "../core/paths";
 import { git } from "../core/proc";
 import { SETTINGS } from "../core/settings";
-import { type Chat, Person } from "../schema";
+import { type Chat, Person } from "../records/truth";
 import { WATCH } from "../sources/lifelog";
 import { OUT } from "./ledger";
 import { commitMemory } from "./run";

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Observation } from "../schema";
+import type { Observation } from "../records/observations";
 import {
   assemble,
   bodyOf,

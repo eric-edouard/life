@@ -19,7 +19,7 @@ import { chunks, ended, inBatches, metered } from "server/src/memory/run";
 import { type Claim, claimsNow } from "server/src/memory/statements";
 import { type Grade, judge, tally } from "server/src/memory/tally";
 import { llmFor, llmSpec } from "server/src/models/llm";
-import { Score } from "server/src/schema";
+import { Score } from "server/src/records/statements";
 import { z } from "zod";
 
 const Facts = z.object({

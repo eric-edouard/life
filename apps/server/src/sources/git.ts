@@ -4,7 +4,9 @@ import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { exec, git } from "../core/proc";
 import { expand, settings } from "../core/settings";
-import type { Person, Project, RepoGuess, SourceEvent } from "../schema";
+import type { RepoGuess } from "../records/observations";
+import type { SourceEvent } from "../records/sources";
+import type { Person, Project } from "../records/truth";
 import type { Newest, RepoMap } from "./contract";
 
 // Git commits as a source: local `git log` of every repo in the `repos` setting's folder, read-only. A repo-day is a

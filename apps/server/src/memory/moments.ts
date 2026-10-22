@@ -3,19 +3,16 @@ import { join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { stamp } from "../models/llm";
+import type { MadeBy } from "../records/ledger";
+import { LocalTime, Moment } from "../records/moments";
 import {
   ChapterKind,
   type Correction,
   InferredPerson,
   KEEP_AT,
-  LocalTime,
-  type MadeBy,
-  type MemoryLabel,
   MemoryType,
-  Moment,
-  type Unit,
-  type Verdict,
-} from "../schema";
+} from "../records/observations";
+import type { MemoryLabel, Unit, Verdict } from "../records/units";
 import { kindOf } from "../sources";
 import { closeNow } from "./closeness";
 import {
