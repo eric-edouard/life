@@ -3,7 +3,7 @@ import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { log } from "./log";
-import { isLocked, locked } from "./memory/guard";
+import { hold, isLocked, locked } from "./memory/guard";
 import { ACTIONS, appendJsonl, readActions, tasksOf } from "./memory/ledger";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
@@ -194,6 +194,7 @@ async function syncUnits(store: Store, cursor: string) {
 }
 
 export async function watch(): Promise<number> {
+  await hold("watch");
   const started = clock();
   const running = codeAt(ROOT);
   try {
