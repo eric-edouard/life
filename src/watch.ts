@@ -13,7 +13,7 @@ import { marks, push } from "./reminders/board";
 import { inbound } from "./reminders/inbound";
 import { checks, pull, remindersOn } from "./reminders/remctl";
 import { Action } from "./schema";
-import { serveConnector } from "./server";
+import { serve } from "./server";
 import { listening } from "./sources/index";
 import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
 import { chase, closings, receipts } from "./tasks";
@@ -216,10 +216,10 @@ export async function watch(): Promise<number> {
   await hold("watch");
   const started = clock();
   try {
-    serveConnector();
+    serve();
   } catch (e) {
-    // The watcher matters more than the connector: it keeps polling and says why it is off.
-    console.error("Connector is off:", (e as Error).message);
+    // The watcher matters more than its server: it keeps polling and says why the server is off.
+    console.error("Life's server is off:", (e as Error).message);
   }
   sayActions();
   // Beside the loop, so a slow probe never holds up hearing; the process exits on new code all the same.

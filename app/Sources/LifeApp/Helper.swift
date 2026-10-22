@@ -63,6 +63,36 @@ struct Info: Decodable {
   let lastReport: String?
   let sources: [Source]
   let reminders: Reminders
+  let status: Status
+}
+
+/// The status page the watcher serves on this Mac, and the key that opens it.
+struct Status: Decodable {
+  let url: String
+  let key: String
+
+  /// The plate the page shows (`/status/snapshot`), nil while the watcher doesn't answer.
+  func plate() async -> Plate? {
+    guard let url = URL(string: url + "status/snapshot") else { return nil }
+    var req = URLRequest(url: url)
+    req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+    guard let (data, _) = try? await URLSession.shared.data(for: req) else { return nil }
+    return try? JSONDecoder().decode(Plate.self, from: data)
+  }
+}
+
+/// What the menu shows of the status page: its worst tone, and every card not ok.
+struct Plate: Decodable {
+  let worst: String
+  let cards: [Card]
+  struct Card: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let headline: String
+    let tone: String
+    let word: String?
+  }
+  var trouble: [Card] { cards.filter { $0.tone == "bad" || $0.tone == "warn" } }
 }
 
 /// The Reminders plugin: on or not, the remctl installed (its version), whether that is the release Life installs

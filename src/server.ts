@@ -10,14 +10,39 @@ import { createSignIn } from "./signin";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
-/** Serves the connector, the check page (`check.ts`), the status page (`dashboard.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set) on loopback (127.0.0.1:46200, bodies up to 256 KiB), 404 for any other path; off, with a line saying so, when the connector is not set up. */
-export function serveConnector() {
-  if (!settings().connector) {
+/**
+ * Serves on loopback (127.0.0.1:46200, bodies up to 256 KiB): the status page always (`dashboard.ts`: his sign-in, or
+ * the local key the app holds), and with the `connector` setting the connector, its issuer, the check page
+ * (`check.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set); 404 for any other path.
+ */
+export function serve() {
+  const signed = settings().connector ? signedIn() : null;
+  if (!signed) {
     console.log(
-      "Connector: not set up (settings: connector), /mcp, /check, /me and the status page are off"
+      "Connector: not set up (settings: connector): /mcp, /check and /me are off, the status page is local only"
     );
-    return;
   }
+  const dashboard = createDashboard(signed?.signIn ?? null);
+  Bun.serve({
+    // No stack traces or source in an error page: much of this answers before sign-in.
+    development: false,
+    fetch: async (req) =>
+      (await signed?.handle(req)) ??
+      (await dashboard.handle(req)) ??
+      new Response("not found", { status: 404 }),
+    hostname: "127.0.0.1",
+    maxRequestBodySize: 256 * 1024,
+    port: 46_200,
+  });
+  console.log("Life: listening on 127.0.0.1:46200");
+  warmPage();
+  if (signed) {
+    pushPlate();
+  }
+}
+
+/** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */
+function signedIn() {
   const { issuer, origin, own, owner, resource } = connector();
   const life = own ? createIssuer(origin, resource) : null;
   const verify = ownerTokens({
@@ -45,23 +70,13 @@ export function serveConnector() {
       : fetch
   );
   const check = createCheck(signIn);
-  const dashboard = createDashboard(signIn);
   const portrait = createPortrait();
-  Bun.serve({
-    // No stack traces or source in an error page: much of this answers before sign-in.
-    development: false,
-    fetch: async (req) =>
+  return {
+    handle: async (req: Request) =>
       (await life?.handle(req)) ??
       (await mcp.handle(req)) ??
       (await check.handle(req)) ??
-      (await portrait.handle(req)) ??
-      (await dashboard.handle(req)) ??
-      new Response("not found", { status: 404 }),
-    hostname: "127.0.0.1",
-    maxRequestBodySize: 256 * 1024,
-    port: 46_200,
-  });
-  console.log("Connector: listening on 127.0.0.1:46200");
-  warmPage();
-  pushPlate();
+      (await portrait.handle(req)),
+    signIn,
+  };
 }

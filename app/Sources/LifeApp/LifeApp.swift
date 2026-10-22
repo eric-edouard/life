@@ -20,16 +20,28 @@ struct LifeApp: App {
 
   var body: some Scene {
     MenuBarExtra("Life", systemImage: "waveform") {
-      Menu(supervisor: supervisor, openSettings: {
-        NSApp.activate()
-        openWindow(id: "settings")
-      })
+      Menu(
+        supervisor: supervisor,
+        openSettings: {
+          NSApp.activate()
+          openWindow(id: "settings")
+        },
+        openStatus: {
+          NSApp.activate()
+          openWindow(id: "status")
+        }
+      )
       .task {
         await supervisor.start()
         if supervisor.info?.started == false {
           NSApp.activate()
           openWindow(id: "settings")
         }
+      }
+    }
+    Window("Life status", id: "status") {
+      if let status = supervisor.info?.status {
+        StatusPage(status: status).frame(minWidth: 900, minHeight: 700)
       }
     }
     Window("Life", id: "settings") {
@@ -43,16 +55,21 @@ struct LifeApp: App {
 struct Menu: View {
   let supervisor: Supervisor
   let openSettings: () -> Void
+  let openStatus: () -> Void
   @State private var code: String?
 
   var body: some View {
     if supervisor.info?.started == true {
-      ForEach(Supervisor.services.map { $0.joined(separator: " ") }, id: \.self) { name in
-        Text("\(name.capitalized): \(supervisor.running[name] == true ? "running" : "stopped")")
+      // The status page's own truth: its worst tone, every card in trouble, the page itself one click away.
+      if let plate = supervisor.plate {
+        Text(plate.trouble.isEmpty ? "Life: all good" : "Life: \(plate.trouble.count) to look at")
+        ForEach(plate.trouble) { card in
+          Text("\(card.name): \(card.word ?? card.headline)")
+        }
+      } else {
+        Text("Life: starting…")
       }
-      if let at = supervisor.lastTick {
-        Text("Last check: \(at.formatted(date: .omitted, time: .shortened))")
-      }
+      Button("Open status…", action: openStatus)
       Divider()
       Button("Connect an AI app…") {
         Task { code = await Helper.run(["pair"]).out.trimmingCharacters(in: .whitespacesAndNewlines) }

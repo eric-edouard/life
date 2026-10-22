@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDashboard } from "./dashboard";
-import { createSignIn } from "./signin";
+import { createSignIn, LOCAL, localKey } from "./signin";
 
 // The status page answers nothing of his before the owner's sign-in: a page sends him to sign in, a read is refused.
 const verify = async (token: string) =>
@@ -45,4 +45,26 @@ test("a sign-in lands only on one of his pages", () => {
 test("a history that doesn't page back offers no older page: the tasks and the Mac's day are whole", async () => {
   const { detail } = await import("./plate-detail");
   expect((await detail("tasks")).next.history).toBeNull();
+});
+
+test("the app opens the page with the local key: its cookie or a bearer, the exact key only; without a connector nothing else", async () => {
+  const local = createDashboard(null);
+  const key = localKey();
+  const with_ = (headers: Record<string, string>) =>
+    local.handle(
+      new Request("http://127.0.0.1:46200/status/icon.svg", { headers })
+    );
+  expect((await with_({ cookie: `${LOCAL}=${key}` }))?.status).toBe(200);
+  expect((await with_({ authorization: `Bearer ${key}` }))?.status).toBe(200);
+  expect(
+    (await with_({ authorization: `Bearer ${key.slice(1)}x` }))?.status
+  ).toBe(401);
+  expect((await with_({}))?.status).toBe(401);
+  // With the connector the page still takes the key, and his sign-in as before.
+  const signed = await page.handle(
+    new Request("https://life.example/status/icon.svg", {
+      headers: { authorization: `Bearer ${key}` },
+    })
+  );
+  expect(signed?.status).toBe(200);
 });
