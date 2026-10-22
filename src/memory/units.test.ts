@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Person, SourceEvent, Unit } from "../schema";
 import { readSettings, setSettings } from "../settings";
+import { SOURCES } from "../sources";
 import {
   chapter,
   conversation as feedConversation,
@@ -565,6 +566,10 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
       "2026-10-14": ["whatsapp"],
       "2026-10-15": ["lifelog"],
     });
+    // A night that could not read WhatsApp (its access gone) rewrites the day without losing its units.
+    const mail = { ...chat, id: "u_00000000000b", source: "mail" as const };
+    await writeUnits([chat.date], [mail], (u) => u.source === "whatsapp");
+    expect(await days()).toMatchObject({ "2026-10-14": ["whatsapp", "mail"] });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
   }
@@ -643,7 +648,7 @@ test("a reader sees a unit's stored senders as whom they resolve to today, a mai
 test("with no source turned on, a sweep reads nothing and fails nothing", async () => {
   const before = readSettings().sources;
   try {
-    await setSettings({ sources: [] });
+    setSettings({ sources: [] });
     const e = await gather(
       { from: "2026-10-20", to: "2026-10-21" },
       { resolve: () => null, truth: await loadTruth() }
@@ -652,6 +657,25 @@ test("with no source turned on, a sweep reads nothing and fails nothing", async 
     expect(e.conversations).toEqual([]);
     expect(e.failed).toEqual([]);
   } finally {
-    await setSettings({ sources: before });
+    setSettings({ sources: before });
+  }
+});
+
+test("a source turned on that can't be read now is skipped, by name, never a failure", async () => {
+  const before = readSettings().sources;
+  const unreadable = SOURCES.find((s) => s.missing?.());
+  if (!unreadable) {
+    throw new Error("the test data has no source that can't be read");
+  }
+  try {
+    setSettings({ sources: [unreadable.name] });
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.skipped).toEqual([unreadable.name]);
+    expect(e.failed).toEqual([]);
+  } finally {
+    setSettings({ sources: before });
   }
 });

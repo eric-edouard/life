@@ -515,15 +515,15 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   };
 }
 
-/** A source he turned on that can't be read yet: idle, with what it needs, never "broken". */
-const notSetUp = (d: Descriptor, why: string): Card => ({
+/** A source he turned on that can't be read now (not set up, or its access gone): what it needs. Its units are kept. */
+const unreadableCard = (d: Descriptor, why: string): Card => ({
   facts: [],
   group: "sources",
   headline: why,
   id: d.name,
   name: d.label,
-  tone: "idle",
-  word: "not set up",
+  tone: "bad",
+  word: "can't read",
 });
 
 function sourceCards(r: Reads): Card[] {
@@ -531,7 +531,7 @@ function sourceCards(r: Reads): Card[] {
     ...enabledSources().flatMap((d) => {
       const why = d.missing?.();
       if (why) {
-        return [notSetUp(d, why)];
+        return [unreadableCard(d, why)];
       }
       return d.kind === "voice"
         ? [pendantCard(r, d), lifelogCard(r)]

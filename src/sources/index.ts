@@ -217,7 +217,8 @@ export const enabledSources = (all = SOURCES, on = settings().sources) =>
   all.filter((s) => on.includes(s.name));
 
 /**
- * The sources he turned on that can be read now. One that can't yet (`missing`) is left out: not set up is not broken,
+ * The sources he turned on that can be read now. One that can't (`missing`: not set up, or its access gone) is left out,
+ * its units and its days' moments kept, shown as "can't read",
  * so it never fails a night (`gather` logs why); one that can be read and then throws still does (`safely`).
  */
 export const readySources = (all = enabledSources()) =>
