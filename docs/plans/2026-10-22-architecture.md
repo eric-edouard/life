@@ -83,22 +83,26 @@ app's check and build.
 
 Each step is one PR that changes no behaviour, passes `bun run check`, and leaves no old path alive:
 
-1. **Zones and the rule.** Fallow's boundary zones over today's folders, at "warn", listing every violation.
-2. **core.** The foundations into `core/`; `clock` stops importing `truth` (the root folder moves to `core/paths`).
+1. **Zones and the rule.** Fallow's boundary zones over today's folders (`boundaries` in `.fallowrc.json`), plus a
+   temporary `records` zone (`schema.ts`, `truth.ts`) that core may not import, so steps 2 and 5 show. `outputs.ts`
+   counts as core: it reads only the settings. Today's 61 violations (29 outside tests) sit in a baseline,
+   `.fallow-baseline.json`, which the check reads: a new violation fails from the first PR, and each step below re-saves
+   a smaller one (`scripts/baseline-check.ts` refuses a baseline that grows).
+2. **core.** The foundations into `core/`; `clock` stops importing `truth` (the root folder moves to `core/paths`), and
+   `truth.ts` joins the memory.
 3. **The cycles.** Each source and backend registers in a registry the host builds, so readers never import the
    registry, and backends never import `act`. The ten cycles go.
 4. **The memory stops reaching up.** The nightly, the history's archive check and search's events move into
    `host/jobs`; the memory exposes steps, the host runs them in order.
-5. **Schemas by owner.** `schema.ts` split into the modules that own each record.
-6. **The rule at "error".** From here, a violation fails the check.
+5. **Schemas by owner.** `schema.ts` split into the modules that own each record; the `records` zone goes.
+6. **No baseline.** The last violations go, and `.fallow-baseline.json` with them.
 7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
    and Turborepo through `create-better-t-stack add`.
 
 Then the server plan's phases build on it: messaging lands in its own zone, the server host as a capability set,
 and nothing in the memory changes for either.
 
-`docs/architecture.md` takes the rule and the map when step 6 lands, and AGENTS.md gains one line: dependencies point
-one way, and the check enforces it.
+`docs/architecture.md` takes the rule and the map when step 6 lands; AGENTS.md has carried the rule since step 1.
 
 ## Decided (22 Oct)
 

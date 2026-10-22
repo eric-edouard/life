@@ -37,11 +37,14 @@ export const MACHINE = WINDOWS
 /** The pinned codex's native binary for this system, under Life's files (`node_modules`, or the app's helper). */
 export const CODEX = (() => {
   const arch = process.arch === "arm64" ? "aarch64" : "x86_64";
-  const [triple, exe] = WINDOWS
-    ? [`${arch}-pc-windows-msvc`, "codex.exe"]
-    : [`${arch}-apple-darwin`, "codex"];
+  const systems: Partial<Record<NodeJS.Platform, string>> = {
+    linux: "unknown-linux-musl",
+    win32: "pc-windows-msvc",
+  };
+  const system = systems[process.platform] ?? "apple-darwin";
+  const exe = WINDOWS ? "codex.exe" : "codex";
   const pkg = `codex-${process.platform}-${process.arch}`;
-  return `node_modules/@openai/${pkg}/vendor/${triple}/bin/${exe}`;
+  return `node_modules/@openai/${pkg}/vendor/${arch}-${system}/bin/${exe}`;
 })();
 
 /**

@@ -15,5 +15,92 @@
     "maxCognitive": 25,
     "maxCrap": 420
   },
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": true,
+  "boundaries": {
+    "zones": [
+      {
+        "name": "core",
+        "patterns": [
+          "apps/server/src/clock.ts",
+          "apps/server/src/proc.ts",
+          "apps/server/src/lock.ts",
+          "apps/server/src/log.ts",
+          "apps/server/src/secret.ts",
+          "apps/server/src/settings.ts",
+          "apps/server/src/platform.ts",
+          "apps/server/src/redact.ts",
+          "apps/server/src/outputs.ts",
+          "apps/server/src/clock.test.ts",
+          "apps/server/src/proc.test.ts",
+          "apps/server/src/lock.test.ts",
+          "apps/server/src/secret.test.ts",
+          "apps/server/src/settings.test.ts",
+          "apps/server/src/platform.test.ts",
+          "apps/server/src/redact.test.ts"
+        ]
+      },
+      {
+        "name": "records",
+        "patterns": [
+          "apps/server/src/schema.ts",
+          "apps/server/src/truth.ts",
+          "apps/server/src/truth.test.ts"
+        ]
+      },
+      {
+        "name": "models",
+        "patterns": ["apps/server/src/llm.ts", "apps/server/src/llm.test.ts"]
+      },
+      {
+        "name": "sources",
+        "patterns": ["apps/server/src/sources/**"]
+      },
+      {
+        "name": "actions",
+        "patterns": [
+          "apps/server/src/actions/**",
+          "apps/server/src/items.ts",
+          "apps/server/src/items.test.ts"
+        ]
+      },
+      {
+        "name": "memory",
+        "patterns": ["apps/server/src/memory/**"]
+      },
+      {
+        "name": "host",
+        "patterns": ["apps/server/src/*.ts"]
+      }
+    ],
+    "rules": [
+      {
+        "from": "core",
+        "allow": []
+      },
+      {
+        "from": "records",
+        "allow": ["core"]
+      },
+      {
+        "from": "models",
+        "allow": ["core", "records"]
+      },
+      {
+        "from": "sources",
+        "allow": ["core", "records"]
+      },
+      {
+        "from": "actions",
+        "allow": ["core", "records"]
+      },
+      {
+        "from": "memory",
+        "allow": ["core", "models", "sources", "actions", "records"]
+      },
+      {
+        "from": "host",
+        "allow": ["core", "models", "sources", "actions", "memory", "records"]
+      }
+    ]
+  }
 }
