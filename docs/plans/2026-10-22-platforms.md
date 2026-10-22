@@ -141,8 +141,9 @@ Tailscale Funnel serves the connector; Gmail through `gog` signs in.
 A Windows tray app reading the helper's JSON status and editing settings through it, as Life.app does: H.NotifyIcon,
 app notifications, Credential Manager, unpackaged and self-contained. Built so lifelog's host joins it (its own
 section, its own helper), coordinated with lifelog's session. WinSparkle reads the same appcast as Sparkle. The signing
-step takes an Authenticode certificate when there is one. **Done when** the tray builds on his Windows PC; a hand check on
-Windows 11 installs it, sees the status and survives a restart.
+step (`app-windows/build.ps1`, no CI) takes an Authenticode certificate when there is one. **Done when**
+`Life.Core`'s tests pass (`dotnet test`, on any machine) and, on his Windows 11 PC, `build.ps1` builds the tray, which
+installs, sees the status and survives a restart.
 
 ## Actions behind the outputs contract
 

@@ -119,6 +119,16 @@ Its menu-bar panel and status window are native SwiftUI, reading the plate from 
 (`src/dashboard.ts`, `LOCAL_PORT`, behind its local key `keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points
 there): `docs/dashboard.md`.
 
+On Windows the same job is the tray (`app-windows/`, WinUI 3, unpackaged and self-contained): the helper as `helper\life.exe`
+beside it, data and state under `%LOCALAPPDATA%\Life`, secrets in Credential Manager (`Life/<KEY>`), every process of
+Life's in one Job Object so they end with it. It holds no logic: `Life.Core` decodes the helper's and the watcher's JSON
+and lays the plate out as the Mac's views do (its xUnit tests read hand-written, made-up fixtures: never a live
+`snapshot()` or `life app`, which read the machine they run on), and `Life.Tray` draws it. Its panel is made of
+sections, each reading its own JSON, so lifelog's host joins as a section of its own
+(`docs/plans/2026-10-22-platforms.md`). No CI: `Life.Core`'s tests run anywhere with `dotnet test app-windows/Life.Tests`,
+and the tray is built, published and signed on his Windows PC by `app-windows/build.ps1`. It builds the tray alone:
+`life.exe` ships beside it once the helper runs on Windows (phase 3).
+
 ## Pages
 
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
