@@ -100,11 +100,10 @@ and nothing in the memory changes for either.
 `docs/architecture.md` takes the rule and the map when step 6 lands, and AGENTS.md gains one line: dependencies point
 one way, and the check enforces it.
 
-## Decisions for the owner
+## Decided (22 Oct)
 
-1. Folders as enforced zones inside `apps/server`, with packages only for a second consumer (recommended), or a
-   package per layer from the start.
-2. This order: the architecture steps before any server feature, so the server is built on the new shape, not moved
-   onto it later.
-3. One session per step in parallel, or one session for steps 1–6 in order (they touch the same files, so in order is
-   safer).
+| Question | Decision |
+|---|---|
+| Layers | Folders as fallow zones inside `apps/server`; a package only for a second consumer |
+| Order | All seven steps before any server feature |
+| Sessions | One session, steps 1–6 in order; step 7 may run in parallel |
