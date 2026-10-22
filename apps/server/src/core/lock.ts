@@ -54,10 +54,10 @@ type Service = "archive" | "watch";
 /** A service's lock: one per Mac, so two installs never run the same service at once (two archivers, two watchers). */
 const serviceLock = (name: Service) => join(MACHINE_DIR, `${name}.lock`);
 
-/** Who runs a service now: its pid, since when, and the state root it runs on as its note; null when none does. */
+/** Who runs a service now: its pid, since when, and the state dir it runs on as its note; null when none does. */
 export const holder = (name: Service) => held(serviceLock(name));
 
-/** Whether the service holder `live` is another install's than the one whose state root is `state`. */
+/** Whether the service holder `live` is another install's than the one whose state dir is `state`. */
 export const isOtherLife = (
   live: { note: string } | null,
   state: string = LIFE_STATE_DIR

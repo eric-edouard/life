@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A card on the status snapshot: its name and state, its headline, when it happened, a running sweep's stations.
+/// A card in the status snapshot: its name and state, its headline, when it happened, a running sweep's stations.
 struct CardTile: View {
   let card: Card
   /// The status snapshot lists it in trouble (`StatusSnapshot.trouble`).

@@ -99,7 +99,7 @@ someone else is capped at 0.6 confidence.
 
 ## Why the memory stays on the Mac
 
-- The data root is a local git repository with no remote: the nightly commits and never pushes.
+- The owner data dir is a local git repository with no remote: the nightly commits and never pushes.
 - The archive (deleted messages, old note versions) is the only live copy of what the apps delete; it lives in
   Application Support and in the encrypted backup, nowhere else.
 - The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or

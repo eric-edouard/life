@@ -9,9 +9,9 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 
 | Folder | What | Default |
 |---|---|---|
-| `OWNER_DATA_DIR` (`LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
-| `LIFE_STATE_DIR` (`LIFE_STATE_DIR`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
-| `LIFE_CODE_DIR` (`LIFE_CODE_DIR`) | Life's own files: prompts, `docs/agent.md`, assets | Life.app: the helper's resources; a checkout: the checkout |
+| `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
+| `LIFE_STATE_DIR` (env too) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
+| `LIFE_CODE_DIR` (env too) | Life's own files: prompts, `docs/agent.md`, assets | Life.app: the helper's resources; a checkout: the checkout |
 | `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
 - `OWNER_DATA_DIR` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`

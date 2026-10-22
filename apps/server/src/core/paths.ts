@@ -1,6 +1,16 @@
 import { cpSync, existsSync, mkdtempSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+
+// The old names (before 22 Oct 2026) are refused, never read: a copy pointed at by LIFE_DATA must not fall back to his
+// live data. Delete this once no shell, script or profile of his sets them.
+for (const old of ["LIFE_DATA", "LIFE_STATE", "LIFE_ROOT"]) {
+  if (process.env[old]) {
+    throw new Error(
+      `${old} is no longer read: set LIFE_OWNER_DATA_DIR, LIFE_STATE_DIR or LIFE_CODE_DIR (docs/operations.md)`
+    );
+  }
+}
 /** Life's own files (prompts, docs/agent.md, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). */
 export const LIFE_CODE_DIR =
   process.env.LIFE_CODE_DIR ?? join(import.meta.dir, "..", "..", "..", "..");

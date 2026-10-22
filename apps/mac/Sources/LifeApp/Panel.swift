@@ -37,7 +37,7 @@ struct Panel: View {
     .frame(width: 360)
     .background(Brand.page)
     .foregroundStyle(Brand.ink)
-    .onAppear { Task { await supervisor.refreshPlate() } }
+    .onAppear { Task { await supervisor.refreshSnapshot() } }
   }
 
   private var header: some View {

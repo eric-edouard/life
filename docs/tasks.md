@@ -17,7 +17,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent, and
   `bun life ask`. Nothing else Life reads ever does.
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
-  `playbook.md` in the data root. `tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
+  `playbook.md` in the owner data dir. `tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
   hash of the text and a 6-hour window); `task` refuses a write without the current seal and answers with the text.
   The text between `<!-- reminders -->` markers is cut while the Reminders plugin is off: keep the markers.
 - What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
@@ -172,8 +172,8 @@ observations citing it. It never acts, asks or sends.
 on the owner's explicit request (in the chat, or in an ask through the agent's `reminders` and `task`) or on the standing
 grant, and logs the agent's replies.
 
-- **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the status reads'
-  JSON reads `status`, `runs`, `changes`, `claim`, see `docs/status-reads.md`; and the memory reads); `correct` (lifelog
+- **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the status reads
+  `status`, `runs`, `changes`, `claim`, see `docs/status-reads.md`; and the memory reads); `correct` (lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `actions.jsonl`
   line, appended only: it sends nothing).

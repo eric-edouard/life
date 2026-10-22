@@ -1192,7 +1192,7 @@ const RANK: Record<Tone, number> = {
   warn: 2,
 };
 
-/** Everything on the status snapshot now. */
+/** Everything in the status snapshot now. */
 export async function snapshot(now = clock()) {
   const r = await reads(now);
   const cards = [

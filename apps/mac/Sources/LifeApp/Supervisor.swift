@@ -26,11 +26,11 @@ final class Supervisor {
 
   func refresh() async {
     info = await Helper.info() ?? info
-    await refreshPlate()
+    await refreshSnapshot()
   }
 
   /// The status snapshot again, from the watcher: the panel when it opens, the status window every 3 s while open.
-  func refreshPlate() async {
+  func refreshSnapshot() async {
     snapshot = await info?.status.snapshot()
   }
 
@@ -47,7 +47,7 @@ final class Supervisor {
       }
       // The panel shows the status snapshot as of the last minute (and reads it again when opened).
       looks = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
-        Task { @MainActor in await self.refreshPlate() }
+        Task { @MainActor in await self.refreshSnapshot() }
       }
     }
   }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Life's status: one surface, the parts flowing left to right as data does (sources to outputs), the Mac along the
-/// bottom, the last 24 hours above. A card opens in place over the status snapshot. The status snapshot is read every 3 s while open.
+/// bottom, the last 24 hours above. A card opens in place over the window. The status snapshot is read every 3 s while open.
 struct StatusWindow: View {
   let supervisor: Supervisor
   let status: Status
@@ -39,7 +39,7 @@ struct StatusWindow: View {
     .onExitCommand(perform: close)
     .task {
       while !Task.isCancelled {
-        await supervisor.refreshPlate()
+        await supervisor.refreshSnapshot()
         try? await Task.sleep(for: .seconds(3))
       }
     }

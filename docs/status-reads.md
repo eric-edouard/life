@@ -3,7 +3,7 @@
 Developer reference for the connector's four JSON status reads. Most people never need it: the status window in Life.app
 shows the same.
 
-Four read-only tools on Life's connector (`/mcp`) let a private dashboard show whether Life works, what it ran, every
+Four read-only tools on Life's connector (`/mcp`) let a private page show whether Life works, what it ran, every
 change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code: `bun life memory
 status | runs | changes | claim`. Code: `apps/server/src/host/status/life.ts` (status), `apps/server/src/memory/run-log.ts` (runs) and `apps/server/src/memory/changes.ts` (changes,
 claim). They run no model, write nothing, log nothing and send nothing (a test checks the code; the connector logs each
@@ -166,7 +166,7 @@ snapshot must date it and mark it stale, and where it is stored is a separate de
 
 # The status window
 
-Life.app's status window and menu-bar panel (`apps/mac/Sources/LifeApp/`): Life's architecture as a snapshot of live cards,
+Life.app's status window and menu-bar panel (`apps/mac/Sources/LifeApp/`): Life's architecture as live cards,
 native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no connector tool.
 
 - **Code.** `apps/server/src/host/status/snapshot.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards

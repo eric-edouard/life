@@ -135,7 +135,7 @@ export const mainCheckout = () =>
 
 /**
  * This code at HEAD in `dir`, a throwaway worktree, with the main checkout's `links` (its dependencies, .env, …) and
- * `state` from this process's state root (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
+ * `state` from this process's state dir (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
  */
 export async function checkout(dir: string, links: string[], state: string[]) {
   gitOut(LIFE_CODE_DIR, ["worktree", "add", "--detach", dir, "HEAD"]);
