@@ -11,7 +11,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, isAbsolute, join, relative } from "node:path";
-import { STORES } from "./archive";
 import { clock } from "./clock";
 import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
@@ -19,6 +18,7 @@ import { INDEX } from "./memory/search";
 import { execOk } from "./proc";
 import { SECRETS } from "./secret";
 import { ARCHIVE, archiveDb } from "./sources/archived";
+import { ARCHIVED } from "./sources/index";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT, STATE } from "./truth";
 
@@ -181,7 +181,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   if (existsSync(file)) {
     await copyDb(file, join(watch, basename(file)));
   }
-  for (const db of STORES.map((s) => archiveDb(s.name, archive)).filter(
+  for (const db of ARCHIVED.map((s) => archiveDb(s.name, archive)).filter(
     existsSync
   )) {
     // biome-ignore lint/performance/noAwaitInLoops: one copy at a time
