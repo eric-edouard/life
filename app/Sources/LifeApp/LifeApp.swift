@@ -13,10 +13,22 @@ import SwiftUI
 
 /// The menu-bar app: runs Life (`Supervisor`), shows how it stands, and opens Settings, which is also the first run's
 /// setup until the owner's data exists.
+/// Starts Life when the app launches (at login too), not when its menu is first opened: a menu-bar app's menu is built
+/// only when clicked.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+  let supervisor = Supervisor()
+
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    Task { await supervisor.start() }
+  }
+}
+
 @main
 struct LifeApp: App {
-  @State private var supervisor = Supervisor()
+  @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @Environment(\.openWindow) private var openWindow
+  private var supervisor: Supervisor { delegate.supervisor }
 
   var body: some Scene {
     MenuBarExtra("Life", systemImage: "waveform") {
