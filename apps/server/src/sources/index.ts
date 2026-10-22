@@ -31,8 +31,9 @@ import {
   readWhatsapp,
 } from "./whatsapp";
 
-// The registry: what Life knows about each source, in one descriptor. Code asks a source's kind or what it can do (a
-// field here), never its name; the tables of sources are derived from it (`tablesOf`, units.ts).
+// The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
+// (`tablesOf`, units.ts).
+
 const HOUR = 3_600_000;
 
 /** `why`, unless this process can open `path` (macOS refuses it without Full Disk Access). */

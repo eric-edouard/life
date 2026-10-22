@@ -21,12 +21,6 @@ export interface List {
   id: string;
   title: string;
 }
-// The actions output: one contract, two backends, one per install (the `actions` setting): Apple Reminders through
-// remctl (`remctl.ts`), Google Tasks through gog (`google.ts`). Nothing else touches either. A backend is how a change
-// is written and read back, never the truth: `act` decides each change and `write` (here) makes it, `board.ts`
-// projects the agent's tasks, `inbound.ts` reads his changes back as state. Without a backend Life still knows every
-// task and action from the ledger (memory/actions.jsonl). What one backend lacks is a capability (`can`), never a
-// branch on its name.
 
 /** An item as every backend gives it (remctl's `show`; a Google task, normalised). Ids are strings. */
 export interface Item {
@@ -45,12 +39,6 @@ export interface Item {
   title: string;
   urgent?: boolean;
 }
-// The actions output: one contract, two backends, one per install (the `actions` setting): Apple Reminders through
-// remctl (`remctl.ts`), Google Tasks through gog (`google.ts`). Nothing else touches either. A backend is how a change
-// is written and read back, never the truth: `act` decides each change and `write` (here) makes it, `board.ts`
-// projects the agent's tasks, `inbound.ts` reads his changes back as state. Without a backend Life still knows every
-// task and action from the ledger (memory/actions.jsonl). What one backend lacks is a capability (`can`), never a
-// branch on its name.
 
 /** What a write left: the item's id now (a move can change it), its link (finds it again after a move), a partial's words. */
 export interface Written {
@@ -58,12 +46,6 @@ export interface Written {
   id: string;
   link?: string;
 }
-// The actions output: one contract, two backends, one per install (the `actions` setting): Apple Reminders through
-// remctl (`remctl.ts`), Google Tasks through gog (`google.ts`). Nothing else touches either. A backend is how a change
-// is written and read back, never the truth: `act` decides each change and `write` (here) makes it, `board.ts`
-// projects the agent's tasks, `inbound.ts` reads his changes back as state. Without a backend Life still knows every
-// task and action from the ledger (memory/actions.jsonl). What one backend lacks is a capability (`can`), never a
-// branch on its name.
 
 export interface ActionsBackend {
   /** Adds an item (the default list without `list`); its `subtasks` too when it `can`. */
@@ -122,4 +104,5 @@ export const Change = z.object({
   title: z.string().min(1).max(200),
   urgent: z.boolean().optional(),
 });
+
 export type Change = z.infer<typeof Change>;

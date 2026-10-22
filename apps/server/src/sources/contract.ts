@@ -13,6 +13,7 @@ export interface Newest {
   /** His words in it: the app shows them only while Show content is on. */
   words?: string[];
 }
+
 /**
  * An app's own store the archive copies (`archive.ts`), because the app wipes what is deleted. `app` writes it and is
  * kept running: closed, it receives nothing. `copy` copies what is new and says how many versions; `copies` is the
@@ -69,6 +70,7 @@ export type Descriptor = {
   /** Recorded conversations: their units come from the watcher's store, their words from lifelog. */
   | { kind: "voice" }
 );
+
 /** Which project and area a repo belongs to: his map (`Project.repos`), else Life's guess (`guess`, set when it is one). */
 export interface Placement {
   area: string | null;
