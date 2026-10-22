@@ -14,25 +14,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { FROZEN } from "server/src/clock";
+import { nextEvent } from "server/src/events";
+import { askOnce, llmFor } from "server/src/llm";
+import { recentEvents } from "server/src/log";
+import { buildServer } from "server/src/mcp";
+import { spareQuota } from "server/src/memory/guard";
+import { ACTIONS, linesOf, OUT, parseAction } from "server/src/memory/ledger";
+import { ended, metered } from "server/src/memory/run";
+import { judge, tally } from "server/src/memory/tally";
+import { localDate, zoneAt } from "server/src/memory/zones";
+import { exec, git, gitOut } from "server/src/proc";
+import { Engine } from "server/src/schema";
+import { DATA, ROOT, STATE } from "server/src/truth";
 import { z } from "zod";
-import { FROZEN } from "../apps/server/src/clock";
-import { nextEvent } from "../apps/server/src/events";
-import { askOnce, llmFor } from "../apps/server/src/llm";
-import { recentEvents } from "../apps/server/src/log";
-import { buildServer } from "../apps/server/src/mcp";
-import { spareQuota } from "../apps/server/src/memory/guard";
-import {
-  ACTIONS,
-  linesOf,
-  OUT,
-  parseAction,
-} from "../apps/server/src/memory/ledger";
-import { ended, metered } from "../apps/server/src/memory/run";
-import { judge, tally } from "../apps/server/src/memory/tally";
-import { localDate, zoneAt } from "../apps/server/src/memory/zones";
-import { exec, git, gitOut } from "../apps/server/src/proc";
-import { Engine } from "../apps/server/src/schema";
-import { DATA, ROOT, STATE } from "../apps/server/src/truth";
 import { checkout } from "./bench";
 
 const CASES = join(DATA, "docs/evals/agent-bench-cases.json");

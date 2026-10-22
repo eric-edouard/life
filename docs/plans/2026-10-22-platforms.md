@@ -131,8 +131,13 @@ and Life moved into its shape with `git mv`:
   `node_modules/@openai/codex-<os>-<arch>`), and what is not the server's: `scripts/`, `prompts/`, `assets/`, `docs/`,
   `app/` (the Mac app), `worker/` (the edge). `ROOT` is still the repo root (or `LIFE_ROOT` in the app).
 - Left out of the skeleton: its `varlock` (Life has its settings file and `.env`), `tsdown` (the helper is
-  `bun build --compile`), its placeholder server entry, and Turborepo: with one app it would run one task, so it comes
-  with the second app. `bun run check` stays the gate.
+  `bun build --compile`), its placeholder server entry, Turborepo (with one app it would run one task: it comes with the
+  second app) and the Skills add-on (it generated nothing this repo uses). `bun run check` stays the gate. `scripts/`
+  imports the server through its workspace package (`server/src/…`).
+- **Rollout:** after the merge, `~/Work/life` needs `rm -rf node_modules && bun install` once (the old flat install has
+  stale entries), then Life.app is rebuilt. The checkout's old LaunchAgent plists (`~/Library/LaunchAgents/
+  com.ericedouard.life.*.plist`, not loaded: Life.app supervises the services) still name `src/cli.ts`; if a checkout
+  ever runs the services again, `bun scripts/install.ts` writes them anew.
 
 **What slots in later, without another restructure:** the web UI as `apps/web` (Vite, Tailwind), added with
 `create-better-t-stack add`, talking to the server over HTTP (routes gain `@hono/zod-openapi` as it needs their

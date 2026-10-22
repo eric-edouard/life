@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
-import { madeBy, unit } from "../apps/server/src/memory/fixtures";
-import { MACHINE } from "../apps/server/src/platform";
-import { execOk } from "../apps/server/src/proc";
-import { DATA, STATE } from "../apps/server/src/truth";
+import { madeBy, unit } from "server/src/memory/fixtures";
+import { MACHINE } from "server/src/platform";
+import { execOk } from "server/src/proc";
+import { DATA, STATE } from "server/src/truth";
 
 // A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
 // apps/server/src/test-data, plus a week of invented memory about a landlord, a plumber and a friend) and builds its search index.
@@ -13,9 +13,9 @@ import { DATA, STATE } from "../apps/server/src/truth";
 //
 // The README's transcript is Claude Code with Life's read commands on that copy as its only tool:
 //   cd "$(mktemp -d)" && claude -p --setting-sources "" --strict-mcp-config --tools Bash \
-//     --allowedTools "Bash(env LIFE_DATA=<out>/data LIFE_STATE=<out>/state bun <repo>/src/cli.ts memory:*)" \
+//     --allowedTools "Bash(env LIFE_DATA=<out>/data LIFE_STATE=<out>/state bun <repo>/apps/server/src/cli.ts memory:*)" \
 //     --append-system-prompt "Read the user's memory only with: env LIFE_DATA=<out>/data LIFE_STATE=<out>/state \
-//       bun <repo>/src/cli.ts memory search|person|day …. Today is Thursday 22 October 2026. Cite observation ids." \
+//       bun <repo>/apps/server/src/cli.ts memory search|person|day …. Today is Thursday 22 October 2026. Cite observation ids." \
 //     "What did I promise my landlord last week? Did I keep it?"
 //
 // The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/plate.ts), run with the same

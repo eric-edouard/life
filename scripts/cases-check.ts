@@ -3,9 +3,9 @@
 // repo's, but a test's is this repo's. Skips when his data is absent (CI, other machines).
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { readJson } from "server/src/memory/ledger";
+import { DATA } from "server/src/truth";
 import { z } from "zod";
-import { readJson } from "../apps/server/src/memory/ledger";
-import { DATA } from "../apps/server/src/truth";
 
 const CASES = join(DATA, "docs/evals/cases");
 if (!existsSync(CASES)) {

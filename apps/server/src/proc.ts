@@ -134,7 +134,7 @@ export function gitOut(path: string, args: string[]) {
 export const codeAt = (root: string) =>
   git(root, [
     "rev-parse",
-    "HEAD:src",
+    "HEAD:apps/server/src",
     "HEAD:prompts",
     "HEAD:assets",
   ]).stdout.toString();

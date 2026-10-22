@@ -3,7 +3,7 @@
 // absent (CI, other machines).
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, handlesOf, loadTruth } from "../apps/server/src/truth";
+import { DATA, handlesOf, loadTruth } from "server/src/truth";
 
 if (!existsSync(join(DATA, "truth"))) {
   console.log(`scrub: skipped, no ${DATA}/truth`);

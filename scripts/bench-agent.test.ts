@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { AGENT_WORD } from "../apps/server/src/schema";
+import { AGENT_WORD } from "server/src/schema";
 import { askAt, checked, holds, table } from "./bench-agent";
 
 test("a call holds the wanted arguments: text as a case-blind part, anything else equal", () => {

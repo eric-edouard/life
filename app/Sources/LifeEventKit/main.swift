@@ -2,7 +2,7 @@ import EventKit
 import Foundation
 
 // life-eventkit: the Past calendar on an Apple calendar, through EventKit, for an install without Google
-// (src/memory/past.ts, `calendar held|create|delete`). Life's events carry their moment and hash in their URL,
+// (apps/server/src/memory/past.ts, `calendar held|create|delete`). Life's events carry their moment and hash in their URL,
 // `life://moment/<id>?hash=<hash>`, as Google's carry them in private properties. Reminders is remctl's, never this.
 
 let store = EKEventStore()
