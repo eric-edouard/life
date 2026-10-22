@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { SECRETS, same, secretIn } from "./secret";
 
 const KEY = /^[0-9a-f]{64}$/;
@@ -14,11 +14,21 @@ test("an empty secret never matches, not even an empty answer; a different lengt
 
 test("a key file is made whole once; an empty or broken one is replaced, never used", () => {
   const path = SECRETS.localKey;
-  const key = secretIn("localKey");
-  expect(key).toMatch(KEY);
-  expect(secretIn("localKey")).toBe(key);
-  writeFileSync(path, "");
-  const fresh = secretIn("localKey");
-  expect(fresh).toMatch(KEY);
-  expect(readFileSync(path, "utf8")).toBe(fresh);
+  // The test run's own key, put back after: other tests read it.
+  const before = existsSync(path) ? readFileSync(path, "utf8") : undefined;
+  try {
+    const key = secretIn("localKey");
+    expect(key).toMatch(KEY);
+    expect(secretIn("localKey")).toBe(key);
+    writeFileSync(path, "");
+    const fresh = secretIn("localKey");
+    expect(fresh).toMatch(KEY);
+    expect(readFileSync(path, "utf8")).toBe(fresh);
+  } finally {
+    if (before === undefined) {
+      rmSync(path, { force: true });
+    } else {
+      writeFileSync(path, before);
+    }
+  }
 });

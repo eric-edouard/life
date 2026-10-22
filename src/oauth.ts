@@ -21,8 +21,6 @@ import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
 // authorization code serves once, a refresh token is replaced each time it is used, and every token is for this one
 // resource and owner.
 
-/** Life's own sign-in: its key, the apps and their tokens. A secret: never exported. */
-
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;
 const PAIRING_MS = 5 * 60_000;

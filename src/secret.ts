@@ -20,6 +20,7 @@ import { STATE } from "./truth";
 export const SECRETS = {
   events: join(STATE, "events.json"),
   localKey: join(STATE, "local.key"),
+  /** Life's own sign-in: its key, the apps and their tokens. */
   oauth: join(STATE, "oauth", "state.json"),
 };
 
@@ -53,7 +54,7 @@ const KEY = /^[0-9a-f]{64}$/;
  * A random secret in its file, made once, then read: written whole to a file of its own, then linked in place, which
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
-export function secretIn(name: Secret): string {
+export function secretIn(name: "localKey"): string {
   const path = SECRETS[name];
   if (existsSync(path)) {
     const key = readFileSync(path, "utf8");
