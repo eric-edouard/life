@@ -28,4 +28,4 @@ test("no code reads now but through clock()", async () => {
     code.map((f) => Bun.file(join(root, f)).text())
   );
   expect(code.filter((_, i) => RAW_NOW.test(texts[i] ?? ""))).toEqual([]);
-});
+}, 20_000); // every source file read: seconds on Windows, where a first open is slow
