@@ -9,3 +9,5 @@ node_modules
 dist/
 app/.build/
 app/Frameworks/
+app-windows/**/bin/
+app-windows/**/obj/

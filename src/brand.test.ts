@@ -22,6 +22,8 @@ const dark = colours(darkCss);
 const hex = (n: string) => `#${n.slice(2)}`;
 const HEX_COLOUR = /#[0-9a-f]{6}\b|0x[0-9a-f]{6}\b/i;
 const L_OUTLINE = /d="(M14 0[^"]+)"/;
+/** The tray's build outputs, never checked in. */
+const BUILT = /\/(bin|obj)\//;
 
 test("the email's colours are tokens.css's", () => {
   for (const [name, value] of Object.entries(C)) {
@@ -29,24 +31,25 @@ test("the email's colours are tokens.css's", () => {
   }
 });
 
+// The apps' names for the tokens they copy, then each Tone's status token.
+const names: Record<string, string> = {
+  ink: "ink",
+  muted: "muted",
+  page: "white",
+  rule: "rule",
+  surface: "surface",
+};
+const tones: Record<string, string> = {
+  bad: "error",
+  busy: "progress",
+  idle: "unknown",
+  ok: "synced",
+  teal: "confirmation",
+  warn: "open",
+};
+
 test("the app's colours are tokens.css's, light and dark", async () => {
   const swift = await asset("app/Sources/LifeApp/Brand.swift");
-  // Brand's names for the tokens it copies, then each Tone's status token.
-  const names: Record<string, string> = {
-    ink: "ink",
-    muted: "muted",
-    page: "white",
-    rule: "rule",
-    surface: "surface",
-  };
-  const tones: Record<string, string> = {
-    bad: "error",
-    busy: "progress",
-    idle: "unknown",
-    ok: "synced",
-    teal: "confirmation",
-    warn: "open",
-  };
   const pairs = [
     ...swift.matchAll(
       /static let (\w+) = Color\(light: (0x\w+), dark: (0x\w+)\)/g
@@ -66,6 +69,42 @@ test("the app's colours are tokens.css's, light and dark", async () => {
   for (const [, tone = "", value = ""] of statuses) {
     expect([tone, hex(value)]).toEqual([tone, light[tones[tone] ?? ""]]);
   }
+});
+
+test("the Windows tray's colours and radii are tokens.css's, light and dark", async () => {
+  const xaml = await asset("app-windows/Life.Tray/Brand.xaml");
+  const brushes = (block = "") =>
+    Object.fromEntries(
+      [...block.matchAll(/x:Key="(\w+)" Color="(#[0-9a-f]{6})"/g)].map((m) => [
+        (m[1] ?? "").toLowerCase(),
+        m[2],
+      ])
+    );
+  const [themes = "", rest = ""] = xaml.split(
+    "</ResourceDictionary.ThemeDictionaries>"
+  );
+  const [lightXaml, darkXaml] = themes.split('x:Key="Dark"').map(brushes);
+  const want = (from: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(names).map(([name, token]) => [name, from[token]])
+    );
+  expect([lightXaml, darkXaml]).toEqual([
+    want(light),
+    want({ ...light, ...dark }),
+  ]);
+  expect(brushes(rest)).toEqual(
+    Object.fromEntries(
+      Object.entries(tones).map(([tone, token]) => [
+        `tone${tone}`,
+        light[token],
+      ])
+    )
+  );
+  const radius = (name: string) =>
+    Number(xaml.match(new RegExp(`x:Key="${name}Radius">(\\d+)<`))?.[1]);
+  expect({ control: radius("Control"), panel: radius("Panel") }).toEqual(
+    RADIUS
+  );
 });
 
 test("the email's and the app's radii and the email's font stacks are tokens.css's", async () => {
@@ -94,14 +133,19 @@ test("the email's and the app's radii and the email's font stacks are tokens.css
 test("no colour is written anywhere else: every hex colour is in tokens.css or a checked copy", async () => {
   const allowed = new Set([
     "app/Sources/LifeApp/Brand.swift",
+    "app-windows/Life.Tray/Brand.xaml",
     "assets/brand/tokens.css",
     "src/memory/email.ts",
   ]);
   const root = new URL("..", import.meta.url).pathname;
-  const files = new Bun.Glob("**/*.{ts,js,css,html,swift,json,jsonl,md}");
-  const read = ["src", "assets", "app/Sources"].flatMap((dir) =>
-    [...files.scanSync(root + dir)].map((file) => `${dir}/${file}`)
+  const files = new Bun.Glob(
+    "**/*.{ts,js,css,html,swift,cs,xaml,json,jsonl,md}"
   );
+  const read = ["src", "assets", "app/Sources", "app-windows"]
+    .flatMap((dir) =>
+      [...files.scanSync(root + dir)].map((file) => `${dir}/${file}`)
+    )
+    .filter((path) => !BUILT.test(path));
   expect(read).toContain("src/memory/email.ts");
   const texts = await Promise.all(read.map(asset));
   const strays = read.filter(

@@ -1,0 +1,47 @@
+# The Windows tray (app-windows): its tests, then the app built and published self-contained, signed when an
+# Authenticode certificate is configured (secrets WINDOWS_CERT, a base64 .pfx, and WINDOWS_CERT_PASSWORD), unsigned
+# until then.
+name: tray
+
+on:
+  pull_request:
+    paths: ["app-windows/**", ".github/workflows/tray.yml"]
+  push:
+    branches: [main]
+    paths: ["app-windows/**", ".github/workflows/tray.yml"]
+
+jobs:
+  tray:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: dotnet test app-windows/Life.Tests
+      - name: Publish
+        run: dotnet publish app-windows/Life.Tray -c Release -o out/tray
+      # Pushes to main only, never a pull request. The certificate goes into the runner's store, so signtool picks it
+      # by thumbprint and its password never reaches a command line.
+      - name: Sign
+        if: github.event_name == 'push'
+        shell: pwsh
+        env:
+          WINDOWS_CERT: ${{ secrets.WINDOWS_CERT }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERT) { "No certificate configured: the tray stays unsigned."; exit 0 }
+          $pfx = "$env:RUNNER_TEMP\cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT))
+          $password = ConvertTo-SecureString $env:WINDOWS_CERT_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          Remove-Item $pfx
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1
+          & $signtool sign /sha1 $cert.Thumbprint /s My /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 out\tray\Life.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      # The tray alone: the helper (helper\life.exe) joins it once it runs on Windows (phase 3).
+      - uses: actions/upload-artifact@v5
+        with:
+          name: life-tray-win-x64
+          path: out/tray

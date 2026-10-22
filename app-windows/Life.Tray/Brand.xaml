@@ -1,0 +1,51 @@
+<!-- Life's brand (docs/brand.md): a serif to read, mono to count, monochrome, colour for status only. The values are
+     copied from assets/brand/tokens.css, light and dark (brand.test.ts checks them); the tray follows Windows' theme. -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="Page" Color="#ffffff" />
+            <SolidColorBrush x:Key="Surface" Color="#f3f3f3" />
+            <SolidColorBrush x:Key="Rule" Color="#e4e4e4" />
+            <SolidColorBrush x:Key="Ink" Color="#181818" />
+            <SolidColorBrush x:Key="Muted" Color="#707070" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="Page" Color="#181818" />
+            <SolidColorBrush x:Key="Surface" Color="#242424" />
+            <SolidColorBrush x:Key="Rule" Color="#333333" />
+            <SolidColorBrush x:Key="Ink" Color="#ffffff" />
+            <SolidColorBrush x:Key="Muted" Color="#a3a3a3" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- Status: dots and short stripes only, always beside a word; the same in both themes. -->
+    <SolidColorBrush x:Key="ToneOk" Color="#22c55e" />
+    <SolidColorBrush x:Key="ToneWarn" Color="#f59e0b" />
+    <SolidColorBrush x:Key="ToneBad" Color="#ef4444" />
+    <SolidColorBrush x:Key="ToneBusy" Color="#3b82f6" />
+    <SolidColorBrush x:Key="ToneTeal" Color="#14b8a6" />
+    <SolidColorBrush x:Key="ToneIdle" Color="#8b8f97" />
+
+    <CornerRadius x:Key="ControlRadius">12</CornerRadius>
+    <CornerRadius x:Key="PanelRadius">18</CornerRadius>
+
+    <!-- Source Serif 4 and IBM Plex Mono, shipped beside the app from app/Fonts. -->
+    <FontFamily x:Key="Serif">ms-appx:///Fonts/SourceSerif4.ttf#Source Serif 4</FontFamily>
+    <FontFamily x:Key="Mono">ms-appx:///Fonts/IBMPlexMono-Regular.ttf#IBM Plex Mono</FontFamily>
+
+    <!-- A section's or a group's label: small mono capitals. -->
+    <Style x:Key="Label" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontSize" Value="10.5" />
+        <Setter Property="CharacterSpacing" Value="80" />
+        <Setter Property="Foreground" Value="{ThemeResource Muted}" />
+    </Style>
+    <Style x:Key="Caption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Serif}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{ThemeResource Muted}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+</ResourceDictionary>
