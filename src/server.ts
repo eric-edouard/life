@@ -22,7 +22,7 @@ import { createSignIn, keyRefusal } from "./signin";
 export function serve() {
   // The app's port taken (another install's watcher) only leaves the app without its status; the public one never waits on it.
   try {
-    listen(LOCAL_PORT, createDashboard(keyRefusal()));
+    listen(LOCAL_PORT, createDashboard(keyRefusal()).notFound(notFound));
   } catch (e) {
     console.error(
       `Life: 127.0.0.1:${LOCAL_PORT} is off: ${(e as Error).message}`
@@ -36,9 +36,11 @@ export function serve() {
   listen(PUBLIC_PORT, signedIn());
 }
 
-/** One listener on loopback, for `app`'s routes (404 for any other path); a port it can't take throws. */
+/** Any path a port's app has no route for (a route that serves nothing, `/me`'s, answers the same). */
+const notFound = () => new Response("not found", { status: 404 });
+
+/** One listener on loopback, for `app`'s routes; a port it can't take throws. */
 function listen(port: number, app: Hono) {
-  app.notFound(() => new Response("not found", { status: 404 }));
   Bun.serve({
     // No stack traces or source in an error page: much of this answers before sign-in.
     development: false,
@@ -51,7 +53,7 @@ function listen(port: number, app: Hono) {
 }
 
 /** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */
-function signedIn() {
+export function signedIn() {
   const { issuer, origin, own, owner, resource } = connector();
   const life = own ? createIssuer(origin, resource) : null;
   const verify = ownerTokens({
@@ -73,8 +75,7 @@ function signedIn() {
   const signIn = createSignIn(
     verify,
     life
-      ? async (url: string, init: RequestInit) =>
-          await life.app.request(url, init)
+      ? async (url: string, init: RequestInit) => life.app.request(url, init)
       : fetch
   );
   const app = new Hono();
@@ -84,5 +85,6 @@ function signedIn() {
   return app
     .route("/", mcp)
     .route("/", createCheck(signIn))
-    .route("/", createPortrait());
+    .route("/", createPortrait())
+    .notFound(notFound);
 }

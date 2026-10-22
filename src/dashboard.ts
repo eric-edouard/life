@@ -31,7 +31,7 @@ export function createDashboard(
           return text("before must be an instant", 400);
         }
         const id = new URL(c.req.url).pathname.slice(CARD.length);
-        return json(await detail(id, before));
+        return id ? json(await detail(id, before)) : c.notFound();
       })
       .get("/status/run", async (c) => {
         const run = await runDetail(c.req.query("id") ?? "");

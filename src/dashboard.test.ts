@@ -18,6 +18,9 @@ test("the app's reads open with the local key only", async () => {
   expect((await get("/status/card/tasks"))?.status).toBe(401);
   // No page any more: nothing else is answered here.
   expect((await get("/")).status).toBe(404);
+  // A card with no id is no card.
+  const none = await get("/status/card", { authorization: `Bearer ${key}` });
+  expect(none.status).toBe(404);
 });
 
 test("a history that doesn't page back offers no older page: the tasks and the Mac's day are whole", async () => {

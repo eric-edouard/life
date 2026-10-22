@@ -130,5 +130,6 @@ export function createPortrait(
       : text("not found", 404);
   }
 
-  return new Hono().all("/me", serve).all("/me/*", serve);
+  // `/me/*` matches `/me` too.
+  return new Hono().all("/me/*", serve);
 }

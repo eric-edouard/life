@@ -115,7 +115,7 @@ runs on GitHub's Windows runner before the workflow was removed.
 
 ## Phase 1: Better-T-Stack
 
-Routes on Hono: done (this PR). Each route module (`oauth.ts`, `mcp.ts`, `check.ts`, `portrait.ts`, `dashboard.ts`) is a
+Routes on Hono: done (#158). Each route module (`oauth.ts`, `mcp.ts`, `check.ts`, `portrait.ts`, `dashboard.ts`) is a
 Hono app; `server.ts` mounts them, one app per port, with `Bun.serve` only listening. Plain Hono for now: a route gains
 `@hono/zod-openapi` when a client needs its contract (the web UI later), with its schema as the type's one source.
 
