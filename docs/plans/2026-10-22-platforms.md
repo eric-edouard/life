@@ -89,7 +89,7 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 
 ### The platform module
 
-Done (#this PR): `src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
+Done (#153): `src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
 `%LOCALAPPDATA%\Life` on Windows; it was `MAC`), `APP_DATA` (where Beeper keeps its store), Codex's binary for this
 system and architecture, the model CLIs' environment, the system time zone (`Intl` on Windows) and the notification
 (none on Windows until the tray). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
