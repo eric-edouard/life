@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -11,9 +12,12 @@ import {
 import { basename, isAbsolute, join, relative } from "node:path";
 import { STORES } from "./archive";
 import { clock } from "./clock";
-import { locked } from "./memory/guard";
+import { SUBSCRIPTION } from "./events";
+import { LOCK, locked } from "./memory/guard";
 import { INDEX } from "./memory/search";
+import { OAUTH } from "./oauth";
 import { execOk } from "./proc";
+import { LOCAL_KEY } from "./signin";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT, STATE } from "./truth";
@@ -26,19 +30,15 @@ import { DATA, ROOT, STATE } from "./truth";
 export const FORMAT = 1;
 
 /** In Life's state but never exported: rebuilt (the index), secrets, and live locks. The watcher's store is copied whole on its own. */
-const KEPT_OUT = [
-  relative(STATE, WATCH),
-  relative(STATE, INDEX),
-  "oauth",
-  "events.json",
-  "local.key",
-];
+const KEPT_OUT = [WATCH, INDEX, OAUTH, SUBSCRIPTION, LOCAL_KEY].map((p) =>
+  relative(STATE, p)
+);
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
-/** Every file under `dir`, its path relative to `dir`. */
+/** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
 const filesUnder = (dir: string) =>
   (readdirSync(dir, { recursive: true }) as string[]).filter((p) =>
-    statSync(join(dir, p)).isFile()
+    lstatSync(join(dir, p)).isFile()
   );
 
 /** A file's sha256, read as a stream. */
@@ -51,12 +51,22 @@ export async function sha256Of(path: string) {
 }
 
 /**
- * One SQLite file copied whole while it is written to (SQLite's own backup), then made a file of its own (no WAL beside
- * it): it opens anywhere, read-only too, and restores as one file.
+ * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), then
+ * made a file of its own (no WAL beside it): it opens anywhere, read-only too, and restores as one file.
  */
-async function copyDb(from: string, to: string) {
-  await execOk(["sqlite3", "-readonly", from, `.backup '${to}'`]);
-  await execOk(["sqlite3", to, "PRAGMA journal_mode=DELETE;"]);
+function copyDb(from: string, to: string) {
+  const source = new Database(from, { readonly: true });
+  try {
+    source.run("VACUUM INTO ?", [to]);
+  } finally {
+    source.close();
+  }
+  const copy = new Database(to);
+  try {
+    copy.run("PRAGMA journal_mode=DELETE");
+  } finally {
+    copy.close();
+  }
 }
 
 /** What a staged folder holds: lines per JSONL file of his data, rows per table of each store, the data's commit. */
@@ -113,6 +123,7 @@ const ENV_KEY = /^([A-Z0-9_]+)=/;
 function leftOut() {
   const env = join(ROOT, ".env");
   return {
+    codex: "Codex's login (`codex login` again, for the codex engine)",
     env: existsSync(env)
       ? readFileSync(env, "utf8")
           .split("\n")
@@ -141,7 +152,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   if (cloned === null) {
     throw new Error("a run holds memory's lock: try again when it is done");
   }
-  rmSync(join(dir, "data", ".nightly.lock"), { force: true });
+  rmSync(join(dir, "data", basename(LOCK)), { force: true });
   // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
   const inData = relative(DATA, STATE);
   if (!(inData.startsWith("..") || isAbsolute(inData))) {

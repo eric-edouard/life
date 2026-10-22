@@ -17,7 +17,7 @@ import { STATE } from "./truth";
 // after it, and derived/events.json (mode 600: it holds the signing secret) keeps the subscription and how far it was
 // delivered, so a restart or a retry loses nothing.
 
-const SUBSCRIPTION = join(STATE, "events.json");
+export const SUBSCRIPTION = join(STATE, "events.json");
 /** The lifetime granted when none or a longer one is asked for. */
 const TTL_MS = 30 * 24 * 3_600_000;
 /** A verified callback is not challenged again for a day. */
