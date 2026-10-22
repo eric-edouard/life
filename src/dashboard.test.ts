@@ -5,7 +5,7 @@ import { keyRefusal, localKey } from "./signin";
 // The app's status reads answer only with the local key, as a bearer.
 const reads = createDashboard(keyRefusal());
 const get = (path: string, headers: Record<string, string> = {}) =>
-  reads.handle(new Request(`http://127.0.0.1:46201${path}`, { headers }));
+  reads.request(new Request(`http://127.0.0.1:46201${path}`, { headers }));
 
 test("the app's reads open with the local key only", async () => {
   const key = localKey();
@@ -17,7 +17,7 @@ test("the app's reads open with the local key only", async () => {
   expect((await as("é".repeat(key.length)))?.status).toBe(401);
   expect((await get("/status/card/tasks"))?.status).toBe(401);
   // No page any more: nothing else is answered here.
-  expect(await get("/")).toBeNull();
+  expect((await get("/")).status).toBe(404);
 });
 
 test("a history that doesn't page back offers no older page: the tasks and the Mac's day are whole", async () => {

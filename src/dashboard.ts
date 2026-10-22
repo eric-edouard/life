@@ -1,3 +1,4 @@
+import { Hono } from "hono";
 import { HEADERS, text } from "./http";
 import { snapshot } from "./plate";
 import { detail, runDetail } from "./plate-detail";
@@ -7,41 +8,34 @@ import { detail, runDetail } from "./plate-detail";
 
 const json = (body: unknown) => Response.json(body, { headers: HEADERS });
 
-/** A card's detail, or its next page: `before` must be an instant. */
-async function card(id: string, url: URL) {
-  const before = url.searchParams.get("before") ?? undefined;
-  if (before && Number.isNaN(Date.parse(before))) {
-    return text("before must be an instant", 400);
-  }
-  return json(await detail(id, before));
-}
+const CARD = "/status/card/";
 
 /** The reads behind `refusal` (`keyRefusal`: the local key the app holds). */
 export function createDashboard(
   refusal: (req: Request) => Promise<Response | null>
 ) {
-  async function owned(url: URL) {
-    const { pathname } = url;
-    if (pathname === "/status/snapshot") {
-      return json(await snapshot());
-    }
-    if (pathname.startsWith("/status/card/")) {
-      return card(pathname.slice("/status/card/".length), url);
-    }
-    if (pathname === "/status/run") {
-      const run = await runDetail(url.searchParams.get("id") ?? "");
-      return run ? json(run) : text("no such run", 404);
-    }
-    return null;
-  }
-
-  async function handle(req: Request): Promise<Response | null> {
-    const url = new URL(req.url);
-    if (!url.pathname.startsWith("/status/") || req.method !== "GET") {
-      return null;
-    }
-    return (await refusal(req)) ?? owned(url);
-  }
-
-  return { handle };
+  return (
+    new Hono()
+      .get("/status/*", async (c, next) => {
+        const refused = await refusal(c.req.raw);
+        if (refused) {
+          return refused;
+        }
+        await next();
+      })
+      .get("/status/snapshot", async () => json(await snapshot()))
+      // A card's detail, or its next page: `before` must be an instant.
+      .get(`${CARD}*`, async (c) => {
+        const before = c.req.query("before");
+        if (before && Number.isNaN(Date.parse(before))) {
+          return text("before must be an instant", 400);
+        }
+        const id = new URL(c.req.url).pathname.slice(CARD.length);
+        return json(await detail(id, before));
+      })
+      .get("/status/run", async (c) => {
+        const run = await runDetail(c.req.query("id") ?? "");
+        return run ? json(run) : text("no such run", 404);
+      })
+  );
 }

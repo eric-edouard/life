@@ -58,7 +58,7 @@ const lifelog = (async (_url: string, init?: RequestInit) => {
 const check = createCheck(createSignIn(verify, lifelog));
 
 const get = async (path: string, cookie = "", init: RequestInit = {}) =>
-  (await check.handle(
+  (await check.request(
     new Request(`${ORIGIN}${path}`, {
       ...init,
       headers: { cookie, ...(init.headers as object) },
@@ -93,7 +93,7 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
   // Each card says when its claim dates from: the made-up statement's day, with its year unless it is this one's.
   const year = new Date().getFullYear() === 2026 ? "" : " 2026";
   expect(groups[0]?.statements[0]?.asOf).toBe(`12 Oct${year}`);
-  expect(await check.handle(new Request(`${ORIGIN}/mcp`))).toBeNull();
+  expect((await check.request(new Request(`${ORIGIN}/mcp`))).status).toBe(404);
 });
 
 test("the page's policy lets in the fonts its stylesheet imports", async () => {
@@ -114,7 +114,7 @@ test("lifelog's keys out of reach: the page and the sign-in answer 503, never a 
     )
   );
   const at = async (path: string, jar = "") =>
-    (await down.handle(
+    (await down.request(
       new Request(`${ORIGIN}${path}`, { headers: { cookie: jar } })
     )) as Response;
   expect((await at("/check/", await session())).status).toBe(503);
