@@ -26,7 +26,6 @@ import { newSince, readActions } from "../memory/ledger";
 import { moments } from "../memory/moments";
 import { placed } from "../memory/page";
 import { pages } from "../memory/pages";
-import { syncPast } from "../memory/past";
 import { codeOn, mapRepos } from "../memory/repos";
 import {
   commitMemory,
@@ -53,6 +52,7 @@ import { type Action, isListed } from "../records/ledger";
 import type { Extracted, Observation } from "../records/observations";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
+import { syncPast } from "./calendar";
 import { readHealth } from "./health";
 import {
   archiveFailedReport,
@@ -194,7 +194,7 @@ export async function nightly(days: number, force = false) {
     turn === "night"
       ? ((await locked(() => runNight(days, now, day, force))) ?? Number(force))
       : await daytime(turn, now, day);
-  // The Past calendar follows the moments each tick (past.ts); a failure only logs, the next tick tries again.
+  // The Past calendar follows the moments each tick (calendar.ts); a failure only logs, the next tick tries again.
   await syncPast(now).then(
     (r) => r && console.log(JSON.stringify({ past: r })),
     (e) => log("run.error", { error: String(e), step: "past" })
