@@ -18,12 +18,12 @@ import { type Action, isListed } from "../records/ledger";
 import type { Moment } from "../records/moments";
 import {
   INFERRED_USE_AT,
-  KEEP_AT,
   Level,
   type Observation,
 } from "../records/observations";
 import type { Person } from "../records/truth";
 import type { Unit, Verdict } from "../records/units";
+import { KEEP_AT } from "../records/units";
 import { kindOf, listening } from "../sources";
 import {
   conversationsWith,

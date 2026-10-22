@@ -1,10 +1,7 @@
 import { z } from "zod";
-import { MadeBy } from "../records/ledger";
-import {
-  KEEP_AT,
-  type Observation,
-  PageSection,
-} from "../records/observations";
+import { MadeBy } from "../records/fields";
+import { type Observation, PageSection } from "../records/observations";
+import { KEEP_AT } from "../records/units";
 import { digest, type Standing, shows, stateOf } from "./ledger";
 import { OWNER, othersIn, type Truth } from "./truth";
 import { daysBefore } from "./units";

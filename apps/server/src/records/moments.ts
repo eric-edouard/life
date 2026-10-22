@@ -1,14 +1,13 @@
 import { z } from "zod";
-import { isoDate, MomentId, UnitId } from "./fields";
-import { MadeBy } from "./ledger";
+import { isoDate, MadeBy, MomentId, UnitId } from "./fields";
 
 // Memory's moments (memory/moments/, docs/SCHEMA.md).
-/** How a claim was said: as true, as settled for later, about a third person, or only conditionally (a hypothesis, a quote). */
-export const Modality = z.enum(["fact", "plan", "reported", "conditional"]);
+
 /** `YYYY-MM-DD` or `YYYY-MM-DD HH:MM`, local. */
 export const LocalTime = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2})?$/);
+
 /**
  * memory/moments/<day>.jsonl: one thing that happened or is planned in the owner's life (a trip, a dinner, a flight), found by
  * the moments step from one day of units across every channel. A day's file is rewritten when that day is read again;
@@ -42,4 +41,5 @@ export const Moment = z
     why: z.string().max(300),
   })
   .strict();
+
 export type Moment = z.infer<typeof Moment>;

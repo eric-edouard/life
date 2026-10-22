@@ -8,10 +8,12 @@ import { z } from "zod";
  * for an install that has none.
  */
 export const Engine = z.enum(["claude", "codex", "anthropic", "openai"]);
+
 export type Engine = z.infer<typeof Engine>;
 
 /** What can run one call: his engines, and OpenRouter for the bench alone (`llmOverride`, only on a copy of his data). */
 export const Runner = z.enum([...Engine.options, "openrouter"]);
+
 export type Runner = z.infer<typeof Runner>;
 
 /**
@@ -33,4 +35,5 @@ export const SourceName = z.enum([
   "chatgpt",
   AGENT_WORD,
 ]);
+
 export type SourceName = z.infer<typeof SourceName>;

@@ -4,6 +4,7 @@ import { EntityRef, isoDate, isoDateTime, MomentId, UnitId } from "./fields";
 import { ObservationId } from "./observations";
 
 // The statements the owner rates, their ratings and the eval's scores (docs/SCHEMA.md).
+
 /** memory/statements.jsonl: the truth benchmark, one statement per claim, frozen as he was shown it (docs/SCHEMA.md). */
 export const Statement = z
   .object({
@@ -18,7 +19,9 @@ export const Statement = z
     units: z.array(UnitId).min(1),
   })
   .strict();
+
 export type Statement = z.infer<typeof Statement>;
+
 /** memory/ratings.jsonl: his answers on the check page, the latest per claim counting; null is an undo (docs/SCHEMA.md). */
 export const Rating = z
   .object({
@@ -28,7 +31,9 @@ export const Rating = z
     schemaVersion: z.literal(1),
   })
   .strict();
+
 export type Rating = z.infer<typeof Rating>;
+
 /** memory/scores.jsonl: one line per scored run (`bun scripts/eval.ts --ratings`), its counts (docs/SCHEMA.md). */
 export const Score = z
   .object({

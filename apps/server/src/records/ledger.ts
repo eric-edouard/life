@@ -1,27 +1,11 @@
 import { z } from "zod";
-import { Runner } from "../core/names";
-import { isoDateTime } from "./fields";
+import { isoDateTime, MadeBy } from "./fields";
 
 // The actions ledger (memory/actions.jsonl, docs/SCHEMA.md): what Life did on his request, his changes read back,
 // and the agent's tasks.
-/** Who made a model's output: engine and model (switching engines re-runs nothing), the prompt version, the run. */
-export const MadeBy = z
-  .object({
-    engine: Runner.default("claude"),
-    model: z.string(),
-    prompt: z.string(),
-    run: z.string(),
-  })
-  .strict();
-export type MadeBy = z.infer<typeof MadeBy>;
-/**
- * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
- * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
- * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/memory/tasks.ts),
- * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
- * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
- */
+
 export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
+
 /** What `act` does to a reminder. undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`. */
 export const REMINDER_KINDS = [
   "add",
@@ -31,6 +15,14 @@ export const REMINDER_KINDS = [
   "undone",
   "restore",
 ] as const;
+
+/**
+ * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
+ * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
+ * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/memory/tasks.ts),
+ * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
+ * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
+ */
 export const Action = z
   .object({
     after: z.record(z.string(), z.unknown()),
@@ -80,16 +72,22 @@ export const Action = z
     why: z.string(),
   })
   .strict();
+
 export type Action = z.infer<typeof Action>;
+
 export type Instruction = NonNullable<Action["instruction"]>;
+
 /** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: Action) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
+
 /** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (apps/server/src/host/inbound.ts). */
 export const isBookkeeping = (a: Action) =>
   a.result === "intent" || a.kind === "import";
+
 /** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */
 export const isListed = (a: Action) => !(isTaskLine(a) || isBookkeeping(a));
+
 /** A line whose outcome stands: done, or found already done. */
 export const stands = (a: Action) =>
   a.result === "ok" || a.result === "duplicate";

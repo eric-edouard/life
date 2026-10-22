@@ -4,16 +4,19 @@ import {
   EntityRef,
   isoDate,
   isoDateTime,
+  MadeBy,
   MomentId,
   PersonRef,
   slug,
   UnitId,
 } from "./fields";
-import { MadeBy } from "./ledger";
-import { Modality } from "./moments";
+import { MemoryType } from "./units";
 
 // Memory's observations (memory/observations/, docs/SCHEMA.md) and what reads or corrects them: extractions,
 // supersessions, corrections, inferred people and repos, imports, closeness.
+
+/** How a claim was said: as true, as settled for later, about a third person, or only conditionally (a hypothesis, a quote). */
+export const Modality = z.enum(["fact", "plan", "reported", "conditional"]);
 
 const Correcting = {
   at: isoDateTime,
@@ -21,39 +24,11 @@ const Correcting = {
   schemaVersion: z.literal(1),
 };
 
-/** What a unit or observation is (owner's decision, 11 Oct). Owner-facing names in TYPE_NAMES. */
-export const MemoryType = z.enum([
-  "todo",
-  "promise",
-  "waiting",
-  "decision",
-  "person",
-  "preference",
-  "idea",
-  "news",
-  "nothing",
-]);
-export type MemoryType = z.infer<typeof MemoryType>;
-/** What kind of recording a lifelog chapter is (decision 6: the fast-tier model tags it). */
-export const ChapterKind = z.enum([
-  "conversation",
-  "small-talk",
-  "media",
-  "dictation",
-  "customer",
-]);
 export const ObservationId = z.string().regex(/^obs_[0-9a-f]{12}$/);
-/**
- * The salience policy: the salience from which a unit is kept and its observations are shown. Extraction reads a kept unit
- * in full; pages and searches list its claims. The owner's labels (11 Oct): salience 1 was mostly noise to him, 2 and 3
- * mostly right. A salience-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with a moment that
- * holds a kept unit.
- */
-export const KEEP_AT = 2;
-/** The salience from which a unit is worth a searchable line, and is read with its moment. */
-export const SEARCHABLE_AT = 1;
+
 /** Inferred people below this confidence are remembered but not linked to; the next day that sees them asks again. */
 export const INFERRED_USE_AT = 0.5;
+
 /** L2: one small dated claim, cited to the exact place in its source. memory/observations/<yyyy-mm>.jsonl. */
 export const Observation = z
   .object({
@@ -102,7 +77,9 @@ export const Observation = z
     when: isoDate.nullable(),
   })
   .strict();
+
 export type Observation = z.infer<typeof Observation>;
+
 /** Which units an extractor version has read: memory/extracted.jsonl, one line per unit and run. */
 export const Extracted = z
   .object({
@@ -117,7 +94,9 @@ export const Extracted = z
     unitHash: z.string(),
   })
   .strict();
+
 export type Extracted = z.infer<typeof Extracted>;
+
 /** A name Life could not map to truth/: memory/unresolved.jsonl. */
 export const Unresolved = z
   .object({
@@ -130,7 +109,9 @@ export const Unresolved = z
     via: z.enum(["model", "speaker"]),
   })
   .strict();
+
 export type Unresolved = z.infer<typeof Unresolved>;
+
 /**
  * memory/supersessions.jsonl: an observation a newer one replaces, written by code (the ledger itself is never edited):
  * by extraction, when later lines of a moment show it is no longer true, or (before memory-extract.v3) while
@@ -148,10 +129,14 @@ export const Supersession = z
     why: z.string().max(300),
   })
   .strict();
+
 export type Supersession = z.infer<typeof Supersession>;
+
 /** How close someone is to the owner, in his personal life or his work: `faded` was close, not any more. */
 export const Level = z.enum(["inner", "regular", "acquaintance", "faded"]);
+
 export type Level = z.infer<typeof Level>;
+
 /** A page's sections, in page order (`SECTIONS`, page.ts): views and health on the owner's page only, bond on a close person's (`layoutOf`). */
 export const PageSection = z.enum([
   "views",
@@ -160,6 +145,7 @@ export const PageSection = z.enum([
   "now",
   "history",
 ]);
+
 /**
  * memory/corrections.jsonl: what the owner told Life, append-only, written by a Claude session when he says it in
  * conversation (`bun life memory correct`) and by the pages step when it finds him editing a page file. Every
@@ -232,9 +218,12 @@ export const Correction = z
   .refine((c) => c.kind !== "closeness" || !!(c.personal || c.work), {
     message: "a closeness correction names a personal or a work level",
   });
+
 export type Correction = z.infer<typeof Correction>;
+
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
 export const INFERRED_PREFIX = "inf-";
+
 /**
  * memory/people-inferred.jsonl: who Life thinks an unknown handle or name is, from the messages and observations
  * around it. Model-owned and append-only (the latest record for a surface wins); used automatically below truth/ and
@@ -260,7 +249,9 @@ export const InferredPerson = z
     surfaces: z.array(z.string().min(1)).min(1),
   })
   .strict();
+
 export type InferredPerson = z.infer<typeof InferredPerson>;
+
 /**
  * memory/repos-inferred.jsonl: which project a code repo belongs to, as Life guesses (folder name under ~/Work, or
  * owner/name for a repo only on GitHub). Model-owned and append-only (the latest record for a repo wins); used at once
@@ -279,7 +270,9 @@ export const RepoGuess = z
     why: z.string().min(1).max(300),
   })
   .strict();
+
 export type RepoGuess = z.infer<typeof RepoGuess>;
+
 /**
  * memory/imported.jsonl: whether a conversation of his claude.ai or ChatGPT export is about his life (people, plans,
  * decisions, himself) or only work with the assistant, as the fast model judged it from his pruned messages
@@ -296,7 +289,9 @@ export const Imported = z
     why: z.string().min(1).max(300),
   })
   .strict();
+
 export type Imported = z.infer<typeof Imported>;
+
 /**
  * memory/closeness.jsonl: how close each person is to the owner, personal and work apart, as the fast model judged it
  * from what code counted (`closeness.ts`): `service` is a business or a bot, not a person. `counts` is the counts it
@@ -316,4 +311,5 @@ export const Closeness = z
     work: Level,
   })
   .strict();
+
 export type Closeness = z.infer<typeof Closeness>;

@@ -3,8 +3,8 @@ import { z } from "zod";
 import { SourceName } from "../core/names";
 import { isoDateTime } from "./fields";
 
-// What a source reader gives: normalized events (ids stable per source, so syncing twice never duplicates) and
-// their files.
+// What a source reader gives: its events and their files.
+
 /**
  * A file a message carries, as its source resolved it; files.ts renders it as a line of the message. `ref` says where
  * it was met, stable without the file: `imessage:<attachment guid>`, `whatsapp:<chat>/<msg>`, `beeper:<mxc url>`,
@@ -19,7 +19,9 @@ export const SourceFile = z
     ref: z.string(),
   })
   .strict();
+
 export type SourceFile = z.infer<typeof SourceFile>;
+
 /**
  * A file as every reader makes one: typed by its name or path when the source gives no type (or only "bytes", as mail
  * often types a PDF), `path` only if it is there.
@@ -37,6 +39,8 @@ export const sourceFile = (f: {
   ...(f.path && existsSync(f.path) ? { path: f.path } : {}),
   ref: f.ref,
 });
+
+/** A normalized source event. Ids are stable per source, so syncing twice never duplicates. */
 export const SourceEvent = z
   .object({
     // Git only: lines a commit added and removed, lockfiles and generated files left out.
@@ -59,4 +63,5 @@ export const SourceEvent = z
     text: z.string(),
   })
   .strict();
+
 export type SourceEvent = z.infer<typeof SourceEvent>;

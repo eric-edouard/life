@@ -9,7 +9,7 @@ import { saliencyOf } from "../memory/moments";
 import { chatLines } from "../memory/raw";
 import { messageUnits } from "../memory/units";
 import { Action } from "../records/ledger";
-import { KEEP_AT } from "../records/observations";
+import { KEEP_AT } from "../records/units";
 import { newestAgent, readAgent } from "./agent";
 
 const NON_DIGIT = /\D/g;

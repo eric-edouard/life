@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
-import type { MadeBy } from "../records/ledger";
+import type { MadeBy } from "../records/fields";
 import { Imported } from "../records/observations";
 import {
   type Conversation,

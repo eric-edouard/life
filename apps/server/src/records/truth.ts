@@ -3,7 +3,7 @@ import { isoDate, slug } from "./fields";
 
 // Truth (truth/): owner-approved, in git, the only data that must survive a rebuild.
 
-export const Handles = z
+const Handles = z
   .object({
     email: z.array(z.email()).default([]),
     lifelog: z.uuid().optional(),
@@ -13,6 +13,7 @@ export const Handles = z
     whatsapp: z.array(z.string().regex(/^\+\d{6,15}$/)).default([]),
   })
   .strict();
+
 export const Person = z
   .object({
     aliases: z.array(z.string()).default([]),
@@ -30,10 +31,13 @@ export const Person = z
     relation: z.string().optional(),
   })
   .strict();
+
 export type Person = z.infer<typeof Person>;
+
 export const PeopleFile = z
   .object({ people: z.array(Person), schemaVersion: z.literal(1) })
   .strict();
+
 export const Chat = z
   .object({
     // Beeper chat id. Which projects a chat belongs to is in `Project.chats`.
@@ -43,10 +47,13 @@ export const Chat = z
     whatsapp: z.string().optional(),
   })
   .strict();
+
 export type Chat = z.infer<typeof Chat>;
+
 export const ChatsFile = z
   .object({ chats: z.array(Chat), schemaVersion: z.literal(1) })
   .strict();
+
 /** The owner's life areas (truth/areas.yaml): the one area vocabulary memory files things under. */
 export const Area = z
   .object({
@@ -54,10 +61,13 @@ export const Area = z
     name: z.string().min(1),
   })
   .strict();
+
 export type Area = z.infer<typeof Area>;
+
 export const AreasFile = z
   .object({ areas: z.array(Area), schemaVersion: z.literal(1) })
   .strict();
+
 export const Project = z
   .object({
     // An id from truth/areas.yaml.
@@ -75,4 +85,5 @@ export const Project = z
     status: z.enum(["active", "waiting", "parked", "done"]),
   })
   .strict();
+
 export type Project = z.infer<typeof Project>;

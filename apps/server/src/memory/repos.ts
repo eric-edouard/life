@@ -6,7 +6,7 @@ import { appendJsonl } from "../core/files";
 import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
 import { stamp } from "../models/llm";
-import type { MadeBy } from "../records/ledger";
+import type { MadeBy } from "../records/fields";
 import { RepoGuess } from "../records/observations";
 import type { Unit } from "../records/units";
 import { kindOf } from "../sources";

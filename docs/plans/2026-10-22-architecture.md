@@ -31,7 +31,8 @@ check; zones are one config key, `boundaries` in `.fallowrc.json`), so the shape
 core  ←  records  ←  models, sources, messaging, actions  ←  memory  ←  host (jobs, routes, CLI)  ←  apps
 ```
 
-- **core**: clock, paths and the platform, settings and the names they use, process, lock, log, secrets, redaction.
+- **core**: clock, paths and the platform, settings, process, lock, log, secrets, redaction, and Life's fixed names
+  the settings validate (`core/names.ts`: the engines, the sources, the agent's word): adding a source names it there.
 - **records**: every record Life writes, as zod schemas (`records/`, mirroring `docs/SCHEMA.md`).
 - **Capabilities**, each one contract plus its implementations, none importing another:
   - `models`: `PROVIDERS`, the call, the cache.
@@ -85,7 +86,7 @@ app's check and build.
 Each step is one PR that changes no behaviour, passes `bun run check`, and leaves no old path alive:
 
 1. **Zones and the rule** (#162). Fallow's boundary zones over today's folders (`boundaries` in `.fallowrc.json`), plus a
-   temporary `records` zone (`schema.ts`, `truth.ts`) that core may not import, so steps 2 and 5 show. `outputs.ts`
+   `records` zone (`schema.ts`, `truth.ts`) that core may not import, so steps 2 and 5 show. `outputs.ts`
    counts as core: it reads only the settings. Today's 61 violations (29 outside tests) sit in a baseline,
    `.fallow-baseline.json`, which the check reads: a new violation fails from the first PR, and each step below re-saves
    a smaller one (`scripts/baseline-check.ts` refuses a baseline that grows).

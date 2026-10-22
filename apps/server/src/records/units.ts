@@ -4,15 +4,50 @@ import {
   ContentHash,
   isoDate,
   isoDateTime,
+  MadeBy,
   Salience,
   slug,
   UnitId,
 } from "./fields";
-import { MadeBy } from "./ledger";
-import { ChapterKind, MemoryType } from "./observations";
 
 // Memory's units (memory/units/, docs/SCHEMA.md), their verdicts, files, zones and labels. Every record carries
 // schemaVersion and, when a model judged it, the model and prompt version.
+
+/** What a unit or observation is (owner's decision, 11 Oct). Owner-facing names in TYPE_NAMES. */
+export const MemoryType = z.enum([
+  "todo",
+  "promise",
+  "waiting",
+  "decision",
+  "person",
+  "preference",
+  "idea",
+  "news",
+  "nothing",
+]);
+
+export type MemoryType = z.infer<typeof MemoryType>;
+
+/** What kind of recording a lifelog chapter is (decision 6: the fast-tier model tags it). */
+export const ChapterKind = z.enum([
+  "conversation",
+  "small-talk",
+  "media",
+  "dictation",
+  "customer",
+]);
+
+/**
+ * The salience policy: the salience from which a unit is kept and its observations are shown. Extraction reads a kept unit
+ * in full; pages and searches list its claims. The owner's labels (11 Oct): salience 1 was mostly noise to him, 2 and 3
+ * mostly right. A salience-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with a moment that
+ * holds a kept unit.
+ */
+export const KEEP_AT = 2;
+
+/** The salience from which a unit is worth a searchable line, and is read with its moment. */
+export const SEARCHABLE_AT = 1;
+
 /**
  * memory/verdicts.jsonl: the moments model's judgement of one unit's content (`unit` + `hash`), append-only. The latest
  * line for a (unit, hash) wins; a unit a code rule dropped (`Unit.drop`) has none that counts.
@@ -35,7 +70,9 @@ export const Verdict = z
     when: isoDate.nullable(),
   })
   .strict();
+
 export type Verdict = z.infer<typeof Verdict>;
+
 /**
  * memory/files.jsonl: what Life read off one file a message carried (`SourceFile.ref`), append-only; the latest line for
  * a ref wins. `what` is the model's one sentence; `text` the words on the file (by code: a PDF's text layer, a
@@ -51,7 +88,9 @@ export const FileEntry = z
     what: z.string().optional(),
   })
   .strict();
+
 export type FileEntry = z.infer<typeof FileEntry>;
+
 /** L1: one lifelog chapter, one chat-day or one mail thread-day. Refs, hashes and metadata; never raw text. */
 export const Unit = z
   .object({
@@ -88,11 +127,14 @@ export const Unit = z
     title: z.string(),
   })
   .strict();
+
 export type Unit = z.infer<typeof Unit>;
+
 /** memory/zones.jsonl: the owner's IANA time zone from `from` on. */
 export const Zone = z
   .object({ from: isoDateTime, schemaVersion: z.literal(1), tz: z.string() })
   .strict();
+
 /** The owner's label on a unit: does it matter, and optionally the right type and area (an id from truth/areas.yaml). memory/labels.jsonl. */
 export const MemoryLabel = z
   .object({
@@ -104,4 +146,5 @@ export const MemoryLabel = z
     unitId: UnitId,
   })
   .strict();
+
 export type MemoryLabel = z.infer<typeof MemoryLabel>;
