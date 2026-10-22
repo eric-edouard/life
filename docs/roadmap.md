@@ -23,6 +23,11 @@ What Life is building next, in order, and what is parked. Each item gets its own
 - A rework of the memory layer: how sources become units, moments, observations and pages
   ([architecture](architecture.md)).
 - OpenRouter as a model layer, beside the Claude and Codex subscriptions Life uses today.
+- Two release channels from one codebase: the Mac app and the server.
+- A release pipeline: publishing a release ships the update to every install, the Mac app through its updater
+  ([releasing](releasing.md)) and the server alike.
+- Onboarding, scoped for both the Mac and the server: the first-run experience and connecting each source and
+  assistant.
 
 ## Parked
 
