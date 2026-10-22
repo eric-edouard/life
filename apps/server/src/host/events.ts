@@ -260,12 +260,12 @@ export function nextEvent(lines: string[], from: number) {
   return null;
 }
 
-/** How long a pulling agent may go without reading `tasks` before Life says it isn't receiving asks. */
+/** How long a pulling agent may go without reading `read_open_agent_tasks` before Life says it isn't receiving asks. */
 const PULL_MS = DAY;
 
 /**
  * Whether his asks reach his agent now: for one they are pushed to, a live subscription; for one that pulls them, a
- * `tasks` call of its own in the last day (`calls`: the connector's log).
+ * `read_open_agent_tasks` call of its own in the last day (`calls`: the connector's log).
  */
 export async function agentLive(
   now: number,
@@ -276,7 +276,7 @@ export async function agentLive(
   }
   return (await calls()).some(
     (e) =>
-      e.tool === "tasks" &&
+      e.tool === "read_open_agent_tasks" &&
       !e.error &&
       isAgent(e.agent) &&
       now - Date.parse(e.at) < PULL_MS

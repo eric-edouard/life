@@ -79,21 +79,27 @@ const Step = z.object({
   title: z.string().trim().min(1).max(200),
 });
 const Instant = z.iso.datetime({ offset: true });
-/** One update from the agent (the connector's `task`): on `task`, or a new one from his words (`said`) or a split (`parent`). */
+/** One update from the agent (the connector's `update_agent_task`): on `task`, or a new one from his words (`said`) or a split (`parent`). */
 export const Update = z.object({
   at: Instant.optional().describe("said: when he sent it"),
-  claim: z.boolean().optional().describe("true on the first update only"),
   deadline: Instant.optional(),
   note: Text.optional(),
   on: z.string().max(200).optional().describe("What or whom it waits for"),
   outcome: Text.optional(),
   parent: z.string().optional().describe("Splits this task: with `title`"),
-  question: Text.optional().describe("waiting-eric: what you asked him"),
+  question: Text.optional().describe("waiting-owner: what you asked him"),
   reason: Text.optional(),
   said: Text.optional().describe("A new task: his words, verbatim"),
-  seal: z.string().optional().describe("The `seal` from `tasks`"),
-  state: z.enum(["working", "waiting-eric", "done", "dropped"]),
+  seal: z
+    .string()
+    .optional()
+    .describe("The `seal` from `read_open_agent_tasks`"),
+  state: z.enum(["working", "waiting-owner", "done", "dropped"]),
   steps: z.array(Step).max(30).optional().describe("The full list every time"),
+  taken: z
+    .boolean()
+    .optional()
+    .describe("true on the first update only: you take the task"),
   task: z.string().optional().describe("The task's id"),
   title: z.string().trim().min(1).max(200).optional().describe("The part"),
 });

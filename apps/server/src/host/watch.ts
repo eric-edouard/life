@@ -198,7 +198,7 @@ async function syncUnits(store: Store, cursor: string) {
   return n !== null;
 }
 
-/** Whether Life can act from here, in life-watch.log at start (the connector's `reminders` acts from this process). */
+/** Whether Life can act from here, in life-watch.log at start (the connector's `change_todo_item` acts from this process). */
 function sayActions() {
   checks().then((problems) =>
     console.log(

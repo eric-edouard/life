@@ -648,7 +648,7 @@ const linkedCount = (db: Database, id: string) =>
 const SUMMARY = 200;
 
 /**
- * The lines of `day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what happened (its moments,
+ * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what happened (its moments,
  * planned ones included), the day's conversations with their chapters, its chat and mail units, its key observations,
  * then what Life changed for him.
  */
@@ -749,7 +749,7 @@ export async function day(date: string) {
   );
 }
 
-/** How far ahead `day` lists birthdays: a week, so the agent sees one coming a week ahead and on the day. */
+/** How far ahead `read_day` lists birthdays: a week, so the agent sees one coming a week ahead and on the day. */
 const BIRTHDAY_DAYS = 7;
 
 /**
@@ -797,7 +797,7 @@ export const birthdaysNear = (
     .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
- * What `day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the importance-3 promises
+ * What `read_day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the importance-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
  * ledger; the replies he owes. Who said each, when not him, is labelled. The agent's daily review lists them (docs/agent.md).
  */
@@ -888,7 +888,7 @@ async function dueContext(date: string, truth: Truth) {
   };
 }
 
-/** The days before `date` on which the agent's daily review got each id from `day` (the logged `mcp.call` ids). */
+/** The days before `date` on which the agent's daily review got each id from `read_day` (the logged `mcp.call` ids). */
 async function shownDays(date: string) {
   const days = new Map<string, Set<string>>();
   const calls = await recentEvents<Call>(OVERDUE_DAYS + 2, "mcp.call");

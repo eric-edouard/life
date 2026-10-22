@@ -83,11 +83,11 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   const open = task([]);
   const deadline = at(120);
   const ok = { deadline, note: "on it", state: "working", task: ASK } as const;
-  const claim = { ...ok, claim: true };
+  const claim = { ...ok, taken: true };
   expect(refusal(open, claim, now)).toBeNull();
   // The first update must be the claim, so two runs never both take the task.
   expect(refusal(open, ok, now)).toBe(
-    "the first update claims the task: claim: true"
+    "the first update takes the task: taken: true"
   );
   expect(refusal(undefined, ok, now)).toBe(`no task ${ASK}`);
   expect(refusal(open, { ...claim, note: undefined }, now)).toBe(
@@ -99,43 +99,41 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   expect(refusal(open, { ...claim, deadline: at(25 * 60) }, now)).toBe(
     "a working deadline is at most 24 h ahead"
   );
-  expect(refusal(open, { claim: true, state: "done", task: ASK }, now)).toBe(
+  expect(refusal(open, { state: "done", taken: true, task: ASK }, now)).toBe(
     "done needs outcome"
   );
   expect(
     refusal(
       open,
       {
-        claim: true,
         question: "which flat?",
-        state: "waiting-eric",
+        state: "waiting-owner",
+        taken: true,
         task: ASK,
       },
       now
     )
   ).toBeNull();
-  // A duplicate ask is claimed and dropped in one update.
+  // A duplicate ask is taken and dropped in one update.
   expect(
     refusal(
       open,
-      { claim: true, reason: "same as t1", state: "dropped", task: ASK },
+      { reason: "same as t1", state: "dropped", taken: true, task: ASK },
       now
     )
   ).toBeNull();
-  const claimed = task([
+  const taken = task([
     own("update", 1, { deadline, note: "a", state: "working" }),
   ]);
-  expect(refusal(claimed, claim, now)).toBe(
-    "already claimed: the task is working"
-  );
-  expect(refusal(claimed, ok, now)).toBeNull();
+  expect(refusal(taken, claim, now)).toBe("already taken: the task is working");
+  expect(refusal(taken, ok, now)).toBeNull();
   const done = task([own("update", 1, { outcome: "sent", state: "done" })]);
   expect(
     refusal(done, { reason: "no", state: "dropped", task: ASK }, now)
   ).toBe("the task is done: no update after that");
 });
 
-test("an open task is due 30 min after it was recorded, a claimed one at its own deadline", () => {
+test("an open task is due 30 min after it was recorded, a taken one at its own deadline", () => {
   expect(standing(task([])).deadline).toBe(at(30));
   const later = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
@@ -149,11 +147,11 @@ test("an open task is due 30 min after it was recorded, a claimed one at its own
   expect(standing(later).deadline).toBe(at(60));
 });
 
-test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Orbit isn't subscribed; once per cause and update", () => {
+test("he is emailed when a task is not taken after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Orbit isn't subscribed; once per cause and update", () => {
   const now = T0 + 20 * MIN;
   expect(escalation(task([]), now)).toBeNull();
   expect(escalation(task([]), T0 + 30 * MIN)).toBe(
-    "not claimed 30 min after the ask"
+    "not taken 30 min after the ask"
   );
   const working = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
@@ -164,7 +162,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
     own("update", 30, {
       deadline: at(600),
       question: "which flat?",
-      state: "waiting-eric",
+      state: "waiting-owner",
     }),
   ]);
   expect(escalation(waiting, T0 + 89 * MIN)).toBeNull();
@@ -247,7 +245,7 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
     spoken("entry_0000000c4a5f", 0, "hey Orbit, call the bank"),
     spoken("entry_0000000c4a60", 20, "hey Orbit, water the plant"),
   ]);
-  const late = "(not claimed 30 min after the ask)";
+  const late = "(not taken 30 min after the ask)";
   try {
     await chase(tasks, T0 + 31 * MIN, true);
     await chase(tasks, T0 + 32 * MIN, true);
@@ -318,11 +316,11 @@ test("the board gets Life's fields: notes and section in line, a tick when done;
 const TEXT = "# Orbit: the playbook";
 const { seal } = sealed(T0, TEXT);
 const claiming = {
-  claim: true,
   deadline: at(60),
   note: "on it",
   seal,
   state: "working",
+  taken: true,
 } as const;
 const write = (u: Update, lines: LedgerEntry[] = [], now = T0) =>
   written(
@@ -351,7 +349,7 @@ test("a write needs the seal of the current playbook: refused when stale or miss
   );
 });
 
-test("his words in a chat make a task, claimed at once, once per message and part; never without his words", () => {
+test("his words in a chat make a task, taken at once, once per message and part; never without his words", () => {
   const chat = {
     ...claiming,
     at: at(-5),
@@ -365,7 +363,7 @@ test("his words in a chat make a task, claimed at once, once per message and par
     instruction: { at: at(-5), quote: chat.said, ref: `connector:${at(-5)}` },
     via: "connector",
   });
-  expect(claim).toMatchObject({ after: { claim: true }, target: made?.id });
+  expect(claim).toMatchObject({ after: { taken: true }, target: made?.id });
   expect(answer).toBe(`${made?.id}: working`);
   // A retry finds it, whatever the offset of its time; another part of the same message is another task.
   const retry = { ...chat, at: "2026-10-19T16:55:00.000+07:00" };
@@ -406,7 +404,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(() => write(split, [done])).toThrow(`${ASK} is done`);
 });
 
-test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", async () => {
+test("where an ask's time went: spoken, ended, arrived, recorded, delivered, taken, closed; a split's parts are left out", async () => {
   // Two deliveries of the ask on two days, in their own log: the first is when Orbit got it.
   const dir = mkdtempSync(join(tmpdir(), "life-sent-"));
   const sent = (day: string, min: number) =>
@@ -430,7 +428,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
   const lines = [
     heard,
     part,
-    own("update", 5, { claim: true, state: "working" }),
+    own("update", 5, { state: "working", taken: true }),
     own("update", 9, { outcome: "sent", state: "done" }),
   ].map((a) => JSON.stringify(a));
   const [t, ...rest] = await timings(at(-60), at(60), tasksOf(lines), dir);
@@ -438,10 +436,10 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
   const moments = Object.fromEntries(t?.moments ?? []);
   expect(moments).toMatchObject({
     arrived: at(-1),
-    claimed: at(5),
     closed: at(9),
     ended: at(-2),
     recorded: at(0),
+    taken: at(5),
   });
   expect(moments.delivered).toBe(at(1));
   expect(t?.moments.map(([m]) => m)).toEqual([
@@ -450,7 +448,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
     "arrived",
     "recorded",
     "delivered",
-    "claimed",
+    "taken",
     "closed",
   ]);
 });
@@ -508,6 +506,6 @@ test("the playbook's Reminders parts only while the plugin is on: on, the protoc
     readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"),
     false
   );
-  expect(off).not.toContain("open_reminders");
+  expect(off).not.toContain("read_open_todo_items");
   expect(off).not.toContain("standing grant");
 });

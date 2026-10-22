@@ -288,6 +288,18 @@ const records: [string, z.ZodType, object][] = [
     action({ target: "agent", via: "watch" }),
   ],
   [
+    "memory/actions.jsonl",
+    LedgerEntry,
+    action({
+      after: { state: "waiting-owner", taken: true },
+      id: "entry_00000000000f",
+      instruction: undefined,
+      kind: "update",
+      target: "entry_0123456789ab",
+      via: "connector",
+    }),
+  ],
+  [
     "memory/statements.jsonl",
     Statement,
     {
@@ -342,7 +354,9 @@ const aged = (path: string, r: object) => {
     .replaceAll("agent:act_", "atlas:act_")
     .replaceAll('"to_do"', '"todo"')
     .replaceAll('"waiting_on_someone"', '"waiting"')
-    .replaceAll('"about_a_person"', '"person"');
+    .replaceAll('"about_a_person"', '"person"')
+    .replaceAll('"waiting-owner"', '"waiting-eric"')
+    .replaceAll('"taken":', '"claim":');
   if (SALIENCE.test(path)) {
     s = s.replace('"importance":', '"salience":');
   }
@@ -356,12 +370,18 @@ const aged = (path: string, r: object) => {
 };
 
 test("records the new code writes, aged into the old names, come back the same and parse", () => {
-  const stored = new Map(
-    records.map(([path, , r]) => [path, `${aged(path, r)}\n`])
-  );
+  // One file per path, the records of a path on its lines in order.
+  const stored = new Map<string, string>();
+  for (const [path, , r] of records) {
+    stored.set(path, `${stored.get(path) ?? ""}${aged(path, r)}\n`);
+  }
   const renamed = renameStored(stored).files;
+  const seen = new Map<string, number>();
   for (const [path, schema, r] of records) {
-    const back = JSON.parse(renamed.get(path) ?? stored.get(path) ?? "");
+    const k = seen.get(path) ?? 0;
+    seen.set(path, k + 1);
+    const lines = (renamed.get(path) ?? stored.get(path) ?? "").split("\n");
+    const back = JSON.parse(lines[k] ?? "");
     expect(back).toEqual(r);
     expect(schema.safeParse(back).success).toBe(true);
   }
@@ -530,4 +550,36 @@ test("a memory/ made between the two renames is kept and settled, never dropped"
   for (const d of ["memory.old", "memory.renamed", "memory.stray"]) {
     expect(existsSync(join(dir, d))).toBe(false);
   }
+});
+
+test("the agent bench's cases name the tools and ids as they now are", () => {
+  const path = "docs/evals/agent-bench-cases.json";
+  const cases = renameStored(
+    new Map([
+      [
+        path,
+        JSON.stringify([
+          {
+            ask: "act_0123456789ab",
+            call: [
+              { args: { claim: true, state: "waiting-eric" }, tool: "task" },
+            ],
+            not: { call: ["correct"] },
+          },
+        ]),
+      ],
+    ])
+  );
+  expect(JSON.parse(cases.files.get(path) ?? "")).toEqual([
+    {
+      ask: "entry_0123456789ab",
+      call: [
+        {
+          args: { state: "waiting-owner", taken: true },
+          tool: "update_agent_task",
+        },
+      ],
+      not: { call: ["correct_memory"] },
+    },
+  ]);
 });

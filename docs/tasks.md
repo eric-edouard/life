@@ -17,13 +17,13 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent, and
   `bun life ask`. Nothing else Life reads ever does.
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
-  `playbook.md` in the owner data dir. `tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
-  hash of the text and a 6-hour window); `task` refuses a write without the current seal and answers with the text.
+  `playbook.md` in the owner data dir. `read_open_agent_tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
+  hash of the text and a 6-hour window); `update_agent_task` refuses a write without the current seal and answers with the text.
   The text between `<!-- reminders -->` markers is cut while the Reminders plugin is off: keep the markers.
 - What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
   The connector's instructions (512 characters at most) open with that line. Events carry data only.
 - The playbook makes the agent confirm a low-confidence ask with the owner first, send as the owner only under its
-  `## Sends`, and change reminders only through the connector's `reminders`.
+  `## Sends`, and change reminders only through the connector's `change_todo_item`.
 
 ## Asks
 
@@ -35,30 +35,30 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
 - `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
   it (`apps/server/src/host/events.ts`).
-- The agent also records one through `task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
+- The agent also records one through `update_agent_task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
-  (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is claimed in the same call, so it
+  (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is taken in the same call, so it
   sends no `ask` event.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded, delivered,
-  claimed, closed.
+  taken, closed.
 
 ## Tasks
 
 - **Every ask is a task until the agent closes it done (an outcome) or dropped (a reason)** (where each stands: `apps/server/src/memory/tasks.ts`; its writes and chases: `apps/server/src/host/agent.ts`). A task is
   its ask line plus its own lines in the same ledger (`TASK_LINES`: no `instruction`, `target` = the task).
-- The agent writes `update`s through the connector's `task` (the rules are `refusal`, behind the seal in `written`; one
-  claim). `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows. `reply`
+- The agent writes `update`s through the connector's `update_agent_task` (the rules are `refusal`, behind the seal in `written`; one
+  `taken`). `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows. `reply`
   lines are what the agent told the owner (one on no task targets `chat`).
-- `changes` with `about` `task:<id>` is a task's whole history. `nudge` and `steer` lines are old kinds that only parse.
-- **What needs the owner is one rule, `escalation`**, for every task: unclaimed 30 min after the ask, claimed and past
+- `read_memory_changes` with `about` `task:<id>` is a task's whole history. `nudge` and `steer` lines are old kinds that only parse.
+- **What needs the owner is one rule, `escalation`**, for every task: not taken 30 min after the ask, taken and past
   its deadline, waiting on the owner over 1 h, a week old, or no live subscription (one email a day). `chase` (each minute in
   the watcher) emails the owner once per task with the cause and the agent's last update; a pass's new causes go in one email.
-- Task lines stay out of the report's Actions section and out of `day`. The nightly lists every open task and those
+- Task lines stay out of the report's Actions section and out of `read_day`. The nightly lists every open task and those
   closed in the last day, counts the last day's asks with no reply logged (`unanswered`), and says "no daily review
-  reached Life" when the agent made no successful `day` call in 24 h (`reviewed`, `nightly.ts`): the agent's daily
-  review must keep reading `day`.
+  reached Life" when the agent made no successful `read_day` call in 24 h (`reviewed`, `nightly.ts`): the agent's daily
+  review must keep reading `read_day`.
 
 ## Actions: one backend
 
@@ -73,13 +73,13 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - **One contract, `TodoListBackend`** (`apps/server/src/todo-list/contract.ts`): his lists (not groups) and whether one is shared, a
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
   `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
-  Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `changes`). `idOf` is the one place
-  the connector's numeric `target` becomes an id (and `open_reminders` gives a numeric id back as a number). The
+  Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `read_memory_changes`). `idOf` is the one place
+  the connector's numeric `target` becomes an id (and `read_open_todo_items` gives a numeric id back as a number). The
   ledger's items are keyed by their whole target, and the read-back and `duplicateOf` see only the current backend's:
   after a switch, the other backend's items are never read, marked lost or matched.
 - **Ids are strings** (Google Tasks' are `<list>/<task>`); the connector's `target` takes one, or a Reminders number as
-  it first did, and `open_reminders` gives ids as strings. The tools keep their names (`reminders`,
-  `open_reminders`); their descriptions say "actions", whichever backend the install uses.
+  it first did, and `read_open_todo_items` gives ids as strings. The tools say what they do (`change_todo_item`,
+  `read_open_todo_items`), whichever backend the install uses.
 - **What a backend lacks is a capability (`can`), never a branch on its name**: `act` refuses a change that needs one
   (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, moves, restore, subtasks,
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
@@ -89,7 +89,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   `inbound` (`host/inbound.ts`) reads the owner's changes back.
 - **The to-do list output** is on only with the `todo_list` setting, which names the backend: `{"backend": "reminders"}` or
   `{"backend": "google", "account": "<his Google account>"}` (`isOn("todo_list")`). Off: `backend()`, the one gate, refuses every
-  call, the minute pass skips it, the connector offers no `reminders` or `open_reminders` tool, `act` refuses, and the
+  call, the minute pass skips it, the connector offers no `change_todo_item` or `read_open_todo_items` tool, `act` refuses, and the
   rest of Life runs the same. The board, the read-back, the grant and the playbook's Reminders parts exist only while
   it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's
   tools keep their names and arguments whatever the backend (a change forces a costly reconnect).
@@ -117,9 +117,9 @@ each minute as state only: one `via: "reminders"` line each, with no `instructio
 
 `openItems` (`apps/server/src/todo-list/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
 what sync read back) and the chats. Code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
-closeness, age); each is shown to the agent's review at most twice (counted from the ids its `day` calls were logged
-with). `day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
-it, within a minute. `open_reminders` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
+closeness, age); each is shown to the agent's review at most twice (counted from the ids its `read_day` calls were logged
+with). `read_day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
+it, within a minute. `read_open_todo_items` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
 `isDirect` (`apps/server/src/memory/sources.ts`), for replies owed and closeness alike.
 
 ### The board
@@ -129,7 +129,7 @@ The agent's Reminders list (`BOARD`, named after the agent) is a projection of t
 never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
-  dropped (`closings`), so it is not added again. The agent sees why in `tasks`. Nothing else on the board is read as
+  dropped (`closings`), so it is not added again. The agent sees why in `read_open_agent_tasks`. Nothing else on the board is read as
   coming from the owner: steers read from it once put words in the owner's mouth.
 - An item is found by the task id on its notes' first line. Each pass brings its notes and, where the backend has sections, its section (Open, Working:
   made by hand; the code only assigns them) in line, and ticks the item when its task closes, and only then, so a
@@ -142,7 +142,7 @@ The only other authority, off until the owner's words in a Claude session turn i
 words>'`, a `grant` line in the ledger, the latest standing). The owner's "stop" may come through the agent, because off only
 takes authority away.
 
-- While on, `reminders` with `obs` in place of `said` adds a reminder (title, list, due, section) from the owner's current
+- While on, `change_todo_item` with `obs` in place of `said` adds a reminder (title, list, due, section) from the owner's current
   importance-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
   by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
@@ -169,15 +169,15 @@ observations citing it. It never acts, asks or sends.
 ## The connector
 
 `apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections, acts only
-on the owner's explicit request (in the chat, or in an ask through the agent's `reminders` and `task`) or on the standing
+on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item` and `update_agent_task`) or on the standing
 grant, and logs the agent's replies.
 
-- **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the status reads
-  `status`, `runs`, `changes`, `claim`, see `docs/status-reads.md`; and the memory reads); `correct` (lifelog
-  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
-  in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `ledger.jsonl`
+- **Tools:** thirteen read-only ones (`read_open_agent_tasks`; `read_open_todo_items`, read from Reminders, never the board; the status reads
+  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads); `correct_memory` (lifelog
+  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `change_todo_item` (through `act`, with the owner's words
+  in `said`, or an `obs` for the grant); `update_agent_task` (the agent's updates, through `update`); `log_reply_to_owner` (one `ledger.jsonl`
   line, appended only: it sends nothing).
-- `correct` is annotated destructive so clients ask first. `reminders`, `task` and `reply` are not (a remove goes to
+- `correct_memory` is annotated destructive so clients ask first. `change_todo_item`, `update_agent_task` and `log_reply_to_owner` are not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses them unattended.
 - Replies are the agent's output, never the owner's words: they enter memory only through the agent's source (`AGENT_WORD`), as
   evidence of what was done.

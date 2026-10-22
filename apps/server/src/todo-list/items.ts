@@ -115,10 +115,10 @@ export const openLinked = (actions: LedgerEntry[], prefix?: string) =>
       (prefix === undefined || target.startsWith(`${prefix}:`))
   );
 
-// The view: what `day` lists as due (apps/server/src/memory/search.ts gathers the candidates, each with its line). Copies merge,
+// The view: what `read_day` lists as due (apps/server/src/memory/search.ts gathers the candidates, each with its line). Copies merge,
 // timing decides when an item shows, rank decides the order; no model writes either, and nothing is stored.
 
-/** One candidate open item, with the line `day` shows for it. */
+/** One candidate open item, with the line `read_day` shows for it. */
 export interface Candidate {
   /** When it was said or made: older first at the same rank. */
   at: string;
@@ -169,7 +169,7 @@ function timely(c: Candidate, date: string, today: string, shown: string[]) {
   if (c.kind === "waiting_on_someone") {
     return late === 0;
   }
-  // Shown in Due: on a day from the one before its day (its ids elsewhere in `day` don't count).
+  // Shown in Due: on a day from the one before its day (its ids elsewhere in `read_day` don't count).
   const inDue = shown.filter((d) => daysFrom(d, when) <= 1).length;
   return (
     late === 0 ||
@@ -191,7 +191,7 @@ const KIND = {
  * The open items due on `date`, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it
  * serves (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older
  * first. Copies merge: a reminder into the observation it came from, and an item said in the turn of an open task
- * (`tasks`: their refs) is left to that task. `shown`: the days a daily review was already given each id (`day`'s answers).
+ * (`read_open_agent_tasks`: their refs) is left to that task. `shown`: the days a daily review was already given each id (`read_day`'s answers).
  */
 export function openItems(
   candidates: Candidate[],
@@ -289,7 +289,7 @@ export function owed(
   }
   return out;
 }
-/** One line saying what an action did and on which of his words: the nightly's Actions section and `day`. */
+/** One line saying what an action did and on which of his words: the nightly's Actions section and `read_day`. */
 export function entryLine(a: LedgerEntry) {
   const was = a.before?.title ?? a.target;
   const changed = Object.entries(a.after)

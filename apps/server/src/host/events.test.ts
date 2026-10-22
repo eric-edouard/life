@@ -163,12 +163,18 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
   });
   try {
     setSettings({ agent: { ...before, transport: "pull" } });
-    expect(await agentLive(now, async () => [call("tasks", 2)])).toBe(true);
-    expect(await agentLive(now, async () => [call("tasks", 30)])).toBe(false);
-    expect(await agentLive(now, async () => [call("day", 2)])).toBe(false);
-    expect(await agentLive(now, async () => [call("tasks", 2, "curl/8")])).toBe(
-      false
-    );
+    expect(
+      await agentLive(now, async () => [call("read_open_agent_tasks", 2)])
+    ).toBe(true);
+    expect(
+      await agentLive(now, async () => [call("read_open_agent_tasks", 30)])
+    ).toBe(false);
+    expect(await agentLive(now, async () => [call("read_day", 2)])).toBe(false);
+    expect(
+      await agentLive(now, async () => [
+        call("read_open_agent_tasks", 2, "curl/8"),
+      ])
+    ).toBe(false);
   } finally {
     setSettings({ agent: before });
   }

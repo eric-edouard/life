@@ -146,7 +146,7 @@ export function voiceLines(
 
 /**
  * A chat, mail or git unit read again from its source: its messages and their lines, each with who wrote it as
- * extraction sees it (today's map and corrections). The one way `fetch` and the status reads' `claim` re-read a unit.
+ * extraction sees it (today's map and corrections). The one way `fetch` and the status reads' `read_observation` re-read a unit.
  */
 export async function unitLines(unit: Unit, { resolve, truth }: People) {
   const built = builtFor(
@@ -242,7 +242,7 @@ export async function fetchOf(
 /** What `--who` stands for: the words, and when they name a person (on the map, inferred, as corrected), that person's names and handles. */
 function needlesOf(who: string, people: People) {
   const { canon, corrections, inferred, truth } = people;
-  // Who the words mean, as `person` reads them (`meant`); the words alone when no one.
+  // Who the words mean, as `read_person_page` reads them (`meant`); the words alone when no one.
   const ref = `person:${meant(who, people).known ?? who}`;
   const person = truth.people.find((p) => `person:${p.id}` === ref);
   return [
@@ -478,7 +478,7 @@ function senderOf(e: SourceEvent, { names, resolve }: People) {
   return e.fromMe ? "me" : ((who && names.get(who)) ?? e.sender);
 }
 
-/** Where to read more of messages `chats` does not read (a note's versions): the units memory has (`units`) of their days. */
+/** Where to read more of messages `read_chats` does not read (a note's versions): the units memory has (`units`) of their days. */
 function noteUnits(list: SourceEvent[], units: Set<string>) {
   const ids = [...new Set(list.map(dayUnitId))].filter((id) => units.has(id));
   return ids.length > 0 ? `fetch ${ids.join(", ")}` : "no unit in memory";
@@ -515,7 +515,7 @@ function chatLinesOf(
 const WROTE_DAYS = 60;
 
 /**
- * The replies he owes up to `end` (`owed`, apps/server/src/todo-list/items.ts), as open items for `day`: in a 1:1 chat (its source can tell
+ * The replies he owes up to `end` (`owed`, apps/server/src/todo-list/items.ts), as open items for `read_day`: in a 1:1 chat (its source can tell
  * a group) of his last 60 days, the last word is theirs. Who wrote is the person's name when Life has one.
  */
 export async function repliesOwed(end: Date): Promise<Candidate[]> {

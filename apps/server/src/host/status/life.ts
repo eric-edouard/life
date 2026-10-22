@@ -33,9 +33,9 @@ function dbTime(path: string) {
   );
   return ms ? new Date(ms).toISOString() : null;
 }
-/** How far back `status` looks in derived/log for the last runs of each kind. */
+/** How far back `read_life_status` looks in derived/log for the last runs of each kind. */
 const STATUS_DAYS = 7;
-/** The latest run of a step, and the latest that succeeded and failed, within what `status` read. */
+/** The latest run of a step, and the latest that succeeded and failed, within what `read_life_status` read. */
 function lastOf(list: Run[], step: string) {
   const mine = list.filter((r) => r.step === step);
   return {

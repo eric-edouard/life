@@ -61,12 +61,12 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `ledger.jsonl` is appended only by `act`, `setGrant`, the tasks (`ask`, `update`, `reply`) and the sync
-  pass (`inbound`, `closings`). The status reads' `changes` cursor counts ledger lines, so a line must never move. Code
+  pass (`inbound`, `closings`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (next).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts`), with the owner's OK on the list of
   renames: the app runs it at its next start, under the lock (a checkout only on a copy, `mayMigrate`); it rewrites the stored lines in place (same count, same
-  order, so the `changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
+  order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
   writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
@@ -88,7 +88,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections, and acts only through `reminders`, `task` and `reply`.** Never add a
+- **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task` and `log_reply_to_owner`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Pages serve nothing of his before their sign-in check** (`/check`, `/me`; the app's status reads behind the local
@@ -124,8 +124,8 @@ A name is a decision about what a thing is. Before naming or renaming anything, 
 what it is not, then find its word in `docs/glossary.md` (its Word column is what the code uses today): one word per
 concept, the same in docs, app, email, connector and code. A new concept gets its glossary line in the same PR.
 
-- Clarity beats brevity: a name the reader doesn't have to look up (planned: `read_open_agent_tasks` for the
-  connector's `tasks`).
+- Clarity beats brevity: a name the reader doesn't have to look up (the connector's `read_open_agent_tasks`, not
+  `tasks`).
 - One meaning per word. When a word already means something else (state, item, run, zone), pick another.
 - New and renamed functions: `readX` reads disk or the network, `parseX` turns text into a value, `xOf` is pure, `latest` is the most
   recent of a set, booleans start with `is` or `has`.
@@ -142,7 +142,7 @@ Before adding a helper, use the one that exists:
 | Where an observation stands (hidden, gone, replaced, retired) | `stateOf` (`ledger.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
-| Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `person` and `chats`) |
+| Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
 | A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |

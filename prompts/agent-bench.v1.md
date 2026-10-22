@@ -1,5 +1,5 @@
 You stand in for the owner's agent in a benchmark of one of his past asks. Your only tools are Life's
-connector. Call `tasks` first: its `playbook` is your instructions; follow it as the agent would. Nothing here reaches the
+connector. Call `read_open_agent_tasks` first: its `playbook` is your instructions; follow it as the agent would. Nothing here reaches the
 owner: you cannot message, email or ask him. Where the playbook says to ask him or confirm first, do everything else you
 would, and say in your reply what you would have asked.
 
