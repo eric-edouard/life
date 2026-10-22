@@ -22,7 +22,7 @@ struct Pill: View {
   }
 }
 
-/// "3 h ago", "in 2 h": an instant as the plate's facts show it.
+/// "3 h ago", "in 2 h": an instant as the status snapshot's facts show it.
 func ago(_ at: Date) -> String {
   at.formatted(.relative(presentation: .named, unitsStyle: .abbreviated))
 }

@@ -3,8 +3,8 @@ import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { LOG_DIR } from "../core/log";
-import { DATA, ROOT } from "../core/paths";
-import { MACHINE, MODEL_ENV } from "../core/platform";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { MACHINE_DIR, MODEL_ENV } from "../core/platform";
 import { repoFiles } from "../core/proc";
 import {
   askOnce,
@@ -219,10 +219,14 @@ test("a model call has no tools, no MCP, no settings, no secrets, and runs in an
     expect.arrayContaining(Object.keys(codex.env))
   );
   // Its own home, so ~/.codex/AGENTS.md never reaches the model.
-  expect(codex.env.CODEX_HOME).toBe(join(MACHINE, "codex"));
+  expect(codex.env.CODEX_HOME).toBe(join(MACHINE_DIR, "codex"));
   for (const r of [claude, codex]) {
     expect(r.empty).toBe(true);
-    for (const root of [ROOT, DATA, join(homedir(), "Life")]) {
+    for (const root of [
+      LIFE_CODE_DIR,
+      OWNER_DATA_DIR,
+      join(homedir(), "Life"),
+    ]) {
       expect(inside(r.cwd, root)).toBe(false);
     }
   }
@@ -239,11 +243,13 @@ const STARTS_MODEL = [
 const RUNS_PROGRAMS = /Bun\.spawn|Bun\.\$|\bexec\(|spawnSync|child_process/;
 
 test("only llm.ts starts the model CLIs", async () => {
-  const code = repoFiles(ROOT, ["apps/server/src", "scripts"], [".ts"]).filter(
-    (f) => !f.endsWith(".test.ts")
-  );
+  const code = repoFiles(
+    LIFE_CODE_DIR,
+    ["apps/server/src", "scripts"],
+    [".ts"]
+  ).filter((f) => !f.endsWith(".test.ts"));
   const texts = await Promise.all(
-    code.map((f) => Bun.file(join(ROOT, f)).text())
+    code.map((f) => Bun.file(join(LIFE_CODE_DIR, f)).text())
   );
   expect(
     code.filter(

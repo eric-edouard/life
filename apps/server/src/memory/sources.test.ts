@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { AGENT_WORD } from "../core/names";
-import { STATE } from "../core/paths";
-import { APP_DATA, HOME, MACHINE, WINDOWS } from "../core/platform";
+import { LIFE_STATE_DIR } from "../core/paths";
+import { APP_DATA, HOME, MACHINE_DIR, WINDOWS } from "../core/platform";
 import { expand } from "../core/settings";
 import { Unit } from "../records/unit";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -126,8 +126,17 @@ test("an archived source can't be read until the archive copied its store; other
 });
 
 test("a test run reads nothing of this computer: every store path is under its own state", () => {
-  const paths = [HOME, APP_DATA, MACHINE, ARCHIVE, DB, NOTES, WHATSAPP, BEEPER];
+  const paths = [
+    HOME,
+    APP_DATA,
+    MACHINE_DIR,
+    ARCHIVE,
+    DB,
+    NOTES,
+    WHATSAPP,
+    BEEPER,
+  ];
   for (const p of [...paths, expand("~/Work")]) {
-    expect(p.startsWith(STATE)).toBe(true);
+    expect(p.startsWith(LIFE_STATE_DIR)).toBe(true);
   }
 });

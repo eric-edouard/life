@@ -277,7 +277,7 @@ export function readNotes(since: Date, archive = ARCHIVE): SourceEvent[] {
   });
 }
 
-/** The newest note version the archive kept (the status plate). */
+/** The newest note version the archive kept (the status snapshot). */
 export const newestNote = () =>
   newestArchived(
     "notes",

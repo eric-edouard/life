@@ -8,7 +8,7 @@ import { MIN } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
-import { ROOT } from "../core/paths";
+import { LIFE_CODE_DIR } from "../core/paths";
 import { ACTIONS, type Task, tasksOf } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
 import { standing, type Update } from "../memory/tasks";
@@ -505,7 +505,7 @@ test("the playbook's Reminders parts only while the plugin is on: on, the protoc
   expect(protocol(text, true)).toBe("A. B. C.");
   expect(protocol(text, false)).toBe("A. C.");
   const off = protocol(
-    readFileSync(join(ROOT, "docs", "agent.md"), "utf8"),
+    readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"),
     false
   );
   expect(off).not.toContain("open_reminders");

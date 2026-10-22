@@ -8,7 +8,7 @@ import { lockedSince } from "./memory-lock";
 import { daysBefore, lastDays } from "./units";
 import { localDate } from "./zones";
 
-// Life's processing as recorded, as JSON for a dashboard: `runs` (the history in derived/log: sweeps, their steps,
+// Life's processing as recorded, as JSON for the status reads: `runs` (the history in derived/log: sweeps, their steps,
 // outcomes, counts, errors); `lifeStatus` (host/status/life.ts) reads it. Read-only, like changes.ts.
 
 // --- runs ----------------------------------------------------------------------------------------------------------

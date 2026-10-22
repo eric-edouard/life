@@ -1,7 +1,7 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { MACHINE } from "../core/platform";
+import { MACHINE_DIR } from "../core/platform";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { Newest } from "./contract";
 
@@ -9,14 +9,14 @@ import type { Newest } from "./contract";
 // chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
 // of a note as what it changed.
 
-export const ARCHIVE = join(MACHINE, "archive");
+export const ARCHIVE = join(MACHINE_DIR, "archive");
 
 /** One archive store's database (an archived source's name). */
 export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);
 
 /**
- * A store's newest items as the status plate shows them: `sql` gives rows newest first, each its `at`, his `words` and,
+ * A store's newest items as the status snapshot shows them: `sql` gives rows newest first, each its `at`, his `words` and,
  * for a store with parts, a `label`.
  */
 export function newestArchived(

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { ROOT } from "@life/server/src/core/paths";
+import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
 import { C, MONO, RADIUS, SERIF } from "@life/server/src/memory/email";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.
-const asset = (path: string) => Bun.file(join(ROOT, path)).text();
+const asset = (path: string) => Bun.file(join(LIFE_CODE_DIR, path)).text();
 const colours = (block: string) =>
   Object.fromEntries(
     [...block.matchAll(/--([a-z]+):\s*(#[0-9a-f]{6})/g)].map((m) => [
@@ -101,7 +101,7 @@ test("no colour is written anywhere else: every hex colour is in tokens.css or a
     "apps/server/src/memory/email.ts",
   ]);
   const read = repoFiles(
-    ROOT,
+    LIFE_CODE_DIR,
     ["apps/server/src", "assets", "apps/mac/Sources"],
     ".ts .js .css .html .swift .json .jsonl .md".split(" ")
   );

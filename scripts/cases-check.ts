@@ -4,10 +4,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { readJson } from "@life/server/src/core/files";
-import { DATA } from "@life/server/src/core/paths";
+import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { z } from "zod";
 
-const CASES = join(DATA, "docs/evals/cases");
+const CASES = join(OWNER_DATA_DIR, "docs/evals/cases");
 if (!existsSync(CASES)) {
   console.log(`cases: skipped, no ${CASES}`);
   process.exit(0);
@@ -51,14 +51,17 @@ const problems = readdirSync(CASES)
       ? textOf(join(import.meta.dir, "..", c.check))
       : null;
     return [
-      textOf(join(DATA, c.audit)) === null ? "its audit file is missing" : "",
+      textOf(join(OWNER_DATA_DIR, c.audit)) === null
+        ? "its audit file is missing"
+        : "",
       (c.check === null) === (c.status === "pending")
         ? ""
         : "check is null only while pending",
       c.status === "test" && !test?.includes(file.slice(0, -5))
         ? `its test ${c.check} is not in apps/server/src/, is missing or no longer names it`
         : "",
-      c.status === "facts" && textOf(join(DATA, c.check ?? "")) === null
+      c.status === "facts" &&
+      textOf(join(OWNER_DATA_DIR, c.check ?? "")) === null
         ? `its facts ${c.check} are missing`
         : "",
     ].flatMap((p) => (p ? [`${file}: ${p}`] : []));

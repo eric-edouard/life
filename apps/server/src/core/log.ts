@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "./clock";
 import { filesIn, linesOf } from "./files";
-import { STATE } from "./paths";
+import { LIFE_STATE_DIR } from "./paths";
 import { settings } from "./settings";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
@@ -12,7 +12,7 @@ import { settings } from "./settings";
 // answer's text, and
 // `lifelog.write` logs the correction it forwards and lifelog's answer.
 
-export const LOG_DIR = join(STATE, "log");
+export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 
 type LogKind =
   | "board.write"

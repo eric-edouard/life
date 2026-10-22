@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { askOnce, llmFor, llmSpec, quota, type Tier } from "../models/llm";
 import { INFERRED_USE_AT, type InferredPerson } from "../records/observation";
@@ -263,20 +263,32 @@ export function refContext(
 /** Commits the given paths of the data repo (only those that exist), with a plain message. Nothing to commit is fine. */
 export function commitMemory(all: string[], message: string) {
   // Its own repo's root, never a folder git would resolve to some repo above it (a test run's copy, a subfolder).
-  if (!existsSync(join(DATA, ".git"))) {
-    throw new Error(`${DATA} is not a repo of its own: nothing is committed`);
+  if (!existsSync(join(OWNER_DATA_DIR, ".git"))) {
+    throw new Error(
+      `${OWNER_DATA_DIR} is not a repo of its own: nothing is committed`
+    );
   }
-  if (git(DATA, ["remote"]).stdout.toString().trim()) {
-    throw new Error(`${DATA}'s repo has a remote: his data is never pushed`);
+  if (git(OWNER_DATA_DIR, ["remote"]).stdout.toString().trim()) {
+    throw new Error(
+      `${OWNER_DATA_DIR}'s repo has a remote: his data is never pushed`
+    );
   }
-  const paths = all.filter((p) => existsSync(join(DATA, p)));
-  git(DATA, ["add", "--", ...paths]);
+  const paths = all.filter((p) => existsSync(join(OWNER_DATA_DIR, p)));
+  git(OWNER_DATA_DIR, ["add", "--", ...paths]);
   if (
-    git(DATA, ["diff", "--cached", "--quiet", "--", ...paths]).exitCode === 0
+    git(OWNER_DATA_DIR, ["diff", "--cached", "--quiet", "--", ...paths])
+      .exitCode === 0
   ) {
     return false;
   }
-  const out = git(DATA, ["commit", "-q", "-m", message, "--", ...paths]);
+  const out = git(OWNER_DATA_DIR, [
+    "commit",
+    "-q",
+    "-m",
+    message,
+    "--",
+    ...paths,
+  ]);
   if (out.exitCode !== 0) {
     throw new Error(`git commit failed: ${out.stderr.toString().trim()}`);
   }

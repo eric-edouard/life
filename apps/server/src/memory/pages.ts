@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { appendJsonl } from "../core/files";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { stamp } from "../models/llm";
 import {
@@ -566,7 +566,7 @@ export async function pages(opts: PagesOptions) {
  * Each page that changed since `~/Life`'s last commit (the night's), midday runs' rewrites included, against its
  * committed version: lines added, moved to History and removed. A page gone counts its lines removed.
  */
-export function changedSinceCommit(root = DATA, dir = PAGES) {
+export function changedSinceCommit(root = OWNER_DATA_DIR, dir = PAGES) {
   if (git(root, ["rev-parse", "--git-dir"]).exitCode !== 0) {
     throw new Error(`${root} is not a git repository`);
   }

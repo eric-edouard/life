@@ -17,7 +17,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent, and
   `bun life ask`. Nothing else Life reads ever does.
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
-  `playbook.md` in the data root. `tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
+  `playbook.md` in the owner data dir. `tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
   hash of the text and a 6-hour window); `task` refuses a write without the current seal and answers with the text.
   The text between `<!-- reminders -->` markers is cut while the Reminders plugin is off: keep the markers.
 - What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
@@ -172,8 +172,8 @@ observations citing it. It never acts, asks or sends.
 on the owner's explicit request (in the chat, or in an ask through the agent's `reminders` and `task`) or on the standing
 grant, and logs the agent's replies.
 
-- **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the dashboard's
-  JSON reads `status`, `runs`, `changes`, `claim`, see `docs/dashboard.md`; and the memory reads); `correct` (lifelog
+- **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the status reads
+  `status`, `runs`, `changes`, `claim`, see `docs/status-reads.md`; and the memory reads); `correct` (lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `actions.jsonl`
   line, appended only: it sends nothing).
@@ -185,7 +185,7 @@ grant, and logs the agent's replies.
   OpenAI's hosts only, verified before anything is sent.
 - **Auth:** every request needs a JWT for this resource with `life:read`, from its issuer: Life's own (`apps/server/src/host/http/oauth.ts`,
   at `<origin>/auth`: an app is approved with a pairing code from `bun life pair`, PKCE, one-use codes, refresh tokens
-  replaced on use, its key in `STATE/oauth`), or the `connector` setting's (lifelog's, `sub` = its owner)
+  replaced on use, its key in `LIFE_STATE_DIR/oauth`), or the `connector` setting's (lifelog's, `sub` = its owner)
   (`ownerTokens`, `apps/server/src/host/http/auth.ts`). Another issuer's keys are kept a day (`server.ts`). Failing to fetch them is
   `unreachable`: a 503 on `/mcp` and `/check`, never a refused token.
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid
@@ -203,7 +203,7 @@ Life can turn on or off (Reminders, the Past calendar, the connector, the backup
 reads the rest of its settings. How the report and the alerts go out:
 
 - To the owner only (`apps/server/src/host/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
-  setting as a macOS notification with the report kept as a page in `STATE/reports`. Either way the log's `email.sent`
+  setting as a macOS notification with the report kept as a page in `LIFE_STATE_DIR/reports`. Either way the log's `email.sent`
   means delivered.
 - The alerts: a failed action or an ask whose delivery failed; a task that needs the owner, once per cause; the agent
   not subscribed to `ask` (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an

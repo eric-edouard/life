@@ -2,19 +2,19 @@ import { createHmac } from "node:crypto";
 import { join } from "node:path";
 import { type Context, Hono } from "hono";
 import { MIN } from "../../core/clock";
-import { DATA, ROOT } from "../../core/paths";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../../core/paths";
 import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
 import { cookie, cookieOf, HEADERS, redirect, TOKENS, text } from "./http";
 
-// The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data,
+// The portrait (/me): pages about him and his people, written from his memory into OWNER_DATA_DIR/docs/portrait/ (his data,
 // never in this repo): /me is index.html, /me/<name> is <name>.html. Behind a password (LIFE_PORTRAIT_PASSWORD in
 // .env). Signing in sets a cookie holding its expiry signed with the password, so changing the password signs every
 // browser out. Nothing of his answers before that check.
 
 const SESSION = "__Host-life-me";
 const SESSION_S = 30 * 24 * 3600;
-const PAGES = join(DATA, "docs", "portrait");
+const PAGES = join(OWNER_DATA_DIR, "docs", "portrait");
 const PAGE = /^\/me(?:\/[a-z0-9-]+)?$/;
 // A page's clips: its audio and the words timed to it, in <page>/clips/ (nothing else of the page's folder is served).
 const CLIP = /^\/me\/[a-z0-9-]+\/clips\/[a-z0-9-]+\.(?:m4a|json)$/;
@@ -41,7 +41,10 @@ const FORM_HEADERS = {
 const fileOf = (pages: string, pathname: string) => {
   const name = pathname.slice("/me/".length);
   if (pathname === PLAYER) {
-    return { page: false, path: join(ROOT, "assets", "portrait", "player.js") };
+    return {
+      page: false,
+      path: join(LIFE_CODE_DIR, "assets", "portrait", "player.js"),
+    };
   }
   if (CLIP.test(pathname)) {
     return { page: false, path: join(pages, name) };

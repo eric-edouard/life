@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-/// Life's helper: the compiled binary in the bundle (`Contents/Helpers/life`), run with its files (`LIFE_ROOT`), the
+/// Life's helper: the compiled binary in the bundle (`Contents/Helpers/life`), run with its files (`LIFE_CODE_DIR`), the
 /// owner's data and Life's state under Application Support, and every secret the Keychain holds for it. The app never
 /// reads Life's files itself: it asks the helper (`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in
 /// one place.
@@ -19,9 +19,9 @@ enum Helper {
     let home = FileManager.default.homeDirectoryForCurrentUser.path
     let extra = ["\(home)/.local/bin", "\(home)/.bun/bin", "/opt/homebrew/bin", "/usr/local/bin"]
     env["PATH"] = (extra + [env["PATH"] ?? "/usr/bin:/bin"]).joined(separator: ":")
-    env["LIFE_ROOT"] = resources.path
-    env["LIFE_DATA"] = data.path
-    env["LIFE_STATE"] = state.path
+    env["LIFE_CODE_DIR"] = resources.path
+    env["LIFE_OWNER_DATA_DIR"] = data.path
+    env["LIFE_STATE_DIR"] = state.path
     env["LIFE_EVENTKIT"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-eventkit").path
     env.merge(Keychain.all()) { _, kept in kept }
     return env
@@ -69,7 +69,7 @@ struct Info: Decodable {
   let status: Status
 }
 
-/// The watcher's status reads on this Mac (`apps/server/src/host/http/dashboard.ts`, the local port) and the key that opens them.
+/// The watcher's status reads on this Mac (`apps/server/src/host/http/status-reads.ts`, the local port) and the key that opens them.
 struct Status: Decodable {
   let url: String
   let key: String
@@ -91,7 +91,7 @@ struct Status: Decodable {
     }
   }
 
-  func plate() async -> Plate? { await read("status/snapshot") }
+  func snapshot() async -> StatusSnapshot? { await read("status/snapshot") }
 
   func detail(_ card: String, before: String? = nil) async -> Detail? {
     let id = card.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? card

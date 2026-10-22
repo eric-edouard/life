@@ -1,4 +1,4 @@
-# memory/ (in the data repo, `DATA`): what the files are
+# memory/ (in the data repo, `OWNER_DATA_DIR`): what the files are
 
 Reference: every file in `memory/`.
 

@@ -8,8 +8,8 @@ import {
 import { uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { clock, MIN } from "./clock";
-import { real, STATE } from "./paths";
-import { MACHINE } from "./platform";
+import { LIFE_STATE_DIR, real } from "./paths";
+import { MACHINE_DIR } from "./platform";
 
 // Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, memory-lock.ts)
 // and the services' (`hold`): one Life per Mac.
@@ -52,15 +52,15 @@ export function take(path: string, note?: string, retry = true): boolean {
 
 type Service = "archive" | "watch";
 /** A service's lock: one per Mac, so two installs never run the same service at once (two archivers, two watchers). */
-const serviceLock = (name: Service) => join(MACHINE, `${name}.lock`);
+const serviceLock = (name: Service) => join(MACHINE_DIR, `${name}.lock`);
 
-/** Who runs a service now: its pid, since when, and the state root it runs on as its note; null when none does. */
+/** Who runs a service now: its pid, since when, and the state dir it runs on as its note; null when none does. */
 export const holder = (name: Service) => held(serviceLock(name));
 
-/** Whether the service holder `live` is another install's than the one whose state root is `state`. */
+/** Whether the service holder `live` is another install's than the one whose state dir is `state`. */
 export const isOtherLife = (
   live: { note: string } | null,
-  state: string = STATE
+  state: string = LIFE_STATE_DIR
 ) => live !== null && real(live.note) !== real(state);
 
 /**
@@ -71,7 +71,7 @@ export async function hold(name: Service) {
   const path = serviceLock(name);
   mkdirSync(dirname(path), { recursive: true });
   let said = false;
-  while (!take(path, STATE)) {
+  while (!take(path, LIFE_STATE_DIR)) {
     if (!said) {
       console.log(
         `${clock().toISOString()} ${name}: another Life runs it (${holder(name)?.note}), waiting`

@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { systemZone } from "../core/platform";
 import { git } from "../core/proc";
 import { integrity, loadTruth } from "../memory/read-truth";
@@ -26,11 +26,11 @@ export const isEmpty = (dir: string) =>
   !existsSync(dir) || readdirSync(dir).length === 0;
 
 /** Whether `data` holds an owner's truth: Life is set up there. */
-export const started = (data = DATA) =>
+export const started = (data = OWNER_DATA_DIR) =>
   existsSync(join(data, "truth", "people.yaml"));
 
 /** Creates `data` for a new owner; refuses a folder that is not empty. */
-export async function init(owner: Owner, data = DATA, now = clock()) {
+export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
   const truth = join(data, "truth");
   if (!isEmpty(data)) {
     throw new Error(`${data} is not empty: nothing was changed`);

@@ -1,17 +1,17 @@
 import { Hono } from "hono";
-import { snapshot } from "../status/plate";
-import { detail, runDetail } from "../status/plate-detail";
+import { snapshot } from "../status/snapshot";
+import { detail, runDetail } from "../status/snapshot-detail";
 import { HEADERS, text } from "./http";
 
-// The app's status reads (`/status/` on the local port, behind its key): the plate (`plate.ts`), a card's detail and a
-// run (`plate-detail.ts`), as JSON for Life.app's native window and menu. Read-only: it changes nothing, sends nothing.
+// The app's status reads (`/status/` on the local port, behind its key): the status snapshot (`snapshot.ts`), a card's detail and a
+// run (`snapshot-detail.ts`), as JSON for Life.app's native window and menu. Read-only: it changes nothing, sends nothing.
 
 const json = (body: unknown) => Response.json(body, { headers: HEADERS });
 
 const CARD = "/status/card/";
 
 /** The reads behind `refusal` (`keyRefusal`: the local key the app holds). */
-export function createDashboard(
+export function createStatusReads(
   refusal: (req: Request) => Promise<Response | null>
 ) {
   return (

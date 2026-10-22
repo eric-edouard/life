@@ -2,11 +2,11 @@
 // no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT } from "../../core/paths";
+import { LIFE_CODE_DIR } from "../../core/paths";
 
 /** Life's brand tokens (assets/brand/tokens.css), for the pages that inline their styles. */
 export const TOKENS = readFileSync(
-  join(ROOT, "assets", "brand", "tokens.css"),
+  join(LIFE_CODE_DIR, "assets", "brand", "tokens.css"),
   "utf8"
 );
 

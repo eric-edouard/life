@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { STATE } from "./paths";
+import { LIFE_STATE_DIR } from "./paths";
 
 /**
  * Every secret file Life keeps, in its state: the OAuth issuer's clients and tokens, the agent's events subscription,
@@ -18,10 +18,10 @@ import { STATE } from "./paths";
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
-  events: join(STATE, "events.json"),
-  localKey: join(STATE, "local.key"),
+  events: join(LIFE_STATE_DIR, "events.json"),
+  localKey: join(LIFE_STATE_DIR, "local.key"),
   /** Life's own sign-in: its key, the apps and their tokens. */
-  oauth: join(STATE, "oauth", "state.json"),
+  oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
 };
 
 type Secret = keyof typeof SECRETS;

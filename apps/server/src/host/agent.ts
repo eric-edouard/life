@@ -8,7 +8,7 @@ import { digest } from "../core/hash";
 import { LOG_DIR, logDays, logEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
-import { DATA, ROOT } from "../core/paths";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { agentName } from "../core/settings";
 import { ACTIONS, type Task, tasksOf } from "../memory/ledger";
 import {
@@ -38,9 +38,9 @@ export const protocol = (text: string, reminders = isOn("actions")) =>
 
 /** The agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `tasks` returns it, `task` refuses a write without its seal. */
 const playbook = () => {
-  const own = join(DATA, "playbook.md");
+  const own = join(OWNER_DATA_DIR, "playbook.md");
   return [
-    protocol(readFileSync(join(ROOT, "docs", "agent.md"), "utf8")),
+    protocol(readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8")),
     ...(existsSync(own) ? [readFileSync(own, "utf8")] : []),
   ].join("\n");
 };

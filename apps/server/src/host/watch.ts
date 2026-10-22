@@ -5,7 +5,7 @@ import { appendJsonl } from "../core/files";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
-import { ROOT } from "../core/paths";
+import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
 import { ACTIONS, readActions, tasksOf } from "../memory/ledger";
 import { isLocked, locked } from "../memory/memory-lock";
@@ -209,7 +209,7 @@ function sayActions() {
 
 export async function watch(): Promise<number> {
   // The code it runs, read before it may wait for another install: new code meanwhile restarts it on taking over.
-  const running = codeAt(ROOT);
+  const running = codeAt(LIFE_CODE_DIR);
   await hold("watch");
   const started = clock();
   try {
@@ -240,7 +240,7 @@ export async function watch(): Promise<number> {
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
   // A commit changed apps/server/src/ or prompts/: exit, launchd starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
-  while (codeAt(ROOT) === running) {
+  while (codeAt(LIFE_CODE_DIR) === running) {
     let result: { cursor: string } | { error: string };
     try {
       // biome-ignore lint/performance/noAwaitInLoops: the poll loop is sequential
@@ -309,7 +309,7 @@ async function quiet(running: string) {
   console.log(
     `${clock().toISOString()} watcher: no voice source, not listening`
   );
-  while (codeAt(ROOT) === running) {
+  while (codeAt(LIFE_CODE_DIR) === running) {
     // biome-ignore lint/performance/noAwaitInLoops: one pass a minute
     await minute();
     await Bun.sleep(RETRY_MS);

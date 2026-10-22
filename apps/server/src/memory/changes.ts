@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../core/clock";
 import { filesIn, linesOf } from "../core/files";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { Action, isBookkeeping, isTaskLine } from "../records/ledger-entry";
 import {
@@ -40,11 +40,11 @@ import { readIndex } from "./search";
 import { kindOf } from "./sources";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
-// What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,
+// What changed in the memory, and why to trust it, as JSON for the status reads: `changes` (every observation, supersession,
 // correction, inferred identity, action and page change, by cursor) and `claim` (one observation with its evidence).
-// With run-log.ts (`runs`) and host/status/life.ts (`lifeStatus`), the connector's dashboard tools and `bun life memory changes|claim|status|runs`.
-// Read-only: no model, no write, no source except `claim`'s cited unit (docs/dashboard.md). Lists are complete: every item is reachable through its cursor, never cut
-// to "+N more". Contracts: docs/dashboard.md.
+// With run-log.ts (`runs`) and host/status/life.ts (`lifeStatus`), the connector's status tools and `bun life memory changes|claim|status|runs`.
+// Read-only: no model, no write, no source except `claim`'s cited unit (docs/status-reads.md). Lists are complete: every item is reachable through its cursor, never cut
+// to "+N more". Contracts: docs/status-reads.md.
 
 export const PAGE = 50;
 export const MAX_PAGE = 500;
@@ -130,7 +130,7 @@ const pageRef = (path: string) =>
 
 /** Every committed change to a page file, oldest first, one line per commit and file (git keeps every page version). */
 function pageCommits() {
-  const out = git(DATA, [
+  const out = git(OWNER_DATA_DIR, [
     "log",
     "--reverse",
     "--no-renames",
@@ -154,7 +154,7 @@ function pageDiffs(shas: string[]) {
   if (shas.length === 0) {
     return out;
   }
-  const text = git(DATA, [
+  const text = git(OWNER_DATA_DIR, [
     "show",
     "--no-color",
     "--unified=0",

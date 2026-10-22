@@ -56,7 +56,7 @@ flowchart LR
   that retires an observation (besides the owner rating one outdated).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
-- **The index** (`STATE/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.
+- **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.
 
 Model output is cached by unit hash and prompt version, so a night re-reads only what changed.
 
@@ -99,7 +99,7 @@ someone else is capped at 0.6 confidence.
 
 ## Why the memory stays on the Mac
 
-- The data root is a local git repository with no remote: the nightly commits and never pushes.
+- The owner data dir is a local git repository with no remote: the nightly commits and never pushes.
 - The archive (deleted messages, old note versions) is the only live copy of what the apps delete; it lives in
   Application Support and in the encrypted backup, nowhere else.
 - The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or
@@ -128,7 +128,7 @@ core  ←  records  ←  models, sources, actions  ←  memory  ←  host
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `actions/` | The actions contract, its two backends, the board and open items |
 | `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, people and places, search, the agent's tasks, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
-| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events, the Past calendar) |
+| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the status snapshot, Life's status), and the outputs (report, events, the Past calendar) |
 | `test-data/` | The made-up data tests read |
 
 What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)
@@ -145,7 +145,7 @@ The repo around it is a Bun workspace:
 | `apps/edge` | The Cloudflare Worker in front of the owner's public address, a bridge until #137 (deploy steps in `wrangler.jsonc`) |
 | `packages/config` | The shared TypeScript base (`tsconfig.base.json`), which the root `tsconfig.json` extends |
 | `scripts/` | The helper, the app build, releases, the check, the benches and evals. Outside the zones; they import the server as the workspace package `@life/server/src/…` |
-| `prompts/`, `assets/` | The model prompts and what the pages, the app and the email show (`ROOT`, `docs/operations.md`) |
+| `prompts/`, `assets/` | The model prompts and what the pages, the app and the email show (`LIFE_CODE_DIR`, `docs/operations.md`) |
 | `derived/` | Generated, gitignored: a checkout's state |
 | root | `bts.jsonc` (so `create-better-t-stack add` works), `bunfig.toml` (a hoisted install, for Codex's binary), the workspace's version catalog |
 
@@ -158,9 +158,9 @@ Turborepo arrives with `apps/web`, the second app that runs a build. There is no
 archive and the watcher kept running, the nightly tick every 30 minutes, data and state under `~/Library/Application
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
-Its menu-bar panel and status window are native SwiftUI, reading the plate from the watcher's local status reads
-(`apps/server/src/host/http/dashboard.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `STATE/local.key`, mode 600); no tunnel ever points
-there): `docs/dashboard.md`.
+Its menu-bar panel and status window are native SwiftUI, reading the status snapshot from the watcher's local status reads
+(`apps/server/src/host/http/status-reads.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
+there): `docs/status-reads.md`.
 
 ## Pages
 
@@ -174,7 +174,7 @@ Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
 - **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
-  `DATA/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
+  `OWNER_DATA_DIR/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
   `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player
   (`assets/portrait/`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a
   password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with

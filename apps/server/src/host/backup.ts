@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { clock, HOUR } from "../core/clock";
 import { readJson } from "../core/files";
 import { isOn } from "../core/outputs";
-import { STATE } from "../core/paths";
-import { MACHINE } from "../core/platform";
+import { LIFE_STATE_DIR } from "../core/paths";
+import { MACHINE_DIR } from "../core/platform";
 import { exec } from "../core/proc";
 import { expand, settings } from "../core/settings";
 import { localTime } from "../memory/units";
@@ -12,8 +12,8 @@ import { stage } from "./export";
 
 // The daily restic snapshot (docs/operations.md, "Backups and exports") to the `backup` setting's repository, run by
 // the nightly's tick (`backupDue`). Without the setting there is no backup, and the report says it is off.
-const STAGING = join(MACHINE, "backup-staging");
-const STATUS = join(STATE, "backup.json");
+const STAGING = join(MACHINE_DIR, "backup-staging");
+const STATUS = join(LIFE_STATE_DIR, "backup.json");
 
 /** The last good snapshot (when, its size, its id) and what went wrong in the last run. */
 interface Status {

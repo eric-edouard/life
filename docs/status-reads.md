@@ -1,9 +1,9 @@
-# Dashboard reads
+# Status reads
 
 Developer reference for the connector's four JSON status reads. Most people never need it: the status window in Life.app
 shows the same.
 
-Four read-only tools on Life's connector (`/mcp`) let a private dashboard show whether Life works, what it ran, every
+Four read-only tools on Life's connector (`/mcp`) let a private page show whether Life works, what it ran, every
 change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code: `bun life memory
 status | runs | changes | claim`. Code: `apps/server/src/host/status/life.ts` (status), `apps/server/src/memory/run-log.ts` (runs) and `apps/server/src/memory/changes.ts` (changes,
 claim). They run no model, write nothing, log nothing and send nothing (a test checks the code; the connector logs each
@@ -123,7 +123,7 @@ ratings, each month of observations, then page commits). The ledgers are append-
 exactly where it stopped, a line appended to any source meanwhile is picked up, none twice, and a line still being
 written waits for the next read. Items come source by source; sort by `recordedAt` to show them. A cursor past the end
 of a ledger (one shrank, which the rules forbid) is an error, never a silent restart. Page changes are counted in `git
-log` order of the data repo (`DATA`): amending or rebasing a commit that touched `memory/pages` would shift them
+log` order of the data repo (`OWNER_DATA_DIR`): amending or rebasing a commit that touched `memory/pages` would shift them
 silently.
 
 ## claim
@@ -166,21 +166,21 @@ snapshot must date it and mark it stale, and where it is stored is a separate de
 
 # The status window
 
-Life.app's status window and menu-bar panel (`apps/mac/Sources/LifeApp/`): Life's architecture as a plate of live cards,
+Life.app's status window and menu-bar panel (`apps/mac/Sources/LifeApp/`): Life's architecture as live cards,
 native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no connector tool.
 
-- **Code.** `apps/server/src/host/status/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
+- **Code.** `apps/server/src/host/status/snapshot.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
   (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
-  source's own module), the Mac's probes are `apps/server/src/host/status/mac.ts`. `apps/server/src/host/status/plate-detail.ts` gives a card's history and log lines
-  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `apps/server/src/host/http/dashboard.ts` serves
+  source's own module), the Mac's probes are `apps/server/src/host/status/mac.ts`. `apps/server/src/host/status/snapshot-detail.ts` gives a card's history and log lines
+  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `apps/server/src/host/http/status-reads.ts` serves
   them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
-  key; the app decodes them (`Plate.swift`) and reads the plate every 3 s while the window is open.
+  key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
   Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
 - **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `apps/mac/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
-  left to right as data does, a card opening in place over the plate.
+  left to right as data does, a card opening in place over the status snapshot.
 - **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
   steps, their counts and what it wrote.

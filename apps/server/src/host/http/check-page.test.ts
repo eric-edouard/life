@@ -8,7 +8,7 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
-import { ROOT } from "../../core/paths";
+import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
 import {
@@ -99,7 +99,9 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
 });
 
 test("the page's policy lets in the fonts its stylesheet imports", async () => {
-  const css = await Bun.file(join(ROOT, "assets", "check", "check.css")).text();
+  const css = await Bun.file(
+    join(LIFE_CODE_DIR, "assets", "check", "check.css")
+  ).text();
   const host = new URL(css.match(IMPORT)?.[1] ?? "").origin;
   expect(
     (await get("/check/")).headers.get("content-security-policy")

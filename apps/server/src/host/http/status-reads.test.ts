@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createDashboard } from "./dashboard";
 import { keyRefusal, localKey } from "./signin";
+import { createStatusReads } from "./status-reads";
 
 // The app's status reads answer only with the local key, as a bearer.
-const reads = createDashboard(keyRefusal());
+const reads = createStatusReads(keyRefusal());
 const get = (path: string, headers: Record<string, string> = {}) =>
   reads.request(new Request(`http://127.0.0.1:46201${path}`, { headers }));
 
@@ -24,6 +24,6 @@ test("the app's reads open with the local key only", async () => {
 });
 
 test("a history that doesn't page back offers no older page: the tasks and the Mac's day are whole", async () => {
-  const { detail } = await import("../status/plate-detail");
+  const { detail } = await import("../status/snapshot-detail");
   expect((await detail("tasks")).next.history).toBeNull();
 });

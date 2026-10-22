@@ -3,7 +3,13 @@ import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LOG_DIR } from "../core/log";
-import { DATA, FIXTURES, ROOT, real, STATE } from "../core/paths";
+import {
+  FIXTURES,
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+  OWNER_DATA_DIR,
+  real,
+} from "../core/paths";
 import { git } from "../core/proc";
 import { SETTINGS } from "../core/settings";
 import { type Chat, Person } from "../records/truth";
@@ -136,19 +142,24 @@ test("truth/me.md gives who he is (its first paragraph) and his goals", () => {
 
 test("tests read made-up data, and it is a consistent map", async () => {
   // This run's own copy of apps/server/src/test-data, outside any repo: a test can never commit.
-  expect(DATA.startsWith(real(tmpdir()))).toBe(true);
-  expect(readdirSync(join(DATA, "truth")).sort()).toEqual(
+  expect(OWNER_DATA_DIR.startsWith(real(tmpdir()))).toBe(true);
+  expect(readdirSync(join(OWNER_DATA_DIR, "truth")).sort()).toEqual(
     readdirSync(join(FIXTURES, "truth")).sort()
   );
   expect(integrity(await loadTruth())).toEqual([]);
   expect(() => commitMemory(["memory"], "t")).toThrow("not a repo of its own");
   // His data is never pushed: a data repo with a remote is refused before anything is staged.
-  git(DATA, ["init", "-q"]);
-  git(DATA, ["remote", "add", "origin", "https://example.test/x.git"]);
+  git(OWNER_DATA_DIR, ["init", "-q"]);
+  git(OWNER_DATA_DIR, [
+    "remote",
+    "add",
+    "origin",
+    "https://example.test/x.git",
+  ]);
   try {
     expect(() => commitMemory(["memory"], "t")).toThrow("never pushed");
   } finally {
-    rmSync(join(DATA, ".git"), { force: true, recursive: true });
+    rmSync(join(OWNER_DATA_DIR, ".git"), { force: true, recursive: true });
   }
 });
 
@@ -172,15 +183,15 @@ test("a birthday is --MM-DD or YYYY-MM-DD, and a real date", () => {
 });
 
 test("a test run's state is all in its copy of the data, never the checkout's derived/", () => {
-  for (const path of [STATE, SETTINGS, LOG_DIR, OUT, WATCH]) {
-    expect(path.startsWith(DATA)).toBe(true);
-    expect(path.startsWith(ROOT)).toBe(false);
+  for (const path of [LIFE_STATE_DIR, SETTINGS, LOG_DIR, OUT, WATCH]) {
+    expect(path.startsWith(OWNER_DATA_DIR)).toBe(true);
+    expect(path.startsWith(LIFE_CODE_DIR)).toBe(false);
   }
 });
 
 test("his data and Life's state are real paths: nothing copies or removes through a link", () => {
-  expect(DATA).toBe(real(DATA));
-  expect(STATE).toBe(real(STATE));
+  expect(OWNER_DATA_DIR).toBe(real(OWNER_DATA_DIR));
+  expect(LIFE_STATE_DIR).toBe(real(LIFE_STATE_DIR));
 });
 
 test("his goals' projects, in his order", () => {

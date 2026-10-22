@@ -6,7 +6,7 @@ import { clock, unfrozen } from "../core/clock";
 import { readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
-import { STATE } from "../core/paths";
+import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
@@ -17,7 +17,7 @@ import { settings } from "../core/settings";
 
 const WAIT_MARGIN_S = 30;
 
-export const WATCH = join(STATE, "watch");
+export const WATCH = join(LIFE_STATE_DIR, "watch");
 
 // The shapes Life reads from lifelog's API, each field as nullable or optional as lifelog's contract says
 // (`apps/server/openapi.json` in lifelog; lifelog.test.ts checks it). Fields Life doesn't read are left out and ignored.
@@ -167,7 +167,7 @@ async function call(
 }
 
 /**
- * What the status plate reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
+ * What the status snapshot reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
  * The contract leaves both objects untyped, so every field here may be absent or null.
  */
 export const LifelogStatus = z.object({
@@ -237,7 +237,7 @@ export async function withStore<T>(
   }
 }
 
-/** The store opened read-only, for a reader that must not create or change it (the status plate). */
+/** The store opened read-only, for a reader that must not create or change it (the status snapshot). */
 export const readStore = (dir = WATCH): Store => ({
   cursor: storeFiles(dir).cursor,
   db: new Database(storeFiles(dir).file, { readonly: true }),

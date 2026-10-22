@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT } from "./paths";
+import { LIFE_CODE_DIR } from "./paths";
 import { CODEX, systemZone } from "./platform";
 
 test("this system's pinned codex is installed where Life runs it", () => {
-  expect(existsSync(join(ROOT, CODEX))).toBe(true);
+  expect(existsSync(join(LIFE_CODE_DIR, CODEX))).toBe(true);
 });
 
 test("the system's time zone is one Intl knows", () => {

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { ROOT } from "@life/server/src/core/paths";
+import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
 
 // No module imports one that imports it back, type-only imports included (fallow's cycle check skips those): a
@@ -10,13 +10,13 @@ import { repoFiles } from "@life/server/src/core/proc";
 const FROM = /\bfrom\s+"(\.{1,2}\/[^"]+)"/g;
 
 test("no import cycles in the server's code", () => {
-  const files = repoFiles(ROOT, ["apps/server/src"], [".ts"]).filter(
+  const files = repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"]).filter(
     (f) => !f.endsWith(".test.ts")
   );
   const known = new Set(files);
   const edges = new Map<string, string[]>();
   for (const f of files) {
-    const text = readFileSync(join(ROOT, f), "utf8");
+    const text = readFileSync(join(LIFE_CODE_DIR, f), "utf8");
     edges.set(
       f,
       [...text.matchAll(FROM)].flatMap(([, spec = ""]) => {

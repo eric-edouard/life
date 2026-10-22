@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
-import { DATA, STATE } from "../core/paths";
+import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { Action, type Instruction } from "../records/ledger-entry";
 import { Moment } from "../records/moment";
 import {
@@ -21,7 +21,7 @@ import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 // memory/ on disk: every path, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
 
-const MEMORY = join(DATA, "memory");
+const MEMORY = join(OWNER_DATA_DIR, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
 export const runId = (d: Date) => d.toISOString().replaceAll(":", "-");
 const RUN_TIME = /T(\d\d)-(\d\d)-(\d\d)/;
@@ -32,7 +32,7 @@ export const latestBy = <T>(list: T[], key: (x: T) => string) =>
 export const runAt = (run: string) => run.replace(RUN_TIME, "T$1:$2:$3");
 
 /** Runs and the search index: generated, rebuildable, not in git. */
-export const OUT = join(STATE, "memory");
+export const OUT = join(LIFE_STATE_DIR, "memory");
 
 export const UNITS = join(MEMORY, "units");
 export const OBSERVATIONS = join(MEMORY, "observations");
@@ -247,7 +247,7 @@ export const hiding = (corrections: Correction[], id: string) =>
   });
 
 /**
- * Where an observation stands: the one rule the index, the pages and the dashboard go by. First match wins: `hidden`
+ * Where an observation stands: the one rule the index, the pages and the status reads go by. First match wins: `hidden`
  * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
  * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he rated it outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,

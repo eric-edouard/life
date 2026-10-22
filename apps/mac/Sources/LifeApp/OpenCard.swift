@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// A card opened over the plate: its facts, his words when shown, the sentence for Claude, its history (a sweep's runs
+/// A card opened over the status window: its facts, his words when shown, the sentence for Claude, its history (a sweep's runs
 /// open to their steps) and its raw log lines, each paging back through the whole log.
 struct OpenCard: View {
   let card: Card

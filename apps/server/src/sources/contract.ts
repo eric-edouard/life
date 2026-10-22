@@ -7,7 +7,7 @@ import type { Person } from "../records/truth";
 // The source contract: what Life knows about each source, in one descriptor. Each reader gives its parts; the registry
 // (`memory/sources.ts`) lists them. Code asks a source's kind or what it can do, never its name.
 
-/** A source's newest item, for the status plate: when it came, his words in it, by part. */
+/** A source's newest item, for the status snapshot: when it came, his words in it, by part. */
 export interface Newest {
   at: string | null;
   /** More lines for its card (a repo's name, how many committed today). */
@@ -50,11 +50,11 @@ export type Descriptor = {
   /** The app store the archive keeps a copy of; its units are read from that copy. */
   store?: AppStore;
   name: SourceName;
-  /** Its newest item (the status plate's card); a voice source's is lifelog's to tell. */
+  /** Its newest item (the status snapshot's card); a voice source's is lifelog's to tell. */
   newest?: () => Newest | Promise<Newest>;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
   searchDays?: number;
-  /** How long it may stay silent before its card turns amber (`toneOf`, plate.ts). */
+  /** How long it may stay silent before its card turns amber (`toneOf`, snapshot.ts). */
   silentAfter: number;
 } & (
   | {

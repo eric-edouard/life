@@ -94,7 +94,7 @@ async function printed(answer: Promise<string | null> | string | null) {
   return 0;
 }
 
-/** Prints a dashboard read as JSON. */
+/** Prints a status read as JSON. */
 async function json(answer: Promise<unknown>) {
   try {
     console.log(JSON.stringify(await answer, null, 1));

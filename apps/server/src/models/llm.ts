@@ -9,8 +9,8 @@ import { z } from "zod";
 import { MIN } from "../core/clock";
 import { log } from "../core/log";
 import { type Engine, Runner } from "../core/names";
-import { DATA, isHis, ROOT } from "../core/paths";
-import { CODEX, MACHINE, MODEL_ENV } from "../core/platform";
+import { isHis, LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
+import { CODEX, MACHINE_DIR, MODEL_ENV } from "../core/platform";
 import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
 
@@ -61,12 +61,12 @@ const SOL: Record<Tier, string> = {
   fast: "gpt-6.1-sol",
   main: "gpt-6.1-sol",
 };
-const CODEX_BIN = join(ROOT, CODEX);
+const CODEX_BIN = join(LIFE_CODE_DIR, CODEX);
 // Codex always loads AGENTS.md from its home, and no flag turns that off, so Life has its own home with a login of
 // its own (`CODEX_HOME=<this> codex login --device-auth`, once) and no instruction files. The repo's own AGENTS.md is
 // kept out by running in an empty temp folder and `project_doc_max_bytes=0`; `skills.include_instructions=false` drops
 // the skills catalog.
-const CODEX_HOME = join(MACHINE, "codex");
+const CODEX_HOME = join(MACHINE_DIR, "codex");
 /** The reasoning effort by tier, for every provider that takes one. */
 const EFFORT: Record<Tier, string> = {
   deep: "high",
@@ -94,14 +94,14 @@ export const readEngine = (): Engine => settings().engine;
  */
 export function llmOverride(
   set = process.env.LIFE_LLM,
-  data = DATA
+  data = OWNER_DATA_DIR
 ): Llm | undefined {
   if (!set) {
     return;
   }
   if (isHis(data)) {
     throw new Error(
-      "LIFE_LLM is for a copy of the data (LIFE_DATA), never ~/Life"
+      "LIFE_LLM is for a copy of the data (LIFE_OWNER_DATA_DIR), never ~/Life"
     );
   }
   const [engine = "", ...rest] = set.split("/");
@@ -200,7 +200,7 @@ export const claudeTokens = (u: Record<string, unknown> = {}): Tokens => ({
 const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
 
 const promptText = (prompt: string) =>
-  Bun.file(join(ROOT, "prompts", `${prompt}.md`)).text();
+  Bun.file(join(LIFE_CODE_DIR, "prompts", `${prompt}.md`)).text();
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
 const modelEnv = (extra: Record<string, string> = {}) => ({

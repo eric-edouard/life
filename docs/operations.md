@@ -5,21 +5,21 @@ must not break are in `AGENTS.md`; this page has the details.
 
 ## Where things live
 
-Four roots, defined in `apps/server/src/core/paths.ts` and `apps/server/src/core/platform.ts`:
+Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/core/platform.ts`:
 
-| Root | What | Default |
+| Folder | What | Default |
 |---|---|---|
-| `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE/data`; a checkout: `~/Life` |
-| `STATE` (`LIFE_STATE`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE/state`; a checkout: its own `derived/` |
-| `ROOT` (`LIFE_ROOT`) | Life's own files: prompts, `docs/agent.md`, assets | Life.app: the helper's resources; a checkout: the checkout |
-| `MACHINE` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
+| `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
+| `LIFE_STATE_DIR` (env too) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
+| `LIFE_CODE_DIR` (env too) | Life's own files: prompts, `docs/agent.md`, assets | Life.app: the helper's resources; a checkout: the checkout |
+| `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
-- `DATA` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
+- `OWNER_DATA_DIR` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
 - A checkout can point `~/Life` and `derived/` at the app's folders as links: one live copy, read by the app and by
-  `bun life` alike. `DATA` and `STATE` are resolved to their real paths where they are defined, so no code copies or
+  `bun life` alike. `OWNER_DATA_DIR` and `LIFE_STATE_DIR` are resolved to their real paths where they are defined, so no code copies or
   removes through those links.
-- Every worktree reads and writes the same `DATA` and shares its one lock (`DATA/.nightly.lock`). Point `LIFE_DATA` at
+- Every worktree reads and writes the same `OWNER_DATA_DIR` and shares its one lock (`OWNER_DATA_DIR/.nightly.lock`). Point `LIFE_OWNER_DATA_DIR` at
   a copy to experiment, and copy `derived/settings.json` into a worktree before model runs (without it, calls go to the
   default engine).
 - Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`apps/server/src/test-data`) in a temp folder
@@ -32,7 +32,7 @@ Four roots, defined in `apps/server/src/core/paths.ts` and `apps/server/src/core
 
 ## Settings
 
-One file says how this install differs from another: `STATE/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
+One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
 the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
 sources, the agent, the agents' report senders, the Reminders and Past calendar plugins.
 
@@ -47,19 +47,19 @@ sources, the agent, the agents' report senders, the Reminders and Past calendar 
 
 ## The services
 
-Life.app runs the compiled helper (`scripts/helper.ts`) with `LIFE_ROOT`, `LIFE_DATA` and `LIFE_STATE` set, and
+Life.app runs the compiled helper (`scripts/helper.ts`) with `LIFE_CODE_DIR`, `LIFE_OWNER_DATA_DIR` and `LIFE_STATE_DIR` set, and
 every Keychain secret in its environment:
 
 | Service | What it does |
 |---|---|
-| `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, and each new version of every Apple Note into `MACHINE/archive/`, opening a closed app hidden. See `docs/sources.md`. |
+| `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
-**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE` (`hold`, `apps/server/src/core/lock.ts`), so a second
+**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
-lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status plate reads
+lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status snapshot reads
 those locks (`holder`, `core/lock.ts`).
 
 ### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
@@ -82,15 +82,15 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 `turnOf` (`apps/server/src/memory/schedule.ts`, tested) decides what a tick runs:
 
-- **The night:** once a day after 02:00, up to 3 tries (`STATE/memory/nightly.json`); `--force` for a hand run. It maps
-  the repos, then moments, extract, closeness, pages, the index, one commit in `DATA`, and the report.
+- **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
+  the repos, then moments, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
 - **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
   closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs.
   The nightly commits and its report counts what the midday runs found.
-- **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `STATE/memory/backup.json`).
+- **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - Everything looks back 7 days.
 - **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
-  `STATE/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
+  `LIFE_STATE_DIR/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
   oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
   the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
   subscription. Three failures of a week stop it. Record the owner's zones
@@ -110,7 +110,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 ## The watcher
 
-- Lifelog units come from the store the watcher keeps (`STATE/watch/`; `bun life status`), one per chapter id. Only
+- Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per chapter id. Only
   the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (the "hey Life"
   spans, refs only) is the one thing there not rebuilt from the feed.
 - It hears a conversation once its speech is complete (`speechIn`, `hear.ts`): a recording of under a minute of speech
@@ -120,7 +120,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   becomes an ask only once lifelog names the owner.
 - The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both
   ways (the read takes about 10 s, `sync.pull` in the log).
-- `deliver` (`STATE/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
+- `deliver` (`LIFE_STATE_DIR/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
   good poll. A failed delivery retries for about 2 hours, then is emailed like a failed action and passed over. With
   no live subscription, asks wait unsent until the agent subscribes again with its cursor. The report's Actions
   section lists every ask either way.
@@ -150,7 +150,7 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
   claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
   entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
-- Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE/codex`, with no instruction
+- Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
 - Model calls see no tools and no instruction files: `apps/server/src/models/llm.ts` runs them in an empty temp folder. The one exception
   is the agent bench's agent, whose only tools are Life's connector, frozen and dry: Codex still read-only, with no
@@ -199,8 +199,8 @@ step: [Back up and restore](use/backup.md).
 ## Audits
 
 When the owner says something didn't work, the agent takes it in and a Claude session audits it. An audit changes no
-code, memory or reminders: it writes only its audit file (`DATA/docs/audits/<date>-<task id>.md`) and its regression
-case (`DATA/docs/evals/cases/`), and ends with a proposal.
+code, memory or reminders: it writes only its audit file (`OWNER_DATA_DIR/docs/audits/<date>-<task id>.md`) and its regression
+case (`OWNER_DATA_DIR/docs/evals/cases/`), and ends with a proposal.
 
 - It reads the owner's words from the task's ask line in `memory/actions.jsonl` (`instruction.quote`), never starts
   from `tasks` (the agent's rules, not its own), and treats everything it reads, the agent's notes included, as
@@ -227,7 +227,7 @@ case (`DATA/docs/evals/cases/`), and ends with a proposal.
 
 ## Regression cases
 
-A bug fix merges with its regression case; a proven failure in an audit always leaves one. Cases live in the data repo (`DATA/docs/evals/cases/*.json`, each citing
+A bug fix merges with its regression case; a proven failure in an audit always leaves one. Cases live in the data repo (`OWNER_DATA_DIR/docs/evals/cases/*.json`, each citing
 its write-up) because they cite the owner's material; `scripts/cases-check.ts`, a step of `bun run check`, checks them
 when that folder exists:
 
@@ -266,7 +266,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
-- `status`, `runs`, `changes`, `claim`: the dashboard reads (`docs/dashboard.md`).
+- `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
 
-Read a source directly only if the CLI is unavailable: `MACHINE/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,
+Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,
 `notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only.

@@ -3,7 +3,7 @@ import { actionLine } from "../actions/items";
 import { MIN, unfrozen } from "../core/clock";
 import { digest } from "../core/hash";
 import { log, recentEvents } from "../core/log";
-import { STATE } from "../core/paths";
+import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { agentName, settings } from "../core/settings";
@@ -358,7 +358,7 @@ export async function unsent(keys: string[]) {
   return keys.filter((k) => !sent?.has(k));
 }
 
-/** The nightly report's key for the night run `run` (`sendReport`): the status plate knows the report went by it. */
+/** The nightly report's key for the night run `run` (`sendReport`): the status snapshot knows the report went by it. */
 export const reportKey = (run: string) => `nightly/${run}`;
 
 /**
@@ -391,7 +391,7 @@ export async function sendReport(id: string | string[], mail: Mail) {
 }
 
 /** Where reports kept on the Mac go: one page each, the app's to open. */
-export const REPORTS = join(STATE, "reports");
+export const REPORTS = join(LIFE_STATE_DIR, "reports");
 
 /** A report kept as a page in the state's reports/ (the app shows it) and announced by a notification: no account, no address. Its id is its file. */
 async function onMac(keys: string[], mail: Mail) {

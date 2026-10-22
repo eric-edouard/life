@@ -20,7 +20,7 @@ const done = () =>
       : [];
   });
 
-/** The status plate's card: when the agent last closed a task done. */
+/** The status snapshot's card: when the agent last closed a task done. */
 export const newestAgent = (): Newest => ({
   at:
     done()

@@ -8,8 +8,8 @@ Point the checkout at the app's data first, in the same Terminal. Without these 
 checkout's own folders and the app never sees it:
 
 ```sh
-export LIFE_DATA="$HOME/Library/Application Support/Life/data"
-export LIFE_STATE="$HOME/Library/Application Support/Life/state"
+export LIFE_OWNER_DATA_DIR="$HOME/Library/Application Support/Life/data"
+export LIFE_STATE_DIR="$HOME/Library/Application Support/Life/state"
 ```
 
 `bun life settings set` replaces each part you name as a whole, and leaves the others alone. After a change, quit Life

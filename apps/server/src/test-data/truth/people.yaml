@@ -1,4 +1,4 @@
-# A made-up map for tests (each `bun test` run reads its own copy as DATA).
+# A made-up map for tests (each `bun test` run reads its own copy as OWNER_DATA_DIR).
 schemaVersion: 1
 people:
   - id: me

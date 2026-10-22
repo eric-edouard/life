@@ -11,7 +11,11 @@ import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import { clock, HOUR, MIN } from "@life/server/src/core/clock";
 import { LOG_DIR, logDays, logEvents } from "@life/server/src/core/log";
-import { DATA, ROOT, STATE } from "@life/server/src/core/paths";
+import {
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+  OWNER_DATA_DIR,
+} from "@life/server/src/core/paths";
 import { exec, git, gitOut } from "@life/server/src/core/proc";
 import { extract } from "@life/server/src/memory/extract";
 import { ratedFacts } from "@life/server/src/memory/ledger";
@@ -25,7 +29,7 @@ import { readPeople } from "@life/server/src/memory/who";
 import { llmFor, llmSpec } from "@life/server/src/models/llm";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
-const FACTS = join(DATA, "docs/evals/events-2026-10-16.json");
+const FACTS = join(OWNER_DATA_DIR, "docs/evals/events-2026-10-16.json");
 /** Short names for `--models` (an `engine/model/effort` works too). */
 // Benched 20 Oct and dropped: MiMo V2.6 Pro (at high it spends the whole token budget reasoning, at medium its host
 // errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). DeepSeek Flash is on Parasail:
@@ -52,7 +56,7 @@ const ERROR_LINE = /^error: .*$/m;
 type Counts = ReturnType<typeof tally>["counts"] & { judge?: string };
 const wrong = (c: Counts) => c.contradicted + c.restated;
 
-/** In a copy (`LIFE_DATA`, `LIFE_LLM` set): moments then extract over the week, its claims to claims.jsonl. */
+/** In a copy (`LIFE_OWNER_DATA_DIR`, `LIFE_LLM` set): moments then extract over the week, its claims to claims.jsonl. */
 async function readWeek() {
   const done = await locked(async () => {
     // The week's evidence: gather cuts its units to the window.
@@ -66,7 +70,7 @@ async function readWeek() {
       (c) => c.date >= WEEK.from && c.date <= WEEK.to
     );
     await Bun.write(
-      join(DATA, "claims.jsonl"),
+      join(OWNER_DATA_DIR, "claims.jsonl"),
       claims
         .map((c) => JSON.stringify({ date: c.date, id: c.claim, text: c.text }))
         .join("\n")
@@ -105,10 +109,10 @@ async function run(
       ...Object.fromEntries(
         Object.entries(process.env).filter(([k]) => k !== "LIFE_LLM")
       ),
-      LIFE_DATA: data,
+      LIFE_OWNER_DATA_DIR: data,
       ...(llm ? { LIFE_LLM: llm } : {}),
       // Its worktree's own state, whatever this process was given.
-      LIFE_STATE: join(code, "derived"),
+      LIFE_STATE_DIR: join(code, "derived"),
     },
     timeout: 3 * HOUR,
   });
@@ -122,15 +126,19 @@ async function run(
 /** The main checkout (this repo's first worktree): its dependencies, .env, lifelog store and engine setting. */
 export const mainCheckout = () =>
   dirname(
-    gitOut(ROOT, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
+    gitOut(LIFE_CODE_DIR, [
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-common-dir",
+    ])
   );
 
 /**
  * This code at HEAD in `dir`, a throwaway worktree, with the main checkout's `links` (its dependencies, .env, …) and
- * `state` from this process's state root (`STATE`: production's when run from the main checkout) in its own derived/.
+ * `state` from this process's state dir (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
  */
 export async function checkout(dir: string, links: string[], state: string[]) {
-  gitOut(ROOT, ["worktree", "add", "--detach", dir, "HEAD"]);
+  gitOut(LIFE_CODE_DIR, ["worktree", "add", "--detach", dir, "HEAD"]);
   await mkdir(join(dir, "derived"), { recursive: true });
   const main = mainCheckout();
   for (const p of links) {
@@ -139,7 +147,7 @@ export async function checkout(dir: string, links: string[], state: string[]) {
   }
   for (const p of state) {
     // biome-ignore lint/performance/noAwaitInLoops: a few links
-    await symlink(join(STATE, p), join(dir, "derived", p));
+    await symlink(join(LIFE_STATE_DIR, p), join(dir, "derived", p));
   }
 }
 
@@ -152,7 +160,7 @@ async function bench(models: string[], runs: number) {
     await mkdir(join(base, "memory"), { recursive: true });
     for (const p of SEED) {
       // biome-ignore lint/performance/noAwaitInLoops: five small copies
-      await cp(join(DATA, p), join(base, p), { recursive: true });
+      await cp(join(OWNER_DATA_DIR, p), join(base, p), { recursive: true });
     }
     const rated = ratedFacts()
       .filter((f) => f.date >= WEEK.from && f.date <= WEEK.to)
@@ -215,7 +223,7 @@ async function bench(models: string[], runs: number) {
     console.log(factTable(rows, { facts, rated: rated.length }));
   } finally {
     for (const dir of worktrees) {
-      git(ROOT, ["worktree", "remove", "--force", dir]);
+      git(LIFE_CODE_DIR, ["worktree", "remove", "--force", dir]);
     }
     await rm(tmp, { force: true, recursive: true });
   }
@@ -263,7 +271,7 @@ export function factTable(
     return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed: invalid)` : ""} | ${r.minutes} min | ${r.cost} |`;
   };
   return [
-    `# Bench ${WEEK.from} to ${WEEK.to} (${clock().toISOString().slice(0, 16)}Z, code ${git(ROOT, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
+    `# Bench ${WEEK.from} to ${WEEK.to} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
     `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
     "",
