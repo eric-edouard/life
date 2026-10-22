@@ -50,7 +50,8 @@ export const Change = z.object({
     .array(z.object({ due: Due.optional(), title: z.string().min(1).max(200) }))
     .max(10)
     .optional(),
-  target: z.int().positive().optional(),
+  // An item's id: Google Tasks' are strings, Reminders' numbers (a number is how the connector first took them).
+  target: z.union([z.string().min(1), z.int().positive()]).optional(),
   title: z.string().min(1).max(200),
   urgent: z.boolean().optional(),
 });

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { BOARD, openOf } from "./backend";
 import gog from "./gog.json";
 import { google, type Task, taskArgs, itemOfTask as taskItem } from "./google";
-import { itemOf, type Raw, unshared } from "./remctl";
+import { itemOf, type Raw, reminders, unshared } from "./remctl";
 import answers from "./remctl.json";
 
 // Each backend's answers as Life reads them: remctl's (remctl.json, `REMCTL_RELEASE`'s: what moving the pin checks),
@@ -72,4 +72,11 @@ test("a change's fields go to gog as one value each, a dash kept as a value, nul
   ]);
   expect(taskArgs({ due: null, notes: null })).toEqual(["--notes=", "--due="]);
   expect(taskArgs({})).toEqual([]);
+});
+
+test("a Reminders id is digits: a string target never reaches remctl's argv as a flag", () => {
+  for (const id of ["--all", "12 --force", "list/task"]) {
+    expect(() => reminders.done(id)).toThrow("is not a Reminders id");
+    expect(() => reminders.remove(id)).toThrow("is not a Reminders id");
+  }
 });

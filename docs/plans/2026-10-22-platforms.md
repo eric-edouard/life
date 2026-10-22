@@ -132,9 +132,8 @@ only how a change is written and read back. One contract for both: list its list
 items, add, edit, complete, reopen, delete and restore an item, and the board's list. What one backend lacks (Reminders'
 sections and urgent flag, Google Tasks' none) the contract says by capability, never by the backend's name. The
 `reminders` setting becomes the actions output's backend choice (done: `actions` in settings, `src/actions/`). The
-connector's tools keep their names and arguments (a reconnect is costly) until phase 1, which in one batch (one
-reconnect) lets `reminders`'s `target` take a string id (widened at `idOf`, `src/actions/backend.ts`) and changes the
-descriptions from "Reminders" to "actions". Until then, on Google Tasks `act` can only add.
+connector's tools keep their names; phase 1 (#159), in one batch (one reconnect), let `reminders`'s `target` take
+a string id (`idOf`, `src/actions/backend.ts`) and changed the descriptions from "Reminders" to "actions".
 
 ## Windows: parked
 
@@ -145,7 +144,7 @@ of #154 was removed). What exists and stays, as clean seams:
   environment, the time zone; `macOnly` sources (iMessage, Mail) never read there; WhatsApp and Notes read from an
   archive copied on a Mac, never copied there.
 - The check's Windows fixes (#151): exports with `/` paths, every store in an archive on any system, ICU-proof dates.
-- Google Tasks as an actions backend (#155), add-only until phase 1 widens the connector's `target`.
+- Google Tasks as an actions backend (#155); its string ids go through the connector since phase 1.
 
 What a restart needs, as a headless host: services started by a setup script and Task Scheduler (or a Windows
 service), secrets in Credential Manager or `.env`, setup and status through the CLI, the connector over Tailscale

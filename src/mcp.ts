@@ -410,13 +410,13 @@ export function buildServer() {
     dry(correct),
     WRITES
   );
-  // The actions output's tools, only while it is on (`isOn("actions")`): off, the connector offers none. Their names and
-  // arguments stay as first published (a change forces a costly reconnect), whatever the backend.
+  // The actions output's tools, only while it is on (`isOn("actions")`): off, the connector offers none. Their names stay
+  // as first published (a change forces a costly reconnect), whatever the backend.
   if (isOn("actions")) {
     tool(
       server,
       "reminders",
-      `Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask), or, with \`obs\`, the standing grant: add, edit, done, undone (ticked back open), remove (to Recently Deleted) or restore (back from there, into \`list\`); undo one with its inverse. Not the list \`${BOARD}\`: that is the board, changed with \`task\`. \`target\` is a reminder id (all but add). Logged in Life's history; \`day\` shows it.`,
+      `Change the owner's actions (his to-dos in Apple Reminders or Google Tasks, whichever this install uses), only for what he explicitly asked (in this chat, or an ask), or, with \`obs\`, the standing grant: add, edit, done, undone (ticked back open), remove or restore (back into \`list\`); undo one with its inverse. A change the app cannot do (Google Tasks: restore, a section, urgent, an alarm) is refused, saying so. Not the list \`${BOARD}\`: that is the board, changed with \`task\`. \`target\` is an item's id as \`open_reminders\` gives it (all but add). Logged in Life's history; \`day\` shows it.`,
       Reminders,
       dry((a) => request(a)),
       REVERSIBLE
@@ -424,7 +424,7 @@ export function buildServer() {
     tool(
       server,
       "open_reminders",
-      `The owner's open Apple Reminders (JSON), of one list or all: each one's id, title, notes, due, list and section, and every list's sections, empty ones too. Not the list \`${BOARD}\`: that is the board, read with \`tasks\`.`,
+      `The owner's open actions (JSON, from Apple Reminders or Google Tasks, whichever this install uses), of one list or all: each one's id, title, notes, due, list and section, and every list's sections (none in Google Tasks), empty ones too. Not the list \`${BOARD}\`: that is the board, read with \`tasks\`.`,
       z.object({ list: z.string().optional().describe("A list's name") }),
       dry(async ({ list }) => {
         const [reminders, sections] = await Promise.all([

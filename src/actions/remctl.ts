@@ -107,6 +107,17 @@ const KEEP =
     " "
   );
 
+// remctl's ids: its number, or the UUID a mutation answers with (`id` beside `numericId`).
+const REMINDER_ID =
+  /^(?:\d+|[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})$/;
+/** A Reminders id as remctl takes it, so a string target never reaches its argv as a flag. */
+const num = (id: string) => {
+  if (!REMINDER_ID.test(id)) {
+    throw new Error(`${id} is not a Reminders id`);
+  }
+  return id;
+};
+
 export const reminders: ActionsBackend = {
   async add(c) {
     const { priv, pub } = reminderArgs(c);
@@ -150,13 +161,13 @@ export const reminders: ActionsBackend = {
   ]),
   deleted: async () =>
     (await remctl<{ items: Raw[] }>(["deleted"])).items.map(itemOf),
-  done: (id) => remctl(["done", id]),
+  done: (id) => remctl(["done", num(id)]),
   async edit(id, f, before = {}) {
     let to = id;
     // A move can clone and delete, which gives the reminder a new id.
     if (f.list) {
-      const moved = await remctl(["edit", id, `--list=${f.list}`]);
-      to = String(moved.id ?? id);
+      const moved = await remctl(["edit", num(id), `--list=${f.list}`]);
+      to = String(moved.numericId ?? moved.id ?? id);
     }
     const { priv, pub } = reminderArgs(f);
     const flags = [
@@ -168,7 +179,7 @@ export const reminders: ActionsBackend = {
     // Once a move gave it a new id, a failure is a partial: the record must keep the new id, or the moved reminder reads as his.
     const r =
       flags.length > 0
-        ? await remctl(["edit", to, ...flags]).catch((e: Error) => {
+        ? await remctl(["edit", num(to), ...flags]).catch((e: Error) => {
             if (to === id) {
               throw e;
             }
@@ -178,7 +189,7 @@ export const reminders: ActionsBackend = {
     return { error: partial(r), id: to };
   },
   async info(id) {
-    const r = await remctl(["info", "--", id]);
+    const r = await remctl(["info", "--", num(id)]);
     return Object.fromEntries(KEEP.flatMap((k) => (k in r ? [[k, r[k]]] : [])));
   },
   items: async (l, completed) =>
@@ -195,10 +206,10 @@ export const reminders: ActionsBackend = {
       .filter((l) => !l.isGroup)
       .map((l) => ({ id: String(l.id), title: l.title })),
   prefix: "reminder",
-  remove: (id) => remctl(["delete", id, "--force"]),
+  remove: (id) => remctl(["delete", num(id), "--force"]),
   // Back in `list`, under its id and deepLink (checked 21 Oct).
   restore: (id, list) =>
-    remctl(["restore", "--private", `--list=${list}`, "--", id]),
+    remctl(["restore", "--private", `--list=${list}`, "--", num(id)]),
   sections: () => remctl<Record<string, string[]>>(["sections"]),
   shared: async (name) =>
     !unshared(
@@ -208,5 +219,5 @@ export const reminders: ActionsBackend = {
         name,
       ])
     ),
-  undone: (id) => remctl(["undone", id]),
+  undone: (id) => remctl(["undone", num(id)]),
 };
