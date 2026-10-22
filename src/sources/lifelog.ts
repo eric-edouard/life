@@ -122,8 +122,8 @@ export interface ChapterTurn {
   turnIndex: number;
 }
 
-/** lifelog's server (REST API): its address from settings (a test's stand-in sets `LIFELOG_URL`), its token from the environment. */
-const lifelogUrl = () => process.env.LIFELOG_URL ?? settings().lifelog?.url;
+/** lifelog's server (REST API): its address from settings, its token from the environment. */
+const lifelogUrl = () => settings().lifelog?.url;
 
 /** What keeps lifelog from being read: its address or its token missing; nothing when it is set up. */
 export const lifelogMissing = () =>

@@ -258,8 +258,9 @@ launchd.
 - **One settings file says how this install differs from another** (`src/settings.ts`, `derived/settings.json`, zod
   strict): the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos
   folder, his agents' report senders. A part left out is off, never an error: a fresh install with no settings runs.
-  It is strict and read when modules load (units, tasks, email, git), so a new key lands in code first, and a bad file
-  stops the watcher and the nightly, like `truth/`. His agent is the `agent` setting (name, wake words, misheard forms,
+  It is strict and read once per process, some of it when modules load (units, tasks, email, git), so a new key lands
+  in code first, a bad file stops the watcher and the nightly, like `truth/`, and an edit takes effect when each
+  service starts again (the app restarts them; launchd's need a `kickstart`). His agent is the `agent` setting (name, wake words, misheard forms,
   client prefix): every "Atlas" Life writes is its name, and the ledger's `target: "atlas"` is the stored word for the
   agent, kept as it is (append-only, like unit ids).
   Secrets stay in the environment (`.env`). Owner values are never defaults in code: tests read
@@ -278,8 +279,9 @@ launchd.
   each tick and at the start and end of each sweep, eval and bench (`metered`, `run.ts`: on its `run.start` and `run.end`), logged as `quota.read` (the status's `midday.next` reads the last line), and shown in the nightly email. What a run spent (its model calls' tokens, on their `model.run` lines, and a metered run's two readings) is derived when read: `useOf` in `history.ts`.
   Pages follow at the next night. Only the last 7 days' messages get their files described; older ones stay tags.
   Record his zones for the range first (`memory/zones.jsonl`, his own account of where he was): a past zone may be
-  added only before the first day memory has units of, and a backfill moves that day back. A failed call or a source that throws fails the whole night (one he did not turn on, or not set up yet, `missing`, is
-  skipped and logged, never a failure: `readySources`): non-zero
+  added only before the first day memory has units of, and a backfill moves that day back. A failed call or a source that throws fails the whole night (one he did not turn on, or one that can't be read now,
+  `missing`, is skipped and logged, never a failure: `readySources`; one turned on keeps its units in the days rewritten
+  and those days' moments wait for it, shown as "can't read"): non-zero
   exit, nothing committed, and a failure email after the 3rd failed try. Its Actions section and the files step
   (`describeFiles`: a failed call leaves its files tags until the next run) never fail the night.
 - Codex is pinned in `package.json` and run as its native binary, because the other `codex` installs on this Mac reject

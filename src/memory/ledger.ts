@@ -141,6 +141,9 @@ const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
 
 /** Every unit in memory/units/, oldest day first. */
 export const readUnits = () => readFolder(UNITS, Unit);
+/** The units of these days only. */
+export const readUnitsOf = (dates: string[]) =>
+  dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
 
 export const readObservations = () => readFolder(OBSERVATIONS, Observation);
 

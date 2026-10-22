@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -97,9 +97,12 @@ export const settings = () => {
 };
 
 /** Writes some parts, keeping the rest: the whole is checked before anything is written. */
-export async function setSettings(parts: Partial<Settings>) {
-  read = Settings.parse({ ...readSettings(), ...parts });
-  await Bun.write(SETTINGS, `${JSON.stringify(read, null, 2)}\n`);
+export function setSettings(parts: Partial<Settings>) {
+  const next = Settings.parse({ ...readSettings(), ...parts });
+  // Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly).
+  writeFileSync(`${SETTINGS}.tmp`, `${JSON.stringify(next, null, 2)}\n`);
+  renameSync(`${SETTINGS}.tmp`, SETTINGS);
+  read = next;
 }
 
 /** The connector's settings; only code that runs behind it (server.ts checks it is there) asks. */

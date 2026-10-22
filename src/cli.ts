@@ -135,20 +135,20 @@ const commands: Record<string, () => Promise<number>> = {
     return 0;
   },
   /** Which engine runs the model steps: `engine [claude|codex]`; with no argument, prints the current one. */
-  async engine() {
+  engine() {
     const [, , , arg] = process.argv;
     if (arg === undefined) {
       console.log(readEngine());
-      return 0;
+      return Promise.resolve(0);
     }
     const engine = Engine.safeParse(arg);
     if (!engine.success) {
       console.error(`usage: bun life engine [${Engine.options.join("|")}]`);
-      return 2;
+      return Promise.resolve(2);
     }
-    await setSettings({ engine: engine.data });
+    setSettings({ engine: engine.data });
     console.log(`engine: ${engine.data}`);
-    return 0;
+    return Promise.resolve(0);
   },
   /**
    * The standing grant (decision 2), only on his own words in this conversation: `grant on|off '<his words>'`. Off
@@ -196,13 +196,13 @@ const commands: Record<string, () => Promise<number>> = {
    * The settings as JSON (`settings`), or some parts of them replaced (`settings set '<json>'`, checked whole before
    * anything is written): the app reads and writes them only through this, so their shape lives in one place.
    */
-  async settings() {
+  settings() {
     const [verb, arg] = process.argv.slice(3);
     if (verb === "set") {
-      await setSettings(JSON.parse(arg ?? "{}") as Partial<Settings>);
+      setSettings(JSON.parse(arg ?? "{}") as Partial<Settings>);
     }
     console.log(JSON.stringify(readSettings(), null, 2));
-    return 0;
+    return Promise.resolve(0);
   },
   /** What the lifelog watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),
