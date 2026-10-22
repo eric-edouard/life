@@ -1,7 +1,7 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { CODEX } from "server/src/core/platform";
-import { execOk } from "server/src/core/proc";
+import { CODEX } from "@life/server/src/core/platform";
+import { execOk } from "@life/server/src/core/proc";
 
 // The app's helper: Life compiled to one binary (`bun build --compile`), and the files it reads at run time (prompts,
 // the agent's protocol, every page's assets, the pinned codex) beside it, at the paths the code reads them from, for the app to pass as `LIFE_ROOT`. Usage:

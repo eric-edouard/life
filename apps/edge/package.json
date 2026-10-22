@@ -1,5 +1,5 @@
 {
-  "name": "edge",
+  "name": "@life/edge",
   "private": true,
   "type": "module"
 }

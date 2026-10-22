@@ -1,5 +1,5 @@
 {
-  "name": "mac",
+  "name": "@life/mac",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { ROOT } from "../core/paths";
-import { repoFiles } from "../core/proc";
-import { C, MONO, RADIUS, SERIF } from "../memory/email";
+import { ROOT } from "@life/server/src/core/paths";
+import { repoFiles } from "@life/server/src/core/proc";
+import { C, MONO, RADIUS, SERIF } from "@life/server/src/memory/email";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.

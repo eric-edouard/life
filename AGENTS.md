@@ -106,7 +106,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   except the bench's (`docs/operations.md`, "Model engines").
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, actions ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
-  `host/cycles.test.ts` fail the check on any import against them; never suppress one, move the code instead.
+  `scripts/cycles.test.ts` fail the check on any import against them; never suppress one, move the code instead.
 - **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
@@ -116,7 +116,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   report").
 - **Everything Life shows follows Life's own brand** (`docs/brand.md`): one source, `assets/brand/tokens.css`, which
   wins over any global brand skill for Life. A brand change lands there first; the email and the app copy it
-  (`apps/server/src/host/brand.test.ts` checks).
+  (`scripts/brand.test.ts` checks).
 
 ## Names
 

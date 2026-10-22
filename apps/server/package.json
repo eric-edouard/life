@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "@life/server",
   "private": true,
   "type": "module",
   "dependencies": {

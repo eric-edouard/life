@@ -1,7 +1,7 @@
 import { mkdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
-import { HOUR } from "server/src/core/clock";
-import { execOk } from "server/src/core/proc";
+import { HOUR } from "@life/server/src/core/clock";
+import { execOk } from "@life/server/src/core/proc";
 
 // A release a friend can open, published: Life.app signed with the owner's Developer ID under the hardened runtime,
 // notarized and stapled; a zip of it (what Sparkle downloads, listed in appcast.xml with its EdDSA signature) and a DMG
