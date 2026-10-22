@@ -72,6 +72,7 @@ export async function backup() {
       `${JSON.stringify({ ...readJson<Status>(STATUS), error: `staging: ${(e as Error).message}` })}\n`
     );
     console.error(clock().toISOString(), `staging: ${(e as Error).message}`);
+    rmSync(STAGING, { force: true, recursive: true });
     return 1;
   }
   // Host `life`: the Mac's name changes with the network, and restic groups snapshots by host. The staging is

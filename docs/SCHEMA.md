@@ -173,7 +173,7 @@ repo wins. A repo on a project (either way) counts every author's commits in its
 
 ## imported.jsonl
 
-Which conversations of his claude.ai and ChatGPT exports are about his life, written by `bun life memory import
+Which conversations of his claude.ai and ChatGPT exports are about his life, written by `bun life import
 <folder>` (the fast-tier model, once per conversation and prompt version, from its title and the start of his pruned
 messages), append-only: `{schemaVersion: 1, conversation, keep, why, madeBy, at}`. `conversation` is
 `<source>:<id>`; the latest line per conversation wins. Every pruned message is searched; the units of a conversation

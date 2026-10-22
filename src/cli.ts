@@ -6,9 +6,12 @@ import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http";
+import { restore } from "./import";
 import { init, started } from "./init";
 import { readEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
+import { locked } from "./memory/guard";
+import { dryRun, importExport } from "./memory/imports";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
@@ -211,6 +214,39 @@ const commands: Record<string, () => Promise<number>> = {
     const done = await setGrant(state === "on", said);
     console.log(`${done.id}: ${actionLine(done)}`);
     return 0;
+  },
+  /**
+   * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
+   * install, checked before and counted after), or his claude.ai or ChatGPT export (once; `--dry` only counts).
+   */
+  async import() {
+    const { positionals, values } = parseArgs({
+      allowPositionals: true,
+      args: process.argv.slice(3),
+      options: { dry: { type: "boolean" } },
+    });
+    const [dir] = positionals;
+    if (!dir) {
+      console.error("usage: bun life import <folder> [--dry]");
+      return 2;
+    }
+    if (existsSync(join(dir, "manifest.json"))) {
+      const r = await restore(dir);
+      console.log(
+        `Life: ${r.files} files imported and counted. Give by hand: ${JSON.stringify(r.leftOut)}`
+      );
+      return 0;
+    }
+    if (values.dry) {
+      console.log(JSON.stringify(dryRun(dir)));
+      return 0;
+    }
+    const summary = await locked(() => importExport(dir));
+    if (!summary) {
+      return 1;
+    }
+    console.log(JSON.stringify(summary));
+    return summary.failed > 0 ? 1 : 0;
   },
   /** A new install's data, once: `init --name <his name> [--email a]… [--phone +33…]…`. */
   async init() {
