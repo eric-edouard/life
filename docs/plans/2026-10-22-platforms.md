@@ -113,13 +113,13 @@ runs on GitHub's Windows runner before the workflow was removed.
 **Done** (#147–#153, #155, #156, #151): the four contracts hold today's code with nothing left on the old paths, and
 `bun run check` passes on the Mac.
 
-## Phase 1: Better-T-Stack
+## Phase 1: Better-T-Stack (done)
 
 Routes on Hono: done (#158). Each route module (`oauth.ts`, `mcp.ts`, `check.ts`, `portrait.ts`, `dashboard.ts`) is a
 Hono app; `server.ts` mounts them, one app per port, with `Bun.serve` only listening. Plain Hono for now: a route gains
 `@hono/zod-openapi` when a client needs its contract (the web UI later), with its schema as the type's one source.
 
-The connector's batched change: done (#159). The layout: done (this PR). The scaffold command ran into a scratch folder,
+The connector's batched change: done (#159). The layout: done (#160). The scaffold command ran into a scratch folder,
 and Life moved into its shape with `git mv`:
 
 - `apps/server`: Life's TypeScript (`src/`: the memory core, the sources, the actions, the server's routes, the CLI and
