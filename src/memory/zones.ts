@@ -98,13 +98,17 @@ export async function noteZone(now = clock()) {
 /** The local calendar day of an instant: where he was then, whatever zone the Mac is in now. */
 export const localDate = (iso: string) => wall(iso).day;
 
+// Spelled out here, not by Intl: ICU versions differ ("Sep" or "Sept"), and Life says a date the same everywhere.
+const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+
 /** "2026-10-15" -> "15 Oct" and "Thursday". */
 export function when(day: string) {
   const d = new Date(`${day}T12:00:00Z`);
-  const f = (o: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", ...o }).format(d);
   return {
-    date: `${f({ day: "numeric" })} ${f({ month: "short" })}`,
-    weekday: f({ weekday: "long" }),
+    date: `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`,
+    weekday: new Intl.DateTimeFormat("en-GB", {
+      timeZone: "UTC",
+      weekday: "long",
+    }).format(d),
   };
 }
