@@ -126,7 +126,7 @@ bun life <command>            # the CLI, run from the checkout (src/cli.ts)
 | [Architecture](docs/architecture.md) | The pipeline, the lifelog split, why memory stays local, relationships |
 | [Schema](docs/SCHEMA.md) | Every file in `memory/` |
 | [Sources](docs/sources.md) | What each source reads and how |
-| [The agent and the connector](docs/agent-protocol.md) | Asks, tasks, Reminders, the connector's tools, the only sends |
+| [The agent and the connector](docs/tasks.md) | Asks, tasks, Reminders, the connector's tools, the only sends |
 | [Operations](docs/operations.md) | Schedule, locks, backups and restore, evals, the read CLI |
 | [Dashboard](docs/dashboard.md) | The status reads and the status window |
 | [Releasing](docs/releasing.md) | Signing, notarization, Sparkle |

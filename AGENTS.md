@@ -5,7 +5,7 @@ mail, Apple Notes, git and imported assistant chats: sources → units → momen
 plus an always-on archive of deleted messages and old note versions. Shipped as Life.app; a checkout is for development.
 
 Read before changing an area: `docs/architecture.md` (shape and reasons), `docs/SCHEMA.md` (every record),
-`docs/sources.md`, `docs/agent-protocol.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
+`docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
 backups, evals, the read CLI), `docs/dashboard.md` (status reads and page), `docs/releasing.md`, `SECURITY.md`.
 `docs/agent.md` is not documentation: it is the agent's playbook, read at run time.
 
@@ -76,8 +76,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
 - **Life acts in one place: Apple Reminders**, through `act`, on his clear request or the standing grant. Asks are his
-  words handed to the agent, never acted on by Life. Details: `docs/agent-protocol.md`.
-- **The only sends** are the report and alerts to the owner and one MCP event per ask to his agent. Add no other (`docs/agent-protocol.md`, "The only sends").
+  words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
+- **The only sends** are the report and alerts to the owner and one MCP event per ask to his agent. Add no other (`docs/tasks.md`, "The only sends").
 - **The connector reads, forwards his corrections, and acts only through `reminders`, `task` and `reply`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
@@ -98,7 +98,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
 - **Reminders is an interface, never the truth; the ledger is.** Changes read back from Reminders can take authority
-  away or reorder, never add it. Open items are derived (`openItems`), never stored (`docs/agent-protocol.md`).
+  away or reorder, never add it. Open items are derived (`openItems`), never stored (`docs/tasks.md`).
 - **Nightly emails include every row.** Never cap a list or write "+N more" (`docs/operations.md`, "The nightly
   report").
 - **Everything Life shows follows the Ledger brand** (emails, `/check`, `/me`, the app, the icon), its values

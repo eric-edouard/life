@@ -3,7 +3,7 @@
 Every source is read-only. Each one is a file in `src/sources/` (the message archive is `src/archive.ts`) that returns `SourceEvent`s with stable ids, so
 reading twice never duplicates anything. What Life knows about a source is its descriptor in `src/sources/index.ts`:
 its kind (agent, chat, mail, notes, repo, voice), its reader, how far back `search` and `chats` read it, and what its ids say
-(groups, handles). Adding a source is one more descriptor there, and its name in `SourceName` (`schema.ts`). Raw data stays in its own app; Life keeps only ids and short quotes (and an ask's words, `docs/agent-protocol.md`). Before any text reaches a model,
+(groups, handles). Adding a source is one more descriptor there, and its name in `SourceName` (`schema.ts`). Raw data stays in its own app; Life keeps only ids and short quotes (and an ask's words, `docs/tasks.md`). Before any text reaches a model,
 `src/redact.ts` removes key blocks, card numbers, IBANs, long tokens and lines that look like passwords or codes.
 
 Each chat and mail reader also names a message's files (`SourceFile`, `schema.ts`: where it was met, name, type, and the
@@ -27,7 +27,7 @@ the archive's media copy); Life copies none, and a description outlives its file
 | Recorded conversations | lifelog's REST API (`/changes`, `/transcription-jobs/{id}/transcript`, `POST /search` for the exact words), owner device token as `LIFELOG_TOKEN` in `.env` | `lifelog.ts` | Reads only, except the owner's corrections `forward` sends. Units come from the store `bun life watch` keeps, the only caller of `poll` (so every `hey <agent>` is heard); exact words are fetched on demand. Chapter titles and summaries (lifelog's own) with turn refs. `bun life memory moments` reads only those; `bun life memory extract` also reads the transcript turns of kept chapters (`/transcription-jobs/{id}/transcript`) and keeps short quotes. |
 | The agent's done tasks | Life's own ledger, `memory/actions.jsonl` (`tasksOf`) | `agent.ts` | Kind `agent`. One unit per task the agent closed done itself (its own last update, not his tick in Reminders), dated when it closed: his ask's words (the first 1,500 characters) and the agent's outcome, all one line by `agent:` + `AGENT_WORD`, never his nor resolved to a person. Its own report, not checked by Life: extraction may read it as evidence of what was done, to close a loop it sees among its priors (one of its own moment, or one of his own from its day or the day before, as for any unit), such as the to-do his ask also left. Always read (salience at least 2), never searched as messages. |
 
-The calendar is not a source: the agent reads it. (The Past calendar is Life's output, `docs/agent-protocol.md`.)
+The calendar is not a source: the agent reads it. (The Past calendar is Life's output, `docs/tasks.md`.)
 
 ## Not used yet
 
