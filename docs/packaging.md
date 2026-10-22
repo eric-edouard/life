@@ -9,33 +9,34 @@ the same process in its own repo.
 
 ## Phase 1: Life core
 
-- [ ] 1.2 One settings file (`src/settings.ts`); every owner value read from it, none in code. Folds in 1.1 (retired
+- [x] 1.2 One settings file (`src/settings.ts`); every owner value read from it, none in code. Folds in 1.1 (retired
   paths: `LIFE_CHAT` no longer required).
-- [ ] 1.3 `derived/` and the data root under Application Support for a new install; `isHis` by a marker, not a path.
-- [ ] 1.4 `bun life init`: an empty, valid `truth/`, Goals optional, zones seeded, the data repo created.
-- [ ] 1.5 Sources: the `sources` setting, each descriptor's `missing`, the ready set. A source not set up never fails the night; zero sources runs a
+- [x] 1.3 One state root (`LIFE_STATE`) beside the data root (`LIFE_DATA`): the app sets both under Application Support.
+- [x] 1.4 `bun life init`: an empty, valid `truth/`, Goals optional, zones seeded, the data repo created.
+- [x] 1.5 Sources: the `sources` setting, each descriptor's `missing`, the ready set. A source not set up never fails the night; zero sources runs a
   clean night.
-- [ ] 1.6 Life without a voice source: the watcher, `day`, search and the nightly run with lifelog off (a voice interface waits for a second voice source: Omi comes through lifelog).
-- [ ] 1.7 Archive stores as descriptors: only enabled, installed apps kept open.
-- [ ] 1.8 Handles as a record keyed by source (schema first).
-- [ ] 1.9 Notification sink: macOS notification and in-app report by default, email optional.
+- [x] 1.6 Life without a voice source: the watcher, `day`, search and the nightly run with lifelog off (a voice interface waits for a second voice source: Omi comes through lifelog).
+- [x] 1.7 Archive stores as descriptors: only enabled, installed apps kept open.
+- [~] 1.8 dropped: the fixed handle kinds cover every source the app ships.
+- [x] 1.9 Notification sink: macOS notification and in-app report by default, email optional.
 
 ## Phase 2: agents and sign-in
 
-- [ ] 2.1 Agent settings (name, wake words, misheard, client, transport); every "Atlas" Life writes comes from them; the stored words (`target: "atlas"`, `waiting-eric`) stay.
-- [ ] 2.2 Transport interface: `mcp-event`, `pull`, `webhook`, `command`.
-- [ ] 2.3 Playbook split: the shipped protocol and the user's own part.
-- [ ] 2.4 Life's own authorization server, pairing-code approval, CIMD then DCR.
-- [ ] 2.5 Tailscale: Serve for the tailnet, Funnel opt-in for cloud agents; the tunnel healer only for Cloudflare.
+- [x] 2.1 Agent settings (name, wake words, misheard, client, transport); every "Atlas" Life writes comes from them; the stored words (`target: "atlas"`, `waiting-eric`) stay.
+- [x] 2.2 Transports: `mcp-event` and `pull` (webhook and command wait for an agent that needs them).
+- [x] 2.3 Playbook split: the shipped protocol and the user's own part.
+- [x] 2.4 Life's own authorization server, pairing-code approval, CIMD then DCR.
+- [x] 2.5 Tailscale: Serve for the tailnet, Funnel opt-in for cloud agents; the tunnel healer only for Cloudflare.
 
 ## Phase 3: Life.app
 
-- [ ] 3.1 One compiled helper (`bun build --compile`): archive, watcher and nightly as workers.
-- [ ] 3.2 SwiftUI menu-bar app: spawns and supervises the helper, login item, settings.
-- [ ] 3.3 Onboarding: who you are, engine, sources with Full Disk Access guidance, agents.
-- [ ] 3.4 Reminders and the calendar projection through EventKit; `remctl` stays the owner's backend.
-- [ ] 3.5 Engines: Codex, API keys, Claude (`claude -p`, advanced).
-- [ ] 3.6 Release: Developer ID, notarization, Sparkle, one DMG with Life.app and Lifelog Host.
+- [x] 3.1 One compiled helper (`bun build --compile`) with its files; the app runs archive, watcher and nightly from it.
+- [x] 3.2 SwiftUI menu-bar app: spawns and supervises the helper, login item, settings.
+- [x] 3.3 Onboarding: who you are, engine, sources with Full Disk Access guidance, agents.
+- [x] 3.4 Reminders and the calendar projection through EventKit; `remctl` stays the owner's backend.
+- [x] 3.5 Engines: Codex, API keys, Claude (`claude -p`, advanced).
+- [x] 3.6 Release: Developer ID, notarization, Sparkle (chosen over AppUpdater, 22 Oct: EdDSA-signed updates, a tested
+  update window), one DMG with Life.app and Lifelog Host, published in a public releases-only repo.
 
 ## Deploy steps when `packaging` reaches `main`
 
@@ -52,3 +53,13 @@ the same process in its own repo.
 - Add the status Worker's new secret, `ISSUER` (`wrangler secret put ISSUER`, the connector's issuer), then redeploy it.
   The Worker works only with another issuer (his lifelog): with Life's own, it can't check a sign-in while the Mac is
   away, and a friend's install has no Worker.
+
+## Release (his hand steps, once)
+
+- A Developer ID Application certificate in his Keychain (Apple Developer account): `LIFE_SIGN_IDENTITY`.
+- `xcrun notarytool store-credentials <profile>` with an app-specific password: `LIFE_NOTARY_PROFILE`.
+- Sparkle's key: `app/Frameworks/bin/generate_keys` (after one `bun scripts/app.ts`); the private half stays in his
+  Keychain, the public one is `LIFE_SPARKLE_KEY`.
+- A public repo for releases only (the source stays private): `LIFE_RELEASES_REPO`.
+- Then each release: `LIFE_VERSION=x.y.z bun scripts/release.ts` with those set (and `LIFELOG_HOST_APP` once lifelog's
+  host app exists).
