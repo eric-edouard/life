@@ -24,7 +24,7 @@ import {
   turn,
 } from "./sources/fixtures";
 import { apply, forward, type Stay } from "./sources/lifelog";
-import { sealed, update } from "./tasks";
+import { protocol, sealed, update } from "./tasks";
 import { DATA } from "./truth";
 
 const { issuer: ISSUER, metadata, resource: RESOURCE } = settingsOf();
@@ -364,10 +364,9 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   }
   const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
   expect(playbook).toBe(
-    readFileSync(
-      join(import.meta.dir, "..", "docs", "agent.md"),
-      "utf8"
-    ).replaceAll("{agent}", "Atlas")
+    protocol(
+      readFileSync(join(import.meta.dir, "..", "docs", "agent.md"), "utf8")
+    )
   );
   expect(me).toBe(readFileSync(join(DATA, "truth", "me.md"), "utf8"));
   expect(me).toContain("1. Be well.");
