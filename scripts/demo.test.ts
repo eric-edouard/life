@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { MACHINE } from "../src/platform";
 
 test("every fact and moment the README cites is in the demo scripts/demo.ts writes", () => {
   const out = join(mkdtempSync(join(tmpdir(), "life-demo-")), "demo");
@@ -24,11 +23,11 @@ test("every fact and moment the README cites is in the demo scripts/demo.ts writ
   expect(cited.filter((id) => !written.includes(`"id":"${id}"`))).toEqual([]);
 });
 
-test("the demo refuses a folder inside Life's own data", () => {
+test("the demo refuses a folder inside his own data", () => {
   const run = Bun.spawnSync([
     "bun",
     join(import.meta.dir, "demo.ts"),
-    join(MACHINE, "demo"),
+    join(homedir(), "Life", "demo"),
   ]);
   expect(run.exitCode).toBe(1);
 });

@@ -1,14 +1,14 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { HOME } from "../platform";
 import { type SourceEvent, type SourceFile, sourceFile } from "../schema";
 import type { Newest } from "./index";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.
 
-const MAIL = join(homedir(), "Library", "Mail");
-const ACCOUNTS_DB = join(homedir(), "Library", "Accounts", "Accounts4.sqlite");
+const MAIL = join(HOME, "Library", "Mail");
+const ACCOUNTS_DB = join(HOME, "Library", "Accounts", "Accounts4.sqlite");
 const SNIPPET = 1500;
 const SENT = /sent|envoy/i;
 // Drafts were never sent: read as mail, an unsent draft would pass for something he wrote to someone.
