@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moments";
-import type { Observation } from "../records/observations";
+import type { Moment } from "../records/moment";
+import type { Observation } from "../records/observation";
 import type { LifelogConversation } from "../sources/lifelog";
 import {
   byDays,
@@ -10,8 +10,8 @@ import {
   packed,
   priorFor,
 } from "./extract";
-import { ledger, madeBy, unit, verdict } from "./fixtures";
 import { momentsNow } from "./ledger";
+import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import type { Built } from "./units";
 
 const conversation = (

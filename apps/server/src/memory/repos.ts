@@ -7,8 +7,8 @@ import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { RepoGuess } from "../records/observations";
-import type { Unit } from "../records/units";
+import { RepoGuess } from "../records/observation";
+import type { Unit } from "../records/unit";
 import type { Placement, RepoMap } from "../sources/contract";
 import { listRepos, myCommits, readGit, repoMap } from "../sources/git";
 import {
@@ -20,11 +20,11 @@ import {
   verdictOf,
 } from "./ledger";
 import { topTopics } from "./moments";
-import { asData } from "./raw";
+import { loadTruth, ownerIn } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
 import { kindOf } from "./sources";
-import { loadTruth, ownerIn } from "./truth";
 import { areaLookup, areaOf, clip, lineCounts } from "./units";
+import { asData } from "./words";
 import { localDate } from "./zones";
 
 // `bun life memory repos --scan` and the nightly's first step: which project each code repo of the owner's belongs to. His

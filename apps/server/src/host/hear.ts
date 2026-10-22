@@ -10,7 +10,7 @@ import {
   whose,
   writeMarks,
 } from "../sources/lifelog";
-import { ask } from "./tasks";
+import { ask } from "./agent";
 
 // Hears "hey <agent>" in his recorded speech and records each ask for the agent (`ask`, delivered by the watcher as an MCP
 // event). No model call: the two words wake it, his turns that follow are the ask, and the agent judges the rest. It

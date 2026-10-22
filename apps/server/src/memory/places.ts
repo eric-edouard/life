@@ -8,8 +8,8 @@ import {
   whereAt,
   withStore,
 } from "../sources/lifelog";
-import { asData } from "./raw";
 import { clip, dayRange, localTime, time } from "./units";
+import { asData } from "./words";
 
 // `bun life memory places`, and the connector's `places`: where the owner was (lifelog's stays, from the iPhone's
 // location history), each stay with the titles of the conversations recorded during it, joined here from Life's store.

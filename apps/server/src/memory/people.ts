@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { digest } from "../core/hash";
 import type { MadeBy } from "../records/fields";
-import { INFERRED_PREFIX, type InferredPerson } from "../records/observations";
+import { INFERRED_PREFIX, type InferredPerson } from "../records/observation";
 import { locate } from "./observe";
 import { kindOf } from "./sources";
 import { areaOf, type Built, slugOf, UNKNOWN } from "./units";

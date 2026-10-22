@@ -6,7 +6,7 @@ import {
   type SourceEvent,
   type SourceFile,
   sourceFile,
-} from "../records/sources";
+} from "../records/source";
 import type { Newest } from "./contract";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.

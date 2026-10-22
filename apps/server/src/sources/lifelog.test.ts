@@ -4,14 +4,6 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import {
-  chapter,
-  conversation,
-  lifelogServer,
-  page,
-  lifelogStore as store,
-  turn,
-} from "./fixtures";
-import {
   apply,
   CLOSED_ON_SILENCE_S,
   conversationsWith,
@@ -31,6 +23,14 @@ import {
   visits,
   writeMarks,
 } from "./lifelog";
+import {
+  chapter,
+  conversation,
+  lifelogServer,
+  page,
+  lifelogStore as store,
+  turn,
+} from "./store-fixtures";
 
 const since = new Date("2026-10-01T00:00:00Z");
 const JEAN = "person-jean";

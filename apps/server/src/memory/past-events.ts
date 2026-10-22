@@ -1,8 +1,8 @@
 import { HOUR } from "../core/clock";
 import { digest } from "../core/hash";
 import { redact } from "../core/redact";
-import type { Moment } from "../records/moments";
-import type { Unit } from "../records/units";
+import type { Moment } from "../records/moment";
+import type { Unit } from "../records/unit";
 import {
   conversationsBetween,
   type Stay,

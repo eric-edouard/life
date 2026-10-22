@@ -21,7 +21,7 @@ export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
   linesOf(path)
     .filter(Boolean)
     .map((l) => schema.parse(JSON.parse(l)));
-/** Writes a small JSON state file (a guard's, the backfill's), its folder made if missing. */
+/** Writes a small JSON state file (the schedule's, the backfill's), its folder made if missing. */
 export function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value)}\n`);

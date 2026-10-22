@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git } from "../core/proc";
-import { integrity, loadTruth, ownerIn } from "../memory/truth";
+import { integrity, loadTruth, ownerIn } from "../memory/read-truth";
 import { init } from "./init";
 
 test("init makes a new owner's data that validates, commits it, and never runs twice", async () => {

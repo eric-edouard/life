@@ -7,9 +7,9 @@ import { log } from "../core/log";
 import { DATA } from "../core/paths";
 import { git } from "../core/proc";
 import { askOnce, llmFor, llmSpec, quota, type Tier } from "../models/llm";
-import { INFERRED_USE_AT, type InferredPerson } from "../records/observations";
+import { INFERRED_USE_AT, type InferredPerson } from "../records/observation";
 import { OUT, runId } from "./ledger";
-import type { Truth } from "./truth";
+import type { Truth } from "./read-truth";
 import { localDate } from "./zones";
 
 // What every memory step shares: the run (its id, folder, counters, failures and end), the batches of model calls and
@@ -48,7 +48,7 @@ export type RunRecord = ReturnType<typeof record>;
 
 /**
  * A run whose share of his Codex plan is measured (the sweeps, the eval, the agent bench): the quota read as it starts
- * and as it ends, logged on its `run.start` and `run.end` (what it spent is derived from them: `useOf`, history.ts).
+ * and as it ends, logged on its `run.start` and `run.end` (what it spent is derived from them: `useOf`, run-log.ts).
  */
 export async function metered(step: string, fields: Record<string, unknown>) {
   const before = (await quota()) ?? null;

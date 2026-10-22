@@ -3,14 +3,14 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
-import { Action } from "../records/ledger";
-import { KEEP_AT } from "../records/units";
-import { newestAgent, readAgent } from "./agent";
-import { action } from "./fixtures";
+import { Action } from "../records/ledger-entry";
+import { KEEP_AT } from "../records/unit";
+import { newestAgent, readAgent } from "./agent-source";
 import { ACTIONS } from "./ledger";
 import { saliencyOf } from "./moments";
-import { chatLines } from "./raw";
+import { action } from "./record-fixtures";
 import { messageUnits } from "./units";
+import { chatLines } from "./words";
 
 const NON_DIGIT = /\D/g;
 

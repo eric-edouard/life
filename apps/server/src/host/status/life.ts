@@ -1,16 +1,16 @@
 import { statSync } from "node:fs";
 import { clock } from "../../core/clock";
 import { recentEvents } from "../../core/log";
+import { lockedSince } from "../../memory/memory-lock";
+import { latestRuns, type Run, SWEEPS } from "../../memory/run-log";
 import {
-  lockedSince,
   MAX_ATTEMPTS,
   nextMidday,
   nextNight,
   readBackfill,
   readMidday,
   readState,
-} from "../../memory/guard";
-import { latestRuns, type Run, SWEEPS } from "../../memory/history";
+} from "../../memory/schedule";
 import { INDEX } from "../../memory/search";
 import { keptStores, listening } from "../../memory/sources";
 import { localDate } from "../../memory/zones";
@@ -19,7 +19,7 @@ import { lastCopied } from "../archive";
 import { polling, readHealth } from "../health";
 
 // Life's status, for the plate, the connector and `bun life memory status`: whether it works, how fresh its memory is
-// and what runs next, from the runs (memory/history.ts), the archive's copies and the watcher's health.
+// and what runs next, from the runs (memory/run-log.ts), the archive's copies and the watcher's health.
 
 /** Each archive store's last copy (`lastCopied`), by store name. */
 const copiedByStore = (): Record<string, string | null> =>

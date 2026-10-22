@@ -2,8 +2,8 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
-import { noteData, notesFixture, run } from "./fixtures";
 import { copyNotes, noteBody, readNotes } from "./notes";
+import { noteData, notesFixture, run } from "./store-fixtures";
 
 const versions = (dir: string) =>
   new Database(join(dir, "notes.sqlite"))

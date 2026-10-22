@@ -21,7 +21,7 @@ import {
 } from "../memory/tasks";
 import { clip, localTime } from "../memory/units";
 import { localDate } from "../memory/zones";
-import { Action, type Instruction } from "../records/ledger";
+import { Action, type Instruction } from "../records/ledger-entry";
 import { actionId, requested } from "./act";
 import { agentLive } from "./events";
 import { lapseReport, sendReport, taskReport, unsent } from "./report";

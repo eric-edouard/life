@@ -54,7 +54,7 @@ flowchart LR
 - **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
   that retires an observation (besides the owner rating one outdated).
-- **Pages** (`page.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
+- **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
 - **The index** (`STATE/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.
 
@@ -72,8 +72,8 @@ Time is modeled without a new store: said (`at`), valid (`validFrom`/`validTo`),
 
 ### The owner's own page
 
-`memory/pages/people/me.md` (`OWNER` in `truth.ts`) is built from the observations like every page, with its own
-sections (`layoutOf`, `page.ts`), so changing its shape costs a rebuild of one page. `person me` adds the owner's goals,
+`memory/pages/people/me.md` (`OWNER` in `memory/read-truth.ts`) is built from the observations like every page, with its own
+sections (`layoutOf`, `page-format.ts`), so changing its shape costs a rebuild of one page. `person me` adds the owner's goals,
 read from `truth/me.md`.
 
 ## Relationships and closeness
@@ -123,7 +123,7 @@ core  ←  records  ←  models, sources, actions  ←  memory  ←  host
 | Folder | What it holds |
 |---|---|
 | `core/` | Clock, paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing, small JSON files, which outputs are on |
-| `records/` | Every record Life writes, as zod schemas, one file per family: truth, ledger, sources, units, moments, observations, statements, and the fields they share |
+| `records/` | Every record Life writes, as zod schemas, one file per record (`unit.ts`, `moment.ts`, `observation.ts`, `statement.ts`, `ledger-entry.ts`, `source.ts`), plus `truth.ts` and the fields they share (`fields.ts`) |
 | `models/` | The model providers (`PROVIDERS`), the call and its cache |
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `actions/` | The actions contract, its two backends, the board and open items |
@@ -167,7 +167,7 @@ there): `docs/dashboard.md`.
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check. Every route is a
 Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
 
-- **The check page** (`apps/server/src/host/http/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
+- **The check page** (`apps/server/src/host/http/check-page.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
   the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else.
   Same OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a
   `wrong` correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is

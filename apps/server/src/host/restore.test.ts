@@ -13,8 +13,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DATA } from "../core/paths";
 import { linesIn, rowsIn, stage } from "./export";
-import { restore } from "./import";
 import { started } from "./init";
+import { restore } from "./restore";
 
 const temp = (name: string) => mkdtempSync(join(tmpdir(), `life-${name}-`));
 

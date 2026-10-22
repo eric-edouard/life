@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { whatsappFixture } from "./fixtures";
+import { whatsappFixture } from "./store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "./whatsapp";
 
 test("the archive reads deleted and edited messages by their last text, with senders resolved to phones", () => {

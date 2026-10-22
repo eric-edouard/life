@@ -9,10 +9,10 @@ import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { ROOT } from "../core/paths";
-import { action } from "../memory/fixtures";
 import { ACTIONS, type Task, tasksOf } from "../memory/ledger";
+import { action } from "../memory/record-fixtures";
 import { standing, type Update } from "../memory/tasks";
-import { Action } from "../records/ledger";
+import { Action } from "../records/ledger-entry";
 import {
   alerts,
   chase,
@@ -26,7 +26,7 @@ import {
   unanswered,
   wantOf,
   written,
-} from "./tasks";
+} from "./agent";
 
 const T0 = Date.parse("2026-10-19T10:00:00.000Z");
 const at = (min: number) => new Date(T0 + min * MIN).toISOString();

@@ -10,7 +10,7 @@ import {
   slug,
   UnitId,
 } from "./fields";
-import { MemoryType } from "./units";
+import { MemoryType } from "./unit";
 
 // Memory's observations (memory/observations/, docs/SCHEMA.md) and what reads or corrects them: extractions,
 // supersessions, corrections, inferred people and repos, imports, closeness.
@@ -137,7 +137,7 @@ export const Level = z.enum(["inner", "regular", "acquaintance", "faded"]);
 
 export type Level = z.infer<typeof Level>;
 
-/** A page's sections, in page order (`SECTIONS`, page.ts): views and health on the owner's page only, bond on a close person's (`layoutOf`). */
+/** A page's sections, in page order (`SECTIONS`, page-format.ts): views and health on the owner's page only, bond on a close person's (`layoutOf`). */
 export const PageSection = z.enum([
   "views",
   "health",

@@ -1,16 +1,16 @@
 import { parseArgs } from "node:util";
 import { clock } from "../core/clock";
+import { changeFeed, claim } from "../memory/changes";
 import { closeness } from "../memory/closeness";
 import { extract } from "../memory/extract";
-import { changeFeed, claim } from "../memory/feed";
-import { locked, readBackfill, recordBackfill } from "../memory/guard";
-import { runs } from "../memory/history";
 import { recordCorrection } from "../memory/ledger";
+import { locked } from "../memory/memory-lock";
 import { moments } from "../memory/moments";
 import { pages } from "../memory/pages";
 import { placesOf } from "../memory/places";
-import { chatsOf, fetchOf } from "../memory/raw";
 import { mapRepos, reposOf } from "../memory/repos";
+import { runs } from "../memory/run-log";
+import { readBackfill, recordBackfill } from "../memory/schedule";
 import {
   area,
   day,
@@ -23,6 +23,7 @@ import {
 import { addStatements } from "../memory/statements";
 import { DAYS, gather, lastDays } from "../memory/units";
 import { readPeople } from "../memory/who";
+import { chatsOf, fetchOf } from "../memory/words";
 import { firstZoneDay } from "../memory/zones";
 import { midday, nightly } from "./nightly";
 import { lifeStatus } from "./status/life";

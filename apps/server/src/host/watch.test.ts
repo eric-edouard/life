@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { ACTIONS, tasksOf } from "../memory/ledger";
+import { apply } from "../sources/lifelog";
 import {
   turn as fed,
   lifelogServer,
   lifelogStore,
   page,
-} from "../sources/fixtures";
-import { apply } from "../sources/lifelog";
+} from "../sources/store-fixtures";
 import type { Health } from "./health";
 import { hear } from "./hear";
 import { afterPoll, hearings, holdFor, type Pending, resumed } from "./watch";

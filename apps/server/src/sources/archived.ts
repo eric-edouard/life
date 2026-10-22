@@ -2,7 +2,7 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINE } from "../core/platform";
-import type { SourceEvent, SourceFile } from "../records/sources";
+import type { SourceEvent, SourceFile } from "../records/source";
 import type { Newest } from "./contract";
 
 // Life's archive (apps/server/src/host/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and Beeper's

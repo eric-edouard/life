@@ -3,8 +3,8 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
 import { DATA, STATE } from "../core/paths";
-import { Action, type Instruction } from "../records/ledger";
-import { Moment } from "../records/moments";
+import { Action, type Instruction } from "../records/ledger-entry";
+import { Moment } from "../records/moment";
 import {
   Correction,
   Extracted,
@@ -14,9 +14,9 @@ import {
   RepoGuess,
   Supersession,
   Unresolved,
-} from "../records/observations";
-import { Rating, Statement } from "../records/statements";
-import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/units";
+} from "../records/observation";
+import { Rating, Statement } from "../records/statement";
+import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 
 // memory/ on disk: every path, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.

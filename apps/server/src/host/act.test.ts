@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { unshared } from "../actions/remctl";
 import { setSettings, settings } from "../core/settings";
 import { ACTIONS } from "../memory/ledger";
-import type { Action } from "../records/ledger";
+import type { Action } from "../records/ledger-entry";
 import {
   actAsked,
   actionId,

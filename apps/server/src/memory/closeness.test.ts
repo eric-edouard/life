@@ -1,16 +1,16 @@
 import { expect, test } from "bun:test";
 import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
-import { type Closeness, Correction } from "../records/observations";
-import type { SourceEvent } from "../records/sources";
+import { type Closeness, Correction } from "../records/observation";
+import type { SourceEvent } from "../records/source";
+import { apply } from "../sources/lifelog";
 import {
   chapter,
   conversation,
   lifelogStore,
   page,
   turn,
-} from "../sources/fixtures";
-import { apply } from "../sources/lifelog";
+} from "../sources/store-fixtures";
 import {
   bucket,
   chatDays,

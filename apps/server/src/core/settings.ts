@@ -18,7 +18,7 @@ export const SETTINGS = join(STATE, "settings.json");
 export const Settings = z
   .object({
     /**
-     * His agent, the one "hey <name>" hands his words to (`hear.ts`, `tasks.ts`): its name (what Life calls it, and
+     * His agent, the one "hey <name>" hands his words to (`hear.ts`, `host/agent.ts`): its name (what Life calls it, and
      * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
      * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
      * nothing wakes an agent.

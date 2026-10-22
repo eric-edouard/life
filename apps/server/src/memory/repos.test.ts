@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import type { RepoGuess } from "../records/observations";
-import type { Unit } from "../records/units";
+import type { RepoGuess } from "../records/observation";
+import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
-import { ledger, unit, verdict } from "./fixtures";
+import type { Truth } from "./read-truth";
+import { ledger, unit, verdict } from "./record-fixtures";
 import { codeRows, parseGuesses } from "./repos";
-import type { Truth } from "./truth";
 import { areaLookup } from "./units";
 
 const ctx = {

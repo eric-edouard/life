@@ -4,21 +4,20 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AGENT_WORD } from "../core/names";
-import type { Moment } from "../records/moments";
-import type { Observation } from "../records/observations";
-import type { Unit } from "../records/units";
+import type { Moment } from "../records/moment";
+import type { Observation } from "../records/observation";
+import type { Unit } from "../records/unit";
+import { apply, readConversations } from "../sources/lifelog";
 import {
   chapter,
   conversation,
   lifelogStore,
   page,
   turn,
-} from "../sources/fixtures";
-import { apply, readConversations } from "../sources/lifelog";
-import { action } from "./fixtures";
+} from "../sources/store-fixtures";
 import { tasksOf } from "./ledger";
-import { layoutOf, perSection, renderPage } from "./page";
-import { holdsAll } from "./raw";
+import { layoutOf, perSection, renderPage } from "./page-format";
+import { action } from "./record-fixtures";
 import {
   areaFor,
   birthdaysNear,
@@ -37,6 +36,7 @@ import {
 } from "./search";
 import { newestDays } from "./units";
 import { meant, namedLike, nearNames } from "./who";
+import { holdsAll } from "./words";
 
 test("day: the conversations with their chapters and people, then the chat and mail units", () => {
   const store = lifelogStore();

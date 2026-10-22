@@ -3,9 +3,9 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "../core/log";
 import { MACHINE } from "../core/platform";
-import { unit } from "../memory/fixtures";
 import { latestExtractions } from "../memory/ledger";
-import type { Extracted, Observation } from "../records/observations";
+import { unit } from "../memory/record-fixtures";
+import type { Extracted, Observation } from "../records/observation";
 import { markedSince, nightly, reviewed } from "./nightly";
 
 test("a daily review reached Life only when ChatGPT read `day` without error in the last 24 h", async () => {

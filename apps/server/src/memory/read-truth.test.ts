@@ -9,14 +9,14 @@ import { SETTINGS } from "../core/settings";
 import { type Chat, Person } from "../records/truth";
 import { WATCH } from "../sources/lifelog";
 import { OUT } from "./ledger";
-import { commitMemory } from "./run";
 import {
   goalProjects,
   integrity,
   loadTruth,
   readMe,
   type Truth,
-} from "./truth";
+} from "./read-truth";
+import { commitMemory } from "./run";
 
 const person = (id: string, whatsapp: string[] = []): Person => ({
   aliases: [],

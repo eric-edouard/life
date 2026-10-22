@@ -9,7 +9,7 @@ import {
   newestAssistant,
   pruned,
 } from "./assistants";
-import { claudeExport } from "./fixtures";
+import { claudeExport } from "./store-fixtures";
 
 // Made-up exports in the published shapes: claude.ai's chat_messages, ChatGPT's mapping tree.
 

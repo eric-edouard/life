@@ -3,7 +3,7 @@ import { createRemoteJWKSet } from "jose";
 import { off } from "../../core/outputs";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
-import { createCheck } from "./check";
+import { createCheck } from "./check-page";
 import { createDashboard } from "./dashboard";
 import { LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
@@ -16,7 +16,7 @@ import { createSignIn, keyRefusal } from "./signin";
 /**
  * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
  * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the check
- * page (`check.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
+ * page (`check-page.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
  * public port. 404 for any other path.
  */
 export function serve() {

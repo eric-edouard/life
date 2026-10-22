@@ -5,11 +5,18 @@ import { join } from "node:path";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { readSettings, setSettings } from "../core/settings";
-import { Imported } from "../records/observations";
-import type { SourceEvent } from "../records/sources";
+import { Imported } from "../records/observation";
+import type { SourceEvent } from "../records/source";
 import type { Person } from "../records/truth";
-import type { Unit } from "../records/units";
+import type { Unit } from "../records/unit";
 import { readAssistant } from "../sources/assistants";
+import {
+  apply,
+  type LifelogChapter,
+  type LifelogConversation,
+  readConversations,
+} from "../sources/lifelog";
+import { copyNotes, readNotes } from "../sources/notes";
 import {
   chapter,
   claudeExport,
@@ -19,20 +26,12 @@ import {
   notesFixture,
   page,
   run,
-} from "../sources/fixtures";
-import {
-  apply,
-  type LifelogChapter,
-  type LifelogConversation,
-  readConversations,
-} from "../sources/lifelog";
-import { copyNotes, readNotes } from "../sources/notes";
+} from "../sources/store-fixtures";
 import { LIFE_MAIL } from "./email";
-import { showFiles } from "./files";
 import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
-import { chatLines } from "./raw";
+import { showFiles } from "./message-files";
+import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
-import { loadTruth } from "./truth";
 import {
   applyRules,
   dayRange,
@@ -52,6 +51,7 @@ import {
   writeUnits,
 } from "./units";
 import { resolver, unitNow } from "./who";
+import { chatLines } from "./words";
 import { cutAt, dayStart, firstZoneDay, localDate, zoneAt } from "./zones";
 
 const people = [

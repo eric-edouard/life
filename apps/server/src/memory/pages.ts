@@ -9,9 +9,9 @@ import {
   Correction,
   type InferredPerson,
   type Observation,
-} from "../records/observations";
+} from "../records/observation";
 import type { Area, Person } from "../records/truth";
-import type { Unit } from "../records/units";
+import type { Unit } from "../records/unit";
 import { levelsWith, pagedBy, personallyClose, waitingOf } from "./closeness";
 import {
   CORRECTIONS,
@@ -47,9 +47,9 @@ import {
   type Sections,
   settle,
   wordsOf,
-} from "./page";
+} from "./page-format";
+import { OWNER, type Truth } from "./read-truth";
 import { begin, inBatches, refContext, type Step } from "./run";
-import { OWNER, type Truth } from "./truth";
 import { daysBefore, slugOf, within } from "./units";
 import { observationsNow, readPeople, type Shown, unitNow, who } from "./who";
 
@@ -477,7 +477,7 @@ interface PagesOptions {
   rebuild?: boolean;
 }
 
-/** `bun life memory pages`. Its callers hold the memory lock (`locked`, guard.ts); the nightly commits what it writes. */
+/** `bun life memory pages`. Its callers hold the memory lock (`locked`, memory-lock.ts); the nightly commits what it writes. */
 export async function pages(opts: PagesOptions) {
   const step = await begin("pages", "main", { prompt: PAGES_PROMPT });
   const { now, today: day } = step;

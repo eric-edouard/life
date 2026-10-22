@@ -9,12 +9,12 @@ import {
   type InferredPerson,
   Observation,
   type Unresolved,
-} from "../records/observations";
+} from "../records/observation";
 import { Person } from "../records/truth";
-import type { Unit } from "../records/units";
+import type { Unit } from "../records/unit";
 import { toExtract } from "./extract";
-import { ledger, unit, verdict } from "./fixtures";
 import { locate, parseObservations, type Source } from "./observe";
+import { ledger, unit, verdict } from "./record-fixtures";
 import { buildIndex } from "./search";
 import { areaLookup, type Built } from "./units";
 import { aboutNow, chatHandles, merged, renamed, resolver } from "./who";

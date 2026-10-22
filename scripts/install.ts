@@ -7,7 +7,7 @@ const ALWAYS_ON =
   "<key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>30</integer>";
 
 // `when` is the plist's scheduling keys. The archive and the watcher stay on; the nightly starts every 30 minutes and
-// memory/guard.ts lets it run the night once, after 02:00,
+// memory/schedule.ts lets it run the night once, after 02:00,
 // a midday pass once after 13:00 and once after 19:00, and the backup once the night is done (or from 06:00).
 const JOBS: Record<string, { args: string[]; log: string; when: string }> = {
   archive: { args: ["archive"], log: "life-archive.log", when: ALWAYS_ON },

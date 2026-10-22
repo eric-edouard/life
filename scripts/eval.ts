@@ -7,7 +7,6 @@
 import { join } from "node:path";
 import { clock } from "server/src/core/clock";
 import { appendJsonl } from "server/src/core/files";
-import { locked, spareQuota } from "server/src/memory/guard";
 import {
   liveUnits,
   OUT,
@@ -15,11 +14,13 @@ import {
   readUnits,
   SCORES,
 } from "server/src/memory/ledger";
+import { locked } from "server/src/memory/memory-lock";
 import { chunks, ended, inBatches, metered } from "server/src/memory/run";
+import { spareQuota } from "server/src/memory/schedule";
 import { type Claim, claimsNow } from "server/src/memory/statements";
 import { type Grade, judge, tally } from "server/src/memory/tally";
 import { llmFor, llmSpec } from "server/src/models/llm";
-import { Score } from "server/src/records/statements";
+import { Score } from "server/src/records/statement";
 import { z } from "zod";
 
 const Facts = z.object({

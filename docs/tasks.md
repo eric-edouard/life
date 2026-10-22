@@ -33,7 +33,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
-- `ask` (`apps/server/src/host/tasks.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
+- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
   it (`apps/server/src/host/events.ts`).
 - The agent also records one through `task` from the owner's chat (`madeBy: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
@@ -46,7 +46,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 ## Tasks
 
-- **Every ask is a task until the agent closes it done (an outcome) or dropped (a reason)** (where each stands: `apps/server/src/memory/tasks.ts`; its writes and chases: `apps/server/src/host/tasks.ts`). A task is
+- **Every ask is a task until the agent closes it done (an outcome) or dropped (a reason)** (where each stands: `apps/server/src/memory/tasks.ts`; its writes and chases: `apps/server/src/host/agent.ts`). A task is
   its ask line plus its own lines in the same ledger (`TASK_LINES`: no `instruction`, `target` = the task).
 - The agent writes `update`s through the connector's `task` (the rules are `refusal`, behind the seal in `written`; one
   claim). `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows. `reply`
@@ -125,7 +125,7 @@ it, within a minute. `open_reminders` alone reads Reminders, for the sections th
 ### The board
 
 The agent's Reminders list (`BOARD`, named after the agent) is a projection of the ledger, the owner's receipt
-(`wantOf` in `apps/server/src/host/tasks.ts`, written by `push` in `apps/server/src/actions/board.ts` each minute). It writes no ledger line and
+(`wantOf` in `apps/server/src/host/agent.ts`, written by `push` in `apps/server/src/actions/board.ts` each minute). It writes no ledger line and
 never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
@@ -151,7 +151,7 @@ takes authority away.
 
 ## The Past calendar
 
-A one-way projection of the moments (`apps/server/src/memory/past.ts`), written each nightly tick by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting:
+A one-way projection of the moments (`apps/server/src/memory/past-events.ts`), written each nightly tick by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting:
 one event per moment that happened, none overlapping (`tiled`: what covers another is left off), found by its private
 properties `lifeMoment` and `lifeHash`. A changed moment is written again, a gone one deleted; events without
 `lifeMoment` are never touched. It reads nothing back and never alerts. If that calendar ever becomes a source, its

@@ -30,7 +30,7 @@ import {
   phoneOf,
   readWhatsapp,
 } from "../sources/whatsapp";
-import { newestAgent, readAgent } from "./agent";
+import { newestAgent, readAgent } from "./agent-source";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, units.ts).

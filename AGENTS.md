@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
   writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
-- **One lock.** Everything that writes `memory/` holds it (`locked`, `guard.ts`), except his single lines (a
+- **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, a rating) and `actions.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
@@ -129,7 +129,7 @@ concept, the same in docs, app, email, connector and code. A new concept gets it
 - One meaning per word. When a word already means something else (state, item, run, zone), pick another.
 - New and renamed functions: `readX` reads disk or the network, `parseX` turns text into a value, `xOf` is pure, `latest` is the most
   recent of a set, booleans start with `is` or `has`.
-- Files: a file names what it does, and no two files share a name (planned renames: `docs/glossary.md`).
+- Files: a file names what it does, and no two files share a name (a capability's `contract.ts` aside).
 - No person's name in code, stored values or ids: name the role, `owner` or `agent`.
 - A clearer name for something stored is worth its backfill (the invariant above).
 
@@ -150,8 +150,8 @@ Before adding a helper, use the one that exists:
 | A capability's types | its `contract.ts` (`sources/`, `actions/`): implementations import it, its registry imports them, never back |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
-| A unit's words | `raw.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
-| A message's files as lines | `showFiles` (`memory/files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
+| A unit's words | `words.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
+| A message's files as lines | `showFiles` (`memory/message-files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Running another program | `apps/server/src/core/proc.ts` |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |
@@ -162,7 +162,7 @@ Before adding a helper, use the one that exists:
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
-Only `guard.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
+Only `schedule.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
 on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events' `post` and the Past calendar).
 

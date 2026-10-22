@@ -1,7 +1,10 @@
 import { afterAll, expect, test } from "bun:test";
 import { setSettings, settings } from "../core/settings";
-import type { SourceEvent } from "../records/sources";
+import type { SourceEvent } from "../records/source";
 import { copyBeeper, readBeeper } from "../sources/beeper";
+import { readImessage } from "../sources/imessage";
+import { apply } from "../sources/lifelog";
+import { copyNotes, readNotes } from "../sources/notes";
 import {
   beeperFixture,
   chapter,
@@ -14,12 +17,11 @@ import {
   page,
   turn,
   whatsappFixture,
-} from "../sources/fixtures";
-import { readImessage } from "../sources/imessage";
-import { apply } from "../sources/lifelog";
-import { copyNotes, readNotes } from "../sources/notes";
+} from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
+import { OWNER } from "./read-truth";
+import { LIFE_CHAT, localTime, time } from "./units";
 import {
   chatHits,
   chatsOf,
@@ -28,9 +30,7 @@ import {
   mailHits,
   transcripts,
   voiceLines,
-} from "./raw";
-import { OWNER } from "./truth";
-import { LIFE_CHAT, localTime, time } from "./units";
+} from "./words";
 
 const words = ["Allo", "Salut", "", "Fin"];
 const server = lifelogServer({

@@ -4,9 +4,9 @@ import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
-import type { SourceEvent } from "../records/sources";
+import type { SourceEvent } from "../records/source";
 import type { Person } from "../records/truth";
-import { Unit } from "../records/units";
+import { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
 import {
@@ -16,7 +16,6 @@ import {
   withStore,
 } from "../sources/lifelog";
 import { LIFE_MAIL } from "./email";
-import { describeFiles, showFiles } from "./files";
 import {
   keptConversations,
   readFiles,
@@ -25,8 +24,9 @@ import {
   readUnitsOf,
   UNITS,
 } from "./ledger";
+import { describeFiles, showFiles } from "./message-files";
+import { loadTruth, OWNER, ownerIn, type Truth } from "./read-truth";
 import { enabledSources, kindOf, readySources, sourceOf } from "./sources";
-import { loadTruth, OWNER, ownerIn, type Truth } from "./truth";
 import { dayStart, localDate, wall } from "./zones";
 
 // Units (docs/architecture.md, "The pipeline"): one lifelog chapter, one chat-day, mail thread-day, note-day or repo-day. Built by

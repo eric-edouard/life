@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Observation } from "../records/observations";
+import type { Observation } from "../records/observation";
 import {
   assemble,
   bodyOf,
@@ -25,7 +25,7 @@ import {
   renderPage,
   type Sections,
   settle,
-} from "./page";
+} from "./page-format";
 
 const A = "obs_aaaaaaaaaaaa";
 const B = "obs_bbbbbbbbbbbb";

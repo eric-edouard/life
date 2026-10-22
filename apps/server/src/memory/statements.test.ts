@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moments";
-import type { Statement } from "../records/statements";
+import type { Moment } from "../records/moment";
+import type { Statement } from "../records/statement";
 import { momentGroup, momentText, spread } from "./statements";
 
 const draft = (

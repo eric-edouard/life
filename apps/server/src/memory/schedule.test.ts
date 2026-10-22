@@ -1,19 +1,18 @@
 import { expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
+import { LOCK, locked } from "./memory-lock";
 import {
   afterWeek,
   backfillWeek,
   backupDue,
   decide,
-  LOCK,
-  locked,
   middayDue,
   type NightState,
   nextMidday,
   nextNight,
   quotaLine,
   turnOf,
-} from "./guard";
+} from "./schedule";
 import { localTime } from "./units";
 
 const day = "2026-10-15";
