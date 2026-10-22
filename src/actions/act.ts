@@ -1,25 +1,31 @@
 import { z } from "zod";
-import { clock } from "./clock";
-import { linked, openLinked } from "./items";
-import { ACTIONS, appendJsonl, digest, readActions } from "./memory/ledger";
-import { actionFailedReport, sendReport } from "./memory/report";
-import { normalize } from "./memory/units";
-import { localDate } from "./memory/zones";
-import { off } from "./outputs";
-import { BOARD, isShared } from "./reminders/remctl";
-import { type Done, info, intended, write } from "./reminders/write";
+import { clock } from "../clock";
+import { linked, openLinked } from "../items";
+import { ACTIONS, appendJsonl, digest, readActions } from "../memory/ledger";
+import { actionFailedReport, sendReport } from "../memory/report";
+import { normalize } from "../memory/units";
+import { localDate } from "../memory/zones";
 import {
   Action,
   type Instruction,
   type Observation,
   REMINDER_KINDS,
   stands,
-} from "./schema";
-import { kindOf } from "./sources";
-import { ownerSpoke, withStore } from "./sources/lifelog";
+} from "../schema";
+import { kindOf } from "../sources";
+import { ownerSpoke, withStore } from "../sources/lifelog";
+import {
+  BOARD,
+  backend,
+  type Done,
+  info,
+  intended,
+  lacks,
+  write,
+} from "./backend";
 
-// What Life does outside itself on the owner's clear request: each change to his Apple Reminders is one `act`, which
-// decides it, has src/reminders/write.ts make it (src/reminders/ is the only code that touches Reminders), records it as an Action
+// What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
+// Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as an Action
 // (memory/actions.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
 // connector) decide that he asked. The ledger also holds the agent's tasks (src/tasks.ts), whose board, the list `BOARD`,
 // no `act` may touch.
@@ -66,13 +72,11 @@ interface Act {
   why: string;
 }
 
-/** The open reminder an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. */
-export function duplicateOf(c: Change, open: { id: number; title: string }[]) {
-  const same =
-    c.kind === "add"
-      ? open.find((r) => normalize(r.title) === normalize(c.title))
-      : undefined;
-  return same && `reminder:${same.id}`;
+/** The open item an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. Its id. */
+export function duplicateOf(c: Change, open: { id: string; title: string }[]) {
+  return c.kind === "add"
+    ? open.find((r) => normalize(r.title) === normalize(c.title))?.id
+    : undefined;
 }
 
 /** The record of an action already done (or asked) with this id: the same words act once, unless that try failed (or never ended). */
@@ -87,9 +91,10 @@ export const recorded = async (id: string) =>
 export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
-  const why = off("reminders");
-  if (why) {
-    throw new Error(why);
+  const b = backend();
+  const no = lacks(c, b.can);
+  if (no.length > 0) {
+    throw new Error(`${b.label} cannot do this (no ${no.join(", ")})`);
   }
   if (c.kind === "restore" && !(c.target && c.list)) {
     throw new Error(
@@ -114,6 +119,7 @@ export async function act(a: Act): Promise<Action> {
         }))
       : [];
   const same = duplicateOf(c, open);
+  const ref = (item: string | number) => `${b.prefix}:${item}`;
   const line = (done: Done, result: Action["result"]): Action => ({
     ...done,
     at: clock().toISOString(),
@@ -125,10 +131,13 @@ export async function act(a: Act): Promise<Action> {
     schemaVersion: 1,
     why: a.why,
   });
-  const tried = { after: intended(c), target: `reminder:${c.target ?? "new"}` };
+  const tried = { after: intended(c), target: ref(c.target ?? "new") };
   let action: Action;
   if (same) {
-    action = line({ after: { title: c.title }, target: same }, "duplicate");
+    action = line(
+      { after: { title: c.title }, target: ref(same) },
+      "duplicate"
+    );
   } else {
     // Recorded before the write: whatever happens next, Reminders showing this value is Life's doing, never his (#69).
     await appendJsonl(ACTIONS, Action, [line(tried, "intent")]);
@@ -176,7 +185,7 @@ export const grantedFrom = (actions: Action[], obs: string) =>
  * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
  * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
  * it adds at most GRANT_DAILY a day (his local day), only from his current salience-3 to-do or promise in a lifelog
- * turn the store credits to him now (`mine`); a shared list is `isShared`'s (src/reminders/remctl.ts), checked last (it reads his Reminders).
+ * turn the store credits to him now (`mine`); a shared list is the backend's `shared`, checked last (it reads his lists).
  */
 export function grantRefusal(g: {
   actions: Action[];
@@ -276,7 +285,7 @@ export function actGranted(
       throw new Error(`Not done: ${no}.`);
     }
     // His Reminders are read only once everything else allows it.
-    if (await isShared(change.list)) {
+    if (await backend().shared(change.list)) {
       throw new Error("Not done: the list is shared: that needs his words.");
     }
     return act({

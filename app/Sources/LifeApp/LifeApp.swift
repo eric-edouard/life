@@ -261,14 +261,16 @@ struct SettingsView: View {
     await supervisor.restart()
   }
 
-  /// The Reminders plugin on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
+  /// The actions output with the Reminders backend, on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
   /// once, then its own permission steps), and the toggle takes once `life app` sees it.
   private func setReminders(_ on: Bool, _ r: Reminders) async {
     if on, !r.ready {
       await installRemctl(r)
       return
     }
-    await set(["reminders": on])
+    // The actions output with Reminders as its backend; null turns it off.
+    let actions: Any = on ? ["backend": "reminders"] as Any : NSNull()
+    await set(["actions": actions])
     await supervisor.restart()
   }
 

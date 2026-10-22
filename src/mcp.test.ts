@@ -574,9 +574,9 @@ test("places: each stay lists the conversations recorded during it", async () =>
   expect(await placesOf({}, read, open)).toBeNull();
 });
 
-test("with the Reminders plugin off, the connector offers no Reminders tool", async () => {
-  const on = settings().reminders;
-  setSettings({ reminders: false });
+test("with the actions output off, the connector offers no Reminders tool", async () => {
+  const on = settings().actions;
+  setSettings({ actions: null });
   try {
     const { json } = await rpc(await token(), "tools/list");
     const names = json.result.tools.map((t: { name: string }) => t.name);
@@ -584,6 +584,6 @@ test("with the Reminders plugin off, the connector offers no Reminders tool", as
     expect(names).not.toContain("open_reminders");
     expect(names).toContain("tasks");
   } finally {
-    setSettings({ reminders: on });
+    setSettings({ actions: on });
   }
 });

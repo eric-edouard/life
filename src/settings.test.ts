@@ -8,7 +8,6 @@ test("a corrupt settings file throws instead of switching engine; a missing one 
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
   expect(readSettings(path)).toEqual({
     engine: "claude",
-    reminders: false,
     reports: [],
     sources: [],
   });

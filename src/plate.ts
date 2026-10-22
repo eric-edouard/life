@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { checks } from "./actions/backend";
 import { archiveFailing } from "./archive";
 import { backupOld, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
@@ -25,7 +26,6 @@ import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
 import { isOn, OUTPUTS } from "./outputs";
 import { git } from "./proc";
-import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
@@ -1018,11 +1018,11 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!isOn("reminders"), { tone: "idle", word: "off" }],
+        [!isOn("actions"), { tone: "idle", word: "off" }],
         [
           r.remctl.length > 0,
           {
-            ask: ASK("that Life can't reach Reminders"),
+            ask: ASK("that Life can't reach its actions backend"),
             tone: "bad",
             word: "unreachable",
           },
@@ -1047,7 +1047,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: OUTPUTS.reminders.label,
+      name: OUTPUTS.actions.label,
     },
     {
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),

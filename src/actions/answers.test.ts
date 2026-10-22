@@ -1,0 +1,63 @@
+import { expect, test } from "bun:test";
+import { setSettings, settings } from "../settings";
+import { openOf } from "./backend";
+import gog from "./gog.json";
+import { type Task, taskArgs, itemOfTask as taskItem } from "./google";
+import { itemOf, type Raw, remctl, unshared } from "./remctl";
+import answers from "./remctl.json";
+
+// Each backend's answers as Life reads them: remctl's (remctl.json, `REMCTL_RELEASE`'s: what moving the pin checks),
+// and gog's (gog.json).
+
+test("a reminder's due is local wall time, as `open_reminders` shows it, and its id a string", () => {
+  const r = itemOf((answers.show as Raw[])[0] as Raw);
+  expect(openOf(r).due).toBe("2026-10-22 09:00");
+  expect(r.id).toBe("412");
+});
+
+const UUID = /^[0-9A-F-]{36}$/;
+
+test("an add answers its number and its deep link's id, a list says whether it is shared", () => {
+  expect(typeof answers.add.numericId).toBe("number");
+  expect(answers.add.id).toMatch(UUID);
+  expect(unshared(answers["list-info"])).toBe(true);
+});
+
+test("a Google task reads as an item: its list's id in its id, its day only, ticked by its status", () => {
+  const [list] = gog.lists.tasklists;
+  const [open, , gone] = gog.list.tasks as Task[];
+  const item = taskItem(list as { id: string; title: string }, open as Task);
+  expect(item.id).toBe("bGlzdEhvbWU/dGFza0EwMQ");
+  expect(openOf(item)).toMatchObject({
+    due: "2026-10-22",
+    list: "Errands",
+    notes: "the blue one",
+    title: "Buy a lamp",
+  });
+  expect(
+    taskItem(list as { id: string; title: string }, gone as Task)
+  ).toMatchObject({
+    completed: true,
+  });
+  expect(gog.get.task.id).toBe(gog.add.task.id);
+});
+
+test("a change's fields go to gog as one value each, a dash kept as a value, null clearing", () => {
+  expect(taskArgs({ due: "2026-10-22", notes: "-- n", title: "T" })).toEqual([
+    "--title=T",
+    "--notes=-- n",
+    "--due=2026-10-22",
+  ]);
+  expect(taskArgs({ due: null, notes: null })).toEqual(["--notes=", "--due="]);
+  expect(taskArgs({})).toEqual([]);
+});
+
+test("with the actions output off, nothing reaches Reminders", async () => {
+  const on = settings().actions;
+  setSettings({ actions: null });
+  try {
+    await expect(remctl(["lists"])).rejects.toThrow("Actions is off");
+  } finally {
+    setSettings({ actions: on });
+  }
+});

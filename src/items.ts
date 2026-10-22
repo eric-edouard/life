@@ -2,10 +2,10 @@ import { type Action, type SourceEvent, stands } from "./schema";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
 // every read from the records that already hold each fact (the observations, memory/actions.jsonl, his chats), never
-// stored, ranked by code. Reminders is one interface to it: delete src/reminders/ and this still holds.
+// stored, ranked by code. The actions backend is one interface to it: without one this still holds.
 
-// His reminders as the ledger holds them: what Life wrote (`act`, its intents too) and what it read back as his
-// (`madeBy: "reminders"`, src/reminders/inbound.ts), walked in order.
+// His items (reminders, Google tasks) as the ledger holds them: what Life wrote (`act`, its intents too) and what it read
+// back as his (`madeBy: "reminders"`, src/actions/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
 
 /** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted. */
 export const FIELDS = [
@@ -36,7 +36,7 @@ export interface Linked {
   /** When it was made, and the observation or words it came from (open items' age and merge). */
   at: string;
   fields: Fields;
-  id: number;
+  id: string;
   key: string;
   link?: string;
   ref?: string;
@@ -68,11 +68,11 @@ function apply(it: Linked, a: Action) {
 
 /** Every reminder Life links, by its id now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
 export function linked(actions: Action[]) {
-  const items = new Map<number, Linked>();
+  const items = new Map<string, Linked>();
   for (const a of actions) {
-    const n = Number(a.target.split(":")[1]);
+    const n = a.target.slice(a.target.indexOf(":") + 1);
     // A move can give a new id: the line's `before` has the old one.
-    const from = typeof a.before?.id === "number" ? a.before.id : n;
+    const from = a.before?.id === undefined ? n : String(a.before.id);
     const opens =
       (a.kind === "add" || a.kind === "import") && a.result === "ok";
     const it: Linked | undefined =
@@ -89,7 +89,7 @@ export function linked(actions: Action[]) {
         : undefined);
     if (
       it &&
-      a.target.startsWith("reminder:") &&
+      a.target.includes(":") &&
       a.result !== "duplicate" &&
       !apply(it, a)
     ) {
