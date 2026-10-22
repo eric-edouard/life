@@ -36,12 +36,11 @@ in its PR: no second path left alive.
 ### Inputs
 
 The contract exists: the source descriptor (`Descriptor`, `src/sources/index.ts:67`). Memory steps already branch on
-`kind`, never on a name. What is missing:
+`kind`, never on a name. What it needed:
 
-- **The archive is a capability, not a second list.** `STORES` (`archive.ts:368`) repeats each archived source's name
-  and app, joined back by name (`keptStores`, `:394`), a third time in `archived(...)` (`index.ts:64`) and a fourth in
-  `archived.ts:33,89`. The descriptor gets `store` (`app`, `copy`, `copies`, `media`); `STORES`, `keptStores` and the
-  `missing` of archived sources derive from `SOURCES`.
+- **The archive is a capability, not a second list** (done, #147). An archived source's descriptor carries its
+  `store` (`app`, `copy`, `copies`, `media`), and each source copies its own store beside its reader; `ARCHIVED`,
+  `keptStores` and the `missing` of archived sources derive from `SOURCES`.
 - **Voice is a REST contract, not a second kind of reader.** The voice input is lifelog's REST API (below), and
   `src/sources/lifelog.ts` is its one client. Another voice source would speak the same API rather than add a reader.
   Its units keep the source name `lifelog`: unit ids are stored in memory, and renaming them needs a map.

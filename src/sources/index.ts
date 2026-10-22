@@ -118,141 +118,141 @@ export type Descriptor = {
  * Every source, in the order units are cut (`gather` cuts lifelog's from the watcher's store first, then each other
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
-export const SOURCES: Descriptor[] = (
-  [
-    // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, plate.ts).
-    {
-      kind: "voice",
-      label: "Pendant",
-      missing: lifelogMissing,
-      name: "lifelog",
-      silentAfter: 6 * HOUR,
+const LISTED: Descriptor[] = [
+  // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, plate.ts).
+  {
+    kind: "voice",
+    label: "Pendant",
+    missing: lifelogMissing,
+    name: "lifelog",
+    silentAfter: 6 * HOUR,
+  },
+  {
+    chatDays: 7,
+    group: isImessageGroup,
+    handleOf,
+    kind: "chat",
+    label: "iMessage",
+    missing: () => unreadable(DB, FULL_DISK),
+    name: "imessage",
+    newest: newestImessage,
+    read: readImessage,
+    searchDays: 90,
+    silentAfter: 24 * HOUR,
+  },
+  {
+    chatDays: 7,
+    group: isWhatsappGroup,
+    handleOf: phoneOf,
+    kind: "chat",
+    label: "WhatsApp",
+    name: "whatsapp",
+    newest: newestWhatsapp,
+    read: readWhatsapp,
+    searchDays: 90,
+    silentAfter: 24 * HOUR,
+    store: {
+      app: "WhatsApp",
+      copies: "messages",
+      copy: copyWhatsapp,
+      media: "media",
     },
-    {
-      chatDays: 7,
-      group: isImessageGroup,
-      handleOf,
-      kind: "chat",
-      label: "iMessage",
-      missing: () => unreadable(DB, FULL_DISK),
-      name: "imessage",
-      newest: newestImessage,
-      read: readImessage,
-      searchDays: 90,
-      silentAfter: 24 * HOUR,
+  },
+  {
+    chatDays: 7,
+    kind: "chat",
+    label: "Beeper",
+    name: "beeper",
+    newest: newestBeeper,
+    read: readBeeper,
+    searchDays: 90,
+    silentAfter: 72 * HOUR,
+    store: {
+      app: "Beeper Desktop",
+      copies: "messages",
+      copy: copyBeeper,
+      media: "''",
     },
-    {
-      chatDays: 7,
-      group: isWhatsappGroup,
-      handleOf: phoneOf,
-      kind: "chat",
-      label: "WhatsApp",
-      name: "whatsapp",
-      newest: newestWhatsapp,
-      read: readWhatsapp,
-      searchDays: 90,
-      silentAfter: 24 * HOUR,
-      store: {
-        app: "WhatsApp",
-        copies: "messages",
-        copy: copyWhatsapp,
-        media: "media",
-      },
-    },
-    {
-      chatDays: 7,
-      kind: "chat",
-      label: "Beeper",
-      name: "beeper",
-      newest: newestBeeper,
-      read: readBeeper,
-      searchDays: 90,
-      silentAfter: 72 * HOUR,
-      store: {
-        app: "Beeper Desktop",
-        copies: "messages",
-        copy: copyBeeper,
-        media: "''",
-      },
-    },
-    {
-      kind: "mail",
-      label: "Mail",
-      missing: () => {
-        try {
-          mailRoot();
-        } catch {
-          return FULL_DISK;
-        }
-      },
-      name: "mail",
-      newest: newestMail,
-      read: readMail,
-      searchDays: 90,
-      silentAfter: 12 * HOUR,
-    },
-    {
-      kind: "notes",
-      label: "Notes",
-      name: "notes",
-      newest: newestNote,
-      read: readNotes,
-      // ponytail: each search reads every note version (1,500 in 15 ms, a whole search 150 ms, Oct 2026); index their
-      // text in index.sqlite if that grows slow.
-      searchDays: Number.POSITIVE_INFINITY,
-      silentAfter: 7 * 24 * HOUR,
-      store: {
-        app: "Notes",
-        copies: "versions",
-        copy: copyNotes,
-        media: "''",
-      },
-    },
-    // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
-    // amber; its newest is his newest imported message. ponytail: search reads every pruned message (the export parsed once per process,
-    // every sweep included); index them in index.sqlite if that grows slow.
-    ...(["claude", "chatgpt"] as const).map(
-      (name): Descriptor => ({
-        imported: true,
-        kind: "notes",
-        label: FORMATS[name].label,
-        missing: () =>
-          existsSync(importOf(name)) ? undefined : "not imported",
-        name,
-        newest: () => newestAssistant(name),
-        read: readAssistant(name),
-        searchDays: Number.POSITIVE_INFINITY,
-        silentAfter: Number.POSITIVE_INFINITY,
-      })
-    ),
-    // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
-    {
-      kind: "agent",
-      label: agentName(),
-      name: AGENT_WORD,
-      newest: newestAgent,
-      read: readAgent,
-      silentAfter: Number.POSITIVE_INFINITY,
-    },
-    {
-      kind: "repo",
-      label: "Git",
-      missing: () => (settings().repos ? undefined : "no repos folder set"),
-      name: "git",
-      newest: newestCommit,
-      read: (since, { me, repos }) => readGit(since, repos, me),
-      silentAfter: 72 * HOUR,
-    },
-  ] as Descriptor[]
-).map((s) =>
-  // An archived source is there once the archive has copied its store.
-  s.store
-    ? {
-        ...s,
-        missing: () =>
-          unreadable(archiveDb(s.name), `${s.label} not archived yet`),
+  },
+  {
+    kind: "mail",
+    label: "Mail",
+    missing: () => {
+      try {
+        mailRoot();
+      } catch {
+        return FULL_DISK;
       }
-    : s
+    },
+    name: "mail",
+    newest: newestMail,
+    read: readMail,
+    searchDays: 90,
+    silentAfter: 12 * HOUR,
+  },
+  {
+    kind: "notes",
+    label: "Notes",
+    name: "notes",
+    newest: newestNote,
+    read: readNotes,
+    // ponytail: each search reads every note version (1,500 in 15 ms, a whole search 150 ms, Oct 2026); index their
+    // text in index.sqlite if that grows slow.
+    searchDays: Number.POSITIVE_INFINITY,
+    silentAfter: 7 * 24 * HOUR,
+    store: {
+      app: "Notes",
+      copies: "versions",
+      copy: copyNotes,
+      media: "''",
+    },
+  },
+  // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
+  // amber; its newest is his newest imported message. ponytail: search reads every pruned message (the export parsed once per process,
+  // every sweep included); index them in index.sqlite if that grows slow.
+  ...(["claude", "chatgpt"] as const).map(
+    (name): Descriptor => ({
+      imported: true,
+      kind: "notes",
+      label: FORMATS[name].label,
+      missing: () => (existsSync(importOf(name)) ? undefined : "not imported"),
+      name,
+      newest: () => newestAssistant(name),
+      read: readAssistant(name),
+      searchDays: Number.POSITIVE_INFINITY,
+      silentAfter: Number.POSITIVE_INFINITY,
+    })
+  ),
+  // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
+  {
+    kind: "agent",
+    label: agentName(),
+    name: AGENT_WORD,
+    newest: newestAgent,
+    read: readAgent,
+    silentAfter: Number.POSITIVE_INFINITY,
+  },
+  {
+    kind: "repo",
+    label: "Git",
+    missing: () => (settings().repos ? undefined : "no repos folder set"),
+    name: "git",
+    newest: newestCommit,
+    read: (since, { me, repos }) => readGit(since, repos, me),
+    silentAfter: 72 * HOUR,
+  },
+];
+
+export const SOURCES = LISTED.map(
+  (s): Descriptor =>
+    // An archived source is there once the archive has copied its store.
+    s.store
+      ? {
+          ...s,
+          missing: () =>
+            unreadable(archiveDb(s.name), `${s.label} not archived yet`),
+        }
+      : s
 );
 
 /** The sources he turned on (the `sources` setting), in cut order: no other is read, searched or shown. */

@@ -1,8 +1,16 @@
 import { expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
 import { AGENT_WORD, Unit } from "../schema";
-import { type Descriptor, enabledSources, readySources, SOURCES } from ".";
+import {
+  type Descriptor,
+  enabledSources,
+  readySources,
+  SOURCES,
+  sourceOf,
+} from ".";
+import { archiveDb } from "./archived";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);
@@ -101,4 +109,12 @@ test("only the sources he turned on are read, and one not set up yet is left out
   expect(enabledSources([ready, notYet], ["imessage"])).toEqual([notYet]);
   // A fresh install turns nothing on: nothing is read, and nothing fails.
   expect(enabledSources(SOURCES, [])).toEqual([]);
+});
+
+test("an archived source can't be read until the archive copied its store; others keep their own reason", () => {
+  const copied = existsSync(archiveDb("notes"));
+  expect(sourceOf("notes").missing?.()).toBe(
+    copied ? undefined : "Notes not archived yet"
+  );
+  expect(sourceOf("mail").missing).not.toBe(sourceOf("notes").missing);
 });

@@ -1,25 +1,15 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { SourceEvent, SourceFile } from "../schema";
 import { MAC } from "../truth";
 import type { Newest } from "./index";
 
-// Reading Life's archive (src/archive.ts), opened read-only: WhatsApp and Beeper's chats, a message deleted for everyone
-// with the text the archive kept, an edited one by its latest text; each version of a note as what it changed.
+// Life's archive (src/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and Beeper's
+// chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
+// of a note as what it changed.
 
 export const ARCHIVE = join(MAC, "archive");
-
-// The apps' own stores the archive copies from (WhatsApp's and Beeper's), opened read-only.
-export const WHATSAPP = join(
-  homedir(),
-  "Library/Group Containers/group.net.whatsapp.WhatsApp.shared"
-);
-export const BEEPER = join(
-  homedir(),
-  "Library/Application Support/BeeperTexts"
-);
 
 /** One archive store's database (an archived source's name). */
 export const archiveDb = (name: string, dir = ARCHIVE) =>

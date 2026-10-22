@@ -15,7 +15,7 @@ import {
 } from "./archived";
 import { fromAppleS } from "./imessage";
 
-// Apple Notes' own store, opened read-only by the archive (src/archive.ts), which keeps every version of each note.
+// Apple Notes' own store, opened read-only by `copyNotes`, which keeps every version of each note in the archive.
 // Only the Notes app writes it, iCloud sync included, so an iPhone edit lands here while Notes runs on the Mac.
 // `readNotes` reads those versions back for memory: notes are memory only, never his words for actions.
 
