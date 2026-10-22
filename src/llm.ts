@@ -459,10 +459,11 @@ export function quotaOf(reply = ""): Quota | undefined {
  * last line is the last reading: undefined when this process's calls (on `engine`, his setting unless a bench says) don't go to Codex, Codex doesn't answer, or the
  * engine setting is corrupt (the night's own calls fail on it, loudly). Never throws.
  */
-export async function quota(engine = readEngine()) {
+export async function quota(engine?: Engine) {
   let q: Quota | undefined;
   try {
-    q = await PROVIDERS[llmFor("main", engine).engine].quota?.();
+    q =
+      await PROVIDERS[llmFor("main", engine ?? readEngine()).engine].quota?.();
   } catch {
     // Unread.
   }

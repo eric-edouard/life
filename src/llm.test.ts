@@ -9,6 +9,7 @@ import {
   extractJson,
   llmFor,
   llmOverride,
+  quota,
   quotaOf,
   type Tools,
 } from "./llm";
@@ -361,4 +362,9 @@ test("each provider's model and effort by tier; tools only on his subscriptions"
       tools: { command: [], env: {} },
     })
   ).rejects.toThrow("runs no tools");
+});
+
+test("only a provider with a quota reads one: a Claude run reads none, whatever his setting", async () => {
+  expect(await quota("claude")).toBeUndefined();
+  expect(await quota("anthropic")).toBeUndefined();
 });
