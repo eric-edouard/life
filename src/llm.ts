@@ -724,7 +724,9 @@ export async function askOnce(opts: {
 }) {
   const { dir, llm } = opts;
   if (opts.tools && !PROVIDERS[llm.engine].tools) {
-    throw new Error("tools run on his subscriptions only (claude or codex)");
+    throw new Error(
+      `${llm.engine} runs no tools: tools run on his subscriptions only`
+    );
   }
   const context =
     opts.context === undefined

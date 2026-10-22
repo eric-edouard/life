@@ -73,12 +73,10 @@ calendar, the report (email or a local page), the connector, the ask event, the 
 
 ### Model providers
 
-`llm.ts` already dispatches through one table (`RUNNERS`, `:683`), but the rest is spread: model tables per engine
-(`:49`, `:56`, `:119`), the effort table shared across vendors (`CODEX_EFFORT` for `anthropic`, `:136`), the quota
-deciding again whether the engine is Codex (`:476`). The contract, one entry per provider in one registry: its models
-per tier (`fast`, `main`, `deep`), its effort, whether it may use tools, `ask`, and `quota` when it has one; the binary
-path and the environment it runs with come from the platform module. Providers: `claude` (CLI), `codex` (CLI),
-`anthropic` and `openai` (API keys), `openrouter` (the bench only).
+Done (#149). `PROVIDERS` in `llm.ts` has one entry per provider: `claude` and `codex` (his subscriptions' CLIs),
+`anthropic` and `openai` (API keys), `openrouter` (the bench only). Each holds its models by tier (`fast`, `main`,
+`deep`; OpenRouter's come from `LIFE_LLM`), its effort, its call, whether it may run tools, and its quota when it has
+one. `llmFor`, the tools rule and the quota read it; the binary path and the environment move to the platform module.
 
 ### Transcription providers
 
