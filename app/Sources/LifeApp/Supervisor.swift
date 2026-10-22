@@ -29,27 +29,37 @@ final class Supervisor {
 
   func start() async {
     await refresh()
-    guard info?.started == true, timer == nil else { return }
-    for args in Self.services { keep(args) }
-    tick()
-    timer = Timer.scheduledTimer(withTimeInterval: Self.tickEvery, repeats: true) { _ in
-      Task { @MainActor in self.tick() }
+    guard info?.started == true else { return }
+    if services.isEmpty {
+      for args in Self.services { keep(args) }
+    }
+    if timer == nil {
+      tick()
+      timer = Timer.scheduledTimer(withTimeInterval: Self.tickEvery, repeats: true) { _ in
+        Task { @MainActor in self.tick() }
+      }
     }
   }
 
+  /// The app ends: every process of Life's with it.
   func stop() {
     timer?.invalidate()
     timer = nil
-    for p in services.values { p.terminate() }
-    services = [:]
+    endServices()
     nightly?.terminate()
     nightly = nil
   }
 
-  /// Settings changed: the helper reads them once per process, so each service starts again.
+  /// Settings changed: the helper reads them once per process, so each service starts again (a nightly running
+  /// finishes on the settings it started with).
   func restart() async {
-    stop()
+    endServices()
     await start()
+  }
+
+  private func endServices() {
+    for p in services.values { p.terminate() }
+    services = [:]
   }
 
   private func keep(_ args: [String]) {
@@ -74,7 +84,9 @@ final class Supervisor {
     }
   }
 
+  /// A nightly still running is left to finish (its own lock would refuse a second).
   private func tick() {
+    if nightly?.isRunning == true { return }
     lastTick = Date()
     let p = Helper.process(["memory", "nightly"])
     p.standardOutput = log("memory-nightly")
