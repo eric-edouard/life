@@ -418,6 +418,9 @@ export async function sendReport(id: string | string[], mail: Mail) {
   }
 }
 
+/** Where reports kept on the Mac go: one page each, the app's to open. */
+export const REPORTS = join(STATE, "reports");
+
 /**
  * A macOS notification: the title and body are the script's arguments, never quoted into its text, so no word of
  * theirs can break it.
@@ -436,7 +439,7 @@ export const notifyArgs = (title: string, body: string) => [
 
 /** A report kept as a page in the state's reports/ (the app shows it) and announced by a notification: no account, no address. Its id is its file. */
 async function onMac(keys: string[], mail: Mail) {
-  const file = join(STATE, "reports", `${keys[0]?.replaceAll("/", "-")}.html`);
+  const file = join(REPORTS, `${keys[0]?.replaceAll("/", "-")}.html`);
   await Bun.write(file, mail.html);
   const r = await exec(
     notifyArgs(mail.subject, mail.text.split("\n")[0] ?? "")

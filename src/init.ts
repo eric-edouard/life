@@ -20,6 +20,10 @@ export interface Owner {
 const yaml = (key: string, list: unknown[]) =>
   `schemaVersion: 1\n${key}: ${list.length ? `\n${list.map((x) => `  - ${JSON.stringify(x)}`).join("\n")}` : "[]"}\n`;
 
+/** Whether `data` holds an owner's truth: Life is set up there. */
+export const started = (data = DATA) =>
+  existsSync(join(data, "truth", "people.yaml"));
+
 /** Creates `data` for a new owner; refuses a folder that is not empty. */
 export async function init(owner: Owner, data = DATA, now = clock()) {
   const truth = join(data, "truth");

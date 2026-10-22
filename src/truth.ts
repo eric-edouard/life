@@ -13,7 +13,8 @@ import {
   Project,
 } from "./schema";
 
-export const ROOT = join(import.meta.dir, "..");
+/** Life's own files (prompts, docs/agent.md, assets): the checkout, or the app's resources (`LIFE_ROOT`). */
+export const ROOT = process.env.LIFE_ROOT ?? join(import.meta.dir, "..");
 /** `bun test` sets NODE_ENV=test: tests never touch the real log or data. */
 export const TEST = process.env.NODE_ENV === "test";
 /** The made-up data tests read (src/test-data). */

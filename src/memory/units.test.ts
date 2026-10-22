@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
 import type { Person, SourceEvent, Unit } from "../schema";
-import { readSettings, setSetting } from "../settings";
+import { readSettings, setSettings } from "../settings";
 import {
   chapter,
   conversation as feedConversation,
@@ -643,7 +643,7 @@ test("a reader sees a unit's stored senders as whom they resolve to today, a mai
 test("with no source turned on, a sweep reads nothing and fails nothing", async () => {
   const before = readSettings().sources;
   try {
-    await setSetting("sources", []);
+    await setSettings({ sources: [] });
     const e = await gather(
       { from: "2026-10-20", to: "2026-10-21" },
       { resolve: () => null, truth: await loadTruth() }
@@ -652,6 +652,6 @@ test("with no source turned on, a sweep reads nothing and fails nothing", async 
     expect(e.conversations).toEqual([]);
     expect(e.failed).toEqual([]);
   } finally {
-    await setSetting("sources", before);
+    await setSettings({ sources: before });
   }
 });
