@@ -3,6 +3,8 @@ import SwiftUI
 /// A card on the plate: its name and state, its headline, when it happened, a running sweep's stations.
 struct CardTile: View {
   let card: Card
+  /// The plate lists it in trouble (`Plate.trouble`).
+  let trouble: Bool
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
@@ -37,8 +39,6 @@ struct CardTile: View {
     .shadow(color: trouble ? card.tone.color.opacity(0.14) : .clear, radius: 14)
     .contentShape(.rect(cornerRadius: 10))
   }
-
-  private var trouble: Bool { card.tone == .bad || card.tone == .warn }
 
   private func color(_ state: String) -> Color {
     switch state {

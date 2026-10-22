@@ -16,7 +16,6 @@ export interface Entry {
   at: string;
   /** His words or an error's text: hidden while the app's Show content is off. */
   content?: string;
-  end?: string | null;
   /** A run the app can open (`runDetail`). */
   run?: string;
   sub?: string;
@@ -127,7 +126,6 @@ async function runHistory(step: string, before?: string) {
         r.outcome === "failed"
           ? `Failed at ${String(r.result?.failedAt ?? "?")}`
           : undefined,
-      end: r.endedAt,
       run: r.id,
       sub: [
         r.window ? `${r.window.from} → ${r.window.to}` : "",
@@ -202,9 +200,7 @@ async function ownHistory(
     );
     const entries = s
       .toReversed()
-      .map(
-        (x): Entry => ({ at: x.at, end: x.end, title: "asleep", tone: "idle" })
-      );
+      .map((x): Entry => ({ at: x.at, title: "asleep", tone: "idle" }));
     return { entries, pages: false };
   }
   return null;

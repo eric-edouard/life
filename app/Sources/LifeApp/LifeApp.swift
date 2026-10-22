@@ -63,7 +63,7 @@ struct LifeApp: App {
     .menuBarExtraStyle(.window)
     Window("Life", id: "status") {
       if let status = supervisor.info?.status {
-        StatusWindow(status: status)
+        StatusWindow(supervisor: supervisor, status: status)
       } else {
         Text("Not answering").font(Ledger.serif(18)).foregroundStyle(Ledger.muted).padding(40)
       }

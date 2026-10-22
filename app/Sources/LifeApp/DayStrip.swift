@@ -6,7 +6,6 @@ struct DayStrip: View {
   let ticks: [Tick]
   let now: Date
   var height: CGFloat = 40
-  var hours = true
 
   private var from: Date { now.addingTimeInterval(-86_400) }
 
@@ -16,7 +15,8 @@ struct DayStrip: View {
         let x = { (at: Date) in max(0, min(1, at.timeIntervalSince(from) / 86_400)) * geo.size.width }
         ZStack(alignment: .leading) {
           ForEach(ticks, id: \.self) { t in
-            if t.label == "Mac asleep" {
+            Group {
+            if t.sleep == true {
               Rectangle().fill(Ledger.muted.opacity(0.12))
                 .frame(width: max(2, x(t.end ?? now) - x(t.at)))
                 .offset(x: x(t.at))
@@ -31,6 +31,8 @@ struct DayStrip: View {
                 .frame(width: 2, height: height * 0.64)
                 .offset(x: x(t.at))
             }
+            }
+            .help(t.label)
           }
           Rectangle().fill(Ledger.ink).frame(width: 2).shadow(color: Ledger.ink.opacity(0.6), radius: 6)
             .offset(x: geo.size.width - 2)
@@ -41,19 +43,17 @@ struct DayStrip: View {
       .background(Ledger.sunk.opacity(0.6), in: .rect(cornerRadius: 8))
       .clipShape(.rect(cornerRadius: 8))
       .accessibilityElement()
-      .accessibilityLabel("The last 24 hours: \(ticks.filter { $0.label != "Mac asleep" }.count) runs and emails")
+      .accessibilityLabel("The last 24 hours: \(ticks.filter { $0.sleep != true }.count) runs and emails")
 
-      if hours {
-        HStack {
-          ForEach(0..<8, id: \.self) { i in
-            Text(from.addingTimeInterval(Double(i) * 3 * 3_600), format: .dateTime.hour(.twoDigits(amPM: .omitted)))
-            Spacer()
-          }
-          Text("now").foregroundStyle(Ledger.ink)
+      HStack {
+        ForEach(0..<8, id: \.self) { i in
+          Text(from.addingTimeInterval(Double(i) * 3 * 3_600), format: .dateTime.hour(.twoDigits(amPM: .omitted)))
+          Spacer()
         }
-        .font(Ledger.mono(10.5))
-        .foregroundStyle(Ledger.muted)
+        Text("now").foregroundStyle(Ledger.ink)
       }
+      .font(Ledger.mono(10.5))
+      .foregroundStyle(Ledger.muted)
     }
   }
 }

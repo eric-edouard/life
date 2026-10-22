@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Life's helper: the compiled binary in the bundle (`Contents/Helpers/life`), run with its files (`LIFE_ROOT`), the
 /// owner's data and Life's state under Application Support, and every secret the Keychain holds for it. The app never
@@ -79,7 +80,13 @@ struct Status: Decodable {
     guard let (data, res) = try? await URLSession.shared.data(for: req),
       (res as? HTTPURLResponse)?.statusCode == 200
     else { return nil }
-    return try? JSONDecoder.life().decode(T.self, from: data)
+    do {
+      return try JSONDecoder.life().decode(T.self, from: data)
+    } catch {
+      // The watcher answered in a shape the app doesn't know: an update of one without the other.
+      Logger(subsystem: "app.life.mac", category: "status").error("\(path): \(error)")
+      return nil
+    }
   }
 
   func plate() async -> Plate? { await read("status/snapshot") }

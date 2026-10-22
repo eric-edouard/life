@@ -9,7 +9,7 @@ export const HEADERS = {
   "x-content-type-options": "nosniff",
 };
 
-/** The owner's session cookie, set by the sign-in (`signin.ts`) and read by the status page's Worker too. */
+/** The owner's session cookie, set by the sign-in (`signin.ts`). */
 export const SESSION = "__Host-life";
 
 /** An HttpOnly, Secure, SameSite=Lax cookie for the whole site, as a Set-Cookie value. */

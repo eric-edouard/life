@@ -23,6 +23,13 @@ enum Ledger {
   }
 }
 
+extension Text {
+  /// A section's or a group's label: small mono capitals.
+  func label() -> some View {
+    font(Ledger.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8).foregroundStyle(Ledger.muted)
+  }
+}
+
 extension Tone {
   var color: Color {
     switch self {

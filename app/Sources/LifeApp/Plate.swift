@@ -15,6 +15,8 @@ struct Plate: Decodable, Equatable {
   }
 
   var troubled: [Card] { cards.filter { trouble.contains($0.id) } }
+  /// The colour of "n to look at": red when anything is broken.
+  var troubleTone: Tone { worst == .bad ? .bad : .warn }
   func cards(in group: String) -> [Card] { cards.filter { $0.group == group } }
 }
 
@@ -33,7 +35,6 @@ struct Card: Decodable, Equatable, Identifiable {
   let group: String
   let headline: String
   let id: String
-  let listening: Bool?
   let name: String
   let stations: [Station]?
   let tone: Tone
@@ -54,9 +55,10 @@ struct Card: Decodable, Equatable, Identifiable {
 /// One mark on the last 24 hours: a run, an email, a sleep.
 struct Tick: Decodable, Equatable, Hashable {
   let at: Date
-  let detail: String?
   let end: Date?
   let label: String
+  /// The Mac asleep: a band, not a run.
+  let sleep: Bool?
   let tone: Tone
 }
 
@@ -74,7 +76,6 @@ struct Detail: Decodable {
   struct Entry: Decodable, Hashable {
     let at: Date?
     let content: String?
-    let end: Date?
     let run: String?
     let sub: String?
     let title: String

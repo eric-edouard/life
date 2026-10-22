@@ -37,7 +37,7 @@ export function mailRoot(base = MAIL): string {
 const openIndex = (root: string) =>
   new Database(join(root, "MailData", "Envelope Index"), { readonly: true });
 
-/** The newest message in Mail's store, its sender and subject (the status page). */
+/** The newest message in Mail's store, its sender and subject (the status plate). */
 export function newestMail(): Newest {
   const db = openIndex(mailRoot());
   try {

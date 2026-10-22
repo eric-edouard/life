@@ -21,8 +21,7 @@ struct Panel: View {
             plate.cards.first { $0.id == id && !plate.trouble.contains(id) }
           })
           VStack(alignment: .leading, spacing: 8) {
-            Text("24 h").font(Ledger.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8)
-              .foregroundStyle(Ledger.muted)
+            Text("24 h").label()
             DayStrip(ticks: plate.today, now: plate.observedAt, height: 26)
           }
           .padding(16)
@@ -38,7 +37,7 @@ struct Panel: View {
     .frame(width: 360)
     .background(Ledger.page)
     .foregroundStyle(Ledger.ink)
-    .onAppear { Task { await supervisor.refresh() } }
+    .onAppear { Task { await supervisor.refreshPlate() } }
   }
 
   private var header: some View {
@@ -52,7 +51,7 @@ struct Panel: View {
       Spacer()
       if let plate = supervisor.plate {
         let n = plate.troubled.count
-        Pill(tone: n == 0 ? .ok : plate.worst == .bad ? .bad : .warn, word: n == 0 ? "ok" : "\(n) to look at")
+        Pill(tone: n == 0 ? .ok : plate.troubleTone, word: n == 0 ? "ok" : "\(n) to look at")
       } else {
         Pill(tone: .idle, word: "off")
       }

@@ -41,8 +41,7 @@ import { DATA, loadTruth } from "./truth";
 // The status plate (`src/dashboard.ts` serves it to the app): every part of Life as a card in a group, each with its
 // state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only
 // when Life can't read or run a part, grey when it is just quiet, amber when quiet past its source's `silentAfter`. His
-// words and any error's text live only in `content` (a card's) and `detail` (a tick's): the app hides them when its
-// "Show content" is off.
+// words and any error's text live only in a card's `content`: the app hides them when its "Show content" is off.
 
 export type Tone = "bad" | "busy" | "idle" | "ok" | "teal" | "warn";
 
@@ -64,8 +63,6 @@ export interface Card {
   group: string;
   headline: string;
   id: string;
-  /** The Pendant is recording now: the card's waveform plays. */
-  listening?: boolean;
   name: string;
   /** A running sweep's stations and where it is. */
   stations?: { name: string; state: "done" | "now" | "todo" }[];
@@ -75,10 +72,10 @@ export interface Card {
 
 export interface Tick {
   at: string;
-  /** An error's text: hidden while the app's Show content is off. */
-  detail?: string;
   end?: string;
   label: string;
+  /** The Mac asleep: drawn as a band, not a run. */
+  sleep?: true;
   tone: Tone;
 }
 
@@ -254,7 +251,7 @@ export const GROUPS = [
 export const spent = (u: Use | null | undefined) =>
   !!u && (u.tokens.input > 0 || !!u.quota?.before || !!u.quota?.after);
 
-const ASK = (what: string) => `Life's status page shows ${what}: look into it.`;
+const ASK = (what: string) => `Life's status shows ${what}: look into it.`;
 
 /** The first state whose condition holds: a card's tone and word (and its ask) by precedence. */
 const firstOf = (
@@ -420,7 +417,6 @@ function pendantCard(r: Reads, d: Descriptor): Card {
     group: "sources",
     headline: pendant?.recording ?? "unknown",
     id: "pendant",
-    listening: recording && !!spokeAt && r.t - Date.parse(spokeAt) < 15 * MIN,
     name: d.label,
   };
 }
@@ -1169,7 +1165,6 @@ function todayOf(r: Reads): Tick[] {
     // The watcher retries lifelog on its own: a timeout is a retry, not a failure.
     ...r.errorsToday.map((e) => ({
       at: e.at,
-      detail: clip(String(e.error), 200),
       label: `${e.step} ${e.step === "watch" ? "retried" : "failed"}`,
       tone: (e.step === "watch" ? "warn" : "bad") as Tone,
     })),
@@ -1182,6 +1177,7 @@ function todayOf(r: Reads): Tick[] {
       ? r.sleepList.value.map((x) => ({
           ...x,
           label: "Mac asleep",
+          sleep: true as const,
           tone: "idle" as Tone,
         }))
       : []),

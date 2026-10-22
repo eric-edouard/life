@@ -3,8 +3,8 @@ import SwiftUI
 /// Life's status: one surface, the parts flowing left to right as data does (sources to outputs), the Mac along the
 /// bottom, the last 24 hours above. A card opens in place over the plate. The plate is read every 3 s while open.
 struct StatusWindow: View {
+  let supervisor: Supervisor
   let status: Status
-  @State private var plate: Plate?
   @State private var opened: Card?
   @State private var unfolded: Set<String> = []
   @AppStorage("showContent") private var showContent = true
@@ -17,7 +17,7 @@ struct StatusWindow: View {
     ZStack {
       RadialGradient(colors: [Ledger.glow, Ledger.page], center: .init(x: 0.15, y: -0.1), startRadius: 0, endRadius: 900)
         .ignoresSafeArea()
-      if let plate {
+      if let plate = supervisor.plate {
         overview(plate)
           .blur(radius: opened == nil ? 0 : 8)
           .opacity(opened == nil ? 1 : 0.35)
@@ -36,11 +36,11 @@ struct StatusWindow: View {
     }
     .foregroundStyle(Ledger.ink)
     .frame(minWidth: 1100, minHeight: 760)
-    .animation(.smooth, value: plate)
+    .animation(.smooth, value: supervisor.plate)
     .onExitCommand(perform: close)
     .task {
       while !Task.isCancelled {
-        if let next = await status.plate() { plate = next }
+        await supervisor.refreshPlate()
         try? await Task.sleep(for: .seconds(3))
       }
     }
@@ -55,7 +55,7 @@ struct StatusWindow: View {
       HStack(spacing: 14) {
         Spacer()
         if !plate.troubled.isEmpty {
-          Pill(tone: plate.worst == .bad ? .bad : .warn, word: "\(plate.troubled.count) to look at")
+          Pill(tone: plate.troubleTone, word: "\(plate.troubled.count) to look at")
         }
         Toggle("Show content", isOn: $showContent).toggleStyle(.checkbox).font(Ledger.serif(12.5))
           .foregroundStyle(Ledger.muted)
@@ -66,7 +66,7 @@ struct StatusWindow: View {
 
       VStack(alignment: .leading, spacing: 10) {
         Text(plate.observedAt, format: .dateTime.weekday(.wide).day().month(.wide))
-          .font(Ledger.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8).foregroundStyle(Ledger.muted)
+          .label()
         Text("Life").font(Ledger.serif(46, .semibold)).kerning(-0.6)
       }
       .padding(.horizontal, 44)
@@ -79,7 +79,7 @@ struct StatusWindow: View {
       ScrollView {
         HStack(alignment: .top, spacing: 22) {
           ForEach(plate.groups.filter { $0.id != "mac" }) { g in
-            column(g, plate.cards(in: g.id))
+            column(g, plate.cards(in: g.id), trouble: plate.trouble)
           }
         }
         .padding(.horizontal, 44)
@@ -91,23 +91,22 @@ struct StatusWindow: View {
     }
   }
 
-  private func column(_ group: Plate.Group, _ cards: [Card]) -> some View {
+  private func column(_ group: Plate.Group, _ cards: [Card], trouble: [String]) -> some View {
     let open = unfolded.contains(group.id)
-    let quiet = { (c: Card) in c.tone == .ok || c.tone == .idle }
-    let visible = open ? cards : cards.enumerated().filter { $0.offset < Self.shown || !quiet($0.element) }.map(\.element)
+    let visible = open ? cards : cards.enumerated().filter { $0.offset < Self.shown || trouble.contains($0.element.id) }
+      .map(\.element)
     return VStack(alignment: .leading, spacing: 8) {
       HStack {
-        Text(group.name).font(Ledger.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8)
+        Text(group.name).label()
         Spacer()
-        Text(cards.count, format: .number).font(Ledger.mono(10.5))
+        Text(cards.count, format: .number).font(Ledger.mono(10.5)).foregroundStyle(Ledger.muted)
       }
-      .foregroundStyle(Ledger.muted)
       .padding(.bottom, 4)
       ForEach(visible) { card in
         Button {
           withAnimation(.spring(duration: 0.45)) { opened = card }
         } label: {
-          CardTile(card: card)
+          CardTile(card: card, trouble: trouble.contains(card.id))
             .matchedGeometryEffect(id: card.id, in: space, isSource: opened?.id != card.id)
         }
         .buttonStyle(.plain)
@@ -128,7 +127,7 @@ struct StatusWindow: View {
 
   private func mac(_ cards: [Card]) -> some View {
     HStack(spacing: 22) {
-      Text("The Mac").font(Ledger.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8)
+      Text("The Mac").label()
       ForEach(cards) { card in
         Button {
           withAnimation(.spring(duration: 0.45)) { opened = card }

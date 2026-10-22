@@ -33,14 +33,14 @@ and what it does not.
 
 **Network surface**
 
-- The connector (`/mcp`), the status page, the check page and the portrait are served by the Mac. Every request to the
+- The connector (`/mcp`), the check page and the portrait are served by the Mac. Every request to the
   connector needs a signed token for the owner (Life's own OAuth server with pairing codes and PKCE, or a configured
   issuer). The pages check the owner's sign-in (or a password, for the portrait) before serving anything of theirs; the
   local port used by the app needs a local key and is never exposed.
 - Exposure is through the user's tailnet (Tailscale Serve), optionally Tailscale Funnel or a Cloudflare tunnel the user
   controls, so cloud assistants can reach it.
 - Life sends only: its report and alerts to the owner, one MCP event per ask to the owner's agent (callbacks on
-  OpenAI's hosts only, verified first), and the status snapshot without the user's words (no message content) to an optional Worker.
+  OpenAI's hosts only, verified first).
 
 **Actions**
 

@@ -53,8 +53,7 @@ struct OpenCard: View {
   private var header: some View {
     HStack(alignment: .top) {
       VStack(alignment: .leading, spacing: 6) {
-        Text(card.group == "mac" ? "The Mac" : card.group.capitalized)
-          .font(Ledger.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8).foregroundStyle(Ledger.muted)
+        Text(card.group == "mac" ? "The Mac" : card.group.capitalized).label()
         Text(card.name).font(Ledger.serif(34, .semibold))
         Text(card.headline).font(Ledger.serif(15)).foregroundStyle(Ledger.muted)
       }
@@ -84,7 +83,7 @@ struct OpenCard: View {
 
   private func askBox(_ ask: String) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("For Claude").font(Ledger.mono(10.5, .medium)).textCase(.uppercase).foregroundStyle(Ledger.muted)
+      Text("For Claude").label()
       Text(ask).font(Ledger.serif(14)).textSelection(.enabled)
       Button(copied ? "Copied" : "Copy") {
         NSPasteboard.general.clearContents()
@@ -161,7 +160,7 @@ struct OpenCard: View {
 
   private func section(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(title).font(Ledger.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8).foregroundStyle(Ledger.muted)
+      Text(title).label()
       content()
     }
   }

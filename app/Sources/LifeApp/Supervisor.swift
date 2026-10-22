@@ -26,7 +26,12 @@ final class Supervisor {
 
   func refresh() async {
     info = await Helper.info() ?? info
-    plate = await info?.status.plate()
+    await refreshPlate()
+  }
+
+  /// The plate again, from the watcher: the panel when it opens, the status window every 3 s while open.
+  func refreshPlate() async {
+    plate = await info?.status.plate() ?? plate
   }
 
   func start() async {
@@ -42,7 +47,7 @@ final class Supervisor {
       }
       // The panel shows the plate as of the last minute (and reads it again when opened).
       looks = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
-        Task { @MainActor in self.plate = await self.info?.status.plate() }
+        Task { @MainActor in await self.refreshPlate() }
       }
     }
   }

@@ -53,7 +53,7 @@ export function listRepos(root = WORK): Repo[] {
   return [...repos.values()];
 }
 
-/** The newest commit in any repo, and how many repos had one in the last day (the status page). */
+/** The newest commit in any repo, and how many repos had one in the last day (the status plate). */
 export async function newestCommit(now = clock().getTime()): Promise<Newest> {
   const all = await Promise.all(
     listRepos().map(async (r) => ({

@@ -177,5 +177,3 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
 - **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
   steps, their counts and what it wrote.
-- There is no web status page: it, its Cloudflare Worker fallback and the plate's push went on 22 Oct, at the
-  owner's word (status on the phone went with them).

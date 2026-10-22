@@ -1,7 +1,7 @@
 import { holder } from "./lock";
 import { exec } from "./proc";
 
-// The Mac Life runs on, as the status page shows it (src/plate.ts): awake since, battery, disk, the LaunchAgents and
+// The Mac Life runs on, as the status plate shows it (src/plate.ts): awake since, battery, disk, the LaunchAgents and
 // cloudflared, and its sleeps of the last day. Read-only.
 
 const WAKE_SEC = /sec = (\d+)/;
