@@ -11,7 +11,7 @@ import { memoryCommand } from "./memory/command";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
-import { checks } from "./reminders/remctl";
+import { checks, remindersOn } from "./reminders/remctl";
 import { Engine } from "./schema";
 import { readSettings, type Settings, setSettings, settings } from "./settings";
 import { FULL_DISK, SOURCES } from "./sources/index";
@@ -27,6 +27,10 @@ const commands: Record<string, () => Promise<number>> = {
    */
   async act() {
     const [arg] = process.argv.slice(3);
+    if (!remindersOn()) {
+      console.error("Reminders is off (settings: reminders)");
+      return 2;
+    }
     if (arg === "--check") {
       const problems = await checks();
       console.log(problems.join("\n") || "remctl ready");

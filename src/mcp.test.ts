@@ -14,7 +14,7 @@ import { LOG_DIR } from "./log";
 import { correct, createMcp } from "./mcp";
 import { ACTIONS, linesOf } from "./memory/ledger";
 import { placesOf } from "./memory/places";
-import { connector as settingsOf } from "./settings";
+import { setSettings, settings, connector as settingsOf } from "./settings";
 import {
   chapter,
   conversation,
@@ -573,4 +573,18 @@ test("places: each stay lists the conversations recorded during it", async () =>
   // The 13 Oct stay has no conversation, and the 12 Oct one is outside both stays.
   expect(answer).not.toContain("Elsewhere");
   expect(await placesOf({}, read, open)).toBeNull();
+});
+
+test("with the Reminders plugin off, the connector offers no Reminders tool", async () => {
+  const on = settings().reminders;
+  setSettings({ reminders: false });
+  try {
+    const { json } = await rpc(await token(), "tools/list");
+    const names = json.result.tools.map((t: { name: string }) => t.name);
+    expect(names).not.toContain("reminders");
+    expect(names).not.toContain("open_reminders");
+    expect(names).toContain("tasks");
+  } finally {
+    setSettings({ reminders: on });
+  }
 });

@@ -12,7 +12,7 @@ review (`debt-review`), and `transition` into `main` on his OK.
 
 - [x] T1 One Life per Mac: the archive and the watcher each hold a lock in `~/Library/Application Support/Life` (shared
   by every install), so a second copy waits; the status page reads those locks, not launchd.
-- [ ] R0 Reminders as an optional plugin (a setting, like a source): off, nothing touches Reminders (no minute pass, no
+- [x] R0 Reminders as an optional plugin (a setting, like a source): off, nothing touches Reminders (no minute pass, no
   board, no reading back, no `reminders`/`open_reminders` tools, no grant) and the rest of Life runs as before.
 - [ ] R1 The plugin's backend is `remctl` (MIT, github.com/viticci/remctl), pinned by version and checksum and installed
   by its own installer from the app's setup; `life-eventkit` keeps only its calendar.
@@ -29,6 +29,7 @@ review (`debt-review`), and `transition` into `main` on his OK.
 ## The switch (runbook, filled in by T3/T4)
 
 1. Stop the three `com.ericedouard.life.*` jobs; export; put the secrets in the Keychain (service `Life`) by hand.
+   His settings get `"reminders": true` (R0: off by default) once this code is what runs.
 2. Launch Life.app, import; check the counts equal the export's, the cards match, the watcher and archive run.
 3. Reconnect ChatGPT and Claude with a pairing code to the Funnel address (asks wait unsent meanwhile).
 4. Keep `~/Life` and `derived/` read-only 30 days. Rollback: quit the app, start the old jobs on the app's folders.

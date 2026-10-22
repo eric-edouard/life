@@ -24,7 +24,7 @@ import {
 import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
 import { git } from "./proc";
-import { checks } from "./reminders/remctl";
+import { checks, remindersOn } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
@@ -343,7 +343,7 @@ async function reads(now: Date) {
       })
     ),
     cached("actions", 15_000, readActions),
-    cached("remctl", 60_000, checks),
+    remindersOn() ? cached("remctl", 60_000, checks) : [],
     newestOf(),
   ]);
   const of = (kind: string, days: number) =>
@@ -1038,6 +1038,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
+        [!remindersOn(), { tone: "idle", word: "off" }],
         [
           r.remctl.length > 0,
           {

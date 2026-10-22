@@ -11,7 +11,7 @@ import { syncLifelogUnits } from "./memory/units";
 import { codeAt } from "./proc";
 import { marks, push } from "./reminders/board";
 import { inbound } from "./reminders/inbound";
-import { checks, pull } from "./reminders/remctl";
+import { checks, pull, remindersOn } from "./reminders/remctl";
 import { Action } from "./schema";
 import { serveConnector } from "./server";
 import { listening } from "./sources/index";
@@ -46,6 +46,9 @@ async function tick(now = clock().getTime()) {
 
 async function pass(now: number) {
   await chase(tasksOf(), now);
+  if (!remindersOn()) {
+    return;
+  }
   // Reminders both ways (src/reminders): one read, his changes recorded as state, then the board brought in line. `at`
   // is taken before the read: what Life writes during it falls in the lag window.
   const at = clock().toISOString();
@@ -194,6 +197,19 @@ async function syncUnits(store: Store, cursor: string) {
   return n !== null;
 }
 
+/** Whether Life can act on Reminders from here, in life-watch.log at start (the connector's `reminders` acts from this process). */
+function sayActions() {
+  if (!remindersOn()) {
+    console.log(`${clock().toISOString()} actions: Reminders off`);
+    return;
+  }
+  checks().then((problems) =>
+    console.log(
+      `${clock().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
+    )
+  );
+}
+
 export async function watch(): Promise<number> {
   // The code it runs, read before it may wait for another install: new code meanwhile restarts it on taking over.
   const running = codeAt(ROOT);
@@ -205,12 +221,7 @@ export async function watch(): Promise<number> {
     // The watcher matters more than the connector: it keeps polling and says why it is off.
     console.error("Connector is off:", (e as Error).message);
   }
-  // The connector's `reminders` acts from this process: its line in life-watch.log shows whether launchd reaches remctl.
-  checks().then((problems) =>
-    console.log(
-      `${clock().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
-    )
-  );
+  sayActions();
   // Beside the loop, so a slow probe never holds up hearing; the process exits on new code all the same.
   setInterval(
     () =>
