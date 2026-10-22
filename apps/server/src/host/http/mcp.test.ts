@@ -12,7 +12,7 @@ import {
 import { HOUR, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
-import { DATA, ROOT } from "../../core/paths";
+import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../../core/paths";
 import {
   setSettings,
   settings,
@@ -378,9 +378,9 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   }
   const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
   expect(playbook).toBe(
-    protocol(readFileSync(join(ROOT, "docs", "agent.md"), "utf8"))
+    protocol(readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"))
   );
-  expect(me).toBe(readFileSync(join(DATA, "truth", "me.md"), "utf8"));
+  expect(me).toBe(readFileSync(join(OWNER_DATA_DIR, "truth", "me.md"), "utf8"));
   expect(me).toContain("1. Be well.");
   // An open row stays whole; a closed one is cut to four fields.
   expect([tasks[0].quote, tasks[0].steps]).toEqual(["call the bank", []]);

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./names";
-import { STATE } from "./paths";
+import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
 
 /** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
@@ -13,7 +13,7 @@ export const OWNER_SUB = "owner";
 // Secrets are not here: they stay in the environment (`.env` for a checkout, the app passes them to the helper). A
 // part left out is off. A test run reads its own (apps/server/src/test-data/state/settings.json), never his.
 
-export const SETTINGS = join(STATE, "settings.json");
+export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
 export const Settings = z
   .object({

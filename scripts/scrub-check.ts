@@ -3,11 +3,11 @@
 // absent (CI, other machines).
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { DATA } from "@life/server/src/core/paths";
+import { OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { handlesOf, loadTruth } from "@life/server/src/memory/read-truth";
 
-if (!existsSync(join(DATA, "truth"))) {
-  console.log(`scrub: skipped, no ${DATA}/truth`);
+if (!existsSync(join(OWNER_DATA_DIR, "truth"))) {
+  console.log(`scrub: skipped, no ${OWNER_DATA_DIR}/truth`);
   process.exit(0);
 }
 const { people, chats } = await loadTruth();

@@ -6,7 +6,7 @@ import { filesIn, linesOf } from "../../core/files";
 import type { Call } from "../../core/log";
 import { isAgent, type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
-import { DATA } from "../../core/paths";
+import { OWNER_DATA_DIR } from "../../core/paths";
 import { git } from "../../core/proc";
 import { agentName, settings } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
@@ -165,16 +165,16 @@ async function rated() {
 }
 
 async function memoryCounts() {
-  const [at] = git(DATA, ["log", "-1", "--format=%cI"])
+  const [at] = git(OWNER_DATA_DIR, ["log", "-1", "--format=%cI"])
     .stdout.toString()
     .trim()
     .split("\n");
   const [moments, observations, people, areas, portrait] = await Promise.all([
-    filesIn(join(DATA, "memory", "moments")),
+    filesIn(join(OWNER_DATA_DIR, "memory", "moments")),
     filesIn(OBSERVATIONS),
     filesIn(join(PAGES, "people"), ".md"),
     filesIn(join(PAGES, "areas"), ".md"),
-    filesIn(join(DATA, "docs", "portrait"), ".html"),
+    filesIn(join(OWNER_DATA_DIR, "docs", "portrait"), ".html"),
   ]);
   return {
     commitAt: at ? new Date(at).toISOString() : null,
@@ -214,7 +214,7 @@ async function unreflected() {
 
 /** truth/: when he last edited it, and whether the code accepts it. */
 async function truthState() {
-  const dir = join(DATA, "truth");
+  const dir = join(OWNER_DATA_DIR, "truth");
   const newest = (d: string): number =>
     readdirSync(d, { withFileTypes: true }).reduce((m, e) => {
       const p = join(d, e.name);

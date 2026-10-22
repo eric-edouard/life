@@ -8,7 +8,7 @@ import { actionLine } from "../../actions/items";
 import { FROZEN } from "../../core/clock";
 import { log } from "../../core/log";
 import { isOn } from "../../core/outputs";
-import { ROOT } from "../../core/paths";
+import { LIFE_CODE_DIR } from "../../core/paths";
 import { agentName, connector, settings } from "../../core/settings";
 import { changeFeed, claim, MAX_PAGE } from "../../memory/changes";
 import { recordCorrection } from "../../memory/ledger";
@@ -547,7 +547,7 @@ export function createMcp(verify: Verify) {
     app.all(
       path,
       () =>
-        new Response(Bun.file(join(ROOT, "assets", "icon", path)), {
+        new Response(Bun.file(join(LIFE_CODE_DIR, "assets", "icon", path)), {
           headers: {
             "cache-control": "public, max-age=86400",
             "content-type": type,

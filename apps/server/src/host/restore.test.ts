@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { linesIn, rowsIn, stage } from "./export";
 import { started } from "./init";
 import { restore } from "./restore";
@@ -43,7 +43,7 @@ test("an export comes back whole into a new install: the same lines, the same ro
   expect(r.files).toBeGreaterThan(0);
   expect(linesIn(to.data)).toEqual(linesIn(join(dir, "data")));
   expect(rowsIn(join(to.archive, "whatsapp.sqlite"))).toEqual({ messages: 2 });
-  expect(Object.keys(linesIn(DATA)).length).toBeGreaterThan(0);
+  expect(Object.keys(linesIn(OWNER_DATA_DIR)).length).toBeGreaterThan(0);
 });
 
 test("an import changes nothing when a file is not as exported, his data is there, or the archive holds less", async () => {

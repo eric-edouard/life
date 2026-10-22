@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
-import { DATA, STATE } from "../core/paths";
+import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { Action, type Instruction } from "../records/ledger-entry";
 import { Moment } from "../records/moment";
 import {
@@ -21,7 +21,7 @@ import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
 // memory/ on disk: every path, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
 
-const MEMORY = join(DATA, "memory");
+const MEMORY = join(OWNER_DATA_DIR, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
 export const runId = (d: Date) => d.toISOString().replaceAll(":", "-");
 const RUN_TIME = /T(\d\d)-(\d\d)-(\d\d)/;
@@ -32,7 +32,7 @@ export const latestBy = <T>(list: T[], key: (x: T) => string) =>
 export const runAt = (run: string) => run.replace(RUN_TIME, "T$1:$2:$3");
 
 /** Runs and the search index: generated, rebuildable, not in git. */
-export const OUT = join(STATE, "memory");
+export const OUT = join(LIFE_STATE_DIR, "memory");
 
 export const UNITS = join(MEMORY, "units");
 export const OBSERVATIONS = join(MEMORY, "observations");

@@ -1,7 +1,7 @@
 import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, sep } from "node:path";
-import { STATE, TEST } from "./paths";
+import { LIFE_STATE_DIR, TEST } from "./paths";
 
 // The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
 // system is one more case here rather than a branch in every module (the rest are listed in
@@ -17,7 +17,7 @@ export const slashed = (p: string) => p.split(sep).join("/");
  * The home folder every store path starts from. A test run has one of its own, inside its copy of the data, so no test
  * ever reads this computer's messages, mail, contacts or repos.
  */
-export const HOME = TEST ? join(STATE, "home") : homedir();
+export const HOME = TEST ? join(LIFE_STATE_DIR, "home") : homedir();
 /** A Windows folder its variable names, else its default under `HOME`; a test run's is always under its own `HOME`. */
 const winDir = (name: string, ...parts: string[]) =>
   (TEST ? undefined : process.env[name]) ?? join(HOME, ...parts);
@@ -30,7 +30,7 @@ export const APP_DATA = WINDOWS
  * Life's folder on this computer, shared by every install on it (the checkout's and the app's): the archive, Codex's
  * home, the backup's staging and the services' locks. Local AppData on Windows: it is never synced to another PC.
  */
-export const MACHINE = WINDOWS
+export const MACHINE_DIR = WINDOWS
   ? join(winDir("LOCALAPPDATA", "AppData", "Local"), "Life")
   : join(APP_DATA, "Life");
 

@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
-import { DATA, STATE } from "@life/server/src/core/paths";
-import { MACHINE } from "@life/server/src/core/platform";
+import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
+import { MACHINE_DIR } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
 import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 
@@ -13,20 +13,25 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 //
 // The README's transcript is Claude Code with Life's read commands on that copy as its only tool:
 //   cd "$(mktemp -d)" && claude -p --setting-sources "" --strict-mcp-config --tools Bash \
-//     --allowedTools "Bash(env LIFE_DATA=<out>/data LIFE_STATE=<out>/state bun <repo>/apps/server/src/host/cli.ts memory:*)" \
-//     --append-system-prompt "Read the user's memory only with: env LIFE_DATA=<out>/data LIFE_STATE=<out>/state \
+//     --allowedTools "Bash(env LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state bun <repo>/apps/server/src/host/cli.ts memory:*)" \
+//     --append-system-prompt "Read the user's memory only with: env LIFE_OWNER_DATA_DIR=<out>/data LIFE_STATE_DIR=<out>/state \
 //       bun <repo>/apps/server/src/host/cli.ts memory search|person|day …. Today is Thursday 22 October 2026. Cite observation ids." \
 //     "What did I promise my landlord last week? Did I keep it?"
 //
 // The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/host/status/plate.ts), run with the same
-// LIFE_DATA and LIFE_STATE, printed the plate as JSON; the cards about the Mac's own services were deleted from it
+// LIFE_OWNER_DATA_DIR and LIFE_STATE_DIR, printed the plate as JSON; the cards about the Mac's own services were deleted from it
 // (the tunnel, cloudflared, the nightly tick, /me and the whole Mac row), and Life.app's StatusWindow was drawn from
 // what was left, offscreen. The other cards still show what the Mac that drew them reported about itself, such as
 // Contacts readable and the archive copying, but none of its data.
 
 const out = resolve(process.argv[2] ?? "");
 const inside = (root: string) => !relative(root, out).startsWith("..");
-const live = [DATA, STATE, MACHINE, join(homedir(), "Life")];
+const live = [
+  OWNER_DATA_DIR,
+  LIFE_STATE_DIR,
+  MACHINE_DIR,
+  join(homedir(), "Life"),
+];
 if (!process.argv[2] || existsSync(out) || live.some(inside)) {
   console.error(
     "usage: bun scripts/demo.ts <a new folder, outside Life's data and state>"
@@ -286,7 +291,12 @@ await execOk(
     "index",
   ],
   {
-    env: { ...process.env, LIFE_DATA: data, LIFE_STATE: state, NODE_ENV: "" },
+    env: {
+      ...process.env,
+      LIFE_OWNER_DATA_DIR: data,
+      LIFE_STATE_DIR: state,
+      NODE_ENV: "",
+    },
   }
 );
-console.log(`LIFE_DATA=${data} LIFE_STATE=${state}`);
+console.log(`LIFE_OWNER_DATA_DIR=${data} LIFE_STATE_DIR=${state}`);

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
-import { ROOT } from "../core/paths";
+import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt, exec } from "../core/proc";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -153,11 +153,11 @@ export async function archiveCommand(args: string[]): Promise<number> {
     printDeleted(Number(args[1] ?? 7));
     return 0;
   }
-  const running = codeAt(ROOT);
+  const running = codeAt(LIFE_CODE_DIR);
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
   const failing = new Set((await archiveFailing()).map(([name]) => name));
-  while (codeAt(ROOT) === running) {
+  while (codeAt(LIFE_CODE_DIR) === running) {
     for (const { name, store } of keptStores()) {
       try {
         const added = store.copy();

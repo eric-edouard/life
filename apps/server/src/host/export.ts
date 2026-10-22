@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { basename, isAbsolute, join, relative } from "node:path";
 import { clock } from "../core/clock";
-import { DATA, ROOT, STATE } from "../core/paths";
+import { LIFE_CODE_DIR, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { slashed } from "../core/platform";
 import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
@@ -38,7 +38,7 @@ export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
  * secrets.
  */
 const KEPT_OUT = [WATCH, INDEX, ...Object.values(SECRETS)].map((p) =>
-  pathIn(STATE, p)
+  pathIn(LIFE_STATE_DIR, p)
 );
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
@@ -128,7 +128,7 @@ export type Manifest = Awaited<ReturnType<typeof stage>>;
 const ENV_KEY = /^([A-Z0-9_]+)=/;
 /** What a new install is given by hand, named only: never their values. */
 function leftOut() {
-  const env = join(ROOT, ".env");
+  const env = join(LIFE_CODE_DIR, ".env");
   return {
     codex:
       "Codex's login, on another Mac (`codex login`, for the codex engine)",
@@ -155,7 +155,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   }
   mkdirSync(join(dir, "archive"), { recursive: true });
   const cloned = await locked(() => {
-    cpSync(DATA, join(dir, "data"), { recursive: true });
+    cpSync(OWNER_DATA_DIR, join(dir, "data"), { recursive: true });
     return Promise.resolve(true);
   });
   if (cloned === null) {
@@ -163,11 +163,11 @@ export async function stage(dir: string, archive = ARCHIVE) {
   }
   rmSync(join(dir, "data", basename(LOCK)), { force: true });
   // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
-  const inData = relative(DATA, STATE);
+  const inData = relative(OWNER_DATA_DIR, LIFE_STATE_DIR);
   if (!(inData.startsWith("..") || isAbsolute(inData))) {
     rmSync(join(dir, "data", inData), { force: true, recursive: true });
   }
-  cpSync(STATE, join(dir, "state"), { recursive: true });
+  cpSync(LIFE_STATE_DIR, join(dir, "state"), { recursive: true });
   for (const p of filesUnder(join(dir, "state"))) {
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
@@ -176,7 +176,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
       rmSync(join(dir, "state", p), { force: true });
     }
   }
-  const watch = join(dir, "state", relative(STATE, WATCH));
+  const watch = join(dir, "state", relative(LIFE_STATE_DIR, WATCH));
   mkdirSync(watch, { recursive: true });
   const { cursor, file } = storeFiles();
   if (existsSync(cursor)) {

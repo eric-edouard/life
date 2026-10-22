@@ -1,6 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { INFERRED_PREFIX } from "../records/observation";
 import {
   type Area,
@@ -64,10 +64,10 @@ function frontmatter(text: string, path: string) {
 }
 
 /** truth/me.md, read fresh. */
-export const loadMe = async (data = DATA) =>
+export const loadMe = async (data = OWNER_DATA_DIR) =>
   readMe(await Bun.file(join(data, "truth", "me.md")).text());
 
-export async function loadTruth(data = DATA): Promise<Truth> {
+export async function loadTruth(data = OWNER_DATA_DIR): Promise<Truth> {
   const dir = join(data, "truth");
   const { people } = PeopleFile.parse(await yaml(join(dir, "people.yaml")));
   const { chats } = ChatsFile.parse(await yaml(join(dir, "chats.yaml")));

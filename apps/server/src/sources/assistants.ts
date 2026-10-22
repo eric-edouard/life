@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
 import type { Newest } from "./contract";
 
@@ -217,7 +217,7 @@ export function parsedExport(source: Assistant, json: unknown) {
 }
 
 /** Where an assistant's export is kept in his data. */
-export const importOf = (source: Assistant, data = DATA) =>
+export const importOf = (source: Assistant, data = OWNER_DATA_DIR) =>
   join(data, "imports", source, "conversations.json");
 
 const memo = new Map<

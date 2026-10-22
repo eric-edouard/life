@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../core/clock";
 import { filesIn, linesOf } from "../core/files";
-import { DATA } from "../core/paths";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import { Action, isBookkeeping, isTaskLine } from "../records/ledger-entry";
 import {
@@ -130,7 +130,7 @@ const pageRef = (path: string) =>
 
 /** Every committed change to a page file, oldest first, one line per commit and file (git keeps every page version). */
 function pageCommits() {
-  const out = git(DATA, [
+  const out = git(OWNER_DATA_DIR, [
     "log",
     "--reverse",
     "--no-renames",
@@ -154,7 +154,7 @@ function pageDiffs(shas: string[]) {
   if (shas.length === 0) {
     return out;
   }
-  const text = git(DATA, [
+  const text = git(OWNER_DATA_DIR, [
     "show",
     "--no-color",
     "--unified=0",

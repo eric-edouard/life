@@ -85,10 +85,10 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| owner data dir | The owner's data repo: `truth/`, `memory/` (`DATA`, `LIFE_DATA`). No git remote, ever. | `OWNER_DATA_DIR`, `LIFE_OWNER_DATA_DIR` |
-| Life state dir | Life's own state: settings, log, the search index (`STATE`, `LIFE_STATE`). | `LIFE_STATE_DIR` |
-| machine dir | One per computer: the archive, the locks, Codex's home (`MACHINE`). | `MACHINE_DIR` |
-| Life code dir | Life's code, prompts and assets (`ROOT`, `LIFE_ROOT`). | `LIFE_CODE_DIR` |
+| owner data dir | The owner's data repo: `truth/`, `memory/` (`OWNER_DATA_DIR`, env `LIFE_OWNER_DATA_DIR`). No git remote, ever. | |
+| Life state dir | Life's own state: settings, log, the search index (`LIFE_STATE_DIR`, env too). | |
+| machine dir | One per computer: the archive, the locks, Codex's home (`MACHINE_DIR`). | |
+| Life code dir | Life's code, prompts and assets (`LIFE_CODE_DIR`, env too). | |
 | time zone | Where the owner was, for local days (`zones.jsonl`, `zones.ts`). | |
 | boundary zone | One layer of the code in fallow's checks (`.fallowrc.json`). | |
 

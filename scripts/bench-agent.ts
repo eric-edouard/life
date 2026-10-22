@@ -17,7 +17,11 @@ import { FROZEN, MIN } from "@life/server/src/core/clock";
 import { linesOf } from "@life/server/src/core/files";
 import { recentEvents } from "@life/server/src/core/log";
 import { Engine } from "@life/server/src/core/names";
-import { DATA, ROOT, STATE } from "@life/server/src/core/paths";
+import {
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+  OWNER_DATA_DIR,
+} from "@life/server/src/core/paths";
 import { exec, git, gitOut } from "@life/server/src/core/proc";
 import { nextEvent } from "@life/server/src/host/events";
 import { buildServer } from "@life/server/src/host/http/mcp";
@@ -31,7 +35,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { checkout } from "./bench";
 
-const CASES = join(DATA, "docs/evals/agent-bench-cases.json");
+const CASES = join(OWNER_DATA_DIR, "docs/evals/agent-bench-cases.json");
 const Case = z.object({
   /** The ask in memory/actions.jsonl. */
   ask: z.string().regex(/^act_[0-9a-f]{12}$/),
@@ -142,7 +146,7 @@ export function askAt(lines: string[], id: string) {
 async function freeze(c: Case, lines: string[], code: string, data: string) {
   const { at, input, kept } = askAt(lines, c.ask);
   await rm(data, { force: true, recursive: true });
-  gitOut(tmpdir(), ["clone", "-q", DATA, data]);
+  gitOut(tmpdir(), ["clone", "-q", OWNER_DATA_DIR, data]);
   const commit = gitOut(data, ["rev-list", "-1", `--before=${at}`, "HEAD"]);
   if (!commit) {
     throw new Error(`~/Life has no commit before ${at}`);
@@ -162,7 +166,7 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     await mkdir(join(code, "derived", d), { recursive: true });
   }
   const store = join(code, "derived/watch/lifelog.sqlite");
-  const live = new Database(join(STATE, "watch/lifelog.sqlite"), {
+  const live = new Database(join(LIFE_STATE_DIR, "watch/lifelog.sqlite"), {
     readonly: true,
   });
   live.run("vacuum into ?", [store]);
@@ -174,9 +178,9 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
   cut.close();
   const env = {
     ...process.env,
-    LIFE_DATA: data,
     LIFE_NOW: at,
-    LIFE_STATE: join(code, "derived"),
+    LIFE_OWNER_DATA_DIR: data,
+    LIFE_STATE_DIR: join(code, "derived"),
   };
   const index = await exec(
     ["bun", "apps/server/src/host/cli.ts", "memory", "index"],
@@ -219,9 +223,9 @@ async function runCase(
       // Its worktree's code, and the .env there (lifelog's token).
       command: ["bun", "--cwd", o.code, "scripts/bench-agent.ts", "--serve"],
       env: {
-        LIFE_DATA: o.data,
         LIFE_NOW: world.at,
-        LIFE_STATE: join(o.code, "derived"),
+        LIFE_OWNER_DATA_DIR: o.data,
+        LIFE_STATE_DIR: join(o.code, "derived"),
       },
     },
   })) as { reply?: string };
@@ -330,7 +334,7 @@ async function bench(file: string, only: string[], engine: Engine) {
         rows.push(row);
         console.error(`${c.id}: ${"checks" in row ? "done" : row.error}`);
       }
-      const head = gitOut(ROOT, ["rev-parse", "--short", "HEAD"]);
+      const head = gitOut(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]);
       const what =
         engine === "codex"
           ? "Codex, as the agent"
@@ -339,7 +343,7 @@ async function bench(file: string, only: string[], engine: Engine) {
       return { cases: rows.length };
     });
   } finally {
-    git(ROOT, ["worktree", "remove", "--force", code]);
+    git(LIFE_CODE_DIR, ["worktree", "remove", "--force", code]);
     await rm(tmp, { force: true, recursive: true });
   }
 }

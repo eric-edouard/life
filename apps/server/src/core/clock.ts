@@ -1,6 +1,12 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, isHis, ROOT, STATE, TEST } from "./paths";
+import {
+  isHis,
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+  OWNER_DATA_DIR,
+  TEST,
+} from "./paths";
 
 // Life's one clock: every read of "now" goes through `clock()`. `LIFE_NOW` (an ISO instant) stops it there, for the
 // The agent bench (scripts/bench-agent.ts). Frozen, the live sources (lifelog, chats, notes, places) are read up to that
@@ -16,20 +22,21 @@ const isCheckout = (root: string) =>
 /** The instant `LIFE_NOW` freezes the clock at, in ms; none when unset. Tests log into their own copy. */
 export function frozenAt(
   set = process.env.LIFE_NOW,
-  data = DATA,
-  live = !TEST && (isCheckout(ROOT) || !STATE.startsWith(ROOT))
+  data = OWNER_DATA_DIR,
+  live = !TEST &&
+    (isCheckout(LIFE_CODE_DIR) || !LIFE_STATE_DIR.startsWith(LIFE_CODE_DIR))
 ) {
   if (!set) {
     return;
   }
   if (isHis(data)) {
     throw new Error(
-      "LIFE_NOW is for a copy of the data (LIFE_DATA), never ~/Life"
+      "LIFE_NOW is for a copy of the data (LIFE_OWNER_DATA_DIR), never ~/Life"
     );
   }
   if (live) {
     throw new Error(
-      "LIFE_NOW runs in a worktree of its own, with its own state: this checkout's derived/ (or LIFE_STATE) is production's"
+      "LIFE_NOW runs in a worktree of its own, with its own state: this checkout's derived/ (or LIFE_STATE_DIR) is production's"
     );
   }
   const ms = Date.parse(set);

@@ -185,7 +185,7 @@ grant, and logs the agent's replies.
   OpenAI's hosts only, verified before anything is sent.
 - **Auth:** every request needs a JWT for this resource with `life:read`, from its issuer: Life's own (`apps/server/src/host/http/oauth.ts`,
   at `<origin>/auth`: an app is approved with a pairing code from `bun life pair`, PKCE, one-use codes, refresh tokens
-  replaced on use, its key in `STATE/oauth`), or the `connector` setting's (lifelog's, `sub` = its owner)
+  replaced on use, its key in `LIFE_STATE_DIR/oauth`), or the `connector` setting's (lifelog's, `sub` = its owner)
   (`ownerTokens`, `apps/server/src/host/http/auth.ts`). Another issuer's keys are kept a day (`server.ts`). Failing to fetch them is
   `unreachable`: a 503 on `/mcp` and `/check`, never a refused token.
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid
@@ -203,7 +203,7 @@ Life can turn on or off (Reminders, the Past calendar, the connector, the backup
 reads the rest of its settings. How the report and the alerts go out:
 
 - To the owner only (`apps/server/src/host/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
-  setting as a macOS notification with the report kept as a page in `STATE/reports`. Either way the log's `email.sent`
+  setting as a macOS notification with the report kept as a page in `LIFE_STATE_DIR/reports`. Either way the log's `email.sent`
   means delivered.
 - The alerts: a failed action or an ask whose delivery failed; a task that needs the owner, once per cause; the agent
   not subscribed to `ask` (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an

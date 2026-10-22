@@ -8,7 +8,7 @@ import {
   rmSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { DATA, STATE } from "../core/paths";
+import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { SETTINGS } from "../core/settings";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -36,7 +36,11 @@ export interface Install {
   data: string;
   state: string;
 }
-const HERE: Install = { archive: ARCHIVE, data: DATA, state: STATE };
+const HERE: Install = {
+  archive: ARCHIVE,
+  data: OWNER_DATA_DIR,
+  state: LIFE_STATE_DIR,
+};
 type Part = keyof Install;
 const PARTS: Part[] = ["state", "archive", "data"];
 
@@ -72,7 +76,7 @@ async function refusal(m: Manifest, to: Install) {
   }
   const listed = new Map(m.files.map((f) => [f.path, f.sha256]));
   const marks = [SETTINGS, ...Object.values(storeFiles())].map((p) =>
-    pathIn(STATE, p)
+    pathIn(LIFE_STATE_DIR, p)
   );
   for (const p of marks) {
     const at = join(to.state, p);

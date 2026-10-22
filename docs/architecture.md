@@ -56,7 +56,7 @@ flowchart LR
   that retires an observation (besides the owner rating one outdated).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
-- **The index** (`STATE/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.
+- **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.
 
 Model output is cached by unit hash and prompt version, so a night re-reads only what changed.
 
@@ -145,7 +145,7 @@ The repo around it is a Bun workspace:
 | `apps/edge` | The Cloudflare Worker in front of the owner's public address, a bridge until #137 (deploy steps in `wrangler.jsonc`) |
 | `packages/config` | The shared TypeScript base (`tsconfig.base.json`), which the root `tsconfig.json` extends |
 | `scripts/` | The helper, the app build, releases, the check, the benches and evals. Outside the zones; they import the server as the workspace package `@life/server/src/…` |
-| `prompts/`, `assets/` | The model prompts and what the pages, the app and the email show (`ROOT`, `docs/operations.md`) |
+| `prompts/`, `assets/` | The model prompts and what the pages, the app and the email show (`LIFE_CODE_DIR`, `docs/operations.md`) |
 | `derived/` | Generated, gitignored: a checkout's state |
 | root | `bts.jsonc` (so `create-better-t-stack add` works), `bunfig.toml` (a hoisted install, for Codex's binary), the workspace's version catalog |
 
@@ -159,7 +159,7 @@ archive and the watcher kept running, the nightly tick every 30 minutes, data an
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
 Its menu-bar panel and status window are native SwiftUI, reading the plate from the watcher's local status reads
-(`apps/server/src/host/http/dashboard.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `STATE/local.key`, mode 600); no tunnel ever points
+(`apps/server/src/host/http/dashboard.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
 there): `docs/dashboard.md`.
 
 ## Pages
@@ -174,7 +174,7 @@ Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
 - **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
-  `DATA/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
+  `OWNER_DATA_DIR/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
   `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player
   (`assets/portrait/`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a
   password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with

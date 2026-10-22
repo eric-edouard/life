@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
 import { log } from "../core/log";
-import { MACHINE } from "../core/platform";
+import { MACHINE_DIR } from "../core/platform";
 import { latestExtractions } from "../memory/ledger";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
@@ -59,8 +59,8 @@ test("each marked unit is listed once read since the last night, with the observ
 });
 
 test("while another install's watcher runs on this Mac, a tick does nothing", async () => {
-  mkdirSync(MACHINE, { recursive: true });
-  const lock = join(MACHINE, "watch.lock");
+  mkdirSync(MACHINE_DIR, { recursive: true });
+  const lock = join(MACHINE_DIR, "watch.lock");
   writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
   const said = spyOn(console, "log");
   try {

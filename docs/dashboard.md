@@ -123,7 +123,7 @@ ratings, each month of observations, then page commits). The ledgers are append-
 exactly where it stopped, a line appended to any source meanwhile is picked up, none twice, and a line still being
 written waits for the next read. Items come source by source; sort by `recordedAt` to show them. A cursor past the end
 of a ledger (one shrank, which the rules forbid) is an error, never a silent restart. Page changes are counted in `git
-log` order of the data repo (`DATA`): amending or rebasing a commit that touched `memory/pages` would shift them
+log` order of the data repo (`OWNER_DATA_DIR`): amending or rebasing a commit that touched `memory/pages` would shift them
 silently.
 
 ## claim
