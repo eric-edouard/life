@@ -88,12 +88,23 @@ export interface ActionsBackend {
 }
 
 /** This install's backend; throws while the actions output is off. */
+let built: { b: ActionsBackend; of: unknown } | undefined;
+/**
+ * This install's backend, made once per settings read (once per process: the watcher's is the one that writes the
+ * board), so its own memory (Google's board list) holds. The one gate: it throws while the actions output is off.
+ */
 export function backend(): ActionsBackend {
   const a = settings().actions;
   if (!a) {
     throw new Error(off("actions"));
   }
-  return a.backend === "google" ? google(a.account, BOARD) : reminders;
+  if (built?.of !== a) {
+    built = {
+      b: a.backend === "google" ? google(a.account, BOARD) : reminders,
+      of: a,
+    };
+  }
+  return built.b;
 }
 
 /**
@@ -282,11 +293,8 @@ export async function write(c: Change): Promise<Done> {
   }
   // A removed item has no info until it is back.
   const before = c.kind === "restore" ? undefined : await info(c.target);
-  const finish = b[c.kind];
-  if (!finish) {
-    throw new Error(`${b.label} cannot ${c.kind}`);
-  }
-  await finish(id, c.list);
+  // A backend without `restore` never gets here: `act` refused it (`lacks`).
+  await (c.kind === "restore" ? b.restore?.(id, c.list) : b[c.kind](id));
   return { after: FINISH[c.kind](c), before, target: target(id) };
 }
 

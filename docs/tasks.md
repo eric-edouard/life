@@ -84,12 +84,12 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, moves, restore, subtasks,
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
-  restore. Its board list is made on first need (`gog tasks lists create`), once per process.
+  restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
 - `src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `backend.ts` the
   contract, the choice and the writes, `remctl.ts` and `google.ts` the two backends, `board.ts` the board,
   `inbound.ts` the owner's changes read back.
 - **The actions output** is on only with the `actions` setting, which names the backend: `{"backend": "reminders"}` or
-  `{"backend": "google", "account": "<his Google account>"}` (`isOn("actions")`). Off: each backend refuses every
+  `{"backend": "google", "account": "<his Google account>"}` (`isOn("actions")`). Off: `backend()`, the one gate, refuses every
   call, the minute pass skips it, the connector offers no `reminders` or `open_reminders` tool, `act` refuses, and the
   rest of Life runs the same. The board, the read-back, the grant and the playbook's Reminders parts exist only while
   it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's

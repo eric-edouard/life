@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
-import { setSettings, settings } from "../settings";
 import { BOARD, openOf } from "./backend";
 import gog from "./gog.json";
 import { google, type Task, taskArgs, itemOfTask as taskItem } from "./google";
-import { itemOf, type Raw, remctl, unshared } from "./remctl";
+import { itemOf, type Raw, unshared } from "./remctl";
 import answers from "./remctl.json";
 
 // Each backend's answers as Life reads them: remctl's (remctl.json, `REMCTL_RELEASE`'s: what moving the pin checks),
@@ -73,14 +72,4 @@ test("a change's fields go to gog as one value each, a dash kept as a value, nul
   ]);
   expect(taskArgs({ due: null, notes: null })).toEqual(["--notes=", "--due="]);
   expect(taskArgs({})).toEqual([]);
-});
-
-test("with the actions output off, nothing reaches Reminders", async () => {
-  const on = settings().actions;
-  setSettings({ actions: null });
-  try {
-    await expect(remctl(["lists"])).rejects.toThrow("Actions is off");
-  } finally {
-    setSettings({ actions: on });
-  }
 });

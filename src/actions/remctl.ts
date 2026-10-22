@@ -1,7 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
-import { off } from "../outputs";
 import { exec } from "../proc";
 import type { Change } from "./act";
 import type { ActionsBackend, Item } from "./backend";
@@ -43,10 +42,6 @@ const parse = <T>(s: string) => {
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
   unfrozen("touch his Reminders");
-  const why = off("actions");
-  if (why) {
-    throw new Error(why);
-  }
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },
