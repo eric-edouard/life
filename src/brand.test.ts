@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { C, MONO, RADIUS, SERIF } from "./memory/email";
+import { repoFiles } from "./proc";
+import { ROOT } from "./truth";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.
@@ -22,8 +24,6 @@ const dark = colours(darkCss);
 const hex = (n: string) => `#${n.slice(2)}`;
 const HEX_COLOUR = /#[0-9a-f]{6}\b|0x[0-9a-f]{6}\b/i;
 const L_OUTLINE = /d="(M14 0[^"]+)"/;
-/** The tray's build outputs, never checked in. */
-const BUILT = /\/(bin|obj)\//;
 
 test("the email's colours are tokens.css's", () => {
   for (const [name, value] of Object.entries(C)) {
@@ -137,15 +137,11 @@ test("no colour is written anywhere else: every hex colour is in tokens.css or a
     "assets/brand/tokens.css",
     "src/memory/email.ts",
   ]);
-  const root = new URL("..", import.meta.url).pathname;
-  const files = new Bun.Glob(
-    "**/*.{ts,js,css,html,swift,cs,xaml,json,jsonl,md}"
+  const read = repoFiles(
+    ROOT,
+    ["src", "assets", "app/Sources", "app-windows"],
+    ".ts .js .css .html .swift .cs .xaml .json .jsonl .md".split(" ")
   );
-  const read = ["src", "assets", "app/Sources", "app-windows"]
-    .flatMap((dir) =>
-      [...files.scanSync(root + dir)].map((file) => `${dir}/${file}`)
-    )
-    .filter((path) => !BUILT.test(path));
   expect(read).toContain("src/memory/email.ts");
   const texts = await Promise.all(read.map(asset));
   const strays = read.filter(

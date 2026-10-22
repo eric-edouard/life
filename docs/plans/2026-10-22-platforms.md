@@ -20,7 +20,7 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`); Windows uses Google Tasks |
 | iMessage from iPhone backups | Not now |
 | Windows signing | Unsigned builds first; the signing step is wired so an Authenticode certificate drops in |
-| Verification | GitHub Actions' Windows runner (build, tests, a headless night with zero sources, the connector answering), then the owner's Windows 11 PC over SSH through Tailscale (key `~/.ssh/life_windows` on his Mac) |
+| Verification | No GitHub Actions (no build in CI). The pre-push hook's `bun run check` is the Mac's gate; Windows is checked on the owner's Windows 11 PC over SSH through Tailscale (key `~/.ssh/life_windows` on his Mac, tailnet name pending) |
 | Sessions | Phase 0 here; the re-scaffold, headless Windows and the WinUI 3 tray each in a session of its own, briefed from this doc. lifelog's phases have their own sessions and report |
 
 The scaffold command, checked with `--dry-run`:
@@ -106,13 +106,16 @@ so an export there would carry the secrets. The secret files are named in one li
 agent's subscription, the OAuth issuer's state); `writeSecret` and `secretIn` write only those, and the export leaves
 out exactly those.
 
-### CI
+### Verification
 
-A GitHub Actions job runs `bun run check`'s tests on macOS and Windows. Until it exists, nothing in this plan is
-verified off the Mac.
+No GitHub Actions: the pre-push hook runs `bun run check` on the Mac, and Windows work merges with that passing. A
+Windows run is a pending hand check until his PC answers over SSH (`~/.ssh/life_windows`, tailnet name pending); then
+`bun run check` runs there. Done (#151): the check's Windows fixes, from a few runs on GitHub's Windows runner before
+the workflow was removed. Pending there: four tests that ran past 5 s on that runner (brand's colour scan, and Notes'
+"more than 20 notes gone", "deletions on two days", "two notes restored unchanged"): slow or broken, to see on his PC.
 
 **Done when** the four contracts hold today's code with nothing left on the old paths, `bun run check` passes on the
-Mac, the Windows job runs, and the change is net zero or fewer lines.
+Mac and on his Windows PC, and the change is net zero or fewer lines.
 
 ## Phase 1: Better-T-Stack
 
@@ -128,7 +131,7 @@ git, imported assistant chats, the agent's tasks; the nightly; the connector ove
 restic to a OneDrive folder; the Past calendar through `gog`. Actions off. Set up by a script with Task Scheduler until
 the tray exists. What cannot run there: iMessage, Apple Notes, Apple Mail, Apple Reminders, the Mac's Contacts.
 
-**Done when**, on the Windows runner: the helper compiles for `bun-windows-x64`, the tests pass, a headless night with
+**Done when**, on his Windows PC: the helper compiles for `bun-windows-x64`, the tests pass, a headless night with
 zero sources ends clean, and the connector answers a sign-in-free probe. **Hand checks on a Windows 11 machine:**
 Beeper's `index.db` at `%APPDATA%\BeeperTexts` opens read-only while Beeper runs; a night with Beeper writes moments;
 Tailscale Funnel serves the connector; Gmail through `gog` signs in.

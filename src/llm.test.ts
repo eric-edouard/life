@@ -15,6 +15,7 @@ import {
 } from "./llm";
 import { LOG_DIR } from "./log";
 import { MACHINE, MODEL_ENV } from "./platform";
+import { repoFiles } from "./proc";
 import { DATA, ROOT } from "./truth";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
@@ -238,18 +239,19 @@ const STARTS_MODEL = [
 const RUNS_PROGRAMS = /Bun\.spawn|Bun\.\$|\bexec\(|spawnSync|child_process/;
 
 test("only llm.ts starts the model CLIs", async () => {
-  const starters: string[] = [];
-  for await (const f of new Bun.Glob("{src,scripts}/**/*.ts").scan(ROOT)) {
-    const code = await Bun.file(join(ROOT, f)).text();
-    if (
-      !f.endsWith(".test.ts") &&
-      RUNS_PROGRAMS.test(code) &&
-      STARTS_MODEL.some((p) => p.test(code))
-    ) {
-      starters.push(f);
-    }
-  }
-  expect(starters).toEqual(["src/llm.ts"]);
+  const code = repoFiles(ROOT, ["src", "scripts"], [".ts"]).filter(
+    (f) => !f.endsWith(".test.ts")
+  );
+  const texts = await Promise.all(
+    code.map((f) => Bun.file(join(ROOT, f)).text())
+  );
+  expect(
+    code.filter(
+      (_, i) =>
+        RUNS_PROGRAMS.test(texts[i] ?? "") &&
+        STARTS_MODEL.some((p) => p.test(texts[i] ?? ""))
+    )
+  ).toEqual(["src/llm.ts"]);
 });
 
 test("the Codex quota: the fuller window and its reset; no window or no answer is none", () => {
