@@ -23,7 +23,8 @@ review (`debt-review`), and `transition` into `main` on his OK.
   restic of that same folder.
 - [x] T4 Import: one `life import <dir>` (a Life export, verified by its manifest, never over existing data, never
   writing to an existing archive; or an assistant export, what `memory import` was), also in the app's first run.
-- [ ] The switch (runbook below), then the connector on Life's own sign-in through Tailscale Funnel.
+- [x] The switch (runbook below), 22 Oct.
+- [ ] The connector on Life's own sign-in through Tailscale Funnel.
 - [ ] T5 Delete the launchd setup; T6 delete the Cloudflare tunnel and the status Worker.
 
 ## The switch (runbook)
