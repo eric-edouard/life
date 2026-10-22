@@ -1,9 +1,9 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { unzipSync } from "node:zlib";
 import { clock } from "../clock";
+import { HOME } from "../platform";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,
@@ -20,7 +20,7 @@ import { fromAppleS } from "./imessage";
 // `readNotes` reads those versions back for memory: notes are memory only, never his words for actions.
 
 export const NOTES = join(
-  homedir(),
+  HOME,
   "Library/Group Containers/group.com.apple.notes"
 );
 const CHECKBOX = 103;

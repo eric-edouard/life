@@ -1,5 +1,6 @@
 import { holder } from "./lock";
 import { exec } from "./proc";
+import { TEST } from "./truth";
 
 // The Mac Life runs on, as the status plate shows it (src/plate.ts): awake since, battery, disk, the LaunchAgents and
 // cloudflared, and its sleeps of the last day. Read-only.
@@ -12,6 +13,12 @@ const POWER_LINE =
 const ZONE_OFFSET = / ([+-]\d{2})(\d{2})$/;
 const DAY = 86_400_000;
 const PS_LINE = /^(\d+)\s+(.+)$/;
+
+/** One read of this computer; a test run reads none, as it reads its own data and never this computer's. */
+const machine = (cmd: string[], o?: Parameters<typeof exec>[1]) =>
+  TEST
+    ? Promise.resolve({ code: 0, killed: null, stderr: "", stdout: "" })
+    : exec(cmd, o);
 
 /** The services launchd runs; the nightly tick runs every 30 min, so no process between ticks is fine. */
 const SERVICES = [
@@ -28,7 +35,7 @@ async function startedAt(pids: string[]) {
   if (pids.length === 0) {
     return new Map<string, string>();
   }
-  const out = await exec(["ps", "-o", "pid=,lstart=", "-p", pids.join(",")]);
+  const out = await machine(["ps", "-o", "pid=,lstart=", "-p", pids.join(",")]);
   return new Map(
     out.stdout
       .trim()
@@ -45,10 +52,10 @@ async function startedAt(pids: string[]) {
 
 export async function macState() {
   const [list, batt, disk, wake] = await Promise.all([
-    exec(["launchctl", "list"]),
-    exec(["pmset", "-g", "batt"]),
-    exec(["df", "-k", "/"]),
-    exec(["sysctl", "-n", "kern.waketime"]),
+    machine(["launchctl", "list"]),
+    machine(["pmset", "-g", "batt"]),
+    machine(["df", "-k", "/"]),
+    machine(["sysctl", "-n", "kern.waketime"]),
   ]);
   const rows = new Map(
     list.stdout.split("\n").map((l) => {
@@ -100,7 +107,7 @@ export async function macState() {
 
 /** The Mac's sleeps since `now` less a day, from the power log. */
 export async function sleeps(now: number) {
-  const out = await exec(["pmset", "-g", "log"], { timeout: 20_000 });
+  const out = await machine(["pmset", "-g", "log"], { timeout: 20_000 });
   const list: { at: string; end?: string }[] = [];
   for (const line of out.stdout.split("\n")) {
     const m = line.match(POWER_LINE);

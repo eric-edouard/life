@@ -2,12 +2,13 @@ import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { hold, holder, isOtherLife, take } from "./lock";
+import { MACHINE } from "./platform";
 import { STATE } from "./truth";
 
-const lock = join(STATE, "archive.lock");
+const lock = join(MACHINE, "archive.lock");
 
 test("one archiver per Mac: a live holder keeps the lock, a dead one's is taken over", async () => {
-  mkdirSync(STATE, { recursive: true });
+  mkdirSync(MACHINE, { recursive: true });
   try {
     // Another install's archiver, alive (this test's parent process), on its own state root.
     writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);

@@ -3,7 +3,6 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "../log";
 import { APP_DATA } from "../platform";
-import { TEST } from "../truth";
 
 // His Contacts: the Mac's AddressBook databases, opened read-only, never written. They name the people behind the
 // phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a number.
@@ -88,7 +87,3 @@ export function readContacts(dir = DIR) {
   }
   return names;
 }
-
-/** His Contacts as they are now (a few ms); none under `bun test`: tests never read his data. */
-export const contacts = () =>
-  TEST ? new Map<string, string>() : readContacts();

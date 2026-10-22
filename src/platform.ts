@@ -1,6 +1,7 @@
 import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { STATE, TEST } from "./truth";
 
 // The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
 // system is one more case here rather than a branch in every module (the rest are listed in
@@ -9,10 +10,17 @@ import { join } from "node:path";
 
 export const WINDOWS = process.platform === "win32";
 
-const HOME = homedir();
+/**
+ * The home folder every store path starts from. A test run has one of its own, inside its copy of the data, so no test
+ * ever reads this computer's messages, mail, contacts or repos.
+ */
+export const HOME = TEST ? join(STATE, "home") : homedir();
+/** A Windows folder its variable names, else its default under `HOME`; a test run's is always under its own `HOME`. */
+const winDir = (name: string, ...parts: string[]) =>
+  (TEST ? undefined : process.env[name]) ?? join(HOME, ...parts);
 /** Where apps keep their own data: Application Support on the Mac, roaming AppData on Windows. */
 export const APP_DATA = WINDOWS
-  ? (process.env.APPDATA ?? join(HOME, "AppData", "Roaming"))
+  ? winDir("APPDATA", "AppData", "Roaming")
   : join(HOME, "Library", "Application Support");
 
 /**
@@ -20,7 +28,7 @@ export const APP_DATA = WINDOWS
  * home, the backup's staging and the services' locks. Local AppData on Windows: it is never synced to another PC.
  */
 export const MACHINE = WINDOWS
-  ? join(process.env.LOCALAPPDATA ?? join(HOME, "AppData", "Local"), "Life")
+  ? join(winDir("LOCALAPPDATA", "AppData", "Local"), "Life")
   : join(APP_DATA, "Life");
 
 /** The pinned codex's native binary for this system, under Life's files (`node_modules`, or the app's helper). */

@@ -1,6 +1,6 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
+import { HOME } from "../platform";
 import { exec } from "../proc";
 import type { Change } from "./act";
 import type { ActionsBackend, Item } from "./backend";
@@ -10,7 +10,7 @@ import type { ActionsBackend, Item } from "./backend";
 // fine); a broken private helper (sections, subtasks) shows as a partial on an act, on the board only in the log.
 
 /** remctl (github.com/viticci/remctl), where its installer puts it, for every install. */
-const REMCTL = join(homedir(), "bin", "remctl");
+const REMCTL = join(HOME, "bin", "remctl");
 /**
  * The remctl release Life is tested against (its answers: remctl.json): what the app installs, and what it offers
  * to update to. Its own installer (signed, notarized) asks for the Mac's password once and grants its permissions.
