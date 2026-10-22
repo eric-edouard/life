@@ -77,9 +77,9 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   the connector's numeric `target` becomes an id (and `open_reminders` gives a numeric id back as a number). The
   ledger's items are keyed by their whole target, and the read-back and `duplicateOf` see only the current backend's:
   after a switch, the other backend's items are never read, marked lost or matched.
-- **On Google Tasks, `act` can only add until phase 1**: its ids are strings and the connector's `target` takes a
-  number. In phase 1 (the Hono move) `target` takes a string id too, and in the same batch (one reconnect) the tools'
-  descriptions say "actions" where they say "Reminders".
+- **Ids are strings** (Google Tasks' are `<list>/<task>`); the connector's `target` takes one, or a Reminders number as
+  it first did, and `open_reminders` gives ids as strings. The tools keep their names (`reminders`,
+  `open_reminders`); their descriptions say "actions", whichever backend the install uses.
 - **What a backend lacks is a capability (`can`), never a branch on its name**: `act` refuses a change that needs one
   (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, moves, restore, subtasks,
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,

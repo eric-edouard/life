@@ -108,7 +108,7 @@ test("an open reminder keeps the six fields `open_reminders` promises, its due a
   };
   expect(openOf(r)).toEqual({
     due: "2026-10-22 09:30",
-    id: 1,
+    id: "1",
     list: "Home",
     notes: "a\nb",
     section: "Soon",
@@ -118,8 +118,11 @@ test("an open reminder keeps the six fields `open_reminders` promises, its due a
     openOf({ ...r, allDay: true, dueDate: "2026-10-22T00:00:00" }).due
   ).toBe("2026-10-22");
   expect(openOf({ ...r, dueDate: undefined }).due).toBeUndefined();
-  // What it reads is what a change takes.
+  // What it reads is what a change takes: its due, and its id as the target (a Reminders number still passes).
   expect(Change.shape.due.safeParse(openOf(r).due).success).toBe(true);
+  for (const target of [openOf(r).id, 1, "list/task"]) {
+    expect(Change.shape.target.safeParse(target).success).toBe(true);
+  }
 });
 
 test("his reminders are read from one list or all, never the board", () => {

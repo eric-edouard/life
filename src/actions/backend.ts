@@ -106,15 +106,9 @@ export function backend(): ActionsBackend {
   return built.b;
 }
 
-/**
- * The one place the connector's numeric ids meet the contract's strings: a change's `target` as an id, and an id as
- * `open_reminders` gives it (a number where it is one, so it goes back as a `target`). When the connector takes a
- * string target (phase 1), both widen here.
- */
-export const idOf = (target: number | undefined) =>
+/** A change's `target` as the contract's id (a string; Reminders' numbers come as numbers too). */
+export const idOf = (target: number | string | undefined) =>
   target === undefined ? undefined : String(target);
-const DIGITS = /^\d+$/;
-const toolId = (id: string) => (DIGITS.test(id) ? Number(id) : id);
 
 /** The agent's board: Life's projection of its tasks (src/tasks.ts), a list of his. */
 export const BOARD = agentName();
@@ -155,7 +149,7 @@ export const openOf = (r: Item) => ({
     (r.allDay
       ? r.dueDate.slice(0, 10)
       : r.dueDate.slice(0, 16).replace("T", " ")),
-  id: toolId(r.id),
+  id: r.id,
   list: r.list,
   notes: r.notes,
   section: r.section,
@@ -254,7 +248,7 @@ export function changedFields(
 }
 
 /** An item as it is now, for `before`. Throws when there is none with this id. */
-export function info(target: number | undefined) {
+export function info(target: number | string | undefined) {
   const id = idOf(target);
   if (id === undefined) {
     throw new Error("this needs a target id");
