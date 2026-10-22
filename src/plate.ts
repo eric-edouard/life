@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { archiveFailing, keptStores } from "./archive";
+import { archiveFailing } from "./archive";
 import { backupOld, backupOn, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
 import { agentLive, clientName, deliveryState, isAgent } from "./events";
@@ -31,6 +31,7 @@ import { readContacts } from "./sources/contacts";
 import {
   type Descriptor,
   enabledSources,
+  keptStores,
   listening,
   type Newest,
 } from "./sources/index";
