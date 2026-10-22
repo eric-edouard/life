@@ -271,13 +271,14 @@ export const enabledSources = <T extends Descriptor>(
 ) => all.filter((s) => on.includes(s.name));
 
 export type Archived = Descriptor & { store: AppStore };
-/** The sources whose app store the archive copies on this system (a Mac-only app is never opened elsewhere). */
-export const ARCHIVED = SOURCES.filter(
-  (s): s is Archived => Boolean(s.store) && !(s.macOnly && WINDOWS)
-);
-/** The archived sources he turned on: no other app is copied or kept open. */
+/**
+ * The sources whose app store an archive holds, on any system: an export carries them all, and an archive moved from
+ * the Mac keeps its deleted messages.
+ */
+export const ARCHIVED = SOURCES.filter((s): s is Archived => Boolean(s.store));
+/** The archived sources he turned on that this system copies: no other app is opened, and a Mac-only one only on the Mac. */
 export const keptStores = (on = settings().sources) =>
-  enabledSources(ARCHIVED, on);
+  enabledSources(ARCHIVED, on).filter((s) => !(s.macOnly && WINDOWS));
 
 /**
  * The sources he turned on that can be read now. One that can't (`missing`: not set up, or its access gone) is left out,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
+import { WINDOWS } from "../platform";
 import { AGENT_WORD, Unit } from "../schema";
 import {
   type Descriptor,
@@ -112,7 +113,11 @@ test("only the sources he turned on are read, and one not set up yet is left out
 });
 
 test("an archived source can't be read until the archive copied its store; others keep their own reason", () => {
-  expect(existsSync(archiveDb("notes"))).toBe(false);
-  expect(sourceOf("notes").missing?.()).toBe("Notes not archived yet");
+  expect(existsSync(archiveDb("beeper"))).toBe(false);
+  expect(sourceOf("beeper").missing?.()).toBe("Beeper not archived yet");
   expect(sourceOf("mail").missing?.()).not.toBe("Mail not archived yet");
+  // A Mac-only source says so elsewhere, whatever the archive holds.
+  expect(sourceOf("notes").missing?.()).toBe(
+    WINDOWS ? "macOS only" : "Notes not archived yet"
+  );
 });
