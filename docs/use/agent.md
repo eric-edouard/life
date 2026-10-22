@@ -9,7 +9,7 @@ words as a task and hands them to the agent. The agent reports back through Life
 Life tells you, by email or notification, when a task waits on you or goes quiet.
 
 The agent runs outside Life's boundary. It acts with whatever access its own app gives it, and Life cannot hold it to
-the rules it follows itself: [SECURITY.md](../SECURITY.md) explains the risk.
+the rules it follows itself: [SECURITY.md](../../SECURITY.md) explains the risk.
 
 1. [Connect ChatGPT or Claude](connect.md) first.
 2. In Life's settings, under **Your agent**, enter its name and the wake word as your phone hears it (usually the name

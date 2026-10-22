@@ -11,22 +11,18 @@ What Life is building next, in order, and what is parked. Each item gets its own
   ([platforms and modules plan](plans/2026-10-22-platforms.md)).
 - Life's own brand on every screen and email ([brand](brand.md)).
 - lifelog's Android capture app: a minimal native Kotlin app that drains an Omi and uploads to the server.
+- The architecture: dependencies point one way between layers, enforced by the check; `app/` and `worker/` became
+  `apps/mac` and `apps/edge` ([architecture plan](plans/2026-10-22-architecture.md), [the code](architecture.md#the-code)).
 
 ## Now
 
-- The architecture: dependencies point one way between layers (core, capabilities, memory, host), enforced by the
-  check, the import cycles gone, the schemas with their owners, then the repo's apps and packages
-  ([architecture plan](plans/2026-10-22-architecture.md)).
+- The naming pass: one word per concept ([glossary](glossary.md)), then the renames it plans, in three PRs: code-only
+  names, stored names with their backfill (AGENTS.md, "A rename backfills"), the connector's tools in one batch.
 
 ## Next
 
-- A naming pass over concepts and code: one glossary of Life's concepts (unit, moment, observation, page, plate,
-  ledger, open item and the rest), each with one name used the same way in docs, the UI and the code, then files,
-  types, functions and variables renamed to match. Done right after the architecture, before the server adds code
-  that copies today's names. Names stored in the owner's memory (record kinds, unit ids) change only with a map, as
-  AGENTS.md requires.
 - A server version with a web UI ([server plan](plans/2026-10-22-server.md)). Life runs on a server as well as on a Mac, and has a web interface built with
-  Better-T-Stack: Vite, Better Auth and Tailwind. People choose a Mac-only install or a full server.
+  Better-T-Stack: Vite and Tailwind, signed in through Life's own issuer. People choose a Mac-only install or a full server.
 - A rework of the memory layer: how sources become units, moments, observations and pages
   ([architecture](architecture.md)).
 - OpenRouter as a model layer, beside the Claude and Codex subscriptions Life uses today.
