@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 
 /// What launchd did for the owner's checkout, for the app: the archive and the watcher always running (started again
@@ -10,7 +10,15 @@ final class Supervisor {
   /// The helper's last `app` answer: whether Life is set up, its sources, its newest report.
   private(set) var info: Info?
   private var services: [String: Process] = [:]
+  private var nightly: Process?
   private var timer: Timer?
+
+  init() {
+    // However the app ends (Quit, an update's relaunch), Life's processes end with it: never two watchers.
+    NotificationCenter.default.addObserver(
+      forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+    ) { [weak self] _ in MainActor.assumeIsolated { self?.stop() } }
+  }
 
   static let services = [["archive"], ["watch"]]
   static let tickEvery: TimeInterval = 30 * 60
@@ -34,6 +42,8 @@ final class Supervisor {
     timer = nil
     for p in services.values { p.terminate() }
     services = [:]
+    nightly?.terminate()
+    nightly = nil
   }
 
   /// Settings changed: the helper reads them once per process, so each service starts again.
@@ -70,6 +80,7 @@ final class Supervisor {
     p.standardOutput = log("memory-nightly")
     p.standardError = p.standardOutput
     try? p.run()
+    nightly = p
   }
 
   /// The helper's output, as the LaunchAgents kept it: ~/Library/Logs/life-<name>.log.
