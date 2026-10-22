@@ -11,7 +11,7 @@ import { clock } from "./clock";
 import { real, STATE } from "./paths";
 import { MACHINE } from "./platform";
 
-// Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, guard.ts)
+// Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, schedule.ts)
 // and the services' (`hold`): one Life per Mac.
 
 /**

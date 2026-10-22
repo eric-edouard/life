@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { REMINDER_KINDS } from "../records/ledger";
+import { REMINDER_KINDS } from "../records/ledger-entry";
 
 // The actions contract: what a backend is (`ActionsBackend`, with what it `can`) and what a change asks of it
 // (`Change`). The backends implement it; `backend.ts` picks this install's one.

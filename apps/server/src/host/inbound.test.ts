@@ -3,12 +3,12 @@ import type { Snapshot } from "../actions/backend";
 import { marks } from "../actions/board";
 import type { Item } from "../actions/contract";
 import { AGENT_WORD } from "../core/names";
-import { action } from "../memory/fixtures";
 import { tasksOf } from "../memory/ledger";
-import { type Action, Action as ActionLine } from "../records/ledger";
+import { action } from "../memory/record-fixtures";
+import { type Action, Action as ActionLine } from "../records/ledger-entry";
 import { grantRefusal } from "./act";
+import { closings } from "./agent";
 import { inbound } from "./inbound";
-import { closings } from "./tasks";
 
 const AT = "2026-10-21T12:00:00.000Z";
 /** His lines, without the imports (what Life only learns). */

@@ -4,6 +4,19 @@ import { holder, isOtherLife } from "../core/lock";
 import { type Call, isReviewCall, log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
 import { extract } from "../memory/extract";
+import { newSince, readActions } from "../memory/ledger";
+import { moments } from "../memory/moments";
+import { placed } from "../memory/page-format";
+import { pages } from "../memory/pages";
+import { codeOn, mapRepos } from "../memory/repos";
+import {
+  commitMemory,
+  type Metered,
+  metered,
+  phases,
+  type RunRecord,
+} from "../memory/run";
+import { runs, useText } from "../memory/runs";
 import {
   afterWeek,
   backfillWeek,
@@ -20,20 +33,7 @@ import {
   recordMidday,
   recordState,
   turnOf,
-} from "../memory/guard";
-import { runs, useText } from "../memory/history";
-import { newSince, readActions } from "../memory/ledger";
-import { moments } from "../memory/moments";
-import { placed } from "../memory/page";
-import { pages } from "../memory/pages";
-import { codeOn, mapRepos } from "../memory/repos";
-import {
-  commitMemory,
-  type Metered,
-  metered,
-  phases,
-  type RunRecord,
-} from "../memory/run";
+} from "../memory/schedule";
 import { reindex } from "../memory/search";
 import { keptStores } from "../memory/sources";
 import { titleOf } from "../memory/tasks";
@@ -48,8 +48,9 @@ import {
 import { observationsNow, readPeople } from "../memory/who";
 import { dayStart, localDate, noteZone } from "../memory/zones";
 import { type Quota, quota } from "../models/llm";
-import { type Action, isListed } from "../records/ledger";
-import type { Extracted, Observation } from "../records/observations";
+import { type Action, isListed } from "../records/ledger-entry";
+import type { Extracted, Observation } from "../records/observation";
+import { taskList, unanswered } from "./agent";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { readHealth } from "./health";
@@ -63,7 +64,6 @@ import {
   sendReport,
   successReport,
 } from "./report";
-import { taskList, unanswered } from "./tasks";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * 3_600_000;
@@ -147,7 +147,7 @@ export async function archiveLine(since: string) {
 /**
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
- * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (guard.ts), and
+ * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
  * only the 3rd failure of a day sends the failure email. What a tick runs is `turnOf`'s: the night, else the midday
  * pass (moments, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
  * (`reserved`), read each tick. Then the daily backup, when it is due

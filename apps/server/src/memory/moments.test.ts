@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moments";
-import type { Correction } from "../records/observations";
-import type { MemoryLabel, Unit, Verdict } from "../records/units";
-import { ledger, madeBy, unit, verdict } from "./fixtures";
+import type { Moment } from "../records/moment";
+import type { Correction } from "../records/observation";
+import type { MemoryLabel, Unit, Verdict } from "../records/unit";
 import { daysOf, momentsNow } from "./ledger";
 import {
   agreement,
@@ -12,7 +11,8 @@ import {
   parseDay,
   unread,
 } from "./moments";
-import type { Truth } from "./truth";
+import type { Truth } from "./read-truth";
+import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import { areaLookup, type Built } from "./units";
 
 const built = (id: string, over: Parameters<typeof unit>[0] = {}): Built => ({

@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { digest } from "../core/hash";
 import { MadeBy } from "../records/fields";
-import { type Observation, PageSection } from "../records/observations";
-import { KEEP_AT } from "../records/units";
+import { type Observation, PageSection } from "../records/observation";
+import { KEEP_AT } from "../records/unit";
 import { type Standing, shows, stateOf } from "./ledger";
-import { OWNER, othersIn, type Truth } from "./truth";
+import { OWNER, othersIn, type Truth } from "./read-truth";
 import { daysBefore } from "./units";
 
 // The pure parts of pages (docs/architecture.md, "The pipeline"): a page's file format, where each observation lives, the owner's

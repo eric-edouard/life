@@ -1,7 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { DATA } from "../core/paths";
-import { INFERRED_PREFIX } from "../records/observations";
+import { INFERRED_PREFIX } from "../records/observation";
 import {
   type Area,
   AreasFile,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { ACTIONS, tasksOf } from "../memory/ledger";
 import { MARK, WAKE } from "../memory/tasks";
+import { apply, readConversations, whose } from "../sources/lifelog";
 import {
   chapter,
   conversation,
@@ -9,8 +10,7 @@ import {
   lifelogServer,
   lifelogStore,
   page,
-} from "../sources/fixtures";
-import { apply, readConversations, whose } from "../sources/lifelog";
+} from "../sources/store-fixtures";
 import { asksIn, hear, marksIn, speechIn, type Turn } from "./hear";
 
 test("only “hey Orbit” or its misheard word, in order, wake it, whatever the case and punctuation", () => {

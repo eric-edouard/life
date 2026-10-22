@@ -5,7 +5,7 @@ shows the same.
 
 Four read-only tools on Life's connector (`/mcp`) let a private dashboard show whether Life works, what it ran, every
 change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code: `bun life memory
-status | runs | changes | claim`. Code: `apps/server/src/host/status/life.ts` (status), `apps/server/src/memory/history.ts` (runs) and `apps/server/src/memory/feed.ts` (changes,
+status | runs | changes | claim`. Code: `apps/server/src/host/status/life.ts` (status), `apps/server/src/memory/runs.ts` (runs) and `apps/server/src/memory/changes.ts` (changes,
 claim). They run no model, write nothing, log nothing and send nothing (a test checks the code; the connector logs each
 call as `mcp.call`), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again
 the way `fetch` reads it (to show who sent the line). Every answer is JSON, sent once as text content (no

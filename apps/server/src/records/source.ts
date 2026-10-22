@@ -6,7 +6,7 @@ import { isoDateTime } from "./fields";
 // What a source reader gives: its events and their files.
 
 /**
- * A file a message carries, as its source resolved it; files.ts renders it as a line of the message. `ref` says where
+ * A file a message carries, as its source resolved it; attachments.ts renders it as a line of the message. `ref` says where
  * it was met, stable without the file: `imessage:<attachment guid>`, `whatsapp:<chat>/<msg>`, `beeper:<mxc url>`,
  * `mail:<Message-ID>#<IMAP part>`, `notes:<attachment id>`.
  */

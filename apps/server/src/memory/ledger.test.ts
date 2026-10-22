@@ -8,8 +8,8 @@ import type {
   Extracted,
   Observation,
   Supersession,
-} from "../records/observations";
-import type { Rating } from "../records/statements";
+} from "../records/observation";
+import type { Rating } from "../records/statement";
 import {
   isCurrent,
   latestExtractions,
@@ -22,7 +22,7 @@ import {
   shownOf,
   stateOf,
 } from "./ledger";
-import { knownOn } from "./page";
+import { knownOn } from "./page-format";
 import { buildIndex } from "./search";
 
 const obs = (id: string, unit: string, unitHash: string, run = "r1") =>

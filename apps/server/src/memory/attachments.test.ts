@@ -3,17 +3,17 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { digest } from "../core/hash";
-import type { SourceEvent, SourceFile } from "../records/sources";
-import type { FileEntry } from "../records/units";
+import type { SourceEvent, SourceFile } from "../records/source";
+import type { FileEntry } from "../records/unit";
 import { copyBeeper, readBeeper } from "../sources/beeper";
+import { readImessage } from "../sources/imessage";
 import {
   beeperFixture,
   imessageFixture,
   whatsappFixture,
-} from "../sources/fixtures";
-import { readImessage } from "../sources/imessage";
+} from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
-import { showFiles, triage } from "./files";
+import { showFiles, triage } from "./attachments";
 import { locate } from "./observe";
 
 const madeBy = {

@@ -19,6 +19,7 @@ import {
 } from "../../core/settings";
 import { ACTIONS } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
+import { apply, forward, type Stay } from "../../sources/lifelog";
 import {
   chapter,
   conversation,
@@ -26,9 +27,8 @@ import {
   lifelogStore,
   page,
   turn,
-} from "../../sources/fixtures";
-import { apply, forward, type Stay } from "../../sources/lifelog";
-import { protocol, sealed, update } from "../tasks";
+} from "../../sources/store-fixtures";
+import { protocol, sealed, update } from "../agent";
 import { ownerTokens } from "./auth";
 import { correct, createMcp } from "./mcp";
 

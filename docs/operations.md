@@ -80,7 +80,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 ## The schedule
 
-`turnOf` (`apps/server/src/memory/guard.ts`, tested) decides what a tick runs:
+`turnOf` (`apps/server/src/memory/schedule.ts`, tested) decides what a tick runs:
 
 - **The night:** once a day after 02:00, up to 3 tries (`STATE/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then moments, extract, closeness, pages, the index, one commit in `DATA`, and the report.
@@ -101,7 +101,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
   night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
   each sweep, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
-  is derived when read: `useOf` in `history.ts`.
+  is derived when read: `useOf` in `runs.ts`.
 - **Failures:** a failed model call or a source that throws fails the whole night: non-zero exit, nothing committed, a
   failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
   logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' moments

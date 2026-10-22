@@ -1,14 +1,14 @@
 import { join } from "node:path";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
-import type { Moment } from "../records/moments";
+import type { Moment } from "../records/moment";
 import {
   Extracted,
   Observation,
   Supersession,
   Unresolved,
-} from "../records/observations";
-import { KEEP_AT, SEARCHABLE_AT } from "../records/units";
+} from "../records/observation";
+import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import {
   type LifelogConversation,
   turnsBetween,
@@ -30,10 +30,9 @@ import {
   verdictOf,
 } from "./ledger";
 import { parseObservations, type Reject, type Source } from "./observe";
-import { chatLines, transcripts, voiceLines } from "./raw";
+import { othersIn } from "./read-truth";
 import { begin, inBatches, refContext } from "./run";
 import { kindOf } from "./sources";
-import { othersIn } from "./truth";
 import {
   areaLookup,
   type Built,
@@ -46,6 +45,7 @@ import {
   within,
 } from "./units";
 import { observationsNow, readPeople, unitNow, who } from "./who";
+import { chatLines, transcripts, voiceLines } from "./words";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (salience >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from

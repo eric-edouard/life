@@ -5,10 +5,16 @@ import { isOn } from "../core/outputs";
 import { execOk } from "../core/proc";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
-import { type Draft, described, type Held, plan, wanted } from "../memory/past";
+import {
+  type Draft,
+  described,
+  type Held,
+  plan,
+  wanted,
+} from "../memory/past-events";
 import { daysBefore } from "../memory/units";
 
-// The Past calendar's writes: what `memory/past.ts` says it should hold, brought into the `past` setting's calendar,
+// The Past calendar's writes: what `memory/past-events.ts` says it should hold, brought into the `past` setting's calendar,
 // a Google one through `gog` (with its account) or an Apple one through the app's EventKit tool. Life's events are
 // found by their private properties (moment id, hash); nothing else is read back. Each nightly tick runs it after
 // its turn.

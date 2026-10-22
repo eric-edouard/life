@@ -7,6 +7,7 @@ import { STATE } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { agentName, settings } from "../core/settings";
+import type { describeFiles } from "../memory/attachments";
 import {
   type Digest,
   LIFE_MAIL,
@@ -14,7 +15,6 @@ import {
   type Section,
 } from "../memory/email";
 import type { extract } from "../memory/extract";
-import type { describeFiles } from "../memory/files";
 import type { Task } from "../memory/ledger";
 import type { moments } from "../memory/moments";
 import type { pages } from "../memory/pages";
@@ -22,7 +22,7 @@ import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
 import { count, localTime, time } from "../memory/units";
 import { localDate, when } from "../memory/zones";
-import type { Action } from "../records/ledger";
+import type { Action } from "../records/ledger-entry";
 import { type Health, polling } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
@@ -274,7 +274,7 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
-/** The alert for the agent tasks that newly need him, one per `chase` pass (apps/server/src/host/tasks.ts): why, and his words. */
+/** The alert for the agent tasks that newly need him, one per `chase` pass (apps/server/src/host/agent.ts): why, and his words. */
 export function taskReport(
   list: { ask: Task["ask"]; cause: string; title: string }[],
   now: number

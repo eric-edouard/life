@@ -4,7 +4,7 @@ import { AGENT_WORD } from "../core/names";
 import { STATE } from "../core/paths";
 import { APP_DATA, HOME, MACHINE, WINDOWS } from "../core/platform";
 import { expand } from "../core/settings";
-import { Unit } from "../records/units";
+import { Unit } from "../records/unit";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import { BEEPER } from "../sources/beeper";
 import type { Descriptor } from "../sources/contract";

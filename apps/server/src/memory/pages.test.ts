@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { git } from "../core/proc";
-import { layoutOf, renderPage } from "./page";
+import { layoutOf, renderPage } from "./page-format";
 import { changedSinceCommit, removeOrphans } from "./pages";
 
 test("pages no target claims are deleted, the others stay", async () => {

@@ -4,7 +4,7 @@ import { clock } from "../core/clock";
 import { filesIn, linesOf } from "../core/files";
 import { DATA } from "../core/paths";
 import { git } from "../core/proc";
-import { Action, isBookkeeping, isTaskLine } from "../records/ledger";
+import { Action, isBookkeeping, isTaskLine } from "../records/ledger-entry";
 import {
   Correction,
   INFERRED_USE_AT,
@@ -12,8 +12,8 @@ import {
   Observation,
   ObservationId,
   Supersession,
-} from "../records/observations";
-import { Rating } from "../records/statements";
+} from "../records/observation";
+import { Rating } from "../records/statement";
 import {
   ACTIONS,
   CORRECTIONS,
@@ -34,15 +34,15 @@ import {
   SUPERSESSIONS,
   stateOf,
 } from "./ledger";
-import { type Key, PageMeta, parsePage, readLine } from "./page";
+import { type Key, PageMeta, parsePage, readLine } from "./page-format";
+import { OWNER } from "./read-truth";
 import { readIndex } from "./search";
 import { kindOf } from "./sources";
-import { OWNER } from "./truth";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,
 // correction, inferred identity, action and page change, by cursor) and `claim` (one observation with its evidence).
-// With history.ts (`runs`) and host/status/life.ts (`lifeStatus`), the connector's dashboard tools and `bun life memory changes|claim|status|runs`.
+// With runs.ts (`runs`) and host/status/life.ts (`lifeStatus`), the connector's dashboard tools and `bun life memory changes|claim|status|runs`.
 // Read-only: no model, no write, no source except `claim`'s cited unit (docs/dashboard.md). Lists are complete: every item is reachable through its cursor, never cut
 // to "+N more". Contracts: docs/dashboard.md.
 

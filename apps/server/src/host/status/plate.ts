@@ -9,8 +9,7 @@ import { isOn, OUTPUTS } from "../../core/outputs";
 import { DATA } from "../../core/paths";
 import { git } from "../../core/proc";
 import { agentName, settings } from "../../core/settings";
-import { changeFeed } from "../../memory/feed";
-import { runs, type Use, useText } from "../../memory/history";
+import { changeFeed } from "../../memory/changes";
 import {
   ACTIONS,
   CORRECTIONS,
@@ -21,19 +20,20 @@ import {
   readStatements,
   tasksOf,
 } from "../../memory/ledger";
+import { loadTruth } from "../../memory/read-truth";
+import { runs, type Use, useText } from "../../memory/runs";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
-import { loadTruth } from "../../memory/truth";
 import { clip } from "../../memory/units";
-import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger";
+import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
 import { lifelogStatus, newestTurn } from "../../sources/lifelog";
+import { escalation, taskList } from "../agent";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
 import { reportKey } from "../report";
-import { escalation, taskList } from "../tasks";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 

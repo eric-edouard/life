@@ -1,8 +1,8 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import type { Moment } from "../records/moments";
-import { Statement } from "../records/statements";
+import type { Moment } from "../records/moment";
+import { Statement } from "../records/statement";
 import { pagedNow } from "./closeness";
 import {
   momentsNow,
@@ -12,7 +12,7 @@ import {
   shows,
   stateOf,
 } from "./ledger";
-import { placed } from "./page";
+import { placed } from "./page-format";
 import { record } from "./run";
 import { observationsNow, readPeople } from "./who";
 import { when } from "./zones";

@@ -10,19 +10,20 @@ import { log } from "../../core/log";
 import { isOn } from "../../core/outputs";
 import { ROOT } from "../../core/paths";
 import { agentName, connector, settings } from "../../core/settings";
-import { changeFeed, claim, MAX_PAGE } from "../../memory/feed";
-import { runs } from "../../memory/history";
+import { changeFeed, claim, MAX_PAGE } from "../../memory/changes";
 import { recordCorrection } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
-import { chatsOf, fetchOf } from "../../memory/raw";
+import { loadMe } from "../../memory/read-truth";
+import { runs } from "../../memory/runs";
 import { area, day, person, search } from "../../memory/search";
 import { closed, titleOf, Update } from "../../memory/tasks";
-import { loadMe } from "../../memory/truth";
 import { clip } from "../../memory/units";
-import type { Action } from "../../records/ledger";
-import { ObservationId } from "../../records/observations";
+import { chatsOf, fetchOf } from "../../memory/words";
+import type { Action } from "../../records/ledger-entry";
+import { ObservationId } from "../../records/observation";
 import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { Asked, actAsked, actGranted, Granted } from "../act";
+import { Reply, reply, sealed, taskList, update } from "../agent";
 import {
   ASK_EVENT,
   Subscribe,
@@ -31,7 +32,6 @@ import {
   unsubscribe,
 } from "../events";
 import { lifeStatus } from "../status/life";
-import { Reply, reply, sealed, taskList, update } from "../tasks";
 import { type Refused, SCOPE, UNREACHABLE, type Verify } from "./auth";
 import { text } from "./http";
 

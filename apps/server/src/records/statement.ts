@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { SourceName } from "../core/names";
 import { EntityRef, isoDate, isoDateTime, MomentId, UnitId } from "./fields";
-import { ObservationId } from "./observations";
+import { ObservationId } from "./observation";
 
 // The statements the owner rates, their ratings and the eval's scores (docs/SCHEMA.md).
 

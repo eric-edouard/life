@@ -69,7 +69,7 @@ not judged yet; a dropped unit's lines are ignored.
 ## files.jsonl
 
 What Life read off the files messages carry, append-only, one line per file and reading, written by the sweeps
-(`describeFiles`, `apps/server/src/memory/files.ts`): `{schemaVersion: 1, ref, hash, what?, text?, madeBy?}`. `ref` is where the file
+(`describeFiles`, `apps/server/src/memory/attachments.ts`): `{schemaVersion: 1, ref, hash, what?, text?, madeBy?}`. `ref` is where the file
 was met (`imessage:<attachment guid>`, `whatsapp:<chat>/<message>`, `beeper:<mxc url>`, `mail:<Message-ID>#<MIME part>`, `notes:<attachment id>`);
 `hash`: 16 hex of SHA-256 over its bytes. `what`: the model's one sentence on what it is and shows (`madeBy` as for
 verdicts, prompt `files.v1`); `text`: the words on it, on one line, at most 1,000 characters (a photo's from the model,
@@ -240,7 +240,7 @@ Sections, in order:
   days. `person` shows each line's first and latest evidence day. A page that loses it (a service, or the owner lowers them) moves its lines
   to History.
 - **Now**: where things stand, `- <text> [obs_…, …]`. Every line cites observations and at least one is under 21 days
-  old (`SECTION` in `page.ts`); with none it ages into History.
+  old (`SECTION` in `page-format.ts`); with none it ages into History.
 - **History**: `- <day> · <text> [obs_…]`, newest first, oldest last; a finished or aged line keeps its words and is
   dated by its newest observation. At most 30 lines.
 - **Often talk about**: person pages (not the owner's own: the owner is in every unit), `- topic (n), …`: the topics of the verdicts of the units they are in, over 90
@@ -273,7 +273,7 @@ line the owner deletes is recorded as `not-important` for its observations on th
 ## actions.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in
-Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the agent's tasks (`apps/server/src/host/tasks.ts`: the owner's asks and their lines):
+Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the agent's tasks (`apps/server/src/host/agent.ts`: the owner's asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
 - `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
@@ -328,7 +328,7 @@ where a later run's claims about the same thing are). The draw is spread over gr
 ## ratings.jsonl
 
 The owner's answers to the statements, append-only, from the check page (`<your connector origin>/check`,
-`apps/server/src/host/http/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
+`apps/server/src/host/http/check-page.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
 recorded it, not anymore), `skip` or null (the owner took their last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would

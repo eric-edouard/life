@@ -4,8 +4,8 @@ import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { exec, git } from "../core/proc";
 import { expand, settings } from "../core/settings";
-import type { RepoGuess } from "../records/observations";
-import type { SourceEvent } from "../records/sources";
+import type { RepoGuess } from "../records/observation";
+import type { SourceEvent } from "../records/source";
 import type { Person, Project } from "../records/truth";
 import type { Newest, RepoMap } from "./contract";
 

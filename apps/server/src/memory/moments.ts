@@ -5,10 +5,10 @@ import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { LocalTime, Moment } from "../records/moments";
-import { type Correction, InferredPerson } from "../records/observations";
-import type { MemoryLabel, Unit, Verdict } from "../records/units";
-import { ChapterKind, KEEP_AT, MemoryType } from "../records/units";
+import { LocalTime, Moment } from "../records/moment";
+import { type Correction, InferredPerson } from "../records/observation";
+import type { MemoryLabel, Unit, Verdict } from "../records/unit";
+import { ChapterKind, KEEP_AT, MemoryType } from "../records/unit";
 import { closeNow } from "./closeness";
 import {
   appendVerdicts,
@@ -27,9 +27,9 @@ import {
 } from "./ledger";
 import { linkOf } from "./observe";
 import { checkPeople, unknownIn } from "./people";
+import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, refContext } from "./run";
 import { kindOf } from "./sources";
-import { OWNER, type Truth } from "./truth";
 import {
   areaLookup,
   areaOf,

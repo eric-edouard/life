@@ -4,7 +4,7 @@ import { z } from "zod";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { Imported } from "../records/observations";
+import { Imported } from "../records/observation";
 import {
   type Conversation,
   FORMATS,
@@ -12,10 +12,10 @@ import {
   importOf,
   parsedExport,
 } from "../sources/assistants";
-import { spareQuota } from "./guard";
 import { IMPORTED, keptConversations } from "./ledger";
+import { loadTruth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
-import { loadTruth } from "./truth";
+import { spareQuota } from "./schedule";
 import { clip } from "./units";
 import { localDate } from "./zones";
 

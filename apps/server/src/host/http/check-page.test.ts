@@ -10,7 +10,7 @@ import {
 } from "jose";
 import { ROOT } from "../../core/paths";
 import { connector } from "../../core/settings";
-import { changeFeed } from "../../memory/feed";
+import { changeFeed } from "../../memory/changes";
 import {
   RATINGS,
   ratedOutdated,
@@ -18,7 +18,7 @@ import {
   readRatings,
 } from "../../memory/ledger";
 import { ownerTokens } from "./auth";
-import { createCheck } from "./check";
+import { createCheck } from "./check-page";
 import { createSignIn } from "./signin";
 
 const {

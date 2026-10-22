@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
-import { beeperFixture } from "./fixtures";
+import { beeperFixture } from "./store-fixtures";
 
 test("the archive keeps the text of Beeper messages deleted or edited later, with Telegram senders resolved to phones", () => {
   const { add, dir, index, now, source } = beeperFixture();

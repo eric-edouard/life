@@ -1,11 +1,11 @@
 import { clock, DAY } from "../../core/clock";
 import { isAgent, recentEvents } from "../../core/log";
-import { changeFeed, encode } from "../../memory/feed";
-import { runs, STEPS, useText } from "../../memory/history";
+import { changeFeed, encode } from "../../memory/changes";
+import { runs, STEPS, useText } from "../../memory/runs";
 import { SOURCES } from "../../memory/sources";
 import { clip } from "../../memory/units";
+import { taskList } from "../agent";
 import { clientName } from "../events";
-import { taskList } from "../tasks";
 import { sleeps } from "./mac";
 import { cached, type Line, spent, type Tone, toneOfRun } from "./plate";
 

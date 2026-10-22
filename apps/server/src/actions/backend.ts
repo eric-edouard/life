@@ -1,6 +1,6 @@
 import { isOn, off } from "../core/outputs";
 import { agentName, settings } from "../core/settings";
-import type { Action } from "../records/ledger";
+import type { Action } from "../records/ledger-entry";
 import type { ActionsBackend, Can, Change, Item } from "./contract";
 import { google } from "./google";
 import { reminders } from "./remctl";
@@ -34,7 +34,7 @@ export function backend(): ActionsBackend {
 export const idOf = (target: number | string | undefined) =>
   target === undefined ? undefined : String(target);
 
-/** The agent's board: Life's projection of its tasks (apps/server/src/host/tasks.ts), a list of his. */
+/** The agent's board: Life's projection of its tasks (apps/server/src/host/agent.ts), a list of his. */
 export const BOARD = agentName();
 
 /** The Change fields (and kinds) that need a capability. */

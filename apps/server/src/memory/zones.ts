@@ -2,12 +2,12 @@ import { statSync } from "node:fs";
 import { clock } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { systemZone } from "../core/platform";
-import { Zone } from "../records/units";
+import { Zone } from "../records/unit";
 import { ZONES } from "./ledger";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, the Mac's zone from each `from` on, and the wall clock
 // there. Local days and times come from here, never from the zone of the process reading them, so a day read again
-// later (in another country) keeps its units' dates and ids. (Schedules, guard.ts, follow the Mac's own clock.)
+// later (in another country) keeps its units' dates and ids. (Schedules, schedule.ts, follow the Mac's own clock.)
 
 let cache = { list: [] as { from: number; tz: string }[], mtime: -1 };
 

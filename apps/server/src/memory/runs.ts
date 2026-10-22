@@ -2,14 +2,14 @@ import { z } from "zod";
 import { clock } from "../core/clock";
 import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
 import { add, NONE, type Quota, type Tokens } from "../models/llm";
-import { decode, encode, PAGE } from "./feed";
-import { lockedSince } from "./guard";
+import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./ledger";
+import { lockedSince } from "./schedule";
 import { daysBefore, lastDays } from "./units";
 import { localDate } from "./zones";
 
 // Life's processing as recorded, as JSON for a dashboard: `runs` (the history in derived/log: sweeps, their steps,
-// outcomes, counts, errors); `lifeStatus` (host/status/life.ts) reads it. Read-only, like feed.ts.
+// outcomes, counts, errors); `lifeStatus` (host/status/life.ts) reads it. Read-only, like changes.ts.
 
 // --- runs ----------------------------------------------------------------------------------------------------------
 

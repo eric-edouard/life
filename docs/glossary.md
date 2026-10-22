@@ -79,7 +79,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is: the app's status window (`plate.ts` in code), the connector's `status`. | `read_life_status`; `plate` → status |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. | every tool renamed in one batch |
-| record | One of the zod schemas of what Life writes, in `apps/server/src/records/`. | one file per record |
+| record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `moment.ts`, `ledger-entry.ts`…). | |
 
 ## Folders
 

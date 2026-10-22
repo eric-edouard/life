@@ -13,7 +13,7 @@ import {
   nextNight,
   quotaLine,
   turnOf,
-} from "./guard";
+} from "./schedule";
 import { localTime } from "./units";
 
 const day = "2026-10-15";

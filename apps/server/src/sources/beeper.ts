@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { APP_DATA } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../records/sources";
+import { type SourceEvent, sourceFile } from "../records/source";
 import {
   ARCHIVE,
   insertAll,

@@ -1,13 +1,13 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { handleKey } from "./contacts";
-import { imessageFixture } from "./fixtures";
 import {
   fromAppleNs,
   readImessage,
   textFromAttributedBody,
   toAppleNs,
 } from "./imessage";
+import { imessageFixture } from "./store-fixtures";
 
 test("Apple nanosecond dates round-trip", () => {
   const d = new Date("2026-10-10T12:00:00.000Z");

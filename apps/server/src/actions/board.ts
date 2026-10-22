@@ -7,7 +7,7 @@ import type { ActionsBackend, Item } from "./contract";
 // task's state either way) to what the ledger says and ticks the item when its task
 // closes: his receipt that he was heard. Only his tick or removal of one is read back (`marks`, below).
 
-/** What a task's item should say (`wantOf`, apps/server/src/host/tasks.ts): `id` is the task's, the first line of `notes`. */
+/** What a task's item should say (`wantOf`, apps/server/src/host/agent.ts): `id` is the task's, the first line of `notes`. */
 export interface Receipt {
   completed: boolean;
   id: string;
@@ -86,7 +86,7 @@ export async function push(receipts: Receipt[], board: Item[]) {
   }
 }
 
-/** What he did to each task's receipt: ticked it, or removed it (in Recently Deleted, none live). `closings` (apps/server/src/host/tasks.ts) reads it for open tasks only. */
+/** What he did to each task's receipt: ticked it, or removed it (in Recently Deleted, none live). `closings` (apps/server/src/host/agent.ts) reads it for open tasks only. */
 export function marks(s: Snapshot) {
   const live = new Map(s.board.map((r) => [taskOf(r), r.completed]));
   const removed = s.deleted.filter((d) => !live.has(taskOf(d)));

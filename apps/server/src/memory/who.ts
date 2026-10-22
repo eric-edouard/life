@@ -4,9 +4,9 @@ import {
   type InferredPerson,
   type Observation,
   type Unresolved,
-} from "../records/observations";
+} from "../records/observation";
 import type { Person } from "../records/truth";
-import type { Unit } from "../records/units";
+import type { Unit } from "../records/unit";
 import {
   readCorrections,
   readInferred,
@@ -16,8 +16,8 @@ import {
   readUnresolved,
   shownOf,
 } from "./ledger";
+import { handlesOf, loadTruth, OWNER } from "./read-truth";
 import { kindOf, sourceOf } from "./sources";
-import { handlesOf, loadTruth, OWNER } from "./truth";
 import { normalize, PERSON, UNKNOWN } from "./units";
 
 // Who a name, handle or person ref is now: truth/, the people Life inferred and the owner's corrections, in that order

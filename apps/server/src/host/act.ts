@@ -17,15 +17,15 @@ import { ACTIONS, readActions } from "../memory/ledger";
 import { kindOf } from "../memory/sources";
 import { normalize } from "../memory/units";
 import { localDate } from "../memory/zones";
-import { Action, type Instruction, stands } from "../records/ledger";
-import type { Observation } from "../records/observations";
+import { Action, type Instruction, stands } from "../records/ledger-entry";
+import type { Observation } from "../records/observation";
 import { ownerSpoke, withStore } from "../sources/lifelog";
 import { actionFailedReport, sendReport } from "./report";
 
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
 // Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as an Action
 // (memory/actions.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
-// connector) decide that he asked. The ledger also holds the agent's tasks (apps/server/src/host/tasks.ts), whose board, the list `BOARD`,
+// connector) decide that he asked. The ledger also holds the agent's tasks (apps/server/src/host/agent.ts), whose board, the list `BOARD`,
 // no `act` may touch.
 
 export const actionId = (ref: string, kind: string, title: string) =>

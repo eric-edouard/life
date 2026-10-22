@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { Moment } from "../records/moments";
-import { madeBy, unit } from "./fixtures";
-import { type Draft, drafts, plan, tiled } from "./past";
+import type { Moment } from "../records/moment";
+import { type Draft, drafts, plan, tiled } from "./past-events";
+import { madeBy, unit } from "./record-fixtures";
 
 const moment = (over: Partial<Moment> = {}): Moment => ({
   copies: [],

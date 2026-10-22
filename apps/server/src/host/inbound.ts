@@ -11,7 +11,7 @@ import {
 } from "../actions/items";
 import { digest } from "../core/hash";
 import { normalize } from "../memory/units";
-import { type Action, stands } from "../records/ledger";
+import { type Action, stands } from "../records/ledger-entry";
 
 // His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
 // with what the ledger says Life left there, and a field Life tried to write and could not confirm is learned, never his (#69).

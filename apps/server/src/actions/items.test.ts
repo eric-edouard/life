@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { SourceEvent } from "../records/sources";
+import type { SourceEvent } from "../records/source";
 import { type Candidate, openItems, owed } from "./items";
 
 const DATE = "2026-10-19";

@@ -1,4 +1,4 @@
-// How Life's server answers (`mcp.ts`, `check.ts`, `portrait.ts`), the one place for it: never cached, never framed,
+// How Life's server answers (`mcp.ts`, `check-page.ts`, `portrait.ts`), the one place for it: never cached, never framed,
 // no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

@@ -34,7 +34,7 @@ test.if(FROZEN !== undefined)(
 test.if(FROZEN !== undefined)(
   "chats and places show nothing after now",
   async () => {
-    const { chatsOf } = await import("../memory/raw");
+    const { chatsOf } = await import("../memory/words");
     const { placesOf } = await import("../memory/places");
     const message = (minutes: number, text: string) => ({
       at: at(minutes),

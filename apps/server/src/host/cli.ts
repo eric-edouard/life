@@ -13,11 +13,12 @@ import {
   settings,
 } from "../core/settings";
 import { dryRun, importExport } from "../memory/imports";
+import { integrity, loadTruth } from "../memory/read-truth";
 import { FULL_DISK, SOURCES } from "../memory/sources";
-import { integrity, loadTruth } from "../memory/truth";
 import { dayRange } from "../memory/units";
 import { readEngine } from "../models/llm";
 import { Asked, actAsked, requested, setGrant } from "./act";
+import { ask, timings } from "./agent";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { memoryCommand, step } from "./command";
@@ -26,10 +27,9 @@ import { LOCAL_PORT } from "./http/http";
 import { pair } from "./http/oauth";
 import { localKey } from "./http/signin";
 import { connect } from "./http/tailscale";
-import { restore } from "./import";
 import { init, started } from "./init";
 import { duration, REPORTS } from "./report";
-import { ask, timings } from "./tasks";
+import { restore } from "./restore";
 import { status, watch } from "./watch";
 
 /** `act` and the grant need the actions output: off, they say so and do nothing. */
@@ -133,7 +133,7 @@ const commands: Record<string, () => Promise<number>> = {
   },
   /**
    * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each moment as
-   * the time since the one before it (apps/server/src/host/tasks.ts `timings`).
+   * the time since the one before it (apps/server/src/host/agent.ts `timings`).
    */
   async asks() {
     const { values } = parseArgs({
