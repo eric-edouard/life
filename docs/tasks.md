@@ -152,7 +152,7 @@ takes authority away.
 
 ## The Past calendar
 
-A one-way projection of the moments (`apps/server/src/memory/past.ts`; `syncPast`, `apps/server/src/host/calendar.ts`, writes it each nightly tick), on with the `past` setting:
+A one-way projection of the moments (`apps/server/src/memory/past.ts`), written each nightly tick by `syncPast` (`apps/server/src/host/past-calendar.ts`), on with the `past` setting:
 one event per moment that happened, none overlapping (`tiled`: what covers another is left off), found by its private
 properties `lifeMoment` and `lifeHash`. A changed moment is written again, a gone one deleted; events without
 `lifeMoment` are never touched. It reads nothing back and never alerts. If that calendar ever becomes a source, its

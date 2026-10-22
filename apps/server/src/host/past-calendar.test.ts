@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { heldOf } from "./calendar";
+import { heldOf } from "./past-calendar";
 
 test("Life's events are found by moment, whichever calendar holds them", () => {
   const held = heldOf([

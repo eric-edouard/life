@@ -8,8 +8,10 @@ import { settings } from "../core/settings";
 import { type Draft, described, type Held, plan, wanted } from "../memory/past";
 import { daysBefore } from "../memory/units";
 
-// The Past calendar's reads and writes: what `memory/past.ts` says the calendar should hold, brought into his Google
-// calendar (`gog`) or his Apple calendar (the app's EventKit tool).
+// The Past calendar's writes: what `memory/past.ts` says it should hold, brought into the `past` setting's calendar,
+// a Google one through `gog` (with its account) or an Apple one through the app's EventKit tool. Life's events are
+// found by their private properties (moment id, hash); nothing else is read back. Each nightly tick runs it after
+// its turn.
 
 const PastEvents = (stdout: string) =>
   JSON.parse(stdout) as {
