@@ -28,7 +28,7 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
 // mirrors them on his board (src/actions); `deliver` pushes the asks not yet delivered to the agent (src/events.ts).
-// Every 2 minutes it also heals the Mac's tunnel (src/tunnel.ts).
+// Every 2 minutes it probes the Mac's Cloudflare tunnel (src/tunnel.ts), which no longer fires behind the edge Worker (#133).
 
 const MIN = 60_000;
 let last = 0;

@@ -193,7 +193,8 @@ grant, and logs the agent's replies.
   arguments (`tool()` validates them itself) are logged as `mcp.call` with `error`. Nothing reads a response back.
 - **Origin:** the Mac's tailnet name (`bun life connect`; `--public` through Tailscale Funnel for ChatGPT and
   Claude.ai, `src/tailscale.ts`), or the owner's own Cloudflare tunnel (`tunnel: cloudflare`, the only one
-  `src/tunnel.ts` heals). Docs write it as `<your connector origin>`.
+  `src/tunnel.ts` heals), or the owner's edge Worker until #137 (`docs/architecture.md`). Docs write it as
+  `<your connector origin>`.
 
 ## The only sends
 
