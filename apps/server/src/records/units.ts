@@ -13,7 +13,7 @@ import {
 // Memory's units (memory/units/, docs/SCHEMA.md), their verdicts, files, zones and labels. Every record carries
 // schemaVersion and, when a model judged it, the model and prompt version.
 
-/** What a unit or observation is (owner's decision, 11 Oct). Owner-facing names: docs/glossary.md, "observation kind". */
+/** What a unit or observation is (owner's decision, 11 Oct). Owner-facing names: docs/SCHEMA.md, "Words used below". */
 export const MemoryType = z.enum([
   "todo",
   "promise",

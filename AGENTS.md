@@ -62,12 +62,14 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `actions.jsonl` is appended only by `act`, `setGrant`, the tasks (`ask`, `update`, `reply`) and the sync
   pass (`inbound`, `closings`). The dashboard's `changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (below). A change to how unit ids are
-  made ships an old→new map applied to `labels.jsonl` and `statements.jsonl`.
-- **A rename backfills.** Names follow the best model, never old data: a stored name, id, kind or file is renamed when
-  a clearer one fits, and one migration rewrites the stored lines in place (same count, same order, so the `changes`
-  cursor holds), once, under the lock, committed in the data repo. After it the code reads only the new name: no
-  alias, no second spelling. The archive is never migrated. Connector renames go out in one batch (one reconnect).
+  rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (next).
+- **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
+  value, an id, a file, a unit id's recipe) ships one migration in Life's code, with the owner's OK on the list of
+  renames: Life runs it at its next start, under the lock; it rewrites the stored lines in place (same count, same
+  order, so the `changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
+  running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
+  writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
+  meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `guard.ts`), except his single lines (a
   correction, a rating) and `actions.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE` (`docs/operations.md`).
@@ -119,16 +121,16 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 ## Names
 
 A name is a decision about what a thing is. Before naming or renaming anything, say in one sentence what it is and
-what it is not, then find its word in `docs/glossary.md`: one word per concept, the same in docs, app, email,
-connector and code. A new concept gets its glossary line in the same PR.
+what it is not, then find its word in `docs/glossary.md` (its Word column is what the code uses today): one word per
+concept, the same in docs, app, email, connector and code. A new concept gets its glossary line in the same PR.
 
-- Clarity beats brevity: `read_open_agent_tasks` over `tasks`, `waiting_on_someone` over `waiting`.
+- Clarity beats brevity: a name the reader doesn't have to look up (planned: `read_open_agent_tasks` for the
+  connector's `tasks`).
 - One meaning per word. When a word already means something else (state, item, run, zone), pick another.
-- Functions: `readX` reads disk or the network, `parseX` turns text into a value, `xOf` is pure, `latest` is the most
+- New and renamed functions: `readX` reads disk or the network, `parseX` turns text into a value, `xOf` is pure, `latest` is the most
   recent of a set, booleans start with `is` or `has`.
-- Files: a record is singular (`records/unit.ts`), a step or reader names what it does (`schedule.ts`, not
-  `guard.ts`); no two files share a name.
-- No person's name in code, stored values or ids: the owner is `owner`, his agent `agent`.
+- Files: a file names what it does, and no two files share a name (planned renames: `docs/glossary.md`).
+- No person's name in code, stored values or ids: name the role, `owner` or `agent`.
 - A clearer name for something stored is worth its backfill (the invariant above).
 
 ## One way to do each thing
@@ -183,7 +185,7 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
 Life); measure a change to moments or extraction (`docs/operations.md`, "Measuring"); write an architectural decision
 or invariant you make into this file or the doc it belongs to.
 
-**Ask first:** a new table in the archive; re-running the whole archive through a model; bumping a prompt version;
+**Ask first:** a new table in the archive; a migration of stored data (the list of renames); re-running the whole archive through a model; bumping a prompt version;
 removing a regression case; anything that spends the owner's model quota heavily (the bench, a backfill); changing
 `docs/agent.md` (it changes the agent's behaviour and its seal).
 
