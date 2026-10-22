@@ -18,8 +18,8 @@ and what it does not.
 ### Secrets
 
 - Life.app keeps secrets in the macOS Keychain; a development checkout keeps them in `.env` (gitignored).
-- Secret files Life writes are mode 600, and that mode keeps them out of every export and backup: the export's
-  manifest lists them by name only.
+- Secret files Life writes are named in one list (`SECRETS`, `src/secret.ts`) and written mode 600; that list keeps
+  them out of every export and backup: the export's manifest names them only.
 
 ### Models
 

@@ -14,12 +14,8 @@ import { dryRun, importExport } from "./memory/imports";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
-import {
-  checks,
-  REMCTL_RELEASE,
-  remctlVersion,
-  remindersOn,
-} from "./reminders/remctl";
+import { isOn, off } from "./outputs";
+import { checks, REMCTL_RELEASE, remctlVersion } from "./reminders/remctl";
 import { Engine } from "./schema";
 import { readSettings, type Settings, setSettings, settings } from "./settings";
 import { localKey } from "./signin";
@@ -31,10 +27,11 @@ import { status, watch } from "./watch";
 
 /** `act` and the grant need the Reminders plugin: off, they say so and do nothing. */
 const pluginOff = () => {
-  if (!remindersOn()) {
-    console.error("Reminders is off (settings: reminders)");
+  const why = off("reminders");
+  if (why) {
+    console.error(why);
   }
-  return !remindersOn();
+  return Boolean(why);
 };
 
 const commands: Record<string, () => Promise<number>> = {
@@ -85,7 +82,7 @@ const commands: Record<string, () => Promise<number>> = {
           const installed = await remctlVersion();
           return {
             installed,
-            on: remindersOn(),
+            on: isOn("reminders"),
             /** remctl as Life wants it: installed, at the pinned release. */
             ready: installed === REMCTL_RELEASE.version,
             release: REMCTL_RELEASE,

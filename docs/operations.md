@@ -23,8 +23,8 @@ Three roots, defined in `src/truth.ts`:
   default engine).
 - Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`src/test-data`) in a temp folder
   outside any repo, its lock and log there too: two runs at once share nothing.
-- A secret file in `STATE` is written only by `writeSecret` or `secretIn` (mode 600); that mode is what keeps it out of
-  an export (`secret`, `src/export.ts`).
+- Life's secret files are the ones `SECRETS` names (`src/secret.ts`), written only by `writeSecret` or `secretIn`
+  (mode 600 where the system has modes); the export leaves exactly those out (`src/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 
 ## Settings
@@ -139,7 +139,8 @@ the tunnel's only healer.
 ## Model engines
 
 - Calls go through `src/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
-  claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither.
+  claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
+  entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MAC/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.

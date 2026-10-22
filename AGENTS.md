@@ -102,8 +102,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   away or reorder, never add it. Open items are derived (`openItems`), never stored (`docs/tasks.md`).
 - **Nightly emails include every row.** Never cap a list or write "+N more" (`docs/operations.md`, "The nightly
   report").
-- **Everything Life shows follows the Ledger brand** (emails, `/check`, `/me`, the app, the icon), its values
-  copied from the `ledger-brand` skill's tokens; a brand change lands there first (`docs/architecture.md`).
+- **Everything Life shows follows Life's own brand** (`docs/brand.md`): one source, `assets/brand/tokens.css`, which
+  wins over any global brand skill for Life. A brand change lands there first; the email and the app copy it
+  (`src/brand.test.ts` checks).
 
 ## One way to do each thing
 

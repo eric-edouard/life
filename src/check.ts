@@ -11,11 +11,12 @@ import { ROOT } from "./truth";
 // The check page (/check/): he rates the statements (memory/statements.jsonl), each answer appended to ratings.jsonl.
 // Behind the owner's sign-in (`signin.ts`); nothing but the sign-in redirects answers before that check.
 
-const ASSETS = join(ROOT, "assets", "check");
+const ASSETS = join(ROOT, "assets");
 const FILES: Record<string, string> = {
-  "/check/": "index.html",
-  "/check/check.css": "check.css",
-  "/check/check.js": "check.js",
+  "/check/": "check/index.html",
+  "/check/check.css": "check/check.css",
+  "/check/check.js": "check/check.js",
+  "/check/tokens.css": "brand/tokens.css",
 };
 
 const Answer = Rating.pick({ answer: true, claim: true });

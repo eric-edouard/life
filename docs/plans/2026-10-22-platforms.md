@@ -17,10 +17,11 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | Add-ons | Turborepo, Biome with Ultracite, Skills; the hand-written `.githooks` stay |
 | Desktop | SwiftUI on the Mac (Life.app as it is); a WinUI 3 tray on Windows, which lifelog's host joins. All logic stays in the helper |
 | Mail on Windows | Gmail through `gog` |
-| Actions on Windows | Off |
+| Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`); Windows uses Google Tasks |
 | iMessage from iPhone backups | Not now |
 | Windows signing | Unsigned builds first; the signing step is wired so an Authenticode certificate drops in |
-| Verification | GitHub Actions' Windows runner: build, tests, a headless night with zero sources, the connector answering |
+| Verification | GitHub Actions' Windows runner (build, tests, a headless night with zero sources, the connector answering), then the owner's Windows 11 PC over SSH through Tailscale (key `~/.ssh/life_windows` on his Mac) |
+| Sessions | Phase 0 here; the re-scaffold, headless Windows and the WinUI 3 tray each in a session of its own, briefed from this doc. lifelog's phases have their own sessions and report |
 
 The scaffold command, checked with `--dry-run`:
 
@@ -61,24 +62,21 @@ with Life; lifelog's report owns how it is met.
 
 ### Outputs
 
-Today each output has its own switch and shape: `reminders` (a boolean), `past` (an object plus `LIFE_EVENTKIT`),
-`mail` (whose absence swaps email for a notification), `connector`, `agent.transport`, `backup`, `lifelog` (for
-`forward`). The only thing they share is `unfrozen`. `act` does not check the Reminders switch itself (`actions.ts:86`),
-so the CLI (`cli.ts:33`) and the connector (`mcp.ts:418`) each check it again.
-
-The contract, in one registry `OUTPUTS`: each output has a `name`, a `label`, `on()` (read from settings) and
-`missing()` (what keeps it from working now). Its own code stays its own; the registry is what `init`, the plate,
-the CLI and the connector ask. `act` checks `on()` itself and the two extra checks go. The outputs: Reminders, the Past
-calendar, the report (email or a local page), the connector, the ask event, the backup, the voice corrections.
+Done (#148). Each output had its own switch and shape, and `act` did not check the Reminders switch itself, so with
+Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`src/outputs.ts`) holds the outputs he can
+turn on or off (Reminders, the Past calendar, the connector, the backup), each with its label and its switch: `isOn`
+asks it, `off` says why one does nothing, the plate's cards take their names and "off" from it, and `act` refuses
+before recording. Each output's own module does the work and reads the rest of its settings. The report is not a
+switch: it always goes, by email with a `mail` setting, else as a local page. The agent's asks follow `agent`; the
+voice corrections follow the voice input.
 
 ### Model providers
 
-`llm.ts` already dispatches through one table (`RUNNERS`, `:683`), but the rest is spread: model tables per engine
-(`:49`, `:56`, `:119`), the effort table shared across vendors (`CODEX_EFFORT` for `anthropic`, `:136`), the quota
-deciding again whether the engine is Codex (`:476`). The contract, one entry per provider in one registry: its models
-per tier (`fast`, `main`, `deep`), its effort, whether it may use tools, `ask`, and `quota` when it has one; the binary
-path and the environment it runs with come from the platform module. Providers: `claude` (CLI), `codex` (CLI),
-`anthropic` and `openai` (API keys), `openrouter` (the bench only).
+Done (#149). `PROVIDERS` in `llm.ts` has one entry per provider: `claude` and `codex` (his subscriptions' CLIs),
+`anthropic` and `openai` (API keys), `openrouter` (the bench only). Each holds its models by tier (`fast`, `main`,
+`deep`; OpenRouter's come from `LIFE_LLM`), its effort, its call, whether it may run tools, and its quota when it has
+one. `llmFor`, the tools rule and the quota read it. Still to move, to the platform module: Codex's binary path
+and home, and the CLIs' environment.
 
 ### Transcription providers
 
@@ -144,7 +142,24 @@ section, its own helper), coordinated with lifelog's session. WinSparkle reads t
 step takes an Authenticode certificate when there is one. **Done when** the CI builds the tray; a hand check on
 Windows 11 installs it, sees the status and survives a restart.
 
+## Actions behind the outputs contract
+
+The invariant "Life acts in one place: Apple Reminders" becomes "Life acts in one actions backend per install: Apple
+Reminders (remctl) or Google Tasks (`gog`)". The ledger stays the truth (`actions.jsonl`, `openItems`); a backend is
+only how a change is written and read back. One contract for both: list its lists, read the open and recently closed
+items, add, edit, complete, reopen, delete and restore an item, and the board's list. What one backend lacks (Reminders'
+sections and urgent flag, Google Tasks' none) the contract says by capability, never by the backend's name. The
+`reminders` setting becomes the actions output's backend choice; the connector's tools keep their names and arguments
+(a reconnect is costly), their descriptions say "actions" where they say "Reminders".
+
+## lifelog's host in the tray
+
+lifelog's server serves `GET /status/live` on loopback (127.0.0.1:47613), owner-only, with the device token; its JSON is
+typed in lifelog's openapi.json (sample `fixtures/wire/status-live.json`), and its verdict rules stay on the server, so
+the tray only renders. The tray's lifelog section reads it as the Mac's Lifelog Host does; Life's section reads Life's
+own status reads (`/status/snapshot`, `/status/card/<id>`, `/status/run` on `LOCAL_PORT` 46201 behind the local key).
+
 ## Hand steps left to the owner
 
-- A Windows 11 machine (or VM) for the hand checks above.
+- His Windows 11 PC reachable over SSH through Tailscale (in progress), for the hand checks above.
 - An Authenticode certificate, when Life goes to friends on Windows.

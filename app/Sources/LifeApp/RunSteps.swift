@@ -10,19 +10,19 @@ struct RunSteps: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
       if let run {
-        if let use = run.use { Text("Spent: \(use)").font(Ledger.mono(11)).foregroundStyle(Ledger.muted) }
+        if let use = run.use { Text("Spent: \(use)").font(Brand.mono(11)).foregroundStyle(Brand.muted) }
         ForEach(run.steps) { s in
           HStack(alignment: .firstTextBaseline, spacing: 10) {
             Circle().fill(s.tone.color).frame(width: 6, height: 6)
-            Text(s.step).font(Ledger.serif(13))
+            Text(s.step).font(Brand.serif(13))
             Spacer()
             Text([s.result?.text, s.use, minutes(s)].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-              .font(Ledger.mono(11)).foregroundStyle(Ledger.muted).lineLimit(1)
+              .font(Brand.mono(11)).foregroundStyle(Brand.muted).lineLimit(1)
           }
         }
-        Text(wrote(run)).font(Ledger.mono(11)).foregroundStyle(Ledger.muted).padding(.top, 4)
+        Text(wrote(run)).font(Brand.mono(11)).foregroundStyle(Brand.muted).padding(.top, 4)
       } else {
-        Text(missing ? "Gone from the log" : "Reading…").foregroundStyle(Ledger.muted)
+        Text(missing ? "Gone from the log" : "Reading…").foregroundStyle(Brand.muted)
       }
     }
     .padding(.vertical, 4)
