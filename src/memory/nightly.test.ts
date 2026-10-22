@@ -1,9 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
-import { rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "../log";
+import { MACHINE } from "../platform";
 import type { Extracted, Observation } from "../schema";
-import { STATE } from "../truth";
 import { unit } from "./fixtures";
 import { latestExtractions } from "./ledger";
 import { markedSince, nightly, reviewed } from "./nightly";
@@ -58,7 +58,8 @@ test("each marked unit is listed once read since the last night, with the observ
 });
 
 test("while another install's watcher runs on this Mac, a tick does nothing", async () => {
-  const lock = join(STATE, "watch.lock");
+  mkdirSync(MACHINE, { recursive: true });
+  const lock = join(MACHINE, "watch.lock");
   writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
   const said = spyOn(console, "log");
   try {

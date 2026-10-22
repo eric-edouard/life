@@ -1,14 +1,13 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { HOME } from "./platform";
 import { Engine, SourceName } from "./schema";
+import { STATE } from "./truth";
 
 /** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
 export const PAGES_CLIENT = "life";
 export const OWNER_SUB = "owner";
-
-import { HOME } from "./platform";
-import { STATE } from "./truth";
 
 // What makes one install differ from another, in one file: who it serves, where its parts are, what is turned on.
 // Secrets are not here: they stay in the environment (`.env` for a checkout, the app passes them to the helper). A

@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { HOME } from "../platform";
 import { type SourceEvent, sourceFile } from "../schema";
-import { contacts, handleKey } from "./contacts";
+import { handleKey, readContacts } from "./contacts";
 import type { Newest } from "./index";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
@@ -64,7 +64,7 @@ export const handleOf = (key: string) => (HANDLE.test(key) ? key : undefined);
 export function readImessage(
   since: Date,
   path = DB,
-  names: Map<string, string> = contacts()
+  names: Map<string, string> = readContacts()
 ): SourceEvent[] {
   const db = new Database(path, { readonly: true });
   try {

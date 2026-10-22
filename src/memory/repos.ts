@@ -262,7 +262,6 @@ export async function reposOf(filter?: string) {
         key.toLowerCase().includes(f) ||
         [r.project, r.area].some((x) => x?.toLowerCase() === f))
   );
-  const home = HOME;
   const line = (key: string, r: Placement) => {
     const path = local.get(key);
     const first =
@@ -274,7 +273,7 @@ export async function reposOf(filter?: string) {
       r.guess?.newProject &&
         `new project? ${clip(r.guess.newProject, SUGGESTION_MAX)}`,
     ].filter(Boolean);
-    return `${path ? path.replace(home, "~") : key}${first ? " (main)" : ""}${tags.length > 0 ? ` (${tags.join("; ")})` : ""} · ${seen ? `${seen.n} commits, last ${seen.last}` : "no commits"}`;
+    return `${path ? path.replace(HOME, "~") : key}${first ? " (main)" : ""}${tags.length > 0 ? ` (${tags.join("; ")})` : ""} · ${seen ? `${seen.n} commits, last ${seen.last}` : "no commits"}`;
   };
   const groups = [
     ...Map.groupBy(wanted, ([, r]) => r.project ?? `~${r.area ?? ""}`),
