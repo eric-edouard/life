@@ -40,7 +40,7 @@ export const text = (
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
 
-/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me, his page). */
+/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me). */
 export const PUBLIC_PORT = 46_200;
-/** The status page for the app alone, by its local key: no tunnel ever points here. */
+/** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = 46_201;

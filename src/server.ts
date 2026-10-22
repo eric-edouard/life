@@ -1,7 +1,7 @@
 import { createRemoteJWKSet } from "jose";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check";
-import { createDashboard, pushPlate, warmPage } from "./dashboard";
+import { createDashboard } from "./dashboard";
 import { LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
@@ -12,14 +12,13 @@ import { createSignIn, keyRefusal } from "./signin";
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
 /**
- * Serves on loopback, bodies up to 256 KiB: the status page for the app on `LOCAL_PORT`, by its local key, always; and
- * with the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the
- * check page (`check.ts`), the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set) and the status page behind
- * his sign-in. The key is never taken on the public port. 404 for any other path.
+ * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
+ * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the check
+ * page (`check.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
+ * public port. 404 for any other path.
  */
 export function serve() {
-  warmPage();
-  // The app's port taken (another install's watcher) only leaves the app without its page; the public one never waits on it.
+  // The app's port taken (another install's watcher) only leaves the app without its status; the public one never waits on it.
   try {
     listen(LOCAL_PORT, createDashboard(keyRefusal()).handle);
   } catch (e) {
@@ -29,17 +28,11 @@ export function serve() {
   }
   if (!settings().connector) {
     console.log(
-      "Connector: not set up (settings: connector): /mcp, /check, /me and the public status page are off"
+      "Connector: not set up (settings: connector): /mcp, /check and /me are off"
     );
     return;
   }
-  const signed = signedIn();
-  const page = createDashboard(signed.signIn.refusal);
-  listen(
-    PUBLIC_PORT,
-    async (req) => (await signed.handle(req)) ?? (await page.handle(req))
-  );
-  pushPlate();
+  listen(PUBLIC_PORT, signedIn());
 }
 
 /** One listener on loopback; a port it can't take throws. */
@@ -89,12 +82,9 @@ function signedIn() {
   );
   const check = createCheck(signIn);
   const portrait = createPortrait();
-  return {
-    handle: async (req: Request) =>
-      (await life?.handle(req)) ??
-      (await mcp.handle(req)) ??
-      (await check.handle(req)) ??
-      (await portrait.handle(req)),
-    signIn,
-  };
+  return async (req: Request) =>
+    (await life?.handle(req)) ??
+    (await mcp.handle(req)) ??
+    (await check.handle(req)) ??
+    (await portrait.handle(req));
 }
