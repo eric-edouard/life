@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { Asked, actAsked, requested, setGrant } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
+import { stage } from "./export";
 import { LOCAL_PORT } from "./http";
 import { init, started } from "./init";
 import { readEngine } from "./llm";
@@ -178,6 +179,20 @@ const commands: Record<string, () => Promise<number>> = {
     setSettings({ engine: engine.data });
     console.log(`engine: ${engine.data}`);
     return Promise.resolve(0);
+  },
+  /** Everything Life holds, into a new folder with its manifest (src/export.ts): `export <dir>`. No secrets. */
+  async export() {
+    const [dir] = process.argv.slice(3);
+    if (!dir) {
+      console.error("usage: bun life export <dir>");
+      return 2;
+    }
+    const m = await stage(dir);
+    const bytes = m.files.reduce((n, f) => n + f.size, 0);
+    console.log(
+      `${dir}: ${m.files.length} files, ${(bytes / 1e9).toFixed(1)} GB. Not in it, give them by hand: ${[...m.leftOut.env, "Life's Keychain items"].join(", ")}`
+    );
+    return 0;
   },
   /**
    * The standing grant (decision 2), only on his own words in this conversation: `grant on|off '<his words>'`. Off
