@@ -46,7 +46,7 @@ export function backupLine(now: Date, s = readBackup()) {
  */
 export async function backup() {
   const target = settings().backup;
-  if (!target) {
+  if (!(target && isOn("backup"))) {
     return 0;
   }
   const env = {

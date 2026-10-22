@@ -1,13 +1,25 @@
-import { join } from "node:path";
+import { Database } from "bun:sqlite";
+import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { clock } from "../clock";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,
+  insertAll,
   newestArchived,
+  openArchive,
   phoneMap,
   type Row,
   readArchived,
-  WHATSAPP,
 } from "./archived";
+import { fromAppleS, toAppleS } from "./imessage";
+
+// The Mac app's own store, opened read-only by its copy into the archive.
+export const WHATSAPP = join(
+  homedir(),
+  "Library/Group Containers/group.net.whatsapp.WhatsApp.shared"
+);
 
 // WhatsApp from Life's own archive.
 
@@ -89,3 +101,90 @@ export const newestWhatsapp = () =>
        coalesce(chatName, '?') || coalesce(' · ' || senderName, '') || ': ' || text as words
      from messages order by at desc limit 1`
   );
+
+// WhatsApp lets senders delete for everyone for about 60 hours; edits and late media downloads fit in a week too.
+const WINDOW_S = 7 * 86_400;
+
+interface StoreRow {
+  at: number;
+  chat: string | null;
+  chatName: string | null;
+  fromMe: number;
+  id: string;
+  media: string;
+  sender: string | null;
+  senderName: string | null;
+  text: string;
+  type: number;
+}
+
+// One row per version a message was seen in: the original, each edit, and the "deleted" placeholder (type 14).
+// A delete for everyone removes the original and adds a type-14 row with a new id but the original's time and sender.
+const open = (dir: string) =>
+  openArchive(
+    dir,
+    "whatsapp",
+    `create table if not exists messages (
+    id text not null, chat text, chatName text, sender text, senderName text, fromMe integer,
+    at text not null, type integer not null, text text not null, media text not null, seenAt text not null,
+    unique (chat, id, type, text, media));
+  drop view if exists deleted;
+  create view deleted as
+    select m.*, d.seenAt as deletedSeenAt from messages m
+      join messages d on d.chat is m.chat and d.at = m.at and d.fromMe = m.fromMe and d.type = 14
+     where m.type <> 14 and (m.text <> '' or m.media <> '')`
+  );
+
+/** Copies new and changed messages (and their media) into the archive. Returns how many versions were new. */
+export function copyWhatsapp(
+  source = WHATSAPP,
+  dir = ARCHIVE,
+  now = clock().getTime()
+): number {
+  const archive = open(dir);
+  const whatsapp = new Database(join(source, "ChatStorage.sqlite"), {
+    readonly: true,
+  });
+  try {
+    const empty = !archive.query("select 1 from messages limit 1").get();
+    // The first run copies all history; later runs only the last week, where anything can still change.
+    const since = empty ? 0 : toAppleS(now) - WINDOW_S;
+    const rows = whatsapp
+      .query<StoreRow, [number]>(
+        `select coalesce(m.ZSTANZAID, 'pk:' || m.Z_PK) as id, m.ZMESSAGETYPE as type, m.ZISFROMME as fromMe,
+                m.ZMESSAGEDATE as at, coalesce(m.ZTEXT, '') as text, coalesce(i.ZMEDIALOCALPATH, '') as media,
+                s.ZCONTACTJID as chat, s.ZPARTNERNAME as chatName,
+                coalesce(g.ZMEMBERJID, m.ZFROMJID) as sender, g.ZCONTACTNAME as senderName
+           from ZWAMESSAGE m
+           left join ZWACHATSESSION s on s.Z_PK = m.ZCHATSESSION
+           left join ZWAMEDIAITEM i on i.Z_PK = m.ZMEDIAITEM
+           left join ZWAGROUPMEMBER g on g.Z_PK = m.ZGROUPMEMBER
+          where m.ZMESSAGEDATE > ?`
+      )
+      .all(since);
+    const seenAt = new Date(now).toISOString();
+    const added = insertAll(
+      archive,
+      `insert or ignore into messages (id, chat, chatName, sender, senderName, fromMe, at, type, text, media, seenAt)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      rows.map((r) => [
+        ...[r.id, r.chat, r.chatName, r.sender, r.senderName, r.fromMe],
+        fromAppleS(r.at).toISOString(),
+        ...[r.type, r.text, r.media, seenAt],
+      ])
+    );
+    for (const { media } of rows) {
+      const from = join(source, "Message", media);
+      const to = join(dir, "media", media);
+      if (media && !existsSync(to) && existsSync(from)) {
+        mkdirSync(dirname(to), { recursive: true });
+        // An APFS clone: no extra disk until WhatsApp deletes its copy.
+        copyFileSync(from, to, constants.COPYFILE_FICLONE);
+      }
+    }
+    return added;
+  } finally {
+    whatsapp.close();
+    archive.close();
+  }
+}

@@ -8,8 +8,14 @@ export const OUTPUTS = {
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
   /** The connector, its OAuth issuer and the pages behind sign-in (`server.ts`). */
   connector: { label: "Connector", on: () => Boolean(settings().connector) },
-  /** The moments on a calendar (`past.ts`). */
-  past: { label: "Past calendar", on: () => Boolean(settings().past) },
+  /** The moments on a calendar: Google's through `gog` with an account, else an Apple one through the app's EventKit tool (`past.ts`). */
+  past: {
+    label: "Past calendar",
+    on: () => {
+      const { past } = settings();
+      return Boolean(past && (past.account || process.env.LIFE_EVENTKIT));
+    },
+  },
   /** His Apple Reminders, acted on at his request (`actions.ts`, `reminders/`): off, nothing touches them. */
   reminders: { label: "Reminders", on: () => settings().reminders },
 } satisfies Record<string, { label: string; on: () => boolean }>;
