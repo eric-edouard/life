@@ -89,16 +89,15 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 
 ### The platform module
 
-Every OS difference in one module, one table per OS, so Windows is a second table and not a branch in nine files:
-
-- paths: the `MAC` root (`truth.ts:40`, `%LOCALAPPDATA%\Life` on Windows), the app stores (`whatsapp.ts`, `beeper.ts`,
-  `notes.ts:14`, `mail.ts:10`, `contacts.ts:11`, `imessage.ts:10`);
-- tools: Tailscale (`tailscale.ts:13`), remctl (`remctl.ts:13`), Codex's binary (`llm.ts:61`, darwin-arm64 only today,
-  also wrong on Intel Macs);
-- the model CLIs' environment (`llm.ts:216`: Windows needs `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `SystemRoot`,
-  `TEMP`, `PATHEXT`);
-- the host's state for the plate (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open
-  (`archive.ts:437`), the notification (`report.ts:429`), the time zone (`zones.ts:84`, `Intl` on both).
+Done (#153): `src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
+`%LOCALAPPDATA%\Life` on Windows; it was `MAC`), `APP_DATA` (where Beeper keeps its store), Codex's binary for this
+system and architecture, the model CLIs' environment, the system time zone (`Intl` on Windows) and the notification
+(none on Windows until the tray). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
+Notes) is `macOnly` and reads "macOS only" elsewhere. Left for phase 3, where they are exercised: the plate's host
+state (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open (`archive.ts`: `ps`, `open`), the
+Cloudflare tunnel's restart (`tunnel.ts`), the Contacts reader (`contacts.ts`: no address book on Windows), Tailscale's
+binary (`tailscale.ts`: falls back to `tailscale` on PATH), the archive alert's log path (`report.ts`), remctl's path
+(`remctl.ts`: Reminders is Mac-only; Windows acts through Google Tasks) and the checkout's LaunchAgents (`scripts/install.ts`).
 
 ### Secrets by place
 

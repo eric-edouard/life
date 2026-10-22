@@ -65,7 +65,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `labels.jsonl` and `statements.jsonl`.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `guard.ts`), except his single lines (a
   correction, a rating) and `actions.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
-  lock in `MAC` (`docs/operations.md`).
+  lock in `MACHINE` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`).
@@ -126,7 +126,10 @@ Before adding a helper, use the one that exists:
 | Running another program | `src/proc.ts` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`src/memory/run.ts`) |
-| Writing a secret file | `writeSecret` or `secretIn` (mode 600, which keeps it out of exports) |
+| Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
+| Whether an output is on, and why not | `isOn`, `off` (`src/outputs.ts`), never a setting read for the switch |
+| A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
+| Anything that differs between macOS and Windows | `src/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
 Only `guard.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts

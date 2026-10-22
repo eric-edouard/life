@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { unfrozen } from "../clock";
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
+import { notifyArgs } from "../platform";
 import { execOk } from "../proc";
 import type { Action } from "../schema";
 import { agentName, settings } from "../settings";
@@ -421,27 +422,14 @@ export async function sendReport(id: string | string[], mail: Mail) {
 /** Where reports kept on the Mac go: one page each, the app's to open. */
 export const REPORTS = join(STATE, "reports");
 
-/**
- * A macOS notification: the title and body are the script's arguments, never quoted into its text, so no word of
- * theirs can break it.
- */
-export const notifyArgs = (title: string, body: string) => [
-  "osascript",
-  "-e",
-  "on run argv",
-  "-e",
-  "display notification (item 2 of argv) with title (item 1 of argv)",
-  "-e",
-  "end run",
-  title,
-  body,
-];
-
 /** A report kept as a page in the state's reports/ (the app shows it) and announced by a notification: no account, no address. Its id is its file. */
 async function onMac(keys: string[], mail: Mail) {
   const file = join(REPORTS, `${keys[0]?.replaceAll("/", "-")}.html`);
   await Bun.write(file, mail.html);
-  await execOk(notifyArgs(mail.subject, mail.text.split("\n")[0] ?? ""));
+  const notify = notifyArgs(mail.subject, mail.text.split("\n")[0] ?? "");
+  if (notify) {
+    await execOk(notify);
+  }
   return file;
 }
 
