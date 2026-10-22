@@ -5,10 +5,9 @@
 // `--json` prints the counts alone, for the bench (scripts/bench.ts).
 
 import { join } from "node:path";
-import { z } from "zod";
-import { clock } from "../src/clock";
-import { llmFor, llmSpec } from "../src/llm";
-import { locked, spareQuota } from "../src/memory/guard";
+import { clock } from "server/src/clock";
+import { llmFor, llmSpec } from "server/src/llm";
+import { locked, spareQuota } from "server/src/memory/guard";
 import {
   appendJsonl,
   liveUnits,
@@ -16,11 +15,12 @@ import {
   ratedFacts,
   readUnits,
   SCORES,
-} from "../src/memory/ledger";
-import { chunks, ended, inBatches, metered } from "../src/memory/run";
-import { type Claim, claimsNow } from "../src/memory/statements";
-import { type Grade, judge, tally } from "../src/memory/tally";
-import { Score } from "../src/schema";
+} from "server/src/memory/ledger";
+import { chunks, ended, inBatches, metered } from "server/src/memory/run";
+import { type Claim, claimsNow } from "server/src/memory/statements";
+import { type Grade, judge, tally } from "server/src/memory/tally";
+import { Score } from "server/src/schema";
+import { z } from "zod";
 
 const Facts = z.object({
   facts: z.array(

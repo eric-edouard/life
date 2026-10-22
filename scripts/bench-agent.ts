@@ -1,7 +1,7 @@
 // `bun scripts/bench-agent.ts [cases.json] [--only id,…] [--engine codex|claude]`: the agent, end to end, on his past asks.
 // Each case is one ask of memory/actions.jsonl, replayed in the world as it was then: a clone of ~/Life at its last
 // commit before the ask, the ledger cut at the ask, the lifelog store cut at its instant, the index rebuilt from that
-// copy, and the clock frozen there (`LIFE_NOW`, src/clock.ts) in a throwaway worktree of this code. A headless agent on
+// copy, and the clock frozen there (`LIFE_NOW`, apps/server/src/clock.ts) in a throwaway worktree of this code. A headless agent on
 // his subscription gets Life's connector, frozen and dry (mcp.ts), as its only tools, and the playbook through `tasks`:
 // Codex's main tier (Sol), as close as it gets to the agent, a ChatGPT agent (his rule). `--engine claude` only checks the
 // harness: its table says so and is never the agent's result. Graded by code first (the ids its tool answers cited, the
@@ -14,20 +14,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import { FROZEN } from "server/src/clock";
+import { nextEvent } from "server/src/events";
+import { askOnce, llmFor } from "server/src/llm";
+import { recentEvents } from "server/src/log";
+import { buildServer } from "server/src/mcp";
+import { spareQuota } from "server/src/memory/guard";
+import { ACTIONS, linesOf, OUT, parseAction } from "server/src/memory/ledger";
+import { ended, metered } from "server/src/memory/run";
+import { judge, tally } from "server/src/memory/tally";
+import { localDate, zoneAt } from "server/src/memory/zones";
+import { exec, git, gitOut } from "server/src/proc";
+import { Engine } from "server/src/schema";
+import { DATA, ROOT, STATE } from "server/src/truth";
 import { z } from "zod";
-import { FROZEN } from "../src/clock";
-import { nextEvent } from "../src/events";
-import { askOnce, llmFor } from "../src/llm";
-import { recentEvents } from "../src/log";
-import { buildServer } from "../src/mcp";
-import { spareQuota } from "../src/memory/guard";
-import { ACTIONS, linesOf, OUT, parseAction } from "../src/memory/ledger";
-import { ended, metered } from "../src/memory/run";
-import { judge, tally } from "../src/memory/tally";
-import { localDate, zoneAt } from "../src/memory/zones";
-import { exec, git, gitOut } from "../src/proc";
-import { Engine } from "../src/schema";
-import { DATA, ROOT, STATE } from "../src/truth";
 import { checkout } from "./bench";
 
 const CASES = join(DATA, "docs/evals/agent-bench-cases.json");
@@ -178,10 +178,13 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     LIFE_NOW: at,
     LIFE_STATE: join(code, "derived"),
   };
-  const index = await exec(["bun", "src/cli.ts", "memory", "index"], {
-    cwd: code,
-    env,
-  });
+  const index = await exec(
+    ["bun", "apps/server/src/cli.ts", "memory", "index"],
+    {
+      cwd: code,
+      env,
+    }
+  );
   if (index.code !== 0) {
     throw new Error(
       `index: ${index.stderr.match(ERROR_LINE)?.[0] ?? index.stderr.trim().slice(-300)}`

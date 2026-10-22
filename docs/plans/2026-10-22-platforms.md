@@ -14,8 +14,8 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | Server | Hono on Bun; every route moves off `Bun.serve` |
 | API layer | None from Better-T-Stack: Hono with `@hono/zod-openapi` |
 | Database | None: the memory stays files and JSONL in its git repo; `index.sqlite` stays raw `bun:sqlite` |
-| Auth | Life's own OAuth issuer (`src/oauth.ts`) |
-| Add-ons | Turborepo, Biome with Ultracite, Skills; the hand-written `.githooks` stay |
+| Auth | Life's own OAuth issuer (`apps/server/src/oauth.ts`) |
+| Add-ons | Biome with Ultracite; Turborepo with the second app; the hand-written `.githooks` stay |
 | Desktop | SwiftUI on the Mac (Life.app as it is). No Windows UI: a Windows Life, when it comes back, is a headless host |
 | Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`) |
 | Windows | Parked (22 Oct). The seams built for it stay (below) |
@@ -35,14 +35,14 @@ in its PR: no second path left alive.
 
 ### Inputs
 
-The contract exists: the source descriptor (`Descriptor`, `src/sources/index.ts:67`). Memory steps already branch on
+The contract exists: the source descriptor (`Descriptor`, `apps/server/src/sources/index.ts:67`). Memory steps already branch on
 `kind`, never on a name. What it needed:
 
 - **The archive is a capability, not a second list** (done, #147). An archived source's descriptor carries its
   `store` (`app`, `copy`, `copies`, `media`), and each source copies its own store beside its reader; `ARCHIVED`,
   `keptStores` and the `missing` of archived sources derive from `SOURCES`.
 - **Voice is a REST contract, not a second kind of reader.** The voice input is lifelog's REST API (below), and
-  `src/sources/lifelog.ts` is its one client. Another voice source would speak the same API rather than add a reader.
+  `apps/server/src/sources/lifelog.ts` is its one client. Another voice source would speak the same API rather than add a reader.
   Its units keep the source name `lifelog`: unit ids are stored in memory, and renaming them needs a map.
 - **The platform says what it lacks.** A source whose store does not exist on this OS reports it through `missing()`
   (the platform module below), so `init`, the plate and `readySources` need nothing new.
@@ -62,7 +62,7 @@ with Life; lifelog's report owns how it is met.
 ### Outputs
 
 Done (#148). Each output had its own switch and shape, and `act` did not check the Reminders switch itself, so with
-Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`src/outputs.ts`) holds the outputs he can
+Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`apps/server/src/outputs.ts`) holds the outputs he can
 turn on or off (Reminders, the Past calendar, the connector, the backup), each with its label and its switch: `isOn`
 asks it, `off` says why one does nothing, the plate's cards take their names and "off" from it, and `act` refuses
 before recording. Each output's own module does the work and reads the rest of its settings. The report is not a
@@ -88,7 +88,7 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 
 ### The platform module
 
-Done (#153): `src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
+Done (#153): `apps/server/src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
 `%LOCALAPPDATA%\Life` on Windows; it was `MAC`), `APP_DATA` (where Beeper keeps its store), Codex's binary for this
 system and architecture, the model CLIs' environment, the system time zone (`Intl` on Windows) and the notification
 (none on Windows). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
@@ -119,10 +119,32 @@ Routes on Hono: done (#158). Each route module (`oauth.ts`, `mcp.ts`, `check.ts`
 Hono app; `server.ts` mounts them, one app per port, with `Bun.serve` only listening. Plain Hono for now: a route gains
 `@hono/zod-openapi` when a client needs its contract (the web UI later), with its schema as the type's one source.
 
-Run the scaffold command into a fresh folder, then move Life into its skeleton within the repo (`git mv`, so history
-follows), and delete what the skeleton replaces. Every route moves to Hono in the same PR: the connector and its OAuth
-issuer, `/check`, `/me`, the status reads. **Done when** `bun run check` passes, the connector, `/check` and the
-status reads answer as before, Life.app builds and runs from the new layout, and no route is left on `Bun.serve`.
+The connector's batched change: done (#159). The layout: done (this PR). The scaffold command ran into a scratch folder,
+and Life moved into its shape with `git mv`:
+
+- `apps/server`: Life's TypeScript (`src/`: the memory core, the sources, the actions, the server's routes, the CLI and
+  the helper's entry `cli.ts`), with its runtime dependencies. One package: the core is not split from the server,
+  because nothing outside the server uses it (a web UI talks to the server over HTTP).
+- `packages/config`: the shared TypeScript base (`tsconfig.base.json`), which the root `tsconfig.json` extends.
+- The root: the Bun workspace (`apps/*`, `packages/*`, a catalog for versions shared with `scripts/`), `bts.jsonc` (so
+  `create-better-t-stack add` works later), `bunfig.toml` (a hoisted install: Codex's binary at
+  `node_modules/@openai/codex-<os>-<arch>`), and what is not the server's: `scripts/`, `prompts/`, `assets/`, `docs/`,
+  `app/` (the Mac app), `worker/` (the edge). `ROOT` is still the repo root (or `LIFE_ROOT` in the app).
+- Left out of the skeleton: its `varlock` (Life has its settings file and `.env`), `tsdown` (the helper is
+  `bun build --compile`), its placeholder server entry, Turborepo (with one app it would run one task: it comes with the
+  second app) and the Skills add-on (it generated nothing this repo uses). `bun run check` stays the gate. `scripts/`
+  imports the server through its workspace package (`server/src/…`).
+- **Rollout:** after the merge, `~/Work/life` needs `rm -rf node_modules && bun install` once (the old flat install has
+  stale entries), then Life.app is rebuilt. The checkout's old LaunchAgent plists (`~/Library/LaunchAgents/
+  com.ericedouard.life.*.plist`, not loaded: Life.app supervises the services) still name `src/cli.ts`; if a checkout
+  ever runs the services again, `bun scripts/install.ts` writes them anew.
+
+**What slots in later, without another restructure:** the web UI as `apps/web` (Vite, Tailwind), added with
+`create-better-t-stack add`, talking to the server over HTTP (routes gain `@hono/zod-openapi` as it needs their
+contracts) and bringing Turborepo; Better Auth in the server, behind the one sign-in seam (`ownerTokens` in
+`auth.ts`, today fed by Life's own issuer or lifelog's); OpenRouter as a full model provider: it is already in
+`PROVIDERS` (`llm.ts`) as the bench's runner, so it is one entry gaining its models per tier, plus `Engine` gaining
+`openrouter`.
 
 ## Actions behind the outputs contract
 
@@ -131,16 +153,16 @@ Reminders (remctl) or Google Tasks (`gog`)". The ledger stays the truth (`action
 only how a change is written and read back. One contract for both: list its lists, read the open and recently closed
 items, add, edit, complete, reopen, delete and restore an item, and the board's list. What one backend lacks (Reminders'
 sections and urgent flag, Google Tasks' none) the contract says by capability, never by the backend's name. The
-`reminders` setting becomes the actions output's backend choice (done: `actions` in settings, `src/actions/`). The
+`reminders` setting becomes the actions output's backend choice (done: `actions` in settings, `apps/server/src/actions/`). The
 connector's tools keep their names; phase 1 (#159), in one batch (one reconnect), let `reminders`'s `target` take
-a string id (`idOf`, `src/actions/backend.ts`) and changed the descriptions from "Reminders" to "actions".
+a string id (`idOf`, `apps/server/src/actions/backend.ts`) and changed the descriptions from "Reminders" to "actions".
 
 ## Windows: parked
 
 The owner scoped Windows out on 22 Oct, after deciding it would be a headless host only (no Windows UI: the WinUI 3 tray
 of #154 was removed). What exists and stays, as clean seams:
 
-- `src/platform.ts`: `MACHINE` under `%LOCALAPPDATA%\Life`, `APP_DATA`, Codex's win32 binary, the model CLIs'
+- `apps/server/src/platform.ts`: `MACHINE` under `%LOCALAPPDATA%\Life`, `APP_DATA`, Codex's win32 binary, the model CLIs'
   environment, the time zone; `macOnly` sources (iMessage, Mail) never read there; WhatsApp and Notes read from an
   archive copied on a Mac, never copied there.
 - The check's Windows fixes (#151): exports with `/` paths, every store in an archive on any system, ICU-proof dates.

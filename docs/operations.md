@@ -5,13 +5,13 @@ must not break are in `AGENTS.md`; this page has the details.
 
 ## Where things live
 
-Three roots, defined in `src/truth.ts` and `src/platform.ts`:
+Three roots, defined in `apps/server/src/truth.ts` and `apps/server/src/platform.ts`:
 
 | Root | What | Default |
 |---|---|---|
 | `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE/data`; a checkout: `~/Life` |
 | `STATE` (`LIFE_STATE`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE/state`; a checkout: its own `derived/` |
-| `MACHINE` | Fixed per computer (`src/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
+| `MACHINE` | Fixed per computer (`apps/server/src/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
 - `DATA` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
@@ -21,17 +21,17 @@ Three roots, defined in `src/truth.ts` and `src/platform.ts`:
 - Every worktree reads and writes the same `DATA` and shares its one lock (`DATA/.nightly.lock`). Point `LIFE_DATA` at
   a copy to experiment, and copy `derived/settings.json` into a worktree before model runs (without it, calls go to the
   default engine).
-- Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`src/test-data`) in a temp folder
+- Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`apps/server/src/test-data`) in a temp folder
   outside any repo, its lock and log there too: two runs at once share nothing. It has its own home folder too (`HOME`,
-  `src/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,
+  `apps/server/src/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,
   contacts or repos, and it reads nothing of the machine (`mac.ts`).
-- Life's secret files are the ones `SECRETS` names (`src/secret.ts`), written only by `writeSecret` or `secretIn`
-  (mode 600 where the system has modes); the export leaves exactly those out (`src/export.ts`).
+- Life's secret files are the ones `SECRETS` names (`apps/server/src/secret.ts`), written only by `writeSecret` or `secretIn`
+  (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 
 ## Settings
 
-One file says how this install differs from another: `STATE/settings.json` (`src/settings.ts`, zod strict). It holds
+One file says how this install differs from another: `STATE/settings.json` (`apps/server/src/settings.ts`, zod strict). It holds
 the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
 sources, the agent, the agents' report senders, the Reminders and Past calendar plugins.
 
@@ -42,7 +42,7 @@ sources, the agent, the agents' report senders, the Reminders and Past calendar 
 - `bun life settings` prints it; `bun life settings set '<json>'` replaces parts of it, checked whole before anything is
   written. The app reads and writes settings only through this.
 - Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout.
-- Owner values are never defaults in code. Tests read `src/test-data/state/settings.json`, made up.
+- Owner values are never defaults in code. Tests read `apps/server/src/test-data/state/settings.json`, made up.
 
 ## The services
 
@@ -55,17 +55,17 @@ every Keychain secret in its environment:
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its guard decides what is due (below). |
 
-**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE` (`hold`, `src/lock.ts`), so a second
+**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE` (`hold`, `apps/server/src/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
 lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status plate reads
-those locks (`holder`, `src/mac.ts`).
+those locks (`holder`, `apps/server/src/mac.ts`).
 
 ### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
 
 - `bun scripts/install.ts <archive|watch|memory-nightly>` installs the same three jobs as LaunchAgents running the
   checkout (safe to repeat; run it from the checkout that should run them). Logs: `~/Library/Logs/life-*.log`.
-- When a commit changes `src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears again the
+- When a commit changes `apps/server/src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears again the
   turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title once),
   the archive after its pass, and launchd restarts each on the new code.
 - remctl is not on launchd's PATH: it is called by absolute path (below).
@@ -76,7 +76,7 @@ those locks (`holder`, `src/mac.ts`).
 
 ## The schedule
 
-`turnOf` (`src/memory/guard.ts`, tested) decides what a tick runs:
+`turnOf` (`apps/server/src/memory/guard.ts`, tested) decides what a tick runs:
 
 - **The night:** once a day after 02:00, up to 3 tries (`STATE/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then moments, extract, closeness, pages, the index, one commit in `DATA`, and the report.
@@ -128,7 +128,7 @@ Reachability rests on the Mac being kept awake. Reconsider a server only on a me
 late with harm), or spoken asks above about one a day for a month.
 
 **The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once the connector moves off the edge Worker onto Funnel: [#137](https://github.com/eric-edouard/life/issues/137)). The
-watcher's heal (`src/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
+watcher's heal (`apps/server/src/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
 loop once ran 35,000 times). Behind the edge Worker (`docs/architecture.md`) the connector's address never answers 530,
 so the heal no longer fires; deleting it is [#133](https://github.com/eric-edouard/life/issues/133).
 
@@ -142,13 +142,13 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
 
 ## Model engines
 
-- Calls go through `src/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
+- Calls go through `apps/server/src/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
   claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
   entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
-- Model calls see no tools and no instruction files: `src/llm.ts` runs them in an empty temp folder. The one exception
+- Model calls see no tools and no instruction files: `apps/server/src/llm.ts` runs them in an empty temp folder. The one exception
   is the agent bench's agent, whose only tools are Life's connector, frozen and dry: Codex still read-only, with no
   shell but code mode's `exec` (its only way to MCP) and its nested real-time clock, which the bench's prompt says not
   to read.
@@ -157,11 +157,11 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
 
 ## Backups and exports
 
-`src/backup.ts` snapshots with restic once a day (3 tries) when the `backup` setting is set; without it the report
+`apps/server/src/backup.ts` snapshots with restic once a day (3 tries) when the `backup` setting is set; without it the report
 says the backup is off. On Sundays it also forgets (keeping 14 daily, 8 weekly and 24 monthly snapshots), prunes and
 checks 5% of the data. By hand: `bun life backup`.
 
-Each snapshot holds one export (`stage`, `src/export.ts`, the same as `bun life export` and the app's Export
+Each snapshot holds one export (`stage`, `apps/server/src/export.ts`, the same as `bun life export` and the app's Export
 everything…):
 
 - `data/`: the owner's data, cloned under the lock (the one reader that takes it);
@@ -229,7 +229,7 @@ when that folder exists:
 
 - shape: `audit` (the write-up's path), `class` (stage letters), `evidence` (ids), `expected`, `mustNot` (what the fix
   must never do), `status` (`pending` until a fix lands, then `test`, `facts` or `scenario`), `check` and `why`;
-- code stages: a `bun test` with made-up data that fails before the fix and passes after, living in `src/` and naming
+- code stages: a `bun test` with made-up data that fails before the fix and passes after, living in `apps/server/src/` and naming
   the case;
 - model stages: facts graded by `bun scripts/eval.ts`, rerun when a prompt changes (a flaky case passes 2 runs of 3);
 - the agent's stages: a scenario re-read against `docs/agent.md` whenever it changes.

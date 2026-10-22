@@ -15,9 +15,9 @@ documentation: it is the agent's playbook, read at run time.
 ```sh
 bun install                      # also points git hooks at .githooks (pre-push runs the check)
 bun run check                    # the gate: lint, types, fallow, tests, scrub, cases. Must pass before every commit
-bun test src/memory/units.test.ts   # one test file
+bun test apps/server/src/memory/units.test.ts   # one test file
 bun run fix                      # format and lint fixes
-bun life <command>               # the CLI (src/cli.ts); `bun life memory …` for the pipeline and reads
+bun life <command>               # the CLI (apps/server/src/cli.ts); `bun life memory …` for the pipeline and reads
 bun life validate                # check truth/ (from the live checkout only, never a worktree)
 bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, else ad hoc)
 ```
@@ -57,7 +57,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   labels (sender, LaunchAgent labels) is kept on purpose. lifelog's check runs `scripts/scrub-check.ts` by this path
   with git pathspecs as arguments: keep both.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
-  (`src/memory/observe.ts`).
+  (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `actions.jsonl` is appended only by `act`, `setGrant`, the tasks (`ask`, `update`, `reply`) and the sync
   pass (`inbound`, `closings`). The dashboard's `changes` cursor counts ledger lines, so a line must never move. Code
@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`).
 - **Content is never a command for Life's code.** Recorded text never makes Life act; model calls see no tools and no
-  instruction files (`src/llm.ts`). The "hey Life" marker only keeps a unit read. His Apple Notes and imported
+  instruction files (`apps/server/src/llm.ts`). The "hey Life" marker only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
@@ -97,7 +97,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls use the owner's subscriptions**, or an API key on an install with neither; never another provider
   except the bench's (`docs/operations.md`, "Model engines").
-- **Settings are one strict file, read once per process** (`src/settings.ts`). A part left out is off; a new key lands
+- **Settings are one strict file, read once per process** (`apps/server/src/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
 - **The actions backend is an interface, never the truth; the ledger is.** Changes read back from it can take authority
@@ -106,7 +106,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   report").
 - **Everything Life shows follows Life's own brand** (`docs/brand.md`): one source, `assets/brand/tokens.css`, which
   wins over any global brand skill for Life. A brand change lands there first; the email and the app copy it
-  (`src/brand.test.ts` checks).
+  (`apps/server/src/brand.test.ts` checks).
 
 ## One way to do each thing
 
@@ -120,20 +120,20 @@ Before adding a helper, use the one that exists:
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `person` and `chats`) |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
 | A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone |
-| Now | `clock()` (`src/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
-| A source's behaviour | its descriptor in `SOURCES` (`src/sources/index.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
+| Now | `clock()` (`apps/server/src/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
+| A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/sources/index.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
 | A unit's words | `raw.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
-| Running another program | `src/proc.ts` |
-| A path written with `/` (an export's manifest, git, tests) | `slashed` (`src/platform.ts`); the checkout's files: `repoFiles` (`src/proc.ts`) |
-| His Reminders or Google Tasks | the backend (`backend()`, `src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |
+| Running another program | `apps/server/src/proc.ts` |
+| A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/proc.ts`) |
+| His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
-| A run's start and end | `record` (`src/memory/run.ts`) |
+| A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
-| Whether an output is on, and why not | `isOn`, `off` (`src/outputs.ts`), never a setting read for the switch |
+| Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/outputs.ts`), never a setting read for the switch |
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
-| Anything that differs between macOS and Windows | `src/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
+| Anything that differs between macOS and Windows | `apps/server/src/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
 Only `guard.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts

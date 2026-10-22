@@ -5,21 +5,38 @@
     "": {
       "name": "life",
       "dependencies": {
-        "@anthropic-ai/sdk": "1.1.0",
-        "@modelcontextprotocol/server": "2.3.1",
-        "@openai/codex": "0.162.1",
-        "hono": "4.13.13",
-        "jose": "^6.2.12",
-        "zod": "^4.6.5",
+        "@modelcontextprotocol/server": "catalog:",
+        "server": "workspace:*",
+        "zod": "catalog:",
       },
       "devDependencies": {
         "@biomejs/biome": "2.5.14",
+        "@life/config": "workspace:*",
         "@types/bun": "^1.4.2",
         "fallow": "3.32.0",
         "typescript": "^6",
         "ultracite": "7.12.2",
       },
     },
+    "apps/server": {
+      "name": "server",
+      "dependencies": {
+        "@anthropic-ai/sdk": "1.1.0",
+        "@modelcontextprotocol/server": "catalog:",
+        "@openai/codex": "0.162.1",
+        "hono": "4.13.13",
+        "jose": "^6.2.12",
+        "zod": "catalog:",
+      },
+    },
+    "packages/config": {
+      "name": "@life/config",
+      "version": "0.0.0",
+    },
+  },
+  "catalog": {
+    "@modelcontextprotocol/server": "2.3.1",
+    "zod": "^4.6.5",
   },
   "packages": {
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@1.1.0", "", { "dependencies": { "@opentelemetry/api": "^1.4.1", "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-Op/fKMsfVwFCfObc87leLOFlORE0RjOvLzRzPCWWLI7Ww6bobpKR6YmYC8ZYgulRh+m2a/3/61VUXoWHFtCXIw=="],
@@ -71,6 +88,8 @@
     "@fallow-cli/win32-arm64-msvc": ["@fallow-cli/win32-arm64-msvc@3.32.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-6n9bzCcHVwpfniyscUs1NH014akO8YL4lTIEwT8XtGI3aYisGb/BF09nYY/eTMZMFRFDf+60WlNLzVjqdAdJmg=="],
 
     "@fallow-cli/win32-x64-msvc": ["@fallow-cli/win32-x64-msvc@3.32.0", "", { "os": "win32", "cpu": "x64" }, "sha512-IK123RccF6liIbWCs3fUyzdlMWi9AQdc7zivewpjtVQFqVZ+1g44hTkiOzKOL7GR0bRcIGh+56QlXTmmeDI6pQ=="],
+
+    "@life/config": ["@life/config@workspace:packages/config"],
 
     "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.3.1", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-laVmIhPGpWi7rG9q+0UigblRN0Hws/Yjlb6qLFtVqryXVLkc4h+yN8z731POD2LnAGQlFe7/tXhUm7Bi0YB91g=="],
 
@@ -273,6 +292,8 @@
     "run-parallel": ["run-parallel@1.2.0", "", { "dependencies": { "queue-microtask": "^1.2.2" } }, "sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA=="],
 
     "semver": ["semver@7.8.5", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="],
+
+    "server": ["server@workspace:apps/server"],
 
     "signal-exit": ["signal-exit@4.1.0", "", {}, "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw=="],
 

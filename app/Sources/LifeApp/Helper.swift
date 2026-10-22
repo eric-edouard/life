@@ -69,7 +69,7 @@ struct Info: Decodable {
   let status: Status
 }
 
-/// The watcher's status reads on this Mac (`src/dashboard.ts`, the local port) and the key that opens them.
+/// The watcher's status reads on this Mac (`apps/server/src/dashboard.ts`, the local port) and the key that opens them.
 struct Status: Decodable {
   let url: String
   let key: String

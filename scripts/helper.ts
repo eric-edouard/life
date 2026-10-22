@@ -1,7 +1,7 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { CODEX } from "../src/platform";
-import { execOk } from "../src/proc";
+import { CODEX } from "server/src/platform";
+import { execOk } from "server/src/proc";
 
 // The app's helper: Life compiled to one binary (`bun build --compile`), and the files it reads at run time (prompts,
 // the agent's protocol, every page's assets, the pinned codex) beside it, at the paths the code reads them from, for the app to pass as `LIFE_ROOT`. Usage:
@@ -19,7 +19,7 @@ await execOk(
     "build",
     "--compile",
     "--minify",
-    join(ROOT, "src", "cli.ts"),
+    join(ROOT, "apps", "server", "src", "cli.ts"),
     "--outfile",
     join(out, "life"),
   ],
