@@ -1,32 +1,19 @@
 {
   "lastReport": "C:\\Users\\someone\\AppData\\Local\\Life\\state\\reports\\2026-10-21.html",
-  "reminders": {
-    "installed": null,
-    "on": false,
-    "ready": false,
-    "release": {
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "url": "https://example.test/remctl.dmg",
-      "version": "0.0.0"
-    }
-  },
   "sources": [
     {
-      "fullDisk": false,
       "label": "Pendant",
       "missing": "lifelog not set up (settings: lifelog, env: LIFELOG_TOKEN)",
       "name": "lifelog",
       "on": true
     },
     {
-      "fullDisk": false,
       "label": "Beeper",
       "missing": null,
       "name": "beeper",
       "on": true
     },
     {
-      "fullDisk": false,
       "label": "Git",
       "missing": null,
       "name": "git",

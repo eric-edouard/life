@@ -28,7 +28,7 @@ static class Helper
         info.Environment["LIFE_ROOT"] = Path.Combine(Folder, "resources");
         info.Environment["LIFE_DATA"] = Path.Combine(Home, "data");
         info.Environment["LIFE_STATE"] = Path.Combine(Home, "state");
-        foreach (var (name, value) in Secrets.All()) info.Environment.TryAdd(name, value);
+        foreach (var (name, value) in Secrets.All()) info.Environment[name] = value;
         return info;
     }
 

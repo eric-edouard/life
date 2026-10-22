@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Life.Core;
@@ -6,14 +7,12 @@ namespace Life.Core;
 // What Life answers, as the Mac's app reads it (app/Sources/LifeApp/Helper.swift and Plate.swift): the helper's `app`
 // (src/cli.ts) and the watcher's status reads (src/dashboard.ts). The shapes live there; these only decode them.
 
-/// The helper's `app` answer: whether Life is set up, its newest report, its sources, its Reminders, its status reads.
-public sealed record Info(bool Started, string? LastReport, IReadOnlyList<Source> Sources, Reminders Reminders, Status Status);
+/// The helper's `app` answer, the parts the tray shows: whether Life is set up, its newest report, its sources, its
+/// status reads.
+public sealed record Info(bool Started, string? LastReport, IReadOnlyList<Source> Sources, Status Status);
 
 /// One source: whether he turned it on, and what keeps it from being read now.
-public sealed record Source(string Name, string Label, bool On, string? Missing, bool FullDisk);
-
-/// The Reminders plugin (the Mac's only: on Windows it shows as off).
-public sealed record Reminders(bool On, string? Installed, bool Ready);
+public sealed record Source(string Name, string Label, bool On, string? Missing);
 
 /// The watcher's status reads on this machine and the local key that opens them.
 public sealed record Status(string Url, string Key);
@@ -63,6 +62,9 @@ public static class Wire
 {
     static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
+        // A field missing, or null where it may not be, is a shape the tray doesn't know: no answer, never a crash.
+        RespectNullableAnnotations = true,
+        RespectRequiredConstructorParameters = true,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false) },
     };
 
@@ -76,6 +78,19 @@ public static class Wire
         catch (JsonException)
         {
             return null;
+        }
+    }
+
+    /// `life settings` as an object to read and merge, empty when the helper didn't answer one.
+    public static JsonObject Settings(string json)
+    {
+        try
+        {
+            return JsonNode.Parse(json) as JsonObject ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
         }
     }
 

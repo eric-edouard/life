@@ -27,13 +27,24 @@ sealed class Supervisor
     /// A new report since the tray started: the notification's cue.
     public event Action<string>? Reported;
 
+    /// One read at a time (the panel, the windows and the minute's read all ask), so one report notifies once.
+    readonly SemaphoreSlim reading = new(1);
+
     public async Task Refresh()
     {
-        var read = Info is not null;
-        var before = Info?.LastReport;
-        Info = await Helper.Info() ?? Info;
-        // The report there when the tray starts is not new; the first one after it is.
-        if (read && Info?.LastReport is { } now && now != before) Reported?.Invoke(now);
+        await reading.WaitAsync();
+        try
+        {
+            var read = Info is not null;
+            var before = Info?.LastReport;
+            Info = await Helper.Info() ?? Info;
+            // The report there when the tray starts is not new; the first one after it is.
+            if (read && Info?.LastReport is { } now && now != before) Reported?.Invoke(now);
+        }
+        finally
+        {
+            reading.Release();
+        }
     }
 
     public async Task Start()

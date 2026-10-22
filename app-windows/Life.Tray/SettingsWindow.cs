@@ -1,3 +1,4 @@
+using Life.Core;
 using System.Text.Json.Nodes;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -30,7 +31,18 @@ sealed class SettingsWindow : Window
     async Task Load()
     {
         await supervisor.Refresh();
-        var page = supervisor.Info?.Started == true ? Settings(await Saved()) : Setup();
+        StackPanel page;
+        if (supervisor.Info?.Started == true)
+        {
+            var r = await Helper.Run("settings");
+            page = Settings(Wire.Settings(r.Out));
+            // The helper didn't answer: the form shows, and says why its values are missing.
+            if (r.Code != 0) status.Text = $"Life's settings can't be read now: {r.Err}";
+        }
+        else
+        {
+            page = Setup();
+        }
         page.Children.Add(status);
         Content = new ScrollViewer
         {
@@ -38,8 +50,6 @@ sealed class SettingsWindow : Window
             Content = new Border { Child = page, Padding = new Thickness(24) },
         };
     }
-
-    static async Task<JsonObject> Saved() => JsonNode.Parse((await Helper.Run("settings")).Out) as JsonObject ?? [];
 
     static TextBox Field(string header, string? text = "") => new() { Header = header, Text = text ?? "" };
 
@@ -65,6 +75,8 @@ sealed class SettingsWindow : Window
         string Engine() => Engines[Math.Max(0, engine.SelectedIndex)].Tag;
         string KeyName() => Engine() == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY";
         var key = new PasswordBox { Header = "API key", Password = Secrets.Read(KeyName()) ?? "" };
+        // Each key under its own name: a switch shows the new engine's, never carries the old one over.
+        engine.SelectionChanged += (_, _) => key.Password = Secrets.Read(KeyName()) ?? "";
 
         var sources = Ui.Column(4);
         foreach (var s in supervisor.Info?.Sources ?? [])
@@ -101,8 +113,9 @@ sealed class SettingsWindow : Window
 
         async Task Save()
         {
+            // In order, stopping at the first refusal, so "nothing saved" is true.
             var kept = (Engine() is not ("anthropic" or "openai") || Secrets.Write(KeyName(), key.Password))
-                & Secrets.Write("LIFELOG_TOKEN", lifelogToken.Password);
+                && Secrets.Write("LIFELOG_TOKEN", lifelogToken.Password);
             if (!kept)
             {
                 status.Text = "Credential Manager refused a secret: nothing saved.";

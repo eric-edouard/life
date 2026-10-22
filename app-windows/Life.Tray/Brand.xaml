@@ -34,10 +34,12 @@
     <!-- Source Serif 4 and IBM Plex Mono, shipped beside the app from app/Fonts. -->
     <FontFamily x:Key="Serif">ms-appx:///Fonts/SourceSerif4.ttf#Source Serif 4</FontFamily>
     <FontFamily x:Key="Mono">ms-appx:///Fonts/IBMPlexMono-Regular.ttf#IBM Plex Mono</FontFamily>
+    <FontFamily x:Key="MonoMedium">ms-appx:///Fonts/IBMPlexMono-Medium.ttf#IBM Plex Mono</FontFamily>
 
     <!-- A section's or a group's label: small mono capitals. -->
     <Style x:Key="Label" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontFamily" Value="{StaticResource MonoMedium}" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="FontSize" Value="10.5" />
         <Setter Property="CharacterSpacing" Value="80" />
         <Setter Property="Foreground" Value="{ThemeResource Muted}" />

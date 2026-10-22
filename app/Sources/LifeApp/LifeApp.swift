@@ -100,6 +100,7 @@ struct SettingsView: View {
 
   private var started: Bool { supervisor.info?.started == true }
   private var sources: [Source] { supervisor.info?.sources ?? [] }
+  private var keyName: String { engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY" }
 
   var body: some View {
     Form {
@@ -124,6 +125,8 @@ struct SettingsView: View {
             Text("Anthropic API key").tag("anthropic")
             Text("OpenAI API key").tag("openai")
           }
+          // Each key under its own name: a switch shows the new engine's, never carries the old one over.
+          .onChange(of: engine) { _, _ in key = Keychain.read(keyName) ?? "" }
           if engine == "anthropic" || engine == "openai" {
             SecureField("API key", text: $key)
           }
@@ -236,7 +239,7 @@ struct SettingsView: View {
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
-    key = Keychain.read(engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY") ?? ""
+    key = Keychain.read(keyName) ?? ""
   }
 
   private func start() async {
@@ -254,7 +257,7 @@ struct SettingsView: View {
 
   private func save() async {
     if engine == "anthropic" || engine == "openai" {
-      Keychain.write(engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY", key)
+      Keychain.write(keyName, key)
     }
     Keychain.write("LIFELOG_TOKEN", lifelogToken)
     var parts: [String: Any] = ["engine": engine]

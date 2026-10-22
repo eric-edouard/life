@@ -27,7 +27,6 @@ public class PlateTests
         Assert.Equal(3, info.Sources.Count);
         Assert.NotNull(info.Sources[0].Missing);
         Assert.False(info.Sources[2].On);
-        Assert.False(info.Reminders.On);
     }
 
     [Fact]
@@ -76,6 +75,12 @@ public class PlateTests
     {
         Assert.Null(Wire.Read<Plate>("not json"));
         Assert.Null(Wire.Read<Plate>("""{"cards":[],"groups":[],"observedAt":"2026-10-21T15:00:00Z","today":[],"trouble":[],"worst":"purple"}"""));
+        // A required field missing, or null where it may not be: no answer, never a crash.
+        Assert.Null(Wire.Read<Plate>("""{"cards":[],"groups":[],"observedAt":"2026-10-21T15:00:00Z","today":[],"worst":"ok"}"""));
+        Assert.Null(Wire.Read<Status>("""{"url":"http://127.0.0.1:46201/","key":null}"""));
+        Assert.NotNull(Wire.Read<Status>("""{"url":"http://127.0.0.1:46201/","key":"made-up-key"}"""));
+        Assert.Empty(Wire.Settings("not json"));
+        Assert.Equal("claude", (string?)Wire.Settings("""{"engine":"claude"}""")?["engine"]);
     }
 
     [Fact]
