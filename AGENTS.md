@@ -247,8 +247,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `assets/icon/`, the status page's
   `assets/dashboard/styles.css` and its tab icon's `TONES` (`src/dashboard.ts`) copy its values (email takes no
   CSS variables): a brand change lands in the skill first. The icon is a bold italic L (Cormorant Garamond, outlined), ink
-  ground, paper letter: `assets/icon/` `icon.svg` (tab, /check, connector; its one path is the L the tab recolours), `app.svg`
-  (the app, on macOS's grid) and `menubar.svg` (a template image), rendered into the bundle by `scripts/app.ts`.
+  ground, paper letter: `assets/icon/` `icon.svg` (tab, /check, connector; the L's one outline, `#l`, in the `<g>` whose fill the tab
+  recolours), `app.svg` (the app, on macOS's grid) and `menubar.svg` (a template image), which `<use>` it, rendered into the bundle by `scripts/app.ts`.
 
 ## The app
 
