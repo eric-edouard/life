@@ -73,6 +73,11 @@ export const Settings = z
       .object({ account: z.string().optional(), calendar: z.string() })
       .strict()
       .optional(),
+    /**
+     * The Reminders plugin, input and output (`src/reminders/`): on, Life acts on his Reminders when he asks, keeps the
+     * board, and reads his changes back; off (the default), nothing in Life touches Reminders.
+     */
+    reminders: z.boolean().default(false),
     /** Who mails him his agents' reports: their mail is judged, not dropped as automated. */
     reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */

@@ -11,7 +11,7 @@ import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
 import { holder, isOtherLife } from "../lock";
 import { type Call, log, recentEvents } from "../log";
-import { checks } from "../reminders/remctl";
+import { checks, remindersOn } from "../reminders/remctl";
 import {
   type Action,
   type Extracted,
@@ -88,7 +88,7 @@ export const reviewed = async (now: Date) =>
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecord, "error">) {
-  const problems = await checks();
+  const problems = remindersOn() ? await checks() : [];
   if (!(await reviewed(now))) {
     problems.push("no daily review reached Life in the last 24 h");
   }

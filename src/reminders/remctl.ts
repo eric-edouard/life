@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
 import { exec } from "../proc";
-import { agentName } from "../settings";
+import { agentName, settings } from "../settings";
 
 // How Life talks to his Apple Reminders: remctl (its signed host, `--json`), the shape of a reminder, his lists. This
 // folder is the only code that touches Reminders, an interface to Life, never its truth: `write.ts` makes the changes
@@ -13,6 +13,9 @@ import { agentName } from "../settings";
 const REMCTL = process.env.LIFE_EVENTKIT ?? join(homedir(), "bin", "remctl");
 /** Whether lists have sections: remctl's do, EventKit has none (the board then asks for none). */
 export const SECTIONS = !process.env.LIFE_EVENTKIT;
+/** Whether the Reminders plugin is on (the `reminders` setting): off, nothing in Life touches Reminders. */
+export const remindersOn = () => settings().reminders;
+
 /** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
 export const BOARD = agentName();
 
@@ -31,6 +34,9 @@ const parse = <T>(s: string) => {
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
   unfrozen("touch his Reminders");
+  if (!remindersOn()) {
+    throw new Error("Reminders is off (settings: reminders)");
+  }
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },

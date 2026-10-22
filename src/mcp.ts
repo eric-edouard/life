@@ -21,7 +21,13 @@ import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
 import { clip } from "./memory/units";
-import { BOARD, openOf, openReminders, sectionsOf } from "./reminders/remctl";
+import {
+  BOARD,
+  openOf,
+  openReminders,
+  remindersOn,
+  sectionsOf,
+} from "./reminders/remctl";
 import { type Action, ObservationId } from "./schema";
 import { agentName, connector, settings } from "./settings";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
@@ -409,27 +415,30 @@ export function buildServer() {
     dry(correct),
     WRITES
   );
-  tool(
-    server,
-    "reminders",
-    `Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask), or, with \`obs\`, the standing grant: add, edit, done, undone (ticked back open), remove (to Recently Deleted) or restore (back from there, into \`list\`); undo one with its inverse. Not the list \`${BOARD}\`: that is the board, changed with \`task\`. \`target\` is a reminder id (all but add). Logged in Life's history; \`day\` shows it.`,
-    Reminders,
-    dry((a) => request(a)),
-    REVERSIBLE
-  );
-  tool(
-    server,
-    "open_reminders",
-    `The owner's open Apple Reminders (JSON), of one list or all: each one's id, title, notes, due, list and section, and every list's sections, empty ones too. Not the list \`${BOARD}\`: that is the board, read with \`tasks\`.`,
-    z.object({ list: z.string().optional().describe("A list's name") }),
-    dry(async ({ list }) => {
-      const [reminders, sections] = await Promise.all([
-        openReminders(list),
-        sectionsOf(list),
-      ]);
-      return { reminders: reminders.map(openOf), sections };
-    })
-  );
+  // The Reminders plugin's tools, only while it is on (`remindersOn`): off, the connector offers none.
+  if (remindersOn()) {
+    tool(
+      server,
+      "reminders",
+      `Change the owner's Apple Reminders, only for what he explicitly asked (in this chat, or an ask), or, with \`obs\`, the standing grant: add, edit, done, undone (ticked back open), remove (to Recently Deleted) or restore (back from there, into \`list\`); undo one with its inverse. Not the list \`${BOARD}\`: that is the board, changed with \`task\`. \`target\` is a reminder id (all but add). Logged in Life's history; \`day\` shows it.`,
+      Reminders,
+      dry((a) => request(a)),
+      REVERSIBLE
+    );
+    tool(
+      server,
+      "open_reminders",
+      `The owner's open Apple Reminders (JSON), of one list or all: each one's id, title, notes, due, list and section, and every list's sections, empty ones too. Not the list \`${BOARD}\`: that is the board, read with \`tasks\`.`,
+      z.object({ list: z.string().optional().describe("A list's name") }),
+      dry(async ({ list }) => {
+        const [reminders, sections] = await Promise.all([
+          openReminders(list),
+          sectionsOf(list),
+        ]);
+        return { reminders: reminders.map(openOf), sections };
+      })
+    );
+  }
   tool(
     server,
     "tasks",
