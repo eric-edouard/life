@@ -1,6 +1,7 @@
 # Platforms and modules plan: Life (22 Oct 2026)
 
-What it takes for Life to run on Windows and on Better-T-Stack, and the modules rework that comes first. Life only:
+The modules rework (phase 0, done), the move to Better-T-Stack (phase 1), and Windows, parked on 22 Oct ("scope out
+Windows for now"): what exists for it and what a restart would need are at the end. Life only:
 lifelog is one of Life's inputs and has its own report (its phone apps, the Android MVP, its desktop host, and
 transcription). Line numbers are from `main` at 3baf0e6. The long-form scope report is
 https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a real Windows 11 machine.
@@ -15,13 +16,11 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | Database | None: the memory stays files and JSONL in its git repo; `index.sqlite` stays raw `bun:sqlite` |
 | Auth | Life's own OAuth issuer (`src/oauth.ts`) |
 | Add-ons | Turborepo, Biome with Ultracite, Skills; the hand-written `.githooks` stay |
-| Desktop | SwiftUI on the Mac (Life.app as it is); a WinUI 3 tray on Windows, which lifelog's host joins. All logic stays in the helper |
-| Mail on Windows | Gmail through `gog` |
-| Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`); Windows uses Google Tasks |
-| iMessage from iPhone backups | Not now |
-| Windows signing | Unsigned builds first; the signing step is wired so an Authenticode certificate drops in |
-| Verification | No GitHub Actions (no build in CI). The pre-push hook's `bun run check` is the Mac's gate; Windows is checked on the owner's Windows 11 PC over SSH through Tailscale (key `~/.ssh/life_windows` on his Mac, tailnet name pending) |
-| Sessions | Phase 0 here; the re-scaffold, headless Windows and the WinUI 3 tray each in a session of its own, briefed from this doc. lifelog's phases have their own sessions and report |
+| Desktop | SwiftUI on the Mac (Life.app as it is). No Windows UI: a Windows Life, when it comes back, is a headless host |
+| Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`) |
+| Windows | Parked (22 Oct). The seams built for it stay (below) |
+| Verification | No GitHub Actions (no build in CI). The pre-push hook's `bun run check` is the gate |
+| Sessions | Phase 0 here; phase 1 in a session of its own, briefed from this doc. lifelog's phases have their own sessions and report |
 
 The scaffold command, checked with `--dry-run`:
 
@@ -92,8 +91,8 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 Done (#153): `src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
 `%LOCALAPPDATA%\Life` on Windows; it was `MAC`), `APP_DATA` (where Beeper keeps its store), Codex's binary for this
 system and architecture, the model CLIs' environment, the system time zone (`Intl` on Windows) and the notification
-(none on Windows until the tray). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
-Notes) is `macOnly` and reads "macOS only" elsewhere. Left for phase 3, where they are exercised: the plate's host
+(none on Windows). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
+Notes) is `macOnly` and reads "macOS only" elsewhere. Left for a Windows restart (below): the plate's host
 state (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open (`archive.ts`: `ps`, `open`), the
 Cloudflare tunnel's restart (`tunnel.ts`), the Contacts reader (`contacts.ts`: no address book on Windows), Tailscale's
 binary (`tailscale.ts`: falls back to `tailscale` on PATH), the archive alert's log path (`report.ts`), remctl's path
@@ -108,14 +107,11 @@ out exactly those.
 
 ### Verification
 
-No GitHub Actions: the pre-push hook runs `bun run check` on the Mac, and Windows work merges with that passing. A
-Windows run is a pending hand check until his PC answers over SSH (`~/.ssh/life_windows`, tailnet name pending); then
-`bun run check` runs there. Done (#151): the check's Windows fixes, from a few runs on GitHub's Windows runner before
-the workflow was removed. Pending there: four tests that ran past 5 s on that runner (brand's colour scan, and Notes'
-"more than 20 notes gone", "deletions on two days", "two notes restored unchanged"): slow or broken, to see on his PC.
+No GitHub Actions: the pre-push hook runs `bun run check` on the Mac. The check's Windows fixes (#151) came from a few
+runs on GitHub's Windows runner before the workflow was removed.
 
-**Done when** the four contracts hold today's code with nothing left on the old paths, `bun run check` passes on the
-Mac and on his Windows PC, and the change is net zero or fewer lines.
+**Done** (#147–#153, #155, #156, #151): the four contracts hold today's code with nothing left on the old paths, and
+`bun run check` passes on the Mac.
 
 ## Phase 1: Better-T-Stack
 
@@ -123,27 +119,6 @@ Run the scaffold command into a fresh folder, then move Life into its skeleton w
 follows), and delete what the skeleton replaces. Every route moves to Hono in the same PR: the connector and its OAuth
 issuer, `/check`, `/me`, the status reads. **Done when** `bun run check` passes, the connector, `/check` and the
 status reads answer as before, Life.app builds and runs from the new layout, and no route is left on `Bun.serve`.
-
-## Phase 3: headless Windows Life
-
-What runs on Windows: Beeper (with WhatsApp through its bridge) and its archive, Gmail through `gog` (a new mail input),
-git, imported assistant chats, the agent's tasks; the nightly; the connector over Tailscale Funnel; Codex or Claude;
-restic to a OneDrive folder; the Past calendar through `gog`. Actions off. Set up by a script with Task Scheduler until
-the tray exists. What cannot run there: iMessage, Apple Notes, Apple Mail, Apple Reminders, the Mac's Contacts.
-
-**Done when**, on his Windows PC: the helper compiles for `bun-windows-x64`, the tests pass, a headless night with
-zero sources ends clean, and the connector answers a sign-in-free probe. **Hand checks on a Windows 11 machine:**
-Beeper's `index.db` at `%APPDATA%\BeeperTexts` opens read-only while Beeper runs; a night with Beeper writes moments;
-Tailscale Funnel serves the connector; Gmail through `gog` signs in.
-
-## Phase 4: the WinUI 3 tray
-
-A Windows tray app reading the helper's JSON status and editing settings through it, as Life.app does: H.NotifyIcon,
-app notifications, Credential Manager, unpackaged and self-contained. Built so lifelog's host joins it (its own
-section, its own helper), coordinated with lifelog's session. WinSparkle reads the same appcast as Sparkle. The signing
-step (`app-windows/build.ps1`, no CI) takes an Authenticode certificate when there is one. **Done when**
-`Life.Core`'s tests pass (`dotnet test`, on any machine) and, on his Windows 11 PC, `build.ps1` builds the tray, which
-installs, sees the status and survives a restart.
 
 ## Actions behind the outputs contract
 
@@ -157,14 +132,23 @@ connector's tools keep their names and arguments (a reconnect is costly) until p
 reconnect) lets `reminders`'s `target` take a string id (widened at `idOf`, `src/actions/backend.ts`) and changes the
 descriptions from "Reminders" to "actions". Until then, on Google Tasks `act` can only add.
 
-## lifelog's host in the tray
+## Windows: parked
 
-lifelog's server serves `GET /status/live` on loopback (127.0.0.1:47613), owner-only, with the device token; its JSON is
-typed in lifelog's openapi.json (sample `fixtures/wire/status-live.json`), and its verdict rules stay on the server, so
-the tray only renders. The tray's lifelog section reads it as the Mac's Lifelog Host does; Life's section reads Life's
-own status reads (`/status/snapshot`, `/status/card/<id>`, `/status/run` on `LOCAL_PORT` 46201 behind the local key).
+The owner scoped Windows out on 22 Oct, after deciding it would be a headless host only (no Windows UI: the WinUI 3 tray
+of #154 was removed). What exists and stays, as clean seams:
 
-## Hand steps left to the owner
+- `src/platform.ts`: `MACHINE` under `%LOCALAPPDATA%\Life`, `APP_DATA`, Codex's win32 binary, the model CLIs'
+  environment, the time zone; `macOnly` sources (iMessage, Mail) never read there; WhatsApp and Notes read from an
+  archive copied on a Mac, never copied there.
+- The check's Windows fixes (#151): exports with `/` paths, every store in an archive on any system, ICU-proof dates.
+- Google Tasks as an actions backend (#155), add-only until phase 1 widens the connector's `target`.
 
-- His Windows 11 PC reachable over SSH through Tailscale (in progress), for the hand checks above.
-- An Authenticode certificate, when Life goes to friends on Windows.
+What a restart needs, as a headless host: services started by a setup script and Task Scheduler (or a Windows
+service), secrets in Credential Manager or `.env`, setup and status through the CLI, the connector over Tailscale
+Funnel; Gmail through `gog` as a mail input; Beeper (with WhatsApp through its bridge) and its archive; the helper
+compiled for `bun-windows-x64`; the Mac-only spots listed under the platform module through `platform.ts`. Hand checks
+on a Windows 11 PC (over SSH through Tailscale, key `~/.ssh/life_windows` on his Mac): `bun run check` there (four tests
+ran past 5 s on GitHub's runner: brand's colour scan and three Notes tests), Beeper's
+`%APPDATA%\BeeperTexts\index.db` read-only while Beeper runs, a headless night with zero sources, the connector
+answering, Gmail signing in, Google Tasks' real JSON against the hand-written fixture. What cannot run there: iMessage,
+Apple Notes and Mail (except an archive copied on a Mac), Apple Reminders, the Mac's Contacts.
