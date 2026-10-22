@@ -73,7 +73,7 @@ export async function macState() {
       ok: !!h,
       running: !!h,
       since: h?.since.toISOString() ?? null,
-      status: h ? "running" : "not running",
+      status: h ? "running" : "nothing holds its lock",
     };
   });
   return {
@@ -91,7 +91,7 @@ export async function macState() {
           running,
           /** When its process started: launchd's restart after a crash or a commit, the tunnel's after a heal. */
           since: r ? (started.get(r.pid ?? "") ?? null) : null,
-          status: r?.status ?? "not loaded",
+          status: r ? `last exit ${r.status}` : "not loaded",
         };
       }),
     ],
