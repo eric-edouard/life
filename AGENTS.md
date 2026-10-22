@@ -251,7 +251,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 ## The app
 
 A friend's install is `Life.app` (`app/`, SwiftUI, menu bar; assembled by `bun scripts/app.ts`): it runs the compiled
-helper (`scripts/helper.ts`) as launchd runs the checkout for him: `archive` and `watch` kept running, `memory nightly`
+helper (`scripts/helper.ts`) as launchd ran the checkout for him: `archive` and `watch` kept running, `memory nightly`
 every 30 minutes, its data and state under `~/Library/Application Support/Life` (`LIFE_DATA`, `LIFE_STATE`), its files
 as `LIFE_ROOT`, every secret the Keychain keeps under "Life" in its environment. The app never reads Life's files: it
 asks the helper (`app` for what it shows, `settings`, `init`, `pair`, `connect`), so their shape lives in one place.
