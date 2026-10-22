@@ -24,7 +24,7 @@ import {
 import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
 import { git } from "./proc";
-import { checks } from "./reminders/remctl";
+import { checks, remindersOn } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
@@ -570,7 +570,7 @@ function captureCards(r: Reads): Card[] {
         [
           !archiveUp,
           {
-            ask: ASK("that the archive LaunchAgent is not running"),
+            ask: ASK("that the archive is not running"),
             tone: "bad",
             word: "stopped",
           },
@@ -607,7 +607,7 @@ function captureCards(r: Reads): Card[] {
         [
           !watching,
           {
-            ask: ASK("that the watcher LaunchAgent is not running"),
+            ask: ASK("that the watcher is not running"),
             tone: "bad",
             word: "stopped",
           },
@@ -1038,6 +1038,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
+        [!remindersOn(), { tone: "idle", word: "off" }],
         [
           r.remctl.length > 0,
           {
@@ -1119,11 +1120,11 @@ function outputCards(r: Reads): Card[] {
 
 const serviceState = (sv: Reads["mac"]["services"][number]) => {
   if (sv.running) {
-    return { headline: "running", launchd: "running" };
+    return { headline: "running", state: "running" };
   }
   return sv.ok
-    ? { headline: "between ticks", launchd: "between ticks (every 30 min)" }
-    : { headline: "down", launchd: `not running (last exit ${sv.status})` };
+    ? { headline: "between ticks", state: "between ticks (every 30 min)" }
+    : { headline: "down", state: `not running (${sv.status})` };
 };
 
 function macCards(r: Reads): Card[] {
@@ -1150,7 +1151,7 @@ function macCards(r: Reads): Card[] {
       name: "MacBook",
     },
     ...r.mac.services.map((sv): Card => {
-      const { headline, launchd } = serviceState(sv);
+      const { headline, state } = serviceState(sv);
       return {
         ...firstOf(
           [
@@ -1165,7 +1166,7 @@ function macCards(r: Reads): Card[] {
           [true, { tone: "idle", word: "waiting" }]
         ),
         facts: [
-          { label: "launchd", value: launchd },
+          { label: "state", value: state },
           { at: sv.since, label: "Up since" },
         ],
         group: "mac",
@@ -1230,13 +1231,18 @@ export async function snapshot(now = clock()) {
     ...outputCards(r),
     ...macCards(r),
   ];
+  // One rule for a card in trouble: the page counts them, the app's menu lists them.
+  const trouble = cards
+    .filter((c) => c.tone === "bad" || c.tone === "warn")
+    .map((c) => c.id);
   return {
     cards,
     edges: EDGES,
     groups: GROUPS,
     observedAt: now.toISOString(),
-    problems: cards.filter((c) => c.tone === "bad" || c.tone === "warn").length,
+    problems: trouble.length,
     today: todayOf(r),
+    trouble,
     worst: cards.reduce<Tone>(
       (w, c) => (RANK[c.tone] > RANK[w] ? c.tone : w),
       "ok"

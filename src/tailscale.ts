@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { z } from "zod";
+import { PUBLIC_PORT } from "./http";
 import { execOk } from "./proc";
 import { setSettings, settings } from "./settings";
 
@@ -14,8 +15,8 @@ const tailscale = (args: string[]) =>
   execOk([existsSync(BIN) ? BIN : "tailscale", ...args], { timeout: 30_000 });
 
 const TRAILING_DOT = /\.$/;
-/** Where Life's server listens (`server.ts`). */
-const LOCAL = "http://127.0.0.1:46200";
+/** Life's public port (`server.ts`), the one a tunnel may reach. */
+const SERVER = `http://127.0.0.1:${PUBLIC_PORT}`;
 
 const Status = z.object({
   BackendState: z.string(),
@@ -47,7 +48,7 @@ export async function connect(publicToo: boolean) {
     publicToo ? "funnel" : "serve",
     "--bg",
     "--https=443",
-    LOCAL,
+    SERVER,
   ]);
   const origin = `https://${name}`;
   setSettings({

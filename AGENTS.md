@@ -1,16 +1,20 @@
 # Life
 
 A memory of the owner's life, built nightly from his voice (lifelog), chats, iMessage, mail and Apple Notes (and,
-imported once, his past claude.ai and ChatGPT conversations: `bun life memory import`):
+imported once, his past claude.ai and ChatGPT conversations: `bun life import`):
 sources → units → verdicts → observations → people and area pages. Plus an always-on archive that keeps chat messages
 deleted for everyone and every version of his Apple Notes. Where things stand and why: `docs/handoff.md`. Data formats: `docs/SCHEMA.md`. Relationships (arcs, closeness, the
 backfill): `docs/relationships.md`, the plan and his decisions.
 
 ## Where his data lives
 
-`memory/`, `truth/` and `imports/` (his claude.ai and ChatGPT exports, copied once by `bun life memory import`; every
+`memory/`, `truth/` and `imports/` (his claude.ai and ChatGPT exports, copied once by `bun life import`; every
 such path here) are in `DATA` (`src/truth.ts`): `~/Life`, a local git repo of their own
-with no remote, or `$LIFE_DATA`. The nightly commits there and pushes nothing (`commitMemory` refuses a repo with a
+with no remote, or `$LIFE_DATA`. Since the move to Life.app (`docs/transition.md`) `~/Life` and `~/Work/life/derived` are
+links to the app's `MAC/data` and `MAC/state`: one live copy, read by the app and by `bun life` from the checkout
+alike; `DATA` and `STATE` are resolved to their real paths where they are defined (`truth.ts`), so no code copies or
+removes through those links. A secret file in `STATE` is written only by `writeSecret` or `secretIn` (mode 600), and
+that mode is what keeps it out of an export (`secret`, export.ts). The nightly commits there and pushes nothing (`commitMemory` refuses a repo with a
 remote): nothing of his goes to GitHub. Every worktree reads and writes that same `~/Life` and shares its one lock
 (`~/Life/.nightly.lock`); point `LIFE_DATA` at a copy to experiment. Each `bun test` run (`NODE_ENV=test`) reads its
 own copy of the made-up data (`src/test-data`), in a temp folder outside any repo, its lock and log there too: two runs
@@ -73,12 +77,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Reminders (add, edit, done, undone, remove to Recently Deleted, restore), through `act` (`src/actions.ts`, the
   only code that decides it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). `act` decides and records (its intent before each write, its outcome after); `src/reminders/` is the only code that touches Reminders (`~/bin/remctl`), one job per module: `remctl.ts` the
   calls and his lists, `write.ts` the changes `act` decided, `board.ts` the projection of the tasks, `inbound.ts` his
-  changes read back. In a friend's app the same commands go to `life-eventkit` (`LIFE_EVENTKIT`, Swift, EventKit): no
-  sections there (`SECTIONS`: the board asks for none), and no Recently Deleted (a removal is final; its `deleted` lists
-  what vanished since its last call, kept 30 days, so the board and `inbound` read a removal as remctl's), and it serves the Past calendar too, on an Apple calendar
-  (the `past` setting without a Google `account`), Life's events marked by their URL. It answers in remctl's shapes,
-  the contract in `src/reminders/answers.json` (tested); a list it can't tell is unshared (any iCloud list) counts as
-  shared, so Life adds nothing there unasked and reads nothing back from it. Delete the folder and Life still works from the ledger. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
+  changes read back. Reminders is a plugin, input and output, on only with the `reminders` setting (`remindersOn`): off, `remctl` refuses every call, the minute pass skips it, the connector offers no `reminders`/`open_reminders` tool and `act` refuses, and the rest of Life runs the same; the board, reading his changes back, the grant and the playbook's Reminders parts (`<!-- reminders -->` in `docs/agent.md`, `protocol` in tasks.ts) exist only while it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. Its backend is `remctl` (github.com/viticci/remctl, MIT) for every install, pinned in `REMCTL_RELEASE`: the app installs
+  that release through remctl's own installer, and while Reminders is on with remctl behind the pin (an update of Life moved it) offers it again (Apple silicon only, like the app); its answers as Life reads them
+  are `src/reminders/answers.json` (tested), the check when moving the pin. Delete the folder and Life still works from the ledger. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below. One standing grant (decision 2 of the 21 Oct review)
   is the only other authority, off until his words in a Claude session turn it on (`bun life grant on|off '<his
   words>'`, a `grant` line in the ledger, the latest standing; his "stop" may come through Atlas, as off only takes
@@ -191,8 +192,11 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   a refused token. The origin is his Mac's tailnet name (`bun life connect`, `--public` through Funnel for ChatGPT and
   Claude.ai, `src/tailscale.ts`) or his own Cloudflare tunnel (`tunnel: cloudflare`, the only one `tunnel.ts` heals).
 - **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
-  reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages): never serve anything of his before
-  that check. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to
+  reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages) on the public port (`PUBLIC_PORT`,
+  where a tunnel forwards the connector's origin), or for the app on the local port (`LOCAL_PORT`, served even without
+  a connector, no tunnel ever points there) behind its local key (`keyRefusal`, `STATE/local.key`, mode 600): never
+  serve anything of his before that check, and never take the key on the public port. The app's menu (the plate's
+  `trouble`) and its status window show this page, never a second rendering of it. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to
   the Mac and answers only when the Mac is out of reach, behind the same owner check, with what the Mac pushed: the plate
   without his words (`strip`) and the page's files. `docs/dashboard.md`.
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers
@@ -251,7 +255,13 @@ helper (`scripts/helper.ts`) as launchd runs the checkout for him: `archive` and
 every 30 minutes, its data and state under `~/Library/Application Support/Life` (`LIFE_DATA`, `LIFE_STATE`), its files
 as `LIFE_ROOT`, every secret the Keychain keeps under "Life" in its environment. The app never reads Life's files: it
 asks the helper (`app` for what it shows, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. His own install stays the checkout under
-launchd.
+launchd until the move (`docs/transition.md`).
+
+**One Life per Mac.** The archive and the watcher each hold a lock in `MAC` (`~/Library/Application Support/Life`,
+shared by every install: `hold`, `src/lock.ts`), so a second install's copy waits instead of running beside it (two
+archivers would write the one live copy twice, two watchers would deliver every ask twice). On his own data, a nightly
+tick runs only for the install whose watcher holds the lock, or when none does (`isOtherLife`, nightly.ts); a copy or a
+hand `--force` always runs. The status page reads those locks (`holder`, mac.ts), whoever runs them.
 
 ## Gotchas
 
@@ -327,11 +337,15 @@ launchd.
 - **Backups**: `src/backup.ts` (the `memory-nightly` tick, once the night is done or from 06:00: once a day, 3 tries, `backupDue`; by hand only from `~/Work/life`) snapshots with restic into
   `~/Library/Mobile Documents/com~apple~CloudDocs/Life backup/restic`; the password is in the Keychain
   (the `backup` setting's password command) and his password manager.
-  It holds what its `restic backup` lists, `~/Life` cloned under the lock (the one reader that takes it). Restore:
-  `restic restore latest --tag daily --target <dir>` puts every file at `<dir>` + its absolute path. From
-  `<dir>`'s `~/Library/Application Support/Life/backup-staging/`: `Life/` goes to `~/Life`,
-  the archive's `*.sqlite` back to the archive, `lifelog.sqlite` and `cursor.json` to `STATE/watch/` (`derived/watch/` in a checkout) (delete each
-  database's old `-wal`/`-shm` first). Everything else goes back to its own path.
+  It holds one export (`stage`, `src/export.ts`, the same as `bun life export` and the app's Export…): `data/` his data
+  cloned under the lock (the one reader that takes it), `state/` Life's state without secrets or the index, its watcher
+  store and cursor, `archive/` every store and its media, and `manifest.json` (every file's sha256, what each part holds,
+  the secrets left out by name). Restore: `restic restore latest --tag daily --target <dir>` puts the export at `<dir>`
+  + its absolute path (`MAC/backup-staging`); `data/` goes to his data, `state/` to Life's state, `archive/` to the
+  archive: `bun life import <dir>/…/backup-staging` into a new install (checked, never over his data, never into an
+  existing archive), then the secrets the manifest names by hand. Secrets are in no backup (Life's sign-in and the agent's subscription pair again). Snapshots from
+  before 22 Oct have the old layout: `backup-staging/Life/` is `~/Life`, its `*.sqlite` the archive's and
+  `lifelog.sqlite` and `cursor.json` the watcher's, and the archive's media, `.env` and `derived/` at their own paths.
 
 ## Working here
 

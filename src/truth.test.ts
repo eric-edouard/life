@@ -16,6 +16,7 @@ import {
   loadTruth,
   ROOT,
   readMe,
+  real,
   STATE,
   type Truth,
 } from "./truth";
@@ -138,7 +139,7 @@ test("truth/me.md gives who he is (its first paragraph) and his goals", () => {
 
 test("tests read made-up data, and it is a consistent map", async () => {
   // This run's own copy of src/test-data, outside any repo: a test can never commit.
-  expect(DATA.startsWith(tmpdir())).toBe(true);
+  expect(DATA.startsWith(real(tmpdir()))).toBe(true);
   expect(readdirSync(join(DATA, "truth")).sort()).toEqual(
     readdirSync(join(FIXTURES, "truth")).sort()
   );
@@ -178,4 +179,9 @@ test("a test run's state is all in its copy of the data, never the checkout's de
     expect(path.startsWith(DATA)).toBe(true);
     expect(path.startsWith(ROOT)).toBe(false);
   }
+});
+
+test("his data and Life's state are real paths: nothing copies or removes through a link", () => {
+  expect(DATA).toBe(real(DATA));
+  expect(STATE).toBe(real(STATE));
 });

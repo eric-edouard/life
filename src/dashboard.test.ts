@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDashboard } from "./dashboard";
-import { createSignIn } from "./signin";
+import { createSignIn, keyRefusal, LOCAL, localKey } from "./signin";
 
 // The status page answers nothing of his before the owner's sign-in: a page sends him to sign in, a read is refused.
 const verify = async (token: string) =>
@@ -11,7 +11,7 @@ const signIn = createSignIn(
   verify,
   (async () => new Response("no", { status: 400 })) as unknown as typeof fetch
 );
-const page = createDashboard(signIn);
+const page = createDashboard(signIn.refusal);
 const get = (path: string) =>
   page.handle(new Request(`https://life.example${path}`));
 
@@ -45,4 +45,29 @@ test("a sign-in lands only on one of his pages", () => {
 test("a history that doesn't page back offers no older page: the tasks and the Mac's day are whole", async () => {
   const { detail } = await import("./plate-detail");
   expect((await detail("tasks")).next.history).toBeNull();
+});
+
+test("the app's page opens with the local key only, a cookie or a bearer; the public page never takes the key", async () => {
+  const local = createDashboard(keyRefusal());
+  const key = localKey();
+  const with_ = (headers: Record<string, string>) =>
+    local.handle(
+      new Request("http://127.0.0.1:46201/status/icon.svg", { headers })
+    );
+  expect((await with_({ cookie: `${LOCAL}=${key}` }))?.status).toBe(200);
+  expect((await with_({ authorization: `Bearer ${key}` }))?.status).toBe(200);
+  expect(
+    (await with_({ authorization: `Bearer ${key.slice(1)}x` }))?.status
+  ).toBe(401);
+  // As many characters as the key, more bytes: refused, not a crash.
+  expect(
+    (await with_({ authorization: `Bearer ${"é".repeat(key.length)}` }))?.status
+  ).toBe(401);
+  expect((await with_({}))?.status).toBe(401);
+  const pub = await page.handle(
+    new Request("https://life.example/status/icon.svg", {
+      headers: { authorization: `Bearer ${key}`, cookie: `${LOCAL}=${key}` },
+    })
+  );
+  expect(pub?.status).toBe(401);
 });

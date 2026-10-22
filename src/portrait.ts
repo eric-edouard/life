@@ -1,6 +1,7 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { join } from "node:path";
 import { cookie, cookieOf, HEADERS, redirect, text } from "./http";
+import { same } from "./secret";
 import { connector } from "./settings";
 import { DATA, ROOT } from "./truth";
 
@@ -73,8 +74,6 @@ export function createPortrait(
   let fails: number[] = [];
   const sign = (exp: string) =>
     createHmac("sha256", key).update(`me:${exp}`).digest("base64url");
-  const same = (a: string, b: string) =>
-    a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
   function signedIn(req: Request) {
     const [exp = "", mac = ""] = (cookieOf(req, SESSION) ?? "").split(".");

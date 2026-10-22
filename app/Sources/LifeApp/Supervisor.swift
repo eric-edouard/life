@@ -5,13 +5,14 @@ import Observation
 /// a few seconds after either stops), and the nightly tick every 30 minutes (its own guard decides what is due).
 @MainActor @Observable
 final class Supervisor {
-  private(set) var running: [String: Bool] = [:]
-  private(set) var lastTick: Date?
-  /// The helper's last `app` answer: whether Life is set up, its sources, its newest report.
+  /// The helper's last `app` answer: whether Life is set up, its sources, its newest report, its status page.
   private(set) var info: Info?
+  /// The status page's plate, as the watcher last served it.
+  private(set) var plate: Plate?
   private var services: [String: Process] = [:]
   private var nightly: Process?
   private var timer: Timer?
+  private var looks: Timer?
 
   init() {
     // However the app ends (Quit, an update's relaunch), Life's processes end with it: never two watchers.
@@ -25,6 +26,7 @@ final class Supervisor {
 
   func refresh() async {
     info = await Helper.info() ?? info
+    plate = await info?.status.plate()
   }
 
   func start() async {
@@ -38,6 +40,10 @@ final class Supervisor {
       timer = Timer.scheduledTimer(withTimeInterval: Self.tickEvery, repeats: true) { _ in
         Task { @MainActor in self.tick() }
       }
+      // The menu shows the status page's plate as of the last minute.
+      looks = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+        Task { @MainActor in self.plate = await self.info?.status.plate() }
+      }
     }
   }
 
@@ -45,6 +51,8 @@ final class Supervisor {
   func stop() {
     timer?.invalidate()
     timer = nil
+    looks?.invalidate()
+    looks = nil
     endServices()
     nightly?.terminate()
     nightly = nil
@@ -70,7 +78,6 @@ final class Supervisor {
     p.terminationHandler = { [weak self] _ in
       Task { @MainActor in
         guard let self, self.services[name] === p else { return }
-        self.running[name] = false
         try? await Task.sleep(for: .seconds(5))
         if self.services[name] === p { self.keep(args) }
       }
@@ -78,16 +85,13 @@ final class Supervisor {
     do {
       try p.run()
       services[name] = p
-      running[name] = true
     } catch {
-      running[name] = false
     }
   }
 
   /// A nightly still running is left to finish (its own lock would refuse a second).
   private func tick() {
     if nightly?.isRunning == true { return }
-    lastTick = Date()
     let p = Helper.process(["memory", "nightly"])
     p.standardOutput = log("memory-nightly")
     p.standardError = p.standardOutput

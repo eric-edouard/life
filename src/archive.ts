@@ -2,6 +2,7 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock } from "./clock";
+import { hold } from "./lock";
 import { type LogEvent, log, recentEvents } from "./log";
 import { codeAt, exec } from "./proc";
 import { settings } from "./settings";
@@ -533,6 +534,8 @@ export async function archiveCommand(args: string[]): Promise<number> {
     return 0;
   }
   const running = codeAt(ROOT);
+  // A hand `--once` too: while the service runs, it would be a second archiver.
+  await hold("archive");
   const failing = new Set((await archiveFailing()).map(([name]) => name));
   while (codeAt(ROOT) === running) {
     for (const { copy, name } of keptStores()) {

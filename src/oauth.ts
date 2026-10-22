@@ -1,9 +1,4 @@
-import {
-  createHash,
-  randomBytes,
-  randomInt,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -18,7 +13,7 @@ import { z } from "zod";
 import { SCOPE } from "./auth";
 import { clock } from "./clock";
 import { HEADERS, text } from "./http";
-import { writeSecret } from "./secret";
+import { same, writeSecret } from "./secret";
 import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
 import { STATE } from "./truth";
 
@@ -28,7 +23,9 @@ import { STATE } from "./truth";
 // authorization code serves once, a refresh token is replaced each time it is used, and every token is for this one
 // resource and owner.
 
-const FILE = join(STATE, "oauth", "state.json");
+/** Life's own sign-in: its key, the apps and their tokens. A secret: never exported. */
+export const OAUTH = join(STATE, "oauth");
+const FILE = join(OAUTH, "state.json");
 
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;
@@ -71,8 +68,6 @@ function update(change: (s: Stored) => Stored) {
   writeSecret(FILE, `${JSON.stringify(change(read()), null, 2)}\n`);
 }
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
-const same = (a: string, b: string) =>
-  a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const allowed = (uri: string) => REDIRECTS.some((r) => r.test(uri));
 
 /** What a pairing code is made of: no 0/O or 1/I to misread. */
