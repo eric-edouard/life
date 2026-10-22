@@ -142,6 +142,18 @@ struct SettingsView: View {
           TextField("lifelog address", text: $lifelogURL)
           SecureField("lifelog token", text: $lifelogToken)
         }
+        if let r = supervisor.info?.reminders {
+          Section("Reminders") {
+            Toggle("Use your Reminders", isOn: Binding(
+              get: { r.on },
+              set: { on in Task { await setReminders(on, r) } }
+            ))
+            Text(r.ready
+              ? "Life adds reminders when you ask, keeps your agent's list and reads your changes back."
+              : "Life uses remctl for Reminders. Turning this on installs remctl \(r.release.version) with its own installer.")
+              .font(.caption).foregroundStyle(.secondary)
+          }
+        }
         Section("Your agent") {
           TextField("Its name (\"hey …\" wakes it)", text: $agentName)
           TextField("Wake word, as heard", text: $wake)
@@ -232,6 +244,17 @@ struct SettingsView: View {
     }
     if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
     await set(parts)
+    await supervisor.restart()
+  }
+
+  /// The Reminders plugin on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
+  /// once, then its own permission steps), and the toggle takes once `life app` sees it.
+  private func setReminders(_ on: Bool, _ r: Reminders) async {
+    if on, !r.ready {
+      status = await Remctl.install(r.release)
+      return
+    }
+    await set(["reminders": on])
     await supervisor.restart()
   }
 

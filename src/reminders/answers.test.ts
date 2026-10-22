@@ -3,7 +3,7 @@ import { setSettings, settings } from "../settings";
 import answers from "./answers.json";
 import { openOf, type Reminder, remctl, unshared } from "./remctl";
 
-// remctl's answers as Life reads them (answers.json): the shapes life-eventkit (app/Sources/LifeEventKit) answers too.
+// remctl's answers as Life reads them (answers.json, `REMCTL_RELEASE`'s): what moving the pin checks.
 
 test("a reminder's due is local wall time, as `open_reminders` shows it", () => {
   const [r] = answers.show as Reminder[];
