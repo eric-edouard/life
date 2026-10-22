@@ -29,9 +29,16 @@ struct LifeApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @Environment(\.openWindow) private var openWindow
   private var supervisor: Supervisor { delegate.supervisor }
+  /// Life's L for the menu bar (`menubar.pdf`, from assets/icon/menubar.svg by `scripts/app.ts`): a template image,
+  /// so macOS paints it for a light or a dark bar.
+  private static let mark: NSImage = {
+    let image = NSImage(named: "menubar")!
+    image.isTemplate = true
+    return image
+  }()
 
   var body: some Scene {
-    MenuBarExtra("Life", systemImage: "waveform") {
+    MenuBarExtra {
       Menu(
         supervisor: supervisor,
         openSettings: {
@@ -50,6 +57,8 @@ struct LifeApp: App {
           openWindow(id: "settings")
         }
       }
+    } label: {
+      Image(nsImage: Self.mark).accessibilityLabel("Life")
     }
     Window("Life status", id: "status") {
       if let status = supervisor.info?.status {
