@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { held, take } from "../core/lock";
 import { DATA } from "../core/paths";
 import { OUT } from "./ledger";
+
 // Memory's one lock: everything that writes memory/ holds it (AGENTS.md, "One lock").
 
 /** In the data repo, not in derived/: every worktree shares one lock with production. */

@@ -379,7 +379,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   // Recorded inside the lock (not at `now`, from before it), so a night in progress reads as running.
   const window = lastDays(now, days);
   const rec = await metered("memory.nightly", { ...window, force });
-  // Lines first cited since the last good night (with no guard state, the window) are new in this report, midday runs' too.
+  // Lines first cited since the last good night (with no night state, the window) are new in this report, midday runs' too.
   const last = readState();
   const since =
     last?.okAt ?? last?.lastAt ?? dayStart(window.from).toISOString();

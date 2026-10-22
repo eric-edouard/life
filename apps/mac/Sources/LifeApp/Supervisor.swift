@@ -2,7 +2,7 @@ import AppKit
 import Observation
 
 /// What launchd did for the owner's checkout, for the app: the archive and the watcher always running (started again
-/// a few seconds after either stops), and the nightly tick every 30 minutes (its own guard decides what is due).
+/// a few seconds after either stops), and the nightly tick every 30 minutes (its own schedule decides what is due).
 @MainActor @Observable
 final class Supervisor {
   /// The helper's last `app` answer: whether Life is set up, its sources, its newest report, its status reads.

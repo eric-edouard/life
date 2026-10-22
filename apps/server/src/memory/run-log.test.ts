@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { appendFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { matchesFilter } from "./changes";
 import { assembleRuns, percentOf, runs, useText } from "./run-log";
 
 const ev = (
@@ -149,22 +148,6 @@ test("runs page back through the log days, newest first, none lost or repeated, 
   const first = await runs({ limit: 1 }, dir);
   expect(first.items[0]?.startedAt).toBe("2026-10-15T08:00:00.000Z");
   expect(first.items[0]?.outcome).toBe("unfinished");
-});
-
-test("a run filter takes the id as runs gives it, or bare", () => {
-  const it = {
-    about: [],
-    recordedAt: "t",
-    run: "2026-10-18T09-56-02.943Z",
-    type: "observation.extracted",
-  };
-  expect(
-    matchesFilter(it, { run: "memory.extract/2026-10-18T09-56-02.943Z" })
-  ).toBe(true);
-  expect(matchesFilter(it, { run: "2026-10-18T09-56-02.943Z" })).toBe(true);
-  expect(
-    matchesFilter(it, { run: "memory.extract/2026-10-17T00-00-00.000Z" })
-  ).toBe(false);
 });
 
 test("a run's use: its calls' tokens and its steps', and for a metered run the quota it logged at its start and end", () => {

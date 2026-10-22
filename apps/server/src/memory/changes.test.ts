@@ -3,7 +3,7 @@ import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { Action } from "../records/ledger-entry";
-import { changeFeed, feedPage } from "./changes";
+import { changeFeed, feedPage, matchesFilter } from "./changes";
 import { ACTIONS } from "./ledger";
 import { action } from "./record-fixtures";
 
@@ -95,4 +95,20 @@ test("changes about task:<id> is one task's history: its ask, updates and replie
   } finally {
     rmSync(ACTIONS, { force: true });
   }
+});
+
+test("a run filter takes the id as runs gives it, or bare", () => {
+  const it = {
+    about: [],
+    recordedAt: "t",
+    run: "2026-10-18T09-56-02.943Z",
+    type: "observation.extracted",
+  };
+  expect(
+    matchesFilter(it, { run: "memory.extract/2026-10-18T09-56-02.943Z" })
+  ).toBe(true);
+  expect(matchesFilter(it, { run: "2026-10-18T09-56-02.943Z" })).toBe(true);
+  expect(
+    matchesFilter(it, { run: "memory.extract/2026-10-17T00-00-00.000Z" })
+  ).toBe(false);
 });
