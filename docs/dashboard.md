@@ -1,15 +1,19 @@
 # Dashboard reads
 
+Developer reference for the connector's four JSON status reads. Most people never need it: the status window in Life.app
+shows the same.
+
 Four read-only tools on Life's connector (`/mcp`) let a private dashboard show whether Life works, what it ran, every
-change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code:
-`bun life memory status | runs | changes | claim`. Code: `src/memory/history.ts` (status, runs) and
-`src/memory/feed.ts` (changes, claim). They run no model, write nothing, log nothing and send nothing (a test checks
-the code; the connector logs each call as `mcp.call`), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again the way `fetch`
-reads it (to show who sent the line). Every answer is JSON, sent once as text content (no
+change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code: `bun life memory
+status | runs | changes | claim`. Code: `src/memory/history.ts` (status, runs) and `src/memory/feed.ts` (changes,
+claim). They run no model, write nothing, log nothing and send nothing (a test checks the code; the connector logs each
+call as `mcp.call`), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again
+the way `fetch` reads it (to show who sent the line). Every answer is JSON, sent once as text content (no
 `structuredContent`: the model would read it twice), and carries `observedAt`, the server's time.
 
-Auth is the connector's, unchanged: lifelog's JWT for `https://life.ericedouard.com/mcp`, `life:read`, `sub` =
-the `connector` setting's owner. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
+Auth is the connector's, unchanged: a JWT for `<your connector origin>/mcp` (from Life's own issuer or the `connector`
+setting's), `life:read`, `sub` = the owner. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The
+four tools are annotated read-only.
 
 ## status
 
@@ -24,40 +28,42 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 | `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
 | `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
 
-- `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no health file).
+- `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no
+  health file).
 - `extraction`, `consolidation`, `nightly`, `midday` each give `latest`, `lastOk`, `lastFailed` (whole run records, see
   `runs`) within the last `lookbackDays` (7) of logs; null means none recorded in that time, not success.
-- `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else `idle`.
+- `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else
+  `idle`.
 - `nightly.state`: the guard's record (`date`, `status`, `attempts` of `maxAttempts`, `okAt`); `midday.slotSpentAt`:
   when the last midday started. **A spent slot is not a success**: read `midday.lastOk` / `lastFailed`.
 - `backfill`: the backfill's runs (`latest`, `lastOk`, `lastFailed`) and `state`: its range (`next`, `to`), `failures`
   of its current week (3 stop it), and `weeks` read on `day` (4 a day at most); null when none was set.
-- `nightly.next`, `midday.next`: `{earliest, latest, why}`. launchd ticks every 30 min, so a run is expected between
-  the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures today: no
-  more tries until tomorrow", "today's night succeeded", "the next slot", or "held: Codex quota 91% used, over 75%"
-  (the midday waits for the quota's reset: `earliest` is the first slot after it, or after the next tick when the
+- `nightly.next`, `midday.next`: `{earliest, latest, why}`. The nightly tick runs every 30 min, so a run is expected
+  between the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures
+  today: no more tries until tomorrow", "today's night succeeded", "the next slot", or "held: Codex quota 91% used, over
+  75%" (the midday waits for the quota's reset: `earliest` is the first slot after it, or after the next tick when the
   reading has no reset time). Not a countdown.
 - `timeZone`: the Mac's, which every schedule follows.
 
 ## runs
 
-Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it
-is null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
-`memory.backfill` and the steps `memory.repos|files|moments|extract|closeness|pages` (`memory.triage` and `memory.infer` until 18 Oct)).
+Processing history, newest first: `{items, count, cursor, observedAt}`; pass `cursor` back for the next page until it is
+null. `limit` 1-500 (default 50). `steps` picks other kinds (default: the sweeps `memory.nightly`, `memory.midday`,
+`memory.backfill` and the steps `memory.repos|files|moments|extract|closeness|pages` (`memory.triage` and `memory.infer`
+until 18 Oct)).
 
 A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written `-`), `step`, `startedAt`, `endedAt`,
-`outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`),
-`force`, `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's
-counters as it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a
-nightly's `listed`: the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases
-it entered, in order (its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being
-`status`'s `processing.phase`. A sweep lists its steps in
-`children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`, what it spent of his Codex plan,
-derived from the log (`useOf`): the `tokens` (`input`, cached included, `cached`, `output`) of its model calls (each
-`model.run` line's) and its steps'; a metered run (a sweep, the eval `eval`, the Atlas bench `bench.atlas`: `metered`,
-run.ts) also has the `quota` it read as it started and ended (`before`, `after`: whole percents of the fuller window;
-null when unread, e.g. on the claude engine, and `after` while it runs). The nightly email has a line per sweep of the
-last 24 h.
+`outcome`, `input` (what it started with: `from` and `to`, the local days it read (runs before 21 Oct: `days`), `force`,
+`prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's counters as
+it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a nightly's `listed`:
+the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases it entered, in order
+(its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being `status`'s `processing.phase`.
+A sweep lists its steps in `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`,
+what it spent of the owner's Codex plan, derived from the log (`useOf`): the `tokens` (`input`, cached included,
+`cached`, `output`) of its model calls (each `model.run` line's) and its steps'; a metered run (a sweep, the eval
+`eval`, the agent bench `bench.agent`: `metered`, run.ts) also has the `quota` it read as it started and ended
+(`before`, `after`: whole percents of the fuller window; null when unread, e.g. on the claude engine, and `after` while
+it runs). The nightly email has a line per sweep of the last 24 h.
 
 `outcome`: `ok`; `failed` (it ended with failures, or a sweep's `outcome: failed` with `failedAt`, the phase that
 stopped it); `running` (no end yet, and it started after the lock was taken); `unfinished` (no end and nothing holds
@@ -79,10 +85,10 @@ Every change to the memory, past a cursor: `{items, count, remaining, cursor, ob
 returned; `remaining` the matching items past the new cursor (same filters). Keep the last cursor to refresh: a
 refresh from it returns only what was appended since (about 40 ms).
 
-Every item: `id` (stable: `observations/2026-10#1234`, `corrections#24`, `page:<sha>:<path>`), `type`, `record`
-(the ledger line as written; a page change: its `sha`, `path`, `subject`), `recordedAt` (when Life recorded it; for an
-observation, the start of the run that wrote it), `happenedAt` (when it happened in his life: the cited line, his
-request; null for Life's own acts), `run` and `about`. By type:
+Every item: `id` (stable: `observations/2026-10#1234`, `corrections#24`, `page:<sha>:<path>`), `type`, `record` (the
+ledger line as written; a page change: its `sha`, `path`, `subject`), `recordedAt` (when Life recorded it; for an
+observation, the start of the run that wrote it), `happenedAt` (when it happened in the owner's life: the cited line,
+the owner's request; null for Life's own acts), `run` and `about`. By type:
 
 | `type` | One item per | Also |
 |---|---|---|
@@ -90,35 +96,35 @@ request; null for Life's own acts), `run` and `about`. By type:
 | `observation.superseded` | supersession | |
 | `correction.<kind>` | owner correction | `reflected` |
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
-| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line: Life's act, or his own change in Reminders (`record.madeBy` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
-| `action.ask` | an ask for Atlas in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
+| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line: Life's act, or the owner's own change in Reminders (`record.madeBy` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
+| `action.ask` | an ask for the agent in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
 | `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
-| `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (his answer on the check page; a false hides its claim, an outdated retires it) | |
+| `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (the owner's answer on the check page; a false hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
 Filters: `types` (types or prefixes: `observation`, `correction`, `action.failed`…), `about` (`person:<id>`,
-`area:<id>`, `project:<id>`, `task:<id>`: one task's ask, updates and replies), `run`, `since` (recorded at or after). A filter narrows the items, never the cursor's
-reach: every match is still returned, page by page.
+`area:<id>`, `project:<id>`, `task:<id>`: one task's ask, updates and replies), `run`, `since` (recorded at or after). A
+filter narrows the items, never the cursor's reach: every match is still returned, page by page.
 
-- **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its
-  unit no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced`
-  (its unit was read again; the newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when he rated it outdated; still indexed, still
-  cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is hidden on (pages
-  carry salience 2+ only). It is the rule the index and the pages go by (`stateOf`, `src/memory/ledger.ts`), so it
-  says what they show. An observation is a model's reading of the source with its quote checked against it: `active`
-  is not "verified", and `confidence` is the model's own.
-- **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and
-  `not-important` (the observations are gone from the index and from the pages) and `keep-mine` (the line is on its
-  page). `null`: does not apply, no index, or an identity correction (not tracked). A correction is recorded at once; it shows after the next index (minutes) and
-  the next pages run (the night).
+- **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its unit
+  no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced` (its unit was read again; the
+  newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner rated it outdated; still
+  indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
+  hidden on (pages carry salience 2+ only). It is the rule the index and the pages go by (`stateOf`,
+  `src/memory/ledger.ts`), so it says what they show. An observation is a model's reading of the source with its quote
+  checked against it: `active` is not "verified", and `confidence` is the model's own.
+- **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and `not-important`
+  (the observations are gone from the index and from the pages) and `keep-mine` (the line is on its page). `null`: does
+  not apply, no index, or an identity correction (not tracked). A correction is recorded at once; it shows after the
+  next index (minutes) and the next pages run (the night).
 
-**Cursor.** Opaque; it counts the complete lines read from each source (corrections, supersessions, inferred, actions, ratings,
-each month of observations, then page commits). The ledgers are append-only, so a line never moves: a page ends
+**Cursor.** Opaque; it counts the complete lines read from each source (corrections, supersessions, inferred, actions,
+ratings, each month of observations, then page commits). The ledgers are append-only, so a line never moves: a page ends
 exactly where it stopped, a line appended to any source meanwhile is picked up, none twice, and a line still being
 written waits for the next read. Items come source by source; sort by `recordedAt` to show them. A cursor past the end
-of a ledger (one shrank, which the rules forbid) is an error, never a silent restart. Page changes are counted in
-`git log` order of the data repo (`~/Life`): amending or rebasing a commit that touched `memory/pages` would shift
-them silently.
+of a ledger (one shrank, which the rules forbid) is an error, never a silent restart. Page changes are counted in `git
+log` order of the data repo (`DATA`): amending or rebasing a commit that touched `memory/pages` would shift them
+silently.
 
 ## claim
 
@@ -134,12 +140,13 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 
 ## What is not covered
 
-- Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now moments, extract, infer,
-  pages) are complete from 14 Oct. derived/log is never rotated.
+- Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now moments,
+  extract, infer, pages) are complete from 14 Oct. derived/log is never rotated.
 - No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
   `run.error` when one starts, `run.end` when it ends), not in `status`.
-- `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page (none when extraction retired it);
-  a correction's page or people; an ask's and its task lines' `task:<id>`. Not the entities of the observations a correction or supersession names.
+- `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page
+  (none when extraction retired it); a correction's page or people; an ask's and its task lines' `task:<id>`. Not the
+  entities of the observations a correction or supersession names.
 - Page changes appear once committed (the nightly commits them); an uncommitted hand run of `pages` does not show.
 - Units are not in the feed (they are rewritten, not appended): read them with `day`, `search`, `fetch`.
 
@@ -157,38 +164,23 @@ What holds either way: only the owner's token passes, so other workspace members
 and nothing is copied into a shared cache by Life. Live reads need the Mac online; a Site that keeps a last-known
 snapshot must date it and mark it stale, and where it is stored is a separate decision.
 
-# The status page
+# The status window
 
-`https://life.ericedouard.com/`: Life's architecture as a plate of live cards, scoped with the owner in eight rounds of
-questions on 21 Oct. **Read-only**: it changes nothing, sends nothing of his but the plate below, and adds no connector
-tool.
+Life.app's status window and menu-bar panel (`app/Sources/LifeApp/`): Life's architecture as a plate of live cards,
+native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no connector tool.
 
 - **Code.** `src/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
   (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
   source's own module), the Mac's probes are `src/mac.ts`. `src/plate-detail.ts` gives a card's history and log lines
-  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `src/dashboard.ts` serves `/`, its files and its reads under `/status/`, and the stream.
-  `assets/dashboard/` is the React and Motion page, bundled by Bun on first request (no build step). Sign-in is
-  `src/signin.ts`, shared with `/check`.
+  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `src/dashboard.ts` serves
+  them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
+  key; the app decodes them (`Plate.swift`) and reads the plate every 3 s while the window is open.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
   Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
-- **Live.** One server-sent-events stream, a plate every 3 s when anything but its time changed; edge dots run when a
-  group's `flow` grew between two plates. The Pendant's recording state is lifelog's `GET /status` (live since
-  lifelog's PR 23).
-- **Content.** In full (a message's first words, ask quotes, call arguments) with a privacy switch remembered per
-  device (`localStorage`) that hides it.
-- **Always on.** A Cloudflare Worker (`worker/status.ts`, Life's public edge on every path, reaching the Mac over Tailscale
-  Funnel) passes every request to the Mac and, when the Mac is out of reach (no answer in 8 s, or a 502 or 504), answers
-  itself behind the same owner check (`ownerTokens`) with the page and the last plate the Mac pushed: once a minute,
-  only its listed fields (`strip`: his words and errors' text stay on the Mac), the page's files on a process's first
-  push (`pushPlate`). A push needs the shared secret; with none set the Worker takes none. Deploy: `worker/wrangler.jsonc`.
-- **Look.** Ledger, softened at his word: round surfaces, soft shadows, status as a coloured dot and a word, no
-  coloured borders.
+- **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
+- **Look.** Ledger (its fonts bundled from `app/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
+  left to right as data does, a card opening in place over the plate.
 - **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
-  steps, their counts and what it wrote. A sweep's line runs through its steps, then what it does after them (index;
-  the night's commit and report). The tunnel and each service show when their process started (a heal or a
-  restart), Reminders whether remctl can act, Email the alerts apart from the report.
-- **Pendant.** Recording or not, as the phone reports each change (lifelog's PRs 23 and 24), and the newest speech
-  heard; its silence counts from 08:00 at the earliest.
-- Shipped as PRs 108 (Codex use per run), 110 (the page) and the follow-up for these details; the spec said two.
+  steps, their counts and what it wrote.

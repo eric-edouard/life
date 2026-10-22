@@ -29,10 +29,17 @@ struct LifeApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @Environment(\.openWindow) private var openWindow
   private var supervisor: Supervisor { delegate.supervisor }
+  /// Life's L for the menu bar (`menubar.pdf`, from assets/icon/menubar.svg by `scripts/app.ts`): a template image,
+  /// so macOS paints it for a light or a dark bar.
+  private static let mark: NSImage = {
+    let image = NSImage(named: "menubar")!
+    image.isTemplate = true
+    return image
+  }()
 
   var body: some Scene {
-    MenuBarExtra("Life", systemImage: "waveform") {
-      Menu(
+    MenuBarExtra {
+      Panel(
         supervisor: supervisor,
         openSettings: {
           NSApp.activate()
@@ -50,64 +57,24 @@ struct LifeApp: App {
           openWindow(id: "settings")
         }
       }
+    } label: {
+      Image(nsImage: Self.mark).accessibilityLabel("Life")
     }
-    Window("Life status", id: "status") {
+    .menuBarExtraStyle(.window)
+    Window("Life", id: "status") {
       if let status = supervisor.info?.status {
-        StatusPage(status: status).frame(minWidth: 900, minHeight: 700)
+        StatusWindow(supervisor: supervisor, status: status)
       } else {
-        Text("Life isn't answering yet.").padding()
+        Text("Not answering").font(Ledger.serif(18)).foregroundStyle(Ledger.muted).padding(40)
       }
     }
+    .windowStyle(.hiddenTitleBar)
     Window("Life", id: "settings") {
       SettingsView(supervisor: supervisor)
         .frame(minWidth: 520, minHeight: 640)
     }
     .windowResizability(.contentSize)
   }
-}
-
-struct Menu: View {
-  let supervisor: Supervisor
-  let openSettings: () -> Void
-  let openStatus: () -> Void
-  @State private var code: String?
-
-  var body: some View {
-    if supervisor.info?.started == true {
-      // The status page's own truth: its worst tone, every card in trouble, the page itself one click away.
-      if let plate = supervisor.plate {
-        Text(plate.troubled.isEmpty ? "Life: all good" : "Life: \(plate.troubled.count) to look at")
-        ForEach(plate.troubled) { card in
-          Text("\(card.name): \(card.word)")
-        }
-      } else {
-        Text("Life: not answering")
-      }
-      Button("Open status…", action: openStatus)
-      Divider()
-      Button("Connect an AI app…") {
-        Task { code = await Helper.run(["pair"]).out.trimmingCharacters(in: .whitespacesAndNewlines) }
-      }
-      if let code {
-        Text("Pairing code: \(code) (5 minutes)").textSelection(.enabled)
-      }
-      if let report = supervisor.info?.lastReport {
-        Button("Open the last report") { NSWorkspace.shared.open(URL(fileURLWithPath: report)) }
-      }
-    } else {
-      Text("Life is not set up yet")
-    }
-    Divider()
-    if let updates {
-      Button("Check for Updates…") { updates.checkForUpdates(nil) }
-    }
-    Button("Settings…", action: openSettings)
-    Button("Quit Life") {
-      supervisor.stop()
-      NSApp.terminate(nil)
-    }
-  }
-
 }
 
 /// Settings, and the first run's setup: every value goes through the helper (`life settings set`), secrets to the

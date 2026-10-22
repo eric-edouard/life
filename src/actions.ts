@@ -20,7 +20,7 @@ import { ownerSpoke, withStore } from "./sources/lifelog";
 // What Life does outside itself on the owner's clear request: each change to his Apple Reminders is one `act`, which
 // decides it, has src/reminders/write.ts make it (src/reminders/ is the only code that touches Reminders), records it as an Action
 // (memory/actions.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
-// connector) decide that he asked. The ledger also holds Atlas's tasks (src/tasks.ts), whose board, the list `BOARD`,
+// connector) decide that he asked. The ledger also holds the agent's tasks (src/tasks.ts), whose board, the list `BOARD`,
 // no `act` may touch.
 
 const Due = z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/);
@@ -208,7 +208,7 @@ export function grantRefusal(g: {
   }
 }
 
-/** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through Atlas: off only takes authority away), `bun life grant`: one ledger line, the latest standing. Never from the connector. */
+/** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through the agent: off only takes authority away), `bun life grant`: one ledger line, the latest standing. Never from the connector. */
 export async function setGrant(on: boolean, said: string) {
   const instruction = requested("session", said);
   const line: Action = {
@@ -244,7 +244,7 @@ let granting: Promise<unknown> = Promise.resolve();
 /**
  * The standing grant's add (the connector's `reminders` with `obs`), from the observation as `claim` reads it: the
  * instruction is the observation itself (its id, his quote, when he said it), never words a client passes, and the
- * turn's credit and the list's sharing are re-read now. It binds the connector only, not what Atlas does in its terminal.
+ * turn's credit and the list's sharing are re-read now. It binds the connector only, not what the agent does in its terminal.
  */
 export function actGranted(
   {

@@ -81,7 +81,7 @@ export function readWhatsapp(
   );
 }
 
-/** The newest message the archive holds, and when it last copied one (the status page). */
+/** The newest message the archive holds, and when it last copied one (the status plate). */
 export const newestWhatsapp = () =>
   newestArchived(
     "whatsapp",

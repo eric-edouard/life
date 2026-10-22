@@ -328,11 +328,11 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
   }
 }
 
-/** What Atlas wrote on a task's lines: its words, not its fields (a state or a deadline matches nothing). */
+/** What the agent wrote on a task's lines: its words, not its fields (a state or a deadline matches nothing). */
 const REPORTS = ["note", "outcome", "reason", "question", "text"];
 
 /**
- * The tasks whose words (his ask, its title) or Atlas's own lines (notes, outcomes, replies) hold every word, asked
+ * The tasks whose words (his ask, its title) or the agent's own lines (notes, outcomes, replies) hold every word, asked
  * between `from` and `to`, oldest first; matched when read, never checked against his memory.
  */
 export function taskHits(
@@ -751,7 +751,7 @@ export async function day(date: string) {
   );
 }
 
-/** How far ahead `day` lists birthdays: a week, so Atlas sees one coming a week ahead and on the day. */
+/** How far ahead `day` lists birthdays: a week, so the agent sees one coming a week ahead and on the day. */
 const BIRTHDAY_DAYS = 7;
 
 /**
@@ -801,7 +801,7 @@ export const birthdaysNear = (
 /**
  * What `day` lists as due on `date` (`openItems`, src/items.ts, which merges, times and ranks): the salience-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
- * ledger; the replies he owes. Who said each, when not him, is labelled. Atlas's daily review lists them (docs/agent.md).
+ * ledger; the replies he owes. Who said each, when not him, is labelled. The agent's daily review lists them (docs/agent.md).
  */
 export function dueOf(
   db: Database,
@@ -890,7 +890,7 @@ async function dueContext(date: string, truth: Truth) {
   };
 }
 
-/** The days before `date` on which Atlas's daily review got each id from `day` (the logged `mcp.call` ids). */
+/** The days before `date` on which the agent's daily review got each id from `day` (the logged `mcp.call` ids). */
 async function shownDays(date: string) {
   const days = new Map<string, Set<string>>();
   const calls = await recentEvents<Call>(OVERDUE_DAYS + 2, "mcp.call");

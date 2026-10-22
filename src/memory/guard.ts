@@ -50,7 +50,7 @@ export const backupDue = (
 
 /**
  * Above this share of his Codex plan, the runs that can wait do (middays, backfill weeks, evals), so the night keeps
- * the rest: a re-read night takes about 12 to 14% of a week (~/Life/docs/reviews/2026-10-21-atlas, gap 6).
+ * the rest: a re-read night takes about 12 to 14% of a week (the 21 Oct review, gap 6).
  */
 const RESERVE = 75;
 

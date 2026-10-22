@@ -111,7 +111,7 @@ export function readJson<T>(path: string): T | undefined {
 
 /**
  * Appends validated rows, one per line. Synchronous, so nothing runs between a read of the file and the line it allows
- * (an Atlas task's claim).
+ * (an agent task's claim).
  */
 export function appendJsonl<T>(path: string, schema: z.ZodType<T>, rows: T[]) {
   if (rows.length > 0) {
@@ -426,7 +426,7 @@ export interface Task {
   lines: Action[];
 }
 
-/** The actions ledger as Atlas's tasks (tasks.ts): each ask with its own lines. */
+/** The actions ledger as the agent's tasks (tasks.ts): each ask with its own lines. */
 export function tasksOf(lines = linesOf(ACTIONS)) {
   const tasks = new Map<string, Task>();
   for (const a of lines.map(parseAction)) {
@@ -439,7 +439,7 @@ export function tasksOf(lines = linesOf(ACTIONS)) {
   return [...tasks.values()];
 }
 
-/** Atlas's last update of a task: where it stands (`standing`, tasks.ts), and its outcome once done. */
+/** The agent's last update of a task: where it stands (`standing`, tasks.ts), and its outcome once done. */
 export const lastUpdate = (t: Task) =>
   t.lines.findLast((l) => l.kind === "update");
 

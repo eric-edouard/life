@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { askAt, checked, holds, table } from "./bench-atlas";
+import { AGENT_WORD } from "../src/schema";
+import { askAt, checked, holds, table } from "./bench-agent";
 
 test("a call holds the wanted arguments: text as a case-blind part, anything else equal", () => {
   const args = {
@@ -72,7 +73,7 @@ test("the table: one row per case, what failed named, an error kept", () => {
   expect(out).toContain("| b | error |||| index: boom |");
 });
 
-test("an ask as it reached Atlas: a delivered one is its event, its line kept; a chat one is his words, the ledger before it", () => {
+test("an ask as it reached Orbit: a delivered one is its event, its line kept; a chat one is his words, the ledger before it", () => {
   const ask = (id: string, madeBy: string, quote: string, at: string) =>
     JSON.stringify({
       after: { confidence: "high" },
@@ -83,7 +84,7 @@ test("an ask as it reached Atlas: a delivered one is its event, its line kept; a
       madeBy,
       result: "ok",
       schemaVersion: 1,
-      target: "atlas",
+      target: AGENT_WORD,
       why: "asked",
     });
   const lines = [

@@ -1,4 +1,4 @@
-// How the memory (or Atlas, in its bench) did on facts whose truth is known (the hand-made evals, his ratings, the
+// How the memory (or the agent, in its bench) did on facts whose truth is known (the hand-made evals, his ratings, the
 // bench's checks): a judge's grades, and what they come to.
 import { z } from "zod";
 import { askOnce, llmFor } from "../llm";

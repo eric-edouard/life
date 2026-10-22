@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { DATA, isHis, ROOT, STATE, TEST } from "./truth";
 
 // Life's one clock: every read of "now" goes through `clock()`. `LIFE_NOW` (an ISO instant) stops it there, for the
-// Atlas bench (scripts/bench-atlas.ts). Frozen, the live sources (lifelog, chats, notes, places) are read up to that
+// The agent bench (scripts/bench-agent.ts). Frozen, the live sources (lifelog, chats, notes, places) are read up to that
 // instant (`dayRange`, `placesOf`); memory, the ledger and the lifelog store are what the bench copied as of then. A
 // frozen world is a dry run (`dry`, mcp.ts). Only a copy is ever frozen: never his ~/Life (like `LIFE_LLM`), and never
 // in the live checkout, whose derived/ (log, events.json) is production's.

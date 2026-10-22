@@ -6,7 +6,7 @@ import { agentName, settings } from "../settings";
 
 // How Life talks to his Apple Reminders: remctl (its signed host, `--json`), the shape of a reminder, his lists. This
 // folder is the only code that touches Reminders, an interface to Life, never its truth: `write.ts` makes the changes
-// `act` decides, `board.ts` projects Atlas's tasks, `inbound.ts` reads his changes back as state. Delete the folder and
+// `act` decides, `board.ts` projects the agent's tasks, `inbound.ts` reads his changes back as state. Delete the folder and
 // Life still knows every task and every action from the ledger (memory/actions.jsonl).
 
 /** remctl (github.com/viticci/remctl), where its installer puts it, for every install. */
@@ -29,7 +29,7 @@ export async function remctlVersion() {
 /** Whether the Reminders plugin is on (the `reminders` setting): off, nothing in Life touches Reminders. */
 export const remindersOn = () => settings().reminders;
 
-/** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
+/** The agent's board: Life's projection of its tasks (src/tasks.ts). */
 export const BOARD = agentName();
 
 const parse = <T>(s: string) => {

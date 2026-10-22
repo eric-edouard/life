@@ -1,6 +1,12 @@
 import { closeSync, existsSync, openSync } from "node:fs";
-import type { Person, SourceEvent, Unit } from "../schema";
+import {
+  AGENT_WORD,
+  type Person,
+  type SourceEvent,
+  type Unit,
+} from "../schema";
 import { agentName, settings } from "../settings";
+import { newestAgent, readAgent } from "./agent";
 import { archiveDb } from "./archived";
 import {
   FORMATS,
@@ -8,7 +14,6 @@ import {
   newestAssistant,
   readAssistant,
 } from "./assistants";
-import { newestAtlas, readAtlas } from "./atlas";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
@@ -33,14 +38,14 @@ import {
 
 type SourceName = Unit["source"];
 
-/** A source's newest item, for the status page: when it came, his words in it, by part. */
+/** A source's newest item, for the status plate: when it came, his words in it, by part. */
 export interface Newest {
   at: string | null;
   /** More lines for its card (a repo's name, how many committed today). */
   facts?: { label: string; value: string }[];
   /** Each part's newest (Beeper's networks). */
   parts?: { at: string; label: string }[];
-  /** His words in it: the status page hides them in privacy mode and never sends them off the Mac. */
+  /** His words in it: the app shows them only while Show content is on. */
   words?: string[];
 }
 
@@ -73,7 +78,7 @@ export type Descriptor = {
   /** What he calls it. */
   label: string;
   name: SourceName;
-  /** Its newest item (the status page's card); a voice source's is lifelog's to tell. */
+  /** Its newest item (the status plate's card); a voice source's is lifelog's to tell. */
   newest?: () => Newest | Promise<Newest>;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
   searchDays?: number;
@@ -192,13 +197,13 @@ export const SOURCES: Descriptor[] = [
       silentAfter: Number.POSITIVE_INFINITY,
     })
   ),
-  // Atlas's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
+  // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
   {
     kind: "agent",
     label: agentName(),
-    name: "atlas",
-    newest: newestAtlas,
-    read: readAtlas,
+    name: AGENT_WORD,
+    newest: newestAgent,
+    read: readAgent,
     silentAfter: Number.POSITIVE_INFINITY,
   },
   {

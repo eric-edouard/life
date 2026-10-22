@@ -46,7 +46,7 @@ import { loadMe, ROOT } from "./truth";
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct`), on his explicit request in a
-// chat changes his Reminders (`reminders`, through `act`) and records Atlas's updates to its tasks (`task`) and its replies to him (`reply`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
+// chat changes his Reminders (`reminders`, through `act`) and records the agent's updates to its tasks (`task`) and its replies to him (`reply`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
@@ -79,7 +79,7 @@ const WRITES = {
 
 /**
  * `reminders`, `task` and `reply` write, but only his own Reminders (a remove goes to Recently Deleted) and Life's ledger, and
- * nothing they do is lost or hard to undo: not destructive, so Atlas uses them unattended.
+ * nothing they do is lost or hard to undo: not destructive, so the agent uses them unattended.
  */
 const REVERSIBLE = { ...WRITES, destructiveHint: false };
 
@@ -91,7 +91,7 @@ const Reminders = Change.extend({
 });
 
 /**
- * A frozen world (`LIFE_NOW`, the Atlas bench) reaches nothing outside Life's copy of the data: a tool that would read
+ * A frozen world (`LIFE_NOW`, the agent bench) reaches nothing outside Life's copy of the data: a tool that would read
  * or change his live Reminders or lifelog answers that it did nothing (its call is logged as every call is, `mcp.call`
  * with its arguments, so the bench grades it), and an event request is refused. `task` and `reply` still run: they
  * write only to the copy's ledger.

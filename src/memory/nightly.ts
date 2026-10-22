@@ -103,7 +103,7 @@ async function acted(now: Date, rec: Pick<RunRecord, "error">) {
     problems.push(`actions.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
-  // A task's own lines (Atlas's updates) are its rows, not actions.
+  // A task's own lines (the agent's updates) are its rows, not actions.
   return {
     actions: actions.filter(
       (a) => isListed(a) && Date.parse(a.at) >= now.getTime() - DAY_MS
@@ -114,7 +114,7 @@ async function acted(now: Date, rec: Pick<RunRecord, "error">) {
         name: `${t.state} · ${t.age}`,
         relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
       })),
-      // Atlas logs its replies by the playbook, not by code: the asks it never logged one for show here.
+      // The agent logs its replies by the playbook, not by code: the asks it never logged one for show here.
       ...(gaps > 0
         ? [
             {

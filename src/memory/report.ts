@@ -18,7 +18,7 @@ import { count, localTime, time } from "./units";
 import { localDate, when } from "./zones";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
-// (no model). `sendReport` also carries the alerts (a failed action or delivery, an Atlas task that needs him, the lock, the archive).
+// (no model). `sendReport` also carries the alerts (a failed action or delivery, an agent task that needs him, the lock, the archive).
 
 const FROM = `Claude <${LIFE_MAIL.from}>`;
 
@@ -266,7 +266,7 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
-/** The alert for the Atlas tasks that newly need him, one per `chase` pass (src/tasks.ts): why, and his words. */
+/** The alert for the agent tasks that newly need him, one per `chase` pass (src/tasks.ts): why, and his words. */
 export function taskReport(
   list: { ask: Task["ask"]; cause: string; title: string }[],
   now: number
@@ -288,7 +288,7 @@ export function taskReport(
   });
 }
 
-/** The alert for a lapsed `ask` subscription: about Atlas, not one task. */
+/** The alert for a lapsed `ask` subscription: about the agent, not one task. */
 export const lapseReport = (open: number, now: number) =>
   alert(new Date(now).toISOString(), agentName(), {
     failure: {
@@ -386,7 +386,7 @@ export async function unsent(keys: string[]) {
   return keys.filter((k) => !sent?.has(k));
 }
 
-/** The nightly report's key for the night run `run` (`sendReport`): the status page knows the report went by it. */
+/** The nightly report's key for the night run `run` (`sendReport`): the status plate knows the report went by it. */
 export const reportKey = (run: string) => `nightly/${run}`;
 
 /**

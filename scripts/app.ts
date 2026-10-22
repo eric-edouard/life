@@ -51,6 +51,7 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleExecutable</key><string>Life</string>
+  <key>CFBundleIconFile</key><string>Life</string>
   <key>CFBundleIdentifier</key><string>app.life.mac</string>
   <key>CFBundleName</key><string>Life</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -58,6 +59,7 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundleVersion</key><string>${version}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
+  <key>ATSApplicationFontsPath</key><string>Fonts</string>
   <key>SUFeedURL</key><string>${process.env.LIFE_APPCAST_URL ?? ""}</string>
   <key>SUPublicEDKey</key><string>${process.env.LIFE_SPARKLE_KEY ?? ""}</string>
   <key>NSContactsUsageDescription</key><string>Life reads your contacts to know who wrote to you.</string>
@@ -118,7 +120,54 @@ await cp(join(helper, "life"), join(contents, "Helpers", "life"));
 await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
   recursive: true,
 });
+// Ledger's type, Source Serif 4 and IBM Plex Mono (OFL, their licences beside them), registered by ATSApplicationFontsPath.
+await cp(join(ROOT, "app", "Fonts"), join(contents, "Resources", "Fonts"), {
+  recursive: true,
+});
 await writeFile(join(contents, "Info.plist"), PLIST);
+
+// Life's icon from assets/icon (rsvg-convert, Homebrew's librsvg): app.svg as the bundle's icon at every size macOS
+// asks for, menubar.svg as the menu bar's template image.
+const ICON = join(ROOT, "assets", "icon");
+const iconset = join(out, "Life.iconset");
+await mkdir(iconset, { recursive: true });
+await Promise.all(
+  [16, 32, 128, 256, 512].flatMap((size) =>
+    [1, 2].map((scale) =>
+      run([
+        "rsvg-convert",
+        "-w",
+        String(size * scale),
+        "-h",
+        String(size * scale),
+        "-o",
+        join(iconset, `icon_${size}x${size}${scale === 2 ? "@2x" : ""}.png`),
+        join(ICON, "app.svg"),
+      ])
+    )
+  )
+);
+await run([
+  "iconutil",
+  "-c",
+  "icns",
+  "-o",
+  join(contents, "Resources", "Life.icns"),
+  iconset,
+]);
+await run([
+  "rsvg-convert",
+  "-f",
+  "pdf",
+  // At 72 dpi its 18 px are 18 pt, the menu bar's size.
+  "-d",
+  "72",
+  "-p",
+  "72",
+  "-o",
+  join(contents, "Resources", "menubar.pdf"),
+  join(ICON, "menubar.svg"),
+]);
 
 // Inside out: the helper first, then the app around it.
 const entitlements = join(out, "helper.entitlements");
