@@ -8,8 +8,8 @@ the code; the connector logs each call as `mcp.call`), and read no source except
 reads it (to show who sent the line). Every answer is JSON, sent once as text content (no
 `structuredContent`: the model would read it twice), and carries `observedAt`, the server's time.
 
-Auth is the connector's, unchanged: lifelog's JWT for `https://life.ericedouard.com/mcp`, `life:read`, `sub` =
-the `connector` setting's owner. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
+Auth is the connector's, unchanged: a JWT for `<your connector origin>/mcp` (from Life's own issuer or the
+`connector` setting's), `life:read`, `sub` = the owner. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The four tools are annotated read-only.
 
 ## status
 
@@ -32,7 +32,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
   when the last midday started. **A spent slot is not a success**: read `midday.lastOk` / `lastFailed`.
 - `backfill`: the backfill's runs (`latest`, `lastOk`, `lastFailed`) and `state`: its range (`next`, `to`), `failures`
   of its current week (3 stop it), and `weeks` read on `day` (4 a day at most); null when none was set.
-- `nightly.next`, `midday.next`: `{earliest, latest, why}`. launchd ticks every 30 min, so a run is expected between
+- `nightly.next`, `midday.next`: `{earliest, latest, why}`. The nightly tick runs every 30 min, so a run is expected between
   the two if the Mac is awake and the lock is free; `why` says "retry 2 of 3 after a failure", "3 failures today: no
   more tries until tomorrow", "today's night succeeded", "the next slot", or "held: Codex quota 91% used, over 75%"
   (the midday waits for the quota's reset: `earliest` is the first slot after it, or after the next tick when the
@@ -117,7 +117,7 @@ each month of observations, then page commits). The ledgers are append-only, so 
 exactly where it stopped, a line appended to any source meanwhile is picked up, none twice, and a line still being
 written waits for the next read. Items come source by source; sort by `recordedAt` to show them. A cursor past the end
 of a ledger (one shrank, which the rules forbid) is an error, never a silent restart. Page changes are counted in
-`git log` order of the data repo (`~/Life`): amending or rebasing a commit that touched `memory/pages` would shift
+`git log` order of the data repo (`DATA`): amending or rebasing a commit that touched `memory/pages` would shift
 them silently.
 
 ## claim
@@ -159,8 +159,7 @@ snapshot must date it and mark it stale, and where it is stored is a separate de
 
 # The status page
 
-`https://life.ericedouard.com/`: Life's architecture as a plate of live cards, scoped with the owner in eight rounds of
-questions on 21 Oct. **Read-only**: it changes nothing, sends nothing of his but the plate below, and adds no connector
+`<your connector origin>/`: Life's architecture as a plate of live cards. **Read-only**: it changes nothing, sends nothing of his but the plate below, and adds no connector
 tool.
 
 - **Code.** `src/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
@@ -173,22 +172,20 @@ tool.
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
   Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
 - **Live.** One server-sent-events stream, a plate every 3 s when anything but its time changed; edge dots run when a
-  group's `flow` grew between two plates. The Pendant's recording state is lifelog's `GET /status` (live since
-  lifelog's PR 23).
+  group's `flow` grew between two plates. The Pendant's recording state is lifelog's `GET /status`.
 - **Content.** In full (a message's first words, ask quotes, call arguments) with a privacy switch remembered per
   device (`localStorage`) that hides it.
-- **Always on.** A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
+- **Always on** (legacy, to be deleted once Funnel is in place: [#137](https://github.com/eric-edouard/life/issues/137)). A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
   request to the Mac and, when the Mac is out of reach (no answer in 8 s, or Cloudflare's 502, 504, 52x), answers
   itself behind the same owner check (`ownerTokens`) with the page and the last plate the Mac pushed: once a minute,
   only its listed fields (`strip`: his words and errors' text stay on the Mac), the page's files on a process's first
   push (`pushPlate`). A push needs the shared secret; with none set the Worker takes none. Deploy: `worker/wrangler.jsonc`.
-- **Look.** Ledger, softened at his word: round surfaces, soft shadows, status as a coloured dot and a word, no
+- **Look.** Ledger, softened: round surfaces, soft shadows, status as a coloured dot and a word, no
   coloured borders.
 - **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
   steps, their counts and what it wrote. A sweep's line runs through its steps, then what it does after them (index;
   the night's commit and report). The tunnel and each service show when their process started (a heal or a
   restart), Reminders whether remctl can act, Email the alerts apart from the report.
-- **Pendant.** Recording or not, as the phone reports each change (lifelog's PRs 23 and 24), and the newest speech
+- **Pendant.** Recording or not, as the phone reports each change, and the newest speech
   heard; its silence counts from 08:00 at the earliest.
-- Shipped as PRs 108 (Codex use per run), 110 (the page) and the follow-up for these details; the spec said two.

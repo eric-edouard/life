@@ -125,7 +125,7 @@ test("runs: sweeps hold their steps; failed, unfinished, running and old run-les
     children: [`memory.moments/${id(triage)}`],
     errors: [{ error: "offline", step: "memory.nightly.actions" }],
     outcome: "ok",
-    // What the night's report listed, for an audit (docs/audits.md).
+    // What the night's report listed, for an audit (docs/operations.md, "Regression cases").
     result: { listed: ["obs_000000000001"] },
   });
   expect(by("memory.moments")).toMatchObject({
