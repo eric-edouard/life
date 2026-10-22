@@ -1,6 +1,6 @@
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { redact } from "../core/redact";
 import { type Candidate, owed } from "../items";
-import { redact } from "../redact";
 import type { SourceEvent, Unit } from "../schema";
 import { isDirect, kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
@@ -14,9 +14,9 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { handlesOf, OWNER, ownerIn } from "../truth";
 import { readRepoGuesses, readUnits } from "./ledger";
 import type { Line } from "./observe";
+import { handlesOf, OWNER, ownerIn } from "./truth";
 import {
   type Built,
   builtFor,

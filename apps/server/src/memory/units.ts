@@ -1,9 +1,9 @@
 import { join } from "node:path";
-import { clock } from "../clock";
-import { log } from "../log";
-import { redact } from "../redact";
+import { clock } from "../core/clock";
+import { log } from "../core/log";
+import { redact } from "../core/redact";
+import { settings } from "../core/settings";
 import { type Person, type SourceEvent, Unit } from "../schema";
-import { settings } from "../settings";
 import {
   type Descriptor,
   enabledSources,
@@ -18,7 +18,6 @@ import {
   type Store,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth, OWNER, ownerIn, type Truth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { describeFiles, showFiles } from "./files";
 import {
@@ -30,6 +29,7 @@ import {
   readUnitsOf,
   UNITS,
 } from "./ledger";
+import { loadTruth, OWNER, ownerIn, type Truth } from "./truth";
 import { dayStart, localDate, wall } from "./zones";
 
 // L1 units (memory-pipeline §3.1): one lifelog chapter, one chat-day, mail thread-day, note-day or repo-day. Built by

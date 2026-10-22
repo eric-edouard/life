@@ -1,6 +1,6 @@
-import { holder } from "./lock";
-import { exec } from "./proc";
-import { TEST } from "./truth";
+import { holder } from "./core/lock";
+import { TEST } from "./core/paths";
+import { exec } from "./core/proc";
 
 // The Mac Life runs on, as the status plate shows it (apps/server/src/plate.ts): awake since, battery, disk, the LaunchAgents and
 // cloudflared, and its sleeps of the last day. Read-only.

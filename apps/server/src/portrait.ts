@@ -1,10 +1,10 @@
 import { createHmac } from "node:crypto";
 import { join } from "node:path";
 import { type Context, Hono } from "hono";
+import { DATA, ROOT } from "./core/paths";
+import { same } from "./core/secret";
+import { connector } from "./core/settings";
 import { cookie, cookieOf, HEADERS, redirect, TOKENS, text } from "./http";
-import { same } from "./secret";
-import { connector } from "./settings";
-import { DATA, ROOT } from "./truth";
 
 // The portrait (/me): pages about him and his people, written from his memory into DATA/docs/portrait/ (his data,
 // never in this repo): /me is index.html, /me/<name> is <name>.html. Behind a password (LIFE_PORTRAIT_PASSWORD in

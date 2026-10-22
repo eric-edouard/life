@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { WINDOWS } from "../core/platform";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
-import { WINDOWS } from "../platform";
 import { AGENT_WORD, Unit } from "../schema";
 import {
   type Descriptor,
@@ -10,7 +10,7 @@ import {
   readySources,
   SOURCES,
   sourceOf,
-} from ".";
+} from "../sources";
 import { archiveDb } from "./archived";
 
 test("every stored source name has one descriptor, in the cut order", () => {

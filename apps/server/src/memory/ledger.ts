@@ -1,15 +1,9 @@
 import { createHash } from "node:crypto";
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
-import { readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { z } from "zod";
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
+import { DATA, STATE } from "../core/paths";
 import {
   Action,
   Correction,
@@ -29,7 +23,6 @@ import {
   Unresolved,
   Verdict,
 } from "../schema";
-import { DATA, STATE } from "../truth";
 
 // memory/ on disk: every path, one JSON Lines reader and appender, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
@@ -78,63 +71,11 @@ export const FILES = join(MEMORY, "files.jsonl");
 export const STATEMENTS = join(MEMORY, "statements.jsonl");
 export const RATINGS = join(MEMORY, "ratings.jsonl");
 export const SCORES = join(MEMORY, "scores.jsonl");
-
-/**
- * A file's complete lines (none when it is missing): a line still being appended, with no newline yet, waits for the
- * next read. Synchronous, so the source readers can show what memory/files.jsonl says of their files.
- */
-export function linesOf(path: string) {
-  const all = (existsSync(path) ? readFileSync(path, "utf8") : "").split("\n");
-  all.pop();
-  return all;
-}
-
-export const rowsOf = <T>(path: string, schema: z.ZodType<T>) =>
-  linesOf(path)
-    .filter(Boolean)
-    .map((l) => schema.parse(JSON.parse(l)));
-
-/** Writes a small JSON state file (a guard's, the backfill's), its folder made if missing. */
-export function writeJson(path: string, value: unknown) {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(value)}\n`);
-}
-
-/** A small JSON state file, or undefined when it is missing or unreadable. */
-export function readJson<T>(path: string): T | undefined {
-  try {
-    return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Appends validated rows, one per line. Synchronous, so nothing runs between a read of the file and the line it allows
- * (an agent task's claim).
- */
-export function appendJsonl<T>(path: string, schema: z.ZodType<T>, rows: T[]) {
-  if (rows.length > 0) {
-    mkdirSync(join(path, ".."), { recursive: true });
-    appendFileSync(
-      path,
-      rows.map((r) => `${JSON.stringify(schema.parse(r))}\n`).join("")
-    );
-  }
-}
-
 /** Everyone whose page is written, by ref (the inverse of `pagePath`). */
 export const writtenPeople = async () =>
   (await filesIn(join(PAGES, "people"), ".md")).map(
     (f) => `person:${f.slice(0, -3)}`
   );
-
-/** The files of a folder with that extension, by name (observations/: one `.jsonl` per month). */
-export const filesIn = async (dir: string, ext = ".jsonl") =>
-  (await readdir(dir).catch(() => [] as string[]))
-    .filter((n) => n.endsWith(ext))
-    .sort();
-
 /** Every `.jsonl` file of a folder, by name. */
 const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
   (await filesIn(dir)).flatMap((n) => rowsOf(join(dir, n), schema));

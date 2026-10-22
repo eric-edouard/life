@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
+import { readSettings, setSettings } from "../core/settings";
 import {
   AGENT_WORD,
   type Person,
   type SourceEvent,
   type Unit,
 } from "../schema";
-import { readSettings, setSettings } from "../settings";
 import { SOURCES } from "../sources";
 import {
   chapter,
@@ -20,9 +20,9 @@ import {
   type LifelogConversation,
   readConversations,
 } from "../sources/lifelog";
-import { loadTruth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { readUnits, UNITS } from "./ledger";
+import { loadTruth } from "./truth";
 import {
   applyRules,
   dayRange,

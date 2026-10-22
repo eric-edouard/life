@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { ARCHIVE } from "../sources/archived";
+import { BEEPER } from "../sources/beeper";
+import { DB } from "../sources/imessage";
+import { NOTES } from "../sources/notes";
+import { WHATSAPP } from "../sources/whatsapp";
+import { ROOT, STATE } from "./paths";
 import { APP_DATA, CODEX, HOME, MACHINE, systemZone } from "./platform";
 import { expand } from "./settings";
-import { ARCHIVE } from "./sources/archived";
-import { BEEPER } from "./sources/beeper";
-import { DB } from "./sources/imessage";
-import { NOTES } from "./sources/notes";
-import { WHATSAPP } from "./sources/whatsapp";
-import { ROOT, STATE } from "./truth";
 
 test("this system's pinned codex is installed where Life runs it", () => {
   expect(existsSync(join(ROOT, CODEX))).toBe(true);

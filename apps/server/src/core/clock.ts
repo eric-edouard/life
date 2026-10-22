@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import { DATA, isHis, ROOT, STATE, TEST } from "./truth";
+import { DATA, isHis, ROOT, STATE, TEST } from "./paths";
 
 // Life's one clock: every read of "now" goes through `clock()`. `LIFE_NOW` (an ISO instant) stops it there, for the
 // The agent bench (scripts/bench-agent.ts). Frozen, the live sources (lifelog, chats, notes, places) are read up to that

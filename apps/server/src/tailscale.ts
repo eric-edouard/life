@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { z } from "zod";
+import { execOk } from "./core/proc";
+import { setSettings, settings } from "./core/settings";
 import { PUBLIC_PORT } from "./http";
-import { execOk } from "./proc";
-import { setSettings, settings } from "./settings";
 
 // How the connector is reached with no domain of his own: Tailscale. `serve` puts Life's server on his tailnet, for
 // his phone and his own computers; `funnel` puts it on the internet, for the agents that call from their makers'

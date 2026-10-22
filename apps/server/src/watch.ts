@@ -1,24 +1,25 @@
 import { checks, pull } from "./actions/backend";
 import { marks, push } from "./actions/board";
 import { inbound } from "./actions/inbound";
-import { clock } from "./clock";
+import { clock } from "./core/clock";
+import { appendJsonl } from "./core/files";
+import { hold } from "./core/lock";
+import { log } from "./core/log";
+import { isOn } from "./core/outputs";
+import { ROOT } from "./core/paths";
+import { codeAt } from "./core/proc";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
-import { hold } from "./lock";
-import { log } from "./log";
 import { isLocked, locked } from "./memory/guard";
-import { ACTIONS, appendJsonl, readActions, tasksOf } from "./memory/ledger";
+import { ACTIONS, readActions, tasksOf } from "./memory/ledger";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
-import { isOn } from "./outputs";
-import { codeAt } from "./proc";
 import { Action } from "./schema";
 import { serve } from "./server";
 import { listening } from "./sources/index";
 import { lastSeen, openStore, poll, type Store } from "./sources/lifelog";
 import { chase, closings, receipts } from "./tasks";
-import { ROOT } from "./truth";
 import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed

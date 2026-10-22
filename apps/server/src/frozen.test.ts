@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { clock, FROZEN } from "./clock";
-import { exec } from "./proc";
+import { clock, FROZEN } from "./core/clock";
+import { exec } from "./core/proc";
 
 // The bench's frozen world (`LIFE_NOW`): this file runs itself again with the clock stopped, and those tests check
 // what a frozen process serves.

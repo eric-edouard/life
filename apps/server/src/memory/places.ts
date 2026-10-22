@@ -1,5 +1,5 @@
-import { clock } from "../clock";
-import { redact } from "../redact";
+import { clock } from "../core/clock";
+import { redact } from "../core/redact";
 import {
   conversationsBetween,
   openStore,

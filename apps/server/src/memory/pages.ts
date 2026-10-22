@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
+import { appendJsonl } from "../core/files";
+import { DATA } from "../core/paths";
+import { git } from "../core/proc";
 import { stamp } from "../llm";
-import { git } from "../proc";
 import {
   type Area,
   Correction,
@@ -11,10 +13,8 @@ import {
   type Person,
   type Unit,
 } from "../schema";
-import { DATA, OWNER, type Truth } from "../truth";
 import { levelsWith, pagedBy, personallyClose, waitingOf } from "./closeness";
 import {
-  appendJsonl,
   CORRECTIONS,
   PAGE_KINDS,
   PAGES,
@@ -50,6 +50,7 @@ import {
   wordsOf,
 } from "./page";
 import { begin, inBatches, refContext, type Step } from "./run";
+import { OWNER, type Truth } from "./truth";
 import { daysBefore, slugOf, within } from "./units";
 import { observationsNow, readPeople, type Shown, unitNow, who } from "./who";
 

@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
+import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../llm";
 import { Imported, type MadeBy } from "../schema";
 import {
@@ -10,10 +11,10 @@ import {
   importOf,
   parsedExport,
 } from "../sources/assistants";
-import { loadTruth } from "../truth";
 import { spareQuota } from "./guard";
-import { appendJsonl, IMPORTED, keptConversations, rowsOf } from "./ledger";
+import { IMPORTED, keptConversations } from "./ledger";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
+import { loadTruth } from "./truth";
 import { clip } from "./units";
 import { localDate } from "./zones";
 

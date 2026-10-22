@@ -1,13 +1,13 @@
 import { join } from "node:path";
 import { Hono } from "hono";
+import { ROOT } from "./core/paths";
+import { connector } from "./core/settings";
 import { HEADERS, redirect, text } from "./http";
 import { readRatings, readStatements, recordRating } from "./memory/ledger";
 import { plain as asOf } from "./memory/statements";
 import { readPeople } from "./memory/who";
 import { Rating } from "./schema";
-import { connector } from "./settings";
 import type { SignIn } from "./signin";
-import { ROOT } from "./truth";
 
 // The check page (/check/): he rates the statements (memory/statements.jsonl), each answer appended to ratings.jsonl.
 // Behind the owner's sign-in (`signin.ts`); nothing but the sign-in redirects answers before that check.

@@ -1,11 +1,11 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { clock } from "../clock";
-import { log } from "../log";
-import { exec, git } from "../proc";
+import { clock } from "../core/clock";
+import { log } from "../core/log";
+import { exec, git } from "../core/proc";
+import { expand, settings } from "../core/settings";
+import type { Truth } from "../memory/truth";
 import type { Person, RepoGuess, SourceEvent } from "../schema";
-import { expand, settings } from "../settings";
-import type { Truth } from "../truth";
 import type { Newest } from "./index";
 
 // Git commits as a source: local `git log` of every repo in the `repos` setting's folder, read-only. A repo-day is a

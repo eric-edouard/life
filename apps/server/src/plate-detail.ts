@@ -1,6 +1,6 @@
-import { clock } from "./clock";
+import { clock } from "./core/clock";
+import { recentEvents } from "./core/log";
 import { clientName, isAgent } from "./events";
-import { recentEvents } from "./log";
 import { sleeps } from "./mac";
 import { changeFeed, encode } from "./memory/feed";
 import { runs, STEPS, useText } from "./memory/history";

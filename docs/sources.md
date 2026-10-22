@@ -6,7 +6,7 @@ Every source is read-only. Each one is a file in `apps/server/src/sources/` that
 reading twice never duplicates anything. What Life knows about a source is its descriptor in `apps/server/src/sources/index.ts`:
 its kind (agent, chat, mail, notes, repo, voice), its reader, how far back `search` and `chats` read it, and what its ids say
 (groups, handles). Adding a source is one more descriptor there, and its name in `SourceName` (`schema.ts`). Raw data stays in its own app; Life keeps only ids and short quotes (and an ask's words, `docs/tasks.md`). Before any text reaches a model,
-`apps/server/src/redact.ts` removes key blocks, card numbers, IBANs, long tokens and lines that look like passwords or codes.
+`apps/server/src/core/redact.ts` removes key blocks, card numbers, IBANs, long tokens and lines that look like passwords or codes.
 
 Each chat and mail reader also names a message's files (`SourceFile`, `schema.ts`: where it was met, name, type, and the
 path when the file is on this Mac). One place, `showFiles` in `apps/server/src/memory/files.ts`, turns them into lines of the message,

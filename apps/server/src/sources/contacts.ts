@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { log } from "../log";
-import { APP_DATA } from "../platform";
+import { log } from "../core/log";
+import { APP_DATA } from "../core/platform";
 
 // His Contacts: the Mac's AddressBook databases, opened read-only, never written. They name the people behind the
 // phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a number.

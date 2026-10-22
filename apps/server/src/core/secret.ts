@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { STATE } from "./truth";
+import { STATE } from "./paths";
 
 /**
  * Every secret file Life keeps, in its state: the OAuth issuer's clients and tokens, the agent's events subscription,

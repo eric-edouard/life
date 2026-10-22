@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { hold, holder, isOtherLife, take } from "./lock";
+import { STATE } from "./paths";
 import { MACHINE } from "./platform";
-import { STATE } from "./truth";
 
 const lock = join(MACHINE, "archive.lock");
 

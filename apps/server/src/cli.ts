@@ -6,6 +6,13 @@ import { checks } from "./actions/backend";
 import { REMCTL_RELEASE, remctlVersion } from "./actions/remctl";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
+import { off } from "./core/outputs";
+import {
+  readSettings,
+  type Settings,
+  setSettings,
+  settings,
+} from "./core/settings";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http";
 import { restore } from "./import";
@@ -14,16 +21,14 @@ import { readEngine } from "./llm";
 import { memoryCommand, step } from "./memory/command";
 import { dryRun, importExport } from "./memory/imports";
 import { actionLine, duration, REPORTS } from "./memory/report";
+import { integrity, loadTruth } from "./memory/truth";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
-import { off } from "./outputs";
 import { Engine } from "./schema";
-import { readSettings, type Settings, setSettings, settings } from "./settings";
 import { localKey } from "./signin";
 import { FULL_DISK, SOURCES } from "./sources/index";
 import { connect } from "./tailscale";
 import { ask, timings } from "./tasks";
-import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
 
 /** `act` and the grant need the actions output: off, they say so and do nothing. */

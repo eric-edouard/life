@@ -3,8 +3,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
-import { clock } from "../clock";
-import { setSettings, settings } from "../settings";
+import { clock } from "../core/clock";
+import { setSettings, settings } from "../core/settings";
 import { toAppleNs, toAppleS } from "./imessage";
 import { openStore } from "./lifelog";
 

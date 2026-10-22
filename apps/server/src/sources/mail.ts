@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { HOME } from "../platform";
+import { HOME } from "../core/platform";
 import { type SourceEvent, type SourceFile, sourceFile } from "../schema";
 import type { Newest } from "./index";
 

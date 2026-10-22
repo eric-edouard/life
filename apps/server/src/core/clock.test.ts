@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { frozenAt } from "./clock";
+import { ROOT } from "./paths";
 import { repoFiles } from "./proc";
-import { ROOT } from "./truth";
 
 const RAW_NOW = /new Date\(\)|Date\.now\(\)/;
 
@@ -23,7 +23,7 @@ test("LIFE_NOW freezes the clock, on a copy in a worktree only, at a valid insta
 
 test("no code reads now but through clock()", async () => {
   const code = repoFiles(ROOT, ["apps/server/src", "scripts"], [".ts"]).filter(
-    (f) => !(f.endsWith(".test.ts") || f === "apps/server/src/clock.ts")
+    (f) => !(f.endsWith(".test.ts") || f === "apps/server/src/core/clock.ts")
   );
   const texts = await Promise.all(
     code.map((f) => Bun.file(join(ROOT, f)).text())

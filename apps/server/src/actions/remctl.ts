@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { unfrozen } from "../clock";
-import { HOME } from "../platform";
-import { exec } from "../proc";
+import { unfrozen } from "../core/clock";
+import { HOME } from "../core/platform";
+import { exec } from "../core/proc";
 import type { Change } from "./act";
 import type { ActionsBackend, Item } from "./backend";
 

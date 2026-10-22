@@ -1,7 +1,6 @@
-import { cpSync, existsSync, mkdtempSync, realpathSync } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { DATA } from "../core/paths";
 import {
   type Area,
   AreasFile,
@@ -11,50 +10,10 @@ import {
   PeopleFile,
   type Person,
   Project,
-} from "./schema";
-
-/** Life's own files (prompts, docs/agent.md, assets): the checkout, or the app's resources (`LIFE_ROOT`). */
-export const ROOT =
-  process.env.LIFE_ROOT ?? join(import.meta.dir, "..", "..", "..");
-/** `bun test` sets NODE_ENV=test: tests never touch the real log or data. */
-export const TEST = process.env.NODE_ENV === "test";
-/** The made-up data tests read (apps/server/src/test-data). */
-export const FIXTURES = join(import.meta.dir, "test-data");
-/** A path with its links resolved, or as it is when it doesn't exist. */
-export const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
-
-/**
- * His data: a local git repo of its own (memory/ and truth/), never pushed. Resolved once, here, like `STATE`: when
- * `~/Life` is a link (to the app's folder), every path Life makes is the real one, so nothing copies or removes
- * through a link. A test run reads its own copy of the
- * made-up data, outside any repo: two runs at once (a push's check beside another session's tests) share no lock or
- * ledger, and none can commit.
- */
-export const DATA = real(
-  TEST ? copied(FIXTURES) : (process.env.LIFE_DATA ?? join(homedir(), "Life"))
-);
-
-/**
- * Life's own state, never his: its settings, log, the watcher's store, the runs and the search index. A checkout keeps
- * it in its own derived/ (each worktree apart from production); the app sets `LIFE_STATE`. A test run keeps it in its
- * copy of the data.
- */
-export const STATE = real(
-  TEST ? join(DATA, "state") : (process.env.LIFE_STATE ?? join(ROOT, "derived"))
-);
-
-/** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
-export function isHis(data = DATA) {
-  return real(data) === real(join(homedir(), "Life"));
-}
+} from "../schema";
 
 // ponytail: each run leaves its ~24 KB copy for the OS to clear (an exit hook doesn't fire under bun test); delete
 // old ones here if the temp folder ever matters.
-function copied(from: string) {
-  const to = mkdtempSync(join(tmpdir(), "life-test-"));
-  cpSync(from, to, { recursive: true });
-  return to;
-}
 const ME = "me";
 /** The owner's own entry in truth/people.yaml. */
 export function ownerIn(people: Person[]): Person {

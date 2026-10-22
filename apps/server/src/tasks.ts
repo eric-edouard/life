@@ -3,12 +3,15 @@ import { join } from "node:path";
 import { z } from "zod";
 import { actionId, requested } from "./actions/act";
 import type { Receipt } from "./actions/board";
-import { clock } from "./clock";
+import { clock } from "./core/clock";
+import { appendJsonl } from "./core/files";
+import { LOG_DIR, logDays, logEvents } from "./core/log";
+import { isOn } from "./core/outputs";
+import { DATA, ROOT } from "./core/paths";
+import { agentName, settings } from "./core/settings";
 import { agentLive } from "./events";
-import { LOG_DIR, logDays, logEvents } from "./log";
 import {
   ACTIONS,
-  appendJsonl,
   digest,
   lastUpdate,
   type Task,
@@ -17,10 +20,7 @@ import {
 import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
-import { isOn } from "./outputs";
 import { Action, AGENT_WORD, type Instruction } from "./schema";
-import { agentName, settings } from "./settings";
-import { DATA, ROOT } from "./truth";
 
 // The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
 // done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and

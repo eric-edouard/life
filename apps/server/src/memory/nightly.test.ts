@@ -1,8 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { log } from "../log";
-import { MACHINE } from "../platform";
+import { log } from "../core/log";
+import { MACHINE } from "../core/platform";
 import type { Extracted, Observation } from "../schema";
 import { unit } from "./fixtures";
 import { latestExtractions } from "./ledger";

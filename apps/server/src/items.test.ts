@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { type Candidate, openItems, owed } from "./items";
+import { goalProjects } from "./memory/truth";
 import type { SourceEvent } from "./schema";
-import { goalProjects } from "./truth";
 
 const DATE = "2026-10-19";
 const item = (over: Partial<Candidate>): Candidate => ({

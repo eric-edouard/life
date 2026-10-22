@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { clock } from "../clock";
+import { clock } from "../core/clock";
 import { closeness } from "./closeness";
 import { extract } from "./extract";
 import { changeFeed, claim } from "./feed";

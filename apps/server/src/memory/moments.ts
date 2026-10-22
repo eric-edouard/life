@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { appendJsonl } from "../core/files";
 import { stamp } from "../llm";
 import {
   ChapterKind,
@@ -16,10 +17,8 @@ import {
   type Verdict,
 } from "../schema";
 import { kindOf } from "../sources";
-import { OWNER, type Truth } from "../truth";
 import { closeNow } from "./closeness";
 import {
-  appendJsonl,
   appendVerdicts,
   daysOf,
   digest,
@@ -38,6 +37,7 @@ import {
 import { linkOf } from "./observe";
 import { checkPeople, unknownIn } from "./people";
 import { begin, checkedEntries, refContext } from "./run";
+import { OWNER, type Truth } from "./truth";
 import {
   areaLookup,
   areaOf,

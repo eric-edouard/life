@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { git } from "./core/proc";
 import { init } from "./init";
-import { git } from "./proc";
-import { integrity, loadTruth, ownerIn } from "./truth";
+import { integrity, loadTruth, ownerIn } from "./memory/truth";
 
 test("init makes a new owner's data that validates, commits it, and never runs twice", async () => {
   const data = join(mkdtempSync(join(tmpdir(), "life-init-")), "data");

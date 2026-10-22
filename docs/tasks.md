@@ -200,7 +200,7 @@ grant, and logs the agent's replies.
 
 What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
 Life can turn on or off (Reminders, the Past calendar, the connector, the backup) is an entry in `OUTPUTS`
-(`apps/server/src/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
+(`apps/server/src/core/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
 reads the rest of its settings. How the report and the alerts go out:
 
 - To the owner only (`apps/server/src/memory/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`

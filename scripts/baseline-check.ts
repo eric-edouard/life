@@ -2,7 +2,7 @@
 // baseline lists what was there before the zones and only shrinks (`bun run check`). Skips the comparison when
 // origin/main has no baseline yet.
 import { readFileSync } from "node:fs";
-import { git } from "server/src/proc";
+import { git } from "server/src/core/proc";
 
 const FILE = ".fallow-baseline.json";
 const parse = (text: string) => JSON.parse(text) as Record<string, unknown>;

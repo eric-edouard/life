@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
+import { DATA, STATE } from "server/src/core/paths";
+import { MACHINE } from "server/src/core/platform";
+import { execOk } from "server/src/core/proc";
 import { madeBy, unit } from "server/src/memory/fixtures";
-import { MACHINE } from "server/src/platform";
-import { execOk } from "server/src/proc";
-import { DATA, STATE } from "server/src/truth";
 
 // A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
 // apps/server/src/test-data, plus a week of invented memory about a landlord, a plumber and a friend) and builds its search index.

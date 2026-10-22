@@ -101,7 +101,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `docs/plans/2026-10-22-architecture.md`). `.fallow-baseline.json` lists the violations left from before and only
   shrinks: after removing one, re-save it from a passing check (`bun x --bun fallow --save-baseline
   .fallow-baseline.json`); `scripts/baseline-check.ts` fails a baseline that holds anything else or grows.
-- **Settings are one strict file, read once per process** (`apps/server/src/settings.ts`). A part left out is off; a new key lands
+- **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
 - **The actions backend is an interface, never the truth; the ledger is.** Changes read back from it can take authority
@@ -124,20 +124,20 @@ Before adding a helper, use the one that exists:
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `person` and `chats`) |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
 | A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone |
-| Now | `clock()` (`apps/server/src/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
+| Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
 | A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/sources/index.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
 | A unit's words | `raw.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
-| Running another program | `apps/server/src/proc.ts` |
-| A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/proc.ts`) |
+| Running another program | `apps/server/src/core/proc.ts` |
+| A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
-| Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/outputs.ts`), never a setting read for the switch |
+| Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
-| Anything that differs between macOS and Windows | `apps/server/src/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
+| Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
 Only `guard.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts

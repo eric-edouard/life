@@ -1,6 +1,6 @@
-import { clock } from "./clock";
-import { exec } from "./proc";
-import { connector, settings } from "./settings";
+import { clock } from "./core/clock";
+import { exec } from "./core/proc";
+import { connector, settings } from "./core/settings";
 
 // The Mac's Cloudflare tunnel (`com.eric.cloudflared`, `~/.cloudflared/config.yml`). cloudflared can wedge: its edge
 // connections die but the process never exits, so launchd's KeepAlive never fires. Every 2 minutes the watcher probes

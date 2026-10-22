@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
+import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../schema";
-import { setSettings, settings } from "../settings";
 import { copyBeeper, readBeeper } from "../sources/beeper";
 import {
   beeperFixture,
@@ -19,7 +19,6 @@ import { readImessage } from "../sources/imessage";
 import { apply } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
-import { OWNER } from "../truth";
 import { LIFE_MAIL } from "./email";
 import {
   chatHits,
@@ -30,6 +29,7 @@ import {
   transcripts,
   voiceLines,
 } from "./raw";
+import { OWNER } from "./truth";
 import { LIFE_CHAT, localTime, time } from "./units";
 
 const words = ["Allo", "Salut", "", "Fin"];

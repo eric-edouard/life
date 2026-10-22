@@ -1,5 +1,5 @@
-import { unfrozen } from "../clock";
-import { execOk } from "../proc";
+import { unfrozen } from "../core/clock";
+import { execOk } from "../core/proc";
 import type { ActionsBackend, Item, List } from "./backend";
 
 // The Google Tasks backend: his tasks through `gog tasks … --json` as `account`. Only `backend.ts` uses it. A task's

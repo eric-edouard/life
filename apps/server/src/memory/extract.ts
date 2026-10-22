@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../llm";
 import {
   Extracted,
@@ -15,10 +16,8 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { othersIn } from "../truth";
 import { closeNow } from "./closeness";
 import {
-  appendJsonl,
   EXTRACTED,
   latestBy,
   momentsNow,
@@ -26,7 +25,6 @@ import {
   readMoments,
   readVerdicts,
   rereadAt,
-  rowsOf,
   SUPERSESSIONS,
   stateOf,
   UNRESOLVED,
@@ -36,6 +34,7 @@ import {
 import { parseObservations, type Reject, type Source } from "./observe";
 import { chatLines, transcripts, voiceLines } from "./raw";
 import { begin, inBatches, refContext } from "./run";
+import { othersIn } from "./truth";
 import {
   areaLookup,
   type Built,

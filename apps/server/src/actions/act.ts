@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { appendJsonl } from "../core/files";
 import { linked, openLinked } from "../items";
-import { ACTIONS, appendJsonl, digest, readActions } from "../memory/ledger";
+import { ACTIONS, digest, readActions } from "../memory/ledger";
 import { actionFailedReport, sendReport } from "../memory/report";
 import { normalize } from "../memory/units";
 import { localDate } from "../memory/zones";

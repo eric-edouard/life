@@ -1,8 +1,8 @@
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { appendJsonl } from "../core/files";
 import { type Moment, Statement } from "../schema";
 import { pagedNow } from "./closeness";
 import {
-  appendJsonl,
   digest,
   momentsNow,
   readMoments,
