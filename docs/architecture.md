@@ -1,0 +1,131 @@
+# Architecture
+
+Life is a memory of one person's life, built from his own sources and kept on his own Mac. This page explains its
+shape and the reasons for it. Record formats are in `docs/SCHEMA.md`, sources in `docs/sources.md`, the agent and the
+connector in `docs/atlas.md`, how it runs in `docs/operations.md`.
+
+## lifelog and Life
+
+Life works beside lifelog, a companion project that captures voice. Each has one job:
+
+| | lifelog | Life |
+|---|---|---|
+| Job | Voice capture: audio, transcripts, speakers, per-conversation chapters and summaries, search | Memory across sources: voice (through lifelog), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Owns | The raw spoken archive | The people across channels, observations, people and project pages |
+| Runs | Its own host and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
+| Acts? | Never | Only on the owner's clear request (`docs/atlas.md`) |
+
+- Life reads lifelog through its REST API with a device token (`src/sources/lifelog.ts`). It keeps chapter titles,
+  summaries and turn refs, not transcript text (except an ask's words). Exact quotes are fetched on demand.
+- Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
+- Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must
+  not leave the Mac, nor their text go to a third party for embeddings.
+
+## The pipeline
+
+```
+sources → units → moments (with a verdict per unit) → observations → people and area pages
+                                                                  ↘ the search index
+```
+
+- **Sources** (`src/sources/`, one descriptor each in `src/sources/index.ts`) return events with stable ids, so reading
+  twice never duplicates anything. Raw data stays in its own app.
+- **Units** (`src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a note-day,
+  a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees it.
+- **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
+  writes a verdict per unit (type, salience, area) and what happened or is planned. The same call says who the day's
+  unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later).
+- **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
+  correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
+  that retires an observation (besides the owner rating one outdated).
+- **Pages** (`page.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
+  words at most (the owner's own page 2,000).
+- **The index** (`STATE/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.
+
+Model output is cached by unit hash and prompt version, so a night re-reads only what changed.
+
+### Why one compressed layer
+
+Raw search scales; reading does not. A day of speech is on the order of 100k tokens, so the largest context holds about
+a week. Hence one compressed layer, the pages, each line cited. Not justified so far: an atomic-fact database, graph
+databases, contradiction resolvers, summary hierarchies. This limits memory structures, not initiative: raising things
+unasked is the agent's job.
+
+Time is modeled without a new store: said (`at`), valid (`validFrom`/`validTo`), event (`when`), recorded
+(`madeBy.run`), retired (`supersessions.jsonl`), and every page version is in the data repo's git.
+
+### The owner is the center
+
+His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
+projection of the observations like every page, so its shape changes at the cost of rebuilding one page. His goals are
+only in `truth/me.md`. Nothing about him is stored in a separate record, and observations carry no owner-only field.
+
+## Relationships and closeness
+
+A question like "what is my arc with this friend?" needs more than recent logistics. The design:
+
+- **Who gets a page is a closeness level** (`src/memory/closeness.ts`), judged by a model on numbers code counts from
+  raw signals only (two-way 1:1 message days, voice presence, recency), never from model output, so there is no
+  feedback loop. Personal and work closeness are separate scores. Service accounts are not people. Close family keeps a
+  floor. The owner can override any level in a sentence; there is no list for him to keep.
+- **A section that does not age:** close people's pages have "Between us" (role, agreements, boundaries, dynamics,
+  turning points), each line cited and attributed; a line with no new evidence in 12 months moves to History.
+  Close means close personally now or once, so a dip never empties the section.
+- **Old facts can be corrected:** extraction also shows a moment the facts of the last year about the close people
+  (`priorFor`), so a newer fact can retire an older one.
+- **Arcs are assembled when asked** (the relationship section, History, paged evidence, moments, a month timeline),
+  never stored as a summary.
+- **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
+- **Backfill:** older months can be read later (`bun life memory backfill`), oldest first, a few weeks a day.
+
+Known limits: no call records, no unrecorded time together, no location history before lifelog's; a spoken claim about
+someone else is capped at 0.6 confidence.
+
+## Why the memory stays on the Mac
+
+- The data root is a local git repository with no remote: the nightly commits and never pushes.
+- The archive (deleted messages, old note versions) is the only live copy of what the apps delete; it lives in
+  Application Support and in the encrypted backup, nowhere else.
+- Model calls go to the owner's own subscriptions (Claude or Codex), or an API key on an install with neither. They
+  run in an empty temp folder with no tools and no instruction files, so recorded content reaches the model with
+  nothing but the prompt.
+- The connector is reached through the owner's tailnet (or a tunnel he controls), behind his sign-in.
+
+## The app
+
+`Life.app` (`app/`, SwiftUI, menu bar) is how Life is installed. It runs the compiled helper (`scripts/helper.ts`):
+the archive and the watcher kept running, the nightly tick every 30 minutes, data and state under
+`~/Library/Application Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper
+(`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch, and ships
+the status page bundled by its build (`BUILT`, `scripts/helper.ts`, with the page's config `PAGE`); a checkout bundles
+it on first use. Updates come through Sparkle. The menu and the status window show the status page, never a second
+rendering of it.
+
+## Pages
+
+All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
+
+- **The status page** (`src/dashboard.ts`, `/` and `/status/`; `src/plate.ts` reads every part) only reads. It is
+  behind the owner's sign-in (`src/signin.ts`) on the public port (`PUBLIC_PORT`, where a tunnel forwards), or for the
+  app on the local port (`LOCAL_PORT`, served even without a connector; no tunnel ever points there) behind its local
+  key (`keyRefusal`, `STATE/local.key`, mode 600). Never take the key on the public port. Its optional Cloudflare
+  Worker (`worker/status.ts`) passes every request to the Mac and answers only when the Mac is out of reach, with what
+  the Mac pushed: the plate without the owner's words (`strip`). Details: `docs/dashboard.md`.
+- **The check page** (`src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false
+  when he likes, never a queue Life waits on) and appends his answers to `memory/ratings.jsonl`, nothing else. Same
+  OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a `wrong`
+  correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
+  appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
+  verdicts out.
+- **The portrait** (`src/portrait.ts`, `/me`) serves pages about the owner and his people from `DATA/docs/portrait/`
+  (written in a session from his memory, never in this repo): `/me` is `index.html`, `/me/<name>` is `<name>.html`,
+  `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player (`assets/portrait/`); nothing
+  else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a password
+  (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with the
+  password, failed tries capped.
+
+Everything Life shows follows one brand, Ledger (emails, `/check`, `/me`, the status page, the icon): the values are
+copied into `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `assets/dashboard/styles.css`,
+the tab icon's `TONES` (`src/dashboard.ts`) and `assets/icon/`. The icon is a bold italic L: `assets/icon/icon.svg`
+holds its one outline (`#l`, in the `<g>` whose fill the tab recolours), which `app.svg` (the app icon) and
+`menubar.svg` (a template image) reuse; `scripts/app.ts` renders them into the bundle.
