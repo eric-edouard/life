@@ -24,7 +24,7 @@ import {
   Verdict,
 } from "../schema";
 
-// memory/ on disk: every path, one JSON Lines reader and appender, the readers of the ledgers and what they say of an
+// memory/ on disk: every path, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
 
 const MEMORY = join(DATA, "memory");

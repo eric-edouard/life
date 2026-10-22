@@ -12,8 +12,6 @@ import {
   Project,
 } from "../schema";
 
-// ponytail: each run leaves its ~24 KB copy for the OS to clear (an exit hook doesn't fire under bun test); delete
-// old ones here if the temp folder ever matters.
 const ME = "me";
 /** The owner's own entry in truth/people.yaml. */
 export function ownerIn(people: Person[]): Person {

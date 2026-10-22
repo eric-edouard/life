@@ -1,7 +1,7 @@
 # Architecture plan: one codebase, two hosts (22 Oct 2026)
 
 Explanation and plan: the code and repo shape Life needs before the [server plan](2026-10-22-server.md) adds a web UI,
-a messaging layer and a second host. Nothing is built yet. Measured on `main` at ebcb851.
+a messaging layer and a second host. Measured on `main` at ebcb851; each step below names its PR.
 
 ## Where the code is today
 
@@ -83,18 +83,19 @@ app's check and build.
 
 Each step is one PR that changes no behaviour, passes `bun run check`, and leaves no old path alive:
 
-1. **Zones and the rule.** Fallow's boundary zones over today's folders (`boundaries` in `.fallowrc.json`), plus a
+1. **Zones and the rule** (#162). Fallow's boundary zones over today's folders (`boundaries` in `.fallowrc.json`), plus a
    temporary `records` zone (`schema.ts`, `truth.ts`) that core may not import, so steps 2 and 5 show. `outputs.ts`
    counts as core: it reads only the settings. Today's 61 violations (29 outside tests) sit in a baseline,
    `.fallow-baseline.json`, which the check reads: a new violation fails from the first PR, and each step below re-saves
    a smaller one (`scripts/baseline-check.ts` refuses a baseline that grows).
-2. **core.** The foundations into `core/`; `clock` stops importing `truth` (the root folder moves to `core/paths`), and
+2. **core** (#163). The foundations into `core/`; `clock` stops importing `truth` (the root folder moves to `core/paths`), and
    `truth.ts` joins the memory.
 3. **The cycles.** Each source and backend registers in a registry the host builds, so readers never import the
    registry, and backends never import `act`. The ten cycles go.
 4. **The memory stops reaching up.** The nightly, the history's archive check and search's events move into
    `host/jobs`; the memory exposes steps, the host runs them in order.
-5. **Schemas by owner.** `schema.ts` split into the modules that own each record; the `records` zone goes.
+5. **Schemas by owner.** `schema.ts` split into the modules that own each record; the `records` zone goes. `core/settings`
+   validates `SourceName` and `Engine`: they either stay in a schema core owns, or settings moves to the host.
 6. **No baseline.** The last violations go, and `.fallow-baseline.json` with them.
 7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
    and Turborepo through `create-better-t-stack add`.

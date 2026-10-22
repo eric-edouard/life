@@ -6,7 +6,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import type { z } from "zod";
 /**
  * A file's complete lines (none when it is missing): a line still being appended, with no newline yet, waits for the
@@ -40,7 +40,7 @@ export function readJson<T>(path: string): T | undefined {
  */
 export function appendJsonl<T>(path: string, schema: z.ZodType<T>, rows: T[]) {
   if (rows.length > 0) {
-    mkdirSync(join(path, ".."), { recursive: true });
+    mkdirSync(dirname(path), { recursive: true });
     appendFileSync(
       path,
       rows.map((r) => `${JSON.stringify(schema.parse(r))}\n`).join("")
