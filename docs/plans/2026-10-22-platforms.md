@@ -76,7 +76,8 @@ calendar, the report (email or a local page), the connector, the ask event, the 
 Done (#149). `PROVIDERS` in `llm.ts` has one entry per provider: `claude` and `codex` (his subscriptions' CLIs),
 `anthropic` and `openai` (API keys), `openrouter` (the bench only). Each holds its models by tier (`fast`, `main`,
 `deep`; OpenRouter's come from `LIFE_LLM`), its effort, its call, whether it may run tools, and its quota when it has
-one. `llmFor`, the tools rule and the quota read it; the binary path and the environment move to the platform module.
+one. `llmFor`, the tools rule and the quota read it. Still to move, to the platform module: Codex's binary path
+and home, and the CLIs' environment.
 
 ### Transcription providers
 

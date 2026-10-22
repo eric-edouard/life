@@ -303,9 +303,7 @@ async function bench(file: string, only: string[], engine: Engine) {
     .object({ cases: z.array(Case) })
     .parse(await Bun.file(file).json())
     .cases.filter((c) => only.length === 0 || only.includes(c.id));
-  if (engine === "codex") {
-    await spareQuota();
-  }
+  await spareQuota();
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-agent-"));
   const code = join(tmp, "code");
   // A metered run: what the agent's calls spent of his Codex plan is in its `use`.

@@ -139,7 +139,8 @@ the tunnel's only healer.
 ## Model engines
 
 - Calls go through `src/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
-  claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither.
+  claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
+  entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MAC/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
