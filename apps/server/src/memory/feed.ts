@@ -44,7 +44,7 @@ import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,
 // correction, inferred identity, action and page change, by cursor) and `claim` (one observation with its evidence).
-// With history.ts (`lifeStatus`, `runs`), the connector's dashboard tools and `bun life memory changes|claim|status|runs`.
+// With history.ts (`runs`) and host/status/life.ts (`lifeStatus`), the connector's dashboard tools and `bun life memory changes|claim|status|runs`.
 // Read-only: no model, no write, no source except `claim`'s cited unit (docs/dashboard.md). Lists are complete: every item is reachable through its cursor, never cut
 // to "+N more". Contracts: docs/dashboard.md.
 

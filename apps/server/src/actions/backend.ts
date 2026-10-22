@@ -34,7 +34,7 @@ export function backend(): ActionsBackend {
 export const idOf = (target: number | string | undefined) =>
   target === undefined ? undefined : String(target);
 
-/** The agent's board: Life's projection of its tasks (apps/server/src/tasks.ts), a list of his. */
+/** The agent's board: Life's projection of its tasks (apps/server/src/host/tasks.ts), a list of his. */
 export const BOARD = agentName();
 
 /** The Change fields (and kinds) that need a capability. */

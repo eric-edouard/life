@@ -9,11 +9,10 @@ import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
-import { clock } from "server/src/core/clock";
+import { clock, HOUR } from "server/src/core/clock";
 import { LOG_DIR, logDays, logEvents } from "server/src/core/log";
 import { DATA, ROOT, STATE } from "server/src/core/paths";
 import { exec, git, gitOut } from "server/src/core/proc";
-import { llmFor, llmSpec } from "server/src/llm";
 import { extract } from "server/src/memory/extract";
 import { locked, spareQuota } from "server/src/memory/guard";
 import { ratedFacts } from "server/src/memory/ledger";
@@ -22,6 +21,7 @@ import { claimsNow } from "server/src/memory/statements";
 import type { tally } from "server/src/memory/tally";
 import { gather } from "server/src/memory/units";
 import { readPeople } from "server/src/memory/who";
+import { llmFor, llmSpec } from "server/src/models/llm";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(DATA, "docs/evals/events-2026-10-16.json");
@@ -45,7 +45,6 @@ const SEED = [
   "memory/people-inferred.jsonl",
   "memory/repos-inferred.jsonl",
 ];
-const HOUR_MS = 3_600_000;
 const ERROR_LINE = /^error: .*$/m;
 
 /** What eval.ts --json prints: the counts and the judge that gave them. */
@@ -110,7 +109,7 @@ async function run(
       // Its worktree's own state, whatever this process was given.
       LIFE_STATE: join(code, "derived"),
     },
-    timeout: 3 * HOUR_MS,
+    timeout: 3 * HOUR,
   });
   if (r.code !== 0) {
     const why = r.stderr.match(ERROR_LINE)?.[0] ?? r.stderr.trim().slice(-300);

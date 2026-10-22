@@ -26,7 +26,7 @@ Three roots, defined in `apps/server/src/core/paths.ts` and `apps/server/src/cor
   `apps/server/src/core/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,
   contacts or repos, and it reads nothing of the machine (`mac.ts`).
 - Life's secret files are the ones `SECRETS` names (`apps/server/src/core/secret.ts`), written only by `writeSecret` or `secretIn`
-  (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/export.ts`).
+  (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/host/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 
 ## Settings
@@ -59,7 +59,7 @@ every Keychain secret in its environment:
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
 lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status plate reads
-those locks (`holder`, `apps/server/src/mac.ts`).
+those locks (`holder`, `apps/server/src/host/status/mac.ts`).
 
 ### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
 
@@ -128,7 +128,7 @@ Reachability rests on the Mac being kept awake. Reconsider a server only on a me
 late with harm), or spoken asks above about one a day for a month.
 
 **The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once the connector moves off the edge Worker onto Funnel: [#137](https://github.com/eric-edouard/life/issues/137)). The
-watcher's heal (`apps/server/src/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
+watcher's heal (`apps/server/src/host/http/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
 loop once ran 35,000 times). Behind the edge Worker (`docs/architecture.md`) the connector's address never answers 530,
 so the heal no longer fires; deleting it is [#133](https://github.com/eric-edouard/life/issues/133).
 
@@ -142,13 +142,13 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
 
 ## Model engines
 
-- Calls go through `apps/server/src/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
+- Calls go through `apps/server/src/models/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
   claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
   entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
-- Model calls see no tools and no instruction files: `apps/server/src/llm.ts` runs them in an empty temp folder. The one exception
+- Model calls see no tools and no instruction files: `apps/server/src/models/llm.ts` runs them in an empty temp folder. The one exception
   is the agent bench's agent, whose only tools are Life's connector, frozen and dry: Codex still read-only, with no
   shell but code mode's `exec` (its only way to MCP) and its nested real-time clock, which the bench's prompt says not
   to read.
@@ -157,11 +157,11 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
 
 ## Backups and exports
 
-`apps/server/src/backup.ts` snapshots with restic once a day (3 tries) when the `backup` setting is set; without it the report
+`apps/server/src/host/backup.ts` snapshots with restic once a day (3 tries) when the `backup` setting is set; without it the report
 says the backup is off. On Sundays it also forgets (keeping 14 daily, 8 weekly and 24 monthly snapshots), prunes and
 checks 5% of the data. By hand: `bun life backup`.
 
-Each snapshot holds one export (`stage`, `apps/server/src/export.ts`, the same as `bun life export` and the app's Export
+Each snapshot holds one export (`stage`, `apps/server/src/host/export.ts`, the same as `bun life export` and the app's Export
 everything…):
 
 - `data/`: the owner's data, cloned under the lock (the one reader that takes it);

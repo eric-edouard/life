@@ -1,18 +1,18 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../core/clock";
-import { type Call, recentEvents } from "../core/log";
-import { redact } from "../core/redact";
-import { agentName } from "../core/settings";
-import { isReviewCall } from "../events";
 import {
   AGAIN_DAYS,
+  actionLine,
   type Candidate,
   OVERDUE_DAYS,
   openItems,
   openLinked,
-} from "../items";
+} from "../actions/items";
+import { clock } from "../core/clock";
+import { type Call, isReviewCall, recentEvents } from "../core/log";
+import { redact } from "../core/redact";
+import { agentName } from "../core/settings";
 import {
   type Action,
   INFERRED_USE_AT,
@@ -36,7 +36,6 @@ import {
   turnPlace,
   withStore,
 } from "../sources/lifelog";
-import { closed, nameOf, standing as taskStanding } from "../tasks";
 import { levelsWith } from "./closeness";
 import {
   daysOf,
@@ -66,7 +65,7 @@ import {
   mailHits,
   repliesOwed,
 } from "./raw";
-import { actionLine } from "./report";
+import { closed, nameOf, standing as taskStanding } from "./tasks";
 import { goalProjects, loadTruth, OWNER, type Truth } from "./truth";
 import {
   clip,
@@ -91,7 +90,7 @@ import {
 } from "./who";
 import { dayStart, localDate, when } from "./zones";
 
-// The read path, as `bun life memory search|person|area` (apps/server/src/memory/command.ts): short cited results from the pages
+// The read path, as `bun life memory search|person|area` (apps/server/src/host/command.ts): short cited results from the pages
 // and derived/memory/index.sqlite. It also owns the index: buildIndex writes it, nothing else here writes.
 //   search <words>   moments, observations and units matching the words, the exact spoken words (lifelog's search) and chats
 //   day <date>       what happened that day (its moments), its recorded conversations and chapters, its units from the
@@ -800,7 +799,7 @@ export const birthdaysNear = (
     .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
- * What `day` lists as due on `date` (`openItems`, apps/server/src/items.ts, which merges, times and ranks): the salience-3 promises
+ * What `day` lists as due on `date` (`openItems`, apps/server/src/actions/items.ts, which merges, times and ranks): the salience-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
  * ledger; the replies he owes. Who said each, when not him, is labelled. The agent's daily review lists them (docs/agent.md).
  */

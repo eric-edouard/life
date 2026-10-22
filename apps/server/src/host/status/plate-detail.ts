@@ -1,0 +1,292 @@
+import { clock, DAY } from "../../core/clock";
+import { isAgent, recentEvents } from "../../core/log";
+import { changeFeed, encode } from "../../memory/feed";
+import { runs, STEPS, useText } from "../../memory/history";
+import { clip } from "../../memory/units";
+import { SOURCES } from "../../sources/index";
+import { clientName } from "../events";
+import { taskList } from "../tasks";
+import { sleeps } from "./mac";
+import { cached, type Line, spent, type Tone, toneOfRun } from "./plate";
+
+// A card's detail for the app's status window (apps/server/src/host/http/dashboard.ts serves it): its history, its raw log lines, and a run's steps
+// and what it wrote. Read-only, like the plate (apps/server/src/host/status/plate.ts). His words and errors' text are in `content` only.
+
+export interface Entry {
+  at: string;
+  /** His words or an error's text: hidden while the app's Show content is off. */
+  content?: string;
+  /** A run the app can open (`runDetail`). */
+  run?: string;
+  sub?: string;
+  title: string;
+  tone: Tone;
+}
+
+const read = (name: string) => (e: Line) =>
+  e.kind === "source.read" && e.source === name;
+
+/** The log lines each card's history is made of: every source's reads (`SOURCES`), and each part's own lines. */
+const LOGS: Record<string, (e: Line) => boolean> = {
+  ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
+  agent: (e) =>
+    e.kind === "event.sent" || (e.kind === "mcp.call" && isAgent(e.agent)),
+  archive: (e) => e.step?.startsWith("archive.") ?? false,
+  backup: (e) => e.step === "backup",
+  clients: (e) => e.kind === "mcp.call",
+  connector: (e) => e.kind === "mcp.call",
+  contacts: read("contacts"),
+  email: (e) => e.kind === "email.sent",
+  engine: (e) => e.kind === "quota.read" || e.kind === "model.run",
+  lifelog: (e) => e.step === "watch" || read("lifelog")(e),
+  past: (e) => e.kind === "calendar.write",
+  pendant: read("lifelog"),
+  reminders: (e) => e.kind === "board.write" || e.kind === "sync.pull",
+  tasks: (e) => e.kind === "board.write" || e.kind === "event.sent",
+  tunnel: (e) => e.step === "tunnel",
+  watcher: (e) => e.step === "watch",
+};
+
+/** The sweeps, whose history is their runs. */
+const RUN_CARDS: Record<string, string> = {
+  backfill: "memory.backfill",
+  midday: "memory.midday",
+  nightly: "memory.nightly",
+};
+
+/** A memory change's colour: a failure red, his correction teal, the rest green. */
+const changeTone = (type: string): Tone => {
+  if (type.includes("failed")) {
+    return "bad";
+  }
+  return type.startsWith("correction") ? "teal" : "ok";
+};
+
+/** How each kind of log line reads as a history entry: its title, and his words in it. */
+const ENTRIES: Record<
+  string,
+  { content?: (e: Line) => string; title: (e: Line) => string }
+> = {
+  "email.sent": {
+    content: (e) => String(e.subject ?? ""),
+    title: () => "email sent",
+  },
+  "mcp.call": {
+    content: (e) => clip(JSON.stringify(e.args ?? {}), 400),
+    title: (e) => `${clientName(e.agent)} · ${String(e.tool)}`,
+  },
+  "model.run": {
+    title: (e) =>
+      `${String(e.prompt)} · ${Math.round(Number(e.ms ?? 0) / 1000)} s`,
+  },
+  "quota.read": {
+    title: (e) =>
+      typeof e.used === "number" ? `quota ${e.used}%` : "quota unread",
+  },
+  "source.read": {
+    title: (e) =>
+      e.skipped
+        ? `${String(e.source)} skipped: ${String(e.skipped)}`
+        : `read ${String(e.count ?? 0)} from ${String(e.source)}`,
+  },
+};
+
+const tokensOf = (e: Line) => {
+  const t = e.tokens as { input: number; output: number } | undefined;
+  return t ? `${Math.round((t.input + t.output) / 1e3)}k tokens` : undefined;
+};
+
+/** One log line as a history entry: a failure's text goes with his words, in `content`. */
+function entryOf(e: Line): Entry {
+  const bad = e.kind === "run.error" || e.ok === false || !!e.error;
+  const kind = ENTRIES[e.kind];
+  return {
+    at: e.at,
+    content: bad ? clip(String(e.error ?? "failed"), 300) : kind?.content?.(e),
+    sub: bad ? "failed" : tokensOf(e),
+    title: kind?.title(e) ?? `${e.kind}${e.step ? ` ${e.step}` : ""}`,
+    tone: bad ? "bad" : "ok",
+  };
+}
+
+const PAGE = 40;
+
+/** A sweep's runs, newest first, each one the app can open. */
+async function runHistory(step: string, before?: string) {
+  // runs' own cursor: the runs that started before `before`, a page of them.
+  const { items } = await runs({
+    cursor: before ? encode([before, ""]) : undefined,
+    limit: PAGE,
+    steps: [step],
+  });
+  return items.map(
+    (r): Entry => ({
+      at: r.startedAt ?? r.endedAt ?? "",
+      content:
+        r.outcome === "failed"
+          ? `Failed at ${String(r.result?.failedAt ?? "?")}`
+          : undefined,
+      run: r.id,
+      sub: [
+        r.window ? `${r.window.from} → ${r.window.to}` : "",
+        spent(r.use) ? useText(r.use ?? null) : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      title:
+        r.endedAt && r.startedAt
+          ? `${r.outcome} in ${Math.round((Date.parse(r.endedAt) - Date.parse(r.startedAt)) / 60_000)} min`
+          : r.outcome,
+      tone: toneOfRun(r.outcome),
+    })
+  );
+}
+
+/** The memory's latest changes, of the last two days. */
+async function changeHistory(older: (at: string) => boolean, before?: string) {
+  const until = before ? Date.parse(before) : clock().getTime();
+  const feed = await changeFeed({
+    limit: 500,
+    since: new Date(until - 2 * DAY).toISOString(),
+  });
+  return feed.items
+    .filter((it) => older(it.recordedAt))
+    .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))
+    .slice(0, PAGE)
+    .map(
+      (it): Entry => ({
+        at: it.recordedAt,
+        content:
+          clip(String((it.record as { text?: string }).text ?? ""), 300) ||
+          undefined,
+        sub: it.run ?? undefined,
+        title: it.type,
+        tone: changeTone(it.type),
+      })
+    );
+}
+
+/**
+ * A history that is not its log lines: a sweep's runs and the memory's changes, which page back (`pages`); the open
+ * tasks and the Mac's sleeps of the day, whole.
+ */
+async function ownHistory(
+  id: string,
+  older: (at: string) => boolean,
+  before?: string
+) {
+  const step = RUN_CARDS[id];
+  if (step) {
+    return { entries: await runHistory(step, before), pages: true };
+  }
+  if (id === "memory") {
+    return { entries: await changeHistory(older, before), pages: true };
+  }
+  if (id === "tasks") {
+    const entries = taskList(clock().getTime()).map(
+      (x): Entry => ({
+        at: x.deadline ?? "",
+        content: x.quote,
+        sub: `${x.age} old${x.note ? ` · ${x.note}` : ""}`,
+        title: `${x.state} · ${x.id}`,
+        tone: x.state === "waiting-eric" ? "warn" : "busy",
+      })
+    );
+    return { entries, pages: false };
+  }
+  if (id === "mac") {
+    const s = await cached("sleeps", 5 * 60_000, () =>
+      sleeps(clock().getTime())
+    );
+    const entries = s
+      .toReversed()
+      .map((x): Entry => ({ at: x.at, title: "asleep", tone: "idle" }));
+    return { entries, pages: false };
+  }
+  return null;
+}
+
+/**
+ * A card's detail: its history (newest first, `PAGE` at a time before `before`), and its raw log lines. A sweep's
+ * history is its runs; the tasks' their list; the memory's its latest changes; any other card its log lines.
+ */
+export async function detail(id: string, before?: string) {
+  // The last 8 days, or as far back as `before` and 8 days more: paging goes back through the whole log.
+  const days = before
+    ? Math.ceil((clock().getTime() - Date.parse(before)) / DAY) + 8
+    : 8;
+  const all = before
+    ? await recentEvents<Line>(days, "")
+    : await cached("log", 5000, () => recentEvents<Line>(8, ""));
+  const older = (at: string) => !before || at < before;
+  const pick = LOGS[id];
+  const lines = pick
+    ? all.filter((e) => pick(e) && older(e.at)).toReversed()
+    : [];
+  const page = lines.slice(0, PAGE);
+  const own = await ownHistory(id, older, before);
+  const history = own ?? { entries: page.map(entryOf), pages: true };
+  return {
+    history: history.entries,
+    log: page.map((e) => JSON.stringify(e)),
+    /** Where each list goes on: pass it back as `before` for its next page; null at its end. */
+    next: {
+      history:
+        history.pages && history.entries.length === PAGE
+          ? (history.entries.at(-1)?.at ?? null)
+          : null,
+      log: page.length === PAGE ? (page.at(-1)?.at ?? null) : null,
+    },
+  };
+}
+
+/** A run: its steps with their counts, time and colour, and what it wrote (`changes` with its run). */
+export async function runDetail(id: string) {
+  const step = id.split("/")[0] ?? "";
+  const { items } = await runs({ limit: 500, steps: [step, ...STEPS] });
+  const run = items.find((r) => r.id === id);
+  if (!run) {
+    return null;
+  }
+  const steps = items
+    .filter((r) => run.children?.includes(r.id))
+    .sort((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? ""));
+  const wrote = (
+    await Promise.all(
+      [run, ...steps].map((r) =>
+        changeFeed({ limit: 200, run: r.id }).then((f) => f.items)
+      )
+    )
+  ).flat();
+  return {
+    steps: steps.map((r) => ({
+      endedAt: r.endedAt,
+      id: r.id,
+      outcome: r.outcome,
+      result: r.result,
+      startedAt: r.startedAt,
+      step: r.step.replace("memory.", ""),
+      tone: toneOfRun(r.outcome),
+      use: spent(r.use) ? useText(r.use ?? null) : null,
+    })),
+    use: spent(run.use) ? useText(run.use ?? null) : null,
+    wrote: {
+      byType: Object.fromEntries(
+        [...Map.groupBy(wrote, (w) => w.type)].map(([k, v]) => [k, v.length])
+      ),
+      items: wrote.slice(0, 200).map((w) => ({
+        at: w.recordedAt,
+        content: clip(
+          String(
+            (w.record as { text?: string }).text ??
+              (w.record as { path?: string }).path ??
+              ""
+          ),
+          300
+        ),
+        id: w.id,
+        type: w.type,
+      })),
+    },
+  };
+}

@@ -1,4 +1,5 @@
 import { closeSync, existsSync, openSync } from "node:fs";
+import { HOUR } from "../core/clock";
 import { WINDOWS } from "../core/platform";
 import { agentName, settings } from "../core/settings";
 import { AGENT_WORD, type SourceName } from "../schema";
@@ -33,8 +34,6 @@ import {
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, units.ts).
-
-const HOUR = 3_600_000;
 
 /** `why`, unless this process can open `path` (macOS refuses it without Full Disk Access). */
 function unreadable(path: string, why: string) {

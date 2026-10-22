@@ -1,7 +1,7 @@
 // How the memory (or the agent, in its bench) did on facts whose truth is known (the hand-made evals, his ratings, the
 // bench's checks): a judge's grades, and what they come to.
 import { z } from "zod";
-import { askOnce, llmFor } from "../llm";
+import { askOnce, llmFor } from "../models/llm";
 
 /** What a judge may say of a fact against the claims. */
 export const GRADES = ["stated", "contradicted", "both", "absent"] as const;

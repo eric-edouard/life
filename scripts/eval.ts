@@ -7,7 +7,6 @@
 import { join } from "node:path";
 import { clock } from "server/src/core/clock";
 import { appendJsonl } from "server/src/core/files";
-import { llmFor, llmSpec } from "server/src/llm";
 import { locked, spareQuota } from "server/src/memory/guard";
 import {
   liveUnits,
@@ -19,6 +18,7 @@ import {
 import { chunks, ended, inBatches, metered } from "server/src/memory/run";
 import { type Claim, claimsNow } from "server/src/memory/statements";
 import { type Grade, judge, tally } from "server/src/memory/tally";
+import { llmFor, llmSpec } from "server/src/models/llm";
 import { Score } from "server/src/schema";
 import { z } from "zod";
 

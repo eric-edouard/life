@@ -93,8 +93,12 @@ Each step is one PR that changes no behaviour, passes `bun run check`, and leave
 3. **The cycles** (#164). Each capability's contract in its own `contract.ts` (the source descriptor; the actions
    backend and `Change`): implementations import the contract, the registry (`sources/index.ts`, `actions/backend.ts`)
    imports the implementations, so nothing imports back. The ten cycles go.
-4. **The memory stops reaching up.** The nightly, the history's archive check and search's events move into
-   `host/jobs`; the memory exposes steps, the host runs them in order.
+4. **The memory stops reaching up** (#165). The host's files move into `host/` (`http/`: the routes and the connector;
+   `status/`: the plate and Life's status; the jobs, the CLI and the outputs flat), with the nightly, the memory
+   command, the report, `act` and `inbound` among them. `history.ts` keeps memory's run history and Life's status
+   moves to `host/status/life.ts`; the agent's tasks as the ledger holds them (wake words, `Update`, `standing`) move
+   to `memory/tasks.ts`, `host/tasks.ts` keeping the writes and chases; `isReviewCall` joins `core/log`, `actionLine`
+   `actions/items.ts`; `llm.ts` is `models/llm.ts`. The memory imports nothing above it.
 5. **Schemas by owner.** `schema.ts` split into the modules that own each record; the `records` zone goes. `core/settings`
    validates `SourceName` and `Engine`: they either stay in a schema core owns, or settings moves to the host.
 6. **No baseline.** The last violations go, and `.fallow-baseline.json` with them.

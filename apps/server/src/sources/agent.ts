@@ -4,7 +4,7 @@ import { wall } from "../memory/zones";
 import { AGENT_WORD, type SourceEvent } from "../schema";
 import type { Newest } from "./contract";
 
-// The agent's tasks closed done (apps/server/src/tasks.ts), each one event: its outcome with the words he asked in. The agent's own report,
+// The agent's tasks closed done (apps/server/src/host/tasks.ts), each one event: its outcome with the words he asked in. The agent's own report,
 // not checked by Life and not his words: extraction may read it as evidence of what was done (decision 14, 21 Oct).
 
 /** How much of his ask a task's event shows (a spoken ask's quote can hold a whole conversation). */

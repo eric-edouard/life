@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { clock, unfrozen } from "../core/clock";
+import { clock, HOUR, unfrozen } from "../core/clock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { execOk } from "../core/proc";
@@ -26,7 +26,6 @@ import { dayStart, localDate } from "./zones";
 // changed is written again, one gone (hidden, cancelled, never happened) is deleted. Nothing is read back. Each
 // nightly tick runs it after its turn.
 
-const HOUR = 3_600_000;
 // ponytail: a moment goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
 // is written, and are not in its hash. Hash them (a read per moment each tick) if late stays turn out to matter.
 const SETTLE = 2 * HOUR;

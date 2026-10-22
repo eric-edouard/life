@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { appendJsonl, rowsOf } from "../core/files";
-import { stamp } from "../llm";
+import { stamp } from "../models/llm";
 import { Imported, type MadeBy } from "../schema";
 import {
   type Conversation,

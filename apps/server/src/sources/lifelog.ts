@@ -13,7 +13,7 @@ import { digest } from "../memory/ledger";
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: conversations, chapter
 // titles and summaries, and for every turn only who spoke, when, and when the feed brought it, never its text) and builds units from that store.
-// Only the watcher (apps/server/src/watch.ts) calls `poll`: a page folded in anywhere else would never be heard (eric-edouard/life#5).
+// Only the watcher (apps/server/src/host/watch.ts) calls `poll`: a page folded in anywhere else would never be heard (eric-edouard/life#5).
 
 const WAIT_MARGIN_S = 30;
 
@@ -386,7 +386,7 @@ export async function poll(store: Store, wait: number) {
     await call(`/changes?since=${since}&wait=${wait}`, wait + WAIT_MARGIN_S)
   );
   // Before the page is folded in. A turn lifelog re-sends is not news; one it only now marks as his (it identifies the
-  // owner late) is. A new turn with no speaker at all may be his too (a low-confidence ask, apps/server/src/hear.ts).
+  // owner late) is. A new turn with no speaker at all may be his too (a low-confidence ask, apps/server/src/host/hear.ts).
   const stored = ownerRow(store);
   const owner = page.turns.filter((t) => {
     const row = stored.get(t.jobId, t.turnIndex);
@@ -408,7 +408,7 @@ export async function poll(store: Store, wait: number) {
   };
 }
 
-/** The turns first seen in the `seconds` before the newest one: what a restarted watcher hears again (apps/server/src/watch.ts). */
+/** The turns first seen in the `seconds` before the newest one: what a restarted watcher hears again (apps/server/src/host/watch.ts). */
 export const lastSeen = (store: Store, seconds: number) =>
   store.db
     .query<{ at: string; conversation: string }, [string]>(

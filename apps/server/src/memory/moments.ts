@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
-import { stamp } from "../llm";
+import { stamp } from "../models/llm";
 import {
   ChapterKind,
   type Correction,

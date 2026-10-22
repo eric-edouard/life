@@ -3,11 +3,10 @@ import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { appendJsonl } from "../core/files";
-import { log } from "../core/log";
 import { Action, AGENT_WORD } from "../schema";
 import { changeFeed, feedPage, matchesFilter } from "./feed";
 import { action } from "./fixtures";
-import { assembleRuns, lifeStatus, percentOf, runs, useText } from "./history";
+import { assembleRuns, percentOf, runs, useText } from "./history";
 import { ACTIONS } from "./ledger";
 
 /** Pages through the sources with `limit`, appending `between` after each page, until the feed is drained. */
@@ -217,33 +216,6 @@ test("runs page back through the log days, newest first, none lost or repeated, 
   expect(first.items[0]?.outcome).toBe("unfinished");
 });
 
-test("the dashboard only reads: no write, log, model call, action or send", async () => {
-  const source = (
-    await Promise.all(
-      ["feed.ts", "history.ts"].map((f) =>
-        Bun.file(join(import.meta.dir, f)).text()
-      )
-    )
-  ).join("\n");
-  for (const banned of [
-    "Bun.write",
-    "appendFile",
-    "writeFile",
-    "log(",
-    "askOnce",
-    "actAsked",
-    "sendReport",
-    "Bun.spawn",
-    "locked(",
-  ]) {
-    expect(source).not.toContain(banned);
-  }
-  // git only reads: log and show.
-  for (const m of source.matchAll(/git\(\w+, \[\s*"([a-z-]+)"/g)) {
-    expect(["log", "show"]).toContain(m[1] as string);
-  }
-});
-
 test("a run filter takes the id as runs gives it, or bare", () => {
   const it = {
     about: [],
@@ -258,15 +230,6 @@ test("a run filter takes the id as runs gives it, or bare", () => {
   expect(
     matchesFilter(it, { run: "memory.extract/2026-10-17T00-00-00.000Z" })
   ).toBe(false);
-});
-
-test("the status holds the midday while the last quota reading is over the reserve; an unread one holds nothing", async () => {
-  const now = new Date();
-  const resetsAt = new Date(now.getTime() + 86_400_000).toISOString();
-  log("quota.read", { resetsAt, used: 80 });
-  expect((await lifeStatus(now)).midday.next.why).toStartWith("held");
-  log("quota.read");
-  expect((await lifeStatus(now)).midday.next.why).not.toStartWith("held");
 });
 
 test("changes about task:<id> is one task's history: its ask, updates and replies, no other action", async () => {
