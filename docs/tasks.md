@@ -67,10 +67,10 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   restore, through `act` (`apps/server/src/actions/act.ts`). `act` is the only code that decides an action. It records its intent
   before each write and its outcome after.
 - When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
-  `apps/server/src/actions/act.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
+  `apps/server/src/actions/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
 - `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time. `act` refuses the agent's list (`BOARD`): that list is the board, below.
-- **One contract, `ActionsBackend`** (`apps/server/src/actions/backend.ts`): his lists (not groups) and whether one is shared, a
+- **One contract, `ActionsBackend`** (`apps/server/src/actions/contract.ts`): his lists (not groups) and whether one is shared, a
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
   `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
   Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `changes`). `idOf` is the one place
@@ -85,8 +85,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
   restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
-- `apps/server/src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `backend.ts` the
-  contract, the choice and the writes, `remctl.ts` and `google.ts` the two backends, `board.ts` the board,
+- `apps/server/src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `contract.ts` the
+  contract, `backend.ts` the choice and the writes, `remctl.ts` and `google.ts` the two backends, `board.ts` the board,
   `inbound.ts` the owner's changes read back.
 - **The actions output** is on only with the `actions` setting, which names the backend: `{"backend": "reminders"}` or
   `{"backend": "google", "account": "<his Google account>"}` (`isOn("actions")`). Off: `backend()`, the one gate, refuses every

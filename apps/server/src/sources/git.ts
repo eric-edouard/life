@@ -5,7 +5,7 @@ import { log } from "../core/log";
 import { exec, git } from "../core/proc";
 import { expand, settings } from "../core/settings";
 import type { Person, Project, RepoGuess, SourceEvent } from "../schema";
-import type { Newest } from "./index";
+import type { Newest, RepoMap } from "./contract";
 
 // Git commits as a source: local `git log` of every repo in the `repos` setting's folder, read-only. A repo-day is a
 // unit like a chat-day.
@@ -77,14 +77,6 @@ export async function newestCommit(now = clock().getTime()): Promise<Newest> {
     ],
   };
 }
-
-/** Which project and area a repo belongs to: his map (`Project.repos`), else Life's guess (`guess`, set when it is one). */
-export interface Placement {
-  area: string | null;
-  guess?: RepoGuess;
-  project: string | null;
-}
-export type RepoMap = Map<string, Placement>;
 
 /** The repo map: truth first, in his order (a project's first repo is its main one), then Life's guesses for the rest. */
 export function repoMap(

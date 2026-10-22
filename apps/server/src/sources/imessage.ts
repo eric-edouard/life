@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { HOME } from "../core/platform";
 import { type SourceEvent, sourceFile } from "../schema";
 import { handleKey, readContacts } from "./contacts";
-import type { Newest } from "./index";
+import type { Newest } from "./contract";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 

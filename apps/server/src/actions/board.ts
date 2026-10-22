@@ -1,11 +1,6 @@
 import { log } from "../core/log";
-import {
-  type ActionsBackend,
-  BOARD,
-  backend,
-  type Item,
-  type Snapshot,
-} from "./backend";
+import { BOARD, backend, type Snapshot } from "./backend";
+import type { ActionsBackend, Item } from "./contract";
 
 // The board, his list `BOARD`: the agent's tasks projected, one item per task, found by the task id on its notes' first line.
 // Each pass Life brings its own fields (notes, and the section where the backend has sections; the notes say the

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINE } from "../core/platform";
 import type { SourceEvent, SourceFile } from "../schema";
-import type { Newest } from "./index";
+import type { Newest } from "./contract";
 
 // Life's archive (apps/server/src/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and Beeper's
 // chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version

@@ -8,14 +8,8 @@ import { redact } from "../core/redact";
 import { stamp } from "../llm";
 import { type MadeBy, RepoGuess, type Unit } from "../schema";
 import { kindOf } from "../sources";
-import {
-  listRepos,
-  myCommits,
-  type Placement,
-  type RepoMap,
-  readGit,
-  repoMap,
-} from "../sources/git";
+import type { Placement, RepoMap } from "../sources/contract";
+import { listRepos, myCommits, readGit, repoMap } from "../sources/git";
 import {
   REPOS_INFERRED,
   readRepoGuesses,

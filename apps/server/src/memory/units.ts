@@ -4,14 +4,9 @@ import { log } from "../core/log";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import { type Person, type SourceEvent, Unit } from "../schema";
-import {
-  type Descriptor,
-  enabledSources,
-  kindOf,
-  readySources,
-  sourceOf,
-} from "../sources";
-import { type RepoMap, repoMap } from "../sources/git";
+import { enabledSources, kindOf, readySources, sourceOf } from "../sources";
+import type { Descriptor, RepoMap } from "../sources/contract";
+import { repoMap } from "../sources/git";
 import {
   type LifelogConversation,
   readConversations,

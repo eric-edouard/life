@@ -6,7 +6,6 @@ import type { Action } from "../schema";
 import {
   actAsked,
   actionId,
-  Change,
   duplicateOf,
   Granted,
   grantedFrom,
@@ -14,6 +13,7 @@ import {
   requested,
 } from "./act";
 import { changedFields, lacks, openOf, readable } from "./backend";
+import { Change } from "./contract";
 import { alarmArgs, reminderArgs, reminders, unshared } from "./remctl";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {

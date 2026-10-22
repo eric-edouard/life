@@ -2,7 +2,7 @@ import { agentName } from "../core/settings";
 import { lastUpdate, tasksOf } from "../memory/ledger";
 import { wall } from "../memory/zones";
 import { AGENT_WORD, type SourceEvent } from "../schema";
-import type { Newest } from "./index";
+import type { Newest } from "./contract";
 
 // The agent's tasks closed done (apps/server/src/tasks.ts), each one event: its outcome with the words he asked in. The agent's own report,
 // not checked by Life and not his words: extraction may read it as evidence of what was done (decision 14, 21 Oct).

@@ -2,8 +2,7 @@ import { join } from "node:path";
 import { unfrozen } from "../core/clock";
 import { HOME } from "../core/platform";
 import { exec } from "../core/proc";
-import type { Change } from "./act";
-import type { ActionsBackend, Item } from "./backend";
+import type { ActionsBackend, Change, Item } from "./contract";
 
 // The Reminders backend: his Apple Reminders through remctl (its signed host, `--json`). Only `backend.ts` uses it.
 // Its check (`checks`) is one `lists` read, not `remctl doctor` (its Tailscale probe times out while Reminders are

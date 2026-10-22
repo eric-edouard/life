@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { HOME } from "../core/platform";
 import { type SourceEvent, type SourceFile, sourceFile } from "../schema";
-import type { Newest } from "./index";
+import type { Newest } from "./contract";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.
 

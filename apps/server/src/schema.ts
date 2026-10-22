@@ -208,6 +208,7 @@ export const SourceName = z.enum([
   "chatgpt",
   AGENT_WORD,
 ]);
+export type SourceName = z.infer<typeof SourceName>;
 
 /**
  * A file a message carries, as its source resolved it; files.ts renders it as a line of the message. `ref` says where

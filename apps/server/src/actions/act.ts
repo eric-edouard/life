@@ -6,13 +6,7 @@ import { ACTIONS, digest, readActions } from "../memory/ledger";
 import { actionFailedReport, sendReport } from "../memory/report";
 import { normalize } from "../memory/units";
 import { localDate } from "../memory/zones";
-import {
-  Action,
-  type Instruction,
-  type Observation,
-  REMINDER_KINDS,
-  stands,
-} from "../schema";
+import { Action, type Instruction, type Observation, stands } from "../schema";
 import { kindOf } from "../sources";
 import { ownerSpoke, withStore } from "../sources/lifelog";
 import {
@@ -24,6 +18,7 @@ import {
   lacks,
   write,
 } from "./backend";
+import { Change } from "./contract";
 
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
 // Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as an Action
@@ -31,32 +26,6 @@ import {
 // connector) decide that he asked. The ledger also holds the agent's tasks (apps/server/src/tasks.ts), whose board, the list `BOARD`,
 // no `act` may touch.
 
-const Due = z.string().regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/);
-
-/** What to do, as the connector and the CLI both say it. */
-export const Change = z.object({
-  // With a time it alerts then; null clears it (edit only).
-  due: Due.nullish(),
-  kind: z.enum(REMINDER_KINDS),
-  list: z.string().optional(),
-  notes: z.string().max(2000).nullish(),
-  priority: z.enum(["high", "medium", "low"]).optional(),
-  prompt: z.string().max(1500).optional(),
-  // remctl's syntax: "daily", "weekly mon,wed", "monthly 6", "monthly last-fri", "daily x2"; "clear" stops it; its JSON
-  // form ends: {"frequency":"daily","interval":1,"end":"2026-10-23T23:59"}. Needs a due date.
-  recurrence: z.string().max(200).optional(),
-  section: z.string().optional(),
-  // A step may have its own `due`: a check-in on a promised answer, say.
-  subtasks: z
-    .array(z.object({ due: Due.optional(), title: z.string().min(1).max(200) }))
-    .max(10)
-    .optional(),
-  // An item's id: Google Tasks' are strings, Reminders' numbers (a number is how the connector first took them).
-  target: z.union([z.string().min(1), z.int().positive()]).optional(),
-  title: z.string().min(1).max(200),
-  urgent: z.boolean().optional(),
-});
-export type Change = z.infer<typeof Change>;
 export const actionId = (ref: string, kind: string, title: string) =>
   `act_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
 

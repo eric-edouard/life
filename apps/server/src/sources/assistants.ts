@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { DATA } from "../core/paths";
 import type { SourceEvent } from "../schema";
-import type { Newest } from "../sources";
+import type { Newest } from "./contract";
 
 // His conversations with AI assistants, from the one-time exports of claude.ai and ChatGPT (~/Life/docs/
 // claude-import-scope-2026-10-21.md): his own messages only, pruned by code. An export is copied once to
