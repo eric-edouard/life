@@ -1,12 +1,12 @@
 import { join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { readJson } from "../core/files";
 import { WATCH } from "../sources/lifelog";
 
 // The watcher's health record (derived/watch/health.json): written by the watcher after every poll, read by
 // `bun life status` and the dashboard.
 
-const POLLING_MS = 15 * 60_000;
+const POLLING_MS = 15 * MIN;
 export const HEALTH = join(WATCH, "health.json");
 
 export interface Health {

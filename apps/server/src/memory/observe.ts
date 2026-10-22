@@ -13,7 +13,7 @@ import { localDate, zoneAt } from "./zones";
 // resolution cheapest first, and the observation records. No network or clock.
 
 /** One line of a unit's source text: a message, or one transcript turn. */
-export interface Line {
+export interface SourceLine {
   at: string;
   /** The handle or name the speaker was resolved from (none for the owner): stored as `speakerFrom`. */
   from?: string;
@@ -27,7 +27,7 @@ export interface Line {
 }
 
 export interface Source {
-  lines: Line[];
+  lines: SourceLine[];
   unit: Unit;
 }
 
@@ -179,7 +179,7 @@ function cited(
   | Reject
   | {
       found: { line: number; verbatim: string };
-      line: Line;
+      line: SourceLine;
       o: z.infer<typeof ModelObservation>;
       source: Source;
     } {

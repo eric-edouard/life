@@ -265,7 +265,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, Beeper and iMessage,
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is
-  `Project.repos` in `truth/`, Life's guesses marked inferred.
+  `Project.repos` in `truth/`, the repos Life inferred, marked so.
 - `status`, `runs`, `changes`, `claim`: the dashboard reads (`docs/dashboard.md`).
 
 Read a source directly only if the CLI is unavailable: `MACHINE/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,

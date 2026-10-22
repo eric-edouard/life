@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { HOUR } from "../core/clock";
 import { AGENT_WORD } from "../core/names";
 import { readSettings, type Settings, setSettings } from "../core/settings";
 import { action } from "../memory/record-fixtures";
@@ -155,7 +156,7 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
   const now = Date.parse("2026-10-22T10:00:00Z");
   const call = (tool: string, hours: number, agent = "openai-mcp/1") => ({
     agent,
-    at: new Date(now - hours * 3_600_000).toISOString(),
+    at: new Date(now - hours * HOUR).toISOString(),
     tool,
   });
   try {

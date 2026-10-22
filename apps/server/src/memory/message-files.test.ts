@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HOUR } from "../core/clock";
 import { digest } from "../core/hash";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { FileEntry } from "../records/unit";
@@ -116,7 +117,7 @@ test("an attachment is a file the archive keeps, at Beeper's cached copy when it
   ]);
   expect(copyBeeper(source, dir, now)).toBe(4);
   const read = (d: Date) => readBeeper(d, dir, source);
-  const since = new Date(now - 3_600_000);
+  const since = new Date(now - HOUR);
   expect(read(since).map((e) => e.files)).toEqual([
     [
       {
@@ -167,7 +168,7 @@ test("a photo-only message carries its attachments as files, a link preview left
     { mime: null, name: "Audio Message.caf", path: null },
   ]);
   const read = (d: Date) => readImessage(d, db);
-  const since = new Date(Date.now() - 3_600_000);
+  const since = new Date(Date.now() - HOUR);
   expect(read(since)[0]?.files).toEqual([
     {
       mime: "image/heic",
@@ -191,7 +192,7 @@ test("media rows are files: the archive's copy, a document's name, a photo never
   add(4, "L1", 7, "https://example.com", 50, "Media/120@g.us/c/preview.jpg");
   copyWhatsapp(source, dir, now);
   const read = (d: Date) => readWhatsapp(d, dir, source);
-  const since = new Date(now - 3_600_000);
+  const since = new Date(now - HOUR);
   expect(read(since).map((e) => e.files)).toEqual([
     [
       {

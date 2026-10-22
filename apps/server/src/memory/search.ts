@@ -9,7 +9,7 @@ import {
   openItems,
   openLinked,
 } from "../actions/items";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
@@ -772,7 +772,7 @@ export function nextBirthday(birthday: string, today: string) {
   return {
     age: year ? Number(next.slice(0, 4)) - year : null,
     day: next,
-    left: Math.round((at - from) / 86_400_000),
+    left: Math.round((at - from) / DAY),
   };
 }
 
@@ -1014,15 +1014,15 @@ export async function unresolved(top = 25) {
       about.set(e, (about.get(e) ?? 0) + 1);
     }
   }
-  const guesses = [...new Map(inferred.map((p) => [p.id, p])).values()]
+  const inferredPeople = [...new Map(inferred.map((p) => [p.id, p])).values()]
     .sort((a, b) => b.confidence - a.confidence)
     .map(
       (p) =>
         `- person:${p.id} (${p.confidence}${p.confidence < INFERRED_USE_AT ? ", not used" : ""}): ${p.name}, ${p.relation}${p.area ? `, ${p.area}` : ""}. ${p.surfaces.join(" / ")}; ${p.evidence.length} quotes, ${about.get(`person:${p.id}`) ?? 0} observations`
     );
   return [
-    `People Life inferred (${guesses.length}; used from confidence ${INFERRED_USE_AT}, below truth/ and your corrections):`,
-    ...(guesses.length > 0 ? guesses : ["(none)"]),
+    `People Life inferred (${inferredPeople.length}; used from confidence ${INFERRED_USE_AT}, below truth/ and your corrections):`,
+    ...(inferredPeople.length > 0 ? inferredPeople : ["(none)"]),
     "",
     `Names not placed (${names.size}; ${resolved} sightings of names that now resolve are left out). Top ${Math.min(top, names.size)}:`,
     ...lines,

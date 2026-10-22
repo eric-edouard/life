@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
+import { DAY } from "../../core/clock";
 import { log } from "../../core/log";
 import { lifeStatus } from "./life";
 
 test("the status holds the midday while the last quota reading is over the reserve; an unread one holds nothing", async () => {
   const now = new Date();
-  const resetsAt = new Date(now.getTime() + 86_400_000).toISOString();
+  const resetsAt = new Date(now.getTime() + DAY).toISOString();
   log("quota.read", { resetsAt, used: 80 });
   expect((await lifeStatus(now)).midday.next.why).toStartWith("held");
   log("quota.read");

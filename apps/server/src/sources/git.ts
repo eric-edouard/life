@@ -1,10 +1,10 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { log } from "../core/log";
 import { exec, git } from "../core/proc";
 import { expand, settings } from "../core/settings";
-import type { RepoGuess } from "../records/observation";
+import type { InferredRepo } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { Person, Project } from "../records/truth";
 import type { Newest, RepoMap } from "./contract";
@@ -70,7 +70,7 @@ export async function newestCommit(now = clock().getTime()): Promise<Newest> {
   const dated = all
     .filter((r) => r.at)
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-  const day = dated.filter((r) => now - Date.parse(r.at) < 86_400_000).length;
+  const day = dated.filter((r) => now - Date.parse(r.at) < DAY).length;
   return {
     at: dated[0] ? new Date(dated[0].at).toISOString() : null,
     facts: [
@@ -80,10 +80,10 @@ export async function newestCommit(now = clock().getTime()): Promise<Newest> {
   };
 }
 
-/** The repo map: truth first, in his order (a project's first repo is its main one), then Life's guesses for the rest. */
+/** The repo map: truth first, in his order (a project's first repo is its main one), then what Life inferred for the rest. */
 export function repoMap(
   truth: { projects: Project[] },
-  guesses: RepoGuess[]
+  inferredRepos: InferredRepo[]
 ): RepoMap {
   const map: RepoMap = new Map();
   for (const p of truth.projects) {
@@ -91,9 +91,9 @@ export function repoMap(
       map.set(repo, { area: p.area, project: p.id });
     }
   }
-  for (const g of guesses) {
+  for (const g of inferredRepos) {
     if (!map.has(g.repo)) {
-      map.set(g.repo, { area: g.area, guess: g, project: g.project });
+      map.set(g.repo, { area: g.area, inferred: g, project: g.project });
     }
   }
   return map;

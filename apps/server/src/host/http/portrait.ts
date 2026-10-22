@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { join } from "node:path";
 import { type Context, Hono } from "hono";
+import { MIN } from "../../core/clock";
 import { DATA, ROOT } from "../../core/paths";
 import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
@@ -21,7 +22,7 @@ const CLIP = /^\/me\/[a-z0-9-]+\/clips\/[a-z0-9-]+\.(?:m4a|json)$/;
 const PLAYER = "/me/player.js";
 // ponytail: one global window for failed passwords, per-IP limits if it ever faces more than him.
 const FAILS_ALLOWED = 5;
-const FAILS_WINDOW_MS = 60_000;
+const FAILS_WINDOW_MS = MIN;
 // The pages load Google Fonts, inline styles, the player and their clips from here, nothing else: no images.
 const PAGE_HEADERS = {
   ...HEADERS,

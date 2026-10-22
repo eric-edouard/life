@@ -9,20 +9,20 @@ import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
-import { clock, HOUR } from "server/src/core/clock";
-import { LOG_DIR, logDays, logEvents } from "server/src/core/log";
-import { DATA, ROOT, STATE } from "server/src/core/paths";
-import { exec, git, gitOut } from "server/src/core/proc";
-import { extract } from "server/src/memory/extract";
-import { ratedFacts } from "server/src/memory/ledger";
-import { locked } from "server/src/memory/memory-lock";
-import { moments } from "server/src/memory/moments";
-import { spareQuota } from "server/src/memory/schedule";
-import { claimsNow } from "server/src/memory/statements";
-import type { tally } from "server/src/memory/tally";
-import { gather } from "server/src/memory/units";
-import { readPeople } from "server/src/memory/who";
-import { llmFor, llmSpec } from "server/src/models/llm";
+import { clock, HOUR, MIN } from "@life/server/src/core/clock";
+import { LOG_DIR, logDays, logEvents } from "@life/server/src/core/log";
+import { DATA, ROOT, STATE } from "@life/server/src/core/paths";
+import { exec, git, gitOut } from "@life/server/src/core/proc";
+import { extract } from "@life/server/src/memory/extract";
+import { ratedFacts } from "@life/server/src/memory/ledger";
+import { locked } from "@life/server/src/memory/memory-lock";
+import { moments } from "@life/server/src/memory/moments";
+import { spareQuota } from "@life/server/src/memory/schedule";
+import { claimsNow } from "@life/server/src/memory/statements";
+import type { tally } from "@life/server/src/memory/tally";
+import { gather } from "@life/server/src/memory/units";
+import { readPeople } from "@life/server/src/memory/who";
+import { llmFor, llmSpec } from "@life/server/src/models/llm";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(DATA, "docs/evals/events-2026-10-16.json");
@@ -184,7 +184,7 @@ async function bench(models: string[], runs: number) {
             "scripts/bench.ts",
             "--read-week",
           ]);
-          const minutes = Math.round((performance.now() - started) / 60_000);
+          const minutes = Math.round((performance.now() - started) / MIN);
           const claims = join(data, "claims.jsonl");
           const graded = (file: string) =>
             run(code, data, undefined, [
@@ -212,7 +212,7 @@ async function bench(models: string[], runs: number) {
         }
       })
     );
-    console.log(table(rows, { facts, rated: rated.length }));
+    console.log(factTable(rows, { facts, rated: rated.length }));
   } finally {
     for (const dir of worktrees) {
       git(ROOT, ["worktree", "remove", "--force", dir]);
@@ -237,7 +237,10 @@ type Row = {
 }>;
 
 /** One line per run; a held count within the baseline's own spread (or 3) of its mean is a tie. */
-export function table(rows: Row[], about: { facts: number; rated: number }) {
+export function factTable(
+  rows: Row[],
+  about: { facts: number; rated: number }
+) {
   const base = rows.flatMap((r) =>
     r.model === BASELINE && r.held ? [r.held.held] : []
   );

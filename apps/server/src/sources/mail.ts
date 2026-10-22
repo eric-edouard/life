@@ -2,12 +2,9 @@ import { Database } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { HOME } from "../core/platform";
-import {
-  type SourceEvent,
-  type SourceFile,
-  sourceFile,
-} from "../records/source";
+import type { SourceEvent, SourceFile } from "../records/source";
 import type { Newest } from "./contract";
+import { sourceFile } from "./contract";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.
 

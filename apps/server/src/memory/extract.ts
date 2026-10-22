@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { HOUR } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { Moment } from "../records/moment";
@@ -59,7 +60,7 @@ const EXTRACT_PROMPT = "memory-extract.v5";
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
 /** A conversation this quiet and summarized is closed: its units are final enough to read before the day is over. */
-const QUIET_MS = 60 * 60_000;
+const QUIET_MS = HOUR;
 /** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
 const PRIOR_MAX = 40;

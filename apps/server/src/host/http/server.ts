@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { createRemoteJWKSet } from "jose";
+import { DAY } from "../../core/clock";
 import { off } from "../../core/outputs";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
@@ -64,7 +65,7 @@ export function signedIn() {
     jwks:
       life?.jwks ??
       createRemoteJWKSet(new URL(`${issuer}/jwks`), {
-        cacheMaxAge: 24 * 3600 * 1000,
+        cacheMaxAge: DAY,
         timeoutDuration: 15_000,
       }),
     ownerSub: owner,

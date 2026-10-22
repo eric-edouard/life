@@ -7,13 +7,13 @@ import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { RepoGuess } from "../records/observation";
+import { InferredRepo } from "../records/observation";
 import type { Unit } from "../records/unit";
 import type { Placement, RepoMap } from "../sources/contract";
 import { listRepos, myCommits, readGit, repoMap } from "../sources/git";
 import {
   REPOS_INFERRED,
-  readRepoGuesses,
+  readInferredRepos,
   readUnits,
   readVerdicts,
   type Verdicts,
@@ -28,7 +28,7 @@ import { asData } from "./words";
 import { localDate } from "./zones";
 
 // `bun life memory repos --scan` and the nightly's first step: which project each code repo of the owner's belongs to. His
-// map is `Project.repos` in truth/; for the repos it doesn't list, the fast-tier model guesses from what the repo says
+// map is `Project.repos` in truth/; for the repos it doesn't list, the fast-tier model inferredRepos from what the repo says
 // about itself (memory/repos-inferred.jsonl, used at once below truth/). Only repos with his commits are asked about,
 // so upstream clones never are; a repo is asked about once per prompt version.
 
@@ -51,7 +51,7 @@ const Entry = z.object({
  * becomes null (counted); a repo on a project takes the project's area, else the area is looked up (id or name).
  * Anything else is counted as invalid, never trusted.
  */
-export function parseGuesses(
+export function parseInferredRepos(
   reply: unknown,
   asked: Set<string>,
   ctx: {
@@ -71,7 +71,7 @@ export function parseGuesses(
   );
   let unknownProject = 0;
   const records = entries.map(
-    ({ key, area, newProject, project, why }): RepoGuess => {
+    ({ key, area, newProject, project, why }): InferredRepo => {
       const ofProject = project ? ctx.projects.get(project) : undefined;
       if (project && ofProject === undefined) {
         unknownProject += 1;
@@ -98,11 +98,14 @@ function readme(path: string) {
 
 export async function mapRepos() {
   const step = await begin("repos", "fast", { prompt: REPOS_PROMPT });
-  const [truth, guesses] = await Promise.all([loadTruth(), readRepoGuesses()]);
+  const [truth, inferredRepos] = await Promise.all([
+    loadTruth(),
+    readInferredRepos(),
+  ]);
   // Listed in truth, or asked about under this prompt already (however unsure the answer): not asked again.
   const known = new Set([
     ...repoMap(truth, []).keys(),
-    ...guesses
+    ...inferredRepos
       .filter((g) => g.madeBy.prompt === REPOS_PROMPT)
       .map((g) => g.repo),
   ]);
@@ -132,7 +135,7 @@ export async function mapRepos() {
       repos: p.repos,
     })),
   };
-  const made: RepoGuess[] = [];
+  const made: InferredRepo[] = [];
   let invalid = 0;
   let unknownProject = 0;
   // One bad call costs only its repos: they are asked again next time.
@@ -144,9 +147,13 @@ export async function mapRepos() {
         input: { repos: batch },
         prompt: REPOS_PROMPT,
       });
-      const checked = parseGuesses(json, new Set(batch.map((c) => c.key)), ctx);
+      const checked = parseInferredRepos(
+        json,
+        new Set(batch.map((c) => c.key)),
+        ctx
+      );
       // Written as each call ends: a stopped run resumes from them.
-      await appendJsonl(REPOS_INFERRED, RepoGuess, checked.records);
+      await appendJsonl(REPOS_INFERRED, InferredRepo, checked.records);
       made.push(...checked.records);
       invalid += checked.invalid;
       unknownProject += checked.unknownProject;
@@ -210,16 +217,16 @@ export function codeRows(
 
 /** The Code rows for one day's git units, as the moments step wrote them. */
 export async function codeOn(day: string) {
-  const [truth, guesses, units, verdicts] = await Promise.all([
+  const [truth, inferredRepos, units, verdicts] = await Promise.all([
     loadTruth(),
-    readRepoGuesses(),
+    readInferredRepos(),
     readUnits(),
     readVerdicts(),
   ]);
   return codeRows(
     units.filter((u) => kindOf(u.source) === "repo" && u.date === day),
     verdicts,
-    repoMap(truth, guesses),
+    repoMap(truth, inferredRepos),
     truth.projects
   );
 }
@@ -232,8 +239,11 @@ const SUGGESTION_MAX = 100;
  * of commits (local, a few seconds). Repos not on the map (upstream clones) are not shown.
  */
 export async function reposOf(filter?: string) {
-  const [truth, guesses] = await Promise.all([loadTruth(), readRepoGuesses()]);
-  const map = repoMap(truth, guesses);
+  const [truth, inferredRepos] = await Promise.all([
+    loadTruth(),
+    readInferredRepos(),
+  ]);
+  const map = repoMap(truth, inferredRepos);
   const local = new Map(listRepos().map((r) => [r.key, r.path]));
   const active = new Map<string, { last: string; n: number }>();
   for (const e of readGit(
@@ -249,10 +259,10 @@ export async function reposOf(filter?: string) {
     });
   }
   const f = filter?.toLowerCase();
-  // Life's guesses only for repos cloned here (its first run also guessed at GitHub-only ones).
+  // Life's inferred repos only for repos cloned here (its first run also guessed at GitHub-only ones).
   const wanted = [...map].filter(
     ([key, r]) =>
-      (local.has(key) || !r.guess) &&
+      (local.has(key) || !r.inferred) &&
       (!f ||
         key.toLowerCase().includes(f) ||
         [r.project, r.area].some((x) => x?.toLowerCase() === f))
@@ -264,9 +274,9 @@ export async function reposOf(filter?: string) {
     const seen = active.get(key);
     const tags = [
       !path && "not cloned",
-      r.guess && "inferred",
-      r.guess?.newProject &&
-        `new project? ${clip(r.guess.newProject, SUGGESTION_MAX)}`,
+      r.inferred && "inferred",
+      r.inferred?.newProject &&
+        `new project? ${clip(r.inferred.newProject, SUGGESTION_MAX)}`,
     ].filter(Boolean);
     return `${path ? path.replace(HOME, "~") : key}${first ? " (main)" : ""}${tags.length > 0 ? ` (${tags.join("; ")})` : ""} · ${seen ? `${seen.n} commits, last ${seen.last}` : "no commits"}`;
   };
@@ -274,7 +284,7 @@ export async function reposOf(filter?: string) {
     ...Map.groupBy(wanted, ([, r]) => r.project ?? `~${r.area ?? ""}`),
   ].sort(([a], [b]) => a.localeCompare(b));
   return asData([
-    `Repos by project (truth = his map; inferred = Life's guess), with commits of the last ${ACTIVE_DAYS} days. Read the first repo's AGENTS.md or README first.`,
+    `Repos by project (truth = his map; inferred = what Life inferred), with commits of the last ${ACTIVE_DAYS} days. Read the first repo's AGENTS.md or README first.`,
     ...(groups.length === 0 ? ["(no repo matches)"] : []),
     ...groups.map(([project, list]) => {
       const area = list[0]?.[1].area ?? "no area";

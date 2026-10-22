@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { APP_DATA } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../records/source";
+import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
   insertAll,
@@ -13,6 +13,7 @@ import {
   type Row,
   readArchived,
 } from "./archived";
+import { sourceFile } from "./contract";
 
 // Beeper Desktop's own store, opened read-only by its copy into the archive.
 export const BEEPER = join(APP_DATA, "BeeperTexts");

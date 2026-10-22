@@ -1,5 +1,5 @@
 import { checks } from "../actions/backend";
-import { clock, DAY } from "../core/clock";
+import { clock, DAY, HOUR } from "../core/clock";
 import { holder, isOtherLife } from "../core/lock";
 import { type Call, isReviewCall, log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
@@ -65,8 +65,8 @@ import {
 } from "./report";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
-const STUCK_MS = 3 * 3_600_000;
-const ALERT_MS = 3_600_000;
+const STUCK_MS = 3 * HOUR;
+const ALERT_MS = HOUR;
 
 /** Whether his agent (the `agent` setting's client) read `day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>

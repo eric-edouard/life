@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { MIN } from "../core/clock";
 import { log } from "../core/log";
 import { type Engine, Runner } from "../core/names";
 import { DATA, isHis, ROOT } from "../core/paths";
@@ -14,7 +15,7 @@ import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
-const MODEL_TIMEOUT_MS = 20 * 60_000;
+const MODEL_TIMEOUT_MS = 20 * MIN;
 
 /**
  * The model's reply is meant to be bare JSON; tolerate a fence or a stray line around it, and a reply that corrects

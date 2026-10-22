@@ -13,21 +13,21 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { FROZEN, MIN } from "@life/server/src/core/clock";
+import { linesOf } from "@life/server/src/core/files";
+import { recentEvents } from "@life/server/src/core/log";
+import { Engine } from "@life/server/src/core/names";
+import { DATA, ROOT, STATE } from "@life/server/src/core/paths";
+import { exec, git, gitOut } from "@life/server/src/core/proc";
+import { nextEvent } from "@life/server/src/host/events";
+import { buildServer } from "@life/server/src/host/http/mcp";
+import { ACTIONS, OUT, parseAction } from "@life/server/src/memory/ledger";
+import { ended, metered } from "@life/server/src/memory/run";
+import { spareQuota } from "@life/server/src/memory/schedule";
+import { judge, tally } from "@life/server/src/memory/tally";
+import { localDate, zoneAt } from "@life/server/src/memory/zones";
+import { askOnce, llmFor } from "@life/server/src/models/llm";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { FROZEN } from "server/src/core/clock";
-import { linesOf } from "server/src/core/files";
-import { recentEvents } from "server/src/core/log";
-import { Engine } from "server/src/core/names";
-import { DATA, ROOT, STATE } from "server/src/core/paths";
-import { exec, git, gitOut } from "server/src/core/proc";
-import { nextEvent } from "server/src/host/events";
-import { buildServer } from "server/src/host/http/mcp";
-import { ACTIONS, OUT, parseAction } from "server/src/memory/ledger";
-import { ended, metered } from "server/src/memory/run";
-import { spareQuota } from "server/src/memory/schedule";
-import { judge, tally } from "server/src/memory/tally";
-import { localDate, zoneAt } from "server/src/memory/zones";
-import { askOnce, llmFor } from "server/src/models/llm";
 import { z } from "zod";
 import { checkout } from "./bench";
 
@@ -71,7 +71,6 @@ interface Call {
   tool?: string;
 }
 
-const MINUTE_MS = 60_000;
 const ERROR_LINE = /^error: .*$/m;
 
 /** Does `args` hold every `want`ed argument: a string as a case-blind part, anything else as equal JSON? */
@@ -271,13 +270,13 @@ async function runCase(
     chars: calls.reduce((n, k) => n + (k.chars ?? 0), 0),
     checks,
     id: c.id,
-    minutes: Math.round((performance.now() - started) / MINUTE_MS),
+    minutes: Math.round((performance.now() - started) / MIN),
   };
 }
 
 type Row = Awaited<ReturnType<typeof runCase>> | { error: string; id: string };
 
-export function table(rows: Row[], about: string) {
+export function askTable(rows: Row[], about: string) {
   const passed = (r: Row) =>
     "checks" in r ? r.checks.filter(([, ok]) => ok).length : 0;
   const total = rows.reduce(
@@ -336,7 +335,7 @@ async function bench(file: string, only: string[], engine: Engine) {
         engine === "codex"
           ? "Codex, as the agent"
           : `${engine}: a harness check, not the agent's result`;
-      console.log(table(rows, `${run}, ${what}, code ${head}`));
+      console.log(askTable(rows, `${run}, ${what}, code ${head}`));
       return { cases: rows.length };
     });
   } finally {

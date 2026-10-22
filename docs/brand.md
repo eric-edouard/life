@@ -10,7 +10,7 @@ A private memory. Calm by nature, personal by design. Everything Life shows foll
 ## The values
 
 One source: [`assets/brand/tokens.css`](../assets/brand/tokens.css). Pages link it or inline it; the two surfaces that
-can't read CSS variables copy its values, and `apps/server/src/host/brand.test.ts` fails when a copy drifts:
+can't read CSS variables copy its values, and `scripts/brand.test.ts` fails when a copy drifts:
 
 | Surface | How it takes the tokens |
 | --- | --- |

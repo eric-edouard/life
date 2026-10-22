@@ -10,7 +10,7 @@ import {
   SignJWT,
 } from "jose";
 import { z } from "zod";
-import { clock } from "../../core/clock";
+import { clock, DAY, MIN } from "../../core/clock";
 import { SECRETS, same, writeSecret } from "../../core/secret";
 import { PAGES_CLIENT, OWNER_SUB as SUB } from "../../core/settings";
 import { SCOPE } from "./auth";
@@ -23,8 +23,8 @@ import { HEADERS, TOKENS, text } from "./http";
 // resource and owner.
 
 const ACCESS_S = 3600;
-const CODE_MS = 60_000;
-const PAIRING_MS = 5 * 60_000;
+const CODE_MS = MIN;
+const PAIRING_MS = 5 * MIN;
 const PAIRING_TRIES = 5;
 /** How many registered apps may wait for their pairing at once. */
 const PENDING = 20;
@@ -237,7 +237,7 @@ export function createIssuer(
         ...Object.fromEntries(
           Object.entries(s.refresh).filter(([, r]) => r.expires >= now())
         ),
-        [hash(refresh)]: { client, expires: now() + 90 * 86_400_000 },
+        [hash(refresh)]: { client, expires: now() + 90 * DAY },
       },
     }));
     return Response.json(

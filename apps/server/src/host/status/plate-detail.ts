@@ -1,4 +1,4 @@
-import { clock, DAY } from "../../core/clock";
+import { clock, DAY, MIN } from "../../core/clock";
 import { isAgent, recentEvents } from "../../core/log";
 import { changeFeed, encode } from "../../memory/changes";
 import { runs, STEPS, useText } from "../../memory/run-log";
@@ -7,7 +7,7 @@ import { clip } from "../../memory/units";
 import { taskList } from "../agent";
 import { clientName } from "../events";
 import { sleeps } from "./mac";
-import { cached, type Line, spent, type Tone, toneOfRun } from "./plate";
+import { cached, type LogLine, spent, type Tone, toneOfRun } from "./plate";
 
 // A card's detail for the app's status window (apps/server/src/host/http/dashboard.ts serves it): its history, its raw log lines, and a run's steps
 // and what it wrote. Read-only, like the plate (apps/server/src/host/status/plate.ts). His words and errors' text are in `content` only.
@@ -23,11 +23,11 @@ export interface Entry {
   tone: Tone;
 }
 
-const read = (name: string) => (e: Line) =>
+const read = (name: string) => (e: LogLine) =>
   e.kind === "source.read" && e.source === name;
 
 /** The log lines each card's history is made of: every source's reads (`SOURCES`), and each part's own lines. */
-const LOGS: Record<string, (e: Line) => boolean> = {
+const LOGS: Record<string, (e: LogLine) => boolean> = {
   ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
   agent: (e) =>
     e.kind === "event.sent" || (e.kind === "mcp.call" && isAgent(e.agent)),
@@ -65,7 +65,7 @@ const changeTone = (type: string): Tone => {
 /** How each kind of log line reads as a history entry: its title, and his words in it. */
 const ENTRIES: Record<
   string,
-  { content?: (e: Line) => string; title: (e: Line) => string }
+  { content?: (e: LogLine) => string; title: (e: LogLine) => string }
 > = {
   "email.sent": {
     content: (e) => String(e.subject ?? ""),
@@ -91,13 +91,13 @@ const ENTRIES: Record<
   },
 };
 
-const tokensOf = (e: Line) => {
+const tokensOf = (e: LogLine) => {
   const t = e.tokens as { input: number; output: number } | undefined;
   return t ? `${Math.round((t.input + t.output) / 1e3)}k tokens` : undefined;
 };
 
 /** One log line as a history entry: a failure's text goes with his words, in `content`. */
-function entryOf(e: Line): Entry {
+function entryOf(e: LogLine): Entry {
   const bad = e.kind === "run.error" || e.ok === false || !!e.error;
   const kind = ENTRIES[e.kind];
   return {
@@ -135,7 +135,7 @@ async function runHistory(step: string, before?: string) {
         .join(" · "),
       title:
         r.endedAt && r.startedAt
-          ? `${r.outcome} in ${Math.round((Date.parse(r.endedAt) - Date.parse(r.startedAt)) / 60_000)} min`
+          ? `${r.outcome} in ${Math.round((Date.parse(r.endedAt) - Date.parse(r.startedAt)) / MIN)} min`
           : r.outcome,
       tone: toneOfRun(r.outcome),
     })
@@ -195,9 +195,7 @@ async function ownHistory(
     return { entries, pages: false };
   }
   if (id === "mac") {
-    const s = await cached("sleeps", 5 * 60_000, () =>
-      sleeps(clock().getTime())
-    );
+    const s = await cached("sleeps", 5 * MIN, () => sleeps(clock().getTime()));
     const entries = s
       .toReversed()
       .map((x): Entry => ({ at: x.at, title: "asleep", tone: "idle" }));
@@ -216,8 +214,8 @@ export async function detail(id: string, before?: string) {
     ? Math.ceil((clock().getTime() - Date.parse(before)) / DAY) + 8
     : 8;
   const all = before
-    ? await recentEvents<Line>(days, "")
-    : await cached("log", 5000, () => recentEvents<Line>(8, ""));
+    ? await recentEvents<LogLine>(days, "")
+    : await cached("log", 5000, () => recentEvents<LogLine>(8, ""));
   const older = (at: string) => !before || at < before;
   const pick = LOGS[id];
   const lines = pick

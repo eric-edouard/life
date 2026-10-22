@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { toAppleNs, toAppleS } from "./imessage";
 import { openStore } from "./lifelog";
@@ -16,7 +16,7 @@ const tmp = (prefix: string) => mkdtempSync(join(tmpdir(), prefix));
 export const lifelogStore = () => openStore(tmp("life-lifelog-"));
 
 /** A page of lifelog's change feed. */
-export const page = (over: Record<string, unknown> = {}) => ({
+export const pageFixture = (over: Record<string, unknown> = {}) => ({
   chapters: [],
   conversations: [],
   cursor: "1",
@@ -42,7 +42,7 @@ export const conversation = (
   ...over,
 });
 
-export const turn = (
+export const turnFixture = (
   turnIndex: number,
   startAt: string,
   personId: string | null,
@@ -158,7 +158,7 @@ export function beeperFixture() {
         id,
         room,
         `$e${id}`,
-        now - 60_000,
+        now - MIN,
         type,
         JSON.stringify({ attachments, text }),
       ]
@@ -184,7 +184,7 @@ const proto = (
   );
 
 /** An attribute run of a note body: `length` UTF-16 units, a checklist item (done or not), or an attachment. */
-export const run = (
+export const runFixture = (
   length: number,
   { attachment, done }: { attachment?: string; done?: number } = {}
 ) =>
@@ -294,7 +294,7 @@ export function imessageFixture(
   // Messages leaves a 1:1 chat's name empty.
   db.run("insert into chat values (1, '+33611111111', '')");
   db.run("insert into message values (1, 'g1', ?, 0, ?, null, 1, 0)", [
-    toAppleNs(new Date(clock().getTime() - 60_000)),
+    toAppleNs(new Date(clock().getTime() - MIN)),
     text,
   ]);
   db.run("insert into chat_message_join values (1, 1)");

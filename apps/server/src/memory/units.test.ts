@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { readSettings, setSettings } from "../core/settings";
@@ -24,8 +25,8 @@ import {
   lifelogStore,
   noteData,
   notesFixture,
-  page,
-  run,
+  pageFixture,
+  runFixture,
 } from "../sources/store-fixtures";
 import { LIFE_MAIL } from "./email";
 import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
@@ -396,7 +397,7 @@ test("a 1:1 chat's title names its unknown member; a group or a mail thread name
 test("a date range is whole local days, the last one included; instants stay as given", () => {
   const { from, to } = dayRange("2026-10-14", "2026-10-14");
   expect(new Date(to ?? "").getTime() - new Date(from ?? "").getTime()).toBe(
-    86_400_000
+    DAY
   );
   // He was in Berlin (memory/zones.jsonl).
   expect(from).toBe("2026-10-13T22:00:00.000Z");
@@ -407,7 +408,7 @@ test("a date range is whole local days, the last one included; instants stay as 
   const now = Date.now();
   expect(dayRange().from).toBeUndefined();
   expect(Date.parse(dayRange(undefined, "2999-01-01").to ?? "")).toBeLessThan(
-    now + 60_000
+    now + MIN
   );
 });
 
@@ -556,7 +557,7 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
   };
   const store = lifelogStore();
   const on = (day: string) =>
-    page({
+    pageFixture({
       chapters: [chapter("a", `${day}T10:00:00.000Z`, `${day}T10:05:00.000Z`)],
       conversations: [
         feedConversation("c1", {
@@ -596,7 +597,7 @@ test("a conversation from 23:40 to 00:30 at the window start is read whole: its 
   const store = lifelogStore();
   apply(
     store,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-14T21:40:00.000Z", "2026-10-14T22:10:00.000Z"),
         chapter("b", "2026-10-14T22:10:00.000Z", "2026-10-14T22:30:00.000Z"),
@@ -748,9 +749,9 @@ test("two saves in a day are one unit of two lines, the same read from its start
     (now - yesterday.getTime()) / 1000 - hour * 3600;
   const body = (text: string) =>
     noteData(`${text}\n￼￼`, [
-      run(text.length + 1),
-      run(1, { attachment: "A1" }),
-      run(1, { attachment: "T1" }),
+      runFixture(text.length + 1),
+      runFixture(1, { attachment: "A1" }),
+      runFixture(1, { attachment: "T1" }),
     ]);
   save(1, body("Budget"), { agoS: agoS(10) });
   copyNotes(source, dir, now);
@@ -778,20 +779,19 @@ test("two saves in a day are one unit of two lines, the same read from its start
 
 test("deletions on two days are two units, and a restore is dated when seen and read against the last live text", () => {
   const { db, dir, now, save, source } = notesFixture();
-  const day = 86_400_000;
   for (const pk of [1, 2, 3]) {
     save(pk, noteData(`Note text ${pk}`), { agoS: 5 * 86_400 });
   }
-  copyNotes(source, dir, now - 3 * day);
+  copyNotes(source, dir, now - 3 * DAY);
   db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK = 1");
-  copyNotes(source, dir, now - 2 * day);
+  copyNotes(source, dir, now - 2 * DAY);
   db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK = 2");
-  copyNotes(source, dir, now - day);
+  copyNotes(source, dir, now - DAY);
   save(1, noteData("Note text 1\nback"), { agoS: 5 * 86_400 });
   copyNotes(source, dir, now);
   const built = applyRules(
     messageUnits(
-      showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
+      showFiles(readNotes(new Date(now - 2.5 * DAY), dir), new Map()),
       () => null
     )
   );
@@ -805,20 +805,19 @@ test("deletions on two days are two units, and a restore is dated when seen and 
 
 test("two notes restored unchanged on two days are two units", () => {
   const { db, dir, now, save, source } = notesFixture();
-  const day = 86_400_000;
   for (const pk of [1, 2, 3]) {
     save(pk, noteData(`Note text ${pk}`), { agoS: 5 * 86_400 });
   }
-  copyNotes(source, dir, now - 4 * day);
+  copyNotes(source, dir, now - 4 * DAY);
   db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK in (1, 2)");
-  copyNotes(source, dir, now - 3 * day);
+  copyNotes(source, dir, now - 3 * DAY);
   save(1, noteData("Note text 1"), { agoS: 5 * 86_400 });
-  copyNotes(source, dir, now - 2 * day);
+  copyNotes(source, dir, now - 2 * DAY);
   save(2, noteData("Note text 2"), { agoS: 5 * 86_400 });
-  copyNotes(source, dir, now - day);
+  copyNotes(source, dir, now - DAY);
   const built = applyRules(
     messageUnits(
-      showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
+      showFiles(readNotes(new Date(now - 2.5 * DAY), dir), new Map()),
       () => null
     )
   );
@@ -832,10 +831,7 @@ test("a shared note's lines are never his: extract reads them as an unknown spea
   const { dir, now, save, source } = notesFixture();
   save(1, noteData("Groceries for the flat"), { shared: true });
   copyNotes(source, dir, now);
-  const [unit] = messageUnits(
-    readNotes(new Date(now - 3_600_000), dir),
-    () => null
-  );
+  const [unit] = messageUnits(readNotes(new Date(now - HOUR), dir), () => null);
   expect(unit && chatLines(unit, () => null).map((l) => l.speaker)).toEqual([
     "unknown:shared note",
   ]);

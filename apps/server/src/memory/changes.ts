@@ -534,11 +534,14 @@ export async function claim(id: string) {
       ...ctx.corrections.filter((c) => "surface" in c && c.surface === handle),
     ],
     entities: now.entities.map((ref) => {
-      const guess = inferred.get(ref);
+      const inferredPerson = inferred.get(ref);
       return {
         filed: (o.entities as string[]).includes(ref),
-        inferred: guess
-          ? { confidence: guess.confidence, relation: guess.relation }
+        inferred: inferredPerson
+          ? {
+              confidence: inferredPerson.confidence,
+              relation: inferredPerson.relation,
+            }
           : null,
         name: people.names.get(ref) ?? null,
         ref,

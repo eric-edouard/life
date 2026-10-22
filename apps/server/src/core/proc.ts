@@ -2,6 +2,7 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { MIN } from "./clock";
 
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
@@ -24,7 +25,7 @@ export async function exec(
       stderr: "pipe",
       stdin: o.stdin === undefined ? undefined : new Blob([o.stdin]),
       stdout: "pipe",
-      timeout: o.timeout ?? 60_000,
+      timeout: o.timeout ?? MIN,
     });
   } catch (e) {
     return { code: -1, killed: null, stderr: (e as Error).message, stdout: "" };
@@ -69,7 +70,7 @@ export async function firstLine(
       stderr: "ignore",
       stdin: "pipe",
       stdout: "pipe",
-      timeout: o.timeout ?? 60_000,
+      timeout: o.timeout ?? MIN,
     });
   } catch {
     return;

@@ -134,11 +134,11 @@ const said = (c: Record<string, unknown>) =>
   ({ at: "2026-10-14T00:00:00.000Z", schemaVersion: 1, ...c }) as Correction;
 
 test("a surface resolves to what the owner said, else truth, else a confident inferred person, never against a correction", () => {
-  const guesses = [
+  const inferredPeople = [
     inferred("inf-plumber", ["+33611111111", "Plombier"]),
     inferred("inf-maybe", ["+33622222222"], 0.3),
   ];
-  const resolve = resolver(people, guesses, [
+  const resolve = resolver(people, inferredPeople, [
     said({ kind: "this-is", person: "person:gaston", surface: "+33633333333" }),
     said({ kind: "not-this-person", person: "person:dad", surface: "Pops" }),
     said({
@@ -153,7 +153,9 @@ test("a surface resolves to what the owner said, else truth, else a confident in
   expect(resolve("plombier")).toBe("person:gaston");
   expect(resolve("+33622222222")).toBeNull();
   expect(resolve("Pops")).toBeNull();
-  expect(resolver(people, guesses)("plombier")).toBe("person:inf-plumber");
+  expect(resolver(people, inferredPeople)("plombier")).toBe(
+    "person:inf-plumber"
+  );
   expect(
     merged([said({ from: "person:a", kind: "same-person", to: "person:a" })])(
       "person:a"
@@ -162,7 +164,7 @@ test("a surface resolves to what the owner said, else truth, else a confident in
 });
 
 test("an observation is about its entities, folded, plus the names that resolve now, speaker included", () => {
-  const guesses = [inferred("inf-plumber", ["Plombier"])];
+  const inferredPeople = [inferred("inf-plumber", ["Plombier"])];
   const fold = said({
     from: "person:inf-plumber",
     kind: "same-person",
@@ -182,7 +184,7 @@ test("an observation is about its entities, folded, plus the names that resolve 
     { surface: "Plombier" },
   ] as unknown as Unresolved[];
   expect(
-    aboutNow(obs, rows, people, guesses, [fold]).map((o) => o.entities)
+    aboutNow(obs, rows, people, inferredPeople, [fold]).map((o) => o.entities)
   ).toEqual([
     ["person:gaston", "project:shop"],
     ["person:gaston"],

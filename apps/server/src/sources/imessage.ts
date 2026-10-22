@@ -1,9 +1,10 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { HOME } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../records/source";
+import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
 import type { Newest } from "./contract";
+import { sourceFile } from "./contract";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 

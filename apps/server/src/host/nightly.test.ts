@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { HOUR } from "../core/clock";
 import { log } from "../core/log";
 import { MACHINE } from "../core/platform";
 import { latestExtractions } from "../memory/ledger";
@@ -16,7 +17,7 @@ test("a daily review reached Life only when ChatGPT read `day` without error in 
   expect(await reviewed(now)).toBe(false);
   log("mcp.call", { agent: "openai-mcp/1.0.0", tool: "day" });
   expect(await reviewed(now)).toBe(true);
-  expect(await reviewed(new Date(now.getTime() + 25 * 3_600_000))).toBe(false);
+  expect(await reviewed(new Date(now.getTime() + 25 * HOUR))).toBe(false);
 });
 
 test("each marked unit is listed once read since the last night, with the observations citing its marked lines", () => {

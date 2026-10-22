@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { DAY } from "../../core/clock";
+import { DAY, HOUR, MIN } from "../../core/clock";
 import { clientName } from "../events";
 import { snapshot, stationsOf, toneOf, waking, wokeAt } from "./plate";
 
@@ -7,19 +7,19 @@ const now = Date.parse("2026-10-21T15:00:00.000Z");
 const ago = (ms: number) => new Date(now - ms).toISOString();
 
 test("a source is red only when Life can't read it; silence is quiet, then amber past its limit", () => {
-  expect(toneOf(ago(10 * 60_000), DAY, now)).toEqual({
+  expect(toneOf(ago(10 * MIN), DAY, now)).toEqual({
     tone: "ok",
     word: "receiving",
   });
-  expect(toneOf(ago(5 * 3_600_000), DAY, now)).toEqual({
+  expect(toneOf(ago(5 * HOUR), DAY, now)).toEqual({
     tone: "idle",
     word: "quiet",
   });
-  expect(toneOf(ago(25 * 3_600_000), DAY, now)).toEqual({
+  expect(toneOf(ago(25 * HOUR), DAY, now)).toEqual({
     tone: "warn",
     word: "silent",
   });
-  expect(toneOf(ago(60_000), DAY, now, false)).toEqual({
+  expect(toneOf(ago(MIN), DAY, now, false)).toEqual({
     tone: "bad",
     word: "unreadable",
   });
@@ -95,14 +95,22 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
   ).toEqual(["gather:done", "moments:now", "extract:todo"]);
 });
 
-test("every card on the plate has its own id", async () => {
-  const ids = (await snapshot()).cards.map((c) => c.id);
-  expect(ids.length).toBe(new Set(ids).size);
-}, 60_000);
+test(
+  "every card on the plate has its own id",
+  async () => {
+    const ids = (await snapshot()).cards.map((c) => c.id);
+    expect(ids.length).toBe(new Set(ids).size);
+  },
+  MIN
+);
 
-test("an output's card says off when its switch is off, on when it is on", async () => {
-  const cards = new Map((await snapshot()).cards.map((c) => [c.id, c]));
-  // The made-up settings set a connector and no Past calendar.
-  expect(cards.get("past")?.word).toBe("off");
-  expect(cards.get("connector")?.word).toBe("serving");
-}, 60_000);
+test(
+  "an output's card says off when its switch is off, on when it is on",
+  async () => {
+    const cards = new Map((await snapshot()).cards.map((c) => [c.id, c]));
+    // The made-up settings set a connector and no Past calendar.
+    expect(cards.get("past")?.word).toBe("off");
+    expect(cards.get("connector")?.word).toBe("serving");
+  },
+  MIN
+);

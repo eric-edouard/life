@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { HOUR } from "../core/clock";
 import { whatsappFixture } from "./store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "./whatsapp";
 
@@ -14,7 +15,7 @@ test("the archive reads deleted and edited messages by their last text, with sen
   add(4, "S4", 14, null);
   copyWhatsapp(source, dir, now + 5000);
 
-  const events = readWhatsapp(new Date(now - 3_600_000), dir, source);
+  const events = readWhatsapp(new Date(now - HOUR), dir, source);
   expect(events.map((e) => e.text).sort()).toEqual([
     "meet at 10",
     "pay the carpenter",

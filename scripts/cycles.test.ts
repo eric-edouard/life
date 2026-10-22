@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { ROOT } from "../core/paths";
-import { repoFiles } from "../core/proc";
+import { ROOT } from "@life/server/src/core/paths";
+import { repoFiles } from "@life/server/src/core/proc";
 
 // No module imports one that imports it back, type-only imports included (fallow's cycle check skips those): a
 // capability's implementations import its contract.ts, and only its registry imports them (AGENTS.md).

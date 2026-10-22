@@ -15,8 +15,8 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { readRepoGuesses, readUnits } from "./ledger";
-import type { Line } from "./observe";
+import { readInferredRepos, readUnits } from "./ledger";
+import type { SourceLine } from "./observe";
 import { handlesOf, OWNER, ownerIn } from "./read-truth";
 import { isDirect, kindOf, sourceOf } from "./sources";
 import {
@@ -94,7 +94,7 @@ export async function transcripts(turns: ChapterTurn[]) {
 }
 
 /** The lines of a chat-day or mail thread-day, each cited to its message id. */
-export function chatLines(b: Built, resolve: Resolve): Line[] {
+export function chatLines(b: Built, resolve: Resolve): SourceLine[] {
   const name = oneToOne(b);
   const kind = kindOf(b.unit.source);
   return b.messages.map((m) => {
@@ -123,7 +123,7 @@ export function voiceLines(
   turns: ChapterTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
   resolve: Resolve
-): Line[] {
+): SourceLine[] {
   return turns.flatMap((t) => {
     const turn = jobs.get(t.jobId)?.[t.turnIndex];
     if (!turn?.text.trim()) {
@@ -152,7 +152,7 @@ export async function unitLines(unit: Unit, { resolve, truth }: People) {
   const built = builtFor(
     unit,
     resolve,
-    repoMap(truth, await readRepoGuesses()),
+    repoMap(truth, await readInferredRepos()),
     ownerIn(truth.people)
   );
   return built ? { built, lines: chatLines(built, resolve) } : null;

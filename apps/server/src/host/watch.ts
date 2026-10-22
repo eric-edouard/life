@@ -1,6 +1,6 @@
 import { checks, pull } from "../actions/backend";
 import { marks, push } from "../actions/board";
-import { clock, MIN } from "../core/clock";
+import { clock, DAY, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { hold } from "../core/lock";
 import { log } from "../core/log";
@@ -75,9 +75,9 @@ const RETRY_MS = 30_000;
  * ponytail: a recording later than that ends the ask before it (`asksIn` starts at a wake); joining it to the open
  * ask would need a ledger line that extends an ask.
  */
-const WAIT_MS = { complete: 5000, open: 60_000 };
+const WAIT_MS = { complete: 5000, open: MIN };
 /** A replay of the store (after a restart or an outage) never acts on speech older than a week. */
-const RECENT_MS = 7 * 24 * 3_600_000;
+const RECENT_MS = 7 * DAY;
 /**
  * How far before the newest turn a restarted watcher hears again: past any wait (2 min at most, 10–21 Oct), hold or
  * retry. ponytail: a hearing pending longer (five failed fetches while other turns arrive) is lost on a restart; mark

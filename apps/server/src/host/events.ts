@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { clock, unfrozen } from "../core/clock";
+import { clock, DAY, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
@@ -18,9 +18,9 @@ import { actionFailedReport, sendReport } from "./report";
 // delivered, so a restart or a retry loses nothing.
 
 /** The lifetime granted when none or a longer one is asked for. */
-const TTL_MS = 30 * 24 * 3_600_000;
+const TTL_MS = 30 * DAY;
 /** A verified callback is not challenged again for a day. */
-const VERIFIED_MS = 24 * 3_600_000;
+const VERIFIED_MS = DAY;
 const ATTEMPTS = 8;
 const BACKOFF_MS = 30_000;
 const CALLBACK_ERROR = -32_015;
@@ -261,7 +261,7 @@ export function nextEvent(lines: string[], from: number) {
 }
 
 /** How long a pulling agent may go without reading `tasks` before Life says it isn't receiving asks. */
-const PULL_MS = 24 * 3_600_000;
+const PULL_MS = DAY;
 
 /**
  * Whether his asks reach his agent now: for one they are pushed to, a live subscription; for one that pulls them, a

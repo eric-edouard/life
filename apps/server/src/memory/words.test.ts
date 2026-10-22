@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { DAY, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { copyBeeper, readBeeper } from "../sources/beeper";
@@ -14,8 +15,8 @@ import {
   lifelogStore,
   noteData,
   notesFixture,
-  page,
-  turn,
+  pageFixture,
+  turnFixture,
   whatsappFixture,
 } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
@@ -51,16 +52,16 @@ const open = () => {
   const store = lifelogStore();
   apply(
     store,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:10:00.000Z"),
       ],
       conversations: [conversation("c1")],
       turns: [
-        turn(0, "2026-10-14T10:00:00.000Z", null, null),
-        turn(1, "2026-10-14T10:01:00.000Z", "p1", "Plumber"),
-        turn(2, "2026-10-14T10:02:00.000Z", null, null),
-        turn(3, "2026-10-14T10:06:00.000Z", null, null),
+        turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
+        turnFixture(1, "2026-10-14T10:01:00.000Z", "p1", "Plumber"),
+        turnFixture(2, "2026-10-14T10:02:00.000Z", null, null),
+        turnFixture(3, "2026-10-14T10:06:00.000Z", null, null),
       ],
     })
   );
@@ -94,9 +95,9 @@ test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns 
     // Eight turns of a recording made before job-1, brought by the feed after the ask was heard: job-1's turns move down.
     apply(
       store,
-      page({
+      pageFixture({
         turns: Array.from({ length: 8 }, (_, n) => ({
-          ...turn(n, `2026-10-14T09:5${n}:00.000Z`, null, null),
+          ...turnFixture(n, `2026-10-14T09:5${n}:00.000Z`, null, null),
           jobId: "job-0",
         })),
       })
@@ -334,7 +335,7 @@ test("a long hit, a voice passage or a note, keeps its lines holding a word, cut
 });
 
 test("chats never read Life's own chat with the bot", async () => {
-  const at = new Date(Date.now() - 60_000).toISOString();
+  const at = new Date(Date.now() - MIN).toISOString();
   const event = (chat: string, text: string) => ({
     at,
     chat,
@@ -402,9 +403,9 @@ test("search finds a note of any age by any of its words, a long one shown by it
   expect(found.join("\n")).toContain(`la vitre ${89 * 86_400}`);
   expect(found.join("\n")).not.toContain(`la vitre ${91 * 86_400}`);
   // --from bounds the notes too.
-  const recent = (
-    await hits(new Date(now - 90 * 86_400_000).toISOString())
-  ).join("\n");
+  const recent = (await hits(new Date(now - 90 * DAY).toISOString())).join(
+    "\n"
+  );
   expect(recent).toContain(`la vitre ${89 * 86_400}`);
   expect(recent).not.toContain("80 x 120");
 });
@@ -447,11 +448,10 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
 const NEXT = /the same call with `before` (\S+)\)/;
 
 test("chats: `from` is read as far back as asked, a cut names the call that reads on, and no `from` says its window", async () => {
-  const day = 86_400_000;
   const now = Date.now();
   // One message a day for the last 300 days.
   const events = Array.from({ length: 300 }, (_, i) => ({
-    at: new Date(now - (300 - i) * day).toISOString(),
+    at: new Date(now - (300 - i) * DAY).toISOString(),
     chat: "+33611111111",
     fromMe: i % 2 === 0,
     id: `imessage:${i}`,
@@ -464,7 +464,7 @@ test("chats: `from` is read as far back as asked, a cut names the call that read
       events.filter((e) => e.at >= since.toISOString()),
   };
   const chat = "+33611111111";
-  const from = new Date(now - 400 * day).toISOString().slice(0, 10);
+  const from = new Date(now - 400 * DAY).toISOString().slice(0, 10);
   const all = (await chatsOf({ chat, from }, sources)) ?? "";
   expect(all).toContain("message 299");
   expect(all).toContain("message 100");

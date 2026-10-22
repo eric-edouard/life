@@ -2,7 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { checks } from "../../actions/backend";
 import { clock, DAY, HOUR, MIN } from "../../core/clock";
-import { linesOf } from "../../core/files";
+import { filesIn, linesOf } from "../../core/files";
 import type { Call } from "../../core/log";
 import { isAgent, type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
@@ -150,11 +150,6 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-const countLines = (path: string) =>
-  existsSync(path) ? linesOf(path).length : 0;
-const filesIn = (dir: string, ext: string) =>
-  existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(ext)) : [];
-
 /** The truth benchmark: statements he rated, and those left. */
 async function rated() {
   const [statements, ratings] = await Promise.all([
@@ -174,17 +169,23 @@ async function memoryCounts() {
     .stdout.toString()
     .trim()
     .split("\n");
+  const [moments, observations, people, areas, portrait] = await Promise.all([
+    filesIn(join(DATA, "memory", "moments")),
+    filesIn(OBSERVATIONS),
+    filesIn(join(PAGES, "people"), ".md"),
+    filesIn(join(PAGES, "areas"), ".md"),
+    filesIn(join(DATA, "docs", "portrait"), ".html"),
+  ]);
   return {
     commitAt: at ? new Date(at).toISOString() : null,
-    corrections: countLines(CORRECTIONS),
-    moments: filesIn(join(DATA, "memory", "moments"), ".jsonl").length,
-    observations: filesIn(OBSERVATIONS, ".jsonl").reduce(
-      (n, m) => n + countLines(join(OBSERVATIONS, m)),
+    corrections: linesOf(CORRECTIONS).length,
+    moments: moments.length,
+    observations: observations.reduce(
+      (n, m) => n + linesOf(join(OBSERVATIONS, m)).length,
       0
     ),
-    pages:
-      filesIn(join(PAGES, "people"), ".md").length +
-      filesIn(join(PAGES, "areas"), ".md").length,
+    pages: people.length + areas.length,
+    portraitPages: portrait.length,
     ...(await rated()),
   };
 }
@@ -228,8 +229,8 @@ async function truthState() {
   };
 }
 
-export type Line = LogEvent & Record<string, unknown>;
-const since = (list: Line[], ms: number, now: number) =>
+export type LogLine = LogEvent & Record<string, unknown>;
+const since = (list: LogLine[], ms: number, now: number) =>
   list.filter((e) => now - Date.parse(e.at) < ms);
 
 // --- the plate ------------------------------------------------------------------------------------------------------
@@ -301,14 +302,14 @@ async function reads(now: Date) {
     newest,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
-    cached("log", 5000, () => recentEvents<Line>(8, "")),
+    cached("log", 5000, () => recentEvents<LogLine>(8, "")),
     cached("failing", 15_000, () => archiveFailing()),
     cached("turn", 3000, () => safe(newestTurn)),
     cached("lifelog", 30_000, () => safe(lifelogStatus)),
     cached("mac", 15_000, () => macState()),
-    cached("mem", 60_000, () => memoryCounts()),
+    cached("mem", MIN, () => memoryCounts()),
     cached("unreflected", 5 * MIN, () => safe(unreflected)),
-    cached("truth", 60_000, () => truthState()),
+    cached("truth", MIN, () => truthState()),
     cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
     safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
     cached("sweeps", 15_000, () =>
@@ -324,7 +325,7 @@ async function reads(now: Date) {
       })
     ),
     cached("actions", 15_000, readActions),
-    cached("actionChecks", 60_000, checks),
+    cached("actionChecks", MIN, checks),
     newestOf(),
   ]);
   const of = (kind: string, days: number) =>
@@ -1076,9 +1077,7 @@ function outputCards(r: Reads): Card[] {
       facts: [
         {
           label: "Pages",
-          value: String(
-            filesIn(join(DATA, "docs", "portrait"), ".html").length
-          ),
+          value: String(r.mem.portraitPages),
         },
       ],
       group: "outputs",

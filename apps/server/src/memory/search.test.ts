@@ -12,8 +12,8 @@ import {
   chapter,
   conversation,
   lifelogStore,
-  page,
-  turn,
+  pageFixture,
+  turnFixture,
 } from "../sources/store-fixtures";
 import { tasksOf } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
@@ -42,12 +42,12 @@ test("day: the conversations with their chapters and people, then the chat and m
   const store = lifelogStore();
   apply(
     store,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
       ],
       conversations: [conversation("c1")],
-      turns: [turn(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie")],
+      turns: [turnFixture(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie")],
     })
   );
   const lines = dayLines({

@@ -19,7 +19,7 @@ import { LIFE_MAIL } from "./email";
 import {
   keptConversations,
   readFiles,
-  readRepoGuesses,
+  readInferredRepos,
   readUnits,
   readUnitsOf,
   UNITS,
@@ -673,7 +673,7 @@ export async function gather(
   // source up to today; give the readers an end if the pilot measures that slow next to the model calls.
   const since = dayStart(window.from);
   const failed: string[] = [];
-  const repos = repoMap(truth, await readRepoGuesses());
+  const repos = repoMap(truth, await readInferredRepos());
   const ctx = { me: ownerIn(truth.people), repos };
   // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
   // events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.

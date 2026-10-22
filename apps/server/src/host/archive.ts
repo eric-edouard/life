@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { ROOT } from "../core/paths";
@@ -101,7 +101,7 @@ function deletedIn(name: string, media: string, since: string) {
 }
 
 function printDeleted(days: number) {
-  const since = new Date(clock().getTime() - days * 864e5).toISOString();
+  const since = new Date(clock().getTime() - days * DAY).toISOString();
   const rows = ARCHIVED.flatMap((s) =>
     deletedIn(s.name, s.store.media, since)
   ).sort((a, b) => a.at.localeCompare(b.at));

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { table } from "./bench";
+import { factTable } from "./bench";
 
 const counts = (held: number) => ({
   contradicted: 1,
@@ -29,7 +29,7 @@ const row = (label: string, model: string, held?: number) => ({
 const about = { facts: 38, rated: 99 };
 
 test("bench table: within the baseline's spread (or 3) is a tie; no baseline is said so", () => {
-  const t = table(
+  const t = factTable(
     [
       row("life1", "life", 14),
       row("life2", "life", 16),
@@ -42,7 +42,10 @@ test("bench table: within the baseline's spread (or 3) is a tie; no baseline is 
   expect(t).toContain("| opus1 | opus | 17/21 | 2 | tie |");
   expect(t).toContain("| mimo1 | mimo | 9/21 | 2 | -6.0 |");
   expect(t).toContain("wrong (of 38)");
-  const alone = table([row("life1", "life"), row("opus1", "opus", 17)], about);
+  const alone = factTable(
+    [row("life1", "life"), row("opus1", "opus", 17)],
+    about
+  );
   expect(alone).toContain("no baseline");
   expect(alone).toContain("| life1 | life | failed: exited 1 |");
 });

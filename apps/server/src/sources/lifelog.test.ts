@@ -27,9 +27,9 @@ import {
   chapter,
   conversation,
   lifelogServer,
-  page,
+  pageFixture,
   lifelogStore as store,
-  turn,
+  turnFixture,
 } from "./store-fixtures";
 
 const since = new Date("2026-10-01T00:00:00Z");
@@ -41,17 +41,17 @@ test("a name given to one turn names that turn, not the whole voice", () => {
   // Voice speaker_0 is unnamed; the owner named only turn 1. The server sends each turn with the name that wins for it.
   apply(
     s,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
         chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
       ],
       conversations: [conversation("c1")],
       turns: [
-        turn(0, "2026-10-14T10:00:00.000Z", null, null),
-        turn(1, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie"),
-        turn(2, "2026-10-14T10:02:00.000Z", null, null),
-        turn(3, "2026-10-14T10:06:00.000Z", null, null),
+        turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
+        turnFixture(1, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie"),
+        turnFixture(2, "2026-10-14T10:02:00.000Z", null, null),
+        turnFixture(3, "2026-10-14T10:06:00.000Z", null, null),
       ],
     })
   );
@@ -74,9 +74,9 @@ test("a turn is his while the store credits him now: one lifelog later names som
   const sent = (owner: boolean, id: string | null) =>
     apply(
       s,
-      page({
+      pageFixture({
         conversations: [conversation("c1")],
-        turns: [turn(0, at, id, id, "c1", owner)],
+        turns: [turnFixture(0, at, id, id, "c1", owner)],
       })
     );
   sent(true, JEAN);
@@ -92,16 +92,16 @@ test("a chapter holds its turns, its first turn's ref, and names the map gives i
   const s = store();
   apply(
     s,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
         chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
       ],
       conversations: [conversation("c1", { ownerTitle: "Plumber visit" })],
       turns: [
-        turn(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)"),
-        turn(1, "2026-10-14T10:04:00.000Z", ANNE, "Anne-Sophie"),
-        turn(2, "2026-10-14T10:05:00.000Z", ANNE, "Anne-Sophie"),
+        turnFixture(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)"),
+        turnFixture(1, "2026-10-14T10:04:00.000Z", ANNE, "Anne-Sophie"),
+        turnFixture(2, "2026-10-14T10:05:00.000Z", ANNE, "Anne-Sophie"),
       ],
     })
   );
@@ -119,7 +119,7 @@ test("a retired conversation gives no units, its successor's chapters do; remove
   const s = store();
   apply(
     s,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
         chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
@@ -130,15 +130,15 @@ test("a retired conversation gives no units, its successor's chapters do; remove
         conversation("s1", { kind: "silent" }),
       ],
       turns: [
-        turn(0, "2026-10-14T10:00:00.000Z", null, null),
-        turn(1, "2026-10-14T10:06:00.000Z", null, null),
+        turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
+        turnFixture(1, "2026-10-14T10:06:00.000Z", null, null),
       ],
     })
   );
   expect(readConversations(s, since).map((x) => x.id)).toEqual(["c1"]);
   apply(
     s,
-    page({
+    pageFixture({
       removed: [
         { kind: "chapter", ref: "b" },
         { kind: "turn", ref: "job-1:1" },
@@ -153,36 +153,36 @@ test("a retired conversation gives no units, its successor's chapters do; remove
 test("applying a page twice changes nothing, and an empty store is no conversations", () => {
   const s = store();
   expect(readConversations(s, since)).toEqual([]);
-  const p = page({
+  const p = pageFixture({
     chapters: [
       chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
     ],
     conversations: [conversation("c1")],
-    turns: [turn(0, "2026-10-14T10:00:00.000Z", null, null)],
+    turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null)],
   });
   apply(s, p);
   const once = JSON.stringify(readConversations(s, since));
   expect(apply(s, p)).toBe(true);
   expect(JSON.stringify(readConversations(s, since))).toBe(once);
-  expect(apply(s, page())).toBe(false);
+  expect(apply(s, pageFixture())).toBe(false);
 });
 
 test("a turn's place in its conversation, and a person's conversations newest first", () => {
   const s = store();
   apply(
     s,
-    page({
+    pageFixture({
       conversations: [
         conversation("c1"),
         conversation("c2", { startAt: "2026-10-15T09:00:00.000Z" }),
         conversation("c3", { kind: "silent" }),
       ],
       turns: [
-        turn(0, "2026-10-14T10:00:00.000Z", null, null),
-        turn(1, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie"),
-        turn(2, "2026-10-14T10:02:00.000Z", ANNE, "Anne-Sophie"),
-        turn(0, "2026-10-15T09:00:00.000Z", ANNE, "Anne-Sophie", "c2"),
-        turn(0, "2026-10-15T09:00:00.000Z", ANNE, "Anne-Sophie", "c3"),
+        turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
+        turnFixture(1, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie"),
+        turnFixture(2, "2026-10-14T10:02:00.000Z", ANNE, "Anne-Sophie"),
+        turnFixture(0, "2026-10-15T09:00:00.000Z", ANNE, "Anne-Sophie", "c2"),
+        turnFixture(0, "2026-10-15T09:00:00.000Z", ANNE, "Anne-Sophie", "c3"),
       ].map((t) => ({ ...t, jobId: `job-${t.conversationId?.slice(1)}` })),
     })
   );
@@ -235,15 +235,31 @@ test("search posts the words and the range with the device token and returns the
 
 test("the owner flag is stored and read back; poll lists a turn as his once, a late identification included", async () => {
   const s = store();
-  const anne = turn(1, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie");
-  let first = turn(0, "2026-10-14T10:00:00.000Z", ANNE, "Anne-Sophie", "c1");
+  const anne = turnFixture(1, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie");
+  let first = turnFixture(
+    0,
+    "2026-10-14T10:00:00.000Z",
+    ANNE,
+    "Anne-Sophie",
+    "c1"
+  );
   const server = lifelogServer({
     "/changes": () =>
-      page({ conversations: [conversation("c1")], turns: [first, anne] }),
+      pageFixture({
+        conversations: [conversation("c1")],
+        turns: [first, anne],
+      }),
   });
   try {
     expect((await poll(s, 0)).owner).toEqual([]);
-    first = turn(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)", "c1", true);
+    first = turnFixture(
+      0,
+      "2026-10-14T10:00:00.000Z",
+      JEAN,
+      "Jean (Me)",
+      "c1",
+      true
+    );
     expect((await poll(s, 0)).owner).toEqual([
       { at: "2026-10-14T10:00:00.000Z", conversation: "c1" },
     ]);
@@ -257,15 +273,23 @@ test("the owner flag is stored and read back; poll lists a turn as his once, a l
 test("a turn keeps its end and when the feed first brought it", () => {
   const s = store();
   const words = {
-    ...turn(0, "2026-10-14T10:00:00.000Z", null, null),
+    ...turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
     endAt: "2026-10-14T10:00:04.000Z",
   };
-  apply(s, Page.parse(page({ turns: [words] })), "2026-10-14T10:01:00.000Z");
+  apply(
+    s,
+    Page.parse(pageFixture({ turns: [words] })),
+    "2026-10-14T10:01:00.000Z"
+  );
   const named = {
     ...words,
     speaker: { isOwner: true, personId: JEAN, personName: "Jean (Me)" },
   };
-  apply(s, Page.parse(page({ turns: [named] })), "2026-10-14T10:01:01.000Z");
+  apply(
+    s,
+    Page.parse(pageFixture({ turns: [named] })),
+    "2026-10-14T10:01:01.000Z"
+  );
   expect(turnsBetween(s, "c1")).toMatchObject([
     {
       end: "2026-10-14T10:00:04.000Z",
@@ -277,10 +301,10 @@ test("a turn keeps its end and when the feed first brought it", () => {
 
 test("poll also lists a new turn nobody is named for, once", async () => {
   const s = store();
-  const lost = turn(0, "2026-10-14T10:00:00.000Z", null, null, "c1");
+  const lost = turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1");
   const server = lifelogServer({
     "/changes": () =>
-      page({ conversations: [conversation("c1")], turns: [lost] }),
+      pageFixture({ conversations: [conversation("c1")], turns: [lost] }),
   });
   try {
     expect((await poll(s, 0)).owner).toEqual([
@@ -381,7 +405,7 @@ test.skipIf(!existsSync(CONTRACT))(
 
 test("a feed page with a turn not yet in a conversation and a conversation retired with no successor is read", () => {
   const p = Page.parse(
-    page({
+    pageFixture({
       chapters: [
         {
           ...chapter(
@@ -394,7 +418,7 @@ test("a feed page with a turn not yet in a conversation and a conversation retir
         },
       ],
       conversations: [conversation("c1", { retired: { successorId: null } })],
-      turns: [turn(0, "2026-10-14T10:00:00.000Z", null, null, null)],
+      turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, null)],
     })
   );
   expect(p.turns).toEqual([]);
@@ -419,7 +443,7 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
   const R0 = "job-1:0@2026-10-14T10:01:00.000Z";
   const R1 = "job-1:1@2026-10-14T10:06:00.000Z";
   const cut = (id: string) =>
-    page({
+    pageFixture({
       chapters: [
         {
           ...chapter(
@@ -440,8 +464,8 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
       ],
       conversations: [conversation(id)],
       turns: [
-        turn(0, "2026-10-14T10:01:00.000Z", null, null, id, true),
-        turn(1, "2026-10-14T10:06:00.000Z", null, null, id),
+        turnFixture(0, "2026-10-14T10:01:00.000Z", null, null, id, true),
+        turnFixture(1, "2026-10-14T10:06:00.000Z", null, null, id),
       ],
     });
   apply(s, cut("c1"));
@@ -461,22 +485,28 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
   // lifelog transcribed the recording again: another turn at the same index (a new start) is not the wake.
   apply(
     s,
-    page({
-      turns: [turn(0, "2026-10-14T10:02:00.000Z", null, null, "c2", true)],
+    pageFixture({
+      turns: [
+        turnFixture(0, "2026-10-14T10:02:00.000Z", null, null, "c2", true),
+      ],
     })
   );
   expect(marked("c2")).toEqual([undefined, undefined]);
   apply(
     s,
-    page({
-      turns: [turn(0, "2026-10-14T10:01:00.000Z", null, null, "c2", true)],
+    pageFixture({
+      turns: [
+        turnFixture(0, "2026-10-14T10:01:00.000Z", null, null, "c2", true),
+      ],
     })
   );
   // lifelog names someone else for the wake turn: no longer his mark.
   apply(
     s,
-    page({
-      turns: [turn(0, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie", "c2")],
+    pageFixture({
+      turns: [
+        turnFixture(0, "2026-10-14T10:01:00.000Z", ANNE, "Anne-Sophie", "c2"),
+      ],
     })
   );
   expect(marked("c2")).toEqual([undefined, undefined]);
