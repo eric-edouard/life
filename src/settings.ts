@@ -24,6 +24,19 @@ export const Settings = z
      * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
      * nothing wakes an agent.
      */
+    /**
+     * The actions output, input and output (`src/actions/`), and its one backend: his Apple Reminders (remctl) or his
+     * Google Tasks (`gog` as `account`). On, Life acts there when he asks, keeps the board, and reads his changes back;
+     * without it (the default), nothing in Life touches either.
+     */
+    actions: z
+      .discriminatedUnion("backend", [
+        z.object({ backend: z.literal("reminders") }).strict(),
+        z
+          .object({ account: z.string(), backend: z.literal("google") })
+          .strict(),
+      ])
+      .optional(),
     agent: z
       .object({
         /** The user agent its calls start with; by default ChatGPT's for a pushed agent, Claude's for one that pulls. */
@@ -73,11 +86,6 @@ export const Settings = z
       .object({ account: z.string().optional(), calendar: z.string() })
       .strict()
       .optional(),
-    /**
-     * The Reminders plugin, input and output (`src/reminders/`): on, Life acts on his Reminders when he asks, keeps the
-     * board, and reads his changes back; off (the default), nothing in Life touches Reminders.
-     */
-    reminders: z.boolean().default(false),
     /** Who mails him his agents' reports: their mail is judged, not dropped as automated. */
     reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */
@@ -89,10 +97,16 @@ export const Settings = z
 export type Settings = z.infer<typeof Settings>;
 
 /** The settings in `path`; a missing file is every default, a corrupt one throws (never a silent switch of engine). */
-export const readSettings = (path = SETTINGS): Settings =>
-  Settings.parse(
-    existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {}
-  );
+export function readSettings(path = SETTINGS): Settings {
+  const raw = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
+  // The one key renamed (22 Oct): say how to fix the file, never rewrite it.
+  if ("reminders" in raw) {
+    throw new Error(
+      `${path}: "reminders" is now "actions": replace "reminders": true with "actions": { "backend": "reminders" }, or delete "reminders": false`
+    );
+  }
+  return Settings.parse(raw);
+}
 
 let read: Settings | undefined;
 /** This process's settings, read once. */
@@ -101,9 +115,19 @@ export const settings = () => {
   return read;
 };
 
-/** Writes some parts, keeping the rest: the whole is checked before anything is written. */
-export function setSettings(parts: Partial<Settings>) {
-  const next = Settings.parse({ ...readSettings(), ...parts });
+/** Writes some parts, keeping the rest (a part set to null is removed: off): the whole is checked before anything is written. */
+export function setSettings(
+  parts: {
+    [K in keyof Settings]?: Settings[K] | null;
+  }
+) {
+  const next = Settings.parse(
+    Object.fromEntries(
+      Object.entries({ ...readSettings(), ...parts }).filter(
+        ([, v]) => v !== null
+      )
+    )
+  );
   // Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly).
   writeFileSync(`${SETTINGS}.tmp`, `${JSON.stringify(next, null, 2)}\n`);
   renameSync(`${SETTINGS}.tmp`, SETTINGS);

@@ -8,7 +8,6 @@ test("a corrupt settings file throws instead of switching engine; a missing one 
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
   expect(readSettings(path)).toEqual({
     engine: "claude",
-    reminders: false,
     reports: [],
     sources: [],
   });
@@ -33,4 +32,12 @@ test("settings set with one bad part writes nothing", () => {
     setSettings({ engine: "codex", sources: ["nowhere"] as never })
   ).toThrow();
   expect(readSettings()).toEqual(before);
+});
+
+test("the old `reminders` key stops with how to fix the file, never a silent rewrite", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
+  writeFileSync(path, '{"reminders": true}');
+  expect(() => readSettings(path)).toThrow(
+    '"actions": { "backend": "reminders" }'
+  );
 });

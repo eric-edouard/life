@@ -1,3 +1,4 @@
+import { checks } from "../actions/backend";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
@@ -6,7 +7,6 @@ import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
 import { holder, isOtherLife } from "../lock";
 import { type Call, log, recentEvents } from "../log";
-import { checks } from "../reminders/remctl";
 import {
   type Action,
   type Extracted,

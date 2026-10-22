@@ -76,7 +76,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
-- **Life acts in one place: Apple Reminders**, through `act`, on his clear request or the standing grant. Asks are his
+- **Life acts in one place: one actions backend per install** (Apple Reminders or Google Tasks, the `actions`
+  setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
+  never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections, and acts only through `reminders`, `task` and `reply`.** Never add a
@@ -98,7 +100,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Settings are one strict file, read once per process** (`src/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
-- **Reminders is an interface, never the truth; the ledger is.** Changes read back from Reminders can take authority
+- **The actions backend is an interface, never the truth; the ledger is.** Changes read back from it can take authority
   away or reorder, never add it. Open items are derived (`openItems`), never stored (`docs/tasks.md`).
 - **Nightly emails include every row.** Never cap a list or write "+N more" (`docs/operations.md`, "The nightly
   report").
@@ -124,6 +126,7 @@ Before adding a helper, use the one that exists:
 | A unit's words | `raw.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Running another program | `src/proc.ts` |
+| His Reminders or Google Tasks | the backend (`backend()`, `src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |

@@ -4,6 +4,8 @@ import { settings } from "./settings";
 // switch, read from settings here. Off, an output does nothing and says so (`off`); its own module does the work and
 // reads the rest of its settings.
 export const OUTPUTS = {
+  /** His items in one actions backend (Reminders or Google Tasks), acted on at his request (`src/actions/`): off, nothing touches them. */
+  actions: { label: "Actions", on: () => Boolean(settings().actions) },
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
   /** The connector, its OAuth issuer and the pages behind sign-in (`server.ts`). */
@@ -16,8 +18,6 @@ export const OUTPUTS = {
       return Boolean(past && (past.account || process.env.LIFE_EVENTKIT));
     },
   },
-  /** His Apple Reminders, acted on at his request (`actions.ts`, `reminders/`): off, nothing touches them. */
-  reminders: { label: "Reminders", on: () => settings().reminders },
 } satisfies Record<string, { label: string; on: () => boolean }>;
 
 type Output = keyof typeof OUTPUTS;

@@ -10,22 +10,23 @@ import {
 import { digest } from "../memory/ledger";
 import { normalize } from "../memory/units";
 import { type Action, stands } from "../schema";
-import { openOf, type Reminder, type Snapshot } from "./remctl";
+import { type Item, openOf, type Snapshot } from "./backend";
 
-// His changes in Reminders come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
+// His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
 // with what the ledger says Life left there, and a field Life tried to write and could not confirm is learned, never his (#69).
 // They may close, reopen, reschedule, re-rank, rename, drop or add an item, never ask, send or grant. Section, order and
 // a repeating reminder's due are Apple's own, never compared; a shared list is never read.
 
 /** A live reminder's fields, as a change writes them (`pick` keeps the compared ones). */
-const fieldsNow = (r: Reminder) =>
+const fieldsNow = (r: Item) =>
   pick({ ...r, deleted: false, due: openOf(r).due, lost: false });
-const linkOf = (r: Reminder) => r.deepLink?.split("/").at(-1);
+const linkOf = (r: Item) => r.deepLink?.split("/").at(-1);
 
 /** One line of his, read from Reminders: never his words (no `instruction`), so nothing can take it for a request. */
 const his = (
+  prefix: string,
   kind: Action["kind"],
-  id: number,
+  id: string,
   at: string,
   after: Fields & { created?: string; link?: string },
   before?: Record<string, unknown>
@@ -38,9 +39,12 @@ const his = (
   madeBy: "reminders",
   result: "ok",
   schemaVersion: 1,
-  target: `reminder:${id}`,
+  target: `${prefix}:${id}`,
   why: kind === "import" ? "linked, no change" : "his change in Reminders",
 });
+
+/** A linked item's id in its backend. */
+const itemId = (it: Linked) => it.target.slice(it.target.indexOf(":") + 1);
 
 const of = (o: Fields, fs: readonly Field[]) =>
   Object.fromEntries(fs.map((f) => [f, o[f]]));
@@ -59,8 +63,9 @@ const LAG_MS = 30_000;
  * on the first pass (a baseline), a field it never wrote, a new id (a move whose answer was lost). Then his changes.
  */
 function linesOf(
+  prefix: string,
   it: Linked,
-  r: Reminder | undefined,
+  r: Item | undefined,
   gone: boolean,
   first: boolean,
   at: string
@@ -78,8 +83,8 @@ function linesOf(
       !(f === "due" && r?.recurrence)
   );
   const unknown = FIELDS.filter((f) => f in now && !known(f));
-  const id = r?.id ?? it.id;
-  const rekey = id === it.id ? undefined : { id: it.id };
+  const id = r?.id ?? itemId(it);
+  const rekey = id === itemId(it) ? undefined : { id: itemId(it) };
   // One line of his per pass, named by what matters most in it: a removal or restore, a tick, else an edit.
   const named = NAMED.find(([f]) => changed.includes(f));
   const kind = named ? named[now[named[0]] ? 1 : 2] : "edit";
@@ -88,6 +93,7 @@ function linesOf(
     ...(unknown.length > 0 || rekey
       ? [
           his(
+            prefix,
             "import",
             id,
             at,
@@ -97,22 +103,28 @@ function linesOf(
         ]
       : []),
     ...(changed.length > 0
-      ? [his(kind, id, at, of(now, changed), of(it.fields, changed))]
+      ? [his(prefix, kind, id, at, of(now, changed), of(it.fields, changed))]
       : []),
   ];
 }
 
 /** The lines this pass adds: his changes and his new reminders (`add`), and imports, which change nothing. */
-export function inbound(s: Snapshot, actions: Action[], at: string) {
+export function inbound(s: Snapshot, ledger: Action[], at: string) {
+  // Only this backend's lines: another backend's items (before a switch) are never read here, never marked lost.
+  const actions = ledger.filter((a) => a.target.startsWith(`${s.prefix}:`));
   const first = !actions.some((a) => a.kind === "import");
   const byId = new Map(s.live.map((r) => [r.id, r]));
   const byLink = new Map(s.live.map((r) => [linkOf(r), r]));
   const lines: Action[] = [];
   for (const it of linked(actions).values()) {
-    const r = byId.get(it.id) ?? (it.link ? byLink.get(it.link) : undefined);
-    byId.delete(r?.id ?? Number.NaN);
+    const r =
+      byId.get(itemId(it)) ?? (it.link ? byLink.get(it.link) : undefined);
+    if (r) {
+      byId.delete(r.id);
+    }
     const gone = s.deleted.some(
-      (d) => d.id === it.id || (it.link !== undefined && linkOf(d) === it.link)
+      (d) =>
+        d.id === itemId(it) || (it.link !== undefined && linkOf(d) === it.link)
     );
     // Left alone: one Life wrote to moments ago (reads lag writes, and a write may land during the read), one on a
     // shared list (never read), one removed and then purged.
@@ -120,7 +132,7 @@ export function inbound(s: Snapshot, actions: Action[], at: string) {
       Date.parse(at) - Date.parse(it.wrote ?? "") < LAG_MS ||
       s.shared.includes(`${it.fields.list}`) ||
       !(r || gone || !it.fields.deleted);
-    lines.push(...(alone ? [] : linesOf(it, r, gone, first, at)));
+    lines.push(...(alone ? [] : linesOf(s.prefix, it, r, gone, first, at)));
   }
   // Left, linked to nothing: his new reminder, or Life's add whose answer was lost (or is still coming: it waits).
   const lost = lostAdds(actions);
@@ -134,7 +146,9 @@ export function inbound(s: Snapshot, actions: Action[], at: string) {
         created: r.createdDate,
         link: linkOf(r),
       };
-      lines.push(his(first || tried ? "import" : "add", r.id, at, after));
+      lines.push(
+        his(s.prefix, first || tried ? "import" : "add", r.id, at, after)
+      );
     }
   }
   return lines;

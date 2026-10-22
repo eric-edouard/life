@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { actionId, requested } from "./actions";
+import { actionId, requested } from "./actions/act";
+import type { Receipt } from "./actions/board";
 import { clock } from "./clock";
 import { agentLive } from "./events";
 import { LOG_DIR, logDays, logEvents } from "./log";
@@ -17,7 +18,6 @@ import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
 import { isOn } from "./outputs";
-import type { Receipt } from "./reminders/board";
 import { Action, AGENT_WORD, type Instruction } from "./schema";
 import { agentName, settings } from "./settings";
 import { DATA, ROOT } from "./truth";
@@ -73,7 +73,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 
 /** The protocol's Reminders parts (`<!-- reminders -->…<!-- /reminders -->`): the markers always go, the parts too while the plugin is off. */
 const REMINDERS_PART = /<!-- reminders -->([\s\S]*?)<!-- \/reminders -->/g;
-export const protocol = (text: string, reminders = isOn("reminders")) =>
+export const protocol = (text: string, reminders = isOn("actions")) =>
   text
     .replace(REMINDERS_PART, (_, part: string) => (reminders ? part : ""))
     .replaceAll("{agent}", agentName());
@@ -542,11 +542,11 @@ export function wantOf(t: Task): Receipt {
   };
 }
 
-/** The board's receipts (`push`, src/reminders/board.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
+/** The board's receipts (`push`, src/actions/board.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
 export const receipts = (tasks: Task[], now: number) =>
   tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
 
-/** His tick or removal of an open task's receipt (`marks`, src/reminders/board.ts) closes it, done or dropped (decision 17): it only takes work away. */
+/** His tick or removal of an open task's receipt (`marks`, src/actions/board.ts) closes it, done or dropped (decision 17): it only takes work away. */
 export const closings = (
   tasks: Task[],
   marks: Map<string, "removed" | "ticked">,

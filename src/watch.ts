@@ -1,3 +1,6 @@
+import { checks, pull } from "./actions/backend";
+import { marks, push } from "./actions/board";
+import { inbound } from "./actions/inbound";
 import { clock } from "./clock";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
@@ -10,9 +13,6 @@ import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
 import { isOn } from "./outputs";
 import { codeAt } from "./proc";
-import { marks, push } from "./reminders/board";
-import { inbound } from "./reminders/inbound";
-import { checks, pull } from "./reminders/remctl";
 import { Action } from "./schema";
 import { serve } from "./server";
 import { listening } from "./sources/index";
@@ -27,7 +27,7 @@ import { healTunnel, TUNNEL_EVERY_MS } from "./tunnel";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
-// mirrors them on his board (src/reminders); `deliver` pushes the asks not yet delivered to the agent (src/events.ts).
+// mirrors them on his board (src/actions); `deliver` pushes the asks not yet delivered to the agent (src/events.ts).
 // Every 2 minutes it also heals the Mac's tunnel (src/tunnel.ts).
 
 const MIN = 60_000;
@@ -47,10 +47,10 @@ async function tick(now = clock().getTime()) {
 
 async function pass(now: number) {
   await chase(tasksOf(), now);
-  if (!isOn("reminders")) {
+  if (!isOn("actions")) {
     return;
   }
-  // Reminders both ways (src/reminders): one read, his changes recorded as state, then the board brought in line. `at`
+  // The actions backend both ways (src/actions): one read, his changes recorded as state, then the board brought in line. `at`
   // is taken before the read: what Life writes during it falls in the lag window.
   const at = clock().toISOString();
   const read = performance.now();
@@ -198,15 +198,11 @@ async function syncUnits(store: Store, cursor: string) {
   return n !== null;
 }
 
-/** Whether Life can act on Reminders from here, in life-watch.log at start (the connector's `reminders` acts from this process). */
+/** Whether Life can act from here, in life-watch.log at start (the connector's `reminders` acts from this process). */
 function sayActions() {
-  if (!isOn("reminders")) {
-    console.log(`${clock().toISOString()} actions: Reminders off`);
-    return;
-  }
   checks().then((problems) =>
     console.log(
-      `${clock().toISOString()} actions: ${problems.join("; ") || "remctl ready"}`
+      `${clock().toISOString()} actions: ${isOn("actions") ? problems.join("; ") || "ready" : "off"}`
     )
   );
 }

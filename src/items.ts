@@ -2,10 +2,10 @@ import { type Action, type SourceEvent, stands } from "./schema";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
 // every read from the records that already hold each fact (the observations, memory/actions.jsonl, his chats), never
-// stored, ranked by code. Reminders is one interface to it: delete src/reminders/ and this still holds.
+// stored, ranked by code. The actions backend is one interface to it: without one this still holds.
 
-// His reminders as the ledger holds them: what Life wrote (`act`, its intents too) and what it read back as his
-// (`madeBy: "reminders"`, src/reminders/inbound.ts), walked in order.
+// His items (reminders, Google tasks) as the ledger holds them: what Life wrote (`act`, its intents too) and what it read
+// back as his (`madeBy: "reminders"`, src/actions/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
 
 /** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted. */
 export const FIELDS = [
@@ -31,16 +31,16 @@ export const pick = (o: Record<string, unknown>): Fields =>
 
 export type Field = (typeof FIELDS)[number];
 
-/** A reminder Life links: `key`, Life's id for it (the line that opened it); its id in Reminders now; what Life left on it; when it was last removed and when Life last wrote to it. */
+/** An item Life links: `key`, Life's id for it (the line that opened it); its target now (`<prefix>:<id>`, one backend's); what Life left on it; when it was last removed and when Life last wrote to it. */
 export interface Linked {
   /** When it was made, and the observation or words it came from (open items' age and merge). */
   at: string;
   fields: Fields;
-  id: number;
   key: string;
   link?: string;
   ref?: string;
   removedAt?: string;
+  target: string;
   tried: Set<string>;
   wrote?: string;
 }
@@ -66,13 +66,16 @@ function apply(it: Linked, a: Action) {
   return tried;
 }
 
-/** Every reminder Life links, by its id now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
+/** Every item Life links, by its target now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
 export function linked(actions: Action[]) {
-  const items = new Map<number, Linked>();
+  const items = new Map<string, Linked>();
   for (const a of actions) {
-    const n = Number(a.target.split(":")[1]);
-    // A move can give a new id: the line's `before` has the old one.
-    const from = typeof a.before?.id === "number" ? a.before.id : n;
+    const n = a.target;
+    // A move can give a new id: the line's `before` has the old one (in the same backend).
+    const from =
+      a.before?.id === undefined
+        ? n
+        : `${n.slice(0, n.indexOf(":"))}:${a.before.id}`;
     const opens =
       (a.kind === "add" || a.kind === "import") && a.result === "ok";
     const it: Linked | undefined =
@@ -81,30 +84,32 @@ export function linked(actions: Action[]) {
         ? {
             at: a.at,
             fields: {},
-            id: n,
             key: a.id,
             ref: a.instruction?.ref,
+            target: n,
             tried: new Set(),
           }
         : undefined);
     if (
       it &&
-      a.target.startsWith("reminder:") &&
+      a.target.includes(":") &&
       a.result !== "duplicate" &&
       !apply(it, a)
     ) {
       items.delete(from);
       items.set(n, it);
-      it.id = n;
+      it.target = n;
     }
   }
   return items;
 }
 
-/** His reminders still open, as the ledger holds them: not ticked, not removed, not lost. */
-export const openLinked = (actions: Action[]) =>
+/** His items still open, as the ledger holds them: not ticked, not removed, not lost; of one backend (`prefix`) or all. */
+export const openLinked = (actions: Action[], prefix?: string) =>
   [...linked(actions).values()].filter(
-    ({ fields: f }) => !(f.completed || f.deleted || f.lost)
+    ({ fields: f, target }) =>
+      !(f.completed || f.deleted || f.lost) &&
+      (prefix === undefined || target.startsWith(`${prefix}:`))
   );
 
 // The view: what `day` lists as due (src/memory/search.ts gathers the candidates, each with its line). Copies merge,

@@ -1,0 +1,64 @@
+{
+  "_": "gog's answers to the `gog tasks … --json` commands Life uses, written by hand from the Google Tasks API's TaskList and Task resources (gog prints them wrapped, as its calendar commands do: `tasklists`, `tasks` with `nextPageToken`, `task`), never run against an account. Made-up tasks.",
+  "add": {
+    "task": {
+      "id": "dGFza0EwMQ",
+      "status": "needsAction",
+      "title": "Buy a lamp",
+      "updated": "2026-10-22T08:00:00.000Z"
+    }
+  },
+  "create": {
+    "tasklist": {
+      "id": "bGlzdEJvYXJk",
+      "title": "Board",
+      "updated": "2026-10-22T08:00:00.000Z"
+    }
+  },
+  "get": {
+    "task": {
+      "due": "2026-10-22T00:00:00.000Z",
+      "id": "dGFza0EwMQ",
+      "notes": "the blue one",
+      "status": "needsAction",
+      "title": "Buy a lamp",
+      "updated": "2026-10-22T08:00:00.000Z"
+    }
+  },
+  "lists": {
+    "tasklists": [
+      {
+        "id": "bGlzdEhvbWU",
+        "title": "Errands",
+        "updated": "2026-10-22T08:00:00.000Z"
+      }
+    ]
+  },
+  "list": {
+    "tasks": [
+      {
+        "due": "2026-10-22T00:00:00.000Z",
+        "id": "dGFza0EwMQ",
+        "notes": "the blue one",
+        "status": "needsAction",
+        "title": "Buy a lamp",
+        "updated": "2026-10-22T08:00:00.000Z"
+      },
+      {
+        "id": "dGFza0EwMg",
+        "parent": "dGFza0EwMQ",
+        "status": "needsAction",
+        "title": "Measure the shelf",
+        "updated": "2026-10-22T08:00:00.000Z"
+      },
+      {
+        "completed": "2026-10-21T18:00:00.000Z",
+        "deleted": true,
+        "id": "dGFza0EwMw",
+        "status": "completed",
+        "title": "Return the drill",
+        "updated": "2026-10-21T18:00:00.000Z"
+      }
+    ]
+  }
+}
