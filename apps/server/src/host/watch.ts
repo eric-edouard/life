@@ -1,5 +1,3 @@
-import { checks, pull } from "../actions/backend";
-import { marks, push } from "../actions/board";
 import { clock, DAY, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { hold } from "../core/lock";
@@ -7,13 +5,15 @@ import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
-import { ACTIONS, readActions, tasksOf } from "../memory/ledger";
+import { LEDGER, readLedger, tasksOf } from "../memory/ledger";
 import { isLocked, locked } from "../memory/memory-lock";
 import { reindex } from "../memory/search";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
-import { Action } from "../records/ledger-entry";
+import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
+import { checks, pull } from "../todo-list/backend";
+import { marks, push } from "../todo-list/board";
 import { chase, closings, receipts } from "./agent";
 import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
@@ -28,7 +28,7 @@ import { inbound } from "./inbound";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
-// mirrors them on his board (apps/server/src/actions); `deliver` pushes the asks not yet delivered to the agent (apps/server/src/host/events.ts).
+// mirrors them on his board (apps/server/src/todo-list); `deliver` pushes the asks not yet delivered to the agent (apps/server/src/host/events.ts).
 // Every 2 minutes it probes the Mac's Cloudflare tunnel (apps/server/src/host/http/tunnel.ts), which no longer fires behind the edge Worker (#133).
 
 let last = 0;
@@ -47,21 +47,21 @@ async function tick(now = clock().getTime()) {
 
 async function pass(now: number) {
   await chase(tasksOf(), now);
-  if (!isOn("actions")) {
+  if (!isOn("todo_list")) {
     return;
   }
-  // The actions backend both ways (apps/server/src/actions): one read, his changes recorded as state, then the board brought in line. `at`
+  // The actions backend both ways (apps/server/src/todo-list): one read, his changes recorded as state, then the board brought in line. `at`
   // is taken before the read: what Life writes during it falls in the lag window.
   const at = clock().toISOString();
   const read = performance.now();
   const s = await pull();
   log("sync.pull", { ms: Math.round(performance.now() - read) });
   const lines = [
-    ...inbound(s, readActions(), at),
+    ...inbound(s, readLedger(), at),
     ...closings(tasksOf(), marks(s), at),
   ];
   if (lines.length > 0) {
-    appendJsonl(ACTIONS, Action, lines);
+    appendJsonl(LEDGER, LedgerEntry, lines);
   }
   await push(receipts(tasksOf(), now), s.board);
 }
@@ -202,7 +202,7 @@ async function syncUnits(store: Store, cursor: string) {
 function sayActions() {
   checks().then((problems) =>
     console.log(
-      `${clock().toISOString()} actions: ${isOn("actions") ? problems.join("; ") || "ready" : "off"}`
+      `${clock().toISOString()} actions: ${isOn("todo_list") ? problems.join("; ") || "ready" : "off"}`
     )
   );
 }

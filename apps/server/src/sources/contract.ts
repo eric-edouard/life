@@ -59,10 +59,10 @@ export type Descriptor = {
 } & (
   | {
       /**
-       * notes: his own writing, no one else's words (Apple Notes, his messages to AI assistants); agent: what his agents
+       * own_writing: his own writing, no one else's words (Apple Notes, his messages to AI assistants); agent: what his agents
        * report they did, evidence of it, never anyone's words.
        */
-      kind: "agent" | "chat" | "mail" | "notes";
+      kind: "agent" | "chat" | "mail" | "own_writing";
       /** Called with `since` alone, so a reader may take its own optional arguments. */
       read: (since: Date) => SourceEvent[];
     }

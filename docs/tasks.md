@@ -2,7 +2,7 @@
 
 Developer reference: how Life acts, hands work to the agent and serves the connector.
 
-Life is a memory: it reads. It acts in a few narrow ways, each logged in `memory/actions.jsonl`, and hands deep work
+Life is a memory: it reads. It acts in a few narrow ways, each logged in `memory/ledger.jsonl`, and hands deep work
 to the owner's agent. This page holds the developer-facing rules. The agent's own instructions are
 the playbook, `docs/agent.md`: it is read at run time, so it is not repeated here.
 
@@ -33,9 +33,9 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
-- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
+- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
   it (`apps/server/src/host/events.ts`).
-- The agent also records one through `task` from the owner's chat (`madeBy: "connector"`): the owner's verbatim words and when
+- The agent also records one through `task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
   (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is claimed in the same call, so it
   sends no `ask` event.
@@ -67,10 +67,10 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   restore, through `act` (`apps/server/src/host/act.ts`). `act` is the only code that decides an action. It records its intent
   before each write and its outcome after.
 - When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
-  `apps/server/src/actions/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
+  `apps/server/src/todo-list/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
 - `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time. `act` refuses the agent's list (`BOARD`): that list is the board, below.
-- **One contract, `ActionsBackend`** (`apps/server/src/actions/contract.ts`): his lists (not groups) and whether one is shared, a
+- **One contract, `TodoListBackend`** (`apps/server/src/todo-list/contract.ts`): his lists (not groups) and whether one is shared, a
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
   `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
   Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `changes`). `idOf` is the one place
@@ -85,10 +85,10 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
   restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
-- Only `actions/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/act.ts`) decides and
+- Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/act.ts`) decides and
   `inbound` (`host/inbound.ts`) reads the owner's changes back.
-- **The actions output** is on only with the `actions` setting, which names the backend: `{"backend": "reminders"}` or
-  `{"backend": "google", "account": "<his Google account>"}` (`isOn("actions")`). Off: `backend()`, the one gate, refuses every
+- **The to-do list output** is on only with the `todo_list` setting, which names the backend: `{"backend": "reminders"}` or
+  `{"backend": "google", "account": "<his Google account>"}` (`isOn("todo_list")`). Off: `backend()`, the one gate, refuses every
   call, the minute pass skips it, the connector offers no `reminders` or `open_reminders` tool, `act` refuses, and the
   rest of Life runs the same. The board, the read-back, the grant and the playbook's Reminders parts exist only while
   it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's
@@ -96,15 +96,15 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - Reminders goes through `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by
   remctl's own installer from the app; while Reminders is the backend and remctl is behind the pin, the app offers the
   update again (Apple silicon only). Google Tasks goes through `gog tasks … --json` as the setting's account. Their
-  answers as Life reads them are `apps/server/src/actions/remctl.json` (recorded; re-check them when moving the pin) and
-  `apps/server/src/actions/gog.json` (written from the Tasks API's resources, never run against an account). Without a backend
+  answers as Life reads them are `apps/server/src/todo-list/remctl.json` (recorded; re-check them when moving the pin) and
+  `apps/server/src/todo-list/gog.json` (written from the Tasks API's resources, never run against an account). Without a backend
   Life still works from the ledger.
 - Nothing Life hears or reads makes it act by itself.
 
 ### Reading the backend back
 
 The owner's changes in the backend (tick, untick, edit, priority, urgent, add, delete) come back through `inbound.ts`
-each minute as state only: one `madeBy: "reminders"` line each, with no `instruction` (they are not the owner's quoted words).
+each minute as state only: one `via: "reminders"` line each, with no `instruction` (they are not the owner's quoted words).
 
 - They may close, reopen, reschedule, re-rank, rename, drop or add an item, and nothing else (no ask, send, approval
   or grant).
@@ -115,7 +115,7 @@ each minute as state only: one `madeBy: "reminders"` line each, with no `instruc
 
 ### Open items
 
-`openItems` (`apps/server/src/actions/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
+`openItems` (`apps/server/src/todo-list/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
 what sync read back) and the chats. Code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to the agent's review at most twice (counted from the ids its `day` calls were logged
 with). `day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
@@ -125,7 +125,7 @@ it, within a minute. `open_reminders` alone reads Reminders, for the sections th
 ### The board
 
 The agent's Reminders list (`BOARD`, named after the agent) is a projection of the ledger, the owner's receipt
-(`wantOf` in `apps/server/src/host/agent.ts`, written by `push` in `apps/server/src/actions/board.ts` each minute). It writes no ledger line and
+(`wantOf` in `apps/server/src/host/agent.ts`, written by `push` in `apps/server/src/todo-list/board.ts` each minute). It writes no ledger line and
 never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
@@ -143,7 +143,7 @@ words>'`, a `grant` line in the ledger, the latest standing). The owner's "stop"
 takes authority away.
 
 - While on, `reminders` with `obs` in place of `said` adds a reminder (title, list, due, section) from the owner's current
-  salience-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
+  importance-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
   by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
 - Its authority is the observation alone: never the board, a `/check` tap or a chat `said`. It binds the connector, not
@@ -163,7 +163,7 @@ The owner's marker, for memory only. The owner's turn holding it (an unattribute
 (`marksIn`, `apps/server/src/host/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
 watcher's store (`writeMarks`, refs only). Their chapter's unit carries them (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
-salience 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
+importance 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
 observations citing it. It never acts, asks or sends.
 
 ## The connector
@@ -175,7 +175,7 @@ grant, and logs the agent's replies.
 - **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the status reads
   `status`, `runs`, `changes`, `claim`, see `docs/status-reads.md`; and the memory reads); `correct` (lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
-  in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `actions.jsonl`
+  in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `ledger.jsonl`
   line, appended only: it sends nothing).
 - `correct` is annotated destructive so clients ask first. `reminders`, `task` and `reply` are not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses them unattended.

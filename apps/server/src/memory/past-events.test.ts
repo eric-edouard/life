@@ -19,15 +19,15 @@ const moment = (over: Partial<Moment> = {}): Moment => ({
   start: "2026-10-20 20:00",
   status: "happened",
   title: "Dinner with Bastien",
-  units: ["u_000000000001"],
+  units: ["unit_000000000001"],
   why: "They eat out.",
   ...over,
 });
 
 const known = {
   nameOf: (r: string) => (r === "person:bastien" ? "Bastien" : r.slice(8)),
-  noted: new Map([["u_000000000001", ["Bastien moves in March."]]]),
-  units: new Map([["u_000000000001", unit({ title: "Dinner talk" })]]),
+  noted: new Map([["unit_000000000001", ["Bastien moves in March."]]]),
+  units: new Map([["unit_000000000001", unit({ title: "Dinner talk" })]]),
 };
 const now = new Date("2026-10-21T12:00:00Z");
 

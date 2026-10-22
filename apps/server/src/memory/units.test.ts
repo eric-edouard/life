@@ -76,7 +76,7 @@ const people = [
   },
 ] as Person[];
 
-const UNIT_ID = /^u_[0-9a-f]{12}$/;
+const UNIT_ID = /^unit_[0-9a-f]{12}$/;
 
 const msg = (over: Partial<SourceEvent>): SourceEvent => ({
   at: "2026-10-09T10:00:00.000Z",
@@ -166,11 +166,11 @@ test("a chat-day groups one chat's messages of one day, names known senders in i
 
 test("a unit keeps its senders unresolved whoever they resolve to now (a reader maps them), a note's none, and its hash never moves", () => {
   const [unknown] = messageUnits([msg({})], () => null);
-  const [known] = messageUnits([msg({})], () => "person:inf-plumber");
+  const [known] = messageUnits([msg({})], () => "person:inf_plumber");
   const [mail] = messageUnits([msg({ source: "mail" })], () => null);
   const [note] = messageUnits([msg({ source: "notes" })], () => null);
   expect(known?.unit.people).toEqual(["unknown:+33600000002"]);
-  expect(known?.text).toContain("inf-plumber: ");
+  expect(known?.text).toContain("inf_plumber: ");
   expect(mail?.unit.people).toEqual(["unknown:+33600000002"]);
   expect(note?.unit.people).toEqual([]);
   expect(known?.unit.hash).toBe(unknown?.unit.hash as string);
@@ -545,7 +545,7 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
     date: "2026-10-14",
     end: "2026-10-14T09:00:00.000Z",
     hash: "0123456789abcdef",
-    id: "u_00000000000a",
+    id: "unit_00000000000a",
     key: "120@g.us",
     people: [],
     refs: ["whatsapp:120@g.us/1"],
@@ -584,7 +584,7 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
       "2026-10-15": ["lifelog"],
     });
     // A night that could not read WhatsApp (its access gone) rewrites the day without losing its units.
-    const mail = { ...chat, id: "u_00000000000b", source: "mail" as const };
+    const mail = { ...chat, id: "unit_00000000000b", source: "mail" as const };
     await writeUnits([chat.date], [mail], (u) => u.source === "whatsapp");
     expect(await days()).toMatchObject({ "2026-10-14": ["whatsapp", "mail"] });
   } finally {

@@ -1,14 +1,14 @@
 import { DAY } from "../core/clock";
 import { agentName } from "../core/settings";
-import { type Action, stands } from "../records/ledger-entry";
+import { type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
-// every read from the records that already hold each fact (the observations, memory/actions.jsonl, his chats), never
+// every read from the records that already hold each fact (the observations, memory/ledger.jsonl, his chats), never
 // stored, ranked by code. The actions backend is one interface to it: without one this still holds.
 
 // His items (reminders, Google tasks) as the ledger holds them: what Life wrote (`act`, its intents too) and what it read
-// back as his (`madeBy: "reminders"`, apps/server/src/host/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
+// back as his (`via: "reminders"`, apps/server/src/host/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
 
 /** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted. */
 export const FIELDS = [
@@ -49,11 +49,11 @@ export interface Linked {
 }
 
 /** One line's mark on a linked reminder: a try or a partial leaves its fields unsettled (`tried`: the next pass imports what Reminders shows); anything else settles them. */
-function apply(it: Linked, a: Action) {
+function apply(it: Linked, a: LedgerEntry) {
   const after = pick(a.after);
   const tried = !stands(a);
   const unsure = tried || Boolean(a.error?.startsWith("partial"));
-  it.wrote = a.madeBy === "reminders" ? it.wrote : a.at;
+  it.wrote = a.via === "reminders" ? it.wrote : a.at;
   for (const [f, v] of Object.entries(after)) {
     if (unsure) {
       it.tried.add(f);
@@ -70,7 +70,7 @@ function apply(it: Linked, a: Action) {
 }
 
 /** Every item Life links, by its target now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
-export function linked(actions: Action[]) {
+export function linked(actions: LedgerEntry[]) {
   const items = new Map<string, Linked>();
   for (const a of actions) {
     const n = a.target;
@@ -108,7 +108,7 @@ export function linked(actions: Action[]) {
 }
 
 /** His items still open, as the ledger holds them: not ticked, not removed, not lost; of one backend (`prefix`) or all. */
-export const openLinked = (actions: Action[], prefix?: string) =>
+export const openLinked = (actions: LedgerEntry[], prefix?: string) =>
   [...linked(actions).values()].filter(
     ({ fields: f, target }) =>
       !(f.completed || f.deleted || f.lost) &&
@@ -122,9 +122,9 @@ export const openLinked = (actions: Action[], prefix?: string) =>
 export interface Candidate {
   /** When it was said or made: older first at the same rank. */
   at: string;
-  /** Life's id: an observation's, a reminder's add (`act_`), a chat message's. */
+  /** Life's id: an observation's, a reminder's add (`entry_`), a chat message's. */
   id: string;
-  kind: "promise" | "reminder" | "reply" | "todo" | "waiting";
+  kind: "promise" | "reminder" | "reply" | "to_do" | "waiting_on_someone";
   line: string;
   /** A reminder made from an observation (the grant's): the two are one item. */
   obs?: string;
@@ -166,7 +166,7 @@ function timely(c: Candidate, date: string, today: string, shown: string[]) {
     return (late === 1 || late === AGAIN_DAYS) && date <= today;
   }
   const late = daysFrom(when, date);
-  if (c.kind === "waiting") {
+  if (c.kind === "waiting_on_someone") {
     return late === 0;
   }
   // Shown in Due: on a day from the one before its day (its ids elsewhere in `day` don't count).
@@ -179,7 +179,13 @@ function timely(c: Candidate, date: string, today: string, shown: string[]) {
 
 const PRIORITY = ["high", "medium", "low"];
 /** Who owes whom: a reply he owes and his promise first, owed to him last (he can only chase it). */
-const KIND = { promise: 0, reminder: 1, reply: 0, todo: 1, waiting: 2 };
+const KIND = {
+  promise: 0,
+  reminder: 1,
+  reply: 0,
+  to_do: 1,
+  waiting_on_someone: 2,
+};
 
 /**
  * The open items due on `date`, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it
@@ -284,19 +290,19 @@ export function owed(
   return out;
 }
 /** One line saying what an action did and on which of his words: the nightly's Actions section and `day`. */
-export function actionLine(a: Action) {
+export function entryLine(a: LedgerEntry) {
   const was = a.before?.title ?? a.target;
   const changed = Object.entries(a.after)
     .map(([k, v]) => `${k} ${v}`)
     .join(", ");
-  const kinds: Partial<Record<Action["kind"], string>> = {
+  const kinds: Partial<Record<LedgerEntry["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
     ask: `to ${agentName()}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
     done: `done “${was}”`,
     edit: a.after.title
       ? `“${was}” → “${a.after.title}”`
       : `“${was}”: ${changed}`,
-    // Until 19 Oct Life also emailed Instinct; those lines stay in actions.jsonl.
+    // Until 19 Oct Life also emailed Instinct; those lines stay in ledger.jsonl.
     grant: `the standing grant ${a.after.on ? "on" : "off"}`,
     instinct: `to Instinct: “${a.after.subject}”`,
     remove: `removed “${was}”`,

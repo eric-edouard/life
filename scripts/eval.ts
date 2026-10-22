@@ -38,7 +38,7 @@ const ClaimLine = z.object({
 /** The claims `keep` keeps, as the judge reads them. */
 const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
   claims.flatMap((c) =>
-    keep(c) ? [{ date: c.date, id: c.claim, text: c.text }] : []
+    keep(c) ? [{ date: c.date, id: c.ref, text: c.text }] : []
   );
 
 /** Rated statements per judge call. */

@@ -48,7 +48,7 @@ import {
 import { observationsNow, readPeople, unitNow, who } from "./who";
 import { chatLines, transcripts, voiceLines } from "./words";
 
-// `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (salience >= KEEP_AT, i.e. 2, moments.ts),
+// `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
 // the day before its first unit to read; groupsOf) with
 // the earlier facts about its people, and returns observations; code checks each quote against the source and each
@@ -115,7 +115,7 @@ export function groupsOf(
     return b &&
       kindOf(b.unit.source) !== "repo" &&
       !(b.unit.drop || copied.has(id)) &&
-      (verdictOf(verdicts, b.unit)?.salience ?? 0) >= SEARCHABLE_AT
+      (verdictOf(verdicts, b.unit)?.importance ?? 0) >= SEARCHABLE_AT
       ? [b]
       : [];
   };
@@ -206,7 +206,7 @@ export function byDays<T extends Group & { sources: Source[] }>(
 }
 
 /**
- * The units to read: kept (salience >= KEEP_AT) on their current content, and not yet extracted by this prompt
+ * The units to read: kept (importance >= KEEP_AT) on their current content, and not yet extracted by this prompt
  * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl), unless the
  * owner said a unit was read wrong after it was (`rereads`, his `reread` corrections). Who someone is needs no new
  * reading: the readers resolve a fact's author and entities as of today (`aboutNow`).
@@ -238,7 +238,7 @@ export function toExtract(
     const v = verdictOf(verdicts, b.unit);
     if (!v) {
       stale += 1;
-    } else if (v.salience >= KEEP_AT) {
+    } else if (v.importance >= KEEP_AT) {
       kept.push({ b, reason: v.reason });
     }
   }
@@ -319,7 +319,7 @@ export function priorFor(
   const own = new Set(group.moment?.units);
   const ofMoment = (o: Observation) => own.has(o.unit);
   const lasting = (o: Observation) =>
-    o.type === "person" &&
+    o.type === "about_a_person" &&
     o.date >= daysBefore(day, BOND_DAYS) &&
     o.entities.some((e) => people.has(e) && close.has(e));
   const slots: [(o: Observation) => boolean, number][] = [

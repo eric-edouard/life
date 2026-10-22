@@ -72,7 +72,7 @@ async function readWeek() {
     await Bun.write(
       join(OWNER_DATA_DIR, "claims.jsonl"),
       claims
-        .map((c) => JSON.stringify({ date: c.date, id: c.claim, text: c.text }))
+        .map((c) => JSON.stringify({ date: c.date, id: c.ref, text: c.text }))
         .join("\n")
     );
     // This worktree's log holds this run alone so far: its calls' cost (codex reports none).

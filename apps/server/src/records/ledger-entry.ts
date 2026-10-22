@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isoDateTime, MadeBy } from "./fields";
 
-// The actions ledger (memory/actions.jsonl, docs/SCHEMA.md): what Life did on his request, his changes read back,
+// The actions ledger (memory/ledger.jsonl, docs/SCHEMA.md): what Life did on his request, his changes read back,
 // and the agent's tasks.
 
 export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
@@ -17,20 +17,20 @@ export const REMINDER_KINDS = [
 ] as const;
 
 /**
- * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
+ * One thing Life did outside itself on the owner's clear request (memory/ledger.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
  * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/memory/tasks.ts),
  * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
  */
-export const Action = z
+export const LedgerEntry = z
   .object({
     after: z.record(z.string(), z.unknown()),
     at: isoDateTime,
     before: z.record(z.string(), z.unknown()).optional(),
     // Also "partial: <failed step>" on an add or edit that was done but lost a private field (result ok).
     error: z.string().optional(),
-    id: z.string().regex(/^act_[0-9a-f]{12}$/),
+    id: z.string().regex(/^entry_[0-9a-f]{12}$/),
     instruction: z
       .object({ at: isoDateTime, quote: z.string(), ref: z.string() })
       .strict()
@@ -45,12 +45,6 @@ export const Action = z
       "import",
       "instinct",
       ...TASK_LINES,
-    ]),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
-    // "reminders": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
-    madeBy: z.union([
-      MadeBy,
-      z.enum(["connector", "reminders", "session", "watch"]),
     ]),
     // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).
     result: z.enum(["ok", "failed", "duplicate", "intent"]),
@@ -69,25 +63,32 @@ export const Action = z
       })
       .strict()
       .optional(),
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
+    // "reminders": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
+    via: z.union([
+      MadeBy,
+      z.enum(["connector", "reminders", "session", "watch"]),
+    ]),
     why: z.string(),
   })
   .strict();
 
-export type Action = z.infer<typeof Action>;
+export type LedgerEntry = z.infer<typeof LedgerEntry>;
 
-export type Instruction = NonNullable<Action["instruction"]>;
+export type Instruction = NonNullable<LedgerEntry["instruction"]>;
 
 /** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
-export const isTaskLine = (a: Action) =>
+export const isTaskLine = (a: LedgerEntry) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
 
 /** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (apps/server/src/host/inbound.ts). */
-export const isBookkeeping = (a: Action) =>
+export const isBookkeeping = (a: LedgerEntry) =>
   a.result === "intent" || a.kind === "import";
 
 /** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */
-export const isListed = (a: Action) => !(isTaskLine(a) || isBookkeeping(a));
+export const isListed = (a: LedgerEntry) =>
+  !(isTaskLine(a) || isBookkeeping(a));
 
 /** A line whose outcome stands: done, or found already done. */
-export const stands = (a: Action) =>
+export const stands = (a: LedgerEntry) =>
   a.result === "ok" || a.result === "duplicate";

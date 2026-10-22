@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
-import { Action } from "../records/ledger-entry";
+import { LedgerEntry } from "../records/ledger-entry";
 import { changeFeed, feedPage, matchesFilter } from "./changes";
-import { ACTIONS } from "./ledger";
+import { LEDGER } from "./ledger";
 import { action } from "./record-fixtures";
 
 /** Pages through the sources with `limit`, appending `between` after each page, until the feed is drained. */
@@ -69,21 +69,21 @@ test("a cursor past the end of a ledger (it shrank) is an error, not a silent re
 });
 
 test("changes about task:<id> is one task's history: its ask, updates and replies, no other action", async () => {
-  const ask = "act_00000000000a";
-  const own = (kind: Action["kind"], target: string, n: number) =>
+  const ask = "entry_00000000000a";
+  const own = (kind: LedgerEntry["kind"], target: string, n: number) =>
     action({
-      id: `act_${String(n).padStart(12, "0")}`,
+      id: `entry_${String(n).padStart(12, "0")}`,
       instruction: undefined,
       kind,
       target,
     });
   try {
-    appendJsonl(ACTIONS, Action, [
+    appendJsonl(LEDGER, LedgerEntry, [
       action({ id: ask, kind: "ask", target: AGENT_WORD }),
       own("update", ask, 1),
       own("reply", ask, 2),
       own("reply", "chat", 3),
-      own("update", "act_00000000000b", 4),
+      own("update", "entry_00000000000b", 4),
       own("add", "reminder:12", 5),
     ]);
     const { items } = await changeFeed({ about: `task:${ask}` });
@@ -93,7 +93,7 @@ test("changes about task:<id> is one task's history: its ask, updates and replie
       "action.reply",
     ]);
   } finally {
-    rmSync(ACTIONS, { force: true });
+    rmSync(LEDGER, { force: true });
   }
 });
 

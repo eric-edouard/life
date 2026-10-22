@@ -1,8 +1,13 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readSettings, setSettings, settings } from "./settings";
+import {
+  readSettings,
+  renamedSettings,
+  setSettings,
+  settings,
+} from "./settings";
 
 test("a corrupt settings file throws instead of switching engine; a missing one is every default", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
@@ -34,10 +39,24 @@ test("settings set with one bad part writes nothing", () => {
   expect(readSettings()).toEqual(before);
 });
 
-test("the old `reminders` key stops with how to fix the file, never a silent rewrite", () => {
+test("the old names (the actions key, the agent's atlas) are renamed where the file is read, once", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
-  writeFileSync(path, '{"reminders": true}');
-  expect(() => readSettings(path)).toThrow(
-    '"actions": { "backend": "reminders" }'
+  writeFileSync(
+    path,
+    JSON.stringify({
+      actions: { backend: "reminders" },
+      sources: ["lifelog", "atlas"],
+    })
   );
+  expect(readSettings(path)).toMatchObject({
+    sources: ["lifelog", "agent"],
+    todo_list: { backend: "reminders" },
+  });
+  const once = readFileSync(path, "utf8");
+  expect(JSON.parse(once).actions).toBeUndefined();
+  readSettings(path);
+  expect(readFileSync(path, "utf8")).toBe(once);
+  expect(renamedSettings({ sources: ["agent"] })).toEqual({
+    sources: ["agent"],
+  });
 });

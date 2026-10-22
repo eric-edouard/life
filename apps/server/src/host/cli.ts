@@ -1,9 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { checks } from "../actions/backend";
-import { actionLine } from "../actions/items";
-import { REMCTL_RELEASE, remctlVersion } from "../actions/remctl";
 import { Engine } from "../core/names";
 import { off } from "../core/outputs";
 import {
@@ -17,6 +14,9 @@ import { integrity, loadTruth } from "../memory/read-truth";
 import { FULL_DISK, SOURCES } from "../memory/sources";
 import { dayRange } from "../memory/units";
 import { readEngine } from "../models/llm";
+import { checks } from "../todo-list/backend";
+import { entryLine } from "../todo-list/items";
+import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { Asked, actAsked, requested, setGrant } from "./act";
 import { ask, timings } from "./agent";
 import { archiveCommand } from "./archive";
@@ -28,13 +28,14 @@ import { pair } from "./http/oauth";
 import { localKey } from "./http/signin";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateStored } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
 
 /** `act` and the grant need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {
-  const why = off("actions");
+  const why = off("todo_list");
   if (why) {
     console.error(why);
   }
@@ -44,7 +45,7 @@ const pluginOff = () => {
 const commands: Record<string, () => Promise<number>> = {
   /**
    * Acts on the owner's clear request, for a Claude session: `act '<json>'` (a change with `said`, his words, and
-   * `why`); `act --check` (read-only: can the actions backend act now?). Every action is recorded in memory/actions.jsonl.
+   * `why`); `act --check` (read-only: can the actions backend act now?). Every action is recorded in memory/ledger.jsonl.
    */
   async act() {
     const [arg] = process.argv.slice(3);
@@ -66,7 +67,7 @@ const commands: Record<string, () => Promise<number>> = {
       return 2;
     }
     const done = await actAsked(asked, "session");
-    console.log(`${done.id} ${done.result}: ${actionLine(done)}`);
+    console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
     return done.result === "failed" ? 1 : 0;
   },
   /**
@@ -84,14 +85,12 @@ const commands: Record<string, () => Promise<number>> = {
       : [];
     console.log(
       JSON.stringify({
-        /** The actions backend he chose ("reminders", "google"), or null while the output is off: the app shows it, never changes it. */
-        actions: settings().actions?.backend ?? null,
         lastReport: reports[0] ?? null,
         reminders: await (async () => {
           const installed = await remctlVersion();
           return {
             installed,
-            on: settings().actions?.backend === "reminders",
+            on: settings().todo_list?.backend === "reminders",
             /** remctl as Life wants it: installed, at the pinned release. */
             ready: installed === REMCTL_RELEASE.version,
             release: REMCTL_RELEASE,
@@ -109,6 +108,8 @@ const commands: Record<string, () => Promise<number>> = {
         }),
         started: started(),
         status: { key: localKey(), url: `http://127.0.0.1:${LOCAL_PORT}/` },
+        /** The to-do list backend he chose ("reminders", "google"), or null while the output is off: the app shows it, never changes it. */
+        todoList: settings().todo_list?.backend ?? null,
       })
     );
     return 0;
@@ -128,7 +129,7 @@ const commands: Record<string, () => Promise<number>> = {
       "session",
       "asked in a Claude session"
     );
-    console.log(`${done.id}: ${actionLine(done)}`);
+    console.log(`${done.id}: ${entryLine(done)}`);
     return Promise.resolve(0);
   },
   /**
@@ -141,7 +142,7 @@ const commands: Record<string, () => Promise<number>> = {
       options: { from: { type: "string" }, to: { type: "string" } },
     });
     const { from, to } = dayRange(values.from, values.to);
-    for (const { id, madeBy, moments, quote } of await timings(from, to)) {
+    for (const { id, via, moments, quote } of await timings(from, to)) {
       const [[, spoke] = [], ...rest] = moments;
       let prev = spoke ?? "";
       const hops = rest.flatMap(([moment, at]) => {
@@ -153,13 +154,9 @@ const commands: Record<string, () => Promise<number>> = {
       });
       const words = JSON.stringify(quote.slice(0, 60));
       console.log(
-        [
-          spoke?.replace("T", " ").slice(0, 19),
-          id,
-          madeBy,
-          ...hops,
-          words,
-        ].join("  ")
+        [spoke?.replace("T", " ").slice(0, 19), id, via, ...hops, words].join(
+          "  "
+        )
       );
     }
     return 0;
@@ -217,7 +214,7 @@ const commands: Record<string, () => Promise<number>> = {
       return 2;
     }
     const done = await setGrant(state === "on", said);
-    console.log(`${done.id}: ${actionLine(done)}`);
+    console.log(`${done.id}: ${entryLine(done)}`);
     return 0;
   },
   /**
@@ -323,4 +320,6 @@ if (!command) {
   console.error(`usage: bun life <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
+// The stored names' rename runs once, before any command reads or writes the memory (AGENTS.md, "A rename backfills").
+await migrateStored();
 process.exit(await command());

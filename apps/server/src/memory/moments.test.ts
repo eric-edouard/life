@@ -20,9 +20,9 @@ const built = (id: string, over: Parameters<typeof unit>[0] = {}): Built => ({
   text: "",
   unit: unit({ date: "2026-10-15", id, ...over }),
 });
-const U1 = "u_000000000001";
-const U2 = "u_000000000002";
-const U3 = "u_000000000003";
+const U1 = "unit_000000000001";
+const U2 = "unit_000000000002";
+const U3 = "unit_000000000003";
 
 const moment = (over: Partial<Moment> = {}): Moment => ({
   copies: [],
@@ -70,7 +70,7 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
     title: "Trip with Bastien",
     why: "w",
   };
-  const v = { reason: "r", salience: 3, type: "todo" };
+  const v = { importance: 3, reason: "r", type: "to_do" };
   const day = parseDay(
     {
       moments: [
@@ -85,7 +85,7 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
         { ...v, id: U1 },
         { ...v, id: U2 },
         { ...v, id: U3 },
-        { ...v, id: U1, salience: 7 },
+        { ...v, id: U1, importance: 7 },
       ],
     },
     ctx
@@ -94,25 +94,25 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
     {
       area: "shop",
       hash: u1.hash,
+      importance: 3,
       madeBy,
       reason: "r",
-      salience: 3,
       schemaVersion: 1,
       topics: ["house"],
-      type: "todo",
+      type: "to_do",
       unit: U1,
       when: "2026-10-22",
     },
     // Commits are never read in full, whatever the model said.
-    expect.objectContaining({ salience: 1, unit: U2 }),
+    expect.objectContaining({ importance: 1, unit: U2 }),
   ]);
   // A unit he marked "hey Life" is read whatever the model said.
   const marked = unit({ id: U3, marked: ["j:1@a"] });
   expect(
     parseDay(
-      { verdicts: [{ ...v, id: U3, salience: 0 }] },
+      { verdicts: [{ ...v, id: U3, importance: 0 }] },
       { ...ctx, units: new Map([[U3, marked]]) }
-    ).verdicts.map((x) => x.salience)
+    ).verdicts.map((x) => x.importance)
   ).toEqual([3]);
   expect(day.invalid).toBe(3);
   expect(day.moments).toHaveLength(3);
@@ -217,7 +217,7 @@ test("a day is read again when one of its units has no verdict by this prompt on
   const v2 = { ...madeBy, prompt: "memory-moments.v4" };
   const known = ledger([verdict(b.unit, { madeBy: v2 })]);
   const said = [
-    verdict(b.unit, { madeBy: v2, salience: 0 }),
+    verdict(b.unit, { importance: 0, madeBy: v2 }),
     verdict(c.unit, { madeBy: v2 }),
   ];
   expect(fresh(said, [b, c], known).map((v) => v.unit)).toEqual([U2]);
@@ -230,17 +230,17 @@ const unitOf = (id: string, drop?: string) =>
 const judged = (
   u: Unit,
   type: Verdict["type"],
-  salience: number,
+  importance: number,
   area: string | null = null
-) => verdict(u, { area, madeBy, salience, type });
+) => verdict(u, { area, importance, madeBy, type });
 
-test("agreement: kept means salience 2+, code-rule drops count as skipped, labels of vanished units are only counted", () => {
+test("agreement: kept means importance 2+, code-rule drops count as skipped, labels of vanished units are only counted", () => {
   const [ua, ub, uc, ud, ue] = [
-    "u_00000000000a",
-    "u_00000000000b",
-    "u_00000000000c",
-    "u_00000000000d",
-    "u_00000000000e",
+    "unit_00000000000a",
+    "unit_00000000000b",
+    "unit_00000000000c",
+    "unit_00000000000d",
+    "unit_00000000000e",
   ].map((id) => unitOf(id, id.endsWith("d") ? "newsletter" : undefined)) as [
     Unit,
     Unit,
@@ -250,19 +250,19 @@ test("agreement: kept means salience 2+, code-rule drops count as skipped, label
   ];
   const units = new Map([ua, ub, uc, ud, ue].map((u) => [u.id, u]));
   const verdicts = ledger([
-    judged(ua, "todo", 3, AREA), // kept, matters
-    judged(ub, "todo", 2), // kept, doesn't
+    judged(ua, "to_do", 3, AREA), // kept, matters
+    judged(ub, "to_do", 2), // kept, doesn't
     judged(uc, "nothing", 0), // skipped, matters
     // ud: dropped by a rule: skipped, doesn't
     judged(ue, "news", 2), // kept, matters
   ]);
   const labels: MemoryLabel[] = [
-    { matters: true, unitId: "u_00000000000a" },
-    { matters: false, unitId: "u_00000000000b" },
-    { matters: true, unitId: "u_00000000000c" },
-    { matters: false, unitId: "u_00000000000d" },
-    { matters: true, unitId: "u_00000000000e" },
-    { matters: true, unitId: "u_0000000000ff" },
+    { matters: true, unitId: "unit_00000000000a" },
+    { matters: false, unitId: "unit_00000000000b" },
+    { matters: true, unitId: "unit_00000000000c" },
+    { matters: false, unitId: "unit_00000000000d" },
+    { matters: true, unitId: "unit_00000000000e" },
+    { matters: true, unitId: "unit_0000000000ff" },
   ];
   expect(agreement(labels, units, verdicts)).toEqual({
     agreement: 3 / 5,

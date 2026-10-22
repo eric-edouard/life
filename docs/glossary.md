@@ -12,7 +12,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". | a task waiting on him: `waiting-owner` |
-| agent | The owner's assistant that takes his asks (a ChatGPT or Claude agent). Its display name is the `agent` setting (`agentName`); the word stored for it is `AGENT_WORD`. | `AGENT_WORD` = `agent` |
+| agent | The owner's assistant that takes his asks (a ChatGPT or Claude agent). Its display name is the `agent` setting (`agentName`); the word stored for it is `AGENT_WORD`, `agent`. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
 
@@ -31,10 +31,10 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| ledger | `memory/actions.jsonl`: every line where something crossed Life's boundary: the owner's asks and grants, the agent's updates and replies, Life's changes to his to-do list. Append-only. | `ledger.jsonl` |
-| ledger entry | One line of the ledger (`Action`, id `act_…`). Its `madeBy` says through what it came: a session, the connector, the watcher, the to-do list. | `LedgerEntry`, `entry_…`, `via` |
-| to-do list | Where Life acts: the owner's Apple Reminders or Google Tasks, one per install (the `actions` setting, `ActionsBackend`, `actions/`). | `todo_list`, `TodoListBackend`, `todo-list/` |
-| to-do item | One entry in the to-do list (`Item`). | `TodoItem` |
+| ledger | `memory/ledger.jsonl`: every line where something crossed Life's boundary: the owner's asks and grants, the agent's updates and replies, Life's changes to his to-do list. Append-only. | |
+| ledger entry | One line of the ledger (`LedgerEntry`, id `entry_…`). Its `via` says through what it came: a session, the connector, the watcher, the to-do list. | |
+| to-do list | Where Life acts: the owner's Apple Reminders or Google Tasks, one per install (the `todo_list` setting, `TodoListBackend`, `todo-list/`). | |
+| to-do item | One entry in the to-do list (`TodoItem`). | |
 | act | The one command that decides and makes a change to a to-do item, and logs it in the ledger. | |
 | open item | Anything owed, derived, never stored (`openItems`): a to-do, a promise, a reply owed, a to-do item, someone the owner is waiting on. | |
 
@@ -43,7 +43,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `beeper`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
-| kind | What a source is to the memory: `voice`, `chat`, `mail`, `notes` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | `notes` → `own_writing` |
+| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | chapter | One recording in lifelog. | |
 | archive | Life's own copy of the WhatsApp, Beeper and Notes stores, the only live copy of deleted messages and old note versions. | |
@@ -52,20 +52,20 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| unit | The smallest piece Life reads: one chapter, a chat's day, a mail thread's day, a note's day, a repo's day. Id `u_…`. | `unit_…` |
-| verdict | A unit's judgement: its type, salience and area, with the reason. Only that. | |
+| unit | The smallest piece Life reads: one chapter, a chat's day, a mail thread's day, a note's day, a repo's day. Id `unit_…`. | |
+| verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | moment | A stretch of the owner's day, read from the day's units together. Id `mom_…`. | |
 | observation | One small dated reading of a moment, with a quote checked against its source: a model's reading, not a verified fact. Id `obs_…`. | |
-| type | What an observation is; the values and their meaning are in SCHEMA.md ("Words used below"). | `to_do`, `waiting_on_someone`, `about_a_person` |
+| type | What an observation is: `to_do`, `promise`, `waiting_on_someone`, `decision`, `about_a_person`, `preference`, `idea`, `news`, `nothing` (SCHEMA.md, "Words used below"). | |
 | modality | How an observation holds: `fact`, `plan`, `reported`, `conditional`. | |
-| salience | 0–3, how much something matters to the owner (SCHEMA.md). Moments call it `importance`. | `importance` everywhere |
+| importance | How much something matters to the owner: a unit's or an observation's 0–3, a moment's 1–3 (SCHEMA.md). | |
 | page | A person's or an area's page, written from their observations. | |
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
 | the check | The page where the owner rates statements true or false (`/check`): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). | |
-| inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf-…`), `repos-inferred.jsonl` (`InferredRepo`). | `inf_…` |
+| inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`), `repos-inferred.jsonl` (`InferredRepo`). | |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
 
 ## Running

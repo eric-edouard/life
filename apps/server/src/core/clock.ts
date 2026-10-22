@@ -15,7 +15,7 @@ import {
 // in the live checkout, whose derived/ (log, events.json) is production's.
 
 /** Is `root` a checkout of its own (its .git a folder), not a throwaway worktree (a .git file)? */
-const isCheckout = (root: string) =>
+const isMainCheckout = (root: string) =>
   statSync(join(root, ".git"), { throwIfNoEntry: false })?.isDirectory() ??
   false;
 
@@ -24,7 +24,7 @@ export function frozenAt(
   set = process.env.LIFE_NOW,
   data = OWNER_DATA_DIR,
   live = !TEST &&
-    (isCheckout(LIFE_CODE_DIR) || !LIFE_STATE_DIR.startsWith(LIFE_CODE_DIR))
+    (isMainCheckout(LIFE_CODE_DIR) || !LIFE_STATE_DIR.startsWith(LIFE_CODE_DIR))
 ) {
   if (!set) {
     return;

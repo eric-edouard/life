@@ -11,17 +11,17 @@ which model and which prompt version (`prompts/<name>.md` in the code repo) did 
 
 The raw material stays in its own app (lifelog, Messages, Beeper, Mail). These files hold ids, refs, hashes,
 metadata, lifelog's own chapter summaries, short model verdicts and, in observations, short verbatim quotes; never
-whole transcripts or message bodies (but an ask's words, `actions.jsonl`).
+whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 
 ## Words used below
 
-- **Type**, what a unit or observation is. One of: `todo` (To-do), `promise` (Promise: the owner
-  promised someone to do it), `waiting` (Waiting on: someone owes the owner something), `decision` (Decision), `person` (About someone: who they
+- **Type**, what a unit or observation is. One of: `to_do` (To-do), `promise` (Promise: the owner
+  promised someone to do it), `waiting_on_someone` (Waiting on: someone owes the owner something), `decision` (Decision), `about_a_person` (About someone: who they
   are, how they're doing, gift ideas), `preference` (Preference: what someone likes or dislikes, the owner included),
   `idea` (Idea), `news` (News: something changed in an area: status, problem, progress), `nothing` (Nothing).
 - **When**, a date or deadline (`YYYY-MM-DD`) any type can carry, or null.
 - **Area**, one of the owner's life areas: an `id` (slug) from `truth/areas.yaml`, or null when none fits.
-- **Salience** 0-3: 0 nothing to keep; 1 keep searchable only; 2 worth a line on a person or area page; 3 the owner must
+- **Importance** 0-3: 0 nothing to keep; 1 keep searchable only; 2 worth a line on a person or area page; 3 the owner must
   act or must not forget.
 - **Entity refs**: `person:<slug>` (`truth/people.yaml`), `project:<slug>` (`truth/projects/`), `area:<slug>`
   (`truth/areas.yaml`).
@@ -38,14 +38,14 @@ chapter) and checked by the nightly.
 | Field | Meaning |
 |---|---|
 | `schemaVersion` | `1` |
-| `id` | `u_` + 12 hex. Stable: the same chapter (lifelog's chapter id, which is stable per conversation and start), chat-day (source + chat + day) or thread-day always gets the same id. A lifelog conversation with no chapter yet has one unit with `drop: no-summary`, id from the conversation id. |
+| `id` | `unit_` + 12 hex. Stable: the same chapter (lifelog's chapter id, which is stable per conversation and start), chat-day (source + chat + day) or thread-day always gets the same id. A lifelog conversation with no chapter yet has one unit with `drop: no-summary`, id from the conversation id. |
 | `hash` | 16 hex of SHA-256 over the unit's content (lifelog: titles + summary; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
-| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under the `repos` setting's folder; commits are never extracted: code caps their salience at 1), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, imported once into `imports/<source>/conversations.json` beside `memory/`; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its salience to 2, so it is always read) |
+| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under the `repos` setting's folder; commits are never extracted: code caps their importance at 1), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, imported once into `imports/<source>/conversations.json` beside `memory/`; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its importance to 2, so it is always read) |
 | `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor's chapters bring their own), the chat id (a Beeper chat id, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the mail thread id, the note id, or the repo (its main folder name under the `repos` setting's folder: worktrees fold into it) |
 | `date`, `start`, `end` | Local day; first and last instant |
 | `title` | Lifelog chapter title, chat name, mail subject, or note title (`(shared)` after a shared note's) |
 | `summary` | Lifelog only: lifelog's own summary of the chapter (written by its model, not by Life) |
-| `marked` | Lifelog only, when the owner said "hey Life" in it: the refs of the turns of the owner's marked spans (the hearing's marks); its text then ends with `MARKED`, so its hash moves and it is read again, at salience 3 |
+| `marked` | Lifelog only, when the owner said "hey Life" in it: the refs of the turns of the owner's marked spans (the hearing's marks); its text then ends with `MARKED`, so its hash moves and it is read again, at importance 3 |
 | `people` | Kept unresolved, as each source names them: `unknown:<name>` for each name lifelog gives someone who speaks in the chapter (a name given to one turn names that turn only), `unknown:<sender>` for each sender of a chat or a mail, `person:me` for the owner. Readers map them as of their day (`unitNow`, `memory/who.ts`); older units may still hold `person:<id>`, which maps the same |
 | `refs` | Where to find the raw material. Lifelog: `<conversation id>#<chapter id>` and `<jobId>:<turnIndex>@<turn start>` of the first turn in the chapter's range [`start`, `end`). Chats: first and last message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`), notes the first and last version (`notes:<note>/<version>`, the archive's rowid). Mail: every message id (`mail:<Message-ID header>`). |
 | `stats` | `items` (messages, or turns in the chapter for lifelog, or commits), `fromMe` (messages the owner sent, or the owner's commits), `chars`. Git only: `added` and `removed` (lines, without lockfiles, binaries and single-file changes over 3,000 lines) and `others` (author name -> commits; in a repo of one of the owner's projects every author's commits count, elsewhere only the owner's). A git unit's `summary` is the day's commit subjects, which makes them searchable; its refs are the first and last `git:<repo>/<sha>` |
@@ -55,12 +55,12 @@ chapter) and checked by the nightly.
 
 The model's judgement of units, append-only, one line per unit and run, written by `bun life memory moments` (one
 call per day, with the day's moments; before 18 Oct by a triage step of its own): `{schemaVersion: 1, unit, hash, type,
-when, area, salience, topics, reason, kind?, madeBy: {engine, model, prompt, run}}`. `unit` and `hash` are the unit's `id` and
-the `hash` of the content judged; `type`, `when`, `area` and `salience` as defined above; `reason`: one line from the
+when, area, importance, topics, reason, kind?, madeBy: {engine, model, prompt, run}}`. `unit` and `hash` are the unit's `id` and
+the `hash` of the content judged; `type`, `when`, `area` and `importance` as defined above; `reason`: one line from the
 model saying why; `topics` (from `memory-triage.v3`, the same in v3.1; absent, read as none, before): one to three lowercase English
 tags for what the unit is about, such as `philosophy`, `ai`, `construction` (code lower-cases, dashes and singularizes
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
-small-talk, media, dictation, customer. Code caps a commit's salience at 1 (commits are never extracted). A unit's current
+small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
 the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` since 20 Oct, which weighs what goes on between the owner and the people close to them) is unchanged; a day is read again when one of its units has no current verdict by that prompt. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
@@ -105,22 +105,22 @@ lines. Model-owned, like `people-inferred.jsonl`.
 
 The memory ledger: small dated claims, each cited to the exact place it comes from, one per line, filed by the
 month of `date`. Append-only: a line is never edited or removed; one a newer observation replaces is retired in
-`supersessions.jsonl`. Written by `bun life memory extract` for kept units (salience 2 or 3; a salience-1 unit stays in the
+`supersessions.jsonl`. Written by `bun life memory extract` for kept units (importance 2 or 3; a importance-1 unit stays in the
 units, searchable, but is not read in full). From `memory-extract.v3` a kept unit is read with the rest of its moment
 (every unit of it worth a searchable line), and with the earlier facts about the moment's people, which it may retire.
 From `memory-extract.v4` a moment is read across its days, from the day before its first unit to read and cut
 between days to fit a call (a unit in several moments with the one reaching furthest forward, of those the smallest),
 and what the lines show ended is written as what happened, not as still open. From `memory-extract.v5` (20 Oct) the
-`person` type also holds what is between the owner and someone, in someone's name, and the earlier facts it may retire
-include the `person` facts of the last year about the people close to the owner (`priorFor`). The model context marks those
+`about_a_person` type (then `person`) also holds what is between the owner and someone, in someone's name, and the earlier facts it may retire
+include the `about_a_person` facts of the last year about the people close to the owner (`priorFor`). The model context marks those
 people `close: true` (`refContext`, `personallyClose`: a personal level inner, regular or faded: once close counts, so the backfill reads an ex's days as close ones).
 
 | Field | Meaning |
 |---|---|
 | `schemaVersion` | `1` |
 | `id` | `obs_` + 12 hex of SHA-1 over unit id, type, normalized quote and normalized text: the same claim from the same unit always gets the same id (read again under a new prompt, it is written again under the new run). The id stays if the unit's id later changes (`unit` and `source` are remapped), because pages and supersessions cite it. |
-| `unit` | The unit (`u_…`) it was read from. |
-| `type`, `when`, `area`, `salience` | As defined above (`nothing` is never an observation). |
+| `unit` | The unit (`unit_…`) it was read from. |
+| `type`, `when`, `area`, `importance` | As defined above (`nothing` is never an observation). |
 | `text` | The claim, one English sentence, self-contained (names, absolute dates). |
 | `quote` | The source's own words for it, verbatim (original language, original spelling). Code checked it is in the source text the model read, comparing without case, accents, quote style or spacing, and stores the source's exact substring. That text has secrets (passwords, card numbers, IBANs, codes) replaced by `[… removed]` first. |
 | `source` | `{channel, ref}`: channel `lifelog`, `whatsapp`, `beeper`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: lifelog `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
@@ -155,7 +155,7 @@ could not place is no longer asked about (the moments call asks about the day's 
 
 Who Life thinks an unknown handle or name is, written by `bun life memory moments` (the same call that reads the day;
 before 18 Oct by an infer step of its own), append-only: `{schemaVersion: 1, id, surfaces, name, relation, area, project, confidence, evidence: [{unit,
-quote}], madeBy, at}`. `id` is `inf-` and a slug (truth ids never start with `inf-`), `surfaces` the handles (a phone,
+quote}], madeBy, at}`. `id` is `inf_` and a slug (truth ids never start with `inf_`), `surfaces` the handles (a phone,
 a WhatsApp or Beeper id) or names it goes by, `name` a name or, when the messages give none, a description ("the
 plumber changing the shop sink"), `relation` how it relates to the owner, `evidence` quotes checked to be in the messages
 the model read (a unit of that day). Every handle and name of a day that does not resolve yet is asked about, with the
@@ -210,7 +210,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
-| `reread` | `units: [u_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
+| `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
@@ -218,7 +218,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 One Markdown page per person who has one by closeness (`pagedBy`, `closeness.ts`: the owner, `people/me.md`; anyone
 whose personal or work level is inner, regular or faded and is not a service; someone not judged
 yet who is in `truth/people.yaml` or has a page already, judged at the next night) and has an observation, and per area of `truth/areas.yaml` (the file is named by the
-area's id; an inferred person's id starts with `inf-`). Rewritten nightly by `bun life memory pages` from the previous
+area's id; an inferred person's id starts with `inf_`). Rewritten nightly by `bun life memory pages` from the previous
 version and the observations extracted since; git keeps every version (the nightly's "Memory: <date>" commits).
 
 Frontmatter (each value is JSON, which is YAML): `schemaVersion` 1, `page` (`person:<id>` or `area:<id>`), `name`, `built` (when written),
@@ -246,9 +246,9 @@ Sections, in order:
 - **Often talk about**: person pages (not the owner's own: the owner is in every unit), `- topic (n), …`: the topics of the verdicts of the units they are in, over 90
   days, counted by code. Not generated by the model and not in `lines`.
 
-To-dos stay observations (their `type`): Reminders are written only by actions on the owner's clear request (`actions.jsonl`).
-`day` lists as due the salience-3 promises and the to-dos the owner said whose `when` is that day or up to a week before
-(`dueOf`, then `openItems` in `apps/server/src/actions/items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
+To-dos stay observations (their `type`): Reminders are written only by actions on the owner's clear request (`ledger.jsonl`).
+`day` lists as due the importance-3 promises and the to-dos the owner said whose `when` is that day or up to a week before
+(`dueOf`, then `openItems` in `apps/server/src/todo-list/items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
 the owner's reminders, waiting items and the replies the owner owes; an undated one shows the day after it was said and 3 days
 after, then is stale, never due. It is the one place code checks `speaker`, against the rule above,
 because it only narrows a list the owner reads: the owner's to-do in a voice lifelog left unnamed is missed. Rules code enforces:
@@ -270,13 +270,13 @@ because it only narrows a list the owner reads: the owner's to-do in a voice lif
 **The owner's edits** hold: a line the owner writes or rewrites is recorded as `keep-mine` and stays as written; a generated
 line the owner deletes is recorded as `not-important` for its observations on that page.
 
-## actions.jsonl
+## ledger.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in
 Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the agent's tasks (`apps/server/src/host/agent.ts`: the owner's asks and their lines):
-`{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
+`{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, via, timing?}`.
 
-- `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
+- `id`: `entry_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
   parent's id instead of `ref`): the same words act or ask once; a failed try may rerun.
 - `instruction`: the owner's words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
   act` or `ask`) or `connector:<at>` (a chat; for a task the agent made, the instant the owner sent the message) or an observation's id (an add of the
@@ -288,7 +288,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
   `reason`, `steps` [{title, done}], `claim`), `reply` (what the agent told the owner, the connector's `reply`: `after.text`,
   clipped at 4,000 characters; one on no task has `target` `chat`) and, until 20 Oct, `nudge` (Life: `after.why`, the task was past
-  its deadline) and `steer` (the owner's change to its board item, `after.changes` and `note`); those only parse now. Id: `act_` + 12 hex over
+  its deadline) and `steer` (the owner's change to its board item, `after.changes` and `note`); those only parse now. Id: `entry_` + 12 hex over
   `<task>@<at> | kind` (a reply's also over its text).
 - `target`: `reminder:<numericId>` or `gtask:<list>/<task>` (the actions backend's item), `reminder:new` or `gtask:new` (a failed add), `AGENT_WORD` (an ask), a task's id (its lines) or `chat`
   (a reply on no task).
@@ -304,21 +304,21 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   `instruction.at`, `at` and the `event.sent` log line it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
   `duplicate` (an open reminder had the title; nothing written) or `intent` (written by `act` just before a Reminders
-  write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `madeBy`: `session`
+  write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `via`: `session`
   (a Claude session), `connector` (a chat, the agent's updates and replies), `watch` (the watcher: a `hey <agent>` heard; a
   nudge or a steer until 20 Oct) or `reminders` (the owner's own change in Reminders, with no `instruction`: state, never the owner's
   words; on a task, an `update` closing it because the owner ticked or removed its receipt). Intents and imports are left out
   of `day`'s and the nightly's Actions and of the change feed.
 - Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
-  `modelMs` and `actMs`, and a model as `madeBy`; they still parse.
+  `modelMs` and `actMs`, and a model as `via`; they still parse.
 
 ## statements.jsonl
 
 The truth benchmark: short statements for the owner to rate true or false, one per claim, append-only, written by
 `bun life memory statements <n>` (about 300 to start):
-`{schemaVersion: 1, claim, text, group, kind, source, date, units, at}`. Code draws them (`apps/server/src/memory/statements.ts`),
+`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or moment's id). Code draws them (`apps/server/src/memory/statements.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
-(salience 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment that happened,
+(importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment that happened,
 is planned or was cancelled as `Happened: <title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
 about it: that home page (`homeOf`), or for a moment the one person with a page it was with, else `events`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
 `kind` (`fact`, `plan`, `reported`: the observation's `modality`, none before `memory-extract.v3` read as `fact`; or
@@ -328,7 +328,7 @@ where a later run's claims about the same thing are). The draw is spread over gr
 ## ratings.jsonl
 
 The owner's answers to the statements, append-only, from the check page (`<your connector origin>/check`,
-`apps/server/src/host/http/check-page.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
+`apps/server/src/host/http/check-page.ts`): `{schemaVersion: 1, ref, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
 recorded it, not anymore), `skip` or null (the owner took their last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would
@@ -374,6 +374,16 @@ A label belongs to a unit id, so labels are only as stable as the ids. A lifelog
 per conversation and start: when lifelog re-cuts a conversation, its chapters get new ids, and labels (and observations) on the
 old ones point at units that no longer exist (the agreement figure counts them as "not in memory/units"). **Any change to
 how unit ids are made ships an old→new id map applied to `labels.jsonl` in the same commit.**
+
+## migrations.jsonl
+
+The renames of stored names Life has written into this data, one line each, append-only: `{schemaVersion: 1, name,
+at}`. `stored-names-2026-10-22` (`apps/server/src/host/migrate.ts`): the names of docs/glossary.md, written once by
+the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledger was `actions.jsonl`, ids were `u_`,
+`act_` and `inf-`, the types `todo`, `waiting` and `person`, `importance` was `salience`, a ledger entry's `via` was
+`madeBy`, a statement's and a rating's `ref` was `claim`, and the agent's word was `atlas`. The data repo's commits
+"Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides. The renamed memory is built
+beside it (`memory.renamed/`) and swapped in; `memory.old/` (and `memory.stray/`) exist only until it is settled.
 
 ## The search index (not in memory/)
 

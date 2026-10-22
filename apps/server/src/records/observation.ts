@@ -45,11 +45,11 @@ export const Observation = z
     entities: z.array(EntityRef),
     /** obs_ + hash of unit, type, quote and claim: re-extracting the same thing gives the same id. */
     id: ObservationId,
+    importance: z.int().min(1).max(3),
     madeBy: MadeBy.extend({ unitHash: z.string() }).strict(),
     modality: Modality.optional(),
     /** Verbatim from the source text the model read; code checked it is there. */
     quote: z.string().min(1).max(600),
-    salience: z.int().min(1).max(3),
     schemaVersion: z.literal(1),
     source: z
       .object({
@@ -222,7 +222,7 @@ export const Correction = z
 export type Correction = z.infer<typeof Correction>;
 
 /** The id prefix of people Life inferred; truth ids never start with it, so the two never collide. */
-export const INFERRED_PREFIX = "inf-";
+export const INFERRED_PREFIX = "inf_";
 
 /**
  * memory/people-inferred.jsonl: who Life thinks an unknown handle or name is, from the messages and observations
@@ -238,7 +238,7 @@ export const InferredPerson = z
     evidence: z
       .array(z.object({ quote: z.string().min(1), unit: z.string() }).strict())
       .min(1),
-    id: z.string().regex(/^inf-[a-z0-9-]+$/),
+    id: z.string().regex(/^inf_[a-z0-9-]+$/),
     madeBy: MadeBy,
     /** A name when the messages give one, else a short description ("the plumber changing the shop sink"). */
     name: z.string().min(1),

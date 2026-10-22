@@ -128,7 +128,7 @@ const DEMO: Demo[] = [
         ["jean-dupont"],
       ],
       [
-        "person",
+        "about_a_person",
         "Jean Dupont thanked Sam for the rent and said the plumber Hans would come on Saturday at 10.",
         "Thanks Sam! Hans will be there Saturday at 10",
         "jean-dupont",
@@ -188,7 +188,7 @@ const DEMO: Demo[] = [
     at: "2026-10-21 11:02",
     facts: [
       [
-        "waiting",
+        "waiting_on_someone",
         "Claire Dupont will send the 2027 lease for Sam to sign by the end of October.",
         "I'll send the new lease for you to sign before the end of the month",
         "claire-dupont",
@@ -211,7 +211,7 @@ for (const d of DEMO) {
     date: day,
     end: at,
     hash: hex(`${d.ref}#`, 16),
-    id: `u_${hex(d.ref, 12)}`,
+    id: `unit_${hex(d.ref, 12)}`,
     key: d.key,
     people: [`unknown:${d.title}`, "person:me"],
     refs: [d.ref],
@@ -232,10 +232,10 @@ for (const d of DEMO) {
         ...new Set([speaker, "me", ...people].map((p) => `person:${p}`)),
       ],
       id: `obs_${hex(u.id + type + quote + text, 12)}`,
+      importance: when ? 3 : 2,
       madeBy: { ...extract, unitHash: u.hash },
       modality: when ? "plan" : "fact",
       quote,
-      salience: when ? 3 : 2,
       schemaVersion: 1,
       source: { channel: d.source, ref: d.ref },
       speaker: `person:${speaker}`,

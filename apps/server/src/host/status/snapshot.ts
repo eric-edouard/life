@@ -1,6 +1,5 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { checks } from "../../actions/backend";
 import { clock, DAY, HOUR, MIN } from "../../core/clock";
 import { filesIn, linesOf } from "../../core/files";
 import type { Call } from "../../core/log";
@@ -11,11 +10,11 @@ import { git } from "../../core/proc";
 import { agentName, settings } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
 import {
-  ACTIONS,
   CORRECTIONS,
+  LEDGER,
   OBSERVATIONS,
   PAGES,
-  readActions,
+  readLedger,
   readRatings,
   readStatements,
   tasksOf,
@@ -28,6 +27,7 @@ import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
 import { lifelogStatus, newestTurn } from "../../sources/lifelog";
+import { checks } from "../../todo-list/backend";
 import { escalation, taskList } from "../agent";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
@@ -156,7 +156,7 @@ async function rated() {
     readStatements(),
     readRatings(),
   ]);
-  const left = statements.filter((s) => !ratings.get(s.claim)).length;
+  const left = statements.filter((s) => !ratings.get(s.ref)).length;
   return {
     left,
     ratings: statements.length - left,
@@ -324,7 +324,7 @@ async function reads(now: Date) {
         ],
       })
     ),
-    cached("actions", 15_000, readActions),
+    cached("actions", 15_000, readLedger),
     cached("actionChecks", MIN, checks),
     newestOf(),
   ]);
@@ -925,7 +925,7 @@ function memoryCards(r: Reads): Card[] {
 
 function agentCards(r: Reads): Card[] {
   const events = deliveryState();
-  const lines = linesOf(ACTIONS).length;
+  const lines = linesOf(LEDGER).length;
   const live = r.agentLive;
   const pulls = settings().agent?.transport === "pull";
   const calls = since(r.mcp, DAY, r.t).filter((c) => isAgent(c.agent));
@@ -952,7 +952,7 @@ function agentCards(r: Reads): Card[] {
       ],
       group: "outputs",
       headline: live ? "receiving asks" : "not receiving asks",
-      id: "agent",
+      id: "asks",
       name: agentName(),
     },
     {
@@ -1013,7 +1013,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!isOn("actions"), { tone: "idle", word: "off" }],
+        [!isOn("todo_list"), { tone: "idle", word: "off" }],
         [
           r.actionChecks.length > 0,
           {
@@ -1042,7 +1042,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: OUTPUTS.actions.label,
+      name: OUTPUTS.todo_list.label,
     },
     {
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),

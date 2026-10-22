@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
-import { BOARD, openOf } from "./backend";
-import gog from "./gog.json";
+import { BOARD, openOf } from "../todo-list/backend";
 import {
   type GoogleTask,
   google,
   taskArgs,
   itemOfTask as taskItem,
-} from "./google";
-import { itemOf, type Raw, reminders, unshared } from "./remctl";
+} from "../todo-list/google";
+import { itemOf, type Raw, reminders, unshared } from "../todo-list/remctl";
+import gog from "./gog.json";
 import answers from "./remctl.json";
 
 // Each backend's answers as Life reads them: remctl's (remctl.json, `REMCTL_RELEASE`'s: what moving the pin checks),
@@ -61,8 +61,8 @@ test("on Google the board's list is made on first need, once; another missing li
     }
     return Promise.resolve(args[0] === "add" ? gog.add : {});
   });
-  const first = await b.add({ list: BOARD, notes: "act_1", title: "A task" });
-  await b.add({ list: BOARD, notes: "act_2", title: "Another" });
+  const first = await b.add({ list: BOARD, notes: "entry_1", title: "A task" });
+  await b.add({ list: BOARD, notes: "entry_2", title: "Another" });
   expect(first.id).toBe(`${gog.create.tasklist.id}/${gog.add.task.id}`);
   expect(calls.filter((c) => c[1] === "create")).toEqual([
     ["lists", "create", BOARD],

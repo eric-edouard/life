@@ -151,7 +151,7 @@ struct SettingsView: View {
           TextField("lifelog address", text: $lifelogURL)
           SecureField("lifelog token", text: $lifelogToken)
         }
-        if supervisor.info?.actions == "google" {
+        if supervisor.info?.todoList == "google" {
           // Google Tasks is the backend (set in his settings): shown on, never switched from here.
           Section("Actions") {
             Toggle("Use your Google Tasks", isOn: .constant(true)).disabled(true)
@@ -270,16 +270,16 @@ struct SettingsView: View {
     await supervisor.restart()
   }
 
-  /// The actions output with the Reminders backend, on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
+  /// The to-do list with the Reminders backend, on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
   /// once, then its own permission steps), and the toggle takes once `life app` sees it.
   private func setReminders(_ on: Bool, _ r: Reminders) async {
     if on, !r.ready {
       await installRemctl(r)
       return
     }
-    // The actions output with Reminders as its backend; null turns it off.
-    let actions: Any = on ? ["backend": "reminders"] as Any : NSNull()
-    await set(["actions": actions])
+    // The to-do list with Reminders as its backend; null turns it off.
+    let todoList: Any = on ? ["backend": "reminders"] as Any : NSNull()
+    await set(["todo_list": todoList])
     await supervisor.restart()
   }
 

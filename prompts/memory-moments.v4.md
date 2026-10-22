@@ -37,13 +37,13 @@ The user message is one JSON object:
 
 Give one verdict per unit of `units`, same ids, in `verdicts`:
 
-| type | what | usual salience |
+| type | what | usual importance |
 |---|---|---|
-| todo | a task the owner has to do (pay, fix, call, check, book) | 3 |
+| to_do | a task the owner has to do (pay, fix, call, check, book) | 3 |
 | promise | The owner told someone he would do something | 3 |
-| waiting | someone owes the owner something (an answer, a document, a payment, a delivery) | 2 |
+| waiting_on_someone | someone owes the owner something (an answer, a document, a payment, a delivery) | 2 |
 | decision | something the owner or his people settled | 2 |
-| person | about someone in his life: who they are, how they're doing, their plans, gift ideas | 2 |
+| about_a_person | about someone in his life: who they are, how they're doing, their plans, gift ideas | 2 |
 | preference | what someone likes or dislikes, the owner included | 2 |
 | idea | an idea the owner had or was given (for his apps, his shop, his life) | 1 |
 | news | something changed in one of his areas: status, problem, progress, numbers, money in or out | 2 |
@@ -60,10 +60,10 @@ Give one verdict per unit of `units`, same ids, in `verdicts`:
 - `kind` (lifelog only): conversation (the owner talking with people he knows or deals with), small-talk (light chat with no
   substance), media (TV, video, music, a call on speaker he isn't in), dictation (the owner talking to his phone or an AI),
   customer (counter talk with shop customers). Omit it for other sources.
-- `reason`: one short line, in English, under 120 characters, saying what it is and why this salience.
-- `salience` 0-3, below. Commits (git) are 1 at most: searchable, never read in full.
+- `reason`: one short line, in English, under 120 characters, saying what it is and why this importance.
+- `importance` 0-3, below. Commits (git) are 1 at most: searchable, never read in full.
 
-### Salience 0-3
+### Importance 0-3
 
 - **0**: nothing worth remembering. Noise, chit-chat, marketing, automated notices with no consequence.
 - **1**: minor but real: might be useful to search later, not worth a line on a page.
@@ -71,21 +71,21 @@ Give one verdict per unit of `units`, same ids, in `verdicts`:
 - **3**: The owner must act or must not forget: to-dos, promises, deadlines, money or health with consequences, failed
   payments, legal or official matters.
 
-Adjust the usual salience to the content: a routine bank notice is news at 1; a failed payment that cuts off a
-service is a todo at 3; a confirmation of something already done or announced (a transfer that went through, a
+Adjust the usual importance to the content: a routine bank notice is news at 1; a failed payment that cuts off a
+service is a to_do at 3; a confirmation of something already done or announced (a transfer that went through, a
 scheduled debit, an order confirmed) is 1, or 2 when the amount is large, never 3: 3 is for what still needs the owner. An
 idea with no one involved is 1. Messages the owner wrote himself (`me`) count more than messages he only received.
 Strangers and customers talking near the recorder are nothing unless the owner is part of it. A lifelog summary that says
 "no decisions or plans" is usually 0 or 1, unless the owner sets out his own views in it (below).
 
 The owner's own views are his memory too. When he explains in his own words what he believes, values, wants from life, his
-goals or his philosophy (about work, money, people, society, AI, happiness), that is person, at 2, even in a debate
+goals or his philosophy (about work, money, people, society, AI, happiness), that is about_a_person, at 2, even in a debate
 with no decision. Someone else's views, a debate he only listens to, and a passing opinion with nothing behind it stay
 at 0 or 1.
 
 What goes on between the owner and someone `close` is his memory too: how things are between them, what they agreed
 or asked of each other, a boundary, a fight or making up, a turning point (moving in, a breakup, a new closeness).
-That is person, at 2, even with no decision. Everyday logistics with them ("on my way", what to eat) stay at 0 or 1.
+That is about_a_person, at 2, even with no decision. Everyday logistics with them ("on my way", what to eat) stay at 0 or 1.
 
 Only 2 and 3 are read in full later; 1 stays a searchable line. The owner found most of what got 1 was noise to him, so
 when a unit is neither worth a page line nor clearly useful to search later, give 0.
@@ -115,25 +115,25 @@ to the owner in a month.
 What he marked (type, area, and whether it matters to him):
 
 - Mail "Result of Bill Payment (Success)" for his phone bill: nothing, money-admin, doesn't matter (0).
-- Supplier mail: out of boxes for the 10-packs, waiting on the printer: waiting, shop, matters (2).
-- Recording: the shop's window pane broke and a replacement must be ordered: todo, shop, matters (3).
-- Reminder of an occupational-health visit for a shop employee: waiting, shop, doesn't matter (0-1).
-- A friend's chat about a great party at a villa: person, friends, doesn't matter (0-1).
+- Supplier mail: out of boxes for the 10-packs, waiting on the printer: waiting_on_someone, shop, matters (2).
+- Recording: the shop's window pane broke and a replacement must be ordered: to_do, shop, matters (3).
+- Reminder of an occupational-health visit for a shop employee: waiting_on_someone, shop, doesn't matter (0-1).
+- A friend's chat about a great party at a villa: about_a_person, friends, doesn't matter (0-1).
 - The owner thinking aloud about an idea for his dictation and coding tools: idea, work, doesn't matter (1).
 - "0100000000 called you" notification: nothing, no area, doesn't matter (0).
-- The owner asks the building office to add someone back to the face-scan entry: waiting, work, matters (2).
-- Recording: where Anne-Sophie sleeps each night of her Nantes stay: person, relationships, matters (2).
+- The owner asks the building office to add someone back to the face-scan entry: waiting_on_someone, work, matters (2).
+- Recording: where Anne-Sophie sleeps each night of her Nantes stay: about_a_person, relationships, matters (2).
 - Recording: the owner explains the ceiling-height dispute with the builder to his father: decision, construction,
   matters (3).
 - Flight booked Lisbon to Nantes on 4 Mar: decision, france-trip, matters (2).
-- Recording: Anne-Sophie says her knee still hurts after five months: person, relationships, matters (2).
-- The builder's team asks what the requested 6 inches on the bedside tables means: waiting, construction,
+- Recording: Anne-Sophie says her knee still hurts after five months: about_a_person, relationships, matters (2).
+- The builder's team asks what the requested 6 inches on the bedside tables means: waiting_on_someone, construction,
   matters (2).
 - A tech newsletter about new phone apps: news, no area, doesn't matter (0).
 - A vendor mail saying the order shipped, or a bank receipt for a routine payment: news, 0.
-- Two friends joking about a video, no plans made: person, friends, 0.
+- Two friends joking about a video, no plans made: about_a_person, friends, 0.
 - Recording: on a car ride, the owner explains why he would rather own less and travel more,
-  and asks Life to index his philosophy: person, no area, matters (2).
+  and asks Life to index his philosophy: about_a_person, no area, matters (2).
 
 You see the whole day at once: rank within it. Most units of a day are 0 or 1; the few that carry what the owner must do,
 decide, owe, wait for or should remember a month from now are 2 or 3. A unit that only belongs to an ordinary moment
@@ -205,4 +205,4 @@ sister's instead) is one moment with the latest version.
 
 Reply with ONLY one JSON object, no prose, no code fence:
 
-{"verdicts":[{"id":"u_…","type":"…","salience":0,"when":null,"area":null,"topics":["…"],"kind":"…","reason":"…"}],"moments":[{"id":"new","title":"…","status":"happened","start":"2026-10-16 16:20","end":null,"place":null,"people":[{"ref":"person:…","role":"with"}],"units":["u_…"],"copies":[],"importance":2,"why":"…"}],"who":[{"key":"…","name":"…","relation":"…","area":null,"project":null,"confidence":0.6,"evidence":[{"unit":"u_…","quote":"…"}]}]}
+{"verdicts":[{"id":"unit_…","type":"…","importance":0,"when":null,"area":null,"topics":["…"],"kind":"…","reason":"…"}],"moments":[{"id":"new","title":"…","status":"happened","start":"2026-10-16 16:20","end":null,"place":null,"people":[{"ref":"person:…","role":"with"}],"units":["unit_…"],"copies":[],"importance":2,"why":"…"}],"who":[{"key":"…","name":"…","relation":"…","area":null,"project":null,"confidence":0.6,"evidence":[{"unit":"unit_…","quote":"…"}]}]}

@@ -56,7 +56,7 @@ test("day: the conversations with their chapters and people, then the chat and m
     units: [
       {
         date: "2026-10-14",
-        id: "u_000000000001",
+        id: "unit_000000000001",
         source: "whatsapp",
         title: "Team",
         topics: "glass",
@@ -71,7 +71,9 @@ test("day: the conversations with their chapters and people, then the chat and m
     true
   );
   expect(lines).toContain("Chat and mail units (1; `fetch <unit id>`):");
-  expect(lines).toContain("- u_000000000001 2026-10-14 whatsapp: Team [glass]");
+  expect(lines).toContain(
+    "- unit_000000000001 2026-10-14 whatsapp: Team [glass]"
+  );
   expect(lines.slice(-2)).toEqual([
     "Key observations:",
     '- obs_1 2026-10-14 todo: Call the glazier "call him"',
@@ -122,16 +124,16 @@ test("search: an observation hit names the unit it comes from and who is in it",
     date: "2026-10-14",
     entities: ["project:photo-app"],
     id: "obs_1",
+    importance: 2,
     quote: "il est à rework",
-    salience: 2,
     source: { channel: "lifelog", ref: "j:0@x" },
     text: "Jean will rework the photo-app beautify prompt.",
-    type: "todo",
-    unit: "u_000000000001",
+    type: "to_do",
+    unit: "unit_000000000001",
   } as unknown as Observation;
   const unit = {
     date: "2026-10-14",
-    id: "u_000000000001",
+    id: "unit_000000000001",
     people: ["person:jerome", "unknown:Bob"],
     source: "lifelog",
     title: "Improving output prompts before advertising tests",
@@ -255,10 +257,10 @@ test("a day opens with what happened: its moments, when, what, where, how they s
     start: "2026-10-16 16:20",
     status: "happened",
     title: "Road trip to see the sisters with Bastien",
-    units: ["u_000000000001"],
+    units: ["unit_000000000001"],
   } as Moment;
   expect(momentLine(m)).toBe(
-    "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [u_000000000001]"
+    "- mom_000000000001 2026-10-16 16:20 Road trip to see the sisters with Bastien @ Claire's house (happened; bastien with, Cédric with) [unit_000000000001]"
   );
   expect(dayLines({ moments: [m] }).slice(0, 2)).toEqual([
     "Moments (what happened or is planned):",
@@ -322,20 +324,20 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       date: "2026-10-18",
       entities: ["person:me"],
       id,
+      importance: 3,
       quote: "tomorrow I'm going to call them",
-      salience: 3,
       source: { channel: "lifelog", ref: "j:8@x" },
       speaker: "person:me",
       text: "Call the shop to ask for a morning pickup before booking the train.",
-      type: "todo",
-      unit: "u_000000000001",
+      type: "to_do",
+      unit: "unit_000000000001",
       when: "2026-10-19",
       ...over,
     }) as unknown as Observation;
   const standing = {
     corrections: [],
     latest: new Map(),
-    live: new Set(["u_000000000001"]),
+    live: new Set(["unit_000000000001"]),
     retired: new Map([
       [
         "obs_000000000006",
@@ -358,7 +360,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       loop("obs_000000000005", { about: "project:house" }),
       loop("obs_000000000006", {}),
       loop("obs_000000000007", { when: "2026-10-20" }),
-      loop("obs_000000000008", { salience: 2 }),
+      loop("obs_000000000008", { importance: 2 }),
       loop("obs_000000000009", { type: "news" }),
       // His promise whose quote opens with the other's request is still his to keep.
       loop("obs_000000000010", { speaker: "person:jean", type: "promise" }),
@@ -367,8 +369,14 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       loop("obs_000000000015", { when: "2026-10-12" }),
       loop("obs_000000000012", { when: "2026-10-11" }),
       // What he waits on from someone: on its day only.
-      loop("obs_000000000013", { speaker: "person:jean", type: "waiting" }),
-      loop("obs_000000000014", { type: "waiting", when: "2026-10-18" }),
+      loop("obs_000000000013", {
+        speaker: "person:jean",
+        type: "waiting_on_someone",
+      }),
+      loop("obs_000000000014", {
+        type: "waiting_on_someone",
+        when: "2026-10-18",
+      }),
       // Undated: the day after it was said (18 Oct), not two days after.
       loop("obs_000000000016", { when: undefined }),
       loop("obs_000000000017", { date: "2026-10-17", when: undefined }),
@@ -512,23 +520,23 @@ test("area: an area's or a project's id or name, never a part of one", () => {
 test("Orbit's tasks in search: his words or Orbit's reports hold the words, inside from/to; a state alone matches nothing", () => {
   const ask = action({
     after: { confidence: "high" },
-    id: "act_00000000000a",
+    id: "entry_00000000000a",
     kind: "ask",
     target: AGENT_WORD,
   });
   const done = action({
     after: { outcome: "Booked the dentist for Friday.", state: "done" },
     at: "2026-10-15T11:00:00.000Z",
-    id: "act_00000000000b",
+    id: "entry_00000000000b",
     instruction: undefined,
     kind: "update",
-    madeBy: "connector",
     target: ask.id,
+    via: "connector",
   });
   const tasks = tasksOf([ask, done].map((l) => JSON.stringify(l)));
   const hits = (q: string, o = {}) => taskHits(holdsAll(q), o, tasks);
   expect(hits("dentist")).toEqual([
-    "- act_00000000000a 2026-10-15 done: write that down in the to-dos → Booked the dentist for Friday.",
+    "- entry_00000000000a 2026-10-15 done: write that down in the to-dos → Booked the dentist for Friday.",
   ]);
   expect(hits("to-dos")).toHaveLength(1);
   expect(hits("done")).toEqual([]);

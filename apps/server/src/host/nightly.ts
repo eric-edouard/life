@@ -1,10 +1,9 @@
-import { checks } from "../actions/backend";
 import { clock, DAY, HOUR } from "../core/clock";
 import { holder, isOtherLife } from "../core/lock";
 import { type Call, isReviewCall, log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
 import { extract } from "../memory/extract";
-import { newSince, readActions } from "../memory/ledger";
+import { newSince, readLedger } from "../memory/ledger";
 import { locked, lockedSince } from "../memory/memory-lock";
 import { moments } from "../memory/moments";
 import { placed } from "../memory/page-format";
@@ -47,8 +46,9 @@ import {
 import { observationsNow, readPeople } from "../memory/who";
 import { dayStart, localDate, noteZone } from "../memory/zones";
 import { type Quota, quota } from "../models/llm";
-import { type Action, isListed } from "../records/ledger-entry";
+import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
+import { checks } from "../todo-list/backend";
 import { taskList, unanswered } from "./agent";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
@@ -80,16 +80,16 @@ async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   if (!(await reviewed(now))) {
     problems.push("no daily review reached Life in the last 24 h");
   }
-  let actions: Action[] = [];
+  let actions: LedgerEntry[] = [];
   let tasks: ReturnType<typeof taskList> = [];
   let gaps = 0;
   try {
-    actions = readActions();
+    actions = readLedger();
     tasks = taskList(now.getTime());
     gaps = unanswered(now.getTime() - DAY);
   } catch (e) {
     const { message } = e as Error;
-    problems.push(`actions.jsonl: ${message}`);
+    problems.push(`ledger.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
   // A task's own lines (the agent's updates) are its rows, not actions.
@@ -325,7 +325,7 @@ export function markedSince(
 
 /**
  * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`) and about
- * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
+ * the night's days from `from` (not a backfilled past), the importance-3 page lines not retired, by their home page
  * (`placed`), and the retirements those new observations made.
  */
 async function whatIsNew(since: string, from: string, built: Built[]) {
@@ -342,7 +342,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   return {
     facts: [...homes].flatMap(([home, lines]) =>
       lines.flatMap(({ o }) =>
-        ids.has(o.id) && o.salience === 3 && !standing.retired.has(o.id)
+        ids.has(o.id) && o.importance === 3 && !standing.retired.has(o.id)
           ? [{ id: o.id, page: people.names.get(home) ?? home, text: o.text }]
           : []
       )

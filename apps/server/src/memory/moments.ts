@@ -48,7 +48,7 @@ import { readPeople, unitNow } from "./who";
 // `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
 // judged on its current content, the deep-tier model reads every unit of the day from every channel in time order,
 // with the moments of the days before that may continue into it (memory-moments.v4), and returns a verdict per unit
-// (memory/verdicts.jsonl: what it is, its area, topics, salience), the day's moments (memory/moments/<day>.jsonl) and
+// (memory/verdicts.jsonl: what it is, its area, topics, importance), the day's moments (memory/moments/<day>.jsonl) and
 // who the day's unknown handles and names are (memory/people-inferred.jsonl).
 // Extraction then reads a moment's units together (extract.ts). Units are written here too (units.ts builds them).
 
@@ -113,10 +113,10 @@ const Reply = z.object({
 const Judged = z.object({
   area: z.string().nullable().default(null),
   id: z.string(),
+  importance: z.int().min(0).max(3),
   // Chats and mail have no kind; the model sometimes says so with null.
   kind: ChapterKind.nullish().transform((k) => k ?? undefined),
   reason: z.string().min(1).max(300),
-  salience: z.int().min(0).max(3),
   topics: z.array(z.string()).nullish(),
   type: MemoryType,
   when: z.iso.date().nullable().default(null),
@@ -137,22 +137,26 @@ const Said = Moment.pick({
 });
 const at = (s: string | null) => (LocalTime.safeParse(s).success ? s : null);
 
+/** A moment's id, minted from what it is: its day, its start and units (its title too when two moments share those). */
+export const momentId = (key: string[]) =>
+  `mom_${digest("sha1", key.join("|"), 12)}`;
+
 /**
- * Code's last word on a verdict's salience: commits 1 at most (never extracted), a unit he marked "hey Life" 3, an
+ * Code's last word on a verdict's importance: commits 1 at most (never extracted), a unit he marked "hey Life" 3, an
  * agent's report at least KEEP_AT (always read, for what it may close).
  */
-export function saliencyOf(u: Unit, salience: number) {
+export function importanceOf(u: Unit, importance: number) {
   const kind = kindOf(u.source);
   if (kind === "repo") {
-    return Math.min(salience, 1);
+    return Math.min(importance, 1);
   }
   if (u.marked) {
     return 3;
   }
-  return kind === "agent" ? Math.max(salience, KEEP_AT) : salience;
+  return kind === "agent" ? Math.max(importance, KEEP_AT) : importance;
 }
 
-/** The verdicts of a day's reply for units of that day, once each, their salience `saliencyOf`. */
+/** The verdicts of a day's reply for units of that day, once each, their importance `importanceOf`. */
 function verdictsOf(
   list: unknown[],
   ctx: { areas: Map<string, string>; madeBy: MadeBy; units: Map<string, Unit> }
@@ -165,7 +169,7 @@ function verdictsOf(
   );
   return new Map(
     entries.map(
-      ({ area, id, salience, topics, ...rest }): [string, Verdict] => {
+      ({ area, id, importance, topics, ...rest }): [string, Verdict] => {
         const u = ctx.units.get(id) as Unit;
         return [
           id,
@@ -173,8 +177,8 @@ function verdictsOf(
             ...rest,
             area: areaOf(area, ctx.areas),
             hash: u.hash,
+            importance: importanceOf(u, importance),
             madeBy: ctx.madeBy,
-            salience: saliencyOf(u, salience),
             schemaVersion: 1,
             topics: normalizeTopics(topics),
             unit: id,
@@ -196,7 +200,7 @@ function personOf(ref: string, ctx: { people: Set<string>; resolve: Resolve }) {
 
 /**
  * The model's reply for one day, checked: a verdict for a unit of the day (its content hash in `units`), its area one
- * of `areas` (by id or name) or null, commits at salience 1 at most (never extracted); a moment of the day's units,
+ * of `areas` (by id or name) or null, commits at importance 1 at most (never extracted); a moment of the day's units,
  * people resolved through the map (the owner left out), an earlier moment's id kept, a new one minted from the day and its
  * units. Anything else is dropped; `invalid` counts the verdicts dropped.
  */
@@ -227,12 +231,10 @@ export function parseDay(
       const p = personOf(ref, ctx);
       return p ? [{ ref: p, role }] : [];
     });
-    // Minted from what it is: the day, its start and units (its title too when two moments share those).
     const key = [ctx.day, m.start ?? "", ...units.toSorted()];
-    const mint = (k: string[]) => `mom_${digest("sha1", k.join("|"), 12)}`;
-    let id = ctx.earlier.has(m.id) ? m.id : mint(key);
+    let id = ctx.earlier.has(m.id) ? m.id : momentId(key);
     if (found.has(id)) {
-      id = mint([...key, m.title]);
+      id = momentId([...key, m.title]);
     }
     found.set(id, {
       copies: m.copies.filter((u) => units.includes(u)),
@@ -262,7 +264,7 @@ export function parseDay(
 const ratio = (a: number, b: number) => (b === 0 ? null : a / b);
 
 /**
- * How the verdicts compare with the owner's labels (memory/labels.jsonl): a unit is "kept" at salience KEEP_AT or more,
+ * How the verdicts compare with the owner's labels (memory/labels.jsonl): a unit is "kept" at importance KEEP_AT or more,
  * a code-rule drop is a skip, and a label whose unit is gone is only counted in `missing`.
  */
 export function agreement(
@@ -274,7 +276,7 @@ export function agreement(
     const u = units.get(l.unitId);
     const v = u && verdictOf(verdicts, u);
     return u && (v || u.drop)
-      ? [{ kept: !!v && v.salience >= KEEP_AT, matters: l.matters }]
+      ? [{ kept: !!v && v.importance >= KEEP_AT, matters: l.matters }]
       : [];
   });
   const count = (kept: boolean, matters: boolean) =>

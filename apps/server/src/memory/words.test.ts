@@ -85,7 +85,9 @@ test("fetch: who spoke and when come from the store, the words from lifelog, a p
   expect(last).not.toContain("more:");
   expect(server.seen.every((r) => r.auth === "Bearer test-token")).toBe(true);
   expect(await fetchOf("nope", 0, 200, open)).toContain("(nothing found)");
-  expect(await fetchOf("u_000000000000")).toContain("(no unit u_000000000000)");
+  expect(await fetchOf("unit_000000000000")).toContain(
+    "(no unit unit_000000000000)"
+  );
 });
 
 test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns before his words", async () => {
@@ -439,9 +441,9 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
   const named = (name: string) => ({ ...t(1, false), name });
   expect(
     voiceLines([named("Nok"), named("Somchai")], jobs, (s) =>
-      s === "Nok" ? "person:inf-nok" : null
+      s === "Nok" ? "person:inf_nok" : null
     ).map((l) => l.speaker)
-  ).toEqual(["person:inf-nok", "unknown:Somchai"]);
+  ).toEqual(["person:inf_nok", "unknown:Somchai"]);
 });
 
 /** The `before` a cut chats answer names. */

@@ -35,8 +35,8 @@
         "patterns": ["apps/server/src/sources/**"]
       },
       {
-        "name": "actions",
-        "patterns": ["apps/server/src/actions/**"]
+        "name": "todo-list",
+        "patterns": ["apps/server/src/todo-list/**"]
       },
       {
         "name": "memory",
@@ -65,16 +65,16 @@
         "allow": ["core", "records"]
       },
       {
-        "from": "actions",
+        "from": "todo-list",
         "allow": ["core", "records"]
       },
       {
         "from": "memory",
-        "allow": ["core", "models", "sources", "actions", "records"]
+        "allow": ["core", "models", "sources", "todo-list", "records"]
       },
       {
         "from": "host",
-        "allow": ["core", "models", "sources", "actions", "memory", "records"]
+        "allow": ["core", "models", "sources", "todo-list", "memory", "records"]
       }
     ]
   }

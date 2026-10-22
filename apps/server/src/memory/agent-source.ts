@@ -15,7 +15,7 @@ const ASK_MAX = 1500;
 const done = () =>
   tasksOf().flatMap(({ ask, lines }) => {
     const last = lastUpdate({ ask, lines });
-    return last?.after.state === "done" && last.madeBy === "connector"
+    return last?.after.state === "done" && last.via === "connector"
       ? [{ ask, last }]
       : [];
   });

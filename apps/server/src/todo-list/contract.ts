@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { REMINDER_KINDS } from "../records/ledger-entry";
 
-// The actions contract: what a backend is (`ActionsBackend`, with what it `can`) and what a change asks of it
+// The to-do list contract: what a backend is (`TodoListBackend`, with what it `can`) and what a change asks of it
 // (`Change`). The backends implement it; `backend.ts` picks this install's one.
 
 /** What a backend can do besides an item's title, notes, day and state (done, undone, removed). */
@@ -23,7 +23,7 @@ export interface List {
 }
 
 /** An item as every backend gives it (remctl's `show`; a Google task, normalised). Ids are strings. */
-export interface Item {
+export interface TodoItem {
   allDay?: boolean;
   completed: boolean;
   createdDate?: string;
@@ -47,12 +47,12 @@ export interface Written {
   link?: string;
 }
 
-export interface ActionsBackend {
+export interface TodoListBackend {
   /** Adds an item (the default list without `list`); its `subtasks` too when it `can`. */
   add: (c: Partial<Change> & { title: string }) => Promise<Written>;
   can: ReadonlySet<Can>;
   /** His deleted items (Recently Deleted; Google's deleted tasks). */
-  deleted: () => Promise<Item[]>;
+  deleted: () => Promise<TodoItem[]>;
   done: (id: string) => Promise<unknown>;
   /** Writes these fields (a `list` moves it); `before`, the item as `info` read it. */
   edit: (
@@ -63,7 +63,7 @@ export interface ActionsBackend {
   /** One item as it is now, for `before`; throws when there is none. */
   info: (id: string) => Promise<Record<string, unknown>>;
   /** A list's top-level items: open ones, or ticked ones too. */
-  items: (list: List, completed: boolean) => Promise<Item[]>;
+  items: (list: List, completed: boolean) => Promise<TodoItem[]>;
   /** What he calls it. */
   label: string;
   lists: () => Promise<List[]>;

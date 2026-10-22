@@ -96,9 +96,9 @@ the owner's request; null for Life's own acts), `run` and `about`. By type:
 | `observation.superseded` | supersession | |
 | `correction.<kind>` | owner correction | `reflected` |
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
-| `action.ok` / `action.failed` / `action.duplicate` | `actions.jsonl` line: Life's act, or the owner's own change in Reminders (`record.madeBy` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
-| `action.ask` | an ask for the agent in `actions.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
-| `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `actions.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
+| `action.ok` / `action.failed` / `action.duplicate` | `ledger.jsonl` line: Life's act, or the owner's own change in Reminders (`record.via` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
+| `action.ask` | an ask for the agent in `ledger.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
+| `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `ledger.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
 | `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (the owner's answer on the check page; a false hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
@@ -110,7 +110,7 @@ filter narrows the items, never the cursor's reach: every match is still returne
   no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced` (its unit was read again; the
   newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner rated it outdated; still
   indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
-  hidden on (pages carry salience 2+ only). It is the rule the index and the pages go by (`stateOf`,
+  hidden on (pages carry importance 2+ only). It is the rule the index and the pages go by (`stateOf`,
   `apps/server/src/memory/ledger.ts`), so it says what they show. An observation is a model's reading of the source with its quote
   checked against it: `active` is not "verified", and `confidence` is the model's own.
 - **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and `not-important`

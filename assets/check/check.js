@@ -221,7 +221,7 @@ const VERDICTS = [
 const load = deck($("deck"), VERDICTS, (claim, answer) => {
   const s = byClaim.get(claim);
   s.answer = answer;
-  keep([...pending(), { answer, claim }]);
+  keep([...pending(), { answer, ref: claim }]);
   flush();
   const group = groups.find((g) => g.statements.includes(s));
   if (answer === null) {
@@ -242,8 +242,8 @@ function open(g, first) {
   pick(g);
   load(
     left(g)
-      .toSorted((a, b) => (b.claim === first) - (a.claim === first))
-      .map((s) => ({ id: s.claim, note: note(s), text: s.text }))
+      .toSorted((a, b) => (b.ref === first) - (a.ref === first))
+      .map((s) => ({ id: s.ref, note: note(s), text: s.text }))
   );
 }
 $("group").onchange = () => open(groups.find((g) => g.id === $("group").value));
@@ -254,10 +254,10 @@ if (res.status === 401) {
 } else if (res.ok) {
   ({ groups } = await res.json());
   for (const s of groups.flatMap((g) => g.statements)) {
-    byClaim.set(s.claim, s);
+    byClaim.set(s.ref, s);
   }
   for (const a of pending()) {
-    const s = byClaim.get(a.claim);
+    const s = byClaim.get(a.ref);
     if (s) {
       s.answer = a.answer;
     }

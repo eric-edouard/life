@@ -29,9 +29,9 @@ const read = (name: string) => (e: LogLine) =>
 /** The log lines each card's history is made of: every source's reads (`SOURCES`), and each part's own lines. */
 const LOGS: Record<string, (e: LogLine) => boolean> = {
   ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
-  agent: (e) =>
-    e.kind === "event.sent" || (e.kind === "mcp.call" && isAgent(e.agent)),
   archive: (e) => e.step?.startsWith("archive.") ?? false,
+  asks: (e) =>
+    e.kind === "event.sent" || (e.kind === "mcp.call" && isAgent(e.agent)),
   backup: (e) => e.step === "backup",
   clients: (e) => e.kind === "mcp.call",
   connector: (e) => e.kind === "mcp.call",

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { MIN } from "../core/clock";
-import { ACTIONS, tasksOf } from "../memory/ledger";
+import { LEDGER, tasksOf } from "../memory/ledger";
 import { apply } from "../sources/lifelog";
 import {
   turnFixture as fed,
@@ -147,6 +147,6 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
     expect(await restart(seen + 40 * MIN)).toEqual(["c4"]);
   } finally {
     server.close();
-    rmSync(ACTIONS, { force: true });
+    rmSync(LEDGER, { force: true });
   }
 });

@@ -6,7 +6,7 @@ const DATE = "2026-10-19";
 const item = (over: Partial<Candidate>): Candidate => ({
   at: "2026-10-18T10:00:00.000Z",
   id: "obs_000000000001",
-  kind: "todo",
+  kind: "to_do",
   line: "-",
   when: DATE,
   ...over,
@@ -103,7 +103,7 @@ test("a dated item shows on its day, then late only while a daily review has not
   // Waiting: its day only. With neither its day nor the day it was said: never.
   expect(
     ids([
-      item({ kind: "waiting", when: "2026-10-18" }),
+      item({ kind: "waiting_on_someone", when: "2026-10-18" }),
       item({ id: "obs_000000000002", when: undefined }),
     ])
   ).toEqual([]);
@@ -112,7 +112,7 @@ test("a dated item shows on its day, then late only while a daily review has not
 test("copies merge: a reminder into its observation, an item said in an open task's turn is that task's", () => {
   const said = item({ ref: "job:8@x" });
   const reminder = item({
-    id: "act_0000000000r1",
+    id: "entry_0000000000r1",
     kind: "reminder",
     obs: "obs_000000000001",
     urgent: true,
@@ -122,7 +122,7 @@ test("copies merge: a reminder into its observation, an item said in an open tas
   expect(rest).toEqual([]);
   expect(one).toMatchObject({
     id: "obs_000000000001",
-    merged: ["act_0000000000r1"],
+    merged: ["entry_0000000000r1"],
     urgent: true,
   });
   expect(ids([said], { tasks: new Set(["job:8@x"]) })).toEqual([]);
@@ -135,7 +135,11 @@ test("copies merge: a reminder into its observation, an item said in an open tas
 
 test("rank: his urgent flag and priority, then who owes whom, his goals in order, closeness, age", () => {
   const cs = [
-    item({ at: "2026-10-01T00:00:00.000Z", id: "waiting", kind: "waiting" }),
+    item({
+      at: "2026-10-01T00:00:00.000Z",
+      id: "waiting",
+      kind: "waiting_on_someone",
+    }),
     item({ at: "2026-10-02T00:00:00.000Z", id: "todo-old" }),
     item({ id: "todo-goal2", projects: ["shop"] }),
     item({ id: "todo-goal1", projects: ["life"] }),

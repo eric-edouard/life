@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import type { Receipt } from "../actions/board";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
@@ -10,7 +9,7 @@ import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { agentName } from "../core/settings";
-import { ACTIONS, type Task, tasksOf } from "../memory/ledger";
+import { LEDGER, type Task, tasksOf } from "../memory/ledger";
 import {
   closed,
   nameOf,
@@ -21,17 +20,18 @@ import {
 } from "../memory/tasks";
 import { clip, localTime } from "../memory/units";
 import { localDate } from "../memory/zones";
-import { Action, type Instruction } from "../records/ledger-entry";
-import { actionId, requested } from "./act";
+import { type Instruction, LedgerEntry } from "../records/ledger-entry";
+import type { Receipt } from "../todo-list/board";
+import { entryId, requested } from "./act";
 import { agentLive } from "./events";
 import { lapseReport, sendReport, taskReport, unsent } from "./report";
 
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
+// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/ledger.jsonl until the agent closes it
 // done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** The protocol's Reminders parts (`<!-- reminders -->…<!-- /reminders -->`): the markers always go, the parts too while the plugin is off. */
 const REMINDERS_PART = /<!-- reminders -->([\s\S]*?)<!-- \/reminders -->/g;
-export const protocol = (text: string, reminders = isOn("actions")) =>
+export const protocol = (text: string, reminders = isOn("todo_list")) =>
   text
     .replace(REMINDERS_PART, (_, part: string) => (reminders ? part : ""))
     .replaceAll("{agent}", agentName());
@@ -57,17 +57,17 @@ export const sealed = (now = clock().getTime(), text = playbook()) => ({
  */
 const askLine = (
   instruction: Instruction,
-  after: Action["after"],
-  madeBy: "connector" | "session" | "watch",
+  after: LedgerEntry["after"],
+  via: "connector" | "session" | "watch",
   why: string,
   now = clock().getTime(),
-  timing?: Action["timing"]
+  timing?: LedgerEntry["timing"]
 ) =>
   ({
     after,
     at: iso(now),
     // A split's id comes from its parent, so it never meets its parent's or a sibling's.
-    id: actionId(
+    id: entryId(
       `${after.parent ?? instruction.ref}`,
       "ask",
       `${after.title ?? ""}`
@@ -75,20 +75,20 @@ const askLine = (
     // Clipped so its event stays far under the 256 KiB a webhook may carry; the agent fetches the rest.
     instruction: { ...instruction, quote: clip(instruction.quote, 50_000) },
     kind: "ask",
-    madeBy,
     result: "ok",
     schemaVersion: 1,
     target: AGENT_WORD,
+    via,
     ...(timing ? { timing } : {}),
     why,
-  }) satisfies Action;
+  }) satisfies LedgerEntry;
 
 /** Records one ask for the agent (the watcher delivers it). The same ref and title ask once. */
 export function ask(...a: Parameters<typeof askLine>) {
   const action = askLine(...a);
   const old = taskOf(tasksOf(), action.id)?.ask;
   if (!old) {
-    appendJsonl(ACTIONS, Action, [action]);
+    appendJsonl(LEDGER, LedgerEntry, [action]);
   }
   return old ?? action;
 }
@@ -97,15 +97,18 @@ export function ask(...a: Parameters<typeof askLine>) {
 const taskLine = (
   kind: "update" | "reply",
   task: string,
-  after: Action["after"],
+  after: LedgerEntry["after"],
   now: number,
   salt = "",
   // The agent, through the connector; or his own tick or removal of the receipt (`closings`).
-  by: Pick<Action, "madeBy" | "why"> = { madeBy: "connector", why: agentName() }
-): Action => ({
+  by: Pick<LedgerEntry, "via" | "why"> = {
+    via: "connector",
+    why: agentName(),
+  }
+): LedgerEntry => ({
   after,
   at: iso(now),
-  id: actionId(`${task}@${iso(now)}`, kind, salt),
+  id: entryId(`${task}@${iso(now)}`, kind, salt),
   kind,
   ...by,
   result: "ok",
@@ -142,7 +145,6 @@ export async function timings(
       const updates = lines.filter((l) => l.kind === "update");
       return {
         id: a.id,
-        madeBy: a.madeBy,
         // In order (an array: the formatter sorts object keys).
         moments: [
           ["spoke", a.instruction.at],
@@ -151,16 +153,14 @@ export async function timings(
           ["recorded", a.at],
           ["delivered", sent.get(a.id) ?? null],
           // The agent's first update; one Life wrote from his tick in Reminders is no claim.
-          [
-            "claimed",
-            updates.find((u) => u.madeBy !== "reminders")?.at ?? null,
-          ],
+          ["claimed", updates.find((u) => u.via !== "reminders")?.at ?? null],
           [
             "closed",
             updates.find((u) => closed(u.after.state as TaskState))?.at ?? null,
           ],
         ] as [string, string | null][],
         quote: a.instruction.quote,
+        via: a.via,
       };
     });
 }
@@ -332,7 +332,7 @@ export function written(
 /** Records the agent's update when the rules allow it (synchronous, from reading the ledger to the lines); throws why not. */
 export function update(u: Update, now = clock().getTime()) {
   const { answer, lines } = written(u, tasksOf(), now);
-  appendJsonl(ACTIONS, Action, lines);
+  appendJsonl(LEDGER, LedgerEntry, lines);
   return answer;
 }
 
@@ -350,7 +350,7 @@ export function reply(
     throw new Error(`no task ${task}`);
   }
   const target = task ?? "chat";
-  appendJsonl(ACTIONS, Action, [
+  appendJsonl(LEDGER, LedgerEntry, [
     taskLine("reply", target, { text: clip(text, 4000) }, now, text),
   ]);
   return `${target}: reply logged`;
@@ -440,23 +440,23 @@ export function wantOf(t: Task): Receipt {
   };
 }
 
-/** The board's receipts (`push`, apps/server/src/actions/board.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
+/** The board's receipts (`push`, apps/server/src/todo-list/board.ts, which also leaves alone a ticked item of a closed task): every task but those closed over a day ago. */
 export const receipts = (tasks: Task[], now: number) =>
   tasks.filter((t) => !settled(standing(t), now)).map(wantOf);
 
-/** His tick or removal of an open task's receipt (`marks`, apps/server/src/actions/board.ts) closes it, done or dropped (decision 17): it only takes work away. */
+/** His tick or removal of an open task's receipt (`marks`, apps/server/src/todo-list/board.ts) closes it, done or dropped (decision 17): it only takes work away. */
 export const closings = (
   tasks: Task[],
   marks: Map<string, "removed" | "ticked">,
   at: string
-): Action[] =>
+): LedgerEntry[] =>
   tasks.flatMap((t) => {
     const mark = marks.get(t.ask.id);
     const after =
       mark === "ticked"
         ? { outcome: "he ticked its receipt in Reminders", state: "done" }
         : { reason: "he removed its receipt in Reminders", state: "dropped" };
-    const by = { madeBy: "reminders", why: "his change in Reminders" } as const;
+    const by = { via: "reminders", why: "his change in Reminders" } as const;
     return mark && !closed(standing(t).state)
       ? [taskLine("update", t.ask.id, after, Date.parse(at), "reminders", by)]
       : [];

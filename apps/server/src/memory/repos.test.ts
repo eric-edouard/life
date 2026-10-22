@@ -91,7 +91,7 @@ const gitDay = (key: string, over: Partial<Unit["stats"]>, id: number) =>
   unit({
     date: "2026-10-14",
     hash: "0000000000000000",
-    id: `u_${String(id).padStart(12, "0")}`,
+    id: `unit_${String(id).padStart(12, "0")}`,
     key,
     source: "git",
     stats: { added: 10, chars: 0, fromMe: 1, items: 1, removed: 1, ...over },

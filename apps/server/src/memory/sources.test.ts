@@ -96,7 +96,7 @@ test("a chat app's ids say which chats are groups: the closeness counts leave th
 
 test("only the sources he turned on are read, and one not set up yet is left out, never a failure", () => {
   const ready = {
-    kind: "notes",
+    kind: "own_writing",
     label: "Ready",
     name: "notes",
     read: () => [],

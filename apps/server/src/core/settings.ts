@@ -2,8 +2,8 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./names";
-import { LIFE_STATE_DIR } from "./paths";
-import { HOME } from "./platform";
+import { LIFE_STATE_DIR, real, runsFromRepo } from "./paths";
+import { HOME, MACHINE_DIR } from "./platform";
 
 /** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
 export const PAGES_CLIENT = "life";
@@ -17,25 +17,6 @@ export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
 export const Settings = z
   .object({
-    /**
-     * His agent, the one "hey <name>" hands his words to (`hear.ts`, `host/agent.ts`): its name (what Life calls it, and
-     * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
-     * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
-     * nothing wakes an agent.
-     */
-    /**
-     * The actions output, input and output (`apps/server/src/actions/`), and its one backend: his Apple Reminders (remctl) or his
-     * Google Tasks (`gog` as `account`). On, Life acts there when he asks, keeps the board, and reads his changes back;
-     * without it (the default), nothing in Life touches either.
-     */
-    actions: z
-      .discriminatedUnion("backend", [
-        z.object({ backend: z.literal("reminders") }).strict(),
-        z
-          .object({ account: z.string(), backend: z.literal("google") })
-          .strict(),
-      ])
-      .optional(),
     agent: z
       .object({
         /** The user agent its calls start with; by default ChatGPT's for a pushed agent, Claude's for one that pulls. */
@@ -91,6 +72,25 @@ export const Settings = z
     repos: z.string().optional(),
     /** The sources he turned on, by name: no other is read, searched or shown. */
     sources: z.array(SourceName).default([]),
+    /**
+     * His agent, the one "hey <name>" hands his words to (`hear.ts`, `host/agent.ts`): its name (what Life calls it, and
+     * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
+     * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
+     * nothing wakes an agent.
+     */
+    /**
+     * His to-do list, input and output (`apps/server/src/todo-list/`), and its one backend: his Apple Reminders (remctl) or
+     * his Google Tasks (`gog` as `account`). On, Life acts there when he asks, keeps the board, and reads his changes back;
+     * without it (the default), nothing in Life touches either.
+     */
+    todo_list: z
+      .discriminatedUnion("backend", [
+        z.object({ backend: z.literal("reminders") }).strict(),
+        z
+          .object({ account: z.string(), backend: z.literal("google") })
+          .strict(),
+      ])
+      .optional(),
   })
   .strict();
 export type Settings = z.infer<typeof Settings>;
@@ -98,13 +98,47 @@ export type Settings = z.infer<typeof Settings>;
 /** The settings in `path`; a missing file is every default, a corrupt one throws (never a silent switch of engine). */
 export function readSettings(path = SETTINGS): Settings {
   const raw = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
-  // The one key renamed (22 Oct): say how to fix the file, never rewrite it.
-  if ("reminders" in raw) {
-    throw new Error(
-      `${path}: "reminders" is now "actions": replace "reminders": true with "actions": { "backend": "reminders" }, or delete "reminders": false`
-    );
+  const renamed = renamedSettings(raw);
+  if (renamed !== raw) {
+    // The app's settings (a checkout's link to them included) only the app renames: it is still reading them.
+    if (runsFromRepo() && real(path).startsWith(real(MACHINE_DIR))) {
+      throw new Error(
+        `${path} has the names from before 22 Oct 2026: the new Life.app renames them, never a checkout`
+      );
+    }
+    writeWhole(path, renamed);
   }
-  return Settings.parse(raw);
+  return Settings.parse(renamed);
+}
+
+/**
+ * The names this file had before 22 Oct 2026, renamed (AGENTS.md, "A rename backfills"): the `actions` key is
+ * `todo_list`, the agent's source `atlas` is `agent`. Here, not in host/migrate.ts: settings are read as modules load.
+ * The same object when there is nothing to rename. Delete once every install has read its file again.
+ */
+export function renamedSettings(raw: Record<string, unknown>) {
+  const { actions, ...rest } = raw;
+  const sources = Array.isArray(raw.sources) ? raw.sources : [];
+  if (actions === undefined && !sources.includes("atlas")) {
+    return raw;
+  }
+  return {
+    ...rest,
+    ...(Array.isArray(raw.sources)
+      ? { sources: sources.map((s) => (s === "atlas" ? "agent" : s)) }
+      : {}),
+    ...(actions === undefined ? {} : { todo_list: actions }),
+  };
+}
+
+/** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
+function writeWhole(path: string, value: unknown) {
+  // Each process its own temp file: the app starts several at once, each may rename an old file.
+  writeFileSync(
+    `${path}.${process.pid}.tmp`,
+    `${JSON.stringify(value, null, 2)}\n`
+  );
+  renameSync(`${path}.${process.pid}.tmp`, path);
 }
 
 let read: Settings | undefined;
@@ -127,9 +161,7 @@ export function setSettings(
       )
     )
   );
-  // Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly).
-  writeFileSync(`${SETTINGS}.tmp`, `${JSON.stringify(next, null, 2)}\n`);
-  renameSync(`${SETTINGS}.tmp`, SETTINGS);
+  writeWhole(SETTINGS, next);
   read = next;
 }
 

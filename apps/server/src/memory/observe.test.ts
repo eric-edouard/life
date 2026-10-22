@@ -121,7 +121,7 @@ const inferred = (id: string, surfaces: string[], confidence = 0.8) =>
     area: "shop",
     at: "2026-10-14T00:00:00.000Z",
     confidence,
-    evidence: [{ quote: "q", unit: "u_000000000001" }],
+    evidence: [{ quote: "q", unit: "unit_000000000001" }],
     id,
     madeBy: { engine: "codex", model: "m", prompt: "p", run: "r" },
     name: "the plumber",
@@ -135,14 +135,14 @@ const said = (c: Record<string, unknown>) =>
 
 test("a surface resolves to what the owner said, else truth, else a confident inferred person, never against a correction", () => {
   const inferredPeople = [
-    inferred("inf-plumber", ["+33611111111", "Plombier"]),
-    inferred("inf-maybe", ["+33622222222"], 0.3),
+    inferred("inf_plumber", ["+33611111111", "Plombier"]),
+    inferred("inf_maybe", ["+33622222222"], 0.3),
   ];
   const resolve = resolver(people, inferredPeople, [
     said({ kind: "this-is", person: "person:gaston", surface: "+33633333333" }),
     said({ kind: "not-this-person", person: "person:dad", surface: "Pops" }),
     said({
-      from: "person:inf-plumber",
+      from: "person:inf_plumber",
       kind: "same-person",
       to: "person:gaston",
     }),
@@ -154,7 +154,7 @@ test("a surface resolves to what the owner said, else truth, else a confident in
   expect(resolve("+33622222222")).toBeNull();
   expect(resolve("Pops")).toBeNull();
   expect(resolver(people, inferredPeople)("plombier")).toBe(
-    "person:inf-plumber"
+    "person:inf_plumber"
   );
   expect(
     merged([said({ from: "person:a", kind: "same-person", to: "person:a" })])(
@@ -164,15 +164,15 @@ test("a surface resolves to what the owner said, else truth, else a confident in
 });
 
 test("an observation is about its entities, folded, plus the names that resolve now, speaker included", () => {
-  const inferredPeople = [inferred("inf-plumber", ["Plombier"])];
+  const inferredPeople = [inferred("inf_plumber", ["Plombier"])];
   const fold = said({
-    from: "person:inf-plumber",
+    from: "person:inf_plumber",
     kind: "same-person",
     to: "person:gaston",
   });
   const obs = [
     {
-      entities: ["person:inf-plumber", "project:shop"],
+      entities: ["person:inf_plumber", "project:shop"],
       id: "obs_1",
       speaker: "person:me",
     },
@@ -208,7 +208,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
       text: "Gas asked Jean for the keys.",
-      unit: "u_000000000001",
+      unit: "unit_000000000001",
     },
     // From before `speakerFrom`: a 1:1 chat's handle says who.
     {
@@ -216,7 +216,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
       id: "obs_2",
       speaker: "person:gaston",
       text: "Gaston will call back.",
-      unit: "u_000000000002",
+      unit: "unit_000000000002",
     },
     // His own fact in that chat follows the move (its author stays him); one whose author did not change stays as is.
     {
@@ -224,7 +224,7 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
       id: "obs_3",
       speaker: "person:me",
       text: "Jean paid Gaston.",
-      unit: "u_000000000002",
+      unit: "unit_000000000002",
     },
     {
       entities: [],
@@ -232,10 +232,10 @@ test("who wrote a fact is who their handle is today: refiled, and an older sente
       speaker: "person:gaston",
       speakerFrom: "Gaston",
       text: "Gaston is late.",
-      unit: "u_000000000003",
+      unit: "unit_000000000003",
     },
   ] as unknown as Observation[];
-  const chats = new Map([["u_000000000002", "+66600000001"]]);
+  const chats = new Map([["unit_000000000002", "+66600000001"]]);
   const now = aboutNow(facts, [], people, [], [], chats);
   expect(now.map((o) => o.speaker)).toEqual([
     "person:dad",
@@ -262,7 +262,7 @@ test("an extracted.jsonl line written with `people` (21 Oct only) still reads", 
       prompt: "memory-extract.v5",
       run: "r",
       schemaVersion: 1,
-      unit: "u_000000000001",
+      unit: "unit_000000000001",
       unitHash: "0000000000000000",
     }).success
   ).toBe(true);
@@ -277,7 +277,7 @@ test("a move stays out of a unit where that person still writes as themself, and
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
       text: "Gaston booked the table.",
-      unit: "u_000000000009",
+      unit: "unit_000000000009",
     },
     {
       entities: ["person:gaston"],
@@ -285,7 +285,7 @@ test("a move stays out of a unit where that person still writes as themself, and
       speaker: "person:gaston",
       speakerFrom: "Gaston",
       text: "Gaston is bringing wine.",
-      unit: "u_000000000009",
+      unit: "unit_000000000009",
     },
     // His own address resolving elsewhere moves no one: he stays him everywhere.
     {
@@ -294,7 +294,7 @@ test("a move stays out of a unit where that person still writes as themself, and
       speaker: "person:me",
       speakerFrom: "+66600000001",
       text: "Jean will drive.",
-      unit: "u_000000000008",
+      unit: "unit_000000000008",
     },
   ] as unknown as Observation[];
   const now = aboutNow(facts, [], people, [], []);
@@ -317,7 +317,7 @@ test("two authors filed as one person who now resolve to two different people: n
       speaker: "person:gaston",
       speakerFrom: "+66600000001",
       text: "Gaston said yes.",
-      unit: "u_000000000006",
+      unit: "unit_000000000006",
     },
     {
       entities: ["person:gaston"],
@@ -325,14 +325,14 @@ test("two authors filed as one person who now resolve to two different people: n
       speaker: "person:gaston",
       speakerFrom: "Decoy",
       text: "Gaston said no.",
-      unit: "u_000000000006",
+      unit: "unit_000000000006",
     },
     {
       entities: ["person:gaston"],
       id: "obs_3",
       speaker: "person:me",
       text: "Jean asked Gaston.",
-      unit: "u_000000000006",
+      unit: "unit_000000000006",
     },
   ] as unknown as Observation[];
   const now = aboutNow(facts, [], people, [], []);
@@ -355,7 +355,7 @@ test("a voice kept by lifelog's id resolves by the name lifelog gave it when the
       speakerFrom: "lifelog-id-the-map-lacks",
       speakerName: "Pops",
       text: "Pops called.",
-      unit: "u_000000000007",
+      unit: "unit_000000000007",
     },
   ] as unknown as Observation[];
   const [o] = aboutNow(facts, [], people, [], []);
@@ -378,24 +378,24 @@ test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never 
     ({ id, key, source: app }) as Unit;
   expect([
     ...chatHandles([
-      chat("u_1", "imessage", "+33600000000"),
-      chat("u_2", "imessage", "a@b.fr"),
-      chat("u_3", "imessage", "chat123456"),
-      chat("u_4", "whatsapp", "33600000000@s.whatsapp.net"),
-      chat("u_5", "whatsapp", "120363000@g.us"),
-      chat("u_6", "beeper", "!abc:beeper.local"),
+      chat("unit_1", "imessage", "+33600000000"),
+      chat("unit_2", "imessage", "a@b.fr"),
+      chat("unit_3", "imessage", "chat123456"),
+      chat("unit_4", "whatsapp", "33600000000@s.whatsapp.net"),
+      chat("unit_5", "whatsapp", "120363000@g.us"),
+      chat("unit_6", "beeper", "!abc:beeper.local"),
     ]),
   ]).toEqual([
-    ["u_1", "+33600000000"],
-    ["u_2", "a@b.fr"],
-    ["u_4", "+33600000000"],
+    ["unit_1", "+33600000000"],
+    ["unit_2", "a@b.fr"],
+    ["unit_4", "+33600000000"],
   ]);
 });
 
 test("a fact whose subjects changed since it was written is marked refiled", () => {
   const facts = [
     {
-      entities: ["person:inf-plumber"],
+      entities: ["person:inf_plumber"],
       id: "obs_1",
       speaker: "person:me",
       text: "A fact.",
@@ -408,7 +408,7 @@ test("a fact whose subjects changed since it was written is marked refiled", () 
     },
   ] as unknown as Observation[];
   const fold = said({
-    from: "person:inf-plumber",
+    from: "person:inf_plumber",
     kind: "same-person",
     to: "person:gaston",
   });
@@ -417,7 +417,7 @@ test("a fact whose subjects changed since it was written is marked refiled", () 
       facts,
       [],
       people,
-      [inferred("inf-plumber", ["Plombier"])],
+      [inferred("inf_plumber", ["Plombier"])],
       [fold]
     ).map((o) => o.refiled)
   ).toEqual([true, false]);
@@ -446,11 +446,11 @@ const obs = (over: Record<string, unknown>) => ({
   area: SHOP,
   confidence: 0.9,
   entities: ["person:me"],
+  importance: 3,
   line: 0,
   quote: "Il faut que j'appelle le vitrier",
-  salience: 3,
   text: "Jean will call the glazier about the shop window.",
-  type: "todo",
+  type: "to_do",
   unit: source.unit.id,
   when: "2026-10-12",
   ...over,
@@ -465,15 +465,15 @@ test("the extractor's reply is checked: quotes, units, entities; unknown names r
           area: "Invented area",
           confidence: 0.9,
           entities: ["unknown:Pops", "unknown:Annesophie"],
+          importance: 2,
           line: 1,
           quote: "Pops veut que tu repeignes la moitié de la cuisine",
-          salience: 2,
           text: "Jean's father wants him to paint half the kitchen with his sisters.",
-          type: "person",
+          type: "about_a_person",
           when: null,
         }),
         obs({ quote: "Il faut réparer l'évier", text: "Fix the sink." }),
-        obs({ unit: "u_invented0000" }),
+        obs({ unit: "unit_invented0000" }),
         obs({ type: "nothing" }),
         obs({}),
       ],
@@ -570,7 +570,7 @@ test("the observation schema refuses records a later reader could not trust", ()
   expect(Observation.safeParse(good).success).toBe(true);
   for (const bad of [
     { ...good, id: "obs_nothex" },
-    { ...good, salience: 0 },
+    { ...good, importance: 0 },
     { ...good, type: "nothing" },
     { ...good, area: "Shop" },
     { ...good, entities: ["dad"] },
@@ -582,19 +582,19 @@ test("the observation schema refuses records a later reader could not trust", ()
 
 const built = (u: Unit): Built => ({ messages: [], text: "", unit: u });
 test("the cache: a unit is read again only when its content or the prompt changed", () => {
-  const a = unit({ id: "u_00000000000a" });
-  const b = unit({ id: "u_00000000000b" });
-  const c = unit({ id: "u_00000000000c" });
-  const d = unit({ hash: "ffffffffffffffff", id: "u_00000000000d" });
-  const e = unit({ id: "u_00000000000e" });
+  const a = unit({ id: "unit_00000000000a" });
+  const b = unit({ id: "unit_00000000000b" });
+  const c = unit({ id: "unit_00000000000c" });
+  const d = unit({ hash: "ffffffffffffffff", id: "unit_00000000000d" });
+  const e = unit({ id: "unit_00000000000e" });
   const verdicts = ledger([
-    verdict(a, { salience: 2 }),
-    verdict(b, { salience: 0 }),
-    verdict(c, { salience: 3 }),
+    verdict(a, { importance: 2 }),
+    verdict(b, { importance: 0 }),
+    verdict(c, { importance: 3 }),
     // Judged on older content.
-    verdict(d, { hash: "0123456789abcdef", salience: 3 }),
-    // Salience 1: searchable, never read in full.
-    verdict(e, { salience: 1 }),
+    verdict(d, { hash: "0123456789abcdef", importance: 3 }),
+    // Importance 1: searchable, never read in full.
+    verdict(e, { importance: 1 }),
   ]);
   const extracted = [
     {
@@ -622,8 +622,8 @@ test("the cache: a unit is read again only when its content or the prompt change
 });
 
 test("a unit he said was read wrong is read again, once: his word against its last reading, as instants", () => {
-  const sam = unit({ id: "u_00000000001a", people: ["person:lou"] });
-  const verdicts = ledger([verdict(sam, { salience: 3 })]);
+  const sam = unit({ id: "unit_00000000001a", people: ["person:lou"] });
+  const verdicts = ledger([verdict(sam, { importance: 3 })]);
   const readLine = (at = "2026-10-10T02:00:00.000Z") => ({
     at,
     observations: 1,
@@ -689,10 +689,10 @@ test("the index is rebuilt from observations: search ignores accents, links answ
       unit: first,
       verdict: verdict(first, {
         topics: ["philosophy", "ai"],
-        type: "person",
+        type: "about_a_person",
       }),
     },
-    { unit: unit({ id: "u_000000000002", title: "Counter talk" }) },
+    { unit: unit({ id: "unit_000000000002", title: "Counter talk" }) },
   ];
   expect(
     buildIndex(
@@ -701,7 +701,7 @@ test("the index is rebuilt from observations: search ignores accents, links answ
       {
         corrections: [],
         latest: new Map(),
-        live: new Set(["u_000000000001", "u_000000000002"]),
+        live: new Set(["unit_000000000001", "unit_000000000002"]),
         retired: new Map(),
       },
       indexed
@@ -715,7 +715,7 @@ test("the index is rebuilt from observations: search ignores accents, links answ
         "select id from unit_search where unit_search match ?"
       )
       .all("programmation OR philosophy")
-  ).toEqual([{ id: "u_000000000001" }]);
+  ).toEqual([{ id: "unit_000000000001" }]);
   expect(
     db
       .query<{ n: number }, [string]>(

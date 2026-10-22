@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { unshared } from "../actions/remctl";
 import { setSettings, settings } from "../core/settings";
-import { ACTIONS } from "../memory/ledger";
-import type { Action } from "../records/ledger-entry";
+import { LEDGER } from "../memory/ledger";
+import type { LedgerEntry } from "../records/ledger-entry";
+import { unshared } from "../todo-list/remctl";
 import {
   actAsked,
-  actionId,
   duplicateOf,
+  entryId,
   Granted,
   grantedFrom,
   grantRefusal,
@@ -27,14 +27,14 @@ test("an add repeats an open reminder with the same title, whatever the case and
 });
 
 test("the same words asking for the same thing get the same id, whatever the case and accents", () => {
-  const id = actionId("job:1@t", "add", "Appeler le plombier");
-  expect(actionId("job:1@t", "add", "  appelér le PLOMBIER ")).toBe(id);
-  expect(actionId("job:2@t", "add", "Appeler le plombier")).not.toBe(id);
+  const id = entryId("job:1@t", "add", "Appeler le plombier");
+  expect(entryId("job:1@t", "add", "  appelér le PLOMBIER ")).toBe(id);
+  expect(entryId("job:2@t", "add", "Appeler le plombier")).not.toBe(id);
 });
 
 test("two requests the same day for the same edit both act: each has a ref of its own", () => {
   const id = (at: string) =>
-    actionId(requested("session", "rename it", at).ref, "edit", "Same title");
+    entryId(requested("session", "rename it", at).ref, "edit", "Same title");
   expect(id("2026-10-19T09:00:00.000Z")).not.toBe(
     id("2026-10-19T15:00:00.000Z")
   );
@@ -46,17 +46,17 @@ const line = (
   target: string,
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
-): Action => ({
+): LedgerEntry => ({
   // As `act` writes them: a removal leaves `deleted`, and each line has its own id.
   after: kind === "remove" ? { deleted: true } : {},
   at,
-  id: actionId(ref, kind, target),
+  id: entryId(ref, kind, target),
   instruction: { at, quote: "q", ref },
   kind,
-  madeBy: "connector",
   result: "ok",
   schemaVersion: 1,
   target,
+  via: "connector",
   why: "",
 });
 const NOW = "2026-10-21T12:00:00.000Z";
@@ -71,14 +71,14 @@ const mine = {
   mine: true,
   now: NOW,
   o: {
-    salience: 3,
+    importance: 3,
     source: { channel: "lifelog" as const, ref: "job:3@2026-10-21T09:00:00Z" },
-    type: "todo" as const,
+    type: "to_do" as const,
   },
   state: "active",
 };
 
-test("the grant adds his own current salience-3 to-do from a turn lifelog credits to him, on a list nobody shares", () => {
+test("the grant adds his own current importance-3 to-do from a turn lifelog credits to him, on a list nobody shares", () => {
   expect(grantRefusal(mine)).toBeUndefined();
   expect(
     grantRefusal({ ...mine, o: { ...mine.o, type: "promise" } })
@@ -97,8 +97,8 @@ test("the grant refuses a chat or mail observation, another speaker's or an unna
   // Re-read at act time: someone else's turn, or one lifelog no longer names him on.
   expect(grantRefusal({ ...mine, mine: false })).toContain("his voice");
   expect(grantRefusal({ ...mine, state: "retired" })).toContain("not current");
-  expect(grantRefusal({ ...mine, o: { ...mine.o, salience: 2 } })).toContain(
-    "salience"
+  expect(grantRefusal({ ...mine, o: { ...mine.o, importance: 2 } })).toContain(
+    "importance"
   );
   expect(grantRefusal({ ...mine, o: { ...mine.o, type: "idea" } })).toContain(
     "promises"
@@ -216,20 +216,19 @@ test("the grant sets an add's title, named list, due and section only: no notes,
 });
 
 test("with the actions output off, an act is refused before anything is recorded", async () => {
-  const on = settings().actions;
-  const ledger = () =>
-    existsSync(ACTIONS) ? readFileSync(ACTIONS, "utf8") : "";
+  const on = settings().todo_list;
+  const ledger = () => (existsSync(LEDGER) ? readFileSync(LEDGER, "utf8") : "");
   const before = ledger();
-  setSettings({ actions: null });
+  setSettings({ todo_list: null });
   try {
     await expect(
       actAsked(
         { kind: "add", said: "add milk", title: "Milk", why: "a test" },
         "session"
       )
-    ).rejects.toThrow("Actions is off");
+    ).rejects.toThrow("To-do list is off");
     expect(ledger()).toBe(before);
   } finally {
-    setSettings({ actions: on });
+    setSettings({ todo_list: on });
   }
 });

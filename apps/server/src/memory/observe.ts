@@ -120,11 +120,11 @@ const ModelObservation = z.object({
   area: z.string().nullable().default(null),
   confidence: z.number().min(0).max(1),
   entities: z.array(z.string()).max(12).default([]),
+  importance: z.int().min(1).max(3),
   line: z.int().min(0).optional(),
   modality: Modality.nullish().catch(undefined),
   quote: z.string().min(1).max(600),
   replaces: z.array(z.string()).nullish(),
-  salience: z.int().min(1).max(3),
   text: z.string().min(1).max(500),
   type: MemoryType.exclude(["nothing"]),
   unit: z.string(),
@@ -133,7 +133,7 @@ const ModelObservation = z.object({
   when: day,
 });
 
-const observationId = (
+export const observationId = (
   unit: string,
   type: string,
   quote: string,
@@ -233,8 +233,8 @@ function recordOf(
     id,
     madeBy: { ...ctx.madeBy, unitHash: source.unit.hash },
     ...(o.modality ? { modality: o.modality } : {}),
+    importance: o.importance,
     quote: found.verbatim,
-    salience: o.salience,
     schemaVersion: 1,
     source: { channel: source.unit.source, ref: line.ref },
     speaker: line.speaker,

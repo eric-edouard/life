@@ -17,10 +17,10 @@ export const Runner = z.enum([...Engine.options, "openrouter"]);
 export type Runner = z.infer<typeof Runner>;
 
 /**
- * The word stored for his agent, whatever its name: an ask's `target`, its source's name and its units' sender. Kept
- * as first written, as stored data is append-only; never shown (what Life shows is `agentName`).
+ * The word stored for his agent, whatever its name: an ask's `target`, its source's name and its units' sender. Never
+ * shown (what Life shows is `agentName`).
  */
-export const AGENT_WORD = "atlas";
+export const AGENT_WORD = "agent";
 
 /** Where a unit or an observation comes from. */
 export const SourceName = z.enum([

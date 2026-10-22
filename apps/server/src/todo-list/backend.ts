@@ -1,7 +1,7 @@
 import { isOn, off } from "../core/outputs";
 import { agentName, settings } from "../core/settings";
-import type { Action } from "../records/ledger-entry";
-import type { ActionsBackend, Can, Change, Item } from "./contract";
+import type { LedgerEntry } from "../records/ledger-entry";
+import type { Can, Change, TodoItem, TodoListBackend } from "./contract";
 import { google } from "./google";
 import { reminders } from "./remctl";
 
@@ -9,17 +9,17 @@ import { reminders } from "./remctl";
 // remctl (`remctl.ts`), Google Tasks through gog (`google.ts`). Nothing else touches either. A backend is how a change
 // is written and read back, never the truth: `act` decides each change and `write` (here) makes it, `board.ts`
 // projects the agent's tasks, `inbound.ts` reads his changes back as state. Without a backend Life still knows every
-// task and action from the ledger (memory/actions.jsonl). What one backend lacks is a capability (`can`), never a
+// task and action from the ledger (memory/ledger.jsonl). What one backend lacks is a capability (`can`), never a
 // branch on its name.
-let built: { b: ActionsBackend; of: unknown } | undefined;
+let built: { b: TodoListBackend; of: unknown } | undefined;
 /**
  * This install's backend, made once per settings read (once per process: the watcher's is the one that writes the
  * board), so its own memory (Google's board list) holds. The one gate: it throws while the actions output is off.
  */
-export function backend(): ActionsBackend {
-  const a = settings().actions;
+export function backend(): TodoListBackend {
+  const a = settings().todo_list;
   if (!a) {
-    throw new Error(off("actions"));
+    throw new Error(off("todo_list"));
   }
   if (built?.of !== a) {
     built = {
@@ -58,7 +58,7 @@ const NEEDS: [Can, (c: Change) => unknown][] = [
 /** What a change asks that the backend cannot write (`act` refuses it, saying so). */
 export const lacks = (
   c: Change,
-  b: Pick<ActionsBackend, "can" | "restore">
+  b: Pick<TodoListBackend, "can" | "restore">
 ) => [
   ...NEEDS.filter(([cap, needs]) => !b.can.has(cap) && needs(c)).map(
     ([cap]) => cap
@@ -67,7 +67,7 @@ export const lacks = (
 ];
 
 /** An open item as `open_reminders` promises it: `due` as a change takes it, notes whole (an edit replaces them). */
-export const openOf = (r: Item) => ({
+export const openOf = (r: TodoItem) => ({
   due:
     r.dueDate &&
     (r.allDay
@@ -84,7 +84,7 @@ export const openOf = (r: Item) => ({
 export const readable = (title: string, list?: string) =>
   title !== BOARD && (list === undefined || title === list);
 
-const listsOf = async (b: ActionsBackend, list?: string) =>
+const listsOf = async (b: TodoListBackend, list?: string) =>
   (await b.lists()).filter((l) => readable(l.title, list));
 
 /** Every open top-level item, of one list or all, never the board: the connector's `open_reminders`. */
@@ -105,7 +105,7 @@ export async function sectionsOf(list?: string) {
 
 /** Whether the backend can act right now (read-only: one read of his lists), the problems: none when it is ready or off. */
 export async function checks(): Promise<string[]> {
-  if (!isOn("actions")) {
+  if (!isOn("todo_list")) {
     return [];
   }
   const b = backend();
@@ -119,9 +119,9 @@ export async function checks(): Promise<string[]> {
 
 /** What one pass reads: his unshared lists' items (ticked too), the board's, and the deleted ones. */
 export interface Snapshot {
-  board: Item[];
-  deleted: Item[];
-  live: Item[];
+  board: TodoItem[];
+  deleted: TodoItem[];
+  live: TodoItem[];
   /** The backend's target prefix: the lines read back name its items. */
   prefix: string;
   /** His shared lists, never read: an item Life knows there is left alone. */
@@ -152,7 +152,7 @@ export async function pull(): Promise<Snapshot> {
 
 // The writes `act` decided, made through the backend.
 
-export type Done = Pick<Action, "after" | "before" | "error" | "target">;
+export type Done = Pick<LedgerEntry, "after" | "before" | "error" | "target">;
 
 /** The fields a change writes, for the record. */
 const fieldsOf = ({ kind, target, ...fields }: Partial<Change>) => fields;

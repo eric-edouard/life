@@ -20,7 +20,7 @@ const FILES: Record<string, string> = {
   "/check/tokens.css": "brand/tokens.css",
 };
 
-const Answer = Rating.pick({ answer: true, claim: true });
+const Answer = Rating.pick({ answer: true, ref: true });
 
 /** The check page's routes. */
 export function createCheck(signIn: SignIn) {
@@ -51,7 +51,7 @@ export function createCheck(signIn: SignIn) {
           name: id === "events" ? "Events" : (names.get(id) ?? id),
           statements: list.map((s) => ({
             ...s,
-            answer: ratings.get(s.claim)?.answer ?? null,
+            answer: ratings.get(s.ref)?.answer ?? null,
             asOf: asOf(s.date),
           })),
         }))
@@ -63,11 +63,11 @@ export function createCheck(signIn: SignIn) {
         return text("cross-origin", 400);
       }
       const a = Answer.safeParse(await c.req.json().catch(() => null));
-      const known = new Set((await readStatements()).map((s) => s.claim));
-      if (!(a.success && known.has(a.data.claim))) {
+      const known = new Set((await readStatements()).map((s) => s.ref));
+      if (!(a.success && known.has(a.data.ref))) {
         return text("no such statement", 400);
       }
-      await recordRating(a.data.claim, a.data.answer);
+      await recordRating(a.data.ref, a.data.answer);
       return new Response(null, { headers: HEADERS, status: 204 });
     });
   for (const [path, file] of Object.entries(FILES)) {

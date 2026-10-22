@@ -70,7 +70,7 @@ interface Target {
   close: boolean;
   hold: string;
   name: string;
-  /** Observations whose home is this page (salience 2+, replaced ones included), newest first. */
+  /** Observations whose home is this page (importance 2+, replaced ones included), newest first. */
   observations: Shown[];
   path: string;
   ref: string;
@@ -223,9 +223,9 @@ const asInput = (o: Observation, titles: Map<string, string>) => ({
   confidence: o.confidence,
   date: o.date,
   id: o.id,
+  importance: o.importance,
   in: titles.get(o.unit) ?? null,
   quote: o.quote,
-  salience: o.salience,
   text: o.text,
   type: o.type,
   when: o.when,
