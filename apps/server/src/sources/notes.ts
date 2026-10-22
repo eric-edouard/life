@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { unzipSync } from "node:zlib";
 import { clock } from "../core/clock";
 import { HOME } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../records/source";
+import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
   insertAll,
@@ -13,6 +13,7 @@ import {
   type Row,
   readArchived,
 } from "./archived";
+import { sourceFile } from "./contract";
 import { fromAppleS } from "./imessage";
 
 // Apple Notes' own store, opened read-only by `copyNotes`, which keeps every version of each note in the archive.

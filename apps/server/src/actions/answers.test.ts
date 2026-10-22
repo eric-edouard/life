@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import { BOARD, openOf } from "./backend";
 import gog from "./gog.json";
-import { google, type Task, taskArgs, itemOfTask as taskItem } from "./google";
+import {
+  type GoogleTask,
+  google,
+  taskArgs,
+  itemOfTask as taskItem,
+} from "./google";
 import { itemOf, type Raw, reminders, unshared } from "./remctl";
 import answers from "./remctl.json";
 
@@ -24,8 +29,11 @@ test("an add answers its number and its deep link's id, a list says whether it i
 
 test("a Google task reads as an item: its list's id in its id, its day only, ticked by its status", () => {
   const [list] = gog.lists.tasklists;
-  const [open, , gone] = gog.list.tasks as Task[];
-  const item = taskItem(list as { id: string; title: string }, open as Task);
+  const [open, , gone] = gog.list.tasks as GoogleTask[];
+  const item = taskItem(
+    list as { id: string; title: string },
+    open as GoogleTask
+  );
   expect(item.id).toBe("bGlzdEhvbWU/dGFza0EwMQ");
   expect(openOf(item)).toMatchObject({
     due: "2026-10-22",
@@ -34,7 +42,7 @@ test("a Google task reads as an item: its list's id in its id, its day only, tic
     title: "Buy a lamp",
   });
   expect(
-    taskItem(list as { id: string; title: string }, gone as Task)
+    taskItem(list as { id: string; title: string }, gone as GoogleTask)
   ).toMatchObject({
     completed: true,
   });

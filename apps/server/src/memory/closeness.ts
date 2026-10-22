@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DAY } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
@@ -143,7 +144,7 @@ const exchanged = (c: Day["chat"]) =>
 const weight = (d: Day) =>
   (d.voice ? 2 : 0) + Math.max(exchanged(d.chat), exchanged(d.mail));
 
-export function tally(of: Map<string, Day>, today: string): Tally {
+export function closenessTally(of: Map<string, Day>, today: string): Tally {
   const sorted = [...of.keys()].sort();
   const t = {
     first: sorted[0] ?? null,
@@ -156,7 +157,7 @@ export function tally(of: Map<string, Day>, today: string): Tally {
   };
   const now = Date.parse(today);
   for (const [day, d] of of) {
-    const age = (now - Date.parse(day)) / 86_400_000;
+    const age = (now - Date.parse(day)) / DAY;
     t.lasting += weight(d) * 0.5 ** (age / 365);
     t.recent += weight(d) * 0.5 ** (age / 30);
     t.twoWay += d.chat.sent && d.chat.got ? 1 : 0;
@@ -372,7 +373,10 @@ export async function closeness() {
       days.set(ref, new Map());
     }
   }
-  const tallies = [...days].map(([ref, of]) => ({ ref, t: tally(of, today) }));
+  const tallies = [...days].map(([ref, of]) => ({
+    ref,
+    t: closenessTally(of, today),
+  }));
   const due = dueFor(tallies, judged, waiting);
   const ctx = {
     at: step.now.toISOString(),

@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { z } from "zod";
 import { SourceName } from "../core/names";
 import { isoDateTime } from "./fields";
@@ -21,25 +20,6 @@ export const SourceFile = z
   .strict();
 
 export type SourceFile = z.infer<typeof SourceFile>;
-
-/**
- * A file as every reader makes one: typed by its name or path when the source gives no type (or only "bytes", as mail
- * often types a PDF), `path` only if it is there.
- */
-export const sourceFile = (f: {
-  mime?: string | null;
-  name?: string | null;
-  path?: string | null;
-  ref: string;
-}): SourceFile => ({
-  mime:
-    (f.mime !== "application/octet-stream" && f.mime) ||
-    Bun.file(f.name || f.path || "").type,
-  ...(f.name ? { name: f.name } : {}),
-  ...(f.path && existsSync(f.path) ? { path: f.path } : {}),
-  ref: f.ref,
-});
-
 /** A normalized source event. Ids are stable per source, so syncing twice never duplicates. */
 export const SourceEvent = z
   .object({

@@ -2,6 +2,7 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DAY, HOUR } from "../../core/clock";
 import { connector } from "../../core/settings";
 import { createPortrait } from "./portrait";
 
@@ -54,7 +55,7 @@ test("the right password gives a cookie that opens the page until it expires", a
   expect(res.status).toBe(302);
   const cookie = session(res);
   expect(await (await get(cookie)).text()).toContain("as Life knows him");
-  clock += 31 * 24 * 3600 * 1000;
+  clock += 31 * DAY;
   expect(await (await get(cookie)).text()).toContain('type="password"');
 });
 
@@ -68,7 +69,7 @@ test("a new password signs every browser out", async () => {
 });
 
 test("five wrong tries a minute, then even the right password waits", async () => {
-  clock += 3_600_000;
+  clock += HOUR;
   await Promise.all(Array.from({ length: 5 }, () => login("nope")));
   expect((await login("open sesame")).status).toBe(429);
   clock += 61_000;
@@ -76,7 +77,7 @@ test("five wrong tries a minute, then even the right password waits", async () =
 });
 
 test("a burst of wrong guesses can't slip the right one through", async () => {
-  clock += 3_600_000;
+  clock += HOUR;
   const burst = await Promise.all([
     ...Array.from({ length: 20 }, () => login("nope")),
     login("open sesame"),
@@ -85,7 +86,7 @@ test("a burst of wrong guesses can't slip the right one through", async () => {
 });
 
 test("a person's page: the form keeps its path through sign-in, then /me/<name> serves <name>.html", async () => {
-  clock += 3_600_000;
+  clock += HOUR;
   expect(await (await get("", "/me/sam")).text()).toContain('action="/me/sam"');
   const res = await login("open sesame", ORIGIN, "/me/sam");
   expect(res.headers.get("location")).toBe("/me/sam");
@@ -104,7 +105,7 @@ test("a person's page: the form keeps its path through sign-in, then /me/<name> 
 });
 
 test("a page's clips and the player: behind the password, typed, and nothing outside clips/", async () => {
-  clock += 3_600_000;
+  clock += HOUR;
   expect((await get("", "/me/sam/clips/hello.m4a")).status).toBe(401);
   const cookie = session(await login("open sesame"));
   const audio = await get(cookie, "/me/sam/clips/hello.m4a");

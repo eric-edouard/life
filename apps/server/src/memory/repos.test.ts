@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { RepoGuess } from "../records/observation";
+import type { InferredRepo } from "../records/observation";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import type { Truth } from "./read-truth";
@@ -63,7 +63,7 @@ test("a repo on one of his projects takes the project's area; a project that is 
 });
 
 test("the repo map: truth wins over Life's guess, a guess maps what truth doesn't", () => {
-  const guess = (repo: string, project: string | null): RepoGuess => ({
+  const guess = (repo: string, project: string | null): InferredRepo => ({
     ...ctx,
     area: "work",
     newProject: null,
@@ -78,7 +78,7 @@ test("the repo map: truth wins over Life's guess, a guess maps what truth doesn'
   const map = repoMap(truth, [guess("bakery-hq", "life"), guess("cove", null)]);
   expect(map.get("bakery-hq")).toEqual({ area: "shop", project: "bakery" });
   expect(map.get("cove")?.project).toBeNull();
-  expect(map.get("cove")?.guess?.repo).toBe("cove");
+  expect(map.get("cove")?.inferred?.repo).toBe("cove");
 });
 
 const gitDay = (key: string, over: Partial<Unit["stats"]>, id: number) =>

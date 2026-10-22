@@ -1,6 +1,7 @@
+import { existsSync } from "node:fs";
 import type { SourceName } from "../core/names";
-import type { RepoGuess } from "../records/observation";
-import type { SourceEvent } from "../records/source";
+import type { InferredRepo } from "../records/observation";
+import type { SourceEvent, SourceFile } from "../records/source";
 import type { Person } from "../records/truth";
 
 // The source contract: what Life knows about each source, in one descriptor. Each reader gives its parts; the registry
@@ -74,10 +75,27 @@ export type Descriptor = {
   | { kind: "voice" }
 );
 
-/** Which project and area a repo belongs to: his map (`Project.repos`), else Life's guess (`guess`, set when it is one). */
+/** Which project and area a repo belongs to: his map (`Project.repos`), else what Life inferred (`inferred`, set when it is one). */
 export interface Placement {
   area: string | null;
-  guess?: RepoGuess;
+  inferred?: InferredRepo;
   project: string | null;
 }
 export type RepoMap = Map<string, Placement>;
+/**
+ * A file as every reader makes one: typed by its name or path when the source gives no type (or only "bytes", as mail
+ * often types a PDF), `path` only if it is there.
+ */
+export const sourceFile = (f: {
+  mime?: string | null;
+  name?: string | null;
+  path?: string | null;
+  ref: string;
+}): SourceFile => ({
+  mime:
+    (f.mime !== "application/octet-stream" && f.mime) ||
+    Bun.file(f.name || f.path || "").type,
+  ...(f.name ? { name: f.name } : {}),
+  ...(f.path && existsSync(f.path) ? { path: f.path } : {}),
+  ref: f.ref,
+});

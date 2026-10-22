@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HOUR } from "../core/clock";
 import { Person } from "../records/truth";
 import { listRepos, parseLog, readGit } from "./git";
 
@@ -98,7 +99,7 @@ test("worktrees fold into their main repo; other authors count only in mapped re
   save(wt, "branch", owner);
 
   expect(listRepos(root).map((r) => r.key)).toEqual(["photo-app"]);
-  const since = new Date(Date.now() - 3_600_000);
+  const since = new Date(Date.now() - HOUR);
   const text = (mapped: string[]) =>
     readGit(
       since,

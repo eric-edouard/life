@@ -10,8 +10,8 @@ import {
   Extracted,
   Imported,
   InferredPerson,
+  InferredRepo,
   Observation,
-  RepoGuess,
   Supersession,
   Unresolved,
 } from "../records/observation";
@@ -379,7 +379,7 @@ export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 
 /** Life's repo guesses: the latest record for each repo wins. */
 export const readRepoGuesses = () => [
-  ...latestBy(rowsOf(REPOS_INFERRED, RepoGuess), (g) => g.repo).values(),
+  ...latestBy(rowsOf(REPOS_INFERRED, InferredRepo), (g) => g.repo).values(),
 ];
 
 /** The imported conversations the import step kept (`<source>:<id>`, a unit's key): the latest line for each wins. */

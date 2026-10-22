@@ -258,7 +258,7 @@ export type InferredPerson = z.infer<typeof InferredPerson>;
  * below truth/ (`Project.repos`) and never written into it. A repo that fits no project may carry the name and purpose
  * of a project the owner might want (`newProject`: "Cove: macOS call recorder"); it becomes one only when he says so.
  */
-export const RepoGuess = z
+export const InferredRepo = z
   .object({
     area: slug.nullable(),
     at: isoDateTime,
@@ -271,7 +271,7 @@ export const RepoGuess = z
   })
   .strict();
 
-export type RepoGuess = z.infer<typeof RepoGuess>;
+export type InferredRepo = z.infer<typeof InferredRepo>;
 
 /**
  * memory/imported.jsonl: whether a conversation of his claude.ai or ChatGPT export is about his life (people, plans,

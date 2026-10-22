@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { FROZEN } from "server/src/core/clock";
+import { FROZEN, MIN } from "server/src/core/clock";
 import { linesOf } from "server/src/core/files";
 import { recentEvents } from "server/src/core/log";
 import { Engine } from "server/src/core/names";
@@ -71,7 +71,6 @@ interface Call {
   tool?: string;
 }
 
-const MINUTE_MS = 60_000;
 const ERROR_LINE = /^error: .*$/m;
 
 /** Does `args` hold every `want`ed argument: a string as a case-blind part, anything else as equal JSON? */
@@ -271,13 +270,13 @@ async function runCase(
     chars: calls.reduce((n, k) => n + (k.chars ?? 0), 0),
     checks,
     id: c.id,
-    minutes: Math.round((performance.now() - started) / MINUTE_MS),
+    minutes: Math.round((performance.now() - started) / MIN),
   };
 }
 
 type Row = Awaited<ReturnType<typeof runCase>> | { error: string; id: string };
 
-export function table(rows: Row[], about: string) {
+export function askTable(rows: Row[], about: string) {
   const passed = (r: Row) =>
     "checks" in r ? r.checks.filter(([, ok]) => ok).length : 0;
   const total = rows.reduce(
@@ -336,7 +335,7 @@ async function bench(file: string, only: string[], engine: Engine) {
         engine === "codex"
           ? "Codex, as the agent"
           : `${engine}: a harness check, not the agent's result`;
-      console.log(table(rows, `${run}, ${what}, code ${head}`));
+      console.log(askTable(rows, `${run}, ${what}, code ${head}`));
       return { cases: rows.length };
     });
   } finally {

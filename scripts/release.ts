@@ -1,5 +1,6 @@
 import { mkdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
+import { HOUR } from "server/src/core/clock";
 import { execOk } from "server/src/core/proc";
 
 // A release a friend can open, published: Life.app signed with the owner's Developer ID under the hardened runtime,
@@ -33,7 +34,7 @@ if (
 // The app's feed: the latest release's appcast.
 process.env.LIFE_APPCAST_URL = `https://github.com/${repo}/releases/latest/download/appcast.xml`;
 
-const run = (cmd: string[]) => execOk(cmd, { cwd: ROOT, timeout: 3_600_000 });
+const run = (cmd: string[]) => execOk(cmd, { cwd: ROOT, timeout: HOUR });
 
 /** Sends a file to Apple's notary service, waits for its answer, and staples the ticket to `staple`. */
 async function notarize(file: string, staple: string) {

@@ -20,7 +20,7 @@ import { spareQuota } from "server/src/memory/schedule";
 import { type Claim, claimsNow } from "server/src/memory/statements";
 import { type Grade, judge, tally } from "server/src/memory/tally";
 import { llmFor, llmSpec } from "server/src/models/llm";
-import { Score } from "server/src/records/statement";
+import { EvalScore } from "server/src/records/statement";
 import { z } from "zod";
 
 const Facts = z.object({
@@ -67,7 +67,7 @@ async function ratedRun() {
   });
   const t = tally(judged, grades);
   if (judged.length > 0) {
-    await appendJsonl(SCORES, Score, [
+    await appendJsonl(SCORES, EvalScore, [
       {
         ...t.counts,
         at: clock().toISOString(),

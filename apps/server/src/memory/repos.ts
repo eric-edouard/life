@@ -7,7 +7,7 @@ import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
-import { RepoGuess } from "../records/observation";
+import { InferredRepo } from "../records/observation";
 import type { Unit } from "../records/unit";
 import type { Placement, RepoMap } from "../sources/contract";
 import { listRepos, myCommits, readGit, repoMap } from "../sources/git";
@@ -71,7 +71,7 @@ export function parseGuesses(
   );
   let unknownProject = 0;
   const records = entries.map(
-    ({ key, area, newProject, project, why }): RepoGuess => {
+    ({ key, area, newProject, project, why }): InferredRepo => {
       const ofProject = project ? ctx.projects.get(project) : undefined;
       if (project && ofProject === undefined) {
         unknownProject += 1;
@@ -132,7 +132,7 @@ export async function mapRepos() {
       repos: p.repos,
     })),
   };
-  const made: RepoGuess[] = [];
+  const made: InferredRepo[] = [];
   let invalid = 0;
   let unknownProject = 0;
   // One bad call costs only its repos: they are asked again next time.
@@ -146,7 +146,7 @@ export async function mapRepos() {
       });
       const checked = parseGuesses(json, new Set(batch.map((c) => c.key)), ctx);
       // Written as each call ends: a stopped run resumes from them.
-      await appendJsonl(REPOS_INFERRED, RepoGuess, checked.records);
+      await appendJsonl(REPOS_INFERRED, InferredRepo, checked.records);
       made.push(...checked.records);
       invalid += checked.invalid;
       unknownProject += checked.unknownProject;
@@ -252,7 +252,7 @@ export async function reposOf(filter?: string) {
   // Life's guesses only for repos cloned here (its first run also guessed at GitHub-only ones).
   const wanted = [...map].filter(
     ([key, r]) =>
-      (local.has(key) || !r.guess) &&
+      (local.has(key) || !r.inferred) &&
       (!f ||
         key.toLowerCase().includes(f) ||
         [r.project, r.area].some((x) => x?.toLowerCase() === f))
@@ -264,9 +264,9 @@ export async function reposOf(filter?: string) {
     const seen = active.get(key);
     const tags = [
       !path && "not cloned",
-      r.guess && "inferred",
-      r.guess?.newProject &&
-        `new project? ${clip(r.guess.newProject, SUGGESTION_MAX)}`,
+      r.inferred && "inferred",
+      r.inferred?.newProject &&
+        `new project? ${clip(r.inferred.newProject, SUGGESTION_MAX)}`,
     ].filter(Boolean);
     return `${path ? path.replace(HOME, "~") : key}${first ? " (main)" : ""}${tags.length > 0 ? ` (${tags.join("; ")})` : ""} · ${seen ? `${seen.n} commits, last ${seen.last}` : "no commits"}`;
   };

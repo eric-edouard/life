@@ -8,19 +8,19 @@ import {
   chapter,
   conversation,
   lifelogStore,
-  page,
-  turn,
+  pageFixture,
+  turnFixture,
 } from "../sources/store-fixtures";
 import {
   bucket,
   chatDays,
+  closenessTally,
   dueFor,
   levelsNow,
   pagedBy,
   pagedNow,
   parseLevels,
   personallyClose,
-  tally,
   voiceDays,
 } from "./closeness";
 import { pagePath } from "./ledger";
@@ -77,7 +77,7 @@ test("closeness counts 1:1 chats and mail only, by the day each side wrote; a gr
     resolve
   );
   expect([...days.keys()].sort()).toEqual(["person:ann", "person:bob"]);
-  const t = tally(days.get("person:ann") ?? new Map(), "2026-10-02");
+  const t = closenessTally(days.get("person:ann") ?? new Map(), "2026-10-02");
   expect(t).toMatchObject({
     first: "2026-10-01",
     last: "2026-10-02",
@@ -86,7 +86,7 @@ test("closeness counts 1:1 chats and mail only, by the day each side wrote; a gr
     voice: 0,
   });
   expect(
-    tally(days.get("person:bob") ?? new Map(), "2026-10-02").recent
+    closenessTally(days.get("person:bob") ?? new Map(), "2026-10-02").recent
   ).toBeGreaterThan(0.3);
   // A day both ways weighs 1, one way 0.3, the more of chat and mail (day 2: one way in chat, both ways in mail).
   expect(t.recent).toBe(2);
@@ -194,14 +194,14 @@ test("voice days are the days someone spoke in a live recording, by lifelog's ow
   const store = lifelogStore();
   apply(
     store,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
       ],
       conversations: [conversation("c1")],
       turns: [
-        turn(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie"),
-        turn(1, "2026-10-14T10:02:00.000Z", null, null),
+        turnFixture(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie"),
+        turnFixture(1, "2026-10-14T10:02:00.000Z", null, null),
       ],
     })
   );
@@ -214,7 +214,7 @@ test("voice days are the days someone spoke in a live recording, by lifelog's ow
 
 test("judged again only when the rounded counts moved or the prompt changed; everyone on his map, the rest from some lasting", () => {
   const t = (lasting: number) => ({
-    ...tally(new Map(), "2026-10-20"),
+    ...closenessTally(new Map(), "2026-10-20"),
     lasting,
   });
   const judged = new Map([
@@ -255,7 +255,7 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
     )
   ).toHaveLength(1);
   // Nothing counted: no first or last day, not today.
-  expect(tally(new Map(), "2026-10-20")).toMatchObject({
+  expect(closenessTally(new Map(), "2026-10-20")).toMatchObject({
     first: null,
     last: null,
   });

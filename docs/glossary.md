@@ -64,8 +64,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
-| the check | The page where the owner rates statements true or false (`/check`): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`Score`). | `EvalScore` |
-| inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf-…`), `repos-inferred.jsonl` (`RepoGuess`). | `inf_…`, `InferredRepo` |
+| the check | The page where the owner rates statements true or false (`/check`): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). | |
+| inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf-…`), `repos-inferred.jsonl` (`InferredRepo`). | `inf_…` |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
 
 ## Running

@@ -6,10 +6,10 @@ import { apply, readConversations, whose } from "../sources/lifelog";
 import {
   chapter,
   conversation,
-  turn as fed,
+  turnFixture as fed,
   lifelogServer,
   lifelogStore,
-  page,
+  pageFixture,
 } from "../sources/store-fixtures";
 import { asksIn, hear, marksIn, speechIn, type Turn } from "./hear";
 
@@ -207,7 +207,7 @@ test("speech is complete once its last turn is someone else's or ends a recordin
     store.db.run("delete from jobs");
     apply(
       store,
-      page({
+      pageFixture({
         jobs:
           seconds === null ? [] : [{ durationSeconds: seconds, id: "job-1" }],
         turns,
@@ -239,7 +239,7 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
   const store = lifelogStore();
   apply(
     store,
-    page({
+    pageFixture({
       turns: [
         fed(0, "2026-10-19T10:00:00.000Z", null, null),
         fed(1, "2026-10-19T10:00:20.000Z", "p-me", "Me", "c1", true),
@@ -276,7 +276,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
   const at = "2026-10-19T10:00:00.000Z";
   apply(
     store,
-    page({ turns: [fed(0, at, null, null)] }),
+    pageFixture({ turns: [fed(0, at, null, null)] }),
     "2026-10-19T10:00:30.000Z"
   );
   const quotes = () => tasksOf().map((t) => t.ask.instruction.quote);
@@ -287,7 +287,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
     expect(quotes()).toEqual([]);
     apply(
       store,
-      page({ turns: [fed(0, at, "p-me", "Me", "c1", true)] }),
+      pageFixture({ turns: [fed(0, at, "p-me", "Me", "c1", true)] }),
       "2026-10-19T10:00:55.000Z"
     );
     expect(
@@ -305,7 +305,7 @@ test("a failed word fetch throws, so the watcher hears it again: never read as s
   const store = lifelogStore();
   apply(
     store,
-    page({
+    pageFixture({
       turns: [fed(0, "2026-10-19T10:00:00.000Z", null, null, "c1", true)],
     })
   );
@@ -343,7 +343,7 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
   const store = lifelogStore();
   apply(
     store,
-    page({
+    pageFixture({
       chapters: [
         chapter("a", "2026-10-19T09:00:00.000Z", "2026-10-19T11:00:00.000Z"),
       ],

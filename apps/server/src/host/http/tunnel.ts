@@ -1,4 +1,4 @@
-import { clock } from "../../core/clock";
+import { clock, MIN } from "../../core/clock";
 import { exec } from "../../core/proc";
 import { connector, settings } from "../../core/settings";
 
@@ -9,7 +9,7 @@ import { connector, settings } from "../../core/settings";
 // timeout, as on 20 Oct when it restarted a healthy tunnel. Behind the edge Worker (apps/edge/edge.ts) that address never
 // answers 530, so this no longer fires and the tunnel's other hostnames have no heal: deleting it is #133.
 
-export const TUNNEL_EVERY_MS = 2 * 60_000;
+export const TUNNEL_EVERY_MS = 2 * MIN;
 
 /** Only Cloudflare's 530 (no tunnel to us) means the tunnel is down; no answer (0) or any other status does not. */
 export const tunnelDown = (status: number) => status === 530;

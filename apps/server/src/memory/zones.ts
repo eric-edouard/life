@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { clock } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { systemZone } from "../core/platform";
 import { Zone } from "../records/unit";
@@ -77,7 +77,7 @@ export function cutAt(now: Date, was: string, tz: string) {
     return now;
   }
   const [ahead, day] = a.day > b.day ? [was, a.day] : [tz, b.day];
-  const next = new Date(Date.parse(`${day}T12:00:00Z`) + 86_400_000);
+  const next = new Date(Date.parse(`${day}T12:00:00Z`) + DAY);
   return dayStart(next.toISOString().slice(0, 10), ahead);
 }
 

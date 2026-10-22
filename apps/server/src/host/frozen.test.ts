@@ -1,20 +1,20 @@
 import { expect, test } from "bun:test";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { clock, FROZEN } from "../core/clock";
+import { clock, FROZEN, MIN } from "../core/clock";
 import { exec } from "../core/proc";
 
 // The bench's frozen world (`LIFE_NOW`): this file runs itself again with the clock stopped, and those tests check
 // what a frozen process serves.
 const NOW = "2026-10-14T10:00:00.000Z";
 const at = (minutes: number) =>
-  new Date(Date.parse(NOW) + minutes * 60_000).toISOString();
+  new Date(Date.parse(NOW) + minutes * MIN).toISOString();
 
 test.if(FROZEN === undefined)(
   "under LIFE_NOW, the frozen tests pass",
   async () => {
     const r = await exec(["bun", "test", import.meta.path], {
       env: { ...process.env, LIFE_NOW: NOW },
-      timeout: 60_000,
+      timeout: MIN,
     });
     expect(`${r.stdout}${r.stderr}`).toContain(" 0 fail");
     expect(r.code).toBe(0);

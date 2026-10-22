@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HOUR } from "../core/clock";
 import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
 import { beeperFixture } from "./store-fixtures";
 
@@ -23,7 +24,7 @@ test("the archive keeps the text of Beeper messages deleted or edited later, wit
   expect(copyBeeper(source, dir, now + 5000)).toBe(2);
   expect(copyBeeper(source, dir, now + 10_000)).toBe(0);
 
-  const events = readBeeper(new Date(now - 3_600_000), dir, source);
+  const events = readBeeper(new Date(now - HOUR), dir, source);
   expect(events.map((e) => e.text).sort()).toEqual([
     "meet at 10",
     "pay the carpenter",

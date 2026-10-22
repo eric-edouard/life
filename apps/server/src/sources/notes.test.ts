@@ -2,8 +2,9 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
+import { HOUR } from "../core/clock";
 import { copyNotes, noteBody, readNotes } from "./notes";
-import { noteData, notesFixture, run } from "./store-fixtures";
+import { noteData, notesFixture, runFixture } from "./store-fixtures";
 
 const versions = (dir: string) =>
   new Database(join(dir, "notes.sqlite"))
@@ -15,11 +16,11 @@ const versions = (dir: string) =>
 test("a body is read from gzip and old zlib, checklist lines marked by UTF-16 runs, attachments by id", () => {
   const text = "Shop 🛒\nMilk\nEggs\n￼\nend";
   const runs = [
-    run(8),
-    run(5, { done: 1 }),
-    run(5, { done: 0 }),
-    run(1, { attachment: "A1" }),
-    run(5),
+    runFixture(8),
+    runFixture(5, { done: 1 }),
+    runFixture(5, { done: 0 }),
+    runFixture(1, { attachment: "A1" }),
+    runFixture(5),
   ];
   const body = {
     attachments: ["A1"],
@@ -31,17 +32,28 @@ test("a body is read from gzip and old zlib, checklist lines marked by UTF-16 ru
 
 test("a new note, an edit, a tick and a save that changes nothing each make the versions they should", () => {
   const { dir, now, save, source } = notesFixture();
-  save(1, noteData("Plan\nCall Ana", [run(5), run(8, { done: 0 })]));
+  save(
+    1,
+    noteData("Plan\nCall Ana", [runFixture(5), runFixture(8, { done: 0 })])
+  );
   expect(copyNotes(source, dir, now)).toBe(1);
   expect(copyNotes(source, dir, now + 5000)).toBe(0);
-  save(1, noteData("Plan\nCall Ana", [run(5), run(8, { done: 1 })]), {
-    agoS: 300,
-  });
+  save(
+    1,
+    noteData("Plan\nCall Ana", [runFixture(5), runFixture(8, { done: 1 })]),
+    {
+      agoS: 300,
+    }
+  );
   expect(copyNotes(source, dir, now + 10_000)).toBe(1);
   // A pin or a move changes the edit time, not the text.
-  save(1, noteData("Plan\nCall Ana", [run(5), run(8, { done: 1 })]), {
-    agoS: 200,
-  });
+  save(
+    1,
+    noteData("Plan\nCall Ana", [runFixture(5), runFixture(8, { done: 1 })]),
+    {
+      agoS: 200,
+    }
+  );
   expect(copyNotes(source, dir, now + 15_000)).toBe(0);
   save(1, noteData("Plan\nCall Ana\nBook flight"), { agoS: 180 });
   expect(copyNotes(source, dir, now + 20_000)).toBe(1);
@@ -129,7 +141,10 @@ test("an attachment is kept as its id, type, file in Notes' Media folder and App
     (20, 5, 'A1', 'public.jpeg', 21, 'RECEIPT 12 EUR')`);
   db.run(`insert into ZICCLOUDSYNCINGOBJECT (Z_PK, Z_ENT, ZIDENTIFIER, ZFILENAME, ZGENERATION1, ZACCOUNT6) values
     (21, 11, 'M1', 'IMG_1.jpeg', '1_G', 103)`);
-  save(1, noteData("Receipt\n￼", [run(8), run(1, { attachment: "A1" })]));
+  save(
+    1,
+    noteData("Receipt\n￼", [runFixture(8), runFixture(1, { attachment: "A1" })])
+  );
   copyNotes(source, dir, now);
   const [row] = new Database(join(dir, "notes.sqlite"))
     .query<{ files: string; text: string }, []>(
@@ -180,9 +195,9 @@ test("a version reads as what it changed: the first whole, an edit and a tick as
   save(
     1,
     noteData("Trip\nPassport\nTickets", [
-      run(5),
-      run(9, { done: 0 }),
-      run(7, { done: 0 }),
+      runFixture(5),
+      runFixture(9, { done: 0 }),
+      runFixture(7, { done: 0 }),
     ]),
     old
   );
@@ -192,10 +207,10 @@ test("a version reads as what it changed: the first whole, an edit and a tick as
   save(
     1,
     noteData("Trip\nPassport\nTickets\nHotel", [
-      run(5),
-      run(9, { done: 1 }),
-      run(8, { done: 0 }),
-      run(5),
+      runFixture(5),
+      runFixture(9, { done: 1 }),
+      runFixture(8, { done: 0 }),
+      runFixture(5),
     ])
   );
   copyNotes(source, dir, now);
@@ -214,5 +229,5 @@ test("a version reads as what it changed: the first whole, an edit and a tick as
     ["Note 1", "− [ ] Passport\n+ [x] Passport\n+ Hotel", "me"],
     ["Note 1", "[deleted the note Note 1]", "deleted"],
   ]);
-  expect(shown(now - 3_600_000)).toEqual(shown(0).slice(3));
+  expect(shown(now - HOUR)).toEqual(shown(0).slice(3));
 });

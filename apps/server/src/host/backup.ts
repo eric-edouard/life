@@ -1,6 +1,6 @@
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, HOUR } from "../core/clock";
 import { readJson } from "../core/files";
 import { isOn } from "../core/outputs";
 import { STATE } from "../core/paths";
@@ -26,7 +26,7 @@ interface Status {
 export const readBackup = () => readJson<Status>(STATUS);
 /** No good snapshot in the last 48 h. */
 export const backupOld = (now: Date, s = readBackup()) =>
-  !s?.okAt || now.getTime() - Date.parse(s.okAt) > 48 * 3_600_000;
+  !s?.okAt || now.getTime() - Date.parse(s.okAt) > 48 * HOUR;
 export const backupSize = (s = readBackup()) =>
   `${((s?.bytes ?? 0) / 1e9).toFixed(1)} GB`;
 
@@ -57,7 +57,7 @@ export async function backup() {
   };
   const missed: string[] = [];
   const run = async (cmd: string[]) => {
-    const r = await exec(cmd, { env, timeout: 3_600_000 });
+    const r = await exec(cmd, { env, timeout: HOUR });
     if (r.code !== 0) {
       const what = cmd.slice(0, 3).join(" ");
       missed.push(`${what}: ${r.stderr.trim().slice(-300)}`);

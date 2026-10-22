@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { uptime } from "node:os";
 import { dirname, join } from "node:path";
-import { clock } from "./clock";
+import { clock, MIN } from "./clock";
 import { real, STATE } from "./paths";
 import { MACHINE } from "./platform";
 
@@ -79,7 +79,7 @@ export async function hold(name: Service) {
       said = true;
     }
     // biome-ignore lint/performance/noAwaitInLoops: one check a minute
-    await Bun.sleep(60_000);
+    await Bun.sleep(MIN);
   }
   process.on("exit", () => {
     if (holder(name)?.pid === String(process.pid)) {

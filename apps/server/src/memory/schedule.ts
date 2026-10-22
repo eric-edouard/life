@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { readJson, writeJson } from "../core/files";
 import type { Engine } from "../core/names";
 import { type Quota, quota } from "../models/llm";
@@ -88,7 +88,7 @@ export function middayDue(now: Date, last: string | undefined) {
 }
 
 /** launchd's tick: a window opens at `earliest` and a run is expected by `latest`, if the Mac is awake and the lock is free. */
-const TICK_MS = 30 * 60_000;
+const TICK_MS = 30 * MIN;
 const windowAt = (earliest: Date, why: string) => ({
   earliest: earliest.toISOString(),
   latest: new Date(earliest.getTime() + TICK_MS).toISOString(),

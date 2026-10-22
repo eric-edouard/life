@@ -9,6 +9,7 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
+import { HOUR, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
 import { DATA, ROOT } from "../../core/paths";
@@ -25,8 +26,8 @@ import {
   conversation,
   lifelogServer,
   lifelogStore,
-  page,
-  turn,
+  pageFixture,
+  turnFixture,
 } from "../../sources/store-fixtures";
 import { protocol, sealed, update } from "../agent";
 import { ownerTokens } from "./auth";
@@ -356,14 +357,14 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   try {
     update({
       ...words,
-      deadline: new Date(Date.now() + 3_600_000).toISOString(),
+      deadline: new Date(Date.now() + HOUR).toISOString(),
       note: "on it",
       said: "call the bank",
       state: "working",
     });
     update({
       ...words,
-      at: new Date(Date.now() - 60_000).toISOString(),
+      at: new Date(Date.now() - MIN).toISOString(),
       outcome: "booked ".repeat(100),
       said: "book the dentist",
       state: "done",
@@ -539,7 +540,7 @@ test("places: each stay lists the conversations recorded during it", async () =>
     const store = lifelogStore();
     apply(
       store,
-      page({
+      pageFixture({
         chapters: [
           chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:10:00.000Z"),
         ],
@@ -551,7 +552,7 @@ test("places: each stay lists the conversations recorded during it", async () =>
             title: "Elsewhere",
           }),
         ],
-        turns: [turn(0, "2026-10-14T10:00:00.000Z", null, null)],
+        turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null)],
       })
     );
     return store;

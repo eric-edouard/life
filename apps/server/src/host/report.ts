@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { actionLine } from "../actions/items";
-import { unfrozen } from "../core/clock";
+import { MIN, unfrozen } from "../core/clock";
 import { digest } from "../core/hash";
 import { log, recentEvents } from "../core/log";
 import { STATE } from "../core/paths";
@@ -74,7 +74,7 @@ export interface Night {
 }
 
 export const duration = (ms: number) =>
-  `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
+  `${Math.floor(ms / MIN)}m ${Math.round((ms % MIN) / 1000)}s`;
 
 const percent = (x: number | null) =>
   x === null ? "-" : `${Math.round(x * 100)}%`;

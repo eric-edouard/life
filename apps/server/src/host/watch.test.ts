@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { MIN } from "../core/clock";
 import { ACTIONS, tasksOf } from "../memory/ledger";
 import { apply } from "../sources/lifelog";
 import {
-  turn as fed,
+  turnFixture as fed,
   lifelogServer,
   lifelogStore,
-  page,
+  pageFixture,
 } from "../sources/store-fixtures";
 import type { Health } from "./health";
 import { hear } from "./hear";
@@ -83,7 +84,7 @@ test("after a 3-day outage, his turns from before it are still heard, once, from
   ];
   const open = () => "open" as const;
   expect(hearings(pending, turns, back, open)).toEqual([]);
-  expect(hearings(pending, [], back + 60_000, open)).toEqual([
+  expect(hearings(pending, [], back + MIN, open)).toEqual([
     { conversation: "d", from: said, tries: 0 },
   ]);
   expect(hearings(pending, [], back + 120_000, open)).toEqual([]);
@@ -106,7 +107,7 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
   const iso = (ms: number) => new Date(ms).toISOString();
   apply(
     store,
-    page({
+    pageFixture({
       turns: [
         fed(0, said, "p-me", "Me", "c1", true),
         fed(1, said, "p-ana", "Ana", "c2"),
@@ -133,17 +134,17 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
     ).toEqual([]);
     expect(await restart(seen + 30_000)).toEqual(["c1", "c2", "c3"]);
     // Restarted after it heard them, 30 min of failed polls later (nothing new arrived): heard again, recorded once.
-    expect(await restart(seen + 30 * 60_000)).toEqual(["c1", "c2", "c3"]);
+    expect(await restart(seen + 30 * MIN)).toEqual(["c1", "c2", "c3"]);
     expect(tasksOf().map((t) => t.ask.instruction.quote)).toEqual([
       "hey Orbit, call the bank",
     ]);
     // Seen over 10 min before the newest turn: long heard, never again.
     apply(
       store,
-      page({ turns: [fed(3, said, "p-ana", "Ana", "c4")] }),
-      iso(seen + 11 * 60_000)
+      pageFixture({ turns: [fed(3, said, "p-ana", "Ana", "c4")] }),
+      iso(seen + 11 * MIN)
     );
-    expect(await restart(seen + 40 * 60_000)).toEqual(["c4"]);
+    expect(await restart(seen + 40 * MIN)).toEqual(["c4"]);
   } finally {
     server.close();
     rmSync(ACTIONS, { force: true });

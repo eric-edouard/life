@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
+import { HOUR } from "../core/clock";
 import { handleKey } from "./contacts";
 import {
   fromAppleNs,
@@ -31,7 +32,7 @@ test("text is recovered from an archived attributed string", () => {
 
 test("his Contacts name a 1:1 chat Messages knows only by its number (an empty name is none)", () => {
   const db = imessageFixture("salut");
-  const since = new Date(Date.now() - 3_600_000);
+  const since = new Date(Date.now() - HOUR);
   // Contacts write the number their own way: the key is its last digits.
   const names = new Map([[handleKey("06 11 11 11 11"), "Claire Dupont"]]);
   expect(readImessage(since, db, names)[0]?.chatName).toBe("Claire Dupont");

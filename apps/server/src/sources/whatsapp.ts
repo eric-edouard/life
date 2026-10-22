@@ -3,7 +3,7 @@ import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock } from "../core/clock";
 import { HOME } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../records/source";
+import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
   insertAll,
@@ -13,6 +13,7 @@ import {
   type Row,
   readArchived,
 } from "./archived";
+import { sourceFile } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
 
 // The Mac app's own store, opened read-only by its copy into the archive.

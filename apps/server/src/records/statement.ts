@@ -35,7 +35,7 @@ export const Rating = z
 export type Rating = z.infer<typeof Rating>;
 
 /** memory/scores.jsonl: one line per scored run (`bun scripts/eval.ts --ratings`), its counts (docs/SCHEMA.md). */
-export const Score = z
+export const EvalScore = z
   .object({
     at: isoDateTime,
     contradicted: z.int().min(0),

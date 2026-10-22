@@ -7,7 +7,7 @@ import type { ActionsBackend, Item, List } from "./contract";
 // subtasks (a parent), and none of Reminders' sections, urgent, priority, alarms, moves, restore, recurrence or sharing.
 
 /** A task as gog gives it (the Tasks API's resource). */
-export interface Task {
+export interface GoogleTask {
   completed?: string;
   deleted?: boolean;
   due?: string;
@@ -20,7 +20,7 @@ export interface Task {
 }
 
 /** A task as the contract's item: its day only (Google keeps no time), all-day. */
-export const itemOfTask = (list: List, t: Task): Item => ({
+export const itemOfTask = (list: List, t: GoogleTask): Item => ({
   allDay: true,
   completed: t.status === "completed",
   dueDate: t.due,
@@ -73,11 +73,11 @@ export function google(
   let board: Promise<List> | undefined;
   /** Every page of a list's tasks, top-level ones only (a subtask is part of its parent, as in Reminders). */
   const tasks = async (l: List, flags: string[]) => {
-    const all: Task[] = [];
+    const all: GoogleTask[] = [];
     let page = "";
     do {
       // biome-ignore lint/performance/noAwaitInLoops: pages follow one another
-      const r = await gog<{ nextPageToken?: string; tasks?: Task[] }>([
+      const r = await gog<{ nextPageToken?: string; tasks?: GoogleTask[] }>([
         "list",
         l.id,
         "--max=100",
@@ -119,7 +119,7 @@ export function google(
       title: "",
     };
   const get = async (id: string) => {
-    const r = await gog<{ task?: Task }>(["get", ...split(id)]);
+    const r = await gog<{ task?: GoogleTask }>(["get", ...split(id)]);
     if (!r.task) {
       throw new Error(`Google Tasks: no task ${id}`);
     }
@@ -128,7 +128,7 @@ export function google(
   return {
     async add(c) {
       const l = await listNamed(c.list);
-      const r = await gog<{ task?: Task }>(["add", l.id, ...taskArgs(c)]);
+      const r = await gog<{ task?: GoogleTask }>(["add", l.id, ...taskArgs(c)]);
       if (!r.task) {
         throw new Error("gog tasks add: no task in its answer");
       }

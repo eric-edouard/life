@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { HOUR, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { WINDOWS } from "../core/platform";
 import { ARCHIVED, keptStores } from "../memory/sources";
@@ -17,7 +18,7 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
     "WhatsApp",
     "Beeper Desktop",
   ]);
-  const opened = new Map([["WhatsApp", now - 60_000]]);
+  const opened = new Map([["WhatsApp", now - MIN]]);
   expect(appsToOpen([], now, opened, ARCHIVED)).toEqual([
     "Beeper Desktop",
     "Notes",
@@ -41,10 +42,8 @@ test("an archive incident lives in the log: open until its run.end, listed by th
   const since = new Date().toISOString();
   expect(await archiveLine(since)).toMatch(LINE);
   expect((await archiveFailing()).map(([name]) => name)).toEqual(["beeper"]);
-  expect(await archiveFailing(3_600_000)).toEqual([]);
-  expect((await archiveFailing(3_600_000, Date.now() + 3_600_000)).length).toBe(
-    1
-  );
+  expect(await archiveFailing(HOUR)).toEqual([]);
+  expect((await archiveFailing(HOUR, Date.now() + HOUR)).length).toBe(1);
   log("run.end", { step });
   expect(await archiveLine(since)).toBe("Archive: no failure");
   expect(await archiveFailing()).toEqual([]);
