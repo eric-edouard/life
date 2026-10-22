@@ -9,7 +9,7 @@ import { othersIn } from "./truth";
 import { areaOf, normalize, UNKNOWN } from "./units";
 import { localDate, zoneAt } from "./zones";
 
-// The pure parts of stage 2 (memory-pipeline §3.3, §3.4): what the extractor may return, the quote check, entity
+// The pure parts of extraction (docs/architecture.md, "The pipeline"): what the extractor may return, the quote check, entity
 // resolution cheapest first, and the observation records. No network or clock.
 
 /** One line of a unit's source text: a message, or one transcript turn. */

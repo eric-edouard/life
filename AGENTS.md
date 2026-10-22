@@ -4,7 +4,8 @@ A self-running memory of one person's life (the owner), built on his Mac from hi
 mail, Apple Notes, git and imported assistant chats: sources → units → moments → observations → people and area pages,
 plus an always-on archive of deleted messages and old note versions. Shipped as Life.app; a checkout is for development.
 
-Read before changing an area: `docs/architecture.md` (shape and reasons), `docs/SCHEMA.md` (every record),
+Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
+reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
 backups, evals, the read CLI), `docs/dashboard.md` (the connector's status reads), `docs/releasing.md`,
 `SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
@@ -61,8 +62,12 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `actions.jsonl` is appended only by `act`, `setGrant`, the tasks (`ask`, `update`, `reply`) and the sync
   pass (`inbound`, `closings`). The dashboard's `changes` cursor counts ledger lines, so a line must never move. Code
-  rewrites only `units/` and `moments/<day>.jsonl`. A change to how unit ids are made ships an old→new map applied to
-  `labels.jsonl` and `statements.jsonl`.
+  rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (below). A change to how unit ids are
+  made ships an old→new map applied to `labels.jsonl` and `statements.jsonl`.
+- **A rename backfills.** Names follow the best model, never old data: a stored name, id, kind or file is renamed when
+  a clearer one fits, and one migration rewrites the stored lines in place (same count, same order, so the `changes`
+  cursor holds), once, under the lock, committed in the data repo. After it the code reads only the new name: no
+  alias, no second spelling. The archive is never migrated. Connector renames go out in one batch (one reconnect).
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `guard.ts`), except his single lines (a
   correction, a rating) and `actions.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE` (`docs/operations.md`).
@@ -110,6 +115,21 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Everything Life shows follows Life's own brand** (`docs/brand.md`): one source, `assets/brand/tokens.css`, which
   wins over any global brand skill for Life. A brand change lands there first; the email and the app copy it
   (`apps/server/src/host/brand.test.ts` checks).
+
+## Names
+
+A name is a decision about what a thing is. Before naming or renaming anything, say in one sentence what it is and
+what it is not, then find its word in `docs/glossary.md`: one word per concept, the same in docs, app, email,
+connector and code. A new concept gets its glossary line in the same PR.
+
+- Clarity beats brevity: `read_open_agent_tasks` over `tasks`, `waiting_on_someone` over `waiting`.
+- One meaning per word. When a word already means something else (state, item, run, zone), pick another.
+- Functions: `readX` reads disk or the network, `parseX` turns text into a value, `xOf` is pure, `latest` is the most
+  recent of a set, booleans start with `is` or `has`.
+- Files: a record is singular (`records/unit.ts`), a step or reader names what it does (`schedule.ts`, not
+  `guard.ts`); no two files share a name.
+- No person's name in code, stored values or ids: the owner is `owner`, his agent `agent`.
+- A clearer name for something stored is worth its backfill (the invariant above).
 
 ## One way to do each thing
 

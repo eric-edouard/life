@@ -15,14 +15,10 @@ whole transcripts or message bodies (but an ask's words, `actions.jsonl`).
 
 ## Words used below
 
-- **Type**, what a unit or observation is. One of: `todo` (To-do), `promise` (Promise: the owner
-  promised someone to do it), `waiting` (Waiting on: someone owes the owner something), `decision` (Decision), `person` (About someone: who they
-  are, how they're doing, gift ideas), `preference` (Preference: what someone likes or dislikes, the owner included),
-  `idea` (Idea), `news` (News: something changed in an area: status, problem, progress), `nothing` (Nothing).
+- **Type** and **salience**: an observation's kind and how much it matters, defined in the [glossary](glossary.md)
+  ("observation kind", "importance").
 - **When**, a date or deadline (`YYYY-MM-DD`) any type can carry, or null.
 - **Area**, one of the owner's life areas: an `id` (slug) from `truth/areas.yaml`, or null when none fits.
-- **Salience** 0-3: 0 nothing to keep; 1 keep searchable only; 2 worth a line on a person or area page; 3 the owner must
-  act or must not forget.
 - **Entity refs**: `person:<slug>` (`truth/people.yaml`), `project:<slug>` (`truth/projects/`), `area:<slug>`
   (`truth/areas.yaml`).
 - **Birthday**: a person in `truth/people.yaml` may carry `birthday`, `--MM-DD` or `YYYY-MM-DD` when the year is

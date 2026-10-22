@@ -29,7 +29,7 @@ import { enabledSources, kindOf, readySources, sourceOf } from "./sources";
 import { loadTruth, OWNER, ownerIn, type Truth } from "./truth";
 import { dayStart, localDate, wall } from "./zones";
 
-// L1 units (memory-pipeline §3.1): one lifelog chapter, one chat-day, mail thread-day, note-day or repo-day. Built by
+// Units (docs/architecture.md, "The pipeline"): one lifelog chapter, one chat-day, mail thread-day, note-day or repo-day. Built by
 // code, nothing judged yet. A unit's id is stable (same chapter or day -> same id); its hash changes when its content
 // does, so a verdict is reused only while the content is unchanged.
 
