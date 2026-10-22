@@ -1,7 +1,9 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { Asked, actAsked, requested, setGrant } from "./actions";
+import { Asked, actAsked, requested, setGrant } from "./actions/act";
+import { checks } from "./actions/backend";
+import { REMCTL_RELEASE, remctlVersion } from "./actions/remctl";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { stage } from "./export";
@@ -14,8 +16,7 @@ import { dryRun, importExport } from "./memory/imports";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
-import { isOn, off } from "./outputs";
-import { checks, REMCTL_RELEASE, remctlVersion } from "./reminders/remctl";
+import { off } from "./outputs";
 import { Engine } from "./schema";
 import { readSettings, type Settings, setSettings, settings } from "./settings";
 import { localKey } from "./signin";
@@ -25,9 +26,9 @@ import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
 
-/** `act` and the grant need the Reminders plugin: off, they say so and do nothing. */
+/** `act` and the grant need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {
-  const why = off("reminders");
+  const why = off("actions");
   if (why) {
     console.error(why);
   }
@@ -37,7 +38,7 @@ const pluginOff = () => {
 const commands: Record<string, () => Promise<number>> = {
   /**
    * Acts on the owner's clear request, for a Claude session: `act '<json>'` (a change with `said`, his words, and
-   * `why`); `act --check` (read-only: can remctl act now?). Every action is recorded in memory/actions.jsonl.
+   * `why`); `act --check` (read-only: can the actions backend act now?). Every action is recorded in memory/actions.jsonl.
    */
   async act() {
     const [arg] = process.argv.slice(3);
@@ -46,7 +47,7 @@ const commands: Record<string, () => Promise<number>> = {
     }
     if (arg === "--check") {
       const problems = await checks();
-      console.log(problems.join("\n") || "remctl ready");
+      console.log(problems.join("\n") || "ready");
       return problems.length > 0 ? 1 : 0;
     }
     let asked: Asked;
@@ -65,7 +66,7 @@ const commands: Record<string, () => Promise<number>> = {
   /**
    * What the app shows, as JSON, so it reads none of Life's files: whether Life is set up, the newest report kept on
    * the Mac, every source with whether he turned it on, what keeps it from being read now and whether that is Full
-   * Disk Access, the Reminders plugin (on or not, the remctl installed and the release Life installs), and the status
+   * Disk Access, the Reminders backend (chosen or not, the remctl installed and the release Life installs), and the status
    * page the watcher serves on this Mac with the key that opens it (`localKey`).
    */
   async app() {
@@ -77,12 +78,14 @@ const commands: Record<string, () => Promise<number>> = {
       : [];
     console.log(
       JSON.stringify({
+        /** The actions backend he chose ("reminders", "google"), or null while the output is off: the app shows it, never changes it. */
+        actions: settings().actions?.backend ?? null,
         lastReport: reports[0] ?? null,
         reminders: await (async () => {
           const installed = await remctlVersion();
           return {
             installed,
-            on: isOn("reminders"),
+            on: settings().actions?.backend === "reminders",
             /** remctl as Life wants it: installed, at the pinned release. */
             ready: installed === REMCTL_RELEASE.version,
             release: REMCTL_RELEASE,

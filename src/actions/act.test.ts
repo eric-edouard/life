@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
+import { ACTIONS } from "../memory/ledger";
+import type { Action } from "../schema";
+import { setSettings, settings } from "../settings";
 import {
   actAsked,
   actionId,
@@ -9,12 +12,9 @@ import {
   grantedFrom,
   grantRefusal,
   requested,
-} from "./actions";
-import { ACTIONS } from "./memory/ledger";
-import { openOf, readable, unshared } from "./reminders/remctl";
-import { alarmArgs, changedFields, reminderArgs } from "./reminders/write";
-import type { Action } from "./schema";
-import { setSettings, settings } from "./settings";
+} from "./act";
+import { changedFields, lacks, openOf, readable } from "./backend";
+import { alarmArgs, reminderArgs, reminders, unshared } from "./remctl";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {
   expect(
@@ -61,9 +61,31 @@ test("a timed due alerts at its time, unless the reminder already has alarms (re
   expect(alarmArgs(null)).toEqual([]);
 });
 
+test("what a backend cannot write is refused by capability: Google Tasks takes a day, notes and subtasks, nothing of Reminders' own", () => {
+  const google = { can: new Set(["subtasks"] as const) };
+  const add = { kind: "add", title: "Call the plumber" } as const;
+  expect(lacks({ ...add, due: "2026-10-22", notes: "n" }, google)).toEqual([]);
+  expect(lacks({ ...add, subtasks: [{ title: "Ask" }] }, google)).toEqual([]);
+  expect(
+    lacks(
+      { ...add, due: "2026-10-22 09:00", section: "Later", urgent: true },
+      google
+    )
+  ).toEqual(["alarms", "sections", "urgent"]);
+  expect(lacks({ ...add, kind: "edit", list: "Work" }, google)).toEqual([
+    "moves",
+  ]);
+  expect(lacks({ ...add, kind: "restore" }, google)).toEqual(["restore"]);
+  expect(
+    lacks({ ...add, priority: "high", prompt: "p", section: "S" }, reminders)
+  ).toEqual([]);
+});
+
 test("an add repeats an open reminder with the same title, whatever the case and accents; nothing else is a duplicate", () => {
   const add = { kind: "add", title: "Dîner avec Gaston" } as const;
-  const open = [{ completed: false, id: 9, title: " dîner AVEC gaston" }];
+  const open = [
+    { completed: false, target: "reminder:9", title: " dîner AVEC gaston" },
+  ];
   expect(duplicateOf(add, open)).toBe("reminder:9");
   expect(
     duplicateOf({ ...add, title: "Dîner avec Jérôme" }, open)
@@ -78,7 +100,7 @@ test("an open reminder keeps the six fields `open_reminders` promises, its due a
     deepLink: "x-apple-reminderkit://REMCDReminder/1",
     dueDate: "2026-10-22T09:30:00",
     flagged: false,
-    id: 1,
+    id: "1",
     list: "Home",
     notes: "a\nb",
     section: "Soon",
@@ -315,21 +337,21 @@ test("the grant sets an add's title, named list, due and section only: no notes,
   }
 });
 
-test("with Reminders off, an act is refused before anything is recorded", async () => {
-  const on = settings().reminders;
+test("with the actions output off, an act is refused before anything is recorded", async () => {
+  const on = settings().actions;
   const ledger = () =>
     existsSync(ACTIONS) ? readFileSync(ACTIONS, "utf8") : "";
   const before = ledger();
-  setSettings({ reminders: false });
+  setSettings({ actions: null });
   try {
     await expect(
       actAsked(
         { kind: "add", said: "add milk", title: "Milk", why: "a test" },
         "session"
       )
-    ).rejects.toThrow("Reminders is off");
+    ).rejects.toThrow("Actions is off");
     expect(ledger()).toBe(before);
   } finally {
-    setSettings({ reminders: on });
+    setSettings({ actions: on });
   }
 });

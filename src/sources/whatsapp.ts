@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { clock } from "../clock";
+import { HOME } from "../platform";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,
@@ -17,7 +17,7 @@ import { fromAppleS, toAppleS } from "./imessage";
 
 // The Mac app's own store, opened read-only by its copy into the archive.
 export const WHATSAPP = join(
-  homedir(),
+  HOME,
   "Library/Group Containers/group.net.whatsapp.WhatsApp.shared"
 );
 

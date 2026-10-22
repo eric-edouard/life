@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { checks } from "./actions/backend";
 import { archiveFailing } from "./archive";
 import { backupOld, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
@@ -25,7 +26,6 @@ import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
 import { isOn, OUTPUTS } from "./outputs";
 import { git } from "./proc";
-import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
@@ -303,7 +303,7 @@ async function reads(now: Date) {
     sleepList,
     swept,
     actions,
-    remctl,
+    actionChecks,
     newest,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
@@ -330,7 +330,7 @@ async function reads(now: Date) {
       })
     ),
     cached("actions", 15_000, readActions),
-    cached("remctl", 60_000, checks),
+    cached("actionChecks", 60_000, checks),
     newestOf(),
   ]);
   const of = (kind: string, days: number) =>
@@ -341,6 +341,7 @@ async function reads(now: Date) {
     );
   const mcp = of("mcp.call", 2);
   return {
+    actionChecks,
     actions,
     agentLive: await agentLive(t, async () => mcp as Call[]),
     contacts,
@@ -356,7 +357,6 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
-    remctl,
     sent: of("email.sent", 2),
     sleepList,
     status,
@@ -1018,11 +1018,11 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!isOn("reminders"), { tone: "idle", word: "off" }],
+        [!isOn("actions"), { tone: "idle", word: "off" }],
         [
-          r.remctl.length > 0,
+          r.actionChecks.length > 0,
           {
-            ask: ASK("that Life can't reach Reminders"),
+            ask: ASK("that Life can't reach its actions backend"),
             tone: "bad",
             word: "unreachable",
           },
@@ -1031,7 +1031,7 @@ function outputCards(r: Reads): Card[] {
         [true, { tone: "ok", word: "ready" }]
       ),
       content: [
-        ...r.remctl,
+        ...r.actionChecks,
         ...acts
           .slice(-5)
           .map(
@@ -1047,7 +1047,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: OUTPUTS.reminders.label,
+      name: OUTPUTS.actions.label,
     },
     {
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),
