@@ -80,7 +80,7 @@ test("new since the last good night means a line first cited since: a re-read is
   expect(all.filter(newSince(all))).toHaveLength(5);
 });
 
-// Where each observation stands, as the index, a page and the dashboard see it. The fixture covers every rule: hidden
+// Where each observation stands, as the index, a page and the status reads see it. The fixture covers every rule: hidden
 // everywhere, hidden on one page, an id written again by a re-extraction, retired (the first supersession wins),
 // retired and hidden on a page, a unit never extracted, a unit gone, a claim he rated outdated (retired by itself).
 const JEROME = "person:jerome";
@@ -136,8 +136,8 @@ const fixture = {
   ),
 };
 
-test("the index, the pages and the dashboard agree on where each observation stands", async () => {
-  const { index, onPage, dashboard } = await view(fixture);
+test("the index, the pages and the status reads agree on where each observation stands", async () => {
+  const { index, onPage, statusReads } = await view(fixture);
   expect(index).toEqual([
     { id: "A", superseded_by: null, valid_to: null },
     { id: "C", superseded_by: null, valid_to: null },
@@ -177,7 +177,7 @@ test("the index, the pages and the dashboard agree on where each observation sta
     ["L", "new"],
     ["O", "cited"],
   ]);
-  expect(dashboard).toEqual([
+  expect(statusReads).toEqual([
     "A active",
     "B hidden wrong",
     `C active hiddenOn ${JEROME}`,
@@ -191,7 +191,7 @@ test("the index, the pages and the dashboard agree on where each observation sta
   ]);
 });
 
-/** The fixture as each reader takes it: `observationsNow` and `buildIndex`, a page (`knownOn`), the dashboard. */
+/** The fixture as each reader takes it: `observationsNow` and `buildIndex`, a page (`knownOn`), the status reads. */
 async function view(f: typeof fixture) {
   const standing = {
     corrections: f.corrections,
@@ -217,7 +217,7 @@ async function view(f: typeof fixture) {
       .filter((x) => known.byId.has(x.id))
       .map((x) => [x.id, known.retired.has(x.id) ? "cited" : "new"]);
   };
-  const dashboard = f.list.map((x) => {
+  const statusReads = f.list.map((x) => {
     const s = stateOf(x, standing);
     const on = s.hiddenOn ?? [];
     return [
@@ -229,7 +229,7 @@ async function view(f: typeof fixture) {
       .filter(Boolean)
       .join(" ");
   });
-  return { dashboard, index, onPage };
+  return { index, onPage, statusReads };
 }
 
 test("hidden beats gone beats replaced beats retired beats active", () => {

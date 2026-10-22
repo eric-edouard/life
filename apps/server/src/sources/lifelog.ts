@@ -167,7 +167,7 @@ async function call(
 }
 
 /**
- * What the status plate reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
+ * What the status snapshot reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
  * The contract leaves both objects untyped, so every field here may be absent or null.
  */
 export const LifelogStatus = z.object({
@@ -237,7 +237,7 @@ export async function withStore<T>(
   }
 }
 
-/** The store opened read-only, for a reader that must not create or change it (the status plate). */
+/** The store opened read-only, for a reader that must not create or change it (the status snapshot). */
 export const readStore = (dir = WATCH): Store => ({
   cursor: storeFiles(dir).cursor,
   db: new Database(storeFiles(dir).file, { readonly: true }),

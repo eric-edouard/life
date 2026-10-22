@@ -13,7 +13,7 @@ test("the status holds the midday while the last quota reading is over the reser
   expect((await lifeStatus(now)).midday.next.why).not.toStartWith("held");
 });
 
-test("the dashboard only reads: no write, log, model call, action or send", async () => {
+test("the status reads only reads: no write, log, model call, action or send", async () => {
   const source = (
     await Promise.all(
       ["../../memory/changes.ts", "../../memory/run-log.ts", "life.ts"].map(

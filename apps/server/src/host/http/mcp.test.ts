@@ -255,7 +255,7 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
   }
 });
 
-test("the dashboard reads: refused without the owner's token, JSON with it", async () => {
+test("the status reads: refused without the owner's token, JSON with it", async () => {
   const call = (bearer: string | null, name: string, args: object = {}) =>
     rpc(bearer, "tools/call", { arguments: args, name });
   expect((await call(null, "status")).res.status).toBe(401);

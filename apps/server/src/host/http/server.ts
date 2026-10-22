@@ -5,12 +5,12 @@ import { off } from "../../core/outputs";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check-page";
-import { createDashboard } from "./dashboard";
 import { LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
 import { createSignIn, keyRefusal } from "./signin";
+import { createStatusReads } from "./status-reads";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
@@ -23,7 +23,7 @@ import { createSignIn, keyRefusal } from "./signin";
 export function serve() {
   // The app's port taken (another install's watcher) only leaves the app without its status; the public one never waits on it.
   try {
-    listen(LOCAL_PORT, createDashboard(keyRefusal()).notFound(notFound));
+    listen(LOCAL_PORT, createStatusReads(keyRefusal()).notFound(notFound));
   } catch (e) {
     console.error(
       `Life: 127.0.0.1:${LOCAL_PORT} is off: ${(e as Error).message}`

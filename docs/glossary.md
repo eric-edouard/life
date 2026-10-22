@@ -77,7 +77,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | run | One step's run inside a sweep, logged with its counts. | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks, delivers them and syncs the board. | |
 | tick | The watcher's minute. Only that. | |
-| status | Whether Life works and how fresh it is: the app's status window (`plate.ts` in code), the connector's `status`. | `read_life_status`; `plate` → status |
+| status | Whether Life works and how fresh it is: the app's status window, which shows the status snapshot (`host/status/snapshot.ts`), and the connector's `status`. | `read_life_status` |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. | every tool renamed in one batch |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `moment.ts`, `ledger-entry.ts`…). | |
 

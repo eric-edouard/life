@@ -112,7 +112,7 @@ export function readImessage(
   }
 }
 
-/** The newest message in Messages (the status plate). */
+/** The newest message in Messages (the status snapshot). */
 export function newestImessage(): Newest {
   const db = new Database(DB, { readonly: true });
   try {

@@ -1,7 +1,7 @@
 import Foundation
 
-/// The plate (`snapshot`, apps/server/src/host/status/plate.ts): every part of Life as a card in a group, as the watcher serves it on this Mac.
-struct Plate: Decodable, Equatable {
+/// The status snapshot (`snapshot`, apps/server/src/host/status/snapshot.ts): every part of Life as a card in a group, as the watcher serves it on this Mac.
+struct StatusSnapshot: Decodable, Equatable {
   let cards: [Card]
   let groups: [Group]
   let observedAt: Date
@@ -62,7 +62,7 @@ struct Tick: Decodable, Equatable, Hashable {
   let tone: Tone
 }
 
-/// A card's history and raw log lines (`detail`, apps/server/src/host/status/plate-detail.ts), each with where it goes on.
+/// A card's history and raw log lines (`detail`, apps/server/src/host/status/snapshot-detail.ts), each with where it goes on.
 struct Detail: Decodable {
   let history: [Entry]
   let log: [String]
@@ -83,7 +83,7 @@ struct Detail: Decodable {
   }
 }
 
-/// A run's steps and what it wrote (`runDetail`, apps/server/src/host/status/plate-detail.ts).
+/// A run's steps and what it wrote (`runDetail`, apps/server/src/host/status/snapshot-detail.ts).
 struct RunView: Decodable {
   let steps: [Step]
   let use: String?

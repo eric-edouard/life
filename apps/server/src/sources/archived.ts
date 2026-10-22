@@ -16,7 +16,7 @@ export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);
 
 /**
- * A store's newest items as the status plate shows them: `sql` gives rows newest first, each its `at`, his `words` and,
+ * A store's newest items as the status snapshot shows them: `sql` gives rows newest first, each its `at`, his `words` and,
  * for a store with parts, a `label`.
  */
 export function newestArchived(

@@ -37,7 +37,7 @@ import { reportKey } from "../report";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
-// The status plate (`apps/server/src/host/http/dashboard.ts` serves it to the app): every part of Life as a card in a group, each with its
+// The status snapshot (`apps/server/src/host/http/status-reads.ts` serves it to the app): every part of Life as a card in a group, each with its
 // state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only
 // when Life can't read or run a part, grey when it is just quiet, amber when quiet past its source's `silentAfter`. His
 // words and any error's text live only in a card's `content`: the app hides them when its "Show content" is off.
@@ -119,7 +119,7 @@ export function wokeAt(d: Date) {
   return w;
 }
 
-/** A run's outcome as a colour: the plate and its details use this one. */
+/** A run's outcome as a colour: the status snapshot and its details use this one. */
 const RUN_TONES: Record<string, Tone> = {
   ok: "ok",
   running: "busy",
@@ -141,7 +141,7 @@ export function cached<T>(key: string, ms: number, read: () => Promise<T> | T) {
   return value;
 }
 
-/** A read that may fail: its error, never a throw (one broken store never blanks the plate). */
+/** A read that may fail: its error, never a throw (one broken store never blanks the status snapshot). */
 async function safe<T>(read: () => Promise<T> | T) {
   try {
     return { ok: true as const, value: await read() };
@@ -233,7 +233,7 @@ export type LogLine = LogEvent & Record<string, unknown>;
 const since = (list: LogLine[], ms: number, now: number) =>
   list.filter((e) => now - Date.parse(e.at) < ms);
 
-// --- the plate ------------------------------------------------------------------------------------------------------
+// --- the status snapshot ------------------------------------------------------------------------------------------------------
 
 export const GROUPS = [
   { id: "sources", name: "Sources" },
@@ -281,7 +281,7 @@ const newestOf = async () =>
     )
   );
 
-/** Every read the plate is made of, each cached for as long as it may lag. */
+/** Every read the status snapshot is made of, each cached for as long as it may lag. */
 async function reads(now: Date) {
   const t = now.getTime();
   const [
@@ -1192,7 +1192,7 @@ const RANK: Record<Tone, number> = {
   warn: 2,
 };
 
-/** Everything on the plate now. */
+/** Everything on the status snapshot now. */
 export async function snapshot(now = clock()) {
   const r = await reads(now);
   const cards = [

@@ -172,8 +172,8 @@ observations citing it. It never acts, asks or sends.
 on the owner's explicit request (in the chat, or in an ask through the agent's `reminders` and `task`) or on the standing
 grant, and logs the agent's replies.
 
-- **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the dashboard's
-  JSON reads `status`, `runs`, `changes`, `claim`, see `docs/dashboard.md`; and the memory reads); `correct` (lifelog
+- **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the status reads'
+  JSON reads `status`, `runs`, `changes`, `claim`, see `docs/status-reads.md`; and the memory reads); `correct` (lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `actions.jsonl`
   line, appended only: it sends nothing).

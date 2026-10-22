@@ -9,20 +9,20 @@ struct Panel: View {
   let openStatus: () -> Void
   @State private var code: String?
 
-  /// The parts the panel shows at a glance, when the plate has them.
+  /// The parts the panel shows at a glance, when the status snapshot has them.
   private static let glance = ["nightly", "memory", "tasks", "engine"]
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
       if supervisor.info?.started == true {
         header
-        if let plate = supervisor.plate {
-          rows(plate.troubled + Self.glance.compactMap { id in
-            plate.cards.first { $0.id == id && !plate.trouble.contains(id) }
+        if let snapshot = supervisor.snapshot {
+          rows(snapshot.troubled + Self.glance.compactMap { id in
+            snapshot.cards.first { $0.id == id && !snapshot.trouble.contains(id) }
           })
           VStack(alignment: .leading, spacing: 8) {
             Text("24 h").label()
-            DayStrip(ticks: plate.today, now: plate.observedAt, height: 26)
+            DayStrip(ticks: snapshot.today, now: snapshot.observedAt, height: 26)
           }
           .padding(16)
         } else {
@@ -44,9 +44,9 @@ struct Panel: View {
     HStack(spacing: 10) {
       Wordmark(height: 22)
       Spacer()
-      if let plate = supervisor.plate {
-        let n = plate.troubled.count
-        Pill(tone: n == 0 ? .ok : plate.troubleTone, word: n == 0 ? "ok" : "\(n) to look at")
+      if let snapshot = supervisor.snapshot {
+        let n = snapshot.troubled.count
+        Pill(tone: n == 0 ? .ok : snapshot.troubleTone, word: n == 0 ? "ok" : "\(n) to look at")
       } else {
         Pill(tone: .idle, word: "off")
       }

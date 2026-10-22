@@ -7,8 +7,8 @@ import Observation
 final class Supervisor {
   /// The helper's last `app` answer: whether Life is set up, its sources, its newest report, its status reads.
   private(set) var info: Info?
-  /// The plate, as the watcher last served it.
-  private(set) var plate: Plate?
+  /// The status snapshot, as the watcher last served it.
+  private(set) var snapshot: StatusSnapshot?
   private var services: [String: Process] = [:]
   private var nightly: Process?
   private var timer: Timer?
@@ -29,9 +29,9 @@ final class Supervisor {
     await refreshPlate()
   }
 
-  /// The plate again, from the watcher: the panel when it opens, the status window every 3 s while open.
+  /// The status snapshot again, from the watcher: the panel when it opens, the status window every 3 s while open.
   func refreshPlate() async {
-    plate = await info?.status.plate()
+    snapshot = await info?.status.snapshot()
   }
 
   func start() async {
@@ -45,7 +45,7 @@ final class Supervisor {
       timer = Timer.scheduledTimer(withTimeInterval: Self.tickEvery, repeats: true) { _ in
         Task { @MainActor in self.tick() }
       }
-      // The panel shows the plate as of the last minute (and reads it again when opened).
+      // The panel shows the status snapshot as of the last minute (and reads it again when opened).
       looks = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
         Task { @MainActor in await self.refreshPlate() }
       }

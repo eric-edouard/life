@@ -18,7 +18,7 @@ import type { Quota } from "../../models/llm";
 import { lastCopied } from "../archive";
 import { polling, readHealth } from "../health";
 
-// Life's status, for the plate, the connector and `bun life memory status`: whether it works, how fresh its memory is
+// Life's status, for the status snapshot, the connector and `bun life memory status`: whether it works, how fresh its memory is
 // and what runs next, from the runs (memory/run-log.ts), the archive's copies and the watcher's health.
 
 /** Each archive store's last copy (`lastCopied`), by store name. */
@@ -75,7 +75,7 @@ export async function lifeStatus(now = clock()) {
     },
     capture: {
       archive: copiedByStore(),
-      // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.
+      // The key keeps its name for the status reads' contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,
     },

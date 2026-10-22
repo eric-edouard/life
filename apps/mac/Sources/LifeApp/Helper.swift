@@ -69,7 +69,7 @@ struct Info: Decodable {
   let status: Status
 }
 
-/// The watcher's status reads on this Mac (`apps/server/src/host/http/dashboard.ts`, the local port) and the key that opens them.
+/// The watcher's status reads on this Mac (`apps/server/src/host/http/status-reads.ts`, the local port) and the key that opens them.
 struct Status: Decodable {
   let url: String
   let key: String
@@ -91,7 +91,7 @@ struct Status: Decodable {
     }
   }
 
-  func plate() async -> Plate? { await read("status/snapshot") }
+  func snapshot() async -> StatusSnapshot? { await read("status/snapshot") }
 
   func detail(_ card: String, before: String? = nil) async -> Detail? {
     let id = card.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? card

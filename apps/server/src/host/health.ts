@@ -4,7 +4,7 @@ import { readJson } from "../core/files";
 import { WATCH } from "../sources/lifelog";
 
 // The watcher's health record (derived/watch/health.json): written by the watcher after every poll, read by
-// `bun life status` and the dashboard.
+// `bun life status` and the status reads.
 
 const POLLING_MS = 15 * MIN;
 export const HEALTH = join(WATCH, "health.json");

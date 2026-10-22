@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { clientName } from "../events";
-import { snapshot, stationsOf, toneOf, waking, wokeAt } from "./plate";
+import { snapshot, stationsOf, toneOf, waking, wokeAt } from "./snapshot";
 
 const now = Date.parse("2026-10-21T15:00:00.000Z");
 const ago = (ms: number) => new Date(now - ms).toISOString();
@@ -96,7 +96,7 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
 });
 
 test(
-  "every card on the plate has its own id",
+  "every card on the status snapshot has its own id",
   async () => {
     const ids = (await snapshot()).cards.map((c) => c.id);
     expect(ids.length).toBe(new Set(ids).size);

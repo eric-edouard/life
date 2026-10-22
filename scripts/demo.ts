@@ -18,8 +18,8 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 //       bun <repo>/apps/server/src/host/cli.ts memory search|person|day …. Today is Thursday 22 October 2026. Cite observation ids." \
 //     "What did I promise my landlord last week? Did I keep it?"
 //
-// The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/host/status/plate.ts), run with the same
-// LIFE_OWNER_DATA_DIR and LIFE_STATE_DIR, printed the plate as JSON; the cards about the Mac's own services were deleted from it
+// The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/host/status/snapshot.ts), run with the same
+// LIFE_OWNER_DATA_DIR and LIFE_STATE_DIR, printed the status snapshot as JSON; the cards about the Mac's own services were deleted from it
 // (the tunnel, cloudflared, the nightly tick, /me and the whole Mac row), and Life.app's StatusWindow was drawn from
 // what was left, offscreen. The other cards still show what the Mac that drew them reported about itself, such as
 // Contacts readable and the archive copying, but none of its data.

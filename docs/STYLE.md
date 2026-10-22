@@ -8,7 +8,7 @@ Reference: the rules every page in this repository follows. Read them before you
    "he". AGENTS.md and `docs/agent.md` (the agent's runtime playbook) are exempt.
 3. Show before telling. A command, a screenshot or a short transcript comes first; the sentence about it after.
 4. Say what is optional, and what it costs in money, time or access, where you first mention it.
-5. Internal terms (unit, moment, plate, observation) belong in reference docs. A user page says what the reader sees.
+5. Internal terms (unit, moment, snapshot, observation) belong in reference docs. A user page says what the reader sees.
 6. Lists are for parallel items: steps, options, files. Explanations go in prose, with sentences of different lengths.
 7. No bolded lead-in on every bullet, no emoji in headings, no "Features" list of adjectives. Bold is for the names of
    buttons, menus and settings the reader sees on screen, always and only.

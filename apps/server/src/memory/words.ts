@@ -146,7 +146,7 @@ export function voiceLines(
 
 /**
  * A chat, mail or git unit read again from its source: its messages and their lines, each with who wrote it as
- * extraction sees it (today's map and corrections). The one way `fetch` and the dashboard's `claim` re-read a unit.
+ * extraction sees it (today's map and corrections). The one way `fetch` and the status reads' `claim` re-read a unit.
  */
 export async function unitLines(unit: Unit, { resolve, truth }: People) {
   const built = builtFor(

@@ -268,7 +268,7 @@ export const readAssistant =
       .filter((e) => e.at >= since.toISOString())
       .sort((a, b) => a.at.localeCompare(b.at));
 
-/** The status plate's card: when his newest imported message was, and how many conversations were imported. */
+/** The status snapshot's card: when his newest imported message was, and how many conversations were imported. */
 export function newestAssistant(source: Assistant): Newest {
   const conversations = conversationsOf(source);
   return {

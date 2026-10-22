@@ -59,7 +59,7 @@ every Keychain secret in its environment:
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
-lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status plate reads
+lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status snapshot reads
 those locks (`holder`, `core/lock.ts`).
 
 ### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
@@ -266,7 +266,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
-- `status`, `runs`, `changes`, `claim`: the dashboard reads (`docs/dashboard.md`).
+- `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
 
 Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,
 `notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only.

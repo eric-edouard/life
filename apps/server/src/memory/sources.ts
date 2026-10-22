@@ -49,7 +49,7 @@ export const FULL_DISK = "Full Disk Access for Life";
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
 const LISTED: Descriptor[] = [
-  // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, plate.ts).
+  // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, snapshot.ts).
   {
     kind: "voice",
     label: "Pendant",

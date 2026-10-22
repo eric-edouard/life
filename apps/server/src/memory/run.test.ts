@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { phases, record } from "./run";
 import { runs } from "./run-log";
 
-/** The run as the dashboard's `runs` reads it back from the (test) log. */
+/** The run as the status reads' `runs` reads it back from the (test) log. */
 const read = async (step: string, run: string) =>
   (await runs({ steps: [step] })).items.find((r) => r.id === `${step}/${run}`);
 

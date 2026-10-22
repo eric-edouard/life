@@ -7,7 +7,7 @@ plus an always-on archive of deleted messages and old note versions. Shipped as 
 Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
-backups, evals, the read CLI), `docs/dashboard.md` (the connector's status reads), `docs/releasing.md`,
+backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/releasing.md`,
 `SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
 documentation: it is the agent's playbook, read at run time.
 
@@ -61,7 +61,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
   labels). `actions.jsonl` is appended only by `act`, `setGrant`, the tasks (`ask`, `update`, `reply`) and the sync
-  pass (`inbound`, `closings`). The dashboard's `changes` cursor counts ledger lines, so a line must never move. Code
+  pass (`inbound`, `closings`). The status reads' `changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (next).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe) ships one migration in Life's code, with the owner's OK on the list of
@@ -139,7 +139,7 @@ Before adding a helper, use the one that exists:
 
 | Need | Use |
 |---|---|
-| Where an observation stands (hidden, gone, replaced, retired) | `stateOf` (`ledger.ts`): index, pages and dashboard alike |
+| Where an observation stands (hidden, gone, replaced, retired) | `stateOf` (`ledger.ts`): index, pages and status reads alike |
 | What is new since a night | `newSince` (a source line first cited) |
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `person` and `chats`) |
@@ -162,7 +162,7 @@ Before adding a helper, use the one that exists:
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
-Only `schedule.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
+Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
 on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events' `post` and the Past calendar).
 

@@ -128,7 +128,7 @@ core  ←  records  ←  models, sources, actions  ←  memory  ←  host
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `actions/` | The actions contract, its two backends, the board and open items |
 | `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, people and places, search, the agent's tasks, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
-| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events, the Past calendar) |
+| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the status snapshot, Life's status), and the outputs (report, events, the Past calendar) |
 | `test-data/` | The made-up data tests read |
 
 What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)
@@ -158,9 +158,9 @@ Turborepo arrives with `apps/web`, the second app that runs a build. There is no
 archive and the watcher kept running, the nightly tick every 30 minutes, data and state under `~/Library/Application
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
-Its menu-bar panel and status window are native SwiftUI, reading the plate from the watcher's local status reads
-(`apps/server/src/host/http/dashboard.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
-there): `docs/dashboard.md`.
+Its menu-bar panel and status window are native SwiftUI, reading the status snapshot from the watcher's local status reads
+(`apps/server/src/host/http/status-reads.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
+there): `docs/status-reads.md`.
 
 ## Pages
 

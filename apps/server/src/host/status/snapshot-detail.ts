@@ -7,10 +7,10 @@ import { clip } from "../../memory/units";
 import { taskList } from "../agent";
 import { clientName } from "../events";
 import { sleeps } from "./mac";
-import { cached, type LogLine, spent, type Tone, toneOfRun } from "./plate";
+import { cached, type LogLine, spent, type Tone, toneOfRun } from "./snapshot";
 
-// A card's detail for the app's status window (apps/server/src/host/http/dashboard.ts serves it): its history, its raw log lines, and a run's steps
-// and what it wrote. Read-only, like the plate (apps/server/src/host/status/plate.ts). His words and errors' text are in `content` only.
+// A card's detail for the app's status window (apps/server/src/host/http/status-reads.ts serves it): its history, its raw log lines, and a run's steps
+// and what it wrote. Read-only, like the status snapshot (apps/server/src/host/status/snapshot.ts). His words and errors' text are in `content` only.
 
 export interface Entry {
   at: string;

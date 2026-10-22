@@ -151,7 +151,7 @@ How Life works:
 - [Schema](docs/SCHEMA.md): every file in the memory
 - [The agent, the connector and actions](docs/tasks.md)
 - [Operations](docs/operations.md): schedule, services, backups, measuring, the read commands
-- [Dashboard reads](docs/dashboard.md): the connector's JSON status reads, for developers
+- [Status reads](docs/status-reads.md): the connector's JSON status reads, for developers
 
 Develop: the commands and rules are in [AGENTS.md](AGENTS.md#commands); also [writing docs](docs/STYLE.md),
 [building the app](apps/mac/README.md) and [releasing](docs/releasing.md).

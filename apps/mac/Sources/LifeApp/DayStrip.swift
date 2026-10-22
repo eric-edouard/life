@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The last 24 hours (the plate's `today`): runs as bars in their colour, emails and failures as marks, the Mac's
+/// The last 24 hours (the status snapshot's `today`): runs as bars in their colour, emails and failures as marks, the Mac's
 /// sleeps as a muted band, and now at the right edge.
 struct DayStrip: View {
   let ticks: [Tick]
