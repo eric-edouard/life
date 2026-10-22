@@ -8,13 +8,13 @@ const draft = (
   group: string,
   kind: Statement["kind"] = "fact"
 ) => ({
-  claim,
   date: "2026-10-01",
   group,
   kind,
+  ref: claim,
   source: "whatsapp" as const,
   text: claim,
-  units: ["u_000000000000"],
+  units: ["unit_000000000000"],
 });
 /** This year: dates in it are said without the year. */
 const YEAR = new Date().getFullYear();

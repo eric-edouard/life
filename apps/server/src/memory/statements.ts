@@ -75,7 +75,7 @@ const roundRobin = <T>(list: T[], key: (t: T) => string) => {
  * within a kind its channels, within a channel its months. A fixed shuffle (a hash of the claim id) orders the rest.
  */
 export function spread(pool: Draft[], n: number) {
-  const hash = (d: Draft) => digest("sha1", d.claim, 8);
+  const hash = (d: Draft) => digest("sha1", d.ref, 8);
   const keys = (d: Draft) => [d.group, d.kind, d.source, d.date.slice(0, 7)];
   // Finest key first: each pass keeps the previous order within its rounds, so the group (the last pass) leads.
   return [4, 3, 2, 1]
@@ -110,13 +110,13 @@ export async function claimsNow(): Promise<Claim[]> {
     const page = home.get(o.id);
     return [
       {
-        claim: o.id,
         date: o.date,
         group: page && shows(s, page) ? page : null,
         kind:
           o.modality === "plan" || o.modality === "reported"
             ? o.modality
             : ("fact" as const),
+        ref: o.id,
         source: o.source.channel,
         text: o.when ? `${o.text} (for ${plain(o.when)})` : o.text,
         units: [o.unit],
@@ -125,10 +125,10 @@ export async function claimsNow(): Promise<Claim[]> {
   });
   const moments = momentsNow(await readMoments(), people.corrections).map(
     (m) => ({
-      claim: m.id,
       date: m.day,
       group: momentGroup(m, paged, people.refOf),
       kind: "moment" as const,
+      ref: m.id,
       source: null,
       text: momentText(m, people.nameOf),
       units: m.units,
@@ -141,9 +141,9 @@ export async function claimsNow(): Promise<Claim[]> {
 export async function addStatements(n: number) {
   const rec = record("memory.statements", { n });
   const [claims, stated] = await Promise.all([claimsNow(), readStatements()]);
-  const have = new Set(stated.map((s) => s.claim));
+  const have = new Set(stated.map((s) => s.ref));
   const pool = claims.flatMap(({ group, ...c }) =>
-    group && !have.has(c.claim) ? [{ ...c, group }] : []
+    group && !have.has(c.ref) ? [{ ...c, group }] : []
   );
   const drawn = spread(pool, n).map((d) => ({
     ...d,

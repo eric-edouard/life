@@ -162,7 +162,7 @@ export async function hear(
       a.timing
     );
   }
-  // His "hey Life" spans, for memory only: their chapter's unit carries them, read again at salience 3 (units.ts, moments.ts).
+  // His "hey Life" spans, for memory only: their chapter's unit carries them, read again at importance 3 (units.ts, moments.ts).
   const marked = writeMarks(
     store,
     conversation,

@@ -1,1 +1,1 @@
-{"at":"2026-10-19T08:00:00.000Z","claim":"obs_00000000000a","date":"2026-10-12","group":"events","kind":"fact","schemaVersion":1,"source":"whatsapp","text":"A made-up statement for the tests.","units":["u_00000000000a"]}
+{"at":"2026-10-19T08:00:00.000Z","ref":"obs_00000000000a","date":"2026-10-12","group":"events","kind":"fact","schemaVersion":1,"source":"whatsapp","text":"A made-up statement for the tests.","units":["unit_00000000000a"]}

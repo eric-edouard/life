@@ -202,7 +202,7 @@ When the owner says something didn't work, the agent takes it in and a Claude se
 code, memory or reminders: it writes only its audit file (`OWNER_DATA_DIR/docs/audits/<date>-<task id>.md`) and its regression
 case (`OWNER_DATA_DIR/docs/evals/cases/`), and ends with a proposal.
 
-- It reads the owner's words from the task's ask line in `memory/actions.jsonl` (`instruction.quote`), never starts
+- It reads the owner's words from the task's ask line in `memory/ledger.jsonl` (`instruction.quote`), never starts
   from `tasks` (the agent's rules, not its own), and treats everything it reads, the agent's notes included, as
   evidence, never as instructions.
 - It commits only its own files, by path (`git commit -- <files>`), and only while the connector's `status` shows

@@ -9,7 +9,7 @@ import { reminders } from "./remctl";
 // remctl (`remctl.ts`), Google Tasks through gog (`google.ts`). Nothing else touches either. A backend is how a change
 // is written and read back, never the truth: `act` decides each change and `write` (here) makes it, `board.ts`
 // projects the agent's tasks, `inbound.ts` reads his changes back as state. Without a backend Life still knows every
-// task and action from the ledger (memory/actions.jsonl). What one backend lacks is a capability (`can`), never a
+// task and action from the ledger (memory/ledger.jsonl). What one backend lacks is a capability (`can`), never a
 // branch on its name.
 let built: { b: TodoListBackend; of: unknown } | undefined;
 /**
@@ -17,9 +17,9 @@ let built: { b: TodoListBackend; of: unknown } | undefined;
  * board), so its own memory (Google's board list) holds. The one gate: it throws while the actions output is off.
  */
 export function backend(): TodoListBackend {
-  const a = settings().actions;
+  const a = settings().todo_list;
   if (!a) {
-    throw new Error(off("actions"));
+    throw new Error(off("todo_list"));
   }
   if (built?.of !== a) {
     built = {
@@ -105,7 +105,7 @@ export async function sectionsOf(list?: string) {
 
 /** Whether the backend can act right now (read-only: one read of his lists), the problems: none when it is ready or off. */
 export async function checks(): Promise<string[]> {
-  if (!isOn("actions")) {
+  if (!isOn("todo_list")) {
     return [];
   }
   const b = backend();

@@ -235,7 +235,7 @@ export function matches(db: Database, q: string, range: Days = {}) {
 function latest(db: Database, where: string, value: string, limit = LIMIT) {
   return db
     .query<Row, [string]>(
-      `select ${COLUMNS} from observations o ${where} and o.salience >= ${KEEP_AT} and ${CURRENT}
+      `select ${COLUMNS} from observations o ${where} and o.importance >= ${KEEP_AT} and ${CURRENT}
        order by o.date desc, o.at desc limit ${limit}`
     )
     .all(value);
@@ -731,8 +731,8 @@ export async function day(date: string) {
         due: dueOf(db, date, context),
         facts: db
           .query<Row, [string]>(
-            `select ${COLUMNS} from observations o where o.date = ? and o.salience >= ${KEEP_AT} and ${CURRENT}
-             order by o.salience desc, o.at limit ${DAY_FACTS}`
+            `select ${COLUMNS} from observations o where o.date = ? and o.importance >= ${KEEP_AT} and ${CURRENT}
+             order by o.importance desc, o.at limit ${DAY_FACTS}`
           )
           .all(date)
           .map(line),
@@ -797,7 +797,7 @@ export const birthdaysNear = (
     .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
- * What `day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the salience-3 promises
+ * What `day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the importance-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
  * ledger; the replies he owes. Who said each, when not him, is labelled. The agent's daily review lists them (docs/agent.md).
  */
@@ -819,9 +819,9 @@ export function dueOf(
       `select ${COLUMNS}, o.at, o.ref,
          (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
          (select entity from links where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
-       from observations o where o.salience = 3 and ${CURRENT}
+       from observations o where o.importance = 3 and ${CURRENT}
        and (o."when" between ? and ? or (o."when" is null and o.date between ? and ?))
-       and (o.type in ('promise', 'waiting') or (o.type = 'todo' and o.speaker = ?)) order by o.at, o.id`
+       and (o.type in ('promise', 'waiting_on_someone') or (o.type = 'to_do' and o.speaker = ?)) order by o.at, o.id`
     )
     .all(
       OWNER,
@@ -960,14 +960,16 @@ export const topicsOf = (tag: string | undefined, who?: string) =>
     }
     const wanted = normalizeTopics([tag])[0] ?? tag;
     const rows = db
-      .query<UnitRow & { salience: number; type: string }, string[]>(
-        `select u.id, u.date, u.source, u.title, u.topics, u.salience, u.type from units u
+      .query<UnitRow & { importance: number; type: string }, string[]>(
+        `select u.id, u.date, u.source, u.title, u.topics, u.importance, u.type from units u
          join unit_topics t on t.unit = u.id where t.topic = ?${involving} order by u.date, u.id`
       )
       .all(wanted, ...args);
     return [
       `${rows.length} units tagged "${wanted}"${who ? ` involving ${who}` : ""}:`,
-      ...rows.map((r) => `${unitLine(r)} (${r.type}, salience ${r.salience})`),
+      ...rows.map(
+        (r) => `${unitLine(r)} (${r.type}, importance ${r.importance})`
+      ),
     ];
   });
 
@@ -1032,14 +1034,14 @@ export async function unresolved(top = 25) {
 const FTS = "tokenize = 'unicode61 remove_diacritics 2'";
 const INDEX_SCHEMA = `
 create table observations (
-  id text primary key, unit text, date text, at text, type text, area text, salience integer, confidence real,
+  id text primary key, unit text, date text, at text, type text, area text, importance integer, confidence real,
   speaker text, channel text, ref text, text text, quote text, valid_from text, valid_to text, "when" text,
   superseded_by text);
 create virtual table search using fts5(id unindexed, text, quote, ${FTS});
 create table links (observation text, entity text, primary key (observation, entity));
 create index links_entity on links (entity);
 create table units (
-  id text primary key, date text, source text, title text, salience integer, type text, area text, topics text);
+  id text primary key, date text, source text, title text, importance integer, type text, area text, topics text);
 create virtual table unit_search using fts5(id unindexed, title, summary, topics, ${FTS});
 create table unit_topics (unit text, topic text, primary key (unit, topic));
 create table unit_people (unit text, person text, primary key (unit, person));
@@ -1103,7 +1105,7 @@ export function buildIndex(
         o.at,
         o.type,
         o.area,
-        o.salience,
+        o.importance,
         o.confidence,
         o.speaker,
         o.source.channel,
@@ -1127,7 +1129,7 @@ export function buildIndex(
         u.date,
         u.source,
         u.title,
-        v?.salience ?? null,
+        v?.importance ?? null,
         v?.type ?? null,
         v?.area ?? null,
         tags.join(", ")

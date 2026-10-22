@@ -89,7 +89,7 @@ async function acted(now: Date, rec: Pick<RunRecord, "error">) {
     gaps = unanswered(now.getTime() - DAY);
   } catch (e) {
     const { message } = e as Error;
-    problems.push(`actions.jsonl: ${message}`);
+    problems.push(`ledger.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
   // A task's own lines (the agent's updates) are its rows, not actions.
@@ -325,7 +325,7 @@ export function markedSince(
 
 /**
  * What the night found, from the ledger: the observations that show and are new since `since` (`newSince`) and about
- * the night's days from `from` (not a backfilled past), the salience-3 page lines not retired, by their home page
+ * the night's days from `from` (not a backfilled past), the importance-3 page lines not retired, by their home page
  * (`placed`), and the retirements those new observations made.
  */
 async function whatIsNew(since: string, from: string, built: Built[]) {
@@ -342,7 +342,7 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   return {
     facts: [...homes].flatMap(([home, lines]) =>
       lines.flatMap(({ o }) =>
-        ids.has(o.id) && o.salience === 3 && !standing.retired.has(o.id)
+        ids.has(o.id) && o.importance === 3 && !standing.retired.has(o.id)
           ? [{ id: o.id, page: people.names.get(home) ?? home, text: o.text }]
           : []
       )

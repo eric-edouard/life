@@ -24,12 +24,12 @@ import { actFailedReport, sendReport } from "./report";
 
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
 // Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as a ledger entry
-// (memory/actions.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
+// (memory/ledger.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
 // connector) decide that he asked. The ledger also holds the agent's tasks (apps/server/src/host/agent.ts), whose board, the list `BOARD`,
 // no `act` may touch.
 
 export const entryId = (ref: string, kind: string, title: string) =>
-  `act_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
+  `entry_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
 
 /** What a client passes (a Claude session through the CLI, a chat through the connector): a change, his words that asked for it, and why. */
 export const Asked = Change.extend({
@@ -41,7 +41,7 @@ export type Asked = z.infer<typeof Asked>;
 interface Act {
   change: Change;
   instruction: Instruction;
-  madeBy: LedgerEntry["madeBy"];
+  via: LedgerEntry["via"];
   why: string;
 }
 
@@ -60,7 +60,7 @@ export const recorded = async (id: string) =>
   (await readLedger()).find((x) => x.id === id && stands(x));
 
 /**
- * Does one change and records it in memory/actions.jsonl; a failure is recorded too, and emailed at once with his words
+ * Does one change and records it in memory/ledger.jsonl; a failure is recorded too, and emailed at once with his words
  * so he can do it by hand. The same words asking for the same thing act once (the old record comes back), unless that
  * try failed: then they try again.
  */
@@ -102,9 +102,9 @@ export async function act(a: Act): Promise<LedgerEntry> {
     id,
     instruction,
     kind: c.kind,
-    madeBy: a.madeBy,
     result,
     schemaVersion: 1,
+    via: a.via,
     why: a.why,
   });
   const tried = { after: intended(c), target: ref(c.target ?? "new") };
@@ -129,17 +129,17 @@ export async function act(a: Act): Promise<LedgerEntry> {
 
 /** The instruction of a request a client makes, not his recorded speech: his words, the time now, and a ref of its own, so each request acts. */
 export const requested = (
-  madeBy: string,
+  via: string,
   quote: string,
   at = clock().toISOString()
-) => ({ at, quote, ref: `${madeBy}:${at}` });
+) => ({ at, quote, ref: `${via}:${at}` });
 
 /** `act` for a request that comes from a client (`requested`). */
 export function actAsked(
   { said, why, ...change }: Asked,
-  madeBy: "connector" | "session"
+  via: "connector" | "session"
 ) {
-  return act({ change, instruction: requested(madeBy, said), madeBy, why });
+  return act({ change, instruction: requested(via, said), via, why });
 }
 
 /** The most reminders the grant adds in one of his days. */
@@ -157,14 +157,14 @@ export const grantedFrom = (actions: LedgerEntry[], obs: string) =>
  * Why the standing grant (his yes, decision 2 of the 21 Oct review) may not add a reminder from this observation, or
  * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
  * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
- * it adds at most GRANT_DAILY a day (his local day), only from his current salience-3 to-do or promise in a lifelog
+ * it adds at most GRANT_DAILY a day (his local day), only from his current importance-3 to-do or promise in a lifelog
  * turn the store credits to him now (`mine`); a shared list is the backend's `shared`, checked last (it reads his lists).
  */
 export function grantRefusal(g: {
   actions: LedgerEntry[];
   mine: boolean;
   now: string;
-  o: Pick<Observation, "salience" | "source" | "type">;
+  o: Pick<Observation, "importance" | "source" | "type">;
   state: string;
 }) {
   const on = g.actions.findLast((a) => a.kind === "grant");
@@ -183,8 +183,8 @@ export function grantRefusal(g: {
   if (g.state !== "active") {
     return `the observation is ${g.state}, not current`;
   }
-  if (g.o.salience !== 3 || !["todo", "promise"].includes(g.o.type)) {
-    return "only his salience-3 to-dos and promises";
+  if (g.o.importance !== 3 || !["to_do", "promise"].includes(g.o.type)) {
+    return "only his importance-3 to-dos and promises";
   }
   if (kindOf(g.o.source.channel) !== "voice" || !g.mine) {
     return "only from a turn lifelog credits to his voice";
@@ -204,10 +204,10 @@ export async function setGrant(on: boolean, said: string) {
     id: entryId(instruction.ref, "grant", `${on}`),
     instruction,
     kind: "grant",
-    madeBy: "session",
     result: "ok",
     schemaVersion: 1,
     target: "grant",
+    via: "session",
     why: "his words",
   };
   await appendJsonl(LEDGER, LedgerEntry, [line]);
@@ -264,7 +264,7 @@ export function actGranted(
     return act({
       change,
       instruction: { at: o.at, quote: o.quote, ref: o.id },
-      madeBy: "connector",
+      via: "connector",
       why: "the standing grant: his own spoken to-do",
     });
   });

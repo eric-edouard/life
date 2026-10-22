@@ -57,13 +57,13 @@ test("an old ledger line still parses and reads: an email to Instinct (until 19 
 test("an old ledger line still parses and reads: a request heard in his speech, with its timing (until 19 Oct)", () => {
   const old = LedgerEntry.parse({
     ...action({}),
-    madeBy: { ...madeBy, prompt: "intent.v6" },
     timing: {
       actMs: 1200,
       arrived: "2026-10-15T10:06:24.000Z",
       heard: "2026-10-15T10:07:54.000Z",
       modelMs: 12_400,
     },
+    via: { ...madeBy, prompt: "intent.v6" },
   });
   expect(entryLine(old)).toBe(
     "“Buy checked baggage” in Travel ← “write that down in the to-dos”"
@@ -76,8 +76,8 @@ test("an ask reads as his words to Orbit, a low-confidence one says so", () => {
       ...action({}),
       after: { confidence, conversation: "c1", turns: [4, 5] },
       kind: "ask",
-      madeBy: "watch",
       target: AGENT_WORD,
+      via: "watch",
     });
   expect(entryLine(ask("high"))).toBe(
     "to Orbit ← “write that down in the to-dos”"
@@ -117,7 +117,7 @@ const night = (facts: number) =>
     paged: {
       changes: [{ added: 2, moved: 1, page: "Shop", removed: 0 }],
       corrections: 0,
-      dropped: ["inf-glazier"],
+      dropped: ["inf_glazier"],
       model: "codex/m/medium",
       retired: 1,
     },
@@ -147,7 +147,7 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("codex/m/high, codex/m/medium");
   expect(text).toContain("6 moments on 2 days");
   expect(text).toContain("observations retired: 1");
-  expect(text).toContain("Pages no longer kept (git has them): inf-glazier");
+  expect(text).toContain("Pages no longer kept (git has them): inf_glazier");
   expect(text).toContain("3m 41s");
   expect(text).toContain("Shop: +2 added, 1 moved to History, 0 removed");
   expect(text).toContain("75%");

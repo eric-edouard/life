@@ -2,10 +2,10 @@ import { z } from "zod";
 import { SourceName } from "../core/names";
 import {
   ContentHash,
+  Importance,
   isoDate,
   isoDateTime,
   MadeBy,
-  Salience,
   slug,
   UnitId,
 } from "./fields";
@@ -15,11 +15,11 @@ import {
 
 /** What a unit or observation is (owner's decision, 11 Oct). Owner-facing names: docs/SCHEMA.md, "Words used below". */
 export const MemoryType = z.enum([
-  "todo",
+  "to_do",
   "promise",
-  "waiting",
+  "waiting_on_someone",
   "decision",
-  "person",
+  "about_a_person",
   "preference",
   "idea",
   "news",
@@ -38,14 +38,14 @@ export const ChapterKind = z.enum([
 ]);
 
 /**
- * The salience policy: the salience from which a unit is kept and its observations are shown. Extraction reads a kept unit
- * in full; pages and searches list its claims. The owner's labels (11 Oct): salience 1 was mostly noise to him, 2 and 3
- * mostly right. A salience-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with a moment that
+ * The importance policy: the importance from which a unit is kept and its observations are shown. Extraction reads a kept unit
+ * in full; pages and searches list its claims. The owner's labels (11 Oct): importance 1 was mostly noise to him, 2 and 3
+ * mostly right. A importance-1 unit stays in units/ and verdicts.jsonl, searchable; it is read only with a moment that
  * holds a kept unit.
  */
 export const KEEP_AT = 2;
 
-/** The salience from which a unit is worth a searchable line, and is read with its moment. */
+/** The importance from which a unit is worth a searchable line, and is read with its moment. */
 export const SEARCHABLE_AT = 1;
 
 /**
@@ -57,10 +57,10 @@ export const Verdict = z
     // An id from truth/areas.yaml, or null when none fits.
     area: slug.nullable(),
     hash: ContentHash,
+    importance: Importance,
     kind: ChapterKind.optional(),
     madeBy: MadeBy,
     reason: z.string(),
-    salience: Salience,
     schemaVersion: z.literal(1),
     // 1-3 lowercase English tags for what the unit is about (`bun life memory topics`); none before memory-triage.v3.
     topics: z.array(z.string().min(1)).max(3).default([]),

@@ -29,16 +29,16 @@ and cites where each answer comes from.
 > **Claude:** You made your landlord, Jean Dupont, two promises on Tuesday 13 October over WhatsApp, and you kept both.
 >
 > **1. Pay the October rent by Friday 16 October:** kept, a day early.
-> - The promise: *"I'll send the rent by Friday, sorry for the delay"* (obs_0764db530f56)
-> - On 15 October at 18:40 you wrote *"Done, the October rent is sent"* (obs_744a681f06d3, mom_33cb4cebbcea).
+> - The promise: *"I'll send the rent by Friday, sorry for the delay"* (obs_7938971d6db7)
+> - On 15 October at 18:40 you wrote *"Done, the October rent is sent"* (obs_58f120ffa801, mom_33cb4cebbcea).
 >
 > **2. Be home Saturday 17 October to let the plumber in for the kitchen sink:** kept.
-> - The promise: *"I'll be home Saturday morning to let the plumber in"* (obs_529af414c4f7)
+> - The promise: *"I'll be home Saturday morning to let the plumber in"* (obs_031fc9a8b3e7)
 > - Your lifelog shows Hans fixed the sink at the flat at 10:00 that Saturday. He told you *"the drain pipe was cracked,
->   I put in a new one"* (obs_42581ef7537c, mom_3d2da4745984).
+>   I put in a new one"* (obs_a5b48d28a3c9, mom_3d2da4745984).
 >
 > **Coming up:** on 21 October, Claire Dupont said she'll send the 2027 lease for you to sign before the end of October
-> (obs_0fc1405bd0e4). That's something you're waiting on from her, not a promise you made.
+> (obs_63f9c7b97304). That's something you're waiting on from her, not a promise you made.
 
 This is a real run, trimmed, on made-up demo data written by [`scripts/demo.ts`](scripts/demo.ts), whose header has
 the command to run it again: Claude Code, with Life's read commands as its only tool. Claude.ai and ChatGPT get the

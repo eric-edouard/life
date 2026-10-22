@@ -229,7 +229,7 @@ export function renderPage(opts: {
 // --- where an observation lives ----------------------------------------------------------------------------------
 
 /** What someone is like: about the owner alone, his, whatever its area. */
-const PROFILE = new Set<Observation["type"]>(["person", "preference"]);
+const PROFILE = new Set<Observation["type"]>(["about_a_person", "preference"]);
 
 /**
  * The page an observation lives on, computed on every run and never stored: the page of who it is `about` (the owner, or
@@ -280,7 +280,7 @@ export function placed<T extends Observation & { unmapped: boolean }>(
   paged: ReadonlySet<string>
 ) {
   const lines = observations.filter(
-    (o) => o.salience >= KEEP_AT && o.modality !== "conditional"
+    (o) => o.importance >= KEEP_AT && o.modality !== "conditional"
   );
   const homes = Map.groupBy(
     lines.flatMap((o) => {

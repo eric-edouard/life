@@ -63,8 +63,8 @@ struct Info: Decodable {
   let started: Bool
   let lastReport: String?
   let sources: [Source]
-  /// The actions backend chosen ("reminders", "google"), nil while actions are off.
-  let actions: String?
+  /// The to-do list backend chosen ("reminders", "google"), nil while the to-do list is off.
+  let todoList: String?
   let reminders: Reminders
   let status: Status
 }

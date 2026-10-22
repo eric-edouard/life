@@ -7,7 +7,7 @@ import { LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT } from "../records/unit";
 import { newestAgent, readAgent } from "./agent-source";
 import { LEDGER } from "./ledger";
-import { saliencyOf } from "./moments";
+import { importanceOf } from "./moments";
 import { action } from "./record-fixtures";
 import { messageUnits } from "./units";
 import { chatLines } from "./words";
@@ -22,58 +22,58 @@ const ask = (id: string, quote: string) =>
     id,
     instruction: { at: "2026-10-20T14:50:00.000Z", quote, ref: `job-1:${id}` },
     kind: "ask",
-    madeBy: "watch",
     target: AGENT_WORD,
+    via: "watch",
   });
 const update = (task: string, at: string, after: Record<string, unknown>) =>
   action({
     after,
     at,
-    id: `act_${at.replace(NON_DIGIT, "").slice(2, 14)}`,
+    id: `entry_${at.replace(NON_DIGIT, "").slice(2, 14)}`,
     kind: "update",
-    madeBy: "connector",
     target: task,
+    via: "connector",
   });
 
 test("a task Orbit closed done is one event: its outcome with his ask's words, Orbit's report, never his", () => {
   mkdirSync(dirname(LEDGER), { recursive: true });
   rmSync(LEDGER, { force: true });
   appendJsonl(LEDGER, LedgerEntry, [
-    ask("act_aaaaaaaaaaaa", "hey Orbit, find the plumber's number"),
-    update("act_aaaaaaaaaaaa", "2026-10-20T14:52:00.000Z", {
+    ask("entry_aaaaaaaaaaaa", "hey Orbit, find the plumber's number"),
+    update("entry_aaaaaaaaaaaa", "2026-10-20T14:52:00.000Z", {
       claim: true,
       state: "working",
     }),
-    update("act_aaaaaaaaaaaa", "2026-10-20T14:55:00.000Z", {
+    update("entry_aaaaaaaaaaaa", "2026-10-20T14:55:00.000Z", {
       outcome: "Found it: +66 600 000 001",
       state: "done",
     }),
     // Still working, and done before the window: none.
-    ask("act_bbbbbbbbbbbb", "hey Orbit, book the train"),
-    update("act_bbbbbbbbbbbb", "2026-10-20T15:00:00.000Z", {
+    ask("entry_bbbbbbbbbbbb", "hey Orbit, book the train"),
+    update("entry_bbbbbbbbbbbb", "2026-10-20T15:00:00.000Z", {
       claim: true,
       state: "working",
     }),
-    ask("act_cccccccccccc", "hey Orbit, an old one"),
-    update("act_cccccccccccc", "2026-10-01T10:00:00.000Z", {
+    ask("entry_cccccccccccc", "hey Orbit, an old one"),
+    update("entry_cccccccccccc", "2026-10-01T10:00:00.000Z", {
       outcome: "done long ago",
       state: "done",
     }),
     // He ticked its receipt in Reminders: his tick, not Orbit's report of work done.
-    ask("act_dddddddddddd", "hey Orbit, call the bank"),
+    ask("entry_dddddddddddd", "hey Orbit, call the bank"),
     {
-      ...update("act_dddddddddddd", "2026-10-20T16:00:00.000Z", {
+      ...update("entry_dddddddddddd", "2026-10-20T16:00:00.000Z", {
         outcome: "he ticked its receipt in Reminders",
         state: "done",
       }),
-      madeBy: "reminders",
+      via: "reminders",
     },
   ]);
   expect(newestAgent().at).toBe("2026-10-20T14:55:00.000Z");
   const events = readAgent(new Date("2026-10-14T00:00:00.000Z"));
   expect(events.map((e) => [e.id, e.at, e.sender, e.fromMe])).toEqual([
     [
-      `${AGENT_WORD}:act_aaaaaaaaaaaa`,
+      `${AGENT_WORD}:entry_aaaaaaaaaaaa`,
       "2026-10-20T14:55:00.000Z",
       AGENT_WORD,
       false,
@@ -95,6 +95,6 @@ test("a task Orbit closed done is one event: its outcome with his ask's words, O
     `agent:${AGENT_WORD}`,
     undefined,
   ]);
-  // Always read for what it may close: its salience never falls under KEEP_AT.
-  expect(unit && saliencyOf(unit.unit, 0)).toBe(KEEP_AT);
+  // Always read for what it may close: its importance never falls under KEEP_AT.
+  expect(unit && importanceOf(unit.unit, 0)).toBe(KEEP_AT);
 });

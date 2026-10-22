@@ -393,7 +393,7 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   expect(tasks[1].note.length).toBeLessThanOrEqual(200);
   expect(tasks[1].title).toBe("book the dentist");
   const refused = await rpc(bearer, "tools/call", {
-    arguments: { seal: "stale", state: "dropped", task: "act_000000000000" },
+    arguments: { seal: "stale", state: "dropped", task: "entry_000000000000" },
     name: "task",
   });
   const [answer] = refused.json.result.content;
@@ -587,8 +587,8 @@ test("places: each stay lists the conversations recorded during it", async () =>
 });
 
 test("with the actions output off, the connector offers no Reminders tool", async () => {
-  const on = settings().actions;
-  setSettings({ actions: null });
+  const on = settings().todo_list;
+  setSettings({ todo_list: null });
   try {
     const { json } = await rpc(await token(), "tools/list");
     const names = json.result.tools.map((t: { name: string }) => t.name);
@@ -596,6 +596,6 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
     expect(names).not.toContain("open_reminders");
     expect(names).toContain("tasks");
   } finally {
-    setSettings({ actions: on });
+    setSettings({ todo_list: on });
   }
 });

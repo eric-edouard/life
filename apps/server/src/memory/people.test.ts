@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { checkPeople, inferredId, unknownIn } from "./people";
 import type { Built } from "./units";
 
-const SUFFIXED = /^inf-plumber-[0-9a-f]{6}$/;
+const SUFFIXED = /^inf_plumber-[0-9a-f]{6}$/;
 
 const chat = (unit: string, sender: string, texts: string[]) =>
   ({
@@ -22,12 +22,12 @@ const chat = (unit: string, sender: string, texts: string[]) =>
   }) as unknown as Built;
 
 test("a day's unknown people: chat senders no handle maps and names lifelog gave, never a known one, a mail sender or a numbered voice", () => {
-  const a = chat("u_1", "+33600000001", ["Ok ?", "Je passe demain"]);
-  const b = chat("u_2", "+33600000002", ["Merci", "De rien"]);
+  const a = chat("unit_1", "+33600000001", ["Ok ?", "Je passe demain"]);
+  const b = chat("unit_2", "+33600000002", ["Merci", "De rien"]);
   const mail = {
-    ...chat("u_3", "billing@shop.example", ["Hi", "Invoice"]),
+    ...chat("unit_3", "billing@shop.example", ["Hi", "Invoice"]),
     unit: {
-      id: "u_3",
+      id: "unit_3",
       people: ["unknown:billing@shop.example"],
       source: "mail",
     },
@@ -36,13 +36,13 @@ test("a day's unknown people: chat senders no handle maps and names lifelog gave
   expect(
     [...unknown].map(([k, seen]) => [k, seen.map((x) => x.unit.id)])
   ).toEqual([
-    ["+33600000001", ["u_1"]],
-    ["Cédric", ["u_1", "u_2"]],
+    ["+33600000001", ["unit_1"]],
+    ["Cédric", ["unit_1", "unit_2"]],
   ]);
 });
 
 test("an answer is kept only for a surface we asked about, with a quote in the text of a unit it appears in", () => {
-  const seen = chat("u_1", "+33600000001", [
+  const seen = chat("unit_1", "+33600000001", [
     "Ok ?",
     "Je passe demain pour l'évier de la boutique",
   ]);
@@ -57,13 +57,13 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
     },
     projects: new Set(["bakery"]),
     read: (b: Built) => b.text,
-    taken: new Set(["inf-plumber"]),
+    taken: new Set(["inf_plumber"]),
     unknown: new Map([["+33600000001", [seen]]]),
   };
   const say = (over: Record<string, unknown>) => ({
     area: "Shop",
     confidence: 0.7,
-    evidence: [{ quote: "je passe demain pour l'évier", unit: "u_1" }],
+    evidence: [{ quote: "je passe demain pour l'évier", unit: "unit_1" }],
     key: "+33600000001",
     name: "Plumber",
     project: "nope",
@@ -75,26 +75,26 @@ test("an answer is kept only for a surface we asked about, with a quote in the t
       say({}),
       say({ name: "Again" }),
       say({ key: "+33699999999" }),
-      say({ evidence: [{ quote: "something never said", unit: "u_1" }] }),
+      say({ evidence: [{ quote: "something never said", unit: "unit_1" }] }),
     ],
     ctx
   );
   expect(rest).toEqual([]);
   expect(r?.evidence).toEqual([
-    { quote: "Je passe demain pour l'évier", unit: "u_1" },
+    { quote: "Je passe demain pour l'évier", unit: "unit_1" },
   ]);
   expect([r?.area, r?.project, r?.surfaces]).toEqual([
     "shop",
     null,
     ["+33600000001"],
   ]);
-  // "inf-plumber" was taken: the id gets a suffix, and never starts like a truth id.
+  // "inf_plumber" was taken: the id gets a suffix, and never starts like a truth id.
   expect(r?.id).toMatch(SUFFIXED);
   expect(
     checkPeople(
-      [say({ evidence: [{ quote: "je passe demain", unit: "u_9" }] })],
+      [say({ evidence: [{ quote: "je passe demain", unit: "unit_9" }] })],
       ctx
     )
   ).toEqual([]);
-  expect(inferredId("", "k", new Set())).toBe("inf-person");
+  expect(inferredId("", "k", new Set())).toBe("inf_person");
 });

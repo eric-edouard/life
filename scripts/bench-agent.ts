@@ -1,5 +1,5 @@
 // `bun scripts/bench-agent.ts [cases.json] [--only id,…] [--engine codex|claude]`: the agent, end to end, on his past asks.
-// Each case is one ask of memory/actions.jsonl, replayed in the world as it was then: a clone of ~/Life at its last
+// Each case is one ask of memory/ledger.jsonl, replayed in the world as it was then: a clone of ~/Life at its last
 // commit before the ask, the ledger cut at the ask, the lifelog store cut at its instant, the index rebuilt from that
 // copy, and the clock frozen there (`LIFE_NOW`, apps/server/src/core/clock.ts) in a throwaway worktree of this code. A headless agent on
 // his subscription gets Life's connector, frozen and dry (mcp.ts), as its only tools, and the playbook through `tasks`:
@@ -37,8 +37,8 @@ import { checkout } from "./bench";
 
 const CASES = join(OWNER_DATA_DIR, "docs/evals/agent-bench-cases.json");
 const Case = z.object({
-  /** The ask in memory/actions.jsonl. */
-  ask: z.string().regex(/^act_[0-9a-f]{12}$/),
+  /** The ask in memory/ledger.jsonl. */
+  ask: z.string().regex(/^entry_[0-9a-f]{12}$/),
   /** Calls it must make: the tool, and arguments each holding the given text (any case) or equal to the value. */
   call: z
     .array(
@@ -132,7 +132,7 @@ export function askAt(lines: string[], id: string) {
   if (!ask?.instruction) {
     throw new Error(`${id} is not an ask with his words`);
   }
-  const delivered = ask.madeBy !== "connector";
+  const delivered = ask.via !== "connector";
   return {
     at: ask.at,
     input: delivered
@@ -154,7 +154,7 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
   gitOut(data, ["checkout", "-q", commit]);
   gitOut(data, ["remote", "remove", "origin"]);
   await Bun.write(
-    join(data, "memory/actions.jsonl"),
+    join(data, "memory/ledger.jsonl"),
     kept.map((l) => `${l}\n`).join("")
   );
   for (const d of ["log", "memory", "watch"]) {
@@ -244,7 +244,7 @@ async function runCase(
       ...calls
         .filter((k) => k.tool === "reminders")
         .map((k, i) => ({ id: `reminder${i}`, text: JSON.stringify(k.args) })),
-      ...linesOf(join(o.data, "memory/actions.jsonl"))
+      ...linesOf(join(o.data, "memory/ledger.jsonl"))
         .slice(world.cut)
         .map((l, i) => ({
           id: `task${i}`,

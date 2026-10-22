@@ -18,16 +18,16 @@ test("a call holds the wanted arguments: text as a case-blind part, anything els
 
 test("the code's checks: ids cited, calls made without error, tools never called", () => {
   const c = {
-    ask: "act_000000000000",
+    ask: "entry_000000000000",
     call: [{ args: { kind: "add", title: "ploy" }, tool: "reminders" }],
     contain: [],
-    fetch: ["u_aaaaaaaaaaaa", "u_bbbbbbbbbbbb"],
+    fetch: ["unit_aaaaaaaaaaaa", "unit_bbbbbbbbbbbb"],
     id: "ploy",
     not: { call: ["correct"], contain: [] },
     outcome: "",
   };
   const calls: Parameters<typeof checked>[1] = [
-    { ids: ["u_aaaaaaaaaaaa"], tool: "search" },
+    { ids: ["unit_aaaaaaaaaaaa"], tool: "search" },
     {
       args: { kind: "add", title: "Call Ploy" },
       error: true,
@@ -35,8 +35,8 @@ test("the code's checks: ids cited, calls made without error, tools never called
     },
   ];
   expect(checked(c, calls)).toEqual([
-    ["fetch u_aaaaaaaaaaaa", true],
-    ["fetch u_bbbbbbbbbbbb", false],
+    ["fetch unit_aaaaaaaaaaaa", true],
+    ["fetch unit_bbbbbbbbbbbb", false],
     ['call reminders {"kind":"add","title":"ploy"}', false],
     ["no correct", true],
   ]);
@@ -74,43 +74,43 @@ test("the table: one row per case, what failed named, an error kept", () => {
 });
 
 test("an ask as it reached Orbit: a delivered one is its event, its line kept; a chat one is his words, the ledger before it", () => {
-  const ask = (id: string, madeBy: string, quote: string, at: string) =>
+  const ask = (id: string, via: string, quote: string, at: string) =>
     JSON.stringify({
       after: { confidence: "high" },
       at,
       id,
       instruction: { at, quote, ref: `session:${at}` },
       kind: "ask",
-      madeBy,
       result: "ok",
       schemaVersion: 1,
       target: AGENT_WORD,
+      via,
       why: "asked",
     });
   const lines = [
     ask(
-      "act_aaaaaaaaaaaa",
+      "entry_aaaaaaaaaaaa",
       "watch",
       "remind me to call the bank",
       "2026-10-20T08:00:00.000Z"
     ),
     ask(
-      "act_bbbbbbbbbbbb",
+      "entry_bbbbbbbbbbbb",
       "connector",
       "what is due today?",
       "2026-10-20T09:00:00.000Z"
     ),
   ];
-  const heard = askAt(lines, "act_aaaaaaaaaaaa");
+  const heard = askAt(lines, "entry_aaaaaaaaaaaa");
   expect(heard.at).toBe("2026-10-20T08:00:00.000Z");
   expect(heard.kept).toEqual(lines.slice(0, 1));
   const event = JSON.parse(heard.input.replace("An ask event from Life: ", ""));
   expect([event.eventId, event.data.quote]).toEqual([
-    "act_aaaaaaaaaaaa",
+    "entry_aaaaaaaaaaaa",
     "remind me to call the bank",
   ]);
-  const chat = askAt(lines, "act_bbbbbbbbbbbb");
+  const chat = askAt(lines, "entry_bbbbbbbbbbbb");
   expect(chat.kept).toEqual(lines.slice(0, 1));
   expect(chat.input).toBe("His message in your chat: what is due today?");
-  expect(() => askAt(lines, "act_cccccccccccc")).toThrow("not an ask");
+  expect(() => askAt(lines, "entry_cccccccccccc")).toThrow("not an ask");
 });

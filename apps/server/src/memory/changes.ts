@@ -376,7 +376,7 @@ function itemOf(
     if (isBookkeeping(a)) {
       return null;
     }
-    const run = typeof a.madeBy === "string" ? null : a.madeBy.run;
+    const run = typeof a.via === "string" ? null : a.via.run;
     return {
       about: refs([taskRef(a)]),
       happenedAt: a.instruction?.at ?? a.at,

@@ -87,7 +87,7 @@ export interface Built {
 }
 
 export const unitId = (...parts: string[]) =>
-  `u_${digest("sha1", parts.join("|"), 12)}`;
+  `unit_${digest("sha1", parts.join("|"), 12)}`;
 /** The id of the chat-day (thread-day, note-day, repo-day) an event is in. */
 export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
@@ -663,7 +663,7 @@ export function lastDays(now: Date, days: number): Window {
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
  * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
  * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
- * their salience at 1).
+ * their importance at 1).
  */
 export async function gather(
   window: Window,

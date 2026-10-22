@@ -69,10 +69,10 @@ test("a cursor past the end of a ledger (it shrank) is an error, not a silent re
 });
 
 test("changes about task:<id> is one task's history: its ask, updates and replies, no other action", async () => {
-  const ask = "act_00000000000a";
+  const ask = "entry_00000000000a";
   const own = (kind: LedgerEntry["kind"], target: string, n: number) =>
     action({
-      id: `act_${String(n).padStart(12, "0")}`,
+      id: `entry_${String(n).padStart(12, "0")}`,
       instruction: undefined,
       kind,
       target,
@@ -83,7 +83,7 @@ test("changes about task:<id> is one task's history: its ask, updates and replie
       own("update", ask, 1),
       own("reply", ask, 2),
       own("reply", "chat", 3),
-      own("update", "act_00000000000b", 4),
+      own("update", "entry_00000000000b", 4),
       own("add", "reminder:12", 5),
     ]);
     const { items } = await changeFeed({ about: `task:${ask}` });

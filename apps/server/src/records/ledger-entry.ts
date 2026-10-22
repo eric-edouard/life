@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isoDateTime, MadeBy } from "./fields";
 
-// The actions ledger (memory/actions.jsonl, docs/SCHEMA.md): what Life did on his request, his changes read back,
+// The actions ledger (memory/ledger.jsonl, docs/SCHEMA.md): what Life did on his request, his changes read back,
 // and the agent's tasks.
 
 export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
@@ -17,7 +17,7 @@ export const REMINDER_KINDS = [
 ] as const;
 
 /**
- * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
+ * One thing Life did outside itself on the owner's clear request (memory/ledger.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
  * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/memory/tasks.ts),
  * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
@@ -30,7 +30,7 @@ export const LedgerEntry = z
     before: z.record(z.string(), z.unknown()).optional(),
     // Also "partial: <failed step>" on an add or edit that was done but lost a private field (result ok).
     error: z.string().optional(),
-    id: z.string().regex(/^act_[0-9a-f]{12}$/),
+    id: z.string().regex(/^entry_[0-9a-f]{12}$/),
     instruction: z
       .object({ at: isoDateTime, quote: z.string(), ref: z.string() })
       .strict()
@@ -45,12 +45,6 @@ export const LedgerEntry = z
       "import",
       "instinct",
       ...TASK_LINES,
-    ]),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
-    // "reminders": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
-    madeBy: z.union([
-      MadeBy,
-      z.enum(["connector", "reminders", "session", "watch"]),
     ]),
     // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).
     result: z.enum(["ok", "failed", "duplicate", "intent"]),
@@ -69,6 +63,12 @@ export const LedgerEntry = z
       })
       .strict()
       .optional(),
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
+    // "reminders": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
+    via: z.union([
+      MadeBy,
+      z.enum(["connector", "reminders", "session", "watch"]),
+    ]),
     why: z.string(),
   })
   .strict();

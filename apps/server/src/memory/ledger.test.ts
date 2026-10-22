@@ -32,24 +32,24 @@ const read = (unit: string, unitHash: string, run = "r1") =>
 
 test("a unit re-extracted under another hash or prompt keeps only its latest facts; a unit never extracted keeps all; a gone or dropped unit none", () => {
   const all = [
-    obs("old", "u_1", "h1"),
-    obs("new", "u_1", "h2"),
-    obs("other", "u_2", "h1"),
-    obs("loose", "u_3", "h1"),
-    obs("v1", "u_4", "h1"),
-    obs("v2", "u_4", "h1", "r2"),
-    obs("cut", "u_5", "h1"),
+    obs("old", "unit_1", "h1"),
+    obs("new", "unit_1", "h2"),
+    obs("other", "unit_2", "h1"),
+    obs("loose", "unit_3", "h1"),
+    obs("v1", "unit_4", "h1"),
+    obs("v2", "unit_4", "h1", "r2"),
+    obs("cut", "unit_5", "h1"),
   ];
   const ledger = [
-    read("u_1", "h1"),
-    read("u_2", "h1"),
-    read("u_1", "h2"),
-    read("u_4", "h1"),
-    read("u_4", "h1", "r2"),
+    read("unit_1", "h1"),
+    read("unit_2", "h1"),
+    read("unit_1", "h2"),
+    read("unit_4", "h1"),
+    read("unit_4", "h1", "r2"),
   ];
   const c = {
     latest: latestExtractions(ledger),
-    live: new Set(["u_1", "u_2", "u_3", "u_4"]),
+    live: new Set(["unit_1", "unit_2", "unit_3", "unit_4"]),
   };
   expect(all.filter((x) => isCurrent(c, x)).map((x) => x.id)).toEqual([
     "new",
@@ -61,7 +61,7 @@ test("a unit re-extracted under another hash or prompt keeps only its latest fac
 
 test("new since the last good night means a line first cited since: a re-read is not new, a grown chat-day's new message is", () => {
   const cites = (id: string, ref: string, run: string) =>
-    ({ ...obs(id, "u_chat", "h", run), source: { ref } }) as Observation;
+    ({ ...obs(id, "unit_chat", "h", run), source: { ref } }) as Observation;
   const LAST = "2026-10-17T02-00-10.000Z";
   const NOON = "2026-10-17T13-00-10.000Z";
   const TONIGHT = "2026-10-18T02-00-10.000Z";
@@ -96,20 +96,24 @@ const fixture = {
     { at: "t", kind: "wrong", observations: ["B"] },
     { at: "t", kind: "not-important", observations: ["C", "R"], page: JEROME },
   ] as Correction[],
-  extracted: [read("u_1", "h1"), read("u_2", "h1"), read("u_2", "h2", "r2")],
-  list: [
-    line("A", "u_1"),
-    line("B", "u_1"),
-    line("C", "u_1"),
-    line("D", "u_2"),
-    line("D", "u_2", "h2", "r2"),
-    line("E", "u_2", "h2", "r2"),
-    line("R", "u_2", "h2", "r2"),
-    line("L", "u_9"),
-    line("G", "u_8"),
-    line("O", "u_1"),
+  extracted: [
+    read("unit_1", "h1"),
+    read("unit_2", "h1"),
+    read("unit_2", "h2", "r2"),
   ],
-  live: new Set(["u_1", "u_2", "u_9"]),
+  list: [
+    line("A", "unit_1"),
+    line("B", "unit_1"),
+    line("C", "unit_1"),
+    line("D", "unit_2"),
+    line("D", "unit_2", "h2", "r2"),
+    line("E", "unit_2", "h2", "r2"),
+    line("R", "unit_2", "h2", "r2"),
+    line("L", "unit_9"),
+    line("G", "unit_8"),
+    line("O", "unit_1"),
+  ],
+  live: new Set(["unit_1", "unit_2", "unit_9"]),
   retired: new Map<string, Supersession>(
     (
       [
@@ -130,7 +134,7 @@ const fixture = {
     "O",
     ratedOutdated(
       latestRatings([
-        { answer: "outdated", at: "2026-10-19T08:00:00Z", claim: "O" },
+        { answer: "outdated", at: "2026-10-19T08:00:00Z", ref: "O" },
       ] as Rating[])
     )[0] as Supersession
   ),
@@ -233,11 +237,11 @@ async function view(f: typeof fixture) {
 }
 
 test("hidden beats gone beats replaced beats retired beats active", () => {
-  const x = obs("obs_000000000001", "u_1", "h1");
+  const x = obs("obs_000000000001", "unit_1", "h1");
   const at = (over: Partial<Standing>): Standing => ({
     corrections: [],
     latest: new Map(),
-    live: new Set(["u_1"]),
+    live: new Set(["unit_1"]),
     retired: new Map(),
     ...over,
   });
@@ -246,7 +250,7 @@ test("hidden beats gone beats replaced beats retired beats active", () => {
   const retired = new Map([
     [x.id, { at: "t", by: "obs_000000000002" } as Supersession],
   ]);
-  const latest = new Map([["u_1", read("u_1", "other", "r2")]]);
+  const latest = new Map([["unit_1", read("unit_1", "other", "r2")]]);
   expect(stateOf(x, at({}))).toEqual({ hiddenOn: [], state: "active" });
   expect(stateOf(x, at({ retired }))).toMatchObject({
     by: "obs_000000000002",
@@ -272,7 +276,7 @@ test("a retirement stands only while its replacement is current; the first one r
 test("a claim he rated false is hidden as wrong until an undo or a later answer takes it back", () => {
   const at = "2026-10-19T08:00:00Z";
   const rate = (claim: string, answer: Rating["answer"]) =>
-    ({ answer, at, claim, schemaVersion: 1 }) as Rating;
+    ({ answer, at, ref: claim, schemaVersion: 1 }) as Rating;
   const wrong = ratedFalse(
     latestRatings([
       rate("obs_a", "false"),
@@ -291,13 +295,18 @@ test("a claim he rated false is hidden as wrong until an undo or a later answer 
 
 test("a claim he rated outdated is retired by itself, as history, not wrong; an undo lifts it, extraction's retirement wins", () => {
   const rate = (claim: string, answer: Rating["answer"]) =>
-    ({ answer, at: "2026-10-19T08:00:00Z", claim, schemaVersion: 1 }) as Rating;
-  const x = obs("obs_a", "u_1", "h1");
+    ({
+      answer,
+      at: "2026-10-19T08:00:00Z",
+      ref: claim,
+      schemaVersion: 1,
+    }) as Rating;
+  const x = obs("obs_a", "unit_1", "h1");
   const standing = (ratings: Rating[], first: Supersession[] = []) =>
     ({
       corrections: [],
       latest: new Map(),
-      live: new Set(["u_1"]),
+      live: new Set(["unit_1"]),
       retired: retiredBy(
         [...first, ...ratedOutdated(latestRatings(ratings))],
         new Set(["obs_a", "obs_b"])

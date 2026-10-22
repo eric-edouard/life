@@ -49,7 +49,7 @@ flowchart LR
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees
   it.
 - **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
-  writes a verdict per unit (type, salience, area) and what happened or is planned. The same call says who the day's
+  writes a verdict per unit (type, importance, area) and what happened or is planned. The same call says who the day's
   unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later).
 - **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step

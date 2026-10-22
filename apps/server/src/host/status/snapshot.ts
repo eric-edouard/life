@@ -156,7 +156,7 @@ async function rated() {
     readStatements(),
     readRatings(),
   ]);
-  const left = statements.filter((s) => !ratings.get(s.claim)).length;
+  const left = statements.filter((s) => !ratings.get(s.ref)).length;
   return {
     left,
     ratings: statements.length - left,
@@ -952,7 +952,7 @@ function agentCards(r: Reads): Card[] {
       ],
       group: "outputs",
       headline: live ? "receiving asks" : "not receiving asks",
-      id: "agent",
+      id: "asks",
       name: agentName(),
     },
     {
@@ -1013,7 +1013,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!isOn("actions"), { tone: "idle", word: "off" }],
+        [!isOn("todo_list"), { tone: "idle", word: "off" }],
         [
           r.actionChecks.length > 0,
           {
@@ -1042,7 +1042,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: OUTPUTS.actions.label,
+      name: OUTPUTS.todo_list.label,
     },
     {
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),

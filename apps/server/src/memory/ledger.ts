@@ -55,7 +55,7 @@ export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
 export const REPOS_INFERRED = join(MEMORY, "repos-inferred.jsonl");
 export const IMPORTED = join(MEMORY, "imported.jsonl");
-export const LEDGER = join(MEMORY, "actions.jsonl");
+export const LEDGER = join(MEMORY, "ledger.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");
 const VERDICTS = join(MEMORY, "verdicts.jsonl");
 export const FILES = join(MEMORY, "files.jsonl");
@@ -156,7 +156,7 @@ export const retiredBy = (list: Retirement[], current: Set<string>) => {
 };
 
 /** The owner's answers on the check page: the latest for each claim (null: taken back). */
-export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.claim);
+export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.ref);
 
 export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
 
@@ -164,11 +164,11 @@ export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
 export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
   [...latest.values()]
     .filter((r) => r.answer === "false")
-    .map(({ at, claim }) => ({
+    .map(({ at, ref }) => ({
       at,
       kind: "wrong",
       note: "rated false",
-      observations: [claim],
+      observations: [ref],
       schemaVersion: 1,
     }));
 
@@ -178,13 +178,13 @@ export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
  * undo or a later answer lifts one.
  */
 export const ratedOutdated = (latest: Map<string, Rating>): Retirement[] =>
-  [...latest.values()].flatMap(({ answer, at, claim }) =>
+  [...latest.values()].flatMap(({ answer, at, ref }) =>
     answer === "outdated"
       ? [
           {
             at,
-            by: claim,
-            observation: claim,
+            by: ref,
+            observation: ref,
             schemaVersion: 1,
             validTo: at.slice(0, 10), // his answer's UTC day (a local day needs zones.ts, which imports this file)
             why: "rated outdated",
@@ -322,13 +322,13 @@ export const readStatements = () => rowsOf(STATEMENTS, Statement);
 export function ratedFacts() {
   const ratings = readRatings();
   return readStatements().flatMap((s) => {
-    const answer = ratings.get(s.claim)?.answer;
+    const answer = ratings.get(s.ref)?.answer;
     return answer && answer !== "skip"
       ? [
           {
             date: s.date,
             fact: s.text,
-            id: s.claim,
+            id: s.ref,
             outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
             true: answer !== "false",
             units: s.units,
@@ -339,9 +339,9 @@ export function ratedFacts() {
 }
 
 /** Appends the owner's answer to one statement's claim (the check page); null takes his last one back. */
-export const recordRating = (claim: string, answer: Rating["answer"]) =>
+export const recordRating = (ref: string, answer: Rating["answer"]) =>
   appendJsonl(RATINGS, Rating, [
-    { answer, at: clock().toISOString(), claim, schemaVersion: 1 },
+    { answer, at: clock().toISOString(), ref, schemaVersion: 1 },
   ]);
 
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);

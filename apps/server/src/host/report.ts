@@ -49,7 +49,7 @@ export interface Night {
   /** Yesterday's commits by project (repos.ts `codeRows`); empty when building them failed. */
   code: { name: string; relation: string }[];
   extracted: Result<typeof extract>;
-  /** The salience-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
+  /** The importance-3 page lines among `observed` not retired, each with its observation (`id`) and its home page's name (`page`). */
   facts: { id: string; page: string; text: string }[];
   /** The files the night read (`describeFiles`): its failed calls and missing tools never fail the night. */
   files: Result<typeof describeFiles>;
@@ -287,7 +287,7 @@ export function taskReport(
         (x) =>
           `${x.title}: you said “${x.ask.instruction.quote}” (asked ${time(x.ask.at)}, ${x.ask.id})`
       ),
-      "Each is a task in Life's `tasks` (memory/actions.jsonl).",
+      "Each is a task in Life's `tasks` (memory/ledger.jsonl).",
     ],
     preheader: why,
     stats: [{ label: "need you", value: String(list.length) }],
@@ -321,7 +321,7 @@ export const actFailedReport = (a: LedgerEntry) =>
     failure: { error: a.error ?? "", step: `${a.kind} ${a.target}` },
     notes: [
       `You said: “${a.instruction?.quote}”`,
-      `Do it by hand, after a look at what is already there. Details: derived/log, memory/actions.jsonl (${a.id})`,
+      `Do it by hand, after a look at what is already there. Details: derived/log, memory/ledger.jsonl (${a.id})`,
     ],
     preheader: `Could not ${a.kind} “${a.after.title ?? a.target}”: ${a.error}`,
     stats: [{ label: "at", value: time(a.at) }],

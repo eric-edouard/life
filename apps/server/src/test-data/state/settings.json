@@ -23,7 +23,7 @@
     "from": "alerts@life.example.test",
     "to": "owner@example.test"
   },
-  "actions": { "backend": "reminders" },
+  "todo_list": { "backend": "reminders" },
   "reports": ["alerts@agents.example.test"],
   "repos": "~/Work",
   "sources": [
@@ -35,7 +35,7 @@
     "notes",
     "claude",
     "chatgpt",
-    "atlas",
+    "agent",
     "git"
   ]
 }

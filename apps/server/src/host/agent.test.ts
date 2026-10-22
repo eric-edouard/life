@@ -30,15 +30,15 @@ import {
 
 const T0 = Date.parse("2026-10-19T10:00:00.000Z");
 const at = (min: number) => new Date(T0 + min * MIN).toISOString();
-const ASK = "act_00000000000a";
+const ASK = "entry_00000000000a";
 
 const asked = action({
   after: { confidence: "high" },
   at: at(0),
   id: ASK,
   kind: "ask",
-  madeBy: "watch",
   target: AGENT_WORD,
+  via: "watch",
 });
 const own = (
   kind: LedgerEntry["kind"],
@@ -49,11 +49,11 @@ const own = (
   action({
     after,
     at: at(min),
-    id: `act_${String(min).padStart(12, "0")}`,
+    id: `entry_${String(min).padStart(12, "0")}`,
     instruction: undefined,
     kind,
-    madeBy: kind === "update" ? "connector" : "watch",
     target: of,
+    via: kind === "update" ? "connector" : "watch",
   });
 /** A task from its lines. */
 const task = (lines: LedgerEntry[]): Task => {
@@ -69,7 +69,7 @@ test("the ledger as tasks: each ask gets its own lines in order, old nudges and 
     asked,
     action({}),
     own("update", 5, { note: "on it", state: "working" }),
-    own("nudge", 6, { why: "x" }, "act_00000000000f"),
+    own("nudge", 6, { why: "x" }, "entry_00000000000f"),
     own("nudge", 40, { why: "y" }),
     own("steer", 41, { changes: {}, note: "" }),
   ].map((a) => JSON.stringify(a));
@@ -197,13 +197,13 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
   // A task Orbit made from his chat is chased too.
   const chat = action({
     ...asked,
-    id: "act_00000000000b",
-    madeBy: "connector",
+    id: "entry_00000000000b",
+    via: "connector",
   });
   const both = tasksOf([asked, chat].map((a) => JSON.stringify(a)));
   expect(
     alerts(both, T0 + 31 * MIN, true).map((x) => ("t" in x ? x.t.ask.id : ""))
-  ).toEqual([ASK, "act_00000000000b"]);
+  ).toEqual([ASK, "entry_00000000000b"]);
   // The key changes with Orbit's last update: silent again after one is a new email; the same silence is not.
   const key = (t: Task, m: number) => alerts([t], T0 + m * MIN, true)[0]?.key;
   expect(key(working, 61)).toBe(key(working, 120));
@@ -243,9 +243,9 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
       })
     );
   const tasks = tasksOf([
-    spoken("act_0000000c4a5e", 0, "hey Orbit, book the table"),
-    spoken("act_0000000c4a5f", 0, "hey Orbit, call the bank"),
-    spoken("act_0000000c4a60", 20, "hey Orbit, water the plant"),
+    spoken("entry_0000000c4a5e", 0, "hey Orbit, book the table"),
+    spoken("entry_0000000c4a5f", 0, "hey Orbit, call the bank"),
+    spoken("entry_0000000c4a60", 20, "hey Orbit, water the plant"),
   ]);
   const late = "(not claimed 30 min after the ask)";
   try {
@@ -259,7 +259,7 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
     // One `email.sent` line per key, so each cause is remembered on its own.
     const keys = (await recentEvents<{ key: string }>(1, "email.sent"))
       .map((e) => e.key)
-      .filter((k) => k.includes("act_0000000c4a"));
+      .filter((k) => k.includes("entry_0000000c4a"));
     expect(keys).toHaveLength(3);
     // No live subscription: one email for all the open tasks, once a day.
     await chase(tasks, T0 + 52 * MIN, false);
@@ -363,7 +363,7 @@ test("his words in a chat make a task, claimed at once, once per message and par
   expect(made).toMatchObject({
     after: { confidence: "high", title: "dentist" },
     instruction: { at: at(-5), quote: chat.said, ref: `connector:${at(-5)}` },
-    madeBy: "connector",
+    via: "connector",
   });
   expect(claim).toMatchObject({ after: { claim: true }, target: made?.id });
   expect(answer).toBe(`${made?.id}: working`);
@@ -423,7 +423,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
   const part = action({
     after: { confidence: "high", parent: ASK, title: "a part" },
     at: at(1),
-    id: "act_00000000000b",
+    id: "entry_00000000000b",
     kind: "ask",
     target: AGENT_WORD,
   });
@@ -469,7 +469,7 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
       `${ASK}: reply logged`
     );
     reply({ text: "Hello." }, T0 + 2 * MIN);
-    expect(() => reply({ task: "act_nope00000000", text: "x" })).toThrow(
+    expect(() => reply({ task: "entry_nope00000000", text: "x" })).toThrow(
       "no task"
     );
     const [t] = tasksOf();
@@ -481,8 +481,8 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
     ).toMatchObject({
       after: { text: "Hello." },
       kind: "reply",
-      madeBy: "connector",
       target: "chat",
+      via: "connector",
     });
   } finally {
     rmSync(LEDGER, { force: true });

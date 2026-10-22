@@ -170,7 +170,9 @@ test("one fact, one page: a person who has a page owns what is only about them, 
   // About Jean alone: what he is like is his, wherever it was filed; other news stays in its area.
   expect(home(["person:me"], "relationships", "preference")).toBe("person:me");
   // Filed with no one at all, it is not known to be about him.
-  expect(home([], "relationships", "person")).toBe("area:relationships");
+  expect(home([], "relationships", "about_a_person")).toBe(
+    "area:relationships"
+  );
   expect(home(["person:me"], "money-admin")).toBe("area:money-admin");
   // Nothing else claims it: his own life.
   expect(home(["person:me"])).toBe("person:me");
@@ -186,7 +188,9 @@ test("one fact, one page: a person who has a page owns what is only about them, 
   expect(about("person:stranger", ["person:stranger"])).toBe("area:shop");
   // A project still wins, and a name Life could not map is never him.
   expect(home(["project:house"], null, "preference")).toBe("area:construction");
-  expect(home(["person:me"], "friends", "person", true)).toBe("area:friends");
+  expect(home(["person:me"], "friends", "about_a_person", true)).toBe(
+    "area:friends"
+  );
   expect(home(["person:me"], null, "news", true)).toBeNull();
 });
 
@@ -196,7 +200,7 @@ test("placed: the pages and the email file a page line by its home; a conditiona
       area: null,
       entities,
       id,
-      salience: 3,
+      importance: 3,
       type: "news",
       unmapped: false,
       ...over,
@@ -205,7 +209,7 @@ test("placed: the pages and the email file a page line by its home; a conditiona
     [
       line("hans", ["person:hans"]),
       line("joke", ["person:hans"], { modality: "conditional" }),
-      line("minor", ["person:hans"], { salience: 1 }),
+      line("minor", ["person:hans"], { importance: 1 }),
       line("nowhere", ["person:stranger"]),
     ],
     { projects: [] } as never,

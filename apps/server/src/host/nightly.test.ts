@@ -24,7 +24,7 @@ test("each marked unit is listed once read since the last night, with the observ
   const u = unit({ marked: ["j:1@a", "j:2@a"] });
   const built = [
     { messages: [], text: "", unit: u },
-    { messages: [], text: "", unit: unit({ id: "u_000000000002" }) },
+    { messages: [], text: "", unit: unit({ id: "unit_000000000002" }) },
   ];
   const read = (at: string, id = u.id, unitHash = u.hash) =>
     ({ at, unit: id, unitHash }) as Extracted;
@@ -36,7 +36,7 @@ test("each marked unit is listed once read since the last night, with the observ
   const since = "2026-10-10T02:00:00.000Z";
   const after = latest(
     read("2026-10-10T13:00:00.000Z"),
-    read("2026-10-10T13:00:00.000Z", "u_000000000002")
+    read("2026-10-10T13:00:00.000Z", "unit_000000000002")
   );
   expect(
     markedSince(built, after, since, [held]).map((m) => m.relation)

@@ -9,10 +9,10 @@ import { ObservationId } from "./observation";
 export const Statement = z
   .object({
     at: isoDateTime,
-    claim: z.union([ObservationId, MomentId]),
     date: isoDate,
     group: z.union([EntityRef, z.literal("events")]),
     kind: z.enum(["fact", "plan", "reported", "moment"]),
+    ref: z.union([ObservationId, MomentId]),
     schemaVersion: z.literal(1),
     source: SourceName.nullable(),
     text: z.string().min(1),
@@ -27,7 +27,7 @@ export const Rating = z
   .object({
     answer: z.enum(["true", "false", "outdated", "skip"]).nullable(),
     at: isoDateTime,
-    claim: z.union([ObservationId, MomentId]),
+    ref: z.union([ObservationId, MomentId]),
     schemaVersion: z.literal(1),
   })
   .strict();

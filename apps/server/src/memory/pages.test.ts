@@ -11,7 +11,7 @@ test("pages no target claims are deleted, the others stay", async () => {
   await mkdir(join(dir, "people"));
   await mkdir(join(dir, "areas"));
   await Promise.all(
-    ["people/zoe.md", "people/inf-anais.md", "areas/shop.md"].map((f) =>
+    ["people/zoe.md", "people/inf_anais.md", "areas/shop.md"].map((f) =>
       Bun.write(join(dir, f), "x")
     )
   );
@@ -21,7 +21,7 @@ test("pages no target claims are deleted, the others stay", async () => {
   ]);
   // Read before they go, so his edits on them can be kept.
   expect(await removeOrphans(dir, keep)).toEqual([
-    { path: join(dir, "people/inf-anais.md"), text: "x" },
+    { path: join(dir, "people/inf_anais.md"), text: "x" },
   ]);
   expect(await readdir(join(dir, "people"))).toEqual(["zoe.md"]);
   expect(await readdir(join(dir, "areas"))).toEqual(["shop.md"]);

@@ -47,7 +47,7 @@ async function tick(now = clock().getTime()) {
 
 async function pass(now: number) {
   await chase(tasksOf(), now);
-  if (!isOn("actions")) {
+  if (!isOn("todo_list")) {
     return;
   }
   // The actions backend both ways (apps/server/src/todo-list): one read, his changes recorded as state, then the board brought in line. `at`
@@ -202,7 +202,7 @@ async function syncUnits(store: Store, cursor: string) {
 function sayActions() {
   checks().then((problems) =>
     console.log(
-      `${clock().toISOString()} actions: ${isOn("actions") ? problems.join("; ") || "ready" : "off"}`
+      `${clock().toISOString()} actions: ${isOn("todo_list") ? problems.join("; ") || "ready" : "off"}`
     )
   );
 }

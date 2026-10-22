@@ -29,7 +29,7 @@ The user message is one JSON object:
   Empty for a new page.
 - `observations`: the new observations to work in (newest first). Each has `id`, `date` (when it was said), `type`,
   `when` (a date it carries, or null), `text` (the claim), `quote` (the source's own words), `who` (who said it),
-  `in` (the chat, mail subject or conversation chapter it came from), `confidence` (0-1) and `salience` (2 worth a
+  `in` (the chat, mail subject or conversation chapter it came from), `confidence` (0-1) and `importance` (2 worth a
   line; 3 the owner must act or not forget).
 - `cited`: observations that `changed` lines cite, in the same shape, for rewriting them.
 - `owner`: lines the owner wrote or kept on the page. They stay exactly as he wrote them; code puts them back. Do not

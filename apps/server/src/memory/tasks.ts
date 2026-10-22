@@ -4,7 +4,7 @@ import { settings } from "../core/settings";
 import { lastUpdate, type Task } from "./ledger";
 import { clip } from "./units";
 
-// The agent's tasks as the ledger holds them (memory/actions.jsonl): how an ask is told from his words ("hey <agent>"),
+// The agent's tasks as the ledger holds them (memory/ledger.jsonl): how an ask is told from his words ("hey <agent>"),
 // its name, the updates the agent may write, and where each task stands. host/agent.ts writes them and chases.
 
 const SPACES = /\s+/;

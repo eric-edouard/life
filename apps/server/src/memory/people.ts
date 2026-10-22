@@ -27,7 +27,7 @@ const Said = z.object({
   relation: z.string().min(1).max(160),
 });
 
-/** An id no other inferred person has: `inf-` and the name as a slug, with a short suffix from the key when taken. */
+/** An id no other inferred person has: `inf_` and the name as a slug, with a short suffix from the key when taken. */
 export function inferredId(name: string, key: string, taken: Set<string>) {
   const base = `${INFERRED_PREFIX}${slugOf(name).slice(0, ID_MAX).replace(TRAILING_DASH, "") || "person"}`;
   const id = taken.has(base) ? `${base}-${digest("sha1", key, SUFFIX)}` : base;

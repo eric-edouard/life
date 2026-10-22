@@ -38,7 +38,7 @@ const snap = (live: TodoItem[], over: Partial<Snapshot> = {}): Snapshot => ({
 /** Life's add of reminder 12 (its answer came back), then the first pass's baseline. */
 const added = action({
   after: { id: 12, link: "AAAA-1", list: "Home", title: "Call the plumber" },
-  id: "act_00000000add1",
+  id: "entry_00000000add1",
 });
 const base = [added, ...inbound(snap([rem()]), [added], AT)];
 /** One `act` write: its intent first, then its outcome (none when the answer was lost). */
@@ -49,7 +49,7 @@ const wrote = (
 ) => {
   const line = action({
     after,
-    id: "act_0000000ed001",
+    id: "entry_0000000ed001",
     kind: "edit",
     result: "intent",
     ...over,
@@ -66,7 +66,7 @@ test("the first pass imports a baseline and reports nothing as his, even what ch
   expect(lines.map((l) => l.kind)).toEqual(["import"]);
   expect(lines[0]).toMatchObject({
     after: { link: "AAAA-1", title: "Call the plumber today" },
-    madeBy: "reminders",
+    via: "reminders",
   });
   expect(base.at(-1)?.kind).toBe("import");
 });
@@ -86,7 +86,7 @@ test("#69 forged steer: Life's own due time and subtasks read back the next pass
     dueDate: "2026-10-22T09:00:00",
     id: "40",
     list: "Orbit",
-    notes: "act_00000000000a\nhis words",
+    notes: "entry_00000000000a\nhis words",
   });
   expect(marks(snap([], { board: [receipt] })).size).toBe(0);
 });
@@ -156,7 +156,7 @@ test("his tick, edit, priority and urgent flag come back as one line of his, nam
       { completed: true, priority: "high", title: "Call him", urgent: true },
     ],
   ]);
-  expect(lines.every((l) => !l.instruction && l.madeBy === "reminders")).toBe(
+  expect(lines.every((l) => !l.instruction && l.via === "reminders")).toBe(
     true
   );
   expect(inbound(snap([now]), [...base, ...lines], AT)).toEqual([]);
@@ -197,8 +197,8 @@ test("no authority: his new reminder that reads like an order is one item of his
   expect(lines).toHaveLength(1);
   expect(lines[0]).toMatchObject({
     kind: "add",
-    madeBy: "reminders",
     target: "reminder:30",
+    via: "reminders",
   });
   expect(lines[0]?.instruction).toBeUndefined();
   expect(tasksOf([...base, ...lines].map((l) => JSON.stringify(l)))).toEqual(
@@ -207,7 +207,7 @@ test("no authority: his new reminder that reads like an order is one item of his
   // Life's own add whose answer was lost is Life's: imported, not his.
   const lostAdd = action({
     after: { title: order.title },
-    id: "act_0000000lost1",
+    id: "entry_0000000lost1",
     result: "intent",
     target: "reminder:new",
   });
@@ -220,26 +220,30 @@ test("the standing grant switches off when he deletes one of its reminders by ha
   const on = action({
     after: { on: true },
     at: "2026-10-21T08:00:00.000Z",
-    id: "act_0000000grant",
+    id: "entry_0000000grant",
     kind: "grant",
     target: "grant",
   });
   const granted = action({
     after: { id: 12, link: "AAAA-1", list: "Home", title: "Call the plumber" },
     at: "2026-10-21T09:00:00.000Z",
-    id: "act_00000000add1",
+    id: "entry_00000000add1",
     instruction: {
       at: AT,
       quote: "I must call the plumber",
       ref: "obs_0123456789abcdef",
     },
-    madeBy: "connector",
+    via: "connector",
   });
   const ledger = [on, granted, ...inbound(snap([rem()]), [on, granted], AT)];
   const g = {
     mine: true,
     now: AT,
-    o: { salience: 3, source: { channel: "lifelog" }, type: "todo" } as never,
+    o: {
+      importance: 3,
+      source: { channel: "lifelog" },
+      type: "to_do",
+    } as never,
     state: "active",
   };
   expect(grantRefusal({ ...g, actions: ledger })).toBeUndefined();
@@ -252,7 +256,7 @@ test("the standing grant switches off when he deletes one of its reminders by ha
 test("his tick or removal of an open task's receipt closes the task; a closed task's is Life's own tick", () => {
   const ask = action({
     after: { confidence: "high" },
-    id: "act_00000000000a",
+    id: "entry_00000000000a",
     kind: "ask",
     target: AGENT_WORD,
   });
@@ -261,11 +265,11 @@ test("his tick or removal of an open task's receipt closes the task; a closed ta
     completed: true,
     id: "40",
     list: "Orbit",
-    notes: "act_00000000000a\nhis words",
+    notes: "entry_00000000000a\nhis words",
   });
   const ticked = closings(tasks, marks(snap([], { board: [receipt] })), AT);
   expect(ticked).toMatchObject([
-    { after: { state: "done" }, madeBy: "reminders", target: ask.id },
+    { after: { state: "done" }, target: ask.id, via: "reminders" },
   ]);
   const closedTasks = tasksOf([ask, ...ticked].map((l) => JSON.stringify(l)));
   expect(
@@ -292,7 +296,7 @@ test("the first pass also baselines what is already gone, so the second reports 
   const removed = {
     ...added,
     after: { id: 13, link: "BBBB-2", title: "Old one" },
-    id: "act_00000000add2",
+    id: "entry_00000000add2",
     target: "reminder:13",
   };
   const ledger = [added, removed];
@@ -319,7 +323,7 @@ test("a lost add's title is Life's only until imported: a later reminder of his 
   const order = rem({ deepLink: `${LINK}C`, id: "31", title: "Buy bread" });
   const lostAdd = action({
     after: { title: "Buy bread" },
-    id: "act_0000000lost2",
+    id: "entry_0000000lost2",
     result: "intent",
     target: "reminder:new",
   });
@@ -360,12 +364,12 @@ test("a partial write (a step failed after a move) settles nothing: what Reminde
 test("a restore into another list is Life's move, not his", () => {
   const out = action({
     after: { deleted: true },
-    id: "act_00000000rem1",
+    id: "entry_00000000rem1",
     kind: "remove",
   });
   const back = action({
     after: { deleted: false, list: "Work" },
-    id: "act_0000000rest1",
+    id: "entry_0000000rest1",
     kind: "restore",
   });
   expect(
@@ -382,7 +386,7 @@ test("an add that lands during the read, before its answer is recorded, waits fo
   const intent = action({
     after: { title: "Book the dentist" },
     at: "2026-10-21T11:59:58.000Z",
-    id: "act_0000000race1",
+    id: "entry_0000000race1",
     result: "intent",
     target: "reminder:new",
   });

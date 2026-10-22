@@ -63,7 +63,7 @@ const QUERY_CONTEXT = 1;
 const MAIL_MAX = 200;
 /** Mail is the longest per hit: its section stops at this, `fetch <unit>` reads a thread whole. */
 export const MAIL_HITS = 5;
-const UNIT_ID = /^u_[0-9a-f]{12}$/;
+const UNIT_ID = /^unit_[0-9a-f]{12}$/;
 
 const FETCHES = 8;
 

@@ -167,12 +167,12 @@ test("an answer must come from Life's own page and name a statement; a false hid
     (
       await post("https://evil.example", {
         answer: "false",
-        claim: "obs_000000000000",
+        ref: "obs_000000000000",
       })
     ).status
   ).toBe(400);
   expect(
-    (await post(ORIGIN, { answer: "false", claim: "obs_000000000000" })).status
+    (await post(ORIGIN, { answer: "false", ref: "obs_000000000000" })).status
   ).toBe(400);
   // The made-up statement (apps/server/src/test-data): saved, and hidden as wrong until he takes it back.
   const claim = "obs_00000000000a";
@@ -180,17 +180,21 @@ test("an answer must come from Life's own page and name a statement; a false hid
     (await readCorrections()).some(
       (c) => c.kind === "wrong" && c.observations.includes(claim)
     );
-  expect((await post(ORIGIN, { answer: "false", claim })).status).toBe(204);
+  expect((await post(ORIGIN, { answer: "false", ref: claim })).status).toBe(
+    204
+  );
   expect(await wrong()).toBe(true);
-  expect((await post(ORIGIN, { answer: null, claim })).status).toBe(204);
+  expect((await post(ORIGIN, { answer: null, ref: claim })).status).toBe(204);
   expect(await wrong()).toBe(false);
   // Outdated: closed as history (a retirement, ledger.test.ts), not wrong.
   const closed = () =>
     ratedOutdated(readRatings()).find((r) => r.observation === claim)?.why ??
     null;
-  expect((await post(ORIGIN, { answer: "outdated", claim })).status).toBe(204);
+  expect((await post(ORIGIN, { answer: "outdated", ref: claim })).status).toBe(
+    204
+  );
   expect([await wrong(), closed()]).toEqual([false, "rated outdated"]);
-  expect((await post(ORIGIN, { answer: null, claim })).status).toBe(204);
+  expect((await post(ORIGIN, { answer: null, ref: claim })).status).toBe(204);
   expect(closed()).toBe(null);
   const feed = await changeFeed({ types: ["rating"] });
   expect(feed.items.map((i) => i.type)).toEqual([

@@ -249,9 +249,9 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
   // A written page waits: judged with nothing counted.
   expect(
     dueFor(
-      [{ ref: "person:inf-x", t: t(0) }],
+      [{ ref: "person:inf_x", t: t(0) }],
       new Map(),
-      new Set(["person:inf-x"])
+      new Set(["person:inf_x"])
     )
   ).toHaveLength(1);
   // Nothing counted: no first or last day, not today.
@@ -291,11 +291,11 @@ test("a closeness correction names a personal or a work level", () => {
 });
 
 test("a written page stays until its person is judged: no closeness ledger deletes no page", async () => {
-  const path = pagePath("person:inf-new");
+  const path = pagePath("person:inf_new");
   await mkdir(dirname(path), { recursive: true });
   await Bun.write(path, "# New\n");
   try {
-    expect(await pagedNow({ people: [] })).toContain("person:inf-new");
+    expect(await pagedNow({ people: [] })).toContain("person:inf_new");
   } finally {
     await rm(path);
   }

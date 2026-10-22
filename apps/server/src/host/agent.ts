@@ -26,12 +26,12 @@ import { entryId, requested } from "./act";
 import { agentLive } from "./events";
 import { lapseReport, sendReport, taskReport, unsent } from "./report";
 
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
+// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/ledger.jsonl until the agent closes it
 // done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** The protocol's Reminders parts (`<!-- reminders -->…<!-- /reminders -->`): the markers always go, the parts too while the plugin is off. */
 const REMINDERS_PART = /<!-- reminders -->([\s\S]*?)<!-- \/reminders -->/g;
-export const protocol = (text: string, reminders = isOn("actions")) =>
+export const protocol = (text: string, reminders = isOn("todo_list")) =>
   text
     .replace(REMINDERS_PART, (_, part: string) => (reminders ? part : ""))
     .replaceAll("{agent}", agentName());
@@ -58,7 +58,7 @@ export const sealed = (now = clock().getTime(), text = playbook()) => ({
 const askLine = (
   instruction: Instruction,
   after: LedgerEntry["after"],
-  madeBy: "connector" | "session" | "watch",
+  via: "connector" | "session" | "watch",
   why: string,
   now = clock().getTime(),
   timing?: LedgerEntry["timing"]
@@ -75,10 +75,10 @@ const askLine = (
     // Clipped so its event stays far under the 256 KiB a webhook may carry; the agent fetches the rest.
     instruction: { ...instruction, quote: clip(instruction.quote, 50_000) },
     kind: "ask",
-    madeBy,
     result: "ok",
     schemaVersion: 1,
     target: AGENT_WORD,
+    via,
     ...(timing ? { timing } : {}),
     why,
   }) satisfies LedgerEntry;
@@ -101,8 +101,8 @@ const taskLine = (
   now: number,
   salt = "",
   // The agent, through the connector; or his own tick or removal of the receipt (`closings`).
-  by: Pick<LedgerEntry, "madeBy" | "why"> = {
-    madeBy: "connector",
+  by: Pick<LedgerEntry, "via" | "why"> = {
+    via: "connector",
     why: agentName(),
   }
 ): LedgerEntry => ({
@@ -145,7 +145,6 @@ export async function timings(
       const updates = lines.filter((l) => l.kind === "update");
       return {
         id: a.id,
-        madeBy: a.madeBy,
         // In order (an array: the formatter sorts object keys).
         moments: [
           ["spoke", a.instruction.at],
@@ -154,16 +153,14 @@ export async function timings(
           ["recorded", a.at],
           ["delivered", sent.get(a.id) ?? null],
           // The agent's first update; one Life wrote from his tick in Reminders is no claim.
-          [
-            "claimed",
-            updates.find((u) => u.madeBy !== "reminders")?.at ?? null,
-          ],
+          ["claimed", updates.find((u) => u.via !== "reminders")?.at ?? null],
           [
             "closed",
             updates.find((u) => closed(u.after.state as TaskState))?.at ?? null,
           ],
         ] as [string, string | null][],
         quote: a.instruction.quote,
+        via: a.via,
       };
     });
 }
@@ -459,7 +456,7 @@ export const closings = (
       mark === "ticked"
         ? { outcome: "he ticked its receipt in Reminders", state: "done" }
         : { reason: "he removed its receipt in Reminders", state: "dropped" };
-    const by = { madeBy: "reminders", why: "his change in Reminders" } as const;
+    const by = { via: "reminders", why: "his change in Reminders" } as const;
     return mark && !closed(standing(t).state)
       ? [taskLine("update", t.ask.id, after, Date.parse(at), "reminders", by)]
       : [];

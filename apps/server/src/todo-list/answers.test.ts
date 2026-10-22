@@ -61,8 +61,8 @@ test("on Google the board's list is made on first need, once; another missing li
     }
     return Promise.resolve(args[0] === "add" ? gog.add : {});
   });
-  const first = await b.add({ list: BOARD, notes: "act_1", title: "A task" });
-  await b.add({ list: BOARD, notes: "act_2", title: "Another" });
+  const first = await b.add({ list: BOARD, notes: "entry_1", title: "A task" });
+  await b.add({ list: BOARD, notes: "entry_2", title: "Another" });
   expect(first.id).toBe(`${gog.create.tasklist.id}/${gog.add.task.id}`);
   expect(calls.filter((c) => c[1] === "create")).toEqual([
     ["lists", "create", BOARD],

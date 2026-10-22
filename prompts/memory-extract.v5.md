@@ -51,11 +51,11 @@ Only what the owner would want to find again, one claim per observation, of one 
 
 | type | what |
 |---|---|
-| todo | a task the owner has to do (pay, fix, call, check, book) |
+| to_do | a task the owner has to do (pay, fix, call, check, book) |
 | promise | The owner told someone he would do something |
-| waiting | someone owes the owner something (an answer, a document, a payment, a delivery) |
+| waiting_on_someone | someone owes the owner something (an answer, a document, a payment, a delivery) |
 | decision | something the owner or his people settled |
-| person | about someone in his life: who they are, how they're doing, their plans, gift ideas; or between him and them: how things are, what they agreed, a boundary, a turning point |
+| about_a_person | about someone in his life: who they are, how they're doing, their plans, gift ideas; or between him and them: how things are, what they agreed, a boundary, a turning point |
 | preference | what someone likes or dislikes, the owner included |
 | idea | an idea the owner had or was given (for his apps, his shop, his life) |
 | news | something changed in one of his areas: status, problem, progress, numbers, money in or out |
@@ -67,10 +67,10 @@ that person's name, never written as the truth about the other. No psychology, d
 state ("avoidant", "insecure", "because she is jealous"). Everyday logistics with them are not observations. When the
 lines show a newer state, list the older one from `prior` in `replaces`.
 
-How the owner himself types things (from his labels): a supplier out of stock until the printer delivers is waiting
-(Shop); a broken shop window to replace is todo (Shop); the owner explaining the builder dispute to his father is decision
+How the owner himself types things (from his labels): a supplier out of stock until the printer delivers is waiting_on_someone
+(Shop); a broken shop window to replace is to_do (Shop); the owner explaining the builder dispute to his father is decision
 (Construction); a flight booked for his trip is decision (France trip); where Anne-Sophie sleeps during her stay, or her
-health, is person (Relationships); the builder's team asking him a question he must answer is waiting
+health, is about_a_person (Relationships); the builder's team asking him a question he must answer is waiting_on_someone
 (Construction); paid-bill receipts, missed calls and newsletters are not observations at all.
 
 Skip small talk, greetings, logistics that are already over ("I'm here", "ok"), ads, counter talk with customers, TV
@@ -85,7 +85,7 @@ beliefs: leave them out, or write them as what they are, with `modality`.
 
 **Outcomes.** When the lines show how an open thing ended (asked and answered, sent, received, done, happened,
 cancelled), write what happened as a fact, never the open state the same lines settle ("waiting for", "needs to", a
-plan). Write a todo, promise, waiting or plan only when nothing in the moment settles it. A settled arrangement and
+plan). Write a to_do, promise, waiting_on_someone or plan only when nothing in the moment settles it. A settled arrangement and
 its details (a booked flight and its time, an address, a price) is not an open thing: write it even when it then
 happened.
 
@@ -115,7 +115,7 @@ happened.
   date), as `YYYY-MM-DD`, or null. Resolve "tomorrow", "next Tuesday", "the 22nd" against the date of the line that
   says it. When no line says which day, null: never take it from the moment header.
 - `area`: the `id` of the one area in `areas` the claim belongs to, or null when none fits.
-- `salience`: 1 keep searchable only; 2 worth a line on a person's or area's page in a month; 3 the owner must act or
+- `importance`: 1 keep searchable only; 2 worth a line on a person's or area's page in a month; 3 the owner must act or
   must not forget (an open to-do, promise or deadline, money or health with consequences, legal or official
   matters). Most observations are 1 or 2; 3 is rare: a promise already kept or a trip already done is not 3. What is
   between the owner and someone `close` (an agreement, a boundary, a turning point) is 2 at least.
@@ -136,4 +136,4 @@ happened.
 
 Reply with ONLY one JSON object, no prose, no code fence:
 
-{"observations":[{"unit":"u_…","about":"person:me","modality":"fact","text":"…","quote":"…","line":0,"type":"…","when":null,"area":null,"salience":2,"confidence":0.8,"validFrom":null,"validTo":null,"entities":["person:…"],"replaces":[]}]}
+{"observations":[{"unit":"unit_…","about":"person:me","modality":"fact","text":"…","quote":"…","line":0,"type":"…","when":null,"area":null,"importance":2,"confidence":0.8,"validFrom":null,"validTo":null,"entities":["person:…"],"replaces":[]}]}

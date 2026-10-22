@@ -35,12 +35,12 @@ const his = (
   after,
   at,
   before,
-  id: `act_${digest("sha1", `reminders:${id}|${kind}|${at}`, 12)}`,
+  id: `entry_${digest("sha1", `reminders:${id}|${kind}|${at}`, 12)}`,
   kind,
-  madeBy: "reminders",
   result: "ok",
   schemaVersion: 1,
   target: `${prefix}:${id}`,
+  via: "reminders",
   why: kind === "import" ? "linked, no change" : "his change in Reminders",
 });
 
