@@ -1,13 +1,9 @@
 import { z } from "zod";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
-import {
-  Closeness,
-  type Correction,
-  Level,
-  type MadeBy,
-  type SourceEvent,
-} from "../schema";
+import type { MadeBy } from "../records/fields";
+import { Closeness, type Correction, Level } from "../records/observations";
+import type { SourceEvent } from "../records/sources";
 import { isDirect, kindOf } from "../sources";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
 import { CLOSENESS, latestBy, readCorrections, writtenPeople } from "./ledger";

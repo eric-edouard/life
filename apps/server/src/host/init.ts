@@ -7,7 +7,7 @@ import { DATA } from "../core/paths";
 import { systemZone } from "../core/platform";
 import { git } from "../core/proc";
 import { integrity, loadTruth } from "../memory/truth";
-import { Zone } from "../schema";
+import { Zone } from "../records/units";
 
 // A new install's data: the smallest truth that validates (only the owner), his zone from now on, and the data repo
 // the nightly commits to. Everything else is learned from his sources; goals, people and projects come when he says.

@@ -1,11 +1,8 @@
 import { z } from "zod";
-import {
-  type MadeBy,
-  MemoryType,
-  Modality,
-  type Observation,
-  type Unit,
-} from "../schema";
+import type { MadeBy } from "../records/fields";
+import { Modality, type Observation } from "../records/observations";
+import type { Unit } from "../records/units";
+import { MemoryType } from "../records/units";
 import { kindOf } from "../sources";
 import { digest } from "./ledger";
 import { othersIn } from "./truth";

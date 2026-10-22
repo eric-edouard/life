@@ -10,7 +10,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 - The agent is the `agent` setting: name, wake words, misheard forms, client prefix, transport. Wherever Life names
   the agent, it writes that name; the word stored for it (the ledger's `target`, its source's name, its units' sender)
-  is one constant, `AGENT_WORD` (`schema.ts`), kept as first written because stored data is append-only.
+  is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (see `SECURITY.md`): an unattended run reads others' text with full
   access. Revisit it before any send goes out without the owner's yes on that send.

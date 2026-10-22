@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { Engine, SourceName } from "../schema";
+import { Engine, SourceName } from "./names";
 import { STATE } from "./paths";
 import { HOME } from "./platform";
 

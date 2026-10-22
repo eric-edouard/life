@@ -19,7 +19,8 @@ import { area, day, person, search } from "../../memory/search";
 import { closed, titleOf, Update } from "../../memory/tasks";
 import { loadMe } from "../../memory/truth";
 import { clip } from "../../memory/units";
-import { type Action, ObservationId } from "../../schema";
+import type { Action } from "../../records/ledger";
+import { ObservationId } from "../../records/observations";
 import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
 import { Asked, actAsked, actGranted, Granted } from "../act";
 import {

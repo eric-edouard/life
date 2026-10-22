@@ -24,7 +24,7 @@
       },
       {
         "name": "records",
-        "patterns": ["apps/server/src/schema.ts"]
+        "patterns": ["apps/server/src/records/**"]
       },
       {
         "name": "models",

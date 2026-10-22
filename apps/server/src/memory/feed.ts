@@ -4,18 +4,16 @@ import { clock } from "../core/clock";
 import { filesIn, linesOf } from "../core/files";
 import { DATA } from "../core/paths";
 import { git } from "../core/proc";
+import { Action, isBookkeeping, isTaskLine } from "../records/ledger";
 import {
-  Action,
   Correction,
   INFERRED_USE_AT,
   InferredPerson,
-  isBookkeeping,
-  isTaskLine,
   Observation,
   ObservationId,
-  Rating,
   Supersession,
-} from "../schema";
+} from "../records/observations";
+import { Rating } from "../records/statements";
 import { kindOf } from "../sources";
 import {
   ACTIONS,

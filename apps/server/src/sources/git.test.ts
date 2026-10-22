@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Person } from "../schema";
+import { Person } from "../records/truth";
 import { listRepos, parseLog, readGit } from "./git";
 
 const RS = "\x1e";

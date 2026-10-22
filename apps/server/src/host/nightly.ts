@@ -48,12 +48,8 @@ import {
 import { observationsNow, readPeople } from "../memory/who";
 import { dayStart, localDate, noteZone } from "../memory/zones";
 import { type Quota, quota } from "../models/llm";
-import {
-  type Action,
-  type Extracted,
-  isListed,
-  type Observation,
-} from "../schema";
+import { type Action, isListed } from "../records/ledger";
+import type { Extracted, Observation } from "../records/observations";
 import { keptStores } from "../sources/index";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";

@@ -11,21 +11,19 @@ import {
 } from "../actions/items";
 import { clock } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
+import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { agentName } from "../core/settings";
+import { type Action, isListed } from "../records/ledger";
+import type { Moment } from "../records/moments";
 import {
-  type Action,
   INFERRED_USE_AT,
-  isListed,
-  KEEP_AT,
   Level,
-  type Moment,
   type Observation,
-  type Person,
-  type SourceName,
-  type Unit,
-  type Verdict,
-} from "../schema";
+} from "../records/observations";
+import type { Person } from "../records/truth";
+import type { Unit, Verdict } from "../records/units";
+import { KEEP_AT } from "../records/units";
 import { kindOf, listening } from "../sources";
 import {
   conversationsWith,

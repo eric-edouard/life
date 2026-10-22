@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import type { FileEntry, SourceEvent, SourceFile } from "../schema";
+import type { SourceEvent, SourceFile } from "../records/sources";
+import type { FileEntry } from "../records/units";
 import { showFiles, triage } from "./files";
 import { digest } from "./ledger";
 import { locate } from "./observe";

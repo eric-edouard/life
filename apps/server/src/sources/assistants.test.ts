@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { appendJsonl } from "../core/files";
 import { IMPORTED, keptConversations } from "../memory/ledger";
 import { applyRules, messageUnits } from "../memory/units";
-import { Imported } from "../schema";
+import { Imported } from "../records/observations";
 import {
   FORMATS,
   formatOf,

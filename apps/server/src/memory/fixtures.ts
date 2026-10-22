@@ -1,4 +1,5 @@
-import type { Action, Unit, Verdict } from "../schema";
+import type { Action } from "../records/ledger";
+import type { Unit, Verdict } from "../records/units";
 import { type Verdicts, verdictKey } from "./ledger";
 
 // Records to test the memory steps and the actions with.

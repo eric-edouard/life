@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { AGENT_WORD } from "../core/names";
 import { STATE } from "../core/paths";
 import { APP_DATA, HOME, MACHINE, WINDOWS } from "../core/platform";
 import { expand } from "../core/settings";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
-import { AGENT_WORD, Unit } from "../schema";
+import { Unit } from "../records/units";
 import { enabledSources, readySources, SOURCES, sourceOf } from "../sources";
 import { ARCHIVE, archiveDb } from "./archived";
 import { BEEPER } from "./beeper";

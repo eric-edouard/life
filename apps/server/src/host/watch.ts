@@ -11,7 +11,7 @@ import { isLocked, locked } from "../memory/guard";
 import { ACTIONS, readActions, tasksOf } from "../memory/ledger";
 import { reindex } from "../memory/search";
 import { syncLifelogUnits } from "../memory/units";
-import { Action } from "../schema";
+import { Action } from "../records/ledger";
 import { listening } from "../sources/index";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { deliver } from "./events";

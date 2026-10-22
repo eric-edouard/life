@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { HOME } from "../core/platform";
-import { type SourceEvent, sourceFile } from "../schema";
+import { type SourceEvent, sourceFile } from "../records/sources";
 import { handleKey, readContacts } from "./contacts";
 import type { Newest } from "./contract";
 

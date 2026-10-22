@@ -1,12 +1,10 @@
 import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
+import { AGENT_WORD } from "../core/names";
 import { readSettings, setSettings } from "../core/settings";
-import {
-  AGENT_WORD,
-  type Person,
-  type SourceEvent,
-  type Unit,
-} from "../schema";
+import type { SourceEvent } from "../records/sources";
+import type { Person } from "../records/truth";
+import type { Unit } from "../records/units";
 import { SOURCES } from "../sources";
 import {
   chapter,

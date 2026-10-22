@@ -7,9 +7,9 @@ import type {
   Correction,
   Extracted,
   Observation,
-  Rating,
   Supersession,
-} from "../schema";
+} from "../records/observations";
+import type { Rating } from "../records/statements";
 import {
   isCurrent,
   latestExtractions,

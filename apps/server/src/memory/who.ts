@@ -3,10 +3,10 @@ import {
   INFERRED_USE_AT,
   type InferredPerson,
   type Observation,
-  type Person,
-  type Unit,
   type Unresolved,
-} from "../schema";
+} from "../records/observations";
+import type { Person } from "../records/truth";
+import type { Unit } from "../records/units";
 import { kindOf, sourceOf } from "../sources";
 import {
   readCorrections,

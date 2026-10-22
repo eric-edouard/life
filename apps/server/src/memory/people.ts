@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { INFERRED_PREFIX, type InferredPerson, type MadeBy } from "../schema";
+import type { MadeBy } from "../records/fields";
+import { INFERRED_PREFIX, type InferredPerson } from "../records/observations";
 import { kindOf } from "../sources";
 import { digest } from "./ledger";
 import { locate } from "./observe";

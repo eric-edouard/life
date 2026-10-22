@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { setSettings, settings } from "../core/settings";
-import type { SourceEvent } from "../schema";
+import type { SourceEvent } from "../records/sources";
 import { copyBeeper, readBeeper } from "../sources/beeper";
 import {
   beeperFixture,

@@ -6,13 +6,12 @@ import { DATA } from "../core/paths";
 import { git } from "../core/proc";
 import { stamp } from "../models/llm";
 import {
-  type Area,
   Correction,
   type InferredPerson,
   type Observation,
-  type Person,
-  type Unit,
-} from "../schema";
+} from "../records/observations";
+import type { Area, Person } from "../records/truth";
+import type { Unit } from "../records/units";
 import { levelsWith, pagedBy, personallyClose, waitingOf } from "./closeness";
 import {
   CORRECTIONS,

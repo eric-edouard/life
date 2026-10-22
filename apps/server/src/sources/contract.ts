@@ -1,4 +1,7 @@
-import type { Person, RepoGuess, SourceEvent, SourceName } from "../schema";
+import type { SourceName } from "../core/names";
+import type { RepoGuess } from "../records/observations";
+import type { SourceEvent } from "../records/sources";
+import type { Person } from "../records/truth";
 
 // The source contract: what Life knows about each source, in one descriptor. Each reader gives its parts; the registry
 // (`index.ts`) lists them. Code asks a source's kind or what it can do, never its name.

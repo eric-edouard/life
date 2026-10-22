@@ -28,11 +28,12 @@ Dependencies point one way, and `bun run check` enforces it with fallow's bounda
 check; zones are one config key, `boundaries` in `.fallowrc.json`), so the shape cannot erode, whichever agent writes the code:
 
 ```
-core  ←  models, sources, messaging, actions  ←  memory  ←  host (jobs, routes, CLI)  ←  apps
+core  ←  records  ←  models, sources, messaging, actions  ←  memory  ←  host (jobs, routes, CLI)  ←  apps
 ```
 
-- **core**: clock, paths and the platform, settings, process, lock, log, secrets, redaction, local time. No Life
-  concept above "a file" and "a time".
+- **core**: clock, paths and the platform, settings, process, lock, log, secrets, redaction, and Life's fixed names
+  the settings validate (`core/names.ts`: the engines, the sources, the agent's word): adding a source names it there.
+- **records**: every record Life writes, as zod schemas (`records/`, mirroring `docs/SCHEMA.md`).
 - **Capabilities**, each one contract plus its implementations, none importing another:
   - `models`: `PROVIDERS`, the call, the cache.
   - `sources`: the input descriptor and its readers; the Mac's stores (iMessage, Mail, Notes, Contacts, the WhatsApp
@@ -69,8 +70,9 @@ deploy/        compose.yaml, the DigitalOcean cloud-init, Coolify's notes
 prompts/ scripts/ docs/
 ```
 
-Inside `apps/server/src`, the layers are folders, and each folder is a fallow zone: `core/`, `models/`, `sources/`,
-`messaging/`, `actions/`, `memory/`, `host/`. Schemas move next to the module that owns each record; `schema.ts` goes.
+Inside `apps/server/src`, the layers are folders, and each folder is a fallow zone: `core/`, `records/`, `models/`,
+`sources/`, `messaging/`, `actions/`, `memory/`, `host/`. `schema.ts` becomes `records/`, split by the parts of
+`docs/SCHEMA.md`.
 
 **Why folders and not a package per layer.** A package earns its cost (its own `package.json`, tsconfig, build
 config and import name across 150 files) when a second app imports it. Today only `api` and `brand` have two
@@ -84,7 +86,7 @@ app's check and build.
 Each step is one PR that changes no behaviour, passes `bun run check`, and leaves no old path alive:
 
 1. **Zones and the rule** (#162). Fallow's boundary zones over today's folders (`boundaries` in `.fallowrc.json`), plus a
-   temporary `records` zone (`schema.ts`, `truth.ts`) that core may not import, so steps 2 and 5 show. `outputs.ts`
+   `records` zone (`schema.ts`, `truth.ts`) that core may not import, so steps 2 and 5 show. `outputs.ts`
    counts as core: it reads only the settings. Today's 61 violations (29 outside tests) sit in a baseline,
    `.fallow-baseline.json`, which the check reads: a new violation fails from the first PR, and each step below re-saves
    a smaller one (`scripts/baseline-check.ts` refuses a baseline that grows).
@@ -99,8 +101,12 @@ Each step is one PR that changes no behaviour, passes `bun run check`, and leave
    moves to `host/status/life.ts`; the agent's tasks as the ledger holds them (wake words, `Update`, `standing`) move
    to `memory/tasks.ts`, `host/tasks.ts` keeping the writes and chases; `isReviewCall` joins `core/log`, `actionLine`
    `actions/items.ts`; `llm.ts` is `models/llm.ts`. The memory imports nothing above it.
-5. **Schemas by owner.** `schema.ts` split into the modules that own each record; the `records` zone goes. `core/settings`
-   validates `SourceName` and `Engine`: they either stay in a schema core owns, or settings moves to the host.
+5. **The records** (#166). `schema.ts` becomes `records/`, one file per part of `docs/SCHEMA.md` (truth, ledger, sources,
+   units, moments, observations, statements, and the field shapes they share). The records stay a layer of their
+   own rather than moving into their users: the sources read records the memory also uses (people, projects, units,
+   the ledger), so moving them into the memory would point the sources up. Every layer but core may import them. The
+   names the settings validate (`Engine`, `Runner`, `SourceName`, `AGENT_WORD`) go to `core/names.ts`, so core imports
+   nothing above it.
 6. **No baseline.** The last violations go, and `.fallow-baseline.json` with them.
 7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
    and Turborepo through `create-better-t-stack add`.

@@ -1,16 +1,16 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { DATA } from "../core/paths";
+import { INFERRED_PREFIX } from "../records/observations";
 import {
   type Area,
   AreasFile,
   type Chat,
   ChatsFile,
-  INFERRED_PREFIX,
   PeopleFile,
   type Person,
   Project,
-} from "../schema";
+} from "../records/truth";
 
 const ME = "me";
 /** The owner's own entry in truth/people.yaml. */

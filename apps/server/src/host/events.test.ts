@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
+import { AGENT_WORD } from "../core/names";
 import { readSettings, type Settings, setSettings } from "../core/settings";
 import { action } from "../memory/fixtures";
-import { AGENT_WORD } from "../schema";
 import {
   agentLive,
   nextEvent,

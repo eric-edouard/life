@@ -17,6 +17,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { FROZEN } from "server/src/core/clock";
 import { linesOf } from "server/src/core/files";
 import { recentEvents } from "server/src/core/log";
+import { Engine } from "server/src/core/names";
 import { DATA, ROOT, STATE } from "server/src/core/paths";
 import { exec, git, gitOut } from "server/src/core/proc";
 import { nextEvent } from "server/src/host/events";
@@ -27,7 +28,6 @@ import { ended, metered } from "server/src/memory/run";
 import { judge, tally } from "server/src/memory/tally";
 import { localDate, zoneAt } from "server/src/memory/zones";
 import { askOnce, llmFor } from "server/src/models/llm";
-import { Engine } from "server/src/schema";
 import { z } from "zod";
 import { checkout } from "./bench";
 
