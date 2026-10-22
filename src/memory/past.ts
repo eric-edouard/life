@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { clock, unfrozen } from "../clock";
 import { log } from "../log";
+import { isOn } from "../outputs";
 import { execOk } from "../proc";
 import { redact } from "../redact";
 import type { Moment, Unit } from "../schema";
@@ -375,16 +376,13 @@ function appleCalendar(calendar: string, tool: string) {
 /** Brings the calendar in line with the moments; null when it is not set up. */
 export async function syncPast(now = clock()) {
   const { past } = settings();
-  if (!past) {
+  if (!(past && isOn("past"))) {
     return null;
   }
-  const tool = process.env.LIFE_EVENTKIT;
-  if (!(past.account || tool)) {
-    return null;
-  }
+  // On: an account, else the app's EventKit tool.
   const cal = past.account
     ? pastCalendar(past.calendar, past.account)
-    : appleCalendar(past.calendar, tool as string);
+    : appleCalendar(past.calendar, process.env.LIFE_EVENTKIT as string);
   const want = await wanted(now);
   const { fresh, stale } = plan(
     want,

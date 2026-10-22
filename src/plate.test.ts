@@ -99,3 +99,10 @@ test("every card on the plate has its own id", async () => {
   const ids = (await snapshot()).cards.map((c) => c.id);
   expect(ids.length).toBe(new Set(ids).size);
 }, 60_000);
+
+test("an output's card says off when its switch is off, on when it is on", async () => {
+  const cards = new Map((await snapshot()).cards.map((c) => [c.id, c]));
+  // The made-up settings set a connector and no Past calendar.
+  expect(cards.get("past")?.word).toBe("off");
+  expect(cards.get("connector")?.word).toBe("serving");
+}, 60_000);

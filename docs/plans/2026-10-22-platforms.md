@@ -36,14 +36,14 @@ in its PR: no second path left alive.
 ### Inputs
 
 The contract exists: the source descriptor (`Descriptor`, `src/sources/index.ts:67`). Memory steps already branch on
-`kind`, never on a name. What is missing:
+`kind`, never on a name. What it needed:
 
-- **The archive is a capability, not a second list.** `STORES` (`archive.ts:368`) repeats each archived source's name
-  and app, joined back by name (`keptStores`, `:394`), a third time in `archived(...)` (`index.ts:64`) and a fourth in
-  `archived.ts:33,89`. The descriptor gets `store` (`app`, `copy`, `copies`, `media`); `STORES`, `keptStores` and the
-  `missing` of archived sources derive from `SOURCES`.
-- **Voice by kind, not by name.** `gather` (`units.ts:690,738`), `syncLifelogUnits` (`:793,808`), the plate
-  (`plate.ts:458`, `plate-detail.ts:41`) and `schema.ts:265` say `"lifelog"`; they say `kind: "voice"`.
+- **The archive is a capability, not a second list** (done, #147). An archived source's descriptor carries its
+  `store` (`app`, `copy`, `copies`, `media`), and each source copies its own store beside its reader; `ARCHIVED`,
+  `keptStores` and the `missing` of archived sources derive from `SOURCES`.
+- **Voice is a REST contract, not a second kind of reader.** The voice input is lifelog's REST API (below), and
+  `src/sources/lifelog.ts` is its one client. Another voice source would speak the same API rather than add a reader.
+  Its units keep the source name `lifelog`: unit ids are stored in memory, and renaming them needs a map.
 - **The platform says what it lacks.** A source whose store does not exist on this OS reports it through `missing()`
   (the platform module below), so `init`, the plate and `readySources` need nothing new.
 
@@ -61,15 +61,13 @@ with Life; lifelog's report owns how it is met.
 
 ### Outputs
 
-Today each output has its own switch and shape: `reminders` (a boolean), `past` (an object plus `LIFE_EVENTKIT`),
-`mail` (whose absence swaps email for a notification), `connector`, `agent.transport`, `backup`, `lifelog` (for
-`forward`). The only thing they share is `unfrozen`. `act` does not check the Reminders switch itself (`actions.ts:86`),
-so the CLI (`cli.ts:33`) and the connector (`mcp.ts:418`) each check it again.
-
-The contract, in one registry `OUTPUTS`: each output has a `name`, a `label`, `on()` (read from settings) and
-`missing()` (what keeps it from working now). Its own code stays its own; the registry is what `init`, the plate,
-the CLI and the connector ask. `act` checks `on()` itself and the two extra checks go. The outputs: Reminders, the Past
-calendar, the report (email or a local page), the connector, the ask event, the backup, the voice corrections.
+Done (#148). Each output had its own switch and shape, and `act` did not check the Reminders switch itself, so with
+Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`src/outputs.ts`) holds the outputs he can
+turn on or off (Reminders, the Past calendar, the connector, the backup), each with its label and its switch: `isOn`
+asks it, `off` says why one does nothing, the plate's cards take their names and "off" from it, and `act` refuses
+before recording. Each output's own module does the work and reads the rest of its settings. The report is not a
+switch: it always goes, by email with a `mail` setting, else as a local page. The agent's asks follow `agent`; the
+voice corrections follow the voice input.
 
 ### Model providers
 
@@ -93,7 +91,7 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 
 Every OS difference in one module, one table per OS, so Windows is a second table and not a branch in nine files:
 
-- paths: the `MAC` root (`truth.ts:40`, `%LOCALAPPDATA%\Life` on Windows), the app stores (`archived.ts:17,21`,
+- paths: the `MAC` root (`truth.ts:40`, `%LOCALAPPDATA%\Life` on Windows), the app stores (`whatsapp.ts`, `beeper.ts`,
   `notes.ts:14`, `mail.ts:10`, `contacts.ts:11`, `imessage.ts:10`);
 - tools: Tailscale (`tailscale.ts:13`), remctl (`remctl.ts:13`), Codex's binary (`llm.ts:61`, darwin-arm64 only today,
   also wrong on Intel Macs);
