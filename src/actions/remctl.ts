@@ -107,10 +107,12 @@ const KEEP =
     " "
   );
 
-const DIGITS = /^\d+$/;
-/** A Reminders id as remctl takes it: digits only, so a string target never reaches its argv as a flag. */
+// remctl's ids: its number, or the UUID a mutation answers with (`id` beside `numericId`).
+const REMINDER_ID =
+  /^(?:\d+|[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})$/;
+/** A Reminders id as remctl takes it, so a string target never reaches its argv as a flag. */
 const num = (id: string) => {
-  if (!DIGITS.test(id)) {
+  if (!REMINDER_ID.test(id)) {
     throw new Error(`${id} is not a Reminders id`);
   }
   return id;
@@ -165,7 +167,7 @@ export const reminders: ActionsBackend = {
     // A move can clone and delete, which gives the reminder a new id.
     if (f.list) {
       const moved = await remctl(["edit", num(id), `--list=${f.list}`]);
-      to = String(moved.id ?? id);
+      to = String(moved.numericId ?? moved.id ?? id);
     }
     const { priv, pub } = reminderArgs(f);
     const flags = [
