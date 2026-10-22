@@ -16,7 +16,8 @@ const tailscale = (args: string[]) =>
 
 const TRAILING_DOT = /\.$/;
 /** Where Life's server listens (`server.ts`). */
-const LOCAL = `http://127.0.0.1:${PUBLIC_PORT}`;
+/** Life's public port, the one a tunnel may reach. */
+const SERVER = `http://127.0.0.1:${PUBLIC_PORT}`;
 
 const Status = z.object({
   BackendState: z.string(),
@@ -48,7 +49,7 @@ export async function connect(publicToo: boolean) {
     publicToo ? "funnel" : "serve",
     "--bg",
     "--https=443",
-    LOCAL,
+    SERVER,
   ]);
   const origin = `https://${name}`;
   setSettings({

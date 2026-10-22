@@ -1,10 +1,9 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { z } from "zod";
 import { SCOPE, UNREACHABLE, type Verify } from "./auth";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
-import { writeSecret } from "./secret";
+import { same, secretIn } from "./secret";
 import { connector } from "./settings";
 import { STATE } from "./truth";
 
@@ -182,12 +181,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
 export type SignIn = ReturnType<typeof createSignIn>;
 
 /** The key the app opens the status page with on this Mac, kept in Life's state (mode 600), made on first use. */
-export function localKey() {
-  if (!existsSync(LOCAL_KEY)) {
-    writeSecret(LOCAL_KEY, randomBytes(32).toString("hex"));
-  }
-  return readFileSync(LOCAL_KEY, "utf8");
-}
+export const localKey = () => secretIn(LOCAL_KEY);
 const LOCAL_KEY = join(STATE, "local.key");
 /** The cookie the app's status window carries the key in. */
 export const LOCAL = "life_local";
@@ -198,14 +192,11 @@ const BEARER = /^Bearer /;
  * key takes a restart.
  */
 export function keyRefusal(key = localKey()) {
-  const want = Buffer.from(key);
   return (req: Request) => {
-    const given = Buffer.from(
+    const given =
       cookieOf(req, LOCAL) ??
-        req.headers.get("authorization")?.replace(BEARER, "") ??
-        ""
-    );
-    const ok = given.length === want.length && timingSafeEqual(given, want);
-    return Promise.resolve(ok ? null : text("local only", 401));
+      req.headers.get("authorization")?.replace(BEARER, "") ??
+      "";
+    return Promise.resolve(same(given, key) ? null : text("local only", 401));
   };
 }
