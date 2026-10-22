@@ -9,10 +9,23 @@ import { agentName, settings } from "../settings";
 // `act` decides, `board.ts` projects Atlas's tasks, `inbound.ts` reads his changes back as state. Delete the folder and
 // Life still knows every task and every action from the ledger (memory/actions.jsonl).
 
-/** remctl, his; or the app's life-eventkit (EventKit, the same commands and answers), set by the app. */
-const REMCTL = process.env.LIFE_EVENTKIT ?? join(homedir(), "bin", "remctl");
-/** Whether lists have sections: remctl's do, EventKit has none (the board then asks for none). */
-export const SECTIONS = !process.env.LIFE_EVENTKIT;
+/** remctl (github.com/viticci/remctl), where its installer puts it, for every install. */
+const REMCTL = join(homedir(), "bin", "remctl");
+/**
+ * The remctl release Life is tested against (its answers: answers.json): what the app installs, and what it offers
+ * to update to. Its own installer (signed, notarized) asks for the Mac's password once and grants its permissions.
+ */
+export const REMCTL_RELEASE = {
+  sha256: "acff84893036ddf5e1d9a0c67bd227dcbeb4c413366623c21036a22c54029ee3",
+  url: "https://github.com/viticci/remctl/releases/download/v2.3.1/RemCTL-arm64.dmg",
+  version: "2.3.1",
+};
+
+/** The installed remctl's version, or null when there is none. */
+export async function remctlVersion() {
+  const r = await exec([REMCTL, "--version"]);
+  return r.code === 0 ? r.stdout.trim() : null;
+}
 /** Whether the Reminders plugin is on (the `reminders` setting): off, nothing in Life touches Reminders. */
 export const remindersOn = () => settings().reminders;
 
