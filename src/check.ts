@@ -67,7 +67,7 @@ export function createCheck(signIn: SignIn) {
     const url = new URL(req.url);
     const { pathname } = url;
     if (pathname === "/check/login") {
-      return signIn.login(url.searchParams.get("next") ?? "/check/");
+      return signIn.login();
     }
     if (pathname === "/check/callback") {
       return signIn.callback(req, url);
@@ -78,10 +78,7 @@ export function createCheck(signIn: SignIn) {
     if (!pathname.startsWith("/check/")) {
       return null;
     }
-    const refused = await signIn.refusal(
-      req,
-      pathname === "/check/" ? "/check/" : undefined
-    );
+    const refused = await signIn.refusal(req, pathname === "/check/");
     if (refused) {
       return refused;
     }

@@ -7,7 +7,7 @@ import { same, secretIn } from "./secret";
 import { connector } from "./settings";
 import { STATE } from "./truth";
 
-// The owner's sign-in for Life's pages (/check/, the status page at /): the connector's OAuth server with PKCE, the
+// The owner's sign-in for /check/: the connector's OAuth server with PKCE, the
 // token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.
 // The callback stays /check/callback, the one redirect the issuer knows for this client.
 
@@ -26,8 +26,6 @@ const sessionCookies = (t: z.infer<typeof Tokens>) => [
   cookie(SESSION, t.access_token, t.expires_in),
   ...(t.refresh_token ? [cookie(REFRESH, t.refresh_token, REFRESH_MAX_S)] : []),
 ];
-/** Where a sign-in may land: the pages behind it. */
-const PAGES = new Set(["/", "/check/"]);
 
 /** How the token exchange reaches the issuer: `fetch`, or the issuer itself when it is Life's own (server.ts). */
 export type Exchange = (url: string, init: RequestInit) => Promise<Response>;
@@ -35,8 +33,8 @@ export type Exchange = (url: string, init: RequestInit) => Promise<Response>;
 export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
   const { client, issuer, origin, resource } = connector();
   const CALLBACK = `${origin}/check/callback`;
-  /** Off to lifelog's sign-in (silent once he is signed in there and consented), with PKCE; back to `next` after. */
-  function login(next = "/check/") {
+  /** Off to lifelog's sign-in (silent once he is signed in there and consented), with PKCE; back to /check/ after. */
+  function login() {
     const state = randomBytes(16).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
     const url = new URL(`${issuer}/oauth2/authorize`);
@@ -50,15 +48,14 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       scope: SCOPE,
       state,
     }).toString();
-    const page = PAGES.has(next) ? next : "/check/";
     return redirect(url.toString(), [
-      cookie(LOGIN, `${state}.${verifier}.${page}`, LOGIN_MAX_S),
+      cookie(LOGIN, `${state}.${verifier}`, LOGIN_MAX_S),
     ]);
   }
 
   /** Back from lifelog: the code is traded for a token, which must be the owner's before it becomes the session. */
   async function callback(req: Request, url: URL) {
-    const [state, verifier, next] = (cookieOf(req, LOGIN) ?? "").split(".");
+    const [state, verifier] = (cookieOf(req, LOGIN) ?? "").split(".");
     const code = url.searchParams.get("code");
     if (
       !(state && verifier && code) ||
@@ -82,17 +79,17 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (token === "refused") {
       return text("Not signed in as the owner.", 403);
     }
-    return redirect(next && PAGES.has(next) ? next : "/check/", [
+    return redirect("/check/", [
       ...sessionCookies(token),
       cookie(LOGIN, "", 0),
     ]);
   }
 
   /**
-   * Null when the request carries the owner's session; else the answer: a sign-in for a page (`page`), 401 for its
-   * reads, 403 for someone else, 503 when lifelog's keys are out of reach.
+   * Null when the request carries the owner's session; else the answer: a sign-in for the page itself (`page`), 401
+   * for its reads, 403 for someone else, 503 when lifelog's keys are out of reach.
    */
-  async function refusal(req: Request, page?: string) {
+  async function refusal(req: Request, page = false) {
     const whose = await verify(cookieOf(req, SESSION) ?? "");
     if (!("refusal" in whose)) {
       return null;
@@ -111,7 +108,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     // being away, is kept: renew answered 503 then).
     const dropped = renewed === "refused" ? [cookie(REFRESH, "", 0)] : [];
     if (page) {
-      const answer = login(page);
+      const answer = login();
       for (const c of dropped) {
         answer.headers.append("set-cookie", c);
       }
@@ -180,23 +177,18 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
 
 export type SignIn = ReturnType<typeof createSignIn>;
 
-/** The key the app opens the status page with on this Mac, kept in Life's state (mode 600), made on first use. */
+/** The key the app reads its status with on this Mac, kept in Life's state (mode 600), made on first use. */
 export const localKey = () => secretIn(LOCAL_KEY);
 export const LOCAL_KEY = join(STATE, "local.key");
-/** The cookie the app's status window carries the key in. */
-export const LOCAL = "life_local";
 const BEARER = /^Bearer /;
 
 /**
- * The local port's gate: the key (its cookie, or a bearer), compared in constant time, else refused. Read once: a new
- * key takes a restart.
+ * The local port's gate: the key as a bearer, compared in constant time, else refused. Read once: a new key takes a
+ * restart.
  */
 export function keyRefusal(key = localKey()) {
   return (req: Request) => {
-    const given =
-      cookieOf(req, LOCAL) ??
-      req.headers.get("authorization")?.replace(BEARER, "") ??
-      "";
+    const given = req.headers.get("authorization")?.replace(BEARER, "") ?? "";
     return Promise.resolve(same(given, key) ? null : text("local only", 401));
   };
 }

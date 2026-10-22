@@ -15,16 +15,11 @@
     "@modelcontextprotocol/server": "2.3.1",
     "@openai/codex": "0.162.1",
     "jose": "^6.2.12",
-    "motion": "11.18.2",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
     "@types/bun": "^1.4.2",
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
     "fallow": "3.32.0",
     "typescript": "^6",
     "ultracite": "7.12.2"

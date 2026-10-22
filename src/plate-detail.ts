@@ -9,15 +9,15 @@ import { cached, DAY, type Line, spent, type Tone, toneOfRun } from "./plate";
 import { SOURCES } from "./sources/index";
 import { taskList } from "./tasks";
 
-// A card's detail on the status page (src/dashboard.ts serves it): its history, its raw log lines, and a run's steps
+// A card's detail for the app's status window (src/dashboard.ts serves it): its history, its raw log lines, and a run's steps
 // and what it wrote. Read-only, like the plate (src/plate.ts). His words and errors' text are in `content` only.
 
 export interface Entry {
   at: string;
-  /** His words or an error's text: hidden in privacy mode. */
+  /** His words or an error's text: hidden while the app's Show content is off. */
   content?: string;
   end?: string | null;
-  /** A run the page can open (`runDetail`). */
+  /** A run the app can open (`runDetail`). */
   run?: string;
   sub?: string;
   title: string;
@@ -112,7 +112,7 @@ function entryOf(e: Line): Entry {
 
 const PAGE = 40;
 
-/** A sweep's runs, newest first, each one the page can open. */
+/** A sweep's runs, newest first, each one the app can open. */
 async function runHistory(step: string, before?: string) {
   // runs' own cursor: the runs that started before `before`, a page of them.
   const { items } = await runs({
