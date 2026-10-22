@@ -7,12 +7,13 @@ import {
   rmdirSync,
   rmSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import {
   FORMAT,
   headOf,
   linesIn,
   type Manifest,
+  pathIn,
   rowsIn,
   sha256Of,
 } from "./export";
@@ -71,7 +72,7 @@ async function refusal(m: Manifest, to: Install) {
   }
   const listed = new Map(m.files.map((f) => [f.path, f.sha256]));
   const marks = [SETTINGS, ...Object.values(storeFiles())].map((p) =>
-    relative(STATE, p)
+    pathIn(STATE, p)
   );
   for (const p of marks) {
     const at = join(to.state, p);

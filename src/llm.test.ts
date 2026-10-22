@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import {
   askOnce,
   claudeTokens,
@@ -245,7 +245,7 @@ test("only llm.ts starts the model CLIs", async () => {
       RUNS_PROGRAMS.test(code) &&
       STARTS_MODEL.some((p) => p.test(code))
     ) {
-      starters.push(f);
+      starters.push(f.split(sep).join("/"));
     }
   }
   expect(starters).toEqual(["src/llm.ts"]);

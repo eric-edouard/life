@@ -121,6 +121,7 @@ test("each network's newest message is that row whole, never another row's words
   add.run("line", "2026-10-21T10:00:00.000Z", "Bo", "newest on line");
   add.run("line", "2026-10-19T10:00:00.000Z", "Cy", "older");
   add.run("telegram", "2026-10-21T12:00:00.000Z", "Di", "newest overall");
+  add.finalize(); // an open statement keeps the file open, and Windows refuses to remove it
   db.close();
   expect(newestBeeper(dir)).toEqual({
     at: "2026-10-21T12:00:00.000Z",

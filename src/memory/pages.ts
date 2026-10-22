@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { stamp } from "../llm";
@@ -571,24 +571,14 @@ export function changedSinceCommit(root = DATA, dir = PAGES) {
     throw new Error(`${root} is not a git repository`);
   }
   const at = relative(root, dir);
-  // Every page committed (none before the first commit) and every page now: a page new or gone counts too.
-  const committed = git(root, [
-    "ls-tree",
-    "-r",
-    "-z",
-    "--name-only",
-    "HEAD",
-    "--",
-    at,
-  ])
-    .stdout.toString()
-    .split("\0");
-  const now = PAGE_KINDS.flatMap((kind) => {
-    const sub = join(dir, kind);
-    return existsSync(sub)
-      ? readdirSync(sub).map((name) => relative(root, join(sub, name)))
-      : [];
-  });
+  // Every page committed (none before the first commit) and every page now, as git names them (always with `/`): a
+  // page new or gone counts too.
+  const list = (args: string[]) =>
+    git(root, [...args, "-z", "--", at])
+      .stdout.toString()
+      .split("\0");
+  const committed = list(["ls-tree", "-r", "--name-only", "HEAD"]);
+  const now = list(["ls-files", "--cached", "--others"]);
   const paths = [...new Set([...committed, ...now])].filter((p) =>
     p.endsWith(".md")
   );

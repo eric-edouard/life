@@ -10,7 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, isAbsolute, join, relative } from "node:path";
+import { basename, isAbsolute, join, relative, sep } from "node:path";
 import { clock } from "./clock";
 import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
@@ -29,20 +29,24 @@ import { DATA, ROOT, STATE } from "./truth";
 
 export const FORMAT = 1;
 
+/** `p`'s path inside `dir` as an export names it: always with `/`, so an export made on one OS imports on another. */
+export const pathIn = (dir: string, p: string) =>
+  relative(dir, p).split(sep).join("/");
+
 /**
  * In Life's state but never exported: rebuilt (the index), the watcher's store (copied whole on its own), and the
  * secrets.
  */
 const KEPT_OUT = [WATCH, INDEX, ...Object.values(SECRETS)].map((p) =>
-  relative(STATE, p)
+  pathIn(STATE, p)
 );
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
 export const filesUnder = (dir: string) =>
-  (readdirSync(dir, { recursive: true }) as string[]).filter((p) =>
-    lstatSync(join(dir, p)).isFile()
-  );
+  (readdirSync(dir, { recursive: true }) as string[])
+    .filter((p) => lstatSync(join(dir, p)).isFile())
+    .map((p) => p.split(sep).join("/"));
 
 /** A file's sha256, read as a stream. */
 export async function sha256Of(path: string) {
