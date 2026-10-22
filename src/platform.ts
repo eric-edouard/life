@@ -1,6 +1,7 @@
 import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { STATE, TEST } from "./truth";
 
 // The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
 // system is one more case here rather than a branch in every module (the rest are listed in
@@ -9,7 +10,11 @@ import { join } from "node:path";
 
 export const WINDOWS = process.platform === "win32";
 
-const HOME = homedir();
+/**
+ * The home folder every store path starts from. A test run has one of its own, inside its copy of the data, so no test
+ * ever reads this computer's messages, mail, contacts or repos.
+ */
+export const HOME = TEST ? join(STATE, "home") : homedir();
 /** Where apps keep their own data: Application Support on the Mac, roaming AppData on Windows. */
 export const APP_DATA = WINDOWS
   ? (process.env.APPDATA ?? join(HOME, "AppData", "Roaming"))

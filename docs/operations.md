@@ -22,7 +22,9 @@ Three roots, defined in `src/truth.ts` and `src/platform.ts`:
   a copy to experiment, and copy `derived/settings.json` into a worktree before model runs (without it, calls go to the
   default engine).
 - Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`src/test-data`) in a temp folder
-  outside any repo, its lock and log there too: two runs at once share nothing.
+  outside any repo, its lock and log there too: two runs at once share nothing. It has its own home folder too (`HOME`,
+  `src/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,
+  contacts or repos, and it reads nothing of the machine (`mac.ts`).
 - Life's secret files are the ones `SECRETS` names (`src/secret.ts`), written only by `writeSecret` or `secretIn`
   (mode 600 where the system has modes); the export leaves exactly those out (`src/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.

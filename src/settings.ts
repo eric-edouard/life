@@ -1,5 +1,4 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./schema";
@@ -8,6 +7,7 @@ import { Engine, SourceName } from "./schema";
 export const PAGES_CLIENT = "life";
 export const OWNER_SUB = "owner";
 
+import { HOME } from "./platform";
 import { STATE } from "./truth";
 
 // What makes one install differ from another, in one file: who it serves, where its parts are, what is turned on.
@@ -155,7 +155,7 @@ export function connector() {
 
 const TILDE = /^~(?=\/|$)/;
 /** A path from settings, `~/` expanded. */
-export const expand = (path: string) => path.replace(TILDE, homedir());
+export const expand = (path: string) => path.replace(TILDE, HOME);
 
 /** What Life calls his agent in what it writes (reports, the board, the connector's words). */
 export const agentName = () => settings().agent?.name ?? "the agent";

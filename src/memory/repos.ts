@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { clock } from "../clock";
 import { stamp } from "../llm";
+import { HOME } from "../platform";
 import { redact } from "../redact";
 import { type MadeBy, RepoGuess, type Unit } from "../schema";
 import { kindOf } from "../sources";
@@ -262,7 +262,7 @@ export async function reposOf(filter?: string) {
         key.toLowerCase().includes(f) ||
         [r.project, r.area].some((x) => x?.toLowerCase() === f))
   );
-  const home = homedir();
+  const home = HOME;
   const line = (key: string, r: Placement) => {
     const path = local.get(key);
     const first =

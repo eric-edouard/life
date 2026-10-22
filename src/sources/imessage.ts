@@ -1,14 +1,14 @@
 import { Database } from "bun:sqlite";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { HOME } from "../platform";
 import { type SourceEvent, sourceFile } from "../schema";
 import { contacts, handleKey } from "./contacts";
 import type { Newest } from "./index";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 
-export const DB = join(homedir(), "Library", "Messages", "chat.db");
-const HOME = /^~/;
+export const DB = join(HOME, "Library", "Messages", "chat.db");
+const TILDE = /^~/;
 // Messages stores dates as nanoseconds since 2001-01-01.
 const APPLE_EPOCH_S = 978_307_200;
 
@@ -97,7 +97,7 @@ export function readImessage(
         chat: r.chat ?? r.sender ?? "unknown",
         ...(named ? { chatName: named } : {}),
         files: (JSON.parse(r.files) as Parameters<typeof sourceFile>[0][]).map(
-          (a) => sourceFile({ ...a, path: a.path?.replace(HOME, homedir()) })
+          (a) => sourceFile({ ...a, path: a.path?.replace(TILDE, HOME) })
         ),
         fromMe: r.fromMe === 1,
         id: `imessage:${r.guid}`,
