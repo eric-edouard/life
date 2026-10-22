@@ -61,15 +61,13 @@ with Life; lifelog's report owns how it is met.
 
 ### Outputs
 
-Today each output has its own switch and shape: `reminders` (a boolean), `past` (an object plus `LIFE_EVENTKIT`),
-`mail` (whose absence swaps email for a notification), `connector`, `agent.transport`, `backup`, `lifelog` (for
-`forward`). The only thing they share is `unfrozen`. `act` does not check the Reminders switch itself (`actions.ts:86`),
-so the CLI (`cli.ts:33`) and the connector (`mcp.ts:418`) each check it again.
-
-The contract, in one registry `OUTPUTS`: each output has a `name`, a `label`, `on()` (read from settings) and
-`missing()` (what keeps it from working now). Its own code stays its own; the registry is what `init`, the plate,
-the CLI and the connector ask. `act` checks `on()` itself and the two extra checks go. The outputs: Reminders, the Past
-calendar, the report (email or a local page), the connector, the ask event, the backup, the voice corrections.
+Done (#148). Each output had its own switch and shape, and `act` did not check the Reminders switch itself, so with
+Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`src/outputs.ts`) holds the outputs he can
+turn on or off (Reminders, the Past calendar, the connector, the backup), each with its label and its switch: `isOn`
+asks it, `off` says why one does nothing, the plate's cards take their names and "off" from it, and `act` refuses
+before recording. Each output's own module does the work and reads the rest of its settings. The report is not a
+switch: it always goes, by email with a `mail` setting, else as a local page. The agent's asks follow `agent`; the
+voice corrections follow the voice input.
 
 ### Model providers
 

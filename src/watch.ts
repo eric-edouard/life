@@ -8,10 +8,11 @@ import { isLocked, locked } from "./memory/guard";
 import { ACTIONS, appendJsonl, readActions, tasksOf } from "./memory/ledger";
 import { reindex } from "./memory/search";
 import { syncLifelogUnits } from "./memory/units";
+import { isOn } from "./outputs";
 import { codeAt } from "./proc";
 import { marks, push } from "./reminders/board";
 import { inbound } from "./reminders/inbound";
-import { checks, pull, remindersOn } from "./reminders/remctl";
+import { checks, pull } from "./reminders/remctl";
 import { Action } from "./schema";
 import { serve } from "./server";
 import { listening } from "./sources/index";
@@ -46,7 +47,7 @@ async function tick(now = clock().getTime()) {
 
 async function pass(now: number) {
   await chase(tasksOf(), now);
-  if (!remindersOn()) {
+  if (!isOn("reminders")) {
     return;
   }
   // Reminders both ways (src/reminders): one read, his changes recorded as state, then the board brought in line. `at`
@@ -199,7 +200,7 @@ async function syncUnits(store: Store, cursor: string) {
 
 /** Whether Life can act on Reminders from here, in life-watch.log at start (the connector's `reminders` acts from this process). */
 function sayActions() {
-  if (!remindersOn()) {
+  if (!isOn("reminders")) {
     console.log(`${clock().toISOString()} actions: Reminders off`);
     return;
   }

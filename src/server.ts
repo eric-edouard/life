@@ -5,8 +5,9 @@ import { createDashboard } from "./dashboard";
 import { LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
+import { off } from "./outputs";
 import { createPortrait } from "./portrait";
-import { connector, settings } from "./settings";
+import { connector } from "./settings";
 import { createSignIn, keyRefusal } from "./signin";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
@@ -26,10 +27,9 @@ export function serve() {
       `Life: 127.0.0.1:${LOCAL_PORT} is off: ${(e as Error).message}`
     );
   }
-  if (!settings().connector) {
-    console.log(
-      "Connector: not set up (settings: connector): /mcp, /check and /me are off"
-    );
+  const why = off("connector");
+  if (why) {
+    console.log(`${why}: /mcp, /check and /me are off`);
     return;
   }
   listen(PUBLIC_PORT, signedIn());
