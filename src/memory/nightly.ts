@@ -164,8 +164,8 @@ export async function archiveLine(since: string) {
  * (`backupDue`: the night is done, on this tick or before).
  */
 export async function nightly(days: number, force = false) {
-  // Another install's watcher runs on this Mac (the move to the app): only that install's ticks run (two would each
-  // send a report and fight over the Past calendar). A copy has its own state and no watcher; a hand `--force` runs.
+  // Another install's watcher runs on this Mac (the move to the app, or a copy's own state): only that install's ticks
+  // run (two would each send a report and fight over the Past calendar). Only a hand `--force` runs beside it.
   const live = holder("watch");
   if (!force && isOtherLife(live)) {
     console.log(`another Life runs here (${live?.note}): no tick`);
