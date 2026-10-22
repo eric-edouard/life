@@ -17,6 +17,7 @@ import { lapseReport, sendReport, taskReport, unsent } from "./memory/report";
 import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
 import type { Receipt } from "./reminders/board";
+import { remindersOn } from "./reminders/remctl";
 import { Action, type Instruction } from "./schema";
 import { agentName, settings } from "./settings";
 import { DATA, ROOT } from "./truth";
@@ -70,14 +71,18 @@ const CLAIM_MS = 30 * MIN;
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
+/** The protocol's Reminders parts (`<!-- reminders -->…<!-- /reminders -->`): the markers always go, the parts too while the plugin is off. */
+const REMINDERS_PART = /<!-- reminders -->([\s\S]*?)<!-- \/reminders -->/g;
+export const protocol = (text: string, reminders = remindersOn()) =>
+  text
+    .replace(REMINDERS_PART, (_, part: string) => (reminders ? part : ""))
+    .replaceAll("{agent}", agentName());
+
 /** The agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `tasks` returns it, `task` refuses a write without its seal. */
 const playbook = () => {
   const own = join(DATA, "playbook.md");
   return [
-    readFileSync(join(ROOT, "docs", "agent.md"), "utf8").replaceAll(
-      "{agent}",
-      agentName()
-    ),
+    protocol(readFileSync(join(ROOT, "docs", "agent.md"), "utf8")),
     ...(existsSync(own) ? [readFileSync(own, "utf8")] : []),
   ].join("\n");
 };

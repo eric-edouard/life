@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
@@ -7,7 +7,7 @@ import { clock, unfrozen } from "./clock";
 import { type Call, log, recentEvents } from "./log";
 import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
-import { writeSecret } from "./secret";
+import { same, writeSecret } from "./secret";
 import { agentName, settings } from "./settings";
 import { STATE } from "./truth";
 
@@ -17,7 +17,7 @@ import { STATE } from "./truth";
 // after it, and derived/events.json (mode 600: it holds the signing secret) keeps the subscription and how far it was
 // delivered, so a restart or a retry loses nothing.
 
-const SUBSCRIPTION = join(STATE, "events.json");
+export const SUBSCRIPTION = join(STATE, "events.json");
 /** The lifetime granted when none or a longer one is asked for. */
 const TTL_MS = 30 * 24 * 3_600_000;
 /** A verified callback is not challenged again for a day. */
@@ -161,13 +161,10 @@ async function verify(s: Subscription) {
       `msg_verification_${randomBytes(12).toString("hex")}`,
       JSON.stringify({ challenge, type: "verification" })
     );
-    const echo = Buffer.from(
-      String(((await res.json()) as { challenge?: unknown }).challenge)
+    const echo = String(
+      ((await res.json()) as { challenge?: unknown }).challenge
     );
-    const want = Buffer.from(challenge);
-    return res.ok && echo.length === want.length && timingSafeEqual(echo, want)
-      ? null
-      : "challenge_failed";
+    return res.ok && same(echo, challenge) ? null : "challenge_failed";
   } catch (e) {
     return (e as Error).name === "TimeoutError"
       ? "timeout"

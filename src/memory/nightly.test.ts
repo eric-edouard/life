@@ -1,9 +1,12 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { log } from "../log";
 import type { Extracted, Observation } from "../schema";
+import { STATE } from "../truth";
 import { unit } from "./fixtures";
 import { latestExtractions } from "./ledger";
-import { markedSince, reviewed } from "./nightly";
+import { markedSince, nightly, reviewed } from "./nightly";
 
 test("a daily review reached Life only when ChatGPT read `day` without error in the last 24 h", async () => {
   const now = new Date();
@@ -52,4 +55,19 @@ test("each marked unit is listed once read since the last night, with the observ
   expect(
     markedSince(built, latest(read("2026-10-09T13:00:00.000Z")), since, [held])
   ).toEqual([]);
+});
+
+test("while another install's watcher runs on this Mac, a tick does nothing", async () => {
+  const lock = join(STATE, "watch.lock");
+  writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
+  const said = spyOn(console, "log");
+  try {
+    expect(await nightly(7)).toBe(0);
+    expect(said.mock.calls.flat().join(" ")).toContain(
+      "another Life runs here"
+    );
+  } finally {
+    said.mockRestore();
+    rmSync(lock, { force: true });
+  }
 });

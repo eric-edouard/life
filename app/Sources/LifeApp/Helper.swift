@@ -62,6 +62,49 @@ struct Info: Decodable {
   let started: Bool
   let lastReport: String?
   let sources: [Source]
+  let reminders: Reminders
+  let status: Status
+}
+
+/// The status page the watcher serves on this Mac, and the key that opens it.
+struct Status: Decodable {
+  let url: String
+  let key: String
+
+  /// The plate the page shows (`/status/snapshot`), nil while the watcher doesn't answer.
+  func plate() async -> Plate? {
+    guard let url = URL(string: url + "status/snapshot") else { return nil }
+    var req = URLRequest(url: url)
+    req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+    guard let (data, _) = try? await URLSession.shared.data(for: req) else { return nil }
+    return try? JSONDecoder().decode(Plate.self, from: data)
+  }
+}
+
+/// What the menu shows of the status page: the cards the plate says are in trouble (`trouble`, plate.ts).
+struct Plate: Decodable {
+  let cards: [Card]
+  let trouble: [String]
+  struct Card: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let word: String
+  }
+  var troubled: [Card] { cards.filter { trouble.contains($0.id) } }
+}
+
+/// The Reminders plugin: on or not, the remctl installed (its version), whether that is the release Life installs
+/// (`ready`, decided by the helper), and that release.
+struct Reminders: Decodable {
+  let on: Bool
+  let installed: String?
+  let ready: Bool
+  let release: Release
+  struct Release: Decodable {
+    let version: String
+    let url: String
+    let sha256: String
+  }
 }
 
 /// One source: whether he turned it on, what keeps it from being read now, and whether that is Full Disk Access.
