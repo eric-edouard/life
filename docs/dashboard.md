@@ -166,7 +166,7 @@ snapshot must date it and mark it stale, and where it is stored is a separate de
 
 # The status window
 
-Life.app's status window and menu-bar panel (`app/Sources/LifeApp/`): Life's architecture as a plate of live cards,
+Life.app's status window and menu-bar panel (`apps/mac/Sources/LifeApp/`): Life's architecture as a plate of live cards,
 native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no connector tool.
 
 - **Code.** `apps/server/src/host/status/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
@@ -179,7 +179,7 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
   Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
-- **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `app/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
+- **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `apps/mac/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
   left to right as data does, a card opening in place over the plate.
 - **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its

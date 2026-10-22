@@ -91,7 +91,7 @@ await rm(updates, { force: true, recursive: true });
 await mkdir(updates, { recursive: true });
 await run(["ditto", zip, join(updates, `Life-${version}.zip`)]);
 await run([
-  join(ROOT, "app", "Frameworks", "bin", "generate_appcast"),
+  join(ROOT, "apps", "mac", "Frameworks", "bin", "generate_appcast"),
   "--download-url-prefix",
   `https://github.com/${repo}/releases/download/v${version}/`,
   updates,

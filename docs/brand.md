@@ -17,9 +17,9 @@ can't read CSS variables copy its values, and `apps/server/src/host/brand.test.t
 | `/check` | `assets/check/index.html` links `tokens.css` (served at `/check/tokens.css`, `apps/server/src/host/http/check.ts`) before `check.css` |
 | `/me` password page, pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`apps/server/src/host/http/portrait.ts`, `apps/server/src/host/http/oauth.ts`) |
 | Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
-| The app | `Brand` and `Tone.color` in `app/Sources/LifeApp/Brand.swift`, copied, light and dark |
+| The app | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`, copied, light and dark |
 
-No other file writes a colour: the test also fails on a hex colour anywhere else in `src`, `assets` or `app`.
+No other file writes a colour: the test also fails on a hex colour anywhere else in `apps/server/src`, `assets` or `apps/mac/Sources`.
 
 - **Colour.** Monochrome: ink `#181818`, white `#FFFFFF`, surface `#F3F3F3`, rule `#E4E4E4`, muted `#707070`.
   Status colours are for dots, short stripes and small marks, always beside a word, never as text: synced
@@ -51,5 +51,5 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
 
 Give the words room. Keep the source close: show where a memory came from. Make colour useful: status only.
 
-Fonts are under the SIL Open Font License; their licences ship beside them in `app/Fonts`. Web pages load Source Serif
+Fonts are under the SIL Open Font License; their licences ship beside them in `apps/mac/Fonts`. Web pages load Source Serif
 4 and IBM Plex Mono from Google Fonts.

@@ -60,8 +60,8 @@ or a reverse proxy), how the archive is fed (copying stores or saving on arrival
 apps/
   server/      the host layer and its entry (CLI, jobs, routes): what Life.app compiles and the container runs
   web/         the web UI (Vite, Tailwind): onboarding, settings, status
-  mac/         Life.app (today's app/), two modes: full local Life, or companion to a server
-  edge/        the edge Worker (today's worker/)
+  mac/         Life.app, two modes: full local Life, or companion to a server
+  edge/        the edge Worker
 packages/
   api/         the HTTP contract (zod schemas) the server serves and the web UI calls: types from one source
   brand/       assets/brand/tokens.css and what the web UI, the email and the app copy from it
@@ -111,8 +111,9 @@ Each step is one PR that changes no behaviour, passes `bun run check`, and leave
    which reads Life's own ledger; `digest` to `core/hash.ts`; `CLOSED_ON_SILENCE_S` to lifelog's reader; the tests
    that ran a reader through memory move to the memory's tests. No violation is left, and `.fallow-baseline.json`
    and its check go. `docs/architecture.md` ("The code") has the rule and the map.
-7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
-   and Turborepo through `create-better-t-stack add`.
+7. **The repo** (#168). `app/` → `apps/mac`, `worker/` → `apps/edge`, each a workspace package. `packages/brand`
+   waits for its second consumer: it comes with `apps/web`, `packages/api` and Turborepo, through
+   `create-better-t-stack add`, as the first PR of the server plan.
 
 Then the server plan's phases build on it: messaging lands in its own zone, the server host as a capability set,
 and nothing in the memory changes for either.

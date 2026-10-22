@@ -108,7 +108,7 @@ someone else is capped at 0.6 confidence.
   the prompt.
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
 - The connector is reached through the owner's tailnet (or a tunnel the owner controls), behind the owner's sign-in.
-  The owner's install is a bridge until #137: a Cloudflare Worker (`worker/`) on every path of his public address passes
+  The owner's install is a bridge until #137: a Cloudflare Worker (`apps/edge/`) on every path of his public address passes
   each request as is to the Mac's Tailscale Funnel on port 8443 (HTTPS a VPN lets through, unlike the tunnel's 7844),
   so his connector's URL never changes. It decides nothing; the Mac's sign-in guards every path.
 
@@ -137,7 +137,7 @@ fail any that does, and `host/cycles.test.ts` fails any import cycle. Within it,
 
 ## The app
 
-`Life.app` (`app/`, SwiftUI, menu bar) is how Life is installed. It runs the compiled helper (`scripts/helper.ts`): the
+`Life.app` (`apps/mac/`, SwiftUI, menu bar) is how Life is installed. It runs the compiled helper (`scripts/helper.ts`): the
 archive and the watcher kept running, the nightly tick every 30 minutes, data and state under `~/Library/Application
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.

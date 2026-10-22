@@ -7,5 +7,5 @@ node_modules
 /memory/
 /truth/
 dist/
-app/.build/
-app/Frameworks/
+apps/mac/.build/
+apps/mac/Frameworks/
