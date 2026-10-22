@@ -72,7 +72,8 @@ only copy of what gets deleted.
 
 ## Release (his hand steps, once)
 
-- A Developer ID Application certificate in his Keychain (Apple Developer account): `LIFE_SIGN_IDENTITY`.
+- A Developer ID Application certificate in his Keychain (Apple Developer account): `LIFE_SIGN_IDENTITY`, set
+  for the release command (`.env` holds the Apple Development one his own builds use).
 - `xcrun notarytool store-credentials <profile>` with an app-specific password: `LIFE_NOTARY_PROFILE`.
 - Sparkle's key: `app/Frameworks/bin/generate_keys` (after one `bun scripts/app.ts`); the private half stays in his
   Keychain, the public one is `LIFE_SPARKLE_KEY`.
