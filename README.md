@@ -132,6 +132,8 @@ vulnerability.
 
 ## Docs
 
+What comes next: the [roadmap](docs/roadmap.md).
+
 Use Life:
 
 - [Connect your assistant](docs/use/connect.md)
