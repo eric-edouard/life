@@ -57,6 +57,8 @@ This is the one list; nothing else leaves.
 - One MCP event per ask to the owner's agent, with the ask's words (callbacks on OpenAI's hosts only, verified first).
 - The Past calendar, one event per past moment, to the owner's Google calendar, when the `past` setting names a Google
   account (without one it goes to an Apple calendar, which syncs as Calendar does).
+- The to-do items Life writes (his clear to-dos and the agent's board), to Google Tasks, when the actions backend is
+  Google (with Reminders they stay in his Apple account, which syncs as Reminders does).
 - The owner's corrections about recordings, to the owner's own lifelog server.
 - The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud
   Drive does).

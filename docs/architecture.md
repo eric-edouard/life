@@ -128,7 +128,7 @@ core  ←  records  ←  models, sources, actions  ←  memory  ←  host
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `actions/` | The actions contract, its two backends, the board and open items |
 | `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, people and places, search, the agent's tasks, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
-| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events) |
+| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events, the Past calendar) |
 | `test-data/` | The made-up data tests read |
 
 What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)
