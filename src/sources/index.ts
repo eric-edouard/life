@@ -1,6 +1,12 @@
 import { closeSync, existsSync, openSync } from "node:fs";
-import { AGENT_WORD, type Person, type SourceEvent, type Unit } from "../schema";
+import {
+  AGENT_WORD,
+  type Person,
+  type SourceEvent,
+  type Unit,
+} from "../schema";
 import { agentName, settings } from "../settings";
+import { newestAgent, readAgent } from "./agent";
 import { archiveDb } from "./archived";
 import {
   FORMATS,
@@ -8,7 +14,6 @@ import {
   newestAssistant,
   readAssistant,
 } from "./assistants";
-import { newestAgent, readAgent } from "./agent";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {

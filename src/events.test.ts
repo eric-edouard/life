@@ -9,8 +9,8 @@ import {
   sign,
 } from "./events";
 import { action } from "./memory/fixtures";
-import { readSettings, type Settings, setSettings } from "./settings";
 import { AGENT_WORD } from "./schema";
+import { readSettings, type Settings, setSettings } from "./settings";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
   expect(

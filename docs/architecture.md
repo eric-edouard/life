@@ -2,7 +2,7 @@
 
 Life is a memory of one person's life, built from his own sources and kept on his own Mac. This page explains its
 shape and the reasons for it. Record formats are in `docs/SCHEMA.md`, sources in `docs/sources.md`, the agent and the
-connector in `docs/atlas.md`, how it runs in `docs/operations.md`.
+connector in `docs/agent-protocol.md`, how it runs in `docs/operations.md`.
 
 ## lifelog and Life
 
@@ -13,7 +13,7 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 | Job | Voice capture: audio, transcripts, speakers, per-conversation chapters and summaries, search | Memory across sources: voice (through lifelog), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
 | Owns | The raw spoken archive | The people across channels, observations, people and project pages |
 | Runs | Its own host and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
-| Acts? | Never | Only on the owner's clear request (`docs/atlas.md`) |
+| Acts? | Never | Only on the owner's clear request (`docs/agent-protocol.md`) |
 
 - Life reads lifelog through its REST API with a device token (`src/sources/lifelog.ts`). It keeps chapter titles,
   summaries and turn refs, not transcript text (except an ask's words). Exact quotes are fetched on demand.

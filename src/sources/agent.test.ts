@@ -69,7 +69,12 @@ test("a task Orbit closed done is one event: its outcome with his ask's words, O
   expect(newestAgent().at).toBe("2026-10-20T14:55:00.000Z");
   const events = readAgent(new Date("2026-10-14T00:00:00.000Z"));
   expect(events.map((e) => [e.id, e.at, e.sender, e.fromMe])).toEqual([
-    [`${AGENT_WORD}:act_aaaaaaaaaaaa`, "2026-10-20T14:55:00.000Z", AGENT_WORD, false],
+    [
+      `${AGENT_WORD}:act_aaaaaaaaaaaa`,
+      "2026-10-20T14:55:00.000Z",
+      AGENT_WORD,
+      false,
+    ],
   ]);
   expect(events[0]?.text).toContain("not his words");
   expect(events[0]?.text).toContain(`"hey Orbit, find the plumber's number"`);
@@ -83,7 +88,10 @@ test("a task Orbit closed done is one event: its outcome with his ask's words, O
   expect(messageUnits(events, named)[0]?.text).not.toContain(
     "orbit-the-plumber"
   );
-  expect([line?.speaker, line?.from]).toEqual([`agent:${AGENT_WORD}`, undefined]);
+  expect([line?.speaker, line?.from]).toEqual([
+    `agent:${AGENT_WORD}`,
+    undefined,
+  ]);
   // Always read for what it may close: its salience never falls under KEEP_AT.
   expect(unit && saliencyOf(unit.unit, 0)).toBe(KEEP_AT);
 });

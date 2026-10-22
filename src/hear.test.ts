@@ -118,7 +118,7 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
-// audit 4: lifelog wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.
+// audit-4-hej-atlas (the name of its case file in his data): lifelog wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.
 test("“Hej Orbit” from an unattributed voice is a low ask, from a named other none; “hey, or bit” is his low ask only", () => {
   const asks = asksIn(
     [

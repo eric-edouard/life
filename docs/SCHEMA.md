@@ -37,7 +37,7 @@ chapter) and checked by the nightly.
 | `schemaVersion` | `1` |
 | `id` | `u_` + 12 hex. Stable: the same chapter (lifelog's chapter id, which is stable per conversation and start), chat-day (source + chat + day) or thread-day always gets the same id. A lifelog conversation with no chapter yet has one unit with `drop: no-summary`, id from the conversation id. |
 | `hash` | 16 hex of SHA-256 over the unit's content (lifelog: titles + summary; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
-| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under the `repos` setting's folder; commits are never extracted: code caps their salience at 1), `claude` and `chatgpt` (his own messages in his claude.ai and ChatGPT exports, imported once into `imports/<source>/conversations.json` beside `memory/`; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `atlas` (a task Atlas closed done: its outcome with his ask's words, Atlas's report, never his; code raises its salience to 2, so it is always read) |
+| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under the `repos` setting's folder; commits are never extracted: code caps their salience at 1), `claude` and `chatgpt` (his own messages in his claude.ai and ChatGPT exports, imported once into `imports/<source>/conversations.json` beside `memory/`; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`schema.ts`) (a task the agent closed done: its outcome with his ask's words, the agent's report, never his; code raises its salience to 2, so it is always read) |
 | `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor's chapters bring their own), the chat id (a Beeper chat id, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the mail thread id, the note id, or the repo (its main folder name under the `repos` setting's folder: worktrees fold into it) |
 | `date`, `start`, `end` | Local day; first and last instant |
 | `title` | Lifelog chapter title, chat name, mail subject, or note title (`(shared)` after a shared note's) |
@@ -270,24 +270,24 @@ line he deletes is recorded as `not-important` for its observations on that page
 ## actions.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `src/actions.ts`), what he changed in
-Reminders by hand (read back by the watcher, `src/reminders/inbound.ts`), and Atlas's tasks (`src/tasks.ts`: his asks and their lines):
+Reminders by hand (read back by the watcher, `src/reminders/inbound.ts`), and the agent's tasks (`src/tasks.ts`: his asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
 - `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
   parent's id instead of `ref`): the same words act or ask once; a failed try may rerun.
 - `instruction`: his words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
-  act` or `ask`) or `connector:<at>` (a chat; for a task Atlas made, the instant he sent the message) or an observation's id (an add of the
+  act` or `ask`) or `connector:<at>` (a chat; for a task the agent made, the instant he sent the message) or an observation's id (an add of the
   standing grant: his quote and when he said it). `at`: when he said it.
 - `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a reminder
   Life links with no change: the first sync's baseline, fields it learns, its own add whose answer was lost), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
   his words in `instruction`; the latest one stands). A task's own lines,
-  with no `instruction` and the task's (its ask's) id as `target`: `update` (Atlas, the connector's `task`: `after` is
+  with no `instruction` and the task's (its ask's) id as `target`: `update` (the agent, the connector's `task`: `after` is
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
-  `reason`, `steps` [{title, done}], `claim`), `reply` (what Atlas told him, the connector's `reply`: `after.text`,
+  `reason`, `steps` [{title, done}], `claim`), `reply` (what the agent told him, the connector's `reply`: `after.text`,
   clipped at 4,000 characters; one on no task has `target` `chat`) and, until 20 Oct, `nudge` (Life: `after.why`, the task was past
   its deadline) and `steer` (his change to its board item, `after.changes` and `note`); those only parse now. Id: `act_` + 12 hex over
   `<task>@<at> | kind` (a reply's also over its text).
-- `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `atlas` (an ask), a task's id (its lines) or `chat`
+- `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `AGENT_WORD` (an ask), a task's id (its lines) or `chat`
   (a reply on no task).
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An add's `after.link` is
   the reminder's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
@@ -295,14 +295,14 @@ Reminders by hand (read back by the watcher, `src/reminders/inbound.ts`), and At
   `id` of a reminder whose move gave it a new one. An ask's
   `after`: `confidence` (`high`: lifelog says he spoke, or a session or a chat; `low`: no speaker, or his own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
-  event carries only that); for a task Atlas made, `title` (one part of
+  event carries only that); for a task the agent made, `title` (one part of
   his message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (his last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
   `instruction.at`, `at` and the `event.sent` log line it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
   `duplicate` (an open reminder had the title; nothing written) or `intent` (written by `act` just before a Reminders
   write, with the same `id` as the outcome line after it: a value it tried is Life's, never his). `madeBy`: `session`
-  (a Claude session), `connector` (a chat, Atlas's updates and replies), `watch` (the watcher: a "hey Atlas" heard; a
+  (a Claude session), `connector` (a chat, the agent's updates and replies), `watch` (the watcher: a `hey <agent>` heard; a
   nudge or a steer until 20 Oct) or `reminders` (his own change in Reminders, with no `instruction`: state, never his
   words; on a task, an `update` closing it because he ticked or removed its receipt). Intents and imports are left out
   of `day`'s and the nightly's Actions and of the change feed.

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { askAt, checked, holds, table } from "./bench-agent";
 import { AGENT_WORD } from "../src/schema";
+import { askAt, checked, holds, table } from "./bench-agent";
 
 test("a call holds the wanted arguments: text as a case-blind part, anything else equal", () => {
   const args = {

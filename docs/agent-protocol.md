@@ -1,18 +1,18 @@
-# Atlas, the connector and actions
+# The agent, the connector and actions
 
 Life is a memory: it reads. It acts in a few narrow ways, each logged in `memory/actions.jsonl`, and hands deep work
-to the owner's agent (Atlas, by default). This page holds the developer-facing rules. The agent's own instructions are
+to the owner's agent. This page holds the developer-facing rules. The agent's own instructions are
 the playbook, `docs/agent.md`: it is read at run time, so it is not repeated here.
 
 ## The agent
 
-- The agent is the `agent` setting: name, wake words, misheard forms, client prefix, transport. Every "Atlas" Life
-  writes is its name; the word stored in the ledger (`target: "atlas"`) stays as it is, because the ledger is
-  append-only.
-- **Atlas is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
+- The agent is the `agent` setting: name, wake words, misheard forms, client prefix, transport. Wherever Life names
+  the agent, it writes that name; the word stored for it (the ledger's `target`, its source's name, its units' sender)
+  is one constant, `AGENT_WORD` (`schema.ts`), kept as first written because stored data is append-only.
+- **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (see `SECURITY.md`): an unattended run reads others' text with full
   access. Revisit it before any send goes out without the owner's yes on that send.
-- Only these become asks: a "hey Atlas" turn that isn't someone else's, the owner's own chats with the agent, and
+- Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent, and
   `bun life ask`. Nothing else Life reads ever does.
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
   `playbook.md` in the data root. `tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
@@ -25,13 +25,13 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 ## Asks
 
-- An ask is the owner's words handed over, never acted on by Life. It comes from a "hey Atlas" turn (`src/hear.ts`:
+- An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`src/hear.ts`:
   the two words, no model call), or from `bun life ask` in a Claude session.
   - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. His own "hey" plus the word lifelog
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
-- `ask` (`src/tasks.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target: "atlas"`); the watcher delivers
+- `ask` (`src/tasks.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
   it (`src/events.ts`).
 - The agent also records one through `task` from the owner's chat (`madeBy: "connector"`): his verbatim words and when
   he sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
@@ -139,7 +139,7 @@ events with `lifeMoment` are Life's output and must be dropped.
 ## "hey Life"
 
 The owner's marker, for memory only. His turn holding it (an unattributed one too) and his turns right after
-(`marksIn`, `src/hear.ts`: the same greeting and span as "hey Atlas", no model call) are recorded by the hearing in the
+(`marksIn`, `src/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
 watcher's store (`writeMarks`, refs only). Their chapter's unit carries them (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
 salience 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
@@ -158,7 +158,7 @@ grant, and logs the agent's replies.
   line, appended only: it sends nothing).
 - `correct` is annotated destructive so clients ask first. `reminders`, `task` and `reply` are not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses them unattended.
-- Replies are the agent's output, never the owner's words: they enter memory only through the `atlas` source, as
+- Replies are the agent's output, never the owner's words: they enter memory only through the agent's source (`AGENT_WORD`), as
   evidence of what was done.
 - One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. Callbacks go to
   OpenAI's hosts only, verified before anything is sent.
