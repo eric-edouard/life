@@ -24,7 +24,13 @@ const Status = z.object({
 
 /** This Mac's name on its tailnet, from Tailscale itself; an error says what to fix first. */
 export async function tailnetName() {
-  const s = Status.parse(JSON.parse(await tailscale(["status", "--json"])));
+  const s = Status.parse(
+    JSON.parse(
+      await tailscale(["status", "--json"]).catch((e: Error) => {
+        throw new Error(`Tailscale is not running: ${e.message}`);
+      })
+    )
+  );
   if (s.BackendState !== "Running") {
     throw new Error(`Tailscale is ${s.BackendState}: sign in first`);
   }

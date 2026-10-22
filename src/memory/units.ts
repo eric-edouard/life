@@ -27,6 +27,7 @@ import {
   readFiles,
   readRepoGuesses,
   readUnits,
+  readUnitsOf,
   UNITS,
 } from "./ledger";
 import { dayStart, localDate, wall } from "./zones";
@@ -758,10 +759,10 @@ export async function writeUnits(
   fresh: Unit[],
   keep: (u: Unit) => boolean = () => false
 ) {
-  const days = new Set(dates);
+  const ids = new Set(fresh.map((u) => u.id));
   const units = [
     ...fresh,
-    ...(await readUnits()).filter((u) => days.has(u.date) && keep(u)),
+    ...readUnitsOf(dates).filter((u) => keep(u) && !ids.has(u.id)),
   ];
   await Promise.all(
     dates.map(async (date) => {

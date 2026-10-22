@@ -29,6 +29,7 @@ import {
   readLabels,
   readMoments,
   readUnits,
+  readUnitsOf,
   readVerdicts,
   type Verdicts,
   verdictKey,
@@ -365,10 +366,16 @@ export async function moments(evidence: Evidence) {
   let invalid = 0;
   // Units the model gave no verdict for: their day is read again next time.
   let missing = 0;
+  // A day holding units of a source that can't be read now waits for it: read without them, its moments would lose theirs.
+  const held = new Set(
+    readUnitsOf(skipped.length > 0 ? days : [])
+      .filter((u) => skipped.includes(u.source))
+      .map((u) => u.date)
+  );
   // Oldest day first: a day sees what the days before it planned.
   for (const day of days) {
     const units = all.filter((b) => b.unit.date === day && !b.unit.drop);
-    if (!unread(units, verdicts)) {
+    if (held.has(day) || !unread(units, verdicts)) {
       continue;
     }
     const earlier = earlierFor(day, lines, corrections);

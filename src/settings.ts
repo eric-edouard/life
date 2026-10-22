@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -99,7 +99,9 @@ export const settings = () => {
 /** Writes some parts, keeping the rest: the whole is checked before anything is written. */
 export function setSettings(parts: Partial<Settings>) {
   const next = Settings.parse({ ...readSettings(), ...parts });
-  writeFileSync(SETTINGS, `${JSON.stringify(next, null, 2)}\n`);
+  // Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly).
+  writeFileSync(`${SETTINGS}.tmp`, `${JSON.stringify(next, null, 2)}\n`);
+  renameSync(`${SETTINGS}.tmp`, SETTINGS);
   read = next;
 }
 
