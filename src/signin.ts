@@ -182,7 +182,7 @@ export type SignIn = ReturnType<typeof createSignIn>;
 
 /** The key the app opens the status page with on this Mac, kept in Life's state (mode 600), made on first use. */
 export const localKey = () => secretIn(LOCAL_KEY);
-const LOCAL_KEY = join(STATE, "local.key");
+export const LOCAL_KEY = join(STATE, "local.key");
 /** The cookie the app's status window carries the key in. */
 export const LOCAL = "life_local";
 const BEARER = /^Bearer /;

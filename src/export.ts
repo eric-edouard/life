@@ -1,0 +1,209 @@
+import { Database } from "bun:sqlite";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, isAbsolute, join, relative } from "node:path";
+import { STORES } from "./archive";
+import { clock } from "./clock";
+import { SUBSCRIPTION } from "./events";
+import { LOCK, locked } from "./memory/guard";
+import { INDEX } from "./memory/search";
+import { OAUTH } from "./oauth";
+import { execOk } from "./proc";
+import { LOCAL_KEY } from "./signin";
+import { ARCHIVE, archiveDb } from "./sources/archived";
+import { storeFiles, WATCH } from "./sources/lifelog";
+import { DATA, ROOT, STATE } from "./truth";
+
+// A whole copy of what Life holds, as a folder (`stage`): `bun life export <dir>`, the app's Export…, and the folder
+// the nightly backup snapshots. `data/` his data repo, `state/` Life's state, `archive/` the archive's stores and
+// media, and `manifest.json`: every file's size and sha256, and what each part holds (`inventory`). Secrets are never
+// in it, only named (`leftOut`): what to give a new install by hand.
+
+export const FORMAT = 1;
+
+/** In Life's state but never exported: rebuilt (the index), secrets, and live locks. The watcher's store is copied whole on its own. */
+const KEPT_OUT = [WATCH, INDEX, OAUTH, SUBSCRIPTION, LOCAL_KEY].map((p) =>
+  relative(STATE, p)
+);
+const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
+
+/** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
+const filesUnder = (dir: string) =>
+  (readdirSync(dir, { recursive: true }) as string[]).filter((p) =>
+    lstatSync(join(dir, p)).isFile()
+  );
+
+/** A file's sha256, read as a stream. */
+export async function sha256Of(path: string) {
+  const hasher = new Bun.CryptoHasher("sha256");
+  for await (const chunk of Bun.file(path).stream()) {
+    hasher.update(chunk);
+  }
+  return hasher.digest("hex");
+}
+
+/**
+ * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), then
+ * made a file of its own (no WAL beside it): it opens anywhere, read-only too, and restores as one file.
+ */
+function copyDb(from: string, to: string) {
+  const source = new Database(from, { readonly: true });
+  try {
+    source.run("VACUUM INTO ?", [to]);
+  } finally {
+    source.close();
+  }
+  const copy = new Database(to);
+  try {
+    copy.run("PRAGMA journal_mode=DELETE");
+  } finally {
+    copy.close();
+  }
+}
+
+/** What a staged folder holds: lines per JSONL file of his data, rows per table of each store, the data's commit. */
+export async function inventory(dir: string) {
+  const lines = Object.fromEntries(
+    filesUnder(join(dir, "data"))
+      .filter((p) => p.endsWith(".jsonl") && !p.startsWith(".git"))
+      .map((p) => [
+        p,
+        readFileSync(join(dir, "data", p), "utf8")
+          .split("\n")
+          .filter(Boolean).length,
+      ])
+  );
+  const rows = Object.fromEntries(
+    filesUnder(dir)
+      .filter((p) => p.endsWith(".sqlite"))
+      .map((p) => {
+        const db = new Database(join(dir, p), { readonly: true });
+        try {
+          const tables = db
+            .query<{ name: string }, []>(
+              "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'"
+            )
+            .all();
+          return [
+            p,
+            Object.fromEntries(
+              tables.map(({ name }) => [
+                name,
+                (
+                  db.query(`select count(*) as n from "${name}"`).get() as {
+                    n: number;
+                  }
+                ).n,
+              ])
+            ),
+          ];
+        } finally {
+          db.close();
+        }
+      })
+  );
+  const head = existsSync(join(dir, "data", ".git"))
+    ? (
+        await execOk(["git", "-C", join(dir, "data"), "rev-parse", "HEAD"])
+      ).trim()
+    : null;
+  return { head, lines, rows };
+}
+
+const ENV_KEY = /^([A-Z0-9_]+)=/;
+/** What a new install is given by hand, named only: never their values. */
+function leftOut() {
+  const env = join(ROOT, ".env");
+  return {
+    codex: "Codex's login (`codex login` again, for the codex engine)",
+    env: existsSync(env)
+      ? readFileSync(env, "utf8")
+          .split("\n")
+          .flatMap((l) => l.match(ENV_KEY)?.[1] ?? [])
+      : [],
+    keychain:
+      "every item of the service Life (the app keeps its secrets there)",
+    signIn:
+      "apps connected to Life's own sign-in pair again; the agent subscribes again",
+  };
+}
+
+/**
+ * Stages everything Life holds in `dir` (made, never one with anything in it), consistent: his data cloned under
+ * memory's lock (an APFS clone, in ms), each store copied whole by SQLite, the watcher's cursor before its store (the
+ * watcher writes it after, so a restored store never lags its cursor). Throws when the lock is held.
+ */
+export async function stage(dir: string, archive = ARCHIVE) {
+  if (existsSync(dir) && readdirSync(dir).length > 0) {
+    throw new Error(`${dir} is not empty`);
+  }
+  mkdirSync(join(dir, "archive"), { recursive: true });
+  const cloned = await locked(() =>
+    execOk(["cp", "-cR", DATA, join(dir, "data")])
+  );
+  if (cloned === null) {
+    throw new Error("a run holds memory's lock: try again when it is done");
+  }
+  rmSync(join(dir, "data", basename(LOCK)), { force: true });
+  // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
+  const inData = relative(DATA, STATE);
+  if (!(inData.startsWith("..") || isAbsolute(inData))) {
+    rmSync(join(dir, "data", inData), { force: true, recursive: true });
+  }
+  await execOk(["cp", "-cR", STATE, join(dir, "state")]);
+  for (const p of filesUnder(join(dir, "state"))) {
+    if (
+      KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
+      KEPT_OUT_END.some((e) => p.endsWith(e))
+    ) {
+      rmSync(join(dir, "state", p), { force: true });
+    }
+  }
+  const watch = join(dir, "state", relative(STATE, WATCH));
+  mkdirSync(watch, { recursive: true });
+  const { cursor, file } = storeFiles();
+  if (existsSync(cursor)) {
+    await execOk(["cp", cursor, watch]);
+  }
+  if (existsSync(file)) {
+    await copyDb(file, join(watch, basename(file)));
+  }
+  for (const db of STORES.map((s) => archiveDb(s.name, archive)).filter(
+    existsSync
+  )) {
+    // biome-ignore lint/performance/noAwaitInLoops: one copy at a time
+    await copyDb(db, join(dir, "archive", basename(db)));
+  }
+  if (existsSync(join(archive, "media"))) {
+    await execOk(["cp", "-cR", join(archive, "media"), join(dir, "archive")]);
+  }
+  const files: { path: string; sha256: string; size: number }[] = [];
+  for (const path of filesUnder(dir)) {
+    files.push({
+      path,
+      // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed: the media alone is gigabytes
+      sha256: await sha256Of(join(dir, path)),
+      size: statSync(join(dir, path)).size,
+    });
+  }
+  const manifest = {
+    counts: await inventory(dir),
+    createdAt: clock().toISOString(),
+    files,
+    format: FORMAT,
+    leftOut: leftOut(),
+  };
+  writeFileSync(
+    join(dir, "manifest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`
+  );
+  return manifest;
+}

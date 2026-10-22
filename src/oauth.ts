@@ -23,7 +23,9 @@ import { STATE } from "./truth";
 // authorization code serves once, a refresh token is replaced each time it is used, and every token is for this one
 // resource and owner.
 
-const FILE = join(STATE, "oauth", "state.json");
+/** Life's own sign-in: its key, the apps and their tokens. A secret: never exported. */
+export const OAUTH = join(STATE, "oauth");
+const FILE = join(OAUTH, "state.json");
 
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;
