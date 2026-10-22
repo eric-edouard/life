@@ -25,7 +25,7 @@ import {
 import { exec, git, gitOut } from "@life/server/src/core/proc";
 import { nextEvent } from "@life/server/src/host/events";
 import { buildServer } from "@life/server/src/host/http/mcp";
-import { ACTIONS, OUT, parseAction } from "@life/server/src/memory/ledger";
+import { LEDGER, OUT, parseLedgerEntry } from "@life/server/src/memory/ledger";
 import { ended, metered } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { judge, tally } from "@life/server/src/memory/tally";
@@ -127,8 +127,8 @@ const stated = (iso: string) => {
  * his message: the ledger before it, and his words.
  */
 export function askAt(lines: string[], id: string) {
-  const k = lines.findIndex((l) => parseAction(l)?.id === id);
-  const ask = k < 0 ? null : parseAction(lines[k] ?? "");
+  const k = lines.findIndex((l) => parseLedgerEntry(l)?.id === id);
+  const ask = k < 0 ? null : parseLedgerEntry(lines[k] ?? "");
   if (!ask?.instruction) {
     throw new Error(`${id} is not an ask with his words`);
   }
@@ -248,7 +248,7 @@ async function runCase(
         .slice(world.cut)
         .map((l, i) => ({
           id: `task${i}`,
-          text: JSON.stringify(parseAction(l)?.after),
+          text: JSON.stringify(parseLedgerEntry(l)?.after),
         })),
     ].map((s) => ({ ...s, date: localDate(world.at) }));
     const { marks } = tally(
@@ -316,7 +316,7 @@ async function bench(file: string, only: string[], engine: Engine) {
   // A metered run: what the agent's calls spent of his Codex plan is in its `use`.
   const rec = await metered("bench.agent", { cases: cases.length, engine });
   const { run } = rec;
-  const lines = linesOf(ACTIONS);
+  const lines = linesOf(LEDGER);
   try {
     await ended(rec, async () => {
       await checkout(code, ["node_modules", ".env"], ["settings.json"]);

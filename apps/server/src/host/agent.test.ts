@@ -2,17 +2,17 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { planOf } from "../actions/board";
-import type { Item } from "../actions/contract";
 import { MIN } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { LIFE_CODE_DIR } from "../core/paths";
-import { ACTIONS, type Task, tasksOf } from "../memory/ledger";
+import { LEDGER, type Task, tasksOf } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
 import { standing, type Update } from "../memory/tasks";
-import { Action } from "../records/ledger-entry";
+import { LedgerEntry } from "../records/ledger-entry";
+import { planOf } from "../todo-list/board";
+import type { TodoItem } from "../todo-list/contract";
 import {
   alerts,
   chase,
@@ -41,9 +41,9 @@ const asked = action({
   target: AGENT_WORD,
 });
 const own = (
-  kind: Action["kind"],
+  kind: LedgerEntry["kind"],
   min: number,
-  after: Action["after"],
+  after: LedgerEntry["after"],
   of = ASK
 ) =>
   action({
@@ -56,7 +56,7 @@ const own = (
     target: of,
   });
 /** A task from its lines. */
-const task = (lines: Action[]): Task => {
+const task = (lines: LedgerEntry[]): Task => {
   const [t] = tasksOf([asked, ...lines].map((a) => JSON.stringify(a)));
   if (!t) {
     throw new Error("no task");
@@ -271,7 +271,7 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
   }
 });
 
-const look = (over: Partial<Item> = {}): Item => ({
+const look = (over: Partial<TodoItem> = {}): TodoItem => ({
   completed: false,
   id: "1",
   notes: "",
@@ -280,7 +280,7 @@ const look = (over: Partial<Item> = {}): Item => ({
   ...over,
 });
 
-const working = (more: Action[] = []) =>
+const working = (more: LedgerEntry[] = []) =>
   task([
     own("update", 5, {
       deadline: at(60),
@@ -324,7 +324,7 @@ const claiming = {
   seal,
   state: "working",
 } as const;
-const write = (u: Update, lines: Action[] = [], now = T0) =>
+const write = (u: Update, lines: LedgerEntry[] = [], now = T0) =>
   written(
     u,
     tasksOf([asked, ...lines].map((a) => JSON.stringify(a))),
@@ -419,7 +419,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
   const heard = {
     ...asked,
     timing: { arrived: at(-1), ended: at(-2) },
-  } satisfies Action;
+  } satisfies LedgerEntry;
   const part = action({
     after: { confidence: "high", parent: ASK, title: "a part" },
     at: at(1),
@@ -464,7 +464,7 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
   expect(unanswered(T0, [answered, task([]), split])).toBe(1);
   expect(unanswered(T0 + MIN, [task([])])).toBe(0);
   try {
-    appendJsonl(ACTIONS, Action, [asked]);
+    appendJsonl(LEDGER, LedgerEntry, [asked]);
     expect(reply({ task: ASK, text: "On it." }, T0 + MIN)).toBe(
       `${ASK}: reply logged`
     );
@@ -477,7 +477,7 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
       ["reply", "On it."],
     ]);
     expect(
-      Action.parse(JSON.parse(linesOf(ACTIONS).at(-1) as string))
+      LedgerEntry.parse(JSON.parse(linesOf(LEDGER).at(-1) as string))
     ).toMatchObject({
       after: { text: "Hello." },
       kind: "reply",
@@ -485,7 +485,7 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
       target: "chat",
     });
   } finally {
-    rmSync(ACTIONS, { force: true });
+    rmSync(LEDGER, { force: true });
   }
 });
 

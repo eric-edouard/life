@@ -1,20 +1,12 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import {
-  AGAIN_DAYS,
-  actionLine,
-  type Candidate,
-  OVERDUE_DAYS,
-  openItems,
-  openLinked,
-} from "../actions/items";
 import { clock, DAY } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { agentName } from "../core/settings";
-import { type Action, isListed } from "../records/ledger-entry";
+import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Moment } from "../records/moment";
 import {
   INFERRED_USE_AT,
@@ -33,14 +25,22 @@ import {
   turnPlace,
   withStore,
 } from "../sources/lifelog";
+import {
+  AGAIN_DAYS,
+  type Candidate,
+  entryLine,
+  OVERDUE_DAYS,
+  openItems,
+  openLinked,
+} from "../todo-list/items";
 import { levelsWith } from "./closeness";
 import {
   daysOf,
   momentsNow,
   OUT,
   pagePath,
-  readActions,
   readCorrections,
+  readLedger,
   readMoments,
   readUnits,
   readUnresolved,
@@ -661,7 +661,7 @@ export function dayLines({
   moments = [],
   units = [],
 }: {
-  actions?: Action[];
+  actions?: LedgerEntry[];
   born?: string[];
   conversations?: LifelogConversation[];
   due?: string[];
@@ -704,7 +704,7 @@ export function dayLines({
           "",
           "Actions (what Life changed, and why):",
           ...actions.map(
-            (a) => `- ${time(a.at)} ${a.kind}: ${actionLine(a)} (${a.why})`
+            (a) => `- ${time(a.at)} ${a.kind}: ${entryLine(a)} (${a.why})`
           ),
         ]
       : []),
@@ -715,7 +715,7 @@ export async function day(date: string) {
   const truth = await loadTruth();
   const names = lifelogNames(truth);
   const born = birthdaysNear(truth.people, date);
-  const actions = (await readActions()).filter(
+  const actions = (await readLedger()).filter(
     (a) => isListed(a) && localDate(a.at) === date
   );
   const moments = await momentsWhere(inDays({ from: date, to: date }));
@@ -797,7 +797,7 @@ export const birthdaysNear = (
     .map(({ b, p }) => `- ${p.name} (\`person ${p.id}\`): ${birthdayText(b)}`);
 
 /**
- * What `day` lists as due on `date` (`openItems`, apps/server/src/actions/items.ts, which merges, times and ranks): the salience-3 promises
+ * What `day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the salience-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
  * ledger; the replies he owes. Who said each, when not him, is labelled. The agent's daily review lists them (docs/agent.md).
  */
@@ -852,7 +852,7 @@ export function dueOf(
 
 /** What `dueOf` needs besides the index, read before it opens (nothing awaits while the index is open). */
 async function dueContext(date: string, truth: Truth) {
-  const actions = readActions();
+  const actions = readLedger();
   const reminders = openLinked(actions).map(({ at, fields: f, key, ref }) => ({
     at,
     id: key,

@@ -24,7 +24,7 @@ export const Settings = z
      * nothing wakes an agent.
      */
     /**
-     * The actions output, input and output (`apps/server/src/actions/`), and its one backend: his Apple Reminders (remctl) or his
+     * The actions output, input and output (`apps/server/src/todo-list/`), and its one backend: his Apple Reminders (remctl) or his
      * Google Tasks (`gog` as `account`). On, Life acts there when he asks, keeps the board, and reads his changes back;
      * without it (the default), nothing in Life touches either.
      */

@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { unshared } from "../actions/remctl";
 import { setSettings, settings } from "../core/settings";
-import { ACTIONS } from "../memory/ledger";
-import type { Action } from "../records/ledger-entry";
+import { LEDGER } from "../memory/ledger";
+import type { LedgerEntry } from "../records/ledger-entry";
+import { unshared } from "../todo-list/remctl";
 import {
   actAsked,
-  actionId,
   duplicateOf,
+  entryId,
   Granted,
   grantedFrom,
   grantRefusal,
@@ -27,14 +27,14 @@ test("an add repeats an open reminder with the same title, whatever the case and
 });
 
 test("the same words asking for the same thing get the same id, whatever the case and accents", () => {
-  const id = actionId("job:1@t", "add", "Appeler le plombier");
-  expect(actionId("job:1@t", "add", "  appelér le PLOMBIER ")).toBe(id);
-  expect(actionId("job:2@t", "add", "Appeler le plombier")).not.toBe(id);
+  const id = entryId("job:1@t", "add", "Appeler le plombier");
+  expect(entryId("job:1@t", "add", "  appelér le PLOMBIER ")).toBe(id);
+  expect(entryId("job:2@t", "add", "Appeler le plombier")).not.toBe(id);
 });
 
 test("two requests the same day for the same edit both act: each has a ref of its own", () => {
   const id = (at: string) =>
-    actionId(requested("session", "rename it", at).ref, "edit", "Same title");
+    entryId(requested("session", "rename it", at).ref, "edit", "Same title");
   expect(id("2026-10-19T09:00:00.000Z")).not.toBe(
     id("2026-10-19T15:00:00.000Z")
   );
@@ -46,11 +46,11 @@ const line = (
   target: string,
   ref: string,
   at = "2026-10-21T10:00:00.000Z"
-): Action => ({
+): LedgerEntry => ({
   // As `act` writes them: a removal leaves `deleted`, and each line has its own id.
   after: kind === "remove" ? { deleted: true } : {},
   at,
-  id: actionId(ref, kind, target),
+  id: entryId(ref, kind, target),
   instruction: { at, quote: "q", ref },
   kind,
   madeBy: "connector",
@@ -217,8 +217,7 @@ test("the grant sets an add's title, named list, due and section only: no notes,
 
 test("with the actions output off, an act is refused before anything is recorded", async () => {
   const on = settings().actions;
-  const ledger = () =>
-    existsSync(ACTIONS) ? readFileSync(ACTIONS, "utf8") : "";
+  const ledger = () => (existsSync(LEDGER) ? readFileSync(LEDGER, "utf8") : "");
   const before = ledger();
   setSettings({ actions: null });
   try {

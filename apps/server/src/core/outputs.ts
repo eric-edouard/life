@@ -4,7 +4,7 @@ import { settings } from "./settings";
 // switch, read from settings here. Off, an output does nothing and says so (`off`); its own module does the work and
 // reads the rest of its settings.
 export const OUTPUTS = {
-  /** His items in one actions backend (Reminders or Google Tasks), acted on at his request (`apps/server/src/actions/`): off, nothing touches them. */
+  /** His items in one actions backend (Reminders or Google Tasks), acted on at his request (`apps/server/src/todo-list/`): off, nothing touches them. */
   actions: { label: "Actions", on: () => Boolean(settings().actions) },
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },

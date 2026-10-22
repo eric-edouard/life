@@ -1,6 +1,6 @@
 import { DAY } from "../core/clock";
 import { agentName } from "../core/settings";
-import { type Action, stands } from "../records/ledger-entry";
+import { type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
@@ -49,7 +49,7 @@ export interface Linked {
 }
 
 /** One line's mark on a linked reminder: a try or a partial leaves its fields unsettled (`tried`: the next pass imports what Reminders shows); anything else settles them. */
-function apply(it: Linked, a: Action) {
+function apply(it: Linked, a: LedgerEntry) {
   const after = pick(a.after);
   const tried = !stands(a);
   const unsure = tried || Boolean(a.error?.startsWith("partial"));
@@ -70,7 +70,7 @@ function apply(it: Linked, a: Action) {
 }
 
 /** Every item Life links, by its target now: what the ledger says Life left on it, and the fields it tried to write that are not settled. */
-export function linked(actions: Action[]) {
+export function linked(actions: LedgerEntry[]) {
   const items = new Map<string, Linked>();
   for (const a of actions) {
     const n = a.target;
@@ -108,7 +108,7 @@ export function linked(actions: Action[]) {
 }
 
 /** His items still open, as the ledger holds them: not ticked, not removed, not lost; of one backend (`prefix`) or all. */
-export const openLinked = (actions: Action[], prefix?: string) =>
+export const openLinked = (actions: LedgerEntry[], prefix?: string) =>
   [...linked(actions).values()].filter(
     ({ fields: f, target }) =>
       !(f.completed || f.deleted || f.lost) &&
@@ -284,12 +284,12 @@ export function owed(
   return out;
 }
 /** One line saying what an action did and on which of his words: the nightly's Actions section and `day`. */
-export function actionLine(a: Action) {
+export function entryLine(a: LedgerEntry) {
   const was = a.before?.title ?? a.target;
   const changed = Object.entries(a.after)
     .map(([k, v]) => `${k} ${v}`)
     .join(", ");
-  const kinds: Partial<Record<Action["kind"], string>> = {
+  const kinds: Partial<Record<LedgerEntry["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
     ask: `to ${agentName()}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
     done: `done “${was}”`,

@@ -8,8 +8,8 @@ import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
 import { SECRETS, same, writeSecret } from "../core/secret";
 import { agentName, settings } from "../core/settings";
-import { ACTIONS, parseAction } from "../memory/ledger";
-import { actionFailedReport, sendReport } from "./report";
+import { LEDGER, parseLedgerEntry } from "../memory/ledger";
+import { actFailedReport, sendReport } from "./report";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
 // subscriber, his agent (a ChatGPT agent by default). The connector answers events/list|subscribe|unsubscribe (apps/server/src/host/http/mcp.ts); the
@@ -110,7 +110,7 @@ export interface State {
 export const deliveryState = (): State =>
   existsSync(SECRETS.events)
     ? JSON.parse(readFileSync(SECRETS.events, "utf8"))
-    : { attempts: 0, delivered: linesOf(ACTIONS).length };
+    : { attempts: 0, delivered: linesOf(LEDGER).length };
 
 function writeState(s: State) {
   writeSecret("events", `${JSON.stringify(s, null, 2)}\n`);
@@ -203,7 +203,7 @@ export async function subscribe(p: z.infer<typeof Subscribe>) {
   const delivered = resumeAt(
     p.cursor,
     old ? state.delivered : undefined,
-    linesOf(ACTIONS).length
+    linesOf(LEDGER).length
   );
   writeState({
     ...(old ? state : { attempts: 0 }),
@@ -235,7 +235,7 @@ export function unsubscribe(p: z.infer<typeof Unsubscribe>) {
  */
 export function nextEvent(lines: string[], from: number) {
   for (const [k, line] of lines.slice(from).entries()) {
-    const a = parseAction(line);
+    const a = parseLedgerEntry(line);
     if (a?.kind === "ask" && a.instruction && a.madeBy !== "connector") {
       const cursor = from + k + 1;
       const data: z.infer<typeof AskData> = {
@@ -324,7 +324,7 @@ export function settleDelivery(
  */
 export async function deliver() {
   const now = clock().getTime();
-  const lines = linesOf(ACTIONS);
+  const lines = linesOf(LEDGER);
   for (;;) {
     const state = deliveryState();
     const next = nextEvent(lines, state.delivered);
@@ -362,7 +362,7 @@ export async function deliver() {
     if (after.subscription && after.delivered === cursor) {
       await sendReport(
         `action/${action.id}`,
-        actionFailedReport({ ...action, error })
+        actFailedReport({ ...action, error })
       );
     }
   }

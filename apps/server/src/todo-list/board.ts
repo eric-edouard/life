@@ -1,6 +1,6 @@
 import { log } from "../core/log";
 import { BOARD, backend, type Snapshot } from "./backend";
-import type { ActionsBackend, Item } from "./contract";
+import type { TodoItem, TodoListBackend } from "./contract";
 
 // The board, his list `BOARD`: the agent's tasks projected, one item per task, found by the task id on its notes' first line.
 // Each pass Life brings its own fields (notes, and the section where the backend has sections; the notes say the
@@ -17,7 +17,7 @@ export interface Receipt {
 }
 
 /** The writes that bring item `it` to `w`: whether to tick it, and the fields to write (a section only where there are sections). */
-export function planOf(w: Receipt, it: Item, sections = true) {
+export function planOf(w: Receipt, it: TodoItem, sections = true) {
   return {
     done: w.completed && !it.completed,
     fields: {
@@ -30,19 +30,23 @@ export function planOf(w: Receipt, it: Item, sections = true) {
 }
 
 /** The task a board item is for. */
-export const taskOf = (r: Item) => r.notes?.split("\n")[0] ?? "";
+export const taskOf = (r: TodoItem) => r.notes?.split("\n")[0] ?? "";
 
 /**
  * Brings a task's item in line (a closed task with no item gets none; a new one is added with the task id in its
  * notes, so a failed pass finds it again, and a failed private write, the section, is tried again next pass).
  */
-async function mirror(b: ActionsBackend, w: Receipt, item: Item | undefined) {
+async function mirror(
+  b: TodoListBackend,
+  w: Receipt,
+  item: TodoItem | undefined
+) {
   const task = w.id;
   if (!item && w.completed) {
     return;
   }
   try {
-    const it: Item = item ?? {
+    const it: TodoItem = item ?? {
       completed: false,
       id: (await b.add({ list: BOARD, notes: w.notes, title: w.title })).id,
       notes: w.notes,
@@ -74,7 +78,7 @@ async function mirror(b: ActionsBackend, w: Receipt, item: Item | undefined) {
  * The board's pass, over the board as `pull` read it: each receipt's item is brought in line (one missing comes back
  * while its task is open; a ticked one of a closed task is left alone: he may have unticked it).
  */
-export async function push(receipts: Receipt[], board: Item[]) {
+export async function push(receipts: Receipt[], board: TodoItem[]) {
   const b = backend();
   const items = new Map(board.map((r) => [taskOf(r), r]));
   for (const w of receipts) {

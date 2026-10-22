@@ -1,6 +1,6 @@
 import { unfrozen } from "../core/clock";
 import { execOk } from "../core/proc";
-import type { ActionsBackend, Item, List } from "./contract";
+import type { List, TodoItem, TodoListBackend } from "./contract";
 
 // The Google Tasks backend: his tasks through `gog tasks … --json` as `account`. Only `backend.ts` uses it. A task's
 // id in the contract is `<list id>/<task id>`: Google names a task within its list. It has notes, a day (no time),
@@ -20,7 +20,7 @@ export interface GoogleTask {
 }
 
 /** A task as the contract's item: its day only (Google keeps no time), all-day. */
-export const itemOfTask = (list: List, t: GoogleTask): Item => ({
+export const itemOfTask = (list: List, t: GoogleTask): TodoItem => ({
   allDay: true,
   completed: t.status === "completed",
   dueDate: t.due,
@@ -67,7 +67,7 @@ export function google(
   /** The board's list title (`BOARD`): made when missing. */
   boardTitle: string,
   run: (args: string[]) => Promise<unknown> = gogAs(account)
-): ActionsBackend {
+): TodoListBackend {
   const gog = async <T>(args: string[]) => (await run(args)) as T;
   /** The board's list once Life made it (Google has none until then): made once, on first need. */
   let board: Promise<List> | undefined;

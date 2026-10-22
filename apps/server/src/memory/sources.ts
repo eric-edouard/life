@@ -124,7 +124,7 @@ const LISTED: Descriptor[] = [
     silentAfter: 12 * HOUR,
   },
   {
-    kind: "notes",
+    kind: "own_writing",
     label: "Notes",
     macOnly: true,
     name: "notes",
@@ -147,7 +147,7 @@ const LISTED: Descriptor[] = [
   ...(["claude", "chatgpt"] as const).map(
     (name): Descriptor => ({
       imported: true,
-      kind: "notes",
+      kind: "own_writing",
       label: FORMATS[name].label,
       missing: () => (existsSync(importOf(name)) ? undefined : "not imported"),
       name,

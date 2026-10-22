@@ -1,9 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { checks } from "../actions/backend";
-import { actionLine } from "../actions/items";
-import { REMCTL_RELEASE, remctlVersion } from "../actions/remctl";
 import { Engine } from "../core/names";
 import { off } from "../core/outputs";
 import {
@@ -17,6 +14,9 @@ import { integrity, loadTruth } from "../memory/read-truth";
 import { FULL_DISK, SOURCES } from "../memory/sources";
 import { dayRange } from "../memory/units";
 import { readEngine } from "../models/llm";
+import { checks } from "../todo-list/backend";
+import { entryLine } from "../todo-list/items";
+import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { Asked, actAsked, requested, setGrant } from "./act";
 import { ask, timings } from "./agent";
 import { archiveCommand } from "./archive";
@@ -66,7 +66,7 @@ const commands: Record<string, () => Promise<number>> = {
       return 2;
     }
     const done = await actAsked(asked, "session");
-    console.log(`${done.id} ${done.result}: ${actionLine(done)}`);
+    console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
     return done.result === "failed" ? 1 : 0;
   },
   /**
@@ -128,7 +128,7 @@ const commands: Record<string, () => Promise<number>> = {
       "session",
       "asked in a Claude session"
     );
-    console.log(`${done.id}: ${actionLine(done)}`);
+    console.log(`${done.id}: ${entryLine(done)}`);
     return Promise.resolve(0);
   },
   /**
@@ -217,7 +217,7 @@ const commands: Record<string, () => Promise<number>> = {
       return 2;
     }
     const done = await setGrant(state === "on", said);
-    console.log(`${done.id}: ${actionLine(done)}`);
+    console.log(`${done.id}: ${entryLine(done)}`);
     return 0;
   },
   /**

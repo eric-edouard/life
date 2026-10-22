@@ -18,7 +18,7 @@ import {
   settings,
   connector as settingsOf,
 } from "../../core/settings";
-import { ACTIONS } from "../../memory/ledger";
+import { LEDGER } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
 import { apply, forward, type Stay } from "../../sources/lifelog";
 import {
@@ -374,7 +374,7 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
       name: "tasks",
     }));
   } finally {
-    rmSync(ACTIONS, { force: true });
+    rmSync(LEDGER, { force: true });
   }
   const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
   expect(playbook).toBe(

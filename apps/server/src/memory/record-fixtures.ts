@@ -1,4 +1,4 @@
-import type { Action } from "../records/ledger-entry";
+import type { LedgerEntry } from "../records/ledger-entry";
 import type { Unit, Verdict } from "../records/unit";
 import { type Verdicts, verdictKey } from "./ledger";
 
@@ -51,7 +51,7 @@ export const ledger = (list: Verdict[]): Verdicts =>
   new Map(list.map((v) => [verdictKey(v.unit, v.hash), v]));
 
 /** An add Life made on his words "write that down in the to-dos", unless `over` says otherwise. */
-export const action = (over: Partial<Action> = {}): Action => ({
+export const action = (over: Partial<LedgerEntry> = {}): LedgerEntry => ({
   after: { list: "Travel", title: "Buy checked baggage" },
   at: "2026-10-15T10:00:00.000Z",
   id: "act_0123456789ab",

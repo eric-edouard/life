@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { clock } from "../core/clock";
 import { appendJsonl, filesIn, linesOf, rowsOf } from "../core/files";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { Action, type Instruction } from "../records/ledger-entry";
+import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import { Moment } from "../records/moment";
 import {
   Correction,
@@ -55,7 +55,7 @@ export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");
 export const REPOS_INFERRED = join(MEMORY, "repos-inferred.jsonl");
 export const IMPORTED = join(MEMORY, "imported.jsonl");
-export const ACTIONS = join(MEMORY, "actions.jsonl");
+export const LEDGER = join(MEMORY, "actions.jsonl");
 const LABELS = join(MEMORY, "labels.jsonl");
 const VERDICTS = join(MEMORY, "verdicts.jsonl");
 export const FILES = join(MEMORY, "files.jsonl");
@@ -346,22 +346,22 @@ export const recordRating = (claim: string, answer: Rating["answer"]) =>
 
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
 
-export const readActions = () => rowsOf(ACTIONS, Action);
+export const readLedger = () => rowsOf(LEDGER, LedgerEntry);
 
 /** One actions ledger line, null for a blank one. */
-export const parseAction = (line: string) =>
-  line ? Action.parse(JSON.parse(line)) : null;
+export const parseLedgerEntry = (line: string) =>
+  line ? LedgerEntry.parse(JSON.parse(line)) : null;
 
 export interface Task {
-  ask: Action & { instruction: Instruction };
+  ask: LedgerEntry & { instruction: Instruction };
   /** Its own lines in ledger order. */
-  lines: Action[];
+  lines: LedgerEntry[];
 }
 
 /** The actions ledger as the agent's tasks (memory/tasks.ts): each ask with its own lines. */
-export function tasksOf(lines = linesOf(ACTIONS)) {
+export function tasksOf(lines = linesOf(LEDGER)) {
   const tasks = new Map<string, Task>();
-  for (const a of lines.map(parseAction)) {
+  for (const a of lines.map(parseLedgerEntry)) {
     if (a?.kind === "ask" && a.instruction) {
       tasks.set(a.id, { ask: { ...a, instruction: a.instruction }, lines: [] });
     } else if (a) {

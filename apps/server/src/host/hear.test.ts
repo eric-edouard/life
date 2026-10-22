@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { ACTIONS, tasksOf } from "../memory/ledger";
+import { LEDGER, tasksOf } from "../memory/ledger";
 import { MARK, WAKE } from "../memory/tasks";
 import { apply, readConversations, whose } from "../sources/lifelog";
 import {
@@ -262,7 +262,7 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
     ]);
   } finally {
     server.close();
-    rmSync(ACTIONS, { force: true });
+    rmSync(LEDGER, { force: true });
   }
 });
 
@@ -296,7 +296,7 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
     expect(quotes()).toEqual(["hey Zorba, buy milk"]);
   } finally {
     server.close();
-    rmSync(ACTIONS, { force: true });
+    rmSync(LEDGER, { force: true });
   }
 });
 
@@ -377,6 +377,6 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
     expect(tasksOf()).toEqual([]);
   } finally {
     server.close();
-    rmSync(ACTIONS, { force: true });
+    rmSync(LEDGER, { force: true });
   }
 });

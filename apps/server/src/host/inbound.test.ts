@@ -1,21 +1,22 @@
 import { expect, test } from "bun:test";
-import type { Snapshot } from "../actions/backend";
-import { marks } from "../actions/board";
-import type { Item } from "../actions/contract";
 import { AGENT_WORD } from "../core/names";
 import { tasksOf } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
-import { type Action, Action as ActionLine } from "../records/ledger-entry";
+import { LedgerEntry } from "../records/ledger-entry";
+import type { Snapshot } from "../todo-list/backend";
+import { marks } from "../todo-list/board";
+import type { TodoItem } from "../todo-list/contract";
 import { grantRefusal } from "./act";
 import { closings } from "./agent";
 import { inbound } from "./inbound";
 
 const AT = "2026-10-21T12:00:00.000Z";
 /** His lines, without the imports (what Life only learns). */
-const ofHis = (lines: Action[]) => lines.filter((l) => l.kind !== "import");
+const ofHis = (lines: LedgerEntry[]) =>
+  lines.filter((l) => l.kind !== "import");
 const LINK = "x-apple-reminderkit://REMCDReminder/AAAA-1";
 
-const rem = (over: Partial<Item> = {}): Item => ({
+const rem = (over: Partial<TodoItem> = {}): TodoItem => ({
   completed: false,
   createdDate: "2026-10-20T09:00:00",
   deepLink: LINK,
@@ -26,7 +27,7 @@ const rem = (over: Partial<Item> = {}): Item => ({
   urgent: false,
   ...over,
 });
-const snap = (live: Item[], over: Partial<Snapshot> = {}): Snapshot => ({
+const snap = (live: TodoItem[], over: Partial<Snapshot> = {}): Snapshot => ({
   board: [],
   deleted: [],
   live,
@@ -42,8 +43,8 @@ const added = action({
 const base = [added, ...inbound(snap([rem()]), [added], AT)];
 /** One `act` write: its intent first, then its outcome (none when the answer was lost). */
 const wrote = (
-  after: Action["after"],
-  outcome?: Action["result"],
+  after: LedgerEntry["after"],
+  outcome?: LedgerEntry["result"],
   over = {}
 ) => {
   const line = action({
@@ -399,8 +400,8 @@ test("an add that lands during the read, before its answer is recorded, waits fo
 });
 
 /** What the ledger gives back: each line written as JSON and parsed again (a key whose value is undefined is gone). */
-const ledger = (lines: Action[]) =>
-  lines.map((l) => ActionLine.parse(JSON.parse(JSON.stringify(l))));
+const ledger = (lines: LedgerEntry[]) =>
+  lines.map((l) => LedgerEntry.parse(JSON.parse(JSON.stringify(l))));
 
 test("through the ledger's JSON: a quiet second pass, then his tick as his", () => {
   const first = ledger([added, ...inbound(snap([rem()]), ledger([added]), AT)]);

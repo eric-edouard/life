@@ -4,7 +4,11 @@ import { clock } from "../core/clock";
 import { filesIn, linesOf } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { Action, isBookkeeping, isTaskLine } from "../records/ledger-entry";
+import {
+  isBookkeeping,
+  isTaskLine,
+  LedgerEntry,
+} from "../records/ledger-entry";
 import {
   Correction,
   INFERRED_USE_AT,
@@ -15,12 +19,12 @@ import {
 } from "../records/observation";
 import { Rating } from "../records/statement";
 import {
-  ACTIONS,
   CORRECTIONS,
   hides,
   hiding,
   INFERRED,
   isCurrent,
+  LEDGER,
   OBSERVATIONS,
   PAGE_KINDS,
   PAGES,
@@ -288,7 +292,7 @@ interface Item {
 }
 
 /** The task an action line is part of, as a ref: an ask's own id, a task line's target (a reply on no task has none). */
-const taskRef = (a: Action) => {
+const taskRef = (a: LedgerEntry) => {
   if (a.kind === "ask") {
     return `task:${a.id}`;
   }
@@ -368,7 +372,7 @@ function itemOf(
     };
   }
   if (source === "actions") {
-    const a = Action.parse(raw);
+    const a = LedgerEntry.parse(raw);
     if (isBookkeeping(a)) {
       return null;
     }
@@ -450,7 +454,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
     { lines: linesOf(CORRECTIONS), name: "corrections" },
     { lines: linesOf(SUPERSESSIONS), name: "supersessions" },
     { lines: linesOf(INFERRED), name: "inferred" },
-    { lines: linesOf(ACTIONS), name: "actions" },
+    { lines: linesOf(LEDGER), name: "actions" },
     { lines: linesOf(RATINGS), name: "ratings" },
     ...months.map((m) => ({
       lines: linesOf(join(OBSERVATIONS, m)),

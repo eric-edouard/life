@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { actionLine } from "../actions/items";
 import { MIN, unfrozen } from "../core/clock";
 import { digest } from "../core/hash";
 import { log, recentEvents } from "../core/log";
@@ -22,7 +21,8 @@ import type { mapRepos } from "../memory/repos";
 import { enabledSources, listening } from "../memory/sources";
 import { count, localTime, time } from "../memory/units";
 import { localDate, when } from "../memory/zones";
-import type { Action } from "../records/ledger-entry";
+import type { LedgerEntry } from "../records/ledger-entry";
+import { entryLine } from "../todo-list/items";
 import { type Health, polling } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
@@ -38,7 +38,7 @@ type Result<T extends (...args: never[]) => Promise<unknown>> = Awaited<
 export interface Night {
   /** Life's actions of the last 24 h, and what keeps it from acting (a remctl check that failed). */
   acted: {
-    actions: Action[];
+    actions: LedgerEntry[];
     problems: string[];
     tasks: { name: string; relation: string }[];
   };
@@ -174,7 +174,7 @@ export function successReport(day: string, ms: number, n: Night) {
             ...problems.map((relation) => ({ name: "Problem", relation })),
             ...done.map((x) => ({
               name: `${time(x.at)} · ${x.kind}`,
-              relation: actionLine(x),
+              relation: entryLine(x),
             })),
           ],
           title: "Actions",
@@ -316,7 +316,7 @@ export const lapseReport = (open: number, now: number) =>
   });
 
 /** The alert for an action that failed: his words are in it, so he can do the thing by hand. */
-export const actionFailedReport = (a: Action) =>
+export const actFailedReport = (a: LedgerEntry) =>
   alert(a.at, "Life action", {
     failure: { error: a.error ?? "", step: `${a.kind} ${a.target}` },
     notes: [

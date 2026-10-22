@@ -117,7 +117,7 @@ someone else is capped at 0.6 confidence.
 The server's code (`apps/server/src`) is in layers, and dependencies point one way:
 
 ```
-core  ←  records  ←  models, sources, actions  ←  memory  ←  host
+core  ←  records  ←  models, sources, todo-list  ←  memory  ←  host
 ```
 
 | Folder | What it holds |
@@ -126,7 +126,7 @@ core  ←  records  ←  models, sources, actions  ←  memory  ←  host
 | `records/` | Every record Life writes, as zod schemas, one file per record (`unit.ts`, `moment.ts`, `observation.ts`, `statement.ts`, `ledger-entry.ts`, `source.ts`), plus `truth.ts` and the fields they share (`fields.ts`) |
 | `models/` | The model providers (`PROVIDERS`), the call and its cache |
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
-| `actions/` | The actions contract, its two backends, the board and open items |
+| `todo-list/` | The to-do list contract (`TodoListBackend`), its two backends, the board and open items |
 | `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, people and places, search, the agent's tasks, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
 | `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the status snapshot, Life's status), and the outputs (report, events, the Past calendar) |
 | `test-data/` | The made-up data tests read |

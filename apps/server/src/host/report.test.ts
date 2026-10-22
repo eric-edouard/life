@@ -1,11 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
-import { actionLine } from "../actions/items";
 import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
 import { action, madeBy } from "../memory/record-fixtures";
-import { Action } from "../records/ledger-entry";
+import { LedgerEntry } from "../records/ledger-entry";
+import { entryLine } from "../todo-list/items";
 import {
-  actionFailedReport,
+  actFailedReport,
   failureReport,
   lockReport,
   type Night,
@@ -16,16 +16,16 @@ import {
 const MORE = /\+\d+ more/;
 
 test("an action reads as what it did, his words, and how it ended", () => {
-  expect(actionLine(action({}))).toBe(
+  expect(entryLine(action({}))).toBe(
     "“Buy checked baggage” in Travel ← “write that down in the to-dos”"
   );
   expect(
-    actionLine(
+    entryLine(
       action({ after: { title: "Y" }, before: { title: "X" }, kind: "edit" })
     )
   ).toContain("“X” → “Y” ←");
   expect(
-    actionLine(
+    entryLine(
       action({
         after: { due: "2026-10-16" },
         before: { title: "X" },
@@ -33,29 +33,29 @@ test("an action reads as what it did, his words, and how it ended", () => {
       })
     )
   ).toContain("“X”: due 2026-10-16");
-  expect(actionLine(action({ error: "boom", result: "failed" }))).toEndWith(
+  expect(entryLine(action({ error: "boom", result: "failed" }))).toEndWith(
     " FAILED: boom"
   );
-  expect(actionLine(action({ error: "partial: section: x" }))).toEndWith(
+  expect(entryLine(action({ error: "partial: section: x" }))).toEndWith(
     " (partial: section: x)"
   );
-  expect(actionLine(action({ result: "duplicate" }))).toEndWith(
+  expect(entryLine(action({ result: "duplicate" }))).toEndWith(
     " duplicate of #12"
   );
 });
 
 test("an old ledger line still parses and reads: an email to Instinct (until 19 Oct)", () => {
-  const old = Action.parse({
+  const old = LedgerEntry.parse({
     ...action({}),
     after: { subject: "Book a table" },
     kind: "instinct",
     target: "mailto:x@y.z",
   });
-  expect(actionLine(old)).toStartWith("to Instinct: “Book a table” ←");
+  expect(entryLine(old)).toStartWith("to Instinct: “Book a table” ←");
 });
 
 test("an old ledger line still parses and reads: a request heard in his speech, with its timing (until 19 Oct)", () => {
-  const old = Action.parse({
+  const old = LedgerEntry.parse({
     ...action({}),
     madeBy: { ...madeBy, prompt: "intent.v6" },
     timing: {
@@ -65,24 +65,24 @@ test("an old ledger line still parses and reads: a request heard in his speech, 
       modelMs: 12_400,
     },
   });
-  expect(actionLine(old)).toBe(
+  expect(entryLine(old)).toBe(
     "“Buy checked baggage” in Travel ← “write that down in the to-dos”"
   );
 });
 
 test("an ask reads as his words to Orbit, a low-confidence one says so", () => {
   const ask = (confidence: string) =>
-    Action.parse({
+    LedgerEntry.parse({
       ...action({}),
       after: { confidence, conversation: "c1", turns: [4, 5] },
       kind: "ask",
       madeBy: "watch",
       target: AGENT_WORD,
     });
-  expect(actionLine(ask("high"))).toBe(
+  expect(entryLine(ask("high"))).toBe(
     "to Orbit ← “write that down in the to-dos”"
   );
-  expect(actionLine(ask("low"))).toStartWith("to Orbit (low confidence) ←");
+  expect(entryLine(ask("low"))).toStartWith("to Orbit (low confidence) ←");
 });
 
 const night = (facts: number) =>
@@ -281,7 +281,7 @@ test("the failure email names the step, plainly, and shows the error", () => {
 });
 
 test("a failed action's alert carries his words and the error", () => {
-  const mail = actionFailedReport(
+  const mail = actFailedReport(
     action({
       error: "remctl is not installed (~/bin/remctl)",
       result: "failed",

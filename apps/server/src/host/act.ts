@@ -1,4 +1,14 @@
 import { z } from "zod";
+import { clock } from "../core/clock";
+import { appendJsonl } from "../core/files";
+import { digest } from "../core/hash";
+import { LEDGER, readLedger } from "../memory/ledger";
+import { kindOf } from "../memory/sources";
+import { normalize } from "../memory/units";
+import { localDate } from "../memory/zones";
+import { type Instruction, LedgerEntry, stands } from "../records/ledger-entry";
+import type { Observation } from "../records/observation";
+import { ownerSpoke, withStore } from "../sources/lifelog";
 import {
   BOARD,
   backend,
@@ -7,28 +17,18 @@ import {
   intended,
   lacks,
   write,
-} from "../actions/backend";
-import { Change } from "../actions/contract";
-import { linked, openLinked } from "../actions/items";
-import { clock } from "../core/clock";
-import { appendJsonl } from "../core/files";
-import { digest } from "../core/hash";
-import { ACTIONS, readActions } from "../memory/ledger";
-import { kindOf } from "../memory/sources";
-import { normalize } from "../memory/units";
-import { localDate } from "../memory/zones";
-import { Action, type Instruction, stands } from "../records/ledger-entry";
-import type { Observation } from "../records/observation";
-import { ownerSpoke, withStore } from "../sources/lifelog";
-import { actionFailedReport, sendReport } from "./report";
+} from "../todo-list/backend";
+import { Change } from "../todo-list/contract";
+import { linked, openLinked } from "../todo-list/items";
+import { actFailedReport, sendReport } from "./report";
 
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
-// Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as an Action
+// Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as a ledger entry
 // (memory/actions.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
 // connector) decide that he asked. The ledger also holds the agent's tasks (apps/server/src/host/agent.ts), whose board, the list `BOARD`,
 // no `act` may touch.
 
-export const actionId = (ref: string, kind: string, title: string) =>
+export const entryId = (ref: string, kind: string, title: string) =>
   `act_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
 
 /** What a client passes (a Claude session through the CLI, a chat through the connector): a change, his words that asked for it, and why. */
@@ -41,7 +41,7 @@ export type Asked = z.infer<typeof Asked>;
 interface Act {
   change: Change;
   instruction: Instruction;
-  madeBy: Action["madeBy"];
+  madeBy: LedgerEntry["madeBy"];
   why: string;
 }
 
@@ -57,14 +57,14 @@ export function duplicateOf(
 
 /** The record of an action already done (or asked) with this id: the same words act once, unless that try failed (or never ended). */
 export const recorded = async (id: string) =>
-  (await readActions()).find((x) => x.id === id && stands(x));
+  (await readLedger()).find((x) => x.id === id && stands(x));
 
 /**
  * Does one change and records it in memory/actions.jsonl; a failure is recorded too, and emailed at once with his words
  * so he can do it by hand. The same words asking for the same thing act once (the old record comes back), unless that
  * try failed: then they try again.
  */
-export async function act(a: Act): Promise<Action> {
+export async function act(a: Act): Promise<LedgerEntry> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
   const b = backend();
@@ -81,22 +81,22 @@ export async function act(a: Act): Promise<Action> {
   if (c.list === BOARD || on === BOARD) {
     throw new Error(`the list ${BOARD} is the agent's board: use \`task\``);
   }
-  const id = actionId(instruction.ref, c.kind, c.title);
+  const id = entryId(instruction.ref, c.kind, c.title);
   const old = await recorded(id);
   if (old) {
     return old;
   }
-  // Read from the ledger (apps/server/src/actions/items.ts), never from Reminders: his hand-made ones are there once sync read them.
+  // Read from the ledger (apps/server/src/todo-list/items.ts), never from Reminders: his hand-made ones are there once sync read them.
   const open =
     c.kind === "add"
-      ? openLinked(await readActions(), b.prefix).map((it) => ({
+      ? openLinked(await readLedger(), b.prefix).map((it) => ({
           target: it.target,
           title: String(it.fields.title ?? ""),
         }))
       : [];
   const same = duplicateOf(c, open);
   const ref = (item: string | number) => `${b.prefix}:${item}`;
-  const line = (done: Done, result: Action["result"]): Action => ({
+  const line = (done: Done, result: LedgerEntry["result"]): LedgerEntry => ({
     ...done,
     at: clock().toISOString(),
     id,
@@ -108,21 +108,21 @@ export async function act(a: Act): Promise<Action> {
     why: a.why,
   });
   const tried = { after: intended(c), target: ref(c.target ?? "new") };
-  let action: Action;
+  let action: LedgerEntry;
   if (same) {
     action = line({ after: { title: c.title }, target: same }, "duplicate");
   } else {
     // Recorded before the write: whatever happens next, Reminders showing this value is Life's doing, never his (#69).
-    await appendJsonl(ACTIONS, Action, [line(tried, "intent")]);
+    await appendJsonl(LEDGER, LedgerEntry, [line(tried, "intent")]);
     try {
       action = line(await write(c), "ok");
     } catch (e) {
       action = line({ ...tried, error: (e as Error).message }, "failed");
     }
   }
-  await appendJsonl(ACTIONS, Action, [action]);
+  await appendJsonl(LEDGER, LedgerEntry, [action]);
   if (action.result === "failed") {
-    await sendReport(`action/${id}`, actionFailedReport(action));
+    await sendReport(`action/${id}`, actFailedReport(action));
   }
   return action;
 }
@@ -146,11 +146,11 @@ export function actAsked(
 const GRANT_DAILY = 3;
 
 /** A reminder the standing grant added: an add whose instruction is an observation, not his words in a request. */
-const isGranted = (a: Action) =>
+const isGranted = (a: LedgerEntry) =>
   a.kind === "add" && Boolean(a.instruction?.ref.startsWith("obs_"));
 
 /** The grant's earlier add from this observation, if one stands: the same observation adds once. */
-export const grantedFrom = (actions: Action[], obs: string) =>
+export const grantedFrom = (actions: LedgerEntry[], obs: string) =>
   actions.find((a) => isGranted(a) && a.instruction?.ref === obs && stands(a));
 
 /**
@@ -161,7 +161,7 @@ export const grantedFrom = (actions: Action[], obs: string) =>
  * turn the store credits to him now (`mine`); a shared list is the backend's `shared`, checked last (it reads his lists).
  */
 export function grantRefusal(g: {
-  actions: Action[];
+  actions: LedgerEntry[];
   mine: boolean;
   now: string;
   o: Pick<Observation, "salience" | "source" | "type">;
@@ -198,10 +198,10 @@ export function grantRefusal(g: {
 /** Turns the standing grant on (his words in a Claude session) or off (his "stop", also through the agent: off only takes authority away), `bun life grant`: one ledger line, the latest standing. Never from the connector. */
 export async function setGrant(on: boolean, said: string) {
   const instruction = requested("session", said);
-  const line: Action = {
+  const line: LedgerEntry = {
     after: { on },
     at: instruction.at,
-    id: actionId(instruction.ref, "grant", `${on}`),
+    id: entryId(instruction.ref, "grant", `${on}`),
     instruction,
     kind: "grant",
     madeBy: "session",
@@ -210,7 +210,7 @@ export async function setGrant(on: boolean, said: string) {
     target: "grant",
     why: "his words",
   };
-  await appendJsonl(ACTIONS, Action, [line]);
+  await appendJsonl(LEDGER, LedgerEntry, [line]);
   return line;
 }
 
@@ -241,7 +241,7 @@ export function actGranted(
   change: Granted
 ) {
   const run = granting.then(async () => {
-    const actions = await readActions();
+    const actions = await readLedger();
     const old = grantedFrom(actions, o.id);
     if (old) {
       return old;

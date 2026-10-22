@@ -23,7 +23,7 @@ export const REMINDER_KINDS = [
  * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
  */
-export const Action = z
+export const LedgerEntry = z
   .object({
     after: z.record(z.string(), z.unknown()),
     at: isoDateTime,
@@ -73,21 +73,22 @@ export const Action = z
   })
   .strict();
 
-export type Action = z.infer<typeof Action>;
+export type LedgerEntry = z.infer<typeof LedgerEntry>;
 
-export type Instruction = NonNullable<Action["instruction"]>;
+export type Instruction = NonNullable<LedgerEntry["instruction"]>;
 
 /** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
-export const isTaskLine = (a: Action) =>
+export const isTaskLine = (a: LedgerEntry) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
 
 /** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (apps/server/src/host/inbound.ts). */
-export const isBookkeeping = (a: Action) =>
+export const isBookkeeping = (a: LedgerEntry) =>
   a.result === "intent" || a.kind === "import";
 
 /** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */
-export const isListed = (a: Action) => !(isTaskLine(a) || isBookkeeping(a));
+export const isListed = (a: LedgerEntry) =>
+  !(isTaskLine(a) || isBookkeeping(a));
 
 /** A line whose outcome stands: done, or found already done. */
-export const stands = (a: Action) =>
+export const stands = (a: LedgerEntry) =>
   a.result === "ok" || a.result === "duplicate";

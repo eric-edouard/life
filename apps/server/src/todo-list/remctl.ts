@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { unfrozen } from "../core/clock";
 import { HOME } from "../core/platform";
 import { exec } from "../core/proc";
-import type { ActionsBackend, Change, Item } from "./contract";
+import type { Change, TodoItem, TodoListBackend } from "./contract";
 
 // The Reminders backend: his Apple Reminders through remctl (its signed host, `--json`). Only `backend.ts` uses it.
 // Its check (`checks`) is one `lists` read, not `remctl doctor` (its Tailscale probe times out while Reminders are
@@ -62,8 +62,8 @@ export const unshared = (list: { sharees?: unknown[]; shared?: boolean }) =>
   list.shared === false && list.sharees?.length === 0;
 
 /** A reminder as remctl gives it: its id is a number. */
-export type Raw = Omit<Item, "id"> & { id: number };
-export const itemOf = (r: Raw): Item => ({ ...r, id: String(r.id) });
+export type Raw = Omit<TodoItem, "id"> & { id: number };
+export const itemOf = (r: Raw): TodoItem => ({ ...r, id: String(r.id) });
 
 /** How long a list's own sorter takes to place a new reminder (read-after-write lags about 2 s). */
 const SORTER_MS = 3000;
@@ -117,7 +117,7 @@ const num = (id: string) => {
   return id;
 };
 
-export const reminders: ActionsBackend = {
+export const reminders: TodoListBackend = {
   async add(c) {
     const { priv, pub } = reminderArgs(c);
     const r = await remctl([

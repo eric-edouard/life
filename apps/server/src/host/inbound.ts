@@ -1,5 +1,8 @@
-import { openOf, type Snapshot } from "../actions/backend";
-import type { Item } from "../actions/contract";
+import { digest } from "../core/hash";
+import { normalize } from "../memory/units";
+import { type LedgerEntry, stands } from "../records/ledger-entry";
+import { openOf, type Snapshot } from "../todo-list/backend";
+import type { TodoItem } from "../todo-list/contract";
 import {
   FIELDS,
   type Field,
@@ -8,10 +11,7 @@ import {
   linked,
   norm,
   pick,
-} from "../actions/items";
-import { digest } from "../core/hash";
-import { normalize } from "../memory/units";
-import { type Action, stands } from "../records/ledger-entry";
+} from "../todo-list/items";
 
 // His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
 // with what the ledger says Life left there, and a field Life tried to write and could not confirm is learned, never his (#69).
@@ -19,19 +19,19 @@ import { type Action, stands } from "../records/ledger-entry";
 // a repeating reminder's due are Apple's own, never compared; a shared list is never read.
 
 /** A live reminder's fields, as a change writes them (`pick` keeps the compared ones). */
-const fieldsNow = (r: Item) =>
+const fieldsNow = (r: TodoItem) =>
   pick({ ...r, deleted: false, due: openOf(r).due, lost: false });
-const linkOf = (r: Item) => r.deepLink?.split("/").at(-1);
+const linkOf = (r: TodoItem) => r.deepLink?.split("/").at(-1);
 
 /** One line of his, read from Reminders: never his words (no `instruction`), so nothing can take it for a request. */
 const his = (
   prefix: string,
-  kind: Action["kind"],
+  kind: LedgerEntry["kind"],
   id: string,
   at: string,
   after: Fields & { created?: string; link?: string },
   before?: Record<string, unknown>
-): Action => ({
+): LedgerEntry => ({
   after,
   at,
   before,
@@ -66,7 +66,7 @@ const LAG_MS = 30_000;
 function linesOf(
   prefix: string,
   it: Linked,
-  r: Item | undefined,
+  r: TodoItem | undefined,
   gone: boolean,
   first: boolean,
   at: string
@@ -110,13 +110,13 @@ function linesOf(
 }
 
 /** The lines this pass adds: his changes and his new reminders (`add`), and imports, which change nothing. */
-export function inbound(s: Snapshot, ledger: Action[], at: string) {
+export function inbound(s: Snapshot, ledger: LedgerEntry[], at: string) {
   // Only this backend's lines: another backend's items (before a switch) are never read here, never marked lost.
   const actions = ledger.filter((a) => a.target.startsWith(`${s.prefix}:`));
   const first = !actions.some((a) => a.kind === "import");
   const byId = new Map(s.live.map((r) => [r.id, r]));
   const byLink = new Map(s.live.map((r) => [linkOf(r), r]));
-  const lines: Action[] = [];
+  const lines: LedgerEntry[] = [];
   for (const it of linked(actions).values()) {
     const r =
       byId.get(itemId(it)) ?? (it.link ? byLink.get(it.link) : undefined);
@@ -156,9 +156,9 @@ export function inbound(s: Snapshot, ledger: Action[], at: string) {
 }
 
 /** The titles of Life's adds with no answer yet (an intent or a failure, no ok), each with when it was tried: such a reminder is Life's. */
-function lostAdds(actions: Action[]) {
+function lostAdds(actions: LedgerEntry[]) {
   const ok = new Set(actions.filter(stands).map((a) => a.id));
-  const title = (a: Action) => normalize(`${a.after.title}`);
+  const title = (a: LedgerEntry) => normalize(`${a.after.title}`);
   // Once imported, the title is free again: a later reminder of his by that name is his.
   const imported = new Set(
     actions.filter((a) => a.kind === "import").map(title)

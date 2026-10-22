@@ -67,10 +67,10 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   restore, through `act` (`apps/server/src/host/act.ts`). `act` is the only code that decides an action. It records its intent
   before each write and its outcome after.
 - When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
-  `apps/server/src/actions/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
+  `apps/server/src/todo-list/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
 - `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time. `act` refuses the agent's list (`BOARD`): that list is the board, below.
-- **One contract, `ActionsBackend`** (`apps/server/src/actions/contract.ts`): his lists (not groups) and whether one is shared, a
+- **One contract, `TodoListBackend`** (`apps/server/src/todo-list/contract.ts`): his lists (not groups) and whether one is shared, a
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
   `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
   Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `changes`). `idOf` is the one place
@@ -85,7 +85,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
   restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
-- Only `actions/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/act.ts`) decides and
+- Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/act.ts`) decides and
   `inbound` (`host/inbound.ts`) reads the owner's changes back.
 - **The actions output** is on only with the `actions` setting, which names the backend: `{"backend": "reminders"}` or
   `{"backend": "google", "account": "<his Google account>"}` (`isOn("actions")`). Off: `backend()`, the one gate, refuses every
@@ -96,8 +96,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - Reminders goes through `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by
   remctl's own installer from the app; while Reminders is the backend and remctl is behind the pin, the app offers the
   update again (Apple silicon only). Google Tasks goes through `gog tasks … --json` as the setting's account. Their
-  answers as Life reads them are `apps/server/src/actions/remctl.json` (recorded; re-check them when moving the pin) and
-  `apps/server/src/actions/gog.json` (written from the Tasks API's resources, never run against an account). Without a backend
+  answers as Life reads them are `apps/server/src/todo-list/remctl.json` (recorded; re-check them when moving the pin) and
+  `apps/server/src/todo-list/gog.json` (written from the Tasks API's resources, never run against an account). Without a backend
   Life still works from the ledger.
 - Nothing Life hears or reads makes it act by itself.
 
@@ -115,7 +115,7 @@ each minute as state only: one `madeBy: "reminders"` line each, with no `instruc
 
 ### Open items
 
-`openItems` (`apps/server/src/actions/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
+`openItems` (`apps/server/src/todo-list/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
 what sync read back) and the chats. Code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to the agent's review at most twice (counted from the ids its `day` calls were logged
 with). `day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
@@ -125,7 +125,7 @@ it, within a minute. `open_reminders` alone reads Reminders, for the sections th
 ### The board
 
 The agent's Reminders list (`BOARD`, named after the agent) is a projection of the ledger, the owner's receipt
-(`wantOf` in `apps/server/src/host/agent.ts`, written by `push` in `apps/server/src/actions/board.ts` each minute). It writes no ledger line and
+(`wantOf` in `apps/server/src/host/agent.ts`, written by `push` in `apps/server/src/todo-list/board.ts` each minute). It writes no ledger line and
 never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or

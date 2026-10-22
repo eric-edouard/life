@@ -3,10 +3,10 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
-import { Action } from "../records/ledger-entry";
+import { LedgerEntry } from "../records/ledger-entry";
 import { KEEP_AT } from "../records/unit";
 import { newestAgent, readAgent } from "./agent-source";
-import { ACTIONS } from "./ledger";
+import { LEDGER } from "./ledger";
 import { saliencyOf } from "./moments";
 import { action } from "./record-fixtures";
 import { messageUnits } from "./units";
@@ -14,7 +14,7 @@ import { chatLines } from "./words";
 
 const NON_DIGIT = /\D/g;
 
-afterAll(() => rmSync(ACTIONS, { force: true }));
+afterAll(() => rmSync(LEDGER, { force: true }));
 
 const ask = (id: string, quote: string) =>
   action({
@@ -36,9 +36,9 @@ const update = (task: string, at: string, after: Record<string, unknown>) =>
   });
 
 test("a task Orbit closed done is one event: its outcome with his ask's words, Orbit's report, never his", () => {
-  mkdirSync(dirname(ACTIONS), { recursive: true });
-  rmSync(ACTIONS, { force: true });
-  appendJsonl(ACTIONS, Action, [
+  mkdirSync(dirname(LEDGER), { recursive: true });
+  rmSync(LEDGER, { force: true });
+  appendJsonl(LEDGER, LedgerEntry, [
     ask("act_aaaaaaaaaaaa", "hey Orbit, find the plumber's number"),
     update("act_aaaaaaaaaaaa", "2026-10-20T14:52:00.000Z", {
       claim: true,

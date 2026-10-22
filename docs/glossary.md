@@ -32,9 +32,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | ledger | `memory/actions.jsonl`: every line where something crossed Life's boundary: the owner's asks and grants, the agent's updates and replies, Life's changes to his to-do list. Append-only. | `ledger.jsonl` |
-| ledger entry | One line of the ledger (`Action`, id `act_…`). Its `madeBy` says through what it came: a session, the connector, the watcher, the to-do list. | `LedgerEntry`, `entry_…`, `via` |
-| to-do list | Where Life acts: the owner's Apple Reminders or Google Tasks, one per install (the `actions` setting, `ActionsBackend`, `actions/`). | `todo_list`, `TodoListBackend`, `todo-list/` |
-| to-do item | One entry in the to-do list (`Item`). | `TodoItem` |
+| ledger entry | One line of the ledger (`LedgerEntry`, id `act_…`). Its `madeBy` says through what it came: a session, the connector, the watcher, the to-do list. | `entry_…`, `via` |
+| to-do list | Where Life acts: the owner's Apple Reminders or Google Tasks, one per install (`TodoListBackend`, `todo-list/`; the `actions` setting). | the `todo_list` setting |
+| to-do item | One entry in the to-do list (`TodoItem`). | |
 | act | The one command that decides and makes a change to a to-do item, and logs it in the ledger. | |
 | open item | Anything owed, derived, never stored (`openItems`): a to-do, a promise, a reply owed, a to-do item, someone the owner is waiting on. | |
 
@@ -43,7 +43,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `beeper`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
-| kind | What a source is to the memory: `voice`, `chat`, `mail`, `notes` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | `notes` → `own_writing` |
+| kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | chapter | One recording in lifelog. | |
 | archive | Life's own copy of the WhatsApp, Beeper and Notes stores, the only live copy of deleted messages and old note versions. | |
