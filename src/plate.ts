@@ -889,7 +889,7 @@ function memoryCards(r: Reads): Card[] {
       group: "memory",
       headline: `${mem.observations.toLocaleString("en-US")} observations`,
       id: "memory",
-      name: "Memory · ~/Life",
+      name: "Memory",
     },
     {
       ...(truth.error

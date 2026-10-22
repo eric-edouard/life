@@ -1,7 +1,7 @@
 # Operations
 
-How Life runs on a Mac, what it schedules, and how to back it up, restore it and measure it. The rules an agent must
-not break are in `AGENTS.md`; this page has the details.
+Reference: how Life runs on a Mac, what it schedules, what a backup holds and how Life is measured. The rules an agent
+must not break are in `AGENTS.md`; this page has the details.
 
 ## Where things live
 
@@ -9,7 +9,7 @@ Three roots, defined in `src/truth.ts`:
 
 | Root | What | Default |
 |---|---|---|
-| `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (his claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MAC/data`; a checkout: `~/Life` |
+| `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MAC/data`; a checkout: `~/Life` |
 | `STATE` (`LIFE_STATE`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MAC/state`; a checkout: its own `derived/` |
 | `MAC` | Fixed: `~/Library/Application Support/Life`, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
@@ -83,8 +83,9 @@ those locks (`holder`, `src/mac.ts`).
 - Everything looks back 7 days.
 - **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
   `STATE/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
-  oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`): four weeks a day at most (`backfillWeek`), so it
-  never takes the night's turn nor the whole subscription. Three failures of a week stop it. Record the owner's zones
+  oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
+  the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
+  subscription. Three failures of a week stop it. Record the owner's zones
   for the range first (`memory/zones.jsonl`): a past zone may be added only before the first day memory has units of,
   and a backfill moves that day back. Pages follow at the next night. Only the last 7 days' messages get their files
   described; older ones stay tags.
@@ -108,7 +109,7 @@ those locks (`holder`, `src/mac.ts`).
   (lifelog's `durationSeconds`) is closed on 30 s of silence, lifelog's own rule. If lifelog changes how it closes a
   recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
   40 s) for lifelog to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
-  becomes an ask only once lifelog names him.
+  becomes an ask only once lifelog names the owner.
 - The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both
   ways (the read takes about 10 s, `sync.pull` in the log).
 - `deliver` (`STATE/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
@@ -149,24 +150,23 @@ the tunnel's only healer.
 - The model bench's OpenRouter calls (`askOpenRouter`, `OPENROUTER_API_KEY`) are pinned to hosts on OpenRouter's
   zero-retention list and run only through `LIFE_LLM` on a copy of the data; `LIFE_LLM` is refused on the live data.
 
-## Backups and restore
+## Backups and exports
 
-A backup exists only with the `backup` setting: there is no default, and without it the report says the backup is
-off. With it, `src/backup.ts` snapshots with restic once a day (3 tries) into the setting's repository (for example a
-folder in iCloud Drive); the password comes from the setting's password command (the Keychain), and should also be in
-a password manager. On Sundays it also forgets, prunes and checks. By hand: `bun life backup`.
+`src/backup.ts` snapshots with restic once a day (3 tries) when the `backup` setting is set; without it the report
+says the backup is off. On Sundays it also forgets (keeping 14 daily, 8 weekly and 24 monthly snapshots), prunes and
+checks 5% of the data. By hand: `bun life backup`.
 
-Each snapshot holds one export (`stage`, `src/export.ts`, the same as `bun life export` and the app's Export…):
+Each snapshot holds one export (`stage`, `src/export.ts`, the same as `bun life export` and the app's Export
+everything…):
 
 - `data/`: the owner's data, cloned under the lock (the one reader that takes it);
 - `state/`: Life's state without secrets or the index, with the watcher's store and cursor;
 - `archive/`: every archive store and its media;
 - `manifest.json`: every file's sha256, what each part holds, and the secrets left out, by name.
 
-Restore: `restic restore latest --tag daily --target <dir>` puts the export at `<dir>` plus its absolute path
-(`MAC/backup-staging`). Then `bun life import <dir>/…/backup-staging` into a new install (checked, never over existing
-data, never into an existing archive), then give by hand the secrets the manifest names. Secrets are in no backup:
-Life's sign-in and the agent's subscription pair again.
+`bun life import <export>` (the app's Import an export…) brings one into a new install only: checked against its
+manifest, never over existing data, never into an existing archive. Setting up a backup and restoring one, step by
+step: [Back up and restore](use/backup.md).
 
 ## The nightly report
 
@@ -203,7 +203,7 @@ case (`DATA/docs/evals/cases/`), and ends with a proposal.
 - The audit file quotes only what a finding needs (ids, cursors and refs otherwise). Its sections, in order:
   1. **Complaint:** the task id, recording and turn, spoken and recorded instants.
   2. **Scope:** this case and a named window of related ones.
-  3. **Expected vs promised:** what he expected, and what the docs promised then (the commit checked).
+  3. **Expected vs promised:** what the owner expected, and what the docs promised then (the commit checked).
   4. **Snapshot at intake:** the connector's `status` `observedAt` and its `changes` cursor (page `changes` from the
      intake instant until `remaining` is 0, keep the last), and the open reminders that bear on it (ids and titles).
   5. **Timeline:** each row an utterance, a fact (with its id), an inference or a gap; event time apart from
@@ -248,11 +248,11 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   day's moments, conversations, chat units, key observations, and what Life changed that day and why.
 - `person [name] [--before d]`: the whole page, when it was built, the next birthday, what Life holds by source and
   month, then every observation and moment linked to them, newest first, paging back with `--before`. `person me` is
-  the owner's own page with his goals. No name lists who has a page; an unknown name is looked for among lifelog's
+  the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
   speakers and near names.
 - `area <name>`, `topics [tag]`, `unresolved` (what Life inferred, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where
-  he was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
+  the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, Beeper and iMessage,
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is

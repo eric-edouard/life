@@ -8,10 +8,17 @@ struct CardTile: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
-      HStack(alignment: .firstTextBaseline, spacing: 8) {
-        Text(card.name).font(Brand.serif(14, .semibold)).foregroundStyle(Brand.ink).lineLimit(1)
-        Spacer(minLength: 0)
-        Pill(tone: card.tone, word: card.word)
+      // The name whole, its state beside it when both fit, else under it.
+      ViewThatFits(in: .horizontal) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          name.fixedSize()
+          Spacer(minLength: 0)
+          Pill(tone: card.tone, word: card.word).fixedSize()
+        }
+        VStack(alignment: .leading, spacing: 6) {
+          name
+          Pill(tone: card.tone, word: card.word)
+        }
       }
       if card.headline != card.word {
         Text(card.headline).font(Brand.serif(12.5)).foregroundStyle(Brand.muted).lineLimit(2)
@@ -41,6 +48,10 @@ struct CardTile: View {
       if trouble { Capsule().fill(card.tone.color).frame(width: 3).padding(.vertical, 12) }
     }
     .contentShape(.rect(cornerRadius: Brand.control))
+  }
+
+  private var name: some View {
+    Text(card.name).font(Brand.serif(14, .semibold)).foregroundStyle(Brand.ink)
   }
 
   private func color(_ state: String) -> Color {
