@@ -17,10 +17,11 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | Add-ons | Turborepo, Biome with Ultracite, Skills; the hand-written `.githooks` stay |
 | Desktop | SwiftUI on the Mac (Life.app as it is); a WinUI 3 tray on Windows, which lifelog's host joins. All logic stays in the helper |
 | Mail on Windows | Gmail through `gog` |
-| Actions on Windows | Off |
+| Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`); Windows uses Google Tasks |
 | iMessage from iPhone backups | Not now |
 | Windows signing | Unsigned builds first; the signing step is wired so an Authenticode certificate drops in |
-| Verification | GitHub Actions' Windows runner: build, tests, a headless night with zero sources, the connector answering |
+| Verification | GitHub Actions' Windows runner (build, tests, a headless night with zero sources, the connector answering), then the owner's Windows 11 PC over SSH through Tailscale (key `~/.ssh/life_windows` on his Mac) |
+| Sessions | Phase 0 here; the re-scaffold, headless Windows and the WinUI 3 tray each in a session of its own, briefed from this doc. lifelog's phases have their own sessions and report |
 
 The scaffold command, checked with `--dry-run`:
 
@@ -141,7 +142,24 @@ section, its own helper), coordinated with lifelog's session. WinSparkle reads t
 step takes an Authenticode certificate when there is one. **Done when** the CI builds the tray; a hand check on
 Windows 11 installs it, sees the status and survives a restart.
 
+## Actions behind the outputs contract
+
+The invariant "Life acts in one place: Apple Reminders" becomes "Life acts in one actions backend per install: Apple
+Reminders (remctl) or Google Tasks (`gog`)". The ledger stays the truth (`actions.jsonl`, `openItems`); a backend is
+only how a change is written and read back. One contract for both: list its lists, read the open and recently closed
+items, add, edit, complete, reopen, delete and restore an item, and the board's list. What one backend lacks (Reminders'
+sections and urgent flag, Google Tasks' none) the contract says by capability, never by the backend's name. The
+`reminders` setting becomes the actions output's backend choice; the connector's tools keep their names and arguments
+(a reconnect is costly), their descriptions say "actions" where they say "Reminders".
+
+## lifelog's host in the tray
+
+lifelog's server serves `GET /status/live` on loopback (127.0.0.1:47613), owner-only, with the device token; its JSON is
+typed in lifelog's openapi.json (sample `fixtures/wire/status-live.json`), and its verdict rules stay on the server, so
+the tray only renders. The tray's lifelog section reads it as the Mac's Lifelog Host does; Life's section reads Life's
+own status reads (`/status/snapshot`, `/status/card/<id>`, `/status/run` on `LOCAL_PORT` 46201 behind the local key).
+
 ## Hand steps left to the owner
 
-- A Windows 11 machine (or VM) for the hand checks above.
+- His Windows 11 PC reachable over SSH through Tailscale (in progress), for the hand checks above.
 - An Authenticode certificate, when Life goes to friends on Windows.
