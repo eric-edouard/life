@@ -190,7 +190,7 @@ async function memoryCounts() {
   };
 }
 
-/** His corrections not yet reflected in the index and the pages (`changes`' `reflected: false`), 20 pages at most. */
+/** His corrections not yet reflected in the index and the pages (`read_memory_changes`' `reflected: false`), 20 pages at most. */
 async function unreflected() {
   let cursor: string | undefined;
   let open = 0;

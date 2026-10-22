@@ -199,34 +199,34 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
   }
 });
 
-test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders`, `task` and `reply` write but are not destructive, so Orbit runs unattended", async () => {
+test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write but are not destructive, so Orbit runs unattended", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
     name: string;
   }[] = json.result.tools;
   expect(tools.map((t) => t.name).sort()).toEqual([
-    "area",
-    "changes",
-    "chats",
-    "claim",
-    "correct",
-    "day",
+    "change_todo_item",
+    "correct_memory",
     "fetch",
-    "open_reminders",
-    "person",
-    "places",
-    "reminders",
-    "reply",
-    "runs",
+    "log_reply_to_owner",
+    "read_area_page",
+    "read_chats",
+    "read_day",
+    "read_life_status",
+    "read_memory_changes",
+    "read_observation",
+    "read_open_agent_tasks",
+    "read_open_todo_items",
+    "read_person_page",
+    "read_places_visited",
+    "read_processing_runs",
     "search",
-    "status",
-    "task",
-    "tasks",
+    "update_agent_task",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
   const claim = json.result.tools.find(
-    (t: { name: string }) => t.name === "claim"
+    (t: { name: string }) => t.name === "read_observation"
   );
   expect(claim.inputSchema).toMatchObject({
     properties: { id: { type: "string" } },
@@ -234,12 +234,17 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
   });
   // An item's id: Google Tasks' strings, or Reminders' numbers as the tool first took them.
   const reminders = json.result.tools.find(
-    (t: { name: string }) => t.name === "reminders"
+    (t: { name: string }) => t.name === "change_todo_item"
   );
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
-  const writes = ["correct", "reminders", "reply", "task"];
+  const writes = [
+    "correct_memory",
+    "change_todo_item",
+    "log_reply_to_owner",
+    "update_agent_task",
+  ];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
@@ -248,7 +253,7 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
   }
   for (const name of writes) {
     expect(tools.find((t) => t.name === name)?.annotations).toMatchObject({
-      destructiveHint: name === "correct",
+      destructiveHint: name === "correct_memory",
       openWorldHint: false,
       readOnlyHint: false,
     });
@@ -258,15 +263,18 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
 test("the status reads: refused without the owner's token, JSON with it", async () => {
   const call = (bearer: string | null, name: string, args: object = {}) =>
     rpc(bearer, "tools/call", { arguments: args, name });
-  expect((await call(null, "status")).res.status).toBe(401);
+  expect((await call(null, "read_life_status")).res.status).toBe(401);
   expect(
-    (await call(await token({ sub: "someone" }), "changes")).res.status
+    (await call(await token({ sub: "someone" }), "read_memory_changes")).res
+      .status
   ).toBe(403);
-  const { json } = await call(await token(), "status");
+  const { json } = await call(await token(), "read_life_status");
   expect(json.result).toMatchObject({ isError: false });
   expect(json.result.structuredContent).toBeUndefined();
   expect(JSON.parse(json.result.content[0].text).observedAt).toBeString();
-  const bad = await call(await token(), "changes", { cursor: "nope" });
+  const bad = await call(await token(), "read_memory_changes", {
+    cursor: "nope",
+  });
   expect(bad.json.result).toMatchObject({ isError: true });
 });
 
@@ -274,7 +282,7 @@ test("a call logs who asked, the arguments, and what surfaced without its text",
   const logged = async (asked: string) => {
     await rpc(await token(), "tools/call", {
       arguments: { id: asked },
-      name: "claim",
+      name: "read_observation",
     });
     return linesOf(
       join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`)
@@ -292,7 +300,7 @@ test("a call logs who asked, the arguments, and what surfaced without its text",
     error: true,
     ids: [id],
     kind: "mcp.call",
-    tool: "claim",
+    tool: "read_observation",
   });
 });
 
@@ -309,8 +317,15 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
   const bearer = await token();
   const asker = { agent: "openai-mcp/1.0.0", error: true };
   expect(
-    await last(bearer, "tools/call", { arguments: { id: 5 }, name: "claim" })
-  ).toMatchObject({ ...asker, client: "chatgpt-client", tool: "claim" });
+    await last(bearer, "tools/call", {
+      arguments: { id: 5 },
+      name: "read_observation",
+    })
+  ).toMatchObject({
+    ...asker,
+    client: "chatgpt-client",
+    tool: "read_observation",
+  });
   expect(
     await last(await token({ sub: "someone-else" }), "tools/list")
   ).toMatchObject({ ...asker, refused: "forbidden: not the owner" });
@@ -321,7 +336,7 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
   await rpc(null, "tools/list");
   expect(logged()).toHaveLength(before);
   // A 2026-07-28 call missing its Mcp-Name header is refused by the SDK before any tool.
-  await modern("tools/call", { arguments: {}, name: "claim" });
+  await modern("tools/call", { arguments: {}, name: "read_observation" });
   expect(logged().at(-1)?.refused).toContain("name-header-missing");
 });
 
@@ -352,7 +367,7 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
 test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal, all of truth/me.md and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
   const now = new Date().toISOString();
-  const words = { at: now, claim: true, seal: sealed().seal };
+  const words = { at: now, seal: sealed().seal, taken: true };
   let json: Awaited<ReturnType<typeof rpc>>["json"];
   try {
     update({
@@ -371,7 +386,7 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
     });
     ({ json } = await rpc(bearer, "tools/call", {
       arguments: {},
-      name: "tasks",
+      name: "read_open_agent_tasks",
     }));
   } finally {
     rmSync(LEDGER, { force: true });
@@ -394,7 +409,7 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   expect(tasks[1].title).toBe("book the dentist");
   const refused = await rpc(bearer, "tools/call", {
     arguments: { seal: "stale", state: "dropped", task: "entry_000000000000" },
-    name: "task",
+    name: "update_agent_task",
   });
   const [answer] = refused.json.result.content;
   expect(answer.text).toContain(seal);
@@ -424,7 +439,10 @@ test("reminders takes no instinct kind and needs his words: refused before anyth
         title: "x",
       },
     ].map((arguments_) =>
-      rpc(bearer, "tools/call", { arguments: arguments_, name: "reminders" })
+      rpc(bearer, "tools/call", {
+        arguments: arguments_,
+        name: "change_todo_item",
+      })
     )
   );
   for (const { json } of calls) {
@@ -485,7 +503,7 @@ test("the server is named Life, carries its icons, and its instructions open wit
   expect(json.result.serverInfo).toMatchObject({ name: "Life", title: "Life" });
   const { instructions } = json.result;
   expect(instructions).toStartWith(
-    "Orbit: call `tasks` first; its `playbook` field is your instructions."
+    "Orbit: call `read_open_agent_tasks` first; its `playbook` field is your instructions."
   );
   expect(instructions).not.toContain("# Orbit: the playbook");
   expect(instructions.length).toBeLessThanOrEqual(512);
@@ -592,9 +610,9 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
   try {
     const { json } = await rpc(await token(), "tools/list");
     const names = json.result.tools.map((t: { name: string }) => t.name);
-    expect(names).not.toContain("reminders");
-    expect(names).not.toContain("open_reminders");
-    expect(names).toContain("tasks");
+    expect(names).not.toContain("change_todo_item");
+    expect(names).not.toContain("read_open_todo_items");
+    expect(names).toContain("read_open_agent_tasks");
   } finally {
     setSettings({ todo_list: on });
   }

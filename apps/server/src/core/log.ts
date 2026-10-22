@@ -104,6 +104,6 @@ export const isAgent = (agent: unknown) => {
     a && (a.client ?? (a.transport === "pull" ? "Claude" : "openai-mcp"));
   return !!client && String(agent ?? "").startsWith(client);
 };
-/** A call of his agent's daily review: `day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
+/** A call of his agent's daily review: `read_day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
 export const isReviewCall = (e: Call) =>
-  e.tool === "day" && !e.error && isAgent(e.agent);
+  e.tool === "read_day" && !e.error && isAgent(e.agent);

@@ -41,8 +41,8 @@ test("a task Orbit closed done is one event: its outcome with his ask's words, O
   appendJsonl(LEDGER, LedgerEntry, [
     ask("entry_aaaaaaaaaaaa", "hey Orbit, find the plumber's number"),
     update("entry_aaaaaaaaaaaa", "2026-10-20T14:52:00.000Z", {
-      claim: true,
       state: "working",
+      taken: true,
     }),
     update("entry_aaaaaaaaaaaa", "2026-10-20T14:55:00.000Z", {
       outcome: "Found it: +66 600 000 001",
@@ -51,8 +51,8 @@ test("a task Orbit closed done is one event: its outcome with his ask's words, O
     // Still working, and done before the window: none.
     ask("entry_bbbbbbbbbbbb", "hey Orbit, book the train"),
     update("entry_bbbbbbbbbbbb", "2026-10-20T15:00:00.000Z", {
-      claim: true,
       state: "working",
+      taken: true,
     }),
     ask("entry_cccccccccccc", "hey Orbit, an old one"),
     update("entry_cccccccccccc", "2026-10-01T10:00:00.000Z", {

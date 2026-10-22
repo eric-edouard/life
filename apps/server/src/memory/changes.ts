@@ -44,10 +44,10 @@ import { readIndex } from "./search";
 import { kindOf } from "./sources";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
-// What changed in the memory, and why to trust it, as JSON for the status reads: `changes` (every observation, supersession,
-// correction, inferred identity, action and page change, by cursor) and `claim` (one observation with its evidence).
-// With run-log.ts (`runs`) and host/status/life.ts (`lifeStatus`), the connector's status tools and `bun life memory changes|claim|status|runs`.
-// Read-only: no model, no write, no source except `claim`'s cited unit (docs/status-reads.md). Lists are complete: every item is reachable through its cursor, never cut
+// What changed in the memory, and why to trust it, as JSON for the status reads: `read_memory_changes` (every observation, supersession,
+// correction, inferred identity, action and page change, by cursor) and `read_observation` (one observation with its evidence).
+// With run-log.ts (`read_processing_runs`) and host/status/life.ts (`lifeStatus`), the connector's status tools and `bun life memory changes|claim|status|runs`.
+// Read-only: no model, no write, no source except `read_observation`'s cited unit (docs/status-reads.md). Lists are complete: every item is reachable through its cursor, never cut
 // to "+N more". Contracts: docs/status-reads.md.
 
 export const PAGE = 50;
@@ -371,7 +371,7 @@ function itemOf(
       used: p.confidence >= INFERRED_USE_AT,
     };
   }
-  if (source === "actions") {
+  if (source === "ledger") {
     const a = LedgerEntry.parse(raw);
     if (isBookkeeping(a)) {
       return null;
@@ -387,8 +387,8 @@ function itemOf(
       // An ask is handed to the agent, not done by Life, and its task's lines are the agent's or Life's chasing: no outcome of their own.
       type:
         isTaskLine(a) || a.kind === "ask"
-          ? `action.${a.kind}`
-          : `action.${a.result}`,
+          ? `ledger.${a.kind}`
+          : `ledger.${a.result}`,
     };
   }
   if (source === "ratings") {
@@ -425,7 +425,7 @@ export interface ChangeFilter {
   run?: string;
   /** Recorded at or after this ISO instant. */
   since?: string;
-  /** Types or type prefixes: observation, observation.superseded, correction, identity, action, action.ask, action.update, action.nudge, action.steer, action.failed, rating, page. */
+  /** Types or type prefixes: observation, observation.superseded, correction, identity, ledger, ledger.ask, ledger.update, ledger.nudge, ledger.steer, ledger.failed, rating, page. */
   types?: string[];
 }
 
@@ -435,7 +435,7 @@ export const matchesFilter = (
 ) =>
   (!f.types?.length ||
     f.types.some((t) => it.type === t || it.type.startsWith(`${t}.`))) &&
-  // A run id as `runs` gives it (`memory.extract/<run>`) or bare.
+  // A run id as `read_processing_runs` gives it (`memory.extract/<run>`) or bare.
   (!f.run || it.run === f.run.slice(f.run.lastIndexOf("/") + 1)) &&
   (!f.since || it.recordedAt >= new Date(f.since).toISOString()) &&
   (!f.about || it.about.includes(f.about));
@@ -454,7 +454,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
     { lines: linesOf(CORRECTIONS), name: "corrections" },
     { lines: linesOf(SUPERSESSIONS), name: "supersessions" },
     { lines: linesOf(INFERRED), name: "inferred" },
-    { lines: linesOf(LEDGER), name: "actions" },
+    { lines: linesOf(LEDGER), name: "ledger" },
     { lines: linesOf(RATINGS), name: "ratings" },
     ...months.map((m) => ({
       lines: linesOf(join(OBSERVATIONS, m)),
@@ -492,7 +492,7 @@ export async function changeFeed(f: ChangeFilter = {}) {
 
 /**
  * One observation with everything that says how far to trust it: the claim and its lifecycle, the source (channel,
- * ref, time, speaker, quote), the unit to read it in (`fetch`, `chats`), who it is about as filed and as resolved now
+ * ref, time, speaker, quote), the unit to read it in (`fetch`, `read_chats`), who it is about as filed and as resolved now
  * (inferred people marked, with their confidence), the owner's corrections, supersessions, the pages that cite it and
  * whether the index still holds it. Every version of the claim in the ledger is listed.
  */

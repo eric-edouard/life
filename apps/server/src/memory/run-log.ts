@@ -8,7 +8,7 @@ import { lockedSince } from "./memory-lock";
 import { daysBefore, lastDays } from "./units";
 import { localDate } from "./zones";
 
-// Life's processing as recorded, as JSON for the status reads: `runs` (the history in derived/log: sweeps, their steps,
+// Life's processing as recorded, as JSON for the status reads: `read_processing_runs` (the history in derived/log: sweeps, their steps,
 // outcomes, counts, errors); `lifeStatus` (host/status/life.ts) reads it. Read-only, like changes.ts.
 
 // --- runs ----------------------------------------------------------------------------------------------------------
@@ -280,7 +280,7 @@ const keyOf = (r: Run) => r.startedAt ?? r.endedAt ?? "";
 const newestFirst = (a: Run, b: Run) =>
   keyOf(b).localeCompare(keyOf(a)) || b.id.localeCompare(a.id);
 
-/** The runs of the last `days` days of derived/log, newest first (`status`). */
+/** The runs of the last `days` days of derived/log, newest first (`read_life_status`). */
 export async function latestRuns(days: number, lock: Date | null) {
   const events = (await logDays()).slice(0, days).flatMap((n) => runEvents(n));
   return assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);

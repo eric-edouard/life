@@ -11,7 +11,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". | a task waiting on him: `waiting-owner` |
+| owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". A task waiting on him is `waiting-owner`. | |
 | agent | The owner's assistant that takes his asks (a ChatGPT or Claude agent). Its display name is the `agent` setting (`agentName`); the word stored for it is `AGENT_WORD`, `agent`. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
@@ -22,7 +22,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, a Claude session or the agent's own split. A ledger entry of kind `ask`. | |
 | task | The agent's work on one ask: the ask and the updates and replies that follow, open until the agent closes it done or dropped. | |
-| update | The agent's report on a task: its state, steps, outcome; `claim: true` when it takes the task. | `taken` |
+| update | The agent's report on a task: its state, steps, outcome; `taken: true` when it takes the task. | |
 | reply | What the agent tells the owner, logged before it sends it. | |
 | board | The agent's own list in the owner's to-do list, one item per open task. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
@@ -79,8 +79,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |
-| status reads | Life's read-only JSON about itself: the connector's `status`, `runs`, `changes` and `claim` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | the connector's tools: `read_life_status`… |
-| connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. | every tool renamed in one batch |
+| status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
+| connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory`, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write; `search` and `fetch` keep ChatGPT's names. | |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `moment.ts`, `ledger-entry.ts`…). | |
 
 ## Folders

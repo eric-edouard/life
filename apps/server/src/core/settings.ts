@@ -23,7 +23,7 @@ export const Settings = z
         client: z.string().optional(),
         misheard: z.array(z.string()).default([]),
         name: z.string(),
-        /** How asks reach it: pushed as the MCP event `ask` (ChatGPT), or pulled by its own `tasks` calls (Claude). */
+        /** How asks reach it: pushed as the MCP event `ask` (ChatGPT), or pulled by its own `read_open_agent_tasks` calls (Claude). */
         transport: z.enum(["mcp-event", "pull"]).default("mcp-event"),
         wake: z.array(z.string()).min(1),
       })

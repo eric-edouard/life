@@ -19,11 +19,11 @@ test("a call holds the wanted arguments: text as a case-blind part, anything els
 test("the code's checks: ids cited, calls made without error, tools never called", () => {
   const c = {
     ask: "entry_000000000000",
-    call: [{ args: { kind: "add", title: "ploy" }, tool: "reminders" }],
+    call: [{ args: { kind: "add", title: "ploy" }, tool: "change_todo_item" }],
     contain: [],
     fetch: ["unit_aaaaaaaaaaaa", "unit_bbbbbbbbbbbb"],
     id: "ploy",
-    not: { call: ["correct"], contain: [] },
+    not: { call: ["correct_memory"], contain: [] },
     outcome: "",
   };
   const calls: Parameters<typeof checked>[1] = [
@@ -31,18 +31,21 @@ test("the code's checks: ids cited, calls made without error, tools never called
     {
       args: { kind: "add", title: "Call Ploy" },
       error: true,
-      tool: "reminders",
+      tool: "change_todo_item",
     },
   ];
   expect(checked(c, calls)).toEqual([
     ["fetch unit_aaaaaaaaaaaa", true],
     ["fetch unit_bbbbbbbbbbbb", false],
-    ['call reminders {"kind":"add","title":"ploy"}', false],
-    ["no correct", true],
+    ['call change_todo_item {"kind":"add","title":"ploy"}', false],
+    ["no correct_memory", true],
   ]);
   // The refused call made again, and a forbidden one.
-  calls.push({ args: { kind: "add", title: "Call Ploy" }, tool: "reminders" });
-  calls.push({ tool: "correct" });
+  calls.push({
+    args: { kind: "add", title: "Call Ploy" },
+    tool: "change_todo_item",
+  });
+  calls.push({ tool: "correct_memory" });
   expect(checked(c, calls).map(([, ok]) => ok)).toEqual([
     true,
     false,

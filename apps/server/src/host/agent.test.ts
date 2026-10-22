@@ -83,11 +83,11 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   const open = task([]);
   const deadline = at(120);
   const ok = { deadline, note: "on it", state: "working", task: ASK } as const;
-  const claim = { ...ok, claim: true };
+  const claim = { ...ok, taken: true };
   expect(refusal(open, claim, now)).toBeNull();
   // The first update must be the claim, so two runs never both take the task.
   expect(refusal(open, ok, now)).toBe(
-    "the first update claims the task: claim: true"
+    "the first update takes the task: taken: true"
   );
   expect(refusal(undefined, ok, now)).toBe(`no task ${ASK}`);
   expect(refusal(open, { ...claim, note: undefined }, now)).toBe(
@@ -99,16 +99,16 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   expect(refusal(open, { ...claim, deadline: at(25 * 60) }, now)).toBe(
     "a working deadline is at most 24 h ahead"
   );
-  expect(refusal(open, { claim: true, state: "done", task: ASK }, now)).toBe(
+  expect(refusal(open, { state: "done", taken: true, task: ASK }, now)).toBe(
     "done needs outcome"
   );
   expect(
     refusal(
       open,
       {
-        claim: true,
         question: "which flat?",
-        state: "waiting-eric",
+        state: "waiting-owner",
+        taken: true,
         task: ASK,
       },
       now
@@ -118,7 +118,7 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
   expect(
     refusal(
       open,
-      { claim: true, reason: "same as t1", state: "dropped", task: ASK },
+      { reason: "same as t1", state: "dropped", taken: true, task: ASK },
       now
     )
   ).toBeNull();
@@ -164,7 +164,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
     own("update", 30, {
       deadline: at(600),
       question: "which flat?",
-      state: "waiting-eric",
+      state: "waiting-owner",
     }),
   ]);
   expect(escalation(waiting, T0 + 89 * MIN)).toBeNull();
@@ -318,11 +318,11 @@ test("the board gets Life's fields: notes and section in line, a tick when done;
 const TEXT = "# Orbit: the playbook";
 const { seal } = sealed(T0, TEXT);
 const claiming = {
-  claim: true,
   deadline: at(60),
   note: "on it",
   seal,
   state: "working",
+  taken: true,
 } as const;
 const write = (u: Update, lines: LedgerEntry[] = [], now = T0) =>
   written(
@@ -365,7 +365,7 @@ test("his words in a chat make a task, claimed at once, once per message and par
     instruction: { at: at(-5), quote: chat.said, ref: `connector:${at(-5)}` },
     via: "connector",
   });
-  expect(claim).toMatchObject({ after: { claim: true }, target: made?.id });
+  expect(claim).toMatchObject({ after: { taken: true }, target: made?.id });
   expect(answer).toBe(`${made?.id}: working`);
   // A retry finds it, whatever the offset of its time; another part of the same message is another task.
   const retry = { ...chat, at: "2026-10-19T16:55:00.000+07:00" };
@@ -430,7 +430,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
   const lines = [
     heard,
     part,
-    own("update", 5, { claim: true, state: "working" }),
+    own("update", 5, { state: "working", taken: true }),
     own("update", 9, { outcome: "sent", state: "done" }),
   ].map((a) => JSON.stringify(a));
   const [t, ...rest] = await timings(at(-60), at(60), tasksOf(lines), dir);
@@ -508,6 +508,6 @@ test("the playbook's Reminders parts only while the plugin is on: on, the protoc
     readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"),
     false
   );
-  expect(off).not.toContain("open_reminders");
+  expect(off).not.toContain("read_open_todo_items");
   expect(off).not.toContain("standing grant");
 });

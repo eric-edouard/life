@@ -229,7 +229,7 @@ export type Granted = z.infer<typeof Granted>;
 let granting: Promise<unknown> = Promise.resolve();
 
 /**
- * The standing grant's add (the connector's `reminders` with `obs`), from the observation as `claim` reads it: the
+ * The standing grant's add (the connector's `change_todo_item` with `obs`), from the observation as `read_observation` reads it: the
  * instruction is the observation itself (its id, his quote, when he said it), never words a client passes, and the
  * turn's credit and the list's sharing are re-read now. It binds the connector only, not what the agent does in its terminal.
  */

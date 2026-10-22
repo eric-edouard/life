@@ -218,7 +218,7 @@ export const keptStores = (on = settings().sources) =>
 export const readySources = (all = enabledSources()) =>
   all.filter((s) => !s.missing?.());
 
-/** Whether a voice source is on and set up: what the watcher listens to, and what voice search and `day` read. */
+/** Whether a voice source is on and set up: what the watcher listens to, and what voice search and `read_day` read. */
 export const listening = () => readySources().some((s) => s.kind === "voice");
 
 const BY_NAME = new Map(SOURCES.map((s) => [s.name, s]));

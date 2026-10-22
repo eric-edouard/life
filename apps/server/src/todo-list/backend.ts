@@ -66,7 +66,7 @@ export const lacks = (
   ...(c.kind === "restore" && !b.restore ? ["restore"] : []),
 ];
 
-/** An open item as `open_reminders` promises it: `due` as a change takes it, notes whole (an edit replaces them). */
+/** An open item as `read_open_todo_items` promises it: `due` as a change takes it, notes whole (an edit replaces them). */
 export const openOf = (r: TodoItem) => ({
   due:
     r.dueDate &&
@@ -80,14 +80,14 @@ export const openOf = (r: TodoItem) => ({
   title: r.title,
 });
 
-/** The lists read for his items: one or all, never the board (its tasks are read with `tasks`). */
+/** The lists read for his items: one or all, never the board (its tasks are read with `read_open_agent_tasks`). */
 export const readable = (title: string, list?: string) =>
   title !== BOARD && (list === undefined || title === list);
 
 const listsOf = async (b: TodoListBackend, list?: string) =>
   (await b.lists()).filter((l) => readable(l.title, list));
 
-/** Every open top-level item, of one list or all, never the board: the connector's `open_reminders`. */
+/** Every open top-level item, of one list or all, never the board: the connector's `read_open_todo_items`. */
 export async function openItemsNow(list?: string) {
   const b = backend();
   const open = await Promise.all(

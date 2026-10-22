@@ -766,7 +766,7 @@ export function conversationsBetween(store: Store, from: string, to: string) {
 const SPECIAL = new Set(["unknown", "media"]);
 const seg = (v?: string) => encodeURIComponent(v ?? "");
 
-/** What the owner's correction carries (the connector's `correct` arguments). */
+/** What the owner's correction carries (the connector's `correct_memory` arguments). */
 export const Fix = z.object({
   aliases: z.array(z.string()).max(20).optional(),
   id: z

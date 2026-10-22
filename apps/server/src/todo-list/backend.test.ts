@@ -23,7 +23,7 @@ test("what a backend cannot write is refused by capability: Google Tasks takes a
   ).toEqual([]);
 });
 
-test("an open reminder keeps the six fields `open_reminders` promises, its due as a change takes it", () => {
+test("an open reminder keeps the six fields `read_open_todo_items` promises, its due as a change takes it", () => {
   const r = {
     allDay: false,
     completed: false,

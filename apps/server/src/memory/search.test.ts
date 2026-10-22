@@ -312,7 +312,7 @@ test("a name means who it resolves to, listed first among those going by it; a n
 const SAID_BY = / (by|heard as) jean/;
 
 // audit-1-apple-open-loop: a plan he said aloud to no one (call the shop before buying the train) had no owner, so no
-// one nudged him. `day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
+// one nudged him. `read_day` now lists it as due on its day; never someone else's to-do, a sender's or one already retired.
 // Up to a week late it is still listed, labelled (a missed daily review), and what he waits on, on its day (#99).
 test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day or up to a week late, and waiting items on their day", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "life-due-")), "i.sqlite");
@@ -494,7 +494,7 @@ test("birthdays: the next date, days left and age; day lists this day and the ne
       "2026-12-28"
     )
   ).toEqual(["- Jan (`person jan`): 2 Jan (in 5 days)"]);
-  // First in `day`, before what is due.
+  // First in `read_day`, before what is due.
   expect(dayLines({ born: ["- born"], due: ["- due"] }).slice(0, 3)).toEqual([
     "Birthdays (this day and the next 7):",
     "- born",

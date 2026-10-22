@@ -7,7 +7,7 @@ Four read-only tools on Life's connector (`/mcp`) let a private page show whethe
 change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code: `bun life memory
 status | runs | changes | claim`. Code: `apps/server/src/host/status/life.ts` (status), `apps/server/src/memory/run-log.ts` (runs) and `apps/server/src/memory/changes.ts` (changes,
 claim). They run no model, write nothing, log nothing and send nothing (a test checks the code; the connector logs each
-call as `mcp.call`), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again
+call as `mcp.call`), and read no source except, for `read_observation`, the cited unit's chat-day or mail thread-day, read again
 the way `fetch` reads it (to show who sent the line). Every answer is JSON, sent once as text content (no
 `structuredContent`: the model would read it twice), and carries `observedAt`, the server's time.
 
@@ -31,7 +31,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 - `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no
   health file).
 - `extraction`, `consolidation`, `nightly`, `midday` each give `latest`, `lastOk`, `lastFailed` (whole run records, see
-  `runs`) within the last `lookbackDays` (7) of logs; null means none recorded in that time, not success.
+  `read_processing_runs`) within the last `lookbackDays` (7) of logs; null means none recorded in that time, not success.
 - `processing`: `running` while a run holds the lock (`since`, the `sweep` and the step in progress as `phase`), else
   `idle`.
 - `nightly.state`: the guard's record (`date`, `status`, `attempts` of `maxAttempts`, `okAt`); `midday.slotSpentAt`:
@@ -57,7 +57,7 @@ A run: `id` (`<step>/<run>`, the run id being its start instant with `:` written
 `prompt`, `model`), `window` (`{from, to}`, the local days its sources were read for), `result` (the step's counters as
 it logged them: `calls`, `failed`, `cached`, `reused`, `added`, `read` per source, `agreement`…; a nightly's `listed`:
 the observation ids its report held, sent or not), `errors`, and for a sweep `phases`: the phases it entered, in order
-(its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being `status`'s `processing.phase`.
+(its steps among them; `run.phase` lines, since 21 Oct), the last one while it runs being `read_life_status`'s `processing.phase`.
 A sweep lists its steps in `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`,
 what it spent of the owner's Codex plan, derived from the log (`useOf`): the `tokens` (`input`, cached included,
 `cached`, `output`) of its model calls (each `model.run` line's) and its steps'; a metered run (a sweep, the eval
@@ -70,7 +70,7 @@ stopped it); `running` (no end yet, and it started after the lock was taken); `u
 the lock: interrupted, or killed). Old errors with no run id are their own entries (`startedAt` null), or join the
 sweep they fell in.
 
-Each run in the list is whole; what a step wrote is `changes` with its `run` (its `id` as given, or the bare run id). A
+Each run in the list is whole; what a step wrote is `read_memory_changes` with its `run` (its `id` as given, or the bare run id). A
 sweep writes nothing itself: open its `children`.
 
 ```json
@@ -96,13 +96,13 @@ the owner's request; null for Life's own acts), `run` and `about`. By type:
 | `observation.superseded` | supersession | |
 | `correction.<kind>` | owner correction | `reflected` |
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
-| `action.ok` / `action.failed` / `action.duplicate` | `ledger.jsonl` line: Life's act, or the owner's own change in Reminders (`record.via` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
-| `action.ask` | an ask for the agent in `ledger.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
-| `action.update` / `action.reply` (and until 20 Oct `action.nudge` / `action.steer`) | a task's line in `ledger.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
+| `ledger.ok` / `ledger.failed` / `ledger.duplicate` | `ledger.jsonl` line: Life's act, or the owner's own change in Reminders (`record.via` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
+| `ledger.ask` | an ask for the agent in `ledger.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
+| `ledger.update` / `ledger.reply` (and until 20 Oct `ledger.nudge` / `ledger.steer`) | a task's line in `ledger.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
 | `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (the owner's answer on the check page; a false hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
-Filters: `types` (types or prefixes: `observation`, `correction`, `action.failed`…), `about` (`person:<id>`,
+Filters: `types` (types or prefixes: `observation`, `correction`, `ledger.failed`…), `about` (`person:<id>`,
 `area:<id>`, `project:<id>`, `task:<id>`: one task's ask, updates and replies), `run`, `since` (recorded at or after). A
 filter narrows the items, never the cursor's reach: every match is still returned, page by page.
 
@@ -143,12 +143,12 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 - Sweeps before 16 Oct 2026 logged only their failures: no start, phases or result. Step runs (triage, now moments,
   extract, infer, pages) are complete from 14 Oct. derived/log is never rotated.
 - No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
-  `run.error` when one starts, `run.end` when it ends), not in `status`.
+  `run.error` when one starts, `run.end` when it ends), not in `read_life_status`.
 - `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page
   (none when extraction retired it); a correction's page or people; an ask's and its task lines' `task:<id>`. Not the
   entities of the observations a correction or supersession names.
 - Page changes appear once committed (the nightly commits them); an uncommitted hand run of `pages` does not show.
-- Units are not in the feed (they are rewritten, not appended): read them with `day`, `search`, `fetch`.
+- Units are not in the feed (they are rewritten, not appended): read them with `read_day`, `search`, `fetch`.
 
 ## ChatGPT Sites
 
@@ -172,7 +172,7 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
 - **Code.** `apps/server/src/host/status/snapshot.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
   (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
   source's own module), the Mac's probes are `apps/server/src/host/status/mac.ts`. `apps/server/src/host/status/snapshot-detail.ts` gives a card's history and log lines
-  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `apps/server/src/host/http/status-reads.ts` serves
+  (`detail`) and a run's steps and what it wrote (`runDetail`, from `read_processing_runs` and `read_memory_changes`). `apps/server/src/host/http/status-reads.ts` serves
   them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
   key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its

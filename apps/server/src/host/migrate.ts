@@ -7,6 +7,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -28,7 +29,7 @@ import { entryId } from "./act";
 
 // A rename backfills (AGENTS.md): the stored names the owner chose on 22 Oct 2026 (docs/glossary.md), written once
 // into his data by the app at its next start, under the lock, committed in his data repo before and after. Every line
-// keeps its place (the `changes` cursor and the events' delivery count lines); quotes and what Life read off files
+// keeps its place (the `read_memory_changes` cursor and the events' delivery count lines); quotes and what Life read off files
 // keep their words; truth/ and the archive are never read. The rewrite is a pure function of the files
 // (`renameStored`), tested on made-up data; `migrateStored` reads, writes and commits. The settings file is renamed
 // where it is read (`renamedSettings`, core/settings.ts).
@@ -43,13 +44,37 @@ const OLD_MEMORY = "memory.old";
 const STRAY = "memory.stray";
 const OLD_LEDGER = "memory/actions.jsonl";
 const NEW_LEDGER = "memory/ledger.jsonl";
-const PATHS = ["memory", "docs/evals/cases"];
+const PATHS = [
+  "memory",
+  "docs/evals/cases",
+  "docs/evals/agent-bench-cases.json",
+];
 
 const TYPES: Record<string, string> = {
   person: "about_a_person",
   todo: "to_do",
   waiting: "waiting_on_someone",
 };
+/** The connector's tools as the regression cases name them (a call made, a tool never called). */
+const TOOLS: Record<string, string> = {
+  area: "read_area_page",
+  changes: "read_memory_changes",
+  chats: "read_chats",
+  claim: "read_observation",
+  correct: "correct_memory",
+  day: "read_day",
+  open_reminders: "read_open_todo_items",
+  person: "read_person_page",
+  places: "read_places_visited",
+  reminders: "change_todo_item",
+  reply: "log_reply_to_owner",
+  runs: "read_processing_runs",
+  status: "read_life_status",
+  task: "update_agent_task",
+  tasks: "read_open_agent_tasks",
+};
+/** A task's state while it waits on the owner. */
+const OLD_WAITING = "waiting-eric";
 const OLD_AGENT = "atlas";
 const NEW_AGENT = "agent";
 const ID = /\b(u|act|obs|mom)_([0-9a-f]{12})\b/g;
@@ -231,6 +256,12 @@ function value(
     if (words.has(key)) {
       return v;
     }
+    if ((key === "tool" || key === "call") && TOOLS[v]) {
+      return TOOLS[v];
+    }
+    if (v === OLD_WAITING) {
+      return "waiting-owner";
+    }
     const s = rename(v);
     return AGENT_KEYS.has(key) ? agentWord(s) : s;
   }
@@ -259,6 +290,12 @@ function row(path: string, r: Record<string, unknown>, rename: Rename) {
   );
   if (TYPED.test(path) && typeof out.type === "string") {
     out.type = type(out.type);
+  }
+  // A task's update: `claim` is `taken`.
+  const after = out.after as Record<string, unknown> | undefined;
+  if (path === OLD_LEDGER && after && "claim" in after) {
+    const { claim, ...rest } = after;
+    out.after = { ...rest, taken: claim };
   }
   // An inferred person's own id has no `person:` before it.
   if (path === "memory/people-inferred.jsonl" && typeof out.id === "string") {
@@ -376,7 +413,9 @@ function filesUnder(dir: string, folder: string) {
       }
     }
   };
-  if (existsSync(join(dir, folder))) {
+  if (statSync(join(dir, folder), { throwIfNoEntry: false })?.isFile()) {
+    out.push(folder);
+  } else if (existsSync(join(dir, folder))) {
     walk(join(dir, folder));
   }
   return out;

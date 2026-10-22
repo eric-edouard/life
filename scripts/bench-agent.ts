@@ -2,7 +2,7 @@
 // Each case is one ask of memory/ledger.jsonl, replayed in the world as it was then: a clone of ~/Life at its last
 // commit before the ask, the ledger cut at the ask, the lifelog store cut at its instant, the index rebuilt from that
 // copy, and the clock frozen there (`LIFE_NOW`, apps/server/src/core/clock.ts) in a throwaway worktree of this code. A headless agent on
-// his subscription gets Life's connector, frozen and dry (mcp.ts), as its only tools, and the playbook through `tasks`:
+// his subscription gets Life's connector, frozen and dry (mcp.ts), as its only tools, and the playbook through `read_open_agent_tasks`:
 // Codex's main tier (Sol), as close as it gets to the agent, a ChatGPT agent (his rule). `--engine claude` only checks the
 // harness: its table says so and is never the agent's result. Graded by code first (the ids its tool answers cited, the
 // calls it made, the tools it must not call), then by the same engine's judge on what it said (`contain`, and
@@ -242,7 +242,7 @@ async function runCase(
     const said = [
       { id: "reply", text: answer.reply ?? "" },
       ...calls
-        .filter((k) => k.tool === "reminders")
+        .filter((k) => k.tool === "change_todo_item")
         .map((k, i) => ({ id: `reminder${i}`, text: JSON.stringify(k.args) })),
       ...linesOf(join(o.data, "memory/ledger.jsonl"))
         .slice(world.cut)

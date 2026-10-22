@@ -68,7 +68,7 @@ import {
 const STUCK_MS = 3 * HOUR;
 const ALERT_MS = HOUR;
 
-/** Whether his agent (the `agent` setting's client) read `day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
+/** Whether his agent (the `agent` setting's client) read `read_day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
   (await recentEvents<Call>(2, "mcp.call")).some(
     (e) => isReviewCall(e) && Date.parse(e.at) >= now.getTime() - DAY

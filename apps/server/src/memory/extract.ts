@@ -64,7 +64,7 @@ const QUIET_MS = HOUR;
 /** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
 const PRIOR_MAX = 40;
-/** What lasts between him and someone close (`person` facts), shown from this far back, at most this many. */
+/** What lasts between him and someone close (`about_a_person` facts), shown from this far back, at most this many. */
 const BOND_DAYS = 365;
 const BOND_MAX = 10;
 /** Facts from the moment's own units, of any age (a plan carried to its day), at most this many. */
@@ -294,7 +294,7 @@ export function lanesOf<T extends { moment: Moment | null }[]>(calls: T[]) {
  * facts (with those `run` wrote already), and the retired ones with the unit of what retired them. `reread` are the units
  * this run reads again: their earlier facts are replaced, or about to be, so none is shown, and one they retired is
  * offered again. Beyond those, each in its own slot so recent facts never crowd it out: the facts of the moment's own
- * units at any age, and the `person` facts of the last year about its people `close` to him (what is between them
+ * units at any age, and the `about_a_person` facts of the last year about its people `close` to him (what is between them
  * lasts, and a newer fact must replace it).
  */
 export function priorFor(

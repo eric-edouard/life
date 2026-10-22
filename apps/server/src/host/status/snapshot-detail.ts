@@ -189,7 +189,7 @@ async function ownHistory(
         content: x.quote,
         sub: `${x.age} old${x.note ? ` · ${x.note}` : ""}`,
         title: `${x.state} · ${x.id}`,
-        tone: x.state === "waiting-eric" ? "warn" : "busy",
+        tone: x.state === "waiting-owner" ? "warn" : "busy",
       })
     );
     return { entries, pages: false };
@@ -238,7 +238,7 @@ export async function detail(id: string, before?: string) {
   };
 }
 
-/** A run: its steps with their counts, time and colour, and what it wrote (`changes` with its run). */
+/** A run: its steps with their counts, time and colour, and what it wrote (`read_memory_changes` with its run). */
 export async function runDetail(id: string) {
   const step = id.split("/")[0] ?? "";
   const { items } = await runs({ limit: 500, steps: [step, ...STEPS] });

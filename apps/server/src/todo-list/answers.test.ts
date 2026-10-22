@@ -13,7 +13,7 @@ import answers from "./remctl.json";
 // Each backend's answers as Life reads them: remctl's (remctl.json, `REMCTL_RELEASE`'s: what moving the pin checks),
 // and gog's (gog.json).
 
-test("a reminder's due is local wall time, as `open_reminders` shows it, and its id a string", () => {
+test("a reminder's due is local wall time, as `read_open_todo_items` shows it, and its id a string", () => {
   const r = itemOf((answers.show as Raw[])[0] as Raw);
   expect(openOf(r).due).toBe("2026-10-22 09:00");
   expect(r.id).toBe("412");

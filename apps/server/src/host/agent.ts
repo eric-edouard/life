@@ -26,8 +26,8 @@ import { entryId, requested } from "./act";
 import { agentLive } from "./events";
 import { lapseReport, sendReport, taskReport, unsent } from "./report";
 
-// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/ledger.jsonl until the agent closes it
-// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
+// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `update_agent_task` from his chat words or a split) is a task in memory/ledger.jsonl until the agent closes it
+// done or dropped. Its own lines: the agent's updates (the connector's `update_agent_task`) and replies to him (`log_reply_to_owner`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /** The protocol's Reminders parts (`<!-- reminders -->…<!-- /reminders -->`): the markers always go, the parts too while the plugin is off. */
 const REMINDERS_PART = /<!-- reminders -->([\s\S]*?)<!-- \/reminders -->/g;
@@ -36,7 +36,7 @@ export const protocol = (text: string, reminders = isOn("todo_list")) =>
     .replace(REMINDERS_PART, (_, part: string) => (reminders ? part : ""))
     .replaceAll("{agent}", agentName());
 
-/** The agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `tasks` returns it, `task` refuses a write without its seal. */
+/** The agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `read_open_agent_tasks` returns it, `update_agent_task` refuses a write without its seal. */
 const playbook = () => {
   const own = join(OWNER_DATA_DIR, "playbook.md");
   return [
@@ -116,7 +116,7 @@ const taskLine = (
   target: task,
 });
 
-/** The task with this id: one lookup for the ask, `task`'s writes and a split's parent. */
+/** The task with this id: one lookup for the ask, `update_agent_task`'s writes and a split's parent. */
 const taskOf = (tasks: Task[], id?: string) =>
   tasks.find((t) => t.ask.id === id);
 
@@ -177,7 +177,7 @@ export function escalation(t: Task, now: number) {
   if (closed(state)) {
     return null;
   }
-  if (state === "waiting-eric" && now - Date.parse(since) > HOUR) {
+  if (state === "waiting-owner" && now - Date.parse(since) > HOUR) {
     return `${agentName()} needs you: ${end.question}`;
   }
   if (Date.parse(deadline ?? "") <= now) {
@@ -215,7 +215,7 @@ export function alerts(tasks: Task[], now: number, live: boolean) {
 const REQUIRED = {
   done: ["outcome"],
   dropped: ["reason"],
-  "waiting-eric": ["question"],
+  "waiting-owner": ["question"],
   working: ["deadline", "note"],
 } as const;
 
@@ -230,9 +230,9 @@ export function refusal(t: Task | undefined, u: Update, now: number) {
   if (closed(state)) {
     return `the task is ${state}: no update after that`;
   }
-  if (Boolean(u.claim) !== (state === "open")) {
+  if (Boolean(u.taken) !== (state === "open")) {
     return state === "open"
-      ? "the first update claims the task: claim: true"
+      ? "the first update takes the task: taken: true"
       : `already claimed: the task is ${state}`;
   }
   if (missing.length > 0) {
@@ -322,7 +322,7 @@ export function written(
   if (why) {
     throw new Error(why);
   }
-  if (u.state === "waiting-eric") {
+  if (u.state === "waiting-owner") {
     after.deadline ??= iso(now + DAY);
   }
   const line = taskLine("update", id, after, now);
@@ -341,7 +341,7 @@ export const Reply = z.object({
   text: z.string().min(1).describe("What you are telling him, as sent"),
 });
 
-/** Records what the agent tells him (the connector's `reply`), on a task or none (`chat`); throws when the task is unknown. */
+/** Records what the agent tells him (the connector's `log_reply_to_owner`), on a task or none (`chat`); throws when the task is unknown. */
 export function reply(
   { task, text }: z.infer<typeof Reply>,
   now = clock().getTime()
@@ -366,7 +366,7 @@ export const unanswered = (since: number, tasks = tasksOf()) =>
   ).length;
 
 /**
- * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `tasks` (it cuts the
+ * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `read_open_agent_tasks` (it cuts the
  * closed rows short).
  */
 export function taskList(now = clock().getTime()) {

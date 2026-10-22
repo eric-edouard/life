@@ -112,16 +112,20 @@ test.if(FROZEN !== undefined)(
       (await rpc("tools/call", { arguments: args, name })).result.content[0]
         .text as string;
     expect(
-      await call("reminders", {
+      await call("change_todo_item", {
         kind: "add",
         said: "remind me to call the bank",
         title: "Call the bank",
       })
     ).toStartWith("Not done: this is a frozen run");
     expect(
-      await call("correct", { kind: "rename_person", name: "x", personId: "p" })
+      await call("correct_memory", {
+        kind: "rename_person",
+        name: "x",
+        personId: "p",
+      })
     ).toStartWith("Not done");
-    expect(await call("open_reminders", {})).toStartWith("Not done");
+    expect(await call("read_open_todo_items", {})).toStartWith("Not done");
     const sub = await rpc("events/subscribe", {
       delivery: {
         mode: "webhook",

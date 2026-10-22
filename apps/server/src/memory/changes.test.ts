@@ -88,9 +88,9 @@ test("changes about task:<id> is one task's history: its ask, updates and replie
     ]);
     const { items } = await changeFeed({ about: `task:${ask}` });
     expect(items.map((i) => i.type)).toEqual([
-      "action.ask",
-      "action.update",
-      "action.reply",
+      "ledger.ask",
+      "ledger.update",
+      "ledger.reply",
     ]);
   } finally {
     rmSync(LEDGER, { force: true });
