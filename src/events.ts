@@ -1,15 +1,13 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, unfrozen } from "./clock";
 import { type Call, log, recentEvents } from "./log";
 import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
-import { same, writeSecret } from "./secret";
+import { SECRETS, same, writeSecret } from "./secret";
 import { agentName, settings } from "./settings";
-import { STATE } from "./truth";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
 // subscriber, his agent (a ChatGPT agent by default). The connector answers events/list|subscribe|unsubscribe (src/mcp.ts); the
@@ -17,7 +15,7 @@ import { STATE } from "./truth";
 // after it, and derived/events.json (mode 600: it holds the signing secret) keeps the subscription and how far it was
 // delivered, so a restart or a retry loses nothing.
 
-export const SUBSCRIPTION = join(STATE, "events.json");
+export const SUBSCRIPTION = SECRETS.events;
 /** The lifetime granted when none or a longer one is asked for. */
 const TTL_MS = 30 * 24 * 3_600_000;
 /** A verified callback is not challenged again for a day. */

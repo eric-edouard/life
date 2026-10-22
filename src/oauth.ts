@@ -1,6 +1,5 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -13,9 +12,8 @@ import { z } from "zod";
 import { SCOPE } from "./auth";
 import { clock } from "./clock";
 import { HEADERS, text } from "./http";
-import { same, writeSecret } from "./secret";
+import { SECRETS, same, writeSecret } from "./secret";
 import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
-import { STATE } from "./truth";
 
 // Life's own sign-in for one owner, when no other OAuth server issues its tokens (the `connector` setting has no
 // `issuer`): the endpoints ChatGPT and Claude look for, under `<origin>/auth`. An app is approved by a pairing code
@@ -24,8 +22,7 @@ import { STATE } from "./truth";
 // resource and owner.
 
 /** Life's own sign-in: its key, the apps and their tokens. A secret: never exported. */
-export const OAUTH = join(STATE, "oauth");
-const FILE = join(OAUTH, "state.json");
+const FILE = SECRETS.oauth;
 
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;

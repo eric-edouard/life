@@ -6,8 +6,7 @@ import { join } from "node:path";
 import { SUBSCRIPTION } from "./events";
 import { sha256Of, stage } from "./export";
 import { LOCK } from "./memory/guard";
-import { OAUTH } from "./oauth";
-import { writeSecret } from "./secret";
+import { SECRETS, writeSecret } from "./secret";
 import { LOCAL_KEY } from "./signin";
 
 const SECRET = /oauth|events\.json|local\.key|\.bak$/;
@@ -15,7 +14,7 @@ const SECRET = /oauth|events\.json|local\.key|\.bak$/;
 test("an export holds everything with its checksum and counts, and never a secret", async () => {
   // A secret and a key in Life's state, as a real install has them: never exported.
   // Written as Life writes them: only their owner may read them.
-  writeSecret(join(OAUTH, "state.json"), "{}");
+  writeSecret(SECRETS.oauth, "{}");
   writeSecret(SUBSCRIPTION, "{}");
   writeSecret(LOCAL_KEY, "k");
   const archive = mkdtempSync(join(tmpdir(), "life-archive-"));

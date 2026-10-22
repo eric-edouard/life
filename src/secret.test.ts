@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { same, secretIn } from "./secret";
+import { readFileSync, writeFileSync } from "node:fs";
+import { SECRETS, same, secretIn } from "./secret";
 
 const KEY = /^[0-9a-f]{64}$/;
 
@@ -15,7 +13,7 @@ test("an empty secret never matches, not even an empty answer; a different lengt
 });
 
 test("a key file is made whole once; an empty or broken one is replaced, never used", () => {
-  const path = join(mkdtempSync(join(tmpdir(), "life-secret-")), "local.key");
+  const path = SECRETS.localKey;
   const key = secretIn(path);
   expect(key).toMatch(KEY);
   expect(secretIn(path)).toBe(key);

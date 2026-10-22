@@ -1,11 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import { join } from "node:path";
 import { z } from "zod";
 import { SCOPE, UNREACHABLE, type Verify } from "./auth";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
-import { same, secretIn } from "./secret";
+import { SECRETS, same, secretIn } from "./secret";
 import { connector } from "./settings";
-import { STATE } from "./truth";
 
 // The owner's sign-in for /check/: the connector's OAuth server with PKCE, the
 // token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.
@@ -179,7 +177,7 @@ export type SignIn = ReturnType<typeof createSignIn>;
 
 /** The key the app reads its status with on this Mac, kept in Life's state (mode 600), made on first use. */
 export const localKey = () => secretIn(LOCAL_KEY);
-export const LOCAL_KEY = join(STATE, "local.key");
+export const LOCAL_KEY = SECRETS.localKey;
 const BEARER = /^Bearer /;
 
 /**

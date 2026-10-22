@@ -17,6 +17,7 @@ import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
 import { INDEX } from "./memory/search";
 import { execOk } from "./proc";
+import { SECRETS } from "./secret";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT, STATE } from "./truth";
@@ -28,10 +29,13 @@ import { DATA, ROOT, STATE } from "./truth";
 
 export const FORMAT = 1;
 
-/** In Life's state but never exported: rebuilt (the index), and the watcher's store (copied whole on its own). */
-const KEPT_OUT = [WATCH, INDEX].map((p) => relative(STATE, p));
-/** A secret is a file only its owner may read (`writeSecret`, `secretIn` write them so): never exported. */
-const secret = (path: string) => statSync(path).mode % 0o100 === 0; // no group or other bits
+/**
+ * In Life's state but never exported: rebuilt (the index), the watcher's store (copied whole on its own), and the
+ * secrets.
+ */
+const KEPT_OUT = [WATCH, INDEX, ...Object.values(SECRETS)].map((p) =>
+  relative(STATE, p)
+);
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
@@ -132,7 +136,7 @@ function leftOut() {
     keychain:
       "every item of the service Life (the app keeps its secrets there)",
     secrets:
-      "every file only its owner reads (Life's sign-in, the agent's subscription, the app's key): apps pair again and the agent subscribes again, unless they are copied by hand",
+      "the secret files (SECRETS: Life's sign-in, the agent's subscription, the app's key): apps pair again and the agent subscribes again, unless they are copied by hand",
   };
 }
 
@@ -163,8 +167,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   for (const p of filesUnder(join(dir, "state"))) {
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
-      KEPT_OUT_END.some((e) => p.endsWith(e)) ||
-      secret(join(dir, "state", p))
+      KEPT_OUT_END.some((e) => p.endsWith(e))
     ) {
       rmSync(join(dir, "state", p), { force: true });
     }
