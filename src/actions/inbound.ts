@@ -43,6 +43,9 @@ const his = (
   why: kind === "import" ? "linked, no change" : "his change in Reminders",
 });
 
+/** A linked item's id in its backend. */
+const itemId = (it: Linked) => it.target.slice(it.target.indexOf(":") + 1);
+
 const of = (o: Fields, fs: readonly Field[]) =>
   Object.fromEntries(fs.map((f) => [f, o[f]]));
 
@@ -80,8 +83,8 @@ function linesOf(
       !(f === "due" && r?.recurrence)
   );
   const unknown = FIELDS.filter((f) => f in now && !known(f));
-  const id = r?.id ?? it.id;
-  const rekey = id === it.id ? undefined : { id: it.id };
+  const id = r?.id ?? itemId(it);
+  const rekey = id === itemId(it) ? undefined : { id: itemId(it) };
   // One line of his per pass, named by what matters most in it: a removal or restore, a tick, else an edit.
   const named = NAMED.find(([f]) => changed.includes(f));
   const kind = named ? named[now[named[0]] ? 1 : 2] : "edit";
@@ -106,18 +109,22 @@ function linesOf(
 }
 
 /** The lines this pass adds: his changes and his new reminders (`add`), and imports, which change nothing. */
-export function inbound(s: Snapshot, actions: Action[], at: string) {
+export function inbound(s: Snapshot, ledger: Action[], at: string) {
+  // Only this backend's lines: another backend's items (before a switch) are never read here, never marked lost.
+  const actions = ledger.filter((a) => a.target.startsWith(`${s.prefix}:`));
   const first = !actions.some((a) => a.kind === "import");
   const byId = new Map(s.live.map((r) => [r.id, r]));
   const byLink = new Map(s.live.map((r) => [linkOf(r), r]));
   const lines: Action[] = [];
   for (const it of linked(actions).values()) {
-    const r = byId.get(it.id) ?? (it.link ? byLink.get(it.link) : undefined);
+    const r =
+      byId.get(itemId(it)) ?? (it.link ? byLink.get(it.link) : undefined);
     if (r) {
       byId.delete(r.id);
     }
     const gone = s.deleted.some(
-      (d) => d.id === it.id || (it.link !== undefined && linkOf(d) === it.link)
+      (d) =>
+        d.id === itemId(it) || (it.link !== undefined && linkOf(d) === it.link)
     );
     // Left alone: one Life wrote to moments ago (reads lag writes, and a write may land during the read), one on a
     // shared list (never read), one removed and then purged.

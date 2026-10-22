@@ -78,6 +78,8 @@ const commands: Record<string, () => Promise<number>> = {
       : [];
     console.log(
       JSON.stringify({
+        /** The actions backend he chose ("reminders", "google"), or null while the output is off: the app shows it, never changes it. */
+        actions: settings().actions?.backend ?? null,
         lastReport: reports[0] ?? null,
         reminders: await (async () => {
           const installed = await remctlVersion();

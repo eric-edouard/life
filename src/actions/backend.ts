@@ -19,7 +19,6 @@ export type Can =
   | "moves"
   | "priority"
   | "recurrence"
-  | "restore"
   | "sections"
   | "sharing"
   | "subtasks"
@@ -60,7 +59,6 @@ export interface ActionsBackend {
   /** Adds an item (the default list without `list`); its `subtasks` too when it `can`. */
   add: (c: Partial<Change> & { title: string }) => Promise<Written>;
   can: ReadonlySet<Can>;
-  checks: () => Promise<string[]>;
   /** His deleted items (Recently Deleted; Google's deleted tasks). */
   deleted: () => Promise<Item[]>;
   done: (id: string) => Promise<unknown>;
@@ -80,7 +78,8 @@ export interface ActionsBackend {
   /** The ledger's targets are `<prefix>:<id>`. */
   prefix: string;
   remove: (id: string) => Promise<unknown>;
-  restore: (id: string, list?: string) => Promise<unknown>;
+  /** Back from the deleted ones into `list`; a backend without it cannot restore. */
+  restore?: (id: string, list?: string) => Promise<unknown>;
   /** Each list's sections by its title. */
   sections: () => Promise<Record<string, string[]>>;
   /** Whether a list is shared, read now (fails closed). */
@@ -94,7 +93,7 @@ export function backend(): ActionsBackend {
   if (!a) {
     throw new Error(off("actions"));
   }
-  return a.backend === "google" ? google(a.account) : reminders;
+  return a.backend === "google" ? google(a.account, BOARD) : reminders;
 }
 
 /**
@@ -123,15 +122,21 @@ const NEEDS: [Can, (c: Change) => unknown][] = [
   ["moves", (c) => c.kind === "edit" && c.list],
   ["priority", (c) => c.priority],
   ["recurrence", (c) => c.recurrence],
-  ["restore", (c) => c.kind === "restore"],
   ["sections", (c) => c.section],
   ["subtasks", (c) => c.subtasks?.length],
   ["urgent", (c) => c.urgent],
 ];
 
 /** What a change asks that the backend cannot write (`act` refuses it, saying so). */
-export const lacks = (c: Change, can: ReadonlySet<Can>) =>
-  NEEDS.filter(([cap, needs]) => !can.has(cap) && needs(c)).map(([cap]) => cap);
+export const lacks = (
+  c: Change,
+  b: Pick<ActionsBackend, "can" | "restore">
+) => [
+  ...NEEDS.filter(([cap, needs]) => !b.can.has(cap) && needs(c)).map(
+    ([cap]) => cap
+  ),
+  ...(c.kind === "restore" && !b.restore ? ["restore"] : []),
+];
 
 /** An open item as `open_reminders` promises it: `due` as a change takes it, notes whole (an edit replaces them). */
 export const openOf = (r: Item) => ({
@@ -170,9 +175,19 @@ export async function sectionsOf(list?: string) {
   return Object.fromEntries(lists.map((l) => [l.title, all[l.title] ?? []]));
 }
 
-/** Whether the backend can act right now (read-only), the problems: none when it is ready or off. */
-export const checks = async (): Promise<string[]> =>
-  isOn("actions") ? backend().checks() : [];
+/** Whether the backend can act right now (read-only: one read of his lists), the problems: none when it is ready or off. */
+export async function checks(): Promise<string[]> {
+  if (!isOn("actions")) {
+    return [];
+  }
+  const b = backend();
+  try {
+    await b.lists();
+    return [];
+  } catch (e) {
+    return [`${b.label}: ${(e as Error).message}`];
+  }
+}
 
 /** What one pass reads: his unshared lists' items (ticked too), the board's, and the deleted ones. */
 export interface Snapshot {
@@ -267,7 +282,11 @@ export async function write(c: Change): Promise<Done> {
   }
   // A removed item has no info until it is back.
   const before = c.kind === "restore" ? undefined : await info(c.target);
-  await b[c.kind](id, c.list);
+  const finish = b[c.kind];
+  if (!finish) {
+    throw new Error(`${b.label} cannot ${c.kind}`);
+  }
+  await finish(id, c.list);
   return { after: FINISH[c.kind](c), before, target: target(id) };
 }
 

@@ -1,5 +1,4 @@
 import { unfrozen } from "../clock";
-import { off } from "../outputs";
 import { execOk } from "../proc";
 import type { ActionsBackend, Item, List } from "./backend";
 
@@ -48,23 +47,30 @@ const split = (id: string) => {
   return [id.slice(0, at), id.slice(at + 1)];
 };
 
-export function google(account: string): ActionsBackend {
-  const gog = async <T>(args: string[]) => {
-    unfrozen("touch his Google Tasks");
-    const why = off("actions");
-    if (why) {
-      throw new Error(why);
-    }
-    const out = await execOk([
-      "gog",
-      "tasks",
-      ...args,
-      `--account=${account}`,
-      "--json",
-      "--no-input",
-    ]);
-    return (out.trim() ? JSON.parse(out) : {}) as T;
-  };
+/** One `gog tasks` call as `account`, its JSON. */
+const gogAs = (account: string) => async (args: string[]) => {
+  unfrozen("touch his Google Tasks");
+  const out = await execOk([
+    "gog",
+    "tasks",
+    ...args,
+    `--account=${account}`,
+    "--json",
+    "--no-input",
+  ]);
+  return out.trim() ? (JSON.parse(out) as unknown) : {};
+};
+
+/** The backend for `account`; `run` answers gog's calls (a test passes recorded answers). */
+export function google(
+  account: string,
+  /** The board's list title (`BOARD`): made when missing. */
+  boardTitle: string,
+  run: (args: string[]) => Promise<unknown> = gogAs(account)
+): ActionsBackend {
+  const gog = async <T>(args: string[]) => (await run(args)) as T;
+  /** The board's list once Life made it (Google has none until then): made once, on first need. */
+  let board: Promise<List> | undefined;
   /** Every page of a list's tasks, top-level ones only (a subtask is part of its parent, as in Reminders). */
   const tasks = async (l: List, flags: string[]) => {
     const all: Task[] = [];
@@ -87,14 +93,25 @@ export function google(account: string): ActionsBackend {
     (await gog<{ tasklists?: List[] }>(["lists", "list"])).tasklists?.map(
       ({ id, title }) => ({ id, title })
     ) ?? [];
-  /** A list by its title; without one, his first (Google's default). */
+  /** A list by its title; without one, his first (Google's default). The board's is made when missing. */
   const listNamed = async (title?: string) => {
     const all = await lists();
     const l = title ? all.find((x) => x.title === title) : all[0];
-    if (!l) {
-      throw new Error(`Google Tasks: no list ${title ?? "at all"}`);
+    if (l) {
+      return l;
     }
-    return l;
+    if (title === boardTitle) {
+      board ??= gog<{ tasklist?: List }>(["lists", "create", boardTitle]).then(
+        (r) => {
+          if (!r.tasklist) {
+            throw new Error("gog tasks lists create: no list in its answer");
+          }
+          return r.tasklist;
+        }
+      );
+      return board;
+    }
+    throw new Error(`Google Tasks: no list ${title ?? "at all"}`);
   };
   const listOf = async (id: string) =>
     (await lists()).find((l) => l.id === split(id)[0]) ?? {
@@ -128,14 +145,6 @@ export function google(account: string): ActionsBackend {
       return { error, id: `${l.id}/${id}` };
     },
     can: new Set(["subtasks"]),
-    async checks() {
-      try {
-        await lists();
-        return [];
-      } catch (e) {
-        return [`Google Tasks: ${(e as Error).message}`];
-      }
-    },
     async deleted() {
       const all = await lists();
       const rows = await Promise.all(
@@ -170,9 +179,6 @@ export function google(account: string): ActionsBackend {
     lists,
     prefix: "gtask",
     remove: (id) => gog(["delete", ...split(id), "--force"]),
-    restore: () => {
-      throw new Error("Google Tasks cannot restore a deleted task");
-    },
     sections: async () => ({}),
     shared: async () => false,
     undone: (id) => gog(["undo", ...split(id)]),

@@ -97,10 +97,16 @@ export const Settings = z
 export type Settings = z.infer<typeof Settings>;
 
 /** The settings in `path`; a missing file is every default, a corrupt one throws (never a silent switch of engine). */
-export const readSettings = (path = SETTINGS): Settings =>
-  Settings.parse(
-    existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {}
-  );
+export function readSettings(path = SETTINGS): Settings {
+  const raw = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
+  // The one key renamed (22 Oct): say how to fix the file, never rewrite it.
+  if ("reminders" in raw) {
+    throw new Error(
+      `${path}: "reminders" is now "actions": replace "reminders": true with "actions": { "backend": "reminders" }, or delete "reminders": false`
+    );
+  }
+  return Settings.parse(raw);
+}
 
 let read: Settings | undefined;
 /** This process's settings, read once. */
@@ -110,7 +116,11 @@ export const settings = () => {
 };
 
 /** Writes some parts, keeping the rest (a part set to null is removed: off): the whole is checked before anything is written. */
-export function setSettings(parts: Partial<Record<keyof Settings, unknown>>) {
+export function setSettings(
+  parts: {
+    [K in keyof Settings]?: Settings[K] | null;
+  }
+) {
   const next = Settings.parse(
     Object.fromEntries(
       Object.entries({ ...readSettings(), ...parts }).filter(

@@ -74,11 +74,17 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
   `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
   Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `changes`). `idOf` is the one place
-  the connector's numeric `target` becomes an id (and `open_reminders` gives a numeric id back as a number).
+  the connector's numeric `target` becomes an id (and `open_reminders` gives a numeric id back as a number). The
+  ledger's items are keyed by their whole target, and the read-back and `duplicateOf` see only the current backend's:
+  after a switch, the other backend's items are never read, marked lost or matched.
+- **On Google Tasks, `act` can only add until phase 1**: its ids are strings and the connector's `target` takes a
+  number. In phase 1 (the Hono move) `target` takes a string id too, and in the same batch (one reconnect) the tools'
+  descriptions say "actions" where they say "Reminders".
 - **What a backend lacks is a capability (`can`), never a branch on its name**: `act` refuses a change that needs one
   (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, moves, restore, subtasks,
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
-  and none of the rest; its lists are never shared.
+  and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
+  restore. Its board list is made on first need (`gog tasks lists create`), once per process.
 - `src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `backend.ts` the
   contract, the choice and the writes, `remctl.ts` and `google.ts` the two backends, `board.ts` the board,
   `inbound.ts` the owner's changes read back.

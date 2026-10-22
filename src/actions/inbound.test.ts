@@ -423,3 +423,7 @@ test("Life's move whose answer was lost is no change of his: an import under the
     ["import", "reminder:99", { id: "12" }],
   ]);
 });
+
+test("after a switch of backend, the other backend's items are never read: a Google pass over a Reminders ledger writes nothing", () => {
+  expect(inbound(snap([], { prefix: "gtask" }), base, AT)).toEqual([]);
+});

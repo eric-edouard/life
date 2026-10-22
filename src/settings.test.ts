@@ -33,3 +33,11 @@ test("settings set with one bad part writes nothing", () => {
   ).toThrow();
   expect(readSettings()).toEqual(before);
 });
+
+test("the old `reminders` key stops with how to fix the file, never a silent rewrite", () => {
+  const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
+  writeFileSync(path, '{"reminders": true}');
+  expect(() => readSettings(path)).toThrow(
+    '"actions": { "backend": "reminders" }'
+  );
+});

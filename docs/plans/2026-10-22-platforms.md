@@ -149,8 +149,10 @@ Reminders (remctl) or Google Tasks (`gog`)". The ledger stays the truth (`action
 only how a change is written and read back. One contract for both: list its lists, read the open and recently closed
 items, add, edit, complete, reopen, delete and restore an item, and the board's list. What one backend lacks (Reminders'
 sections and urgent flag, Google Tasks' none) the contract says by capability, never by the backend's name. The
-`reminders` setting becomes the actions output's backend choice; the connector's tools keep their names and arguments
-(a reconnect is costly), their descriptions say "actions" where they say "Reminders".
+`reminders` setting becomes the actions output's backend choice (done: `actions` in settings, `src/actions/`). The
+connector's tools keep their names and arguments (a reconnect is costly) until phase 1, which in one batch (one
+reconnect) lets `reminders`'s `target` take a string id (widened at `idOf`, `src/actions/backend.ts`) and changes the
+descriptions from "Reminders" to "actions". Until then, on Google Tasks `act` can only add.
 
 ## lifelog's host in the tray
 

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { setSettings, settings } from "../settings";
-import { openOf } from "./backend";
+import { BOARD, openOf } from "./backend";
 import gog from "./gog.json";
-import { type Task, taskArgs, itemOfTask as taskItem } from "./google";
+import { google, type Task, taskArgs, itemOfTask as taskItem } from "./google";
 import { itemOf, type Raw, remctl, unshared } from "./remctl";
 import answers from "./remctl.json";
 
@@ -39,7 +39,30 @@ test("a Google task reads as an item: its list's id in its id, its day only, tic
   ).toMatchObject({
     completed: true,
   });
-  expect(gog.get.task.id).toBe(gog.add.task.id);
+});
+
+test("on Google the board's list is made on first need, once; another missing list is an error", async () => {
+  const calls: string[][] = [];
+  const b = google("owner@example.test", BOARD, (args) => {
+    calls.push(args);
+    if (args[0] === "lists") {
+      return Promise.resolve(
+        args[1] === "create"
+          ? { tasklist: { ...gog.create.tasklist, title: args[2] } }
+          : gog.lists
+      );
+    }
+    return Promise.resolve(args[0] === "add" ? gog.add : {});
+  });
+  const first = await b.add({ list: BOARD, notes: "act_1", title: "A task" });
+  await b.add({ list: BOARD, notes: "act_2", title: "Another" });
+  expect(first.id).toBe(`${gog.create.tasklist.id}/${gog.add.task.id}`);
+  expect(calls.filter((c) => c[1] === "create")).toEqual([
+    ["lists", "create", BOARD],
+  ]);
+  await expect(b.add({ list: "Nowhere", title: "x" })).rejects.toThrow(
+    "no list Nowhere"
+  );
 });
 
 test("a change's fields go to gog as one value each, a dash kept as a value, null clearing", () => {

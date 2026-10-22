@@ -62,7 +62,7 @@ test("a timed due alerts at its time, unless the reminder already has alarms (re
 });
 
 test("what a backend cannot write is refused by capability: Google Tasks takes a day, notes and subtasks, nothing of Reminders' own", () => {
-  const google = new Set(["subtasks"] as const);
+  const google = { can: new Set(["subtasks"] as const) };
   const add = { kind: "add", title: "Call the plumber" } as const;
   expect(lacks({ ...add, due: "2026-10-22", notes: "n" }, google)).toEqual([]);
   expect(lacks({ ...add, subtasks: [{ title: "Ask" }] }, google)).toEqual([]);
@@ -77,17 +77,16 @@ test("what a backend cannot write is refused by capability: Google Tasks takes a
   ]);
   expect(lacks({ ...add, kind: "restore" }, google)).toEqual(["restore"]);
   expect(
-    lacks(
-      { ...add, priority: "high", prompt: "p", section: "S" },
-      reminders.can
-    )
+    lacks({ ...add, priority: "high", prompt: "p", section: "S" }, reminders)
   ).toEqual([]);
 });
 
 test("an add repeats an open reminder with the same title, whatever the case and accents; nothing else is a duplicate", () => {
   const add = { kind: "add", title: "Dîner avec Gaston" } as const;
-  const open = [{ completed: false, id: "9", title: " dîner AVEC gaston" }];
-  expect(duplicateOf(add, open)).toBe("9");
+  const open = [
+    { completed: false, target: "reminder:9", title: " dîner AVEC gaston" },
+  ];
+  expect(duplicateOf(add, open)).toBe("reminder:9");
   expect(
     duplicateOf({ ...add, title: "Dîner avec Jérôme" }, open)
   ).toBeUndefined();

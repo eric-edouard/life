@@ -7,6 +7,8 @@ import type { Change } from "./act";
 import type { ActionsBackend, Item } from "./backend";
 
 // The Reminders backend: his Apple Reminders through remctl (its signed host, `--json`). Only `backend.ts` uses it.
+// Its check (`checks`) is one `lists` read, not `remctl doctor` (its Tailscale probe times out while Reminders are
+// fine); a broken private helper (sections, subtasks) shows as a partial on an act, on the board only in the log.
 
 /** remctl (github.com/viticci/remctl), where its installer puts it, for every install. */
 const REMCTL = join(homedir(), "bin", "remctl");
@@ -146,25 +148,11 @@ export const reminders: ActionsBackend = {
     "moves",
     "priority",
     "recurrence",
-    "restore",
     "sections",
     "sharing",
     "subtasks",
     "urgent",
   ]),
-  /**
-   * One read through the signed host, not `remctl doctor` (its Tailscale probe times out while Reminders are fine); a
-   * broken private helper (sections, subtasks) shows as a partial on an act (in the nightly's Actions); on the board
-   * only in the log.
-   */
-  async checks() {
-    try {
-      await remctl(["lists"]);
-      return [];
-    } catch (e) {
-      return [`Reminders: ${(e as Error).message}`];
-    }
-  },
   deleted: async () =>
     (await remctl<{ items: Raw[] }>(["deleted"])).items.map(itemOf),
   done: (id) => remctl(["done", id]),

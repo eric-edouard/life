@@ -72,10 +72,13 @@ interface Act {
   why: string;
 }
 
-/** The open item an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. Its id. */
-export function duplicateOf(c: Change, open: { id: string; title: string }[]) {
+/** The open item an add would repeat (the same title), so nothing is written: the one duplicate check, for every caller. Its target. */
+export function duplicateOf(
+  c: Change,
+  open: { target: string; title: string }[]
+) {
   return c.kind === "add"
-    ? open.find((r) => normalize(r.title) === normalize(c.title))?.id
+    ? open.find((r) => normalize(r.title) === normalize(c.title))?.target
     : undefined;
 }
 
@@ -92,7 +95,7 @@ export async function act(a: Act): Promise<Action> {
   const { change: c, instruction } = a;
   // Refused before anything is recorded; a target it cannot read fails as usual, below.
   const b = backend();
-  const no = lacks(c, b.can);
+  const no = lacks(c, b);
   if (no.length > 0) {
     throw new Error(`${b.label} cannot do this (no ${no.join(", ")})`);
   }
@@ -113,8 +116,8 @@ export async function act(a: Act): Promise<Action> {
   // Read from the ledger (src/items.ts), never from Reminders: his hand-made ones are there once sync read them.
   const open =
     c.kind === "add"
-      ? openLinked(await readActions()).map((it) => ({
-          id: it.id,
+      ? openLinked(await readActions(), b.prefix).map((it) => ({
+          target: it.target,
           title: String(it.fields.title ?? ""),
         }))
       : [];
@@ -134,10 +137,7 @@ export async function act(a: Act): Promise<Action> {
   const tried = { after: intended(c), target: ref(c.target ?? "new") };
   let action: Action;
   if (same) {
-    action = line(
-      { after: { title: c.title }, target: ref(same) },
-      "duplicate"
-    );
+    action = line({ after: { title: c.title }, target: same }, "duplicate");
   } else {
     // Recorded before the write: whatever happens next, Reminders showing this value is Life's doing, never his (#69).
     await appendJsonl(ACTIONS, Action, [line(tried, "intent")]);

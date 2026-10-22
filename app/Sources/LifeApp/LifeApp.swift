@@ -148,7 +148,13 @@ struct SettingsView: View {
           TextField("lifelog address", text: $lifelogURL)
           SecureField("lifelog token", text: $lifelogToken)
         }
-        if let r = supervisor.info?.reminders {
+        if supervisor.info?.actions == "google" {
+          // Google Tasks is the backend (set in his settings): shown on, never switched from here.
+          Section("Actions") {
+            Toggle("Use your Google Tasks", isOn: .constant(true)).disabled(true)
+            Text("Life adds tasks when you ask, keeps your agent's list and reads your changes back.").caption()
+          }
+        } else if let r = supervisor.info?.reminders {
           Section("Reminders") {
             Toggle("Use your Reminders", isOn: Binding(
               get: { r.on },
