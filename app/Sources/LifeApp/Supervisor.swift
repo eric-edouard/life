@@ -31,7 +31,7 @@ final class Supervisor {
 
   /// The plate again, from the watcher: the panel when it opens, the status window every 3 s while open.
   func refreshPlate() async {
-    plate = await info?.status.plate() ?? plate
+    plate = await info?.status.plate()
   }
 
   func start() async {

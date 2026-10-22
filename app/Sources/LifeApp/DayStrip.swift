@@ -15,7 +15,6 @@ struct DayStrip: View {
         let x = { (at: Date) in max(0, min(1, at.timeIntervalSince(from) / 86_400)) * geo.size.width }
         ZStack(alignment: .leading) {
           ForEach(ticks, id: \.self) { t in
-            Group {
             if t.sleep == true {
               Rectangle().fill(Ledger.muted.opacity(0.12))
                 .frame(width: max(2, x(t.end ?? now) - x(t.at)))
@@ -31,8 +30,6 @@ struct DayStrip: View {
                 .frame(width: 2, height: height * 0.64)
                 .offset(x: x(t.at))
             }
-            }
-            .help(t.label)
           }
           Rectangle().fill(Ledger.ink).frame(width: 2).shadow(color: Ledger.ink.opacity(0.6), radius: 6)
             .offset(x: geo.size.width - 2)
