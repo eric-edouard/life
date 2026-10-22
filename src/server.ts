@@ -18,12 +18,12 @@ import { createSignIn, keyRefusal } from "./signin";
  * his sign-in. The key is never taken on the public port. 404 for any other path.
  */
 export function serve() {
+  warmPage();
   listen(LOCAL_PORT, createDashboard(keyRefusal()).handle);
   if (!settings().connector) {
     console.log(
       "Connector: not set up (settings: connector): /mcp, /check, /me and the public status page are off"
     );
-    warmPage();
     return;
   }
   const signed = signedIn();
@@ -32,24 +32,28 @@ export function serve() {
     PUBLIC_PORT,
     async (req) => (await signed.handle(req)) ?? (await page.handle(req))
   );
-  warmPage();
   pushPlate();
 }
 
+/** One listener; a port it can't take is logged and left off, never the other (Atlas's /mcp is on the public one). */
 function listen(
   port: number,
   handle: (req: Request) => Promise<Response | null>
 ) {
-  Bun.serve({
-    // No stack traces or source in an error page: much of this answers before sign-in.
-    development: false,
-    fetch: async (req) =>
-      (await handle(req)) ?? new Response("not found", { status: 404 }),
-    hostname: "127.0.0.1",
-    maxRequestBodySize: 256 * 1024,
-    port,
-  });
-  console.log(`Life: listening on 127.0.0.1:${port}`);
+  try {
+    Bun.serve({
+      // No stack traces or source in an error page: much of this answers before sign-in.
+      development: false,
+      fetch: async (req) =>
+        (await handle(req)) ?? new Response("not found", { status: 404 }),
+      hostname: "127.0.0.1",
+      maxRequestBodySize: 256 * 1024,
+      port,
+    });
+    console.log(`Life: listening on 127.0.0.1:${port}`);
+  } catch (e) {
+    console.error(`Life: 127.0.0.1:${port} is off: ${(e as Error).message}`);
+  }
 }
 
 /** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */
