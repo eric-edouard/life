@@ -1,5 +1,14 @@
 // How Life's server answers (`mcp.ts`, `check.ts`, `portrait.ts`), the one place for it: never cached, never framed,
-// no referrer to other sites, fonts from Google Fonts only (Ledger's). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
+// no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { ROOT } from "./truth";
+
+/** Life's brand tokens (assets/brand/tokens.css), for the pages that inline their styles. */
+export const TOKENS = readFileSync(
+  join(ROOT, "assets", "brand", "tokens.css"),
+  "utf8"
+);
 
 export const HEADERS = {
   "cache-control": "no-store",
