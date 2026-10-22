@@ -2,7 +2,8 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { appendJsonl, IMPORTED, keptConversations } from "../memory/ledger";
+import { appendJsonl } from "../core/files";
+import { IMPORTED, keptConversations } from "../memory/ledger";
 import { applyRules, messageUnits } from "../memory/units";
 import { Imported } from "../schema";
 import {

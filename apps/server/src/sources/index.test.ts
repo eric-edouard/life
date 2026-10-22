@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { STATE } from "../core/paths";
+import { APP_DATA, HOME, MACHINE, WINDOWS } from "../core/platform";
+import { expand } from "../core/settings";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
-import { WINDOWS } from "../platform";
 import { AGENT_WORD, Unit } from "../schema";
 import {
   type Descriptor,
@@ -10,8 +12,12 @@ import {
   readySources,
   SOURCES,
   sourceOf,
-} from ".";
-import { archiveDb } from "./archived";
+} from "../sources";
+import { ARCHIVE, archiveDb } from "./archived";
+import { BEEPER } from "./beeper";
+import { DB } from "./imessage";
+import { NOTES } from "./notes";
+import { WHATSAPP } from "./whatsapp";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);
@@ -120,5 +126,12 @@ test("an archived source can't be read until the archive copied its store; other
   expect(sourceOf("notes").missing?.()).toBe("Notes not archived yet");
   for (const name of ["imessage", "mail"] as const) {
     expect(sourceOf(name).missing?.() === "macOS only").toBe(WINDOWS);
+  }
+});
+
+test("a test run reads nothing of this computer: every store path is under its own state", () => {
+  const paths = [HOME, APP_DATA, MACHINE, ARCHIVE, DB, NOTES, WHATSAPP, BEEPER];
+  for (const p of [...paths, expand("~/Work")]) {
+    expect(p.startsWith(STATE)).toBe(true);
   }
 });

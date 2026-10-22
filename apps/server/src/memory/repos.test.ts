@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import type { RepoGuess, Unit } from "../schema";
 import { repoMap } from "../sources/git";
-import type { Truth } from "../truth";
 import { ledger, unit, verdict } from "./fixtures";
 import { codeRows, parseGuesses } from "./repos";
+import type { Truth } from "./truth";
 import { areaLookup } from "./units";
 
 const ctx = {

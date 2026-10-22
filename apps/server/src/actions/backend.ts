@@ -1,6 +1,6 @@
-import { isOn, off } from "../outputs";
+import { isOn, off } from "../core/outputs";
+import { agentName, settings } from "../core/settings";
 import type { Action } from "../schema";
-import { agentName, settings } from "../settings";
 import type { Change } from "./act";
 import { google } from "./google";
 import { reminders } from "./remctl";

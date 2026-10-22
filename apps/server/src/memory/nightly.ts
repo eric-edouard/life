@@ -1,12 +1,12 @@
 import { checks } from "../actions/backend";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { holder, isOtherLife } from "../core/lock";
+import { type Call, log, recentEvents } from "../core/log";
 import { isReviewCall } from "../events";
 import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
-import { holder, isOtherLife } from "../lock";
-import { type Call, log, recentEvents } from "../log";
 import {
   type Action,
   type Extracted,

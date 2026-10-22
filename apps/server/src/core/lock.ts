@@ -8,8 +8,8 @@ import {
 import { uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { clock } from "./clock";
+import { real, STATE } from "./paths";
 import { MACHINE } from "./platform";
-import { real, STATE } from "./truth";
 
 // Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, guard.ts)
 // and the services' (`hold`): one Life per Mac.

@@ -1,8 +1,9 @@
 import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
+import { appendJsonl } from "../core/files";
 import { action } from "../memory/fixtures";
-import { ACTIONS, appendJsonl } from "../memory/ledger";
+import { ACTIONS } from "../memory/ledger";
 import { saliencyOf } from "../memory/moments";
 import { chatLines } from "../memory/raw";
 import { messageUnits } from "../memory/units";

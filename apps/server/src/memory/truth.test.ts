@@ -2,24 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LOG_DIR } from "./log";
-import { OUT } from "./memory/ledger";
-import { commitMemory } from "./memory/run";
-import { git } from "./proc";
-import { type Chat, Person } from "./schema";
-import { SETTINGS } from "./settings";
-import { WATCH } from "./sources/lifelog";
-import {
-  DATA,
-  FIXTURES,
-  integrity,
-  loadTruth,
-  ROOT,
-  readMe,
-  real,
-  STATE,
-  type Truth,
-} from "./truth";
+import { LOG_DIR } from "../core/log";
+import { DATA, FIXTURES, ROOT, real, STATE } from "../core/paths";
+import { git } from "../core/proc";
+import { SETTINGS } from "../core/settings";
+import { type Chat, Person } from "../schema";
+import { WATCH } from "../sources/lifelog";
+import { OUT } from "./ledger";
+import { commitMemory } from "./run";
+import { integrity, loadTruth, readMe, type Truth } from "./truth";
 
 const person = (id: string, whatsapp: string[] = []): Person => ({
   aliases: [],

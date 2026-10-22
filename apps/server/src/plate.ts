@@ -3,18 +3,22 @@ import { join } from "node:path";
 import { checks } from "./actions/backend";
 import { archiveFailing } from "./archive";
 import { backupOld, backupSize, readBackup } from "./backup";
-import { clock } from "./clock";
+import { clock } from "./core/clock";
+import { linesOf } from "./core/files";
+import type { Call } from "./core/log";
+import { type LogEvent, recentEvents } from "./core/log";
+import { isOn, OUTPUTS } from "./core/outputs";
+import { DATA } from "./core/paths";
+import { git } from "./core/proc";
+import { agentName, settings } from "./core/settings";
 import { agentLive, clientName, deliveryState, isAgent } from "./events";
 import { readHealth } from "./health";
-import type { Call } from "./log";
-import { type LogEvent, recentEvents } from "./log";
 import { macState, sleeps } from "./mac";
 import { changeFeed } from "./memory/feed";
 import { lifeStatus, runs, type Use, useText } from "./memory/history";
 import {
   ACTIONS,
   CORRECTIONS,
-  linesOf,
   OBSERVATIONS,
   PAGES,
   readActions,
@@ -23,11 +27,9 @@ import {
   tasksOf,
 } from "./memory/ledger";
 import { reportKey } from "./memory/report";
+import { loadTruth } from "./memory/truth";
 import { clip } from "./memory/units";
-import { isOn, OUTPUTS } from "./outputs";
-import { git } from "./proc";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
-import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
 import {
   type Descriptor,
@@ -38,7 +40,6 @@ import {
 } from "./sources/index";
 import { lifelogStatus, newestTurn } from "./sources/lifelog";
 import { escalation, taskList } from "./tasks";
-import { DATA, loadTruth } from "./truth";
 
 // The status plate (`apps/server/src/dashboard.ts` serves it to the app): every part of Life as a card in a group, each with its
 // state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only

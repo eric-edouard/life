@@ -1,8 +1,9 @@
 import { statSync } from "node:fs";
-import { clock } from "../clock";
-import { systemZone } from "../platform";
+import { clock } from "../core/clock";
+import { appendJsonl, rowsOf } from "../core/files";
+import { systemZone } from "../core/platform";
 import { Zone } from "../schema";
-import { appendJsonl, rowsOf, ZONES } from "./ledger";
+import { ZONES } from "./ledger";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, the Mac's zone from each `from` on, and the wall clock
 // there. Local days and times come from here, never from the zone of the process reading them, so a day read again

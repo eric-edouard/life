@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Verify } from "./auth";
-import { connector } from "./settings";
+import { connector } from "./core/settings";
 import { createSignIn } from "./signin";
 
 const { origin } = connector();

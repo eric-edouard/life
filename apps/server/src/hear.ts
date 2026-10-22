@@ -1,4 +1,4 @@
-import { clock } from "./clock";
+import { clock } from "./core/clock";
 import {
   readTranscript,
   type Store,

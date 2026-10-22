@@ -1,12 +1,13 @@
 import { existsSync, readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { clock } from "./clock";
-import { appendJsonl } from "./memory/ledger";
-import { systemZone } from "./platform";
-import { git } from "./proc";
+import { clock } from "./core/clock";
+import { appendJsonl } from "./core/files";
+import { DATA } from "./core/paths";
+import { systemZone } from "./core/platform";
+import { git } from "./core/proc";
+import { integrity, loadTruth } from "./memory/truth";
 import { Zone } from "./schema";
-import { DATA, integrity, loadTruth } from "./truth";
 
 // A new install's data: the smallest truth that validates (only the owner), his zone from now on, and the data repo
 // the nightly commits to. Everything else is learned from his sources; goals, people and projects come when he says.

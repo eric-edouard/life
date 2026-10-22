@@ -5,13 +5,13 @@ must not break are in `AGENTS.md`; this page has the details.
 
 ## Where things live
 
-Three roots, defined in `apps/server/src/truth.ts` and `apps/server/src/platform.ts`:
+Three roots, defined in `apps/server/src/core/paths.ts` and `apps/server/src/core/platform.ts`:
 
 | Root | What | Default |
 |---|---|---|
 | `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE/data`; a checkout: `~/Life` |
 | `STATE` (`LIFE_STATE`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE/state`; a checkout: its own `derived/` |
-| `MACHINE` | Fixed per computer (`apps/server/src/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
+| `MACHINE` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
 - `DATA` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
@@ -23,15 +23,15 @@ Three roots, defined in `apps/server/src/truth.ts` and `apps/server/src/platform
   default engine).
 - Each `bun test` run (`NODE_ENV=test`) reads its own copy of the made-up data (`apps/server/src/test-data`) in a temp folder
   outside any repo, its lock and log there too: two runs at once share nothing. It has its own home folder too (`HOME`,
-  `apps/server/src/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,
+  `apps/server/src/core/platform.ts`), so no store path, repos folder or `~` in its settings reaches this computer's messages, mail,
   contacts or repos, and it reads nothing of the machine (`mac.ts`).
-- Life's secret files are the ones `SECRETS` names (`apps/server/src/secret.ts`), written only by `writeSecret` or `secretIn`
+- Life's secret files are the ones `SECRETS` names (`apps/server/src/core/secret.ts`), written only by `writeSecret` or `secretIn`
   (mode 600 where the system has modes); the export leaves exactly those out (`apps/server/src/export.ts`).
 - Generated files under `derived/` are never hand-edited; `.claude/rules/derived.md` says which are state to keep.
 
 ## Settings
 
-One file says how this install differs from another: `STATE/settings.json` (`apps/server/src/settings.ts`, zod strict). It holds
+One file says how this install differs from another: `STATE/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
 the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
 sources, the agent, the agents' report senders, the Reminders and Past calendar plugins.
 
@@ -55,7 +55,7 @@ every Keychain secret in its environment:
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its guard decides what is due (below). |
 
-**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE` (`hold`, `apps/server/src/lock.ts`), so a second
+**One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
 lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status plate reads

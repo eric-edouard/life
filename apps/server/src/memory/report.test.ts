@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { notifyArgs, WINDOWS } from "../platform";
+import { notifyArgs, WINDOWS } from "../core/platform";
 import { Action, AGENT_WORD } from "../schema";
 import { action, madeBy } from "./fixtures";
 import {

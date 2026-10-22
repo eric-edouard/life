@@ -2,13 +2,14 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { z } from "zod";
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { log } from "../core/log";
+import { DATA } from "../core/paths";
+import { git } from "../core/proc";
 import { askOnce, llmFor, llmSpec, quota, type Tier } from "../llm";
-import { log } from "../log";
-import { git } from "../proc";
 import { INFERRED_USE_AT, type InferredPerson } from "../schema";
-import { DATA, type Truth } from "../truth";
 import { OUT, runId } from "./ledger";
+import type { Truth } from "./truth";
 import { localDate } from "./zones";
 
 // What every memory step shares: the run (its id, folder, counters, failures and end), the batches of model calls and

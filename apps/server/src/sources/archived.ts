@@ -1,7 +1,7 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { MACHINE } from "../platform";
+import { MACHINE } from "../core/platform";
 import type { SourceEvent, SourceFile } from "../schema";
 import type { Newest } from "./index";
 

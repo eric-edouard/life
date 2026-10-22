@@ -1,13 +1,13 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "./clock";
-import { hold } from "./lock";
-import { type LogEvent, log, recentEvents } from "./log";
-import { codeAt, exec } from "./proc";
+import { clock } from "./core/clock";
+import { hold } from "./core/lock";
+import { type LogEvent, log, recentEvents } from "./core/log";
+import { ROOT } from "./core/paths";
+import { codeAt, exec } from "./core/proc";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { ARCHIVED, type Archived, keptStores } from "./sources/index";
-import { ROOT } from "./truth";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message Beeper Desktop
 // holds, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.

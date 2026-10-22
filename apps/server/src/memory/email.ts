@@ -1,4 +1,4 @@
-import { settings } from "../settings";
+import { settings } from "../core/settings";
 // The nightly report as an HTML email in Life's brand (docs/brand.md): a white page, one ruled panel, serif to read,
 // mono to count; tables and inline styles only, no web fonts, no images, no links, no tracking. Light only.
 

@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../clock";
-import { APP_DATA } from "../platform";
+import { clock } from "../core/clock";
+import { APP_DATA } from "../core/platform";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,

@@ -11,10 +11,10 @@ import {
 } from "jose";
 import { z } from "zod";
 import { SCOPE } from "./auth";
-import { clock } from "./clock";
+import { clock } from "./core/clock";
+import { SECRETS, same, writeSecret } from "./core/secret";
+import { PAGES_CLIENT, OWNER_SUB as SUB } from "./core/settings";
 import { HEADERS, TOKENS, text } from "./http";
-import { SECRETS, same, writeSecret } from "./secret";
-import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
 
 // Life's own sign-in for one owner, when no other OAuth server issues its tokens (the `connector` setting has no
 // `issuer`): the endpoints ChatGPT and Claude look for, under `<origin>/auth`. An app is approved by a pairing code

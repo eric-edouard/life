@@ -1,11 +1,10 @@
 import { readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { clock } from "../clock";
-import { log } from "../log";
-import { exec, git } from "../proc";
-import type { Person, RepoGuess, SourceEvent } from "../schema";
-import { expand, settings } from "../settings";
-import type { Truth } from "../truth";
+import { clock } from "../core/clock";
+import { log } from "../core/log";
+import { exec, git } from "../core/proc";
+import { expand, settings } from "../core/settings";
+import type { Person, Project, RepoGuess, SourceEvent } from "../schema";
 import type { Newest } from "./index";
 
 // Git commits as a source: local `git log` of every repo in the `repos` setting's folder, read-only. A repo-day is a
@@ -88,7 +87,10 @@ export interface Placement {
 export type RepoMap = Map<string, Placement>;
 
 /** The repo map: truth first, in his order (a project's first repo is its main one), then Life's guesses for the rest. */
-export function repoMap(truth: Truth, guesses: RepoGuess[]): RepoMap {
+export function repoMap(
+  truth: { projects: Project[] },
+  guesses: RepoGuess[]
+): RepoMap {
   const map: RepoMap = new Map();
   for (const p of truth.projects) {
     for (const repo of p.repos) {

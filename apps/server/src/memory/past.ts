@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { clock, unfrozen } from "../clock";
-import { log } from "../log";
-import { isOn } from "../outputs";
-import { execOk } from "../proc";
-import { redact } from "../redact";
+import { clock, unfrozen } from "../core/clock";
+import { log } from "../core/log";
+import { isOn } from "../core/outputs";
+import { execOk } from "../core/proc";
+import { redact } from "../core/redact";
+import { settings } from "../core/settings";
 import type { Moment, Unit } from "../schema";
-import { settings } from "../settings";
 import {
   conversationsBetween,
   type Stay,

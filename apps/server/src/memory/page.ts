@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { KEEP_AT, MadeBy, type Observation, PageSection } from "../schema";
-import { OWNER, othersIn, type Truth } from "../truth";
 import { digest, type Standing, shows, stateOf } from "./ledger";
+import { OWNER, othersIn, type Truth } from "./truth";
 import { daysBefore } from "./units";
 
 // The pure parts of stage 3 (memory-pipeline §3.5): a page's file format, where each observation lives, the owner's

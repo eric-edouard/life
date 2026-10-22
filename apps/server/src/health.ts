@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { clock } from "./clock";
-import { readJson } from "./memory/ledger";
+import { clock } from "./core/clock";
+import { readJson } from "./core/files";
 import { WATCH } from "./sources/lifelog";
 
 // The watcher's health record (derived/watch/health.json): written by the watcher after every poll, read by

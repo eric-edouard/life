@@ -10,11 +10,17 @@ import {
   SignJWT,
 } from "jose";
 import { ownerTokens } from "./auth";
-import { LOG_DIR } from "./log";
+import { linesOf } from "./core/files";
+import { LOG_DIR } from "./core/log";
+import { DATA, ROOT } from "./core/paths";
+import {
+  setSettings,
+  settings,
+  connector as settingsOf,
+} from "./core/settings";
 import { correct, createMcp } from "./mcp";
-import { ACTIONS, linesOf } from "./memory/ledger";
+import { ACTIONS } from "./memory/ledger";
 import { placesOf } from "./memory/places";
-import { setSettings, settings, connector as settingsOf } from "./settings";
 import {
   chapter,
   conversation,
@@ -25,7 +31,6 @@ import {
 } from "./sources/fixtures";
 import { apply, forward, type Stay } from "./sources/lifelog";
 import { protocol, sealed, update } from "./tasks";
-import { DATA, ROOT } from "./truth";
 
 const { issuer: ISSUER, metadata, resource: RESOURCE } = settingsOf();
 

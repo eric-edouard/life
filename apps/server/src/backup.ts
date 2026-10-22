@@ -1,14 +1,14 @@
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "./clock";
+import { clock } from "./core/clock";
+import { readJson } from "./core/files";
+import { isOn } from "./core/outputs";
+import { STATE } from "./core/paths";
+import { MACHINE } from "./core/platform";
+import { exec } from "./core/proc";
+import { expand, settings } from "./core/settings";
 import { stage } from "./export";
-import { readJson } from "./memory/ledger";
 import { localTime } from "./memory/units";
-import { isOn } from "./outputs";
-import { MACHINE } from "./platform";
-import { exec } from "./proc";
-import { expand, settings } from "./settings";
-import { STATE } from "./truth";
 
 // The daily restic snapshot (docs/operations.md, "Backups and exports") to the `backup` setting's repository, run by
 // the nightly's tick (`backupDue`). Without the setting there is no backup, and the report says it is off.

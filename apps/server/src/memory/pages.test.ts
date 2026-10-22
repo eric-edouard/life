@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { git } from "../proc";
+import { git } from "../core/proc";
 import { layoutOf, renderPage } from "./page";
 import { changedSinceCommit, removeOrphans } from "./pages";
 

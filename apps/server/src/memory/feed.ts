@@ -1,7 +1,9 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { clock } from "../clock";
-import { git } from "../proc";
+import { clock } from "../core/clock";
+import { filesIn, linesOf } from "../core/files";
+import { DATA } from "../core/paths";
+import { git } from "../core/proc";
 import {
   Action,
   Correction,
@@ -15,16 +17,13 @@ import {
   Supersession,
 } from "../schema";
 import { kindOf } from "../sources";
-import { DATA, OWNER } from "../truth";
 import {
   ACTIONS,
   CORRECTIONS,
-  filesIn,
   hides,
   hiding,
   INFERRED,
   isCurrent,
-  linesOf,
   OBSERVATIONS,
   PAGE_KINDS,
   PAGES,
@@ -40,6 +39,7 @@ import {
 } from "./ledger";
 import { type Key, PageMeta, parsePage, readLine } from "./page";
 import { readIndex } from "./search";
+import { OWNER } from "./truth";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
 // What changed in the memory, and why to trust it, as JSON for a dashboard: `changes` (every observation, supersession,

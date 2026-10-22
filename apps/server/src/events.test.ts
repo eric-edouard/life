@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { readSettings, type Settings, setSettings } from "./core/settings";
 import {
   agentLive,
   nextEvent,
@@ -10,7 +11,6 @@ import {
 } from "./events";
 import { action } from "./memory/fixtures";
 import { AGENT_WORD } from "./schema";
-import { readSettings, type Settings, setSettings } from "./settings";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
   expect(

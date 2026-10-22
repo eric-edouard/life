@@ -4,15 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Item } from "./actions/backend";
 import { planOf } from "./actions/board";
-import { recentEvents } from "./log";
+import { appendJsonl, linesOf } from "./core/files";
+import { recentEvents } from "./core/log";
+import { ROOT } from "./core/paths";
 import { action } from "./memory/fixtures";
-import {
-  ACTIONS,
-  appendJsonl,
-  linesOf,
-  type Task,
-  tasksOf,
-} from "./memory/ledger";
+import { ACTIONS, type Task, tasksOf } from "./memory/ledger";
 import { Action, AGENT_WORD } from "./schema";
 import {
   alerts,
@@ -30,7 +26,6 @@ import {
   wantOf,
   written,
 } from "./tasks";
-import { ROOT } from "./truth";
 
 const T0 = Date.parse("2026-10-19T10:00:00.000Z");
 const MIN = 60_000;

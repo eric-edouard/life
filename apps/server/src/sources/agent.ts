@@ -1,7 +1,7 @@
+import { agentName } from "../core/settings";
 import { lastUpdate, tasksOf } from "../memory/ledger";
 import { wall } from "../memory/zones";
 import { AGENT_WORD, type SourceEvent } from "../schema";
-import { agentName } from "../settings";
 import type { Newest } from "./index";
 
 // The agent's tasks closed done (apps/server/src/tasks.ts), each one event: its outcome with the words he asked in. The agent's own report,

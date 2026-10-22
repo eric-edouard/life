@@ -2,6 +2,10 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { LOG_DIR } from "./core/log";
+import { DATA, ROOT } from "./core/paths";
+import { MACHINE, MODEL_ENV } from "./core/platform";
+import { repoFiles } from "./core/proc";
 import {
   askOnce,
   claudeTokens,
@@ -13,10 +17,6 @@ import {
   quotaOf,
   type Tools,
 } from "./llm";
-import { LOG_DIR } from "./log";
-import { MACHINE, MODEL_ENV } from "./platform";
-import { repoFiles } from "./proc";
-import { DATA, ROOT } from "./truth";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
   expect(extractJson('{"a": 1}')).toEqual({ a: 1 });

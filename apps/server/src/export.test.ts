@@ -10,9 +10,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SECRETS, writeSecret } from "./core/secret";
 import { sha256Of, stage } from "./export";
 import { LOCK } from "./memory/guard";
-import { SECRETS, writeSecret } from "./secret";
 
 const SECRET = /oauth|events\.json|local\.key|\.bak$/;
 

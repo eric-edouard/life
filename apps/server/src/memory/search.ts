@@ -1,7 +1,10 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { type Call, recentEvents } from "../core/log";
+import { redact } from "../core/redact";
+import { agentName } from "../core/settings";
 import { isReviewCall } from "../events";
 import {
   AGAIN_DAYS,
@@ -10,8 +13,6 @@ import {
   openItems,
   openLinked,
 } from "../items";
-import { type Call, recentEvents } from "../log";
-import { redact } from "../redact";
 import {
   type Action,
   INFERRED_USE_AT,
@@ -24,7 +25,6 @@ import {
   type Unit,
   type Verdict,
 } from "../schema";
-import { agentName } from "../settings";
 import { kindOf, listening } from "../sources";
 import {
   conversationsWith,
@@ -36,7 +36,6 @@ import {
   withStore,
 } from "../sources/lifelog";
 import { closed, nameOf, standing as taskStanding } from "../tasks";
-import { goalProjects, loadTruth, OWNER, type Truth } from "../truth";
 import { levelsWith } from "./closeness";
 import {
   daysOf,
@@ -67,6 +66,7 @@ import {
   repliesOwed,
 } from "./raw";
 import { actionLine } from "./report";
+import { goalProjects, loadTruth, OWNER, type Truth } from "./truth";
 import {
   clip,
   dayRange,

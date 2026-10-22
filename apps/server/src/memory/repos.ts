@@ -1,10 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock } from "../clock";
+import { clock } from "../core/clock";
+import { appendJsonl } from "../core/files";
+import { HOME } from "../core/platform";
+import { redact } from "../core/redact";
 import { stamp } from "../llm";
-import { HOME } from "../platform";
-import { redact } from "../redact";
 import { type MadeBy, RepoGuess, type Unit } from "../schema";
 import { kindOf } from "../sources";
 import {
@@ -15,9 +16,7 @@ import {
   readGit,
   repoMap,
 } from "../sources/git";
-import { loadTruth, ownerIn } from "../truth";
 import {
-  appendJsonl,
   REPOS_INFERRED,
   readRepoGuesses,
   readUnits,
@@ -28,6 +27,7 @@ import {
 import { topTopics } from "./moments";
 import { asData } from "./raw";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
+import { loadTruth, ownerIn } from "./truth";
 import { areaLookup, areaOf, clip, lineCounts } from "./units";
 import { localDate } from "./zones";
 

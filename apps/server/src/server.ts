@@ -2,13 +2,13 @@ import { Hono } from "hono";
 import { createRemoteJWKSet } from "jose";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check";
+import { off } from "./core/outputs";
+import { connector } from "./core/settings";
 import { createDashboard } from "./dashboard";
 import { LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
-import { off } from "./outputs";
 import { createPortrait } from "./portrait";
-import { connector } from "./settings";
 import { createSignIn, keyRefusal } from "./signin";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.

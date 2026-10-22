@@ -8,6 +8,8 @@ import {
   rmSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { DATA, STATE } from "./core/paths";
+import { SETTINGS } from "./core/settings";
 import {
   FORMAT,
   headOf,
@@ -18,11 +20,9 @@ import {
   sha256Of,
 } from "./export";
 import { isEmpty } from "./init";
-import { SETTINGS } from "./settings";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { ARCHIVED } from "./sources/index";
 import { storeFiles } from "./sources/lifelog";
-import { DATA, STATE } from "./truth";
 
 // A Life export (`stage`, export.ts) put back: a new install's data, state and archive. All or nothing: refused at
 // once over anything there (his data, an install's state, an archive short of the export's rows: the archive is never

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
+import { setSettings, settings } from "../core/settings";
 import { ACTIONS } from "../memory/ledger";
 import type { Action } from "../schema";
-import { setSettings, settings } from "../settings";
 import {
   actAsked,
   actionId,

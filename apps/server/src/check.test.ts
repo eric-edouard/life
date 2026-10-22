@@ -10,6 +10,8 @@ import {
 } from "jose";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check";
+import { ROOT } from "./core/paths";
+import { connector } from "./core/settings";
 import { changeFeed } from "./memory/feed";
 import {
   RATINGS,
@@ -17,9 +19,7 @@ import {
   readCorrections,
   readRatings,
 } from "./memory/ledger";
-import { connector } from "./settings";
 import { createSignIn } from "./signin";
-import { ROOT } from "./truth";
 
 const {
   client: CHECK_CLIENT,

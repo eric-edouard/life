@@ -5,11 +5,11 @@
 // `--json` prints the counts alone, for the bench (scripts/bench.ts).
 
 import { join } from "node:path";
-import { clock } from "server/src/clock";
+import { clock } from "server/src/core/clock";
+import { appendJsonl } from "server/src/core/files";
 import { llmFor, llmSpec } from "server/src/llm";
 import { locked, spareQuota } from "server/src/memory/guard";
 import {
-  appendJsonl,
   liveUnits,
   OUT,
   ratedFacts,

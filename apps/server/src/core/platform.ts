@@ -1,7 +1,7 @@
 import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, sep } from "node:path";
-import { STATE, TEST } from "./truth";
+import { STATE, TEST } from "./paths";
 
 // The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
 // system is one more case here rather than a branch in every module (the rest are listed in

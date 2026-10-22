@@ -7,8 +7,8 @@ import {
   type Unit,
 } from "../schema";
 import { kindOf } from "../sources";
-import { othersIn } from "../truth";
 import { digest } from "./ledger";
+import { othersIn } from "./truth";
 import { areaOf, normalize, UNKNOWN } from "./units";
 import { localDate, zoneAt } from "./zones";
 

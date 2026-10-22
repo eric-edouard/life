@@ -11,17 +11,17 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, isAbsolute, join, relative } from "node:path";
-import { clock } from "./clock";
+import { clock } from "./core/clock";
+import { DATA, ROOT, STATE } from "./core/paths";
+import { slashed } from "./core/platform";
+import { execOk } from "./core/proc";
+import { SECRETS } from "./core/secret";
 import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
 import { INDEX } from "./memory/search";
-import { slashed } from "./platform";
-import { execOk } from "./proc";
-import { SECRETS } from "./secret";
 import { ARCHIVE, archiveDb } from "./sources/archived";
 import { ARCHIVED } from "./sources/index";
 import { storeFiles, WATCH } from "./sources/lifelog";
-import { DATA, ROOT, STATE } from "./truth";
 
 // A whole copy of what Life holds, as a folder (`stage`): `bun life export <dir>`, the app's Export…, and the folder
 // the nightly backup snapshots. `data/` his data repo, `state/` Life's state, `archive/` the archive's stores and

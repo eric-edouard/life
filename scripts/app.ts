@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { execOk } from "server/src/proc";
+import { execOk } from "server/src/core/proc";
 
 // Life.app, assembled: the menu-bar app (app/, Swift) as its executable, the helper (scripts/helper.ts) in
 // Contents/Helpers with its files in Contents/Resources/life, signed: with `LIFE_SIGN_IDENTITY` (an Apple-issued

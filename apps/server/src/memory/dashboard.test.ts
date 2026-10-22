@@ -2,12 +2,13 @@ import { expect, test } from "bun:test";
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { log } from "../log";
+import { appendJsonl } from "../core/files";
+import { log } from "../core/log";
 import { Action, AGENT_WORD } from "../schema";
 import { changeFeed, feedPage, matchesFilter } from "./feed";
 import { action } from "./fixtures";
 import { assembleRuns, lifeStatus, percentOf, runs, useText } from "./history";
-import { ACTIONS, appendJsonl } from "./ledger";
+import { ACTIONS } from "./ledger";
 
 /** Pages through the sources with `limit`, appending `between` after each page, until the feed is drained. */
 function drain(

@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { log } from "./log";
-import { CODEX, MACHINE, MODEL_ENV } from "./platform";
-import { exec, firstLine } from "./proc";
+import { log } from "./core/log";
+import { DATA, isHis, ROOT } from "./core/paths";
+import { CODEX, MACHINE, MODEL_ENV } from "./core/platform";
+import { exec, firstLine } from "./core/proc";
+import { settings } from "./core/settings";
 import { type Engine, Runner } from "./schema";
-import { settings } from "./settings";
-import { DATA, isHis, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;

@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { SCOPE, UNREACHABLE, type Verify } from "./auth";
+import { same, secretIn } from "./core/secret";
+import { connector } from "./core/settings";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
-import { same, secretIn } from "./secret";
-import { connector } from "./settings";
 
 // The owner's sign-in for /check/: the connector's OAuth server with PKCE, the
 // token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.

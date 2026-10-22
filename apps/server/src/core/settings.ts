@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { Engine, SourceName } from "../schema";
+import { STATE } from "./paths";
 import { HOME } from "./platform";
-import { Engine, SourceName } from "./schema";
-import { STATE } from "./truth";
 
 /** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
 export const PAGES_CLIENT = "life";

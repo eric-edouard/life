@@ -2,8 +2,8 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { unzipSync } from "node:zlib";
-import { clock } from "../clock";
-import { HOME } from "../platform";
+import { clock } from "../core/clock";
+import { HOME } from "../core/platform";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,

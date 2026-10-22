@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../llm";
 import {
   Closeness,
@@ -9,16 +10,9 @@ import {
 } from "../schema";
 import { isDirect, kindOf } from "../sources";
 import { type Store, speakerTurns, withStore } from "../sources/lifelog";
-import { OWNER, type Truth } from "../truth";
-import {
-  appendJsonl,
-  CLOSENESS,
-  latestBy,
-  readCorrections,
-  rowsOf,
-  writtenPeople,
-} from "./ledger";
+import { CLOSENESS, latestBy, readCorrections, writtenPeople } from "./ledger";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
+import { OWNER, type Truth } from "./truth";
 import { daysBefore, safely, tables } from "./units";
 import { merged, readPeople } from "./who";
 import { localDate } from "./zones";

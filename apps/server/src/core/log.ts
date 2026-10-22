@@ -1,8 +1,8 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "./clock";
-import { filesIn, linesOf } from "./memory/ledger";
-import { STATE } from "./truth";
+import { filesIn, linesOf } from "./files";
+import { STATE } from "./paths";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,

@@ -5,7 +5,11 @@ import { z } from "zod";
 import { Asked, actAsked, actGranted, Change, Granted } from "./actions/act";
 import { BOARD, openItemsNow, openOf, sectionsOf } from "./actions/backend";
 import { type Refused, SCOPE, UNREACHABLE, type Verify } from "./auth";
-import { FROZEN } from "./clock";
+import { FROZEN } from "./core/clock";
+import { log } from "./core/log";
+import { isOn } from "./core/outputs";
+import { ROOT } from "./core/paths";
+import { agentName, connector, settings } from "./core/settings";
 import {
   ASK_EVENT,
   Subscribe,
@@ -14,7 +18,6 @@ import {
   unsubscribe,
 } from "./events";
 import { text } from "./http";
-import { log } from "./log";
 import { changeFeed, claim, MAX_PAGE } from "./memory/feed";
 import { lifeStatus, runs } from "./memory/history";
 import { recordCorrection } from "./memory/ledger";
@@ -22,10 +25,9 @@ import { placesOf } from "./memory/places";
 import { chatsOf, fetchOf } from "./memory/raw";
 import { actionLine } from "./memory/report";
 import { area, day, person, search } from "./memory/search";
+import { loadMe } from "./memory/truth";
 import { clip } from "./memory/units";
-import { isOn } from "./outputs";
 import { type Action, ObservationId } from "./schema";
-import { agentName, connector, settings } from "./settings";
 import { Fix, FORWARD_KINDS, forward } from "./sources/lifelog";
 import {
   closed,
@@ -37,7 +39,6 @@ import {
   Update,
   update,
 } from "./tasks";
-import { loadMe, ROOT } from "./truth";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is

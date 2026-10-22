@@ -1,12 +1,12 @@
 import { closeSync, existsSync, openSync } from "node:fs";
-import { WINDOWS } from "../platform";
+import { WINDOWS } from "../core/platform";
+import { agentName, settings } from "../core/settings";
 import {
   AGENT_WORD,
   type Person,
   type SourceEvent,
   type Unit,
 } from "../schema";
-import { agentName, settings } from "../settings";
 import { newestAgent, readAgent } from "./agent";
 import { archiveDb } from "./archived";
 import {

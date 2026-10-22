@@ -62,7 +62,7 @@ with Life; lifelog's report owns how it is met.
 ### Outputs
 
 Done (#148). Each output had its own switch and shape, and `act` did not check the Reminders switch itself, so with
-Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`apps/server/src/outputs.ts`) holds the outputs he can
+Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`apps/server/src/core/outputs.ts`) holds the outputs he can
 turn on or off (Reminders, the Past calendar, the connector, the backup), each with its label and its switch: `isOn`
 asks it, `off` says why one does nothing, the plate's cards take their names and "off" from it, and `act` refuses
 before recording. Each output's own module does the work and reads the rest of its settings. The report is not a
@@ -88,7 +88,7 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 
 ### The platform module
 
-Done (#153): `apps/server/src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
+Done (#153): `apps/server/src/core/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
 `%LOCALAPPDATA%\Life` on Windows; it was `MAC`), `APP_DATA` (where Beeper keeps its store), Codex's binary for this
 system and architecture, the model CLIs' environment, the system time zone (`Intl` on Windows) and the notification
 (none on Windows). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
@@ -162,7 +162,7 @@ a string id (`idOf`, `apps/server/src/actions/backend.ts`) and changed the descr
 The owner scoped Windows out on 22 Oct, after deciding it would be a headless host only (no Windows UI: the WinUI 3 tray
 of #154 was removed). What exists and stays, as clean seams:
 
-- `apps/server/src/platform.ts`: `MACHINE` under `%LOCALAPPDATA%\Life`, `APP_DATA`, Codex's win32 binary, the model CLIs'
+- `apps/server/src/core/platform.ts`: `MACHINE` under `%LOCALAPPDATA%\Life`, `APP_DATA`, Codex's win32 binary, the model CLIs'
   environment, the time zone; `macOnly` sources (iMessage, Mail) never read there; WhatsApp and Notes read from an
   archive copied on a Mac, never copied there.
 - The check's Windows fixes (#151): exports with `/` paths, every store in an archive on any system, ICU-proof dates.
