@@ -16,7 +16,7 @@
   "backend": "hono",
   "runtime": "bun",
   "frontend": [],
-  "addons": ["turborepo", "biome", "ultracite", "skills"],
+  "addons": ["biome", "ultracite"],
   "examples": [],
   "auth": "none",
   "payments": "none",
