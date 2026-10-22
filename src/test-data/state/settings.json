@@ -23,6 +23,7 @@
     "from": "alerts@life.example.test",
     "to": "owner@example.test"
   },
+  "reminders": true,
   "reports": ["alerts@agents.example.test"],
   "repos": "~/Work",
   "sources": [
