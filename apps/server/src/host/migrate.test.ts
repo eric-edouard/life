@@ -7,11 +7,14 @@ import {
   mkdtempSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { z } from "zod";
+import { OWNER_DATA_DIR } from "../core/paths";
+import { MACHINE_DIR } from "../core/platform";
 import { momentId } from "../memory/moments";
 import { observationId } from "../memory/observe";
 import { lineHash } from "../memory/page-format";
@@ -468,6 +471,21 @@ test("in a data dir: renamed once and recorded; lines an old process appends lat
     via: "session",
   });
   expect(existsSync(join(dir, "memory/actions.jsonl"))).toBe(false);
+});
+
+test("a checkout's rename of its own copy never waits for another Life's watcher", async () => {
+  // Another Life's watcher, alive (this test's parent process), as the app's would be while the demo runs.
+  const lock = join(MACHINE_DIR, "watch.lock");
+  mkdirSync(MACHINE_DIR, { recursive: true });
+  writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
+  try {
+    await migrateStored(OWNER_DATA_DIR);
+    expect(read(OWNER_DATA_DIR, "memory/migrations.jsonl")).toContain(
+      "stored-names-2026-10-22"
+    );
+  } finally {
+    rmSync(lock, { force: true });
+  }
 });
 
 /** A data dir holding `before`, plus `extra` files. */
