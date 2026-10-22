@@ -48,7 +48,7 @@ exception: the truth benchmark on `/check`, rated when he likes, never waited on
 Break one of these and something of the owner's is lost, leaked or acted on wrongly.
 
 - **His data repo has no git remote, and nothing of his goes to GitHub.** `commitMemory` refuses a repo with a
-  remote. (What does leave the Mac, to the model provider, the backup and the Worker: `docs/architecture.md`.)
+  remote. (What does leave the Mac, to the model provider and the backup: `docs/architecture.md`.)
 - **Nothing personal is committed here**, in code, tests, prompts or docs: tests use made-up people, phones and places;
   his material goes to his data repo, his settings to `STATE/settings.json`, secrets to `.env` or the Keychain. The
   `scrub` step catches full names, aliases, surnames, phones, emails, handles and chat ids from his `truth/`; first
@@ -77,13 +77,12 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words or a request.
 - **Life acts in one place: Apple Reminders**, through `act`, on his clear request or the standing grant. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/atlas.md`.
-- **The only sends** are the report and alerts to the owner, one MCP event per ask to his agent, and the status plate
-  (without his words) to its Worker. Add no other (`docs/atlas.md`, "The only sends").
+- **The only sends** are the report and alerts to the owner and one MCP event per ask to his agent. Add no other (`docs/atlas.md`, "The only sends").
 - **The connector reads, forwards his corrections, and acts only through `reminders`, `task` and `reply`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
-- **Pages serve nothing of his before their sign-in check** (status page, `/check`, `/me`). Never take the local key on
-  the public port (`docs/architecture.md`, "Pages").
+- **Pages serve nothing of his before their sign-in check** (`/check`, `/me`; the app's status reads behind the local
+  key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge the
   same text.
 - **He is the center, not one more person:** his page is a projection like every page; his goals are only in
@@ -102,7 +101,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   away or reorder, never add it. Open items are derived (`openItems`), never stored (`docs/atlas.md`).
 - **Nightly emails include every row.** Never cap a list or write "+N more" (`docs/operations.md`, "The nightly
   report").
-- **Everything Life shows follows the Ledger brand** (emails, `/check`, `/me`, the status page, the icon), its values
+- **Everything Life shows follows the Ledger brand** (emails, `/check`, `/me`, the app, the icon), its values
   copied from the `ledger-brand` skill's tokens; a brand change lands there first (`docs/architecture.md`).
 
 ## One way to do each thing
@@ -127,7 +126,7 @@ Before adding a helper, use the one that exists:
 | A run's start and end | `record` (`src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn` (mode 600, which keeps it out of exports) |
 
-Only `guard.ts`'s schedules and the status page's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
+Only `guard.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
 on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events' `post` and the Past calendar).
 
