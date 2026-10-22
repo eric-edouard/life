@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  rmdirSync,
   rmSync,
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -167,7 +168,10 @@ export async function restore(dir: string, to: Install = HERE) {
     for (const p of kept
       ? ["data" as const]
       : ["archive" as const, "data" as const]) {
-      rmSync(to[p], { force: true, recursive: true }); // empty, checked above
+      // Empty, checked above: a folder that isn't fails here, it is never removed.
+      if (existsSync(to[p])) {
+        rmdirSync(to[p]);
+      }
       renameSync(side[p], to[p]);
     }
   } finally {
