@@ -3,15 +3,13 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { SourceEvent, SourceFile } from "../schema";
+import { MAC } from "../truth";
 import type { Newest } from "./index";
 
 // Reading Life's archive (src/archive.ts), opened read-only: WhatsApp and Beeper's chats, a message deleted for everyone
 // with the text the archive kept, an edited one by its latest text; each version of a note as what it changed.
 
-export const ARCHIVE = join(
-  homedir(),
-  "Library/Application Support/Life/archive"
-);
+export const ARCHIVE = join(MAC, "archive");
 
 // The apps' own stores the archive copies from (WhatsApp's and Beeper's), opened read-only.
 export const WHATSAPP = join(

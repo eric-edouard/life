@@ -1,14 +1,8 @@
-import {
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { uptime } from "node:os";
+import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../clock";
 import { type Quota, quota } from "../llm";
+import { held, take } from "../lock";
 import { DATA } from "../truth";
 import { OUT, readJson, writeJson } from "./ledger";
 import { daysBefore, localTime, type Window } from "./units";
@@ -279,41 +273,16 @@ export function recordState(day: string, ok: boolean, job: Job = "nightly") {
   return state;
 }
 
-/** When the run holding the lock took it, or null when none holds it (its pid is dead, or it predates the boot: a pid is reused). */
-export function lockedSince(): Date | null {
-  try {
-    const since = statSync(LOCK).mtime;
-    process.kill(Number(readFileSync(LOCK, "utf8")), 0);
-    // ponytail: the lock's real mtime and boot time against the clock; a frozen run (the bench) never takes the lock.
-    return since.getTime() >= clock().getTime() - uptime() * 1000
-      ? since
-      : null;
-  } catch {
-    return null; // no lock, or a stale pid
-  }
-}
+/** When the run holding memory's lock took it, or null when none holds it. */
+export const lockedSince = () => held(LOCK)?.since ?? null;
 
 /** True while a run holds the lock: the watcher then leaves memory/ and the index alone. */
 export const isLocked = () => lockedSince() !== null;
 
-/** Creates the lock file, atomically ("wx"): a stale one (see `lockedSince`) is cleared and the lock taken once more. */
-function take(retry = true): boolean {
-  try {
-    writeFileSync(LOCK, String(process.pid), { flag: "wx" });
-    return true;
-  } catch {
-    if (!retry || isLocked()) {
-      return false;
-    }
-    rmSync(LOCK, { force: true });
-    return take(false);
-  }
-}
-
 /** Runs `run` holding the lock, so nothing else writes memory/ meanwhile; `null`, without running, when a run holds it. */
 export async function locked<T>(run: () => Promise<T>) {
   mkdirSync(OUT, { recursive: true });
-  if (!take()) {
+  if (!take(LOCK)) {
     console.error("another run is still going");
     return null;
   }
