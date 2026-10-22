@@ -21,8 +21,8 @@ review (`debt-review`), and `transition` into `main` on his OK.
 - [x] T3 Export: the backup's staging, extended to everything Life holds, with a manifest (every file's size and
   sha256) and counts; secrets never exported, only named. `life export <dir>` and the app's Export…; the backup is
   restic of that same folder.
-- [ ] T4 Import: one `life import <dir>` (a Life export, verified by its manifest, never over existing data, never
-  writing to an existing archive; or an assistant export, today's `memory import`), also in the app's first run.
+- [x] T4 Import: one `life import <dir>` (a Life export, verified by its manifest, never over existing data, never
+  writing to an existing archive; or an assistant export, what `memory import` was), also in the app's first run.
 - [ ] The switch (runbook below), then the connector on Life's own sign-in through Tailscale Funnel.
 - [ ] T5 Delete the launchd setup; T6 delete the Cloudflare tunnel and the status Worker.
 

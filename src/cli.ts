@@ -6,9 +6,11 @@ import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http";
+import { restore } from "./import";
 import { init, started } from "./init";
 import { readEngine } from "./llm";
-import { memoryCommand } from "./memory/command";
+import { memoryCommand, step } from "./memory/command";
+import { dryRun, importExport } from "./memory/imports";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
@@ -211,6 +213,47 @@ const commands: Record<string, () => Promise<number>> = {
     const done = await setGrant(state === "on", said);
     console.log(`${done.id}: ${actionLine(done)}`);
     return 0;
+  },
+  /**
+   * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
+   * install, checked before and counted after), or his claude.ai or ChatGPT export (once; `--dry` only counts).
+   */
+  async import() {
+    const { positionals, values } = parseArgs({
+      allowPositionals: true,
+      args: process.argv.slice(3),
+      options: { dry: { type: "boolean" } },
+    });
+    const [dir] = positionals;
+    if (!dir) {
+      console.error("usage: bun life import <folder> [--dry]");
+      return 2;
+    }
+    if (existsSync(join(dir, "manifest.json"))) {
+      if (values.dry) {
+        console.error(
+          "--dry counts an assistant export; a Life export is checked as it is imported"
+        );
+        return 2;
+      }
+      const r = await restore(dir);
+      console.log(
+        `Life: ${r.files} files imported, checked and counted.${r.kept ? ` The archive at ${r.kept} was kept as it was.` : ""} Give by hand: ${Object.values(r.leftOut).flat().join("; ")}`
+      );
+      return 0;
+    }
+    if (values.dry) {
+      console.log(JSON.stringify(dryRun(dir)));
+      return 0;
+    }
+    // Its copy goes into his data: a new install starts first (`init`), or brings a Life export.
+    if (!started()) {
+      console.error(
+        "Start Life first (or import a Life export): an assistant export goes into a set-up Life"
+      );
+      return 2;
+    }
+    return step(() => importExport(dir))({}, []);
   },
   /** A new install's data, once: `init --name <his name> [--email a]… [--phone +33…]…`. */
   async init() {
