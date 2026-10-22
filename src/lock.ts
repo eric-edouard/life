@@ -1,7 +1,6 @@
 import {
   mkdirSync,
   readFileSync,
-  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -9,7 +8,7 @@ import {
 import { uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { clock } from "./clock";
-import { MAC, STATE, TEST } from "./truth";
+import { MAC, real, STATE, TEST } from "./truth";
 
 // Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, guard.ts)
 // and the services' (`hold`): one Life per Mac.
@@ -57,13 +56,6 @@ const serviceLock = (name: Service) => join(TEST ? STATE : MAC, `${name}.lock`);
 /** Who runs a service now: its pid, since when, and the state root it runs on as its note; null when none does. */
 export const holder = (name: Service) => held(serviceLock(name));
 
-const real = (path: string) => {
-  try {
-    return realpathSync(path);
-  } catch {
-    return path;
-  }
-};
 /** Whether the service holder `live` is another install's than the one whose state root is `state`. */
 export const isOtherLife = (
   live: { note: string } | null,

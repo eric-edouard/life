@@ -607,7 +607,7 @@ function captureCards(r: Reads): Card[] {
         [
           !watching,
           {
-            ask: ASK("that the watcher LaunchAgent is not running"),
+            ask: ASK("that the watcher is not running"),
             tone: "bad",
             word: "stopped",
           },
@@ -1123,7 +1123,7 @@ const serviceState = (sv: Reads["mac"]["services"][number]) => {
   }
   return sv.ok
     ? { headline: "between ticks", state: "between ticks (every 30 min)" }
-    : { headline: "down", state: sv.status };
+    : { headline: "down", state: `not running (${sv.status})` };
 };
 
 function macCards(r: Reads): Card[] {

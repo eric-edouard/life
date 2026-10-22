@@ -65,7 +65,7 @@ export async function macState() {
   const sec = Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0);
   const free =
     Number(disk.stdout.trim().split("\n").at(-1)?.split(SPACES)[3] ?? 0) * 1024;
-  // The archive and the watcher, whoever runs them (launchd or the app): who holds each one's lock (`hold`, guard.ts).
+  // The archive and the watcher, whoever runs them (launchd or the app): who holds each one's lock (`hold`, lock.ts).
   const held = (["archive", "watch"] as const).map((name) => {
     const h = holder(name);
     return {
