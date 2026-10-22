@@ -36,7 +36,7 @@ const KEPT_OUT = [WATCH, INDEX, OAUTH, SUBSCRIPTION, LOCAL_KEY].map((p) =>
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
-const filesUnder = (dir: string) =>
+export const filesUnder = (dir: string) =>
   (readdirSync(dir, { recursive: true }) as string[]).filter((p) =>
     lstatSync(join(dir, p)).isFile()
   );
@@ -51,8 +51,8 @@ export async function sha256Of(path: string) {
 }
 
 /**
- * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), then
- * made a file of its own (no WAL beside it): it opens anywhere, read-only too, and restores as one file.
+ * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), as a
+ * file of its own (a rollback journal, no WAL beside it): it opens anywhere, read-only too, and restores as one file.
  */
 function copyDb(from: string, to: string) {
   const source = new Database(from, { readonly: true });
@@ -61,62 +61,62 @@ function copyDb(from: string, to: string) {
   } finally {
     source.close();
   }
-  const copy = new Database(to);
-  try {
-    copy.run("PRAGMA journal_mode=DELETE");
-  } finally {
-    copy.close();
-  }
 }
 
-/** What a staged folder holds: lines per JSONL file of his data, rows per table of each store, the data's commit. */
-export async function inventory(dir: string) {
-  const lines = Object.fromEntries(
-    filesUnder(join(dir, "data"))
+/** Lines per JSONL file of a data folder (its repo's own files aside). */
+export const linesIn = (data: string) =>
+  Object.fromEntries(
+    filesUnder(data)
       .filter((p) => p.endsWith(".jsonl") && !p.startsWith(".git"))
       .map((p) => [
         p,
-        readFileSync(join(dir, "data", p), "utf8")
-          .split("\n")
-          .filter(Boolean).length,
+        readFileSync(join(data, p), "utf8").split("\n").filter(Boolean).length,
       ])
   );
-  const rows = Object.fromEntries(
-    filesUnder(dir)
-      .filter((p) => p.endsWith(".sqlite"))
-      .map((p) => {
-        const db = new Database(join(dir, p), { readonly: true });
-        try {
-          const tables = db
-            .query<{ name: string }, []>(
-              "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'"
-            )
-            .all();
-          return [
-            p,
-            Object.fromEntries(
-              tables.map(({ name }) => [
-                name,
-                (
-                  db.query(`select count(*) as n from "${name}"`).get() as {
-                    n: number;
-                  }
-                ).n,
-              ])
-            ),
-          ];
-        } finally {
-          db.close();
-        }
-      })
-  );
-  const head = existsSync(join(dir, "data", ".git"))
-    ? (
-        await execOk(["git", "-C", join(dir, "data"), "rev-parse", "HEAD"])
-      ).trim()
-    : null;
-  return { head, lines, rows };
+
+/** Rows per table of one SQLite file. */
+export function rowsIn(path: string) {
+  const db = new Database(path, { readonly: true });
+  try {
+    return Object.fromEntries(
+      db
+        .query<{ name: string }, []>(
+          "select name from sqlite_master where type = 'table' and name not like 'sqlite_%'"
+        )
+        .all()
+        .map(({ name }) => [
+          name,
+          (
+            db.query(`select count(*) as n from "${name}"`).get() as {
+              n: number;
+            }
+          ).n,
+        ])
+    );
+  } finally {
+    db.close();
+  }
 }
+
+/** A data folder's commit, or null when it is no repo. */
+export const headOf = async (data: string) =>
+  existsSync(join(data, ".git"))
+    ? (await execOk(["git", "-C", data, "rev-parse", "HEAD"])).trim()
+    : null;
+
+/** What a staged folder holds: lines per JSONL file of his data, rows per table of each store, the data's commit. */
+export async function inventory(dir: string) {
+  return {
+    head: await headOf(join(dir, "data")),
+    lines: linesIn(join(dir, "data")),
+    rows: Object.fromEntries(
+      filesUnder(dir)
+        .filter((p) => p.endsWith(".sqlite"))
+        .map((p) => [p, rowsIn(join(dir, p))])
+    ),
+  };
+}
+export type Manifest = Awaited<ReturnType<typeof stage>>;
 
 const ENV_KEY = /^([A-Z0-9_]+)=/;
 /** What a new install is given by hand, named only: never their values. */
