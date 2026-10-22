@@ -54,11 +54,11 @@ unasked is the agent's job.
 Time is modeled without a new store: said (`at`), valid (`validFrom`/`validTo`), event (`when`), recorded
 (`madeBy.run`), retired (`supersessions.jsonl`), and every page version is in the data repo's git.
 
-### The owner is the center
+### The owner's own page
 
-His own page (`memory/pages/people/me.md`, `OWNER` in `truth.ts`, its sections in `layoutOf`, `page.ts`) is a
-projection of the observations like every page, so its shape changes at the cost of rebuilding one page. His goals are
-only in `truth/me.md`. Nothing about him is stored in a separate record, and observations carry no owner-only field.
+`memory/pages/people/me.md` (`OWNER` in `truth.ts`) is built from the observations like every page, with its own
+sections (`layoutOf`, `page.ts`), so changing its shape costs a rebuild of one page. `person me` adds his goals, read
+from `truth/me.md`.
 
 ## Relationships and closeness
 
@@ -86,9 +86,12 @@ someone else is capped at 0.6 confidence.
 - The data root is a local git repository with no remote: the nightly commits and never pushes.
 - The archive (deleted messages, old note versions) is the only live copy of what the apps delete; it lives in
   Application Support and in the encrypted backup, nowhere else.
-- Model calls go to the owner's own subscriptions (Claude or Codex), or an API key on an install with neither. They
-  run in an empty temp folder with no tools and no instruction files, so recorded content reaches the model with
-  nothing but the prompt.
+- The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or
+  OpenAI, through the owner's subscription's CLI or an API key: `docs/operations.md`, "Model engines"). Calls run in
+  an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
+  the prompt.
+- The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic. The
+  optional status Worker gets the plate without the owner's words.
 - The connector is reached through the owner's tailnet (or a tunnel he controls), behind his sign-in.
 
 ## The app

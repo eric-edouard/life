@@ -8,8 +8,8 @@ import { exec } from "./proc";
 import { expand, settings } from "./settings";
 import { MAC, STATE } from "./truth";
 
-// The daily restic snapshot (docs/operations.md, "Backups and restore") to the `backup` setting's repository, run by the nightly's tick
-// (`backupDue`). Without the setting there is no backup, and the report says it is off.
+// The daily restic snapshot (docs/operations.md, "Backups and restore") to the `backup` setting's repository, run by
+// the nightly's tick (`backupDue`). Without the setting there is no backup, and the report says it is off.
 const STAGING = join(MAC, "backup-staging");
 const STATUS = join(STATE, "backup.json");
 
@@ -42,7 +42,10 @@ export function backupLine(now: Date, s = readBackup()) {
   return `Last backup: ${[last, s?.error, old && "OVER 48 H OLD"].filter(Boolean).join(" · ")}`;
 }
 
-/** `bun life backup`: stages everything Life holds (`stage`, an export), snapshots it, and on Sundays forgets, prunes and checks. */
+/**
+ * `bun life backup`: stages everything Life holds (`stage`, an export), snapshots it, and on Sundays forgets, prunes
+ * and checks.
+ */
 export async function backup() {
   const target = settings().backup;
   if (!target) {

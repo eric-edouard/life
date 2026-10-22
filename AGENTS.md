@@ -38,14 +38,17 @@ exception: the truth benchmark on `/check`, rated when he likes, never waited on
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
   `bun life memory unresolved` before asking him anything. His word beats the memory.
+- A send through any messaging app (Beeper, WhatsApp, iMessage, mail) needs the owner's OK on the exact text.
+- When the owner says something didn't work, it is audited (docs/operations.md#audits), and its fix carries a
+  regression case.
 - Rules for editing `truth/` are in the data repo's own `AGENTS.md`.
 
 ## Invariants
 
 Break one of these and something of the owner's is lost, leaked or acted on wrongly.
 
-- **His data never leaves the Mac.** `DATA` is a git repo with no remote; `commitMemory` refuses one with a remote.
-  Nothing of his goes to GitHub.
+- **His data repo has no git remote, and nothing of his goes to GitHub.** `commitMemory` refuses a repo with a
+  remote. (What does leave the Mac, to the model provider, the backup and the Worker: `docs/architecture.md`.)
 - **Nothing personal is committed here**, in code, tests, prompts or docs: tests use made-up people, phones and places;
   his material goes to his data repo, his settings to `STATE/settings.json`, secrets to `.env` or the Keychain. The
   `scrub` step catches full names, aliases, surnames, phones, emails, handles and chat ids from his `truth/`; first
@@ -84,20 +87,21 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge the
   same text.
 - **He is the center, not one more person:** his page is a projection like every page; his goals are only in
-  `truth/me.md`; no separate record about him, no owner-only field on observations.
+  `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
 - **Facts are read by moment:** one call per day reads every unit of the day (`moments.ts`), then extraction reads a
   moment's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
   the only step that retires an observation (besides his `outdated` answers).
-- **Model output is cached** by unit hash and prompt version. Bump a prompt's version only when its meaning changes;
-  ask before re-running the whole archive.
-- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`), or an API key on an install with
-  neither. OpenRouter is for the bench only, through `LIFE_LLM` on a copy; `LIFE_LLM` is refused on the live data.
+- **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
+  when its meaning changes; ask before re-running the whole archive.
+- **Model calls use the owner's subscriptions**, or an API key on an install with neither; never another provider
+  except the bench's (`docs/operations.md`, "Model engines").
 - **Settings are one strict file, read once per process** (`src/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
 - **Reminders is an interface, never the truth; the ledger is.** Changes read back from Reminders can take authority
-  away or reorder, never add it. Open items are derived (`openItems`), never stored.
-- **Nightly emails include every row**, in HTML, plain text and an HTML attachment. Never cap a list or write "+N more".
+  away or reorder, never add it. Open items are derived (`openItems`), never stored (`docs/atlas.md`).
+- **Nightly emails include every row.** Never cap a list or write "+N more" (`docs/operations.md`, "The nightly
+  report").
 - **Everything Life shows follows the Ledger brand** (emails, `/check`, `/me`, the status page, the icon), its values
   copied from the `ledger-brand` skill's tokens; a brand change lands there first (`docs/architecture.md`).
 
@@ -122,7 +126,6 @@ Before adding a helper, use the one that exists:
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn` (mode 600, which keeps it out of exports) |
-| Open items | `openItems` (`src/items.ts`) |
 
 Only `guard.ts`'s schedules and the status page's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts

@@ -25,8 +25,12 @@ Then you ask. Claude or ChatGPT reads the memory through Life's connector, so "w
 "where are we with the flat?" gets an answer with the evidence attached.
 
 **Your data stays on your Mac.** The memory is plain text in a git repository of its own, with no remote: Life commits
-to it every night and never pushes. Raw messages stay in their apps. Model calls run on your own Claude or Codex
-subscription, with no tools and nothing but the prompt.
+to it every night and never pushes. Raw messages stay in their apps. What leaves the Mac, and only that:
+
+- the text Life reads is sent to the model provider you choose (Anthropic or OpenAI, through your own subscription's
+  CLI or an API key), with no tools and nothing but the prompt;
+- the optional encrypted backup goes to the folder you set (for example iCloud Drive);
+- the optional status Worker gets the status snapshot without your words.
 
 ## Features
 
@@ -39,7 +43,7 @@ subscription, with no tools and nothing but the prompt.
 - **"Hey Atlas":** say it to hand a request to your own agent; Life tracks it as a task until it is done.
 - **Reminders,** on your explicit request only, every change logged (optional plugin).
 - **A status page** that shows each part of the pipeline live, and a **check page** to rate what Life believes.
-- **Runs itself:** a nightly run, two midday passes, a daily encrypted backup, and an email (or notification) report.
+- **Runs itself:** a nightly run, two midday passes, an optional daily encrypted backup, and an email (or notification) report.
 
 ## How it works
 
