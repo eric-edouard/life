@@ -1,14 +1,10 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { STATE } from "../truth";
+import { utimesSync, writeFileSync } from "node:fs";
 import {
   afterWeek,
   backfillWeek,
   backupDue,
   decide,
-  hold,
-  holder,
   LOCK,
   locked,
   middayDue,
@@ -18,7 +14,6 @@ import {
   quotaLine,
   turnOf,
 } from "./guard";
-import { OUT } from "./ledger";
 import { localTime } from "./units";
 
 const day = "2026-10-15";
@@ -205,29 +200,4 @@ test("over 75% of his Codex quota a tick runs only the night, until the quota re
     earliest: new Date(2026, 9, 27, 13).toISOString(),
     why: "held: Codex quota 80% used, over 75%",
   });
-});
-
-test("one archiver per Mac: a live holder makes a second wait, a dead one's lock is taken over", async () => {
-  const lock = join(OUT, "archive.lock");
-  mkdirSync(OUT, { recursive: true });
-  try {
-    // Another install's archiver, alive (this test's parent process), on its own state root.
-    writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
-    expect(holder("archive")).toMatchObject({ state: "/elsewhere/state" });
-    const waited = await Promise.race([
-      hold("archive").then(() => "held"),
-      Bun.sleep(50).then(() => "waiting"),
-    ]);
-    expect(waited).toBe("waiting");
-    // It crashed: its pid is gone, so the next start takes the lock with its own state root.
-    writeFileSync(lock, "999999\n/elsewhere/state");
-    expect(holder("archive")).toBeNull();
-    await hold("archive");
-    expect(holder("archive")).toMatchObject({
-      pid: String(process.pid),
-      state: STATE,
-    });
-  } finally {
-    rmSync(lock, { force: true });
-  }
 });

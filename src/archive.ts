@@ -2,8 +2,8 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock } from "./clock";
+import { hold } from "./lock";
 import { type LogEvent, log, recentEvents } from "./log";
-import { hold } from "./memory/guard";
 import { codeAt, exec } from "./proc";
 import { settings } from "./settings";
 import { ARCHIVE, archiveDb, BEEPER, WHATSAPP } from "./sources/archived";
@@ -533,9 +533,9 @@ export async function archiveCommand(args: string[]): Promise<number> {
     printDeleted(Number(args[1] ?? 7));
     return 0;
   }
+  const running = codeAt(ROOT);
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
-  const running = codeAt(ROOT);
   const failing = new Set((await archiveFailing()).map(([name]) => name));
   while (codeAt(ROOT) === running) {
     for (const { copy, name } of keptStores()) {
