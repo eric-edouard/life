@@ -1231,13 +1231,18 @@ export async function snapshot(now = clock()) {
     ...outputCards(r),
     ...macCards(r),
   ];
+  // One rule for a card in trouble: the page counts them, the app's menu lists them.
+  const trouble = cards
+    .filter((c) => c.tone === "bad" || c.tone === "warn")
+    .map((c) => c.id);
   return {
     cards,
     edges: EDGES,
     groups: GROUPS,
     observedAt: now.toISOString(),
-    problems: cards.filter((c) => c.tone === "bad" || c.tone === "warn").length,
+    problems: trouble.length,
     today: todayOf(r),
+    trouble,
     worst: cards.reduce<Tone>(
       (w, c) => (RANK[c.tone] > RANK[w] ? c.tone : w),
       "ok"

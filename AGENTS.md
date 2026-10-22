@@ -188,8 +188,11 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   a refused token. The origin is his Mac's tailnet name (`bun life connect`, `--public` through Funnel for ChatGPT and
   Claude.ai, `src/tailscale.ts`) or his own Cloudflare tunnel (`tunnel: cloudflare`, the only one `tunnel.ts` heals).
 - **The status page** (`src/dashboard.ts`, `/` and `/status/` on the same server; `src/plate.ts` reads every part) only
-  reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages): never serve anything of his before
-  that check. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to
+  reads, behind the owner's sign-in (`src/signin.ts`, the one sign-in for his pages) on the public port (`PUBLIC_PORT`,
+  where a tunnel forwards the connector's origin), or for the app on the local port (`LOCAL_PORT`, served even without
+  a connector, no tunnel ever points there) behind its local key (`keyRefusal`, `STATE/local.key`, mode 600): never
+  serve anything of his before that check, and never take the key on the public port. The app's menu (the plate's
+  `trouble`) and its status window show this page, never a second rendering of it. Its Worker (`worker/status.ts`, Cloudflare, only the page's paths routed to it) passes every request to
   the Mac and answers only when the Mac is out of reach, behind the same owner check, with what the Mac pushed: the plate
   without his words (`strip`) and the page's files. `docs/dashboard.md`.
 - **The check page** (`src/check.ts`, `/check` on the same server) shows the truth benchmark and appends his answers

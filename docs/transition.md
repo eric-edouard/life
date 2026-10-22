@@ -16,7 +16,7 @@ review (`debt-review`), and `transition` into `main` on his OK.
   board, no reading back, no `reminders`/`open_reminders` tools, no grant) and the rest of Life runs as before.
 - [x] R1 The plugin's backend is `remctl` (MIT, github.com/viticci/remctl), pinned by version and checksum and installed
   by its own installer from the app's setup; `life-eventkit` keeps only its calendar.
-- [ ] T2 Status parity: the app shows the status page's truth from the same plate (its headline and every card not ok
+- [x] T2 Status parity: the app shows the status page's truth from the same plate (its headline and every card not ok
   in the menu, the whole page in a window), read through the helper, served locally without a connector.
 - [ ] T3 Export: the backup's staging, extended to everything Life holds, with a manifest (every file's size and
   sha256) and counts; secrets never exported, only named. `life export <dir>` and the app's Export…; the backup is
