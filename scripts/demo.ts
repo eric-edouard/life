@@ -3,8 +3,9 @@ import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { madeBy, unit } from "../src/memory/fixtures";
+import { MACHINE } from "../src/platform";
 import { execOk } from "../src/proc";
-import { DATA, MAC, STATE } from "../src/truth";
+import { DATA, STATE } from "../src/truth";
 
 // A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
 // src/test-data, plus a week of invented memory about a landlord, a plumber and a friend) and builds its search index.
@@ -25,7 +26,7 @@ import { DATA, MAC, STATE } from "../src/truth";
 
 const out = resolve(process.argv[2] ?? "");
 const inside = (root: string) => !relative(root, out).startsWith("..");
-const live = [DATA, STATE, MAC, join(homedir(), "Life")];
+const live = [DATA, STATE, MACHINE, join(homedir(), "Life")];
 if (!process.argv[2] || existsSync(out) || live.some(inside)) {
   console.error(
     "usage: bun scripts/demo.ts <a new folder, outside Life's data and state>"

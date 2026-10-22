@@ -14,6 +14,7 @@ import {
   type Tools,
 } from "./llm";
 import { LOG_DIR } from "./log";
+import { MACHINE, MODEL_ENV } from "./platform";
 import { DATA, ROOT } from "./truth";
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
@@ -209,17 +210,15 @@ test("a model call has no tools, no MCP, no settings, no secrets, and runs in an
       'web_search="disabled"',
     ])
   );
-  const allowed = "HOME LANG LC_ALL LOGNAME PATH SHELL TERM TMPDIR USER".split(
-    " "
-  );
+  // The allowed names carry no secret, whatever the system adds to them.
+  const allowed = MODEL_ENV;
+  expect(allowed.filter((k) => SECRETISH.test(k))).toEqual([]);
   expect(allowed).toEqual(expect.arrayContaining(Object.keys(claude.env)));
   expect([...allowed, "CODEX_HOME"]).toEqual(
     expect.arrayContaining(Object.keys(codex.env))
   );
   // Its own home, so ~/.codex/AGENTS.md never reaches the model.
-  expect(codex.env.CODEX_HOME).toBe(
-    join(homedir(), "Library/Application Support/Life/codex")
-  );
+  expect(codex.env.CODEX_HOME).toBe(join(MACHINE, "codex"));
   for (const r of [claude, codex]) {
     expect(r.empty).toBe(true);
     for (const root of [ROOT, DATA, join(homedir(), "Life")]) {
@@ -228,11 +227,13 @@ test("a model call has no tools, no MCP, no settings, no secrets, and runs in an
   }
 });
 
+const SECRETISH = /KEY|TOKEN|SECRET/i;
+
 /** How code could start a model CLI: an argv or a shell command that begins with one, or Codex's pinned binary. */
 const STARTS_MODEL = [
   /\[\s*["'`][^"'`]*\b(?:claude|codex)["'`]/,
   /\$`\s*\S*\b(?:claude|codex)\b/,
-  /codex-darwin/,
+  /\bCODEX(?:_BIN)?\b/,
 ];
 const RUNS_PROGRAMS = /Bun\.spawn|Bun\.\$|\bexec\(|spawnSync|child_process/;
 

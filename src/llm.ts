@@ -7,10 +7,11 @@ import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { log } from "./log";
+import { CODEX, MACHINE, MODEL_ENV } from "./platform";
 import { exec, firstLine } from "./proc";
 import { type Engine, Runner } from "./schema";
 import { settings } from "./settings";
-import { DATA, isHis, MAC, ROOT } from "./truth";
+import { DATA, isHis, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -59,15 +60,12 @@ const SOL: Record<Tier, string> = {
   fast: "gpt-6.1-sol",
   main: "gpt-6.1-sol",
 };
-/** The pinned codex, under Life's files (the app's helper ships it there: scripts/helper.ts). */
-export const CODEX =
-  "node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex";
 const CODEX_BIN = join(ROOT, CODEX);
 // Codex always loads AGENTS.md from its home, and no flag turns that off, so Life has its own home with a login of
 // its own (`CODEX_HOME=<this> codex login --device-auth`, once) and no instruction files. The repo's own AGENTS.md is
 // kept out by running in an empty temp folder and `project_doc_max_bytes=0`; `skills.include_instructions=false` drops
 // the skills catalog.
-const CODEX_HOME = join(MAC, "codex");
+const CODEX_HOME = join(MACHINE, "codex");
 /** The reasoning effort by tier, for every provider that takes one. */
 const EFFORT: Record<Tier, string> = {
   deep: "high",
@@ -202,10 +200,6 @@ const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
 
 const promptText = (prompt: string) =>
   Bun.file(join(ROOT, "prompts", `${prompt}.md`)).text();
-
-const MODEL_ENV = "HOME LANG LC_ALL LOGNAME PATH SHELL TERM TMPDIR USER".split(
-  " "
-);
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
 const modelEnv = (extra: Record<string, string> = {}) => ({

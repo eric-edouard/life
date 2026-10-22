@@ -1,6 +1,6 @@
 import { cp, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { CODEX } from "../src/llm";
+import { CODEX } from "../src/platform";
 import { execOk } from "../src/proc";
 
 // The app's helper: Life compiled to one binary (`bun build --compile`), and the files it reads at run time (prompts,
