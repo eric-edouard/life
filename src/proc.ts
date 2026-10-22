@@ -108,13 +108,15 @@ export const git = (path: string, args: string[]) =>
 export const repoFiles = (root: string, dirs: string[], ends: string[]) =>
   gitOut(root, [
     "ls-files",
+    // NUL-separated: git would quote a name with non-ASCII letters, and the scan would silently skip it.
+    "-z",
     "--cached",
     "--others",
     "--exclude-standard",
     "--",
     ...dirs,
   ])
-    .split("\n")
+    .split("\0")
     .filter(
       (f) => ends.some((e) => f.endsWith(e)) && existsSync(join(root, f))
     );

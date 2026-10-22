@@ -126,6 +126,7 @@ Before adding a helper, use the one that exists:
 | A unit's words | `raw.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Running another program | `src/proc.ts` |
+| A path written with `/` (an export's manifest, git, tests) | `slashed` (`src/platform.ts`); the checkout's files: `repoFiles` (`src/proc.ts`) |
 | His Reminders or Google Tasks | the backend (`backend()`, `src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`src/memory/run.ts`) |
