@@ -31,10 +31,15 @@ What Life is building next, in order, and what is parked. Each item gets its own
   ([releasing](releasing.md)) and the server alike.
 - Onboarding, scoped for both the Mac and the server: the first-run experience and connecting each source and
   assistant.
-- An investigation of on-device transcription: what speech models running on the phone or the Mac can do (accuracy,
-  speakers, languages, battery), compared with lifelog's cloud transcription.
+- One product: lifelog folds into Life, its repo into this one, transcription moves off Scribe to open models on the
+  server, and Life stops depending on lifelog's summaries ([one product plan](plans/2026-10-23-one-product.md)).
 
 ## Parked
+
+- lifelog's Android app: the owner uses an iPhone, and the server it talks to changes in the move to one product
+  ([one product plan](plans/2026-10-23-one-product.md#android-parked)).
+- Transcription on the iPhone: transcripts must arrive within minutes, and iOS runs heavy work mostly while charging
+  ([one product plan](plans/2026-10-23-one-product.md#on-device-transcription-parked)).
 
 - Windows. The platform module and the Windows fixes stay as seams; what a restart would need is at the end of the
   [platforms and modules plan](plans/2026-10-22-platforms.md).
