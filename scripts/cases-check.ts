@@ -1,4 +1,4 @@
-// Fails if a regression case (docs/audits.md) in his data repo is malformed, cites no audit file, or is held by a test
+// Fails if a regression case (docs/operations.md, "Regression cases") in his data repo is malformed, cites no audit file, or is held by a test
 // that is gone or no longer names it (`bun run check`). Paths in a case are his data repo's, but a test's is this
 // repo's. Skips when his data is absent (CI, other machines).
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";

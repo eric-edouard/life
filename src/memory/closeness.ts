@@ -23,7 +23,7 @@ import { daysBefore, safely, tables } from "./units";
 import { merged, readPeople } from "./who";
 import { localDate } from "./zones";
 
-// Who matters to the owner, and how (docs/relationships.md, step 3). Code counts what happened with each person from
+// Who matters to the owner, and how (docs/architecture.md, "Relationships and closeness"). Code counts what happened with each person from
 // the raw sources only: the days a 1:1 chat went both ways, the days they spoke in his recordings, how recent. The
 // fast model reads those counts with who they are on his map and judges a level, personal and work apart
 // (memory/closeness.jsonl); his `closeness` correction wins. The levels decide who has a page. No model output is

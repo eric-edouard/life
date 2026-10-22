@@ -1,7 +1,6 @@
-# memory/ (in the data repo, `~/Life`): what the files are
+# memory/ (in the data repo, `DATA`): what the files are
 
-Life's long-term memory, written for a future system that has never seen this code. The design notes
-are in `~/Life/docs/research/`; the enforced copy of every record below is the zod schema in `src/schema.ts`.
+Life's long-term memory, written for a future system that has never seen this code. The enforced copy of every record below is the zod schema in `src/schema.ts`.
 Everything is plain text: JSON Lines (one JSON object per line), UTF-8. Times are ISO 8601 with a zone; dates
 (`YYYY-MM-DD`) and local times are where the owner was at that instant (`zones.jsonl`), whatever zone the Mac is in
 when they are read again. Every record has `schemaVersion`; a record a model judged says
@@ -47,7 +46,7 @@ chapter) and checked by the nightly.
 | `people` | Kept unresolved, as each source names them: `unknown:<name>` for each name lifelog gives someone who speaks in the chapter (a name given to one turn names that turn only), `unknown:<sender>` for each sender of a chat or a mail, `person:me` for him. Readers map them as of their day (`unitNow`, `memory/who.ts`); older units may still hold `person:<id>`, which maps the same |
 | `refs` | Where to find the raw material. Lifelog: `<conversation id>#<chapter id>` and `<jobId>:<turnIndex>@<turn start>` of the first turn in the chapter's range [`start`, `end`). Chats: first and last message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`), notes the first and last version (`notes:<note>/<version>`, the archive's rowid). Mail: every message id (`mail:<Message-ID header>`). |
 | `stats` | `items` (messages, or turns in the chapter for lifelog, or commits), `fromMe` (messages the owner sent, or his commits), `chars`. Git only: `added` and `removed` (lines, without lockfiles, binaries and single-file changes over 3,000 lines) and `others` (author name -> commits; in a repo of one of his projects every author's commits count, elsewhere only his). A git unit's `summary` is the day's commit subjects, which makes them searchable; its refs are the first and last `git:<repo>/<sha>` |
-| `drop` | Absent unless a code rule dropped the unit as obvious noise; then the rule's name: `no-summary` (lifelog has not summarized the conversation), `not-kept` (an imported assistant conversation the import step did not keep as about his life, `imported.jsonl`), `life-output` (Life's own output: the chat with its removed Telegram bot, kept out of the model on re-runs over Sep 12-Oct 14, and its nightly report and alerts, `Life · ` mail from `alerts@send.ericedouard.com`), `duplicate` (same content as an earlier unit), `too-short`, `one-time-code` (a short message with a login code, or a mail whose subject says it is one), `newsletter` (Mail saw a list id or unsubscribe link and the owner never wrote in the thread), `automated` (mail from a no-reply, notification or alerts address that the owner never wrote in, with no money, booking, deadline, account, delivery, health, legal or bad news in it; his agents' reports, from `alerts@send.ericedouard.com` or `alerts@send.make-a-dent.com`, are left to the model). A dropped unit is never judged or extracted. |
+| `drop` | Absent unless a code rule dropped the unit as obvious noise; then the rule's name: `no-summary` (lifelog has not summarized the conversation), `not-kept` (an imported assistant conversation the import step did not keep as about his life, `imported.jsonl`), `life-output` (Life's own output: its chat, the `lifeChat` setting, and its nightly report and alerts, `Life · ` mail from the `mail` setting's sender), `duplicate` (same content as an earlier unit), `too-short`, `one-time-code` (a short message with a login code, or a mail whose subject says it is one), `newsletter` (Mail saw a list id or unsubscribe link and the owner never wrote in the thread), `automated` (mail from a no-reply, notification or alerts address that the owner never wrote in, with no money, booking, deadline, account, delivery, health, legal or bad news in it; his agents' reports, from the `reports` setting's senders, are left to the model). A dropped unit is never judged or extracted. |
 
 ## verdicts.jsonl
 
@@ -325,7 +324,7 @@ where a later run's claims about the same thing are). The draw is spread over gr
 
 ## ratings.jsonl
 
-The owner's answers to the statements, append-only, from the check page (`https://life.ericedouard.com/check`,
+The owner's answers to the statements, append-only, from the check page (`<your connector origin>/check`,
 `src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
 recorded it, not anymore), `skip` or null (he took his last answer back). The latest line for a claim is his answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
@@ -356,13 +355,11 @@ retirement stands only while `by` is current: a replacement re-read away retires
 Where the owner was, as the Mac's IANA time zone, append-only: `{schemaVersion: 1, from, tz}`, the zone from `from` on,
 read in `from` order (the earliest also covers everything before it). Every local day and time in memory/ comes from it (`zoneAt`,
 `src/memory/zones.ts`), so a unit's day, and the id of a chat-day or mail thread-day, stays the same when the day is
-read again from another country. launchd's 30-minute tick appends a line when the Mac's own zone (never a `TZ`
+read again from another country. The nightly tick (every 30 minutes) appends a line when the Mac's own zone (never a `TZ`
 variable) differs from the latest one, taking effect at once, or at the next midnight of the zone ahead when the two are
-on different days (`cutAt`: a local day never goes back); what came before it was noticed keeps the old zone. Seeded on 18 Oct from
-his commits' offsets and lifelog's stays. His past may be appended later (his own account of where he lived) only
-before the first day memory has units of: an earlier unit's day, and so its id, would move. The units of 6 Sep–8 Oct were cut on 11–15 Oct in the Mac's zone of then: until a re-read
-cuts them again, 304 of their chat and mail units sit on that zone's days (re-read, their ids change; no label is on
-them). A re-read of them starts on or before 6 Sep, so no day keeps a stale copy.
+on different days (`cutAt`: a local day never goes back); what came before it was noticed keeps the old zone. `bun life init`
+seeds it with the Mac's zone. His past may be appended later (his own account of where he lived) only
+before the first day memory has units of: an earlier unit's day, and so its id, would move.
 
 ## labels.jsonl
 
