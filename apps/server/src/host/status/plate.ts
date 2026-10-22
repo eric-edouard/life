@@ -21,12 +21,12 @@ import {
   readStatements,
   tasksOf,
 } from "../../memory/ledger";
+import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { loadTruth } from "../../memory/truth";
 import { clip } from "../../memory/units";
 import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
-import { enabledSources, keptStores, listening } from "../../sources/index";
 import { lifelogStatus, newestTurn } from "../../sources/lifelog";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";

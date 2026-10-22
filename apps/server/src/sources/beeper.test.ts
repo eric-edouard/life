@@ -1,75 +1,10 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { showFiles } from "../memory/files";
 import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
 import { beeperFixture } from "./fixtures";
-
-test("an attachment is a file the archive keeps, at Beeper's cached copy when it fetched one, even once deleted", () => {
-  const { add, dir, index, now, source } = beeperFixture();
-  const cache = join(source, "media", "localhostlocal-telegram");
-  mkdirSync(cache, { recursive: true });
-  writeFileSync(join(cache, "AAM1"), "bytes");
-  add(1, "!tg", "IMAGE", "", [
-    {
-      fileName: "image.jpg",
-      id: "localmxc://local-telegram/AAM1",
-      mimeType: "image/jpeg",
-      srcURL: "localmxc://local-telegram/AAM1",
-    },
-  ]);
-  add(2, "!tg", "VOICE", "", [
-    {
-      fileName: "audioclip.mp4",
-      id: "localmxc://local-instagram/BAA2",
-      isVoiceNote: true,
-      mimeType: "video/mp4",
-    },
-  ]);
-  expect(copyBeeper(source, dir, now)).toBe(4);
-  const read = (d: Date) => readBeeper(d, dir, source);
-  const since = new Date(now - 3_600_000);
-  expect(read(since).map((e) => e.files)).toEqual([
-    [
-      {
-        mime: "image/jpeg",
-        name: "image.jpg",
-        path: join(cache, "AAM1"),
-        ref: "beeper:localmxc://local-telegram/AAM1",
-      },
-    ],
-    [
-      {
-        mime: "audio/mp4",
-        name: "audioclip.mp4",
-        ref: "beeper:localmxc://local-instagram/BAA2",
-      },
-    ],
-  ]);
-  expect(showFiles(read(since), new Map()).map((e) => e.text)).toEqual([
-    "[photo image.jpg]",
-    "[audio audioclip.mp4, not on this Mac]",
-  ]);
-  // The photo is edited to another, then deleted for everyone: Beeper wipes its attachments. Its latest line stays,
-  // marked, read from the archive only.
-  index.run(
-    'update mx_room_messages set message = \'{"attachments":[{"fileName":"edited.jpg","id":"x"}],"text":""}\' where id = 1'
-  );
-  expect(copyBeeper(source, dir, now + 2500)).toBe(1);
-  index.run(
-    'update mx_room_messages set isDeleted = 1, message = \'{"attachments":[],"text":""}\' where id = 1'
-  );
-  copyBeeper(source, dir, now + 5000);
-  index.close();
-  rmSync(join(source, "index.db"));
-  const [photo] = showFiles(read(since), new Map());
-  expect(photo).toMatchObject({
-    deleted: true,
-    text: "[photo edited.jpg, not on this Mac]",
-  });
-});
 
 test("the archive keeps the text of Beeper messages deleted or edited later, with Telegram senders resolved to phones", () => {
   const { add, dir, index, now, source } = beeperFixture();

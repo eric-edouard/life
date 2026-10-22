@@ -1,10 +1,10 @@
 import { z } from "zod";
+import { digest } from "../core/hash";
 import type { MadeBy } from "../records/fields";
 import { Modality, type Observation } from "../records/observations";
 import type { Unit } from "../records/units";
 import { MemoryType } from "../records/units";
-import { kindOf } from "../sources";
-import { digest } from "./ledger";
+import { kindOf } from "./sources";
 import { othersIn } from "./truth";
 import { areaOf, normalize, UNKNOWN } from "./units";
 import { localDate, zoneAt } from "./zones";

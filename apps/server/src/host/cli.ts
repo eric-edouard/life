@@ -13,10 +13,10 @@ import {
   settings,
 } from "../core/settings";
 import { dryRun, importExport } from "../memory/imports";
+import { FULL_DISK, SOURCES } from "../memory/sources";
 import { integrity, loadTruth } from "../memory/truth";
 import { dayRange } from "../memory/units";
 import { readEngine } from "../models/llm";
-import { FULL_DISK, SOURCES } from "../sources/index";
 import { Asked, actAsked, requested, setGrant } from "./act";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";

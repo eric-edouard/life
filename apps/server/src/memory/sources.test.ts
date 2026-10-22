@@ -4,16 +4,16 @@ import { AGENT_WORD } from "../core/names";
 import { STATE } from "../core/paths";
 import { APP_DATA, HOME, MACHINE, WINDOWS } from "../core/platform";
 import { expand } from "../core/settings";
-import { chatDays } from "../memory/closeness";
-import { tablesOf } from "../memory/units";
 import { Unit } from "../records/units";
-import { enabledSources, readySources, SOURCES, sourceOf } from "../sources";
-import { ARCHIVE, archiveDb } from "./archived";
-import { BEEPER } from "./beeper";
-import type { Descriptor } from "./contract";
-import { DB } from "./imessage";
-import { NOTES } from "./notes";
-import { WHATSAPP } from "./whatsapp";
+import { ARCHIVE, archiveDb } from "../sources/archived";
+import { BEEPER } from "../sources/beeper";
+import type { Descriptor } from "../sources/contract";
+import { DB } from "../sources/imessage";
+import { NOTES } from "../sources/notes";
+import { WHATSAPP } from "../sources/whatsapp";
+import { chatDays } from "./closeness";
+import { enabledSources, readySources, SOURCES, sourceOf } from "./sources";
+import { tablesOf } from "./units";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);

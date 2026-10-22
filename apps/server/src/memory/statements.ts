@@ -1,10 +1,10 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
+import { digest } from "../core/hash";
 import type { Moment } from "../records/moments";
 import { Statement } from "../records/statements";
 import { pagedNow } from "./closeness";
 import {
-  digest,
   momentsNow,
   readMoments,
   readStatements,

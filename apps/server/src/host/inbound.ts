@@ -9,7 +9,7 @@ import {
   norm,
   pick,
 } from "../actions/items";
-import { digest } from "../memory/ledger";
+import { digest } from "../core/hash";
 import { normalize } from "../memory/units";
 import { type Action, stands } from "../records/ledger";
 

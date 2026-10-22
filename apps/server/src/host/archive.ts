@@ -6,8 +6,8 @@ import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { ROOT } from "../core/paths";
 import { codeAt, exec } from "../core/proc";
+import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { ARCHIVED, type Archived, keptStores } from "../sources/index";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message Beeper Desktop
 // holds, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.

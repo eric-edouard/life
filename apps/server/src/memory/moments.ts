@@ -2,18 +2,17 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
+import { digest } from "../core/hash";
 import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { LocalTime, Moment } from "../records/moments";
 import { type Correction, InferredPerson } from "../records/observations";
 import type { MemoryLabel, Unit, Verdict } from "../records/units";
 import { ChapterKind, KEEP_AT, MemoryType } from "../records/units";
-import { kindOf } from "../sources";
 import { closeNow } from "./closeness";
 import {
   appendVerdicts,
   daysOf,
-  digest,
   INFERRED,
   MOMENTS,
   momentsNow,
@@ -29,6 +28,7 @@ import {
 import { linkOf } from "./observe";
 import { checkPeople, unknownIn } from "./people";
 import { begin, checkedEntries, refContext } from "./run";
+import { kindOf } from "./sources";
 import { OWNER, type Truth } from "./truth";
 import {
   areaLookup,

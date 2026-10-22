@@ -3,34 +3,34 @@ import { HOUR } from "../core/clock";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
 import { agentName, settings } from "../core/settings";
-import { newestAgent, readAgent } from "./agent";
-import { archiveDb } from "./archived";
+import { archiveDb } from "../sources/archived";
 import {
   FORMATS,
   importOf,
   newestAssistant,
   readAssistant,
-} from "./assistants";
-import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
-import type { AppStore, Descriptor } from "./contract";
-import { newestCommit, readGit } from "./git";
+} from "../sources/assistants";
+import { copyBeeper, newestBeeper, readBeeper } from "../sources/beeper";
+import type { AppStore, Descriptor } from "../sources/contract";
+import { newestCommit, readGit } from "../sources/git";
 import {
   DB,
   handleOf,
   isImessageGroup,
   newestImessage,
   readImessage,
-} from "./imessage";
-import { lifelogMissing } from "./lifelog";
-import { mailRoot, newestMail, readMail } from "./mail";
-import { copyNotes, newestNote, readNotes } from "./notes";
+} from "../sources/imessage";
+import { lifelogMissing } from "../sources/lifelog";
+import { mailRoot, newestMail, readMail } from "../sources/mail";
+import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import {
   copyWhatsapp,
   isWhatsappGroup,
   newestWhatsapp,
   phoneOf,
   readWhatsapp,
-} from "./whatsapp";
+} from "../sources/whatsapp";
+import { newestAgent, readAgent } from "./agent";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, units.ts).
@@ -222,7 +222,7 @@ export const readySources = (all = enabledSources()) =>
 export const listening = () => readySources().some((s) => s.kind === "voice");
 
 const BY_NAME = new Map(SOURCES.map((s) => [s.name, s]));
-/** A stored source name's descriptor: every name has one (`index.test.ts`). */
+/** A stored source name's descriptor: every name has one (`sources.test.ts`). */
 export const sourceOf = (name: SourceName) => BY_NAME.get(name) as Descriptor;
 export const kindOf = (name: SourceName) => sourceOf(name).kind;
 /** Whether a chat is 1:1: not a group by its id (its source's `group`), or, for a source that cannot tell, one other sender at most. */

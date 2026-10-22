@@ -9,7 +9,6 @@ import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { RepoGuess } from "../records/observations";
 import type { Unit } from "../records/units";
-import { kindOf } from "../sources";
 import type { Placement, RepoMap } from "../sources/contract";
 import { listRepos, myCommits, readGit, repoMap } from "../sources/git";
 import {
@@ -23,6 +22,7 @@ import {
 import { topTopics } from "./moments";
 import { asData } from "./raw";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
+import { kindOf } from "./sources";
 import { loadTruth, ownerIn } from "./truth";
 import { areaLookup, areaOf, clip, lineCounts } from "./units";
 import { localDate } from "./zones";

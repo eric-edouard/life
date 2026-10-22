@@ -43,7 +43,7 @@ flowchart LR
   AG -- "task updates" --> C
 ```
 
-- **Sources** (`apps/server/src/sources/`, one descriptor each in `apps/server/src/sources/index.ts`) return events with stable ids, so reading
+- **Sources** (`apps/server/src/sources/`, one descriptor each in `apps/server/src/memory/sources.ts`) return events with stable ids, so reading
   twice never duplicates anything. Raw data stays in its own app.
 - **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees
@@ -111,6 +111,29 @@ someone else is capped at 0.6 confidence.
   The owner's install is a bridge until #137: a Cloudflare Worker (`worker/`) on every path of his public address passes
   each request as is to the Mac's Tailscale Funnel on port 8443 (HTTPS a VPN lets through, unlike the tunnel's 7844),
   so his connector's URL never changes. It decides nothing; the Mac's sign-in guards every path.
+
+## The code
+
+The server's code (`apps/server/src`) is in layers, and dependencies point one way:
+
+```
+core  ←  records  ←  models, sources, actions  ←  memory  ←  host
+```
+
+| Folder | What it holds |
+|---|---|
+| `core/` | Clock, paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing, small JSON files, which outputs are on |
+| `records/` | Every record Life writes, as zod schemas, one file per part of `docs/SCHEMA.md` |
+| `models/` | The model providers (`PROVIDERS`), the call and its cache |
+| `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
+| `actions/` | The actions contract, its two backends, the board and open items |
+| `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, people and places, search, the agent's tasks, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
+| `host/` | What runs: the jobs (watch, archive, nightly, backup), the CLI, `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events, `act`) |
+| `test-data/` | The made-up data tests read |
+
+What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)
+fail any that does, and `host/cycles.test.ts` fails any import cycle. Within it, a capability's contract has its own
+`contract.ts`. The reasons and the order of the work are in the [architecture plan](plans/2026-10-22-architecture.md).
 
 ## The app
 

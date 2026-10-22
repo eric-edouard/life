@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { clock, HOUR, unfrozen } from "../core/clock";
+import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { execOk } from "../core/proc";
@@ -13,7 +14,7 @@ import {
   whereAt,
   withStore,
 } from "../sources/lifelog";
-import { digest, momentsNow, readMoments, readUnits } from "./ledger";
+import { momentsNow, readMoments, readUnits } from "./ledger";
 import { where } from "./places";
 import { momentText } from "./statements";
 import { clip, daysBefore, time } from "./units";

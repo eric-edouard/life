@@ -4,12 +4,13 @@ import { z } from "zod";
 import type { Receipt } from "../actions/board";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
+import { digest } from "../core/hash";
 import { LOG_DIR, logDays, logEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { DATA, ROOT } from "../core/paths";
 import { agentName } from "../core/settings";
-import { ACTIONS, digest, type Task, tasksOf } from "../memory/ledger";
+import { ACTIONS, type Task, tasksOf } from "../memory/ledger";
 import {
   closed,
   nameOf,

@@ -1,12 +1,12 @@
 import { join } from "node:path";
 import { clock } from "../core/clock";
+import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/sources";
 import type { Person } from "../records/truth";
 import { Unit } from "../records/units";
-import { enabledSources, kindOf, readySources, sourceOf } from "../sources";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
 import {
@@ -18,7 +18,6 @@ import {
 import { LIFE_MAIL } from "./email";
 import { describeFiles, showFiles } from "./files";
 import {
-  digest,
   keptConversations,
   readFiles,
   readRepoGuesses,
@@ -26,6 +25,7 @@ import {
   readUnitsOf,
   UNITS,
 } from "./ledger";
+import { enabledSources, kindOf, readySources, sourceOf } from "./sources";
 import { loadTruth, OWNER, ownerIn, type Truth } from "./truth";
 import { dayStart, localDate, wall } from "./zones";
 

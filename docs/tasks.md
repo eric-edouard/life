@@ -121,7 +121,7 @@ what sync read back) and the chats. Code ranks them (the owner's urgent flag and
 closeness, age); each is shown to the agent's review at most twice (counted from the ids its `day` calls were logged
 with). `day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
 it, within a minute. `open_reminders` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
-`isDirect` (`apps/server/src/sources/index.ts`), for replies owed and closeness alike.
+`isDirect` (`apps/server/src/memory/sources.ts`), for replies owed and closeness alike.
 
 ### The board
 
