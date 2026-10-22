@@ -85,7 +85,10 @@ export type Descriptor = {
   missing?: () => string | undefined;
   /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
-  /** Its app's store exists only on the Mac (`platform.ts`): elsewhere it is never ready. */
+  /**
+   * Its app exists only on the Mac (`platform.ts`): elsewhere it is never read, or, with a `store`, read from the
+   * archive's copy and never copied.
+   */
   macOnly?: true;
   /** What he calls it. */
   label: string;
@@ -250,8 +253,11 @@ const LISTED: Descriptor[] = [
   },
 ];
 
+/** Whether its app is on this system: a Mac-only one only on the Mac. */
+const appHere = (s: Descriptor) => !(s.macOnly && WINDOWS);
+
 export const SOURCES = LISTED.map((s): Descriptor => {
-  if (s.macOnly && WINDOWS) {
+  if (!(s.store || appHere(s))) {
     return { ...s, missing: () => "macOS only" };
   }
   // An archived source is there once the archive has copied its store.
@@ -278,7 +284,7 @@ export type Archived = Descriptor & { store: AppStore };
 export const ARCHIVED = SOURCES.filter((s): s is Archived => Boolean(s.store));
 /** The archived sources he turned on that this system copies: no other app is opened, and a Mac-only one only on the Mac. */
 export const keptStores = (on = settings().sources) =>
-  enabledSources(ARCHIVED, on).filter((s) => !(s.macOnly && WINDOWS));
+  enabledSources(ARCHIVED, on).filter(appHere);
 
 /**
  * The sources he turned on that can be read now. One that can't (`missing`: not set up, or its access gone) is left out,

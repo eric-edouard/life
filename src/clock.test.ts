@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { homedir } from "node:os";
-import { join, sep } from "node:path";
+import { join } from "node:path";
 import { frozenAt } from "./clock";
+import { repoFiles } from "./proc";
+import { ROOT } from "./truth";
 
 const RAW_NOW = /new Date\(\)|Date\.now\(\)/;
 
@@ -20,12 +22,11 @@ test("LIFE_NOW freezes the clock, on a copy in a worktree only, at a valid insta
 });
 
 test("no code reads now but through clock()", async () => {
-  const root = join(import.meta.dir, "..");
-  const code = [...new Bun.Glob("{src,scripts}/**/*.ts").scanSync(root)]
-    .map((f) => f.split(sep).join("/"))
-    .filter((f) => !(f.endsWith(".test.ts") || f === "src/clock.ts"));
+  const code = repoFiles(ROOT, ["src", "scripts"], [".ts"]).filter(
+    (f) => !(f.endsWith(".test.ts") || f === "src/clock.ts")
+  );
   const texts = await Promise.all(
-    code.map((f) => Bun.file(join(root, f)).text())
+    code.map((f) => Bun.file(join(ROOT, f)).text())
   );
   expect(code.filter((_, i) => RAW_NOW.test(texts[i] ?? ""))).toEqual([]);
 }, 20_000); // every source file read: seconds on Windows, where a first open is slow

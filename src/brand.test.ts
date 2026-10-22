@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
-import { join, sep } from "node:path";
 import { C, MONO, RADIUS, SERIF } from "./memory/email";
+import { repoFiles } from "./proc";
+import { ROOT } from "./truth";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.
@@ -98,11 +99,10 @@ test("no colour is written anywhere else: every hex colour is in tokens.css or a
     "assets/brand/tokens.css",
     "src/memory/email.ts",
   ]);
-  const files = new Bun.Glob("**/*.{ts,js,css,html,swift,json,jsonl,md}");
-  const read = ["src", "assets", "app/Sources"].flatMap((dir) =>
-    [...files.scanSync(join(import.meta.dir, "..", dir))].map(
-      (file) => `${dir}/${file.split(sep).join("/")}`
-    )
+  const read = repoFiles(
+    ROOT,
+    ["src", "assets", "app/Sources"],
+    ".ts .js .css .html .swift .json .jsonl .md".split(" ")
   );
   expect(read).toContain("src/memory/email.ts");
   const texts = await Promise.all(read.map(asset));

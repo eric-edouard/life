@@ -116,8 +116,9 @@ test("an archived source can't be read until the archive copied its store; other
   expect(existsSync(archiveDb("beeper"))).toBe(false);
   expect(sourceOf("beeper").missing?.()).toBe("Beeper not archived yet");
   expect(sourceOf("mail").missing?.()).not.toBe("Mail not archived yet");
-  // A Mac-only source says so elsewhere, whatever the archive holds.
-  expect(sourceOf("notes").missing?.()).toBe(
-    WINDOWS ? "macOS only" : "Notes not archived yet"
-  );
+  // A Mac-only app's archived copy is read on any system; one with no copy says it is the Mac's.
+  expect(sourceOf("notes").missing?.()).toBe("Notes not archived yet");
+  for (const name of ["imessage", "mail"] as const) {
+    expect(sourceOf(name).missing?.() === "macOS only").toBe(WINDOWS);
+  }
 });

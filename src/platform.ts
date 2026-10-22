@@ -1,6 +1,6 @@
 import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { STATE, TEST } from "./truth";
 
 // The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
@@ -9,6 +9,9 @@ import { STATE, TEST } from "./truth";
 // descriptor (`macOnly`); their stores' paths stay with their readers.
 
 export const WINDOWS = process.platform === "win32";
+
+/** A relative path with `/` between its parts, as git, an export and a test name it on every system. */
+export const slashed = (p: string) => p.split(sep).join("/");
 
 /**
  * The home folder every store path starts from. A test run has one of its own, inside its copy of the data, so no test

@@ -1,5 +1,8 @@
 // Running other programs: one process to its end, one line from a server, or one git command.
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
  * A program that cannot start (not on PATH) exits -1 with the reason, like any failure.
@@ -97,6 +100,24 @@ export const git = (path: string, args: string[]) =>
     stderr: "pipe",
     stdout: "pipe",
   });
+
+/**
+ * The checkout's files under `dirs` ending in one of `ends`, tracked or new (not ignored, not deleted), named with `/`:
+ * what the whole-code tests scan, without walking the folders themselves.
+ */
+export const repoFiles = (root: string, dirs: string[], ends: string[]) =>
+  gitOut(root, [
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--",
+    ...dirs,
+  ])
+    .split("\n")
+    .filter(
+      (f) => ends.some((e) => f.endsWith(e)) && existsSync(join(root, f))
+    );
 
 /** `git` that throws on a failure; its output, trimmed. */
 export function gitOut(path: string, args: string[]) {
