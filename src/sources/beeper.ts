@@ -1,9 +1,14 @@
+import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { clock } from "../clock";
 import { type SourceEvent, sourceFile } from "../schema";
 import {
   ARCHIVE,
   BEEPER,
+  insertAll,
   newestArchived,
+  openArchive,
   phoneMap,
   type Row,
   readArchived,
@@ -79,3 +84,97 @@ export const newestBeeper = (dir = ARCHIVE) =>
      where n = 1 order by at desc`,
     dir
   );
+
+const LOCAL = /^local-/;
+
+interface BeeperRow {
+  account: string;
+  chat: string;
+  chatName: string | null;
+  deleted: number;
+  eventId: string;
+  files: string | null;
+  fromMe: number;
+  id: number;
+  sender: string | null;
+  senderName: string | null;
+  text: string;
+  ts: number;
+  type: string;
+}
+
+// Beeper Desktop's index.db holds every message it has synced for LINE, Telegram and Instagram (iMessage is read from
+// chat.db, WhatsApp from its own app). `id` is the number Beeper's API calls the message id. A DM has no title, so it
+// is named by the other person. Reactions and hidden events carry no text. `files` is the attachments' JSON, if any.
+const BEEPER_SQL = `select m.id, m.eventID as eventId, m.roomID as chat, t.accountID as account,
+    coalesce(json_extract(t.thread, '$.title'),
+      (select group_concat(q.full_name, ', ') from participants q where q.room_id = t.threadID and not coalesce(q.is_self, 0))) as chatName,
+    m.senderContactID as sender, p.full_name as senderName, m.isSentByMe as fromMe, m.timestamp as ts, m.type,
+    coalesce(json_extract(m.message, '$.text'), '') as text, m.isDeleted as deleted,
+    nullif(json_extract(m.message, '$.attachments'), '[]') as files
+  from mx_room_messages m
+  join threads t on t.threadID = m.roomID
+  left join participants p on p.room_id = m.roomID and p.id = m.senderContactID
+ where m.type not in ('HIDDEN', 'REACTION')
+   and (t.accountID = 'line' or t.accountID like 'local-telegram%' or t.accountID like 'local-instagram%')`;
+
+// One row per version a message was seen in: the original, each edit, and the deleted state (text wiped). The same for
+// its attachments in `files`, which a delete wipes too.
+const openBeeper = (dir: string) =>
+  openArchive(
+    dir,
+    "beeper",
+    `create table if not exists messages (
+    id integer not null, eventId text not null, chat text not null, chatName text, network text not null,
+    sender text, senderName text, fromMe integer not null, at text not null, type text not null,
+    text text not null, deleted integer not null, seenAt text not null,
+    unique (chat, eventId, text, deleted));
+  create table if not exists files (chat text not null, eventId text not null, files text not null,
+    unique (chat, eventId, files));
+  drop view if exists deleted;
+  create view deleted as
+    select m.*, d.seenAt as deletedSeenAt from messages m
+      join messages d on d.chat = m.chat and d.eventId = m.eventId and d.deleted = 1
+     where m.deleted = 0
+       and (m.text <> '' or exists (select 1 from files f where f.chat = m.chat and f.eventId = m.eventId))`
+  );
+
+/** Copies new and changed LINE, Telegram and Instagram messages into the archive. Returns how many versions were new. */
+export function copyBeeper(
+  source = BEEPER,
+  dir = ARCHIVE,
+  now = clock().getTime()
+): number {
+  const path = join(source, "index.db");
+  if (!existsSync(path)) {
+    return 0;
+  }
+  const archive = openBeeper(dir);
+  const beeper = new Database(path, { readonly: true });
+  try {
+    // The whole table every time, which also backfills the first run: a few thousand rows, and Beeper backfills old
+    // chats into it at any time. Rows already archived are ignored.
+    const rows = beeper.query<BeeperRow, []>(BEEPER_SQL).all();
+    const seenAt = new Date(now).toISOString();
+    const files = insertAll(
+      archive,
+      "insert or ignore into files (chat, eventId, files) values (?, ?, ?)",
+      rows.flatMap((r) => (r.files ? [[r.chat, r.eventId, r.files]] : []))
+    );
+    const messages = insertAll(
+      archive,
+      `insert or ignore into messages (id, eventId, chat, chatName, network, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      rows.map((r) => [
+        ...[r.id, r.eventId, r.chat, r.chatName],
+        r.account.replace(LOCAL, "").split("_")[0] ?? r.account,
+        ...[r.sender, r.senderName, r.fromMe, new Date(r.ts).toISOString()],
+        ...[r.type, r.text, r.deleted, seenAt],
+      ])
+    );
+    return files + messages;
+  } finally {
+    beeper.close();
+    archive.close();
+  }
+}

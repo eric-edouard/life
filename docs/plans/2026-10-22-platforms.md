@@ -42,8 +42,9 @@ The contract exists: the source descriptor (`Descriptor`, `src/sources/index.ts:
   and app, joined back by name (`keptStores`, `:394`), a third time in `archived(...)` (`index.ts:64`) and a fourth in
   `archived.ts:33,89`. The descriptor gets `store` (`app`, `copy`, `copies`, `media`); `STORES`, `keptStores` and the
   `missing` of archived sources derive from `SOURCES`.
-- **Voice by kind, not by name.** `gather` (`units.ts:690,738`), `syncLifelogUnits` (`:793,808`), the plate
-  (`plate.ts:458`, `plate-detail.ts:41`) and `schema.ts:265` say `"lifelog"`; they say `kind: "voice"`.
+- **Voice is a REST contract, not a second kind of reader.** The voice input is lifelog's REST API (below), and
+  `src/sources/lifelog.ts` is its one client. Another voice source would speak the same API rather than add a reader.
+  Its units keep the source name `lifelog`: unit ids are stored in memory, and renaming them needs a map.
 - **The platform says what it lacks.** A source whose store does not exist on this OS reports it through `missing()`
   (the platform module below), so `init`, the plate and `readySources` need nothing new.
 

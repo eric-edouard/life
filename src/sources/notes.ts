@@ -1,9 +1,18 @@
-import type { Database } from "bun:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { unzipSync } from "node:zlib";
+import { clock } from "../clock";
 import { type SourceEvent, sourceFile } from "../schema";
-import { ARCHIVE, newestArchived, type Row, readArchived } from "./archived";
+import {
+  ARCHIVE,
+  insertAll,
+  newestArchived,
+  openArchive,
+  type Row,
+  readArchived,
+} from "./archived";
 import { fromAppleS } from "./imessage";
 
 // Apple Notes' own store, opened read-only by the archive (src/archive.ts), which keeps every version of each note.
@@ -274,3 +283,147 @@ export const newestNote = () =>
     `select at, 'Note: ' || coalesce(title, '') as words
      from versions order by at desc limit 1`
   );
+
+// One row per version of a note Life saw: its text (checklist lines marked `[ ]`/`[x]`) and attachments' JSON, or its
+// deletion (text and files empty). `at` is the note's edit time, or when Life saw it gone from the store. `deleted`
+// is each deleted note's last version, named like a chat's (`chatName` its title).
+const openNotes = (dir: string) =>
+  openArchive(
+    dir,
+    "notes",
+    `create table if not exists versions (
+    note text not null, title text, folder text, shared integer not null, at text not null,
+    text text not null, files text not null, deleted integer not null, seenAt text not null);
+  create index if not exists versionsByNote on versions (note);
+  drop view if exists deleted;
+  create view deleted as
+    select v.*, v.title as chatName, null as senderName, d.seenAt as deletedSeenAt
+      from versions v join versions d on d.note = v.note and d.deleted = 1
+     where v.rowid = (select max(rowid) from versions x where x.note = v.note and x.rowid < d.rowid) and v.deleted = 0`
+  );
+
+// A note edited in the last 2 minutes is still being typed: it is archived once quiet, so typing makes one version.
+// ponytail: an edit purged ("Delete now") within those 2 minutes is lost; a shorter wait means more versions.
+const QUIET_MS = 120_000;
+// More notes than this gone at once is a sign-out or a rebuilt store, not deletions: none is marked.
+const MASS_VANISH = 20;
+// `<dir>\n<note>` -> the state already compared with its latest version, since a pin or a move changes the edit time
+// and not the text.
+const checked = new Map<string, string>();
+const refused = new Set<string>();
+
+interface Latest {
+  at: string;
+  deleted: number;
+  folder: string | null;
+  note: string;
+  rowid: number;
+  shared: number;
+  title: string | null;
+}
+
+/** Deleted rows for the archived notes gone from the store; none when too many went at once (logged once). */
+function goneRows(
+  latest: Latest[],
+  present: Set<string>,
+  dir: string,
+  seenAt: string
+) {
+  const gone = latest.filter((v) => !(v.deleted || present.has(v.note)));
+  if (gone.length > MASS_VANISH || (gone.length > 0 && present.size === 0)) {
+    if (!refused.has(dir)) {
+      console.error(
+        `${seenAt} notes: ${gone.length} gone from the store at once, none marked deleted`
+      );
+    }
+    refused.add(dir);
+    return [];
+  }
+  refused.delete(dir);
+  return gone.map((v) => [
+    ...[v.note, v.title, v.folder, v.shared, seenAt],
+    ...["", "[]", 1, seenAt],
+  ]);
+}
+
+/** Archives a new version of each note whose text, attachments or deleted state changed. Returns how many. */
+export function copyNotes(
+  source = NOTES,
+  dir = ARCHIVE,
+  now = clock().getTime()
+): number {
+  const path = join(source, "NoteStore.sqlite");
+  if (!existsSync(path)) {
+    return 0;
+  }
+  const archive = openNotes(dir);
+  const store = new Database(path, { readonly: true });
+  try {
+    const latest = new Map(
+      archive
+        .query<Latest, []>(
+          `select rowid, note, title, folder, shared, at, deleted from versions
+            where rowid in (select max(rowid) from versions group by note)`
+        )
+        .all()
+        .map((v) => [v.note, v])
+    );
+    const previous = archive.query<
+      { deleted: number; files: string; text: string },
+      [number]
+    >("select text, files, deleted from versions where rowid = ?");
+    const seenAt = new Date(now).toISOString();
+    const notes = listNotes(store);
+    const rows: SQLQueryBindings[][] = [];
+    // ponytail: a note is compared again only when its edit time moves, so a change that leaves the time alone (Apple's
+    // OCR of a photo finishing later) waits for the next edit.
+    for (const n of notes) {
+      const key = `${dir}\n${n.id}`;
+      const last = latest.get(n.id);
+      const stamp = `${last?.rowid} ${n.at} ${n.deleted}`;
+      if (
+        n.unreadable ||
+        (last?.at === n.at && last.deleted === n.deleted) ||
+        checked.get(key) === stamp ||
+        now - Date.parse(n.at) < QUIET_MS
+      ) {
+        continue;
+      }
+      const row = (body: { files: string; text: string }, deleted: number) => [
+        ...[n.id, n.title, n.folder, n.shared, n.at],
+        ...[body.text, body.files, deleted, seenAt],
+      ];
+      // A note in Recently Deleted still has its text: its last edit is kept before the deleted row.
+      const { files, text } = noteVersion(store, source, n.pk);
+      const v = { files: JSON.stringify(files), text };
+      const p = last && previous.get(last.rowid);
+      if (
+        !p ||
+        (p.deleted ? !n.deleted : p.text !== v.text || p.files !== v.files)
+      ) {
+        rows.push(row(v, 0));
+      }
+      if (n.deleted && !p?.deleted) {
+        rows.push(row({ files: "[]", text: "" }, 1));
+      }
+      checked.set(key, stamp);
+    }
+    rows.push(
+      ...goneRows(
+        [...latest.values()],
+        new Set(notes.map((n) => n.id)),
+        dir,
+        seenAt
+      )
+    );
+    return insertAll(
+      archive,
+      `insert into versions (note, title, folder, shared, at, text, files, deleted, seenAt)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      rows
+    );
+  } finally {
+    store.close();
+    archive.close();
+  }
+}

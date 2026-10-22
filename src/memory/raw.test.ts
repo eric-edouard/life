@@ -1,8 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
-import { archiveBeeperOnce, archiveNotesOnce, archiveOnce } from "../archive";
 import type { SourceEvent } from "../schema";
 import { setSettings, settings } from "../settings";
-import { readBeeper } from "../sources/beeper";
+import { copyBeeper, readBeeper } from "../sources/beeper";
 import {
   beeperFixture,
   chapter,
@@ -18,8 +17,8 @@ import {
 } from "../sources/fixtures";
 import { readImessage } from "../sources/imessage";
 import { apply } from "../sources/lifelog";
-import { readNotes } from "../sources/notes";
-import { readWhatsapp } from "../sources/whatsapp";
+import { copyNotes, readNotes } from "../sources/notes";
+import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { OWNER } from "../truth";
 import { LIFE_MAIL } from "./email";
 import {
@@ -133,21 +132,21 @@ test("chats: WhatsApp, Beeper and iMessage together, deleted messages shown mark
   const wa = whatsappFixture();
   wa.add(1, "S1", 0, "pay the carpenter", 300);
   wa.add(2, "S2", 0, "meet at 9", 200);
-  archiveOnce(wa.source, wa.dir, wa.now);
+  copyWhatsapp(wa.source, wa.dir, wa.now);
   // S1 is deleted for everyone (text wiped, a placeholder at its time); S2 is edited.
   wa.wa.run("update ZWAMESSAGE set ZTEXT = null where ZSTANZAID = 'S1'");
   wa.wa.run(
     "update ZWAMESSAGE set ZTEXT = 'meet at 10' where ZSTANZAID = 'S2'"
   );
   wa.add(3, "S3", 14, null, 300);
-  archiveOnce(wa.source, wa.dir, wa.now + 5000);
+  copyWhatsapp(wa.source, wa.dir, wa.now + 5000);
   const bp = beeperFixture();
   bp.add(1, "!tg", "TEXT", "send the invoice");
-  archiveBeeperOnce(bp.source, bp.dir, bp.now);
+  copyBeeper(bp.source, bp.dir, bp.now);
   bp.index.run(
     'update mx_room_messages set isDeleted = 1, message = \'{"text":""}\' where id = 1'
   );
-  archiveBeeperOnce(bp.source, bp.dir, bp.now + 5000);
+  copyBeeper(bp.source, bp.dir, bp.now + 5000);
   const imessage = imessageFixture();
   const sources = {
     beeper: (since: Date) => readBeeper(since, bp.dir, bp.source),
@@ -195,10 +194,10 @@ test("search's chats: all words, no accents or case, across the three apps, one 
   for (const [i, text] of lines.entries()) {
     wa.add(i + 1, `Q${i}`, 0, text, 700 - i * 100);
   }
-  archiveOnce(wa.source, wa.dir, wa.now);
+  copyWhatsapp(wa.source, wa.dir, wa.now);
   const bp = beeperFixture();
   bp.add(1, "!tg", "TEXT", "the glazier can fix the vitre on friday");
-  archiveBeeperOnce(bp.source, bp.dir, bp.now);
+  copyBeeper(bp.source, bp.dir, bp.now);
   const imessage = imessageFixture("la vitre sera prête mardi");
   const sources = {
     beeper: (since: Date) => readBeeper(since, bp.dir, bp.source),
@@ -309,7 +308,7 @@ test("search's chats: past 20 matches the newest are shown and the cut is said, 
     // The newest cut match (4) is in the chat of the oldest shown one (5): shown around it, so not cut.
     wa.add(i + 1, `C${i === 4 ? 5 : i}`, 0, `vitre ${i}`, 10_000 - i * 60);
   }
-  archiveOnce(wa.source, wa.dir, wa.now);
+  copyWhatsapp(wa.source, wa.dir, wa.now);
   const out = (
     await chatHits(
       "vitre",
@@ -369,7 +368,7 @@ test("search finds a note of any age by any of its words, a long one shown by it
   save(2, noteData(`Repairs\nvitre ${"long ".repeat(400)}`), {
     agoS: 2 * year,
   });
-  archiveNotesOnce(source, dir, now);
+  copyNotes(source, dir, now);
   const old = (at: number) => ({
     at: new Date(now - at * 1000).toISOString(),
     chat: "+33611111111",
