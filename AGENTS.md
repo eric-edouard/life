@@ -73,7 +73,12 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   Reminders (add, edit, done, undone, remove to Recently Deleted, restore), through `act` (`src/actions.ts`, the
   only code that decides it on his request; the tasks' board and the Past calendar are projections, below, never actions), which logs every action in `memory/actions.jsonl` (lines from before 19 Oct still parse). `act` decides and records (its intent before each write, its outcome after); `src/reminders/` is the only code that touches Reminders (`~/bin/remctl`), one job per module: `remctl.ts` the
   calls and his lists, `write.ts` the changes `act` decided, `board.ts` the projection of the tasks, `inbound.ts` his
-  changes read back. Delete the folder and Life still works from the ledger. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
+  changes read back. In a friend's app the same commands go to `life-eventkit` (`LIFE_EVENTKIT`, Swift, EventKit): no
+  sections there (`SECTIONS`: the board asks for none), and no Recently Deleted (a removal is final; its `deleted` lists
+  what vanished since its last call, kept 30 days, so the board and `inbound` read a removal as remctl's), and it serves the Past calendar too, on an Apple calendar
+  (the `past` setting without a Google `account`), Life's events marked by their URL. It answers in remctl's shapes,
+  the contract in `src/reminders/answers.json` (tested); a list it can't tell is unshared (any iCloud list) counts as
+  shared, so Life adds nothing there unasked and reads nothing back from it. Delete the folder and Life still works from the ledger. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below. One standing grant (decision 2 of the 21 Oct review)
   is the only other authority, off until his words in a Claude session turn it on (`bun life grant on|off '<his
   words>'`, a `grant` line in the ledger, the latest standing; his "stop" may come through Atlas, as off only takes
@@ -226,7 +231,7 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   and against his ratings with `bun scripts/eval.ts --ratings`.
 - **Model output is cached** by unit hash and prompt version. Bump a prompt's version only when its meaning changes,
   and ask before re-running the whole archive.
-- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`), never an API key.
+- **Model calls use the owner's subscriptions** (`claude -p` or the pinned `codex`, `bun life engine`); an install with none uses an API key (engine `anthropic` or `openai`, its key passed in by the app), never his.
   The one exception (his OK, 20 Oct): the bench's OpenRouter calls (`askOpenRouter`, `OPENROUTER_API_KEY`), each pinned
   to one host on OpenRouter's zero-retention list, and only through `LIFE_LLM` on a copy; his engine setting stays
   `claude | codex`. `LIFE_LLM`
@@ -238,6 +243,15 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   `tokens.css`). `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `assets/icon/`, the status page's
   `assets/dashboard/styles.css` and its tab icon's `TONES` (`src/dashboard.ts`) copy its values (email takes no
   CSS variables): a brand change lands in the skill first.
+
+## The app
+
+A friend's install is `Life.app` (`app/`, SwiftUI, menu bar; assembled by `bun scripts/app.ts`): it runs the compiled
+helper (`scripts/helper.ts`) as launchd runs the checkout for him: `archive` and `watch` kept running, `memory nightly`
+every 30 minutes, its data and state under `~/Library/Application Support/Life` (`LIFE_DATA`, `LIFE_STATE`), its files
+as `LIFE_ROOT`, every secret the Keychain keeps under "Life" in its environment. The app never reads Life's files: it
+asks the helper (`app` for what it shows, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. His own install stays the checkout under
+launchd.
 
 ## Gotchas
 

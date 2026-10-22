@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Moment } from "../schema";
 import { madeBy, unit } from "./fixtures";
-import { type Draft, drafts, plan, tiled } from "./past";
+import { type Draft, drafts, heldOf, plan, tiled } from "./past";
 
 const moment = (over: Partial<Moment> = {}): Moment => ({
   copies: [],
@@ -122,4 +122,17 @@ test("moments never overlap: what covers another is left off, what runs into the
     { ...dinner, to: "2026-10-19T20:30:00.000Z" },
     twin,
   ]);
+});
+
+test("Life's events are found by moment, whichever calendar holds them", () => {
+  const held = heldOf([
+    { hash: "h1", id: "e1", moment: "m1" },
+    { hash: "h2", id: "e2", moment: "m1" },
+    { hash: "h3", id: "e3", moment: "m2" },
+  ]);
+  expect(held.get("m1")).toEqual([
+    { hash: "h1", id: "e1" },
+    { hash: "h2", id: "e2" },
+  ]);
+  expect(held.get("m2")).toEqual([{ hash: "h3", id: "e3" }]);
 });

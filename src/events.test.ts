@@ -9,7 +9,7 @@ import {
   sign,
 } from "./events";
 import { action } from "./memory/fixtures";
-import { readSettings, type Settings, setSetting } from "./settings";
+import { readSettings, type Settings, setSettings } from "./settings";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
   expect(
@@ -158,7 +158,7 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
     tool,
   });
   try {
-    await setSetting("agent", { ...before, transport: "pull" });
+    await setSettings({ agent: { ...before, transport: "pull" } });
     expect(await agentLive(now, async () => [call("tasks", 2)])).toBe(true);
     expect(await agentLive(now, async () => [call("tasks", 30)])).toBe(false);
     expect(await agentLive(now, async () => [call("day", 2)])).toBe(false);
@@ -166,6 +166,6 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
       false
     );
   } finally {
-    await setSetting("agent", before);
+    await setSettings({ agent: before });
   }
 });

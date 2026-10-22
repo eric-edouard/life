@@ -10,6 +10,7 @@
     "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.1.0",
     "@modelcontextprotocol/server": "2.3.1",
     "@openai/codex": "0.162.1",
     "jose": "^6.2.12",

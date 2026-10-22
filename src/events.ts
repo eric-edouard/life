@@ -43,7 +43,9 @@ const AskData = z.object({
 
 /** Whether a connector call came from his agent: its user agent starts with the `agent` setting's `client`. */
 export const isAgent = (agent: unknown) => {
-  const client = settings().agent?.client;
+  const a = settings().agent;
+  const client =
+    a && (a.client ?? (a.transport === "pull" ? "Claude" : "openai-mcp"));
   return !!client && String(agent ?? "").startsWith(client);
 };
 /** Who a connector call came from, by its user agent: the names he knows them by. */
