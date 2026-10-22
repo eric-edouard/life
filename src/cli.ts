@@ -19,6 +19,7 @@ import {
 } from "./reminders/remctl";
 import { Engine } from "./schema";
 import { readSettings, type Settings, setSettings, settings } from "./settings";
+import { localKey } from "./signin";
 import { FULL_DISK, SOURCES } from "./sources/index";
 import { connect } from "./tailscale";
 import { ask, timings } from "./tasks";
@@ -64,7 +65,8 @@ const commands: Record<string, () => Promise<number>> = {
   /**
    * What the app shows, as JSON, so it reads none of Life's files: whether Life is set up, the newest report kept on
    * the Mac, every source with whether he turned it on, what keeps it from being read now and whether that is Full
-   * Disk Access, and the Reminders plugin: on or not, the remctl installed and the release Life installs.
+   * Disk Access, the Reminders plugin (on or not, the remctl installed and the release Life installs), and the status
+   * page the watcher serves on this Mac with the key that opens it (`localKey`).
    */
   async app() {
     const on = new Set<string>(settings().sources);
@@ -97,6 +99,7 @@ const commands: Record<string, () => Promise<number>> = {
           };
         }),
         started: started(),
+        status: { key: localKey(), url: "http://127.0.0.1:46200/" },
       })
     );
     return 0;

@@ -43,7 +43,7 @@ import {
 } from "./tasks";
 import { loadMe, ROOT } from "./truth";
 
-// Life's connector: one MCP server, served by the watcher on loopback (`serveConnector`, server.ts; a tunnel forwards
+// Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct`), on his explicit request in a
 // chat changes his Reminders (`reminders`, through `act`) and records Atlas's updates to its tasks (`task`) and its replies to him (`reply`); nothing else. It also offers one MCP event, `ask` (src/events.ts).
