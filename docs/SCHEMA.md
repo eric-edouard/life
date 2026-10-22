@@ -38,7 +38,7 @@ chapter) and checked by the nightly.
 | Field | Meaning |
 |---|---|
 | `schemaVersion` | `1` |
-| `id` | `u_` + 12 hex. Stable: the same chapter (lifelog's chapter id, which is stable per conversation and start), chat-day (source + chat + day) or thread-day always gets the same id. A lifelog conversation with no chapter yet has one unit with `drop: no-summary`, id from the conversation id. |
+| `id` | `unit_` + 12 hex. Stable: the same chapter (lifelog's chapter id, which is stable per conversation and start), chat-day (source + chat + day) or thread-day always gets the same id. A lifelog conversation with no chapter yet has one unit with `drop: no-summary`, id from the conversation id. |
 | `hash` | 16 hex of SHA-256 over the unit's content (lifelog: titles + summary; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
 | `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under the `repos` setting's folder; commits are never extracted: code caps their importance at 1), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, imported once into `imports/<source>/conversations.json` beside `memory/`; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its importance to 2, so it is always read) |
 | `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor's chapters bring their own), the chat id (a Beeper chat id, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the mail thread id, the note id, or the repo (its main folder name under the `repos` setting's folder: worktrees fold into it) |
@@ -155,7 +155,7 @@ could not place is no longer asked about (the moments call asks about the day's 
 
 Who Life thinks an unknown handle or name is, written by `bun life memory moments` (the same call that reads the day;
 before 18 Oct by an infer step of its own), append-only: `{schemaVersion: 1, id, surfaces, name, relation, area, project, confidence, evidence: [{unit,
-quote}], madeBy, at}`. `id` is `inf-` and a slug (truth ids never start with `inf-`), `surfaces` the handles (a phone,
+quote}], madeBy, at}`. `id` is `inf_` and a slug (truth ids never start with `inf_`), `surfaces` the handles (a phone,
 a WhatsApp or Beeper id) or names it goes by, `name` a name or, when the messages give none, a description ("the
 plumber changing the shop sink"), `relation` how it relates to the owner, `evidence` quotes checked to be in the messages
 the model read (a unit of that day). Every handle and name of a day that does not resolve yet is asked about, with the
@@ -218,7 +218,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 One Markdown page per person who has one by closeness (`pagedBy`, `closeness.ts`: the owner, `people/me.md`; anyone
 whose personal or work level is inner, regular or faded and is not a service; someone not judged
 yet who is in `truth/people.yaml` or has a page already, judged at the next night) and has an observation, and per area of `truth/areas.yaml` (the file is named by the
-area's id; an inferred person's id starts with `inf-`). Rewritten nightly by `bun life memory pages` from the previous
+area's id; an inferred person's id starts with `inf_`). Rewritten nightly by `bun life memory pages` from the previous
 version and the observations extracted since; git keeps every version (the nightly's "Memory: <date>" commits).
 
 Frontmatter (each value is JSON, which is YAML): `schemaVersion` 1, `page` (`person:<id>` or `area:<id>`), `name`, `built` (when written),
@@ -274,9 +274,9 @@ line the owner deletes is recorded as `not-important` for its observations on th
 
 What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in
 Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the agent's tasks (`apps/server/src/host/agent.ts`: the owner's asks and their lines):
-`{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
+`{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, via, timing?}`.
 
-- `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
+- `id`: `entry_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
   parent's id instead of `ref`): the same words act or ask once; a failed try may rerun.
 - `instruction`: the owner's words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
   act` or `ask`) or `connector:<at>` (a chat; for a task the agent made, the instant the owner sent the message) or an observation's id (an add of the
@@ -288,7 +288,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the update, `state` working, waiting-eric, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
   `reason`, `steps` [{title, done}], `claim`), `reply` (what the agent told the owner, the connector's `reply`: `after.text`,
   clipped at 4,000 characters; one on no task has `target` `chat`) and, until 20 Oct, `nudge` (Life: `after.why`, the task was past
-  its deadline) and `steer` (the owner's change to its board item, `after.changes` and `note`); those only parse now. Id: `act_` + 12 hex over
+  its deadline) and `steer` (the owner's change to its board item, `after.changes` and `note`); those only parse now. Id: `entry_` + 12 hex over
   `<task>@<at> | kind` (a reply's also over its text).
 - `target`: `reminder:<numericId>` or `gtask:<list>/<task>` (the actions backend's item), `reminder:new` or `gtask:new` (a failed add), `AGENT_WORD` (an ask), a task's id (its lines) or `chat`
   (a reply on no task).
@@ -310,7 +310,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   words; on a task, an `update` closing it because the owner ticked or removed its receipt). Intents and imports are left out
   of `day`'s and the nightly's Actions and of the change feed.
 - Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
-  `modelMs` and `actMs`, and a model as `madeBy`; they still parse.
+  `modelMs` and `actMs`, and a model as `via`; they still parse.
 
 ## statements.jsonl
 
@@ -374,6 +374,15 @@ A label belongs to a unit id, so labels are only as stable as the ids. A lifelog
 per conversation and start: when lifelog re-cuts a conversation, its chapters get new ids, and labels (and observations) on the
 old ones point at units that no longer exist (the agreement figure counts them as "not in memory/units"). **Any change to
 how unit ids are made ships an old→new id map applied to `labels.jsonl` in the same commit.**
+
+## migrations.jsonl
+
+The renames of stored names Life has written into this data, one line each, append-only: `{schemaVersion: 1, name,
+at}`. `stored-names-2026-10-22` (`apps/server/src/host/migrate.ts`): the names of docs/glossary.md, written once by
+the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledger was `actions.jsonl`, ids were `u_`,
+`act_` and `inf-`, the types `todo`, `waiting` and `person`, `importance` was `salience`, a ledger entry's `via` was
+`madeBy`, a statement's and a rating's `ref` was `claim`, and the agent's word was `atlas`. The data repo's commits
+"Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides.
 
 ## The search index (not in memory/)
 

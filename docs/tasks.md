@@ -35,7 +35,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
 - `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
   it (`apps/server/src/host/events.ts`).
-- The agent also records one through `task` from the owner's chat (`madeBy: "connector"`): the owner's verbatim words and when
+- The agent also records one through `task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
   (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is claimed in the same call, so it
   sends no `ask` event.
@@ -104,7 +104,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 ### Reading the backend back
 
 The owner's changes in the backend (tick, untick, edit, priority, urgent, add, delete) come back through `inbound.ts`
-each minute as state only: one `madeBy: "reminders"` line each, with no `instruction` (they are not the owner's quoted words).
+each minute as state only: one `via: "reminders"` line each, with no `instruction` (they are not the owner's quoted words).
 
 - They may close, reopen, reschedule, re-rank, rename, drop or add an item, and nothing else (no ask, send, approval
   or grant).

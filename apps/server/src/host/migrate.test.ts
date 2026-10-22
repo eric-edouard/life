@@ -1,12 +1,29 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { z } from "zod";
 import { momentId } from "../memory/moments";
 import { observationId } from "../memory/observe";
 import { lineHash } from "../memory/page-format";
+import {
+  action,
+  madeBy,
+  unit as unitRecord,
+  verdict as verdictRecord,
+} from "../memory/record-fixtures";
 import { unitId } from "../memory/units";
-import { renameSettings, renameStored } from "./migrate";
+import { LedgerEntry } from "../records/ledger-entry";
+import { InferredPerson, Observation } from "../records/observation";
+import { Rating, Statement } from "../records/statement";
+import { MemoryLabel, Unit, Verdict } from "../records/unit";
+import { migrateStored, relabeled, renameStored } from "./migrate";
 
 // Made-up memory as it was written before the rename: old ids minted by the old recipes, old keys and values.
 const old = (id: string) => `u_${id.slice(5)}`;
@@ -20,8 +37,8 @@ const obs = `obs_${observationId(chat, "todo", quote, "Lou comes by tomorrow.").
 const mom = momentId(["2026-10-20", "2026-10-20 18:00", chat]);
 const line = `- Lou comes by tomorrow. [${obs}]`;
 
-const jsonl = (...records: object[]) =>
-  `${records.map((r) => JSON.stringify(r)).join("\n")}\n`;
+const jsonl = (...lines: object[]) =>
+  `${lines.map((r) => JSON.stringify(r)).join("\n")}\n`;
 const before = new Map([
   [
     "memory/units/2026-10-20.jsonl",
@@ -224,21 +241,192 @@ test("run again on renamed data, it changes nothing", () => {
   expect([...again.files.keys()]).toEqual([]);
 });
 
-test("the settings' old names are renamed in place, once", () => {
-  const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
-  writeFileSync(
-    path,
-    JSON.stringify({
-      actions: { backend: "reminders" },
-      sources: ["lifelog", "atlas"],
+// Records as the new code writes them, aged into the old names, renamed back: the same records, and each parses.
+const AT = "2026-10-20T08:00:00.000Z";
+const observation = {
+  about: "person:inf_plumber",
+  area: null,
+  at: AT,
+  confidence: 0.8,
+  date: "2026-10-20",
+  entities: ["person:inf_plumber"],
+  id: "obs_00000000000a",
+  importance: 2,
+  madeBy: { ...madeBy, unitHash: "0123456789abcdef" },
+  quote: "je passe demain",
+  schemaVersion: 1,
+  source: { channel: "whatsapp", ref: "whatsapp:x/1" },
+  speaker: "agent:agent",
+  speakerFrom: "agent",
+  text: "The plumber comes by tomorrow.",
+  type: "waiting_on_someone",
+  tz: "Europe/Paris",
+  unit: "unit_00000000000a",
+  validFrom: null,
+  validTo: null,
+  when: null,
+};
+const records: [string, z.ZodType, object][] = [
+  [
+    "memory/units/2026-10-09.jsonl",
+    Unit,
+    unitRecord({ refs: ["agent:entry_0123456789ab"], source: "agent" }),
+  ],
+  [
+    "memory/verdicts.jsonl",
+    Verdict,
+    verdictRecord(unitRecord(), { type: "about_a_person" }),
+  ],
+  ["memory/observations/2026-10.jsonl", Observation, observation],
+  [
+    "memory/actions.jsonl",
+    LedgerEntry,
+    action({ target: "agent", via: "watch" }),
+  ],
+  [
+    "memory/statements.jsonl",
+    Statement,
+    {
+      at: AT,
+      date: "2026-10-20",
+      group: "person:inf_plumber",
+      kind: "fact",
+      ref: "obs_00000000000a",
+      schemaVersion: 1,
+      source: "whatsapp",
+      text: "The plumber comes by tomorrow.",
+      units: ["unit_00000000000a"],
+    },
+  ],
+  [
+    "memory/ratings.jsonl",
+    Rating,
+    { answer: "true", at: AT, ref: "mom_00000000000a", schemaVersion: 1 },
+  ],
+  [
+    "memory/labels.jsonl",
+    MemoryLabel,
+    { matters: true, type: "to_do", unitId: "unit_00000000000a" },
+  ],
+  [
+    "memory/people-inferred.jsonl",
+    InferredPerson,
+    {
+      area: null,
+      at: AT,
+      confidence: 0.7,
+      evidence: [{ quote: "je passe demain", unit: "unit_00000000000a" }],
+      id: "inf_plumber",
+      madeBy,
+      name: "The plumber",
+      project: null,
+      relation: "fixes the sink",
+      schemaVersion: 1,
+      surfaces: ["+33600000000"],
+    },
+  ],
+];
+const SALIENCE = /verdicts|observations/;
+const CLAIMED = /statements|ratings/;
+const aged = (path: string, r: object) => {
+  let s = JSON.stringify(r)
+    .replaceAll("unit_", "u_")
+    .replaceAll("entry_", "act_")
+    .replaceAll("inf_", "inf-")
+    .replaceAll('"agent"', '"atlas"')
+    .replaceAll("agent:agent", "agent:atlas")
+    .replaceAll("agent:act_", "atlas:act_")
+    .replaceAll('"to_do"', '"todo"')
+    .replaceAll('"waiting_on_someone"', '"waiting"')
+    .replaceAll('"about_a_person"', '"person"');
+  if (SALIENCE.test(path)) {
+    s = s.replace('"importance":', '"salience":');
+  }
+  if (path.endsWith("actions.jsonl")) {
+    s = s.replace('"via":', '"madeBy":');
+  }
+  if (CLAIMED.test(path)) {
+    s = s.replace('"ref":"', '"claim":"');
+  }
+  return s;
+};
+
+test("records the new code writes, aged into the old names, come back the same and parse", () => {
+  const stored = new Map(
+    records.map(([path, , r]) => [path, `${aged(path, r)}\n`])
+  );
+  const renamed = renameStored(stored).files;
+  for (const [path, schema, r] of records) {
+    const back = JSON.parse(renamed.get(path) ?? stored.get(path) ?? "");
+    expect(back).toEqual(r);
+    expect(schema.safeParse(back).success).toBe(true);
+  }
+});
+
+test("the agent's old word changes only where it was a stored value; words read off files keep theirs", () => {
+  const renamed = renameStored(
+    new Map([
+      [
+        "memory/verdicts.jsonl",
+        `${JSON.stringify({ area: "atlas", topics: ["atlas"], unit: "u_00000000000a" })}\n`,
+      ],
+      [
+        "memory/files.jsonl",
+        `${JSON.stringify({ ref: "mail:x#1", text: "ref u_00000000000a, person:inf-x", what: "atlas" })}\n`,
+      ],
+    ])
+  ).files;
+  expect(JSON.parse(renamed.get("memory/verdicts.jsonl") ?? "")).toEqual({
+    area: "atlas",
+    topics: ["atlas"],
+    unit: "unit_00000000000a",
+  });
+  expect(renamed.has("memory/files.jsonl")).toBe(false);
+});
+
+test("a board item's notes get the task's new id on their first line, his words untouched", () => {
+  expect(
+    relabeled("act_0123456789ab\nhey Orbit, act_0123456789ab\nworking")
+  ).toBe("entry_0123456789ab\nhey Orbit, act_0123456789ab\nworking");
+  expect(relabeled("act_0123456789ab")).toBe("entry_0123456789ab");
+});
+
+test("in a data dir: renamed once and recorded; lines an old process appends later join the new ledger", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-rename-"));
+  const write = (path: string, text: string) => {
+    mkdirSync(join(dir, path, ".."), { recursive: true });
+    writeFileSync(join(dir, path), text);
+  };
+  for (const [path, text] of before) {
+    write(path, text);
+  }
+  await migrateStored(dir);
+  const ledger = () => readFileSync(join(dir, "memory/ledger.jsonl"), "utf8");
+  expect(existsSync(join(dir, "memory/actions.jsonl"))).toBe(false);
+  expect(ledger().trim().split("\n")).toHaveLength(3);
+  expect(readFileSync(join(dir, "memory/migrations.jsonl"), "utf8")).toContain(
+    "stored-names-2026-10-22"
+  );
+  write(
+    "memory/actions.jsonl",
+    jsonl({
+      id: "act_00000000000d",
+      kind: "add",
+      madeBy: "session",
+      target: "reminder:2",
     })
   );
-  renameSettings(path);
-  const once = readFileSync(path, "utf8");
-  expect(JSON.parse(once)).toEqual({
-    sources: ["lifelog", "agent"],
-    todo_list: { backend: "reminders" },
+  await migrateStored(dir);
+  const lines = ledger()
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+  expect(lines).toHaveLength(4);
+  expect(lines[3]).toEqual({
+    id: "entry_00000000000d",
+    kind: "add",
+    target: "reminder:2",
+    via: "session",
   });
-  renameSettings(path);
-  expect(readFileSync(path, "utf8")).toBe(once);
+  expect(existsSync(join(dir, "memory/actions.jsonl"))).toBe(false);
 });

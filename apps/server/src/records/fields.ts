@@ -19,11 +19,13 @@ export const UnitId = z.string().regex(/^unit_[0-9a-f]{12}$/);
 export const ContentHash = z.string().regex(/^[0-9a-f]{16}$/);
 
 /** person:<slug>, project:<slug> or area:<slug> (design §3.2). */
-export const EntityRef = z.string().regex(/^(person|project|area):[a-z0-9-]+$/);
+export const EntityRef = z
+  .string()
+  .regex(/^(person|project|area):(?:inf_)?[a-z0-9-]+$/);
 
 export const MomentId = z.string().regex(/^mom_[0-9a-f]{12}$/);
 
-export const PersonRef = z.string().regex(/^person:[a-z0-9-]+$/);
+export const PersonRef = z.string().regex(/^person:(?:inf_)?[a-z0-9-]+$/);
 
 /** Who made a model's output: engine and model (switching engines re-runs nothing), the prompt version, the run. */
 export const MadeBy = z

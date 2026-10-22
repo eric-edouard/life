@@ -65,7 +65,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (next).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts`), with the owner's OK on the list of
-  renames: Life runs it at its next start, under the lock; it rewrites the stored lines in place (same count, same
+  renames: the app runs it at its next start, under the lock (a checkout only on a copy, `mayMigrate`); it rewrites the stored lines in place (same count, same
   order, so the `changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
   writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
