@@ -2,8 +2,9 @@ import { readlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// Every difference between the systems Life runs on (macOS, Windows), here and nowhere else, so a new system is one
-// more case in this file rather than a branch in every module. Sources that exist only on the Mac say so in their
+// The differences between the systems Life runs on (macOS, Windows) that it handles so far, in one place, so a new
+// system is one more case here rather than a branch in every module (the rest are listed in
+// docs/plans/2026-10-22-platforms.md). Linux is not a target. Sources that exist only on the Mac say so in their
 // descriptor (`macOnly`); their stores' paths stay with their readers.
 
 export const WINDOWS = process.platform === "win32";
@@ -41,7 +42,7 @@ export const MODEL_ENV = [
   ..."APPDATA LOCALAPPDATA PATHEXT SystemRoot TEMP TMP USERPROFILE".split(" "),
 ];
 
-/** The system's own time zone, whatever TZ the process runs with. */
+/** The system's own time zone: on the Mac whatever TZ the process runs with; on Windows `Intl`'s, which follows TZ when set. */
 export const systemZone = (): string | undefined =>
   WINDOWS
     ? Intl.DateTimeFormat().resolvedOptions().timeZone

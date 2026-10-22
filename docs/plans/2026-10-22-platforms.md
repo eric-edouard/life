@@ -94,8 +94,9 @@ Done (#153): `src/platform.ts` holds every difference between macOS and Windows:
 system and architecture, the model CLIs' environment, the system time zone (`Intl` on Windows) and the notification
 (none on Windows until the tray). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
 Notes) is `macOnly` and reads "macOS only" elsewhere. Left for phase 3, where they are exercised: the plate's host
-state (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open (`archive.ts`: `ps`, `open`), and the
-Cloudflare tunnel's restart (`tunnel.ts`).
+state (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open (`archive.ts`: `ps`, `open`), the
+Cloudflare tunnel's restart (`tunnel.ts`), the Contacts reader (`contacts.ts`: no address book on Windows), Tailscale's
+binary (`tailscale.ts`: falls back to `tailscale` on PATH) and the archive alert's log path (`report.ts`).
 
 ### Secrets by place
 
