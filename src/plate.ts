@@ -343,7 +343,7 @@ async function reads(now: Date) {
       })
     ),
     cached("actions", 15_000, readActions),
-    remindersOn() ? cached("remctl", 60_000, checks) : [],
+    cached("remctl", 60_000, checks),
     newestOf(),
   ]);
   const of = (kind: string, days: number) =>

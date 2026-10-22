@@ -29,7 +29,8 @@ review (`debt-review`), and `transition` into `main` on his OK.
 ## The switch (runbook, filled in by T3/T4)
 
 1. Stop the three `com.ericedouard.life.*` jobs; export; put the secrets in the Keychain (service `Life`) by hand.
-   His settings get `"reminders": true` (R0: off by default) once this code is what runs.
+   `transition` reaches `main` only as part of this step: his settings get `"reminders": true` (R0: off by default;
+   the old code's strict schema refuses the key, so not before) in the same step, then the watcher restarts.
 2. Launch Life.app, import; check the counts equal the export's, the cards match, the watcher and archive run.
 3. Reconnect ChatGPT and Claude with a pairing code to the Funnel address (asks wait unsent meanwhile).
 4. Keep `~/Life` and `derived/` read-only 30 days. Rollback: quit the app, start the old jobs on the app's folders.
