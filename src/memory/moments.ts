@@ -332,7 +332,7 @@ export async function moments(evidence: Evidence) {
     prompt: MOMENTS_PROMPT,
     ...evidence.window,
   });
-  const { built: all, failed, read: sources, repos, truth } = evidence;
+  const { built: all, failed, read: sources, repos, skipped, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
   const days = [...new Set(all.map((b) => b.unit.date))].sort();
@@ -340,7 +340,8 @@ export async function moments(evidence: Evidence) {
   if (failed.length === 0) {
     await writeUnits(
       days,
-      all.map((b) => b.unit)
+      all.map((b) => b.unit),
+      (u) => skipped.includes(u.source)
     );
   }
   const [verdicts, { corrections, inferred, refOf, resolve }] =

@@ -40,12 +40,23 @@ the same process in its own repo.
 
 ## Deploy steps when `packaging` reaches `main`
 
-- Write the owner's `derived/settings.json` from his `.env` and the values that were constants: `connector` (origin,
-  issuer, client, owner, and `tunnel: "cloudflare"`, or the healer stops), `lifelog.url`, `mail`, `lifeChat`, `past`,
-  `reports`, `repos: "~/Work"`, `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`),
-  `sources` (every source he reads today: lifelog, imessage, whatsapp, beeper, mail, notes, claude, chatgpt, atlas,
-  git), `agent` (`{name: "Atlas", wake: ["atlas"], misheard: ["at last", <his misheard name from .env>], client:
-  "openai-mcp"}`, or nothing wakes), and keep `engine`.
+In this order: the live tree (`~/Work/life`) runs the archive, the watcher and the nightly, and the new code with his
+current settings (`engine` only) reads no source at all: the archive would stop keeping WhatsApp, Beeper and Notes, the
+only copy of what gets deleted.
+
+1. Before pulling, write the owner's `derived/settings.json` (main's code ignores the new keys) from his `.env` and the
+   values that were constants on main (`git show origin/main:<file>`): `connector` (origin, issuer, client and owner
+   from `src/auth.ts`, and `tunnel: "cloudflare"`, or the healer stops), `lifelog.url` (`LIFELOG_URL`), `mail` (`from`
+   in `src/memory/email.ts`, `to` = `LIFE_MAIL_TO`), `lifeChat` (`LIFE_CHAT`: unset, Life's old bot would read as
+   facts), `past` (`LIFE_PAST_*`), `reports` (the agents' report senders in `src/memory/units.ts`), `repos: "~/Work"`,
+   `backup` (iCloud restic repository, `security find-generic-password -s life-restic -w`), `sources` (every source he
+   reads today: lifelog, imessage, whatsapp, beeper, mail, notes, claude, chatgpt, atlas, git), `agent` (`{name:
+   "Atlas", wake: ["atlas"], misheard: ["at last", <LIFE_MISHEARD>], client: "openai-mcp"}`: without it nothing wakes
+   and `act` no longer refuses his Atlas list), and keep `engine`.
+2. Pull, then `bun life settings` from `~/Work/life` (it validates the file) and `bun life status`.
+3. Restart what launchd runs, which read their settings once: `launchctl kickstart -k gui/$(id -u)/<label>` for the
+   watch, the archive and the nightly. Check `actions: remctl ready` in `~/Library/Logs/life-watch.log` and that the
+   archive's stores are copying.
 - Move his own part of the playbook from `~/Life/docs/packaging/playbook.md` to `~/Life/playbook.md` (audits, his plan,
   what his Mac reaches, his send accounts: without it Atlas loses them).
 - Remove the moved keys from `.env` (`LIFE_OWNER_SUB`, `LIFE_MAIL_TO`, `LIFE_CHAT`, `LIFE_MISHEARD`, `LIFE_PAST_*`,

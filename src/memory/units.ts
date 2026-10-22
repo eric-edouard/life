@@ -678,14 +678,12 @@ export async function gather(
   const repos = repoMap(truth, await readRepoGuesses());
   const ctx = { me: ownerIn(truth.people), repos };
   // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
-  // events, in the registry's order. Only the sources he turned on that can be read now.
-  const sources = enabledSources().filter((s) => {
-    const why = s.missing?.();
-    if (why) {
-      log("source.read", { ok: true, skipped: why, source: s.name });
-    }
-    return !why;
-  });
+  // events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
+  const sources = readySources();
+  const skipped = enabledSources().filter((s) => !sources.includes(s));
+  for (const s of skipped) {
+    log("source.read", { ok: true, skipped: s.missing?.(), source: s.name });
+  }
   const lifelog = sources.some((s) => s.kind === "voice")
     ? await safely(
         "lifelog",
@@ -743,14 +741,28 @@ export async function gather(
       ),
     },
     repos,
+    /** Sources he turned on that can't be read now: their units stay as they were. */
+    skipped: skipped.map((s) => s.name),
     truth,
     window,
   };
 }
 export type Evidence = Awaited<ReturnType<typeof gather>>;
 
-/** Writes memory/units/<date>.jsonl for each of `dates`: that day's units, sorted by start. */
-export async function writeUnits(dates: string[], units: Unit[]) {
+/**
+ * Writes memory/units/<date>.jsonl for each of `dates`: that day's units, sorted by start, with the units already there
+ * that `keep` keeps (those of a source this write did not read).
+ */
+export async function writeUnits(
+  dates: string[],
+  fresh: Unit[],
+  keep: (u: Unit) => boolean = () => false
+) {
+  const days = new Set(dates);
+  const units = [
+    ...fresh,
+    ...(await readUnits()).filter((u) => days.has(u.date) && keep(u)),
+  ];
   await Promise.all(
     dates.map(async (date) => {
       const lines = units
@@ -792,10 +804,7 @@ export async function syncLifelogUnits(store: Store) {
       .filter((u) => had.get(u.id) !== wants.get(u.id))
       .map((u) => u.date)
   );
-  await writeUnits(
-    [...dates],
-    [...all.filter((u) => u.source !== "lifelog" && dates.has(u.date)), ...want]
-  );
+  await writeUnits([...dates], want, (u) => u.source !== "lifelog");
   return {
     added: added.length,
     changed: changed.length,
