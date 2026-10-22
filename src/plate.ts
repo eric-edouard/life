@@ -663,7 +663,7 @@ function captureCards(r: Reads): Card[] {
           label: "cloudflared",
           value: tunnel?.running ? "running" : (tunnel?.status ?? "?"),
         },
-        // The watcher heals the tunnel by restarting cloudflared (tunnel.ts): its start is the last heal or reboot.
+        // cloudflared's start is its last restart or reboot (tunnel.ts no longer fires: #133).
         { at: tunnel?.since, label: "Up since" },
       ],
       group: "capture",

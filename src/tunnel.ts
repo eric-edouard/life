@@ -2,8 +2,8 @@ import { clock } from "./clock";
 import { exec } from "./proc";
 import { connector, settings } from "./settings";
 
-// The Mac's Cloudflare tunnel (`com.eric.cloudflared`, `~/.cloudflared/config.yml`) carries the connector and the
-// other hostnames on this Mac. cloudflared can wedge: its edge connections die but the process never exits, so
+// The Mac's Cloudflare tunnel (`com.eric.cloudflared`, `~/.cloudflared/config.yml`) carries other hostnames on this
+// Mac; the connector's origin now reaches it through the Worker and Funnel, so this probe never sees a 530 (#133). cloudflared can wedge: its edge connections die but the process never exits, so
 // launchd's KeepAlive never fires. Every 2 minutes the watcher probes the connector through the tunnel and restarts
 // it only when Cloudflare answers that it has no tunnel to us (530). No answer is not the tunnel: the Mac is offline,
 // or this process (which also serves the connector) was busy past the timeout, as on 20 Oct when it restarted a

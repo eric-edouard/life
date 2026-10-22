@@ -326,10 +326,11 @@ hand `--force` always runs. The status page reads those locks (`holder`, mac.ts)
   `life.ericedouard.com` is routed to the Worker (`worker/status.ts`), which fetches `MAC_ORIGIN` (`tailscale funnel
   --bg --https=8443 http://127.0.0.1:46200`, HTTPS any network lets through). The connector's URL and OAuth resource
   are unchanged, so no client reconnects. The Funnel needs Tailscale running on the Mac.
-- The watcher heals the Mac's tunnel (`src/tunnel.ts`, every 2 min): it restarts `com.eric.cloudflared` only on a 530
-  (Cloudflare has no tunnel to the Mac), never on no answer (offline, or the watcher busy) or an app's 5xx (a dead app behind the tunnel once
-  had another repo's watchdog restart it 35,000 times). It is the tunnel's only heal; other hostnames ride on it. Since
-  Life's origin goes through the Worker and Funnel, its probe never meets the tunnel, so it can't fire (#133).
+- **Life no longer heals the Mac's Cloudflare tunnel.** `src/tunnel.ts` (every 2 min, with `tunnel: cloudflare`) still
+  probes the connector's origin and would restart `com.eric.cloudflared` only on a 530, but that origin now goes
+  through the Worker and Funnel, never the tunnel, so it never fires: the other hostnames on the tunnel have no heal
+  until #133 moves it to their repo or deletes it. Never restart on no answer or an app's 5xx (a dead app behind the
+  tunnel once had another repo's watchdog restart it 35,000 times).
 - `bun life act --check` says whether remctl can act now (read-only). remctl works through its signed Capability
   Host, only by absolute path (`~/bin/remctl`, not on launchd's PATH), and a read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
