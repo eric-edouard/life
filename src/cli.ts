@@ -11,7 +11,12 @@ import { memoryCommand } from "./memory/command";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
-import { checks, remindersOn } from "./reminders/remctl";
+import {
+  checks,
+  REMCTL_RELEASE,
+  remctlVersion,
+  remindersOn,
+} from "./reminders/remctl";
 import { Engine } from "./schema";
 import { readSettings, type Settings, setSettings, settings } from "./settings";
 import { FULL_DISK, SOURCES } from "./sources/index";
@@ -58,10 +63,10 @@ const commands: Record<string, () => Promise<number>> = {
   },
   /**
    * What the app shows, as JSON, so it reads none of Life's files: whether Life is set up, the newest report kept on
-   * the Mac, and every source with whether he turned it on,
-   * what keeps it from being read now and whether that is Full Disk Access.
+   * the Mac, every source with whether he turned it on, what keeps it from being read now and whether that is Full
+   * Disk Access, and the Reminders plugin: on or not, the remctl installed and the release Life installs.
    */
-  app() {
+  async app() {
     const on = new Set<string>(settings().sources);
     const reports = existsSync(REPORTS)
       ? readdirSync(REPORTS)
@@ -71,6 +76,16 @@ const commands: Record<string, () => Promise<number>> = {
     console.log(
       JSON.stringify({
         lastReport: reports[0] ?? null,
+        reminders: await (async () => {
+          const installed = await remctlVersion();
+          return {
+            installed,
+            on: remindersOn(),
+            /** remctl as Life wants it: installed, at the pinned release. */
+            ready: installed === REMCTL_RELEASE.version,
+            release: REMCTL_RELEASE,
+          };
+        })(),
         sources: SOURCES.map((s) => {
           const missing = s.missing?.() ?? null;
           return {
@@ -84,7 +99,7 @@ const commands: Record<string, () => Promise<number>> = {
         started: started(),
       })
     );
-    return Promise.resolve(0);
+    return 0;
   },
   /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`. */
   archive: () => archiveCommand(process.argv.slice(3)),

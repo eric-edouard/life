@@ -1,5 +1,5 @@
 {
-  "_": "remctl's answers to the commands Life uses, as Life reads them: the contract life-eventkit (app/) must answer the same. Made-up reminders.",
+  "_": "remctl's answers to the commands Life uses, as Life reads them, for the release REMCTL_RELEASE pins. Made-up reminders.",
   "add": {
     "id": "2B4D9F1E-6A7C-4E8B-9D21-3C5E7F9A1B2C",
     "numericId": 412,

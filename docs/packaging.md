@@ -33,7 +33,7 @@ the same process in its own repo.
 - [x] 3.1 One compiled helper (`bun build --compile`) with its files; the app runs archive, watcher and nightly from it.
 - [x] 3.2 SwiftUI menu-bar app: spawns and supervises the helper, login item, settings.
 - [x] 3.3 Onboarding: who you are, engine, sources with Full Disk Access guidance, agents.
-- [x] 3.4 Reminders and the calendar projection through EventKit; `remctl` stays the owner's backend.
+- [x] 3.4 The calendar projection through EventKit; Reminders through `remctl` for every install (transition R1).
 - [x] 3.5 Engines: Codex, API keys, Claude (`claude -p`, advanced).
 - [x] 3.6 Release: Developer ID, notarization, Sparkle (chosen over AppUpdater, 22 Oct: EdDSA-signed updates, a tested
   update window), one DMG with Life.app and Lifelog Host, published in a public releases-only repo.

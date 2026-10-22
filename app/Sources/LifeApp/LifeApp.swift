@@ -92,6 +92,8 @@ struct SettingsView: View {
   @State private var transport = "mcp-event"
   /// The agent as saved, so a save keeps what this form doesn't show (`misheard`, `client`).
   @State private var agentSaved: [String: Any] = [:]
+  /// remctl's download and installer are under way: the Reminders controls wait.
+  @State private var installing = false
   @State private var lifelogURL = ""
   @State private var lifelogToken = ""
   @State private var origin = ""
@@ -141,6 +143,24 @@ struct SettingsView: View {
           }
           TextField("lifelog address", text: $lifelogURL)
           SecureField("lifelog token", text: $lifelogToken)
+        }
+        if let r = supervisor.info?.reminders {
+          Section("Reminders") {
+            Toggle("Use your Reminders", isOn: Binding(
+              get: { r.on },
+              set: { on in Task { await setReminders(on, r) } }
+            ))
+            .disabled(installing)
+            if r.on, !r.ready {
+              // An update of Life moved the pin: remctl is behind (or gone) while Reminders is on.
+              Button("Install remctl \(r.release.version)") { Task { await installRemctl(r) } }
+                .disabled(installing)
+            }
+            Text(r.ready
+              ? "Life adds reminders when you ask, keeps your agent's list and reads your changes back."
+              : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
+              .font(.caption).foregroundStyle(.secondary)
+          }
         }
         Section("Your agent") {
           TextField("Its name (\"hey …\" wakes it)", text: $agentName)
@@ -233,6 +253,23 @@ struct SettingsView: View {
     if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
     await set(parts)
     await supervisor.restart()
+  }
+
+  /// The Reminders plugin on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
+  /// once, then its own permission steps), and the toggle takes once `life app` sees it.
+  private func setReminders(_ on: Bool, _ r: Reminders) async {
+    if on, !r.ready {
+      await installRemctl(r)
+      return
+    }
+    await set(["reminders": on])
+    await supervisor.restart()
+  }
+
+  private func installRemctl(_ r: Reminders) async {
+    installing = true
+    status = await Remctl.install(r.release)
+    installing = false
   }
 
   private func connect(public publicToo: Bool) async {
