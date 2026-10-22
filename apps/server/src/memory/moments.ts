@@ -339,7 +339,7 @@ export async function moments(evidence: Evidence) {
   }
   const [verdicts, { corrections, inferred, refOf, resolve }] =
     await Promise.all([readVerdicts(), readPeople()]);
-  // Area hints: the chats' projects, and each repo's project or Life's guess.
+  // Area hints: the chats' projects, and each repo's project or the one Life inferred.
   const hints = chatAreas(truth);
   for (const [repo, r] of repos) {
     if (r.area) {

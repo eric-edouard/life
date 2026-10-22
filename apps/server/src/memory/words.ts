@@ -15,7 +15,7 @@ import {
   turnsBetween,
   withStore,
 } from "../sources/lifelog";
-import { readRepoGuesses, readUnits } from "./ledger";
+import { readInferredRepos, readUnits } from "./ledger";
 import type { SourceLine } from "./observe";
 import { handlesOf, OWNER, ownerIn } from "./read-truth";
 import { isDirect, kindOf, sourceOf } from "./sources";
@@ -152,7 +152,7 @@ export async function unitLines(unit: Unit, { resolve, truth }: People) {
   const built = builtFor(
     unit,
     resolve,
-    repoMap(truth, await readRepoGuesses()),
+    repoMap(truth, await readInferredRepos()),
     ownerIn(truth.people)
   );
   return built ? { built, lines: chatLines(built, resolve) } : null;

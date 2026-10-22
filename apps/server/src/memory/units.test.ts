@@ -779,20 +779,19 @@ test("two saves in a day are one unit of two lines, the same read from its start
 
 test("deletions on two days are two units, and a restore is dated when seen and read against the last live text", () => {
   const { db, dir, now, save, source } = notesFixture();
-  const day = DAY;
   for (const pk of [1, 2, 3]) {
     save(pk, noteData(`Note text ${pk}`), { agoS: 5 * 86_400 });
   }
-  copyNotes(source, dir, now - 3 * day);
+  copyNotes(source, dir, now - 3 * DAY);
   db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK = 1");
-  copyNotes(source, dir, now - 2 * day);
+  copyNotes(source, dir, now - 2 * DAY);
   db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK = 2");
-  copyNotes(source, dir, now - day);
+  copyNotes(source, dir, now - DAY);
   save(1, noteData("Note text 1\nback"), { agoS: 5 * 86_400 });
   copyNotes(source, dir, now);
   const built = applyRules(
     messageUnits(
-      showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
+      showFiles(readNotes(new Date(now - 2.5 * DAY), dir), new Map()),
       () => null
     )
   );
@@ -806,20 +805,19 @@ test("deletions on two days are two units, and a restore is dated when seen and 
 
 test("two notes restored unchanged on two days are two units", () => {
   const { db, dir, now, save, source } = notesFixture();
-  const day = DAY;
   for (const pk of [1, 2, 3]) {
     save(pk, noteData(`Note text ${pk}`), { agoS: 5 * 86_400 });
   }
-  copyNotes(source, dir, now - 4 * day);
+  copyNotes(source, dir, now - 4 * DAY);
   db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK in (1, 2)");
-  copyNotes(source, dir, now - 3 * day);
+  copyNotes(source, dir, now - 3 * DAY);
   save(1, noteData("Note text 1"), { agoS: 5 * 86_400 });
-  copyNotes(source, dir, now - 2 * day);
+  copyNotes(source, dir, now - 2 * DAY);
   save(2, noteData("Note text 2"), { agoS: 5 * 86_400 });
-  copyNotes(source, dir, now - day);
+  copyNotes(source, dir, now - DAY);
   const built = applyRules(
     messageUnits(
-      showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
+      showFiles(readNotes(new Date(now - 2.5 * DAY), dir), new Map()),
       () => null
     )
   );

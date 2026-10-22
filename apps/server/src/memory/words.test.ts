@@ -448,11 +448,10 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
 const NEXT = /the same call with `before` (\S+)\)/;
 
 test("chats: `from` is read as far back as asked, a cut names the call that reads on, and no `from` says its window", async () => {
-  const day = DAY;
   const now = Date.now();
   // One message a day for the last 300 days.
   const events = Array.from({ length: 300 }, (_, i) => ({
-    at: new Date(now - (300 - i) * day).toISOString(),
+    at: new Date(now - (300 - i) * DAY).toISOString(),
     chat: "+33611111111",
     fromMe: i % 2 === 0,
     id: `imessage:${i}`,
@@ -465,7 +464,7 @@ test("chats: `from` is read as far back as asked, a cut names the call that read
       events.filter((e) => e.at >= since.toISOString()),
   };
   const chat = "+33611111111";
-  const from = new Date(now - 400 * day).toISOString().slice(0, 10);
+  const from = new Date(now - 400 * DAY).toISOString().slice(0, 10);
   const all = (await chatsOf({ chat, from }, sources)) ?? "";
   expect(all).toContain("message 299");
   expect(all).toContain("message 100");

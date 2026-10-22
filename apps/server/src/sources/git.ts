@@ -80,10 +80,10 @@ export async function newestCommit(now = clock().getTime()): Promise<Newest> {
   };
 }
 
-/** The repo map: truth first, in his order (a project's first repo is its main one), then Life's guesses for the rest. */
+/** The repo map: truth first, in his order (a project's first repo is its main one), then what Life inferred for the rest. */
 export function repoMap(
   truth: { projects: Project[] },
-  guesses: InferredRepo[]
+  inferredRepos: InferredRepo[]
 ): RepoMap {
   const map: RepoMap = new Map();
   for (const p of truth.projects) {
@@ -91,7 +91,7 @@ export function repoMap(
       map.set(repo, { area: p.area, project: p.id });
     }
   }
-  for (const g of guesses) {
+  for (const g of inferredRepos) {
     if (!map.has(g.repo)) {
       map.set(g.repo, { area: g.area, inferred: g, project: g.project });
     }

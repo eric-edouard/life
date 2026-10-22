@@ -377,8 +377,8 @@ export const lastUpdate = (t: Task) =>
 
 export const readInferred = () => rowsOf(INFERRED, InferredPerson);
 
-/** Life's repo guesses: the latest record for each repo wins. */
-export const readRepoGuesses = () => [
+/** The repos Life inferred: the latest record for each repo wins. */
+export const readInferredRepos = () => [
   ...latestBy(rowsOf(REPOS_INFERRED, InferredRepo), (g) => g.repo).values(),
 ];
 

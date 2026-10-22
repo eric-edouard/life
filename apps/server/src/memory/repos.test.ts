@@ -4,7 +4,7 @@ import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import type { Truth } from "./read-truth";
 import { ledger, unit, verdict } from "./record-fixtures";
-import { codeRows, parseGuesses } from "./repos";
+import { codeRows, parseInferredRepos } from "./repos";
 import { areaLookup } from "./units";
 
 const ctx = {
@@ -31,7 +31,7 @@ const entry = (over: object) => ({
 });
 
 test("a repo on one of his projects takes the project's area; a project that is not his becomes none", () => {
-  const { invalid, records, unknownProject } = parseGuesses(
+  const { invalid, records, unknownProject } = parseInferredRepos(
     {
       repos: [
         entry({ area: "work", project: "bakery" }),
@@ -62,8 +62,11 @@ test("a repo on one of his projects takes the project's area; a project that is 
   expect(invalid).toBe(3);
 });
 
-test("the repo map: truth wins over Life's guess, a guess maps what truth doesn't", () => {
-  const guess = (repo: string, project: string | null): InferredRepo => ({
+test("the repo map: truth wins over what Life inferred, which maps what truth doesn't", () => {
+  const inferredRepo = (
+    repo: string,
+    project: string | null
+  ): InferredRepo => ({
     ...ctx,
     area: "work",
     newProject: null,
@@ -75,7 +78,10 @@ test("the repo map: truth wins over Life's guess, a guess maps what truth doesn'
   const truth = {
     projects: [{ area: "shop", id: "bakery", repos: ["bakery-hq"] }],
   } as unknown as Truth;
-  const map = repoMap(truth, [guess("bakery-hq", "life"), guess("cove", null)]);
+  const map = repoMap(truth, [
+    inferredRepo("bakery-hq", "life"),
+    inferredRepo("cove", null),
+  ]);
   expect(map.get("bakery-hq")).toEqual({ area: "shop", project: "bakery" });
   expect(map.get("cove")?.project).toBeNull();
   expect(map.get("cove")?.inferred?.repo).toBe("cove");
