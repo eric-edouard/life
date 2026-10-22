@@ -343,10 +343,7 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   );
   db.transaction(() => {
     for (const j of page.jobs) {
-      job.run(
-        j.id,
-        typeof j.endedOnSilence === "boolean" ? Number(j.endedOnSilence) : null
-      );
+      job.run(j.id, j.endedOnSilence ? 1 : 0);
     }
     for (const c of page.conversations) {
       conversation.run(
