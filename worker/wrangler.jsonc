@@ -1,10 +1,10 @@
-// Life's public edge (status.ts). Deploy from ~/Work/life with .env loaded:
+// Life's public edge (edge.ts). Deploy from ~/Work/life with .env loaded:
 //   set -a; . ./.env; set +a; bun x wrangler@4.40.0 deploy -c worker/wrangler.jsonc \
 //     --var MAC_ORIGIN:https://<his Mac's tailnet name>:8443   (kept out of the repo)
 // Every path is routed here and passed to the Mac over Tailscale Funnel (MAC_ORIGIN).
 {
   "name": "life-status",
-  "main": "status.ts",
+  "main": "edge.ts",
   "compatibility_date": "2026-10-01",
   "routes": [
     { "pattern": "life.ericedouard.com/*", "zone_name": "ericedouard.com" }
