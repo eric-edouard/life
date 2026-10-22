@@ -44,6 +44,9 @@ What Life is building next, in order, and what is parked. Each item gets its own
   assistant.
 - An investigation of on-device transcription: what speech models running on the phone or the Mac can do (accuracy,
   speakers, languages, battery), compared with lifelog's cloud transcription.
+- A comparison of cloud transcription providers for Thai, beyond ElevenLabs Scribe: Microsoft MAI-Transcribe 1.5,
+  Google Chirp 3, Soniox and AssemblyAI Universal, run on the same recordings for accuracy, speakers, mixed Thai and
+  English, price and latency.
 
 - Keep rated facts when the memory is re-read, without reworded twins: one extraction rule under one prompt bump,
   checked on the 12–20 Oct facts. It unblocks re-reading 6 Sep to 13 Oct under today's prompts. Both wait for the
