@@ -1,8 +1,9 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { unfrozen } from "../clock";
+import { isOn, off } from "../outputs";
 import { exec } from "../proc";
-import { agentName, settings } from "../settings";
+import { agentName } from "../settings";
 
 // How Life talks to his Apple Reminders: remctl (its signed host, `--json`), the shape of a reminder, his lists. This
 // folder is the only code that touches Reminders, an interface to Life, never its truth: `write.ts` makes the changes
@@ -26,8 +27,6 @@ export async function remctlVersion() {
   const r = await exec([REMCTL, "--version"]);
   return r.code === 0 ? r.stdout.trim() : null;
 }
-/** Whether the Reminders plugin is on (the `reminders` setting): off, nothing in Life touches Reminders. */
-export const remindersOn = () => settings().reminders;
 
 /** The agent's board: Life's projection of its tasks (src/tasks.ts). */
 export const BOARD = agentName();
@@ -47,8 +46,9 @@ const parse = <T>(s: string) => {
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
   unfrozen("touch his Reminders");
-  if (!remindersOn()) {
-    throw new Error("Reminders is off (settings: reminders)");
+  const why = off("reminders");
+  if (why) {
+    throw new Error(why);
   }
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
@@ -152,7 +152,7 @@ export async function sectionsOf(list?: string) {
  * the log.
  */
 export async function checks() {
-  if (!remindersOn()) {
+  if (!isOn("reminders")) {
     return [];
   }
   try {

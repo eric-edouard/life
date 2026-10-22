@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import { existsSync, readFileSync } from "node:fs";
 import {
+  actAsked,
   actionId,
   Change,
   duplicateOf,
@@ -8,9 +10,11 @@ import {
   grantRefusal,
   requested,
 } from "./actions";
+import { ACTIONS } from "./memory/ledger";
 import { openOf, readable, unshared } from "./reminders/remctl";
 import { alarmArgs, changedFields, reminderArgs } from "./reminders/write";
 import type { Action } from "./schema";
+import { setSettings, settings } from "./settings";
 
 test("public fields go through EventKit, a timed reminder alerts at its time; section, urgent, subtasks and the link through the private helper", () => {
   expect(
@@ -308,5 +312,24 @@ test("the grant sets an add's title, named list, due and section only: no notes,
     { kind: "add", title: "no list" },
   ]) {
     expect(Granted.safeParse(bad).success).toBe(false);
+  }
+});
+
+test("with Reminders off, an act is refused before anything is recorded", async () => {
+  const on = settings().reminders;
+  const ledger = () =>
+    existsSync(ACTIONS) ? readFileSync(ACTIONS, "utf8") : "";
+  const before = ledger();
+  setSettings({ reminders: false });
+  try {
+    await expect(
+      actAsked(
+        { kind: "add", said: "add milk", title: "Milk", why: "a test" },
+        "session"
+      )
+    ).rejects.toThrow("Reminders is off");
+    expect(ledger()).toBe(before);
+  } finally {
+    setSettings({ reminders: on });
   }
 });

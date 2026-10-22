@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { archiveFailing } from "./archive";
-import { backupOld, backupOn, backupSize, readBackup } from "./backup";
+import { backupOld, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
 import { agentLive, clientName, deliveryState, isAgent } from "./events";
 import { readHealth } from "./health";
@@ -23,8 +23,9 @@ import {
 } from "./memory/ledger";
 import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
+import { isOn, OUTPUTS } from "./outputs";
 import { git } from "./proc";
-import { checks, remindersOn } from "./reminders/remctl";
+import { checks } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
@@ -625,9 +626,10 @@ function captureCards(r: Reads): Card[] {
       group: "capture",
       headline: `${calls.length} calls today`,
       id: "connector",
-      name: "Connector",
-      tone: "ok",
-      word: "serving",
+      name: OUTPUTS.connector.label,
+      ...(isOn("connector")
+        ? { tone: "ok", word: "serving" }
+        : { tone: "idle", word: "off" }),
     },
     {
       ...(tunnel?.running
@@ -780,7 +782,7 @@ function backupCard(r: Reads): Card {
   const old = backupOld(r.now, b);
   return {
     ...firstOf(
-      [!backupOn(), { tone: "idle", word: "off" }],
+      [!isOn("backup"), { tone: "idle", word: "off" }],
       [
         !!b?.error,
         { ask: ASK("the backup failing"), tone: "bad", word: "failed" },
@@ -797,7 +799,7 @@ function backupCard(r: Reads): Card {
     group: "pipeline",
     headline: old ? "over 48 h old, last" : "snapshot kept",
     id: "backup",
-    name: "Backup",
+    name: OUTPUTS.backup.label,
   };
 }
 
@@ -857,9 +859,12 @@ function pipelineCards(r: Reads): Card[] {
       group: "pipeline",
       headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
       id: "past",
-      name: "Past calendar",
-      tone: n ? "ok" : "idle",
-      word: n ? "syncing" : "quiet",
+      name: OUTPUTS.past.label,
+      ...firstOf(
+        [!isOn("past"), { tone: "idle", word: "off" }],
+        [n > 0, { tone: "ok", word: "syncing" }],
+        [true, { tone: "idle", word: "quiet" }]
+      ),
     },
   ];
 }
@@ -1013,7 +1018,7 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!remindersOn(), { tone: "idle", word: "off" }],
+        [!isOn("reminders"), { tone: "idle", word: "off" }],
         [
           r.remctl.length > 0,
           {
@@ -1042,7 +1047,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: "Reminders",
+      name: OUTPUTS.reminders.label,
     },
     {
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),
