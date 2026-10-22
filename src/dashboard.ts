@@ -12,7 +12,7 @@ import { ROOT } from "./truth";
 // (`plate.ts`), read-only, behind the owner's sign-in (`signin.ts`). It changes nothing and sends nothing.
 
 const LEADING_DOT = /^\.\//;
-const ICON_DOT = /(<circle[^>]*fill=")[^"]*"/;
+const ICON_MARK = /(<path[^>]*fill=")[^"]*"/;
 const APP = join(ROOT, "assets", "dashboard", "index.html");
 /** How often an open page gets the plate again (only when something on it changed; a ping in between keeps it open). */
 export const EVERY_MS = 3000;
@@ -115,7 +115,7 @@ function stream() {
   });
 }
 
-// The tab's icon: Life's, its dot in the colour of the page's worst state (Ledger's status colours).
+// The tab's icon: Life's, its L in the colour of the page's worst state (Ledger's status colours).
 const TONES: Record<string, string> = {
   bad: "#c4382c",
   busy: "#2a62d8",
@@ -127,7 +127,7 @@ const TONES: Record<string, string> = {
 const ICON = Bun.file(join(ROOT, "assets", "icon", "icon.svg"));
 const icon = async (tone: string) =>
   new Response(
-    (await ICON.text()).replace(ICON_DOT, `$1${TONES[tone] ?? TONES.idle}"`),
+    (await ICON.text()).replace(ICON_MARK, `$1${TONES[tone] ?? TONES.idle}"`),
     { headers: { ...HEADERS, "content-type": "image/svg+xml" } }
   );
 

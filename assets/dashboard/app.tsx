@@ -164,7 +164,7 @@ const titleOf = (problems: number) => {
   return `● ${problems} problem${problems === 1 ? "" : "s"} · Life`;
 };
 
-/** Life's icon with its dot in the worst state's colour, and the title counting the problems. */
+/** Life's icon with its L in the worst state's colour, and the title counting the problems. */
 function useTab(plate: Plate | null, link: Link) {
   useEffect(() => {
     const tone: Tone = link.kind === "live" ? (plate?.worst ?? "idle") : "idle";
