@@ -21,11 +21,11 @@ let clock = 1_800_000_000_000;
 const portrait = createPortrait("open sesame", dir, () => clock);
 
 const get = async (cookie = "", path = "/me") =>
-  (await portrait.handle(
+  (await portrait.request(
     new Request(`${ORIGIN}${path}`, { headers: { cookie } })
   )) as Response;
 const login = async (password: string, origin = ORIGIN, path = "/me") =>
-  (await portrait.handle(
+  (await portrait.request(
     new Request(`${ORIGIN}${path}`, {
       body: new URLSearchParams({ password }),
       headers: { origin },
@@ -61,7 +61,7 @@ test("the right password gives a cookie that opens the page until it expires", a
 test("a new password signs every browser out", async () => {
   const cookie = session(await login("open sesame"));
   const changed = createPortrait("new one", dir, () => clock);
-  const res = (await changed.handle(
+  const res = (await changed.request(
     new Request(`${ORIGIN}/me`, { headers: { cookie } })
   )) as Response;
   expect(await res.text()).toContain('type="password"');
@@ -93,14 +93,14 @@ test("a person's page: the form keeps its path through sign-in, then /me/<name> 
   expect(await (await get(cookie, "/me/sam")).text()).toContain("A friend");
   expect((await get(cookie, "/me/nobody")).status).toBe(404);
   expect(
-    await portrait.handle(new Request(`${ORIGIN}/me/..%2Fetc`))
-  ).toBeNull();
+    (await portrait.request(new Request(`${ORIGIN}/me/..%2Fetc`))).status
+  ).toBe(404);
   expect(await (await login("nope", ORIGIN, "/me/sam")).text()).toContain(
     'action="/me/sam"'
   );
   expect(
-    await portrait.handle(new Request(`${ORIGIN}/me/Sam.html`))
-  ).toBeNull();
+    (await portrait.request(new Request(`${ORIGIN}/me/Sam.html`))).status
+  ).toBe(404);
 });
 
 test("a page's clips and the player: behind the password, typed, and nothing outside clips/", async () => {
@@ -116,8 +116,8 @@ test("a page's clips and the player: behind the password, typed, and nothing out
   expect(player.headers.get("content-type")).toContain("text/javascript");
   expect(await player.text()).toContain("figure.clip");
   expect(
-    await portrait.handle(new Request(`${ORIGIN}/me/sam/notes.md`))
-  ).toBeNull();
+    (await portrait.request(new Request(`${ORIGIN}/me/sam/notes.md`))).status
+  ).toBe(404);
   expect(
     (await get(cookie, "/me")).headers.get("content-security-policy")
   ).toContain("media-src 'self'");
@@ -125,7 +125,9 @@ test("a page's clips and the player: behind the password, typed, and nothing out
 
 test("off without a password, and other paths are not its own", async () => {
   expect(
-    await createPortrait("", dir).handle(new Request(`${ORIGIN}/me`))
-  ).toBeNull();
-  expect(await portrait.handle(new Request(`${ORIGIN}/check/`))).toBeNull();
+    (await createPortrait("", dir).request(new Request(`${ORIGIN}/me`))).status
+  ).toBe(404);
+  expect((await portrait.request(new Request(`${ORIGIN}/check/`))).status).toBe(
+    404
+  );
 });

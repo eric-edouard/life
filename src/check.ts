@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { Hono } from "hono";
 import { HEADERS, redirect, text } from "./http";
 import { readRatings, readStatements, recordRating } from "./memory/ledger";
 import { plain as asOf } from "./memory/statements";
@@ -21,15 +22,23 @@ const FILES: Record<string, string> = {
 
 const Answer = Rating.pick({ answer: true, claim: true });
 
-/** The check page's routes; `handle` resolves to null for any other path. */
+/** The check page's routes. */
 export function createCheck(signIn: SignIn) {
-  /** Everything past sign-in, for the owner's session only. */
-  async function owned(req: Request, pathname: string) {
-    const file = FILES[pathname];
-    if (file) {
-      return new Response(Bun.file(join(ASSETS, file)), { headers: HEADERS });
-    }
-    if (pathname === "/check/statements" && req.method === "GET") {
+  const app = new Hono()
+    .all("/check/login", () => signIn.login())
+    .all("/check/callback", (c) =>
+      signIn.callback(c.req.raw, new URL(c.req.url))
+    )
+    .all("/check", () => redirect("/check/"))
+    // Everything past here, for the owner's session only.
+    .all("/check/*", async (c, next) => {
+      const refused = await signIn.refusal(c.req.raw, c.req.path === "/check/");
+      if (refused) {
+        return refused;
+      }
+      await next();
+    })
+    .get("/check/statements", async () => {
       // By group, the biggest first, each statement with his current answer and the day it was said (`asOf`).
       const [statements, ratings, { names }] = await Promise.all([
         readStatements(),
@@ -48,43 +57,24 @@ export function createCheck(signIn: SignIn) {
         }))
         .toSorted((a, b) => b.statements.length - a.statements.length);
       return Response.json({ groups }, { headers: HEADERS });
-    }
-    if (pathname === "/check/answer" && req.method === "POST") {
-      if (req.headers.get("origin") !== connector().origin) {
+    })
+    .post("/check/answer", async (c) => {
+      if (c.req.header("origin") !== connector().origin) {
         return text("cross-origin", 400);
       }
-      const a = Answer.safeParse(await req.json().catch(() => null));
+      const a = Answer.safeParse(await c.req.json().catch(() => null));
       const known = new Set((await readStatements()).map((s) => s.claim));
       if (!(a.success && known.has(a.data.claim))) {
         return text("no such statement", 400);
       }
       await recordRating(a.data.claim, a.data.answer);
       return new Response(null, { headers: HEADERS, status: 204 });
-    }
-    return null;
+    });
+  for (const [path, file] of Object.entries(FILES)) {
+    app.get(
+      path,
+      () => new Response(Bun.file(join(ASSETS, file)), { headers: HEADERS })
+    );
   }
-
-  async function handle(req: Request): Promise<Response | null> {
-    const url = new URL(req.url);
-    const { pathname } = url;
-    if (pathname === "/check/login") {
-      return signIn.login();
-    }
-    if (pathname === "/check/callback") {
-      return signIn.callback(req, url);
-    }
-    if (pathname === "/check") {
-      return redirect("/check/");
-    }
-    if (!pathname.startsWith("/check/")) {
-      return null;
-    }
-    const refused = await signIn.refusal(req, pathname === "/check/");
-    if (refused) {
-      return refused;
-    }
-    return owned(req, pathname);
-  }
-
-  return { handle };
+  return app;
 }

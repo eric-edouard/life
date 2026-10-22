@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { join } from "node:path";
+import { type Context, Hono } from "hono";
 import { cookie, cookieOf, HEADERS, redirect, TOKENS, text } from "./http";
 import { same } from "./secret";
 import { connector } from "./settings";
@@ -62,14 +63,14 @@ input,button{font:inherit;color:inherit;padding:11px 16px;border-radius:var(--co
 button{background:var(--ink);color:var(--white);border-color:var(--ink);font-weight:600;cursor:pointer}p{margin:0;font:500 11.5px/1.5 var(--mono)}p::before{content:"● ";color:var(--error)}</style>
 <form method="post" action="${action}"><h1>Life</h1><input type="password" name="password" placeholder="Password" autocomplete="current-password" autofocus required><button>Open</button>${note ? `<p>${note}</p>` : ""}</form>`;
 
-/** The /me and /me/<name> routes; `handle` resolves to null for any other path, and for every path when no password is set. */
+/** The /me and /me/<name> routes; none when no password is set. */
 export function createPortrait(
   password = process.env.LIFE_PORTRAIT_PASSWORD,
   pages = PAGES,
   now = Date.now
 ) {
   if (!password) {
-    return { handle: async (_req: Request): Promise<Response | null> => null };
+    return new Hono();
   }
   const key = password;
   let fails: number[] = [];
@@ -107,11 +108,12 @@ export function createPortrait(
     ]);
   }
 
-  async function handle(req: Request): Promise<Response | null> {
+  async function serve(c: Context) {
+    const req = c.req.raw;
     const { pathname } = new URL(req.url);
     const served = fileOf(pages, pathname);
     if (!served) {
-      return null;
+      return c.notFound();
     }
     const { page, path } = served;
     if (page && req.method === "POST") {
@@ -128,5 +130,6 @@ export function createPortrait(
       : text("not found", 404);
   }
 
-  return { handle };
+  // `/me/*` matches `/me` too.
+  return new Hono().all("/me/*", serve);
 }

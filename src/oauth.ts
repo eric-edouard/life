@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { Hono } from "hono";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -198,7 +199,7 @@ const escapeHtml = (s: string) =>
   );
 
 /**
- * The issuer at `<origin>/auth` for `resource` (the connector's /mcp): its routes (`handle`, null for any other path)
+ * The issuer at `<origin>/auth` for `resource` (the connector's /mcp): its routes (`app`)
  * and the check of its own tokens' signature (`jwks`). `fetchDoc` reads client metadata documents (a test's stand-in).
  */
 export function createIssuer(
@@ -385,28 +386,24 @@ export function createIssuer(
     );
   }
 
-  async function handle(req: Request): Promise<Response | null> {
-    const url = new URL(req.url);
-    switch (url.pathname) {
-      case "/.well-known/oauth-authorization-server":
-      case "/.well-known/oauth-authorization-server/auth":
-        return metadata();
-      case "/auth/page.css":
-        return new Response(CSS, {
+  const app = new Hono()
+    .all("/.well-known/oauth-authorization-server", metadata)
+    .all("/.well-known/oauth-authorization-server/auth", metadata)
+    .all(
+      "/auth/page.css",
+      () =>
+        new Response(CSS, {
           headers: { ...HEADERS, "content-type": "text/css" },
-        });
-      case "/auth/jwks":
-        return Response.json({ keys: [publicJwk((await signingKey()).pub)] });
-      case "/auth/oauth2/authorize":
-        return await authorize(req, url);
-      case "/auth/oauth2/token":
-        return req.method === "POST" ? await token(req) : null;
-      case "/auth/oauth2/register":
-        return req.method === "POST" ? await register(req) : null;
-      default:
-        return null;
-    }
-  }
+        })
+    )
+    .all("/auth/jwks", async () =>
+      Response.json({ keys: [publicJwk((await signingKey()).pub)] })
+    )
+    .all("/auth/oauth2/authorize", (c) =>
+      authorize(c.req.raw, new URL(c.req.url))
+    )
+    .post("/auth/oauth2/token", (c) => token(c.req.raw))
+    .post("/auth/oauth2/register", (c) => register(c.req.raw));
 
   /** Its own keys, for `ownerTokens`: no network, never unreachable. */
   const jwks = async (
@@ -414,5 +411,5 @@ export function createIssuer(
   ) =>
     createLocalJWKSet({ keys: [publicJwk((await signingKey()).pub)] })(...args);
 
-  return { handle, issuer, jwks, owner: SUB };
+  return { app, issuer, jwks, owner: SUB };
 }

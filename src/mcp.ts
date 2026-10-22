@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import { Hono } from "hono";
 import { z } from "zod";
 import { Asked, actAsked, actGranted, Change, Granted } from "./actions/act";
 import { BOARD, openItemsNow, openOf, sectionsOf } from "./actions/backend";
@@ -492,8 +493,7 @@ export function buildServer() {
 }
 
 /**
- * The connector's routes: `handle` answers `/mcp`, the protected-resource metadata and the icons, and resolves to null
- * for any other path (the caller serves those).
+ * The connector's routes: `/mcp`, the protected-resource metadata and the icons.
  */
 export function createMcp(verify: Verify) {
   const { issuer, metadata, resource } = connector();
@@ -524,42 +524,40 @@ export function createMcp(verify: Verify) {
     });
   }
 
-  async function handle(req: Request): Promise<Response | null> {
-    const { pathname } = new URL(req.url);
-    const icon = ICONS[pathname];
-    if (icon) {
-      return new Response(Bun.file(join(ROOT, "assets", "icon", pathname)), {
-        headers: {
-          "cache-control": "public, max-age=86400",
-          "content-type": icon,
-        },
-      });
-    }
-    switch (pathname) {
-      case "/mcp": {
-        const auth = await authorize(req);
-        if (!("refusal" in auth)) {
-          return handler.fetch(req, { authInfo: auth });
-        }
-        // A refused token is logged, never its body; none at all is OAuth discovery or a probe.
-        if (auth.token) {
-          const refused = clip(`${auth.refusal}: ${auth.why}`, 300);
-          log("mcp.call", { ...who(req), error: true, refused });
-        }
-        return denied(auth);
+  const resourceMetadata = () =>
+    Response.json({
+      authorization_servers: [issuer],
+      bearer_methods_supported: ["header"],
+      resource,
+      scopes_supported: SCOPES,
+    });
+  const app = new Hono()
+    .all("/mcp", async (c) => {
+      const req = c.req.raw;
+      const auth = await authorize(req);
+      if (!("refusal" in auth)) {
+        return handler.fetch(req, { authInfo: auth });
       }
-      case "/.well-known/oauth-protected-resource":
-      case "/.well-known/oauth-protected-resource/mcp":
-        return Response.json({
-          authorization_servers: [issuer],
-          bearer_methods_supported: ["header"],
-          resource,
-          scopes_supported: SCOPES,
-        });
-      default:
-        return null;
-    }
+      // A refused token is logged, never its body; none at all is OAuth discovery or a probe.
+      if (auth.token) {
+        const refused = clip(`${auth.refusal}: ${auth.why}`, 300);
+        log("mcp.call", { ...who(req), error: true, refused });
+      }
+      return denied(auth);
+    })
+    .all("/.well-known/oauth-protected-resource", resourceMetadata)
+    .all("/.well-known/oauth-protected-resource/mcp", resourceMetadata);
+  for (const [path, type] of Object.entries(ICONS)) {
+    app.all(
+      path,
+      () =>
+        new Response(Bun.file(join(ROOT, "assets", "icon", path)), {
+          headers: {
+            "cache-control": "public, max-age=86400",
+            "content-type": type,
+          },
+        })
+    );
   }
-
-  return { handle };
+  return app;
 }

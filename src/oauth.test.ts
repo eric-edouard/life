@@ -19,7 +19,7 @@ const life = createIssuer(ORIGIN, RESOURCE, {
       : new Response("no", { status: 404 })) as typeof fetch,
 });
 const call = async (path: string, init?: RequestInit) =>
-  (await life.handle(new Request(`${ORIGIN}${path}`, init))) as Response;
+  (await life.app.request(new Request(`${ORIGIN}${path}`, init))) as Response;
 const form = (fields: Record<string, string>) => ({
   body: new URLSearchParams(fields),
   method: "POST",

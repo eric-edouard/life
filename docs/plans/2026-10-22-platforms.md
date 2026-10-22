@@ -115,6 +115,10 @@ runs on GitHub's Windows runner before the workflow was removed.
 
 ## Phase 1: Better-T-Stack
 
+Routes on Hono: done (#158). Each route module (`oauth.ts`, `mcp.ts`, `check.ts`, `portrait.ts`, `dashboard.ts`) is a
+Hono app; `server.ts` mounts them, one app per port, with `Bun.serve` only listening. Plain Hono for now: a route gains
+`@hono/zod-openapi` when a client needs its contract (the web UI later), with its schema as the type's one source.
+
 Run the scaffold command into a fresh folder, then move Life into its skeleton within the repo (`git mv`, so history
 follows), and delete what the skeleton replaces. Every route moves to Hono in the same PR: the connector and its OAuth
 issuer, `/check`, `/me`, the status reads. **Done when** `bun run check` passes, the connector, `/check` and the
