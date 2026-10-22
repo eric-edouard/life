@@ -4,6 +4,7 @@
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier then grades its claims against the week's
 // hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
 
+import { cpSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -176,9 +177,7 @@ async function bench(models: string[], runs: number) {
         const data = join(tmp, p.label, "data");
         worktrees.push(code);
         await checkout(code, links, ["watch", "settings.json"]);
-        if ((await exec(["cp", "-cR", base, data])).code !== 0) {
-          throw new Error(`could not copy the data to ${data}`);
-        }
+        cpSync(base, data, { recursive: true });
         const started = performance.now();
         try {
           const read = await run(code, data, p.llm, [
