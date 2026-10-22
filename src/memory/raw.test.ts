@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { archiveBeeperOnce, archiveNotesOnce, archiveOnce } from "../archive";
 import type { SourceEvent } from "../schema";
+import { setSettings, settings } from "../settings";
 import { readBeeper } from "../sources/beeper";
 import {
   beeperFixture,
@@ -119,12 +120,12 @@ test("transcripts: a recording lifelog no longer has is silent, a failed fetch t
   const of = (jobId: string) =>
     transcripts([{ jobId }] as Parameters<typeof transcripts>[0]);
   expect((await of("job-gone")).get("job-gone")).toEqual([]);
-  const url = process.env.LIFELOG_URL;
-  process.env.LIFELOG_URL = "http://127.0.0.1:1";
+  const { lifelog } = settings();
+  setSettings({ lifelog: { url: "http://127.0.0.1:1" } });
   try {
     await expect(of("job-1")).rejects.toThrow();
   } finally {
-    process.env.LIFELOG_URL = url;
+    setSettings({ lifelog });
   }
 });
 

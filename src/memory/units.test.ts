@@ -565,6 +565,10 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
       "2026-10-14": ["whatsapp"],
       "2026-10-15": ["lifelog"],
     });
+    // A night that could not read WhatsApp (its access gone) rewrites the day without losing its units.
+    const mail = { ...chat, id: "u_00000000000b", source: "mail" as const };
+    await writeUnits([chat.date], [mail], (u) => u.source === "whatsapp");
+    expect(await days()).toMatchObject({ "2026-10-14": ["whatsapp", "mail"] });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
   }
@@ -643,7 +647,7 @@ test("a reader sees a unit's stored senders as whom they resolve to today, a mai
 test("with no source turned on, a sweep reads nothing and fails nothing", async () => {
   const before = readSettings().sources;
   try {
-    await setSettings({ sources: [] });
+    setSettings({ sources: [] });
     const e = await gather(
       { from: "2026-10-20", to: "2026-10-21" },
       { resolve: () => null, truth: await loadTruth() }
@@ -652,6 +656,6 @@ test("with no source turned on, a sweep reads nothing and fails nothing", async 
     expect(e.conversations).toEqual([]);
     expect(e.failed).toEqual([]);
   } finally {
-    await setSettings({ sources: before });
+    setSettings({ sources: before });
   }
 });

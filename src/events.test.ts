@@ -158,7 +158,7 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
     tool,
   });
   try {
-    await setSettings({ agent: { ...before, transport: "pull" } });
+    setSettings({ agent: { ...before, transport: "pull" } });
     expect(await agentLive(now, async () => [call("tasks", 2)])).toBe(true);
     expect(await agentLive(now, async () => [call("tasks", 30)])).toBe(false);
     expect(await agentLive(now, async () => [call("day", 2)])).toBe(false);
@@ -166,6 +166,6 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
       false
     );
   } finally {
-    await setSettings({ agent: before });
+    setSettings({ agent: before });
   }
 });

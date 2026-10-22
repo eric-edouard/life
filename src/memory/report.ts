@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { unfrozen } from "../clock";
 import { type Health, polling } from "../health";
 import { log, recentEvents } from "../log";
-import { exec } from "../proc";
+import { execOk } from "../proc";
 import type { Action } from "../schema";
 import { agentName, settings } from "../settings";
 import { enabledSources, listening } from "../sources/index";
@@ -441,12 +441,7 @@ export const notifyArgs = (title: string, body: string) => [
 async function onMac(keys: string[], mail: Mail) {
   const file = join(REPORTS, `${keys[0]?.replaceAll("/", "-")}.html`);
   await Bun.write(file, mail.html);
-  const r = await exec(
-    notifyArgs(mail.subject, mail.text.split("\n")[0] ?? "")
-  );
-  if (r.code !== 0) {
-    throw new Error(`notification: ${r.stderr.trim()}`);
-  }
+  await execOk(notifyArgs(mail.subject, mail.text.split("\n")[0] ?? ""));
   return file;
 }
 
