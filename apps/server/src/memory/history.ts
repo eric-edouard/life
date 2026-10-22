@@ -1,39 +1,24 @@
-import { statSync } from "node:fs";
 import { z } from "zod";
-import { lastCopied } from "../archive";
 import { clock } from "../core/clock";
-import {
-  LOG_DIR,
-  type LogEvent,
-  logDays,
-  logEvents,
-  recentEvents,
-} from "../core/log";
-import { polling, readHealth } from "../health";
-import { add, NONE, type Quota, type Tokens } from "../llm";
-import { keptStores, listening } from "../sources/index";
+import { LOG_DIR, type LogEvent, logDays, logEvents } from "../core/log";
+import { add, NONE, type Quota, type Tokens } from "../models/llm";
 import { decode, encode, PAGE } from "./feed";
-import {
-  lockedSince,
-  MAX_ATTEMPTS,
-  nextMidday,
-  nextNight,
-  readBackfill,
-  readMidday,
-  readState,
-} from "./guard";
+import { lockedSince } from "./guard";
 import { runAt } from "./ledger";
-import { INDEX } from "./search";
 import { daysBefore, lastDays } from "./units";
 import { localDate } from "./zones";
 
 // Life's processing as recorded, as JSON for a dashboard: `runs` (the history in derived/log: sweeps, their steps,
-// outcomes, counts, errors) and `lifeStatus` (is Life working, how fresh, what runs next). Read-only, like feed.ts.
+// outcomes, counts, errors); `lifeStatus` (host/status/life.ts) reads it. Read-only, like feed.ts.
 
 // --- runs ----------------------------------------------------------------------------------------------------------
 
 /** The sweeps: one launchd start that runs several steps. */
-const SWEEPS = new Set(["memory.nightly", "memory.midday", "memory.backfill"]);
+export const SWEEPS = new Set([
+  "memory.nightly",
+  "memory.midday",
+  "memory.backfill",
+]);
 /** The steps a sweep runs, in their order (the night alone maps repos and judges closeness). */
 export const STEPS = [
   "memory.repos",
@@ -295,6 +280,12 @@ const keyOf = (r: Run) => r.startedAt ?? r.endedAt ?? "";
 const newestFirst = (a: Run, b: Run) =>
   keyOf(b).localeCompare(keyOf(a)) || b.id.localeCompare(a.id);
 
+/** The runs of the last `days` days of derived/log, newest first (`status`). */
+export async function latestRuns(days: number, lock: Date | null) {
+  const events = (await logDays()).slice(0, days).flatMap((n) => runEvents(n));
+  return assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
+}
+
 export interface RunsQuery {
   cursor?: string;
   limit?: number;
@@ -348,103 +339,3 @@ export async function runs(q: RunsQuery = {}, dir = LOG_DIR) {
 }
 
 const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
-
-// --- status --------------------------------------------------------------------------------------------------------
-
-/** Each archive store's last copy (`lastCopied`), by store name. */
-const copiedByStore = (): Record<string, string | null> =>
-  Object.fromEntries(keptStores().map((s) => [s.name, lastCopied(s)]));
-
-/** When a SQLite file last changed, its write-ahead log included (written before the file); null: no file. */
-function dbTime(path: string) {
-  const ms = Math.max(
-    ...[path, `${path}-wal`].map(
-      (p) => statSync(p, { throwIfNoEntry: false })?.mtimeMs ?? 0
-    )
-  );
-  return ms ? new Date(ms).toISOString() : null;
-}
-
-/** How far back `status` looks in derived/log for the last runs of each kind. */
-const STATUS_DAYS = 7;
-
-/** The latest run of a step, and the latest that succeeded and failed, within what `status` read. */
-function lastOf(list: Run[], step: string) {
-  const mine = list.filter((r) => r.step === step);
-  return {
-    lastFailed: mine.find((r) => r.outcome === "failed") ?? null,
-    lastOk: mine.find((r) => r.outcome === "ok") ?? null,
-    latest: mine[0] ?? null,
-  };
-}
-
-/**
- * Is Life working, how fresh is its memory, and what runs next. Four clocks, kept apart: capture (the watcher folds
- * lifelog in as it arrives; the archive copies chats), extraction (midday, nightly, backfill weeks), consolidation
- * (pages: midday and nightly) and the index (rebuilt by the watcher on any lifelog change and by every sweep: a new index is not new memory).
- * A missing record is "unknown", never healthy.
- */
-export async function lifeStatus(now = clock()) {
-  const health = readHealth();
-  const lock = lockedSince();
-  const night = readState();
-  const middaySlot = readMidday();
-  const events = (await logDays())
-    .slice(0, STATUS_DAYS)
-    .flatMap((n) => runEvents(n));
-  // The tick reads the quota every 30 minutes: its last reading (an unread one has no figures) says whether middays wait.
-  const quota = (await recentEvents<Partial<Quota>>(2, "quota.read")).at(-1);
-  const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
-  const running = list.filter((r) => r.outcome === "running");
-  let watcher: Record<string, unknown> = { state: "unknown" };
-  if (!listening()) {
-    watcher = { state: "off" };
-  } else if (health) {
-    watcher = {
-      ...health,
-      state: polling(health, now.getTime()) ? "ok" : "not-polling",
-    };
-  }
-  return {
-    backfill: {
-      ...lastOf(list, "memory.backfill"),
-      state: readBackfill() ?? null,
-    },
-    capture: {
-      archive: copiedByStore(),
-      // The key keeps its name for the dashboard's contract: the verdicts are the moments step's since 18 Oct.
-      lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
-      lifelogOkAt: health?.lastOkAt ?? null,
-    },
-    consolidation: lastOf(list, "memory.pages"),
-    extraction: lastOf(list, "memory.extract"),
-    indexBuiltAt: dbTime(INDEX),
-    lookbackDays: STATUS_DAYS,
-    midday: {
-      ...lastOf(list, "memory.midday"),
-      next: nextMidday(now, middaySlot, quota),
-      slotSpentAt: middaySlot ?? null,
-    },
-    nightly: {
-      ...lastOf(list, "memory.nightly"),
-      maxAttempts: MAX_ATTEMPTS,
-      next: nextNight(now, localDate(now.toISOString()), night),
-      state: night ?? "unknown",
-    },
-    observedAt: now.toISOString(),
-    processing: lock
-      ? {
-          // The phase the sweep last entered (`phases`, run.ts), else the step running (runs from before 21 Oct).
-          phase:
-            running.find((r) => SWEEPS.has(r.step))?.phases?.at(-1) ??
-            running.find((r) => !SWEEPS.has(r.step))?.step ??
-            null,
-          since: lock.toISOString(),
-          state: "running",
-          sweep: running.find((r) => SWEEPS.has(r.step))?.id ?? null,
-        }
-      : { state: "idle" },
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    watcher,
-  };
-}

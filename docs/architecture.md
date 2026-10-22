@@ -119,20 +119,20 @@ archive and the watcher kept running, the nightly tick every 30 minutes, data an
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
 Its menu-bar panel and status window are native SwiftUI, reading the plate from the watcher's local status reads
-(`apps/server/src/dashboard.ts`, `LOCAL_PORT`, behind its local key `keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points
+(`apps/server/src/host/http/dashboard.ts`, `LOCAL_PORT`, behind its local key `keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points
 there): `docs/dashboard.md`.
 
 ## Pages
 
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
 
-- **The check page** (`apps/server/src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
+- **The check page** (`apps/server/src/host/http/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
   the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else.
   Same OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a
   `wrong` correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
-- **The portrait** (`apps/server/src/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
+- **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
   `DATA/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
   `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player
   (`assets/portrait/`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a

@@ -19,7 +19,7 @@ await execOk(
     "build",
     "--compile",
     "--minify",
-    join(ROOT, "apps", "server", "src", "cli.ts"),
+    join(ROOT, "apps", "server", "src", "host", "cli.ts"),
     "--outfile",
     join(out, "life"),
   ],

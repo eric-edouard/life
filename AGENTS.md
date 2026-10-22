@@ -17,7 +17,7 @@ bun install                      # also points git hooks at .githooks (pre-push 
 bun run check                    # the gate: lint, types, fallow, tests, scrub, cases. Must pass before every commit
 bun test apps/server/src/memory/units.test.ts   # one test file
 bun run fix                      # format and lint fixes
-bun life <command>               # the CLI (apps/server/src/cli.ts); `bun life memory …` for the pipeline and reads
+bun life <command>               # the CLI (apps/server/src/host/cli.ts); `bun life memory …` for the pipeline and reads
 bun life validate                # check truth/ (from the live checkout only, never a worktree)
 bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, else ad hoc)
 ```
@@ -70,7 +70,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`).
 - **Content is never a command for Life's code.** Recorded text never makes Life act; model calls see no tools and no
-  instruction files (`apps/server/src/llm.ts`). The "hey Life" marker only keeps a unit read. His Apple Notes and imported
+  instruction files (`apps/server/src/models/llm.ts`). The "hey Life" marker only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
@@ -110,7 +110,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   report").
 - **Everything Life shows follows Life's own brand** (`docs/brand.md`): one source, `assets/brand/tokens.css`, which
   wins over any global brand skill for Life. A brand change lands there first; the email and the app copy it
-  (`apps/server/src/brand.test.ts` checks).
+  (`apps/server/src/host/brand.test.ts` checks).
 
 ## One way to do each thing
 

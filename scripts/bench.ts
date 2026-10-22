@@ -13,7 +13,6 @@ import { clock } from "server/src/core/clock";
 import { LOG_DIR, logDays, logEvents } from "server/src/core/log";
 import { DATA, ROOT, STATE } from "server/src/core/paths";
 import { exec, git, gitOut } from "server/src/core/proc";
-import { llmFor, llmSpec } from "server/src/llm";
 import { extract } from "server/src/memory/extract";
 import { locked, spareQuota } from "server/src/memory/guard";
 import { ratedFacts } from "server/src/memory/ledger";
@@ -22,6 +21,7 @@ import { claimsNow } from "server/src/memory/statements";
 import type { tally } from "server/src/memory/tally";
 import { gather } from "server/src/memory/units";
 import { readPeople } from "server/src/memory/who";
+import { llmFor, llmSpec } from "server/src/models/llm";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(DATA, "docs/evals/events-2026-10-16.json");

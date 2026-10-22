@@ -44,6 +44,12 @@ export const FROZEN = frozenAt();
 
 export const clock = () => new Date(FROZEN ?? Date.now());
 
+export const MIN = 60_000;
+export const HOUR = 60 * MIN;
+export const DAY = 24 * HOUR;
+/** An instant in ms, as the ledgers write it. */
+export const iso = (ms: number) => new Date(ms).toISOString();
+
 /** Throws in a frozen run: called by everything that acts outside the copy (Reminders, lifelog, email, events). */
 export function unfrozen(what: string) {
   if (FROZEN !== undefined) {

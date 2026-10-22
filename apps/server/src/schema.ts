@@ -88,7 +88,7 @@ export const Project = z
   .strict();
 export type Project = z.infer<typeof Project>;
 
-/** The model runner he chooses for every step (apps/server/src/llm.ts, `bun life engine`). */
+/** The model runner he chooses for every step (apps/server/src/models/llm.ts, `bun life engine`). */
 /**
  * claude and codex: the owner's subscriptions, through their CLIs; anthropic and openai: an API key
  * (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`), for an install that has none.
@@ -113,7 +113,7 @@ export type MadeBy = z.infer<typeof MadeBy>;
 /**
  * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
- * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/tasks.ts),
+ * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/host/tasks.ts),
  * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
  */
@@ -150,13 +150,13 @@ export const Action = z
       ...REMINDER_KINDS,
       "ask",
       "grant",
-      // A reminder Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/actions/inbound.ts).
+      // A reminder Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/host/inbound.ts).
       "import",
       "instinct",
       ...TASK_LINES,
     ]),
     // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
-    // "reminders": his own change read back from Reminders (apps/server/src/actions/inbound.ts), state only, never his words.
+    // "reminders": his own change read back from Reminders (apps/server/src/host/inbound.ts), state only, never his words.
     madeBy: z.union([
       MadeBy,
       z.enum(["connector", "reminders", "session", "watch"]),
@@ -186,7 +186,7 @@ export type Instruction = NonNullable<Action["instruction"]>;
 /** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: Action) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
-/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (apps/server/src/actions/inbound.ts). */
+/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (apps/server/src/host/inbound.ts). */
 export const isBookkeeping = (a: Action) =>
   a.result === "intent" || a.kind === "import";
 /** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */

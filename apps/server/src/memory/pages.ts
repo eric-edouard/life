@@ -4,7 +4,7 @@ import { join, relative } from "node:path";
 import { appendJsonl } from "../core/files";
 import { DATA } from "../core/paths";
 import { git } from "../core/proc";
-import { stamp } from "../llm";
+import { stamp } from "../models/llm";
 import {
   type Area,
   Correction,

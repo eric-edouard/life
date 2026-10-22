@@ -247,7 +247,7 @@ Sections, in order:
 
 To-dos stay observations (their `type`): Reminders are written only by actions on the owner's clear request (`actions.jsonl`).
 `day` lists as due the salience-3 promises and the to-dos the owner said whose `when` is that day or up to a week before
-(`dueOf`, then `openItems` in `apps/server/src/items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
+(`dueOf`, then `openItems` in `apps/server/src/actions/items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
 the owner's reminders, waiting items and the replies the owner owes; an undated one shows the day after it was said and 3 days
 after, then is stale, never due. It is the one place code checks `speaker`, against the rule above,
 because it only narrows a list the owner reads: the owner's to-do in a voice lifelog left unnamed is missed. Rules code enforces:
@@ -271,8 +271,8 @@ line the owner deletes is recorded as `not-important` for its observations on th
 
 ## actions.jsonl
 
-What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/actions/act.ts`), what the owner changed in
-Reminders by hand (read back by the watcher, `apps/server/src/actions/inbound.ts`), and the agent's tasks (`apps/server/src/tasks.ts`: the owner's asks and their lines):
+What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in
+Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the agent's tasks (`apps/server/src/host/tasks.ts`: the owner's asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
 - `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
@@ -327,7 +327,7 @@ where a later run's claims about the same thing are). The draw is spread over gr
 ## ratings.jsonl
 
 The owner's answers to the statements, append-only, from the check page (`<your connector origin>/check`,
-`apps/server/src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
+`apps/server/src/host/http/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
 recorded it, not anymore), `skip` or null (the owner took their last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would

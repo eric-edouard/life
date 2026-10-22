@@ -14,7 +14,7 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | Server | Hono on Bun; every route moves off `Bun.serve` |
 | API layer | None from Better-T-Stack: Hono with `@hono/zod-openapi` |
 | Database | None: the memory stays files and JSONL in its git repo; `index.sqlite` stays raw `bun:sqlite` |
-| Auth | Life's own OAuth issuer (`apps/server/src/oauth.ts`) |
+| Auth | Life's own OAuth issuer (`apps/server/src/host/http/oauth.ts`) |
 | Add-ons | Biome with Ultracite; Turborepo with the second app; the hand-written `.githooks` stay |
 | Desktop | SwiftUI on the Mac (Life.app as it is). No Windows UI: a Windows Life, when it comes back, is a headless host |
 | Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`) |

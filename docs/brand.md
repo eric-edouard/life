@@ -10,12 +10,12 @@ A private memory. Calm by nature, personal by design. Everything Life shows foll
 ## The values
 
 One source: [`assets/brand/tokens.css`](../assets/brand/tokens.css). Pages link it or inline it; the two surfaces that
-can't read CSS variables copy its values, and `apps/server/src/brand.test.ts` fails when a copy drifts:
+can't read CSS variables copy its values, and `apps/server/src/host/brand.test.ts` fails when a copy drifts:
 
 | Surface | How it takes the tokens |
 | --- | --- |
-| `/check` | `assets/check/index.html` links `tokens.css` (served at `/check/tokens.css`, `apps/server/src/check.ts`) before `check.css` |
-| `/me` password page, pairing page | `TOKENS` (`apps/server/src/http.ts`) inlined in their styles (`apps/server/src/portrait.ts`, `apps/server/src/oauth.ts`) |
+| `/check` | `assets/check/index.html` links `tokens.css` (served at `/check/tokens.css`, `apps/server/src/host/http/check.ts`) before `check.css` |
+| `/me` password page, pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`apps/server/src/host/http/portrait.ts`, `apps/server/src/host/http/oauth.ts`) |
 | Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
 | The app | `Brand` and `Tone.color` in `app/Sources/LifeApp/Brand.swift`, copied, light and dark |
 

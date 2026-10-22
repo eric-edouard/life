@@ -5,7 +5,7 @@ import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { HOME } from "../core/platform";
 import { redact } from "../core/redact";
-import { stamp } from "../llm";
+import { stamp } from "../models/llm";
 import { type MadeBy, RepoGuess, type Unit } from "../schema";
 import { kindOf } from "../sources";
 import type { Placement, RepoMap } from "../sources/contract";

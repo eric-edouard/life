@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { clock } from "./clock";
 import { filesIn, linesOf } from "./files";
 import { STATE } from "./paths";
+import { settings } from "./settings";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
@@ -41,7 +42,7 @@ export interface LogEvent {
 
 const LOG_FILE = /^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
-/** A `mcp.call` line, as `isReviewCall` (apps/server/src/events.ts) reads it. */
+/** A `mcp.call` line, as `isReviewCall` (below) reads it. */
 export interface Call {
   agent?: string;
   at: string;
@@ -95,3 +96,13 @@ export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
     console.error(line);
   }
 }
+/** Whether a connector call came from his agent: its user agent starts with the `agent` setting's `client`. */
+export const isAgent = (agent: unknown) => {
+  const a = settings().agent;
+  const client =
+    a && (a.client ?? (a.transport === "pull" ? "Claude" : "openai-mcp"));
+  return !!client && String(agent ?? "").startsWith(client);
+};
+/** A call of his agent's daily review: `day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
+export const isReviewCall = (e: Call) =>
+  e.tool === "day" && !e.error && isAgent(e.agent);

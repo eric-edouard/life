@@ -17,7 +17,7 @@
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
     "fix": "bun x --bun ultracite fix",
-    "life": "bun apps/server/src/cli.ts",
+    "life": "bun apps/server/src/host/cli.ts",
     "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {

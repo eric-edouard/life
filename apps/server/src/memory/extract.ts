@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { appendJsonl, rowsOf } from "../core/files";
-import { stamp } from "../llm";
+import { stamp } from "../models/llm";
 import {
   Extracted,
   KEEP_AT,

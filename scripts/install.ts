@@ -1,4 +1,4 @@
-// Installs (or replaces) a LaunchAgent that runs `bun apps/server/src/cli.ts <args>` in this checkout:
+// Installs (or replaces) a LaunchAgent that runs `bun apps/server/src/host/cli.ts <args>` in this checkout:
 // `bun scripts/install.ts <archive|watch|memory-nightly>`. Safe to repeat; run it from the checkout that should run it.
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -41,7 +41,7 @@ const label = `com.ericedouard.life.${name}`;
 const plist = join(homedir(), "Library/LaunchAgents", `${label}.plist`);
 const log = join(homedir(), "Library/Logs", job.log);
 const domain = `gui/${process.getuid?.()}`;
-const program = [process.execPath, "apps/server/src/cli.ts", ...job.args]
+const program = [process.execPath, "apps/server/src/host/cli.ts", ...job.args]
   .map((a) => `<string>${a}</string>`)
   .join("");
 await Bun.write(

@@ -1,6 +1,6 @@
+import { type Candidate, owed } from "../actions/items";
 import { clock } from "../core/clock";
 import { redact } from "../core/redact";
-import { type Candidate, owed } from "../items";
 import type { SourceEvent, SourceName, Unit } from "../schema";
 import { isDirect, kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
@@ -514,7 +514,7 @@ function chatLinesOf(
 const WROTE_DAYS = 60;
 
 /**
- * The replies he owes up to `end` (`owed`, apps/server/src/items.ts), as open items for `day`: in a 1:1 chat (its source can tell
+ * The replies he owes up to `end` (`owed`, apps/server/src/actions/items.ts), as open items for `day`: in a 1:1 chat (its source can tell
  * a group) of his last 60 days, the last word is theirs. Who wrote is the person's name when Life has one.
  */
 export async function repliesOwed(end: Date): Promise<Candidate[]> {

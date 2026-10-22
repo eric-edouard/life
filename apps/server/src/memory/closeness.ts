@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { appendJsonl, rowsOf } from "../core/files";
-import { stamp } from "../llm";
+import { stamp } from "../models/llm";
 import {
   Closeness,
   type Correction,

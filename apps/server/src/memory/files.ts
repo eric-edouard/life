@@ -5,7 +5,7 @@ import { z } from "zod";
 import { appendJsonl } from "../core/files";
 import { log } from "../core/log";
 import { exec } from "../core/proc";
-import { stamp } from "../llm";
+import { stamp } from "../models/llm";
 import { FileEntry, type SourceEvent, type SourceFile } from "../schema";
 import { emlxPart } from "../sources/mail";
 import { digest, FILES, readFiles } from "./ledger";

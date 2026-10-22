@@ -144,7 +144,7 @@ export function connector() {
     client: c.client ?? PAGES_CLIENT,
     /** Life's own issuer (`oauth.ts`) unless another is set. */
     issuer: c.issuer ?? `${c.origin}/auth`,
-    /** The resource's OAuth metadata; also the tunnel's health probe (apps/server/src/tunnel.ts). */
+    /** The resource's OAuth metadata; also the tunnel's health probe (apps/server/src/host/http/tunnel.ts). */
     metadata: `${c.origin}/.well-known/oauth-protected-resource/mcp`,
     own: !c.issuer,
     owner: c.owner ?? OWNER_SUB,

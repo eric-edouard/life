@@ -19,14 +19,14 @@ import { linesOf } from "server/src/core/files";
 import { recentEvents } from "server/src/core/log";
 import { DATA, ROOT, STATE } from "server/src/core/paths";
 import { exec, git, gitOut } from "server/src/core/proc";
-import { nextEvent } from "server/src/events";
-import { askOnce, llmFor } from "server/src/llm";
-import { buildServer } from "server/src/mcp";
+import { nextEvent } from "server/src/host/events";
+import { buildServer } from "server/src/host/http/mcp";
 import { spareQuota } from "server/src/memory/guard";
 import { ACTIONS, OUT, parseAction } from "server/src/memory/ledger";
 import { ended, metered } from "server/src/memory/run";
 import { judge, tally } from "server/src/memory/tally";
 import { localDate, zoneAt } from "server/src/memory/zones";
+import { askOnce, llmFor } from "server/src/models/llm";
 import { Engine } from "server/src/schema";
 import { z } from "zod";
 import { checkout } from "./bench";
@@ -180,7 +180,7 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     LIFE_STATE: join(code, "derived"),
   };
   const index = await exec(
-    ["bun", "apps/server/src/cli.ts", "memory", "index"],
+    ["bun", "apps/server/src/host/cli.ts", "memory", "index"],
     {
       cwd: code,
       env,

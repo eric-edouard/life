@@ -2,7 +2,7 @@
   "name": "server",
   "private": true,
   "type": "module",
-  "main": "src/cli.ts",
+  "main": "src/host/cli.ts",
   "dependencies": {
     "@anthropic-ai/sdk": "1.1.0",
     "@modelcontextprotocol/server": "catalog:",

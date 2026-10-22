@@ -28,7 +28,7 @@
       },
       {
         "name": "models",
-        "patterns": ["apps/server/src/llm.ts", "apps/server/src/llm.test.ts"]
+        "patterns": ["apps/server/src/models/**"]
       },
       {
         "name": "sources",
@@ -36,11 +36,7 @@
       },
       {
         "name": "actions",
-        "patterns": [
-          "apps/server/src/actions/**",
-          "apps/server/src/items.ts",
-          "apps/server/src/items.test.ts"
-        ]
+        "patterns": ["apps/server/src/actions/**"]
       },
       {
         "name": "memory",
@@ -48,7 +44,7 @@
       },
       {
         "name": "host",
-        "patterns": ["apps/server/src/*.ts"]
+        "patterns": ["apps/server/src/host/**"]
       }
     ],
     "rules": [
