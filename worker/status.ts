@@ -3,7 +3,7 @@
 // Cloudflare tunnel's 7844). It passes the Mac's answer as is and decides nothing; a bridge until #137.
 
 interface Env {
-  /** The Mac's Funnel origin (`tailscale funnel --https=8443 http://127.0.0.1:46200`), set in wrangler.jsonc. */
+  /** The Mac's Funnel origin (`tailscale funnel --https=8443 http://127.0.0.1:46200`), passed at deploy with `--var`. */
   MAC_ORIGIN: string;
 }
 

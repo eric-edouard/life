@@ -123,7 +123,7 @@ week (`RECENT_MS`; skipped turns are logged) and delivery waits for a good poll,
 Reachability rests on the Mac being kept awake. Reconsider a server only on a measured loss (an ask lost, or acted on
 late with harm), or spoken asks above about one a day for a month.
 
-**The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once Funnel is in place: [#137](https://github.com/eric-edouard/life/issues/137)). The
+**The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once the connector moves off the edge Worker onto Funnel: [#137](https://github.com/eric-edouard/life/issues/137)). The
 watcher's heal (`src/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
 loop once ran 35,000 times). Behind the edge Worker (`docs/architecture.md`) the connector's address never answers 530,
 so the heal no longer fires; deleting it is [#133](https://github.com/eric-edouard/life/issues/133).
