@@ -5,9 +5,9 @@ import Observation
 /// a few seconds after either stops), and the nightly tick every 30 minutes (its own guard decides what is due).
 @MainActor @Observable
 final class Supervisor {
-  /// The helper's last `app` answer: whether Life is set up, its sources, its newest report, its status page.
+  /// The helper's last `app` answer: whether Life is set up, its sources, its newest report, its status reads.
   private(set) var info: Info?
-  /// The status page's plate, as the watcher last served it.
+  /// The plate, as the watcher last served it.
   private(set) var plate: Plate?
   private var services: [String: Process] = [:]
   private var nightly: Process?
@@ -40,7 +40,7 @@ final class Supervisor {
       timer = Timer.scheduledTimer(withTimeInterval: Self.tickEvery, repeats: true) { _ in
         Task { @MainActor in self.tick() }
       }
-      // The menu shows the status page's plate as of the last minute.
+      // The panel shows the plate as of the last minute (and reads it again when opened).
       looks = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
         Task { @MainActor in self.plate = await self.info?.status.plate() }
       }
