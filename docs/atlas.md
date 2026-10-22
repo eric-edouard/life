@@ -185,5 +185,3 @@ How each one goes out:
   in `src/archive.ts`, once per incident and again daily while it lasts). Every send goes out once per key
   (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
 - One MCP event per ask (not one the agent made itself) to the one subscriber (`src/events.ts`).
-- The status page's plate, without the owner's words, to its own Worker once a minute (`pushPlate`,
-  `src/dashboard.ts`).

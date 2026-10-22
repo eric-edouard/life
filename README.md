@@ -13,7 +13,7 @@
 
 </div>
 
-<!-- screenshot: status page with demo data -->
+<!-- screenshot: status window with demo data -->
 
 ## What it is
 
@@ -29,8 +29,7 @@ to it every night and never pushes. Raw messages stay in their apps. What leaves
 
 - the text Life reads is sent to the model provider you choose (Anthropic or OpenAI, through your own subscription's
   CLI or an API key), with no tools and nothing but the prompt;
-- the optional encrypted backup goes to the folder you set (for example iCloud Drive);
-- the optional status Worker gets the status snapshot without your words.
+- the optional encrypted backup goes to the folder you set (for example iCloud Drive).
 
 ## Features
 
@@ -42,7 +41,7 @@ to it every night and never pushes. Raw messages stay in their apps. What leaves
 - **Search and reads** for any assistant: `search`, `day`, `person`, `chats`, `places`, `fetch`, over MCP or the CLI.
 - **"Hey Atlas":** say it to hand a request to your own agent; Life tracks it as a task until it is done.
 - **Reminders,** on your explicit request only, every change logged (optional plugin).
-- **A status page** that shows each part of the pipeline live, and a **check page** to rate what Life believes.
+- **A status window** in the app that shows each part of the pipeline live, and a **check page** to rate what Life believes.
 - **Runs itself:** a nightly run, two midday passes, an optional daily encrypted backup, and an email (or notification) report.
 
 ## How it works
@@ -101,7 +100,7 @@ Access. It then runs Life in the background from the menu bar.
 - **Connect an assistant.** The app puts Life on your tailnet (from a checkout: `bun life connect`, with `--public`
   for ChatGPT and Claude.ai through Tailscale Funnel). Add `<your connector origin>/mcp` as a connector (for example
   `https://my-mac.example.ts.net/mcp`) and approve it with a pairing code (`bun life pair`).
-- **Status page:** open it from the menu bar, or at `<your connector origin>/`.
+- **Status:** open it from the menu bar.
 - **Check page:** `<your connector origin>/check` shows statements Life holds; swipe true, false or outdated, and the
   memory corrects itself.
 - **Your agent:** paste the one sentence from [docs/agent.md](docs/agent.md) ("Set up once") into its instructions.
@@ -129,7 +128,7 @@ bun life <command>            # the CLI, run from the checkout (src/cli.ts)
 | [Sources](docs/sources.md) | What each source reads and how |
 | [Atlas and the connector](docs/atlas.md) | Asks, tasks, Reminders, the connector's tools, the only sends |
 | [Operations](docs/operations.md) | Schedule, locks, backups and restore, evals, the read CLI |
-| [Dashboard](docs/dashboard.md) | The status reads and the status page |
+| [Dashboard](docs/dashboard.md) | The status reads and the status window |
 | [Releasing](docs/releasing.md) | Signing, notarization, Sparkle |
 
 ## Security

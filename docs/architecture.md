@@ -90,8 +90,7 @@ someone else is capped at 0.6 confidence.
   OpenAI, through the owner's subscription's CLI or an API key: `docs/operations.md`, "Model engines"). Calls run in
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
   the prompt.
-- The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic. The
-  optional status Worker gets the plate without the owner's words.
+- The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
 - The connector is reached through the owner's tailnet (or a tunnel he controls), behind his sign-in.
 
 ## The app
@@ -99,21 +98,14 @@ someone else is capped at 0.6 confidence.
 `Life.app` (`app/`, SwiftUI, menu bar) is how Life is installed. It runs the compiled helper (`scripts/helper.ts`):
 the archive and the watcher kept running, the nightly tick every 30 minutes, data and state under
 `~/Library/Application Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper
-(`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch, and ships
-the status page bundled by its build (`BUILT`, `scripts/helper.ts`, with the page's config `PAGE`); a checkout bundles
-it on first use. Updates come through Sparkle. The menu and the status window show the status page, never a second
-rendering of it.
+(`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle. Its menu-bar panel and status window are native SwiftUI,
+reading the plate from the watcher's local status reads (`src/dashboard.ts`, `LOCAL_PORT`, behind its local key
+`keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points there): `docs/dashboard.md`.
 
 ## Pages
 
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
 
-- **The status page** (`src/dashboard.ts`, `/` and `/status/`; `src/plate.ts` reads every part) only reads. It is
-  behind the owner's sign-in (`src/signin.ts`) on the public port (`PUBLIC_PORT`, where a tunnel forwards), or for the
-  app on the local port (`LOCAL_PORT`, served even without a connector; no tunnel ever points there) behind its local
-  key (`keyRefusal`, `STATE/local.key`, mode 600). Never take the key on the public port. Its optional Cloudflare
-  Worker (`worker/status.ts`) passes every request to the Mac and answers only when the Mac is out of reach, with what
-  the Mac pushed: the plate without the owner's words (`strip`). Details: `docs/dashboard.md`.
 - **The check page** (`src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false
   when he likes, never a queue Life waits on) and appends his answers to `memory/ratings.jsonl`, nothing else. Same
   OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a `wrong`
@@ -127,8 +119,8 @@ All are served by the watcher's server, and none serves anything of the owner's 
   (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with the
   password, failed tries capped.
 
-Everything Life shows follows one brand, Ledger (emails, `/check`, `/me`, the status page, the icon): the values are
-copied into `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `assets/dashboard/styles.css`,
-the tab icon's `TONES` (`src/dashboard.ts`) and `assets/icon/`. The icon is a bold italic L: `assets/icon/icon.svg`
-holds its one outline (`#l`, in the `<g>` whose fill the tab recolours), which `app.svg` (the app icon) and
+Everything Life shows follows one brand, Ledger (emails, `/check`, `/me`, the app, the icon): the values are copied
+into `C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `Ledger` in
+`app/Sources/LifeApp/Ledger.swift` (with a dark variant of each, at the owner's word: the app follows the Mac's
+appearance) and `assets/icon/`. The icon is a bold italic L: `assets/icon/icon.svg` holds its one outline (`#l`), which `app.svg` (the app icon) and
 `menubar.svg` (a template image) reuse; `scripts/app.ts` renders them into the bundle.
