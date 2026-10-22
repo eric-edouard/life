@@ -456,13 +456,13 @@ export function quotaOf(reply = ""): Quota | undefined {
 
 /**
  * His Codex plan's usage, read from Codex's app-server (no model call, no quota spent) and logged, unread too, so the
- * last line is the last reading: undefined when this process's calls don't go to Codex, Codex doesn't answer, or the
+ * last line is the last reading: undefined when this process's calls (on `engine`, his setting unless a bench says) don't go to Codex, Codex doesn't answer, or the
  * engine setting is corrupt (the night's own calls fail on it, loudly). Never throws.
  */
-export async function quota() {
+export async function quota(engine = readEngine()) {
   let q: Quota | undefined;
   try {
-    q = await PROVIDERS[llmFor("main").engine].quota?.();
+    q = await PROVIDERS[llmFor("main", engine).engine].quota?.();
   } catch {
     // Unread.
   }

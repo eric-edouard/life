@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { clock } from "../clock";
 import { type Quota, quota } from "../llm";
 import { held, take } from "../lock";
+import type { Engine } from "../schema";
 import { DATA } from "../truth";
 import { OUT, readJson, writeJson } from "./ledger";
 import { daysBefore, localTime, type Window } from "./units";
@@ -66,8 +67,8 @@ export const quotaLine = (q: Quota | undefined) =>
   `Codex quota: ${q ? `${q.used}% used${q.resetsAt ? `, resets ${localTime(q.resetsAt)}` : ""}` : "not read"}${reserved(q) ? `: over ${RESERVE}%, the middays, backfill and evals wait` : ""}`;
 
 /** An eval or a bench run starts only under the reserve (his decision 12, 21 Oct: evals right after a reset). */
-export async function spareQuota() {
-  const q = await quota();
+export async function spareQuota(engine?: Engine) {
+  const q = await quota(engine);
   if (reserved(q)) {
     throw new Error(quotaLine(q));
   }
