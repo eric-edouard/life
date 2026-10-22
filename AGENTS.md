@@ -65,7 +65,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `labels.jsonl` and `statements.jsonl`.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `guard.ts`), except his single lines (a
   correction, a rating) and `actions.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
-  lock in `MAC` (`docs/operations.md`).
+  lock in `MACHINE` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`).
@@ -76,7 +76,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
-- **Life acts in one place: Apple Reminders**, through `act`, on his clear request or the standing grant. Asks are his
+- **Life acts in one place: one actions backend per install** (Apple Reminders or Google Tasks, the `actions`
+  setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
+  never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections, and acts only through `reminders`, `task` and `reply`.** Never add a
@@ -98,12 +100,13 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Settings are one strict file, read once per process** (`src/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
-- **Reminders is an interface, never the truth; the ledger is.** Changes read back from Reminders can take authority
+- **The actions backend is an interface, never the truth; the ledger is.** Changes read back from it can take authority
   away or reorder, never add it. Open items are derived (`openItems`), never stored (`docs/tasks.md`).
 - **Nightly emails include every row.** Never cap a list or write "+N more" (`docs/operations.md`, "The nightly
   report").
-- **Everything Life shows follows the Ledger brand** (emails, `/check`, `/me`, the app, the icon), its values
-  copied from the `ledger-brand` skill's tokens; a brand change lands there first (`docs/architecture.md`).
+- **Everything Life shows follows Life's own brand** (`docs/brand.md`): one source, `assets/brand/tokens.css`, which
+  wins over any global brand skill for Life. A brand change lands there first; the email and the app copy it
+  (`src/brand.test.ts` checks).
 
 ## One way to do each thing
 
@@ -123,9 +126,14 @@ Before adding a helper, use the one that exists:
 | A unit's words | `raw.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |
 | Running another program | `src/proc.ts` |
+| A path written with `/` (an export's manifest, git, tests) | `slashed` (`src/platform.ts`); the checkout's files: `repoFiles` (`src/proc.ts`) |
+| His Reminders or Google Tasks | the backend (`backend()`, `src/actions/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`src/memory/run.ts`) |
-| Writing a secret file | `writeSecret` or `secretIn` (mode 600, which keeps it out of exports) |
+| Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
+| Whether an output is on, and why not | `isOn`, `off` (`src/outputs.ts`), never a setting read for the switch |
+| A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
+| Anything that differs between macOS and Windows | `src/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
 Only `guard.ts`'s schedules and the status plate's waking hours (`waking`, `plate.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts

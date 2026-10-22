@@ -7,19 +7,20 @@ import {
   rmdirSync,
   rmSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
-import { STORES } from "./archive";
+import { dirname, join } from "node:path";
 import {
   FORMAT,
   headOf,
   linesIn,
   type Manifest,
+  pathIn,
   rowsIn,
   sha256Of,
 } from "./export";
 import { isEmpty } from "./init";
 import { SETTINGS } from "./settings";
 import { ARCHIVE, archiveDb } from "./sources/archived";
+import { ARCHIVED } from "./sources/index";
 import { storeFiles } from "./sources/lifelog";
 import { DATA, STATE } from "./truth";
 
@@ -71,7 +72,7 @@ async function refusal(m: Manifest, to: Install) {
   }
   const listed = new Map(m.files.map((f) => [f.path, f.sha256]));
   const marks = [SETTINGS, ...Object.values(storeFiles())].map((p) =>
-    relative(STATE, p)
+    pathIn(STATE, p)
   );
   for (const p of marks) {
     const at = join(to.state, p);
@@ -82,7 +83,7 @@ async function refusal(m: Manifest, to: Install) {
       );
     }
   }
-  const there = STORES.some((s) => existsSync(archiveDb(s.name, to.archive)));
+  const there = ARCHIVED.some((s) => existsSync(archiveDb(s.name, to.archive)));
   if (!(there || isEmpty(to.archive))) {
     throw new Error(
       `${to.archive} holds files but no store: nothing was changed`

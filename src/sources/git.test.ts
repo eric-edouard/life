@@ -110,4 +110,4 @@ test("worktrees fold into their main repo; other authors count only in mapped re
       .sort();
   expect(text([])).toEqual(["branch", "mine"]);
   expect(text(["photo-app"])).toEqual(["branch", "mine", "theirs"]);
-});
+}, 20_000); // a dozen git runs: seconds on Windows, where a process starts slowly

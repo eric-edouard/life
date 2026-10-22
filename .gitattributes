@@ -1,0 +1,2 @@
+# One line ending everywhere: the formatter and the tests read LF, Windows checkouts included.
+* text=auto eol=lf

@@ -1,6 +1,7 @@
 # Platforms and modules plan: Life (22 Oct 2026)
 
-What it takes for Life to run on Windows and on Better-T-Stack, and the modules rework that comes first. Life only:
+The modules rework (phase 0, done), the move to Better-T-Stack (phase 1), and Windows, parked on 22 Oct ("scope out
+Windows for now"): what exists for it and what a restart would need are at the end. Life only:
 lifelog is one of Life's inputs and has its own report (its phone apps, the Android MVP, its desktop host, and
 transcription). Line numbers are from `main` at 3baf0e6. The long-form scope report is
 https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a real Windows 11 machine.
@@ -15,12 +16,11 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | Database | None: the memory stays files and JSONL in its git repo; `index.sqlite` stays raw `bun:sqlite` |
 | Auth | Life's own OAuth issuer (`src/oauth.ts`) |
 | Add-ons | Turborepo, Biome with Ultracite, Skills; the hand-written `.githooks` stay |
-| Desktop | SwiftUI on the Mac (Life.app as it is); a WinUI 3 tray on Windows, which lifelog's host joins. All logic stays in the helper |
-| Mail on Windows | Gmail through `gog` |
-| Actions on Windows | Off |
-| iMessage from iPhone backups | Not now |
-| Windows signing | Unsigned builds first; the signing step is wired so an Authenticode certificate drops in |
-| Verification | GitHub Actions' Windows runner: build, tests, a headless night with zero sources, the connector answering |
+| Desktop | SwiftUI on the Mac (Life.app as it is). No Windows UI: a Windows Life, when it comes back, is a headless host |
+| Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`) |
+| Windows | Parked (22 Oct). The seams built for it stay (below) |
+| Verification | No GitHub Actions (no build in CI). The pre-push hook's `bun run check` is the gate |
+| Sessions | Phase 0 here; phase 1 in a session of its own, briefed from this doc. lifelog's phases have their own sessions and report |
 
 The scaffold command, checked with `--dry-run`:
 
@@ -36,14 +36,14 @@ in its PR: no second path left alive.
 ### Inputs
 
 The contract exists: the source descriptor (`Descriptor`, `src/sources/index.ts:67`). Memory steps already branch on
-`kind`, never on a name. What is missing:
+`kind`, never on a name. What it needed:
 
-- **The archive is a capability, not a second list.** `STORES` (`archive.ts:368`) repeats each archived source's name
-  and app, joined back by name (`keptStores`, `:394`), a third time in `archived(...)` (`index.ts:64`) and a fourth in
-  `archived.ts:33,89`. The descriptor gets `store` (`app`, `copy`, `copies`, `media`); `STORES`, `keptStores` and the
-  `missing` of archived sources derive from `SOURCES`.
-- **Voice by kind, not by name.** `gather` (`units.ts:690,738`), `syncLifelogUnits` (`:793,808`), the plate
-  (`plate.ts:458`, `plate-detail.ts:41`) and `schema.ts:265` say `"lifelog"`; they say `kind: "voice"`.
+- **The archive is a capability, not a second list** (done, #147). An archived source's descriptor carries its
+  `store` (`app`, `copy`, `copies`, `media`), and each source copies its own store beside its reader; `ARCHIVED`,
+  `keptStores` and the `missing` of archived sources derive from `SOURCES`.
+- **Voice is a REST contract, not a second kind of reader.** The voice input is lifelog's REST API (below), and
+  `src/sources/lifelog.ts` is its one client. Another voice source would speak the same API rather than add a reader.
+  Its units keep the source name `lifelog`: unit ids are stored in memory, and renaming them needs a map.
 - **The platform says what it lacks.** A source whose store does not exist on this OS reports it through `missing()`
   (the platform module below), so `init`, the plate and `readySources` need nothing new.
 
@@ -61,24 +61,21 @@ with Life; lifelog's report owns how it is met.
 
 ### Outputs
 
-Today each output has its own switch and shape: `reminders` (a boolean), `past` (an object plus `LIFE_EVENTKIT`),
-`mail` (whose absence swaps email for a notification), `connector`, `agent.transport`, `backup`, `lifelog` (for
-`forward`). The only thing they share is `unfrozen`. `act` does not check the Reminders switch itself (`actions.ts:86`),
-so the CLI (`cli.ts:33`) and the connector (`mcp.ts:418`) each check it again.
-
-The contract, in one registry `OUTPUTS`: each output has a `name`, a `label`, `on()` (read from settings) and
-`missing()` (what keeps it from working now). Its own code stays its own; the registry is what `init`, the plate,
-the CLI and the connector ask. `act` checks `on()` itself and the two extra checks go. The outputs: Reminders, the Past
-calendar, the report (email or a local page), the connector, the ask event, the backup, the voice corrections.
+Done (#148). Each output had its own switch and shape, and `act` did not check the Reminders switch itself, so with
+Reminders off it recorded an intent and emailed a failure. Now `OUTPUTS` (`src/outputs.ts`) holds the outputs he can
+turn on or off (Reminders, the Past calendar, the connector, the backup), each with its label and its switch: `isOn`
+asks it, `off` says why one does nothing, the plate's cards take their names and "off" from it, and `act` refuses
+before recording. Each output's own module does the work and reads the rest of its settings. The report is not a
+switch: it always goes, by email with a `mail` setting, else as a local page. The agent's asks follow `agent`; the
+voice corrections follow the voice input.
 
 ### Model providers
 
-`llm.ts` already dispatches through one table (`RUNNERS`, `:683`), but the rest is spread: model tables per engine
-(`:49`, `:56`, `:119`), the effort table shared across vendors (`CODEX_EFFORT` for `anthropic`, `:136`), the quota
-deciding again whether the engine is Codex (`:476`). The contract, one entry per provider in one registry: its models
-per tier (`fast`, `main`, `deep`), its effort, whether it may use tools, `ask`, and `quota` when it has one; the binary
-path and the environment it runs with come from the platform module. Providers: `claude` (CLI), `codex` (CLI),
-`anthropic` and `openai` (API keys), `openrouter` (the bench only).
+Done (#149). `PROVIDERS` in `llm.ts` has one entry per provider: `claude` and `codex` (his subscriptions' CLIs),
+`anthropic` and `openai` (API keys), `openrouter` (the bench only). Each holds its models by tier (`fast`, `main`,
+`deep`; OpenRouter's come from `LIFE_LLM`), its effort, its call, whether it may run tools, and its quota when it has
+one. `llmFor`, the tools rule and the quota read it. Still to move, to the platform module: Codex's binary path
+and home, and the CLIs' environment.
 
 ### Transcription providers
 
@@ -91,16 +88,15 @@ Thai), and the same audio is never transcribed twice. Life depends only on the v
 
 ### The platform module
 
-Every OS difference in one module, one table per OS, so Windows is a second table and not a branch in nine files:
-
-- paths: the `MAC` root (`truth.ts:40`, `%LOCALAPPDATA%\Life` on Windows), the app stores (`archived.ts:17,21`,
-  `notes.ts:14`, `mail.ts:10`, `contacts.ts:11`, `imessage.ts:10`);
-- tools: Tailscale (`tailscale.ts:13`), remctl (`remctl.ts:13`), Codex's binary (`llm.ts:61`, darwin-arm64 only today,
-  also wrong on Intel Macs);
-- the model CLIs' environment (`llm.ts:216`: Windows needs `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `SystemRoot`,
-  `TEMP`, `PATHEXT`);
-- the host's state for the plate (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open
-  (`archive.ts:437`), the notification (`report.ts:429`), the time zone (`zones.ts:84`, `Intl` on both).
+Done (#153): `src/platform.ts` holds every difference between macOS and Windows: `MACHINE` (Life's folder per computer,
+`%LOCALAPPDATA%\Life` on Windows; it was `MAC`), `APP_DATA` (where Beeper keeps its store), Codex's binary for this
+system and architecture, the model CLIs' environment, the system time zone (`Intl` on Windows) and the notification
+(none on Windows). A source whose store exists only on the Mac (iMessage, WhatsApp's own app, Mail,
+Notes) is `macOnly` and reads "macOS only" elsewhere. Left for a Windows restart (below): the plate's host
+state (`mac.ts`: `launchctl`, `pmset`, `sysctl`, `df`), keeping store apps open (`archive.ts`: `ps`, `open`), the
+Cloudflare tunnel's restart (`tunnel.ts`), the Contacts reader (`contacts.ts`: no address book on Windows), Tailscale's
+binary (`tailscale.ts`: falls back to `tailscale` on PATH), the archive alert's log path (`report.ts`), remctl's path
+(`remctl.ts`: Reminders is Mac-only; Windows acts through Google Tasks) and the checkout's LaunchAgents (`scripts/install.ts`).
 
 ### Secrets by place
 
@@ -109,13 +105,13 @@ so an export there would carry the secrets. The secret files are named in one li
 agent's subscription, the OAuth issuer's state); `writeSecret` and `secretIn` write only those, and the export leaves
 out exactly those.
 
-### CI
+### Verification
 
-A GitHub Actions job runs `bun run check`'s tests on macOS and Windows. Until it exists, nothing in this plan is
-verified off the Mac.
+No GitHub Actions: the pre-push hook runs `bun run check` on the Mac. The check's Windows fixes (#151) came from a few
+runs on GitHub's Windows runner before the workflow was removed.
 
-**Done when** the four contracts hold today's code with nothing left on the old paths, `bun run check` passes on the
-Mac, the Windows job runs, and the change is net zero or fewer lines.
+**Done** (#147–#153, #155, #156, #151): the four contracts hold today's code with nothing left on the old paths, and
+`bun run check` passes on the Mac.
 
 ## Phase 1: Better-T-Stack
 
@@ -124,27 +120,35 @@ follows), and delete what the skeleton replaces. Every route moves to Hono in th
 issuer, `/check`, `/me`, the status reads. **Done when** `bun run check` passes, the connector, `/check` and the
 status reads answer as before, Life.app builds and runs from the new layout, and no route is left on `Bun.serve`.
 
-## Phase 3: headless Windows Life
+## Actions behind the outputs contract
 
-What runs on Windows: Beeper (with WhatsApp through its bridge) and its archive, Gmail through `gog` (a new mail input),
-git, imported assistant chats, the agent's tasks; the nightly; the connector over Tailscale Funnel; Codex or Claude;
-restic to a OneDrive folder; the Past calendar through `gog`. Actions off. Set up by a script with Task Scheduler until
-the tray exists. What cannot run there: iMessage, Apple Notes, Apple Mail, Apple Reminders, the Mac's Contacts.
+The invariant "Life acts in one place: Apple Reminders" becomes "Life acts in one actions backend per install: Apple
+Reminders (remctl) or Google Tasks (`gog`)". The ledger stays the truth (`actions.jsonl`, `openItems`); a backend is
+only how a change is written and read back. One contract for both: list its lists, read the open and recently closed
+items, add, edit, complete, reopen, delete and restore an item, and the board's list. What one backend lacks (Reminders'
+sections and urgent flag, Google Tasks' none) the contract says by capability, never by the backend's name. The
+`reminders` setting becomes the actions output's backend choice (done: `actions` in settings, `src/actions/`). The
+connector's tools keep their names and arguments (a reconnect is costly) until phase 1, which in one batch (one
+reconnect) lets `reminders`'s `target` take a string id (widened at `idOf`, `src/actions/backend.ts`) and changes the
+descriptions from "Reminders" to "actions". Until then, on Google Tasks `act` can only add.
 
-**Done when**, on the Windows runner: the helper compiles for `bun-windows-x64`, the tests pass, a headless night with
-zero sources ends clean, and the connector answers a sign-in-free probe. **Hand checks on a Windows 11 machine:**
-Beeper's `index.db` at `%APPDATA%\BeeperTexts` opens read-only while Beeper runs; a night with Beeper writes moments;
-Tailscale Funnel serves the connector; Gmail through `gog` signs in.
+## Windows: parked
 
-## Phase 4: the WinUI 3 tray
+The owner scoped Windows out on 22 Oct, after deciding it would be a headless host only (no Windows UI: the WinUI 3 tray
+of #154 was removed). What exists and stays, as clean seams:
 
-A Windows tray app reading the helper's JSON status and editing settings through it, as Life.app does: H.NotifyIcon,
-app notifications, Credential Manager, unpackaged and self-contained. Built so lifelog's host joins it (its own
-section, its own helper), coordinated with lifelog's session. WinSparkle reads the same appcast as Sparkle. The signing
-step takes an Authenticode certificate when there is one. **Done when** the CI builds the tray; a hand check on
-Windows 11 installs it, sees the status and survives a restart.
+- `src/platform.ts`: `MACHINE` under `%LOCALAPPDATA%\Life`, `APP_DATA`, Codex's win32 binary, the model CLIs'
+  environment, the time zone; `macOnly` sources (iMessage, Mail) never read there; WhatsApp and Notes read from an
+  archive copied on a Mac, never copied there.
+- The check's Windows fixes (#151): exports with `/` paths, every store in an archive on any system, ICU-proof dates.
+- Google Tasks as an actions backend (#155), add-only until phase 1 widens the connector's `target`.
 
-## Hand steps left to the owner
-
-- A Windows 11 machine (or VM) for the hand checks above.
-- An Authenticode certificate, when Life goes to friends on Windows.
+What a restart needs, as a headless host: services started by a setup script and Task Scheduler (or a Windows
+service), secrets in Credential Manager or `.env`, setup and status through the CLI, the connector over Tailscale
+Funnel; Gmail through `gog` as a mail input; Beeper (with WhatsApp through its bridge) and its archive; the helper
+compiled for `bun-windows-x64`; the Mac-only spots listed under the platform module through `platform.ts`. Hand checks
+on a Windows 11 PC (over SSH through Tailscale, key `~/.ssh/life_windows` on his Mac): `bun run check` there (four tests
+ran past 5 s on GitHub's runner: brand's colour scan and three Notes tests), Beeper's
+`%APPDATA%\BeeperTexts\index.db` read-only while Beeper runs, a headless night with zero sources, the connector
+answering, Gmail signing in, Google Tasks' real JSON against the hand-written fixture. What cannot run there: iMessage,
+Apple Notes and Mail (except an archive copied on a Mac), Apple Reminders, the Mac's Contacts.

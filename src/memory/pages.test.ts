@@ -92,4 +92,4 @@ test("what changed is counted against the last commit, so a midday rewrite shows
   expect(() => changedSinceCommit(lone, lone)).toThrow();
   await rm(lone, { recursive: true });
   await rm(root, { recursive: true });
-});
+}, 20_000); // two dozen git runs: seconds on Windows, where a process starts slowly

@@ -2,6 +2,8 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Item } from "./actions/backend";
+import { planOf } from "./actions/board";
 import { recentEvents } from "./log";
 import { action } from "./memory/fixtures";
 import {
@@ -11,8 +13,6 @@ import {
   type Task,
   tasksOf,
 } from "./memory/ledger";
-import { planOf } from "./reminders/board";
-import type { Reminder } from "./reminders/remctl";
 import { Action, AGENT_WORD } from "./schema";
 import {
   alerts,
@@ -276,9 +276,9 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
   }
 });
 
-const look = (over: Partial<Reminder> = {}): Reminder => ({
+const look = (over: Partial<Item> = {}): Item => ({
   completed: false,
-  id: 1,
+  id: "1",
   notes: "",
   section: "",
   title: "Orbit: Book visits",
@@ -305,14 +305,16 @@ test("the board gets Life's fields: notes and section in line, a tick when done;
   expect(want.notes).toContain("searching");
   const blank = look({ notes: want.notes, section: "Open" });
   expect(planOf(want, blank)).toEqual({
-    done: [],
-    flags: ["--private", "--section=Working"],
+    done: false,
+    fields: { section: "Working" },
   });
+  // Where the backend has no sections (Google Tasks), the notes alone carry the task's state.
+  expect(planOf(want, blank, false)).toEqual({ done: false, fields: {} });
   const kept = look({ notes: want.notes, section: "Working" });
-  expect(planOf(want, kept)).toEqual({ done: [], flags: [] });
-  expect(planOf(want, { ...kept, completed: true }).done).toEqual([]);
+  expect(planOf(want, kept)).toEqual({ done: false, fields: {} });
+  expect(planOf(want, { ...kept, completed: true }).done).toBe(false);
   const done = task([own("update", 5, { outcome: "booked", state: "done" })]);
-  expect(planOf(wantOf(done), kept).done).toEqual([1]);
+  expect(planOf(wantOf(done), kept).done).toBe(true);
   // An old steer line changes nothing: no "You:" line.
   const steered = working([own("steer", 7, { changes: {}, note: "his" })]);
   expect(wantOf(steered)).toEqual(want);

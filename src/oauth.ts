@@ -1,6 +1,5 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -12,20 +11,15 @@ import {
 import { z } from "zod";
 import { SCOPE } from "./auth";
 import { clock } from "./clock";
-import { HEADERS, text } from "./http";
-import { same, writeSecret } from "./secret";
+import { HEADERS, TOKENS, text } from "./http";
+import { SECRETS, same, writeSecret } from "./secret";
 import { PAGES_CLIENT, OWNER_SUB as SUB } from "./settings";
-import { STATE } from "./truth";
 
 // Life's own sign-in for one owner, when no other OAuth server issues its tokens (the `connector` setting has no
 // `issuer`): the endpoints ChatGPT and Claude look for, under `<origin>/auth`. An app is approved by a pairing code
 // shown on the Mac (`bun life pair`, the app's menu later): whoever holds the Mac approves. PKCE is required, an
 // authorization code serves once, a refresh token is replaced each time it is used, and every token is for this one
 // resource and owner.
-
-/** Life's own sign-in: its key, the apps and their tokens. A secret: never exported. */
-export const OAUTH = join(STATE, "oauth");
-const FILE = join(OAUTH, "state.json");
 
 const ACCESS_S = 3600;
 const CODE_MS = 60_000;
@@ -60,12 +54,12 @@ const Stored = z.object({
 type Stored = z.infer<typeof Stored>;
 
 const read = (): Stored =>
-  existsSync(FILE)
-    ? Stored.parse(JSON.parse(readFileSync(FILE, "utf8")))
+  existsSync(SECRETS.oauth)
+    ? Stored.parse(JSON.parse(readFileSync(SECRETS.oauth, "utf8")))
     : { clients: {}, refresh: {} };
 /** Changes the state as it is on disk now (read and written with nothing awaited between), for its owner only. */
 function update(change: (s: Stored) => Stored) {
-  writeSecret(FILE, `${JSON.stringify(change(read()), null, 2)}\n`);
+  writeSecret("oauth", `${JSON.stringify(change(read()), null, 2)}\n`);
 }
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const allowed = (uri: string) => REDIRECTS.some((r) => r.test(uri));
@@ -189,8 +183,9 @@ const Authorize = z.object({
   state: z.string().optional(),
 });
 
-/** The approval page's look: Ledger's paper, serif and mono (its CSP takes no inline style). */
-const CSS = `body{font:17px/1.55 "Source Serif 4",Georgia,serif;max-width:30rem;margin:4rem auto;padding:0 16px;background:#f7f7f5;color:#1b1d1f}h1{font-size:1.6rem;font-weight:600;margin:0 0 .5rem}input[name=pairing]{font:1.4rem "IBM Plex Mono",Menlo,monospace;letter-spacing:.2em;width:8em;padding:6px 8px;border:1px solid #e1e2de;border-radius:5px}button{font:600 15px Georgia,serif;padding:8px 14px;border-radius:5px;border:1px solid #1b1d1f;background:#1b1d1f;color:#fff}.bad{color:#c4382c}code,.host{font-family:"IBM Plex Mono",Menlo,monospace;font-size:.86em}`;
+/** The approval page's look, in Life's brand (its CSP takes no inline style). */
+const CSS = `${TOKENS}
+body{font:16px/1.55 var(--serif);max-width:30rem;margin:4rem auto;padding:0 16px;background:var(--white);color:var(--ink)}h1{font-size:36px;line-height:1.1;font-weight:600;margin:0 0 .5rem}input[name=pairing]{font:1.4rem var(--mono);letter-spacing:.2em;width:8em;padding:8px 12px;color:inherit;background:var(--surface);border:1px solid var(--rule);border-radius:var(--control-radius)}button{font:600 15px var(--serif);padding:11px 22px;border-radius:var(--control-radius);border:1px solid var(--ink);background:var(--ink);color:var(--white)}.bad::before{content:"● ";color:var(--error)}code,.host{font-family:var(--mono);font-size:.86em}`;
 const page = (body: string) =>
   new Response(
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Life</title><link rel="stylesheet" href="/auth/page.css"><body>${body}</body>`,

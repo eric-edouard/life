@@ -3,26 +3,26 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  appsToOpen,
-  archiveFailing,
-  archiveOnce,
-  keptStores,
-  openIncidents,
-} from "./archive";
+import { appsToOpen, archiveFailing, openIncidents } from "./archive";
 import { log } from "./log";
 import { archiveLine } from "./memory/nightly";
+import { WINDOWS } from "./platform";
 import { toAppleS } from "./sources/imessage";
+import { ARCHIVED, keptStores } from "./sources/index";
+import { copyWhatsapp } from "./sources/whatsapp";
 
 test("the archive opens each closed app, but not again within 10 minutes", () => {
   const now = Date.now();
-  expect(appsToOpen(["Notes", "Finder"], now, new Map())).toEqual([
+  expect(appsToOpen(["Notes", "Finder"], now, new Map(), ARCHIVED)).toEqual([
     "WhatsApp",
     "Beeper Desktop",
   ]);
   const opened = new Map([["WhatsApp", now - 60_000]]);
-  expect(appsToOpen([], now, opened)).toEqual(["Beeper Desktop", "Notes"]);
-  expect(appsToOpen([], now + 540_000, opened)).toEqual([
+  expect(appsToOpen([], now, opened, ARCHIVED)).toEqual([
+    "Beeper Desktop",
+    "Notes",
+  ]);
+  expect(appsToOpen([], now + 540_000, opened, ARCHIVED)).toEqual([
     "WhatsApp",
     "Beeper Desktop",
     "Notes",
@@ -77,7 +77,7 @@ test("a message deleted for everyone keeps its text and media in the archive", (
   mkdirSync(join(source, "Message/Media"), { recursive: true });
   writeFileSync(join(source, "Message/Media/a.jpg"), "photo");
 
-  expect(archiveOnce(source, dir, now)).toBe(1);
+  expect(copyWhatsapp(source, dir, now)).toBe(1);
   // Delete for everyone: WhatsApp removes the original and adds a placeholder with a new id at the same time.
   wa.run("delete from ZWAMESSAGE");
   wa.run("delete from ZWAMEDIAITEM");
@@ -85,8 +85,8 @@ test("a message deleted for everyone keeps its text and media in the archive", (
     "insert into ZWAMESSAGE values (2, 'S2', 14, 0, ?, null, null, 1, null, '66@s.whatsapp.net', null)",
     [date]
   );
-  expect(archiveOnce(source, dir, now + 5000)).toBe(1);
-  expect(archiveOnce(source, dir, now + 10_000)).toBe(0);
+  expect(copyWhatsapp(source, dir, now + 5000)).toBe(1);
+  expect(copyWhatsapp(source, dir, now + 10_000)).toBe(0);
 
   const deleted = new Database(join(dir, "whatsapp.sqlite"))
     .query<{ chatName: string; media: string; text: string }, []>(
@@ -100,11 +100,15 @@ test("a message deleted for everyone keeps its text and media in the archive", (
 });
 
 test("only the stores of the sources he turned on are copied and kept open", () => {
-  expect(keptStores(["notes", "imessage"]).map((s) => s.name)).toEqual([
-    "notes",
-  ]);
+  expect(keptStores(["notes", "imessage"]).map((s) => s.name)).toEqual(
+    WINDOWS ? [] : ["notes"]
+  );
+  // A Mac-only app is never opened elsewhere; the others are.
+  expect(keptStores(["beeper", "notes"]).map((s) => s.name)).toEqual(
+    WINDOWS ? ["beeper"] : ["beeper", "notes"]
+  );
   expect(keptStores([])).toEqual([]);
-  expect(appsToOpen([], 1e12, new Map(), keptStores(["whatsapp"]))).toEqual([
-    "WhatsApp",
+  expect(appsToOpen([], 1e12, new Map(), keptStores(["beeper"]))).toEqual([
+    "Beeper Desktop",
   ]);
 });

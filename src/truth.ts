@@ -34,12 +34,6 @@ export const DATA = real(
 );
 
 /**
- * Life's folder on this Mac, shared by every install on it (the checkout's and the app's): the archive, Codex's home,
- * the backup's staging and the services' locks (`hold`, guard.ts).
- */
-export const MAC = join(homedir(), "Library/Application Support/Life");
-
-/**
  * Life's own state, never his: its settings, log, the watcher's store, the runs and the search index. A checkout keeps
  * it in its own derived/ (each worktree apart from production); the app sets `LIFE_STATE`. A test run keeps it in its
  * copy of the data.

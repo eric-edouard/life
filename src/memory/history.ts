@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { z } from "zod";
-import { keptStores, lastCopied } from "../archive";
+import { lastCopied } from "../archive";
 import { clock } from "../clock";
 import { polling, readHealth } from "../health";
 import { add, NONE, type Quota, type Tokens } from "../llm";
@@ -11,7 +11,7 @@ import {
   logEvents,
   recentEvents,
 } from "../log";
-import { listening } from "../sources/index";
+import { keptStores, listening } from "../sources/index";
 import { decode, encode, PAGE } from "./feed";
 import {
   lockedSince,

@@ -8,7 +8,8 @@ import {
 import { uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { clock } from "./clock";
-import { MAC, real, STATE, TEST } from "./truth";
+import { MACHINE } from "./platform";
+import { real, STATE } from "./truth";
 
 // Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, guard.ts)
 // and the services' (`hold`): one Life per Mac.
@@ -51,7 +52,7 @@ export function take(path: string, note?: string, retry = true): boolean {
 
 type Service = "archive" | "watch";
 /** A service's lock: one per Mac, so two installs never run the same service at once (two archivers, two watchers). */
-const serviceLock = (name: Service) => join(TEST ? STATE : MAC, `${name}.lock`);
+const serviceLock = (name: Service) => join(MACHINE, `${name}.lock`);
 
 /** Who runs a service now: its pid, since when, and the state root it runs on as its note; null when none does. */
 export const holder = (name: Service) => held(serviceLock(name));

@@ -1,14 +1,13 @@
 import { Database } from "bun:sqlite";
 import { existsSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { log } from "../log";
-import { TEST } from "../truth";
+import { APP_DATA } from "../platform";
 
 // His Contacts: the Mac's AddressBook databases, opened read-only, never written. They name the people behind the
 // phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a number.
 
-const DIR = join(homedir(), "Library", "Application Support", "AddressBook");
+const DIR = join(APP_DATA, "AddressBook");
 const FILE = "AddressBook-v22.abcddb";
 /**
  * Digits a phone is known by: its national number, with or without a country code. A national number shorter than
@@ -88,7 +87,3 @@ export function readContacts(dir = DIR) {
   }
   return names;
 }
-
-/** His Contacts as they are now (a few ms); none under `bun test`: tests never read his data. */
-export const contacts = () =>
-  TEST ? new Map<string, string>() : readContacts();

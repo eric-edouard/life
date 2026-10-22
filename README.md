@@ -7,8 +7,8 @@
 Ask Claude or ChatGPT about your own life. Life answers from your messages, mail, notes and, if you want, your voice,
 and cites where each answer comes from.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-1b1d1f.svg)](LICENSE)
-![macOS 14+ on Apple silicon](https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20silicon-1b1d1f.svg)
+[![License: MIT](https://img.shields.io/badge/license-MIT-181818.svg)](LICENSE)
+![macOS 14+ on Apple silicon](https://img.shields.io/badge/macOS-14%2B%20·%20Apple%20silicon-181818.svg)
 
 </div>
 
@@ -131,6 +131,8 @@ whatever access its own app gives it. [SECURITY.md](SECURITY.md) has the threat 
 vulnerability.
 
 ## Docs
+
+What comes next: the [roadmap](docs/roadmap.md).
 
 Use Life:
 

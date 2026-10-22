@@ -60,31 +60,51 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   reached Life" when the agent made no successful `day` call in 24 h (`reviewed`, `nightly.ts`): the agent's daily
   review must keep reading `day`.
 
-## Actions: Apple Reminders
+## Actions: one backend
 
-- **Life's code acts in one place only, on the owner's clear request in a Claude session or a chat: Apple Reminders**
-  (add, edit, done, undone, remove to Recently Deleted, restore), through `act` (`src/actions.ts`). `act` is the only
-  code that decides an action. It records its intent before each write and its outcome after.
+- **Life's code acts in one place only, on the owner's clear request in a Claude session or a chat: his items in one
+  actions backend per install**, Apple Reminders (remctl) or Google Tasks (`gog`): add, edit, done, undone, remove,
+  restore, through `act` (`src/actions/act.ts`). `act` is the only code that decides an action. It records its intent
+  before each write and its outcome after.
 - When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
-  `src/actions.ts`), never `remctl` directly: it logs what changed, from what, and why.
-- `act` refuses an add whose title an open reminder has (`duplicateOf`), for every caller. A timed `due` always alerts
+  `src/actions/act.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
+- `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time. `act` refuses the agent's list (`BOARD`): that list is the board, below.
-- `src/reminders/` is the only code that touches Reminders (through `remctl`), one job per module: `remctl.ts` the
-  calls and the lists, `write.ts` the changes `act` decided, `board.ts` the board, `inbound.ts` the owner's changes
-  read back.
-- **Reminders is a plugin**, input and output, on only with the `reminders` setting (`remindersOn`). Off: `remctl`
-  refuses every call, the minute pass skips it, the connector offers no `reminders` or `open_reminders` tool, `act`
-  refuses, and the rest of Life runs the same. The board, the read-back, the grant and the playbook's Reminders parts
-  exist only while it is on. Settings are read once per process: turning it on or off takes a restart of the watcher.
-- Its backend is `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by remctl's own
-  installer from the app. While Reminders is on and remctl is behind the pin, the app offers the update again (Apple
-  silicon only). Its answers as Life reads them are `src/reminders/answers.json` (tested): re-check them when moving
-  the pin. Delete the folder and Life still works from the ledger.
+- **One contract, `ActionsBackend`** (`src/actions/backend.ts`): his lists (not groups) and whether one is shared, a
+  list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
+  `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
+  Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `changes`). `idOf` is the one place
+  the connector's numeric `target` becomes an id (and `open_reminders` gives a numeric id back as a number). The
+  ledger's items are keyed by their whole target, and the read-back and `duplicateOf` see only the current backend's:
+  after a switch, the other backend's items are never read, marked lost or matched.
+- **On Google Tasks, `act` can only add until phase 1**: its ids are strings and the connector's `target` takes a
+  number. In phase 1 (the Hono move) `target` takes a string id too, and in the same batch (one reconnect) the tools'
+  descriptions say "actions" where they say "Reminders".
+- **What a backend lacks is a capability (`can`), never a branch on its name**: `act` refuses a change that needs one
+  (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, moves, restore, subtasks,
+  recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
+  and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
+  restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
+- `src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `backend.ts` the
+  contract, the choice and the writes, `remctl.ts` and `google.ts` the two backends, `board.ts` the board,
+  `inbound.ts` the owner's changes read back.
+- **The actions output** is on only with the `actions` setting, which names the backend: `{"backend": "reminders"}` or
+  `{"backend": "google", "account": "<his Google account>"}` (`isOn("actions")`). Off: `backend()`, the one gate, refuses every
+  call, the minute pass skips it, the connector offers no `reminders` or `open_reminders` tool, `act` refuses, and the
+  rest of Life runs the same. The board, the read-back, the grant and the playbook's Reminders parts exist only while
+  it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's
+  tools keep their names and arguments whatever the backend (a change forces a costly reconnect).
+- Reminders goes through `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by
+  remctl's own installer from the app; while Reminders is the backend and remctl is behind the pin, the app offers the
+  update again (Apple silicon only). Google Tasks goes through `gog tasks … --json` as the setting's account. Their
+  answers as Life reads them are `src/actions/remctl.json` (recorded; re-check them when moving the pin) and
+  `src/actions/gog.json` (written from the Tasks API's resources, never run against an account). Without a backend
+  Life still works from the ledger.
 - Nothing Life hears or reads makes it act by itself.
 
-### Reading Reminders back
+### Reading the backend back
 
-The owner's changes in Reminders (tick, untick, edit, priority, urgent, add, delete) come back through `inbound.ts`
+The owner's changes in the backend (tick, untick, edit, priority, urgent, add, delete) come back through `inbound.ts`
 each minute as state only: one `madeBy: "reminders"` line each, with no `instruction` (they are not the owner's quoted words).
 
 - They may close, reopen, reschedule, re-rank, rename, drop or add an item, and nothing else (no ask, send, approval
@@ -106,13 +126,13 @@ it, within a minute. `open_reminders` alone reads Reminders, for the sections th
 ### The board
 
 The agent's Reminders list (`BOARD`, named after the agent) is a projection of the ledger, the owner's receipt
-(`wantOf` in `src/tasks.ts`, written by `push` in `src/reminders/board.ts` each minute). It writes no ledger line and
+(`wantOf` in `src/tasks.ts`, written by `push` in `src/actions/board.ts` each minute). It writes no ledger line and
 never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
   dropped (`closings`), so it is not added again. The agent sees why in `tasks`. Nothing else on the board is read as
   coming from the owner: steers read from it once put words in the owner's mouth.
-- An item is found by the task id on its notes' first line. Each pass brings its notes and section (Open, Working:
+- An item is found by the task id on its notes' first line. Each pass brings its notes and, where the backend has sections, its section (Open, Working:
   made by hand; the code only assigns them) in line, and ticks the item when its task closes, and only then, so a
   ticked receipt of an open task is always the owner's.
 - It never alerts: what needs the owner is emailed (`chase`).
@@ -177,8 +197,10 @@ grant, and logs the agent's replies.
 
 ## The only sends
 
-What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). How the
-report and the alerts go out:
+What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
+Life can turn on or off (Reminders, the Past calendar, the connector, the backup) is an entry in `OUTPUTS`
+(`src/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
+reads the rest of its settings. How the report and the alerts go out:
 
 - To the owner only (`src/memory/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `STATE/reports`. Either way the log's `email.sent`

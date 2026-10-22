@@ -139,8 +139,5 @@ All are served by the watcher's server, and none serves anything of the owner's 
   password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with
   the password, failed tries capped.
 
-Everything Life shows follows one brand, Ledger (emails, `/check`, `/me`, the app, the icon): the values are copied into
-`C` in `src/memory/email.ts`, `assets/check/check.css`, `src/portrait.ts`, `Ledger` in
-`app/Sources/LifeApp/Ledger.swift` (with a dark variant of each, at the owner's word: the app follows the Mac's
-appearance) and `assets/icon/`. The icon is a bold italic L: `assets/icon/icon.svg` holds its one outline (`#l`), which
-`app.svg` (the app icon) and `menubar.svg` (a template image) reuse; `scripts/app.ts` renders them into the bundle.
+Everything Life shows follows Life's brand, one source in `assets/brand/tokens.css`: where each surface takes it is
+`docs/brand.md`.

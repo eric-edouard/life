@@ -1,4 +1,5 @@
 import { closeSync, existsSync, openSync } from "node:fs";
+import { WINDOWS } from "../platform";
 import {
   AGENT_WORD,
   type Person,
@@ -14,7 +15,7 @@ import {
   newestAssistant,
   readAssistant,
 } from "./assistants";
-import { newestBeeper, readBeeper } from "./beeper";
+import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
   DB,
@@ -25,8 +26,9 @@ import {
 } from "./imessage";
 import { lifelogMissing } from "./lifelog";
 import { mailRoot, newestMail, readMail } from "./mail";
-import { newestNote, readNotes } from "./notes";
+import { copyNotes, newestNote, readNotes } from "./notes";
 import {
+  copyWhatsapp,
   isWhatsappGroup,
   newestWhatsapp,
   phoneOf,
@@ -60,9 +62,17 @@ function unreadable(path: string, why: string) {
   }
 }
 export const FULL_DISK = "Full Disk Access for Life";
-/** An archived app's store: there once the archive has copied it (`archive.ts`). */
-const archived = (name: string, app: string) => () =>
-  unreadable(archiveDb(name), `${app} not archived yet`);
+/**
+ * An app's own store the archive copies (`archive.ts`), because the app wipes what is deleted. `app` writes it and is
+ * kept running: closed, it receives nothing. `copy` copies what is new and says how many versions; `copies` is the
+ * table each copy is a row of, `media` the column of its `deleted` view that names a copied file.
+ */
+export interface AppStore {
+  app: string;
+  copies: string;
+  copy: () => number;
+  media: string;
+}
 
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */
@@ -75,8 +85,15 @@ export type Descriptor = {
   missing?: () => string | undefined;
   /** Imported once: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
+  /**
+   * Its app exists only on the Mac (`platform.ts`): elsewhere it is never read, or, with a `store`, read from the
+   * archive's copy and never copied.
+   */
+  macOnly?: true;
   /** What he calls it. */
   label: string;
+  /** The app store the archive keeps a copy of; its units are read from that copy. */
+  store?: AppStore;
   name: SourceName;
   /** Its newest item (the status plate's card); a voice source's is lifelog's to tell. */
   newest?: () => Newest | Promise<Newest>;
@@ -107,7 +124,7 @@ export type Descriptor = {
  * Every source, in the order units are cut (`gather` cuts lifelog's from the watcher's store first, then each other
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
-export const SOURCES: Descriptor[] = [
+const LISTED: Descriptor[] = [
   // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, plate.ts).
   {
     kind: "voice",
@@ -122,6 +139,7 @@ export const SOURCES: Descriptor[] = [
     handleOf,
     kind: "chat",
     label: "iMessage",
+    macOnly: true,
     missing: () => unreadable(DB, FULL_DISK),
     name: "imessage",
     newest: newestImessage,
@@ -135,27 +153,39 @@ export const SOURCES: Descriptor[] = [
     handleOf: phoneOf,
     kind: "chat",
     label: "WhatsApp",
-    missing: archived("whatsapp", "WhatsApp"),
+    macOnly: true,
     name: "whatsapp",
     newest: newestWhatsapp,
     read: readWhatsapp,
     searchDays: 90,
     silentAfter: 24 * HOUR,
+    store: {
+      app: "WhatsApp",
+      copies: "messages",
+      copy: copyWhatsapp,
+      media: "media",
+    },
   },
   {
     chatDays: 7,
     kind: "chat",
     label: "Beeper",
-    missing: archived("beeper", "Beeper"),
     name: "beeper",
     newest: newestBeeper,
     read: readBeeper,
     searchDays: 90,
     silentAfter: 72 * HOUR,
+    store: {
+      app: "Beeper Desktop",
+      copies: "messages",
+      copy: copyBeeper,
+      media: "''",
+    },
   },
   {
     kind: "mail",
     label: "Mail",
+    macOnly: true,
     missing: () => {
       try {
         mailRoot();
@@ -172,7 +202,7 @@ export const SOURCES: Descriptor[] = [
   {
     kind: "notes",
     label: "Notes",
-    missing: archived("notes", "Notes"),
+    macOnly: true,
     name: "notes",
     newest: newestNote,
     read: readNotes,
@@ -180,6 +210,12 @@ export const SOURCES: Descriptor[] = [
     // text in index.sqlite if that grows slow.
     searchDays: Number.POSITIVE_INFINITY,
     silentAfter: 7 * 24 * HOUR,
+    store: {
+      app: "Notes",
+      copies: "versions",
+      copy: copyNotes,
+      media: "''",
+    },
   },
   // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never
   // amber; its newest is his newest imported message. ponytail: search reads every pruned message (the export parsed once per process,
@@ -217,9 +253,38 @@ export const SOURCES: Descriptor[] = [
   },
 ];
 
+/** Whether its app is on this system: a Mac-only one only on the Mac. */
+const appHere = (s: Descriptor) => !(s.macOnly && WINDOWS);
+
+export const SOURCES = LISTED.map((s): Descriptor => {
+  if (!(s.store || appHere(s))) {
+    return { ...s, missing: () => "macOS only" };
+  }
+  // An archived source is there once the archive has copied its store.
+  return s.store
+    ? {
+        ...s,
+        missing: () =>
+          unreadable(archiveDb(s.name), `${s.label} not archived yet`),
+      }
+    : s;
+});
+
 /** The sources he turned on (the `sources` setting), in cut order: no other is read, searched or shown. */
-export const enabledSources = (all = SOURCES, on = settings().sources) =>
-  all.filter((s) => on.includes(s.name));
+export const enabledSources = <T extends Descriptor>(
+  all: T[] = SOURCES as T[],
+  on = settings().sources
+) => all.filter((s) => on.includes(s.name));
+
+export type Archived = Descriptor & { store: AppStore };
+/**
+ * The sources whose app store an archive holds, on any system: an export carries them all, and an archive moved from
+ * the Mac keeps its deleted messages.
+ */
+export const ARCHIVED = SOURCES.filter((s): s is Archived => Boolean(s.store));
+/** The archived sources he turned on that this system copies: no other app is opened, and a Mac-only one only on the Mac. */
+export const keptStores = (on = settings().sources) =>
+  enabledSources(ARCHIVED, on).filter(appHere);
 
 /**
  * The sources he turned on that can be read now. One that can't (`missing`: not set up, or its access gone) is left out,

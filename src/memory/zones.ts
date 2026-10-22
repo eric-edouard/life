@@ -1,5 +1,6 @@
-import { readlinkSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { clock } from "../clock";
+import { systemZone } from "../platform";
 import { Zone } from "../schema";
 import { appendJsonl, rowsOf, ZONES } from "./ledger";
 
@@ -79,10 +80,6 @@ export function cutAt(now: Date, was: string, tz: string) {
   return dayStart(next.toISOString().slice(0, 10), ahead);
 }
 
-/** The Mac's own time zone (the system's, whatever TZ the process runs with). */
-export const macZone = () =>
-  readlinkSync("/etc/localtime").split("zoneinfo/")[1];
-
 /**
  * Records the Mac's zone (the system's, whatever TZ the process runs with) when it is not the last one recorded:
  * launchd's tick calls it, every 30 minutes, holding the lock. What happened before it was noticed keeps its zone.
@@ -90,7 +87,7 @@ export const macZone = () =>
  * (his phone's, or lifelog's stays).
  */
 export async function noteZone(now = clock()) {
-  const tz = macZone();
+  const tz = systemZone();
   const was = zones().at(-1)?.tz;
   if (tz && was && tz !== was) {
     const from = cutAt(now, was, tz).toISOString();
@@ -101,13 +98,17 @@ export async function noteZone(now = clock()) {
 /** The local calendar day of an instant: where he was then, whatever zone the Mac is in now. */
 export const localDate = (iso: string) => wall(iso).day;
 
+// Spelled out here, not by Intl: ICU versions differ ("Sep" or "Sept"), and Life says a date the same everywhere.
+const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+
 /** "2026-10-15" -> "15 Oct" and "Thursday". */
 export function when(day: string) {
   const d = new Date(`${day}T12:00:00Z`);
-  const f = (o: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", ...o }).format(d);
   return {
-    date: `${f({ day: "numeric" })} ${f({ month: "short" })}`,
-    weekday: f({ weekday: "long" }),
+    date: `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`,
+    weekday: new Intl.DateTimeFormat("en-GB", {
+      timeZone: "UTC",
+      weekday: "long",
+    }).format(d),
   };
 }

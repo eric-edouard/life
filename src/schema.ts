@@ -150,13 +150,13 @@ export const Action = z
       ...REMINDER_KINDS,
       "ask",
       "grant",
-      // A reminder Life links without a change: the first sync's baseline, or fields it learns (src/reminders/inbound.ts).
+      // A reminder Life links without a change: the first sync's baseline, or fields it learns (src/actions/inbound.ts).
       "import",
       "instinct",
       ...TASK_LINES,
     ]),
     // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
-    // "reminders": his own change read back from Reminders (src/reminders/inbound.ts), state only, never his words.
+    // "reminders": his own change read back from Reminders (src/actions/inbound.ts), state only, never his words.
     madeBy: z.union([
       MadeBy,
       z.enum(["connector", "reminders", "session", "watch"]),
@@ -164,7 +164,7 @@ export const Action = z
     // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).
     result: z.enum(["ok", "failed", "duplicate", "intent"]),
     schemaVersion: z.literal(1),
-    // "reminder:<numericId>", "reminder:new" (a failed add), `AGENT_WORD` (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
+    // "<prefix>:<id>" (an item of the actions backend: "reminder:<numericId>", "gtask:<list>/<task>"), "<prefix>:new" (a failed add), `AGENT_WORD` (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
     // An ask heard in his speech: where the time went (spoke = instruction.at, recorded = at). `ended`: his last turn of
     // it ended; `arrived`: lifelog's feed had brought all of it. Until 19 Oct, a heard request's `heard`, `modelMs`, `actMs`.
@@ -186,7 +186,7 @@ export type Instruction = NonNullable<Action["instruction"]>;
 /** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: Action) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
-/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (src/reminders/inbound.ts). */
+/** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (src/actions/inbound.ts). */
 export const isBookkeeping = (a: Action) =>
   a.result === "intent" || a.kind === "import";
 /** What the day's and the nightly's Actions list: neither a task's own line nor bookkeeping. */

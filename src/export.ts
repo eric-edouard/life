@@ -11,13 +11,15 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, isAbsolute, join, relative } from "node:path";
-import { STORES } from "./archive";
 import { clock } from "./clock";
 import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
 import { INDEX } from "./memory/search";
+import { slashed } from "./platform";
 import { execOk } from "./proc";
+import { SECRETS } from "./secret";
 import { ARCHIVE, archiveDb } from "./sources/archived";
+import { ARCHIVED } from "./sources/index";
 import { storeFiles, WATCH } from "./sources/lifelog";
 import { DATA, ROOT, STATE } from "./truth";
 
@@ -28,17 +30,23 @@ import { DATA, ROOT, STATE } from "./truth";
 
 export const FORMAT = 1;
 
-/** In Life's state but never exported: rebuilt (the index), and the watcher's store (copied whole on its own). */
-const KEPT_OUT = [WATCH, INDEX].map((p) => relative(STATE, p));
-/** A secret is a file only its owner may read (`writeSecret`, `secretIn` write them so): never exported. */
-const secret = (path: string) => statSync(path).mode % 0o100 === 0; // no group or other bits
+/** `p`'s path inside `dir` as an export names it: always with `/`, so an export made on one OS imports on another. */
+export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
+
+/**
+ * In Life's state but never exported: rebuilt (the index), the watcher's store (copied whole on its own), and the
+ * secrets.
+ */
+const KEPT_OUT = [WATCH, INDEX, ...Object.values(SECRETS)].map((p) =>
+  pathIn(STATE, p)
+);
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
 export const filesUnder = (dir: string) =>
-  (readdirSync(dir, { recursive: true }) as string[]).filter((p) =>
-    lstatSync(join(dir, p)).isFile()
-  );
+  (readdirSync(dir, { recursive: true }) as string[])
+    .filter((p) => lstatSync(join(dir, p)).isFile())
+    .map(slashed);
 
 /** A file's sha256, read as a stream. */
 export async function sha256Of(path: string) {
@@ -132,7 +140,7 @@ function leftOut() {
     keychain:
       "every item of the service Life (the app keeps its secrets there)",
     secrets:
-      "every file only its owner reads (Life's sign-in, the agent's subscription, the app's key): apps pair again and the agent subscribes again, unless they are copied by hand",
+      "the secret files (SECRETS: Life's sign-in, the agent's subscription, the app's key): apps pair again and the agent subscribes again, unless they are copied by hand",
   };
 }
 
@@ -163,8 +171,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   for (const p of filesUnder(join(dir, "state"))) {
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
-      KEPT_OUT_END.some((e) => p.endsWith(e)) ||
-      secret(join(dir, "state", p))
+      KEPT_OUT_END.some((e) => p.endsWith(e))
     ) {
       rmSync(join(dir, "state", p), { force: true });
     }
@@ -178,7 +185,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   if (existsSync(file)) {
     await copyDb(file, join(watch, basename(file)));
   }
-  for (const db of STORES.map((s) => archiveDb(s.name, archive)).filter(
+  for (const db of ARCHIVED.map((s) => archiveDb(s.name, archive)).filter(
     existsSync
   )) {
     // biome-ignore lint/performance/noAwaitInLoops: one copy at a time

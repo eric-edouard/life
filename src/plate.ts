@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { archiveFailing, keptStores } from "./archive";
-import { backupOld, backupOn, backupSize, readBackup } from "./backup";
+import { checks } from "./actions/backend";
+import { archiveFailing } from "./archive";
+import { backupOld, backupSize, readBackup } from "./backup";
 import { clock } from "./clock";
 import { agentLive, clientName, deliveryState, isAgent } from "./events";
 import { readHealth } from "./health";
@@ -23,14 +24,15 @@ import {
 } from "./memory/ledger";
 import { reportKey } from "./memory/report";
 import { clip } from "./memory/units";
+import { isOn, OUTPUTS } from "./outputs";
 import { git } from "./proc";
-import { checks, remindersOn } from "./reminders/remctl";
 import { isBookkeeping, REMINDER_KINDS } from "./schema";
 import { agentName, settings } from "./settings";
 import { readContacts } from "./sources/contacts";
 import {
   type Descriptor,
   enabledSources,
+  keptStores,
   listening,
   type Newest,
 } from "./sources/index";
@@ -301,7 +303,7 @@ async function reads(now: Date) {
     sleepList,
     swept,
     actions,
-    remctl,
+    actionChecks,
     newest,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
@@ -328,7 +330,7 @@ async function reads(now: Date) {
       })
     ),
     cached("actions", 15_000, readActions),
-    cached("remctl", 60_000, checks),
+    cached("actionChecks", 60_000, checks),
     newestOf(),
   ]);
   const of = (kind: string, days: number) =>
@@ -339,6 +341,7 @@ async function reads(now: Date) {
     );
   const mcp = of("mcp.call", 2);
   return {
+    actionChecks,
     actions,
     agentLive: await agentLive(t, async () => mcp as Call[]),
     contacts,
@@ -354,7 +357,6 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
-    remctl,
     sent: of("email.sent", 2),
     sleepList,
     status,
@@ -624,9 +626,10 @@ function captureCards(r: Reads): Card[] {
       group: "capture",
       headline: `${calls.length} calls today`,
       id: "connector",
-      name: "Connector",
-      tone: "ok",
-      word: "serving",
+      name: OUTPUTS.connector.label,
+      ...(isOn("connector")
+        ? { tone: "ok", word: "serving" }
+        : { tone: "idle", word: "off" }),
     },
     {
       ...(tunnel?.running
@@ -779,7 +782,7 @@ function backupCard(r: Reads): Card {
   const old = backupOld(r.now, b);
   return {
     ...firstOf(
-      [!backupOn(), { tone: "idle", word: "off" }],
+      [!isOn("backup"), { tone: "idle", word: "off" }],
       [
         !!b?.error,
         { ask: ASK("the backup failing"), tone: "bad", word: "failed" },
@@ -796,7 +799,7 @@ function backupCard(r: Reads): Card {
     group: "pipeline",
     headline: old ? "over 48 h old, last" : "snapshot kept",
     id: "backup",
-    name: "Backup",
+    name: OUTPUTS.backup.label,
   };
 }
 
@@ -856,9 +859,12 @@ function pipelineCards(r: Reads): Card[] {
       group: "pipeline",
       headline: n ? `${n} events in 2 days` : "nothing written in 2 days",
       id: "past",
-      name: "Past calendar",
-      tone: n ? "ok" : "idle",
-      word: n ? "syncing" : "quiet",
+      name: OUTPUTS.past.label,
+      ...firstOf(
+        [!isOn("past"), { tone: "idle", word: "off" }],
+        [n > 0, { tone: "ok", word: "syncing" }],
+        [true, { tone: "idle", word: "quiet" }]
+      ),
     },
   ];
 }
@@ -1012,11 +1018,11 @@ function outputCards(r: Reads): Card[] {
     },
     {
       ...firstOf(
-        [!remindersOn(), { tone: "idle", word: "off" }],
+        [!isOn("actions"), { tone: "idle", word: "off" }],
         [
-          r.remctl.length > 0,
+          r.actionChecks.length > 0,
           {
-            ask: ASK("that Life can't reach Reminders"),
+            ask: ASK("that Life can't reach its actions backend"),
             tone: "bad",
             word: "unreachable",
           },
@@ -1025,7 +1031,7 @@ function outputCards(r: Reads): Card[] {
         [true, { tone: "ok", word: "ready" }]
       ),
       content: [
-        ...r.remctl,
+        ...r.actionChecks,
         ...acts
           .slice(-5)
           .map(
@@ -1041,7 +1047,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${acts.length} actions today`,
       id: "reminders",
-      name: "Reminders",
+      name: OUTPUTS.actions.label,
     },
     {
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),

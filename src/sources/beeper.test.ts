@@ -3,9 +3,8 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { archiveBeeperOnce } from "../archive";
 import { showFiles } from "../memory/files";
-import { newestBeeper, readBeeper } from "./beeper";
+import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
 import { beeperFixture } from "./fixtures";
 
 test("an attachment is a file the archive keeps, at Beeper's cached copy when it fetched one, even once deleted", () => {
@@ -29,7 +28,7 @@ test("an attachment is a file the archive keeps, at Beeper's cached copy when it
       mimeType: "video/mp4",
     },
   ]);
-  expect(archiveBeeperOnce(source, dir, now)).toBe(4);
+  expect(copyBeeper(source, dir, now)).toBe(4);
   const read = (d: Date) => readBeeper(d, dir, source);
   const since = new Date(now - 3_600_000);
   expect(read(since).map((e) => e.files)).toEqual([
@@ -58,11 +57,11 @@ test("an attachment is a file the archive keeps, at Beeper's cached copy when it
   index.run(
     'update mx_room_messages set message = \'{"attachments":[{"fileName":"edited.jpg","id":"x"}],"text":""}\' where id = 1'
   );
-  expect(archiveBeeperOnce(source, dir, now + 2500)).toBe(1);
+  expect(copyBeeper(source, dir, now + 2500)).toBe(1);
   index.run(
     'update mx_room_messages set isDeleted = 1, message = \'{"attachments":[],"text":""}\' where id = 1'
   );
-  archiveBeeperOnce(source, dir, now + 5000);
+  copyBeeper(source, dir, now + 5000);
   index.close();
   rmSync(join(source, "index.db"));
   const [photo] = showFiles(read(since), new Map());
@@ -78,7 +77,7 @@ test("the archive keeps the text of Beeper messages deleted or edited later, wit
   add(2, "!tg", "TEXT", "meet at 9");
   add(3, "!tg", "REACTION", "👍");
   add(4, "!wa", "TEXT", "read from WhatsApp's own archive");
-  expect(archiveBeeperOnce(source, dir, now)).toBe(2);
+  expect(copyBeeper(source, dir, now)).toBe(2);
   // Message 1 is deleted for everyone: its text is wiped. Message 2 is edited.
   index.run(
     'update mx_room_messages set isDeleted = 1, message = \'{"text":""}\' where id = 1'
@@ -86,8 +85,8 @@ test("the archive keeps the text of Beeper messages deleted or edited later, wit
   index.run(
     'update mx_room_messages set message = \'{"text":"meet at 10"}\' where id = 2'
   );
-  expect(archiveBeeperOnce(source, dir, now + 5000)).toBe(2);
-  expect(archiveBeeperOnce(source, dir, now + 10_000)).toBe(0);
+  expect(copyBeeper(source, dir, now + 5000)).toBe(2);
+  expect(copyBeeper(source, dir, now + 10_000)).toBe(0);
 
   const events = readBeeper(new Date(now - 3_600_000), dir, source);
   expect(events.map((e) => e.text).sort()).toEqual([
@@ -122,6 +121,7 @@ test("each network's newest message is that row whole, never another row's words
   add.run("line", "2026-10-21T10:00:00.000Z", "Bo", "newest on line");
   add.run("line", "2026-10-19T10:00:00.000Z", "Cy", "older");
   add.run("telegram", "2026-10-21T12:00:00.000Z", "Di", "newest overall");
+  add.finalize(); // an open statement keeps the file open, and Windows refuses to remove it
   db.close();
   expect(newestBeeper(dir)).toEqual({
     at: "2026-10-21T12:00:00.000Z",

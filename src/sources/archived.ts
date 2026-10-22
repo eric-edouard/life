@@ -1,27 +1,17 @@
-import { Database } from "bun:sqlite";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { MACHINE } from "../platform";
 import type { SourceEvent, SourceFile } from "../schema";
-import { MAC } from "../truth";
 import type { Newest } from "./index";
 
-// Reading Life's archive (src/archive.ts), opened read-only: WhatsApp and Beeper's chats, a message deleted for everyone
-// with the text the archive kept, an edited one by its latest text; each version of a note as what it changed.
+// Life's archive (src/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and Beeper's
+// chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
+// of a note as what it changed.
 
-export const ARCHIVE = join(MAC, "archive");
+export const ARCHIVE = join(MACHINE, "archive");
 
-// The apps' own stores the archive copies from (WhatsApp's and Beeper's), opened read-only.
-export const WHATSAPP = join(
-  homedir(),
-  "Library/Group Containers/group.net.whatsapp.WhatsApp.shared"
-);
-export const BEEPER = join(
-  homedir(),
-  "Library/Application Support/BeeperTexts"
-);
-
-/** One archive store's database (`STORES` names them). */
+/** One archive store's database (an archived source's name). */
 export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);
 
@@ -30,7 +20,7 @@ export const archiveDb = (name: string, dir = ARCHIVE) =>
  * for a store with parts, a `label`.
  */
 export function newestArchived(
-  name: "beeper" | "notes" | "whatsapp",
+  name: SourceEvent["source"],
   sql: string,
   dir = ARCHIVE
 ): Newest {
@@ -86,7 +76,7 @@ export interface Row {
  * sender the archive holds into a handle (a phone when known); `more` gives a row's files (and a text of its own).
  */
 export function readArchived<R extends Row>(
-  source: "beeper" | "notes" | "whatsapp",
+  source: SourceEvent["source"],
   sql: string,
   since: Date,
   archive: string,
@@ -118,4 +108,29 @@ export function readArchived<R extends Row>(
   } finally {
     db.close();
   }
+}
+
+/** An archive store in `dir`, its tables created and its `deleted` view made again by `schema`. */
+export function openArchive(dir: string, name: string, schema: string) {
+  mkdirSync(dir, { recursive: true });
+  const db = new Database(archiveDb(name, dir));
+  db.run("pragma journal_mode = wal");
+  db.run(schema);
+  return db;
+}
+
+/** Inserts each row's values in one transaction (an `insert or ignore` skips versions already archived); how many were new. */
+export function insertAll(
+  db: Database,
+  sql: string,
+  rows: SQLQueryBindings[][]
+) {
+  const insert = db.prepare(sql);
+  let added = 0;
+  db.transaction(() => {
+    for (const values of rows) {
+      added += insert.run(...values).changes;
+    }
+  })();
+  return added;
 }

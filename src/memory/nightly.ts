@@ -1,9 +1,5 @@
-import {
-  ARCHIVE_LOOKBACK,
-  archiveFailing,
-  keptStores,
-  openIncidents,
-} from "../archive";
+import { checks } from "../actions/backend";
+import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "../archive";
 import { backup, backupLine } from "../backup";
 import { clock } from "../clock";
 import { isReviewCall } from "../events";
@@ -11,13 +7,13 @@ import { readHealth } from "../health";
 import { type Quota, quota } from "../llm";
 import { holder, isOtherLife } from "../lock";
 import { type Call, log, recentEvents } from "../log";
-import { checks } from "../reminders/remctl";
 import {
   type Action,
   type Extracted,
   isListed,
   type Observation,
 } from "../schema";
+import { keptStores } from "../sources/index";
 import { taskList, titleOf, unanswered } from "../tasks";
 import { closeness, pagedNow } from "./closeness";
 import { extract } from "./extract";

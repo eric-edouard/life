@@ -7,10 +7,11 @@ import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { log } from "./log";
+import { CODEX, MACHINE, MODEL_ENV } from "./platform";
 import { exec, firstLine } from "./proc";
 import { type Engine, Runner } from "./schema";
 import { settings } from "./settings";
-import { DATA, isHis, MAC, ROOT } from "./truth";
+import { DATA, isHis, ROOT } from "./truth";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
 const MODEL_TIMEOUT_MS = 20 * 60_000;
@@ -51,21 +52,22 @@ const CLAUDE_MODELS: Record<Tier, string> = {
   fast: "haiku",
   main: "sonnet",
 };
-// Same model as lifelog. Older codex clients reject it, and this Mac has several (an nvm global, a broken
-// /usr/local one, the app's bundled one), so Life runs the version pinned in package.json, natively (launchd has no node).
-const CODEX_MODEL = "gpt-6.1-sol";
-/** The same model, through OpenAI's API with his key. */
-const OPENAI_MODEL = CODEX_MODEL;
-/** The pinned codex, under Life's files (the app's helper ships it there: scripts/helper.ts). */
-export const CODEX =
-  "node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex";
+// Same model as lifelog, through Codex or OpenAI's API alike. Older codex clients reject it, and this Mac has several (an
+// nvm global, a broken /usr/local one, the app's bundled one), so Life runs the version pinned in package.json, natively
+// (launchd has no node).
+const SOL: Record<Tier, string> = {
+  deep: "gpt-6.1-sol",
+  fast: "gpt-6.1-sol",
+  main: "gpt-6.1-sol",
+};
 const CODEX_BIN = join(ROOT, CODEX);
 // Codex always loads AGENTS.md from its home, and no flag turns that off, so Life has its own home with a login of
 // its own (`CODEX_HOME=<this> codex login --device-auth`, once) and no instruction files. The repo's own AGENTS.md is
 // kept out by running in an empty temp folder and `project_doc_max_bytes=0`; `skills.include_instructions=false` drops
 // the skills catalog.
-const CODEX_HOME = join(MAC, "codex");
-const CODEX_EFFORT: Record<Tier, string> = {
+const CODEX_HOME = join(MACHINE, "codex");
+/** The reasoning effort by tier, for every provider that takes one. */
+const EFFORT: Record<Tier, string> = {
   deep: "high",
   fast: "low",
   main: "medium",
@@ -124,24 +126,10 @@ const ANTHROPIC_MODELS: Record<Tier, string> = {
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
 export function llmFor(tier: Tier, engine = readEngine()): Llm {
-  const set = llmOverride();
-  if (set) {
-    return set;
-  }
-  switch (engine) {
-    case "claude":
-      return { engine, model: CLAUDE_MODELS[tier] };
-    case "anthropic":
-      return {
-        effort: CODEX_EFFORT[tier],
-        engine,
-        model: ANTHROPIC_MODELS[tier],
-      };
-    case "openai":
-      return { effort: CODEX_EFFORT[tier], engine, model: OPENAI_MODEL };
-    default:
-      return { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
-  }
+  const p = PROVIDERS[engine];
+  return (
+    llmOverride() ?? { effort: p.effort?.[tier], engine, model: p.models[tier] }
+  );
 }
 
 /** Recorded on everything a model made; the engine stays out of the cache key, so switching engines re-runs nothing. */
@@ -212,10 +200,6 @@ const toml = (s: string) => JSON.stringify(s).replaceAll("\u007f", "");
 
 const promptText = (prompt: string) =>
   Bun.file(join(ROOT, "prompts", `${prompt}.md`)).text();
-
-const MODEL_ENV = "HOME LANG LC_ALL LOGNAME PATH SHELL TERM TMPDIR USER".split(
-  " "
-);
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
 const modelEnv = (extra: Record<string, string> = {}) => ({
@@ -466,22 +450,14 @@ export function quotaOf(reply = ""): Quota | undefined {
 
 /**
  * His Codex plan's usage, read from Codex's app-server (no model call, no quota spent) and logged, unread too, so the
- * last line is the last reading: undefined when this process's calls don't go to Codex, Codex doesn't answer, or the
+ * last line is the last reading: undefined when this process's calls (on `engine`, his setting unless a bench says) don't go to Codex, Codex doesn't answer, or the
  * engine setting is corrupt (the night's own calls fail on it, loudly). Never throws.
  */
-export async function quota() {
+export async function quota(engine?: Engine) {
   let q: Quota | undefined;
   try {
-    if (llmFor("main").engine === "codex") {
-      q = quotaOf(
-        await firstLine(
-          [CODEX_BIN, "app-server"],
-          READ_LIMITS,
-          (l) => JSON.parse(l).id === 2,
-          { env: modelEnv({ CODEX_HOME }), timeout: 15_000 }
-        )
-      );
-    }
+    q =
+      await PROVIDERS[llmFor("main", engine ?? readEngine()).engine].quota?.();
   } catch {
     // Unread.
   }
@@ -680,12 +656,46 @@ async function askOpenAI({ dir, images, input, llm, system }: Call) {
   };
 }
 
-const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
-  anthropic: askAnthropic,
-  claude: askClaude,
-  codex: askCodex,
-  openai: askOpenAI,
-  openrouter: askOpenRouter,
+/** His Codex plan's usage, from Codex's app-server. */
+const codexQuota = async () =>
+  quotaOf(
+    await firstLine(
+      [CODEX_BIN, "app-server"],
+      READ_LIMITS,
+      (l) => JSON.parse(l).id === 2,
+      { env: modelEnv({ CODEX_HOME }), timeout: 15_000 }
+    )
+  );
+
+/**
+ * Every model provider, one entry each: its models by tier (OpenRouter's come from `LIFE_LLM` alone), its effort, its
+ * call, whether it may run tools (his subscriptions only), and how full its quota is when it has one.
+ */
+interface Provider {
+  ask: (call: Call) => Promise<Answer>;
+  effort?: Record<Tier, string>;
+  models?: Record<Tier, string>;
+  quota?: () => Promise<Quota | undefined>;
+  tools: boolean;
+}
+const PROVIDERS: Record<Engine, Provider & { models: Record<Tier, string> }> &
+  Record<"openrouter", Provider> = {
+  anthropic: {
+    ask: askAnthropic,
+    effort: EFFORT,
+    models: ANTHROPIC_MODELS,
+    tools: false,
+  },
+  claude: { ask: askClaude, models: CLAUDE_MODELS, tools: true },
+  codex: {
+    ask: askCodex,
+    effort: EFFORT,
+    models: SOL,
+    quota: codexQuota,
+    tools: true,
+  },
+  openai: { ask: askOpenAI, effort: EFFORT, models: SOL, tools: false },
+  openrouter: { ask: askOpenRouter, tools: false },
 };
 
 /**
@@ -708,8 +718,10 @@ export async function askOnce(opts: {
   run: string;
 }) {
   const { dir, llm } = opts;
-  if (opts.tools && llm.engine !== "claude" && llm.engine !== "codex") {
-    throw new Error("tools run on his subscriptions only (claude or codex)");
+  if (opts.tools && !PROVIDERS[llm.engine].tools) {
+    throw new Error(
+      `${llm.engine} runs no tools: tools run on his subscriptions only`
+    );
   }
   const context =
     opts.context === undefined
@@ -723,7 +735,7 @@ export async function askOnce(opts: {
   const ms = () => Math.round(performance.now() - started);
   let fields: Answer["fields"];
   try {
-    const answer = await RUNNERS[llm.engine]({
+    const answer = await PROVIDERS[llm.engine].ask({
       dir,
       images: opts.images ?? [],
       input: opts.input,

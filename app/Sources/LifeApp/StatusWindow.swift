@@ -15,8 +15,7 @@ struct StatusWindow: View {
 
   var body: some View {
     ZStack {
-      RadialGradient(colors: [Ledger.glow, Ledger.page], center: .init(x: 0.15, y: -0.1), startRadius: 0, endRadius: 900)
-        .ignoresSafeArea()
+      Brand.page.ignoresSafeArea()
       if let plate = supervisor.plate {
         overview(plate)
           .blur(radius: opened == nil ? 0 : 8)
@@ -31,10 +30,10 @@ struct StatusWindow: View {
           .zIndex(1)
         }
       } else {
-        Text("Not answering").font(Ledger.serif(18)).foregroundStyle(Ledger.muted)
+        Text("Not answering").font(Brand.serif(18)).foregroundStyle(Brand.muted)
       }
     }
-    .foregroundStyle(Ledger.ink)
+    .foregroundStyle(Brand.ink)
     .frame(minWidth: 1100, minHeight: 760)
     .animation(.smooth, value: supervisor.plate)
     .onExitCommand(perform: close)
@@ -57,8 +56,8 @@ struct StatusWindow: View {
         if !plate.troubled.isEmpty {
           Pill(tone: plate.troubleTone, word: "\(plate.troubled.count) to look at")
         }
-        Toggle("Show content", isOn: $showContent).toggleStyle(.checkbox).font(Ledger.serif(12.5))
-          .foregroundStyle(Ledger.muted)
+        Toggle("Show content", isOn: $showContent).toggleStyle(.checkbox).font(Brand.serif(12.5))
+          .foregroundStyle(Brand.muted)
         Pill(tone: .ok, word: plate.observedAt.formatted(date: .omitted, time: .standard))
       }
       .padding(.top, 12)
@@ -67,7 +66,7 @@ struct StatusWindow: View {
       VStack(alignment: .leading, spacing: 10) {
         Text(plate.observedAt, format: .dateTime.weekday(.wide).day().month(.wide))
           .label()
-        Text("Life").font(Ledger.serif(46, .semibold)).kerning(-0.6)
+        Wordmark(height: 45)
       }
       .padding(.horizontal, 44)
       .padding(.top, 18)
@@ -99,7 +98,7 @@ struct StatusWindow: View {
       HStack {
         Text(group.name).label()
         Spacer()
-        Text(cards.count, format: .number).font(Ledger.mono(10.5)).foregroundStyle(Ledger.muted)
+        Text(cards.count, format: .number).font(Brand.mono(10.5)).foregroundStyle(Brand.muted)
       }
       .padding(.bottom, 4)
       ForEach(visible) { card in
@@ -118,8 +117,8 @@ struct StatusWindow: View {
           }
         }
         .buttonStyle(.plain)
-        .font(Ledger.mono(11))
-        .foregroundStyle(Ledger.muted)
+        .font(Brand.mono(11))
+        .foregroundStyle(Brand.muted)
       }
     }
     .frame(maxWidth: .infinity, alignment: .top)
@@ -134,17 +133,17 @@ struct StatusWindow: View {
         } label: {
           HStack(spacing: 6) {
             Circle().fill(card.tone.color).frame(width: 7, height: 7)
-            Text(card.name).foregroundStyle(Ledger.ink)
-            Text(card.word).foregroundStyle(Ledger.muted)
+            Text(card.name).foregroundStyle(Brand.ink)
+            Text(card.word).foregroundStyle(Brand.muted)
           }
-          .font(Ledger.serif(12.5))
+          .font(Brand.serif(12.5))
         }
         .buttonStyle(.plain)
       }
       Spacer()
     }
     .padding(.top, 14)
-    .overlay(alignment: .top) { Rectangle().fill(Ledger.line).frame(height: 1) }
+    .overlay(alignment: .top) { Rectangle().fill(Brand.rule).frame(height: 1) }
     .padding(.horizontal, 44)
     .padding(.bottom, 22)
   }

@@ -1,8 +1,17 @@
 import { expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
+import { WINDOWS } from "../platform";
 import { AGENT_WORD, Unit } from "../schema";
-import { type Descriptor, enabledSources, readySources, SOURCES } from ".";
+import {
+  type Descriptor,
+  enabledSources,
+  readySources,
+  SOURCES,
+  sourceOf,
+} from ".";
+import { archiveDb } from "./archived";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);
@@ -101,4 +110,15 @@ test("only the sources he turned on are read, and one not set up yet is left out
   expect(enabledSources([ready, notYet], ["imessage"])).toEqual([notYet]);
   // A fresh install turns nothing on: nothing is read, and nothing fails.
   expect(enabledSources(SOURCES, [])).toEqual([]);
+});
+
+test("an archived source can't be read until the archive copied its store; others keep their own reason", () => {
+  expect(existsSync(archiveDb("beeper"))).toBe(false);
+  expect(sourceOf("beeper").missing?.()).toBe("Beeper not archived yet");
+  expect(sourceOf("mail").missing?.()).not.toBe("Mail not archived yet");
+  // A Mac-only app's archived copy is read on any system; one with no copy says it is the Mac's.
+  expect(sourceOf("notes").missing?.()).toBe("Notes not archived yet");
+  for (const name of ["imessage", "mail"] as const) {
+    expect(sourceOf(name).missing?.() === "macOS only").toBe(WINDOWS);
+  }
 });

@@ -29,10 +29,10 @@ struct LifeApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @Environment(\.openWindow) private var openWindow
   private var supervisor: Supervisor { delegate.supervisor }
-  /// Life's L for the menu bar (`menubar.pdf`, from assets/icon/menubar.svg by `scripts/app.ts`): a template image,
+  /// Life's L for the menu bar (`life-l.pdf`, from assets/brand/life-l.svg by `scripts/app.ts`): a template image,
   /// so macOS paints it for a light or a dark bar.
   private static let mark: NSImage = {
-    let image = NSImage(named: "menubar")!
+    let image = NSImage(named: "life-l")!
     image.isTemplate = true
     return image
   }()
@@ -65,7 +65,7 @@ struct LifeApp: App {
       if let status = supervisor.info?.status {
         StatusWindow(supervisor: supervisor, status: status)
       } else {
-        Text("Not answering").font(Ledger.serif(18)).foregroundStyle(Ledger.muted).padding(40)
+        Text("Not answering").font(Brand.serif(18)).foregroundStyle(Brand.muted).padding(40)
       }
     }
     .windowStyle(.hiddenTitleBar)
@@ -100,6 +100,7 @@ struct SettingsView: View {
 
   private var started: Bool { supervisor.info?.started == true }
   private var sources: [Source] { supervisor.info?.sources ?? [] }
+  private var keyName: String { engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY" }
 
   var body: some View {
     Form {
@@ -114,7 +115,7 @@ struct SettingsView: View {
           Button("Import an export…") { Task { await importExport() } }
             .disabled(installing)
           Text("A folder made by Export everything…, on this Mac or another: checked, then counted again.")
-            .font(.caption).foregroundStyle(.secondary)
+            .caption()
         }
       } else {
         Section("Thinking") {
@@ -124,6 +125,8 @@ struct SettingsView: View {
             Text("Anthropic API key").tag("anthropic")
             Text("OpenAI API key").tag("openai")
           }
+          // Each key under its own name: a switch shows the new engine's, never carries the old one over.
+          .onChange(of: engine) { _, _ in key = Keychain.read(keyName) ?? "" }
           if engine == "anthropic" || engine == "openai" {
             SecureField("API key", text: $key)
           }
@@ -134,7 +137,7 @@ struct SettingsView: View {
               VStack(alignment: .leading) {
                 Text(s.label)
                 if s.on, let why = s.missing {
-                  Text(why).font(.caption).foregroundStyle(.secondary)
+                  Text(why).caption()
                 }
               }
             }
@@ -143,12 +146,18 @@ struct SettingsView: View {
             Button("Open Full Disk Access") {
               NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
             }
-            Text("Turn Life on there, then come back: it checks again.").font(.caption)
+            Text("Turn Life on there, then come back: it checks again.").caption()
           }
           TextField("lifelog address", text: $lifelogURL)
           SecureField("lifelog token", text: $lifelogToken)
         }
-        if let r = supervisor.info?.reminders {
+        if supervisor.info?.actions == "google" {
+          // Google Tasks is the backend (set in his settings): shown on, never switched from here.
+          Section("Actions") {
+            Toggle("Use your Google Tasks", isOn: .constant(true)).disabled(true)
+            Text("Life adds tasks when you ask, keeps your agent's list and reads your changes back.").caption()
+          }
+        } else if let r = supervisor.info?.reminders {
           Section("Reminders") {
             Toggle("Use your Reminders", isOn: Binding(
               get: { r.on },
@@ -163,7 +172,7 @@ struct SettingsView: View {
             Text(r.ready
               ? "Life adds reminders when you ask, keeps your agent's list and reads your changes back."
               : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
-              .font(.caption).foregroundStyle(.secondary)
+              .caption()
           }
         }
         Section("Your agent") {
@@ -191,10 +200,11 @@ struct SettingsView: View {
         }
       }
       if !status.isEmpty {
-        Text(status).font(.caption).foregroundStyle(.secondary)
+        Text(status).caption()
       }
     }
     .formStyle(.grouped)
+    .font(Brand.serif(13))
     .task { await load() }
     .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
       // Full Disk Access is granted in System Settings: the sources' state is read again until it shows.
@@ -229,7 +239,7 @@ struct SettingsView: View {
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
-    key = Keychain.read(engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY") ?? ""
+    key = Keychain.read(keyName) ?? ""
   }
 
   private func start() async {
@@ -247,7 +257,7 @@ struct SettingsView: View {
 
   private func save() async {
     if engine == "anthropic" || engine == "openai" {
-      Keychain.write(engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY", key)
+      Keychain.write(keyName, key)
     }
     Keychain.write("LIFELOG_TOKEN", lifelogToken)
     var parts: [String: Any] = ["engine": engine]
@@ -260,14 +270,16 @@ struct SettingsView: View {
     await supervisor.restart()
   }
 
-  /// The Reminders plugin on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
+  /// The actions output with the Reminders backend, on or off. On needs remctl at the pinned release: its installer runs first (the Mac's password
   /// once, then its own permission steps), and the toggle takes once `life app` sees it.
   private func setReminders(_ on: Bool, _ r: Reminders) async {
     if on, !r.ready {
       await installRemctl(r)
       return
     }
-    await set(["reminders": on])
+    // The actions output with Reminders as its backend; null turns it off.
+    let actions: Any = on ? ["backend": "reminders"] as Any : NSNull()
+    await set(["actions": actions])
     await supervisor.restart()
   }
 
