@@ -1,5 +1,7 @@
 # Releasing Life.app
 
+How-to for the maintainer: publish a signed release.
+
 A release is Life.app signed with a Developer ID under the hardened runtime, notarized and stapled; a zip of it (what
 Sparkle downloads, listed in `appcast.xml` with its EdDSA signature) and a DMG holding it; all three published as a
 GitHub release (`scripts/release.ts`).

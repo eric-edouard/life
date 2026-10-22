@@ -6,8 +6,9 @@ plus an always-on archive of deleted messages and old note versions. Shipped as 
 
 Read before changing an area: `docs/architecture.md` (shape and reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
-backups, evals, the read CLI), `docs/dashboard.md` (status reads and page), `docs/releasing.md`, `SECURITY.md`.
-`docs/agent.md` is not documentation: it is the agent's playbook, read at run time.
+backups, evals, the read CLI), `docs/dashboard.md` (the connector's status reads), `docs/releasing.md`,
+`SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
+documentation: it is the agent's playbook, read at run time.
 
 ## Commands
 
@@ -77,7 +78,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words or a request.
 - **Life acts in one place: Apple Reminders**, through `act`, on his clear request or the standing grant. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
-- **The only sends** are the report and alerts to the owner and one MCP event per ask to his agent. Add no other (`docs/tasks.md`, "The only sends").
+- **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections, and acts only through `reminders`, `task` and `reply`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
