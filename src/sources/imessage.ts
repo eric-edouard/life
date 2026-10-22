@@ -7,7 +7,7 @@ import type { Newest } from "./index";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
 
-const DB = join(homedir(), "Library", "Messages", "chat.db");
+export const DB = join(homedir(), "Library", "Messages", "chat.db");
 const HOME = /^~/;
 // Messages stores dates as nanoseconds since 2001-01-01.
 const APPLE_EPOCH_S = 978_307_200;

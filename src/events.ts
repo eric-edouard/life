@@ -1,13 +1,15 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, unfrozen } from "./clock";
-import { type Call, log } from "./log";
+import { type Call, log, recentEvents } from "./log";
 import { ACTIONS, digest, linesOf, parseAction } from "./memory/ledger";
 import { actionFailedReport, sendReport } from "./memory/report";
-import { ROOT } from "./truth";
+import { writeSecret } from "./secret";
+import { agentName, settings } from "./settings";
+import { STATE } from "./truth";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
 // subscriber, his ChatGPT agent Atlas. The connector answers events/list|subscribe|unsubscribe (src/mcp.ts); the
@@ -15,7 +17,7 @@ import { ROOT } from "./truth";
 // after it, and derived/events.json (mode 600: it holds the signing secret) keeps the subscription and how far it was
 // delivered, so a restart or a retry loses nothing.
 
-const STATE = join(ROOT, "derived", "events.json");
+const SUBSCRIPTION = join(STATE, "events.json");
 /** The lifetime granted when none or a longer one is asked for. */
 const TTL_MS = 30 * 24 * 3_600_000;
 /** A verified callback is not challenged again for a day. */
@@ -39,23 +41,28 @@ const AskData = z.object({
   title: z.string().optional().describe("The part of his words it is"),
 });
 
-/** Who a connector call came from, by its user agent: the names he knows them by. Atlas is ChatGPT's. */
-export const ATLAS = "ChatGPT (Atlas)";
+/** Whether a connector call came from his agent: its user agent starts with the `agent` setting's `client`. */
+export const isAgent = (agent: unknown) => {
+  const a = settings().agent;
+  const client =
+    a && (a.client ?? (a.transport === "pull" ? "Claude" : "openai-mcp"));
+  return !!client && String(agent ?? "").startsWith(client);
+};
+/** Who a connector call came from, by its user agent: the names he knows them by. */
 export function clientName(agent: unknown) {
   const a = String(agent ?? "");
-  if (a.startsWith("openai-mcp")) {
-    return ATLAS;
+  if (isAgent(a)) {
+    return agentName();
   }
   return a.toLowerCase().includes("claude") ? "Claude" : a || "unknown client";
 }
-/** A call of Atlas's daily review: `day` read by Atlas, with no error (the nightly's `reviewed`, `shownDays`). */
+/** A call of his agent's daily review: `day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
 export const isReviewCall = (e: Call) =>
-  e.tool === "day" && !e.error && clientName(e.agent) === ATLAS;
+  e.tool === "day" && !e.error && isAgent(e.agent);
 
 export const ASK_EVENT = {
   delivery: ["webhook"],
-  description:
-    "The owner asked Atlas for something: he said “hey Atlas, …” (heard in his recordings) or asked in a Claude session.",
+  description: `The owner asked ${agentName()} for something: he said “hey ${agentName()}, …” (heard in his recordings) or asked in a Claude session.`,
   inputSchema: { additionalProperties: false, properties: {}, type: "object" },
   name: "ask",
   payloadSchema: z.toJSONSchema(AskData),
@@ -112,13 +119,12 @@ export interface State {
 }
 
 export const deliveryState = (): State =>
-  existsSync(STATE)
-    ? JSON.parse(readFileSync(STATE, "utf8"))
+  existsSync(SUBSCRIPTION)
+    ? JSON.parse(readFileSync(SUBSCRIPTION, "utf8"))
     : { attempts: 0, delivered: linesOf(ACTIONS).length };
 
 function writeState(s: State) {
-  writeFileSync(STATE, `${JSON.stringify(s, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(STATE, 0o600);
+  writeSecret(SUBSCRIPTION, `${JSON.stringify(s, null, 2)}\n`);
 }
 
 /** A Standard Webhooks signature: HMAC-SHA256 of `id.timestamp.body` with the secret's key. */
@@ -268,6 +274,29 @@ export function nextEvent(lines: string[], from: number) {
   return null;
 }
 
+/** How long a pulling agent may go without reading `tasks` before Life says it isn't receiving asks. */
+const PULL_MS = 24 * 3_600_000;
+
+/**
+ * Whether his asks reach his agent now: for one they are pushed to, a live subscription; for one that pulls them, a
+ * `tasks` call of its own in the last day (`calls`: the connector's log).
+ */
+export async function agentLive(
+  now: number,
+  calls = () => recentEvents<Call>(2, "mcp.call")
+) {
+  if (settings().agent?.transport !== "pull") {
+    return subscribed(now);
+  }
+  return (await calls()).some(
+    (e) =>
+      e.tool === "tasks" &&
+      !e.error &&
+      isAgent(e.agent) &&
+      now - Date.parse(e.at) < PULL_MS
+  );
+}
+
 /** Whether Atlas holds a subscription that has not expired (a retry may wait). */
 const current = (s: State, now: number) =>
   Date.parse(s.subscription?.refreshBefore ?? "") >= now;
@@ -342,7 +371,7 @@ export async function deliver() {
       log("event.sent", { event: event.eventId });
       continue;
     }
-    const error = `Atlas did not receive it (callback ${status || "unreachable"})`;
+    const error = `${agentName()} did not receive it (callback ${status || "unreachable"})`;
     log("run.error", { error, event: event.eventId, step: "events.deliver" });
     if (after.subscription && after.delivered === cursor) {
       await sendReport(

@@ -13,7 +13,8 @@ import {
   Project,
 } from "./schema";
 
-export const ROOT = join(import.meta.dir, "..");
+/** Life's own files (prompts, docs/agent.md, assets): the checkout, or the app's resources (`LIFE_ROOT`). */
+export const ROOT = process.env.LIFE_ROOT ?? join(import.meta.dir, "..");
 /** `bun test` sets NODE_ENV=test: tests never touch the real log or data. */
 export const TEST = process.env.NODE_ENV === "test";
 /** The made-up data tests read (src/test-data). */
@@ -26,6 +27,15 @@ export const FIXTURES = join(ROOT, "src", "test-data");
 export const DATA = TEST
   ? copied(FIXTURES)
   : (process.env.LIFE_DATA ?? join(homedir(), "Life"));
+
+/**
+ * Life's own state, never his: its settings, log, the watcher's store, the runs and the search index. A checkout keeps
+ * it in its own derived/ (each worktree apart from production); the app sets `LIFE_STATE`. A test run keeps it in its
+ * copy of the data.
+ */
+export const STATE = TEST
+  ? join(DATA, "state")
+  : (process.env.LIFE_STATE ?? join(ROOT, "derived"));
 
 /** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
 export function isHis(data = DATA) {
@@ -92,11 +102,11 @@ function frontmatter(text: string, path: string) {
 }
 
 /** truth/me.md, read fresh. */
-export const loadMe = async () =>
-  readMe(await Bun.file(join(DATA, "truth", "me.md")).text());
+export const loadMe = async (data = DATA) =>
+  readMe(await Bun.file(join(data, "truth", "me.md")).text());
 
-export async function loadTruth(): Promise<Truth> {
-  const dir = join(DATA, "truth");
+export async function loadTruth(data = DATA): Promise<Truth> {
+  const dir = join(data, "truth");
   const { people } = PeopleFile.parse(await yaml(join(dir, "people.yaml")));
   const { chats } = ChatsFile.parse(await yaml(join(dir, "chats.yaml")));
   const { areas } = AreasFile.parse(await yaml(join(dir, "areas.yaml")));
@@ -106,11 +116,14 @@ export async function loadTruth(): Promise<Truth> {
   const projects = await Promise.all(
     names.map(async (name) => {
       const path = join(dir, "projects", name);
-      const { data, body } = frontmatter(await Bun.file(path).text(), path);
-      return { ...Project.parse(data), notes: body };
+      const { data: head, body } = frontmatter(
+        await Bun.file(path).text(),
+        path
+      );
+      return { ...Project.parse(head), notes: body };
     })
   );
-  return { areas, chats, me: await loadMe(), people, projects };
+  return { areas, chats, me: await loadMe(data), people, projects };
 }
 
 /** Every handle a person has, normalized the way senders are looked up: emails lower-cased. */
@@ -177,9 +190,6 @@ function checkGoals(
   projects: Set<string>,
   issues: string[]
 ) {
-  if (!goals) {
-    issues.push("me.md has no ## Goals: every model call would miss them");
-  }
   for (const id of goalProjects(goals).flat()) {
     if (!projects.has(id)) {
       issues.push(`a goal in me.md names unknown project ${id}`);

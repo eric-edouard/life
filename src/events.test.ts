@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  agentLive,
   nextEvent,
   resumeAt,
   type State,
@@ -8,6 +9,7 @@ import {
   sign,
 } from "./events";
 import { action } from "./memory/fixtures";
+import { readSettings, type Settings, setSettings } from "./settings";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
   expect(
@@ -145,4 +147,25 @@ test("only asks go out, not one Atlas made from a chat; old nudge and steer line
     target: "atlas",
   });
   expect(nextEvent([own], 0)).toBeNull();
+});
+
+test("an agent that pulls its asks is live while it reads tasks: a day without a call is a lapse", async () => {
+  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const now = Date.parse("2026-10-22T10:00:00Z");
+  const call = (tool: string, hours: number, agent = "openai-mcp/1") => ({
+    agent,
+    at: new Date(now - hours * 3_600_000).toISOString(),
+    tool,
+  });
+  try {
+    setSettings({ agent: { ...before, transport: "pull" } });
+    expect(await agentLive(now, async () => [call("tasks", 2)])).toBe(true);
+    expect(await agentLive(now, async () => [call("tasks", 30)])).toBe(false);
+    expect(await agentLive(now, async () => [call("day", 2)])).toBe(false);
+    expect(await agentLive(now, async () => [call("tasks", 2, "curl/8")])).toBe(
+      false
+    );
+  } finally {
+    setSettings({ agent: before });
+  }
 });

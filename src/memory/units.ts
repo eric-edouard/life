@@ -3,7 +3,14 @@ import { clock } from "../clock";
 import { log } from "../log";
 import { redact } from "../redact";
 import { type Person, type SourceEvent, Unit } from "../schema";
-import { type Descriptor, kindOf, SOURCES, sourceOf } from "../sources";
+import { settings } from "../settings";
+import {
+  type Descriptor,
+  enabledSources,
+  kindOf,
+  readySources,
+  sourceOf,
+} from "../sources";
 import { type RepoMap, repoMap } from "../sources/git";
 import {
   type LifelogConversation,
@@ -11,7 +18,7 @@ import {
   type Store,
   withStore,
 } from "../sources/lifelog";
-import { loadTruth, OWNER, ownerIn, TEST, type Truth } from "../truth";
+import { loadTruth, OWNER, ownerIn, type Truth } from "../truth";
 import { LIFE_MAIL } from "./email";
 import { describeFiles, showFiles } from "./files";
 import {
@@ -20,6 +27,7 @@ import {
   readFiles,
   readRepoGuesses,
   readUnits,
+  readUnitsOf,
   UNITS,
 } from "./ledger";
 import { dayStart, localDate, wall } from "./zones";
@@ -198,8 +206,11 @@ export const areaLookup = (areas: { id: string; name: string }[]) =>
 export const areaOf = (said: string | null, lookup: Map<string, string>) =>
   (said && lookup.get(normalize(said))) || null;
 
-/** Where his agents mail him their reports from (the older routines still use Make a Dent's). */
-const AGENT_REPORTS = [LIFE_MAIL.from, "alerts@send.make-a-dent.com"];
+/** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
+const AGENT_REPORTS = [
+  ...(LIFE_MAIL.from ? [LIFE_MAIL.from] : []),
+  ...settings().reports,
+];
 
 /** A unit's text as the moments model reads it: its start and its end, `TEXT_MAX` at most. */
 export const head = (text: string) =>
@@ -431,12 +442,10 @@ function repoDay(list: SourceEvent[]): Built {
 }
 
 /**
- * The chat with Life's retired Telegram bot (its Beeper chat id in `.env`): its briefs
- * and answers were Life's output, so neither memory nor the raw chat reads open it.
+ * The chat with Life's retired Telegram bot (its Beeper chat id, the `lifeChat` setting): its briefs and answers were
+ * Life's output, so neither memory nor the raw chat reads open it. Unset, no chat is Life's.
  */
-export const LIFE_CHAT = TEST
-  ? "!life:beeper.local"
-  : (process.env.LIFE_CHAT ?? "");
+export const LIFE_CHAT = settings().lifeChat;
 
 /** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
 interface Thread {
@@ -592,8 +601,9 @@ export function tablesOf(sources: Descriptor[]) {
     ),
   };
 }
-export const { CHATS, SEARCHED, SEARCHED_MAIL, WITH_PEOPLE } =
-  tablesOf(SOURCES);
+/** The tables of the sources that can be read now, worked out on each call (settings and permissions change). */
+export const tables = () => tablesOf(readySources());
+export type Tables = ReturnType<typeof tablesOf>;
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
@@ -665,32 +675,37 @@ export async function gather(
   // ponytail: the readers read from `since` to now and the window is cut after, so a backfill week of 2025 reads every
   // source up to today; give the readers an end if the pilot measures that slow next to the model calls.
   const since = dayStart(window.from);
-  if (!LIFE_CHAT) {
-    // Unset, Life's own chat would read as facts.
-    throw new Error("LIFE_CHAT is not set in .env");
-  }
   const failed: string[] = [];
   const repos = repoMap(truth, await readRepoGuesses());
   const ctx = { me: ownerIn(truth.people), repos };
   // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
-  // events, in the registry's order.
-  const lifelog = await safely(
-    "lifelog",
-    () =>
-      withStore((store) =>
-        readConversations(store, since, lifelogNames(truth))
-      ),
-    failed
-  );
-  const read = await Promise.all(
-    SOURCES.flatMap((s) => (s.kind === "voice" ? [] : [s])).map(async (s) => ({
-      events: await safely(
-        s.name,
-        () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
+  // events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
+  const sources = readySources();
+  const skipped = enabledSources().filter((s) => !sources.includes(s));
+  for (const s of skipped) {
+    log("source.read", { ok: true, skipped: s.missing?.(), source: s.name });
+  }
+  const lifelog = sources.some((s) => s.kind === "voice")
+    ? await safely(
+        "lifelog",
+        () =>
+          withStore((store) =>
+            readConversations(store, since, lifelogNames(truth))
+          ),
         failed
-      ),
-      s,
-    }))
+      )
+    : [];
+  const read = await Promise.all(
+    sources
+      .flatMap((s) => (s.kind === "voice" ? [] : [s]))
+      .map(async (s) => ({
+        events: await safely(
+          s.name,
+          () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
+          failed
+        ),
+        s,
+      }))
   );
   // A repo's commits carry no files; the others' recent messages have theirs described, then shown.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
@@ -727,14 +742,28 @@ export async function gather(
       ),
     },
     repos,
+    /** Sources he turned on that can't be read now: their units stay as they were. */
+    skipped: skipped.map((s) => s.name),
     truth,
     window,
   };
 }
 export type Evidence = Awaited<ReturnType<typeof gather>>;
 
-/** Writes memory/units/<date>.jsonl for each of `dates`: that day's units, sorted by start. */
-export async function writeUnits(dates: string[], units: Unit[]) {
+/**
+ * Writes memory/units/<date>.jsonl for each of `dates`: that day's units, sorted by start, with the units already there
+ * that `keep` keeps (those of a source this write did not read).
+ */
+export async function writeUnits(
+  dates: string[],
+  fresh: Unit[],
+  keep: (u: Unit) => boolean = () => false
+) {
+  const ids = new Set(fresh.map((u) => u.id));
+  const units = [
+    ...fresh,
+    ...readUnitsOf(dates).filter((u) => keep(u) && !ids.has(u.id)),
+  ];
   await Promise.all(
     dates.map(async (date) => {
       const lines = units
@@ -776,10 +805,7 @@ export async function syncLifelogUnits(store: Store) {
       .filter((u) => had.get(u.id) !== wants.get(u.id))
       .map((u) => u.date)
   );
-  await writeUnits(
-    [...dates],
-    [...all.filter((u) => u.source !== "lifelog" && dates.has(u.date)), ...want]
-  );
+  await writeUnits([...dates], want, (u) => u.source !== "lifelog");
   return {
     added: added.length,
     changed: changed.length,

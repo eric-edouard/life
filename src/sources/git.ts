@@ -1,16 +1,19 @@
 import { readdirSync, statSync } from "node:fs";
-import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { clock } from "../clock";
 import { log } from "../log";
 import { exec, git } from "../proc";
 import type { Person, RepoGuess, SourceEvent } from "../schema";
+import { expand, settings } from "../settings";
 import type { Truth } from "../truth";
 import type { Newest } from "./index";
 
-// Git commits as a source: local `git log` of every repo under ~/Work, read-only. A repo-day is a unit like a chat-day.
+// Git commits as a source: local `git log` of every repo in the `repos` setting's folder, read-only. A repo-day is a
+// unit like a chat-day.
 
-const WORK = join(homedir(), "Work");
+/** The folder holding his repos; none set, there are none. */
+const folder = settings().repos;
+const WORK = folder && expand(folder);
 const RS = "\x1e";
 const US = "\x1f";
 // Lockfiles and single-file changes this big are generated: they would drown the real work in the line counts.
@@ -27,6 +30,9 @@ export interface Repo {
 
 /** The repos under `root`: a folder with a `.git`, worktrees folded into their main repo by the common git dir. */
 export function listRepos(root = WORK): Repo[] {
+  if (!root) {
+    return [];
+  }
   const repos = new Map<string, Repo>();
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) {

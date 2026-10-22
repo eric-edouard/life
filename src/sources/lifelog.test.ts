@@ -150,9 +150,9 @@ test("a retired conversation gives no units, its successor's chapters do; remove
   expect(c?.chapters[0]?.items).toBe(1);
 });
 
-test("applying a page twice changes nothing, and an empty store is an error", () => {
+test("applying a page twice changes nothing, and an empty store is no conversations", () => {
   const s = store();
-  expect(() => readConversations(s, since)).toThrow("empty");
+  expect(readConversations(s, since)).toEqual([]);
   const p = page({
     chapters: [
       chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),

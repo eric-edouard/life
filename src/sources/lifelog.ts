@@ -5,7 +5,8 @@ import { z } from "zod";
 import { clock, unfrozen } from "../clock";
 import { log } from "../log";
 import { digest, readJson } from "../memory/ledger";
-import { ROOT } from "../truth";
+import { settings } from "../settings";
+import { STATE } from "../truth";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
@@ -15,7 +16,7 @@ import { ROOT } from "../truth";
 
 const WAIT_MARGIN_S = 30;
 
-export const WATCH = join(ROOT, "derived", "watch");
+export const WATCH = join(STATE, "watch");
 
 // The shapes Life reads from lifelog's API, each field as nullable or optional as lifelog's contract says
 // (`apps/server/openapi.json` in lifelog; lifelog.test.ts checks it). Fields Life doesn't read are left out and ignored.
@@ -121,16 +122,21 @@ export interface ChapterTurn {
   turnIndex: number;
 }
 
-/** lifelog's server (REST API). */
-const lifelogUrl = () =>
-  process.env.LIFELOG_URL ?? "https://lifelog.ericedouard.com";
+/** lifelog's server (REST API): its address from settings, its token from the environment. */
+const lifelogUrl = () => settings().lifelog?.url;
+
+/** What keeps lifelog from being read: its address or its token missing; nothing when it is set up. */
+export const lifelogMissing = () =>
+  lifelogUrl() && process.env.LIFELOG_TOKEN
+    ? undefined
+    : "lifelog not set up (settings: lifelog, env: LIFELOG_TOKEN)";
 
 function config() {
-  const token = process.env.LIFELOG_TOKEN;
-  if (!token) {
-    throw new Error("LIFELOG_TOKEN is missing from .env");
+  const why = lifelogMissing();
+  if (why) {
+    throw new Error(why);
   }
-  return { token, url: lifelogUrl() };
+  return { token: process.env.LIFELOG_TOKEN ?? "", url: lifelogUrl() ?? "" };
 }
 
 /** GET `path`, or send `body` to it (POST unless `method` says otherwise). */
@@ -439,9 +445,6 @@ export function readConversations(
   byId: Map<string, string> = new Map()
 ): LifelogConversation[] {
   const { db } = store;
-  if (!db.query("select 1 from conversations limit 1").get()) {
-    throw new Error("the lifelog store is empty: run `bun life watch`");
-  }
   const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(

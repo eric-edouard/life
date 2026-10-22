@@ -1,10 +1,10 @@
 import { join } from "node:path";
-import { ORIGIN } from "./auth";
 import { HEADERS, redirect, text } from "./http";
 import { readRatings, readStatements, recordRating } from "./memory/ledger";
 import { plain as asOf } from "./memory/statements";
 import { readPeople } from "./memory/who";
 import { Rating } from "./schema";
+import { connector } from "./settings";
 import type { SignIn } from "./signin";
 import { ROOT } from "./truth";
 
@@ -49,7 +49,7 @@ export function createCheck(signIn: SignIn) {
       return Response.json({ groups }, { headers: HEADERS });
     }
     if (pathname === "/check/answer" && req.method === "POST") {
-      if (req.headers.get("origin") !== ORIGIN) {
+      if (req.headers.get("origin") !== connector().origin) {
         return text("cross-origin", 400);
       }
       const a = Answer.safeParse(await req.json().catch(() => null));

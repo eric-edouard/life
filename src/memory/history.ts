@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { z } from "zod";
-import { lastCopied, STORES } from "../archive";
+import { keptStores, lastCopied } from "../archive";
 import { clock } from "../clock";
 import { polling, readHealth } from "../health";
 import { add, NONE, type Quota, type Tokens } from "../llm";
@@ -11,6 +11,7 @@ import {
   logEvents,
   recentEvents,
 } from "../log";
+import { listening } from "../sources/index";
 import { decode, encode, PAGE } from "./feed";
 import {
   lockedSince,
@@ -352,7 +353,7 @@ const nextDay = (iso: string) => daysBefore(iso.slice(0, 10), -1);
 
 /** Each archive store's last copy (`lastCopied`), by store name. */
 const copiedByStore = (): Record<string, string | null> =>
-  Object.fromEntries(STORES.map((s) => [s.name, lastCopied(s)]));
+  Object.fromEntries(keptStores().map((s) => [s.name, lastCopied(s)]));
 
 /** When a SQLite file last changed, its write-ahead log included (written before the file); null: no file. */
 function dbTime(path: string) {
@@ -396,7 +397,9 @@ export async function lifeStatus(now = clock()) {
   const list = assembleRuns(events, new Set(PIPELINE), lock).sort(newestFirst);
   const running = list.filter((r) => r.outcome === "running");
   let watcher: Record<string, unknown> = { state: "unknown" };
-  if (health) {
+  if (!listening()) {
+    watcher = { state: "off" };
+  } else if (health) {
     watcher = {
       ...health,
       state: polling(health, now.getTime()) ? "ok" : "not-polling",

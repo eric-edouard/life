@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "./clock";
 import { filesIn, linesOf } from "./memory/ledger";
-import { DATA, ROOT, TEST } from "./truth";
+import { STATE } from "./truth";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
@@ -11,7 +11,7 @@ import { DATA, ROOT, TEST } from "./truth";
 // answer's text, and
 // `lifelog.write` logs the correction it forwards and lifelog's answer.
 
-export const LOG_DIR = TEST ? join(DATA, "log") : join(ROOT, "derived", "log");
+export const LOG_DIR = join(STATE, "log");
 
 type LogKind =
   | "board.write"
