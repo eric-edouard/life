@@ -11,7 +11,7 @@ import { memoryCommand } from "./memory/command";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
-import { checks } from "./reminders/remctl";
+import { checks, remindersOn } from "./reminders/remctl";
 import { Engine } from "./schema";
 import { readSettings, type Settings, setSettings, settings } from "./settings";
 import { FULL_DISK, SOURCES } from "./sources/index";
@@ -20,6 +20,14 @@ import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
 import { status, watch } from "./watch";
 
+/** `act` and the grant need the Reminders plugin: off, they say so and do nothing. */
+const pluginOff = () => {
+  if (!remindersOn()) {
+    console.error("Reminders is off (settings: reminders)");
+  }
+  return !remindersOn();
+};
+
 const commands: Record<string, () => Promise<number>> = {
   /**
    * Acts on the owner's clear request, for a Claude session: `act '<json>'` (a change with `said`, his words, and
@@ -27,6 +35,9 @@ const commands: Record<string, () => Promise<number>> = {
    */
   async act() {
     const [arg] = process.argv.slice(3);
+    if (pluginOff()) {
+      return 2;
+    }
     if (arg === "--check") {
       const problems = await checks();
       console.log(problems.join("\n") || "remctl ready");
@@ -155,6 +166,9 @@ const commands: Record<string, () => Promise<number>> = {
    * until he says yes; his undo of one of its reminders turns it off again.
    */
   async grant() {
+    if (pluginOff()) {
+      return 2;
+    }
     const [state, ...words] = process.argv.slice(3);
     const said = words.join(" ").trim();
     if (!(state === "on" || state === "off") || said.length < 3) {

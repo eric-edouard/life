@@ -14,7 +14,7 @@ import { LOG_DIR } from "./log";
 import { correct, createMcp } from "./mcp";
 import { ACTIONS, linesOf } from "./memory/ledger";
 import { placesOf } from "./memory/places";
-import { connector as settingsOf } from "./settings";
+import { setSettings, settings, connector as settingsOf } from "./settings";
 import {
   chapter,
   conversation,
@@ -24,7 +24,7 @@ import {
   turn,
 } from "./sources/fixtures";
 import { apply, forward, type Stay } from "./sources/lifelog";
-import { sealed, update } from "./tasks";
+import { protocol, sealed, update } from "./tasks";
 import { DATA } from "./truth";
 
 const { issuer: ISSUER, metadata, resource: RESOURCE } = settingsOf();
@@ -364,10 +364,9 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   }
   const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
   expect(playbook).toBe(
-    readFileSync(
-      join(import.meta.dir, "..", "docs", "agent.md"),
-      "utf8"
-    ).replaceAll("{agent}", "Atlas")
+    protocol(
+      readFileSync(join(import.meta.dir, "..", "docs", "agent.md"), "utf8")
+    )
   );
   expect(me).toBe(readFileSync(join(DATA, "truth", "me.md"), "utf8"));
   expect(me).toContain("1. Be well.");
@@ -573,4 +572,18 @@ test("places: each stay lists the conversations recorded during it", async () =>
   // The 13 Oct stay has no conversation, and the 12 Oct one is outside both stays.
   expect(answer).not.toContain("Elsewhere");
   expect(await placesOf({}, read, open)).toBeNull();
+});
+
+test("with the Reminders plugin off, the connector offers no Reminders tool", async () => {
+  const on = settings().reminders;
+  setSettings({ reminders: false });
+  try {
+    const { json } = await rpc(await token(), "tools/list");
+    const names = json.result.tools.map((t: { name: string }) => t.name);
+    expect(names).not.toContain("reminders");
+    expect(names).not.toContain("open_reminders");
+    expect(names).toContain("tasks");
+  } finally {
+    setSettings({ reminders: on });
+  }
 });
