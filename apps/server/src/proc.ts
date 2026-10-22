@@ -76,7 +76,8 @@ export async function firstLine(
   }
   let out = "";
   try {
-    proc.stdin.write(input);
+    // Awaited, so a server gone before reading (EPIPE) rejects here, not as an unhandled error.
+    await proc.stdin.write(input);
     await proc.stdin.flush();
     for await (const chunk of proc.stdout.pipeThrough(
       new TextDecoderStream()
