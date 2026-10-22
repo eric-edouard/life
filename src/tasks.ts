@@ -18,12 +18,12 @@ import { clip, localTime } from "./memory/units";
 import { localDate } from "./memory/zones";
 import type { Receipt } from "./reminders/board";
 import { remindersOn } from "./reminders/remctl";
-import { Action, type Instruction } from "./schema";
+import { Action, AGENT_WORD, type Instruction } from "./schema";
 import { agentName, settings } from "./settings";
 import { DATA, ROOT } from "./truth";
 
-// Atlas's tasks: each ask (his "hey Atlas", `bun life ask`, or Atlas's `task` from his chat words or a split) is a task in memory/actions.jsonl until Atlas closes it
-// done or dropped. Its own lines: Atlas's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
+// The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `task` from his chat words or a split) is a task in memory/actions.jsonl until the agent closes it
+// done or dropped. Its own lines: the agent's updates (the connector's `task`) and replies to him (`reply`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 
 const SPACES = /\s+/;
@@ -36,7 +36,7 @@ const asHeard = (w: string) => w.toLowerCase().replace(NON_WORD, " ").trim();
 const agentSetting = settings().agent;
 const NAMES = new Set((agentSetting?.wake ?? []).map(asHeard));
 /**
- * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: "at last" for "Atlas" on 20 Oct,
+ * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: a mishearing lifelog made on 20 Oct,
  * audit 4, or a real name people he knows go by). A misheard one wakes only on his own turn, as `low` (the agent
  * confirms with him).
  */
@@ -57,9 +57,9 @@ export const WAKE = new RegExp(
 );
 /** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is lifelog's misspelling. */
 export const MARK = new RegExp(String.raw`${GREETING}li[fv]e\b`, "i");
-/** Everything up to "hey Atlas" and the spaces and punctuation after it: the title is his words from there. */
+/** Everything up to "hey <agent>" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
-/** A task's name: its title, else his words from "hey Atlas" on. */
+/** A task's name: its title, else his words from "hey <agent>" on. */
 export const titleOf = (t: { quote: string; title?: string }) =>
   clip(t.title ?? (t.quote.replace(TO_WAKE, "") || t.quote), 80);
 
@@ -114,18 +114,18 @@ const askLine = (
       "ask",
       `${after.title ?? ""}`
     ),
-    // Clipped so its event stays far under the 256 KiB a webhook may carry; Atlas fetches the rest.
+    // Clipped so its event stays far under the 256 KiB a webhook may carry; the agent fetches the rest.
     instruction: { ...instruction, quote: clip(instruction.quote, 50_000) },
     kind: "ask",
     madeBy,
     result: "ok",
     schemaVersion: 1,
-    target: "atlas",
+    target: AGENT_WORD,
     ...(timing ? { timing } : {}),
     why,
   }) satisfies Action;
 
-/** Records one ask for Atlas (the watcher delivers it). The same ref and title ask once. */
+/** Records one ask for the agent (the watcher delivers it). The same ref and title ask once. */
 export function ask(...a: Parameters<typeof askLine>) {
   const action = askLine(...a);
   const old = taskOf(tasksOf(), action.id)?.ask;
@@ -135,14 +135,14 @@ export function ask(...a: Parameters<typeof askLine>) {
   return old ?? action;
 }
 
-/** Atlas's own line on a task (or `chat`), as a ledger line: an update, or a reply (its id also over its text). */
+/** The agent's own line on a task (or `chat`), as a ledger line: an update, or a reply (its id also over its text). */
 const taskLine = (
   kind: "update" | "reply",
   task: string,
   after: Action["after"],
   now: number,
   salt = "",
-  // Atlas, through the connector; or his own tick or removal of the receipt (`closings`).
+  // The agent, through the connector; or his own tick or removal of the receipt (`closings`).
   by: Pick<Action, "madeBy" | "why"> = { madeBy: "connector", why: agentName() }
 ): Action => ({
   after,
@@ -163,7 +163,7 @@ export const closed = (s: State) => s === "done" || s === "dropped";
 
 /**
  * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, lifelog's feed had all
- * of them, Life recorded the ask, Atlas got it (the `event.sent` log), claimed it and closed it; null where unknown
+ * of them, Life recorded the ask, the agent got it (the `event.sent` log), claimed it and closed it; null where unknown
  * (not speech, not yet, or before 20 Oct). A split's parts are left out: they share their parent's times.
  */
 export async function timings(
@@ -172,7 +172,7 @@ export async function timings(
   tasks = tasksOf(),
   dir = LOG_DIR
 ) {
-  // Oldest first, the first delivery kept: a retry after a lost answer is not when Atlas got it.
+  // Oldest first, the first delivery kept: a retry after a lost answer is not when the agent got it.
   const sent = new Map<string, string>();
   const days = (await logDays(dir))
     .filter((n) => n >= from.slice(0, 10))
@@ -194,7 +194,7 @@ export async function timings(
           ["arrived", a.timing?.arrived ?? null],
           ["recorded", a.at],
           ["delivered", sent.get(a.id) ?? null],
-          // Atlas's first update; one Life wrote from his tick in Reminders is no claim.
+          // The agent's first update; one Life wrote from his tick in Reminders is no claim.
           [
             "claimed",
             updates.find((u) => u.madeBy !== "reminders")?.at ?? null,
@@ -223,7 +223,7 @@ export function standing(t: Task) {
     state,
     steps: (t.lines.findLast((u) => u.kind === "update" && u.after.steps)?.after
       .steps ?? []) as Step[],
-    /** Atlas's last word: the outcome or reason once closed. */
+    /** The agent's last word: the outcome or reason once closed. */
     word: end.outcome ?? end.reason ?? end.question ?? end.note,
   };
 }
@@ -236,7 +236,7 @@ const WEEK = "stuck for 7 days";
 const LAPSE = `${agentName()} isn't receiving asks`;
 
 /**
- * Why he must look at a task now, or null: every task, chat ones too. Atlas waits on him over an hour, let it pass
+ * Why he must look at a task now, or null: every task, chat ones too. The agent waits on him over an hour, let it pass
  * its deadline (unclaimed 30 min after the ask, or claimed and silent), or it is a week old.
  */
 export function escalation(t: Task, now: number) {
@@ -257,8 +257,8 @@ export function escalation(t: Task, now: number) {
 
 /**
  * What needs him now, each with the key it is emailed once under. With no live subscription, one alert a day (his
- * day) for all the open tasks; else each task that needs him, keyed by task, cause and Atlas's last update (a
- * week-old task once, however often Atlas extends it).
+ * day) for all the open tasks; else each task that needs him, keyed by task, cause and the agent's last update (a
+ * week-old task once, however often the agent extends it).
  */
 export function alerts(tasks: Task[], now: number, live: boolean) {
   if (!live) {
@@ -286,7 +286,7 @@ const Step = z.object({
 });
 type Step = z.infer<typeof Step>;
 const Instant = z.iso.datetime({ offset: true });
-/** One update from Atlas (the connector's `task`): on `task`, or a new one from his words (`said`) or a split (`parent`). */
+/** One update from the agent (the connector's `task`): on `task`, or a new one from his words (`said`) or a split (`parent`). */
 export const Update = z.object({
   at: Instant.optional().describe("said: when he sent it"),
   claim: z.boolean().optional().describe("true on the first update only"),
@@ -383,7 +383,7 @@ function made(u: Update, tasks: Task[], now: number) {
 }
 
 /**
- * The ledger lines Atlas's update appends (a task it makes first, claimed by this update, so a retry finds it) and Life's answer;
+ * The ledger lines the agent's update appends (a task it makes first, claimed by this update, so a retry finds it) and Life's answer;
  * throws why not, with the playbook and its seal when the seal is not current.
  */
 export function written(
@@ -424,7 +424,7 @@ export function written(
   return { answer: `${id}: ${u.state}`, lines: fresh ? [fresh, line] : [line] };
 }
 
-/** Records Atlas's update when the rules allow it (synchronous, from reading the ledger to the lines); throws why not. */
+/** Records the agent's update when the rules allow it (synchronous, from reading the ledger to the lines); throws why not. */
 export function update(u: Update, now = clock().getTime()) {
   const { answer, lines } = written(u, tasksOf(), now);
   appendJsonl(ACTIONS, Action, lines);
@@ -436,7 +436,7 @@ export const Reply = z.object({
   text: z.string().min(1).describe("What you are telling him, as sent"),
 });
 
-/** Records what Atlas tells him (the connector's `reply`), on a task or none (`chat`); throws when the task is unknown. */
+/** Records what the agent tells him (the connector's `reply`), on a task or none (`chat`); throws when the task is unknown. */
 export function reply(
   { task, text }: z.infer<typeof Reply>,
   now = clock().getTime()
@@ -451,7 +451,7 @@ export function reply(
   return `${target}: reply logged`;
 }
 
-/** The asks recorded since `since` (his spoken ones, Life's and the tasks Atlas made from his chat words; not splits) with no reply line: the nightly's gap count. */
+/** The asks recorded since `since` (his spoken ones, Life's and the tasks the agent made from his chat words; not splits) with no reply line: the nightly's gap count. */
 export const unanswered = (since: number, tasks = tasksOf()) =>
   tasks.filter(
     (t) =>

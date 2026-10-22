@@ -382,7 +382,7 @@ function itemOf(
       record: a,
       recordedAt: a.at,
       run,
-      // An ask is handed to Atlas, not done by Life, and its task's lines are Atlas's or Life's chasing: no outcome of their own.
+      // An ask is handed to the agent, not done by Life, and its task's lines are the agent's or Life's chasing: no outcome of their own.
       type:
         isTaskLine(a) || a.kind === "ask"
           ? `action.${a.kind}`

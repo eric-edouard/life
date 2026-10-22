@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { chatDays } from "../memory/closeness";
 import { tablesOf } from "../memory/units";
-import { Unit } from "../schema";
+import { AGENT_WORD, Unit } from "../schema";
 import { type Descriptor, enabledSources, readySources, SOURCES } from ".";
 
 test("every stored source name has one descriptor, in the cut order", () => {
@@ -17,7 +17,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "notes",
     "claude",
     "chatgpt",
-    "atlas",
+    AGENT_WORD,
     "git",
   ]);
 });

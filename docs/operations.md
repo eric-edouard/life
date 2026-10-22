@@ -50,7 +50,7 @@ every Keychain secret in its environment:
 | Service | What it does |
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, and each new version of every Apple Note into `MAC/archive/`, opening a closed app hidden. See `docs/sources.md`. |
-| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears "hey Atlas", runs the minute pass and delivers asks, serves the connector and the pages. |
+| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its guard decides what is due (below). |
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MAC` (`hold`, `src/lock.ts`), so a second
@@ -172,7 +172,7 @@ Life's sign-in and the agent's subscription pair again.
 
 - It goes out in HTML, in plain text and as a complete HTML attachment, because mail clients clip long bodies.
 - It says which days it read, counts as new only observations whose source line was first cited since the last good
-  night (`newSince`: a re-read announces nothing again), and has Actions, Atlas tasks, Code (yesterday's commits by
+  night (`newSince`: a re-read announces nothing again), and has Actions, the agent's tasks, Code (yesterday's commits by
   project) and "Last backup" sections.
 
 ## Measuring
@@ -183,7 +183,7 @@ Life's sign-in and the agent's subscription pair again.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
 - **Model choice:** `bun bench [--models …] [--runs n]` runs the real moments and extract over a fixed week, once per
   candidate, on an empty copy of the data, and judges each run (about 40 minutes; writes nothing of the owner's).
-- **The agent end to end:** `bun scripts/bench-atlas.ts` replays past asks frozen (`LIFE_NOW`, on a copy, in a
+- **The agent end to end:** `bun scripts/bench-agent.ts` replays past asks frozen (`LIFE_NOW`, on a copy, in a
   worktree of its own; a frozen run acts on and sends nothing).
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for a moment.
 

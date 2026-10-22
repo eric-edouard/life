@@ -29,9 +29,9 @@ const read = (name: string) => (e: Line) =>
 /** The log lines each card's history is made of: every source's reads (`SOURCES`), and each part's own lines. */
 const LOGS: Record<string, (e: Line) => boolean> = {
   ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
-  archive: (e) => e.step?.startsWith("archive.") ?? false,
-  atlas: (e) =>
+  agent: (e) =>
     e.kind === "event.sent" || (e.kind === "mcp.call" && isAgent(e.agent)),
+  archive: (e) => e.step?.startsWith("archive.") ?? false,
   backup: (e) => e.step === "backup",
   clients: (e) => e.kind === "mcp.call",
   connector: (e) => e.kind === "mcp.call",

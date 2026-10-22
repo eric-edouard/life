@@ -323,7 +323,7 @@ async function reads(now: Date) {
           "memory.midday",
           "memory.backfill",
           "eval",
-          "bench.atlas",
+          "bench.agent",
         ],
       })
     ),
@@ -922,7 +922,7 @@ function memoryCards(r: Reads): Card[] {
   ];
 }
 
-function atlasCards(r: Reads): Card[] {
+function agentCards(r: Reads): Card[] {
   const events = deliveryState();
   const lines = linesOf(ACTIONS).length;
   const live = r.agentLive;
@@ -951,7 +951,7 @@ function atlasCards(r: Reads): Card[] {
       ],
       group: "outputs",
       headline: live ? "receiving asks" : "not receiving asks",
-      id: "atlas",
+      id: "agent",
       name: agentName(),
     },
     {
@@ -991,7 +991,7 @@ function outputCards(r: Reads): Card[] {
   const mails = since(r.sent, DAY, r.t);
   const portraitOn = !!process.env.LIFE_PORTRAIT_PASSWORD;
   return [
-    ...atlasCards(r),
+    ...agentCards(r),
     {
       content: calls
         .slice(-5)

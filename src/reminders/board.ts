@@ -2,7 +2,7 @@ import { log } from "../log";
 import { BOARD, partial, type Reminder, remctl, type Snapshot } from "./remctl";
 import { add, reminderArgs } from "./write";
 
-// The board, his list `BOARD`: Atlas's tasks projected, one item per task, found by the task id on its notes' first line.
+// The board, his list `BOARD`: the agent's tasks projected, one item per task, found by the task id on its notes' first line.
 // Each pass Life brings its own fields (notes, section) to what the ledger says and ticks the item when its task
 // closes: his receipt that he was heard. Only his tick or removal of one is read back (`marks`, below).
 

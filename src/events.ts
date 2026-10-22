@@ -12,7 +12,7 @@ import { agentName, settings } from "./settings";
 import { STATE } from "./truth";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
-// subscriber, his ChatGPT agent Atlas. The connector answers events/list|subscribe|unsubscribe (src/mcp.ts); the
+// subscriber, his agent (a ChatGPT agent by default). The connector answers events/list|subscribe|unsubscribe (src/mcp.ts); the
 // watcher delivers (`deliver`). The cursor is a line number of memory/actions.jsonl: an event's cursor is the line
 // after it, and derived/events.json (mode 600: it holds the signing secret) keeps the subscription and how far it was
 // delivered, so a restart or a retry loses nothing.
@@ -241,7 +241,7 @@ export function unsubscribe(p: z.infer<typeof Unsubscribe>) {
 }
 
 /**
- * The next event in the ledger at or after line `from` (its cursor: the line after it), or null: an ask, not one Atlas
+ * The next event in the ledger at or after line `from` (its cursor: the line after it), or null: an ask, not one the agent
  * made from a chat (already its own).
  */
 export function nextEvent(lines: string[], from: number) {
@@ -294,7 +294,7 @@ export async function agentLive(
   );
 }
 
-/** Whether Atlas holds a subscription that has not expired (a retry may wait). */
+/** Whether the agent holds a subscription that has not expired (a retry may wait). */
 const current = (s: State, now: number) =>
   Date.parse(s.subscription?.refreshBefore ?? "") >= now;
 export const subscribed = (now: number) => current(deliveryState(), now);
@@ -364,7 +364,7 @@ export async function deliver() {
     const after = settleDelivery(state, status, cursor, now);
     writeState(after);
     if (status >= 200 && status < 300) {
-      // When Atlas got it, for `bun life asks`.
+      // When the agent got it, for `bun life asks`.
       log("event.sent", { event: event.eventId });
       continue;
     }

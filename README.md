@@ -39,7 +39,7 @@ to it every night and never pushes. Raw messages stay in their apps. What leaves
   get a "Between us" section that does not age.
 - **An archive of what gets deleted:** messages deleted for everyone and every version of your notes, kept locally.
 - **Search and reads** for any assistant: `search`, `day`, `person`, `chats`, `places`, `fetch`, over MCP or the CLI.
-- **"Hey Atlas":** say it to hand a request to your own agent; Life tracks it as a task until it is done.
+- **`Hey <agent>`:** say "hey" and its name to hand a request to your own agent; Life tracks it as a task until it is done.
 - **Reminders,** on your explicit request only, every change logged (optional plugin).
 - **A status window** in the app that shows each part of the pipeline live, and a **check page** to rate what Life believes.
 - **Runs itself:** a nightly run, two midday passes, an optional daily encrypted backup, and an email (or notification) report.
@@ -60,7 +60,7 @@ flowchart LR
     I --> C
   end
   C <--> AI["Claude · ChatGPT"]
-  C -- "ask events" --> AG["Your agent (Atlas)"]
+  C -- "ask events" --> AG["Your agent"]
   AG -- "task updates" --> C
 ```
 
@@ -126,7 +126,7 @@ bun life <command>            # the CLI, run from the checkout (src/cli.ts)
 | [Architecture](docs/architecture.md) | The pipeline, the lifelog split, why memory stays local, relationships |
 | [Schema](docs/SCHEMA.md) | Every file in `memory/` |
 | [Sources](docs/sources.md) | What each source reads and how |
-| [Atlas and the connector](docs/atlas.md) | Asks, tasks, Reminders, the connector's tools, the only sends |
+| [The agent and the connector](docs/tasks.md) | Asks, tasks, Reminders, the connector's tools, the only sends |
 | [Operations](docs/operations.md) | Schedule, locks, backups and restore, evals, the read CLI |
 | [Dashboard](docs/dashboard.md) | The status reads and the status window |
 | [Releasing](docs/releasing.md) | Signing, notarization, Sparkle |

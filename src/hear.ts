@@ -10,8 +10,8 @@ import {
 } from "./sources/lifelog";
 import { ask, isName, MARK, WAKE } from "./tasks";
 
-// Hears "hey Atlas" in his recorded speech and records each ask for Atlas (`ask`, delivered by the watcher as an MCP
-// event). No model call: the two words wake it, his turns that follow are the ask, and Atlas judges the rest. It
+// Hears "hey <agent>" in his recorded speech and records each ask for the agent (`ask`, delivered by the watcher as an MCP
+// event). No model call: the two words wake it, his turns that follow are the ask, and the agent judges the rest. It
 // also records his "hey Life" spans in the store (`writeMarks`), for memory only: they never act.
 
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
@@ -23,7 +23,7 @@ const NAMING_MS = 40_000;
 
 type Confidence = "high" | "low";
 
-/** How sure a turn's wake is: his "hey Atlas" high, an unattributed one or his misheard one low; else none. */
+/** How sure a turn's wake is: his "hey <agent>" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn): Confidence | undefined {
   const words = wakeWords(t);
   if (words.some((w) => w && isName(w)) && t.who !== "other") {

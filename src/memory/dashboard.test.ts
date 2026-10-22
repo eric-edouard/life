@@ -3,7 +3,7 @@ import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { log } from "../log";
-import { Action } from "../schema";
+import { Action, AGENT_WORD } from "../schema";
 import { changeFeed, feedPage, matchesFilter } from "./feed";
 import { action } from "./fixtures";
 import { assembleRuns, lifeStatus, percentOf, runs, useText } from "./history";
@@ -279,7 +279,7 @@ test("changes about task:<id> is one task's history: its ask, updates and replie
     });
   try {
     appendJsonl(ACTIONS, Action, [
-      action({ id: ask, kind: "ask", target: "atlas" }),
+      action({ id: ask, kind: "ask", target: AGENT_WORD }),
       own("update", ask, 1),
       own("reply", ask, 2),
       own("reply", "chat", 3),

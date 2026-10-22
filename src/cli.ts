@@ -109,7 +109,7 @@ const commands: Record<string, () => Promise<number>> = {
   },
   /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`. */
   archive: () => archiveCommand(process.argv.slice(3)),
-  /** Hands work to Atlas from a Claude session: `ask '<his words>'` records an ask, which the watcher delivers. */
+  /** Hands work to the agent from a Claude session: `ask '<his words>'` records an ask, which the watcher delivers. */
   ask() {
     const words = process.argv.slice(3).join(" ").trim();
     if (words.length < 3) {

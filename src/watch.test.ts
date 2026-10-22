@@ -93,8 +93,8 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
-        { speakerId: null, text: "hey Atlas, call the bank" },
-        { speakerId: null, text: "hey Atlas, buy me a car" },
+        { speakerId: null, text: "hey Orbit, call the bank" },
+        { speakerId: null, text: "hey Orbit, buy me a car" },
         { speakerId: null, text: "nice weather" },
         { speakerId: null, text: "see you" },
       ],
@@ -135,7 +135,7 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
     // Restarted after it heard them, 30 min of failed polls later (nothing new arrived): heard again, recorded once.
     expect(await restart(seen + 30 * 60_000)).toEqual(["c1", "c2", "c3"]);
     expect(tasksOf().map((t) => t.ask.instruction.quote)).toEqual([
-      "hey Atlas, call the bank",
+      "hey Orbit, call the bank",
     ]);
     // Seen over 10 min before the newest turn: long heard, never again.
     apply(

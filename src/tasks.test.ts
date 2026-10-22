@@ -13,7 +13,7 @@ import {
 } from "./memory/ledger";
 import { planOf } from "./reminders/board";
 import type { Reminder } from "./reminders/remctl";
-import { Action } from "./schema";
+import { Action, AGENT_WORD } from "./schema";
 import {
   alerts,
   chase,
@@ -43,7 +43,7 @@ const asked = action({
   id: ASK,
   kind: "ask",
   madeBy: "watch",
-  target: "atlas",
+  target: AGENT_WORD,
 });
 const own = (
   kind: Action["kind"],
@@ -154,7 +154,7 @@ test("an open task is due 30 min after it was recorded, a claimed one at its own
   expect(standing(later).deadline).toBe(at(60));
 });
 
-test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Atlas isn't subscribed; once per cause and update", () => {
+test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Orbit isn't subscribed; once per cause and update", () => {
   const now = T0 + 20 * MIN;
   expect(escalation(task([]), now)).toBeNull();
   expect(escalation(task([]), T0 + 30 * MIN)).toBe(
@@ -174,7 +174,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
   ]);
   expect(escalation(waiting, T0 + 89 * MIN)).toBeNull();
   expect(escalation(waiting, T0 + 91 * MIN)).toBe(
-    "Atlas needs you: which flat?"
+    "Orbit needs you: which flat?"
   );
   const week = 8 * 24 * 60;
   const extended = task([
@@ -185,7 +185,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
     }),
   ]);
   expect(escalation(extended, T0 + week * MIN)).toBe("stuck for 7 days");
-  // Emailed once, however often Atlas extends it.
+  // Emailed once, however often Orbit extends it.
   const extendedAgain = task([
     ...extended.lines,
     own("update", week + 30, {
@@ -199,7 +199,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
   );
   const done = task([own("update", 30, { outcome: "sent", state: "done" })]);
   expect(escalation(done, now)).toBeNull();
-  // A task Atlas made from his chat is chased too.
+  // A task Orbit made from his chat is chased too.
   const chat = action({
     ...asked,
     id: "act_00000000000b",
@@ -209,7 +209,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
   expect(
     alerts(both, T0 + 31 * MIN, true).map((x) => ("t" in x ? x.t.ask.id : ""))
   ).toEqual([ASK, "act_00000000000b"]);
-  // The key changes with Atlas's last update: silent again after one is a new email; the same silence is not.
+  // The key changes with Orbit's last update: silent again after one is a new email; the same silence is not.
   const key = (t: Task, m: number) => alerts([t], T0 + m * MIN, true)[0]?.key;
   expect(key(working, 61)).toBe(key(working, 120));
   const again = task([
@@ -220,7 +220,7 @@ test("he is emailed when a task is unclaimed after 30 min, silent past its deadl
   // A lapsed subscription is one email, whatever the number of open tasks.
   expect(alerts(both, T0 + 31 * MIN, false)).toEqual([
     {
-      cause: "Atlas isn't receiving asks",
+      cause: "Orbit isn't receiving asks",
       key: "lapse/2026-10-19",
       open: 2,
     },
@@ -248,9 +248,9 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
       })
     );
   const tasks = tasksOf([
-    spoken("act_0000000c4a5e", 0, "hey Atlas, book the table"),
-    spoken("act_0000000c4a5f", 0, "hey Atlas, call the bank"),
-    spoken("act_0000000c4a60", 20, "hey Atlas, water the plant"),
+    spoken("act_0000000c4a5e", 0, "hey Orbit, book the table"),
+    spoken("act_0000000c4a5f", 0, "hey Orbit, call the bank"),
+    spoken("act_0000000c4a60", 20, "hey Orbit, water the plant"),
   ]);
   const late = "(not claimed 30 min after the ask)";
   try {
@@ -258,8 +258,8 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
     await chase(tasks, T0 + 32 * MIN, true);
     await chase(tasks, T0 + 51 * MIN, true);
     expect(subjects).toEqual([
-      `Life · Atlas: book the table ${late}, call the bank ${late}`,
-      `Life · Atlas: water the plant ${late}`,
+      `Life · Orbit: book the table ${late}, call the bank ${late}`,
+      `Life · Orbit: water the plant ${late}`,
     ]);
     // One `email.sent` line per key, so each cause is remembered on its own.
     const keys = (await recentEvents<{ key: string }>(1, "email.sent"))
@@ -269,7 +269,7 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
     // No live subscription: one email for all the open tasks, once a day.
     await chase(tasks, T0 + 52 * MIN, false);
     await chase(tasks, T0 + 53 * MIN, false);
-    expect(subjects.slice(2)).toEqual(["Life · Atlas isn't receiving asks"]);
+    expect(subjects.slice(2)).toEqual(["Life · Orbit isn't receiving asks"]);
   } finally {
     post.mockRestore();
     process.env = env;
@@ -281,7 +281,7 @@ const look = (over: Partial<Reminder> = {}): Reminder => ({
   id: 1,
   notes: "",
   section: "",
-  title: "Atlas: Book visits",
+  title: "Orbit: Book visits",
   ...over,
 });
 
@@ -318,7 +318,7 @@ test("the board gets Life's fields: notes and section in line, a tick when done;
   expect(wantOf(steered)).toEqual(want);
 });
 
-const TEXT = "# Atlas: the playbook";
+const TEXT = "# Orbit: the playbook";
 const { seal } = sealed(T0, TEXT);
 const claiming = {
   claim: true,
@@ -391,7 +391,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(child?.instruction).toEqual(asked.instruction);
   expect(child?.after).toMatchObject({ parent: ASK, title: "Book visits" });
   const [t] = tasksOf([JSON.stringify(child)]);
-  expect(t && wantOf(t).title).toBe("Atlas: Book visits");
+  expect(t && wantOf(t).title).toBe("Orbit: Book visits");
   // A split's id comes from its parent: it never meets a sibling made from the same message, nor its parent.
   const chat = { ...claiming, at: at(-5), said: "dentist and vet" };
   const dentist = write({ ...chat, title: "dentist" }).lines;
@@ -410,7 +410,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
 });
 
 test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", async () => {
-  // Two deliveries of the ask on two days, in their own log: the first is when Atlas got it.
+  // Two deliveries of the ask on two days, in their own log: the first is when Orbit got it.
   const dir = mkdtempSync(join(tmpdir(), "life-sent-"));
   const sent = (day: string, min: number) =>
     writeFileSync(
@@ -428,7 +428,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
     at: at(1),
     id: "act_00000000000b",
     kind: "ask",
-    target: "atlas",
+    target: AGENT_WORD,
   });
   const lines = [
     heard,

@@ -1,6 +1,6 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
 // engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is. The
-// one call with tools is the Atlas bench's (scripts/bench-atlas.ts): Life's own connector, frozen, and nothing else.
+// one call with tools is the agent bench's (scripts/bench-agent.ts): Life's own connector, frozen, and nothing else.
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -257,7 +257,7 @@ const OpenRouterReply = Choices.extend({
 const NOT_ALNUM = /[^a-z0-9]/g;
 const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
 
-/** An MCP server over stdio, `life`: the only tools a call may have (the Atlas bench's frozen connector). */
+/** An MCP server over stdio, `life`: the only tools a call may have (the agent bench's frozen connector). */
 export interface Tools {
   command: string[];
   env: Record<string, string>;
@@ -698,7 +698,7 @@ const RUNNERS: Record<Runner, (call: Call) => Promise<Answer>> = {
  */
 export async function askOnce(opts: {
   context?: unknown;
-  /** The one exception to "no tools": the Atlas bench's frozen connector. */
+  /** The one exception to "no tools": the agent bench's frozen connector. */
   tools?: Tools;
   dir: string;
   images?: string[];

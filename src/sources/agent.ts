@@ -1,16 +1,16 @@
 import { lastUpdate, tasksOf } from "../memory/ledger";
 import { wall } from "../memory/zones";
-import type { SourceEvent } from "../schema";
+import { AGENT_WORD, type SourceEvent } from "../schema";
 import { agentName } from "../settings";
 import type { Newest } from "./index";
 
-// Atlas's tasks closed done (src/tasks.ts), each one event: its outcome with the words he asked in. Atlas's own report,
+// The agent's tasks closed done (src/tasks.ts), each one event: its outcome with the words he asked in. The agent's own report,
 // not checked by Life and not his words: extraction may read it as evidence of what was done (decision 14, 21 Oct).
 
 /** How much of his ask a task's event shows (a spoken ask's quote can hold a whole conversation). */
 const ASK_MAX = 1500;
 
-/** The tasks Atlas closed done itself (its own last update, not his tick in Reminders), from the actions ledger. */
+/** The tasks the agent closed done itself (its own last update, not his tick in Reminders), from the actions ledger. */
 const done = () =>
   tasksOf().flatMap(({ ask, lines }) => {
     const last = lastUpdate({ ask, lines });
@@ -19,8 +19,8 @@ const done = () =>
       : [];
   });
 
-/** The status plate's card: when Atlas last closed a task done. */
-export const newestAtlas = (): Newest => ({
+/** The status plate's card: when the agent last closed a task done. */
+export const newestAgent = (): Newest => ({
   at:
     done()
       .map(({ last }) => last.at)
@@ -28,8 +28,8 @@ export const newestAtlas = (): Newest => ({
       .at(-1) ?? null,
 });
 
-/** The tasks Atlas closed done since `since`. */
-export function readAtlas(since: Date): SourceEvent[] {
+/** The tasks the agent closed done since `since`. */
+export function readAgent(since: Date): SourceEvent[] {
   return done().flatMap(({ ask, last }) => {
     if (Date.parse(last.at) < since.getTime()) {
       return [];
@@ -42,9 +42,9 @@ export function readAtlas(since: Date): SourceEvent[] {
         chat: ask.id,
         chatName: `${agentName()}: ${String(ask.after.title ?? quote).slice(0, 80)}`,
         fromMe: false,
-        id: `atlas:${ask.id}`,
-        sender: "atlas",
-        source: "atlas",
+        id: `${AGENT_WORD}:${ask.id}`,
+        sender: AGENT_WORD,
+        source: AGENT_WORD,
         text: [
           `${agentName()} reports it did this task (its own report, not checked by Life; not his words).`,
           `He had asked, ${asked.day} ${asked.hms.slice(0, 5)}: "${quote.length > ASK_MAX ? `${quote.slice(0, ASK_MAX)}…` : quote}"`,

@@ -13,39 +13,39 @@ import {
 import { apply, readConversations, whose } from "./sources/lifelog";
 import { MARK, WAKE } from "./tasks";
 
-test("only “hey Atlas” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
+test("only “hey Orbit” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
-    "hey Atlas, book a table",
-    "Hey, Atlas.",
-    "HEY ATLAS",
-    "so... hey — atlas, remind me",
-    "and then hey atlas",
+    "hey Orbit, book a table",
+    "Hey, Orbit.",
+    "HEY ORBIT",
+    "so... hey — orbit, remind me",
+    "and then hey orbit",
     "hey, zorba: call",
-    "Hej Atlas test.",
-    "hei atlas",
-    "Hey, at last remind me",
-    "Hé Atlas, rappelle-moi",
-    "ey Atlas",
+    "Hej Orbit test.",
+    "hei orbit",
+    "Hey, or bit remind me",
+    "Hé Orbit, rappelle-moi",
+    "ey Orbit",
   ]) {
     expect(WAKE.test(said)).toBe(true);
   }
   for (const said of [
-    "ok Atlas, book a table",
-    "Atlas, book a table",
-    "we use Stripe Atlas",
-    "they atlas",
-    "hey there Atlas",
-    "Atlas hey",
-    "hey atlases",
+    "ok Orbit, book a table",
+    "Orbit, book a table",
+    "we use Stripe Orbit",
+    "they orbit",
+    "hey there Orbit",
+    "Orbit hey",
+    "hey orbites",
     "hey zorbas",
-    "envoie-le à Atlas",
-    "a Atlas",
-    "Atlas is okay.",
-    "they Atlas",
-    "okey Atlas",
-    "the Atlas",
-    "hay Atlas",
-    "ok, at last",
+    "envoie-le à Orbit",
+    "a Orbit",
+    "Orbit is okay.",
+    "they Orbit",
+    "okey Orbit",
+    "the Orbit",
+    "hay Orbit",
+    "ok, or bit",
   ]) {
     expect(WAKE.test(said)).toBe(false);
   }
@@ -101,15 +101,15 @@ test("a turn is his, someone else's when lifelog named anyone (by id or name), e
 test("his wake is high confidence, an unattributed one low, someone else's is no ask", () => {
   const asks = asksIn(
     [
-      turn(0, "me", "hey Atlas, call the bank"),
-      turn(60, "unknown", "hey Atlas, water the plant"),
-      turn(120, "other", "hey Atlas, buy me a car"),
+      turn(0, "me", "hey Orbit, call the bank"),
+      turn(60, "unknown", "hey Orbit, water the plant"),
+      turn(120, "other", "hey Orbit, buy me a car"),
     ],
     ""
   );
   expect(asks.map((a) => [a.quote, a.confidence])).toEqual([
-    ["hey Atlas, call the bank", "high"],
-    ["hey Atlas, water the plant", "low"],
+    ["hey Orbit, call the bank", "high"],
+    ["hey Orbit, water the plant", "low"],
   ]);
   expect(asks[0]).toMatchObject({
     at: new Date(AT).toISOString(),
@@ -118,37 +118,37 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
-// audit-4-hej-atlas: lifelog wrote his "hey Atlas" as "Hej Atlas" (no speaker) and "Hey, at last": no ask was made.
-test("“Hej Atlas” from an unattributed voice is a low ask, from a named other none; “hey, at last” is his low ask only", () => {
+// audit-4-hej-agent: lifelog wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.
+test("“Hej Orbit” from an unattributed voice is a low ask, from a named other none; “hey, or bit” is his low ask only", () => {
   const asks = asksIn(
     [
-      turn(0, "unknown", "Hej Atlas test."),
-      turn(60, "other", "Hej Atlas, buy me a car"),
-      turn(120, "me", "Hé Atlas, rappelle-moi"),
-      turn(180, "me", "Hey, at last remind me to call"),
-      turn(240, "unknown", "hey, at last you're here"),
+      turn(0, "unknown", "Hej Orbit test."),
+      turn(60, "other", "Hej Orbit, buy me a car"),
+      turn(120, "me", "Hé Orbit, rappelle-moi"),
+      turn(180, "me", "Hey, or bit remind me to call"),
+      turn(240, "unknown", "hey, or bit you're here"),
     ],
     ""
   );
   expect(asks.map((a) => [a.quote, a.confidence])).toEqual([
-    ["Hej Atlas test.", "low"],
-    ["Hé Atlas, rappelle-moi", "high"],
-    ["Hey, at last remind me to call", "low"],
+    ["Hej Orbit test.", "low"],
+    ["Hé Orbit, rappelle-moi", "high"],
+    ["Hey, or bit remind me to call", "low"],
   ]);
 });
 
-test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “hey Atlas”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
+test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “hey Orbit”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
   const asks = asksIn(
     [
       turn(0, "me", "Hey Zorba, add milk to the list"),
       turn(60, "me", "Zorba, can you pass me the salt?"),
       turn(65, "other", "hey Zorba, sure"),
-      turn(70, "me", "thanks Zorba, at last we eat"),
+      turn(70, "me", "thanks Zorba, or bit we eat"),
       turn(130, "unknown", "hey Zorba, call me back"),
-      turn(190, "me", "hey Atlas, book a table"),
+      turn(190, "me", "hey Orbit, book a table"),
       turn(195, "me", "hey Zorba, and a taxi"),
-      turn(260, "me", "hey Zorba, hey Atlas, book it"),
-      turn(320, "unknown", "hey Zorba, hey Atlas, book it"),
+      turn(260, "me", "hey Zorba, hey Orbit, book it"),
+      turn(320, "unknown", "hey Zorba, hey Orbit, book it"),
     ],
     ""
   );
@@ -164,21 +164,21 @@ test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “he
 test("an ask runs over his following turns until another speaker, a 15 s pause or a new wake", () => {
   const turns = [
     turn(0, "other", "what should we do?"),
-    turn(5, "me", "Hey, Atlas."),
+    turn(5, "me", "Hey, Orbit."),
     turn(10, "me", "find a flight to Oslo"),
     turn(25, "me", "for Friday"),
     turn(30, "other", "and a hotel"),
     turn(35, "me", "not this one"),
-    turn(100, "me", "hey atlas, remind me"),
+    turn(100, "me", "hey orbit, remind me"),
     turn(110, "me", "to call mum"),
     turn(126, "me", "too late for the ask"),
-    turn(130, "me", "hey Atlas, one more"),
+    turn(130, "me", "hey Orbit, one more"),
     turn(135, "unknown", "an unattributed turn ends his ask"),
   ];
   expect(asksIn(turns, "").map((a) => [a.turns, a.quote])).toEqual([
-    [[1, 2, 3], "Hey, Atlas. find a flight to Oslo for Friday"],
-    [[6, 7], "hey atlas, remind me to call mum"],
-    [[9], "hey Atlas, one more"],
+    [[1, 2, 3], "Hey, Orbit. find a flight to Oslo for Friday"],
+    [[6, 7], "hey orbit, remind me to call mum"],
+    [[9], "hey Orbit, one more"],
   ]);
   // Only wakes at or after the hearing's start: earlier ones were heard before.
   expect(
@@ -189,7 +189,7 @@ test("an ask runs over his following turns until another speaker, a 15 s pause o
 test("the pause is measured from a turn's end; the ask keeps when its last turn ended and when all of it arrived", () => {
   const [ask] = asksIn(
     [
-      turn(0, "me", "hey Atlas, plan the week:", 30),
+      turn(0, "me", "hey Orbit, plan the week:", 30),
       turn(40, "me", "Monday is the dentist", 3),
       turn(70, "me", "after a long pause"),
     ],
@@ -231,7 +231,7 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
-        { speakerId: null, text: "hey Atlas, water the plant" },
+        { speakerId: null, text: "hey Orbit, water the plant" },
         { speakerId: null, text: "hey Zorba, call the bank" },
       ],
     }),
@@ -258,7 +258,7 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
     ).toBe(true);
     expect(quotes()).toEqual([
       "hey Zorba, call the bank",
-      "hey Atlas, water the plant",
+      "hey Orbit, water the plant",
     ]);
   } finally {
     server.close();
@@ -325,9 +325,9 @@ test('a "hey Life" span is his (high) or unattributed (low), never someone else\
     ["high", [1, 2]],
     ["low", [4]],
   ]);
-  // A "hey Life" is never an ask, and a "hey Atlas" never a mark.
+  // A "hey Life" is never an ask, and a "hey Orbit" never a mark.
   expect(asksIn(turns, "")).toEqual([]);
-  expect(marksIn([turn(0, "me", "hey Atlas, book it")], "")).toEqual([]);
+  expect(marksIn([turn(0, "me", "hey Orbit, book it")], "")).toEqual([]);
 });
 
 test('his "hey Life" heard in a conversation marks its chapter; heard again from later, the earlier mark stays', async () => {

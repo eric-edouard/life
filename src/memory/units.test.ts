@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
-import type { Person, SourceEvent, Unit } from "../schema";
+import {
+  AGENT_WORD,
+  type Person,
+  type SourceEvent,
+  type Unit,
+} from "../schema";
 import { readSettings, setSettings } from "../settings";
 import { SOURCES } from "../sources";
 import {
@@ -615,13 +620,13 @@ test("who wrote a message, for every kind: him, an agent's own line, whom the re
     of("chat", "me", true),
     of("chat", "+33600000002"),
     of("mail", "a@b.c"),
-    of("agent", "atlas"),
+    of("agent", AGENT_WORD),
     of("agent", "+33600000002"),
   ]).toEqual([
     "person:me",
     "person:dad",
     "unknown:a@b.c",
-    "agent:atlas",
+    `agent:${AGENT_WORD}`,
     "agent:+33600000002",
   ]);
 });

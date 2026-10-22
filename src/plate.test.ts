@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { clientName } from "./events";
-import { stationsOf, toneOf, waking, wokeAt } from "./plate";
+import { snapshot, stationsOf, toneOf, waking, wokeAt } from "./plate";
 
 const now = Date.parse("2026-10-21T15:00:00.000Z");
 const ago = (ms: number) => new Date(now - ms).toISOString();
@@ -47,7 +47,7 @@ test("his waking hours began at 08:00, the day before after midnight: a night is
 });
 
 test("connector clients go by the names he knows them by", () => {
-  expect(clientName("openai-mcp/1.0.0")).toBe("Atlas");
+  expect(clientName("openai-mcp/1.0.0")).toBe("Orbit");
   expect(clientName("claude-ai/0.1")).toBe("Claude");
   expect(clientName("")).toBe("unknown client");
   expect(clientName("curl/8")).toBe("curl/8");
@@ -94,3 +94,8 @@ test("a sweep's stations are the phases it recorded: done, now, the one it faile
     state(stationsOf({ lastOk: ok, latest: running }, true, null)).slice(1, 4)
   ).toEqual(["gather:done", "moments:now", "extract:todo"]);
 });
+
+test("every card on the plate has its own id", async () => {
+  const ids = (await snapshot()).cards.map((c) => c.id);
+  expect(ids.length).toBe(new Set(ids).size);
+}, 60_000);

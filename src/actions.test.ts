@@ -100,8 +100,8 @@ test("his reminders are read from one list or all, never the board", () => {
   expect(readable("Home")).toBe(true);
   expect(readable("Home", "Home")).toBe(true);
   expect(readable("Home", "Work")).toBe(false);
-  expect(readable("Atlas")).toBe(false);
-  expect(readable("Atlas", "Atlas")).toBe(false);
+  expect(readable("Orbit")).toBe(false);
+  expect(readable("Orbit", "Orbit")).toBe(false);
 });
 
 test("the same words asking for the same thing get the same id, whatever the case and accents", () => {
