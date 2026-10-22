@@ -415,7 +415,7 @@ export function buildServer() {
     tool(
       server,
       "reminders",
-      `Change the owner's actions (his to-dos in Apple Reminders or Google Tasks, whichever this install uses), only for what he explicitly asked (in this chat, or an ask), or, with \`obs\`, the standing grant: add, edit, done, undone (ticked back open), remove or restore (back into \`list\`, where the app keeps removed items); undo one with its inverse. A field the app cannot hold (a section, urgent, an alarm) is refused, saying so. Not the list \`${BOARD}\`: that is the board, changed with \`task\`. \`target\` is an item's id as \`open_reminders\` gives it (all but add). Logged in Life's history; \`day\` shows it.`,
+      `Change the owner's actions (his to-dos in Apple Reminders or Google Tasks, whichever this install uses), only for what he explicitly asked (in this chat, or an ask), or, with \`obs\`, the standing grant: add, edit, done, undone (ticked back open), remove or restore (back into \`list\`); undo one with its inverse. A change the app cannot do (Google Tasks: restore, a section, urgent, an alarm) is refused, saying so. Not the list \`${BOARD}\`: that is the board, changed with \`task\`. \`target\` is an item's id as \`open_reminders\` gives it (all but add). Logged in Life's history; \`day\` shows it.`,
       Reminders,
       dry((a) => request(a)),
       REVERSIBLE

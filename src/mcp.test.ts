@@ -225,6 +225,13 @@ test("tools/list: thirteen read-only tools; `correct` asks for approval, `remind
     properties: { id: { type: "string" } },
     required: ["id"],
   });
+  // An item's id: Google Tasks' strings, or Reminders' numbers as the tool first took them.
+  const reminders = json.result.tools.find(
+    (t: { name: string }) => t.name === "reminders"
+  );
+  expect(reminders.inputSchema.properties.target).toMatchObject({
+    anyOf: [{ type: "string" }, { type: "integer" }],
+  });
   const writes = ["correct", "reminders", "reply", "task"];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({

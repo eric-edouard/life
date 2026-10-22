@@ -289,7 +289,7 @@ Reminders by hand (read back by the watcher, `src/actions/inbound.ts`), and the 
   clipped at 4,000 characters; one on no task has `target` `chat`) and, until 20 Oct, `nudge` (Life: `after.why`, the task was past
   its deadline) and `steer` (the owner's change to its board item, `after.changes` and `note`); those only parse now. Id: `act_` + 12 hex over
   `<task>@<at> | kind` (a reply's also over its text).
-- `target`: `reminder:<numericId>`, `reminder:new` (a failed add), `AGENT_WORD` (an ask), a task's id (its lines) or `chat`
+- `target`: `reminder:<numericId>` or `gtask:<list>/<task>` (the actions backend's item), `reminder:new` or `gtask:new` (a failed add), `AGENT_WORD` (an ask), a task's id (its lines) or `chat`
   (a reply on no task).
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An add's `after.link` is
   the reminder's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
