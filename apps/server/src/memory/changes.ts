@@ -561,7 +561,7 @@ export async function claim(id: string) {
       ? [
           { id: unit.id, tool: "fetch" },
           ...(chat
-            ? [{ chat: unit.key, from: o.date, to: o.date, tool: "chats" }]
+            ? [{ chat: unit.key, from: o.date, to: o.date, tool: "read_chats" }]
             : []),
         ]
       : [],

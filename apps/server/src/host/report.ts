@@ -287,7 +287,7 @@ export function taskReport(
         (x) =>
           `${x.title}: you said “${x.ask.instruction.quote}” (asked ${time(x.ask.at)}, ${x.ask.id})`
       ),
-      "Each is a task in Life's `read_open_agent_tasks` (memory/ledger.jsonl).",
+      "Each is a task on the agent's board (memory/ledger.jsonl).",
     ],
     preheader: why,
     stats: [{ label: "need you", value: String(list.length) }],

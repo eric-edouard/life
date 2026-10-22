@@ -939,7 +939,7 @@ export async function area(name: string) {
 
 /**
  * `bun life memory topics [tag] [--person <id>]`: with no tag, the top topics and how many units carry each; with a tag,
- * the units tagged so, by date. `read_person_page` keeps the units that involve that person.
+ * the units tagged so, by date. `person` keeps the units that involve that person.
  */
 export const topicsOf = (tag: string | undefined, who?: string) =>
   withIndex((db) => {

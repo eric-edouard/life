@@ -37,12 +37,12 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   it (`apps/server/src/host/events.ts`).
 - The agent also records one through `update_agent_task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
-  (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is claimed in the same call, so it
+  (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is taken in the same call, so it
   sends no `ask` event.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded, delivered,
-  claimed, closed.
+  taken, closed.
 
 ## Tasks
 
@@ -52,7 +52,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   `taken`). `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows. `reply`
   lines are what the agent told the owner (one on no task targets `chat`).
 - `read_memory_changes` with `about` `task:<id>` is a task's whole history. `nudge` and `steer` lines are old kinds that only parse.
-- **What needs the owner is one rule, `escalation`**, for every task: unclaimed 30 min after the ask, claimed and past
+- **What needs the owner is one rule, `escalation`**, for every task: not taken 30 min after the ask, taken and past
   its deadline, waiting on the owner over 1 h, a week old, or no live subscription (one email a day). `chase` (each minute in
   the watcher) emails the owner once per task with the cause and the agent's last update; a pass's new causes go in one email.
 - Task lines stay out of the report's Actions section and out of `read_day`. The nightly lists every open task and those

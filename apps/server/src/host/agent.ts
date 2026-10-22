@@ -152,8 +152,8 @@ export async function timings(
           ["arrived", a.timing?.arrived ?? null],
           ["recorded", a.at],
           ["delivered", sent.get(a.id) ?? null],
-          // The agent's first update; one Life wrote from his tick in Reminders is no claim.
-          ["claimed", updates.find((u) => u.via !== "reminders")?.at ?? null],
+          // The agent's first update; one Life wrote from his tick in Reminders does not take it.
+          ["taken", updates.find((u) => u.via !== "reminders")?.at ?? null],
           [
             "closed",
             updates.find((u) => closed(u.after.state as TaskState))?.at ?? null,
@@ -182,7 +182,7 @@ export function escalation(t: Task, now: number) {
   }
   if (Date.parse(deadline ?? "") <= now) {
     return state === "open"
-      ? "not claimed 30 min after the ask"
+      ? "not taken 30 min after the ask"
       : `${state} past its deadline`;
   }
   return now - Date.parse(t.ask.at) > 7 * DAY ? WEEK : null;
@@ -233,7 +233,7 @@ export function refusal(t: Task | undefined, u: Update, now: number) {
   if (Boolean(u.taken) !== (state === "open")) {
     return state === "open"
       ? "the first update takes the task: taken: true"
-      : `already claimed: the task is ${state}`;
+      : `already taken: the task is ${state}`;
   }
   if (missing.length > 0) {
     return `${u.state} needs ${missing.join(" and ")}`;

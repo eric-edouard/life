@@ -114,7 +114,7 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
       now
     )
   ).toBeNull();
-  // A duplicate ask is claimed and dropped in one update.
+  // A duplicate ask is taken and dropped in one update.
   expect(
     refusal(
       open,
@@ -122,20 +122,18 @@ test("the write rules: claim once, required fields per state, deadlines ahead (2
       now
     )
   ).toBeNull();
-  const claimed = task([
+  const taken = task([
     own("update", 1, { deadline, note: "a", state: "working" }),
   ]);
-  expect(refusal(claimed, claim, now)).toBe(
-    "already claimed: the task is working"
-  );
-  expect(refusal(claimed, ok, now)).toBeNull();
+  expect(refusal(taken, claim, now)).toBe("already taken: the task is working");
+  expect(refusal(taken, ok, now)).toBeNull();
   const done = task([own("update", 1, { outcome: "sent", state: "done" })]);
   expect(
     refusal(done, { reason: "no", state: "dropped", task: ASK }, now)
   ).toBe("the task is done: no update after that");
 });
 
-test("an open task is due 30 min after it was recorded, a claimed one at its own deadline", () => {
+test("an open task is due 30 min after it was recorded, a taken one at its own deadline", () => {
   expect(standing(task([])).deadline).toBe(at(30));
   const later = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
@@ -149,11 +147,11 @@ test("an open task is due 30 min after it was recorded, a claimed one at its own
   expect(standing(later).deadline).toBe(at(60));
 });
 
-test("he is emailed when a task is unclaimed after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Orbit isn't subscribed; once per cause and update", () => {
+test("he is emailed when a task is not taken after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Orbit isn't subscribed; once per cause and update", () => {
   const now = T0 + 20 * MIN;
   expect(escalation(task([]), now)).toBeNull();
   expect(escalation(task([]), T0 + 30 * MIN)).toBe(
-    "not claimed 30 min after the ask"
+    "not taken 30 min after the ask"
   );
   const working = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
@@ -247,7 +245,7 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
     spoken("entry_0000000c4a5f", 0, "hey Orbit, call the bank"),
     spoken("entry_0000000c4a60", 20, "hey Orbit, water the plant"),
   ]);
-  const late = "(not claimed 30 min after the ask)";
+  const late = "(not taken 30 min after the ask)";
   try {
     await chase(tasks, T0 + 31 * MIN, true);
     await chase(tasks, T0 + 32 * MIN, true);
@@ -351,7 +349,7 @@ test("a write needs the seal of the current playbook: refused when stale or miss
   );
 });
 
-test("his words in a chat make a task, claimed at once, once per message and part; never without his words", () => {
+test("his words in a chat make a task, taken at once, once per message and part; never without his words", () => {
   const chat = {
     ...claiming,
     at: at(-5),
@@ -406,7 +404,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(() => write(split, [done])).toThrow(`${ASK} is done`);
 });
 
-test("where an ask's time went: spoken, ended, arrived, recorded, delivered, claimed, closed; a split's parts are left out", async () => {
+test("where an ask's time went: spoken, ended, arrived, recorded, delivered, taken, closed; a split's parts are left out", async () => {
   // Two deliveries of the ask on two days, in their own log: the first is when Orbit got it.
   const dir = mkdtempSync(join(tmpdir(), "life-sent-"));
   const sent = (day: string, min: number) =>
@@ -438,10 +436,10 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
   const moments = Object.fromEntries(t?.moments ?? []);
   expect(moments).toMatchObject({
     arrived: at(-1),
-    claimed: at(5),
     closed: at(9),
     ended: at(-2),
     recorded: at(0),
+    taken: at(5),
   });
   expect(moments.delivered).toBe(at(1));
   expect(t?.moments.map(([m]) => m)).toEqual([
@@ -450,7 +448,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, cla
     "arrived",
     "recorded",
     "delivered",
-    "claimed",
+    "taken",
     "closed",
   ]);
 });

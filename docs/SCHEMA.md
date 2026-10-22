@@ -237,7 +237,7 @@ Sections, in order:
 - **Health** (the owner's own page only): as Now, but a line ages into History after 60 days.
 - **Between us** (the page of someone close to the owner personally, now or once, `personallyClose`): what lasts between them, the
   relationship, agreements, boundaries, turning points, each view in its speaker's name; ages into History after 365
-  days. `person` shows each line's first and latest evidence day. A page that loses it (a service, or the owner lowers them) moves its lines
+  days. `read_person_page` shows each line's first and latest evidence day. A page that loses it (a service, or the owner lowers them) moves its lines
   to History.
 - **Now**: where things stand, `- <text> [obs_…, …]`. Every line cites observations and at least one is under 21 days
   old (`SECTION` in `page-format.ts`); with none it ages into History.
@@ -256,7 +256,7 @@ because it only narrows a list the owner reads: the owner's to-do in a voice lif
 - **One fact, one page.** Each observation has a home, computed on every run and never stored (`homeOf`): the person's
   page when it is about exactly one other person who has a page, else the area of its project (`Project.area`), else
   the owner's own page when it is about the owner alone (filed with them, no other person, no name Life could not map) and is a
-  `person` or `preference` or has no area, else its own area. Another page may mention a fact, not repeat it.
+  `about_a_person` or `preference` or has no area, else its own area. Another page may mention a fact, not repeat it.
 - **No churn.** A line whose observations are all still shown stays word for word. The model may add lines for new
   observations, move a line to History, rewrite a line one of whose observations was removed or replaced, or rewrite a
   line to take in new observations while keeping its own; code rejects any other change.

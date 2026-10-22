@@ -561,7 +561,9 @@ test("the agent bench's cases name the tools and ids as they now are", () => {
         JSON.stringify([
           {
             ask: "act_0123456789ab",
-            call: [{ args: { state: "waiting-eric" }, tool: "task" }],
+            call: [
+              { args: { claim: true, state: "waiting-eric" }, tool: "task" },
+            ],
             not: { call: ["correct"] },
           },
         ]),
@@ -571,7 +573,12 @@ test("the agent bench's cases name the tools and ids as they now are", () => {
   expect(JSON.parse(cases.files.get(path) ?? "")).toEqual([
     {
       ask: "entry_0123456789ab",
-      call: [{ args: { state: "waiting-owner" }, tool: "update_agent_task" }],
+      call: [
+        {
+          args: { state: "waiting-owner", taken: true },
+          tool: "update_agent_task",
+        },
+      ],
       not: { call: ["correct_memory"] },
     },
   ]);

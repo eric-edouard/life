@@ -266,7 +266,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
-- `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`: the status reads (`docs/status-reads.md`).
+- `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
 
 Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,
 `notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only.

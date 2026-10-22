@@ -269,9 +269,16 @@ function value(
     return v.map((x) => value(x, key, rename, words));
   }
   if (v && typeof v === "object") {
-    return Object.fromEntries(
+    const out = Object.fromEntries(
       Object.entries(v).map(([k, x]) => [k, value(x, k, rename, words)])
     );
+    // A bench case's expected task update: its `claim` argument is `taken`.
+    const args = out.args as Record<string, unknown> | undefined;
+    if (out.tool === "update_agent_task" && args && "claim" in args) {
+      const { claim, ...rest } = args;
+      out.args = { ...rest, taken: claim };
+    }
+    return out;
   }
   return v;
 }
