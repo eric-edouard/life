@@ -4,7 +4,7 @@ import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { execOk } from "server/src/core/proc";
 
-// Life.app, assembled: the menu-bar app (app/, Swift) as its executable, the helper (scripts/helper.ts) in
+// Life.app, assembled: the menu-bar app (apps/mac/, Swift) as its executable, the helper (scripts/helper.ts) in
 // Contents/Helpers with its files in Contents/Resources/life, signed: with `LIFE_SIGN_IDENTITY` (an Apple-issued
 // certificate, Apple Development or Developer ID, by hash or name, from `.env`) under the hardened runtime, which
 // loads Sparkle only from the same team (so no self-signed one), else ad hoc. An ad hoc app is a new app to macOS at each build, so
@@ -26,7 +26,8 @@ const SPARKLE = {
   sha256: "17e28312b8e18ab7cdbbe09a6fb28cc55a5479ec6c371dbc07cdecd2a14fd959",
   url: "https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-for-Swift-Package-Manager.zip",
 };
-const FRAMEWORKS = join(ROOT, "apps", "mac", "Frameworks");
+const MAC = join(ROOT, "apps", "mac");
+const FRAMEWORKS = join(MAC, "Frameworks");
 
 /** Sparkle's xcframework in apps/mac/Frameworks, once. */
 async function sparkle() {
@@ -94,12 +95,9 @@ await mkdir(join(contents, "Helpers"), { recursive: true });
 await mkdir(join(contents, "Resources"), { recursive: true });
 
 await sparkle();
-await run(["swift", "build", "-c", "release"], join(ROOT, "apps", "mac"));
+await run(["swift", "build", "-c", "release"], MAC);
 const bin = (
-  await run(
-    ["swift", "build", "-c", "release", "--show-bin-path"],
-    join(ROOT, "apps", "mac")
-  )
+  await run(["swift", "build", "-c", "release", "--show-bin-path"], MAC)
 ).trim();
 await cp(join(bin, "LifeApp"), join(contents, "MacOS", "Life"));
 await mkdir(join(contents, "Frameworks"), { recursive: true });
@@ -122,13 +120,9 @@ await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
 });
 // Life's type (docs/brand.md), Source Serif 4 and IBM Plex Mono (OFL, their licences beside them), registered by
 // ATSApplicationFontsPath.
-await cp(
-  join(ROOT, "apps", "mac", "Fonts"),
-  join(contents, "Resources", "Fonts"),
-  {
-    recursive: true,
-  }
-);
+await cp(join(MAC, "Fonts"), join(contents, "Resources", "Fonts"), {
+  recursive: true,
+});
 await writeFile(join(contents, "Info.plist"), PLIST);
 
 // Life's icon from assets/icon (rsvg-convert, Homebrew's librsvg): app.svg as the bundle's icon at every size macOS

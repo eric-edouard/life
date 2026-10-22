@@ -19,7 +19,7 @@ can't read CSS variables copy its values, and `apps/server/src/host/brand.test.t
 | Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
 | The app | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`, copied, light and dark |
 
-No other file writes a colour: the test also fails on a hex colour anywhere else in `src`, `assets` or `app`.
+No other file writes a colour: the test also fails on a hex colour anywhere else in `apps/server/src`, `assets` or `apps/mac/Sources`.
 
 - **Colour.** Monochrome: ink `#181818`, white `#FFFFFF`, surface `#F3F3F3`, rule `#E4E4E4`, muted `#707070`.
   Status colours are for dots, short stripes and small marks, always beside a word, never as text: synced

@@ -60,8 +60,8 @@ or a reverse proxy), how the archive is fed (copying stores or saving on arrival
 apps/
   server/      the host layer and its entry (CLI, jobs, routes): what Life.app compiles and the container runs
   web/         the web UI (Vite, Tailwind): onboarding, settings, status
-  mac/         Life.app (today's app/), two modes: full local Life, or companion to a server
-  edge/        the edge Worker (today's worker/)
+  mac/         Life.app, two modes: full local Life, or companion to a server
+  edge/        the edge Worker
 packages/
   api/         the HTTP contract (zod schemas) the server serves and the web UI calls: types from one source
   brand/       assets/brand/tokens.css and what the web UI, the email and the app copy from it

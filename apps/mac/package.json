@@ -1,4 +1,8 @@
 {
   "name": "mac",
-  "private": true
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun ../../scripts/app.ts"
+  }
 }
