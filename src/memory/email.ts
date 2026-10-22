@@ -45,10 +45,12 @@ export interface Digest {
   weekday: string;
 }
 
-const SERIF = "'Source Serif 4',Georgia,serif";
-const MONO = "'IBM Plex Mono',ui-monospace,Menlo,monospace";
-// Copied from assets/brand/tokens.css (email takes no CSS variables; brand.test.ts checks them). Status colours only
-// mark (a dot), the words beside them stay ink.
+// Copied from assets/brand/tokens.css (email takes no CSS variables; brand.test.ts checks them): the font stacks (single
+// quotes, inside a style attribute), the radii and the colours. Status colours only mark (a dot), the words beside
+// them stay ink.
+export const SERIF = "'Source Serif 4',Georgia,serif";
+export const MONO = "'IBM Plex Mono',ui-monospace,Menlo,monospace";
+export const RADIUS = { control: 12, panel: 18 };
 export const C = {
   error: "#ef4444",
   ink: "#181818",
@@ -155,7 +157,7 @@ const stats = (d: Digest) => {
 const failureBox = (f: NonNullable<Digest["failure"]>) =>
   row(
     "padding:22px 24px 0",
-    `<div style="font:600 15px/1.3 ${SERIF};color:${C.ink}"><span style="color:${C.error}">●</span> Stopped at ${esc(f.step)}</div><div style="margin-top:10px;padding:12px 14px;background:${C.surface};border-radius:12px;font:13px/1.55 ${MONO};color:${C.ink};word-break:break-word">${esc(f.error)}</div>`
+    `<div style="font:600 15px/1.3 ${SERIF};color:${C.ink}"><span style="color:${C.error}">●</span> Stopped at ${esc(f.step)}</div><div style="margin-top:10px;padding:12px 14px;background:${C.surface};border-radius:${RADIUS.control}px;font:13px/1.55 ${MONO};color:${C.ink};word-break:break-word">${esc(f.error)}</div>`
   );
 
 export function renderHtml(d: Digest) {
@@ -187,9 +189,9 @@ export function renderHtml(d: Digest) {
 <tr><td style="padding:0 4px 20px">
 <div style="font:13px/1.3 ${SERIF};color:${C.muted}">${esc(d.weekday)} · ${esc(d.label ?? "Life nightly")}</div>
 <div style="margin-top:6px;font:600 36px/1.1 ${SERIF};letter-spacing:-.01em;color:${C.ink}">${esc(d.date)}</div>
-<div style="margin-top:12px"><span style="display:inline-block;padding:6px 10px;border-radius:12px;background:${C.surface};font:500 11.5px/1 ${MONO};color:${C.ink}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
+<div style="margin-top:12px"><span style="display:inline-block;padding:6px 10px;border-radius:${RADIUS.control}px;background:${C.surface};font:500 11.5px/1 ${MONO};color:${C.ink}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
 </td></tr>
-<tr><td style="background:${C.white};border:1px solid ${C.rule};border-radius:18px">
+<tr><td style="background:${C.white};border:1px solid ${C.rule};border-radius:${RADIUS.panel}px">
 <table ${TABLE}>
 ${body}
 </table></td></tr></table></td></tr></table></body></html>`;

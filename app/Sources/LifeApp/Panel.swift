@@ -42,7 +42,7 @@ struct Panel: View {
 
   private var header: some View {
     HStack(spacing: 10) {
-      Wordmark(size: 26)
+      Wordmark(height: 22)
       Spacer()
       if let plate = supervisor.plate {
         let n = plate.troubled.count

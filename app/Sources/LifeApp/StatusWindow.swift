@@ -58,14 +58,15 @@ struct StatusWindow: View {
         }
         Toggle("Show content", isOn: $showContent).toggleStyle(.checkbox).font(Brand.serif(12.5))
           .foregroundStyle(Brand.muted)
-        Pill(tone: .ok, word: plate.observedAt.formatted(date: .omitted, time: .standard))      }
+        Pill(tone: .ok, word: plate.observedAt.formatted(date: .omitted, time: .standard))
+      }
       .padding(.top, 12)
       .padding(.trailing, 20)
 
       VStack(alignment: .leading, spacing: 10) {
         Text(plate.observedAt, format: .dateTime.weekday(.wide).day().month(.wide))
           .label()
-        Wordmark(size: 52)
+        Wordmark(height: 45)
       }
       .padding(.horizontal, 44)
       .padding(.top, 18)

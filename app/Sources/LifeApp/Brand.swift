@@ -13,8 +13,7 @@ enum Brand {
   static let control: CGFloat = 12
   static let panel: CGFloat = 18
 
-  /// Source Serif 4, IBM Plex Mono and, for the wordmark only, Cormorant Garamond Bold ship in the bundle
-  /// (`app/Fonts`, `ATSApplicationFontsPath`).
+  /// Source Serif 4 and IBM Plex Mono ship in the bundle (`app/Fonts`, `ATSApplicationFontsPath`).
   static func serif(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
     .custom("Source Serif 4", size: size).weight(weight)
   }
@@ -24,18 +23,19 @@ enum Brand {
   }
 }
 
-/// The wordmark: the outlined italic L (`life-l.pdf`, from assets/brand/life-l.svg by `scripts/app.ts`) and an upright
-/// "ife" in Cormorant Garamond Bold.
+/// The wordmark, outlined (`life.pdf`, from assets/brand/life.svg by `scripts/app.ts`): a template image, drawn in the
+/// text's colour at the given height.
 struct Wordmark: View {
-  let size: CGFloat
+  static let image: NSImage = {
+    let image = NSImage(named: "life")!
+    image.isTemplate = true
+    return image
+  }()
+
+  let height: CGFloat
 
   var body: some View {
-    HStack(alignment: .lastTextBaseline, spacing: -0.005 * size) {
-      Image(nsImage: LifeApp.mark).resizable().frame(width: 0.68 * size, height: 0.86 * size)
-      Text("ife").font(.custom("Cormorant Garamond", size: size).weight(.bold)).kerning(-0.035 * size)
-    }
-    .accessibilityElement()
-    .accessibilityLabel("Life")
+    Image(nsImage: Self.image).resizable().scaledToFit().frame(height: height).accessibilityLabel("Life")
   }
 }
 
@@ -43,6 +43,11 @@ extension Text {
   /// A section's or a group's label: small mono capitals.
   func label() -> some View {
     font(Brand.mono(10.5, .medium)).textCase(.uppercase).kerning(0.8).foregroundStyle(Brand.muted)
+  }
+
+  /// A note under a setting: small serif, muted.
+  func caption() -> some View {
+    font(Brand.serif(11)).foregroundStyle(Brand.muted)
   }
 }
 

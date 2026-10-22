@@ -29,9 +29,9 @@ struct LifeApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
   @Environment(\.openWindow) private var openWindow
   private var supervisor: Supervisor { delegate.supervisor }
-  /// Life's L (`life-l.pdf`, from assets/brand/life-l.svg by `scripts/app.ts`), in the menu bar and the wordmark: a
-  /// template image, so macOS paints it for a light or a dark bar and SwiftUI in the text's colour.
-  static let mark: NSImage = {
+  /// Life's L for the menu bar (`life-l.pdf`, from assets/brand/life-l.svg by `scripts/app.ts`): a template image,
+  /// so macOS paints it for a light or a dark bar.
+  private static let mark: NSImage = {
     let image = NSImage(named: "life-l")!
     image.isTemplate = true
     return image
@@ -114,7 +114,7 @@ struct SettingsView: View {
           Button("Import an export…") { Task { await importExport() } }
             .disabled(installing)
           Text("A folder made by Export everything…, on this Mac or another: checked, then counted again.")
-            .font(.caption).foregroundStyle(.secondary)
+            .caption()
         }
       } else {
         Section("Thinking") {
@@ -134,7 +134,7 @@ struct SettingsView: View {
               VStack(alignment: .leading) {
                 Text(s.label)
                 if s.on, let why = s.missing {
-                  Text(why).font(.caption).foregroundStyle(.secondary)
+                  Text(why).caption()
                 }
               }
             }
@@ -143,7 +143,7 @@ struct SettingsView: View {
             Button("Open Full Disk Access") {
               NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
             }
-            Text("Turn Life on there, then come back: it checks again.").font(.caption)
+            Text("Turn Life on there, then come back: it checks again.").caption()
           }
           TextField("lifelog address", text: $lifelogURL)
           SecureField("lifelog token", text: $lifelogToken)
@@ -163,7 +163,7 @@ struct SettingsView: View {
             Text(r.ready
               ? "Life adds reminders when you ask, keeps your agent's list and reads your changes back."
               : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
-              .font(.caption).foregroundStyle(.secondary)
+              .caption()
           }
         }
         Section("Your agent") {
@@ -191,12 +191,11 @@ struct SettingsView: View {
         }
       }
       if !status.isEmpty {
-        Text(status).font(.caption).foregroundStyle(.secondary)
+        Text(status).caption()
       }
     }
     .formStyle(.grouped)
     .font(Brand.serif(13))
-    .tint(Brand.ink)
     .task { await load() }
     .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
       // Full Disk Access is granted in System Settings: the sources' state is read again until it shows.

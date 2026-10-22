@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { C } from "./memory/email";
+import { C, MONO, RADIUS, SERIF } from "./memory/email";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.
@@ -20,6 +20,8 @@ const [lightCss = "", darkCss = ""] = tokens.split(
 const light = colours(lightCss);
 const dark = colours(darkCss);
 const hex = (n: string) => `#${n.slice(2)}`;
+const HEX_COLOUR = /#[0-9a-f]{6}\b|0x[0-9a-f]{6}\b/i;
+const L_OUTLINE = /d="(M14 0[^"]+)"/;
 
 test("the email's colours are tokens.css's", () => {
   for (const [name, value] of Object.entries(C)) {
@@ -64,4 +66,57 @@ test("the app's colours are tokens.css's, light and dark", async () => {
   for (const [, tone = "", value = ""] of statuses) {
     expect([tone, hex(value)]).toEqual([tone, light[tones[tone] ?? ""]]);
   }
+});
+
+test("the email's and the app's radii and the email's font stacks are tokens.css's", async () => {
+  const value = (name: string) =>
+    tokens.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1] ?? "";
+  const px = (name: string) => Number.parseFloat(value(name));
+  expect(RADIUS).toEqual({
+    control: px("control-radius"),
+    panel: px("panel-radius"),
+  });
+  const stack = (s: string) => s.replaceAll(/["'\s]/g, "");
+  expect([stack(SERIF), stack(MONO)]).toEqual([
+    stack(value("serif")),
+    stack(value("mono")),
+  ]);
+  const swift = await asset("app/Sources/LifeApp/Brand.swift");
+  const radius = (name: string) =>
+    Number(
+      swift.match(new RegExp(`static let ${name}: CGFloat = (\\d+)`))?.[1]
+    );
+  expect({ control: radius("control"), panel: radius("panel") }).toEqual(
+    RADIUS
+  );
+});
+
+test("no colour is written anywhere else: every hex colour is in tokens.css or a checked copy", async () => {
+  const allowed = new Set([
+    "app/Sources/LifeApp/Brand.swift",
+    "assets/brand/tokens.css",
+    "src/memory/email.ts",
+  ]);
+  const root = new URL("..", import.meta.url).pathname;
+  const files = new Bun.Glob("**/*.{ts,js,css,html,swift,json,jsonl,md}");
+  const read = ["src", "assets", "app/Sources"].flatMap((dir) =>
+    [...files.scanSync(root + dir)].map((file) => `${dir}/${file}`)
+  );
+  expect(read).toContain("src/memory/email.ts");
+  const texts = await Promise.all(read.map(asset));
+  const strays = read.filter(
+    (path, i) => !allowed.has(path) && HEX_COLOUR.test(texts[i] ?? "")
+  );
+  expect(strays).toEqual([]);
+});
+
+test("the L is one outline: the icon's, the wordmark's and the menu bar's are the same", async () => {
+  const outline = async (path: string) =>
+    (await asset(path)).match(L_OUTLINE)?.[1];
+  const l = await outline("assets/brand/life-l.svg");
+  expect(l).toBeTruthy();
+  expect([
+    await outline("assets/brand/life.svg"),
+    await outline("assets/icon/icon.svg"),
+  ]).toEqual([l, l]);
 });
