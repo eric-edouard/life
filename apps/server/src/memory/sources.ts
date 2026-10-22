@@ -3,34 +3,34 @@ import { HOUR } from "../core/clock";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
 import { agentName, settings } from "../core/settings";
-import { newestAgent, readAgent } from "./agent";
-import { archiveDb } from "./archived";
+import { archiveDb } from "../sources/archived";
 import {
   FORMATS,
   importOf,
   newestAssistant,
   readAssistant,
-} from "./assistants";
-import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
-import type { AppStore, Descriptor } from "./contract";
-import { newestCommit, readGit } from "./git";
+} from "../sources/assistants";
+import { copyBeeper, newestBeeper, readBeeper } from "../sources/beeper";
+import type { AppStore, Descriptor } from "../sources/contract";
+import { newestCommit, readGit } from "../sources/git";
 import {
   DB,
   handleOf,
   isImessageGroup,
   newestImessage,
   readImessage,
-} from "./imessage";
-import { lifelogMissing } from "./lifelog";
-import { mailRoot, newestMail, readMail } from "./mail";
-import { copyNotes, newestNote, readNotes } from "./notes";
+} from "../sources/imessage";
+import { lifelogMissing } from "../sources/lifelog";
+import { mailRoot, newestMail, readMail } from "../sources/mail";
+import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import {
   copyWhatsapp,
   isWhatsappGroup,
   newestWhatsapp,
   phoneOf,
   readWhatsapp,
-} from "./whatsapp";
+} from "../sources/whatsapp";
+import { newestAgent, readAgent } from "./agent";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, units.ts).

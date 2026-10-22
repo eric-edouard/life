@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { digest } from "../core/hash";
 import type { MadeBy } from "../records/fields";
 import { INFERRED_PREFIX, type InferredPerson } from "../records/observations";
-import { kindOf } from "../sources";
-import { digest } from "./ledger";
 import { locate } from "./observe";
+import { kindOf } from "./sources";
 import { areaOf, type Built, slugOf, UNKNOWN } from "./units";
 
 // Who the people not on the map are: what the moments call is asked about a day, and its answer checked (every quote

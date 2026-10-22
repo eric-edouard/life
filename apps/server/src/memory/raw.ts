@@ -4,7 +4,6 @@ import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/sources";
 import type { Unit } from "../records/units";
-import { isDirect, kindOf, sourceOf } from "../sources";
 import { repoMap } from "../sources/git";
 import {
   type ChapterTurn,
@@ -18,6 +17,7 @@ import {
 } from "../sources/lifelog";
 import { readRepoGuesses, readUnits } from "./ledger";
 import type { Line } from "./observe";
+import { isDirect, kindOf, sourceOf } from "./sources";
 import { handlesOf, OWNER, ownerIn } from "./truth";
 import {
   type Built,

@@ -12,9 +12,9 @@ import {
 } from "../../memory/guard";
 import { latestRuns, type Run, SWEEPS } from "../../memory/history";
 import { INDEX } from "../../memory/search";
+import { keptStores, listening } from "../../memory/sources";
 import { localDate } from "../../memory/zones";
 import type { Quota } from "../../models/llm";
-import { keptStores, listening } from "../../sources/index";
 import { lastCopied } from "../archive";
 import { polling, readHealth } from "../health";
 

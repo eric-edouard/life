@@ -4,10 +4,11 @@ import { ProtocolError } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { clock, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
+import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
 import { SECRETS, same, writeSecret } from "../core/secret";
 import { agentName, settings } from "../core/settings";
-import { ACTIONS, digest, parseAction } from "../memory/ledger";
+import { ACTIONS, parseAction } from "../memory/ledger";
 import { actionFailedReport, sendReport } from "./report";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one

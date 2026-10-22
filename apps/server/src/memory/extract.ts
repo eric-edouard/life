@@ -9,7 +9,6 @@ import {
   Unresolved,
 } from "../records/observations";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/units";
-import { kindOf } from "../sources";
 import {
   type LifelogConversation,
   turnsBetween,
@@ -33,6 +32,7 @@ import {
 import { parseObservations, type Reject, type Source } from "./observe";
 import { chatLines, transcripts, voiceLines } from "./raw";
 import { begin, inBatches, refContext } from "./run";
+import { kindOf } from "./sources";
 import { othersIn } from "./truth";
 import {
   areaLookup,

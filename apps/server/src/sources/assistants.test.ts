@@ -1,11 +1,6 @@
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { appendJsonl } from "../core/files";
-import { IMPORTED, keptConversations } from "../memory/ledger";
-import { applyRules, messageUnits } from "../memory/units";
-import { Imported } from "../records/observations";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import {
   FORMATS,
   formatOf,
@@ -13,7 +8,6 @@ import {
   kept,
   newestAssistant,
   pruned,
-  readAssistant,
 } from "./assistants";
 
 // Made-up exports in the published shapes: claude.ai's chat_messages, ChatGPT's mapping tree.
@@ -174,45 +168,6 @@ test("pruning drops code, pasted documents, tool notices, agent briefs and repea
     },
   ]);
   expect(twice.map((c) => c.id)).toEqual(["a"]);
-});
-
-test("his pruned messages are read; only the conversations the import kept become memory", () => {
-  const dir = mkdtempSync(join(tmpdir(), "assistants-"));
-  const path = join(dir, "conversations.json");
-  writeFileSync(path, JSON.stringify(claudeExport));
-  const events = readAssistant("claude")(new Date(0), path);
-  // c2 was all code: pruned before anything judged it.
-  expect(
-    events.map((e) => [e.id, e.chat, e.chatName, e.fromMe, e.sender])
-  ).toEqual([
-    ["claude:c1/m1", "claude:c1", "Chat with Claude: Ada's move", true, "me"],
-    ["claude:c1/m3", "claude:c1", "Chat with Claude: Ada's move", true, "me"],
-  ]);
-  expect(
-    readAssistant("claude")(new Date("2026-03-02T09:16:00.000Z"), path).length
-  ).toBe(1);
-  // One unit per conversation and local day, dropped until the import keeps it.
-  const unit = () =>
-    applyRules(
-      messageUnits(events, () => null),
-      keptConversations()
-    )[0]?.unit;
-  expect([unit()?.source, unit()?.key, unit()?.drop]).toEqual([
-    "claude",
-    "claude:c1",
-    "not-kept",
-  ]);
-  appendJsonl(IMPORTED, Imported, [
-    {
-      at: "2026-10-21T00:00:00.000Z",
-      conversation: "claude:c1",
-      keep: true,
-      madeBy: { engine: "codex", model: "m", prompt: "import.v1", run: "r" },
-      schemaVersion: 1,
-      why: "His sister's move.",
-    },
-  ]);
-  expect(unit()?.drop).toBeUndefined();
 });
 
 test("the status card shows his newest imported message once an export is in", () => {

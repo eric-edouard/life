@@ -3,7 +3,6 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { CLOSED_ON_SILENCE_S } from "../host/hear";
 import {
   chapter,
   conversation,
@@ -14,6 +13,7 @@ import {
 } from "./fixtures";
 import {
   apply,
+  CLOSED_ON_SILENCE_S,
   conversationsWith,
   Hits,
   LifelogStatus,

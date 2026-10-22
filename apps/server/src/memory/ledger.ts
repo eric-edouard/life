@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
@@ -26,9 +25,6 @@ const MEMORY = join(DATA, "memory");
 /** A run's id: its start instant with ":" written "-" (also its folder name and the `madeBy.run` of what it wrote). */
 export const runId = (d: Date) => d.toISOString().replaceAll(":", "-");
 const RUN_TIME = /T(\d\d)-(\d\d)-(\d\d)/;
-/** The first `n` hex of a hash of `s`: how ids and content hashes are made. */
-export const digest = (algo: string, s: string | Buffer, n: number) =>
-  createHash(algo).update(s).digest("hex").slice(0, n);
 /** Each key's last item in `list`: how every ledger's "latest line wins" is read. */
 export const latestBy = <T>(list: T[], key: (x: T) => string) =>
   new Map(list.map((x) => [key(x), x]));

@@ -10,7 +10,13 @@ import { type Chat, Person } from "../records/truth";
 import { WATCH } from "../sources/lifelog";
 import { OUT } from "./ledger";
 import { commitMemory } from "./run";
-import { integrity, loadTruth, readMe, type Truth } from "./truth";
+import {
+  goalProjects,
+  integrity,
+  loadTruth,
+  readMe,
+  type Truth,
+} from "./truth";
 
 const person = (id: string, whatsapp: string[] = []): Person => ({
   aliases: [],
@@ -175,4 +181,12 @@ test("a test run's state is all in its copy of the data, never the checkout's de
 test("his data and Life's state are real paths: nothing copies or removes through a link", () => {
   expect(DATA).toBe(real(DATA));
   expect(STATE).toBe(real(STATE));
+});
+
+test("his goals' projects, in his order", () => {
+  expect(
+    goalProjects(
+      "1. Be free (`lynx`, `life`).\n2. Earn from `shop`\n   and more."
+    )
+  ).toEqual([["lynx", "life"], ["shop"]]);
 });

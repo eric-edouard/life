@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { goalProjects } from "../memory/truth";
 import type { SourceEvent } from "../records/sources";
 import { type Candidate, openItems, owed } from "./items";
 
@@ -160,14 +159,6 @@ test("rank: his urgent flag and priority, then who owes whom, his goals in order
     "todo-old",
     "waiting",
   ]);
-});
-
-test("his goals' projects, in his order", () => {
-  expect(
-    goalProjects(
-      "1. Be free (`lynx`, `life`).\n2. Earn from `shop`\n   and more."
-    )
-  ).toEqual([["lynx", "life"], ["shop"]]);
 });
 
 test("an undated to-do or promise: the day after it was said and 3 days after, as those days come; then stale, never due", () => {

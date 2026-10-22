@@ -12,12 +12,13 @@ import { Change } from "../actions/contract";
 import { linked, openLinked } from "../actions/items";
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import { ACTIONS, digest, readActions } from "../memory/ledger";
+import { digest } from "../core/hash";
+import { ACTIONS, readActions } from "../memory/ledger";
+import { kindOf } from "../memory/sources";
 import { normalize } from "../memory/units";
 import { localDate } from "../memory/zones";
 import { Action, type Instruction, stands } from "../records/ledger";
 import type { Observation } from "../records/observations";
-import { kindOf } from "../sources";
 import { ownerSpoke, withStore } from "../sources/lifelog";
 import { actionFailedReport, sendReport } from "./report";
 

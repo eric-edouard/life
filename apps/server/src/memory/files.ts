@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { z } from "zod";
 import { appendJsonl } from "../core/files";
+import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { exec } from "../core/proc";
 import { stamp } from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/sources";
 import { FileEntry } from "../records/units";
 import { emlxPart } from "../sources/mail";
-import { digest, FILES, readFiles } from "./ledger";
+import { FILES, readFiles } from "./ledger";
 import { begin, chunks, inBatches } from "./run";
 
 // A message's files: each read once into memory/files.jsonl (`describeFiles`, from `gather`), then shown as a line of

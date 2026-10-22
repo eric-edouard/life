@@ -24,7 +24,6 @@ import {
 import type { Person } from "../records/truth";
 import type { Unit, Verdict } from "../records/units";
 import { KEEP_AT } from "../records/units";
-import { kindOf, listening } from "../sources";
 import {
   conversationsWith,
   type LifelogConversation,
@@ -63,6 +62,7 @@ import {
   mailHits,
   repliesOwed,
 } from "./raw";
+import { kindOf, listening } from "./sources";
 import { closed, nameOf, standing as taskStanding } from "./tasks";
 import { goalProjects, loadTruth, OWNER, type Truth } from "./truth";
 import {

@@ -10,8 +10,8 @@ import {
 import { dirname, join } from "node:path";
 import { DATA, STATE } from "../core/paths";
 import { SETTINGS } from "../core/settings";
+import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { ARCHIVED } from "../sources/index";
 import { storeFiles } from "../sources/lifelog";
 import {
   FORMAT,

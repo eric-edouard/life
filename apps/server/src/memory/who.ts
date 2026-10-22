@@ -7,7 +7,6 @@ import {
 } from "../records/observations";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/units";
-import { kindOf, sourceOf } from "../sources";
 import {
   readCorrections,
   readInferred,
@@ -17,6 +16,7 @@ import {
   readUnresolved,
   shownOf,
 } from "./ledger";
+import { kindOf, sourceOf } from "./sources";
 import { handlesOf, loadTruth, OWNER } from "./truth";
 import { normalize, PERSON, UNKNOWN } from "./units";
 

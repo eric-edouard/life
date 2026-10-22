@@ -36,6 +36,7 @@ import {
   type RunRecord,
 } from "../memory/run";
 import { reindex } from "../memory/search";
+import { keptStores } from "../memory/sources";
 import { titleOf } from "../memory/tasks";
 import {
   type Built,
@@ -50,7 +51,6 @@ import { dayStart, localDate, noteZone } from "../memory/zones";
 import { type Quota, quota } from "../models/llm";
 import { type Action, isListed } from "../records/ledger";
 import type { Extracted, Observation } from "../records/observations";
-import { keptStores } from "../sources/index";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { readHealth } from "./health";

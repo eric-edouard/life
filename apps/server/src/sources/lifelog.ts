@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { z } from "zod";
 import { clock, unfrozen } from "../core/clock";
 import { readJson } from "../core/files";
+import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { STATE } from "../core/paths";
 import { settings } from "../core/settings";
-import { digest } from "../memory/ledger";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
@@ -872,3 +872,6 @@ export async function forward(kind: string, a: Fix) {
   log("lifelog.write", { after, method, path, phase: "after" });
   return after;
 }
+
+/** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */
+export const CLOSED_ON_SILENCE_S = 60;

@@ -112,6 +112,30 @@ someone else is capped at 0.6 confidence.
   each request as is to the Mac's Tailscale Funnel on port 8443 (HTTPS a VPN lets through, unlike the tunnel's 7844),
   so his connector's URL never changes. It decides nothing; the Mac's sign-in guards every path.
 
+## The code
+
+The server's code (`apps/server/src`) is in layers, and dependencies point one way:
+
+```
+core  ←  records  ←  models, sources, actions  ←  memory  ←  host
+```
+
+| Folder | What it holds |
+|---|---|
+| `core/` | Clock, paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing |
+| `records/` | Every record Life writes, as zod schemas, one file per part of `docs/SCHEMA.md` |
+| `models/` | The model providers (`PROVIDERS`), the call and its cache |
+| `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
+| `actions/` | The actions contract, its two backends, the board and open items |
+| `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, search, the source registry (`sources.ts`, with the agent's own source) |
+| `host/` | What runs: the jobs (watch, archive, nightly, backup), the CLI, `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events, `act`) |
+
+A capability (models, sources, actions) imports only core and records; its implementations import its `contract.ts`
+and only its registry imports them. The memory imports the capabilities; only the host knows which machine it runs on.
+`bun run check` enforces it: fallow's boundary zones (`.fallowrc.json`) and a test against import cycles
+(`host/cycles.test.ts`). The reasons and the order of the work are in the
+[architecture plan](plans/2026-10-22-architecture.md).
+
 ## The app
 
 `Life.app` (`app/`, SwiftUI, menu bar) is how Life is installed. It runs the compiled helper (`scripts/helper.ts`): the

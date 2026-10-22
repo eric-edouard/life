@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { actionLine } from "../actions/items";
 import { unfrozen } from "../core/clock";
+import { digest } from "../core/hash";
 import { log, recentEvents } from "../core/log";
 import { STATE } from "../core/paths";
 import { notifyArgs } from "../core/platform";
@@ -14,14 +15,14 @@ import {
 } from "../memory/email";
 import type { extract } from "../memory/extract";
 import type { describeFiles } from "../memory/files";
-import { digest, type Task } from "../memory/ledger";
+import type { Task } from "../memory/ledger";
 import type { moments } from "../memory/moments";
 import type { pages } from "../memory/pages";
 import type { mapRepos } from "../memory/repos";
+import { enabledSources, listening } from "../memory/sources";
 import { count, localTime, time } from "../memory/units";
 import { localDate, when } from "../memory/zones";
 import type { Action } from "../records/ledger";
-import { enabledSources, listening } from "../sources/index";
 import { type Health, polling } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries

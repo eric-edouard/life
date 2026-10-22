@@ -1,16 +1,23 @@
 import { expect, test } from "bun:test";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { readSettings, setSettings } from "../core/settings";
+import { Imported } from "../records/observations";
 import type { SourceEvent } from "../records/sources";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/units";
-import { SOURCES } from "../sources";
+import { readAssistant } from "../sources/assistants";
 import {
   chapter,
   conversation as feedConversation,
   lifelogStore,
+  noteData,
+  notesFixture,
   page,
+  run,
 } from "../sources/fixtures";
 import {
   apply,
@@ -18,12 +25,17 @@ import {
   type LifelogConversation,
   readConversations,
 } from "../sources/lifelog";
+import { copyNotes, readNotes } from "../sources/notes";
 import { LIFE_MAIL } from "./email";
-import { readUnits, UNITS } from "./ledger";
+import { showFiles } from "./files";
+import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
+import { chatLines } from "./raw";
+import { SOURCES } from "./sources";
 import { loadTruth } from "./truth";
 import {
   applyRules,
   dayRange,
+  daysBefore,
   gather,
   LIFE_CHAT,
   lastDays,
@@ -39,7 +51,7 @@ import {
   writeUnits,
 } from "./units";
 import { resolver, unitNow } from "./who";
-import { cutAt, dayStart, firstZoneDay, zoneAt } from "./zones";
+import { cutAt, dayStart, firstZoneDay, localDate, zoneAt } from "./zones";
 
 const people = [
   {
@@ -681,4 +693,195 @@ test("a source turned on that can't be read now is skipped, by name, never a fai
   } finally {
     setSettings({ sources: before });
   }
+});
+
+// Made-up exports in the published shapes: claude.ai's chat_messages, ChatGPT's mapping tree.
+const claudeExport = [
+  {
+    chat_messages: [
+      {
+        content: [
+          { text: "My sister Ada moves to Lyon in May.", type: "text" },
+        ],
+        created_at: "2026-03-02T09:15:00.000Z",
+        sender: "human",
+        text: "My sister Ada moves to Lyon in May.",
+        uuid: "m1",
+      },
+      {
+        created_at: "2026-03-02T09:15:05.000Z",
+        sender: "assistant",
+        text: "That sounds like a big change.",
+        uuid: "m2",
+      },
+      {
+        content: [{ text: "Help me plan her farewell dinner.", type: "text" }],
+        created_at: "2026-03-02T09:20:00.000Z",
+        sender: "human",
+        text: "",
+        uuid: "m3",
+      },
+    ],
+    created_at: "2026-03-02T09:15:00.000Z",
+    name: "Ada's move",
+    uuid: "c1",
+  },
+  {
+    chat_messages: [
+      {
+        created_at: "2026-03-03T10:00:00.000Z",
+        sender: "human",
+        text: "Why does this fail?\n```ts\nthrow new Error()\n```",
+        uuid: "m4",
+      },
+    ],
+    name: "A bug",
+    uuid: "c2",
+  },
+];
+
+test("his pruned messages are read; only the conversations the import kept become memory", () => {
+  const dir = mkdtempSync(join(tmpdir(), "assistants-"));
+  const path = join(dir, "conversations.json");
+  writeFileSync(path, JSON.stringify(claudeExport));
+  const events = readAssistant("claude")(new Date(0), path);
+  // c2 was all code: pruned before anything judged it.
+  expect(
+    events.map((e) => [e.id, e.chat, e.chatName, e.fromMe, e.sender])
+  ).toEqual([
+    ["claude:c1/m1", "claude:c1", "Chat with Claude: Ada's move", true, "me"],
+    ["claude:c1/m3", "claude:c1", "Chat with Claude: Ada's move", true, "me"],
+  ]);
+  expect(
+    readAssistant("claude")(new Date("2026-03-02T09:16:00.000Z"), path).length
+  ).toBe(1);
+  // One unit per conversation and local day, dropped until the import keeps it.
+  const unit = () =>
+    applyRules(
+      messageUnits(events, () => null),
+      keptConversations()
+    )[0]?.unit;
+  expect([unit()?.source, unit()?.key, unit()?.drop]).toEqual([
+    "claude",
+    "claude:c1",
+    "not-kept",
+  ]);
+  appendJsonl(IMPORTED, Imported, [
+    {
+      at: "2026-10-21T00:00:00.000Z",
+      conversation: "claude:c1",
+      keep: true,
+      madeBy: { engine: "codex", model: "m", prompt: "import.v1", run: "r" },
+      schemaVersion: 1,
+      why: "His sister's move.",
+    },
+  ]);
+  expect(unit()?.drop).toBeUndefined();
+});
+
+test("two saves in a day are one unit of two lines, the same read from its start; files only where added, Apple's text of a table", () => {
+  const { db, dir, now, save, source } = notesFixture();
+  db.run(`insert into ZICCLOUDSYNCINGOBJECT (Z_PK, Z_ENT, ZIDENTIFIER, ZTYPEUTI, ZMEDIA, ZSUMMARY) values
+    (20, 5, 'A1', 'public.jpeg', 21, null), (22, 5, 'T1', 'com.apple.notes.table', null, 'Day Cost Mon 12')`);
+  db.run(`insert into ZICCLOUDSYNCINGOBJECT (Z_PK, Z_ENT, ZIDENTIFIER, ZFILENAME, ZACCOUNT6) values
+    (21, 11, 'M1', 'IMG_1.jpeg', 103)`);
+  const yesterday = dayStart(
+    daysBefore(localDate(new Date(now).toISOString()), 1)
+  );
+  const agoS = (hour: number) =>
+    (now - yesterday.getTime()) / 1000 - hour * 3600;
+  const body = (text: string) =>
+    noteData(`${text}\n￼￼`, [
+      run(text.length + 1),
+      run(1, { attachment: "A1" }),
+      run(1, { attachment: "T1" }),
+    ]);
+  save(1, body("Budget"), { agoS: agoS(10) });
+  copyNotes(source, dir, now);
+  save(1, body("Budget\nRent paid"), { agoS: agoS(11) });
+  copyNotes(source, dir, now);
+  const events = readNotes(yesterday, dir);
+  expect(events.map((e) => e.files)).toEqual([
+    [{ mime: "image/jpeg", name: "IMG_1.jpeg", ref: "notes:A1" }],
+    [],
+  ]);
+  const units = (since: Date) =>
+    messageUnits(showFiles(readNotes(since, dir), new Map()), () => null);
+  const built = units(yesterday);
+  expect(built.map((b) => b.messages.map((m) => m.text))).toEqual([
+    [
+      "Budget\n[attachment: Day Cost Mon 12]\n[photo IMG_1.jpeg, not on this Mac]",
+      "+ Rent paid",
+    ],
+  ]);
+  const unit = built.map((b) => b.unit);
+  expect(units(new Date(unit[0]?.start ?? "")).map((b) => b.unit)).toEqual(
+    unit
+  );
+});
+
+test("deletions on two days are two units, and a restore is dated when seen and read against the last live text", () => {
+  const { db, dir, now, save, source } = notesFixture();
+  const day = 86_400_000;
+  for (const pk of [1, 2, 3]) {
+    save(pk, noteData(`Note text ${pk}`), { agoS: 5 * 86_400 });
+  }
+  copyNotes(source, dir, now - 3 * day);
+  db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK = 1");
+  copyNotes(source, dir, now - 2 * day);
+  db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK = 2");
+  copyNotes(source, dir, now - day);
+  save(1, noteData("Note text 1\nback"), { agoS: 5 * 86_400 });
+  copyNotes(source, dir, now);
+  const built = applyRules(
+    messageUnits(
+      showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
+      () => null
+    )
+  );
+  expect(built.map((b) => [b.unit.drop, b.messages[0]?.text])).toEqual([
+    [undefined, "[deleted the note Note 1]"],
+    [undefined, "[deleted the note Note 2]"],
+    [undefined, "[restored the note Note 1]\n+ back"],
+  ]);
+  expect(built.at(-1)?.unit.start).toBe(new Date(now).toISOString());
+});
+
+test("two notes restored unchanged on two days are two units", () => {
+  const { db, dir, now, save, source } = notesFixture();
+  const day = 86_400_000;
+  for (const pk of [1, 2, 3]) {
+    save(pk, noteData(`Note text ${pk}`), { agoS: 5 * 86_400 });
+  }
+  copyNotes(source, dir, now - 4 * day);
+  db.run("delete from ZICCLOUDSYNCINGOBJECT where Z_PK in (1, 2)");
+  copyNotes(source, dir, now - 3 * day);
+  save(1, noteData("Note text 1"), { agoS: 5 * 86_400 });
+  copyNotes(source, dir, now - 2 * day);
+  save(2, noteData("Note text 2"), { agoS: 5 * 86_400 });
+  copyNotes(source, dir, now - day);
+  const built = applyRules(
+    messageUnits(
+      showFiles(readNotes(new Date(now - 2.5 * day), dir), new Map()),
+      () => null
+    )
+  );
+  expect(built.map((b) => [b.unit.drop, b.messages[0]?.text])).toEqual([
+    [undefined, "[restored the note Note 1]"],
+    [undefined, "[restored the note Note 2]"],
+  ]);
+});
+
+test("a shared note's lines are never his: extract reads them as an unknown speaker", () => {
+  const { dir, now, save, source } = notesFixture();
+  save(1, noteData("Groceries for the flat"), { shared: true });
+  copyNotes(source, dir, now);
+  const [unit] = messageUnits(
+    readNotes(new Date(now - 3_600_000), dir),
+    () => null
+  );
+  expect(unit && chatLines(unit, () => null).map((l) => l.speaker)).toEqual([
+    "unknown:shared note",
+  ]);
+  expect(unit?.unit.stats.fromMe).toBe(0);
 });

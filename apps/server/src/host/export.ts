@@ -18,8 +18,8 @@ import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
 import { LOCK, locked } from "../memory/guard";
 import { INDEX } from "../memory/search";
+import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { ARCHIVED } from "../sources/index";
 import { storeFiles, WATCH } from "../sources/lifelog";
 import { isEmpty } from "./init";
 

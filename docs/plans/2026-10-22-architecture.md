@@ -107,14 +107,17 @@ Each step is one PR that changes no behaviour, passes `bun run check`, and leave
    the ledger), so moving them into the memory would point the sources up. Every layer but core may import them. The
    names the settings validate (`Engine`, `Runner`, `SourceName`, `AGENT_WORD`) go to `core/names.ts`, so core imports
    nothing above it.
-6. **No baseline.** The last violations go, and `.fallow-baseline.json` with them.
+6. **No baseline** (#167). The source registry moves into the memory (`memory/sources.ts`), with the agent's source,
+   which reads Life's own ledger; `digest` to `core/hash.ts`; `CLOSED_ON_SILENCE_S` to lifelog's reader; the tests
+   that ran a reader through memory move to the memory's tests. No violation is left, and `.fallow-baseline.json`
+   and its check go. `docs/architecture.md` ("The code") has the rule and the map.
 7. **The repo.** `app/` → `apps/mac`, `worker/` → `apps/edge`, `packages/brand`, then `apps/web` with `packages/api`
    and Turborepo through `create-better-t-stack add`.
 
 Then the server plan's phases build on it: messaging lands in its own zone, the server host as a capability set,
 and nothing in the memory changes for either.
 
-`docs/architecture.md` takes the rule and the map when step 6 lands; AGENTS.md has carried the rule since step 1.
+`docs/architecture.md` has the rule and the map since step 6; AGENTS.md has carried the rule since step 1.
 
 ## Decided (22 Oct)
 

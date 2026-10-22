@@ -111,7 +111,7 @@ those locks (`holder`, `apps/server/src/host/status/mac.ts`).
   spans, refs only) is the one thing there not rebuilt from the feed.
 - It hears a conversation once its speech is complete (`speechIn`, `hear.ts`): a recording of under a minute of speech
   (lifelog's `durationSeconds`) is closed on 30 s of silence, lifelog's own rule. If lifelog changes how it closes a
-  recording, change `CLOSED_ON_SILENCE_S` with it. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
+  recording, change `CLOSED_ON_SILENCE_S` (`sources/lifelog.ts`) with it. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
   40 s) for lifelog to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
   becomes an ask only once lifelog names the owner.
 - The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both

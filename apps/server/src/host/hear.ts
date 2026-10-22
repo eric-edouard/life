@@ -1,6 +1,7 @@
 import { clock } from "../core/clock";
 import { isName, MARK, WAKE } from "../memory/tasks";
 import {
+  CLOSED_ON_SILENCE_S,
   readTranscript,
   type Store,
   speechSeconds,
@@ -17,8 +18,6 @@ import { ask } from "./tasks";
 
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;
-/** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */
-export const CLOSED_ON_SILENCE_S = 60;
 /** How long a wake with no speaker waits for lifelog to name him (70% of recordings within 10 s, 5% more by 40 s). */
 const NAMING_MS = 40_000;
 

@@ -14,7 +14,6 @@ import {
   Supersession,
 } from "../records/observations";
 import { Rating } from "../records/statements";
-import { kindOf } from "../sources";
 import {
   ACTIONS,
   CORRECTIONS,
@@ -37,6 +36,7 @@ import {
 } from "./ledger";
 import { type Key, PageMeta, parsePage, readLine } from "./page";
 import { readIndex } from "./search";
+import { kindOf } from "./sources";
 import { OWNER } from "./truth";
 import { aboutNow, authorFrom, chatHandles, readPeople } from "./who";
 
