@@ -1,5 +1,12 @@
 import { log } from "../log";
-import { BOARD, partial, type Reminder, remctl, type Snapshot } from "./remctl";
+import {
+  BOARD,
+  partial,
+  type Reminder,
+  remctl,
+  SECTIONS,
+  type Snapshot,
+} from "./remctl";
 import { add, reminderArgs } from "./write";
 
 // The board, his list `BOARD`: Atlas's tasks projected, one item per task, found by the task id on its notes' first line.
@@ -19,7 +26,8 @@ export interface Receipt {
 export function planOf(w: Receipt, it: Reminder) {
   const { priv, pub } = reminderArgs({
     notes: w.notes === (it.notes ?? "").trim() ? undefined : w.notes,
-    section: w.section === (it.section ?? "") ? undefined : w.section,
+    section:
+      !SECTIONS || w.section === (it.section ?? "") ? undefined : w.section,
   });
   return {
     done: w.completed && !it.completed ? [it.id] : [],

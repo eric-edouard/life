@@ -25,6 +25,10 @@ struct LifeApp: App {
         openWindow(id: "settings")
       })
       .task {
+        // However the app ends (Quit, an update's relaunch), Life's processes end with it: never two watchers.
+        NotificationCenter.default.addObserver(
+          forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { _ in MainActor.assumeIsolated { supervisor.stop() } }
         await supervisor.start()
         if supervisor.info?.started == false {
           NSApp.activate()
@@ -85,7 +89,6 @@ struct SettingsView: View {
   let supervisor: Supervisor
   @State private var name = ""
   @State private var email = ""
-  @State private var settings: [String: Any] = [:]
   @State private var engine = "claude"
   @State private var key = ""
   @State private var agentName = ""
@@ -186,7 +189,8 @@ struct SettingsView: View {
           var names = sources.filter(\.on).map(\.name).filter { $0 != s.name }
           if on { names.append(s.name) }
           await set(["sources": names])
-          await supervisor.refresh()
+          // The helper reads its settings once: the archive and the watcher start again on the new sources.
+          await supervisor.restart()
         }
       })
   }
@@ -194,7 +198,7 @@ struct SettingsView: View {
   private func load() async {
     guard started else { return }
     let out = await Helper.run(["settings"]).out
-    settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
+    let settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
     engine = settings["engine"] as? String ?? "claude"
     let agent = settings["agent"] as? [String: Any]
     agentName = agent?["name"] as? String ?? ""

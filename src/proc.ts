@@ -34,6 +34,20 @@ export async function exec(
   return { code, killed: proc.signalCode, stderr, stdout };
 }
 
+/** `exec` for a step that must work: its output, or an error with what it said, named by its first two words. */
+export async function execOk(
+  cmd: string[],
+  o: Parameters<typeof exec>[1] = {}
+) {
+  const r = await exec(cmd, o);
+  if (r.code !== 0) {
+    throw new Error(
+      `${cmd.slice(0, 2).join(" ")}: ${(r.stderr || r.stdout).trim().slice(-800)}`
+    );
+  }
+  return r.stdout;
+}
+
 /**
  * Runs `cmd` with `input` on its stdin, kept open (a server that quits at the end of its input before answering), to
  * the first whole line of its output that `done` accepts: that line, or undefined when it exits, refuses its input,

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { clock, unfrozen } from "../clock";
 import { log } from "../log";
-import { exec } from "../proc";
+import { execOk } from "../proc";
 import { redact } from "../redact";
 import type { Moment, Unit } from "../schema";
 import { settings } from "../settings";
@@ -269,9 +269,9 @@ export const heldOf = (rows: Row[]): Held =>
 /** The Past calendar through `gog`: what it holds of Life's (events with a moment id, by moment), and its writes. */
 function pastCalendar(calendar: string, account: string) {
   // Values go as `--flag=value`: a model-written title starting with "-" must not read as a flag.
-  const run = async (args: string[]) => {
+  const run = (args: string[]) => {
     unfrozen("use his calendar");
-    const r = await exec([
+    return execOk([
       "gog",
       "calendar",
       ...args,
@@ -279,10 +279,6 @@ function pastCalendar(calendar: string, account: string) {
       "--json",
       "--no-input",
     ]);
-    if (r.code !== 0) {
-      throw new Error(`gog ${args[0]}: ${r.stderr.trim() || r.stdout.trim()}`);
-    }
-    return r.stdout;
   };
   return {
     async held(until: string) {
@@ -344,13 +340,9 @@ function pastCalendar(calendar: string, account: string) {
  * moment and hash in their URL.
  */
 function appleCalendar(calendar: string, tool: string) {
-  const run = async (args: string[]) => {
+  const run = (args: string[]) => {
     unfrozen("use his calendar");
-    const r = await exec([tool, "calendar", ...args, `--calendar=${calendar}`]);
-    if (r.code !== 0) {
-      throw new Error(`calendar ${args[0]}: ${r.stderr.trim()}`);
-    }
-    return r.stdout;
+    return execOk([tool, "calendar", ...args, `--calendar=${calendar}`]);
   };
   return {
     async held(until: string) {

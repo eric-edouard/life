@@ -4,8 +4,10 @@ import Foundation
 
 // life-eventkit: Apple Reminders and Calendar through EventKit, for a friend's install.
 // Reminders answer as remctl does for the commands Life uses (src/reminders/remctl.ts), so no remctl is needed. What
-// EventKit can't do: sections (none; a `--private` step comes back as a partial), and Recently Deleted (a removal is
-// final; `deleted` lists nothing, `restore` fails; a recurrence is not set). Reminders' ids are UUIDs: each one's number
+// EventKit can't do: sections (none; a `--private` step comes back as a partial; Life asks for none: remctl.ts
+// `SECTIONS`), a recurrence (not set), and Recently Deleted: a removal is final, so `deleted` lists what was there at
+// its last call and is gone now, kept 30 days (`bin.json` in Life's state), and `restore` fails. A list Life adds to
+// that doesn't exist yet (the board) is made. Reminders' ids are UUIDs: each one's number
 // is derived from it, as remctl's are numbers, and its deepLink holds the UUID. The answers' shapes are remctl's
 // (src/reminders/answers.json).
 // `calendar held|create|delete` is the Past calendar (src/memory/past.ts): Life's events carry their moment and hash in
@@ -99,8 +101,19 @@ func json(_ r: EKReminder) -> [String: Any] {
   return o
 }
 
+/** The reminder lists in one order across calls (their numbers are positions in it, as remctl's ids are stable). */
+func lists() -> [EKCalendar] {
+  store.calendars(for: .reminder).sorted { $0.calendarIdentifier < $1.calendarIdentifier }
+}
+
 func calendar(named title: String) -> EKCalendar? {
-  store.calendars(for: .reminder).first { $0.title == title }
+  lists().first { $0.title == title }
+}
+
+/** The list a reminder goes to: one named that doesn't exist is an error, not the default list. */
+func list(_ title: String) -> EKCalendar {
+  guard let c = calendar(named: title) else { fail("no list \(title)") }
+  return c
 }
 
 /** The reminder with this number: found among all of them (an edit is rare; no table to keep). */
@@ -111,9 +124,41 @@ func reminder(_ n: String) -> EKReminder {
   return r
 }
 
+// MARK: the bin
+
+/// What `deleted` keeps: every reminder at its last call (`seen`), and those gone since, with when they went.
+struct Bin: Codable {
+  var seen: [String: Data] = [:]
+  var gone: [String: Gone] = [:]
+  struct Gone: Codable {
+    let at: Date
+    let item: Data
+  }
+}
+
+/** Reminders gone since the last call, and those of the last 30 days: Recently Deleted, as remctl lists it. */
+func binned() -> [Any] {
+  let dir = URL(fileURLWithPath: ProcessInfo.processInfo.environment["LIFE_STATE"] ?? FileManager.default
+    .homeDirectoryForCurrentUser.appending(path: "Library/Application Support/Life/state").path)
+  let file = dir.appending(path: "bin.json")
+  var bin = (try? JSONDecoder().decode(Bin.self, from: Data(contentsOf: file))) ?? Bin()
+  var now: [String: Data] = [:]
+  for r in reminders(in: nil, completed: true) {
+    now[r.calendarItemIdentifier] = try? JSONSerialization.data(withJSONObject: json(r))
+  }
+  let cutoff = Date().addingTimeInterval(-30 * 24 * 3600)
+  for (id, item) in bin.seen where now[id] == nil { bin.gone[id] = .init(at: Date(), item: item) }
+  bin.gone = bin.gone.filter { id, g in now[id] == nil && g.at > cutoff }
+  bin.seen = now
+  try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+  if let data = try? JSONEncoder().encode(bin) { try? data.write(to: file, options: .atomic) }
+  return bin.gone.values.compactMap { try? JSONSerialization.jsonObject(with: $0.item) }
+}
+
 // MARK: writing
 
-/// The flags remctl takes, `--name=value` or `--name value`; what follows `--` is the positional rest.
+/// The flags remctl takes, `--name=value` (Life sends every value this way) or a bare `--name`; what follows `--` is
+/// the positional rest.
 func flags(_ args: [String]) -> (named: [String: [String]], rest: [String], isPrivate: Bool) {
   var named: [String: [String]] = [:]
   var rest: [String] = []
@@ -165,7 +210,7 @@ func apply(_ f: [String: [String]], to r: EKReminder) {
   if let a = f["alarm"]?.last, let c = due(a), let date = Calendar.current.date(from: c) {
     r.addAlarm(EKAlarm(absoluteDate: date))
   }
-  if let l = f["list"]?.last, let cal = calendar(named: l) { r.calendar = cal }
+  if let l = f["list"]?.last { r.calendar = list(l) }
 }
 
 /// A `--private` step EventKit can't take (sections, urgent, subtasks, links): the change is made, the step is not.
@@ -245,7 +290,8 @@ if command == "calendar" {
     let parse = { (s: String) in instant(s) ?? isoDay.date(from: String(s.prefix(10))) }
     guard let start = parse(named["from"]?.last ?? ""), let end = parse(named["to"]?.last ?? "") else { fail("from and to are dates") }
     e.startDate = start
-    e.endDate = end
+    // Life's all-day end is the day after (exclusive); EventKit's is the last day itself.
+    e.endDate = e.isAllDay ? end.addingTimeInterval(-1) : end
     var url = URLComponents()
     url.scheme = "life"
     url.host = "moment"
@@ -269,11 +315,11 @@ let (named, rest, isPrivate) = flags(args)
 
 switch command {
 case "lists":
-  emit(store.calendars(for: .reminder).enumerated().map { i, c in
+  emit(lists().enumerated().map { i, c in
     ["id": i + 1, "isGroup": false, "title": c.title] as [String: Any]
   })
 case "show":
-  let cals = store.calendars(for: .reminder)
+  let cals = lists()
   let i = Int(named["list-id"]?.last ?? "") ?? 0
   guard i >= 1, i <= cals.count else { fail("no list \(i)") }
   emit(reminders(in: [cals[i - 1]], completed: named["completed"] != nil).map(json))
@@ -293,7 +339,13 @@ case "info":
 case "add":
   let r = EKReminder(eventStore: store)
   r.title = rest.joined(separator: " ")
-  r.calendar = named["list"]?.last.flatMap(calendar(named:)) ?? store.defaultCalendarForNewReminders()
+  if let l = named["list"]?.last, calendar(named: l) == nil {
+    let made = EKCalendar(for: .reminder, eventStore: store)
+    made.title = l
+    made.source = store.defaultCalendarForNewReminders()?.source
+    do { try store.saveCalendar(made, commit: true) } catch { fail("add: \(error.localizedDescription)") }
+  }
+  r.calendar = store.defaultCalendarForNewReminders()
   apply(named, to: r)
   do { try store.save(r, commit: true) } catch { fail("add: \(error.localizedDescription)") }
   emit(answer(r, isPrivate: isPrivate, recurrence: named["recurrence"] != nil))
@@ -314,7 +366,7 @@ case "delete":
   do { try store.remove(r, commit: true) } catch { fail("delete: \(error.localizedDescription)") }
   emit(["status": "ok"])
 case "deleted":
-  emit(["items": [Any]()])
+  emit(["items": binned()])
 case "restore":
   fail("restore needs remctl: EventKit has no Recently Deleted")
 default:

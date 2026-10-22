@@ -11,6 +11,8 @@ import { agentName } from "../settings";
 
 /** remctl, his; or the app's life-eventkit (EventKit, the same commands and answers), set by the app. */
 const REMCTL = process.env.LIFE_EVENTKIT ?? join(homedir(), "bin", "remctl");
+/** Whether lists have sections: remctl's do, EventKit has none (the board then asks for none). */
+export const SECTIONS = !process.env.LIFE_EVENTKIT;
 /** Atlas's board: Life's projection of its tasks (src/tasks.ts). */
 export const BOARD = agentName();
 
@@ -109,7 +111,7 @@ const listsOf = async (list?: string) =>
 export async function openReminders(list?: string) {
   const open = await Promise.all(
     (await listsOf(list)).map((l) =>
-      remctl<Reminder[]>(["show", "--list-id", `${l.id}`])
+      remctl<Reminder[]>(["show", `--list-id=${l.id}`])
     )
   );
   return open.flat();
@@ -158,7 +160,7 @@ export async function pull(): Promise<Snapshot> {
     mine.map((l, i) =>
       shared[i]
         ? []
-        : remctl<Reminder[]>(["show", "--list-id", `${l.id}`, "--completed"])
+        : remctl<Reminder[]>(["show", `--list-id=${l.id}`, "--completed"])
     )
   );
   // After the lists: a reminder he removes meanwhile is live or in the bin, never neither.
