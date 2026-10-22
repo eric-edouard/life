@@ -4,7 +4,7 @@ import { HEADERS, text } from "./http";
 import { snapshot, strip } from "./plate";
 import { detail, runDetail } from "./plate-detail";
 import { connector } from "./settings";
-import { isLocal, localKey, type SignIn } from "./signin";
+
 import { ROOT } from "./truth";
 
 // The status page (`/`, its files and reads under /status/): Life's architecture as a plate of live cards
@@ -181,9 +181,13 @@ async function card(id: string, url: URL) {
   return json(await detail(id, before));
 }
 
-/** The status page, for his sign-in (`signIn`, with the connector) or the local key the app holds (`isLocal`). */
-export function createDashboard(signIn: SignIn | null) {
-  localKey();
+/**
+ * The status page behind `refusal`: his sign-in on the public port (`signIn.refusal`), the local key the app holds on
+ * the local one (`keyRefusal`).
+ */
+export function createDashboard(
+  refusal: (req: Request, page?: string) => Promise<Response | null>
+) {
   /** Everything past sign-in. */
   async function owned(url: URL) {
     const { pathname } = url;
@@ -225,12 +229,7 @@ export function createDashboard(signIn: SignIn | null) {
     ) {
       return null;
     }
-    if (isLocal(req)) {
-      return owned(url);
-    }
-    const refused = signIn
-      ? await signIn.refusal(req, url.pathname === "/" ? "/" : undefined)
-      : text("local only", 401);
+    const refused = await refusal(req, url.pathname === "/" ? "/" : undefined);
     return refused ?? owned(url);
   }
 

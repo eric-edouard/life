@@ -42,7 +42,7 @@ final class Supervisor {
       }
       // The menu shows the status page's plate as of the last minute.
       looks = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
-        Task { @MainActor in await self.refresh() }
+        Task { @MainActor in self.plate = await self.info?.status.plate() }
       }
     }
   }

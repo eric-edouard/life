@@ -81,18 +81,16 @@ struct Status: Decodable {
   }
 }
 
-/// What the menu shows of the status page: its worst tone, and every card not ok.
+/// What the menu shows of the status page: the cards the plate says are in trouble (`trouble`, plate.ts).
 struct Plate: Decodable {
-  let worst: String
   let cards: [Card]
+  let trouble: [String]
   struct Card: Decodable, Identifiable {
     let id: String
     let name: String
-    let headline: String
-    let tone: String
-    let word: String?
+    let word: String
   }
-  var trouble: [Card] { cards.filter { $0.tone == "bad" || $0.tone == "warn" } }
+  var troubled: [Card] { cards.filter { trouble.contains($0.id) } }
 }
 
 /// The Reminders plugin: on or not, the remctl installed (its version), whether that is the release Life installs

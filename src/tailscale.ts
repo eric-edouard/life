@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { z } from "zod";
+import { PUBLIC_PORT } from "./http";
 import { execOk } from "./proc";
 import { setSettings, settings } from "./settings";
 
@@ -15,7 +16,7 @@ const tailscale = (args: string[]) =>
 
 const TRAILING_DOT = /\.$/;
 /** Where Life's server listens (`server.ts`). */
-const LOCAL = "http://127.0.0.1:46200";
+const LOCAL = `http://127.0.0.1:${PUBLIC_PORT}`;
 
 const Status = z.object({
   BackendState: z.string(),

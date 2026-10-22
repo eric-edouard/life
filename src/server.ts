@@ -2,43 +2,54 @@ import { createRemoteJWKSet } from "jose";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check";
 import { createDashboard, pushPlate, warmPage } from "./dashboard";
+import { LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
 import { connector, settings } from "./settings";
-import { createSignIn } from "./signin";
+import { createSignIn, keyRefusal } from "./signin";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
 /**
- * Serves on loopback (127.0.0.1:46200, bodies up to 256 KiB): the status page always (`dashboard.ts`: his sign-in, or
- * the local key the app holds), and with the `connector` setting the connector, its issuer, the check page
- * (`check.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set); 404 for any other path.
+ * Serves on loopback, bodies up to 256 KiB: the status page for the app on `LOCAL_PORT`, by its local key, always; and
+ * with the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the
+ * check page (`check.ts`), the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set) and the status page behind
+ * his sign-in. The key is never taken on the public port. 404 for any other path.
  */
 export function serve() {
-  const signed = settings().connector ? signedIn() : null;
-  if (!signed) {
+  listen(LOCAL_PORT, createDashboard(keyRefusal()).handle);
+  if (!settings().connector) {
     console.log(
-      "Connector: not set up (settings: connector): /mcp, /check and /me are off, the status page is local only"
+      "Connector: not set up (settings: connector): /mcp, /check, /me and the public status page are off"
     );
+    warmPage();
+    return;
   }
-  const dashboard = createDashboard(signed?.signIn ?? null);
+  const signed = signedIn();
+  const page = createDashboard(signed.signIn.refusal);
+  listen(
+    PUBLIC_PORT,
+    async (req) => (await signed.handle(req)) ?? (await page.handle(req))
+  );
+  warmPage();
+  pushPlate();
+}
+
+function listen(
+  port: number,
+  handle: (req: Request) => Promise<Response | null>
+) {
   Bun.serve({
     // No stack traces or source in an error page: much of this answers before sign-in.
     development: false,
     fetch: async (req) =>
-      (await signed?.handle(req)) ??
-      (await dashboard.handle(req)) ??
-      new Response("not found", { status: 404 }),
+      (await handle(req)) ?? new Response("not found", { status: 404 }),
     hostname: "127.0.0.1",
     maxRequestBodySize: 256 * 1024,
-    port: 46_200,
+    port,
   });
-  console.log("Life: listening on 127.0.0.1:46200");
-  warmPage();
-  if (signed) {
-    pushPlate();
-  }
+  console.log(`Life: listening on 127.0.0.1:${port}`);
 }
 
 /** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */

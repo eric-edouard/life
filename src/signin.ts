@@ -191,16 +191,21 @@ export function localKey() {
 const LOCAL_KEY = join(STATE, "local.key");
 /** The cookie the app's status window carries the key in. */
 export const LOCAL = "life_local";
-
-/** Whether a request carries the local key (its cookie, or a bearer), compared in constant time. */
-export function isLocal(req: Request) {
-  const given =
-    cookieOf(req, LOCAL) ??
-    req.headers.get("authorization")?.replace(BEARER, "") ??
-    "";
-  const key = Buffer.from(localKey());
-  return (
-    given.length === key.length && timingSafeEqual(Buffer.from(given), key)
-  );
-}
 const BEARER = /^Bearer /;
+
+/**
+ * The local port's gate: the key (its cookie, or a bearer), compared in constant time, else refused. Read once: a new
+ * key takes a restart.
+ */
+export function keyRefusal(key = localKey()) {
+  const want = Buffer.from(key);
+  return (req: Request) => {
+    const given = Buffer.from(
+      cookieOf(req, LOCAL) ??
+        req.headers.get("authorization")?.replace(BEARER, "") ??
+        ""
+    );
+    const ok = given.length === want.length && timingSafeEqual(given, want);
+    return Promise.resolve(ok ? null : text("local only", 401));
+  };
+}

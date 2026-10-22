@@ -4,10 +4,10 @@ import { parseArgs } from "node:util";
 import { Asked, actAsked, requested, setGrant } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
+import { LOCAL_PORT } from "./http";
 import { init, started } from "./init";
 import { readEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
-
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
@@ -99,7 +99,7 @@ const commands: Record<string, () => Promise<number>> = {
           };
         }),
         started: started(),
-        status: { key: localKey(), url: "http://127.0.0.1:46200/" },
+        status: { key: localKey(), url: `http://127.0.0.1:${LOCAL_PORT}/` },
       })
     );
     return 0;
