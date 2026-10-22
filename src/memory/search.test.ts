@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Moment, Observation, Unit } from "../schema";
+import { AGENT_WORD, type Moment, type Observation, type Unit } from "../schema";
 import {
   chapter,
   conversation,
@@ -506,12 +506,12 @@ test("area: an area's or a project's id or name, never a part of one", () => {
   expect(areaFor("constr", truth).id).toBeUndefined();
 });
 
-test("Atlas's tasks in search: his words or Atlas's reports hold the words, inside from/to; a state alone matches nothing", () => {
+test("Orbit's tasks in search: his words or Orbit's reports hold the words, inside from/to; a state alone matches nothing", () => {
   const ask = action({
     after: { confidence: "high" },
     id: "act_00000000000a",
     kind: "ask",
-    target: "atlas",
+    target: AGENT_WORD,
   });
   const done = action({
     after: { outcome: "Booked the dentist for Friday.", state: "done" },

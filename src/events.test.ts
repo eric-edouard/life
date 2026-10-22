@@ -10,6 +10,7 @@ import {
 } from "./events";
 import { action } from "./memory/fixtures";
 import { readSettings, type Settings, setSettings } from "./settings";
+import { AGENT_WORD } from "./schema";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
   expect(
@@ -59,7 +60,7 @@ const ask = (id: string) =>
     id,
     kind: "ask",
     madeBy: "watch",
-    target: "atlas",
+    target: AGENT_WORD,
   });
 
 test("the replay cursor is the ledger line after each ask, carrying data only (its turn ref, not the positions the ledger keeps); other actions are passed over", () => {
@@ -127,7 +128,7 @@ test("a delivery moves on after a 2xx or a 413, retries others with a growing pa
   expect(settleDelivery(s, 410, 2, now)).toEqual({ attempts: 0, delivered: 1 });
 });
 
-test("only asks go out, not one Atlas made from a chat; old nudge and steer lines parse and go nowhere", () => {
+test("only asks go out, not one Orbit made from a chat; old nudge and steer lines parse and go nowhere", () => {
   const old = (kind: "nudge" | "steer", id: string) =>
     line({
       after: {},
@@ -144,7 +145,7 @@ test("only asks go out, not one Atlas made from a chat; old nudge and steer line
     id: "act_00000000000a",
     kind: "ask",
     madeBy: "connector",
-    target: "atlas",
+    target: AGENT_WORD,
   });
   expect(nextEvent([own], 0)).toBeNull();
 });

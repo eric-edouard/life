@@ -113,11 +113,16 @@ export type MadeBy = z.infer<typeof MadeBy>;
 /**
  * One thing Life did outside itself on the owner's clear request (memory/actions.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
- * for Atlas (`kind` ask, `target` atlas) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (src/tasks.ts),
- * whose `TASK_LINES` have no `instruction` and its id as `target`: Atlas's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
- * A reply (`after` {text}) is what Atlas told him; one on no task targets `chat`.
+ * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (src/tasks.ts),
+ * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
+ * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
  */
 export const TASK_LINES = ["update", "reply", "nudge", "steer"] as const;
+/**
+ * The word stored for his agent, whatever its name: an ask's `target`, its source's name and its units' sender. Kept
+ * as first written, as stored data is append-only; never shown (what Life shows is `agentName`).
+ */
+export const AGENT_WORD = "atlas";
 /** What `act` does to a reminder. undone: ticked back open; restore: a removed one back from Recently Deleted, into `list`. */
 export const REMINDER_KINDS = [
   "add",
@@ -150,7 +155,7 @@ export const Action = z
       "instinct",
       ...TASK_LINES,
     ]),
-    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey Atlas" heard; a nudge or a steer until 20 Oct);
+    // A model step (until 19 Oct, the hearing), or who passed his words on; "watch": the watcher (a "hey <agent>" heard; a nudge or a steer until 20 Oct);
     // "reminders": his own change read back from Reminders (src/reminders/inbound.ts), state only, never his words.
     madeBy: z.union([
       MadeBy,
@@ -159,7 +164,7 @@ export const Action = z
     // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).
     result: z.enum(["ok", "failed", "duplicate", "intent"]),
     schemaVersion: z.literal(1),
-    // "reminder:<numericId>", "reminder:new" (a failed add), "atlas" (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
+    // "reminder:<numericId>", "reminder:new" (a failed add), `AGENT_WORD` (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
     // An ask heard in his speech: where the time went (spoke = instruction.at, recorded = at). `ended`: his last turn of
     // it ended; `arrived`: lifelog's feed had brought all of it. Until 19 Oct, a heard request's `heard`, `modelMs`, `actMs`.
@@ -178,7 +183,7 @@ export const Action = z
   .strict();
 export type Action = z.infer<typeof Action>;
 export type Instruction = NonNullable<Action["instruction"]>;
-/** A task's own line (Atlas's update, an old nudge or steer), not something done on his request: the one test. */
+/** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: Action) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
 /** A line that records no change of its own: a write's intent (its outcome follows), a reminder's baseline (src/reminders/inbound.ts). */
@@ -201,7 +206,7 @@ export const SourceName = z.enum([
   "notes",
   "claude",
   "chatgpt",
-  "atlas",
+  AGENT_WORD,
 ]);
 
 /**

@@ -47,7 +47,7 @@ test("his waking hours began at 08:00, the day before after midnight: a night is
 });
 
 test("connector clients go by the names he knows them by", () => {
-  expect(clientName("openai-mcp/1.0.0")).toBe("Atlas");
+  expect(clientName("openai-mcp/1.0.0")).toBe("Orbit");
   expect(clientName("claude-ai/0.1")).toBe("Claude");
   expect(clientName("")).toBe("unknown client");
   expect(clientName("curl/8")).toBe("curl/8");

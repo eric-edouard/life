@@ -1,9 +1,9 @@
 {
   "agent": {
     "client": "openai-mcp",
-    "misheard": ["at last", "Zorba"],
-    "name": "Atlas",
-    "wake": ["atlas"]
+    "misheard": ["or bit", "Zorba"],
+    "name": "Orbit",
+    "wake": ["orbit"]
   },
   "backup": {
     "password": "echo made-up",

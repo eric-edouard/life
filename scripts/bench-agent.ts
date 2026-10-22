@@ -1,10 +1,10 @@
-// `bun scripts/bench-atlas.ts [cases.json] [--only id,…] [--engine codex|claude]`: Atlas, end to end, on his past asks.
+// `bun scripts/bench-agent.ts [cases.json] [--only id,…] [--engine codex|claude]`: the agent, end to end, on his past asks.
 // Each case is one ask of memory/actions.jsonl, replayed in the world as it was then: a clone of ~/Life at its last
 // commit before the ask, the ledger cut at the ask, the lifelog store cut at its instant, the index rebuilt from that
 // copy, and the clock frozen there (`LIFE_NOW`, src/clock.ts) in a throwaway worktree of this code. A headless agent on
 // his subscription gets Life's connector, frozen and dry (mcp.ts), as its only tools, and the playbook through `tasks`:
-// Codex's main tier (Sol), as close as it gets to Atlas, a ChatGPT agent (his rule). `--engine claude` only checks the
-// harness: its table says so and is never Atlas's result. Graded by code first (the ids its tool answers cited, the
+// Codex's main tier (Sol), as close as it gets to the agent, a ChatGPT agent (his rule). `--engine claude` only checks the
+// harness: its table says so and is never the agent's result. Graded by code first (the ids its tool answers cited, the
 // calls it made, the tools it must not call), then by the same engine's judge on what it said (`contain`, and
 // `not.contain`: nothing invented).
 // Prints one row per case; writes nothing of his. `--serve` is the frozen connector over stdio, for the agent.
@@ -30,7 +30,7 @@ import { Engine } from "../src/schema";
 import { DATA, ROOT, STATE } from "../src/truth";
 import { checkout } from "./bench";
 
-const CASES = join(DATA, "docs/evals/atlas-bench-cases.json");
+const CASES = join(DATA, "docs/evals/agent-bench-cases.json");
 const Case = z.object({
   /** The ask in memory/actions.jsonl. */
   ask: z.string().regex(/^act_[0-9a-f]{12}$/),
@@ -56,7 +56,7 @@ const Case = z.object({
       contain: z.array(z.string()).default([]),
     })
     .default({ call: [], contain: [] }),
-  /** What Atlas did then, for whoever reads the case. */
+  /** What the agent did then, for whoever reads the case. */
   outcome: z.string().default(""),
 });
 type Case = z.infer<typeof Case>;
@@ -118,8 +118,8 @@ const stated = (iso: string) => {
 };
 
 /**
- * The ask `id` in the ledger's `lines`: when it was recorded, the ledger as Atlas found it, and how it reached Atlas.
- * An ask Life delivered is the event `deliver` sent, its line kept; his chat's asks are Atlas's own line, written after
+ * The ask `id` in the ledger's `lines`: when it was recorded, the ledger as the agent found it, and how it reached the agent.
+ * An ask Life delivered is the event `deliver` sent, its line kept; his chat's asks are the agent's own line, written after
  * his message: the ledger before it, and his words.
  */
 export function askAt(lines: string[], id: string) {
@@ -138,7 +138,7 @@ export function askAt(lines: string[], id: string) {
   };
 }
 
-/** The world as it was at the ask: data, store and index in `code`'s worktree; how the ask reached Atlas. */
+/** The world as it was at the ask: data, store and index in `code`'s worktree; how the ask reached the agent. */
 async function freeze(c: Case, lines: string[], code: string, data: string) {
   const { at, input, kept } = askAt(lines, c.ask);
   await rm(data, { force: true, recursive: true });
@@ -204,17 +204,17 @@ async function runCase(
   const started = performance.now();
   const world = await freeze(c, o.lines, o.code, o.data);
   // Kept, like an eval's: what the agent and the judge read and answered.
-  const dir = join(OUT, "bench-atlas", o.run, c.id);
+  const dir = join(OUT, "bench-agent", o.run, c.id);
   const answer = (await askOnce({
     context: { now: stated(world.at) },
     dir: join(dir, "agent"),
     input: world.input,
     llm: llmFor("main", o.engine),
-    prompt: "atlas-bench.v1",
+    prompt: "agent-bench.v1",
     run: o.run,
     tools: {
       // Its worktree's code, and the .env there (lifelog's token).
-      command: ["bun", "--cwd", o.code, "scripts/bench-atlas.ts", "--serve"],
+      command: ["bun", "--cwd", o.code, "scripts/bench-agent.ts", "--serve"],
       env: {
         LIFE_DATA: o.data,
         LIFE_NOW: world.at,
@@ -281,7 +281,7 @@ export function table(rows: Row[], about: string) {
     0
   );
   return [
-    `# Atlas bench (${about})`,
+    `# The agent bench (${about})`,
     "",
     `${rows.reduce((n, r) => n + passed(r), 0)}/${total} checks passed.`,
     "",
@@ -306,10 +306,10 @@ async function bench(file: string, only: string[], engine: Engine) {
   if (engine === "codex") {
     await spareQuota();
   }
-  const tmp = await mkdtemp(join(tmpdir(), "life-bench-atlas-"));
+  const tmp = await mkdtemp(join(tmpdir(), "life-bench-agent-"));
   const code = join(tmp, "code");
   // A metered run: what the agent's calls spent of his Codex plan is in its `use`.
-  const rec = await metered("bench.atlas", { cases: cases.length, engine });
+  const rec = await metered("bench.agent", { cases: cases.length, engine });
   const { run } = rec;
   const lines = linesOf(ACTIONS);
   try {
@@ -332,8 +332,8 @@ async function bench(file: string, only: string[], engine: Engine) {
       const head = gitOut(ROOT, ["rev-parse", "--short", "HEAD"]);
       const what =
         engine === "codex"
-          ? "Codex, as Atlas"
-          : `${engine}: a harness check, not Atlas's result`;
+          ? "Codex, as the agent"
+          : `${engine}: a harness check, not the agent's result`;
       console.log(table(rows, `${run}, ${what}, code ${head}`));
       return { cases: rows.length };
     });

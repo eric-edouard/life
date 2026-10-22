@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { Action } from "../schema";
+import { Action, AGENT_WORD } from "../schema";
 import { action, madeBy } from "./fixtures";
 import {
   actionFailedReport,
@@ -69,19 +69,19 @@ test("an old ledger line still parses and reads: a request heard in his speech, 
   );
 });
 
-test("an ask reads as his words to Atlas, a low-confidence one says so", () => {
+test("an ask reads as his words to Orbit, a low-confidence one says so", () => {
   const ask = (confidence: string) =>
     Action.parse({
       ...action({}),
       after: { confidence, conversation: "c1", turns: [4, 5] },
       kind: "ask",
       madeBy: "watch",
-      target: "atlas",
+      target: AGENT_WORD,
     });
   expect(actionLine(ask("high"))).toBe(
-    "to Atlas ← “write that down in the to-dos”"
+    "to Orbit ← “write that down in the to-dos”"
   );
-  expect(actionLine(ask("low"))).toStartWith("to Atlas (low confidence) ←");
+  expect(actionLine(ask("low"))).toStartWith("to Orbit (low confidence) ←");
 });
 
 const night = (facts: number) =>
@@ -204,7 +204,7 @@ test("every report section includes all rows beyond the former 15-row cap", () =
   }
   expect(text).toContain("Actions (40)");
   expect(text).toContain("Code yesterday (40)");
-  expect(text).toContain("Atlas tasks (20)");
+  expect(text).toContain("Orbit tasks (20)");
   expect(text).toContain("New people (20)");
   expect(text).toContain("What changed (20)");
 });

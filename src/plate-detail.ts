@@ -30,7 +30,7 @@ const read = (name: string) => (e: Line) =>
 const LOGS: Record<string, (e: Line) => boolean> = {
   ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
   archive: (e) => e.step?.startsWith("archive.") ?? false,
-  atlas: (e) =>
+  agent: (e) =>
     e.kind === "event.sent" || (e.kind === "mcp.call" && isAgent(e.agent)),
   backup: (e) => e.step === "backup",
   clients: (e) => e.kind === "mcp.call",

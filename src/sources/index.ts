@@ -1,5 +1,5 @@
 import { closeSync, existsSync, openSync } from "node:fs";
-import type { Person, SourceEvent, Unit } from "../schema";
+import { AGENT_WORD, type Person, type SourceEvent, type Unit } from "../schema";
 import { agentName, settings } from "../settings";
 import { archiveDb } from "./archived";
 import {
@@ -8,7 +8,7 @@ import {
   newestAssistant,
   readAssistant,
 } from "./assistants";
-import { newestAtlas, readAtlas } from "./atlas";
+import { newestAgent, readAgent } from "./agent";
 import { newestBeeper, readBeeper } from "./beeper";
 import { newestCommit, type RepoMap, readGit } from "./git";
 import {
@@ -192,13 +192,13 @@ export const SOURCES: Descriptor[] = [
       silentAfter: Number.POSITIVE_INFINITY,
     })
   ),
-  // Atlas's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
+  // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
   {
     kind: "agent",
     label: agentName(),
-    name: "atlas",
-    newest: newestAtlas,
-    read: readAtlas,
+    name: AGENT_WORD,
+    newest: newestAgent,
+    read: readAgent,
     silentAfter: Number.POSITIVE_INFINITY,
   },
   {

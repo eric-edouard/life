@@ -192,7 +192,7 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
   }
 });
 
-test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders`, `task` and `reply` write but are not destructive, so Atlas runs unattended", async () => {
+test("tools/list: thirteen read-only tools; `correct` asks for approval, `reminders`, `task` and `reply` write but are not destructive, so Orbit runs unattended", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -464,7 +464,7 @@ test("server/discover offers events and events/list one event, ask; a subscribe 
   expect(res.status).toBe(401);
 });
 
-test("the server is named Life, carries its icons, and its instructions open with the pointer to Atlas's playbook, not a copy, in 512 characters at most", async () => {
+test("the server is named Life, carries its icons, and its instructions open with the pointer to Orbit's playbook, not a copy, in 512 characters at most", async () => {
   const { json } = await rpc(await token(), "initialize", {
     capabilities: {},
     clientInfo: { name: "test", version: "1" },
@@ -473,9 +473,9 @@ test("the server is named Life, carries its icons, and its instructions open wit
   expect(json.result.serverInfo).toMatchObject({ name: "Life", title: "Life" });
   const { instructions } = json.result;
   expect(instructions).toStartWith(
-    "Atlas: call `tasks` first; its `playbook` field is your instructions."
+    "Orbit: call `tasks` first; its `playbook` field is your instructions."
   );
-  expect(instructions).not.toContain("# Atlas: the playbook");
+  expect(instructions).not.toContain("# Orbit: the playbook");
   expect(instructions.length).toBeLessThanOrEqual(512);
   expect(
     json.result.serverInfo.icons.map((i: { src: string }) => i.src)
