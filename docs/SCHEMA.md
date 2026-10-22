@@ -2,7 +2,7 @@
 
 Reference: every file in `memory/`.
 
-Life's long-term memory, written for a future system that has never seen this code. The enforced copy of every record below is the zod schema in `src/schema.ts`.
+Life's long-term memory, written for a future system that has never seen this code. The enforced copy of every record below is the zod schema in `apps/server/src/schema.ts`.
 Everything is plain text: JSON Lines (one JSON object per line), UTF-8. Times are ISO 8601 with a zone; dates
 (`YYYY-MM-DD`) and local times are where the owner was at that instant (`zones.jsonl`), whatever zone the Mac is in
 when they are read again. Every record has `schemaVersion`; a record a model judged says
@@ -68,7 +68,7 @@ not judged yet; a dropped unit's lines are ignored.
 ## files.jsonl
 
 What Life read off the files messages carry, append-only, one line per file and reading, written by the sweeps
-(`describeFiles`, `src/memory/files.ts`): `{schemaVersion: 1, ref, hash, what?, text?, madeBy?}`. `ref` is where the file
+(`describeFiles`, `apps/server/src/memory/files.ts`): `{schemaVersion: 1, ref, hash, what?, text?, madeBy?}`. `ref` is where the file
 was met (`imessage:<attachment guid>`, `whatsapp:<chat>/<message>`, `beeper:<mxc url>`, `mail:<Message-ID>#<MIME part>`, `notes:<attachment id>`);
 `hash`: 16 hex of SHA-256 over its bytes. `what`: the model's one sentence on what it is and shows (`madeBy` as for
 verdicts, prompt `files.v1`); `text`: the words on it, on one line, at most 1,000 characters (a photo's from the model,
@@ -247,7 +247,7 @@ Sections, in order:
 
 To-dos stay observations (their `type`): Reminders are written only by actions on the owner's clear request (`actions.jsonl`).
 `day` lists as due the salience-3 promises and the to-dos the owner said whose `when` is that day or up to a week before
-(`dueOf`, then `openItems` in `src/items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
+(`dueOf`, then `openItems` in `apps/server/src/items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
 the owner's reminders, waiting items and the replies the owner owes; an undated one shows the day after it was said and 3 days
 after, then is stale, never due. It is the one place code checks `speaker`, against the rule above,
 because it only narrows a list the owner reads: the owner's to-do in a voice lifelog left unnamed is missed. Rules code enforces:
@@ -271,8 +271,8 @@ line the owner deletes is recorded as `not-important` for its observations on th
 
 ## actions.jsonl
 
-What Life did outside itself on the owner's clear request (appended by `act`, `src/actions/act.ts`), what the owner changed in
-Reminders by hand (read back by the watcher, `src/actions/inbound.ts`), and the agent's tasks (`src/tasks.ts`: the owner's asks and their lines):
+What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/actions/act.ts`), what the owner changed in
+Reminders by hand (read back by the watcher, `apps/server/src/actions/inbound.ts`), and the agent's tasks (`apps/server/src/tasks.ts`: the owner's asks and their lines):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, madeBy, timing?}`.
 
 - `id`: `act_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
@@ -315,7 +315,7 @@ Reminders by hand (read back by the watcher, `src/actions/inbound.ts`), and the 
 
 The truth benchmark: short statements for the owner to rate true or false, one per claim, append-only, written by
 `bun life memory statements <n>` (about 300 to start):
-`{schemaVersion: 1, claim, text, group, kind, source, date, units, at}`. Code draws them (`src/memory/statements.ts`),
+`{schemaVersion: 1, claim, text, group, kind, source, date, units, at}`. Code draws them (`apps/server/src/memory/statements.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (salience 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment that happened,
 is planned or was cancelled as `Happened: <title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
@@ -327,7 +327,7 @@ where a later run's claims about the same thing are). The draw is spread over gr
 ## ratings.jsonl
 
 The owner's answers to the statements, append-only, from the check page (`<your connector origin>/check`,
-`src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
+`apps/server/src/check.ts`): `{schemaVersion: 1, claim, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
 recorded it, not anymore), `skip` or null (the owner took their last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would
@@ -356,7 +356,7 @@ retirement stands only while `by` is current: a replacement re-read away retires
 
 Where the owner was, as the Mac's IANA time zone, append-only: `{schemaVersion: 1, from, tz}`, the zone from `from` on,
 read in `from` order (the earliest also covers everything before it). Every local day and time in memory/ comes from it (`zoneAt`,
-`src/memory/zones.ts`), so a unit's day, and the id of a chat-day or mail thread-day, stays the same when the day is
+`apps/server/src/memory/zones.ts`), so a unit's day, and the id of a chat-day or mail thread-day, stays the same when the day is
 read again from another country. The nightly tick (every 30 minutes) appends a line when the Mac's own zone (never a `TZ`
 variable) differs from the latest one, taking effect at once, or at the next midnight of the zone ahead when the two are
 on different days (`cutAt`: a local day never goes back); what came before it was noticed keeps the old zone. `bun life init`

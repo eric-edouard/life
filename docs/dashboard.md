@@ -5,7 +5,7 @@ shows the same.
 
 Four read-only tools on Life's connector (`/mcp`) let a private dashboard show whether Life works, what it ran, every
 change to the memory and the evidence behind a claim. The CLI has the same reads, from the same code: `bun life memory
-status | runs | changes | claim`. Code: `src/memory/history.ts` (status, runs) and `src/memory/feed.ts` (changes,
+status | runs | changes | claim`. Code: `apps/server/src/memory/history.ts` (status, runs) and `apps/server/src/memory/feed.ts` (changes,
 claim). They run no model, write nothing, log nothing and send nothing (a test checks the code; the connector logs each
 call as `mcp.call`), and read no source except, for `claim`, the cited unit's chat-day or mail thread-day, read again
 the way `fetch` reads it (to show who sent the line). Every answer is JSON, sent once as text content (no
@@ -111,7 +111,7 @@ filter narrows the items, never the cursor's reach: every match is still returne
   newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner rated it outdated; still
   indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
   hidden on (pages carry salience 2+ only). It is the rule the index and the pages go by (`stateOf`,
-  `src/memory/ledger.ts`), so it says what they show. An observation is a model's reading of the source with its quote
+  `apps/server/src/memory/ledger.ts`), so it says what they show. An observation is a model's reading of the source with its quote
   checked against it: `active` is not "verified", and `confidence` is the model's own.
 - **Reflected**, for a correction: has it reached the index and the pages yet? Exact for `wrong` and `not-important`
   (the observations are gone from the index and from the pages) and `keep-mine` (the line is on its page). `null`: does
@@ -169,10 +169,10 @@ snapshot must date it and mark it stale, and where it is stored is a separate de
 Life.app's status window and menu-bar panel (`app/Sources/LifeApp/`): Life's architecture as a plate of live cards,
 native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no connector tool.
 
-- **Code.** `src/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
+- **Code.** `apps/server/src/plate.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
   (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
-  source's own module), the Mac's probes are `src/mac.ts`. `src/plate-detail.ts` gives a card's history and log lines
-  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `src/dashboard.ts` serves
+  source's own module), the Mac's probes are `apps/server/src/mac.ts`. `apps/server/src/plate-detail.ts` gives a card's history and log lines
+  (`detail`) and a run's steps and what it wrote (`runDetail`, from `runs` and `changes`). `apps/server/src/dashboard.ts` serves
   them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
   key; the app decodes them (`Plate.swift`) and reads the plate every 3 s while the window is open.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its

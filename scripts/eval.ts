@@ -6,9 +6,9 @@
 
 import { join } from "node:path";
 import { z } from "zod";
-import { clock } from "../src/clock";
-import { llmFor, llmSpec } from "../src/llm";
-import { locked, spareQuota } from "../src/memory/guard";
+import { clock } from "../apps/server/src/clock";
+import { llmFor, llmSpec } from "../apps/server/src/llm";
+import { locked, spareQuota } from "../apps/server/src/memory/guard";
 import {
   appendJsonl,
   liveUnits,
@@ -16,11 +16,16 @@ import {
   ratedFacts,
   readUnits,
   SCORES,
-} from "../src/memory/ledger";
-import { chunks, ended, inBatches, metered } from "../src/memory/run";
-import { type Claim, claimsNow } from "../src/memory/statements";
-import { type Grade, judge, tally } from "../src/memory/tally";
-import { Score } from "../src/schema";
+} from "../apps/server/src/memory/ledger";
+import {
+  chunks,
+  ended,
+  inBatches,
+  metered,
+} from "../apps/server/src/memory/run";
+import { type Claim, claimsNow } from "../apps/server/src/memory/statements";
+import { type Grade, judge, tally } from "../apps/server/src/memory/tally";
+import { Score } from "../apps/server/src/schema";
 
 const Facts = z.object({
   facts: z.array(

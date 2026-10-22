@@ -27,14 +27,14 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 ## Asks
 
-- An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`src/hear.ts`:
+- An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`apps/server/src/hear.ts`:
   the two words, no model call), or from `bun life ask` in a Claude session.
   - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. The owner's own "hey" plus the word lifelog
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
-- `ask` (`src/tasks.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
-  it (`src/events.ts`).
+- `ask` (`apps/server/src/tasks.ts`) records it in `memory/actions.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
+  it (`apps/server/src/events.ts`).
 - The agent also records one through `task` from the owner's chat (`madeBy: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
   (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is claimed in the same call, so it
@@ -46,7 +46,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 ## Tasks
 
-- **Every ask is a task until the agent closes it done (an outcome) or dropped (a reason)** (`src/tasks.ts`). A task is
+- **Every ask is a task until the agent closes it done (an outcome) or dropped (a reason)** (`apps/server/src/tasks.ts`). A task is
   its ask line plus its own lines in the same ledger (`TASK_LINES`: no `instruction`, `target` = the task).
 - The agent writes `update`s through the connector's `task` (the rules are `refusal`, behind the seal in `written`; one
   claim). `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows. `reply`
@@ -64,13 +64,13 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 - **Life's code acts in one place only, on the owner's clear request in a Claude session or a chat: his items in one
   actions backend per install**, Apple Reminders (remctl) or Google Tasks (`gog`): add, edit, done, undone, remove,
-  restore, through `act` (`src/actions/act.ts`). `act` is the only code that decides an action. It records its intent
+  restore, through `act` (`apps/server/src/actions/act.ts`). `act` is the only code that decides an action. It records its intent
   before each write and its outcome after.
 - When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
-  `src/actions/act.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
+  `apps/server/src/actions/act.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
 - `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
   at that time. `act` refuses the agent's list (`BOARD`): that list is the board, below.
-- **One contract, `ActionsBackend`** (`src/actions/backend.ts`): his lists (not groups) and whether one is shared, a
+- **One contract, `ActionsBackend`** (`apps/server/src/actions/backend.ts`): his lists (not groups) and whether one is shared, a
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
   `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
   Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `changes`). `idOf` is the one place
@@ -85,7 +85,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
   restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
-- `src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `backend.ts` the
+- `apps/server/src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `backend.ts` the
   contract, the choice and the writes, `remctl.ts` and `google.ts` the two backends, `board.ts` the board,
   `inbound.ts` the owner's changes read back.
 - **The actions output** is on only with the `actions` setting, which names the backend: `{"backend": "reminders"}` or
@@ -97,8 +97,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - Reminders goes through `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by
   remctl's own installer from the app; while Reminders is the backend and remctl is behind the pin, the app offers the
   update again (Apple silicon only). Google Tasks goes through `gog tasks … --json` as the setting's account. Their
-  answers as Life reads them are `src/actions/remctl.json` (recorded; re-check them when moving the pin) and
-  `src/actions/gog.json` (written from the Tasks API's resources, never run against an account). Without a backend
+  answers as Life reads them are `apps/server/src/actions/remctl.json` (recorded; re-check them when moving the pin) and
+  `apps/server/src/actions/gog.json` (written from the Tasks API's resources, never run against an account). Without a backend
   Life still works from the ledger.
 - Nothing Life hears or reads makes it act by itself.
 
@@ -116,17 +116,17 @@ each minute as state only: one `madeBy: "reminders"` line each, with no `instruc
 
 ### Open items
 
-`openItems` (`src/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
+`openItems` (`apps/server/src/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
 what sync read back) and the chats. Code ranks them (the owner's urgent flag and priority, who owes whom, the owner's goals' order,
 closeness, age); each is shown to the agent's review at most twice (counted from the ids its `day` calls were logged
 with). `day`'s Due and `act`'s duplicate check read it, never Reminders; a reminder made by hand counts once sync read
 it, within a minute. `open_reminders` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
-`isDirect` (`src/sources/index.ts`), for replies owed and closeness alike.
+`isDirect` (`apps/server/src/sources/index.ts`), for replies owed and closeness alike.
 
 ### The board
 
 The agent's Reminders list (`BOARD`, named after the agent) is a projection of the ledger, the owner's receipt
-(`wantOf` in `src/tasks.ts`, written by `push` in `src/actions/board.ts` each minute). It writes no ledger line and
+(`wantOf` in `apps/server/src/tasks.ts`, written by `push` in `apps/server/src/actions/board.ts` each minute). It writes no ledger line and
 never goes through `act`.
 
 - The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
@@ -152,7 +152,7 @@ takes authority away.
 
 ## The Past calendar
 
-A one-way projection of the moments (`src/memory/past.ts`, `syncPast`, each nightly tick), on with the `past` setting:
+A one-way projection of the moments (`apps/server/src/memory/past.ts`, `syncPast`, each nightly tick), on with the `past` setting:
 one event per moment that happened, none overlapping (`tiled`: what covers another is left off), found by its private
 properties `lifeMoment` and `lifeHash`. A changed moment is written again, a gone one deleted; events without
 `lifeMoment` are never touched. It reads nothing back and never alerts. If that calendar ever becomes a source, its
@@ -161,7 +161,7 @@ events with `lifeMoment` are Life's output and must be dropped.
 ## "hey Life"
 
 The owner's marker, for memory only. The owner's turn holding it (an unattributed one too) and the owner's turns right after
-(`marksIn`, `src/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
+(`marksIn`, `apps/server/src/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
 watcher's store (`writeMarks`, refs only). Their chapter's unit carries them (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
 salience 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
@@ -169,46 +169,46 @@ observations citing it. It never acts, asks or sends.
 
 ## The connector
 
-`src/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections, acts only
+`apps/server/src/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections, acts only
 on the owner's explicit request (in the chat, or in an ask through the agent's `reminders` and `task`) or on the standing
 grant, and logs the agent's replies.
 
 - **Tools:** thirteen read-only ones (`tasks`; `open_reminders`, read from Reminders, never the board; the dashboard's
   JSON reads `status`, `runs`, `changes`, `claim`, see `docs/dashboard.md`; and the memory reads); `correct` (lifelog
-  writes all go through the table in `forward`, `src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
+  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `reminders` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant); `task` (the agent's updates, through `update`); `reply` (one `actions.jsonl`
   line, appended only: it sends nothing).
 - `correct` is annotated destructive so clients ask first. `reminders`, `task` and `reply` are not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses them unattended.
 - Replies are the agent's output, never the owner's words: they enter memory only through the agent's source (`AGENT_WORD`), as
   evidence of what was done.
-- One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. Callbacks go to
+- One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `apps/server/src/events.ts`), behind the same auth. Callbacks go to
   OpenAI's hosts only, verified before anything is sent.
-- **Auth:** every request needs a JWT for this resource with `life:read`, from its issuer: Life's own (`src/oauth.ts`,
+- **Auth:** every request needs a JWT for this resource with `life:read`, from its issuer: Life's own (`apps/server/src/oauth.ts`,
   at `<origin>/auth`: an app is approved with a pairing code from `bun life pair`, PKCE, one-use codes, refresh tokens
   replaced on use, its key in `STATE/oauth`), or the `connector` setting's (lifelog's, `sub` = its owner)
-  (`ownerTokens`, `src/auth.ts`). Another issuer's keys are kept a day (`server.ts`). Failing to fetch them is
+  (`ownerTokens`, `apps/server/src/auth.ts`). Another issuer's keys are kept a day (`server.ts`). Failing to fetch them is
   `unreachable`: a 503 on `/mcp` and `/check`, never a refused token.
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid
   arguments (`tool()` validates them itself) are logged as `mcp.call` with `error`. Nothing reads a response back.
 - **Origin:** the Mac's tailnet name (`bun life connect`; `--public` through Tailscale Funnel for ChatGPT and
-  Claude.ai, `src/tailscale.ts`), or the owner's own Cloudflare tunnel (`tunnel: cloudflare`, the only one
-  `src/tunnel.ts` heals), or the owner's edge Worker until #137 (`docs/architecture.md`). Docs write it as
+  Claude.ai, `apps/server/src/tailscale.ts`), or the owner's own Cloudflare tunnel (`tunnel: cloudflare`, the only one
+  `apps/server/src/tunnel.ts` heals), or the owner's edge Worker until #137 (`docs/architecture.md`). Docs write it as
   `<your connector origin>`.
 
 ## The only sends
 
 What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
 Life can turn on or off (Reminders, the Past calendar, the connector, the backup) is an entry in `OUTPUTS`
-(`src/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
+(`apps/server/src/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
 reads the rest of its settings. How the report and the alerts go out:
 
-- To the owner only (`src/memory/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
+- To the owner only (`apps/server/src/memory/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `STATE/reports`. Either way the log's `email.sent`
   means delivered.
 - The alerts: a failed action or an ask whose delivery failed; a task that needs the owner, once per cause; the agent
   not subscribed to `ask` (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an
-  archive store failing for an hour (`archiveFailing` in `src/archive.ts`, once per incident and again daily while it
+  archive store failing for an hour (`archiveFailing` in `apps/server/src/archive.ts`, once per incident and again daily while it
   lasts).
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
-- The ask events (`src/events.ts`) go to the one subscriber, one per ask the agent did not make itself.
+- The ask events (`apps/server/src/events.ts`) go to the one subscriber, one per ask the agent did not make itself.

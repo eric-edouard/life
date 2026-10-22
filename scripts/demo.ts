@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative, resolve } from "node:path";
-import { madeBy, unit } from "../src/memory/fixtures";
-import { MACHINE } from "../src/platform";
-import { execOk } from "../src/proc";
-import { DATA, STATE } from "../src/truth";
+import { madeBy, unit } from "../apps/server/src/memory/fixtures";
+import { MACHINE } from "../apps/server/src/platform";
+import { execOk } from "../apps/server/src/proc";
+import { DATA, STATE } from "../apps/server/src/truth";
 
 // A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
-// src/test-data, plus a week of invented memory about a landlord, a plumber and a friend) and builds its search index.
+// apps/server/src/test-data, plus a week of invented memory about a landlord, a plumber and a friend) and builds its search index.
 // It reads no source: its settings turn every source off. `demo.test.ts` checks the README's ids against it.
 //
 // The README's transcript is Claude Code with Life's read commands on that copy as its only tool:
@@ -18,7 +18,7 @@ import { DATA, STATE } from "../src/truth";
 //       bun <repo>/src/cli.ts memory search|person|day …. Today is Thursday 22 October 2026. Cite observation ids." \
 //     "What did I promise my landlord last week? Did I keep it?"
 //
-// The README's screenshots were made by hand, with no script kept: `snapshot()` (src/plate.ts), run with the same
+// The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/plate.ts), run with the same
 // LIFE_DATA and LIFE_STATE, printed the plate as JSON; the cards about the Mac's own services were deleted from it
 // (the tunnel, cloudflared, the nightly tick, /me and the whole Mac row), and Life.app's StatusWindow was drawn from
 // what was left, offscreen. The other cards still show what the Mac that drew them reported about itself, such as
@@ -35,9 +35,13 @@ if (!process.argv[2] || existsSync(out) || live.some(inside)) {
 }
 const data = join(out, "data");
 const state = join(out, "state");
-cpSync(join(import.meta.dir, "../src/test-data/truth"), join(data, "truth"), {
-  recursive: true,
-});
+cpSync(
+  join(import.meta.dir, "../apps/server/src/test-data/truth"),
+  join(data, "truth"),
+  {
+    recursive: true,
+  }
+);
 mkdirSync(join(state, "memory"), { recursive: true });
 const write = (path: string, rows: object[]) => {
   mkdirSync(join(path, ".."), { recursive: true });
@@ -275,7 +279,12 @@ for (const d of DEMO) {
 }
 // NODE_ENV=test (a `bun test` run) would point the CLI at the tests' own copy instead.
 await execOk(
-  ["bun", join(import.meta.dir, "../src/cli.ts"), "memory", "index"],
+  [
+    "bun",
+    join(import.meta.dir, "../apps/server/src/cli.ts"),
+    "memory",
+    "index",
+  ],
   {
     env: { ...process.env, LIFE_DATA: data, LIFE_STATE: state, NODE_ENV: "" },
   }

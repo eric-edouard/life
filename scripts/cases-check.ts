@@ -4,8 +4,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { readJson } from "../src/memory/ledger";
-import { DATA } from "../src/truth";
+import { readJson } from "../apps/server/src/memory/ledger";
+import { DATA } from "../apps/server/src/truth";
 
 const CASES = join(DATA, "docs/evals/cases");
 if (!existsSync(CASES)) {
@@ -46,8 +46,8 @@ const problems = readdirSync(CASES)
       return [`${file}: ${z.prettifyError(parsed.error)}`];
     }
     const c = parsed.data;
-    // `bun test ./src/` runs only src/, so a test that holds a case lives there and names it.
-    const test = c.check?.startsWith("src/")
+    // The check runs the server's tests, so a test that holds a case lives there and names it.
+    const test = c.check?.startsWith("apps/server/src/")
       ? textOf(join(import.meta.dir, "..", c.check))
       : null;
     return [
@@ -56,7 +56,7 @@ const problems = readdirSync(CASES)
         ? ""
         : "check is null only while pending",
       c.status === "test" && !test?.includes(file.slice(0, -5))
-        ? `its test ${c.check} is not in src/, is missing or no longer names it`
+        ? `its test ${c.check} is not in apps/server/src/, is missing or no longer names it`
         : "",
       c.status === "facts" && textOf(join(DATA, c.check ?? "")) === null
         ? `its facts ${c.check} are missing`

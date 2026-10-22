@@ -17,7 +17,7 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 | Runs | Its own host and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
 | Acts? | Never | Only on the owner's clear request (`docs/tasks.md`) |
 
-- Life reads lifelog through its REST API with a device token (`src/sources/lifelog.ts`). It keeps chapter titles,
+- Life reads lifelog through its REST API with a device token (`apps/server/src/sources/lifelog.ts`). It keeps chapter titles,
   summaries and turn refs, not transcript text (except an ask's words). Exact quotes are fetched on demand.
 - Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
 - Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must
@@ -43,9 +43,9 @@ flowchart LR
   AG -- "task updates" --> C
 ```
 
-- **Sources** (`src/sources/`, one descriptor each in `src/sources/index.ts`) return events with stable ids, so reading
+- **Sources** (`apps/server/src/sources/`, one descriptor each in `apps/server/src/sources/index.ts`) return events with stable ids, so reading
   twice never duplicates anything. Raw data stays in its own app.
-- **Units** (`src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a
+- **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees
   it.
 - **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
@@ -80,7 +80,7 @@ read from `truth/me.md`.
 
 A question like "what is my arc with this friend?" needs more than recent logistics. The design:
 
-- **Who gets a page is a closeness level** (`src/memory/closeness.ts`), judged by a model on numbers code counts from
+- **Who gets a page is a closeness level** (`apps/server/src/memory/closeness.ts`), judged by a model on numbers code counts from
   raw signals only (two-way 1:1 message days, voice presence, recency), never from model output, so there is no
   feedback loop. Personal and work closeness are separate scores. Service accounts are not people. Close family keeps a
   floor. The owner can override any level in a sentence; there is no list for the owner to keep.
@@ -119,20 +119,20 @@ archive and the watcher kept running, the nightly tick every 30 minutes, data an
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
 Its menu-bar panel and status window are native SwiftUI, reading the plate from the watcher's local status reads
-(`src/dashboard.ts`, `LOCAL_PORT`, behind its local key `keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points
+(`apps/server/src/dashboard.ts`, `LOCAL_PORT`, behind its local key `keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points
 there): `docs/dashboard.md`.
 
 ## Pages
 
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
 
-- **The check page** (`src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
+- **The check page** (`apps/server/src/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
   the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else.
   Same OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a
   `wrong` correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
-- **The portrait** (`src/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
+- **The portrait** (`apps/server/src/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
   `DATA/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
   `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player
   (`assets/portrait/`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a
