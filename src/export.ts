@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import {
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -13,6 +14,7 @@ import { basename, isAbsolute, join, relative } from "node:path";
 import { STORES } from "./archive";
 import { clock } from "./clock";
 import { SUBSCRIPTION } from "./events";
+import { isEmpty } from "./init";
 import { LOCK, locked } from "./memory/guard";
 import { INDEX } from "./memory/search";
 import { OAUTH } from "./oauth";
@@ -142,13 +144,14 @@ function leftOut() {
  * watcher writes it after, so a restored store never lags its cursor). Throws when the lock is held.
  */
 export async function stage(dir: string, archive = ARCHIVE) {
-  if (existsSync(dir) && readdirSync(dir).length > 0) {
+  if (!isEmpty(dir)) {
     throw new Error(`${dir} is not empty`);
   }
   mkdirSync(join(dir, "archive"), { recursive: true });
-  const cloned = await locked(() =>
-    execOk(["cp", "-cR", DATA, join(dir, "data")])
-  );
+  const cloned = await locked(() => {
+    cpSync(DATA, join(dir, "data"), { recursive: true });
+    return Promise.resolve(true);
+  });
   if (cloned === null) {
     throw new Error("a run holds memory's lock: try again when it is done");
   }
@@ -158,7 +161,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   if (!(inData.startsWith("..") || isAbsolute(inData))) {
     rmSync(join(dir, "data", inData), { force: true, recursive: true });
   }
-  await execOk(["cp", "-cR", STATE, join(dir, "state")]);
+  cpSync(STATE, join(dir, "state"), { recursive: true });
   for (const p of filesUnder(join(dir, "state"))) {
     if (
       KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
@@ -171,7 +174,7 @@ export async function stage(dir: string, archive = ARCHIVE) {
   mkdirSync(watch, { recursive: true });
   const { cursor, file } = storeFiles();
   if (existsSync(cursor)) {
-    await execOk(["cp", cursor, watch]);
+    cpSync(cursor, join(watch, basename(cursor)));
   }
   if (existsSync(file)) {
     await copyDb(file, join(watch, basename(file)));
@@ -183,7 +186,9 @@ export async function stage(dir: string, archive = ARCHIVE) {
     await copyDb(db, join(dir, "archive", basename(db)));
   }
   if (existsSync(join(archive, "media"))) {
-    await execOk(["cp", "-cR", join(archive, "media"), join(dir, "archive")]);
+    cpSync(join(archive, "media"), join(dir, "archive", "media"), {
+      recursive: true,
+    });
   }
   const files: { path: string; sha256: string; size: number }[] = [];
   for (const path of filesUnder(dir)) {

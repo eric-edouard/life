@@ -9,8 +9,7 @@ import { LOCAL_PORT } from "./http";
 import { restore } from "./import";
 import { init, started } from "./init";
 import { readEngine } from "./llm";
-import { memoryCommand } from "./memory/command";
-import { locked } from "./memory/guard";
+import { memoryCommand, step } from "./memory/command";
 import { dryRun, importExport } from "./memory/imports";
 import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
@@ -231,9 +230,15 @@ const commands: Record<string, () => Promise<number>> = {
       return 2;
     }
     if (existsSync(join(dir, "manifest.json"))) {
+      if (values.dry) {
+        console.error(
+          "--dry counts an assistant export; a Life export is checked as it is imported"
+        );
+        return 2;
+      }
       const r = await restore(dir);
       console.log(
-        `Life: ${r.files} files imported and counted. Give by hand: ${JSON.stringify(r.leftOut)}`
+        `Life: ${r.files} files imported, checked and counted. Give by hand: ${Object.values(r.leftOut).flat().join("; ")}`
       );
       return 0;
     }
@@ -241,12 +246,14 @@ const commands: Record<string, () => Promise<number>> = {
       console.log(JSON.stringify(dryRun(dir)));
       return 0;
     }
-    const summary = await locked(() => importExport(dir));
-    if (!summary) {
-      return 1;
+    // Its copy goes into his data: a new install starts first (`init`), or brings a Life export.
+    if (!started()) {
+      console.error(
+        "Start Life first (or import a Life export): an assistant export goes into a set-up Life"
+      );
+      return 2;
     }
-    console.log(JSON.stringify(summary));
-    return summary.failed > 0 ? 1 : 0;
+    return step(() => importExport(dir))({}, []);
   },
   /** A new install's data, once: `init --name <his name> [--email a]… [--phone +33…]…`. */
   async init() {
