@@ -35,7 +35,7 @@ in its PR: no second path left alive.
 
 ### Inputs
 
-The contract exists: the source descriptor (`Descriptor`, `apps/server/src/sources/index.ts:67`). Memory steps already branch on
+The contract exists: the source descriptor (`Descriptor`, `apps/server/src/sources/contract.ts`). Memory steps already branch on
 `kind`, never on a name. What it needed:
 
 - **The archive is a capability, not a second list** (done, #147). An archived source's descriptor carries its

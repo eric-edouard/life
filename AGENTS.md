@@ -126,7 +126,7 @@ Before adding a helper, use the one that exists:
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `actions/`): implementations import it, its registry imports them, never back |
-| A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/sources/index.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
+| A source's behaviour | its descriptor in `SOURCES` (`apps/server/src/memory/sources.ts`); branch on kind or capability, never on its name; tables of sources come from `tablesOf` |
 | Units for a memory step | `gather` (`units.ts`), once per sweep |
 | A unit's words | `raw.ts` (`voiceLines`, `chatLines`, `unitLines`); a failed fetch throws |
 | A message's files as lines | `showFiles` (`memory/files.ts`); readers resolve to `SourceFile`; `describeFiles` reads each once |

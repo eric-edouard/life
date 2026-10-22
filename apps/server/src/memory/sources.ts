@@ -222,7 +222,7 @@ export const readySources = (all = enabledSources()) =>
 export const listening = () => readySources().some((s) => s.kind === "voice");
 
 const BY_NAME = new Map(SOURCES.map((s) => [s.name, s]));
-/** A stored source name's descriptor: every name has one (`index.test.ts`). */
+/** A stored source name's descriptor: every name has one (`sources.test.ts`). */
 export const sourceOf = (name: SourceName) => BY_NAME.get(name) as Descriptor;
 export const kindOf = (name: SourceName) => sourceOf(name).kind;
 /** Whether a chat is 1:1: not a group by its id (its source's `group`), or, for a source that cannot tell, one other sender at most. */

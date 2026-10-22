@@ -4,7 +4,7 @@ import type { SourceEvent } from "../records/sources";
 import type { Person } from "../records/truth";
 
 // The source contract: what Life knows about each source, in one descriptor. Each reader gives its parts; the registry
-// (`index.ts`) lists them. Code asks a source's kind or what it can do, never its name.
+// (`memory/sources.ts`) lists them. Code asks a source's kind or what it can do, never its name.
 
 /** A source's newest item, for the status plate: when it came, his words in it, by part. */
 export interface Newest {

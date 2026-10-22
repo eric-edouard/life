@@ -352,3 +352,48 @@ export function lifelogServer(
     seen,
   };
 }
+
+/** A made-up claude.ai export in its published shape (chat_messages). */
+export const claudeExport = [
+  {
+    chat_messages: [
+      {
+        content: [
+          { text: "My sister Ada moves to Lyon in May.", type: "text" },
+        ],
+        created_at: "2026-03-02T09:15:00.000Z",
+        sender: "human",
+        text: "My sister Ada moves to Lyon in May.",
+        uuid: "m1",
+      },
+      {
+        created_at: "2026-03-02T09:15:05.000Z",
+        sender: "assistant",
+        text: "That sounds like a big change.",
+        uuid: "m2",
+      },
+      {
+        content: [{ text: "Help me plan her farewell dinner.", type: "text" }],
+        created_at: "2026-03-02T09:20:00.000Z",
+        sender: "human",
+        text: "",
+        uuid: "m3",
+      },
+    ],
+    created_at: "2026-03-02T09:15:00.000Z",
+    name: "Ada's move",
+    uuid: "c1",
+  },
+  {
+    chat_messages: [
+      {
+        created_at: "2026-03-03T10:00:00.000Z",
+        sender: "human",
+        text: "Why does this fail?\n```ts\nthrow new Error()\n```",
+        uuid: "m4",
+      },
+    ],
+    name: "A bug",
+    uuid: "c2",
+  },
+];

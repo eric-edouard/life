@@ -545,6 +545,9 @@ export function readConversations(
     }));
 }
 
+/** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts). */
+export const CLOSED_ON_SILENCE_S = 60;
+
 /** Seconds of speech in one recording, or null before lifelog sent it. */
 export const speechSeconds = (store: Store, jobId: string) =>
   store.db
@@ -872,6 +875,3 @@ export async function forward(kind: string, a: Fix) {
   log("lifelog.write", { after, method, path, phase: "after" });
   return after;
 }
-
-/** lifelog closes a recording of less speech than this only after 30 s without speech (its cutter.ts), more than GAP_MS. */
-export const CLOSED_ON_SILENCE_S = 60;
