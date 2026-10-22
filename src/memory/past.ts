@@ -254,6 +254,18 @@ async function wanted(now: Date) {
   );
 }
 
+/** One of Life's events in a calendar: its moment, the hash it was written with, its id there. */
+const Row = z.object({ hash: z.string(), id: z.string(), moment: z.string() });
+type Row = z.infer<typeof Row>;
+/** Life's events by moment, whichever calendar holds them. */
+export const heldOf = (rows: Row[]): Held =>
+  new Map(
+    [...Map.groupBy(rows, (r) => r.moment)].map(([moment, rs]) => [
+      moment,
+      rs.map(({ hash, id }) => ({ hash, id })),
+    ])
+  );
+
 /** The Past calendar through `gog`: what it holds of Life's (events with a moment id, by moment), and its writes. */
 function pastCalendar(calendar: string, account: string) {
   // Values go as `--flag=value`: a model-written title starting with "-" must not read as a flag.
@@ -274,7 +286,7 @@ function pastCalendar(calendar: string, account: string) {
   };
   return {
     async held(until: string) {
-      const held: Held = new Map();
+      const rows: Row[] = [];
       let page = "";
       do {
         const r = PastEvents(
@@ -291,15 +303,16 @@ function pastCalendar(calendar: string, account: string) {
         for (const e of r.events ?? []) {
           const p = e.extendedProperties?.private;
           if (p?.lifeMoment) {
-            held.set(p.lifeMoment, [
-              ...(held.get(p.lifeMoment) ?? []),
-              { hash: p.lifeHash, id: e.id },
-            ]);
+            rows.push({
+              hash: p.lifeHash ?? "",
+              id: e.id,
+              moment: p.lifeMoment,
+            });
           }
         }
         page = r.nextPageToken ?? "";
       } while (page);
-      return held;
+      return heldOf(rows);
     },
     async remove(moment: string, id: string) {
       await run(["delete", calendar, id, "--force"]);
@@ -341,19 +354,9 @@ function appleCalendar(calendar: string, tool: string) {
   };
   return {
     async held(until: string) {
-      const rows = z
-        .array(
-          z.object({ hash: z.string(), id: z.string(), moment: z.string() })
-        )
-        .parse(JSON.parse(await run(["held", `--until=${until}`])));
-      const held: Held = new Map();
-      for (const r of rows) {
-        held.set(r.moment, [
-          ...(held.get(r.moment) ?? []),
-          { hash: r.hash, id: r.id },
-        ]);
-      }
-      return held;
+      return heldOf(
+        z.array(Row).parse(JSON.parse(await run(["held", `--until=${until}`])))
+      );
     },
     async remove(moment: string, id: string) {
       await run(["delete", id]);

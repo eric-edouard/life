@@ -54,10 +54,12 @@ const CLAUDE_MODELS: Record<Tier, string> = {
 // Same model as lifelog. Older codex clients reject it, and this Mac has several (an nvm global, a broken
 // /usr/local one, the app's bundled one), so Life runs the version pinned in package.json, natively (launchd has no node).
 const CODEX_MODEL = "gpt-6.1-sol";
-const CODEX_BIN = join(
-  ROOT,
-  "node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex"
-);
+/** The same model, through OpenAI's API with his key. */
+const OPENAI_MODEL = CODEX_MODEL;
+/** The pinned codex, under Life's files (the app's helper ships it there: scripts/helper.ts). */
+export const CODEX =
+  "node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex";
+const CODEX_BIN = join(ROOT, CODEX);
 // Codex always loads AGENTS.md from its home, and no flag turns that off, so Life has its own home with a login of
 // its own (`CODEX_HOME=<this> codex login --device-auth`, once) and no instruction files. The repo's own AGENTS.md is
 // kept out by running in an empty temp folder and `project_doc_max_bytes=0`; `skills.include_instructions=false` drops
@@ -135,6 +137,8 @@ export function llmFor(tier: Tier, engine = readEngine()): Llm {
         engine,
         model: ANTHROPIC_MODELS[tier],
       };
+    case "openai":
+      return { effort: CODEX_EFFORT[tier], engine, model: OPENAI_MODEL };
     default:
       return { effort: CODEX_EFFORT[tier], engine, model: CODEX_MODEL };
   }
@@ -554,27 +558,30 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
   };
 }
 
+/** The models Anthropic re-runs on another when a safety check declines (`fallbacks`): not Haiku. */
+const FALLS_BACK = /^claude-(opus|sonnet)-/;
+
 /**
  * One call through Anthropic's API with his key: streamed (a day's moments can take long), adaptive thinking at the
- * tier's effort, and the server's default fallback model when a safety check declines.
+ * tier's effort, the system prompt cached (it is the same for every call of a run), and the server's default fallback
+ * model when a safety check declines, where the model has one.
  */
-async function askAnthropic({ dir, images, input, llm, system, tools }: Call) {
-  if (tools) {
-    throw new Error("tools run on his subscriptions only (claude or codex)");
-  }
+async function askAnthropic({ dir, images, input, llm, system }: Call) {
+  const images_ = (await Promise.all(
+    images.map(imageBlock)
+  )) as Anthropic.Beta.BetaImageBlockParam[];
   const reply = await new Anthropic().beta.messages
     .stream({
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...(FALLS_BACK.test(llm.model)
+        ? {
+            betas: ["server-side-fallback-2026-07-01"],
+            fallbacks: "default" as const,
+          }
+        : {}),
       max_tokens: 64_000,
       messages: [
         {
-          content: [
-            { text: JSON.stringify(input), type: "text" },
-            ...((await Promise.all(
-              images.map(imageBlock)
-            )) as Anthropic.Beta.BetaImageBlockParam[]),
-          ],
+          content: [{ text: JSON.stringify(input), type: "text" }, ...images_],
           role: "user",
         },
       ],
@@ -582,7 +589,9 @@ async function askAnthropic({ dir, images, input, llm, system, tools }: Call) {
       output_config: {
         effort: llm.effort as "low" | "medium" | "high" | undefined,
       },
-      system,
+      system: [
+        { cache_control: { type: "ephemeral" }, text: system, type: "text" },
+      ],
       thinking: { type: "adaptive" },
     })
     .finalMessage();
@@ -591,7 +600,11 @@ async function askAnthropic({ dir, images, input, llm, system, tools }: Call) {
     .flatMap((b) => (b.type === "text" ? [b.text] : []))
     .join("");
   return {
-    fields: { model: reply.model, usage: reply.usage },
+    fields: {
+      model: reply.model,
+      tokens: claudeTokens(reply.usage as unknown as Record<string, unknown>),
+      usage: reply.usage,
+    },
     refusal:
       reply.stop_reason === "end_turn"
         ? undefined
@@ -600,23 +613,28 @@ async function askAnthropic({ dir, images, input, llm, system, tools }: Call) {
   };
 }
 
+const OpenAIUsage = z
+  .object({
+    completion_tokens: z.number(),
+    prompt_tokens: z.number(),
+    prompt_tokens_details: z.object({ cached_tokens: z.number() }).nullish(),
+  })
+  .nullish();
+
 /** One call through OpenAI's API with his key, at the tier's reasoning effort. */
-async function askOpenAI({ dir, images, input, llm, system, tools }: Call) {
+async function askOpenAI({ dir, images, input, llm, system }: Call) {
   const key = process.env.OPENAI_API_KEY;
-  if (tools || !key) {
-    throw new Error(
-      tools
-        ? "tools run on his subscriptions only (claude or codex)"
-        : "openai needs OPENAI_API_KEY"
-    );
+  if (!key) {
+    throw new Error("openai needs OPENAI_API_KEY");
   }
   const pictures = await Promise.all(
-    images.map(async (path) => ({
-      image_url: {
-        url: `data:${path.endsWith(".png") ? "image/png" : "image/jpeg"};base64,${Buffer.from(await Bun.file(path).arrayBuffer()).toString("base64")}`,
-      },
-      type: "image_url",
-    }))
+    images.map(async (path) => {
+      const { source } = await imageBlock(path);
+      return {
+        image_url: { url: `data:${source.media_type};base64,${source.data}` },
+        type: "image_url",
+      };
+    })
   );
   const res = await fetch(OPENAI, {
     body: JSON.stringify({
@@ -643,9 +661,21 @@ async function askOpenAI({ dir, images, input, llm, system, tools }: Call) {
   if (!res.ok) {
     throw new Error(`openai ${res.status}: ${body.slice(-300)}`);
   }
-  const reply = OpenRouterReply.pick({ choices: true }).parse(JSON.parse(body));
+  const reply = OpenRouterReply.pick({ choices: true })
+    .extend({ usage: OpenAIUsage })
+    .parse(JSON.parse(body));
   const [choice] = reply.choices;
+  const u = reply.usage;
   return {
+    fields: u
+      ? {
+          tokens: {
+            cached: u.prompt_tokens_details?.cached_tokens ?? 0,
+            input: u.prompt_tokens,
+            output: u.completion_tokens,
+          },
+        }
+      : undefined,
     refusal:
       choice?.finish_reason === "stop" && choice.message.content
         ? undefined
@@ -682,7 +712,7 @@ export async function askOnce(opts: {
   run: string;
 }) {
   const { dir, llm } = opts;
-  if (opts.tools && llm.engine === "openrouter") {
+  if (opts.tools && llm.engine !== "claude" && llm.engine !== "codex") {
     throw new Error("tools run on his subscriptions only (claude or codex)");
   }
   const context =

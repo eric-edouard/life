@@ -75,7 +75,9 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
   calls and his lists, `write.ts` the changes `act` decided, `board.ts` the projection of the tasks, `inbound.ts` his
   changes read back. In a friend's app the same commands go to `life-eventkit` (`LIFE_EVENTKIT`, Swift, EventKit): no
   sections and no Recently Deleted there (a removal is final), and it serves the Past calendar too, on an Apple calendar
-  (the `past` setting without a Google `account`), Life's events marked by their URL. Delete the folder and Life still works from the ledger. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
+  (the `past` setting without a Google `account`), Life's events marked by their URL. It answers in remctl's shapes,
+  the contract in `src/reminders/answers.json` (tested); a list it can't tell is unshared (any iCloud list) counts as
+  shared, so Life adds nothing there unasked and reads nothing back from it. Delete the folder and Life still works from the ledger. Nothing Life hears or reads makes it act by itself. `act` refuses the list `Atlas` (`BOARD`): that list is
   the tasks' board below. One standing grant (decision 2 of the 21 Oct review)
   is the only other authority, off until his words in a Claude session turn it on (`bun life grant on|off '<his
   words>'`, a `grant` line in the ledger, the latest standing; his "stop" may come through Atlas, as off only takes
@@ -246,8 +248,8 @@ Use the CLI; read a source directly only if it is unavailable: `~/Library/Applic
 A friend's install is `Life.app` (`app/`, SwiftUI, menu bar; assembled by `bun scripts/app.ts`): it runs the compiled
 helper (`scripts/helper.ts`) as launchd runs the checkout for him: `archive` and `watch` kept running, `memory nightly`
 every 30 minutes, its data and state under `~/Library/Application Support/Life` (`LIFE_DATA`, `LIFE_STATE`), its files
-as `LIFE_ROOT`, its secrets from the Keychain. The app never reads Life's files: it asks the helper (`settings`,
-`sources`, `init`, `pair`, `connect`), so their shape lives in one place. His own install stays the checkout under
+as `LIFE_ROOT`, every secret the Keychain keeps under "Life" in its environment. The app never reads Life's files: it
+asks the helper (`app` for what it shows, `settings`, `init`, `pair`, `connect`), so their shape lives in one place. His own install stays the checkout under
 launchd.
 
 ## Gotchas

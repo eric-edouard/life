@@ -25,8 +25,8 @@ struct LifeApp: App {
         openWindow(id: "settings")
       })
       .task {
-        supervisor.start()
-        if !Helper.started {
+        await supervisor.start()
+        if supervisor.info?.started == false {
           NSApp.activate()
           openWindow(id: "settings")
         }
@@ -46,7 +46,7 @@ struct Menu: View {
   @State private var code: String?
 
   var body: some View {
-    if Helper.started {
+    if supervisor.info?.started == true {
       ForEach(Supervisor.services.map { $0.joined(separator: " ") }, id: \.self) { name in
         Text("\(name.capitalized): \(supervisor.running[name] == true ? "running" : "stopped")")
       }
@@ -60,7 +60,9 @@ struct Menu: View {
       if let code {
         Text("Pairing code: \(code) (5 minutes)").textSelection(.enabled)
       }
-      Button("Open the last report") { openLastReport() }
+      if let report = supervisor.info?.lastReport {
+        Button("Open the last report") { NSWorkspace.shared.open(URL(fileURLWithPath: report)) }
+      }
     } else {
       Text("Life is not set up yet")
     }
@@ -75,46 +77,30 @@ struct Menu: View {
     }
   }
 
-  private func openLastReport() {
-    let dir = Helper.state.appending(path: "reports")
-    let newest = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey]))?
-      .max { a, b in
-        let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-        let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-        return da < db
-      }
-    if let newest { NSWorkspace.shared.open(newest) }
-  }
-}
-
-/// One source as the helper reports it (`life sources`).
-struct Source: Decodable, Identifiable {
-  let name: String
-  let label: String
-  let on: Bool
-  let missing: String?
-  var id: String { name }
 }
 
 /// Settings, and the first run's setup: every value goes through the helper (`life settings set`), secrets to the
 /// Keychain.
 struct SettingsView: View {
   let supervisor: Supervisor
-  @State private var started = Helper.started
   @State private var name = ""
   @State private var email = ""
   @State private var settings: [String: Any] = [:]
-  @State private var sources: [Source] = []
   @State private var engine = "claude"
   @State private var key = ""
   @State private var agentName = ""
   @State private var wake = ""
   @State private var transport = "mcp-event"
+  /// The agent as saved, so a save keeps what this form doesn't show (`misheard`, `client`).
+  @State private var agentSaved: [String: Any] = [:]
   @State private var lifelogURL = ""
   @State private var lifelogToken = ""
   @State private var origin = ""
   @State private var status = ""
   @State private var loginItem = SMAppService.mainApp.status == .enabled
+
+  private var started: Bool { supervisor.info?.started == true }
+  private var sources: [Source] { supervisor.info?.sources ?? [] }
 
   var body: some View {
     Form {
@@ -148,7 +134,7 @@ struct SettingsView: View {
               }
             }
           }
-          if sources.contains(where: { $0.on && $0.missing?.contains("Full Disk Access") == true }) {
+          if sources.contains(where: { $0.on && $0.fullDisk }) {
             Button("Open Full Disk Access") {
               NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
             }
@@ -188,7 +174,7 @@ struct SettingsView: View {
     .task { await load() }
     .onReceive(Timer.publish(every: 3, on: .main, in: .common).autoconnect()) { _ in
       // Full Disk Access is granted in System Settings: the sources' state is read again until it shows.
-      if started { Task { await loadSources() } }
+      if started { Task { await supervisor.refresh() } }
     }
   }
 
@@ -200,7 +186,7 @@ struct SettingsView: View {
           var names = sources.filter(\.on).map(\.name).filter { $0 != s.name }
           if on { names.append(s.name) }
           await set(["sources": names])
-          await loadSources()
+          await supervisor.refresh()
         }
       })
   }
@@ -212,34 +198,26 @@ struct SettingsView: View {
     engine = settings["engine"] as? String ?? "claude"
     let agent = settings["agent"] as? [String: Any]
     agentName = agent?["name"] as? String ?? ""
+    agentSaved = agent ?? [:]
     wake = (agent?["wake"] as? [String])?.first ?? ""
     transport = agent?["transport"] as? String ?? "mcp-event"
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
     key = Keychain.read(engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY") ?? ""
-    await loadSources()
-  }
-
-  private func loadSources() async {
-    let out = await Helper.run(["sources"]).out
-    sources = (try? JSONDecoder().decode([Source].self, from: Data(out.utf8))) ?? sources
   }
 
   private func start() async {
     let r = await Helper.run(["init", "--name", name] + (email.isEmpty ? [] : ["--email", email]))
-    status = r.code == 0 ? "Life is set up." : r.out
-    started = Helper.started
-    if started {
-      supervisor.start()
-      await load()
-    }
+    status = r.code == 0 ? "Life is set up." : r.err
+    await supervisor.start()
+    await load()
   }
 
   private func set(_ parts: [String: Any]) async {
     guard let json = try? JSONSerialization.data(withJSONObject: parts) else { return }
     let r = await Helper.run(["settings", "set", String(decoding: json, as: UTF8.self)])
-    status = r.code == 0 ? "Saved." : r.out
+    status = r.code == 0 ? "Saved." : r.err
   }
 
   private func save() async {
@@ -250,20 +228,19 @@ struct SettingsView: View {
     var parts: [String: Any] = ["engine": engine]
     if !agentName.isEmpty {
       let words = wake.isEmpty ? agentName.lowercased() : wake
-      parts["agent"] = ["name": agentName, "wake": [words], "transport": transport]
-        .merging(transport == "mcp-event" ? ["client": "openai-mcp"] : [:]) { a, _ in a }
+      parts["agent"] = agentSaved.merging(["name": agentName, "wake": [words], "transport": transport]) { _, new in new }
     }
     if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
     await set(parts)
-    supervisor.restart()
+    await supervisor.restart()
   }
 
   private func connect(public publicToo: Bool) async {
     let r = await Helper.run(["connect"] + (publicToo ? ["--public"] : []))
-    status = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
+    status = (r.code == 0 ? r.out : r.err).trimmingCharacters(in: .whitespacesAndNewlines)
     if r.code == 0 {
       await load()
-      supervisor.restart()
+      await supervisor.restart()
     }
   }
 }

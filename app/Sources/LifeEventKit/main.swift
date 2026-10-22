@@ -1,18 +1,17 @@
+import CryptoKit
 import EventKit
 import Foundation
 
 // life-eventkit: Apple Reminders and Calendar through EventKit, for a friend's install.
 // Reminders answer as remctl does for the commands Life uses (src/reminders/remctl.ts), so no remctl is needed. What
 // EventKit can't do: sections (none; a `--private` step comes back as a partial), and Recently Deleted (a removal is
-// final; `deleted` lists nothing, `restore` fails). Reminders' ids are UUIDs: each gets a stable number here
-// (`ids.json`), as remctl's are numbers.
+// final; `deleted` lists nothing, `restore` fails; a recurrence is not set). Reminders' ids are UUIDs: each one's number
+// is derived from it, as remctl's are numbers, and its deepLink holds the UUID. The answers' shapes are remctl's
+// (src/reminders/answers.json).
 // `calendar held|create|delete` is the Past calendar (src/memory/past.ts): Life's events carry their moment and hash in
 // their URL, `life://moment/<id>?hash=<hash>`, as Google's carry them in private properties.
 
 let store = EKEventStore()
-let support = FileManager.default.homeDirectoryForCurrentUser
-  .appending(path: "Library/Application Support/Life/reminders")
-let idsFile = support.appending(path: "ids.json")
 
 func fail(_ message: String) -> Never {
   FileHandle.standardError.write(Data("\(message)\n".utf8))
@@ -26,25 +25,10 @@ func emit(_ value: Any) {
 
 // MARK: numbers for UUIDs
 
-var ids: [String: Int] = {
-  guard let d = try? Data(contentsOf: idsFile),
-    let m = try? JSONSerialization.jsonObject(with: d) as? [String: Int]
-  else { return [:] }
-  return m
-}()
-
+/** A reminder's number: the first 13 hex digits of its UUID's SHA-256 (under 2^52, exact in JavaScript). */
 func number(_ uuid: String) -> Int {
-  if let n = ids[uuid] { return n }
-  let n = (ids.values.max() ?? 0) + 1
-  ids[uuid] = n
-  try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-  try? JSONSerialization.data(withJSONObject: ids).write(to: idsFile)
-  return n
-}
-
-func uuid(_ n: String) -> String? {
-  guard let i = Int(n) else { return nil }
-  return ids.first { $0.value == i }?.key
+  let digest = SHA256.hash(data: Data(uuid.utf8)).map { String(format: "%02x", $0) }.joined()
+  return Int(digest.prefix(13), radix: 16) ?? 0
 }
 
 // MARK: access and reading
@@ -74,16 +58,31 @@ func reminders(in calendars: [EKCalendar]?, completed: Bool) -> [EKReminder] {
   return found
 }
 
-let isoDay: DateFormatter = {
+/** Formats that don't follow the Mac's locale or calendar (a Buddhist-calendar Mac would misread them). */
+func posix(_ format: String) -> DateFormatter {
   let f = DateFormatter()
-  f.dateFormat = "yyyy-MM-dd"
+  f.locale = Locale(identifier: "en_US_POSIX")
+  f.calendar = Calendar(identifier: .gregorian)
+  f.dateFormat = format
+  return f
+}
+let isoDay = posix("yyyy-MM-dd")
+/** remctl's wall time: local, no zone. */
+let localTime = posix("yyyy-MM-dd'T'HH:mm:ss")
+let isoTime: ISO8601DateFormatter = {
+  let f = ISO8601DateFormatter()
+  f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
   return f
 }()
-let isoTime = ISO8601DateFormatter()
+/** An instant as Life sends it (`2026-10-22T09:00:00.000Z`), with or without its fraction. */
+func instant(_ s: String) -> Date? {
+  isoTime.date(from: s) ?? ISO8601DateFormatter().date(from: s)
+}
 
 func json(_ r: EKReminder) -> [String: Any] {
   var o: [String: Any] = [
     "completed": r.isCompleted,
+    "deepLink": "x-apple-reminderkit://REMCDReminder/\(r.calendarItemIdentifier)",
     "id": number(r.calendarItemIdentifier),
     "list": r.calendar?.title ?? NSNull(),
     "title": r.title ?? "",
@@ -93,7 +92,7 @@ func json(_ r: EKReminder) -> [String: Any] {
   if let due = r.dueDateComponents, let date = Calendar.current.date(from: due) {
     let allDay = due.hour == nil
     o["allDay"] = allDay
-    o["dueDate"] = allDay ? isoDay.string(from: date) : isoTime.string(from: date)
+    o["dueDate"] = allDay ? isoDay.string(from: date) : localTime.string(from: date)
   }
   o["priority"] = ["none", "high", "high", "high", "high", "medium", "low", "low", "low", "low"][min(r.priority, 9)]
   if r.hasAlarms { o["alarms"] = r.alarms?.count ?? 0 }
@@ -104,10 +103,11 @@ func calendar(named title: String) -> EKCalendar? {
   store.calendars(for: .reminder).first { $0.title == title }
 }
 
+/** The reminder with this number: found among all of them (an edit is rare; no table to keep). */
 func reminder(_ n: String) -> EKReminder {
-  guard let u = uuid(n), let r = store.calendarItem(withIdentifier: u) as? EKReminder else {
-    fail("no reminder \(n)")
-  }
+  guard let i = Int(n),
+    let r = reminders(in: nil, completed: true).first(where: { number($0.calendarItemIdentifier) == i })
+  else { fail("no reminder \(n)") }
   return r
 }
 
@@ -169,12 +169,14 @@ func apply(_ f: [String: [String]], to r: EKReminder) {
 }
 
 /// A `--private` step EventKit can't take (sections, urgent, subtasks, links): the change is made, the step is not.
-func answer(_ r: EKReminder, isPrivate: Bool) -> [String: Any] {
+func answer(_ r: EKReminder, isPrivate: Bool, recurrence: Bool) -> [String: Any] {
   var o = json(r)
+  // As remctl answers an add or an edit: the number, and the deepLink's UUID as `id`.
   o["numericId"] = o["id"]
-  if isPrivate {
+  o["id"] = r.calendarItemIdentifier
+  if isPrivate || recurrence {
     o["status"] = "partial"
-    o["message"] = "sections, urgent and subtasks need remctl"
+    o["message"] = recurrence ? "a recurrence needs remctl" : "sections, urgent and subtasks need remctl"
   }
   return o
 }
@@ -240,7 +242,7 @@ if command == "calendar" {
     e.location = named["location"]?.last
     e.availability = .free
     e.isAllDay = named["all-day"] != nil
-    let parse = { (s: String) in isoTime.date(from: s) ?? isoDay.date(from: String(s.prefix(10))) }
+    let parse = { (s: String) in instant(s) ?? isoDay.date(from: String(s.prefix(10))) }
     guard let start = parse(named["from"]?.last ?? ""), let end = parse(named["to"]?.last ?? "") else { fail("from and to are dates") }
     e.startDate = start
     e.endDate = end
@@ -279,9 +281,13 @@ case "sections":
   emit([String: [String]]())
 case "list-info":
   guard let cal = calendar(named: rest.first ?? "") else { fail("no list \(rest.first ?? "")") }
-  // EventKit can't tell who shares a list: unknown counts as shared (remctl.ts `unshared` fails closed).
-  let shared: Any = cal.allowsContentModifications ? NSNull() : true
-  emit(["shared": shared, "title": cal.title])
+  // A list on this Mac only can't be shared; EventKit can't tell for an iCloud one, so it counts as shared (remctl.ts
+  // `unshared` fails closed: Life adds nothing there unasked and reads nothing back from it).
+  if cal.source.sourceType == .local {
+    emit(["sharees": [Any](), "shared": false, "title": cal.title])
+  } else {
+    emit(["shared": NSNull(), "title": cal.title])
+  }
 case "info":
   emit(json(reminder(rest.first ?? "")))
 case "add":
@@ -290,12 +296,12 @@ case "add":
   r.calendar = named["list"]?.last.flatMap(calendar(named:)) ?? store.defaultCalendarForNewReminders()
   apply(named, to: r)
   do { try store.save(r, commit: true) } catch { fail("add: \(error.localizedDescription)") }
-  emit(answer(r, isPrivate: isPrivate))
+  emit(answer(r, isPrivate: isPrivate, recurrence: named["recurrence"] != nil))
 case "edit":
   let r = reminder(rest.first ?? "")
   apply(named, to: r)
   do { try store.save(r, commit: true) } catch { fail("edit: \(error.localizedDescription)") }
-  emit(answer(r, isPrivate: isPrivate))
+  emit(answer(r, isPrivate: isPrivate, recurrence: named["recurrence"] != nil))
 case "done", "undone":
   for n in rest {
     let r = reminder(n)

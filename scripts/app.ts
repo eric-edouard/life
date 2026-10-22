@@ -78,7 +78,16 @@ const HELPER_ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
   <key>com.apple.security.cs.allow-jit</key><true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
   <key>com.apple.security.cs.disable-library-validation</key><true/>
-  <key>com.apple.security.cs.allow-dyld-environment-variables</key><true/>
+</dict></plist>
+`;
+
+/** What the app and life-eventkit ask macOS for, under the hardened runtime. */
+const APP_ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.personal-information.calendars</key><true/>
+  <key>com.apple.security.personal-information.addressbook</key><true/>
+  <key>com.apple.security.automation.apple-events</key><true/>
 </dict></plist>
 `;
 
@@ -114,14 +123,13 @@ await cp(join(helper, "life"), join(contents, "Helpers", "life"));
 await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
   recursive: true,
 });
-await cp(join(ROOT, "assets", "icon"), join(contents, "Resources", "icon"), {
-  recursive: true,
-});
 await writeFile(join(contents, "Info.plist"), PLIST);
 
 // Inside out: the helper first, then the app around it.
 const entitlements = join(out, "helper.entitlements");
 await writeFile(entitlements, HELPER_ENTITLEMENTS);
+const appEntitlements = join(out, "app.entitlements");
+await writeFile(appEntitlements, APP_ENTITLEMENTS);
 const hardened =
   identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 await run([
@@ -140,6 +148,8 @@ await run([
   "--sign",
   identity,
   ...hardened,
+  "--entitlements",
+  appEntitlements,
   join(contents, "Helpers", "life-eventkit"),
 ]);
 // Sparkle's parts, inside out (no --deep): its Autoupdate tool and Updater.app, then the framework.
@@ -151,6 +161,15 @@ for (const part of [
   // biome-ignore lint/performance/noAwaitInLoops: signing order matters
   await run(["codesign", "--force", "--sign", identity, ...hardened, part]);
 }
-await run(["codesign", "--force", "--sign", identity, ...hardened, app]);
+await run([
+  "codesign",
+  "--force",
+  "--sign",
+  identity,
+  ...hardened,
+  "--entitlements",
+  appEntitlements,
+  app,
+]);
 await run(["codesign", "--verify", "--deep", "--strict", app]);
 console.log(`Life.app: ${app} (${identity === "-" ? "ad hoc" : identity})`);

@@ -54,7 +54,7 @@ function unreadable(path: string, why: string) {
     return why;
   }
 }
-const FULL_DISK = "Full Disk Access for Life";
+export const FULL_DISK = "Full Disk Access for Life";
 /** An archived app's store: there once the archive has copied it (`archive.ts`). */
 const archived = (name: string, app: string) => () =>
   unreadable(archiveDb(name), `${app} not archived yet`);
