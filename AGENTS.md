@@ -174,8 +174,8 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
   (`lifelog.test.ts` checks them against lifelog's `openapi.json` when that repo is beside this one).
-- The watcher hears a conversation only once its speech is complete; `CLOSED_ON_SILENCE_S` mirrors lifelog's rule
-  (`docs/operations.md`).
+- The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
+  `closed`), never a timing rule of Life's (`docs/operations.md`).
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).
 - Secrets live in `.env` (gitignored) or the Keychain: never print or commit them.
 
