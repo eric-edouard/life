@@ -15,7 +15,7 @@ https://claude.ai/artifact/3abEKt6ftnbG59DiYgTTkc. Facts marked "verify" need a 
 | API layer | None from Better-T-Stack: Hono with `@hono/zod-openapi` |
 | Database | None: the memory stays files and JSONL in its git repo; `index.sqlite` stays raw `bun:sqlite` |
 | Auth | Life's own OAuth issuer (`apps/server/src/host/http/oauth.ts`) |
-| Add-ons | Biome with Ultracite; Turborepo with the second app; the hand-written `.githooks` stay |
+| Add-ons | Biome with Ultracite; Turborepo with `apps/web`; the hand-written `.githooks` stay |
 | Desktop | SwiftUI on the Mac (Life.app as it is). No Windows UI: a Windows Life, when it comes back, is a headless host |
 | Actions | One actions backend per install, behind the outputs contract: Apple Reminders (remctl) or Google Tasks (`gog`) |
 | Windows | Parked (22 Oct). The seams built for it stay (below) |
@@ -129,7 +129,7 @@ and Life moved into its shape with `git mv`:
 - The root: the Bun workspace (`apps/*`, `packages/*`, a catalog for versions shared with `scripts/`), `bts.jsonc` (so
   `create-better-t-stack add` works later), `bunfig.toml` (a hoisted install: Codex's binary at
   `node_modules/@openai/codex-<os>-<arch>`), and what is not the server's: `scripts/`, `prompts/`, `assets/`, `docs/`,
-  `app/` (the Mac app), `worker/` (the edge). `ROOT` is still the repo root (or `LIFE_ROOT` in the app).
+  `app/` (the Mac app), `worker/` (the edge), now `apps/mac` and `apps/edge` (#168). `ROOT` is still the repo root (or `LIFE_ROOT` in the app).
 - Left out of the skeleton: its `varlock` (Life has its settings file and `.env`), `tsdown` (the helper is
   `bun build --compile`), its placeholder server entry, Turborepo (with one app it would run one task: it comes with the
   second app) and the Skills add-on (it generated nothing this repo uses). `bun run check` stays the gate. `scripts/`

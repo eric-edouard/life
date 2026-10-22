@@ -5,12 +5,13 @@ must not break are in `AGENTS.md`; this page has the details.
 
 ## Where things live
 
-Three roots, defined in `apps/server/src/core/paths.ts` and `apps/server/src/core/platform.ts`:
+Four roots, defined in `apps/server/src/core/paths.ts` and `apps/server/src/core/platform.ts`:
 
 | Root | What | Default |
 |---|---|---|
 | `DATA` (`LIFE_DATA`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE/data`; a checkout: `~/Life` |
 | `STATE` (`LIFE_STATE`) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE/state`; a checkout: its own `derived/` |
+| `ROOT` (`LIFE_ROOT`) | Life's own files: prompts, `docs/agent.md`, assets | Life.app: the helper's resources; a checkout: the checkout |
 | `MACHINE` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
 - `DATA` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
@@ -58,8 +59,8 @@ every Keychain secret in its environment:
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
-lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status plate reads
-those locks (`holder`, `apps/server/src/host/status/mac.ts`).
+lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status plate reads
+those locks (`holder`, `core/lock.ts`).
 
 ### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
 
@@ -70,9 +71,12 @@ those locks (`holder`, `apps/server/src/host/status/mac.ts`).
   the archive after its pass, and launchd restarts each on the new code.
 - remctl is not on launchd's PATH: it is called by absolute path (below).
 - launchd's PATH may hold an old `node`, so `scripts/check.ts` runs its npm tools with `bun x --bun`.
-- No CI: the pre-push hook runs `bun run check` on the Mac. On Windows it runs by hand on the owner's PC over SSH
-  (pending: `docs/plans/2026-10-22-platforms.md`, "Verification").
 - Its secrets are in `.env`, while Life.app's are in the Keychain: two copies until [#136](https://github.com/eric-edouard/life/issues/136).
+
+## The check
+
+No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the owner's PC over SSH (pending:
+`docs/plans/2026-10-22-platforms.md`, "Verification").
 
 ## The schedule
 

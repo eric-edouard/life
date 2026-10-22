@@ -38,11 +38,12 @@ and what it does not.
   issuer). The pages check the owner's sign-in (or a password, for the portrait) before serving anything of theirs; the
   local port used by the app needs a local key and is never exposed.
 - Exposure is through the owner's tailnet (Tailscale Serve), optionally Tailscale Funnel or a Cloudflare tunnel the
-  owner controls, so cloud assistants can reach it.
+  owner controls, so cloud assistants can reach it. The owner's own install also has a Cloudflare Worker
+  (`apps/edge/`) on his public address that passes each request as is to Funnel, until #137.
 
 ### Actions
 
-- Life's code acts in one place: Apple Reminders, on the owner's explicit request (or a standing grant the owner turns
+- Life's code acts in one place: its one actions backend (Apple Reminders or Google Tasks), on the owner's explicit request (or a standing grant the owner turns
   on), every action logged. Nothing Life hears or reads makes it act by itself.
 
 ## What leaves the Mac
@@ -56,6 +57,8 @@ This is the one list; nothing else leaves.
 - One MCP event per ask to the owner's agent, with the ask's words (callbacks on OpenAI's hosts only, verified first).
 - The Past calendar, one event per past moment, to the owner's Google calendar, when the `past` setting names a Google
   account (without one it goes to an Apple calendar, which syncs as Calendar does).
+- The to-do items Life writes (his clear to-dos and the agent's board), to Google Tasks, when the actions backend is
+  Google (with Reminders they stay in his Apple account, which syncs as Reminders does).
 - The owner's corrections about recordings, to the owner's own lifelog server.
 - The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud
   Drive does).

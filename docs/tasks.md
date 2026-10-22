@@ -85,9 +85,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
   restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
-- `apps/server/src/actions/` holds the only code that touches either, one job per module: `act.ts` decides, `contract.ts` the
-  contract, `backend.ts` the choice and the writes, `remctl.ts` and `google.ts` the two backends, `board.ts` the board,
-  `inbound.ts` the owner's changes read back.
+- Only `actions/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/act.ts`) decides and
+  `inbound` (`host/inbound.ts`) reads the owner's changes back.
 - **The actions output** is on only with the `actions` setting, which names the backend: `{"backend": "reminders"}` or
   `{"backend": "google", "account": "<his Google account>"}` (`isOn("actions")`). Off: `backend()`, the one gate, refuses every
   call, the minute pass skips it, the connector offers no `reminders` or `open_reminders` tool, `act` refuses, and the

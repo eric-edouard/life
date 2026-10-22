@@ -123,17 +123,34 @@ core  ←  records  ←  models, sources, actions  ←  memory  ←  host
 | Folder | What it holds |
 |---|---|
 | `core/` | Clock, paths and the platform, settings and Life's fixed names (`names.ts`), process, lock, log, secrets, redaction, hashing, small JSON files, which outputs are on |
-| `records/` | Every record Life writes, as zod schemas, one file per part of `docs/SCHEMA.md` |
+| `records/` | Every record Life writes, as zod schemas, one file per family: truth, ledger, sources, units, moments, observations, statements, and the fields they share |
 | `models/` | The model providers (`PROVIDERS`), the call and its cache |
 | `sources/` | One reader per outside store, and the source contract (`contract.ts`) |
 | `actions/` | The actions contract, its two backends, the board and open items |
 | `memory/` | The pipeline (units, moments, observations, pages), the ledger and its readers, people and places, search, the agent's tasks, the source registry (`sources.ts`, with the agent's own source) and the nightly email's rendering |
-| `host/` | What runs: the jobs (watch, archive, nightly, backup), the CLI, `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events, `act`) |
+| `host/` | What runs, and the only layer that knows which host it is on: the jobs (watch, hear, archive, nightly, backup), the agent's task writes and chases, `act` and `inbound`, the CLI and its commands (import, export, init, health), `http/` (the connector, the issuer, the pages), `status/` (the plate, Life's status), and the outputs (report, events, the Past calendar) |
 | `test-data/` | The made-up data tests read |
 
 What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)
 fail any that does, and `host/cycles.test.ts` fails any import cycle. Within it, a capability's contract has its own
-`contract.ts`. The reasons and the order of the work are in the [architecture plan](plans/2026-10-22-architecture.md).
+`contract.ts`. The layers are folders, not packages: a folder becomes a package only when a second app imports it.
+The reasons are in the [architecture plan](plans/2026-10-22-architecture.md).
+
+The repo around it is a Bun workspace:
+
+| Path | What it holds |
+|---|---|
+| `apps/server` | The code above, with its runtime dependencies. The helper (`scripts/helper.ts`) compiles it for Life.app |
+| `apps/mac` | Life.app ([its README](../apps/mac/README.md)) |
+| `apps/edge` | The Cloudflare Worker in front of the owner's public address, a bridge until #137 (deploy steps in `wrangler.jsonc`) |
+| `packages/config` | The shared TypeScript base (`tsconfig.base.json`), which the root `tsconfig.json` extends |
+| `scripts/` | The helper, the app build, releases, the check, the benches and evals. Outside the zones; they import the server as the workspace package `server/src/…` |
+| `prompts/`, `assets/` | The model prompts and what the pages, the app and the email show (`ROOT`, `docs/operations.md`) |
+| `derived/` | Generated, gitignored: a checkout's state |
+| root | `bts.jsonc` (so `create-better-t-stack add` works), `bunfig.toml` (a hoisted install, for Codex's binary), the workspace's version catalog |
+
+Turborepo arrives with `apps/web`, the second app that runs a build. There is no CI: the pre-push hook runs
+`bun run check`.
 
 ## The app
 
@@ -142,12 +159,13 @@ archive and the watcher kept running, the nightly tick every 30 minutes, data an
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
 Its menu-bar panel and status window are native SwiftUI, reading the plate from the watcher's local status reads
-(`apps/server/src/host/http/dashboard.ts`, `LOCAL_PORT`, behind its local key `keyRefusal`, `STATE/local.key`, mode 600; no tunnel ever points
+(`apps/server/src/host/http/dashboard.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `STATE/local.key`, mode 600); no tunnel ever points
 there): `docs/dashboard.md`.
 
 ## Pages
 
-All are served by the watcher's server, and none serves anything of the owner's before its sign-in check.
+All are served by the watcher's server, and none serves anything of the owner's before its sign-in check. Every route is a
+Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
 
 - **The check page** (`apps/server/src/host/http/check.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
   the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else.
