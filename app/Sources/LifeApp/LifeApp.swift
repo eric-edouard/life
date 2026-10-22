@@ -25,10 +25,6 @@ struct LifeApp: App {
         openWindow(id: "settings")
       })
       .task {
-        // However the app ends (Quit, an update's relaunch), Life's processes end with it: never two watchers.
-        NotificationCenter.default.addObserver(
-          forName: NSApplication.willTerminateNotification, object: nil, queue: .main
-        ) { _ in MainActor.assumeIsolated { supervisor.stop() } }
         await supervisor.start()
         if supervisor.info?.started == false {
           NSApp.activate()
