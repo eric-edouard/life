@@ -322,6 +322,10 @@ function file(path: string, text: string, rename: Rename) {
     : `${JSON.stringify(now, null, 2)}\n`;
 }
 
+/** Where a renamed file lives: the ledger's new name, an inferred person's page by the new id. */
+const movedTo = (path: string) =>
+  path === OLD_LEDGER ? NEW_LEDGER : path.replace(INFERRED_PAGE, "$1inf_");
+
 /**
  * The rename on the owner data dir's files (path relative to it -> text): the changed files and the files to move.
  * Pure: every id is renamed the way the code now mints it, so a later reading of the same unit, moment, claim or
@@ -336,8 +340,7 @@ export function renameStored(files: Map<string, string>) {
     if (next !== text) {
       out.set(path, next);
     }
-    const moved =
-      path === OLD_LEDGER ? NEW_LEDGER : path.replace(INFERRED_PAGE, "$1inf_");
+    const moved = movedTo(path);
     if (moved !== path) {
       moves.push([path, moved]);
     }
@@ -417,15 +420,18 @@ function renameIn(dir: string) {
   if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
     commitMemory(PATHS, "Memory: before the stored names' rename");
   }
-  const { files: renamed, moves } = renameStored(readStored(dir));
+  const stored = readStored(dir);
+  const { files: renamed, moves } = renameStored(stored);
   const staged = (p: string) => join(dir, STAGED, relative("memory", p));
+  // A stored file is staged from the text the rename read (a line written since is carried over by `settle`, renamed);
+  // any other file is copied.
   for (const p of filesUnder(dir, "memory")) {
     mkdirSync(dirname(staged(p)), { recursive: true });
-    copyFileSync(at(p), staged(p));
-  }
-  for (const [p, text] of renamed) {
-    if (under(p, "memory")) {
-      writeFileSync(staged(p), text);
+    const text = stored.get(p);
+    if (text === undefined) {
+      copyFileSync(at(p), staged(p));
+    } else {
+      writeFileSync(staged(p), renamed.get(p) ?? text);
     }
   }
   for (const [from, to] of moves) {
@@ -474,7 +480,7 @@ function settle(dir: string) {
     }
   }
   for (const source of [OLD_MEMORY, STRAY].filter((d) => existsSync(at(d)))) {
-    carryOver(dir, source, sourceOf(source));
+    carryOver(dir, source, sourceOf(source), rename);
     rmSync(at(source), { force: true, recursive: true });
   }
   if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
@@ -488,13 +494,16 @@ function settle(dir: string) {
  * What the new memory lacks of an old copy, renamed: each missing line of a JSON Lines file appended, any other stored
  * file written where it differs (a stray's only where the new memory has none). Run twice, it adds nothing.
  */
-function carryOver(dir: string, source: string, old: Map<string, string>) {
-  const result = renameStored(old);
-  const moved = new Map(result.moves);
+function carryOver(
+  dir: string,
+  source: string,
+  old: Map<string, string>,
+  rename: Rename
+) {
   for (const [p, text] of old) {
-    const to = join(dir, moved.get(p) ?? p);
+    const to = join(dir, movedTo(p));
     const now = existsSync(to) ? readFileSync(to, "utf8") : "";
-    const next = result.files.get(p) ?? text;
+    const next = file(p, text, rename);
     if (isJsonl(p)) {
       const have = new Set(linesOf(now));
       const missing = linesOf(next).filter((l) => !have.has(l));
@@ -546,6 +555,7 @@ const otherWatcher = () => {
  * meanwhile. Only the app runs it on his own data (`mayMigrate`): a checkout stops instead.
  */
 export async function migrateStored(dir = OWNER_DATA_DIR) {
+  let said = false;
   while (needsRename(dir)) {
     if (!mayMigrate(dir)) {
       throw new Error(
@@ -554,15 +564,22 @@ export async function migrateStored(dir = OWNER_DATA_DIR) {
     }
     // biome-ignore lint/performance/noAwaitInLoops: waits for the process that holds the lock to finish the rename
     const ran = await locked(async () => {
-      if (dir === OWNER_DATA_DIR && otherWatcher()) {
-        return false;
-      }
       if (
         done(dir) &&
         ![STAGED, OLD_MEMORY, STRAY].some((d) => existsSync(join(dir, d)))
       ) {
         lateLines(dir);
         return true;
+      }
+      // The rename itself waits for any other watcher (the old app's, a checkout's on his data) to stop.
+      if (dir === OWNER_DATA_DIR && otherWatcher()) {
+        if (!said) {
+          console.error(
+            `the stored names' rename waits for the watcher of ${holder("watch")?.note} to stop`
+          );
+          said = true;
+        }
+        return false;
       }
       const rename = renameIn(dir);
       // The board and the index are his live data's.
