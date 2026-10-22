@@ -20,7 +20,7 @@ export const OUTPUTS = {
   reminders: { label: "Reminders", on: () => settings().reminders },
 } satisfies Record<string, { label: string; on: () => boolean }>;
 
-export type Output = keyof typeof OUTPUTS;
+type Output = keyof typeof OUTPUTS;
 
 export const isOn = (output: Output) => OUTPUTS[output].on();
 
