@@ -1,3 +1,4 @@
+import { Hono } from "hono";
 import { createRemoteJWKSet } from "jose";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check";
@@ -21,7 +22,7 @@ import { createSignIn, keyRefusal } from "./signin";
 export function serve() {
   // The app's port taken (another install's watcher) only leaves the app without its status; the public one never waits on it.
   try {
-    listen(LOCAL_PORT, createDashboard(keyRefusal()).handle);
+    listen(LOCAL_PORT, createDashboard(keyRefusal()).notFound(notFound));
   } catch (e) {
     console.error(
       `Life: 127.0.0.1:${LOCAL_PORT} is off: ${(e as Error).message}`
@@ -35,16 +36,15 @@ export function serve() {
   listen(PUBLIC_PORT, signedIn());
 }
 
-/** One listener on loopback; a port it can't take throws. */
-function listen(
-  port: number,
-  handle: (req: Request) => Promise<Response | null>
-) {
+/** Any path a port's app has no route for (a route that serves nothing, `/me`'s, answers the same). */
+const notFound = () => new Response("not found", { status: 404 });
+
+/** One listener on loopback, for `app`'s routes; a port it can't take throws. */
+function listen(port: number, app: Hono) {
   Bun.serve({
     // No stack traces or source in an error page: much of this answers before sign-in.
     development: false,
-    fetch: async (req) =>
-      (await handle(req)) ?? new Response("not found", { status: 404 }),
+    fetch: app.fetch,
     hostname: "127.0.0.1",
     maxRequestBodySize: 256 * 1024,
     port,
@@ -53,7 +53,7 @@ function listen(
 }
 
 /** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */
-function signedIn() {
+export function signedIn() {
   const { issuer, origin, own, owner, resource } = connector();
   const life = own ? createIssuer(origin, resource) : null;
   const verify = ownerTokens({
@@ -75,16 +75,16 @@ function signedIn() {
   const signIn = createSignIn(
     verify,
     life
-      ? async (url: string, init: RequestInit) =>
-          (await life.handle(new Request(url, init))) ??
-          new Response(null, { status: 404 })
+      ? async (url: string, init: RequestInit) => life.app.request(url, init)
       : fetch
   );
-  const check = createCheck(signIn);
-  const portrait = createPortrait();
-  return async (req: Request) =>
-    (await life?.handle(req)) ??
-    (await mcp.handle(req)) ??
-    (await check.handle(req)) ??
-    (await portrait.handle(req));
+  const app = new Hono();
+  if (life) {
+    app.route("/", life.app);
+  }
+  return app
+    .route("/", mcp)
+    .route("/", createCheck(signIn))
+    .route("/", createPortrait())
+    .notFound(notFound);
 }

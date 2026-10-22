@@ -72,7 +72,7 @@ async function rpc(
   params: object = {},
   headers: Record<string, string> = {}
 ) {
-  const res = await connector.handle(
+  const res = await connector.request(
     new Request(RESOURCE, {
       body: JSON.stringify({ id: 1, jsonrpc: "2.0", method, params }),
       headers: {
@@ -105,7 +105,7 @@ test("protected-resource metadata on both paths; other paths are not the connect
     "/.well-known/oauth-protected-resource/mcp",
   ]) {
     // biome-ignore lint/performance/noAwaitInLoops: two requests
-    const res = await connector.handle(
+    const res = await connector.request(
       new Request(`https://life.example.test${path}`)
     );
     expect(await res?.json()).toEqual({
@@ -116,8 +116,9 @@ test("protected-resource metadata on both paths; other paths are not the connect
     });
   }
   expect(
-    await connector.handle(new Request("https://life.example.test/v1/ask"))
-  ).toBeNull();
+    (await connector.request(new Request("https://life.example.test/v1/ask")))
+      .status
+  ).toBe(404);
 });
 
 test("a token for another audience, issuer, owner, scope or time is refused; the right one passes", async () => {
@@ -180,7 +181,7 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
     expect((await refusal("/keys", "k2")).refusal).toBe("invalid");
     expect((await refusal("/keys")).refusal).toBe("forbidden");
     const down = createMcp(async () => ({ refusal: "unreachable", why: "x" }));
-    const res = await down.handle(
+    const res = await down.request(
       new Request(RESOURCE, {
         headers: { authorization: "Bearer t" },
         method: "POST",
@@ -313,7 +314,7 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
 
 test("a streamed request (subscriptions/listen) answers at once: nothing waits on its stream", async () => {
   const method = "subscriptions/listen";
-  const res = await connector.handle(
+  const res = await connector.request(
     new Request(RESOURCE, {
       body: JSON.stringify({
         id: 1,
