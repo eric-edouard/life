@@ -108,7 +108,7 @@ test("only the stores of the sources he turned on are copied and kept open", () 
     WINDOWS ? ["beeper"] : ["beeper", "notes"]
   );
   expect(keptStores([])).toEqual([]);
-  expect(appsToOpen([], 1e12, new Map(), keptStores(["whatsapp"]))).toEqual([
-    "WhatsApp",
+  expect(appsToOpen([], 1e12, new Map(), keptStores(["beeper"]))).toEqual([
+    "Beeper Desktop",
   ]);
 });
