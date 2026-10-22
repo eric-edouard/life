@@ -1,8 +1,9 @@
 import Foundation
 
 /// Life's helper: the compiled binary in the bundle (`Contents/Helpers/life`), run with its files (`LIFE_ROOT`), the
-/// owner's data and Life's state under Application Support, and the secrets the Keychain holds. The app never reads
-/// Life's files itself: it asks the helper (`settings`, `init`, `pair`, `connect`), so their shape lives in one place.
+/// owner's data and Life's state under Application Support, and every secret the Keychain holds for it. The app never
+/// reads Life's files itself: it asks the helper (`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in
+/// one place.
 enum Helper {
   static let support = FileManager.default.homeDirectoryForCurrentUser
     .appending(path: "Library/Application Support/Life")
@@ -10,9 +11,6 @@ enum Helper {
   static let state = support.appending(path: "state")
   static let binary = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life")
   static let resources = Bundle.main.bundleURL.appending(path: "Contents/Resources/life")
-
-  /// The secrets the helper reads from its environment, kept in the Keychain by name.
-  static let secrets = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "LIFELOG_TOKEN", "RESEND_PERSONAL_API_KEY"]
 
   /// The helper's environment: a GUI app's PATH is bare, so the usual tool folders are added (claude, codex, git).
   static var environment: [String: String] {
@@ -24,9 +22,7 @@ enum Helper {
     env["LIFE_DATA"] = data.path
     env["LIFE_STATE"] = state.path
     env["LIFE_EVENTKIT"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-eventkit").path
-    for name in secrets {
-      if let value = Keychain.read(name) { env[name] = value }
-    }
+    env.merge(Keychain.all()) { _, kept in kept }
     return env
   }
 
@@ -39,23 +35,43 @@ enum Helper {
     return p
   }
 
-  /// One command to its end: its exit code and what it printed.
-  static func run(_ args: [String]) async -> (code: Int32, out: String) {
+  /// One command to its end: its exit code, what it printed (JSON for the app's reads) and its errors apart.
+  static func run(_ args: [String]) async -> (code: Int32, out: String, err: String) {
     try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
     let p = process(args)
-    let pipe = Pipe()
-    p.standardOutput = pipe
-    p.standardError = pipe
-    do { try p.run() } catch { return (-1, error.localizedDescription) }
-    let out = await Task.detached { pipe.fileHandleForReading.readDataToEndOfFile() }.value
+    let out = Pipe()
+    let err = Pipe()
+    p.standardOutput = out
+    p.standardError = err
+    do { try p.run() } catch { return (-1, "", error.localizedDescription) }
+    async let o = Task.detached { out.fileHandleForReading.readDataToEndOfFile() }.value
+    async let e = Task.detached { err.fileHandleForReading.readDataToEndOfFile() }.value
+    let (od, ed) = await (o, e)
     p.waitUntilExit()
-    return (p.terminationStatus, String(decoding: out, as: UTF8.self))
+    return (p.terminationStatus, String(decoding: od, as: UTF8.self), String(decoding: ed, as: UTF8.self))
   }
 
-  /// Whether the owner's data exists yet (the helper's `init` makes it).
-  static var started: Bool {
-    FileManager.default.fileExists(atPath: data.appending(path: "truth/people.yaml").path)
+  /// What the app shows (`life app`): nil while the helper can't answer.
+  static func info() async -> Info? {
+    try? JSONDecoder().decode(Info.self, from: Data(await run(["app"]).out.utf8))
   }
+}
+
+/// The helper's `app` answer.
+struct Info: Decodable {
+  let started: Bool
+  let lastReport: String?
+  let sources: [Source]
+}
+
+/// One source: whether he turned it on, what keeps it from being read now, and whether that is Full Disk Access.
+struct Source: Decodable, Identifiable {
+  let name: String
+  let label: String
+  let on: Bool
+  let missing: String?
+  let fullDisk: Bool
+  var id: String { name }
 }
 
 /// The app's few secrets, as generic passwords under the service "Life".
@@ -68,6 +84,23 @@ enum Keychain {
     var item: CFTypeRef?
     guard SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess, let d = item as? Data else { return nil }
     return String(decoding: d, as: UTF8.self)
+  }
+
+  /// Every secret kept for Life, by name: the helper takes what it reads from its environment.
+  static func all() -> [String: String] {
+    let q: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "Life",
+      kSecMatchLimit as String: kSecMatchLimitAll, kSecReturnAttributes as String: true,
+    ]
+    var items: CFTypeRef?
+    guard SecItemCopyMatching(q as CFDictionary, &items) == errSecSuccess,
+      let list = items as? [[String: Any]]
+    else { return [:] }
+    var out: [String: String] = [:]
+    for name in list.compactMap({ $0[kSecAttrAccount as String] as? String }) {
+      out[name] = read(name)
+    }
+    return out
   }
 
   static func write(_ name: String, _ value: String) {

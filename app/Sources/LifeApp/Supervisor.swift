@@ -7,14 +7,21 @@ import Observation
 final class Supervisor {
   private(set) var running: [String: Bool] = [:]
   private(set) var lastTick: Date?
+  /// The helper's last `app` answer: whether Life is set up, its sources, its newest report.
+  private(set) var info: Info?
   private var services: [String: Process] = [:]
   private var timer: Timer?
 
   static let services = [["archive"], ["watch"]]
   static let tickEvery: TimeInterval = 30 * 60
 
-  func start() {
-    guard Helper.started else { return }
+  func refresh() async {
+    info = await Helper.info() ?? info
+  }
+
+  func start() async {
+    await refresh()
+    guard info?.started == true, timer == nil else { return }
     for args in Self.services { keep(args) }
     tick()
     timer = Timer.scheduledTimer(withTimeInterval: Self.tickEvery, repeats: true) { _ in
@@ -24,14 +31,15 @@ final class Supervisor {
 
   func stop() {
     timer?.invalidate()
+    timer = nil
     for p in services.values { p.terminate() }
     services = [:]
   }
 
   /// Settings changed: the helper reads them once per process, so each service starts again.
-  func restart() {
+  func restart() async {
     stop()
-    start()
+    await start()
   }
 
   private func keep(_ args: [String]) {

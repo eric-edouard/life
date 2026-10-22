@@ -1,17 +1,20 @@
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { Asked, actAsked, requested, setGrant } from "./actions";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
-import { init } from "./init";
+import { init, started } from "./init";
 import { readEngine } from "./llm";
 import { memoryCommand } from "./memory/command";
-import { actionLine, duration } from "./memory/report";
+
+import { actionLine, duration, REPORTS } from "./memory/report";
 import { dayRange } from "./memory/units";
 import { pair } from "./oauth";
 import { checks } from "./reminders/remctl";
 import { Engine } from "./schema";
-import { readSettings, type Settings, setSetting, settings } from "./settings";
-import { SOURCES } from "./sources/index";
+import { readSettings, type Settings, setSettings, settings } from "./settings";
+import { FULL_DISK, SOURCES } from "./sources/index";
 import { connect } from "./tailscale";
 import { ask, timings } from "./tasks";
 import { integrity, loadTruth } from "./truth";
@@ -41,6 +44,36 @@ const commands: Record<string, () => Promise<number>> = {
     const done = await actAsked(asked, "session");
     console.log(`${done.id} ${done.result}: ${actionLine(done)}`);
     return done.result === "failed" ? 1 : 0;
+  },
+  /**
+   * What the app shows, as JSON, so it reads none of Life's files: whether Life is set up, the newest report kept on
+   * the Mac, and every source with whether he turned it on,
+   * what keeps it from being read now and whether that is Full Disk Access.
+   */
+  app() {
+    const on = new Set<string>(settings().sources);
+    const reports = existsSync(REPORTS)
+      ? readdirSync(REPORTS)
+          .map((f) => join(REPORTS, f))
+          .toSorted((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)
+      : [];
+    console.log(
+      JSON.stringify({
+        lastReport: reports[0] ?? null,
+        sources: SOURCES.map((s) => {
+          const missing = s.missing?.() ?? null;
+          return {
+            fullDisk: missing === FULL_DISK,
+            label: s.label,
+            missing,
+            name: s.name,
+            on: on.has(s.name),
+          };
+        }),
+        started: started(),
+      })
+    );
+    return Promise.resolve(0);
   },
   /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`. */
   archive: () => archiveCommand(process.argv.slice(3)),
@@ -113,7 +146,7 @@ const commands: Record<string, () => Promise<number>> = {
       console.error(`usage: bun life engine [${Engine.options.join("|")}]`);
       return 2;
     }
-    await setSetting("engine", engine.data);
+    await setSettings({ engine: engine.data });
     console.log(`engine: ${engine.data}`);
     return 0;
   },
@@ -166,29 +199,10 @@ const commands: Record<string, () => Promise<number>> = {
   async settings() {
     const [verb, arg] = process.argv.slice(3);
     if (verb === "set") {
-      const parts = JSON.parse(arg ?? "{}") as Partial<Settings>;
-      for (const [key, value] of Object.entries(parts)) {
-        // biome-ignore lint/performance/noAwaitInLoops: one small file, in order
-        await setSetting(key as keyof Settings, value as never);
-      }
+      await setSettings(JSON.parse(arg ?? "{}") as Partial<Settings>);
     }
     console.log(JSON.stringify(readSettings(), null, 2));
     return 0;
-  },
-  /** Every source as JSON: its name and label, whether he turned it on, and what keeps it from being read now. */
-  sources() {
-    const on = new Set<string>(settings().sources);
-    console.log(
-      JSON.stringify(
-        SOURCES.map((s) => ({
-          label: s.label,
-          missing: s.missing?.() ?? null,
-          name: s.name,
-          on: on.has(s.name),
-        }))
-      )
-    );
-    return Promise.resolve(0);
   },
   /** What the lifelog watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),

@@ -1,0 +1,32 @@
+{
+  "_": "remctl's answers to the commands Life uses, as Life reads them: the contract life-eventkit (app/) must answer the same. Made-up reminders.",
+  "add": {
+    "id": "2B4D9F1E-6A7C-4E8B-9D21-3C5E7F9A1B2C",
+    "numericId": 412,
+    "status": "ok"
+  },
+  "info": {
+    "alarms": 1,
+    "completed": false,
+    "dueDate": "2026-10-22T09:00:00",
+    "id": 412,
+    "list": "Errands",
+    "notes": "the blue one",
+    "priority": "none",
+    "title": "Buy a lamp"
+  },
+  "list-info": { "sharees": [], "shared": false, "title": "Errands" },
+  "lists": [{ "id": 1, "isGroup": false, "title": "Errands" }],
+  "show": [
+    {
+      "allDay": false,
+      "completed": false,
+      "deepLink": "x-apple-reminderkit://REMCDReminder/2B4D9F1E-6A7C-4E8B-9D21-3C5E7F9A1B2C",
+      "dueDate": "2026-10-22T09:00:00",
+      "id": 412,
+      "list": "Errands",
+      "notes": "the blue one",
+      "title": "Buy a lamp"
+    }
+  ]
+}

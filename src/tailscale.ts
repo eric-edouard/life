@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { z } from "zod";
 import { exec } from "./proc";
-import { setSetting, settings } from "./settings";
+import { setSettings, settings } from "./settings";
 
 // How the connector is reached with no domain of his own: Tailscale. `serve` puts Life's server on his tailnet, for
 // his phone and his own computers; `funnel` puts it on the internet, for the agents that call from their makers'
@@ -53,10 +53,8 @@ export async function connect(publicToo: boolean) {
     );
   }
   const origin = `https://${name}`;
-  await setSetting("connector", {
-    ...settings().connector,
-    origin,
-    tunnel: "tailscale",
+  await setSettings({
+    connector: { ...settings().connector, origin, tunnel: "tailscale" },
   });
   return origin;
 }
