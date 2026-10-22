@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import {
   appendFileSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -95,4 +96,33 @@ test("an import that fails partway leaves nothing: no data, no half-made install
   ]) {
     expect(existsSync(p)).toBe(false);
   }
+});
+
+test("an archive folder with media but no store is never wiped: the import is refused", async () => {
+  const dir = await exported();
+  const to = install();
+  mkdirSync(join(to.archive, "media"), { recursive: true });
+  writeFileSync(join(to.archive, "media", "photo.jpg"), "jpeg");
+  await expect(restore(dir, to)).rejects.toThrow("no store");
+  expect(readFileSync(join(to.archive, "media", "photo.jpg"), "utf8")).toBe(
+    "jpeg"
+  );
+});
+
+test("an import that stopped while moving in runs again: its own state files left there pass", async () => {
+  const dir = await exported();
+  const to = install();
+  // The settings already moved in by the earlier try, as exported.
+  mkdirSync(to.state, { recursive: true });
+  copyFileSync(
+    join(dir, "state", "settings.json"),
+    join(to.state, "settings.json")
+  );
+  await restore(dir, to);
+  expect(started(to.data)).toBe(true);
+  // Settings of another install are refused.
+  const other = install();
+  mkdirSync(other.state, { recursive: true });
+  writeFileSync(join(other.state, "settings.json"), "{}");
+  await expect(restore(dir, other)).rejects.toThrow("holds an install");
 });

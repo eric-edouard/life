@@ -19,7 +19,7 @@ import {
 import { isEmpty } from "./init";
 import { SETTINGS } from "./settings";
 import { ARCHIVE, archiveDb } from "./sources/archived";
-import { WATCH } from "./sources/lifelog";
+import { storeFiles } from "./sources/lifelog";
 import { DATA, STATE } from "./truth";
 
 // A Life export (`stage`, export.ts) put back: a new install's data, state and archive. All or nothing: refused at
@@ -46,14 +46,20 @@ const short = (
   Object.entries(want)
     .filter(([t, n]) => (exact ? have[t] !== n : (have[t] ?? 0) < n))
     .map(([t]) => t);
-/** A manifest path's part (`data/x` is data's `x`), and the path inside it. */
+/** A manifest path's part (`data/x` is data's `x`), and the path inside it; one that leaves its part is refused. */
 const partOf = (p: string) => {
   const [part, ...rest] = p.split("/");
+  if (!PARTS.includes(part as Part) || rest.includes("..")) {
+    throw new Error(`${p} is no path of an export: nothing was changed`);
+  }
   return { part: part as Part, path: rest.join("/") };
 };
 
-/** Refuses at once when the import would write over something; whether the archive is there already (then kept). */
-function refusal(m: Manifest, to: Install) {
+/**
+ * Refuses at once when the import would write over something; whether the archive is there already (then kept, never
+ * written to). A state file left by an earlier try that failed while moving in passes when it is the export's own.
+ */
+async function refusal(m: Manifest, to: Install) {
   if (m.format !== FORMAT) {
     throw new Error(
       `an export of format ${m.format}: this Life reads ${FORMAT}`
@@ -62,16 +68,25 @@ function refusal(m: Manifest, to: Install) {
   if (!isEmpty(to.data)) {
     throw new Error(`${to.data} is not empty: nothing was changed`);
   }
-  const settings = join(to.state, relative(STATE, SETTINGS));
-  if (
-    existsSync(settings) ||
-    existsSync(join(to.state, relative(STATE, WATCH)))
-  ) {
-    throw new Error(
-      `${to.state} holds an install already: nothing was changed`
-    );
+  const listed = new Map(m.files.map((f) => [f.path, f.sha256]));
+  const marks = [SETTINGS, ...Object.values(storeFiles())].map((p) =>
+    relative(STATE, p)
+  );
+  for (const p of marks) {
+    const at = join(to.state, p);
+    // biome-ignore lint/performance/noAwaitInLoops: three files at most
+    if (existsSync(at) && (await sha256Of(at)) !== listed.get(`state/${p}`)) {
+      throw new Error(
+        `${to.state} holds an install already: nothing was changed`
+      );
+    }
   }
   const there = STORES.some((s) => existsSync(archiveDb(s.name, to.archive)));
+  if (!(there || isEmpty(to.archive))) {
+    throw new Error(
+      `${to.archive} holds files but no store: nothing was changed`
+    );
+  }
   for (const [p, want] of there ? Object.entries(m.counts.rows) : []) {
     const { part, path } = partOf(p);
     const less =
@@ -87,7 +102,7 @@ function refusal(m: Manifest, to: Install) {
   return there;
 }
 
-/** Counts what was copied (`at`): his data's lines and commit as exported, each store's rows (at least, in a kept archive). */
+/** Counts what was copied aside (`at`): his data's lines and commit as exported, each store's rows exactly (a kept archive was checked by `refusal`). */
 async function recount(m: Manifest, at: Install, kept: boolean) {
   const lines = linesIn(at.data);
   const lost = Object.entries(m.counts.lines).filter(
@@ -100,11 +115,10 @@ async function recount(m: Manifest, at: Install, kept: boolean) {
   }
   for (const [p, want] of Object.entries(m.counts.rows)) {
     const { part, path } = partOf(p);
-    const off = short(
-      rowsIn(join(at[part], path)),
-      want,
-      !(kept && part === "archive")
-    );
+    const off =
+      kept && part === "archive"
+        ? []
+        : short(rowsIn(join(at[part], path)), want, true);
     if (off.length > 0) {
       throw new Error(
         `${p} is not as exported (${off.join(", ")}): nothing was changed`
@@ -121,7 +135,7 @@ export async function restore(dir: string, to: Install = HERE) {
   const m = JSON.parse(
     readFileSync(join(dir, "manifest.json"), "utf8")
   ) as Manifest;
-  const kept = refusal(m, to);
+  const kept = await refusal(m, to);
   const side: Install = {
     archive: `${to.archive}.importing`,
     data: `${to.data}.importing`,
@@ -161,5 +175,10 @@ export async function restore(dir: string, to: Install = HERE) {
       rmSync(side[p], { force: true, recursive: true });
     }
   }
-  return { files: m.files.length, leftOut: m.leftOut };
+  return {
+    files: m.files.length,
+    /** A kept archive is never written to: what the export held beyond it (its media too) stayed out. */
+    kept: kept ? to.archive : null,
+    leftOut: m.leftOut,
+  };
 }

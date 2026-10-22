@@ -238,7 +238,7 @@ const commands: Record<string, () => Promise<number>> = {
       }
       const r = await restore(dir);
       console.log(
-        `Life: ${r.files} files imported, checked and counted. Give by hand: ${Object.values(r.leftOut).flat().join("; ")}`
+        `Life: ${r.files} files imported, checked and counted.${r.kept ? ` The archive at ${r.kept} was kept as it was.` : ""} Give by hand: ${Object.values(r.leftOut).flat().join("; ")}`
       );
       return 0;
     }
