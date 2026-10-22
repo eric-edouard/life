@@ -58,7 +58,6 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
   <key>SUFeedURL</key><string>${process.env.LIFE_APPCAST_URL ?? ""}</string>
   <key>SUPublicEDKey</key><string>${process.env.LIFE_SPARKLE_KEY ?? ""}</string>
   <key>NSContactsUsageDescription</key><string>Life reads your contacts to know who wrote to you.</string>
-  <key>NSRemindersFullAccessUsageDescription</key><string>Life adds and updates reminders when you ask it to.</string>
   <key>NSCalendarsFullAccessUsageDescription</key><string>Life writes what happened as past events, when you turn that on.</string>
   <key>NSAppleEventsUsageDescription</key><string>Life keeps the apps it archives open.</string>
 </dict></plist>

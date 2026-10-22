@@ -14,7 +14,7 @@ review (`debt-review`), and `transition` into `main` on his OK.
   by every install), so a second copy waits; the status page reads those locks, not launchd.
 - [x] R0 Reminders as an optional plugin (a setting, like a source): off, nothing touches Reminders (no minute pass, no
   board, no reading back, no `reminders`/`open_reminders` tools, no grant) and the rest of Life runs as before.
-- [ ] R1 The plugin's backend is `remctl` (MIT, github.com/viticci/remctl), pinned by version and checksum and installed
+- [x] R1 The plugin's backend is `remctl` (MIT, github.com/viticci/remctl), pinned by version and checksum and installed
   by its own installer from the app's setup; `life-eventkit` keeps only its calendar.
 - [ ] T2 Status parity: the app shows the status page's truth from the same plate (its headline and every card not ok
   in the menu, the whole page in a window), read through the helper, served locally without a connector.
