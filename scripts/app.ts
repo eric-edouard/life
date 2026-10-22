@@ -51,6 +51,7 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleExecutable</key><string>Life</string>
+  <key>CFBundleIconFile</key><string>Life</string>
   <key>CFBundleIdentifier</key><string>app.life.mac</string>
   <key>CFBundleName</key><string>Life</string>
   <key>CFBundlePackageType</key><string>APPL</string>
@@ -119,6 +120,52 @@ await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
   recursive: true,
 });
 await writeFile(join(contents, "Info.plist"), PLIST);
+
+// Life's icon from assets/icon (rsvg-convert, Homebrew's librsvg): app.svg as the bundle's icon at every size macOS
+// asks for, menubar.svg as the menu bar's template image.
+const ICON = join(ROOT, "assets", "icon");
+const iconset = join(out, "Life.iconset");
+await mkdir(iconset, { recursive: true });
+for (const size of [16, 32, 128, 256, 512]) {
+  for (const [scale, suffix] of [
+    [1, ""],
+    [2, "@2x"],
+  ] as const) {
+    const px = String(size * scale);
+    // biome-ignore lint/performance/noAwaitInLoops: ten small renders
+    await run([
+      "rsvg-convert",
+      "-w",
+      px,
+      "-h",
+      px,
+      "-o",
+      join(iconset, `icon_${size}x${size}${suffix}.png`),
+      join(ICON, "app.svg"),
+    ]);
+  }
+}
+await run([
+  "iconutil",
+  "-c",
+  "icns",
+  "-o",
+  join(contents, "Resources", "Life.icns"),
+  iconset,
+]);
+await run([
+  "rsvg-convert",
+  "-f",
+  "pdf",
+  // At 72 dpi its 18 px are 18 pt, the menu bar's size.
+  "-d",
+  "72",
+  "-p",
+  "72",
+  "-o",
+  join(contents, "Resources", "menubar.pdf"),
+  join(ICON, "menubar.svg"),
+]);
 
 // Inside out: the helper first, then the app around it.
 const entitlements = join(out, "helper.entitlements");
