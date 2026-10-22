@@ -80,20 +80,19 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   the pin. Delete the folder and Life still works from the ledger.
 - Nothing Life hears or reads makes it act by itself.
 
-### Reminders is an interface, never Life's truth
+### Reading Reminders back
 
-The ledger is the truth. The owner's changes in Reminders (tick, untick, edit, priority, urgent, add, delete) come back
-through `inbound.ts` each minute as state only: one `madeBy: "reminders"` line each, with no `instruction` (they are not
-his quoted words).
+The owner's changes in Reminders (tick, untick, edit, priority, urgent, add, delete) come back through `inbound.ts`
+each minute as state only: one `madeBy: "reminders"` line each, with no `instruction` (they are not his quoted words).
 
-- They may close, reopen, reschedule, re-rank, rename, drop or add an item. They never ask, send, approve or grant: an
-  inbound change can take authority away or reorder, never add it.
+- They may close, reopen, reschedule, re-rank, rename, drop or add an item, and nothing else (no ask, send, approval
+  or grant).
 - A value Life wrote or tried to write since the field last settled is Life's own, whatever Reminders shows; so is a
   partial write's, and anything read within 30 s of one of Life's writes (reads lag writes).
 - Section, order and a repeating reminder's next due are Apple's, never read. Shared lists are never read. The first
   pass imports a baseline.
 
-### Open items are derived, never stored
+### Open items
 
 `openItems` (`src/items.ts`) builds them from the observations, the ledger's reminders (`linked`: what `act` wrote and
 what sync read back) and the chats. Code ranks them (his urgent flag and priority, who owes whom, his goals' order,
@@ -159,8 +158,6 @@ grant, and logs the agent's replies.
   line, appended only: it sends nothing).
 - `correct` is annotated destructive so clients ask first. `reminders`, `task` and `reply` are not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses them unattended.
-- **Never add a tool that sends or edits anything else.** Adding a tool is costly for the owner: ChatGPT needs the
-  connector removed and added again to see it, so batch tool changes and keep names and arguments stable.
 - Replies are the agent's output, never the owner's words: they enter memory only through the `atlas` source, as
   evidence of what was done.
 - One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `src/events.ts`), behind the same auth. Callbacks go to
@@ -178,7 +175,7 @@ grant, and logs the agent's replies.
 
 ## The only sends
 
-Life sends only these. Add no other.
+How each one goes out:
 
 - The nightly report and the alerts, to the owner only (`src/memory/report.ts`: sender and address in the `mail`
   setting), by email, or with no `mail` setting as a macOS notification with the report kept as a page in

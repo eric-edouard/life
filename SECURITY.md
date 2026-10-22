@@ -12,7 +12,8 @@ and what it does not.
 - Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, lifelog); Life opens their stores read-only.
   The one copy it keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone
   and old note versions.
-- Backups are restic snapshots, encrypted with a password kept in the Keychain.
+- Backups are optional: restic snapshots, encrypted with a password kept in the Keychain, written to the folder the
+  user sets (for example iCloud Drive).
 
 **Secrets**
 
@@ -27,7 +28,8 @@ and what it does not.
 - **Content is never a command.** What Life reads (messages, mail, notes, transcripts, files) is never an instruction
   to its code. The one exception is the user's spoken "hey Life" marker, which only keeps a conversation read; it never
   acts. Models return JSON validated by schemas, and every quote is checked against its source.
-- Calls use the user's own subscriptions (Claude or Codex) or an API key the user provides.
+- The text Life reads is sent to the model provider the user chooses (Anthropic or OpenAI, through the user's own
+  subscription's CLI or an API key the user provides). That provider's terms apply to it.
 
 **Network surface**
 
@@ -38,7 +40,7 @@ and what it does not.
 - Exposure is through the user's tailnet (Tailscale Serve), optionally Tailscale Funnel or a Cloudflare tunnel the user
   controls, so cloud assistants can reach it.
 - Life sends only: its report and alerts to the owner, one MCP event per ask to the owner's agent (callbacks on
-  OpenAI's hosts only, verified first), and a stripped status snapshot (no message content) to an optional Worker.
+  OpenAI's hosts only, verified first), and the status snapshot without the user's words (no message content) to an optional Worker.
 
 **Actions**
 

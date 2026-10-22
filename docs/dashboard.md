@@ -175,7 +175,7 @@ tool.
   group's `flow` grew between two plates. The Pendant's recording state is lifelog's `GET /status`.
 - **Content.** In full (a message's first words, ask quotes, call arguments) with a privacy switch remembered per
   device (`localStorage`) that hides it.
-- **Always on.** A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
+- **Always on** (legacy, to be deleted once Funnel is in place: [#137](https://github.com/eric-edouard/life/issues/137)). A Cloudflare Worker (`worker/status.ts`, routes `/`, `/status/*`, `/__status/*` only) passes every
   request to the Mac and, when the Mac is out of reach (no answer in 8 s, or Cloudflare's 502, 504, 52x), answers
   itself behind the same owner check (`ownerTokens`) with the page and the last plate the Mac pushed: once a minute,
   only its listed fields (`strip`: his words and errors' text stay on the Mac), the page's files on a process's first

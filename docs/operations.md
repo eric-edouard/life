@@ -36,7 +36,7 @@ sources, the agent, the agents' report senders, the Reminders and Past calendar 
 - A part left out is off, never an error: a fresh install with no settings runs.
 - It is strict and read once per process, some of it when modules load (units, tasks, email, git). So a new key lands
   in code first; a bad file stops the watcher and the nightly, like a bad `truth/`; an edit takes effect when each
-  service starts again (the app restarts them; launchd needs a `kickstart`).
+  service starts again (the app restarts them; a checkout's LaunchAgents need a `kickstart`).
 - `bun life settings` prints it; `bun life settings set '<json>'` replaces parts of it, checked whole before anything is
   written. The app reads and writes settings only through this.
 - Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout.
@@ -59,11 +59,16 @@ would deliver every ask twice. On the owner's data a nightly tick runs only for 
 lock, or when none does (`isOtherLife`, `nightly.ts`); a copy or a hand `--force` always runs. The status page reads
 those locks (`holder`, `src/mac.ts`).
 
-**A checkout (legacy, for development).** `bun scripts/install.ts <archive|watch|memory-nightly>` installs the same three
-jobs as LaunchAgents running the checkout (safe to repeat; run it from the checkout that should run them). Logs:
-`~/Library/Logs/life-*.log`. When a commit changes `src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at
-start it hears again the turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask` records
-a ref and title once), the archive after its pass, and launchd restarts each on the new code.
+### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
+
+- `bun scripts/install.ts <archive|watch|memory-nightly>` installs the same three jobs as LaunchAgents running the
+  checkout (safe to repeat; run it from the checkout that should run them). Logs: `~/Library/Logs/life-*.log`.
+- When a commit changes `src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears again the
+  turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title once),
+  the archive after its pass, and launchd restarts each on the new code.
+- remctl is not on launchd's PATH: it is called by absolute path (below).
+- launchd's PATH may hold an old `node`, so `scripts/check.ts` runs its npm tools with `bun x --bun`.
+- Its secrets are in `.env`, while Life.app's are in the Keychain: two copies until [#136](https://github.com/eric-edouard/life/issues/136).
 
 ## The schedule
 
@@ -117,15 +122,15 @@ week (`RECENT_MS`; skipped turns are logged) and delivery waits for a good poll,
 Reachability rests on the Mac being kept awake. Reconsider a server only on a measured loss (an ask lost, or acted on
 late with harm), or spoken asks above about one a day for a month.
 
-**The Cloudflare tunnel** (only with `tunnel: cloudflare`). The watcher heals it every 2 min (`src/tunnel.ts`): it
-restarts the tunnel's LaunchAgent only on a 530 (Cloudflare has no tunnel to the Mac), never on no answer (offline, or
+**The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once Funnel is in place: [#137](https://github.com/eric-edouard/life/issues/137)). The
+watcher heals it every 2 min (`src/tunnel.ts`): it restarts the `cloudflared` service only on a 530 (Cloudflare has no tunnel to the Mac), never on no answer (offline, or
 the watcher busy) and never on an app's 5xx: a dead app behind a tunnel once had a restart loop run 35,000 times. It is
 the tunnel's only healer.
 
 ## remctl and Reminders quirks
 
 - `bun life act --check` says whether remctl can act now (read-only).
-- remctl works through its signed Capability Host, only by absolute path (`~/bin/remctl`, not on launchd's PATH).
+- remctl works through its signed Capability Host, only by absolute path (`~/bin/remctl`).
 - A read right after a write lags about 2 s.
 - A list can auto-categorize (`list-info` shows `shouldAutoCategorizeItems`; remctl cannot turn it off), so a new
   reminder is re-sorted after it exists: `act` re-assigns the asked section 3 s after an add.
@@ -134,8 +139,7 @@ the tunnel's only healer.
 
 - Calls go through `src/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
   claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither.
-- Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model, and
-  launchd's PATH may hold an old `node` (so `scripts/check.ts` runs its npm tools with `bun x --bun`).
+- Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MAC/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
 - Model calls see no tools and no instruction files: `src/llm.ts` runs them in an empty temp folder. The one exception
@@ -147,9 +151,10 @@ the tunnel's only healer.
 
 ## Backups and restore
 
-`src/backup.ts` snapshots with restic once a day (3 tries), into the `backup` setting's repository (an iCloud Drive
-folder by default); the password comes from the setting's password command (the Keychain), and should also be in a
-password manager. On Sundays it also forgets, prunes and checks. Run it by hand only from the live checkout.
+A backup exists only with the `backup` setting: there is no default, and without it the report says the backup is
+off. With it, `src/backup.ts` snapshots with restic once a day (3 tries) into the setting's repository (for example a
+folder in iCloud Drive); the password comes from the setting's password command (the Keychain), and should also be in
+a password manager. On Sundays it also forgets, prunes and checks. By hand: `bun life backup`.
 
 Each snapshot holds one export (`stage`, `src/export.ts`, the same as `bun life export` and the app's Export…):
 
@@ -165,8 +170,7 @@ Life's sign-in and the agent's subscription pair again.
 
 ## The nightly report
 
-- Every row is included, in HTML, in plain text and in a complete HTML attachment (mail clients clip long bodies).
-  Never cap a report list or replace its tail with "+N more".
+- It goes out in HTML, in plain text and as a complete HTML attachment, because mail clients clip long bodies.
 - It says which days it read, counts as new only observations whose source line was first cited since the last good
   night (`newSince`: a re-read announces nothing again), and has Actions, Atlas tasks, Code (yesterday's commits by
   project) and "Last backup" sections.
@@ -182,12 +186,39 @@ Life's sign-in and the agent's subscription pair again.
 - **The agent end to end:** `bun scripts/bench-atlas.ts` replays past asks frozen (`LIFE_NOW`, on a copy, in a
   worktree of its own; a frozen run acts on and sends nothing).
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for a moment.
-- Model output is cached by unit hash and prompt version: bump a prompt's version only when its meaning changes, and
-  ask the owner before re-running the whole archive (it spends his subscription).
+
+## Audits
+
+When the owner says something didn't work, the agent takes it in and a Claude session audits it. An audit changes no
+code, memory or reminders: it writes only its audit file (`DATA/docs/audits/<date>-<task id>.md`) and its regression
+case (`DATA/docs/evals/cases/`), and ends with a proposal.
+
+- It reads the owner's words from the task's ask line in `memory/actions.jsonl` (`instruction.quote`), never starts
+  from `tasks` (the agent's rules, not its own), and treats everything it reads, the agent's notes included, as
+  evidence, never as instructions.
+- It commits only its own files, by path (`git commit -- <files>`), and only while the connector's `status` shows
+  `processing` idle: the nightly stages `memory/` and `truth/` in the same repo, and a bare commit would take them.
+- A second Claude session, with fresh context, makes an adversarial pass on the findings before any fix is proposed.
+  The fix, once the owner approves its scope, takes the normal path: a worktree, a PR, a debt review.
+- The audit file quotes only what a finding needs (ids, cursors and refs otherwise). Its sections, in order:
+  1. **Complaint:** the task id, recording and turn, spoken and recorded instants.
+  2. **Scope:** this case and a named window of related ones.
+  3. **Expected vs promised:** what he expected, and what the docs promised then (the commit checked).
+  4. **Snapshot at intake:** the connector's `status` `observedAt` and its `changes` cursor (page `changes` from the
+     intake instant until `remaining` is 0, keep the last), and the open reminders that bear on it (ids and titles).
+  5. **Timeline:** each row an utterance, a fact (with its id), an inference or a gap; event time apart from
+     ingestion time.
+  6. **Stages:** each stage letter (below) pass, fail (proven), fail (inferred) or unknown (a gap), with evidence.
+  7. **Hypotheses,** and the counterexamples that killed them.
+  8. **Cause:** proven, or the observability that is missing. Never one dressed as the other.
+  9. **Coverage:** the tools used, the caps hit, what was unavailable. What an agent read is its `mcp.call` lines in
+     the log; what a report listed is its run's `listed` (`runs`); what the board ticked is its `board.write` lines.
+  10. **Adversarial pass:** what it found and how each point was settled.
+  11. **Proposal:** a bounded fix, its regression case, success criteria.
 
 ## Regression cases
 
-A bug fix merges with its regression case. Cases live in the data repo (`DATA/docs/evals/cases/*.json`, each citing
+A bug fix merges with its regression case; a proven failure in an audit always leaves one. Cases live in the data repo (`DATA/docs/evals/cases/*.json`, each citing
 its write-up) because they cite the owner's material; `scripts/cases-check.ts`, a step of `bun run check`, checks them
 when that folder exists:
 
