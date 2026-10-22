@@ -44,13 +44,6 @@ This is a real run, trimmed, on made-up demo data written by [`scripts/demo.ts`]
 the command to run it again: Claude Code, with Life's read commands as its only tool. Claude.ai and ChatGPT get the
 same reads through Life's connector. Each `obs_…` id opens the fact and the message it was quoted from.
 
-<!-- draft: to be rewritten -->
-## Why I built this
-
-Most of what I need to remember I have already said or written somewhere: in a chat, an email, a note, a conversation.
-I wanted something that reads all of it every night and keeps a memory I can ask, without me filing anything. It had
-to stay on my own Mac, in a git repository of its own, and answer through the assistant I already use every day.
-
 ## What you need
 
 Required:
