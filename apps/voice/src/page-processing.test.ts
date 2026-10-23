@@ -376,7 +376,6 @@ test("a worker that dies mid-piece loses nothing: the piece is labeled again fro
   // Pages 0 to 99 are an open piece in the worker; then the worker ends.
   expect(await labelBatch(SOURCE)).toBe(true);
   stopWorker();
-  await Bun.sleep(50);
   // biome-ignore lint/performance/noAwaitInLoops: batch after batch
   while (await labelBatch(SOURCE)) {
     // the next batch
