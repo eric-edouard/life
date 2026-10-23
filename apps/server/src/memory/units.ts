@@ -300,9 +300,15 @@ const byDay = (events: SourceEvent[]) => [
   ...Map.groupBy(events, dayUnitId).values(),
 ];
 
-/** Chat-days, mail thread-days and note-days: every message of one chat, thread or note on one local day. */
+/** One chat's, thread's, note's or repo's events of a day, cut into its unit by its source's kind. */
+const cut = (list: SourceEvent[], resolve: Resolve) =>
+  kindOf((list[0] as SourceEvent).source) === "repo"
+    ? repoDay(list)
+    : chatDay(list, resolve);
+
+/** Chat-days, mail thread-days, note-days and repo-days: every event of one chat, thread, note or repo on one local day. */
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
-  byDay(events).map((list) => chatDay(list, resolve));
+  byDay(events).map((list) => cut(list, resolve));
 
 /** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
 export const unitTitle = (first: SourceEvent) =>
@@ -404,12 +410,9 @@ export function lineCounts(stats: Unit["stats"][]) {
 }
 
 /**
- * Repo-days: one unit per repo and local day, made like a chat-day. The summary is the day's commit subjects, which
- * makes them searchable; the title counts commits and lines.
+ * The unit of one repo's commits on a local day (a repo-day), made like a chat-day. The summary is the day's commit
+ * subjects, which makes them searchable; the title counts commits and lines.
  */
-export const repoUnits = (events: SourceEvent[]) => byDay(events).map(repoDay);
-
-/** The unit of one repo's commits. */
 function repoDay(list: SourceEvent[]): Built {
   const byId = new Map(list.map((e) => [e.id, e]));
   const { messages, text, unit } = chatDay(list, () => null);
@@ -602,6 +605,11 @@ export function tablesOf(sources: Descriptor[]) {
 export const tables = () => tablesOf(readySources());
 export type Tables = ReturnType<typeof tablesOf>;
 
+type Read = Exclude<Descriptor, { kind: "voice" }>;
+/** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files. */
+const readOf = (s: Read, since: Date, map: { me: Person; repos: RepoMap }) =>
+  s.kind === "repo" ? s.read(since, map) : s.read(since);
+
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
  * `start` to its `end`, whatever zone it was cut in. Nothing for a voice unit, or when they are all gone.
@@ -616,16 +624,14 @@ export function builtFor(
   if (source.kind === "voice") {
     return;
   }
-  const since = new Date(unit.start);
-  const read = (
-    source.kind === "repo"
-      ? source.read(since, { me, repos })
-      : source.read(since)
-  ).filter((e) => e.chat === unit.key && e.at <= unit.end);
-  // A repo's commits carry no files.
-  const events = source.kind === "repo" ? read : showFiles(read, readFiles());
+  const events = showFiles(
+    readOf(source, new Date(unit.start), { me, repos }).filter(
+      (e) => e.chat === unit.key && e.at <= unit.end
+    ),
+    readFiles()
+  );
   if (events.length > 0) {
-    return source.kind === "repo" ? repoDay(events) : chatDay(events, resolve);
+    return cut(events, resolve);
   }
 }
 
@@ -696,32 +702,24 @@ export async function gather(
     sources
       .flatMap((s) => (s.kind === "voice" ? [] : [s]))
       .map(async (s) => ({
-        events: await safely(
-          s.name,
-          () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
-          failed
-        ),
+        events: await safely(s.name, () => readOf(s, since, ctx), failed),
         s,
       }))
   );
-  // A repo's commits carry no files; the others' recent messages have theirs described, then shown.
+  // The recent messages' files are described, then every message's shown.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
   const files = await describeFiles(
-    read
-      .flatMap(({ events, s }) => (s.kind === "repo" ? [] : events))
-      .filter((e) => e.at >= recent)
+    read.flatMap(({ events }) => events).filter((e) => e.at >= recent)
   );
   const known = readFiles();
   const shown = read.map(({ events, s }) => ({
-    events: s.kind === "repo" ? events : showFiles(events, known),
+    events: showFiles(events, known),
     s,
   }));
   const built = applyRules(
     [
       ...lifelogUnits(lifelog),
-      ...shown.flatMap(({ events, s }) =>
-        s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
-      ),
+      ...shown.flatMap(({ events }) => messageUnits(events, resolve)),
     ],
     keptConversations()
   )
