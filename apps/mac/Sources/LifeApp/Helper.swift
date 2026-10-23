@@ -142,6 +142,7 @@ enum Keychain {
 
   /// Every secret kept for Life, by name: the helper takes what it reads from its environment.
   static func all() -> [String: String] {
+    renamed("LIFELOG_TOKEN", to: "VOICE_TOKEN")
     let q: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "Life",
       kSecMatchLimit as String: kSecMatchLimitAll, kSecReturnAttributes as String: true,
@@ -155,6 +156,14 @@ enum Keychain {
       out[name] = read(name)
     }
     return out
+  }
+
+  /// A secret stored under its name from before the voice cutover, moved to its new one once (AGENTS.md, "A rename
+  /// backfills"). Delete once every install has run it.
+  static func renamed(_ old: String, to new: String) {
+    guard read(new) == nil, let value = read(old) else { return }
+    write(new, value)
+    write(old, "")
   }
 
   static func write(_ name: String, _ value: String) {

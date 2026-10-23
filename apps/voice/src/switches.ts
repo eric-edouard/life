@@ -1,7 +1,8 @@
 // The owner's switches for paid processing, set from the app or `bun run switches`. Off, nothing
 // new is sent: uploads wait unsent (jobs.ts), voices aren't embedded (identity.ts), summaries wait
-// as if the Mac were away (providers.ts), search falls back to keywords (search.ts). Turned back
-// on, what waited goes on by itself.
+// as if the Mac were away (providers.ts). Turned back on, what waited goes on by itself. Summaries
+// (`ai`) are off by default: Life reads the words, not them (server playbook, step 4). Search's
+// embeddings follow the OpenAI key alone (search.ts).
 
 import type { Db } from "@life/voice-db";
 import { type MacEngine, processingSwitches } from "@life/voice-db/schema";
@@ -16,7 +17,7 @@ export interface Switches {
 }
 
 const DEFAULTS: Switches = {
-  ai: true,
+  ai: false,
   engine: "claude",
   openAppAfterMinutes: 15,
   transcription: true,

@@ -73,7 +73,7 @@
   },
   "pipeline": {
     "ai": {
-      "blockedBy": "macAway",
+      "blockedBy": "aiOff",
       "lastSummaryAt": "2026-10-14T10:02:50.000Z",
       "running": [
         {
@@ -101,7 +101,7 @@
     }
   },
   "switches": {
-    "ai": true,
+    "ai": false,
     "engine": "claude",
     "openAppAfterMinutes": 15,
     "transcription": true

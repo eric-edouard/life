@@ -20,6 +20,7 @@ import { idle } from "./dictation";
 import { record } from "./events";
 import type { Job } from "./jobs";
 import { services } from "./services";
+import { setSwitches } from "./switches";
 import { OWNER_TOKEN, testConfig, testDb } from "./testing";
 
 let env: Awaited<ReturnType<typeof testDb>>;
@@ -121,6 +122,8 @@ test("status's pipeline: blocks waiting and at ElevenLabs, open speech, failures
   const s = services(testConfig("http://localhost:1"), env.db, {
     intelligence: null,
   });
+  // Summaries on (off by default), so they wait for the Mac.
+  setSwitches(env.db, { ai: true });
   const now = Date.now();
   const job = (state: JobState, seconds: number, at: Partial<Job> = {}) => ({
     audioSha256: randomUUID(),

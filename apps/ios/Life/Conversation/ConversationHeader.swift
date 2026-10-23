@@ -29,7 +29,8 @@ struct ConversationHeader: View {
             }
             facts.padding(.top, 8)
             speakers.padding(.top, 12)
-            if !store.lines.isEmpty {
+            // With summaries off (the server's default) and none made before, there is no summary to show or wait for.
+            if !store.lines.isEmpty, conversation.tldr != nil || !store.aiOff {
                 SummaryCard(store: store, conversation: conversation).padding(.top, 14)
             }
         }

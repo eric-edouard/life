@@ -12,7 +12,7 @@ export const SwitchesView = z
     ai: z
       .boolean()
       .describe(
-        "Summaries and titles on the Mac, and search embeddings. Off: they wait"
+        "Summaries and titles on the Mac, off by default. Off: they wait"
       ),
     engine: z
       .enum(macEngines)
@@ -51,9 +51,8 @@ export function switchRoutes({
   db,
   nudge,
   rolling,
-  search,
   worker,
-}: Pick<Services, "db" | "nudge" | "rolling" | "search" | "worker">) {
+}: Pick<Services, "db" | "nudge" | "rolling" | "worker">) {
   return router()
     .openapi(
       createRoute({
@@ -67,7 +66,7 @@ export function switchRoutes({
       createRoute({
         description:
           "Turns transcription or AI on or off, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone " +
-          "is nudged to send its waiting audio, summaries due run on the Mac, search catches up.",
+          "is nudged to send its waiting audio, summaries due run on the Mac.",
         method: "put",
         path: "/switches",
         request: {
@@ -88,7 +87,6 @@ export function switchRoutes({
         }
         if (after.ai && (!before.ai || after.engine !== before.engine)) {
           rolling.drain();
-          search?.index();
         }
         return c.json(after, 200);
       }

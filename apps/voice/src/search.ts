@@ -24,7 +24,6 @@ import {
   SEARCH,
   singleFlight,
 } from "./config";
-import { switches } from "./switches";
 import { type LoadedTurn, loadTurns } from "./transcript";
 
 export interface Embedder {
@@ -443,8 +442,8 @@ export interface Search {
   query: (q: Query) => Promise<Hit[]>;
 }
 
-// Null without an OpenAI key: the app then searches with its own keyword index only, as it does
-// while the AI switch is off (the routes answer search_unavailable).
+// Null without an OpenAI key: the app then searches with its own keyword index only (the routes
+// answer search_unavailable).
 export function searchFor(
   db: Db,
   config: Config,
@@ -483,15 +482,8 @@ export function searchFor(
     return vector;
   };
   return {
-    index: () => {
-      // AI off: stale conversations stay stale until it is back on (routes/switches.ts sweeps).
-      if (!switches().ai) {
-        return Promise.resolve();
-      }
-      return sweep().catch((error: unknown) =>
-        console.error("search index:", error)
-      );
-    },
+    index: () =>
+      sweep().catch((error: unknown) => console.error("search index:", error)),
     query: async (q) => rank(db, await queryVector(q.text), q),
   };
 }

@@ -148,8 +148,8 @@ struct SettingsView: View {
             }
             Text("Turn Life on there, then come back: it checks again.").caption()
           }
-          TextField("lifelog address", text: $voiceURL)
-          SecureField("lifelog token", text: $voiceToken)
+          TextField("voice server address", text: $voiceURL)
+          SecureField("voice server token", text: $voiceToken)
         }
         if supervisor.info?.todoList == "google" {
           // Google Tasks is the backend (set in his settings): shown on, never switched from here.
@@ -236,7 +236,7 @@ struct SettingsView: View {
     agentSaved = agent ?? [:]
     wake = (agent?["wake"] as? [String])?.first ?? ""
     transport = agent?["transport"] as? String ?? "mcp-event"
-    voiceURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
+    voiceURL = (settings["voice"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     voiceToken = Keychain.read("VOICE_TOKEN") ?? ""
     key = Keychain.read(keyName) ?? ""
@@ -265,7 +265,7 @@ struct SettingsView: View {
       let words = wake.isEmpty ? agentName.lowercased() : wake
       parts["agent"] = agentSaved.merging(["name": agentName, "wake": [words], "transport": transport]) { _, new in new }
     }
-    if !voiceURL.isEmpty { parts["lifelog"] = ["url": voiceURL] }
+    if !voiceURL.isEmpty { parts["voice"] = ["url": voiceURL] }
     await set(parts)
     await supervisor.restart()
   }

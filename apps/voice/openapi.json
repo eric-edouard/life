@@ -2266,7 +2266,7 @@
         "properties": {
           "ai": {
             "type": "boolean",
-            "description": "Summaries and titles on the Mac, and search embeddings. Off: they wait"
+            "description": "Summaries and titles on the Mac, off by default. Off: they wait"
           },
           "engine": {
             "type": "string",
@@ -5240,7 +5240,7 @@
             }
           },
           "503": {
-            "description": "No OpenAI key configured, or the AI switch is off",
+            "description": "No OpenAI key configured",
             "content": {
               "application/json": {
                 "schema": {
@@ -5268,7 +5268,7 @@
         }
       },
       "put": {
-        "description": "Turns transcription or AI on or off, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone is nudged to send its waiting audio, summaries due run on the Mac, search catches up.",
+        "description": "Turns transcription or AI on or off, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone is nudged to send its waiting audio, summaries due run on the Mac.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5278,7 +5278,7 @@
                 "properties": {
                   "ai": {
                     "type": "boolean",
-                    "description": "Summaries and titles on the Mac, and search embeddings. Off: they wait"
+                    "description": "Summaries and titles on the Mac, off by default. Off: they wait"
                   },
                   "engine": {
                     "type": "string",
