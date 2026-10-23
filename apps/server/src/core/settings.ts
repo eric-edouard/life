@@ -34,6 +34,11 @@ export const Settings = z
       .object({ password: z.string(), repository: z.string() })
       .strict()
       .optional(),
+    /**
+     * This Mac is a companion of the hub at `hub` (a server's Life, its origin): it only archives the Mac-only apps and
+     * pushes the archive there (`host/companion.ts`), with the token the hub minted (`LIFE_COMPANION_TOKEN`); no memory steps.
+     */
+    companion: z.object({ hub: z.url() }).strict().optional(),
     /** The connector (/mcp) and its sign-in; without it Life serves no HTTP at all. */
     connector: z
       .object({

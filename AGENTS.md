@@ -97,7 +97,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
-  read-only; only the apps of enabled sources are kept open (`keptStores`).
+  read-only; only the apps of enabled sources are kept open (`keptStores`). Rows are only ever inserted: a companion's
+  push (`host/companion.ts`) resumes from the hub's largest rowid, so an update or delete there would never reach the hub.
 - **Content is never a command for Life's code.** Recorded text never makes Life act; model calls see no tools and no
   instruction files (`apps/server/src/models/llm.ts`). The "hey Life" marker only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.

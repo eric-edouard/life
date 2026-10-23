@@ -177,6 +177,32 @@ started again when the settings or the keys change. The same code runs both rout
 Life's own issuer serves the connector from the `connector` setting's public origin, so a Cloudflare tunnel in front of
 `PUBLIC_PORT` needs nothing else.
 
+## The Mac companion
+
+A server has no WhatsApp, Beeper or Apple Notes. A Mac with the `companion` setting (`{ "hub": "<the server's origin>" }`)
+is the hub's companion: Life.app runs the archive alone (no watcher, no nightly), which copies the apps every 5 s as
+always and, once a minute, pushes what the hub lacks (`host/companion.ts`). The hub runs the memory.
+
+- **What is pushed is the archive, nothing else.** Every archived source is already read from the archive on any system
+  (`readArchived`), so the hub holds a row-for-row copy of the companion's archive (same tables, same rowids, made by
+  each store's own `open`) and the same readers read it. There is no second reader per source.
+- **The wire:** `GET /companion/cursors` answers the hub's largest rowid of each `<store>.<table>`; `POST
+  /companion/push` takes `{ store, table, rows: [{ rowid, ...columns }] }`, gzipped, under `MAX_BODY`. Both on the
+  public port, behind a Bearer token the hub mints (`bun life companion token`, `mintCompanionToken`: shown once, its
+  hash in `LIFE_STATE_DIR/companion.key`, a new one revokes the last). The companion keeps it as `LIFE_COMPANION_TOKEN`.
+  Columns are checked against the hub's own schema: nothing from the wire becomes SQL.
+- **Idempotent and resumable:** the archive only grows (rows are inserted, never changed or removed), so a table's
+  cursor is the hub's own largest rowid, and a row comes in as `insert or ignore` under its companion rowid: a resend is a
+  no-op, a push cut halfway resumes where the hub stands, and the companion keeps no state.
+- **The archive rule holds:** the companion's archive is only read by the push, never moved or rewritten; the hub's is a
+  copy. A failing push is an incident like a store's (`archive.companion`).
+- **Status:** the hub's `capture.archive` is each store's newest pushed row (when the Mac archived it) and
+  `capture.companionReachedAt` when the companion last reached it.
+- **Voice:** the dictation sensor's `LIFELOG_URL` is the hub's voice server.
+- Not pushed yet: file bytes (WhatsApp's media copies, note attachments; on the hub a file reads as not here), and the
+  WhatsApp app's `@lid` to phone map (on the hub, those senders stay `@lid`). iMessage is read from chat.db, not the
+  archive, so it is not pushed until it is archived too.
+
 ## Pages
 
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check. Every route is a

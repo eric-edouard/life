@@ -3,6 +3,7 @@ import Observation
 
 /// What launchd did for the owner's checkout, for the app: the archive and the watcher always running (started again
 /// a few seconds after either stops), and the nightly tick every 30 minutes (its own schedule decides what is due).
+/// A companion of a hub runs the archive alone: it copies and pushes, and the hub runs the memory.
 @MainActor @Observable
 final class Supervisor {
   /// The helper's last `app` answer: whether Life is set up, its sources, its newest report, its status reads.
@@ -37,10 +38,11 @@ final class Supervisor {
   func start() async {
     await refresh()
     guard info?.started == true else { return }
+    let companion = info?.companion != nil
     if services.isEmpty {
-      for args in Self.services { keep(args) }
+      for args in companion ? [["archive"]] : Self.services { keep(args) }
     }
-    if timer == nil {
+    if timer == nil && !companion {
       tick()
       timer = Timer.scheduledTimer(withTimeInterval: Self.tickEvery, repeats: true) { _ in
         Task { @MainActor in self.tick() }

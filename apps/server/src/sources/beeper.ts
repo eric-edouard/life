@@ -124,7 +124,7 @@ const BEEPER_SQL = `select m.id, m.eventID as eventId, m.roomID as chat, t.accou
 
 // One row per version a message was seen in: the original, each edit, and the deleted state (text wiped). The same for
 // its attachments in `files`, which a delete wipes too.
-const openBeeper = (dir: string) =>
+export const openBeeper = (dir: string) =>
   openArchive(
     dir,
     "beeper",

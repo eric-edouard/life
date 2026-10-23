@@ -22,6 +22,7 @@ import { ask, timings } from "./agent";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { memoryCommand, step } from "./command";
+import { mintCompanionToken } from "./companion";
 import { stage } from "./export";
 import { headless } from "./headless";
 import { LOCAL_PORT } from "./http/http";
@@ -86,6 +87,8 @@ const commands: Record<string, () => Promise<number>> = {
       : [];
     console.log(
       JSON.stringify({
+        /** The hub this Mac is a companion of (the `companion` setting): the app then runs the archive alone. */
+        companion: settings().companion?.hub ?? null,
         lastReport: reports[0] ?? null,
         reminders: await (async () => {
           const installed = await remctlVersion();
@@ -164,6 +167,18 @@ const commands: Record<string, () => Promise<number>> = {
   },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (apps/server/src/host/backup.ts). */
   backup,
+  /**
+   * On a hub, the token a companion Mac pushes with (`host/companion.ts`): `companion token` mints one, printed once,
+   * and revokes the one before.
+   */
+  companion() {
+    if (process.argv[3] !== "token") {
+      console.error("usage: bun life companion token");
+      return Promise.resolve(2);
+    }
+    console.log(mintCompanionToken());
+    return Promise.resolve(0);
+  },
   /** Puts Life on this Mac's tailnet name: `connect` for his own devices, `connect --public` for ChatGPT and Claude.ai too. */
   async connect() {
     const origin = await connect(process.argv.includes("--public"));

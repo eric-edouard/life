@@ -288,7 +288,7 @@ export const newestNote = () =>
 // One row per version of a note Life saw: its text (checklist lines marked `[ ]`/`[x]`) and attachments' JSON, or its
 // deletion (text and files empty). `at` is the note's edit time, or when Life saw it gone from the store. `deleted`
 // is each deleted note's last version, named like a chat's (`chatName` its title).
-const openNotes = (dir: string) =>
+export const openNotes = (dir: string) =>
   openArchive(
     dir,
     "notes",

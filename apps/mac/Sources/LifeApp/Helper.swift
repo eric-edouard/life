@@ -61,6 +61,8 @@ enum Helper {
 /// The helper's `app` answer.
 struct Info: Decodable {
   let started: Bool
+  /// The hub this Mac is a companion of: Life here only archives and pushes (no watcher, no nightly).
+  let companion: String?
   let lastReport: String?
   let sources: [Source]
   /// The to-do list backend chosen ("reminders", "google"), nil while the to-do list is off.

@@ -12,18 +12,21 @@ import {
   readState,
 } from "../../memory/schedule";
 import { INDEX } from "../../memory/search";
-import { keptStores, listening } from "../../memory/sources";
+import { ARCHIVED, enabledSources, listening } from "../../memory/sources";
 import { localDate } from "../../memory/zones";
 import type { Quota } from "../../models/llm";
 import { lastCopied } from "../archive";
+import { companionReachedAt } from "../companion";
 import { polling, readHealth } from "../health";
 
 // Life's status, for the status snapshot, the connector and `bun life memory status`: whether it works, how fresh its memory is
 // and what runs next, from the runs (memory/run-log.ts), the archive's copies and the watcher's health.
 
-/** Each archive store's last copy (`lastCopied`), by store name. */
+/** Each archive store's last copy (`lastCopied`), by store name: a hub's are its companion's pushes. */
 const copiedByStore = (): Record<string, string | null> =>
-  Object.fromEntries(keptStores().map((s) => [s.name, lastCopied(s)]));
+  Object.fromEntries(
+    enabledSources(ARCHIVED).map((s) => [s.name, lastCopied(s)])
+  );
 /** When a SQLite file last changed, its write-ahead log included (written before the file); null: no file. */
 function dbTime(path: string) {
   const ms = Math.max(
@@ -75,6 +78,7 @@ export async function lifeStatus(now = clock()) {
     },
     capture: {
       archive: copiedByStore(),
+      companionReachedAt: companionReachedAt(),
       // The key keeps its name for the status reads' contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
       lifelogOkAt: health?.lastOkAt ?? null,

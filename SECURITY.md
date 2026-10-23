@@ -67,6 +67,9 @@ This is the one list; nothing else leaves.
   subscription through the Mac helper, passages and queries to OpenAI's embeddings when a key is set, and the
   encrypted restic backup. Details in [docs/voice/security.md](docs/voice/security.md) and
   [docs/voice/providers.md](docs/voice/providers.md).
+- To the owner's own server, when this Mac is its companion (the `companion` setting): the archive (WhatsApp, LINE,
+  Telegram and Instagram messages through Beeper, Apple Notes versions, deleted and edited ones included), over HTTPS
+  with the token that server minted.
 - The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud
   Drive does).
 

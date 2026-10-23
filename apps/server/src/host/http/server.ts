@@ -5,7 +5,8 @@ import { off } from "../../core/outputs";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check-page";
-import { LOCAL_PORT, PUBLIC_HOST, PUBLIC_PORT } from "./http";
+import { createCompanion } from "./companion";
+import { LOCAL_PORT, MAX_BODY, PUBLIC_HOST, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
@@ -16,9 +17,10 @@ import { createStatusReads } from "./status-reads";
 // `connector` setting's origin to it.
 
 /**
- * Serves on loopback (the public port where `PUBLIC_HOST` says), bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
+ * Serves on loopback (the public port where `PUBLIC_HOST` says), bodies up to `MAX_BODY`: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
  * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the check
- * page (`check-page.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
+ * page (`check-page.ts`), the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set) and a companion's push
+ * (`companion.ts`). The key is never taken on the
  * public port. 404 for any other path.
  */
 export function serve() {
@@ -52,7 +54,7 @@ function listen(hostname: string, port: number, app: Hono) {
     development: false,
     fetch: app.fetch,
     hostname,
-    maxRequestBodySize: 256 * 1024,
+    maxRequestBodySize: MAX_BODY,
     port,
   });
   console.log(`Life: listening on ${hostname}:${port}`);
@@ -92,5 +94,6 @@ export function signedIn() {
     .route("/", mcp)
     .route("/", createCheck(signIn))
     .route("/", createPortrait())
+    .route("/", createCompanion())
     .notFound(notFound);
 }

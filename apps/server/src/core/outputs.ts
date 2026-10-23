@@ -6,6 +6,11 @@ import { settings } from "./settings";
 export const OUTPUTS = {
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
+  /** The archive pushed to the hub this Mac is a companion of (`host/companion.ts`), with the token the hub minted. */
+  companion: {
+    label: "Companion",
+    on: () => Boolean(settings().companion && process.env.LIFE_COMPANION_TOKEN),
+  },
   /** The connector, its OAuth issuer and the pages behind sign-in (`server.ts`). */
   connector: { label: "Connector", on: () => Boolean(settings().connector) },
   /** The moments on a calendar: Google's through `gog` with an account, else an Apple one through the app's EventKit tool (`host/past-calendar.ts`). */

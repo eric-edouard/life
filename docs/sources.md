@@ -29,6 +29,9 @@ the archive's media copy); Life copies none, and a description outlives its file
 | Recorded conversations | lifelog's REST API (`/changes`, `/transcription-jobs/{id}/transcript`, `POST /search` for the exact words), owner device token as `LIFELOG_TOKEN` in `.env` | `lifelog.ts` | Reads only, except the owner's corrections `forward` sends. Units come from the store `bun life watch` keeps, the only caller of `poll` (so every `hey <agent>` is heard); exact words are fetched on demand. Chapter titles and summaries (lifelog's own) with turn refs. `bun life memory moments` reads only those; `bun life memory extract` also reads the transcript turns of kept chapters (`/transcription-jobs/{id}/transcript`) and keeps short quotes. |
 | The agent's done tasks | Life's own ledger, `memory/ledger.jsonl` (`tasksOf`) | `agent-source.ts` | Kind `agent`. One unit per task the agent closed done itself (its own last update, not the owner's tick in Reminders), dated when it closed: the owner's ask's words (the first 1,500 characters) and the agent's outcome, all one line by `agent:` + `AGENT_WORD`, never the owner's nor resolved to a person. Its own report, not checked by Life: extraction may read it as evidence of what was done, to close a loop it sees among its priors (one of its own moment, or one of the owner's own from its day or the day before, as for any unit), such as the to-do the owner's ask also left. Always read (importance at least 2), never searched as messages. |
 
+On a server, the archived sources (WhatsApp, Beeper, Notes) are read from the hub's copy of a companion Mac's archive,
+by the same readers (`docs/architecture.md`, "The Mac companion"); the other Mac-only sources are not read there.
+
 The calendar is not a source: the agent reads it. (The Past calendar is Life's output, `docs/tasks.md`.)
 
 ## Not used yet

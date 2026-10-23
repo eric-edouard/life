@@ -18,6 +18,8 @@ import { LIFE_STATE_DIR } from "./paths";
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
+  /** The hash of the token a companion Mac pushes with (`mintCompanionToken`): the token itself is shown once. */
+  companion: join(LIFE_STATE_DIR, "companion.key"),
   /** A server's keys, `NAME=value` lines (`setSecretEnv`): what the Keychain is to Life.app, read by `bun life headless`. */
   env: join(LIFE_STATE_DIR, "secrets.env"),
   events: join(LIFE_STATE_DIR, "events.json"),

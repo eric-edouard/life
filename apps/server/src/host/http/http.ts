@@ -49,6 +49,9 @@ export const text = (
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
 
+/** The largest request body Life's server takes: a companion's push batches stay under it (`host/companion.ts`). */
+export const MAX_BODY = 256 * 1024;
+
 /** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me). */
 export const PUBLIC_PORT = 46_200;
 /**

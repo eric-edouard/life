@@ -130,6 +130,9 @@ this step's PR; the archive keeps its rule (never moved, never rewritten): the h
 
 - Done when: a message sent on the Mac shows in the hub's memory within minutes, and one deleted after it stays
   archived.
+- Built (23 Oct): the push contract (`docs/architecture.md`, "The Mac companion"): the companion pushes its archive
+  row for row, the hub's largest rowid is each table's cursor; the `companion` setting, `bun life companion token`,
+  Life.app running the archive alone. iMessage waits on its archive store (a new archive table, ask first).
 
 ### 7. The server's Compose
 

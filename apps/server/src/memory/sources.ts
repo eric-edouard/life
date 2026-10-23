@@ -10,7 +10,12 @@ import {
   newestAssistant,
   readAssistant,
 } from "../sources/assistants";
-import { copyBeeper, newestBeeper, readBeeper } from "../sources/beeper";
+import {
+  copyBeeper,
+  newestBeeper,
+  openBeeper,
+  readBeeper,
+} from "../sources/beeper";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { newestCommit, readGit } from "../sources/git";
 import {
@@ -22,11 +27,12 @@ import {
 } from "../sources/imessage";
 import { lifelogMissing } from "../sources/lifelog";
 import { mailRoot, newestMail, readMail } from "../sources/mail";
-import { copyNotes, newestNote, readNotes } from "../sources/notes";
+import { copyNotes, newestNote, openNotes, readNotes } from "../sources/notes";
 import {
   copyWhatsapp,
   isWhatsappGroup,
   newestWhatsapp,
+  openWhatsapp,
   phoneOf,
   readWhatsapp,
 } from "../sources/whatsapp";
@@ -88,6 +94,7 @@ const LISTED: Descriptor[] = [
       copies: "messages",
       copy: copyWhatsapp,
       media: "media",
+      open: openWhatsapp,
     },
   },
   {
@@ -104,6 +111,7 @@ const LISTED: Descriptor[] = [
       copies: "messages",
       copy: copyBeeper,
       media: "''",
+      open: openBeeper,
     },
   },
   {
@@ -139,6 +147,7 @@ const LISTED: Descriptor[] = [
       copies: "versions",
       copy: copyNotes,
       media: "''",
+      open: openNotes,
     },
   },
   // His claude.ai and ChatGPT history, imported once (memory/imports.ts): it never gets new items, so its card is never

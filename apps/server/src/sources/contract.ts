@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import type { SourceName } from "../core/names";
 import type { InferredRepo } from "../records/observation";
@@ -21,13 +22,15 @@ export interface Newest {
 /**
  * An app's own store the archive copies (`archive.ts`), because the app wipes what is deleted. `app` writes it and is
  * kept running: closed, it receives nothing. `copy` copies what is new and says how many versions; `copies` is the
- * table each copy is a row of, `media` the column of its `deleted` view that names a copied file.
+ * table each copy is a row of, `media` the column of its `deleted` view that names a copied file. `open` opens the
+ * archive's store in a folder, its tables made: the copy, and a hub's copy of a companion's archive (`host/companion.ts`).
  */
 export interface AppStore {
   app: string;
   copies: string;
   copy: () => number;
   media: string;
+  open: (dir: string) => Database;
 }
 export type Descriptor = {
   /** How many days back `chats --chat` reads it. */

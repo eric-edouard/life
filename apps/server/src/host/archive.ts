@@ -9,6 +9,7 @@ import { openAppArgs } from "../core/platform";
 import { codeAt, exec } from "../core/proc";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
+import { companionOf, push } from "./companion";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message Beeper Desktop
 // holds, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
@@ -142,11 +143,63 @@ export function openIncidents(lines: LogEvent[]) {
 
 /** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
 export async function archiveFailing(ms = 0, now = clock().getTime()) {
-  const kept = new Set(keptStores().map((s) => s.name as string));
+  const kept = new Set<string>([
+    ...keptStores().map((s) => s.name),
+    ...(companionOf() ? ["companion"] : []),
+  ]);
   // A store he turned off since has no incident: it is no longer copied, so nothing would ever close it.
   return [...openIncidents(await recentEvents(ARCHIVE_LOOKBACK))].filter(
     ([name, e]) => kept.has(name) && now - Date.parse(e.at) >= ms
   );
+}
+
+/** A job of the archive (a store's copy, the companion's push) went well: its incident, if open, ends; what it moved is said. */
+function worked(failing: Set<string>, name: string, said: string, n: number) {
+  if (failing.delete(name)) {
+    log("run.end", { step: `archive.${name}` });
+  }
+  if (n > 0) {
+    console.log(`${clock().toISOString()} ${said}`);
+  }
+}
+
+/** A job of the archive failed: its incident starts, logged once until it works again. */
+function failed(failing: Set<string>, name: string, error: unknown) {
+  console.error(clock().toISOString(), name, error);
+  if (!failing.has(name)) {
+    failing.add(name);
+    log("run.error", {
+      error: (error as Error).message,
+      step: `archive.${name}`,
+    });
+  }
+}
+
+/** How often a companion pushes its archive to the hub (`host/companion.ts`). */
+const PUSH_MS = 60_000;
+
+/**
+ * A companion's push, started at most every `every` ms and never two at once, so a long one (the first, all history)
+ * never holds up the copies: a failure is an incident like a store's (`companion`, logged at both ends).
+ */
+function pusher(failing: Set<string>) {
+  let last = 0;
+  let running: Promise<void> | undefined;
+  return (every: number) => {
+    const to = companionOf();
+    const now = clock().getTime();
+    if (!to || running || now - last < every) {
+      return running;
+    }
+    last = now;
+    running = push(to.hub, to.token)
+      .then((sent) => worked(failing, "companion", `pushed ${sent} rows`, sent))
+      .catch((error) => failed(failing, "companion", error))
+      .finally(() => {
+        running = undefined;
+      });
+    return running;
+  };
 }
 
 /**
@@ -162,30 +215,20 @@ export async function archiveCommand(args: string[]): Promise<number> {
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
   const failing = new Set((await archiveFailing()).map(([name]) => name));
+  const pushing = pusher(failing);
   while (codeAt(LIFE_CODE_DIR) === running) {
     for (const { name, store } of keptStores()) {
       try {
         const added = store.copy();
-        if (failing.delete(name)) {
-          log("run.end", { step: `archive.${name}` });
-        }
-        if (added > 0) {
-          console.log(`${clock().toISOString()} archived ${added} ${name}`);
-        }
+        worked(failing, name, `archived ${added} ${name}`, added);
       } catch (error) {
-        console.error(clock().toISOString(), name, error);
-        if (!failing.has(name)) {
-          failing.add(name);
-          log("run.error", {
-            error: (error as Error).message,
-            step: `archive.${name}`,
-          });
-        }
+        failed(failing, name, error);
       }
     }
     if (args.includes("--once")) {
-      return 0;
+      return (pushing(0) ?? Promise.resolve()).then(() => 0);
     }
+    pushing(PUSH_MS);
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
