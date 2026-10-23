@@ -53,5 +53,9 @@ if [ ! -e "$DATA/life/state/settings.json" ]; then
     "{\"connector\":{\"origin\":\"${LIFE_ORIGIN%/}\",\"tunnel\":\"cloudflare\"}}" >/dev/null
 fi
 "${COMPOSE[@]}" up -d
-# Life's setup page takes this code for 5 minutes; Life answers before the speech service has its models.
+# Life answers long before the speech service has its models; its setup page takes this code for 5 minutes.
+"${COMPOSE[@]}" up -d --wait --no-deps life
+ORIGIN=$("${COMPOSE[@]}" exec -T life bun -e 'console.log(require("/data/state/settings.json").connector.origin)')
 "${COMPOSE[@]}" exec -T life bun apps/server/src/host/cli.ts pair
+echo "Open $ORIGIN/settings/ and type this code within 5 minutes (run the same command for a new one:"
+echo "  docker compose -f $REPO/deploy/compose.yaml exec life bun apps/server/src/host/cli.ts pair)"
