@@ -1,7 +1,7 @@
-// Lifelog Host.app (packaging 4.6b): the menu-bar app, with the server, the Mac helper, cloudflared, restic, Codex and uv
+// Voice Host.app (packaging 4.6b): the menu-bar app, with the server, the Mac helper, cloudflared, restic, Codex and uv
 // in Contents/Helpers, and speaker recognition's files (apps/speech) in Contents/Resources/identity; its icon is the
 // iPhone app's (AppIcon.icon), its menu-bar mark the same ring and dot.
-//   bun run host:app [out]    (default .build/host; signed ad hoc unless LIFELOG_SIGN_IDENTITY is set)
+//   bun run host:app [out]    (default .build/host; signed ad hoc unless LIFE_SIGN_IDENTITY is set)
 // An identity (Developer ID, for a release) signs under the hardened runtime, which the server, a Bun binary, needs
 // JIT entitlements for; ad hoc has no runtime, as in Life's scripts/app.ts.
 import { createHash } from "node:crypto";
@@ -13,13 +13,13 @@ import { buildHost } from "../apps/voice/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
 const out = resolve(process.argv[2] ?? join(root, ".build/host"));
-const app = join(out, "Lifelog Host.app");
+const app = join(out, "Voice Host.app");
 const contents = join(app, "Contents");
 const helpers = join(contents, "Helpers");
 const resources = join(contents, "Resources");
 const swift = join(root, ".build/dictation-release");
-const identity = process.env.LIFELOG_SIGN_IDENTITY ?? "-";
-const version = process.env.LIFELOG_VERSION ?? "1.0";
+const identity = process.env.LIFE_SIGN_IDENTITY ?? "-";
+const version = process.env.VOICE_HOST_VERSION ?? "1.0";
 const arch = process.arch === "arm64" ? "arm64" : "amd64";
 const triple = `${arch === "arm64" ? "aarch64" : "x86_64"}-apple-darwin`;
 const codex = `codex-${triple}`;
@@ -81,15 +81,15 @@ const MENUBAR = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" 
 const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleExecutable</key><string>LifelogHost</string>
+  <key>CFBundleExecutable</key><string>VoiceHost</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleIconName</key><string>AppIcon</string>
   <key>CFBundleIdentifier</key><string>com.lifelog.host</string>
-  <key>CFBundleName</key><string>Lifelog Host</string>
+  <key>CFBundleName</key><string>Voice Host</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${version}</string>
   <key>CFBundleVersion</key><string>${version}</string>
-  <key>LifelogCommit</key><string>${commit}</string>
+  <key>LifeCommit</key><string>${commit}</string>
   <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>LSUIElement</key><true/>
 </dict></plist>
@@ -122,8 +122,8 @@ await $`swift build -c release --package-path ${join(root, "apps/dictation")} --
 const bin = (
   await $`swift build -c release --package-path ${join(root, "apps/dictation")} --scratch-path ${swift} --show-bin-path`.text()
 ).trim();
-await cp(join(bin, "LifelogHost"), join(contents, "MacOS/LifelogHost"));
-await cp(join(bin, "lifelog-quiet"), join(helpers, "lifelog-quiet"));
+await cp(join(bin, "VoiceHost"), join(contents, "MacOS/VoiceHost"));
+await cp(join(bin, "dictation-sensor"), join(helpers, "dictation-sensor"));
 await buildHost(helpers);
 // The server's third-party licenses: Helpers holds only code to sign, so they go to Resources.
 await rename(join(helpers, "NOTICE"), join(resources, "NOTICE"));
@@ -140,7 +140,7 @@ await writeFile(join(contents, "Info.plist"), PLIST);
 
 // The app icon (Assets.car and AppIcon.icns) from the iPhone's Icon Composer file, and the menu bar's template PDF
 // (rsvg-convert, Homebrew's librsvg; at 72 dpi its 18 px are 18 pt).
-await $`xcrun actool --compile ${resources} --platform macosx --minimum-deployment-target 15.0 --app-icon AppIcon --output-partial-info-plist ${join(out, "icon.plist")} ${join(root, "apps/ios/Lifelog/AppIcon.icon")}`.quiet();
+await $`xcrun actool --compile ${resources} --platform macosx --minimum-deployment-target 15.0 --app-icon AppIcon --output-partial-info-plist ${join(out, "icon.plist")} ${join(root, "apps/ios/Life/AppIcon.icon")}`.quiet();
 const menubar = join(out, "menubar.svg");
 await writeFile(menubar, MENUBAR);
 await $`rsvg-convert -f pdf -d 72 -p 72 -o ${join(resources, "menubar.pdf")} ${menubar}`;
@@ -150,9 +150,9 @@ const hardened =
   identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const entitlements = join(out, "server.entitlements");
 await writeFile(entitlements, SERVER_ENTITLEMENTS);
-await $`codesign --force --sign ${identity} ${hardened} --entitlements ${entitlements} ${join(helpers, "lifelog-server")}`;
+await $`codesign --force --sign ${identity} ${hardened} --entitlements ${entitlements} ${join(helpers, "voice-server")}`;
 for (const helper of [
-  "lifelog-quiet",
+  "dictation-sensor",
   "cloudflared",
   "restic",
   "codex",

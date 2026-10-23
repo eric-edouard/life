@@ -112,7 +112,7 @@ private fun Screen(
         Modifier.fillMaxSize().background(brand.page).safeDrawingPadding().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        BasicText("lifelog", style = TextStyle(fontFamily = Brand.serif, fontWeight = FontWeight.SemiBold, fontSize = 36.sp, color = brand.ink))
+        BasicText("Life", style = TextStyle(fontFamily = Brand.serif, fontWeight = FontWeight.SemiBold, fontSize = 36.sp, color = brand.ink))
         Column(
             Modifier.fillMaxWidth().background(brand.surface, RoundedCornerShape(Brand.panel)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),

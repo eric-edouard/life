@@ -48,7 +48,7 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
       description:
         "Passages (about 30 to 60 s of turns) ranked by meaning and by the words typed, best " +
         "first: a passage containing the query as typed outranks one that only means it. " +
-        "The query is embedded by OpenAI (docs/providers.md); identical queries reuse it for " +
+        "The query is embedded by OpenAI (docs/voice/providers.md); identical queries reuse it for " +
         "a few minutes. Conversations are indexed in the background after each change.",
       method: "post",
       path: "/search",

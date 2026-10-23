@@ -12,14 +12,14 @@ Core Audio and sleep readings, the outbox until acked, the empty folder and no-t
 the subscription readings, filtered to percentages before they leave. The socket protocol is `macProtocol` here and
 `MAC_PROTOCOL` on the server; change both together. Its token opens only its socket.
 
-`LifelogHost` is the menu-bar app that runs all of lifelog on a Mac (`bun run host:app`, README "Lifelog Host"). Its
+`VoiceHost` is the menu-bar app that runs all of Life on a Mac (`bun run host:app`, README "Voice Host"). Its
 decisions are `QuietCore.Host` and `HostStatus` (the server's environment, the tunnel's arguments, `server.env`, the
 status report the menu and window show, the export/import result) and `Summaries` (the helper's sign-in to ChatGPT
 or Claude, shared with its `--setup-*` flags), tested. `HostModel` holds the settings and
 says how each `Child` runs; `Supervisor` keeps the children alive; the views only show. Speaker recognition
 (`apps/speech`) is a child too: `HostModel.installIdentity` installs it with the bundled `uv` once per launch,
 started by `restart`, before the child runs. The app delegate owns the
-only model. Its secrets share the helper's `secrets.json`, never the Keychain (`docs/decisions.md`); whoever writes
+only model. Its secrets share the helper's `secrets.json`, never the Keychain (`docs/voice/decisions.md`); whoever writes
 the file reads it first, so neither drops the other's fields. Its other settings are the app's defaults
 (`HostSettings`).
 

@@ -108,7 +108,7 @@
             }
         }
 
-        /// One detection, like the firmware's sound detector (docs/research/pendant-vad.md): a storage session of
+        /// One detection, like the firmware's sound detector (docs/voice/research/pendant-vad.md): a storage session of
         /// audio pages, opened by a start marker and closed by a stop marker, ending now. Like the firmware, a status
         /// is pushed at each state change.
         public func recordVoice(pages count: Int, packetsPerPage: Int = 75) {

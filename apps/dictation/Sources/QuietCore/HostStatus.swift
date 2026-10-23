@@ -1,7 +1,7 @@
 import Foundation
 
 /// The server's `GET /status/live` (the menu's, without the archive checks, problems and latency) or `GET /status`
-/// (the status window's), as much as Lifelog Host shows. Each section is read on its own: a field the server adds is
+/// (the status window's), as much as Voice Host shows. Each section is read on its own: a field the server adds is
 /// ignored, and a section it drops or reshapes shows as unknown instead of hiding the rest.
 public struct HostStatus: Decodable, Sendable {
     public struct Pipeline: Decodable, Sendable {
@@ -165,10 +165,10 @@ extension Host {
         public var id: String { summary.label }
     }
 
-    /// "lifelog: all good", or how many sections are in trouble.
+    /// "Voice Host: all good", or how many sections are in trouble.
     public static func verdict(_ sections: [Section]) -> String {
         let troubled = sections.count(where: \.summary.trouble)
-        return troubled == 0 ? "lifelog: all good" : "lifelog: \(troubled) to look at"
+        return troubled == 0 ? "Voice Host: all good" : "Voice Host: \(troubled) to look at"
     }
 
     /// What the status says, section by section, as of `now`; nil (the server didn't answer) is one section in trouble.

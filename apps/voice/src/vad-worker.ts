@@ -2,7 +2,7 @@
 // opus-decoder (libopus in WASM) and labeled by Silero VAD v6 on onnxruntime-web's WASM runtime,
 // off the server's thread. Its own globals hold the runtime's Emscripten glue. One request at a time,
 // in order; a piece that goes on in the next batch keeps its decoder and Silero's state here (its
-// stream), so labels never restart where a batch ends (docs/decisions.md, "A thin phone's pages").
+// stream), so labels never restart where a batch ends (docs/voice/decisions.md, "A thin phone's pages").
 import { env, InferenceSession, Tensor } from "onnxruntime-web";
 // biome-ignore lint/performance/noNamespaceImport: `bun build --compile` drops the named export
 import * as opus from "opus-decoder";

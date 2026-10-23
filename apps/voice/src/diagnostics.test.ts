@@ -43,7 +43,7 @@ const build = {
   device: "iPhone17,1",
   os: "iOS 27.0 (24A100)",
 };
-const frame = (depth: number, offset: number, binaryName = "lifelog") => ({
+const frame = (depth: number, offset: number, binaryName = "Life") => ({
   address: 0x1_00_00_00_00 + offset,
   binaryName,
   binaryUUID: "8A0F7C3E-1B2D-3C4E-5F60-718293A4B5C6",
@@ -52,7 +52,7 @@ const frame = (depth: number, offset: number, binaryName = "lifelog") => ({
 });
 const crash = (id = randomUUID()) => ({
   begin: "2026-10-07T00:00:00.000Z",
-  binaries: [{ name: "lifelog", uuid: "8A0F7C3E-1B2D-3C4E-5F60-718293A4B5C6" }],
+  binaries: [{ name: "Life", uuid: "8A0F7C3E-1B2D-3C4E-5F60-718293A4B5C6" }],
   build,
   callStacks: [
     { frames: [frame(0, 0x99)], threadAttributed: false },
@@ -185,7 +185,7 @@ test("diagnostics list since a time, newest first, with a signature", async () =
   expect(listed).toHaveLength(1);
   expect(listed[0].id).toBe(id);
   expect(listed[0].signature).toBe(
-    "crash | signal 11 | lifelog+0x10 | lifelog+0x20 | lifelog+0x30"
+    "crash | signal 11 | Life+0x10 | Life+0x20 | Life+0x30"
   );
   expect(listed[0].callStacks[1].frames).toHaveLength(4);
   const later = new Date(Date.now() + 60_000).toISOString();
@@ -250,12 +250,12 @@ test("the top frames follow the first path down the tree", () => {
       kind: "crash",
       truncated: false,
     })
-  ).toBe("crash | NSRangeException | lifelog+0x1 | lifelog+0x2 | lifelog+0x3");
+  ).toBe("crash | NSRangeException | Life+0x1 | Life+0x2 | Life+0x3");
 });
 
 const appError = (id: string, count: number) => ({
   begin: "2026-10-08T05:00:00.000Z",
-  binaries: [{ name: "lifelog", uuid: "8A0F7C3E-1B2D-3C4E-5F60-718293A4B5C6" }],
+  binaries: [{ name: "Life", uuid: "8A0F7C3E-1B2D-3C4E-5F60-718293A4B5C6" }],
   build,
   callStacks: [
     { frames: [frame(0, 0x10), frame(1, 0x20)], threadAttributed: true },
@@ -265,7 +265,7 @@ const appError = (id: string, count: number) => ({
     code: 1,
     count,
     domain: "Processing.TranscriptionClient.ClientError",
-    file: "Lifelog/Library/LibraryListStore.swift",
+    file: "Life/Library/LibraryListStore.swift",
     httpStatus: 503,
     line: 127,
     message: 'server(status: 503, code: "search_unavailable")',
@@ -284,18 +284,18 @@ test("an app error's repeats replace it with a higher count", async () => {
   expect(listed).toHaveLength(1);
   expect(listed[0].error.count).toBe(4);
   expect(listed[0].signature).toBe(
-    "app_error | Lifelog/Library/LibraryListStore.swift:127 | " +
+    "app_error | Life/Library/LibraryListStore.swift:127 | " +
       "Processing.TranscriptionClient.ClientError | code 1 | 503 | search_unavailable"
   );
 });
 
-test("problem lines name the cause and an error's detail; app binaries are lifelog's", () => {
+test("problem lines name the cause and an error's detail; app binaries are Life's", () => {
   const c = DiagnosticUpload.parse(crash());
   expect(problemLines(c)).toEqual(["signal 11; exception type 1"]);
   expect(appBinaryUUIDs(c)).toEqual(["8A0F7C3E-1B2D-3C4E-5F60-718293A4B5C6"]);
   const e = DiagnosticUpload.parse(appError(randomUUID(), 3));
   expect(problemLines(e)).toEqual([
-    "Lifelog/Library/LibraryListStore.swift:127  Processing.TranscriptionClient.ClientError  3x since 2026-10-08T05:00:00.000Z",
+    "Life/Library/LibraryListStore.swift:127  Processing.TranscriptionClient.ClientError  3x since 2026-10-08T05:00:00.000Z",
     "Processing.TranscriptionClient.ClientError 1, HTTP 503, search_unavailable",
     'server(status: 503, code: "search_unavailable")',
   ]);

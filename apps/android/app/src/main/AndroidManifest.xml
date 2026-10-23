@@ -18,7 +18,7 @@
         android:allowBackup="false"
         android:dataExtractionRules="@xml/no_backup"
         android:icon="@mipmap/ic_launcher"
-        android:label="lifelog"
+        android:label="Life"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">

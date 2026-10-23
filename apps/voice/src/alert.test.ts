@@ -12,7 +12,7 @@ afterAll(() => sent.mockRestore());
 
 const alert = { key: "k1", subject: "s", text: "t" };
 const configured = {
-  ALERT_EMAIL_FROM: "Lifelog <alerts@example.com>",
+  ALERT_EMAIL_FROM: "Life <alerts@example.com>",
   ALERT_EMAIL_TO: "owner@example.com",
   RESEND_API_KEY: "re_test",
 };
@@ -34,7 +34,7 @@ test("an alert goes from the configured sender", async () => {
   expect(await emailOwner(config, alert)).toBe(200);
   const [, init] = sent.mock.calls[0] ?? [];
   expect(JSON.parse(String(init?.body))).toMatchObject({
-    from: "Lifelog <alerts@example.com>",
+    from: "Life <alerts@example.com>",
     to: ["owner@example.com"],
   });
 });

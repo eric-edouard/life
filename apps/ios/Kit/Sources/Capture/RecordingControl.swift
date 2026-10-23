@@ -54,7 +54,7 @@ public enum RecordingEffect: Sendable, Equatable {
     case confirmed(RecordingChange.Kind, at: Date)
 }
 
-/// Recording on or off as the Pendant last confirmed, or a state it reported that lifelog doesn't know.
+/// Recording on or off as the Pendant last confirmed, or a state it reported that Life doesn't know.
 public enum KnownRecording: Equatable, Sendable {
     case recording
     case paused
@@ -64,7 +64,7 @@ public enum KnownRecording: Equatable, Sendable {
 /// Pure recording-control state machine.
 ///
 /// The firmware reports NOT_RECORDING both when it is paused (idle mode, microphones off) and, as its own logs and
-/// flash chunks show, every time its sound detector stops storing (docs/research/pendant-vad.md). So NOT_RECORDING
+/// flash chunks show, every time its sound detector stops storing (docs/voice/research/pendant-vad.md). So NOT_RECORDING
 /// alone is never a pause: it is one only when this app asked for it, a long press was just seen, or the newest
 /// evidence of the firmware's mode says idle. Otherwise recording stays on and the silence is the sound line's business.
 public struct RecordingControl: Sendable {
@@ -194,7 +194,7 @@ public struct RecordingControl: Sendable {
 extension FlashPage {
     /// This page's newest sign of the firmware's mode: the detector recording (a RECORDING chunk, audio) or the
     /// firmware waking means on; its switch to idle mode means off (microphones off). A NOT_RECORDING chunk says
-    /// neither: the detector writes one at every pause. Verified on the owner's Pendant (docs/research/pendant-vad.md).
+    /// neither: the detector writes one at every pause. Verified on the owner's Pendant (docs/voice/research/pendant-vad.md).
     public var recordingMode: Observed<Bool>? {
         guard let opened = timestampMillis else { return nil }
         var mode: Observed<Bool>?

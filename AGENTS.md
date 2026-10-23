@@ -11,6 +11,20 @@ backups, evals, the read CLI), `docs/status-reads.md` (the connector's status re
 `SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
 documentation: it is the agent's playbook, read at run time.
 
+## The apps
+
+Life's memory and connector are `apps/server` (Bun) and `apps/mac` (Life.app). The voice half came in from lifelog
+(server playbook, step 1); each app has its own `AGENTS.md` with its invariants, read it before changing the app:
+
+- `apps/ios`: Life for iPhone, its Watch app, widgets and `Kit/` (Swift). It drains the Pendant or Omi; ACK rules.
+- `apps/voice`: the voice server (Bun, Hono, Drizzle, one SQLite archive) with `packages/db` and `packages/auth`.
+- `apps/speech`: the speech service (Python), voice excerpts in, numbers out, nothing stored.
+- `apps/dictation`: the dictation sensor and the Mac helper, and Voice Host, the menu-bar app that runs the voice
+  server on a Mac until Life.app does (playbook step 9).
+- `apps/android` (parked) and `apps/transcription-bench` (Scribe against open models, hand-run).
+
+The voice half's docs are in `docs/voice/`; the order of the server work is `docs/plans/2026-10-23-server-playbook.md`.
+
 ## Commands
 
 ```sh
@@ -21,7 +35,14 @@ bun run fix                      # format and lint fixes
 bun life <command>               # the CLI (apps/server/src/host/cli.ts); `bun life memory …` for the pipeline and reads
 bun life validate                # check truth/ (from the live checkout only, never a worktree)
 bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, else ad hoc)
+bun run --cwd apps/voice test src/feed.test.ts                                       # one voice server test
+swift test --package-path apps/ios/Kit --scratch-path .build/kit --filter WireTests  # one Kit suite
+bun run ios:project              # regenerate the phone's Xcode project after editing project.yml
+bun run host:app [out]           # build Voice Host.app (needs librsvg)
+bun run events --since 30m       # the voice server's, the phone's and the Mac's events in time order
 ```
+
+The check runs the Swift and Xcode steps on a Mac only and says it skipped them elsewhere; Android where its SDK is.
 
 ## Working with the owner
 

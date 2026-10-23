@@ -302,9 +302,9 @@ export function problemLines(d: DiagnosticUpload, stackLines = 64): string[] {
   ];
 }
 
-// The app's own binaries in a diagnostic, whose dSYMs symbolicate it: lifelog, its widgets and the
+// The app's own binaries in a diagnostic, whose dSYMs symbolicate it: Life, its widgets and the
 // Watch's. MetricKit sometimes leaves the app's name out, so a nameless binary counts as the app's.
-const APP_BINARY = /^lifelog/i;
+const APP_BINARY = /^Life/i;
 export const appBinaryUUIDs = (d: DiagnosticUpload) => [
   ...new Set(
     d.callStacks.flatMap((s) =>
@@ -498,7 +498,7 @@ export function listDiagnostics(
   }));
 }
 
-// Whether the Pendant records, by the one rule every reader uses (docs/processing.md, Latency):
+// Whether the Pendant records, by the one rule every reader uses (docs/voice/processing.md, Latency):
 // the last confirmed state, which the phone keeps across a lost link, else what it sees now.
 export const pendantRecording = (beat: z.infer<typeof Heartbeat>) => ({
   recording: beat.recording.lastKnown ?? beat.recording.state,

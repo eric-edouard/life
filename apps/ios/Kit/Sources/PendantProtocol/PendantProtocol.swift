@@ -1,4 +1,4 @@
-/// Limitless Pendant BLE wire protocol. Codec only: no I/O. See `docs/pendant.md`.
+/// Limitless Pendant BLE wire protocol. Codec only: no I/O. See `docs/voice/pendant.md`.
 public enum PendantGATT {
     public static let service = "632DE001-604C-446B-A80F-7963E950F3FB"
     /// Phone → Pendant commands. Write with response.

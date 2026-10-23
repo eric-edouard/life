@@ -15,7 +15,7 @@ private func temporaryDirectory() -> URL {
 
 private func payload(_ index: UInt64) -> Data { Data("raw page \(index)".utf8) }
 
-/// A small live lifelog folder: three raw pages, one titled conversation in the cache and one derived
+/// A small live Life folder: three raw pages, one titled conversation in the cache and one derived
 /// sidecar beside its (rebuildable) audio.
 private func liveStores() async throws -> URL {
     let live = temporaryDirectory()

@@ -12,7 +12,7 @@ import { askForUploads, TICK_MS } from "./latency";
 import { services } from "./services";
 import { loadSwitches } from "./switches";
 
-// `lifelog-server export|import <folder>`: the archive as a folder (export.ts), and no server.
+// `voice-server export|import <folder>`: the archive as a folder (export.ts), and no server.
 const [command] = process.argv.slice(2);
 if (command === "export" || command === "import") {
   process.exit(await runCommand(process.argv.slice(2), process.env));

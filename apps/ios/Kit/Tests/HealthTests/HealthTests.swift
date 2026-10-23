@@ -93,7 +93,7 @@ private func crash(threads: [RawDiagnostic<TestFrame>.Thread]) -> RawDiagnostic<
                 exceptionType: 1, exceptionCode: 0, signal: 6, terminationReason: "Namespace SIGNAL, Code 6",
                 terminationCategory: "abnormal", virtualMemoryRegionInfo: "region near secret-mapping",
                 objcException: exception)),
-        build: build, begin: now, end: now, threads: threads, binaryNames: [app: "lifelog", kernel: "libsystem_kernel"])
+        build: build, begin: now, end: now, threads: threads, binaryNames: [app: "Life", kernel: "libsystem_kernel"])
 }
 
 @Test func diagnosticKeepsCallStacksAndDropsPrivateText() throws {
@@ -114,7 +114,7 @@ private func crash(threads: [RawDiagnostic<TestFrame>.Thread]) -> RawDiagnostic<
     #expect(attributed.threadAttributed)
     #expect(attributed.frames.map(\.depth) == [0, 1, 2, 1])
     #expect(attributed.frames.map(\.offsetIntoBinaryTextSegment) == [0x10, 0x20, 0x30, 0x40])
-    #expect(attributed.frames.map(\.binaryName) == ["libsystem_kernel", "lifelog", "lifelog", "lifelog"])
+    #expect(attributed.frames.map(\.binaryName) == ["libsystem_kernel", "Life", "Life", "Life"])
     #expect(attributed.frames.first?.binaryUUID == kernel.uuidString)
     #expect(Set(upload.binaries.map(\.uuid)) == [app.uuidString, kernel.uuidString])
 }
@@ -242,7 +242,7 @@ private actor Sent {
     let reporter = ErrorReporter(outbox: outbox, build: build)
     func error(line: Int = 127) -> DiagnosticUpload.AppError {
         .init(
-            file: "Lifelog/Library/LibraryListStore.swift", line: line, type: "URLError", domain: "NSURLErrorDomain",
+            file: "Life/Library/LibraryListStore.swift", line: line, type: "URLError", domain: "NSURLErrorDomain",
             code: -1009, httpStatus: nil, serverCode: nil, message: String(repeating: "offline ", count: 100))
     }
     let stack = Thread.callStackReturnAddresses.map(\.uintValue)

@@ -6,7 +6,7 @@ import SourceStore
 import Timeline
 
 /// Sends the phone's part to the server: speech fragments, then timeline facts with how far the speech went
-/// (`sentThrough`). The server decides blocks from them (docs/timeline.md, "Fragments and blocks"); the phone keeps one
+/// (`sentThrough`). The server decides blocks from them (docs/voice/timeline.md, "Fragments and blocks"); the phone keeps one
 /// cursor. The app's driver runs one pass at a time: on each Bluetooth sync that saved audio, on the server's silent
 /// push, in the background task and in the foreground.
 ///
@@ -92,7 +92,7 @@ public actor Uploader {
 
     /// One pass: fragments, then the timeline. `savedThrough`: all audio the Pendant captured before it is on the phone
     /// (`FactsBuilder.savedThrough`, read before this pass). The Mac's word is the server's to wait for
-    /// (`docs/processing.md`).
+    /// (`docs/voice/processing.md`).
     public func run(savedThrough: Date?) async throws {
         var state = try state()
         if state == nil { state = try await restore() }

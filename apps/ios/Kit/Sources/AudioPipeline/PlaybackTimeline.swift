@@ -2,7 +2,7 @@ import AVFoundation
 import Timeline
 
 /// One conversation's audio as one continuous program. Offset 0 is `range.lowerBound` and capture time runs linearly,
-/// so `offset = instant - range.lowerBound` everywhere, exactly like exported audio (docs/formats.md). Stretches no
+/// so `offset = instant - range.lowerBound` everywhere, exactly like exported audio (docs/voice/formats.md). Stretches no
 /// playback file covers (not recorded, unreadable pages) play as silence and are listed in `gaps`; they are never cut,
 /// so transcript times never shift.
 public struct PlaybackTimeline: Sendable, Equatable {

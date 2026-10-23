@@ -1,4 +1,4 @@
-// The Pendant's button (docs/pendant.md): the phone sends the minutes before a press as Ogg Opus and gets their
+// The Pendant's button (docs/voice/pendant.md): the phone sends the minutes before a press as Ogg Opus and gets their
 // words back at once, for "Quick question to AI". Neither the audio nor the words are kept, only
 // what the call cost (`quick_transcriptions`), which counts in the spending. The same
 // audio is transcribed again in its block (owner, Oct 15).

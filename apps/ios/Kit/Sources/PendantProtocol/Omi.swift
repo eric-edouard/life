@@ -1,7 +1,7 @@
 import Foundation
 
 /// The Omi pendant's offline ring (firmware 3.0.20 and later, BasedHardware/omi `storage.c`, `ring_protocol.dart`).
-/// See `docs/research/omi.md`. Codec only: no I/O.
+/// See `docs/voice/research/omi.md`. Codec only: no I/O.
 public enum OmiGATT {
     /// Advertised: how a scan finds an Omi. Its live audio is never subscribed to: while subscribed the Omi streams
     /// instead of writing its ring.
@@ -199,7 +199,7 @@ public enum OmiFirmware {
     /// The first release where only the app's ADVANCE frees ring records ("ring custody", BasedHardware/omi#20450,
     /// still an open draft on 22 Oct 2026; the latest release, 3.0.21, frees on delivery). `nil` until it ships: then
     /// set it, and the in-app warning asks the user to update. Whoever works on the Omi checks the release notes first
-    /// (`docs/research/omi.md`).
+    /// (`docs/voice/research/omi.md`).
     public static let custodyFixedIn: [Int]? = nil
 
     /// Whether `revision` frees a record as soon as Bluetooth delivers it, before the phone has stored it. An unknown

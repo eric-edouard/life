@@ -49,7 +49,7 @@ public final class Settings {
 }
 
 /// Did changing the brightness visibly change the light? Asked once, after the first change, because nothing on the
-/// firmware confirms the command (docs/pendant.md).
+/// firmware confirms the command (docs/voice/pendant.md).
 public enum LightBrightnessCheck: String, Sendable {
     case unasked
     case changed = "dimmed"

@@ -1,7 +1,7 @@
 [project]
-name = "lifelog-identity"
+name = "speech"
 version = "0.1.0"
-description = "Speaker embeddings (SpeechBrain ECAPA) for the lifelog server"
+description = "Speaker embeddings (SpeechBrain ECAPA) for the voice server"
 requires-python = "==3.12.*"
 dependencies = [
   "numpy==2.3.4",

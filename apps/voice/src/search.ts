@@ -5,7 +5,7 @@
 // - Indexing is a sweep: any conversation a change touched since the last sweep (its words, range,
 //   speaker rows or people's names, by the change log) is rebuilt. A passage whose text is
 //   unchanged keeps its embedding, so a rebuild only pays for what changed.
-// - Only passage text (speaker names and words) goes to OpenAI (docs/providers.md).
+// - Only passage text (speaker names and words) goes to OpenAI (docs/voice/providers.md).
 import { createHash } from "node:crypto";
 import type { Db } from "@life/voice-db";
 import {

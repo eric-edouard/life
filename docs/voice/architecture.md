@@ -1,6 +1,6 @@
 # Architecture
 
-How lifelog is put together: the modules, who owns what, how a Pendant page becomes a chapter, and where a new
+How Life is put together: the modules, who owns what, how a Pendant page becomes a chapter, and where a new
 feature goes. Read this first; the other docs go deeper.
 
 ## The pieces
@@ -10,12 +10,12 @@ flowchart TB
   Pendant(["Limitless Pendant"])
 
   subgraph phone["iPhone (apps/ios)"]
-    subgraph app["App stores (Lifelog/)"]
+    subgraph app["App stores (Life/)"]
       CaptureStore
       SyncStore["SyncStore<br/>starts the run"]
       Screens["Feature stores<br/>Library · Conversation · People"]
     end
-    subgraph kit["LifelogKit (Kit/)"]
+    subgraph kit["LifeKit (Kit/)"]
       Capture
       PendantProtocol
       SourceStore
@@ -30,7 +30,7 @@ flowchart TB
     Glances["Widgets · Watch"]
   end
 
-  subgraph host["The owner's Mac (Lifelog Host)"]
+  subgraph host["The owner's Mac (Voice Host)"]
     Server["apps/voice<br/>Bun · Hono · SQLite · audio folder"]
     Mac["apps/dictation<br/>Mac helper"]
   end
@@ -52,20 +52,20 @@ flowchart TB
   Facts --> Capture
   Glances --> Facts
   ServerAPI -- "HTTPS, device token" --> Server
-  Android -- "raw pages, device token (docs/sync.md)" --> Server
+  Android -- "raw pages, device token (docs/voice/sync.md)" --> Server
   Server -. "silent push" .-> SyncStore
   Server --> Identity
   Mac <-->|"WebSocket: dictation, summaries"| Server
-  Life -- "REST, read or corrections token (docs/voice-source.md)" --> Server
+  Life -- "REST, read or corrections token (docs/voice/voice-source.md)" --> Server
 ```
 
 **Kit** holds everything that doesn't need UIKit, so it builds and tests on the Mac in seconds:
 
 - `PendantProtocol`: the BLE wire format. No I/O.
 - `Capture`: the Bluetooth transport (real and fake) and the drain, with its state machines: one drain for the
-  Limitless Pendant and the Omi, each with its `DeviceCodec` (`docs/research/omi.md`).
+  Limitless Pendant and the Omi, each with its `DeviceCodec` (`docs/voice/research/omi.md`).
 - `SourceStore`: raw pages, safely on disk. The only authority for ACK.
-- `Timeline`: capture time, time maps, the speech rules. Pure values (`docs/timeline.md`).
+- `Timeline`: capture time, time maps, the speech rules. Pure values (`docs/voice/timeline.md`).
 - `AudioPipeline`: decodes pages into playback files, runs the speech detectors, renders the audio of a fragment.
 - `Upload`: the `TimelineScanner` (the scanned timeline the uploader reads: spans, clock, labels, pauses) and its
   `TimelineStore`, `FactsBuilder` (timeline facts and heard-through), `SpeechFragment` (where a fragment ends), the
@@ -76,25 +76,25 @@ flowchart TB
   recording's audio file.
 - `ServerAPI`: `ServerClient`, one file per server domain, and `Outbox.swift`: the owner's edits (`OwnerIntent`) kept
   in `library.sqlite`, made into requests when replayed, and shown as waiting (`PendingEdits`).
-- `Export`: the export, backup and restore formats (`docs/formats.md`).
+- `Export`: the export, backup and restore formats (`docs/voice/formats.md`).
 - `Incidents`, `Glance`, `OwnerSettings`, `Health`: capture facts for screens, the Watch and widgets; settings;
   crash and health reports.
 
-**The app** (`Lifelog/`) is SwiftUI on top: one `@Observable` store per feature, no app model.
+**The app** (`Life/`) is SwiftUI on top: one `@Observable` store per feature, no app model.
 
 The subscription Lock Screen dials read the app group only (`SubscriptionStorage`, types in `Glance`); how the
-readings get there is `docs/sync.md`.
+readings get there is `docs/voice/sync.md`.
 
 **The server** owns everything after capture: audio blocks in its audio store (a folder, or an S3 bucket), transcription jobs, words in capture time,
 grouping into conversations, speakers and people, chapters and summaries, places, search by meaning, and the REST
-surface for readers (`docs/voice-source.md`), with the sign-in a reader's MCP still uses. `apps/speech` turns voice excerpts into embeddings and keeps no audio. The Mac helper is a
+surface for readers (`docs/voice/voice-source.md`), with the sign-in a reader's MCP still uses. `apps/speech` turns voice excerpts into embeddings and keeps no audio. The Mac helper is a
 sensor and a runner: it reports which processes have the microphone on and when the Mac sleeps, which the server turns
 into quiet ranges (`dictation.ts`), and runs the model calls the server sends on the selected ChatGPT or Claude
 subscription, reporting their raw output (`mac-llm.ts` reads it).
 
 ## Who owns what
 
-Between the phone, the server and the Mac: the table in [`docs/sync.md`](sync.md). In short, the phone captures,
+Between the phone, the server and the Mac: the table in [`docs/voice/sync.md`](sync.md). In short, the phone captures,
 places audio in capture time, labels speech and uploads; the server owns what is made from it; the owner's edits go
 to the server as requests and show on the phone until it has them. `fixtures/` holds what both sides' tests read: the
 server's real answers in `wire/`, which Kit decodes, and the time map. Cases only the server reads
@@ -118,7 +118,7 @@ the server decides blocks and holds which pages it has. Each is fsync'd. All but
 private backup; `upload/` stays out of it and of iCloud backups: a restored phone starts its cursor over around the
 server's pages, as after a reinstall.
 
-**App stores.** `AppDelegate` builds the long-lived ones at launch and `LifelogApp` puts them in the environment:
+**App stores.** `AppDelegate` builds the long-lived ones at launch and `LifeApp` puts them in the environment:
 `CaptureStore`, the library (`\.library`), `SyncStore`, `NamingQueue` (voices to name),
 `PlaybackStore`, `ButtonActions` (the Pendant's button: the press on screen, which `PressOverlay` shows in its own
 window above every screen and sheet, and the finished presses the Presses tab lists, in `presses.json` in Caches). `SyncStore` owns the one run: it starts the Kit `Driver` on every trigger, one run at a time,
@@ -136,7 +136,7 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
 1. **Pendant flash.** The Pendant records Opus audio into flash pages, each with a device-wide index and its own
    clock. It keeps them until the phone ACKs.
 2. **Drain.** `CoreBluetoothTransport` (created at launch, so iOS can relaunch the app for Pendant events) feeds
-   `DrainCoordinator`, which pulls every page the Pendant holds. See [`docs/pendant.md`](pendant.md).
+   `DrainCoordinator`, which pulls every page the Pendant holds. See [`docs/voice/pendant.md`](pendant.md).
 3. **Stored.** `SourceStore` appends the bytes to a pack, fsyncs, then commits a receipt. Unreadable pages become
    gaps; pages the app can't decode are held. Clock syncs and pauses are stored too.
 4. **ACK.** The drain asks `PageSink.ackableIndex` for the unbroken run of durable or gapped pages, caps it at what
@@ -144,14 +144,14 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
 5. **Derived audio.** `DerivedAudioWorker` decodes new pages into playback files and labels each second (Silero,
    Apple's sound classifier). It never blocks capture or ACK.
 6. **Uploaded.** The driver's run: the owner's edits, the feed, then speech fragments of whole pages (cut at
-   pauses, at most 90 s) and the timeline facts. Details: [`docs/processing.md`](processing.md).
+   pauses, at most 90 s) and the timeline facts. Details: [`docs/voice/processing.md`](processing.md).
 7. **Transcribed.** The server stores the fragments in its audio store, closes them into blocks of up to 2 minutes and
    joins each block into a job. The worker sends it to ElevenLabs and
    stores the transcript when it returns. The words become turns in capture time. See
-   [`docs/transcription-server.md`](transcription-server.md).
+   [`docs/voice/transcription-server.md`](transcription-server.md).
 8. **Grouped.** The server groups the source's timeline facts, words, dictation, places and edits into conversations,
    from the changed instant on. A conversation shows the turns that start inside its range, and is closed once
-   heard-through is 5 minutes past its end ([`docs/timeline.md`](timeline.md)).
+   heard-through is 5 minutes past its end ([`docs/voice/timeline.md`](timeline.md)).
 9. **Recognized.** The server cuts the job's clean turns from its own audio, `apps/speech` embeds them, and the
    server decides who spoke each turn.
 10. **Summarized.** Whenever a conversation's words change (one rule, `turns_fp`), the Mac rolls its tail; each
@@ -175,7 +175,7 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
    the client calls.
 5. If the phone must show it, it travels in the feed (`feed.ts`): the writer calls `logChange` last in its
    transaction, the row lands in the cache under its key, and `LibraryCache.swift` gets a typed read. Add a row to
-   `docs/sync.md`. A real answer in `fixtures/wire/` checks both sides.
+   `docs/voice/sync.md`. A real answer in `fixtures/wire/` checks both sides.
 
 **Something the owner edits.** A case of `OwnerIntent` with the request it becomes (`OwnerIntent.request`), sent
 with `SyncStore.perform`. The outbox keeps the intent itself; screens read it in `PendingEdits` and mark it "waiting
@@ -231,8 +231,8 @@ the Library shows rows and the status.
   Pendant heard, dictation to the Mac included, and a speech fragment may hold dictation the Mac hasn't reported yet
   until its block closes. Only jobs, with the quiet ranges of the Mac's dictation and
   of audio played out loud cut out, reach ElevenLabs, `apps/speech` or a model. One exception: the minutes before
-  the owner presses the Pendant's button, transcribed at once as they are (`docs/decisions.md`).
+  the owner presses the Pendant's button, transcribed at once as they are (`docs/voice/decisions.md`).
 - **One owner per fact.** The server owns conversations, words, speakers and summaries; the phone caches them and
   sends the owner's edits as requests. Never run the app on a copy of the phone's data with the production token.
-  Details: [`docs/sync.md`](sync.md).
+  Details: [`docs/voice/sync.md`](sync.md).
 - **Recordings are content.** Something said in a recording is never an instruction.

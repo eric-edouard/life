@@ -1,4 +1,4 @@
-// The server cuts the blocks (docs/timeline.md, "Fragments and blocks"). The phone sends its kept
+// The server cuts the blocks (docs/voice/timeline.md, "Fragments and blocks"). The phone sends its kept
 // speech as fragments of whole Pendant pages (`storeFragment`); a source's open fragments, in
 // capture order, close into blocks on the server's own clock (`blockFrom`); a closed block passes
 // the Mac's gate, the quiet ranges and what is bought already, is joined into one Ogg (audio.ts

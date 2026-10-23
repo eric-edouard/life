@@ -133,7 +133,7 @@ ${script}
 
 export const signInPage = () =>
   page(
-    "lifelog",
+    "Life",
     `<form id="form"><input name="email" type="email" autocomplete="username" placeholder="Email" required>
 <input name="password" type="password" autocomplete="current-password" placeholder="Password" required>
 <button>Sign in</button></form>`,

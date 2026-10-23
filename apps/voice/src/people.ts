@@ -1,4 +1,4 @@
-// Speaker recognition and the owner's corrections (docs/brief.md, "Speakers and people").
+// Speaker recognition and the owner's corrections (docs/voice/brief.md, "Speakers and people").
 //
 // - Only owner actions create people or add voice evidence. Recognition writes
 //   assignments with source "recognized" and nothing else.

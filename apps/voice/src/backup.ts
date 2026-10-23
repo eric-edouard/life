@@ -57,7 +57,7 @@ export const rawSnapshot = (
 };
 
 // The server's archive, copied whole and consistent (`VACUUM INTO`) once per UTC date, kept like
-// the phone's snapshots; its keyword index is rebuilt when restored (docs/transcription-server.md). False when today's is kept already or the bucket failed (index.ts tries
+// the phone's snapshots; its keyword index is rebuilt when restored (docs/voice/transcription-server.md). False when today's is kept already or the bucket failed (index.ts tries
 // again within the hour). ponytail: the copy runs on the event loop and is read whole into
 // memory, a few seconds a night; stream it, off the loop, when the archive outgrows a few hundred MB.
 export async function snapshotArchive(
@@ -74,7 +74,7 @@ export async function snapshotArchive(
   if (kept) {
     return false;
   }
-  const file = join(tmpdir(), `lifelog-archive-${randomUUID()}.sqlite`);
+  const file = join(tmpdir(), `Life-archive-${randomUUID()}.sqlite`);
   try {
     db.run(sql`vacuum into ${file}`);
     const bytes = await Bun.file(file).bytes();

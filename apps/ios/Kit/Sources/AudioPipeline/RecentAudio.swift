@@ -5,7 +5,7 @@ import Timeline
 /// The newest audio on the phone, for the Pendant's button: what was said in the minutes before a press.
 public enum RecentAudio {
     /// The device's newest stored pages, enough for the `seconds` before the newest audio, as capture audio: silence
-    /// where none was stored. While audio is stored a page opens about every 1.5 s (docs/pendant.md), so one page a
+    /// where none was stored. While audio is stored a page opens about every 1.5 s (docs/voice/pendant.md), so one page a
     /// second covers the window. Only the clock syncs from those pages on are read.
     public static func source(seconds: Int64, store: SourceStore, deviceID: String) async throws -> SourceAudio {
         let pages = try await store.newestPages(deviceID: deviceID, limit: Int(seconds)).compactMap {

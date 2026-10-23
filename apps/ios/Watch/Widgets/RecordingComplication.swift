@@ -3,7 +3,7 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct LifelogWatchWidgets: WidgetBundle {
+struct LifeWatchWidgets: WidgetBundle {
     var body: some Widget {
         RecordingComplication()
     }
@@ -73,8 +73,8 @@ struct ComplicationView: View {
                 }
             } else {
                 Image(systemName: "questionmark.circle")
-                    .widgetLabel("lifelog · open on iPhone")
-                    .accessibilityLabel("Pendant recording unknown. Open lifelog on your iPhone.")
+                    .widgetLabel("Life · open on iPhone")
+                    .accessibilityLabel("Pendant recording unknown. Open Life on your iPhone.")
             }
         }
         .containerBackground(.clear, for: .widget)
@@ -145,7 +145,7 @@ struct ComplicationView: View {
                 .accessibilityLabel(request == .pause ? "Pause recording" : "Resume recording")
             } else {
                 Image(systemName: glance.symbol(now: now))
-                    .accessibilityLabel("\(glance.headline(now: now)) Opens lifelog.")
+                    .accessibilityLabel("\(glance.headline(now: now)) Opens Life.")
             }
             if glance.isRecording(now: now) {
                 Button(intent: FaceSplitIntent()) {

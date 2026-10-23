@@ -1,4 +1,4 @@
-// The archive, read-only (DATABASE_PATH and AUDIO_DIR, as in Lifelog Host's server.env): the completed
+// The archive, read-only (DATABASE_PATH and AUDIO_DIR, as in Voice Host's server.env): the completed
 // jobs with stored audio, and Scribe's stored words of some of them.
 import { join } from "node:path";
 import { connect } from "@life/voice-db";
@@ -11,7 +11,7 @@ const LATIN = /[A-Za-zÀ-ÖØ-öø-ÿ]/;
 function env(name: string) {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`set ${name} as Lifelog Host's server.env does`);
+    throw new Error(`set ${name} as Voice Host's server.env does`);
   }
   return value;
 }

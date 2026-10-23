@@ -54,7 +54,7 @@ public actor CoreBluetoothTransport: PendantTransport {
     /// is recreated here, with its restore identifier, so a background relaunch hands the peripheral back.
     public init(restoreIdentifier: String = "pendant") {
         (events, continuation) = AsyncStream.makeStream()
-        let queue = DispatchSerialQueue(label: "lifelog.pendant.bluetooth")
+        let queue = DispatchSerialQueue(label: "Life.pendant.bluetooth")
         let delegate = Delegate()
         self.queue = queue
         self.delegate = delegate

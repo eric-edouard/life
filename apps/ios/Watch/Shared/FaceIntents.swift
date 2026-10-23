@@ -6,7 +6,7 @@ import WidgetKit
 // The face buttons of the large complication (Modular's large slot, the Smart Stack). Compiled into the complications
 // so a button can name them, but they run in the Watch app (`allowedExecutionTargets`, watchOS 27), which owns the
 // WatchConnectivity session: watchOS starts the app in the background for the tap. The iPhone does the work through
-// the same request paths as the Watch app's own buttons (`WatchRelay`). See docs/decisions.md, "Face buttons try the background".
+// the same request paths as the Watch app's own buttons (`WatchRelay`). See docs/voice/decisions.md, "Face buttons try the background".
 
 /// Pauses or resumes, as the face showed: never a blind toggle.
 struct FaceRecordingIntent: AppIntent {

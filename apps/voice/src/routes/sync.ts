@@ -245,7 +245,7 @@ const Feed = z
   })
   .openapi("Feed");
 
-// The contract's optional parts (docs/voice-source.md); lifelog offers them all.
+// The contract's optional parts (docs/voice/voice-source.md); Life offers them all.
 const CAPABILITIES = ["corrections", "places", "search", "status"] as const;
 
 export function syncRoutes({ db, mac }: Pick<Services, "db" | "mac">) {
@@ -269,7 +269,7 @@ export function syncRoutes({ db, mac }: Pick<Services, "db" | "mac">) {
     .openapi(
       createRoute({
         description:
-          "What this voice source offers a reader (docs/voice-source.md): the contract's version " +
+          "What this voice source offers a reader (docs/voice/voice-source.md): the contract's version " +
           "and its optional parts. A reader's token may still not open every one.",
         method: "get",
         path: "/capabilities",
@@ -291,7 +291,7 @@ export function syncRoutes({ db, mac }: Pick<Services, "db" | "mac">) {
     .openapi(
       createRoute({
         description:
-          "The feed (docs/voice-source.md): `since` a decimal seq (none or 0 for everything); up to 500 " +
+          "The feed (docs/voice/voice-source.md): `since` a decimal seq (none or 0 for everything); up to 500 " +
           "changes after it, each row as it is now. `wait` holds the request up to that many seconds " +
           "while nothing is newer (an empty page with the same cursor at the end).",
         method: "get",

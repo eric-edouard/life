@@ -42,7 +42,7 @@ public enum ExportJob {
             }
         }
         let createdAt = Date.now
-        let folder = work.appending(path: "lifelog export \(ExportPackage.stamp(createdAt, timeZone: timeZone))")
+        let folder = work.appending(path: "Life export \(ExportPackage.stamp(createdAt, timeZone: timeZone))")
         for (index, item) in items.enumerated() where !request.audio.isEmpty {
             let itemFolder = folder.appending(path: ExportPackage.folderName(for: item), directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: itemFolder, withIntermediateDirectories: true)

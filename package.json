@@ -22,7 +22,7 @@
   "scripts": {
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
-    "check:offline": "cd apps/ios && xcodegen generate --quiet && xcodebuild test -project Lifelog.xcodeproj -scheme Lifelog -only-testing:LifelogUITests -destination \"platform=iOS Simulator,name=${SIMULATOR:-iPhone 17}\" -derivedDataPath ../../.build/DerivedData -quiet",
+    "check:offline": "cd apps/ios && xcodegen generate --quiet && xcodebuild test -project Life.xcodeproj -scheme Life -only-testing:LifeUITests -destination \"platform=iOS Simulator,name=${SIMULATOR:-iPhone 17}\" -derivedDataPath ../../.build/DerivedData -quiet",
     "events": "bun scripts/events.ts",
     "fix": "bun x --bun ultracite fix && swift format --in-place --recursive apps/ios apps/dictation",
     "host:app": "bun scripts/host-app.ts",

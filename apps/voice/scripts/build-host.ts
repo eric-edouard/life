@@ -18,7 +18,7 @@ export async function buildHost(out: string, target?: string) {
   const windows = target
     ? target.includes("windows")
     : process.platform === "win32";
-  const binary = join(out, windows ? "lifelog-server.exe" : "lifelog-server");
+  const binary = join(out, windows ? "voice-server.exe" : "voice-server");
   await $`bun build --compile ${target ? [`--target=${target}`] : []} ./src/index.ts ./src/vad-worker.ts --asset ./packages/db/src/migrations ${runtime} --outfile ${binary}`
     .cwd(root)
     .quiet();

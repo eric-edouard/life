@@ -44,11 +44,11 @@ private func iso(_ minutesAgo: Double) -> String {
     #expect(menu["ElevenLabs credits"]?.value == "10% left" && menu["ElevenLabs credits"]?.trouble == true)
     #expect(menu["Backup"]?.value == "last 2 d ago" && menu["Backup"]?.trouble == true, "over 48 h")
     #expect(menu["Problems in the last day"]?.trouble == true && menu["Archive"]?.trouble == false)
-    #expect(Host.verdict(sections) == "lifelog: 3 to look at")
+    #expect(Host.verdict(sections) == "Voice Host: 3 to look at")
 }
 
 @Test func aServerThatDoesntAnswerIsOneThingToLookAt() throws {
-    #expect(Host.verdict(Host.report(nil, now: now)) == "lifelog: 1 to look at")
+    #expect(Host.verdict(Host.report(nil, now: now)) == "Voice Host: 1 to look at")
     let blank = try #require(HostStatus.decode(Data(#"{"mac": "not an object"}"#.utf8)))
     let sections = Host.report(blank, now: now)
     #expect(sections.first { $0.summary.label == "Backup" }?.summary.value == "off")

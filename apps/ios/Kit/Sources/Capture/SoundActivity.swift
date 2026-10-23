@@ -2,7 +2,7 @@ import Foundation
 import PendantProtocol
 
 /// Whether the Pendant's sound detector is storing audio, from the Pendant's own evidence only, never the phone's.
-/// In `CaptureStatus` it is an `Observed` value whose `at` is when the evidence last held (docs/pendant.md,
+/// In `CaptureStatus` it is an `Observed` value whose `at` is when the evidence last held (docs/voice/pendant.md,
 /// "Sound activity").
 public enum SoundActivity: Sendable, Equatable {
     /// The detector fired at `since` and audio is being stored.

@@ -1,4 +1,4 @@
-// ElevenLabs Scribe v2 over plain fetch. Facts in docs/research/elevenlabs.md.
+// ElevenLabs Scribe v2 over plain fetch. Facts in docs/voice/research/elevenlabs.md.
 // No SDK on purpose: its automatic retries can resubmit a paid POST.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type {
@@ -293,7 +293,7 @@ export function verifySignature(
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
-// The failure shape is undocumented (docs/research/elevenlabs.md §2): every field may be absent
+// The failure shape is undocumented (docs/voice/research/elevenlabs.md §2): every field may be absent
 // or null. Oct 13–14 a strict schema dropped ~650-byte failure webhooks unseen, so their jobs
 // held the provider's slots for 30 minutes each.
 export const WebhookEvent = z.object({

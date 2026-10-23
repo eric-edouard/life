@@ -208,7 +208,7 @@ export function phoneNudger(db: Db, push: Pusher | null, bundleId: string) {
                 aps: {
                   alert: {
                     body: `Your Pendant has ${Math.round(Number(fields.behindSeconds) / 60)} minutes waiting to sync.`,
-                    title: "Open lifelog",
+                    title: "Open Life",
                   },
                   sound: "default",
                 },

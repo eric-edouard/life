@@ -82,7 +82,7 @@ export interface Judged extends Segment {
 // A turn leaves the English and French model on either of two signs: an audio guess of neither
 // English nor French (VoxLingua hears short Thai as Lao, Malay or Vietnamese, so any other language
 // counts), or Parakeet Ultra writing nothing where someone spoke (it mostly does for Thai). How well
-// it does: docs/research/transcription-bench.md.
+// it does: docs/voice/research/transcription-bench.md.
 export const foreign = (s: Judged) =>
   !["en", "fr"].includes(s.voxlingua?.lang ?? "en");
 export const silent = (s: Judged) => s.heard === "";

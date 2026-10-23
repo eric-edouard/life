@@ -25,7 +25,7 @@ plans; it never deletes.
   rose during this connection (a status replayed at connect may carry an old press) and the gap is between 1 s and
   7 days; under a second it is latency, not drift. Such a reading closes the epoch at the next set. Drift that grows
   while the Pendant is disconnected is never measured, because every connection sets the clock first; those epochs
-  stay uncorrected (`docs/pendant.md`, "Hardware tests still owed").
+  stay uncorrected (`docs/voice/pendant.md`, "Hardware tests still owed").
 - **Prepared time** is a block's audio: kept stretches back to back (see Blocks). A time map converts each way
   exactly.
 
@@ -53,7 +53,7 @@ morning with 11 min of speech stayed one conversation).
 **Kept audio** (`SpeechPolicy.keptAudio`) is what goes up. Each stretch of speech keeps 1 s on each side, and only
 gaps of at least 3 s are cut, so pauses inside a conversation stay. Quiet ranges (the owner dictating to the Mac, or
 the app playing a recording out loud) are left out whatever the analyzers heard. Silence and non-speech sound (music,
-traffic, a TV with nobody talking) are not uploaded. There is no loudness test (see `docs/decisions.md`).
+traffic, a TV with nobody talking) are not uploaded. There is no loudness test (see `docs/voice/decisions.md`).
 
 ## Fragments and blocks
 
@@ -66,7 +66,7 @@ source's fragments into **blocks** of up to 2 minutes and makes each one job (`c
   latest second the analyzers call non-speech; with neither, at 90 s. So seams fall in silence. Kept stretches under
   half a second are left out: they hold no word, and the provider refuses a near-empty file as corrupt.
 - It doesn't wait for the Mac: the server joins no fragment before the Mac vouches for its block's end
-  (`docs/processing.md`).
+  (`docs/voice/processing.md`).
 - It holds only pages the server doesn't hold yet, across the whole archive: a page in a job or a fragment (an old
   part included) is taken out with its audio, so a fragment never mixes held and unheld pages. The phone reads an hour
   of capture at a time from its cursor.
@@ -168,7 +168,7 @@ the server's placement, the one rule the phone reads. While a conversation's sta
 its old and new end, so the open conversation growing sends its new turns, not all of them. A moved start renumbers
 its voices, so it sends every turn of the old and new range.
 
-**Ids** are the instant a conversation first started (its anchor), written into a UUID (`docs/formats.md`). A later
+**Ids** are the instant a conversation first started (its anchor), written into a UUID (`docs/voice/formats.md`). A later
 run keeps an id while its conversation still covers that instant, or starts at most 2 s after it, so titles and edits
 stay attached. A split keeps the id on the part that holds the anchor; a merge keeps the earliest anchor it covers. A
 conversation no group claims any more (a merge, an undo, a clock change) is retired to the one covering its anchor,
@@ -180,7 +180,7 @@ the merged conversation and split words in each part; nothing already bought is 
 **Kind.** `silent` once every job over it is transcribed and it has no words; `dictation` when it lies inside one Mac
 dictation range; else `conversation`, whatever its origin. `imported` came from the cutover
 (old-app recordings, never regrouped; a split or merge inside one is refused with a 400). **Waiting** says what blocks
-it (`docs/processing.md`).
+it (`docs/voice/processing.md`).
 
 ## Derived audio
 

@@ -4,7 +4,7 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct LifelogWidgets: WidgetBundle {
+struct LifeWidgets: WidgetBundle {
     var body: some Widget {
         RecordingWidget()
         CodexUsageWidget()

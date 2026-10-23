@@ -91,7 +91,7 @@ private struct Pipeline {
             changes.reduce(reported(.paused, at: t0 + 10), now: t0 + 10) == [
                 .clear(.recordingResumedOnPendant), .post(.recordingPausedOnPendant),
             ])
-        // Resume from lifelog (app, Shortcut or control): confirmed a few seconds later, quietly.
+        // Resume from Life (app, Shortcut or control): confirmed a few seconds later, quietly.
         changes.appRequested(.resume, at: t0 + 20)
         #expect(changes.reduce(reported(.recording, at: t0 + 23), now: t0 + 23).isEmpty)
         // The request was used up: the next long press notifies again.
@@ -137,7 +137,7 @@ private struct Pipeline {
         _ = changes.reduce(reported(.recording, at: t0), now: t0)
         var relaunched = try JSONDecoder().decode(
             PendantChangeReducer.self, from: JSONEncoder().encode(changes))
-        // Paused on the Pendant while lifelog wasn't running; seen at the first report after relaunch.
+        // Paused on the Pendant while Life wasn't running; seen at the first report after relaunch.
         #expect(
             relaunched.reduce(reported(.paused, at: t0 + 600), now: t0 + 600).contains(
                 .post(.recordingPausedOnPendant)))

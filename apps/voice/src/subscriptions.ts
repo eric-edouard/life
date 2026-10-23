@@ -1,4 +1,4 @@
-// Account limits observed by the Mac's CLIs, never inferred from lifelog's token ledger.
+// Account limits observed by the Mac's CLIs, never inferred from Life's token ledger.
 import { z } from "@hono/zod-openapi";
 import type { Db } from "@life/voice-db";
 import { macEngines, subscriptionUsage } from "@life/voice-db/schema";

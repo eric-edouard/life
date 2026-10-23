@@ -30,7 +30,7 @@ public enum CodexUsageReader {
         }
         do {
             try send(
-                #"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"lifelog_usage","version":"1.0"}}}"#)
+                #"{"id":1,"method":"initialize","params":{"clientInfo":{"name":"dictation_usage","version":"1.0"}}}"#)
             var pending = Data()
             var received = 0
             var ready = pollfd(fd: output.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)

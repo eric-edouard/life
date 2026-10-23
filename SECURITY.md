@@ -59,7 +59,12 @@ This is the one list; nothing else leaves.
   account (without one it goes to an Apple calendar, which syncs as Calendar does).
 - The to-do items Life writes (his clear to-dos and the agent's board), to Google Tasks, when the actions backend is
   Google (with Reminders they stay in his Apple account, which syncs as Reminders does).
-- The owner's corrections about recordings, to the owner's own lifelog server.
+- The owner's corrections about recordings, to the owner's own voice server.
+- From the voice half (the iPhone and the voice server, in this repo since the playbook's step 1, unchanged by the
+  move): speech blocks to ElevenLabs for transcription, the summaries' text to the owner's ChatGPT or Claude
+  subscription through the Mac helper, passages and queries to OpenAI's embeddings when a key is set, and the
+  encrypted restic backup. Details in [docs/voice/security.md](docs/voice/security.md) and
+  [docs/voice/providers.md](docs/voice/providers.md).
 - The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud
   Drive does).
 

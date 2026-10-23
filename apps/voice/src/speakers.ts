@@ -1,4 +1,4 @@
-// Who spoke each turn (docs/processing.md, "Speakers"), in two steps:
+// Who spoke each turn (docs/voice/processing.md, "Speakers"), in two steps:
 // - a speaker's clean turns together are the person their voice matches: cosine at least
 //   `matchThreshold` to the profile and `margin` ahead of the next person;
 // - a turn whose own voice is nearest the owner's, at `ownerTurn` or more, is his, whoever the

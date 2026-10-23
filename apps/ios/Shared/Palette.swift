@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// The owner-approved colors (docs/design.md), shared by the app, its widgets and the Watch: dark grayscale with one
+/// The owner-approved colors (docs/voice/design.md), shared by the app, its widgets and the Watch: dark grayscale with one
 /// deep red. The app is dark-only. On the iPhone every token resolves to a stronger variant under Increase Contrast.
 /// Nonisolated: SwiftUI resolves dynamic colors on its async render thread, and a main-actor provider closure traps
 /// there.

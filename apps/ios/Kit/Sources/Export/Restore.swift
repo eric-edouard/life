@@ -91,7 +91,7 @@ public struct LibrarySwitch: Sendable {
 }
 
 public struct RestoreReport: Sendable, Equatable {
-    /// The restored stores, laid out like the app's lifelog folder.
+    /// The restored stores, laid out like the app's Life folder.
     public var location: URL
     /// This backup was restored before, so nothing was written.
     public var alreadyRestored: Bool

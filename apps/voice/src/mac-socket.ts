@@ -1,6 +1,6 @@
 // The Mac helper's one WebSocket (apps/dictation), opened with the Mac's token at protocol
 // MAC_PROTOCOL; another protocol is refused (routes/sync.ts). The helper is a sensor and a runner:
-// it reports raw facts and runs what it is told, and every rule lives here (docs/sync.md).
+// it reports raw facts and runs what it is told, and every rule lives here (docs/voice/sync.md).
 //
 // Its events: {type: "mic", seq, at, capturing} whenever the set of processes with the microphone
 // on changes, and {type: "sleep", seq, at} before the Mac sleeps. Each is applied once (a seq no

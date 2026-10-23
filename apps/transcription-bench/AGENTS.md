@@ -2,7 +2,7 @@
 
 Measures what replacing ElevenLabs Scribe with open models run on the Mac would cost in quality:
 text (English, French, Thai, mixed), language detection and who spoke. Scribe's transcript of each
-clip is already stored and is the reference. What it found: `docs/research/transcription-bench.md`.
+clip is already stored and is the reference. What it found: `docs/voice/research/transcription-bench.md`.
 
 ## How to run it
 
@@ -13,14 +13,14 @@ default; needs its run and Parakeet Ultra's; caches and report in `routing/<diar
 wrote, so a step can be stopped and run again.
 
 - `jobs` and `clips` read the archive read-only through `@life/voice-db` (`src/export.ts`):
-  `DATABASE_PATH` and `AUDIO_DIR` as Lifelog Host's `server.env` sets them.
+  `DATABASE_PATH` and `AUDIO_DIR` as Voice Host's `server.env` sets them.
 - `run` needs `uv` (`local/`, Python, mlx-audio) and, for `pyannote`, `HF_TOKEN` with the model's
   terms accepted once on Hugging Face; for `nemotron-diar`, NVIDIA's `nemo-speech` binary on PATH or
   in `NEMO_SPEECH` (NeMo-Speech.cpp's release for this machine). Models download on first use, and
   run one at a time.
 - `scribe-th` is Scribe through its API (`local/scribe.py`, `ELEVENLABS_API_KEY`): it spends
   ElevenLabs credits, so `run` without names skips it. Ask the owner before running it.
-- Everything it writes holds the owner's voice or words: it lives in `~/Life/docs/lifelog/stt-bench/`
+- Everything it writes holds the owner's voice or words: it lives in `~/Life/docs/Life/stt-bench/`
   (`STT_BENCH_DIR` to move it), never in the repo.
 
 ## Worth knowing

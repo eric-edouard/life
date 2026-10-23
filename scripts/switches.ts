@@ -1,4 +1,4 @@
-// The owner's two switches (docs/processing.md, "Pausing transcription and AI"), the same ones as
+// The owner's two switches (docs/voice/processing.md, "Pausing transcription and AI"), the same ones as
 // in the app's Settings.
 //   bun run switches                        what they are now
 //   bun run switches transcription off      transcription | ai | all, then on | off

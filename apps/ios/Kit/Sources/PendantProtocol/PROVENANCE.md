@@ -1,6 +1,6 @@
 # Provenance
 
-This codec was written fresh from public sources, summarised in `docs/research/pendant.md`.
+This codec was written fresh from public sources, summarised in `docs/voice/research/pendant.md`.
 
 - **BasedHardware/omi** (MIT), revision `7cd4cc7b41192fdefa42a6eae38cf5a5deca2db7`: GATT UUIDs, the
   fragment envelope, command byte layout and the golden test vectors in

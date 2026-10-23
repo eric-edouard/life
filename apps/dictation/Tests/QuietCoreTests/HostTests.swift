@@ -6,10 +6,10 @@ import Testing
     let secrets = Secrets(
         macToken: "mac-token", deviceToken: "phone-token", readerToken: "reader-token", elevenLabsKey: "el")
     let env = Host.serverEnvironment(
-        support: URL(filePath: "/tmp/lifelog-host"), secrets: secrets,
+        support: URL(filePath: "/tmp/Life-host"), secrets: secrets,
         server: URL(string: "https://mac.example.ts.net"))
-    #expect(env["DATABASE_PATH"] == "/tmp/lifelog-host/archive.sqlite")
-    #expect(env["AUDIO_DIR"] == "/tmp/lifelog-host/audio")
+    #expect(env["DATABASE_PATH"] == "/tmp/Life-host/archive.sqlite")
+    #expect(env["AUDIO_DIR"] == "/tmp/Life-host/audio")
     #expect(env["LISTEN_HOST"] == "127.0.0.1")
     #expect(env["PUBLIC_BASE_URL"] == "https://mac.example.ts.net")
     #expect(env["DEVICE_TOKEN_HASH"] == Host.sha256Hex("phone-token"))
@@ -64,7 +64,7 @@ import Testing
     #expect(extra["EMPTY"] == "")
     #expect(extra["abc"] == nil, "a line inside a quoted value is not a key")
     let env = Host.serverEnvironment(
-        support: URL(filePath: "/tmp/lifelog-host"), secrets: Secrets(elevenLabsKey: "el"), server: nil,
+        support: URL(filePath: "/tmp/Life-host"), secrets: Secrets(elevenLabsKey: "el"), server: nil,
         build: "abc1234", extra: extra.merging(["BUILD_SHA": "stale"]) { $1 })
     #expect(env["RESEND_API_KEY"] == "re_123")
     #expect(env["PORT"] == String(Host.port), "Host's own win")
@@ -94,10 +94,10 @@ import Testing
             "tunnel", "--no-autoupdate", "--protocol", "http2", "--edge-ip-version", "4", "run", "--url",
             "http://127.0.0.1:47613",
         ])
-    #expect(Host.domainAddress("lifelog.example.com")?.absoluteString == "https://lifelog.example.com")
-    #expect(Host.domainAddress("https://lifelog.example.com/")?.absoluteString == "https://lifelog.example.com")
-    #expect(Host.domainAddress("http://lifelog.example.com") == nil, "HTTPS only")
-    #expect(Host.domainAddress("https://example.com/lifelog") == nil)
+    #expect(Host.domainAddress("voice.example.com")?.absoluteString == "https://voice.example.com")
+    #expect(Host.domainAddress("https://voice.example.com/")?.absoluteString == "https://voice.example.com")
+    #expect(Host.domainAddress("http://voice.example.com") == nil, "HTTPS only")
+    #expect(Host.domainAddress("https://example.com/Life") == nil)
 }
 
 @Test func exportAndImportGetOnlyTheArchiveAndSayHowTheyEnded() {

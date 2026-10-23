@@ -1,5 +1,5 @@
 // A thin phone's raw pages (pages.ts) become speech fragments on the server, by the iPhone's rules
-// (page-rules.ts; docs/processing.md, "Phones send pages"). Each source gets bounded passes, which
+// (page-rules.ts; docs/voice/processing.md, "Phones send pages"). Each source gets bounded passes, which
 // the tick, every stored batch and every word from the Mac start (`poke`):
 // 1. Label (page-labels.ts): the next pages placed in time and labeled by Silero.
 //    Its timeline spans (timeline-spans.ts) are written from the pieces, as the iPhone sends its own.

@@ -8,7 +8,7 @@
     }
   },
   {
-    "case": "Lifelog Host's QR code leaves the URL unencoded",
+    "case": "Voice Host's QR code leaves the URL unencoded",
     "link": "lifelog://pair?url=https://mac.example.ts.net&token=abc_DEF-123-xyz_456",
     "pairing": {
       "server": "https://mac.example.ts.net",

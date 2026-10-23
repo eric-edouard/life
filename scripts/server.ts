@@ -1,10 +1,10 @@
 // Your server's API for the scripts: LIFELOG_SERVER_URL (required), with the device token in the file
-// LIFELOG_TOKEN_FILE names (the root checkout's .env.device-token without it).
+// VOICE_TOKEN_FILE names (the root checkout's .env.device-token without it).
 import { checkouts } from "./dsyms";
 
 async function deviceToken() {
   const file =
-    process.env.LIFELOG_TOKEN_FILE ??
+    process.env.VOICE_TOKEN_FILE ??
     `${(await checkouts())[0]}/.env.device-token`;
   return (await Bun.file(file).text()).trim();
 }

@@ -33,7 +33,7 @@ public enum FreezeWatch {
     /// (TN3115; seen on Oct 18 after a CPU kill), and the crash report shows where every thread was stuck. Nothing is
     /// lost: only durable pages are ACKed. Keep the timer for as long as the capture runs.
     public static func start(beat: @escaping @Sendable () -> Date) -> any DispatchSourceTimer {
-        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "lifelog.freeze-watch"))
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "Life.freeze-watch"))
         let detector = Mutex(FreezeDetector())
         timer.schedule(deadline: .now() + FreezeDetector.period, repeating: FreezeDetector.period)
         timer.setEventHandler {

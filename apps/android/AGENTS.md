@@ -1,7 +1,7 @@
 # apps/android
 
 The Android app: a thin phone. It pairs with the server, drains an Omi over Bluetooth, keeps each record on disk and
-sends it raw to the server, which decides what is speech and what gets transcribed (`docs/sync.md`, "Raw pages from a
+sends it raw to the server, which decides what is speech and what gets transcribed (`docs/voice/sync.md`, "Raw pages from a
 thin phone"). One status screen. Kotlin, Jetpack Compose, Android 13 (API 33) and later.
 
 ## How to
@@ -19,7 +19,7 @@ The SDK is found through `ANDROID_HOME`, else `~/Library/Android/sdk`; the gate 
 - `api/` is the server's client, generated at build time from the whole `apps/voice/openapi.json`
   (`api/build.gradle.kts`). Nothing generated is committed: a contract change needs only a rebuild.
 - Omi only. The Limitless Pendant speaks another protocol (protobuf fragments, `apps/ios/Kit/Sources/PendantProtocol`);
-  porting it is a project of its own. Read `docs/research/omi.md` first, as for any Omi work.
+  porting it is a project of its own. Read `docs/voice/research/omi.md` first, as for any Omi work.
 - `Omi.kt` ports the ring commands and notifications of the iPhone's `Omi.swift`; both test suites read
   `fixtures/wire/omi-ring.json`, so a drift fails the gate. The phone never reads inside a record; the server does.
 - The source id is `android-omi`, never the iPhone's `omi-pendant`. Page indices are the flash life times 2^40 plus the
@@ -44,10 +44,10 @@ The SDK is found through `ANDROID_HOME`, else `~/Library/Android/sdk`; the gate 
 ## Hand check on a real phone
 
 1. Enable USB debugging on the phone, plug it in, then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
-2. Open lifelog, tap "Scan the pairing code", scan the QR code Lifelog Host shows, confirm "Pair".
+2. Open Life, tap "Scan the pairing code", scan the QR code Voice Host shows, confirm "Pair".
 3. Tap "Start syncing" and grant Nearby devices and Notifications. Keep the Omi near the phone and away from any other
    phone's Omi app.
 4. Record a minute on the Omi, wait for a cycle (up to 5 minutes): Recorder says "Drained N records", Queue goes to 0
    and Last upload shows the time.
 5. On the Mac, `GET /sources/android-omi/ingest` shows `highestPage`. Transcripts follow once the server processes page
-   sources (`docs/processing.md`).
+   sources (`docs/voice/processing.md`).

@@ -1,4 +1,4 @@
-// The archive: one SQLite file, one process writing it (docs/architecture.md). Queries run
+// The archive: one SQLite file, one process writing it (docs/voice/architecture.md). Queries run
 // synchronously, so a transaction is a plain function: nothing else runs while it does, and its
 // body never awaits (apps/voice/AGENTS.md).
 import { Database } from "bun:sqlite";

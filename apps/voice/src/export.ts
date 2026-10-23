@@ -1,4 +1,4 @@
-// The archive as a folder, and back: `lifelog-server export|import <folder>` (index.ts), the Mac
+// The archive as a folder, and back: `voice-server export|import <folder>` (index.ts), the Mac
 // host's Export… and Import…, and what the daily restic backup snapshots (restic.ts). The folder
 // holds `archive.sqlite`, the audio under `audio/` (AUDIO_DIR's files, keys as paths), and
 // `manifest.json`: each file's size and sha256, and each table's rows. Shaped like Life's.
@@ -251,7 +251,7 @@ export async function importArchive(
       await readFile(join(folder, "manifest.json"), "utf8")
     ) as Manifest;
     if (m.app !== "lifelog" || m.format !== FORMAT || !m.files[ARCHIVE]) {
-      throw new Error(`not a lifelog export of format ${FORMAT}`);
+      throw new Error(`not a Life export of format ${FORMAT}`);
     }
     if (heldIn(databasePath) > 0) {
       throw new Error(`${databasePath} holds an archive already`);
@@ -302,7 +302,7 @@ export async function importArchive(
   }
 }
 
-// `lifelog-server export|import <folder>` with DATABASE_PATH and AUDIO_DIR: one JSON line,
+// `voice-server export|import <folder>` with DATABASE_PATH and AUDIO_DIR: one JSON line,
 // `{ ok, files, bytes }`, or `{ ok: false, error }` and exit code 1.
 export async function runCommand(
   [command, folder]: string[],
@@ -312,7 +312,7 @@ export async function runCommand(
   try {
     if (!(folder && databasePath && (audioDir || command === "export"))) {
       throw new Error(
-        "usage: lifelog-server export|import <folder>, with DATABASE_PATH and AUDIO_DIR set"
+        "usage: voice-server export|import <folder>, with DATABASE_PATH and AUDIO_DIR set"
       );
     }
     const result =

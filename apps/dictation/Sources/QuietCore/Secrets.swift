@@ -1,6 +1,6 @@
 import Foundation
 
-/// The Mac's lifelog secrets, in one owner-only file, read once at launch: the helper's two, and Lifelog Host's. They
+/// The Mac's Life secrets, in one owner-only file, read once at launch: the helper's two, and Voice Host's. They
 /// used to sit in the login Keychain, whose trust in one binary broke on every rebuild or OS update: macOS then asked
 /// for the password, nothing could be sent, and the phone held all uploads.
 public struct Secrets: Codable, Equatable, Sendable {
@@ -8,7 +8,7 @@ public struct Secrets: Codable, Equatable, Sendable {
     public var macToken: String?
     /// The token `claude setup-token` prints (`--setup-claude-token`).
     public var claudeToken: String?
-    /// Lifelog Host's: the phone's token, a reader's (for Life), the owner's keys, the Cloudflare tunnel's token
+    /// Voice Host's: the phone's token, a reader's (for Life), the owner's keys, the Cloudflare tunnel's token
     /// ("My own domain"), the backup's restic password (minted once, the owner copies it somewhere safe) and the
     /// secret the server and speaker recognition share.
     public var deviceToken: String?

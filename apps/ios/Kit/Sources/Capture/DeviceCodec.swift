@@ -3,7 +3,7 @@ import PendantProtocol
 
 /// One pendant family's wire format on one connection: the drain's commands become writes, notifications become the
 /// drain's messages. So one `DrainCoordinator` drains both: the Limitless Pendant speaks protobuf fragments, an Omi
-/// its ring commands (`docs/research/omi.md`).
+/// its ring commands (`docs/voice/research/omi.md`).
 protocol DeviceCodec: Sendable {
     /// The writes for `command` and the request id its reply will carry; `nil` when the device has no such command.
     mutating func encode(_ command: PendantCommand) -> (writes: [(WriteTarget, Data)], requestID: Int64)?

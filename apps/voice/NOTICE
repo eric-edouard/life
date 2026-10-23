@@ -1,5 +1,5 @@
-lifelog-server bundles the following third-party software. Its own license is the LICENSE file
-at the root of the lifelog repository.
+voice-server bundles the following third-party software. Its own license is the LICENSE file
+at the root of the Life repository.
 
 --------------------------------------------------------------------------------
 Silero VAD v6.0 (models/silero-vad-v6.0-16k.onnx)

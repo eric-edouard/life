@@ -14,7 +14,7 @@ let dir: string;
 beforeAll(async () => {
   env = testDb();
   // A space, as in "Application Support".
-  dir = await mkdtemp(join(tmpdir(), "lifelog restic-"));
+  dir = await mkdtemp(join(tmpdir(), "Life restic-"));
   const fake = join(import.meta.dir, "../fixtures/fake-restic.ts");
   await $`${process.execPath} build --compile ${fake} --outfile ${join(dir, "restic")}`.quiet();
   await mkdir(join(dir, "audio/blocks"), { recursive: true });

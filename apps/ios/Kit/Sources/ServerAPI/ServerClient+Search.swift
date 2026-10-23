@@ -6,7 +6,7 @@ extension ServerClient {
     // MARK: Search
 
     /// Passages the server finds by meaning (and by the words typed), best first. The query goes to OpenAI to be
-    /// embedded (docs/providers.md).
+    /// embedded (docs/voice/providers.md).
     public func search(_ query: String, limit: Int = 20) async throws -> [MeaningHit] {
         struct Body: Encodable {
             var query: String

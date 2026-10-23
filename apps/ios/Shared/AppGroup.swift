@@ -2,10 +2,10 @@ import Foundation
 
 /// The container the app shares with its widgets and controls (and, on the Watch, the app with its complications).
 nonisolated enum AppGroup {
-    /// `group.<LIFELOG_BUNDLE_ID>` (project.yml), from the target's Info.plist: a target without it is a build mistake.
+    /// `group.<LIFE_BUNDLE_ID>` (project.yml), from the target's Info.plist: a target without it is a build mistake.
     private static let id: String = {
-        guard let id = Bundle.main.object(forInfoDictionaryKey: "LifelogAppGroup") as? String else {
-            preconditionFailure("LifelogAppGroup missing from this target's Info.plist (project.yml)")
+        guard let id = Bundle.main.object(forInfoDictionaryKey: "AppGroupID") as? String else {
+            preconditionFailure("AppGroupID missing from this target's Info.plist (project.yml)")
         }
         return id
     }()

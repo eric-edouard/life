@@ -5,7 +5,7 @@ decision is current.
 
 ## Purpose
 
-lifelog reliably keeps the owner's recorded life and turns that audio into meaningful conversations: easy to find,
+Life reliably keeps the owner's recorded life and turns that audio into meaningful conversations: easy to find,
 understand, replay and export. The owner speaks English, French and Thai, switching within
 conversations and sentences. The audio is wearable, real-world audio (distant voices, street and restaurant noise,
 overlap), not dictation.

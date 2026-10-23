@@ -13,7 +13,7 @@ import SourceStore
 public enum Backup {
     static let databases = ["source/source.sqlite", "library/library.sqlite", "timeline.sqlite"]
 
-    /// Backs up the stores under `live` (the app's lifelog folder) into `root`. Only reads `live`, and capture may
+    /// Backs up the stores under `live` (the app's Life folder) into `root`. Only reads `live`, and capture may
     /// keep writing meanwhile: databases are copied first as consistent snapshots (`VACUUM INTO`), and packs only
     /// ever grow, so every receipt in the snapshot points at bytes already in the packs copied after it.
     @concurrent @discardableResult

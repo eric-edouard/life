@@ -3,7 +3,7 @@ package com.ericedouard.lifelog
 import java.util.UUID
 
 // The Omi pendant's offline ring (firmware 3.0.20 and later), ported from the iPhone's
-// `apps/ios/Kit/Sources/PendantProtocol/Omi.swift`. See `docs/research/omi.md`. Codec only: no I/O.
+// `apps/ios/Kit/Sources/PendantProtocol/Omi.swift`. See `docs/voice/research/omi.md`. Codec only: no I/O.
 
 object OmiGatt {
     /** Advertised: how a scan finds an Omi. Its live audio is never subscribed to: while subscribed it streams instead of writing its ring. */

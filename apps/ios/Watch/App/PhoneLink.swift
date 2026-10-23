@@ -63,7 +63,7 @@ final class PhoneLink: NSObject {
             let reply = try await send([WatchMessage.split: at])
             let markedAt = (reply[WatchMessage.markedAt] as? Double).map(Date.init(timeIntervalSince1970:))
             let error = reply[WatchMessage.error] as? String
-            mark = markedAt.map { .marked($0) } ?? .failed(error ?? "lifelog didn't answer.")
+            mark = markedAt.map { .marked($0) } ?? .failed(error ?? "Life didn't answer.")
         } catch {
             mark = .failed("Your iPhone didn't answer, so nothing was split.")
         }

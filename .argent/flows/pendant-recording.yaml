@@ -30,7 +30,7 @@ steps:
         identifier: pendant.switch
       expectedText: Recording.
       timeoutMs: 6000
-executionPrerequisite: lifelog (Debug) freshly launched with `xcrun simctl
+executionPrerequisite: Life (Debug) freshly launched with `xcrun simctl
   launch --terminate-running-process <UDID> com.ericedouard.lifelog
   -fixtureLibrary -fakePendant healthyRecording` (after argent armed
   native-devtools injection, e.g. one prior restart-app), notifications already

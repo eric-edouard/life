@@ -88,7 +88,7 @@ const macSteps: Record<string, string[]> = {
   xcodebuild: [
     "sh",
     "-c",
-    `cd ${ios} && xcodegen generate --quiet && xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -destination 'generic/platform=iOS Simulator' -derivedDataPath ../../.build/DerivedData -quiet build CODE_SIGNING_ALLOWED=NO`,
+    `cd ${ios} && xcodegen generate --quiet && xcodebuild -project Life.xcodeproj -scheme Life -destination 'generic/platform=iOS Simulator' -derivedDataPath ../../.build/DerivedData -quiet build CODE_SIGNING_ALLOWED=NO`,
   ],
 };
 if (process.platform === "darwin") {

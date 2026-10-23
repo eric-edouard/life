@@ -1,4 +1,4 @@
-// Phones send raw pages; the server decides what gets transcribed (docs/processing.md, "Phones
+// Phones send raw pages; the server decides what gets transcribed (docs/voice/processing.md, "Phones
 // send pages"). This is the ingest half: a source's pages kept byte for byte, idempotent by
 // index; page-processing.ts labels and cuts them.
 
@@ -41,7 +41,7 @@ export const PageBatch = z.object({
 });
 type PageBatch = z.infer<typeof PageBatch>;
 
-// What the server holds of a source: a hint, not a resume cursor (docs/sync.md), and how far it
+// What the server holds of a source: a hint, not a resume cursor (docs/voice/sync.md), and how far it
 // labeled.
 export function ingestState(db: Pick<Db, "select">, sourceId: string) {
   const highest = db

@@ -149,6 +149,7 @@ How Life works:
 
 - [Glossary](docs/glossary.md): every word Life uses, one meaning each
 - [Architecture](docs/architecture.md): the pipeline, lifelog and Life, why memory stays local
+- [The voice half](docs/voice/architecture.md): Life for iPhone, the voice server, the speech service and the Mac helper
 - [Sources](docs/sources.md): what each source reads and how
 - [Schema](docs/SCHEMA.md): every file in the memory
 - [The agent, the connector and actions](docs/tasks.md)

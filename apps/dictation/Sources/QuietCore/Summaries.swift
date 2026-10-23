@@ -1,7 +1,7 @@
 import Foundation
 
 /// The subscription the summaries run on, and the helper's sign-in to it: ChatGPT through Codex, or Claude through
-/// Claude Code. Shared by the helper (its calls and its `--setup-*` flags) and Lifelog Host's Summaries section,
+/// Claude Code. Shared by the helper (its calls and its `--setup-*` flags) and Voice Host's Summaries section,
 /// which do the I/O.
 public enum Summaries {
     static let folder = FileManager.default.homeDirectoryForCurrentUser
@@ -39,7 +39,7 @@ public enum Summaries {
         ].first(where: FileManager.default.isExecutableFile(atPath:))
     }
 
-    /// `LIFELOG_CODEX` (Lifelog Host's own copy), else the native binary in the helper's own runtime (README), found
+    /// `HOST_CODEX` (Voice Host's own copy), else the native binary in the helper's own runtime (README), found
     /// by name so a new package layout still works, else the usual install places. The LaunchAgent has no Node, so
     /// npm's `codex` script won't do.
     public static func codexBinary() -> String? {
@@ -49,7 +49,7 @@ public enum Summaries {
         let vendored = (files.enumerator(at: runtime, includingPropertiesForKeys: nil)?.allObjects as? [URL] ?? [])
             .filter { $0.lastPathComponent == "codex" && $0.path.contains("/vendor/") }.map(\.path)
         let candidates =
-            [ProcessInfo.processInfo.environment["LIFELOG_CODEX"]].compactMap(\.self) + vendored + [
+            [ProcessInfo.processInfo.environment["HOST_CODEX"]].compactMap(\.self) + vendored + [
                 home.appending(path: ".local/bin/codex").path, "/opt/homebrew/bin/codex", "/usr/local/bin/codex",
             ]
         return candidates.first(where: files.isExecutableFile(atPath:))

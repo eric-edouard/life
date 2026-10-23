@@ -1,4 +1,4 @@
-# Limitless Pendant BLE protocol — research for lifelog
+# Limitless Pendant BLE protocol — research for Life
 
 Date: 2026-10-07. Built **only from public sources**:
 
@@ -483,7 +483,7 @@ Official meanings [HELP]:
 
 ## 8. Verification status
 
-VERIFIED rows were observed on the owner's Pendant (one drain of 254 pages; `docs/pendant.md`, "Pages and
+VERIFIED rows were observed on the owner's Pendant (one drain of 254 pages; `docs/voice/pendant.md`, "Pages and
 time"). Everything else comes from public sources only.
 
 | Item | Status |

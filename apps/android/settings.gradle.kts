@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "lifelog"
+rootProject.name = "Life"
 include(":app", ":api")

@@ -692,7 +692,7 @@ test("failures map to auth, limit, timeout or failed", () => {
   });
   // The Mac couldn't start it: signed out is auth, anything else failed.
   expect(
-    macAnswer("codex", { signedOut: true, unrun: "sign in: Lifelog Host" })
+    macAnswer("codex", { signedOut: true, unrun: "sign in: Voice Host" })
   ).toMatchObject({ reason: "auth" });
   expect(
     macAnswer("claude", { signedOut: false, unrun: "claude CLI not found" })

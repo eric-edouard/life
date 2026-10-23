@@ -1,7 +1,7 @@
 import type { AuthSettings } from "@life/voice-auth";
 import { z } from "zod";
 
-// Prices from docs/research/elevenlabs.md (live pricing page, 2026-10-07).
+// Prices from docs/voice/research/elevenlabs.md (live pricing page, 2026-10-07).
 // The API reference prices keyterms at +20% ($0.044/h); the higher figure is used.
 export const SCRIBE_V2_USD_PER_HOUR = 0.22;
 const KEYTERMS_USD_PER_HOUR = 0.05;
@@ -109,7 +109,7 @@ export const RECOGNITION = {
   shortTurnSeconds: 6,
 } as const;
 
-// Voice excerpts the server cuts from a job's bucket audio (excerpts.ts, docs/processing.md).
+// Voice excerpts the server cuts from a job's bucket audio (excerpts.ts, docs/voice/processing.md).
 export const EXCERPTS = {
   // Longest clean turns first, at most this many per job (a block holds 5 minutes of speech), each
   // cut to its first `maxSeconds`.
@@ -177,16 +177,16 @@ const Env = z.object({
   // The .p8 file's contents.
   APNS_PRIVATE_KEY: z.string().min(1).optional(),
   APNS_TEAM_ID: z.string().min(1).optional(),
-  // The app's bundle id (LIFELOG_BUNDLE_ID in apps/ios/project.yml).
+  // The app's bundle id (LIFE_BUNDLE_ID in apps/ios/project.yml).
   APNS_TOPIC: z.string().min(1).default("com.ericedouard.lifelog"),
   // Where audio is kept without a bucket (audio-store.ts); the S3_* settings win when set.
   AUDIO_DIR: z.string().min(1).optional(),
   // Signs Life's OAuth tokens (@life/voice-auth). Life's sign-in is off without it and LIFE_URL.
   AUTH_SECRET: z.string().min(32).optional(),
-  // The build's git commit, which Lifelog Host passes from its Info.plist; names the build in
+  // The build's git commit, which Voice Host passes from its Info.plist; names the build in
   // server error reports.
   BUILD_SHA: z.string().optional(),
-  // A reader's tokens (docs/voice-source.md), minted by `bun run mint-token read|corrections`:
+  // A reader's tokens (docs/voice/voice-source.md), minted by `bun run mint-token read|corrections`:
   // `read` opens the contract's reads, `corrections` those and the owner's corrections.
   CORRECTIONS_TOKEN_HASH: TokenHash.optional(),
   // The archive's SQLite file (@life/voice-db), created and migrated at boot.

@@ -209,7 +209,7 @@ test("the morning pushes the queue's length once, the number the badge shows", a
       sent.push(request);
       return Promise.resolve({ body: "", status: 200 });
     },
-    "com.example.lifelog",
+    "com.example.Life",
     queue
   );
   // 6:00: too early.

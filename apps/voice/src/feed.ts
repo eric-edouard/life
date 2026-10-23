@@ -1,4 +1,4 @@
-// The feed (docs/voice-source.md): what changed after a cursor, read from change_log by seq, for
+// The feed (docs/voice/voice-source.md): what changed after a cursor, read from change_log by seq, for
 // the phone and readers (GET /changes, routes/sync.ts).
 // - A page is up to 500 log rows after the cursor; each (kind, ref) once, as its current row.
 // - A row edited again is logged again, so it comes again under the same key with a newer seq.

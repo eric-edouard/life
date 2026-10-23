@@ -187,7 +187,7 @@ import Timeline
         #expect(machine.lastObserved == Observed(.recording, at: t0 + 1))
     }
 
-    @Test func aStateLifelogDoesNotKnowIsLastKnownAsUnrecognized() {
+    @Test func aStateLifeDoesNotKnowIsLastKnownAsUnrecognized() {
         var machine = recordingMachine()
         _ = machine.handle(.telemetry(.unknown(9), at: t0 + 1, answersControl: false))
         #expect(machine.state == .unknown)

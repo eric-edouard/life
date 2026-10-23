@@ -2,7 +2,7 @@ import Capture
 import Foundation
 
 /// Tells changes made on the Pendant (its button, going out of reach and coming back) from those asked for in
-/// lifelog, from the app, a Shortcut or a control. Only the Pendant's own changes notify: the owner just made the
+/// Life, from the app, a Shortcut or a control. Only the Pendant's own changes notify: the owner just made the
 /// others and sees the result where they asked. Pure and Codable, like `IncidentReducer`, so it survives relaunches.
 public struct PendantChangeReducer: Sendable, Codable, Equatable {
     /// A change confirmed this soon after an in-app request in the same direction is that request's outcome.
@@ -29,7 +29,7 @@ public struct PendantChangeReducer: Sendable, Codable, Equatable {
 
     public init() {}
 
-    /// Call before sending a pause or resume the owner asked for in lifelog.
+    /// Call before sending a pause or resume the owner asked for in Life.
     public mutating func appRequested(_ intent: RecordingIntent, at: Date) {
         request = Request(intent: intent, at: at)
     }
@@ -89,7 +89,7 @@ public struct PendantChangeReducer: Sendable, Codable, Equatable {
             // On the way back (or still looking): neither a new loss nor a recovery.
             break
         case .idle, .bluetoothOff, .unauthorized, .unsupported, .busyElsewhere, .disconnected, .resting:
-            // The phone's side, which the app shows: Bluetooth off, another app holding the Pendant, lifelog
+            // The phone's side, which the app shows: Bluetooth off, another app holding the Pendant, Life
             // letting go. Not something the Pendant did.
             wasConnected = false
             reconnectedAt = nil

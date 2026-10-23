@@ -2,7 +2,7 @@ import Foundation
 import PendantProtocol
 
 /// A live press on the Pendant's button, as `DrainCoordinator.quickPresses` delivers it: it asks an AI about the last
-/// minute (docs/pendant.md). Replays at connect and presses while paused never come here.
+/// minute (docs/voice/pendant.md). Replays at connect and presses while paused never come here.
 public struct QuickPress: Sendable, Equatable {
     /// The same press reported again keeps it: the since-boot press count and the Pendant's own time of the press.
     /// Without that time, a fresh id.

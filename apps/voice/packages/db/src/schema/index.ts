@@ -13,7 +13,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
-// SQLite, one file, one writer (docs/architecture.md). Instants are epoch milliseconds (Date in
+// SQLite, one file, one writer (docs/voice/architecture.md). Instants are epoch milliseconds (Date in
 // code), ids text uuids, JSON text read and written by Drizzle, booleans 0 and 1.
 const instant = (name: string) => integer(name, { mode: "timestamp_ms" });
 const boolean = (name: string) => integer(name, { mode: "boolean" });
@@ -60,7 +60,7 @@ const pageBounds = () => ({
   }),
 });
 
-// Rebuild (docs/sync.md).
+// Rebuild (docs/voice/sync.md).
 export const conversationKinds = [
   "conversation",
   "dictation",
@@ -221,7 +221,7 @@ export const backupFiles = sqliteTable(
 );
 
 // A job's kept capture intervals in prepared order ([start, end) epoch milliseconds) and the
-// silence between them: the client's TimeMap (docs/formats.md), read by `captureMillis`.
+// silence between them: the client's TimeMap (docs/voice/formats.md), read by `captureMillis`.
 export interface JobMap {
   segments: [number, number][];
   separatorMs: number;
@@ -230,7 +230,7 @@ export interface JobMap {
   starts?: number[];
 }
 
-// A speech fragment (docs/timeline.md, "Fragments and blocks"): the kept speech of a run of whole
+// A speech fragment (docs/voice/timeline.md, "Fragments and blocks"): the kept speech of a run of whole
 // Pendant pages, as the phone rendered it, in the bucket until the server closes its block
 // (cutter.ts). A page is in one fragment (`holderOf`), a fragment in one job. Its audio may hold
 // dictation the Mac hasn't reported yet: it is never read before its block passed the Mac's gate
@@ -747,7 +747,7 @@ export const locationHistory = sqliteTable(
   (t) => [unique("location_history_instant").on(t.observedAt, t.source)]
 );
 
-// Remote crash, error and health reporting (docs/providers.md). States, counts, call stacks and
+// Remote crash, error and health reporting (docs/voice/providers.md). States, counts, call stacks and
 // shortened error messages only: never audio, transcripts, names, places or coordinates.
 // Kept 90 days after arrival.
 export const diagnosticKinds = [
@@ -926,7 +926,7 @@ export const sources = sqliteTable("sources", {
   updatedAt,
 });
 
-// A raw page as the phone stored it (pages.ts, docs/sync.md "Raw pages from a thin phone"): a
+// A raw page as the phone stored it (pages.ts, docs/voice/sync.md "Raw pages from a thin phone"): a
 // thin phone's durable copy, byte for byte. Its bytes are `length` bytes at `offset` in the batch
 // object the phone sent it in. An index keeps its first bytes: other bytes there are refused (409).
 // Labeled and cut into speech fragments by page-processing.ts.

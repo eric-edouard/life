@@ -5,7 +5,7 @@
 //                                   opens only the socket (GET /quiet-ranges/socket)
 //   bun run mint-token read         a reader's token, READ_TOKEN_HASH: the contract's reads
 //   bun run mint-token corrections  a reader's token, CORRECTIONS_TOKEN_HASH: reads and corrections
-//                                   (docs/voice-source.md)
+//                                   (docs/voice/voice-source.md)
 import { randomBytes } from "node:crypto";
 import { sha256Hex } from "../src/config";
 

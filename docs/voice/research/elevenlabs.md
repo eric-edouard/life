@@ -108,7 +108,7 @@ There is no model newer than v2. ([models](https://elevenlabs.io/docs/overview/m
 - ZRM is **enterprise-only** and covers API traffic only. ([ZRM](https://elevenlabs.io/docs/eleven-api/resources/zero-retention-mode))
 - For a personal plan, expect transcripts to be stored server-side. Remove them after ingest with `DELETE /v1/speech-to-text/transcripts/{id}` if desired.
 
-## 9. Recommendation for lifelog
+## 9. Recommendation for Life
 
 1. **Model:** `scribe_v2` batch only.
 2. **Request fields:** `diarize=true`, no `num_speakers`, `timestamps_granularity=word`, `tag_audio_events=false`, `no_verbatim=false`, and **no `language_code`**. Code-switching relies on auto-detect.

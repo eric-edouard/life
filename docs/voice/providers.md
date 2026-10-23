@@ -1,7 +1,7 @@
 # Providers
 
 Which outside services see what, and what we keep. Transcription (ElevenLabs) is described in
-`docs/transcription-server.md`.
+`docs/voice/transcription-server.md`.
 
 ## Speaker recognition: our own service, no third party
 
@@ -40,7 +40,7 @@ baked into the image). No outside provider sees audio or embeddings for recognit
 
 **Running it**
 
-- Lifelog Host installs it and runs it on `127.0.0.1` with its own secret, unless Settings turns it off.
+- Voice Host installs it and runs it on `127.0.0.1` with its own secret, unless Settings turns it off.
 - Elsewhere build `apps/speech/Dockerfile`, or run it with `uv` (`apps/speech/AGENTS.md`), on a host the server
   reaches. On it set `IDENTITY_SECRET` (a long random string), `PORT` (8000 by default) and, to listen on one address
   only, `HOST` (every address by default).

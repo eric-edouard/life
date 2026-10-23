@@ -17,7 +17,7 @@ public struct PendantSnapshot: Sendable, Codable, Equatable {
 
     public typealias Microphone = RecordingGlance.Microphone
 
-    /// A pause or resume asked for in lifelog, until the Pendant confirms it or it fails.
+    /// A pause or resume asked for in Life, until the Pendant confirms it or it fails.
     public struct Request: Sendable, Codable, Equatable {
         public var intent: RecordingIntent
         public var since: Date
@@ -123,7 +123,7 @@ public struct PendantSnapshot: Sendable, Codable, Equatable {
     /// A pause confirmed on the link that is still up stays current however old its report. A paused Pendant sends
     /// nothing (no pages, no status pushes) and the app runs no timer in the background, so no newer evidence comes.
     /// But only a long press or a command ends a pause, and either makes the Pendant push a status at once over that
-    /// same link (docs/decisions.md). Recording gets no such hold: the firmware can stop without a press.
+    /// same link (docs/voice/decisions.md). Recording gets no such hold: the firmware can stop without a press.
     /// ponytail: if the app is force-quit, nothing writes that the link dropped and a pause reads as current until
     /// the next launch; a pause, not "recording", so it never claims capture that isn't happening.
     private var holdsPause: Bool {

@@ -1,4 +1,4 @@
-// The voices to name (docs/processing.md, "Speakers"): the unnamed voices that
+// The voices to name (docs/voice/processing.md, "Speakers"): the unnamed voices that
 // talked with the owner, grouped (people.ts `regroup`), each with a name the summaries heard for
 // it, as cards to confirm, rename, give to someone else or ignore. Strangers (little
 // back-and-forth with the owner), media and announcements get none.
@@ -529,7 +529,7 @@ export interface Clip {
 // A turn as a card plays it: its words begun within NAMING.clipSeconds, from the first to the end
 // of the last (never past the cut), so it stops where its voice does. With bucket audio it also
 // stops where its stretch of kept speech does: the bucket audio has the silence after it cut out,
-// so only inside one stretch do capture time and the file's time run together (docs/formats.md).
+// so only inside one stretch do capture time and the file's time run together (docs/voice/formats.md).
 function clipOf(
   conversationId: string,
   turn: LoadedTurn,

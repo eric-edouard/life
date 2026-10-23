@@ -1,4 +1,4 @@
-# iOS 27 / Xcode 27 / Swift 6.4 conventions for lifelog
+# iOS 27 / Xcode 27 / Swift 6.4 conventions for Life
 
 Researched 2026-10-07 on Xcode 27.0 (27A266a), Swift 6.4 (swiftlang-6.4.0.34.1), iPhoneOS27.0.sdk, macOS 27.2.
 
@@ -46,7 +46,7 @@ A separate `.../IDEXCStringsSupport.framework/.../Skills/translation{,-coordinat
 **Navigation, tabs, toolbars, Liquid Glass, scrolling and text** **[V-local]**
 
 ```swift
-@main struct LifelogApp: App {
+@main struct LifeApp: App {
   @State private var library = Library()                    // @Observable final class
   var body: some Scene { WindowGroup { RootView().environment(library) } }
 }
@@ -211,11 +211,11 @@ session.showPicker(for: [ASPickerDisplayItem(name: "Pendant", productImage: img,
 - There is no fixed time cap; it runs as long as progress keeps moving **[U]**.
 
 ```swift
-BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.x.lifelog.transcribe.*", using: nil) { t in
+BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.x.Life.transcribe.*", using: nil) { t in
   guard let t = t as? BGContinuedProcessingTask else { return }
   t.expirationHandler = { cancel() }; t.progress.totalUnitCount = n
   t.updateTitle("Transcribing", subtitle: "3 of 10"); …; t.setTaskCompleted(success: true) }
-let r = BGContinuedProcessingTaskRequest(identifier: "com.x.lifelog.transcribe.\(id)", title: "Transcribing", subtitle: "Starting")
+let r = BGContinuedProcessingTaskRequest(identifier: "com.x.Life.transcribe.\(id)", title: "Transcribing", subtitle: "Starting")
 try await BGTaskScheduler.shared.submitTaskRequest(r)
 ```
 
@@ -268,7 +268,7 @@ try await LanguageModelSession(instructions: "…").respond(to: text, generating
 **Suitability for this app:**
 - **On-device** is fine for map-reduce summaries of chunks of about 5k tokens or less, in French or English.
 - **PCC** can take hour-long chunks.
-- **Neither handles Thai.** Send Thai or mixed transcripts to a cloud LLM. The existing `docs/research/*` covers the ASR side.
+- **Neither handles Thai.** Send Thai or mixed transcripts to a cloud LLM. The existing `docs/voice/research/*` covers the ASR side.
 
 ## 7. Swift Testing and swift-format
 

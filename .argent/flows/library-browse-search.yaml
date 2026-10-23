@@ -142,7 +142,7 @@ steps:
       condition: hidden
       selector:
         identifier: miniPlayer.stop
-executionPrerequisite: lifelog (Debug) launched with `xcrun simctl launch
+executionPrerequisite: Life (Debug) launched with `xcrun simctl launch
   --terminate-running-process <UDID> com.ericedouard.lifelog -fixtureLibrary
   -fakePendant healthyRecording` (argent injection armed), on the Pendant tab,
   no sheet open.

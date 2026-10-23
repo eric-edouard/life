@@ -1,4 +1,4 @@
-// The archive's invariants (docs/sync.md), in `GET /status`, checked every hour (index.ts) and by
+// The archive's invariants (docs/voice/sync.md), in `GET /status`, checked every hour (index.ts) and by
 // `bun run --cwd apps/voice check:archive`. Each count should be 0:
 // - strayTurns: turns that start in no live conversation;
 // - overlaps: pairs of live conversations whose ranges overlap, so a turn would show in both;
@@ -88,7 +88,7 @@ export function healthWatch(db: Db, config: Config) {
       if (rose.length > 0) {
         const status = await emailOwner(config, {
           key: `archive-${Math.floor(at / ALERT_EVERY_MS)}`,
-          subject: "Lifelog: the archive breaks its invariants",
+          subject: "Life: the archive breaks its invariants",
           text: `${rose.map(([kind, n]) => `${kind} ${n}`).join(", ")}.\n\nGET /status shows the details (archive-health.ts).`,
         });
         record(db, "archive.alert", { status });

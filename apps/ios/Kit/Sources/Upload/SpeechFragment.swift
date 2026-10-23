@@ -1,7 +1,7 @@
 import Timeline
 
 /// The kept speech of a run of whole Pendant pages: what one `PUT /sources/{id}/speech/{firstPage}` carries. The server
-/// joins fragments into blocks and decides when one closes (docs/timeline.md, "Fragments and blocks"); the phone only
+/// joins fragments into blocks and decides when one closes (docs/voice/timeline.md, "Fragments and blocks"); the phone only
 /// says where a fragment ends.
 public struct SpeechFragment: Sendable, Equatable {
     /// Kept capture intervals in upload order: its map. Empty when the pages through `last` hold nothing worth sending.

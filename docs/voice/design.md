@@ -79,7 +79,7 @@ look the same to the phone: the link drops and says nothing about why.
 Two circular Lock Screen widgets show ChatGPT (Codex) and Claude Code subscription usage. Empty means unused; full
 means the selected quota is exhausted. The center shows the time until reset, such as `5D` or `1H 20M`. Each widget
 defaults to the weekly quota; edit it to select the five-hour quota. These are the provider's account-wide limits,
-not lifelog's token spending. The ChatGPT dial is explicitly Codex's quota, not a measure of every ChatGPT feature.
+not Life's token spending. The ChatGPT dial is explicitly Codex's quota, not a measure of every ChatGPT feature.
 
 A dial updates when the app pulls the feed, so when it is woken, usually by the Pendant. Minute timeline entries update the countdown. A reading older than an hour is dimmed and marked `?`; VoiceOver names
 its observation time. Missing usage shows `—` in a dashed ring. After a reset, a dashed ring with `↻` means waiting

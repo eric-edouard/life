@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// What Lifelog Host (the menu-bar app, packaging 4.6b) decides without the system: the tokens it mints, the server's
+/// What Voice Host (the menu-bar app, packaging 4.6b) decides without the system: the tokens it mints, the server's
 /// environment, how phones reach the Mac, and the link a phone pairs with. The app does the I/O.
 public enum Host {
     /// The server's port on this Mac, on loopback only; Tailscale Serve or a Cloudflare tunnel puts HTTPS in front.
@@ -35,7 +35,7 @@ public enum Host {
     }
 
     /// `secrets` with what it lacks minted: the phone's token (in the pairing link), the helper's (its socket only),
-    /// a reader's with corrections (for Life, docs/voice-source.md), the backup's password and speaker recognition's
+    /// a reader's with corrections (for Life, docs/voice/voice-source.md), the backup's password and speaker recognition's
     /// secret. Any already there is kept: a new backup password would lock out every snapshot made with the old one.
     public static func minted(_ secrets: Secrets) -> Secrets {
         var secrets = secrets
@@ -114,7 +114,7 @@ public enum Host {
         ].compactMapValues { $0 }
     }
 
-    /// The archive's file and audio under `support`: all that `lifelog-server export` and `import` need.
+    /// The archive's file and audio under `support`: all that `voice-server export` and `import` need.
     public static func archiveEnvironment(support: URL) -> [String: String] {
         [
             "DATABASE_PATH": support.appending(path: "archive.sqlite").path,
@@ -122,7 +122,7 @@ public enum Host {
         ]
     }
 
-    /// What `lifelog-server export|import` ended with, in words, from its last line (`{ok, files, bytes}` or
+    /// What `voice-server export|import` ended with, in words, from its last line (`{ok, files, bytes}` or
     /// `{ok: false, error}`): never its JSON.
     public static func archiveResult(_ command: String, status: Int32, output: String) -> (ok: Bool, message: String) {
         struct Result: Decodable {

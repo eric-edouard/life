@@ -1,7 +1,7 @@
 # Pendant
 
-How lifelog talks to the Limitless Pendant. Built from public sources (Omi, pendant-cli, Limitless help), then
-checked against the owner's unit; details and citations are in `docs/research/pendant.md`.
+How Life talks to the Limitless Pendant. Built from public sources (Omi, pendant-cli, Limitless help), then
+checked against the owner's unit; details and citations are in `docs/voice/research/pendant.md`.
 
 **Status key:** ✅ confirmed by two public sources or official help · 🟢 verified on the owner's Pendant ·
 ⚠️ unverified (sources disagree or nobody has checked) · 🔬 needs our hardware.
@@ -69,7 +69,7 @@ Verified on the owner's Pendant, from one drain of 254 pages (about 8 hours, 4 m
   893 ms). About 10 s later the RTC is restored, but 32 s behind: the next recordings claimed times before the last
   recording before the reboot, which is the "overlap across sessions" we saw. Our next set moved it forward 32.3 s in
   the middle of a recording. The timeline places such pages by uptime from the first page our set stamped in the
-  same boot (docs/timeline.md).
+  same boot (docs/voice/timeline.md).
 - **`newest_flash_page` includes the page being written**, so the page after it, the first one a sync governs, is
   the first page stamped by the set.
 - `seq` (field 4) equals the flash page index. `ingest_type` was 2 on every page. A long press is stored on flash
@@ -83,7 +83,7 @@ off". The phone never decides it hears anything: only the Pendant's own evidence
 
 - 🟢 The firmware runs a sound detector and stores audio only while it fires, opening a storage session about 120 ms
   before the sound (pre-roll) and closing it about 5 s after (`vad_threshold_ms: 5000`). During those pauses the
-  microphones keep listening. A real pause (app or long press) stops them. See `docs/research/pendant-vad.md`.
+  microphones keep listening. A real pause (app or long press) stops them. See `docs/voice/research/pendant-vad.md`.
 - 🟢 While audio is stored a page opens about every 1.5 s; a quiet session can hold one page for minutes.
 - **Strongest evidence: page content.** A `did_start_storage_session` marker or audio packets mean hearing; a
   `did_stop_storage_session` marker means quiet. Only events within 30 s of now by the Pendant's clock count, so the
@@ -106,7 +106,7 @@ separate values in the app (`RecordingState` and `SoundActivity`), and a silence
   StopRecording runs as the same simulated long press. Waking logs "Waking up from idle mode".
 - 🟢 Neither the `did_stop_recording` and storage-session markers nor `recording_source` (0 everywhere) tell the two
   apart. The idle-mode log lines do. `DeviceStatus` has no mode field.
-- So a live `NOT_RECORDING` counts as a pause only when lifelog asked for it, a long press was just seen, or the
+- So a live `NOT_RECORDING` counts as a pause only when Life asked for it, a long press was just seen, or the
   newest flash evidence says idle mode. Otherwise recording stays on. RECORDING and LISTENING both mean on. At a new
   connection a `NOT_RECORDING` shows "Checking…" until the drain has read the flash. With no mode evidence on flash,
   the mode from before the disconnect stands: a long press out of reach logs its idle switch on flash. With none
@@ -144,13 +144,13 @@ there: sync follows the Pendant's own events.
   missed.
 - **Processing follows.** After a background wake saved audio, a processing pass runs in the same wake under a
   background task (about 30 s), and a `BGProcessingTask` is requested in case that isn't enough
-  (`docs/processing.md`).
+  (`docs/voice/processing.md`).
 - **Stall watchdog.** A connection that handles no Pendant message for 6 minutes (the same silence makes its
   telemetry stale) is dropped: that frees a write the transport never answered, and a run loop parked elsewhere reconnects
   when it returns. Nothing is ACKed meanwhile, so the Pendant keeps every page. The app logs `capture.stalled`: how long it was silent, the event its run loop was
   parked in (`idle`: the transport delivered nothing) and the writes still waiting. The Pendant speaks at least every
   ~2.2 minutes, battery included, paused or not. The run loop has stayed parked for hours with the link up, the Pendant
-  streaming and iOS waking the app (`docs/decisions.md`, "Watchdogs are stopgaps").
+  streaming and iOS waking the app (`docs/voice/decisions.md`, "Watchdogs are stopgaps").
 - **Freeze watch.** The whole capture has frozen for hours: the link stayed up on both sides, the
   Pendant streamed and iOS kept waking the app, but no task ran in it, the stall watchdog included. The coordinator
   now stamps a beat every 30 s from its own actor, and a plain GCD timer crashes the app once that beat has not moved
@@ -167,7 +167,7 @@ there: sync follows the Pendant's own events.
 
 ### Wake it from Shortcuts
 
-"Sync lifelog" is a Shortcuts action that runs inside lifelog without opening it. It wakes the app, even after a
+"Sync Life" is a Shortcuts action that runs inside Life without opening it. It wakes the app, even after a
 force-quit, waits up to 10 s for the Pendant, then starts the same run a Bluetooth sync does (drain, upload, pull) and
 answers when it ends: "Synced", "Pendant out of reach" or "No network". It logs
 `intent.sync` (`bun run events intent`). Nothing in it ACKs: the drain does, as always.
@@ -178,12 +178,12 @@ How to set it up, once, on the iPhone:
 2. Pick a trigger: **App** with "Is Closed" and a few apps you use often (Messages, Safari...); **Wi-Fi**, "Joins"
    your home or office network; **Charger**, "Is Connected"; **Time of Day**, repeat daily, then make one per hour
    you want.
-3. Next, Add Action, search "Sync lifelog" (under lifelog).
+3. Next, Add Action, search "Sync Life" (under Life).
 4. Choose **Run Immediately**, not "Run After Confirmation", and turn off "Notify When Run" if it nags. Done.
 
-- ⚠️ Unverified on hardware: that the action launches a force-quit lifelog in the background. Apple documents that an
+- ⚠️ Unverified on hardware: that the action launches a force-quit Life in the background. Apple documents that an
   intent runs in the app's own process, in the background if it asks (`supportedModes`), but not the force-quit case.
-  To test: force-quit lifelog, run the action from Shortcuts, then `bun run events --since 5m intent` shows
+  To test: force-quit Life, run the action from Shortcuts, then `bun run events --since 5m intent` shows
   `intent.sync`.
 
 ## Firmware limits
@@ -227,7 +227,7 @@ Each live short press is one quick question (`QuickPress`); the same press repla
 `double` event (raw 3) does nothing; the double press has no action. Every live press is a `press`
 event: `bun run events --since 30m press`.
 
-What a press does (`ButtonActions`, decisions in `docs/decisions.md`):
+What a press does (`ButtonActions`, decisions in `docs/voice/decisions.md`):
 - The press is placed at the Pendant's own time of it (`PressClock.pressedAt`), not when it arrived: a
   press has reached the suspended app 11 s late, in one burst with 11 held-back pages, when a silent push woke it.
 - It waits until the newest stored audio reaches the press, at most 4 s, then renders the window (60 s before the
@@ -238,7 +238,7 @@ What a press does (`ButtonActions`, decisions in `docs/decisions.md`):
   as it happens: heard, listening back, transcribing, then the words with "Ask Claude" and "Ask ChatGPT". A failure says why, with Try again. The Pendant
   screen's lens lights up and its ring follows the same stages. A tap outside or a swipe down puts the card away; the
   outcome of a press still at work shows again.
-- In the background, the outcome is a notification instead: the words (a tap opens them in lifelog, its Claude and
+- In the background, the outcome is a notification instead: the words (a tap opens them in Life, its Claude and
   ChatGPT actions open the app), or why it failed. Claude and ChatGPT open with the words filled in
   (`https://claude.ai/new?q=`, `https://chatgpt.com/?q=`, universal links only), or, over about 6 KB, copied with the
   app opened empty.
@@ -256,12 +256,12 @@ is kept on the phone.
 
 ## Omi
 
-lifelog can drain an Omi pendant (firmware 3.0.20 or later) instead of a Limitless Pendant. How it works and what is
-left out is in `docs/research/omi.md`; anyone working on it reads that file's first section first.
+Life can drain an Omi pendant (firmware 3.0.20 or later) instead of a Limitless Pendant. How it works and what is
+left out is in `docs/voice/research/omi.md`; anyone working on it reads that file's first section first.
 
 - The app connects only to drain, about every 5 minutes while it is open and whenever it comes forward or the "Sync
-  lifelog" shortcut runs, then lets go: an Omi drops its audio while a phone is connected.
-- ⚠️ **Released Omi firmware (3.0.21) deletes audio from the Omi as soon as the phone receives it**, before lifelog
+  Life" shortcut runs, then lets go: an Omi drops its audio while a phone is connected.
+- ⚠️ **Released Omi firmware (3.0.21) deletes audio from the Omi as soon as the phone receives it**, before Life
   has saved it. If the phone dies or the app is killed mid-transfer, that audio is lost. The owner accepted the risk;
   the Pendant screen says so to an Omi user, and tells them to update once an Omi firmware fixes it.
 - 🔬 Not tried on a real Omi yet: the GATT setup, the clock write, INFO while the SD card remounts, and read speed.

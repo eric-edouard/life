@@ -1,18 +1,18 @@
-name: Lifelog
+name: Life
 options:
   deploymentTarget:
     iOS: "27.0"
     watchOS: "27.0"
   createIntermediateGroups: true
 packages:
-  LifelogKit:
+  LifeKit:
     path: Kit
 settings:
   base:
     # The two settings to change to build under another team: every bundle id, the app group and the background
-    # task derive from LIFELOG_BUNDLE_ID.
+    # task derive from LIFE_BUNDLE_ID.
     DEVELOPMENT_TEAM: FA22AU429R
-    LIFELOG_BUNDLE_ID: com.ericedouard.lifelog
+    LIFE_BUNDLE_ID: com.ericedouard.lifelog
     CODE_SIGN_STYLE: Automatic
     # The widget extension's versions must match the app's.
     CURRENT_PROJECT_VERSION: "1"
@@ -27,62 +27,62 @@ settings:
     STRING_CATALOG_GENERATE_SYMBOLS: NO
     SWIFT_EMIT_LOC_STRINGS: NO
 targets:
-  Lifelog:
+  Life:
     type: application
     platform: iOS
     # Shared: the app group, snapshot copy and the control's intent, compiled into the widget extension too.
-    sources: [Lifelog, Shared]
+    sources: [Life, Shared]
     dependencies:
-      - target: LifelogWidgets
-      - target: LifelogWatch
-      - package: LifelogKit
+      - target: LifeWidgets
+      - target: LifeWatch
+      - package: LifeKit
         product: Capture
-      - package: LifelogKit
+      - package: LifeKit
         product: SourceStore
-      - package: LifelogKit
+      - package: LifeKit
         product: PendantProtocol
-      - package: LifelogKit
+      - package: LifeKit
         product: Incidents
-      - package: LifelogKit
+      - package: LifeKit
         product: OwnerSettings
-      - package: LifelogKit
+      - package: LifeKit
         product: Upload
-      - package: LifelogKit
+      - package: LifeKit
         product: ServerAPI
-      - package: LifelogKit
+      - package: LifeKit
         product: AudioPipeline
-      - package: LifelogKit
+      - package: LifeKit
         product: Library
-      - package: LifelogKit
+      - package: LifeKit
         product: Export
-      - package: LifelogKit
+      - package: LifeKit
         product: Timeline
-      - package: LifelogKit
+      - package: LifeKit
         product: Glance
-      - package: LifelogKit
+      - package: LifeKit
         product: Health
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID)
-        PRODUCT_NAME: lifelog
-        # Lifelog/AppIcon.icon, the Icon Composer document (Liquid Glass layers, light/dark/tinted).
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFE_BUNDLE_ID)
+        PRODUCT_NAME: Life
+        # Life/AppIcon.icon, the Icon Composer document (Liquid Glass layers, light/dark/tinted).
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: lifelog
+        INFOPLIST_KEY_CFBundleDisplayName: Life
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: lifelog connects to your Pendant to save its recordings on this iPhone.
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: lifelog notes where you were every few minutes so a conversation can show where it happened.
-        INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: lifelog notes where you were every few minutes while your Pendant records, even with the app closed, so each conversation shows where it happened.
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: lifelog shows the photos and screenshots you took during a conversation beside what was said. They stay in your library.
+        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: Life connects to your Pendant to save its recordings on this iPhone.
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: Life notes where you were every few minutes so a conversation can show where it happened.
+        INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: Life notes where you were every few minutes while your Pendant records, even with the app closed, so each conversation shows where it happened.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Life shows the photos and screenshots you took during a conversation beside what was said. They stay in your library.
     info:
-      path: Lifelog/Info.plist
+      path: Life/Info.plist
       properties:
         # The app group, read at run time (Shared/AppGroup.swift).
-        LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
+        AppGroupID: group.$(LIFE_BUNDLE_ID)
         # remote-notification: the server's silent push when a transcript or summary is ready.
         UIBackgroundModes: [bluetooth-central, processing, audio, remote-notification]
-        BGTaskSchedulerPermittedIdentifiers: [$(LIFELOG_BUNDLE_ID).processing]
+        BGTaskSchedulerPermittedIdentifiers: [$(LIFE_BUNDLE_ID).processing]
         UILaunchScreen: {}
         UIAppFonts: [Newsreader.ttf, Newsreader-Italic.ttf, GeistMono.ttf]
         # Limited Photos access: don't offer to pick more photos on every launch.
@@ -93,60 +93,60 @@ targets:
           - CFBundleURLName: pairing
             CFBundleURLSchemes: [lifelog]
     scheme:
-      testTargets: [LifelogUITests]
+      testTargets: [LifeUITests]
     entitlements:
-      path: Lifelog/Lifelog.entitlements
+      path: Life/Life.entitlements
       properties:
-        com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
+        com.apple.security.application-groups: [group.$(LIFE_BUNDLE_ID)]
         # The server's silent push. Builds are development-signed, so APNs is the sandbox (APNS_ENVIRONMENT).
         aps-environment: development
   # Launches the demo library offline and checks the Library shows rows: `bun run check:offline`.
-  LifelogUITests:
+  LifeUITests:
     type: bundle.ui-testing
     platform: iOS
     sources: [UITests]
     dependencies:
-      - target: Lifelog
+      - target: Life
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).uitests
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFE_BUNDLE_ID).uitests
         GENERATE_INFOPLIST_FILE: YES
-        TEST_TARGET_NAME: Lifelog
+        TEST_TARGET_NAME: Life
         # XCTestCase's initializers aren't on the main actor.
         SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
-  LifelogWidgets:
+  LifeWidgets:
     type: app-extension
     platform: iOS
     sources: [Widgets, Shared]
     dependencies:
-      - package: LifelogKit
+      - package: LifeKit
         product: Capture
-      - package: LifelogKit
+      - package: LifeKit
         product: Incidents
-      - package: LifelogKit
+      - package: LifeKit
         product: Glance
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).widgets
-        PRODUCT_NAME: LifelogWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFE_BUNDLE_ID).widgets
+        PRODUCT_NAME: LifeWidgets
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: lifelog
+        INFOPLIST_KEY_CFBundleDisplayName: Life
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET_EXTENSION"
     info:
       path: Widgets/Info.plist
       properties:
         # The app group, read at run time (Shared/AppGroup.swift).
-        LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
+        AppGroupID: group.$(LIFE_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
       path: Widgets/Widgets.entitlements
       properties:
-        com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
+        com.apple.security.application-groups: [group.$(LIFE_BUNDLE_ID)]
   # The Watch: the glance the iPhone relays (`WatchRelay`), as complications and a remote (Record/Pause, Split).
-  LifelogWatch:
+  LifeWatch:
     type: application
     platform: watchOS
     sources:
@@ -157,33 +157,33 @@ targets:
       - Shared/GlanceCopy.swift
       - Shared/Palette.swift
       - Shared/WatchMessage.swift
-      - Lifelog/AppIcon.icon
+      - Life/AppIcon.icon
     dependencies:
-      - target: LifelogWatchWidgets
-      - package: LifelogKit
+      - target: LifeWatchWidgets
+      - package: LifeKit
         product: Glance
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).watchkitapp
-        PRODUCT_NAME: LifelogWatch
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFE_BUNDLE_ID).watchkitapp
+        PRODUCT_NAME: LifeWatch
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: lifelog
-        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: $(LIFELOG_BUNDLE_ID)
+        INFOPLIST_KEY_CFBundleDisplayName: Life
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: $(LIFE_BUNDLE_ID)
         INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: NO
     info:
       path: Watch/App/Info.plist
       properties:
         # The app group, read at run time (Shared/AppGroup.swift).
-        LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
+        AppGroupID: group.$(LIFE_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
         WKApplication: true
     entitlements:
       path: Watch/App/Watch.entitlements
       properties:
-        com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
-  LifelogWatchWidgets:
+        com.apple.security.application-groups: [group.$(LIFE_BUNDLE_ID)]
+  LifeWatchWidgets:
     type: app-extension
     platform: watchOS
     sources:
@@ -194,25 +194,25 @@ targets:
       - Shared/Palette.swift
       - Shared/WatchMessage.swift
     dependencies:
-      - package: LifelogKit
+      - package: LifeKit
         product: Glance
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID).watchkitapp.widgets
-        PRODUCT_NAME: LifelogWatchWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(LIFE_BUNDLE_ID).watchkitapp.widgets
+        PRODUCT_NAME: LifeWatchWidgets
         TARGETED_DEVICE_FAMILY: "4"
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: lifelog
+        INFOPLIST_KEY_CFBundleDisplayName: Life
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WIDGET_EXTENSION"
     info:
       path: Watch/Widgets/Info.plist
       properties:
         # The app group, read at run time (Shared/AppGroup.swift).
-        LifelogAppGroup: group.$(LIFELOG_BUNDLE_ID)
+        AppGroupID: group.$(LIFE_BUNDLE_ID)
         CFBundleDevelopmentRegion: en
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
       path: Watch/Widgets/Widgets.entitlements
       properties:
-        com.apple.security.application-groups: [group.$(LIFELOG_BUNDLE_ID)]
+        com.apple.security.application-groups: [group.$(LIFE_BUNDLE_ID)]

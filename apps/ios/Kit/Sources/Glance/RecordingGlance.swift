@@ -9,7 +9,7 @@ public struct RecordingGlance: Codable, Hashable, Sendable {
         case unrecognized
     }
 
-    /// A pause or resume asked for in lifelog.
+    /// A pause or resume asked for in Life.
     public enum Request: String, Codable, Sendable {
         case pause
         case resume

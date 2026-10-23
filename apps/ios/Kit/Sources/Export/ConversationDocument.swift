@@ -2,7 +2,7 @@ import Foundation
 import Library
 import Timeline
 
-/// `conversation.json`, version 3 (docs/formats.md). Every moment carries capture time (Unix ms) and audio time (ms
+/// `conversation.json`, version 3 (docs/voice/formats.md). Every moment carries capture time (Unix ms) and audio time (ms
 /// into the exported audio).
 public struct ConversationDocument: Codable, Sendable, Equatable {
     public static let version = 3

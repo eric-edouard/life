@@ -1,7 +1,7 @@
 # The voice-source contract
 
-What a reader of lifelog can rely on: a program that follows the owner's recorded speech, never writes in the
-background, and knows nothing of the phone. Lifelog never calls a reader and does not know which one reads it. Any other
+What a reader of Life can rely on: a program that follows the owner's recorded speech, never writes in the
+background, and knows nothing of the phone. Life never calls a reader and does not know which one reads it. Any other
 voice recorder can offer the same routes and be read the same way. `openapi.json` has every shape; this page says what
 the shapes mean.
 
@@ -17,7 +17,7 @@ Only the hash goes in the server's environment. Mint again to rotate. A token on
 unknown token 401. The phone's device token opens everything, the reads included.
 
 `GET /capabilities` says what this source offers: `{ contract: 1, capabilities: [...] }`, each of `search`, `places`,
-`corrections` and `status`. The feed and transcripts are always there. Lifelog offers all four.
+`corrections` and `status`. The feed and transcripts are always there. Life offers all four.
 
 ## The feed: `GET /changes?since=&wait=`
 
@@ -66,7 +66,7 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
   Splits and merges stay in the app.
 - **status**: `GET /status`. `pendant` (`connection`, `recording`, `recordingKnownAt`, `batteryPercent`, `charging`,
   `knownAt`), `phoneHeartbeat` (the phone's last report, `backlog.pages` among it), `pipeline` (where audio and
-  summaries are, `docs/transcription-server.md`) and `backup` are typed; the rest is for the owner's own sessions and
+  summaries are, `docs/voice/transcription-server.md`) and `backup` are typed; the rest is for the owner's own sessions and
   may change. `GET /status/live`, its cheap part, is the device token's only.
 
 ## Still to change

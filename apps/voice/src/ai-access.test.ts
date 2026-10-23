@@ -190,7 +190,7 @@ test("a client registered by DCR gets a token for Life, with Life as its audienc
     })
   ).json();
   expect((await verified(refreshed.access_token, as.jwks_uri)).aud).toBe(LIFE);
-  // Life's token opens none of lifelog's routes.
+  // Life's token opens none of Life's routes.
   const people = await fetch(`${base}/people`, {
     headers: { Authorization: `Bearer ${token}` },
   });

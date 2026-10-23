@@ -22,12 +22,12 @@ import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.resume
 
 /**
- * One drain of an Omi's ring, as the iPhone's `OmiCodec` does it (`docs/research/omi.md`, "What the app does"): find
+ * One drain of an Omi's ring, as the iPhone's `OmiCodec` does it (`docs/voice/research/omi.md`, "What the app does"): find
  * it, connect, set its clock, INFO, READ from the oldest record the phone doesn't hold, store each record fsync'd in
  * the outbox, ADVANCE past what is stored, and let go: an Omi drops its audio while a phone is connected without
  * streaming it live, so the phone connects only to drain.
  *
- * Firmware 3.0.21 frees a record as soon as Bluetooth delivered it (the owner accepted the risk, `docs/research/omi.md`,
+ * Firmware 3.0.21 frees a record as soon as Bluetooth delivered it (the owner accepted the risk, `docs/voice/research/omi.md`,
  * "Custody risk"): the records are stored as they arrive, at most `FLUSH_MILLIS` after, and kept when the link drops.
  * Pages are `Store.lifeBase + seq`; a write number at or below what the phone holds is a cleared ring, a new life.
  */

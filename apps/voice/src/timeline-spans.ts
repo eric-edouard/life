@@ -45,7 +45,7 @@ export const TimelineSpan = z
 export type SpanFacts = z.infer<typeof TimelineSpan>;
 
 // The jobs holding a span placed again more than 1 s off, and by how much (ms): logged as
-// `job.span_moved`, their maps not moved (docs/timeline.md, "Fragments and blocks").
+// `job.span_moved`, their maps not moved (docs/voice/timeline.md, "Fragments and blocks").
 function movedUnderJobs(
   db: Pick<Db, "select">,
   sourceId: string,

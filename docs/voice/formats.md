@@ -87,7 +87,7 @@ The phone (`TimeMap`) and the server (`transcript.ts` `captureMillis`, `keptAt` 
 ## Audio
 
 Both files are 16 kHz mono, exactly as long as the range: `audio.m4a` is AAC at 32 kbps, `audio.wav` is 16-bit
-PCM. They are made in one streaming pass over the 10-minute playback files (`docs/timeline.md`), holding 30 s at a
+PCM. They are made in one streaming pass over the 10-minute playback files (`docs/voice/timeline.md`), holding 30 s at a
 time: each stretch is decoded from its file at its offset, and silence is written between. The AAC is re-encoded,
 not passed through: AVFoundation will not splice several AAC files without re-encoding, and a composition drops
 trailing silence, which would make the file too short. 32 kbps, above playback's 24, keeps the loss small.
@@ -214,7 +214,7 @@ restored source store, a rebuild of every playback file whose sidecar came back 
 rebuilds a sidecar without audio instead of skipping it; files evicted to save space wait until they are played), and schedules the switch. At the next launch, before
 any store opens:
 
-1. The live folder `lifelog` moves aside to `lifelog-previous-<unix time>`. It is never deleted.
+1. The live folder `Life` moves aside to `lifelog-previous-<unix time>`. It is never deleted.
 2. The restored folder moves into its place.
 
 If a step fails, the live folder is put back and the owner reads why in Backup & restore. The schedule is

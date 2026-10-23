@@ -18,7 +18,7 @@ public enum IncidentAlert: String, Sendable, Codable, CaseIterable {
     case noContact
     /// At or below the owner's threshold, not charging. Once per discharge (`AlertSettings`).
     case batteryLow
-    // Changes made on the Pendant itself, decided by `PendantChangeReducer`. Changes asked for in lifelog never notify.
+    // Changes made on the Pendant itself, decided by `PendantChangeReducer`. Changes asked for in Life never notify.
     case recordingPausedOnPendant
     case recordingResumedOnPendant
     /// Not answering for `PendantChangeReducer.disconnectAfter` while it recorded: asks for a restart. Scheduled, and

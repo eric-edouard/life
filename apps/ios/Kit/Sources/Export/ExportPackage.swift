@@ -20,7 +20,7 @@ public enum ExportFormat: String, Sendable, CaseIterable {
     }
 }
 
-/// `manifest.json` at the root of every export. See docs/formats.md.
+/// `manifest.json` at the root of every export. See docs/voice/formats.md.
 public struct Manifest: Codable, Sendable, Equatable {
     public static let format = "lifelog-export"
     public static let currentVersion = 1

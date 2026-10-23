@@ -6,7 +6,7 @@ import ServerAPI
 import SourceStore
 import Timeline
 
-/// The raw backup (docs/formats.md "Backup"): what the bucket needs so the archive survives losing the phone. The app
+/// The raw backup (docs/voice/formats.md "Backup"): what the bucket needs so the archive survives losing the phone. The app
 /// runs one round at a time in a lane of its own, beside the driver's runs, on Wi-Fi or power only: an item can take
 /// minutes, and fragments never wait for it. Its network waits leave the actor free, so a run goes on meanwhile. In order:
 /// today's `source.sqlite` snapshot, the audio of imported old-app jobs, the sealed packs, then the audio of the old

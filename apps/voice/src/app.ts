@@ -38,7 +38,7 @@ const PUBLIC_PATHS = [
   "/consent",
   "/sign-in",
 ];
-// What a reader's token opens (docs/voice-source.md); the device token opens every route.
+// What a reader's token opens (docs/voice/voice-source.md); the device token opens every route.
 const READS = [
   "GET /capabilities",
   "GET /changes",
@@ -202,7 +202,7 @@ export function createApp(s: Services) {
 
 export const openApiDocument = (app: OpenAPIHono, config: Config) =>
   app.getOpenAPI31Document({
-    info: { title: "lifelog", version: "1" },
+    info: { title: "Life voice server", version: "1" },
     openapi: "3.1.0",
     security: [{ Bearer: [] }],
     servers: [{ url: config.PUBLIC_BASE_URL }],

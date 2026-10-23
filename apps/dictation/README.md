@@ -1,13 +1,13 @@
-# lifelog-quiet
+# dictation-sensor
 
 A small Mac helper. When you talk to the Mac (FluidVoice, Wispr Flow, Handy, Superwhisper,
 the voice input of Claude, ChatGPT or Codex, Claude Code's `/voice`), the Pendant hears it too.
-The helper tells the lifelog server when each dictation happened, and the phone leaves that audio out of
+The helper tells the voice server when each dictation happened, and the phone leaves that audio out of
 transcription. Dictation the phone already transcribed (the Mac was offline) is hidden from transcripts and search.
 
 How it works: macOS knows which process has the microphone open. The helper watches that flag for every process
 using audio and, whenever the set capturing changes, sends it on its socket; before the Mac sleeps it says so. That
-is all it decides: the server's rules (`apps/voice/src/dictation.ts`, `docs/sync.md`) turn those facts into quiet
+is all it decides: the server's rules (`apps/voice/src/dictation.ts`, `docs/voice/sync.md`) turn those facts into quiet
 ranges. Only dictation apps count; calls (FaceTime, WhatsApp, a browser) are conversations. Each dictation is padded
 1 s before and 1.5 s after, dictations less than 5 s apart are one, one over 10 minutes or cut by sleep is dropped,
 and a flag still on after 10 minutes stops holding the phone back. The server names only dictation apps and counts
@@ -25,7 +25,7 @@ again, stop the helper, delete that event from `outbox.json`, and start it: the 
 applies.
 
 Moving from the helper that sent ranges (protocol 1): let a dictation finish and wait for the log to show its range
-acked, stop the old helper, update the server, then install this one. Lifelog Host ships both, so updating Host does
+acked, stop the old helper, update the server, then install this one. Voice Host ships both, so updating Host does
 it in that order. Any ranges still in the old `outbox.json` go as the events that make them, and the server holds
 the phone back from where the old helper left it until this one speaks.
 
@@ -60,7 +60,7 @@ Each call writes one line to the log.
 
 On power, the helper holds off idle sleep (an `IOPMAssertion`), so summaries run while you are away from the Mac. The
 screen still sleeps, and closing the lid still sleeps the Mac. On battery, macOS decides. `pmset -g assertions` lists
-it as "lifelog: summaries run while the Mac is on power".
+it as "Life: summaries run while the Mac is on power".
 
 ## Subscription widgets
 
@@ -91,16 +91,16 @@ After the first response in an interactive Pro or Max session, the bridge stores
 Without a running session or a new status-line observation, the last reading ages honestly. The existing isolated
 summary subprocesses still load no personal settings, status-line scripts or tools.
 
-How the dials show it: `docs/design.md`.
+How the dials show it: `docs/voice/design.md`.
 
 Sources: [Codex account limits](https://developers.openai.com/codex/app-server),
 [Claude Code status-line fields](https://code.claude.com/docs/en/statusline),
 [setup-token scope limitation](https://github.com/anthropics/claude-code/issues/24200),
 [WidgetKit refresh budgets](https://developer.apple.com/documentation/widgetkit/keeping-a-widget-up-to-date).
 
-## Lifelog Host (lifelog on your own Mac)
+## Voice Host (Life on your own Mac)
 
-`Lifelog Host.app` runs all of lifelog on a Mac: a menu-bar app with the server, this helper,
+`Voice Host.app` runs all of Life on a Mac: a menu-bar app with the server, this helper,
 `cloudflared`, `restic`, `codex` and `uv` inside it (`Contents/Helpers`), and speaker recognition (`apps/speech`),
 which it installs itself.
 
@@ -111,18 +111,18 @@ which it installs itself.
    on both (free), or, with a domain on Cloudflare, create a tunnel in Zero Trust (Networks, Tunnels), copy its
    token and route your address to `http://127.0.0.1:47613`.
 3. Build it with `bun run host:app` (prebuilt, notarized releases are not published yet; "Building it" below), move
-   `Lifelog Host.app` to Applications and open it. Settings opens by itself until lifelog is set up.
+   `Voice Host.app` to Applications and open it. Settings opens by itself until Life is set up.
 4. Paste the keys, choose how your phone reaches this Mac, then **Start fresh**, or **Import an export…** to bring
-   an archive from another Mac. lifelog starts and opens at login from then on.
+   an archive from another Mac. Life starts and opens at login from then on.
 5. Under **Summaries**, sign the helper in to your subscription: **Sign in to ChatGPT…** (in the browser, with the
    Codex inside the app), or for Claude, with Claude Code installed, run `claude setup-token` in Terminal and paste
-   the token it prints. Once lifelog runs, **Run on** picks the one summaries use; saving a Claude token restarts the helper.
-6. Settings now shows a QR code: open the Camera on the iPhone (with lifelog installed) and point it at it. There is
+   the token it prints. Once Life runs, **Run on** picks the one summaries use; saving a Claude token restarts the helper.
+6. Settings now shows a QR code: open the Camera on the iPhone (with Life installed) and point it at it. There is
    no built-in server: a phone pairs only this way.
 7. Optional: turn on **Back up to iCloud Drive every day**, then **Copy the backup password** into your password
    manager. Without it nobody can read the backup.
 
-The ring-and-dot in the menu bar says "lifelog: all good" or how many things to look at, then one line each: what
+The ring-and-dot in the menu bar says "Life: all good" or how many things to look at, then one line each: what
 waits to be transcribed, what is at ElevenLabs, the AI pass (running, waiting, blocked), the Pendant, the phone, the
 Mac helper, speaker recognition (off, failing, or when it last answered), ElevenLabs credits and the backup. **Open
 status…** shows all of it in full, with the last day's problems, the archive's checks, and Host's processes with their
@@ -134,22 +134,22 @@ The backup's password is `resticPassword` in `~/Library/Application Support/life
 backup password** copies it, so keep it somewhere safe. If `secrets.json` is lost (a new Mac), put the saved password
 back there as `resticPassword` before turning backups on, or the new backups go nowhere the old ones can be read.
 To restore, take the export out of the latest snapshot into a new folder (restic asks for the password), then
-**Import an export…** that folder (`~/lifelog-restore`) into a new install. The server backs up its staging folder
+**Import an export…** that folder (`~/Life-restore`) into a new install. The server backs up its staging folder
 by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, so name that path after `latest:`
 (checked with restic 0.19.1); from another account than the one backed up, use that account's home, which
 `restic snapshots` shows:
 
 ```sh
-"/Applications/Lifelog Host.app/Contents/Helpers/restic" \
+"/Applications/Voice Host.app/Contents/Helpers/restic" \
   -r "$HOME/Library/Mobile Documents/com~apple~CloudDocs/lifelog backup/restic" \
-  restore "latest:$HOME/Library/Application Support/lifelog/restic-staging" --target ~/lifelog-restore
+  restore "latest:$HOME/Library/Application Support/lifelog/restic-staging" --target ~/Life-restore
 ```
 
 ### How it works
 
-- The archive and audio live in `~/Library/Application Support/lifelog`; logs in `~/Library/Logs/lifelog-*.log`
+- The archive and audio live in `~/Library/Application Support/lifelog`; logs in `~/Library/Logs/Life-*.log`
   (server, quiet, tunnel, identity). `Supervisor` starts each process again 5 s after it stops, with its environment
-  read anew; a Save or an import starts them all again on the new settings. While lifelog runs the Mac doesn't idle-sleep
+  read anew; a Save or an import starts them all again on the new settings. While Life runs the Mac doesn't idle-sleep
   (like `caffeinate -i`); the screen still sleeps.
 - The keys, the tunnel token, the backup password and speaker recognition's secret are in the helper's
   `secrets.json` (mode 0600, never the Keychain). Host mints the phone's, the helper's and a reader's token, the
@@ -177,22 +177,22 @@ by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, s
   `RESTIC_PASSWORD` and `RESTIC_BINARY`; its last snapshot or error is in its status.
 - The menu reads `/status/live` every 30 s with the phone's token; the status window reads the full `/status` with
   the reader's token when it opens and on "Check now".
-- Export everything… runs `lifelog-server export <folder>` while the server runs; Import stops the server and runs
-  `lifelog-server import <folder>`, all or nothing (the server refuses an install that isn't empty). Both get only
+- Export everything… runs `voice-server export <folder>` while the server runs; Import stops the server and runs
+  `voice-server import <folder>`, all or nothing (the server refuses an install that isn't empty). Both get only
   `DATABASE_PATH` and `AUDIO_DIR`, and show the result in words.
-- "Copy Life's lifelog settings" copies the address and the reader's token.
+- "Copy Life's voice settings" copies the address and the reader's token.
 - Unload the LaunchAgent below before using it: the host runs its own helper.
 
 ### Building it
 
 `bun run host:app [out]` builds into `.build/host`. It needs Xcode and Homebrew's `librsvg` (`brew install librsvg`,
-for `rsvg-convert`, which draws the menu-bar icon). Set `LIFELOG_SIGN_IDENTITY` to sign with a Developer ID and
-`LIFELOG_VERSION` for its version. cloudflared, restic, Codex and uv come from their GitHub releases, pinned by sha256; a
+for `rsvg-convert`, which draws the menu-bar icon). Set `LIFE_SIGN_IDENTITY` to sign with a Developer ID and
+`VOICE_HOST_VERSION` for its version. cloudflared, restic, Codex and uv come from their GitHub releases, pinned by sha256; a
 download that doesn't match is refused.
 
-## Install (without Lifelog Host)
+## Install (without Voice Host)
 
-Lifelog Host runs its own helper with its own token; these steps are for a helper beside a server you run some other
+Voice Host runs its own helper with its own token; these steps are for a helper beside a server you run some other
 way.
 
 1. Mint the Mac's token and give the server its hash. The token opens only the helper's socket, never the phone's
@@ -212,7 +212,7 @@ way.
    cd apps/dictation   # from the checkout
    swift build -c release
    mkdir -p ~/.local/bin ~/Library/LaunchAgents
-   cp .build/release/lifelog-quiet ~/.local/bin/
+   cp .build/release/dictation-sensor ~/.local/bin/
    sed -e "s|__HOME__|$HOME|g" -e "s|__SERVER__|https://your-server.example|g" com.lifelog.quiet.plist \
      > ~/Library/LaunchAgents/com.lifelog.quiet.plist   # your server's address: the helper needs LIFELOG_URL
    ```
@@ -277,7 +277,7 @@ not the Keychain. A LaunchAgent installed before the helper needed `LIFELOG_URL`
 step 2, with `__SERVER__`), or the new helper won't start.
 
 ```sh
-rm ~/.local/bin/lifelog-quiet && cp .build/release/lifelog-quiet ~/.local/bin/
+rm ~/.local/bin/lifelog-quiet && cp .build/release/dictation-sensor ~/.local/bin/
 launchctl kickstart -k gui/$(id -u)/com.lifelog.quiet
 ```
 
@@ -290,8 +290,8 @@ To remove it:
 launchctl bootout gui/$(id -u)/com.lifelog.quiet
 rm ~/Library/LaunchAgents/com.lifelog.quiet.plist ~/.local/bin/lifelog-quiet
 rm ~/Library/Application\ Support/lifelog-quiet/secrets.json
-security delete-generic-password -s lifelog-quiet -a mac-token    # old Keychain items, if still there
-security delete-generic-password -s lifelog-quiet -a claude-token
+security delete-generic-password -s dictation-sensor -a mac-token    # old Keychain items, if still there
+security delete-generic-password -s dictation-sensor -a claude-token
 ```
 
 To add another dictation app, add its bundle id (as `--list` prints it, or as the log names it) to

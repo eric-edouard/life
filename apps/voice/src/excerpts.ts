@@ -1,4 +1,4 @@
-// The server cuts its own voice excerpts (rebuild P3, docs/processing.md "Speakers").
+// The server cuts its own voice excerpts (rebuild P3, docs/voice/processing.md "Speakers").
 //
 // When a block's job is stored, its clean turns (people.ts `uncleanTurn`, the one rule) are cut
 // from the block's own Ogg Opus, whose timeline is the one the turns' seconds are in. The audio goes

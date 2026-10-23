@@ -1,7 +1,7 @@
 import Foundation
 import Timeline
 
-/// A recording imported from the old app (docs/formats.md, "Old app"). It has no Pendant pages behind it: it plays
+/// A recording imported from the old app (docs/voice/formats.md, "Old app"). It has no Pendant pages behind it: it plays
 /// from its own file.
 public struct ImportedAudio: Sendable, Equatable, Codable {
     /// The old app's recording id.

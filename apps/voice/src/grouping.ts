@@ -3,7 +3,7 @@
 // dictation, location moves and owner edits. Forward-only: a change marks its range dirty on the
 // source, and a run regroups from the last boundary before it to the first closed conversation
 // after it; a conversation 5 minutes behind heard-through is closed. Cases:
-// apps/voice/fixtures/segmentation/*.json. Reasoning: docs/timeline.md.
+// apps/voice/fixtures/segmentation/*.json. Reasoning: docs/voice/timeline.md.
 
 import type { Db } from "@life/voice-db";
 import {
@@ -293,7 +293,7 @@ function longestPause(ranges: Range[]) {
 // ---- Ids ---------------------------------------------------------------------
 
 // The phone's `ConversationID.serverID`: the anchor's milliseconds in the last 48 bits of an
-// otherwise zero UUID, version and variant 8 (docs/formats.md).
+// otherwise zero UUID, version and variant 8 (docs/voice/formats.md).
 export const anchorId = (anchor: number) =>
   `00000000-0000-8000-8000-${anchor.toString(16).padStart(12, "0")}`;
 

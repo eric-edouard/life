@@ -1,12 +1,12 @@
 import Capture
 import Foundation
 
-/// What lifelog knows about capture beside the Pendant's own status.
+/// What Life knows about capture beside the Pendant's own status.
 public struct CaptureContext: Sendable, Equatable {
     public enum BluetoothPermission: Sendable, Equatable {
         case notDetermined
         case denied
-        /// Blocked by Screen Time or a profile; the owner can't grant it from lifelog's settings alone.
+        /// Blocked by Screen Time or a profile; the owner can't grant it from Life's settings alone.
         case restricted
         case allowed
     }

@@ -1,6 +1,6 @@
 # Decisions
 
-The choices that shape lifelog and why, as they stand now. Read the one you are about to reverse first; if you
+The choices that shape Life and why, as they stand now. Read the one you are about to reverse first; if you
 reverse it, change its entry here in the same commit.
 
 ## Capture
@@ -9,7 +9,7 @@ reverse it, change its entry here in the same commit.
   device (protocol codec, page store, time maps, export formats) lives in `apps/ios/Kit`, so it builds and tests on
   the Mac in seconds. Swift 6, complete strict concurrency, warnings as errors.
 - **The Pendant protocol comes from public sources** (Omi, pendant-cli, Limitless help), each fact marked verified or
-  not in `docs/pendant.md`.
+  not in `docs/voice/pendant.md`.
 - **Raw pages: append-only packs plus SQLite receipts.** Bytes are appended to a pack and fsync'd with `F_FULLFSYNC`,
   then a receipt is committed (WAL, `fullfsync`). Decoding and speech analysis are a separate retryable queue that
   never blocks ACK.
@@ -23,12 +23,12 @@ reverse it, change its entry here in the same commit.
   after a force-quit, but declaring it puts all of CoreBluetooth in its mode, so plain scanning stops working.
 - **An Omi drains through the same pipeline**, with a known risk: released Omi firmware frees a record once it is
   delivered, before the phone stored it. The app warns on the Pendant screen and asks for an update once a firmware
-  fixes it (`docs/research/omi.md`).
+  fixes it (`docs/voice/research/omi.md`).
 - **Watchdogs are stopgaps.** A capture run loop once stayed parked on an await for a night, and once the whole
   capture froze: `watchStall` drops a silent link and `FreezeWatch` crashes a frozen app so iOS relaunches it with a
-  report of every thread (`docs/pendant.md`). When a report names the cause, fix it at its root and delete both.
+  report of every thread (`docs/voice/pendant.md`). When a report names the cause, fix it at its root and delete both.
 - **Original capture time is the canonical timeline.** Every word, boundary and place is anchored to the Pendant's
-  clock, corrected where measured. Uploaded audio has its own timeline and a time map back (`docs/timeline.md`).
+  clock, corrected where measured. Uploaded audio has its own timeline and a time map back (`docs/voice/timeline.md`).
 - **Upload only speech, with no loudness gate.** A second goes up when Silero VAD or Apple's sound classifier hears
   speech, padded 1 s each side, cutting only gaps of 3 s or more. A loudness gate cut real phone calls; this rule
   sends about a third of the audio and keeps over 99% of the words.
@@ -37,15 +37,15 @@ reverse it, change its entry here in the same commit.
 
 - **The server owns conversations; the phone captures.** One side owns each fact: the phone captures, places audio
   in capture time, labels speech and uploads; the server groups, transcribes, recognizes, summarizes and serves. The
-  phone's library is a cache, and the owner's edits travel as intents (`docs/sync.md`). Two owners of the same fact
+  phone's library is a cache, and the owner's edits travel as intents (`docs/voice/sync.md`). Two owners of the same fact
   disagreed.
 - **The server keeps the audio and cuts the blocks.** The phone sends speech fragments of whole pages; the server
   keeps them and closes blocks of up to 2 minutes on its own clock, so a retry never needs the phone. The cutter is the
-  only way a job is made (`docs/transcription-server.md`).
+  only way a job is made (`docs/voice/transcription-server.md`).
 - **One SQLite file, one writer.** A transaction is a synchronous function that runs to its end alone, so the change
   log's order and the paid-once admission check hold without locks. Every query runs on the event loop: keep passes
   incremental.
-- **Lifelog Host is the whole install.** The server, the Mac helper, Codex, `cloudflared` and `restic` run in one menu-bar
+- **Voice Host is the whole install.** The server, the Mac helper, Codex, `cloudflared` and `restic` run in one menu-bar
   app on the owner's Mac; audio stays on its disk; phones reach it on a tailnet or through a tunnel; backups are
   restic into iCloud Drive. The tunnel's token goes in cloudflared's environment, never its arguments, which `ps`
   shows. The backup password is minted once and never replaced: a new one would lock out every snapshot.
@@ -99,7 +99,7 @@ reverse it, change its entry here in the same commit.
 
 - **Speaker recognition is self-hosted.** SpeechBrain ECAPA on a small CPU service, so voices and embeddings never
   reach a third party. Only the owner creates people and adds evidence; a match needs a score and a lead over the
-  runner-up, else unknown. On the Mac, Lifelog Host installs it with a pinned `uv` from the bundled lock and
+  runner-up, else unknown. On the Mac, Voice Host installs it with a pinned `uv` from the bundled lock and
   supervises it like its other processes: production lost naming for a day when it was a separate thing to start.
 - **One list of voices to name**, rebuilt nightly by average likeness and asked one voice at a time; strangers and
   media are never asked about. Voice data that is nobody's evidence goes after 30 days.
@@ -111,7 +111,7 @@ reverse it, change its entry here in the same commit.
 ## Readers and glances
 
 - **Readers use a contract, not the phone's API.** A reader such as Life follows the feed with its own `read` or
-  `corrections` token, never writes in the background, and lifelog never calls it (`docs/voice-source.md`).
+  `corrections` token, never writes in the background, and Life never calls it (`docs/voice/voice-source.md`).
 - **OAuth codes go only to known callbacks.** The issuer a reader's MCP clients sign in with gives a code only to the
   callbacks `trustedRedirects` lists in `apps/voice/packages/auth` (Life's from `LIFE_URL`), or to loopback, so an app that
   registers under a familiar name never gets one; the owner's consent stays the last guard.
@@ -133,8 +133,8 @@ reverse it, change its entry here in the same commit.
 
 ## The repo
 
-- **Better-T-Stack's layout, with lifelog's own tools.** The owner's platforms plan (22 Oct 2026) ran
-  `bun create better-t-stack@latest lifelog --frontend none --backend hono --runtime bun --database sqlite --orm drizzle
+- **Better-T-Stack's layout, with Life's own tools.** The owner's platforms plan (22 Oct 2026) ran
+  `bun create better-t-stack@latest Life --frontend none --backend hono --runtime bun --database sqlite --orm drizzle
   --api none --auth better-auth --payments none --addons turborepo biome ultracite skills --examples none --db-setup none
   --web-deploy none --server-deploy none --no-git --package-manager bun --no-install` (3.47.0) into a scratch folder,
   and the repo moved into its shape: `apps/voice` (Hono), `apps/voice/packages/db` (Drizzle, SQLite), `apps/voice/packages/auth` (Better

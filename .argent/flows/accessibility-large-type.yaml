@@ -64,6 +64,6 @@ steps:
       idle: true
 executionPrerequisite: Simulator text size set to the largest accessibility size
   (`xcrun simctl ui <UDID> content_size accessibility-extra-extra-extra-large`),
-  then lifelog launched with `-fixtureLibrary -fakePendant healthyRecording`;
+  then Life launched with `-fixtureLibrary -fakePendant healthyRecording`;
   Pendant tab showing. Screenshots are human evidence for clipping; restore
   content_size afterwards.

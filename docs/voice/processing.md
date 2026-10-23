@@ -2,7 +2,7 @@
 
 What happens to the Pendant's audio after capture. The server does most of it: it keeps the audio, transcribes it,
 groups it into conversations, recognizes speakers and summarizes chapters. The phone's part is short: it labels
-speech and uploads it as fragments; the server cuts the blocks. Who owns what between them: [`docs/sync.md`](sync.md).
+speech and uploads it as fragments; the server cuts the blocks. Who owns what between them: [`docs/voice/sync.md`](sync.md).
 
 ## On the phone
 
@@ -32,7 +32,7 @@ when the network returns. A run cut short loses nothing: the next resumes. Captu
    at the last pause, a page's end outside kept audio with speech after it or heard-through past it, so speech still
    going on waits and seams fall in silence; with no pause and a minute waiting, inside the latest second the
    analyzers call non-speech; with neither, at 90 s. Then timeline facts (`FactsBuilder`,
-   [`docs/timeline.md`](timeline.md)), with `heardThrough` and `sentThrough`: where the first kept second not sent
+   [`docs/voice/timeline.md`](timeline.md)), with `heardThrough` and `sentThrough`: where the first kept second not sent
    starts, or heard-through when none waits. The server closes blocks on it.
 
    One rule decides what goes up: kept speech on every page the server doesn't hold, across the whole archive, read
@@ -64,7 +64,7 @@ when the network returns. A run cut short loses nothing: the next resumes. Captu
 6. **The location history**, in batches of 500.
 7. **The raw backup** (`Uploader.backUp`), on Wi-Fi or power: the day's `source.sqlite` snapshot, sealed packs, and
    the audio of old jobs. It is not a step of the run: it goes in its own lane beside the runs, so new speech never
-   waits behind an item (`docs/sync.md`, `docs/formats.md`).
+   waits behind an item (`docs/voice/sync.md`, `docs/voice/formats.md`).
 
 What never reaches ElevenLabs:
 
@@ -73,7 +73,7 @@ What never reaches ElevenLabs:
   images (`*.exe`, any case) from their own table. When unsure whether an app is voice input, it is on the list:
   matching too much only holds audio back, matching too little sends dictation to be processed.
   The phone doesn't wait for the Mac, so a dictation it hasn't reported yet can be in a fragment. The server joins no
-  fragment until the Mac vouches for its block's end (its watermark, `docs/sync.md`), and its job worker is still the
+  fragment until the Mac vouches for its block's end (its watermark, `docs/voice/sync.md`), and its job worker is still the
   gate to ElevenLabs (`jobs.ts` `claim`). A fragment a range touches is withdrawn unread, its audio leaves the audio store,
   and the feed says it went (`removed`, kind `job`, the fragment's id); the phone moves its cursor back and sends those
   pages again with the range cut out. Every word from the Mac (and every range its events close) starts the worker, so a
@@ -86,8 +86,8 @@ What never reaches ElevenLabs:
 
 ## On the server
 
-Details of each step are in [`docs/transcription-server.md`](transcription-server.md) (blocks, jobs, cost) and
-[`docs/timeline.md`](timeline.md) (grouping). In short:
+Details of each step are in [`docs/voice/transcription-server.md`](transcription-server.md) (blocks, jobs, cost) and
+[`docs/voice/timeline.md`](timeline.md) (grouping). In short:
 
 1. **Fragments stored, blocks cut, a job created.** Each fragment goes to the audio store. The server closes a source's
    open fragments into a block itself (`cutter.ts`): at 2 minutes of speech, on a pause of 5 s the phone saw
@@ -101,7 +101,7 @@ Details of each step are in [`docs/transcription-server.md`](transcription-serve
    the webhook or the 5-minute tick brings it.
 3. **Turns.** Each transcript becomes turns in capture time (`turns`), through the job's time map. A conversation's
    words are the turns that start inside its range; dictation and media are hidden in one place (`keptWords`).
-4. **Grouping** for the source runs over the block's range, forward-only (`docs/timeline.md`). Conversations change
+4. **Grouping** for the source runs over the block's range, forward-only (`docs/voice/timeline.md`). Conversations change
    in the feed.
 5. **Speakers** are recognized from the job's own audio (below).
 6. **Summaries** roll for every conversation whose words changed (below).
@@ -117,7 +117,7 @@ Bluetooth sync and when the app comes forward. While the latest heartbeat says t
 heard-through is more than 5 minutes behind, the 5-minute tick sends the phone a silent push to send what is ready
 (`askForUploads`, `ready: "upload"`), so at most one every 5 minutes. Only the iPhone's sources count: a raw-page
 source's heard-through is the server's own and never hides the iPhone's lag. If it is behind by more than the owner's delay
-(Settings, Alerts: Off, 10, 15 by default, 30 or 60 minutes), the same check sends one visible alert, "Open lifelog"
+(Settings, Alerts: Off, 10, 15 by default, 30 or 60 minutes), the same check sends one visible alert, "Open Life"
 (`ready: "open"`). Tapping it opens the app, which uploads as it comes forward. It goes once per episode: only the tick
 that first finds the delay passed sends it, so a deploy in that 5-minute window skips it.
 
@@ -132,7 +132,7 @@ whose battery died keeps the push going until the phone's app restarts. The phon
 
 A conversation that isn't finished says why in the feed (`waiting.reason`, `since`), and the app says it as a
 sentence. While a job over it isn't completed, the reason is `transcriptionOff` or `creditsOut`. Otherwise, `macAway` while a refused event blocks the Mac's
-watermark (`docs/sync.md`), `phoneQuiet`
+watermark (`docs/voice/sync.md`), `phoneQuiet`
 when heard-through is more than 10 minutes behind and before the conversation's end while the Pendant records (audio of
 it the phone hasn't sent), and, for a conversation with words that is still open or due (Summaries, below), `aiOff`
 or `macAway` (its summary waits for the Mac).
@@ -155,13 +155,13 @@ The server keeps both in one row (`processing_switches`) and checks them before 
 the feed and sets them through the outbox (`PUT /switches`), like any edit. Turned back on, what waited goes on by
 itself. The Pendant screen shows a card while one is off, and no screen offers a summary while AI is.
 
-The same row holds `openAppAfterMinutes`, the delay of the "Open lifelog" alert (Settings, Alerts; 0 is off). It is not
+The same row holds `openAppAfterMinutes`, the delay of the "Open Life" alert (Settings, Alerts; 0 is off). It is not
 a switch, but it is set the same way.
 
 ### No limits
 
 Nothing holds or caps transcription: every admitted job goes. Spending counts every job and the
-presses of the Pendant's button transcribed at once (`quick_transcriptions`, `docs/pendant.md`).
+presses of the Pendant's button transcribed at once (`quick_transcriptions`, `docs/voice/pendant.md`).
 
 ### Speakers
 
@@ -289,7 +289,7 @@ audio it could send while the Pendant records (see Latency), the server sends th
 (`content-available`, priority 5, `"lifelog": "processing"`) to its alert push token. The app runs the driver at once,
 in the foreground or woken in the background. iOS may hold or drop such pushes, and never delivers them after a
 force-quit, so the next Bluetooth sync or launch catches up. Each push is an `apns.sent` event. The same token gets two
-alert pushes: once a morning, the number of voices waiting to be named, and "Open lifelog" when the Pendant's audio has
+alert pushes: once a morning, the number of voices waiting to be named, and "Open Life" when the Pendant's audio has
 waited on the phone past the owner's delay (see Latency).
 
 ### Location
@@ -305,7 +305,7 @@ travel; the history answers a reader's `GET /where` and `GET /visits`.
 ## Phones send pages, the server decides
 
 A thin phone (first the Android app, draining an Omi) labels nothing and renders nothing. It sends its raw pages, byte
-for byte, as soon as they are durable (`raw_pages`, `pages.ts`; the contract is in `docs/sync.md`), and the server
+for byte, as soon as they are durable (`raw_pages`, `pages.ts`; the contract is in `docs/voice/sync.md`), and the server
 does what the iPhone does on the phone (the rules ported in `page-rules.ts`), after every stored batch, every word from
 the Mac and on the 5-minute tick, one bounded pass per source (`page-processing.ts`):
 
@@ -340,7 +340,7 @@ the Mac and on the 5-minute tick, one bounded pass per source (`page-processing.
    reach (`labeledUntil`).
 
 5. **Timeline.** Each labeled batch writes the source's timeline spans as the iPhone's `FactsBuilder` would
-   (`docs/timeline.md`, "Timeline facts"), and each pass regroups the source, so its speech becomes conversations
+   (`docs/voice/timeline.md`, "Timeline facts"), and each pass regroups the source, so its speech becomes conversations
    and its transcripts land in them.
 
 The parity case is `fixtures/pages` (made-up speech): Kit's `PageProcessingParityTests` writes what its own code makes

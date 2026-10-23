@@ -36,7 +36,7 @@ export function captureRange({ segments }: JobMap) {
 // turn's index in the transcript, which the owner's speaker assignments use. A word stays in the
 // interval it starts in: the provider stretches one over the separators and the cut-out silence
 // after it (a 2-letter word lasting 94 s, Oct 13), which mapped forward would cover that silence.
-// A turn ends with its last word (docs/formats.md, "The time map").
+// A turn ends with its last word (docs/voice/formats.md, "The time map").
 function buildTurns(parsed: ParsedTranscript, language: string, map: JobMap) {
   // The end of `seconds` of audio from capture instant `at`, cut at the end of its interval.
   const endFrom = (at: number, seconds: number) =>

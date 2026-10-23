@@ -1,6 +1,6 @@
 {
   "info": {
-    "title": "lifelog",
+    "title": "Life voice server",
     "version": "1"
   },
   "openapi": "3.1.0",
@@ -11,7 +11,7 @@
   ],
   "servers": [
     {
-      "url": "https://lifelog.invalid"
+      "url": "https://voice.invalid"
     }
   ],
   "components": {
@@ -4766,7 +4766,7 @@
     },
     "/capabilities": {
       "get": {
-        "description": "What this voice source offers a reader (docs/voice-source.md): the contract's version and its optional parts. A reader's token may still not open every one.",
+        "description": "What this voice source offers a reader (docs/voice/voice-source.md): the contract's version and its optional parts. A reader's token may still not open every one.",
         "responses": {
           "200": {
             "description": "Capabilities",
@@ -4783,7 +4783,7 @@
     },
     "/changes": {
       "get": {
-        "description": "The feed (docs/voice-source.md): `since` a decimal seq (none or 0 for everything); up to 500 changes after it, each row as it is now. `wait` holds the request up to that many seconds while nothing is newer (an empty page with the same cursor at the end).",
+        "description": "The feed (docs/voice/voice-source.md): `since` a decimal seq (none or 0 for everything); up to 500 changes after it, each row as it is now. `wait` holds the request up to that many seconds while nothing is newer (an empty page with the same cursor at the end).",
         "parameters": [
           {
             "schema": {
@@ -5208,7 +5208,7 @@
     },
     "/search": {
       "post": {
-        "description": "Passages (about 30 to 60 s of turns) ranked by meaning and by the words typed, best first: a passage containing the query as typed outranks one that only means it. The query is embedded by OpenAI (docs/providers.md); identical queries reuse it for a few minutes. Conversations are indexed in the background after each change.",
+        "description": "Passages (about 30 to 60 s of turns) ranked by meaning and by the words typed, best first: a passage containing the query as typed outranks one that only means it. The query is embedded by OpenAI (docs/voice/providers.md); identical queries reuse it for a few minutes. Conversations are indexed in the background after each change.",
         "requestBody": {
           "required": true,
           "content": {

@@ -14,7 +14,7 @@ day, old playback files evicted), one pull of the feed, the uploader (speech fra
 `sentThrough`) and the location history. The feed goes before the uploader, so fragments leave out the newest quiet
 ranges, and the cursor moves back for the fragments the server withdrew. `SyncStore` in the app only starts
 it: after each Bluetooth sync that saved audio, on the server's silent push, on an edit, in a background task, when
-the app comes forward, when the network returns and on the Shortcuts action "Sync lifelog" (`docs/pendant.md`). One task
+the app comes forward, when the network returns and on the Shortcuts action "Sync Life" (`docs/voice/pendant.md`). One task
 does it, one run at a time; a trigger during a run makes one more. In the background, a run that only new audio asked for starts at least 15 s after the previous run started
 (to save CPU); the trigger is remembered, and any other one (push, edit, Shortcut, becoming active) runs at once. If iOS
 suspends the app first, the request stays set and the next wake's trigger runs it. The raw backup is not in the run: one item can take
@@ -33,11 +33,11 @@ the top; nothing is lost or sent twice.
 | Data | Owner | Copy on the other side | How it travels |
 | --- | --- | --- | --- |
 | Pages, receipts, ACK, clock model, speech labels | Phone | None | The iPhone never sends them; the server sees fragments and timeline facts |
-| A thin phone's raw pages (the Android app) | Phone until ACK; the server keeps its copy | Server `raw_pages`, audio store `pages/…` | `PUT /sources/{id}/pages/{firstPage}`, `GET /sources/{id}/ingest` (below). The server labels and cuts them (`docs/processing.md`) |
+| A thin phone's raw pages (the Android app) | Phone until ACK; the server keeps its copy | Server `raw_pages`, audio store `pages/…` | `PUT /sources/{id}/pages/{firstPage}`, `GET /sources/{id}/ingest` (below). The server labels and cuts them (`docs/voice/processing.md`) |
 | Labels, timeline spans, heard-through and sent-through of a raw-page source | Server | Server `page_pieces`, `timeline_spans`, `sources` | Written only by the server's page processing; the timeline route ignores a page source's heard-through and sent-through |
 | Timeline facts, heard-through and sent-through | Phone | Server `sources`, `timeline_spans` | `PUT /sources/{id}/timeline`; a span replaces the one with its first page; heard-through only moves forward; `sentThrough` is the phone's latest word, where its first kept second not sent starts |
-| Speech fragments (speech-only Ogg Opus of whole pages) | Server: the fragments, which pages it holds, and where blocks close | The phone keeps the raw packs and one cursor | `PUT /sources/{id}/speech/{firstPage}`, once per fragment; `GET /sources/{id}/blocks` the pages the server holds (jobs and open fragments), read when the cursor moves back; `sentThrough` on the timeline (`docs/timeline.md`) |
-| Raw packs, `source.sqlite` snapshots, audio of old jobs | Phone | Server audio store `raw/…`, `jobs/…` | `PUT /backup/packs/{sourceId}/{name}`, `PUT /backup/source-db/{sourceId}`, `PUT /jobs/{id}/audio`; `GET /backup/{sourceId}` says what is held (`docs/formats.md`) |
+| Speech fragments (speech-only Ogg Opus of whole pages) | Server: the fragments, which pages it holds, and where blocks close | The phone keeps the raw packs and one cursor | `PUT /sources/{id}/speech/{firstPage}`, once per fragment; `GET /sources/{id}/blocks` the pages the server holds (jobs and open fragments), read when the cursor moves back; `sentThrough` on the timeline (`docs/voice/timeline.md`) |
+| Raw packs, `source.sqlite` snapshots, audio of old jobs | Phone | Server audio store `raw/…`, `jobs/…` | `PUT /backup/packs/{sourceId}/{name}`, `PUT /backup/source-db/{sourceId}`, `PUT /jobs/{id}/audio`; `GET /backup/{sourceId}` says what is held (`docs/voice/formats.md`) |
 | Conversations, their ranges and ids | Server (grouping) | Phone cache, read-only | Feed |
 | Words (turns in capture time) | Server (`turns`) | Phone cache, read-only | Feed. A conversation's words are the turns starting in its range; each turn carries its `conversationId`, which the phone reads (a regroup logs the turns whose conversation it changed), and `words`, each word's time and length in its text, which playback lights |
 | Chapters, titles, summaries | Server (the Mac runs them) | Phone cache | Feed |
@@ -134,13 +134,13 @@ Every writer of something the feed carries logs `(kind, ref)` in `change_log`, l
 
 ## Readers
 
-A reader (a program following the owner's speech, never the phone) uses the routes in `docs/voice-source.md`, with
-its own `read` or `corrections` token. Lifelog never calls it.
+A reader (a program following the owner's speech, never the phone) uses the routes in `docs/voice/voice-source.md`, with
+its own `read` or `corrections` token. Life never calls it.
 
 The OAuth issuer in `apps/voice/packages/auth` signs tokens for a reader's MCP clients (ChatGPT, Claude): their audience is the
 reader's MCP, scopes `life:read` and `offline_access`, checked against `/api/auth/jwks`. They open nothing here. Codes
-go only to the callbacks `trustedRedirects` lists (Life's at `LIFE_URL`), and loopback (`docs/decisions.md`). It goes once the reader signs
-its own tokens (`docs/voice-source.md`, "Still to change").
+go only to the callbacks `trustedRedirects` lists (Life's at `LIFE_URL`), and loopback (`docs/voice/decisions.md`). It goes once the reader signs
+its own tokens (`docs/voice/voice-source.md`, "Still to change").
 
 `GET /status` is for the owner's own sessions: the archive's invariants, the Pendant, the phone, the Mac, summaries
 waiting, the backup, ElevenLabs and the last day's problems. Spending stays out of chats; the phone keeps
@@ -159,8 +159,8 @@ The phone handed over once (`POST /handover`, now gone): the server's conversati
 parts' pages went on their jobs, and each source got `handed_over_at`. A reinstalled or restored phone's uploader
 starts its cursor at the first page and sends around what `GET /sources/{id}/blocks` holds (only once `handedOver`
 is true), old parts' pages included, and the timeline goes from the oldest stored page the server doesn't hold. Speech from before the cutover that no old part holds
-goes up like any other (`docs/processing.md`), except audio from before the Mac's first quiet range, which the server
-covers. How ids are made and how a block maps back to capture time: `docs/formats.md`.
+goes up like any other (`docs/voice/processing.md`), except audio from before the Mac's first quiet range, which the server
+covers. How ids are made and how a block maps back to capture time: `docs/voice/formats.md`.
 
 ## The Mac helper's socket
 
@@ -248,7 +248,7 @@ The cutover from protocol 1 (ranges sent by the helper) keeps its hold: the migr
 the last time the Mac was heard into a block, which the new helper's first event clears, and the new helper sends an
 old `outbox.json` of ranges as the events that make the same ranges. In order: let a dictation finish and the old
 helper's outbox drain (its log says it was acked), stop the old helper, deploy the server, then install the new
-helper. Lifelog Host ships both in one build, so a Host update does all of it.
+helper. Voice Host ships both in one build, so a Host update does all of it.
 
 The same socket carries model calls the other way. The server sends:
 
@@ -276,4 +276,4 @@ the server. A call's 3 minutes start when it is sent, and a call unanswered by t
 fails the calls not sent yet. The calls sent stay: the Mac keeps running them and answers on whichever socket is
 open when they finish. An answer that comes after its
 call failed (for up to 30 minutes) is still kept for its run when usable. A failed call's run waits for the Mac and
-later resumes from its kept answers (`docs/processing.md`). Model calls never go to a paid API.
+later resumes from its kept answers (`docs/voice/processing.md`). Model calls never go to a paid API.

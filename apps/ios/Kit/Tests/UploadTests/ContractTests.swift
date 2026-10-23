@@ -62,7 +62,7 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
         .map { try read("Kit/Sources/ServerAPI/\($0)") }.joined()
     let outbox = try [
         "Kit/Sources/Health/ErrorReporter.swift", "Kit/Sources/Health/EventReporter.swift",
-        "Lifelog/HealthReporter.swift",
+        "Life/HealthReporter.swift",
     ].map(read).joined()
     let call =
         /(?:request\(|send\(|path = |= \("(?:GET|POST|PUT|PATCH|DELETE)", |\n\s+)"([a-z][A-Za-z\/\\()-]*)"(?=\)|, method:|,|\n)/

@@ -150,7 +150,7 @@ public struct HeartbeatSchedule: Codable, Sendable, Equatable {
     public static let period: TimeInterval = 6 * 3600
 
     /// What the server reads of the Pendant: connected or not, and recording as the server decides it, `lastKnown ??
-    /// state` (`pendantRecording`, docs/processing.md).
+    /// state` (`pendantRecording`, docs/voice/processing.md).
     private struct Pendant: Codable, Sendable, Equatable {
         var connected: Bool
         var recording: String
@@ -217,7 +217,7 @@ extension ConnectionState {
         case .pairingPending: "pairing_pending"
         case .ready: "ready"
         case .busyElsewhere: "busy_elsewhere"
-        // The server's names: an Omi between drains is a link lifelog let go of.
+        // The server's names: an Omi between drains is a link Life let go of.
         case .disconnected, .resting: "disconnected"
         }
     }

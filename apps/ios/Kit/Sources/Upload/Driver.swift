@@ -15,7 +15,7 @@ extension Duration {
 /// The process's CPU time so far, every thread's, in milliseconds.
 var cpuMillis: Int64 { Int64(clock_gettime_nsec_np(CLOCK_PROCESS_CPUTIME_ID) / 1_000_000) }
 
-/// The phone's one run (docs/sync.md). Its steps, in order:
+/// The phone's one run (docs/voice/sync.md). Its steps, in order:
 ///
 /// 1. **The outbox**: the owner's edits, in the order made, before anything else, so an edit never waits behind
 ///    derived audio or a backlog.

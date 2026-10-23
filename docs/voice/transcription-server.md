@@ -15,7 +15,7 @@ runs.
   (a remux, `joinOggOpus`, with the exact `starts` of each stretch in its map) and admitted as one job. The cutter is
   the only way a job is made.
 - A job's audio is stored at `blocks/<sourceId>/<firstPage>-<sha>.ogg`, an older part's at `jobs/<sha>.ogg`. The **audio
-  store** is a folder (`AUDIO_DIR`, what Lifelog Host uses) or an S3 bucket (all five `S3_*` variables, which win when
+  store** is a folder (`AUDIO_DIR`, what Voice Host uses) or an S3 bucket (all five `S3_*` variables, which win when
   set); the keys are the same relative paths in both. The server does not boot with neither; only tests keep the audio
   in memory. If the store fails, nothing is kept and the answer is 503 `audio_store_unavailable`.
 - Every send to ElevenLabs reads the audio from the audio store, so a retry never needs the phone. Jobs older than the
@@ -30,7 +30,7 @@ runs.
   open; the job it became. One with neither key nor job is covered: bought already, its pages held.
 - One job row per block (or older part): state, attempts, provider ids, prepared duration, errors, the audio's key, its
   pages (`[[first, last], …]` JSON, its fragments' union), and its time map (`map`, `capture_start`, `capture_end`): how a
-  position in the prepared audio maps back to capture time (`docs/formats.md`). `capture_end` is the block's last
+  position in the prepared audio maps back to capture time (`docs/voice/formats.md`). `capture_end` is the block's last
   instant of speech. A map never moves after admission; a span placed again more than 1 s off under a job's pages is
   logged (`job.span_moved`). An older part's map was copied once from the conversations that cited it (migration
   `rebuild`).
@@ -125,7 +125,7 @@ minutes (`/v1/user/subscription`). Used up, nothing is sent: jobs wait queued. T
 
 `GET /status` shows `transcription.latency`: over the blocks completed in the last day, the median and 90th
 percentile seconds from the block's last speech (`capture_end`) to its upload (`created_at`), and from the upload to
-its words (`completed_at`). Beside it, the seconds from a chapter's end to its first summary (`docs/processing.md`).
+its words (`completed_at`). Beside it, the seconds from a chapter's end to its first summary (`docs/voice/processing.md`).
 
 ## The pipeline
 
@@ -157,11 +157,11 @@ doesn't answer.
 
 ## Running the server
 
-The server runs on the owner's Mac, inside Lifelog Host (`apps/dictation/README.md`, "Lifelog Host"): one binary, the
+The server runs on the owner's Mac, inside Voice Host (`apps/dictation/README.md`, "Voice Host"): one binary, the
 SQLite file and the audio folder under `~/Library/Application Support/lifelog`, listening on 127.0.0.1 only. Phones
 reach it through the owner's tailnet (Tailscale Serve) or a Cloudflare tunnel to their own domain.
 
-- `bun run --cwd apps/voice build:host [out]` writes `lifelog-server`, one file with its migrations inside; it needs
+- `bun run --cwd apps/voice build:host [out]` writes `voice-server`, one file with its migrations inside; it needs
   no Bun or checkout, and migrates its file at boot. `bun run host:app` puts it in the app.
 - One process writes the file: the server holds `<file>.lock` and a second one exits before it migrates.
 - Variables are `Env` in `apps/voice/src/config.ts`; `apps/voice/.env.example` lists them. Host sets the archive's
@@ -181,18 +181,18 @@ the send maybe billed and its block never transcribed, so restart between sends.
 
 ### Speaker recognition
 
-`apps/speech` (`docs/providers.md`) is optional: without `IDENTITY_URL` and `IDENTITY_SECRET` the server recognizes
-no speakers and everything else works. Lifelog Host installs and runs it itself, on loopback, and sets both (on by
+`apps/speech` (`docs/voice/providers.md`) is optional: without `IDENTITY_URL` and `IDENTITY_SECRET` the server recognizes
+no speakers and everything else works. Voice Host installs and runs it itself, on loopback, and sets both (on by
 default; `apps/dictation/README.md`). Elsewhere run it where the server can reach it (its Dockerfile, or `uv run
 python app.py`), with the same `IDENTITY_SECRET` on both. `GET /status/live` says under `identity` whether it is set
 up and how it last answered (`lastOkAt`, `lastError`); the server never probes it per poll.
 
 ### Export, import and restic
 
-- `lifelog-server export <folder>` writes `archive.sqlite` (a `VACUUM INTO` copy, seconds even for a large archive),
+- `voice-server export <folder>` writes `archive.sqlite` (a `VACUUM INTO` copy, seconds even for a large archive),
   `AUDIO_DIR`'s files under `audio/` (not `.part` files, not `archive/`), and `manifest.json` (`format: 1`, each
   file's size and sha256, each table's rows). It refuses a folder with anything in it, and runs while the server does.
-- `lifelog-server import <folder>` needs the server stopped (it takes the archive's lock). It refuses an archive with
+- `voice-server import <folder>` needs the server stopped (it takes the archive's lock). It refuses an archive with
   conversations or jobs, or audio in `AUDIO_DIR` other than the export's own, checks every file against the manifest
   before writing, copies beside (`*.importing`), checks the archive's rows against the manifest's counts, migrates
   it, rebuilds its keyword index, then moves both in, the archive last. On any error nothing was changed. If it
@@ -200,12 +200,12 @@ up and how it last answered (`lastOkAt`, `lastError`); the server never probes i
 - Both print one JSON line, `{ ok, files, bytes }`, or `{ ok: false, error }` with exit code 1.
 - With `RESTIC_REPOSITORY`, `RESTIC_PASSWORD` and `RESTIC_BINARY` (restic ≥ 0.17; Host bundles 0.19.1) set, the
   daily copy is a restic snapshot of an export (`restic.ts`), staged in `restic-staging/` beside the archive and
-  removed after, tagged `daily` from host `lifelog`. The repository is made the first time (exit 10, or restic's
+  removed after, tagged `daily` from host `Life`. The repository is made the first time (exit 10, or restic's
   words for no repository). On Sundays by the Mac's clock: `forget --keep-daily 14 --keep-weekly 8 --keep-monthly 24
   --prune`, then `check --read-data-subset=5%`. Three tries a local day at most, an hour apart. A snapshot restic
   saved without some file (exit 3) counts, and its error says it is incomplete. `GET /status` `backup.restic` gives
   the last snapshot and the last error; never the repository or the password (readers see `/status`).
-- To restore: `restic restore latest --target <dir>`, then `lifelog-server import <dir>/…/restic-staging` into an
+- To restore: `restic restore latest --target <dir>`, then `voice-server import <dir>/…/restic-staging` into an
   empty install (`apps/dictation/README.md`, "Restoring a backup").
 
 ### A restore from a daily copy

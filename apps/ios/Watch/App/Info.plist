@@ -18,8 +18,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>LifelogAppGroup</key>
-	<string>group.$(LIFELOG_BUNDLE_ID)</string>
+	<key>AppGroupID</key>
+	<string>group.$(LIFE_BUNDLE_ID)</string>
 	<key>WKApplication</key>
 	<true/>
 </dict>

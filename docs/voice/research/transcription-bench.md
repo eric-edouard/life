@@ -5,7 +5,7 @@ owner's voice and stays in the owner's private notes.
 
 ## Why
 
-Scribe is paid per hour of audio, and a month of recordings can use up a plan's credits. It does everything lifelog
+Scribe is paid per hour of audio, and a month of recordings can use up a plan's credits. It does everything Life
 needs: English, French, the two mixed in one conversation, other languages (Thai, in the recordings measured here) and
 speaker diarization. The question: can open models running on the Mac do all of that without paying for Scribe, and
 if not, at what loss? English and French are most of the speech, so their quality comes first; the other languages
@@ -60,13 +60,13 @@ paired one to one with Scribe's by the most words in common):
 
 `bench score` prints the disagreement; the breakdown and the people counts come from a one-off comparison of the
 same outputs, word by word. Scribe told the audio is Thai disagrees with Scribe on its own default at 13.7%, so part of any gap is Scribe's own
-variance. Merging two people is the costly mistake for lifelog: recognition pools a speaker's turns into one voice
+variance. Merging two people is the costly mistake for Life: recognition pools a speaker's turns into one voice
 (`people.ts` `match`), so a merged voice matches nobody or credits one person with the other's turns. Splitting one
 person is cheap, since both halves match the same profile. Nemotron 3 runs through NVIDIA's native runtime,
 NeMo-Speech.cpp (`local/nemotron.py`; macOS Metal, Linux CPU, CUDA and Vulkan builds; a 102 MB GGUF), at about half a
 second per two-minute clip once loaded (the table's speed counts loading it for every clip).
 
-Scribe merges people too: about 2% of its speakers hold two voices (lifelog issue #59, from 25 speakers the owner
+Scribe merges people too: about 2% of its speakers hold two voices (Life issue #59, from 25 speakers the owner
 rated by ear).
 
 ## Finding the Thai
@@ -166,7 +166,7 @@ replaced), and NeMo-Speech.cpp's own CPU speed.
   language works too. Scribe then hears about 15 to 25% of the audio instead of all of it, and its Thai holds (123 s
   of meaning lost against 98 s for Scribe on whole clips).
 - **The cost of going local:** diarization stays the weakest part (8.5% off Scribe), and on the Mac the models share
-  its GPU with the server (in Lifelog Host).
+  its GPU with the server (in Voice Host).
 - **On a server without a GPU it holds:** Parakeet Ultra as ONNX fp32 (never int8) is as close to Scribe as on the
   Mac, and a two-minute block is done in 10 to 33 seconds on 8 to 2 vCPU, in 5.1 GB.
 

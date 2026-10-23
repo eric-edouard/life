@@ -45,7 +45,7 @@ import Timeline
 
     @Test func unknownWhenNothingSaysWhenItStarted() {
         let recording = status(.recording(confirmedAt: t0 + 600))
-        #expect(recording.recordingSince([]) == nil, "it was already recording when lifelog first heard")
+        #expect(recording.recordingSince([]) == nil, "it was already recording when Life first heard")
         #expect(
             recording.recordingSince([change(.resumed, 100), change(.paused, 200)]) == nil,
             "it came back on without a confirmed resume")

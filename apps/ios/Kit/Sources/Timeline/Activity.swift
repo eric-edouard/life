@@ -64,7 +64,7 @@ extension ActivityWindow {
 ///
 /// Audio no analyzer has reached counts as speech. Speech keeps `paddingMillis` on each side, and only gaps of at
 /// least `minimumCutMillis` are cut, so pauses inside a conversation stay. No loudness test: on real days it cut the
-/// owner's own phone call, and no detector tells a person nearby from a video (see docs/decisions.md).
+/// owner's own phone call, and no detector tells a person nearby from a video (see docs/voice/decisions.md).
 public struct SpeechPolicy: Sendable, Equatable {
     public var paddingMillis: Int64 = 1_000
     public var minimumCutMillis: Int64 = 3_000

@@ -1,7 +1,7 @@
 [project]
-name = "lifelog-stt-bench-local"
+name = "Life-stt-bench-local"
 version = "0.1.0"
-description = "Open speech-to-text models run on the Mac for the lifelog transcription bench"
+description = "Open speech-to-text models run on the Mac for the Life transcription bench"
 requires-python = "==3.12.*"
 dependencies = [
   "librosa==0.11.0",

@@ -201,7 +201,7 @@ private struct OmiHarness {
     }
 
     @Test func aClearedRingBelowAHighFirstLifeIsNewToo() async throws {
-        // A friend's Omi the Omi app drained first: lifelog's first life starts at 500. Cleared, it writes 0..<15,
+        // A friend's Omi the Omi app drained first: Life's first life starts at 500. Cleared, it writes 0..<15,
         // below anything the life holds, so nothing clashes: only the numbers tell.
         let harness = OmiHarness()
         await harness.fake.record(500)

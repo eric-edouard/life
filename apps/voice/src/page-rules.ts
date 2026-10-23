@@ -1,5 +1,5 @@
 // The iPhone's rules, ported from Kit so a thin phone's pages become the same speech fragments
-// (docs/processing.md, "Phones send pages"): an Omi record's frames (`OmiRecord`), where they
+// (docs/voice/processing.md, "Phones send pages"): an Omi record's frames (`OmiRecord`), where they
 // play (`CaptureTimeline.spans`), the playback pieces Silero labels (`DerivedAudioWorker.pieces`,
 // `SileroDetector.windows`), the audio kept (`SpeechPolicy.keptAudio`) and where a fragment ends
 // (`SpeechFragment`). Pure: fixtures/pages holds a case Kit's PageProcessingParityTests run too.

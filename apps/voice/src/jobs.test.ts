@@ -239,28 +239,25 @@ test("block keyterms are the vocabulary then the people, and a new person never 
       headers: { ...auth, "Content-Type": "application/json" },
       method: "PUT",
     });
-  await words(["Oakridge", "Lifelog"]);
+  await words(["Oakridge", "Life"]);
   for (const _ of [1, 2]) {
     // biome-ignore lint/performance/noAwaitInLoops: the same request twice, in order
-    expect(await (await words(["Lifelog"])).json()).toEqual({
-      terms: ["Lifelog"],
+    expect(await (await words(["Life"])).json()).toEqual({
+      terms: ["Life"],
     });
   }
   expect((await words(["<bad>"])).status).toBe(400);
   expect(
     (await (await app.request("/changes", { headers: auth })).json()).vocabulary
-  ).toEqual(["Lifelog"]);
+  ).toEqual(["Life"]);
   env.db
     .insert(people)
-    .values([
-      { aliases: ["Jojo", "lifelog"], name: "Marie-Jo" },
-      { name: "Nok" },
-    ])
+    .values([{ aliases: ["Jojo", "Life"], name: "Marie-Jo" }, { name: "Nok" }])
     .run();
   const a = audio(300);
   const jobId = await admitFragment(app, a, 1200);
   expect(jobRow(jobId).settings.keyterms).toEqual([
-    "Lifelog",
+    "Life",
     "Marie-Jo",
     "Jojo",
     "Nok",
@@ -945,7 +942,7 @@ test("the owner is asked to open the app once per episode, at his delay", async 
   expect(await tick(0, -16)).toBe(1);
   expect(alerts[0]).toEqual({
     body: "Your Pendant has 16 minutes waiting to sync.",
-    title: "Open lifelog",
+    title: "Open Life",
   });
   // Still behind at the next ticks: the same episode.
   expect(await tick(5, -16)).toBe(1);

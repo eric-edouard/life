@@ -42,7 +42,7 @@ class Uploader(
             } catch (e: PageConflict) {
                 if (attempt == MAX_REBANDS) throw e
                 // The ring was cleared and the drain didn't see it, or a reinstall forgot its band (the iPhone re-bands a
-                // clash the same way, `docs/research/omi.md`, "Flash lives"). Nothing of the batch was kept; the pages
+                // clash the same way, `docs/voice/research/omi.md`, "Flash lives"). Nothing of the batch was kept; the pages
                 // before the conflict go again as they are, accepted once, so nothing is stored or paid for twice.
                 val band = nextBand()
                 outbox.renumber { rebanded(it, e.page, band) }

@@ -5,7 +5,7 @@ import PackageDescription
 let settings: [SwiftSetting] = [.treatAllWarnings(as: .error)]
 
 let package = Package(
-    name: "LifelogKit",
+    name: "LifeKit",
     platforms: [.iOS("27.0"), .macOS("27.0"), .watchOS("27.0")],
     products: [
         .library(name: "PendantProtocol", targets: ["PendantProtocol"]),

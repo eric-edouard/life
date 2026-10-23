@@ -1,4 +1,4 @@
-"""Speaker embeddings for the lifelog server: SpeechBrain ECAPA on CPU.
+"""Speaker embeddings for the voice server: SpeechBrain ECAPA on CPU.
 
 POST /embed-ranges   body: Ogg Opus (any rate or channels, up to 16 MB). Headers X-Identity-Secret
               and X-Ranges, a JSON list of [start, end] seconds of the file (at most 400).
@@ -200,7 +200,7 @@ def main():
     print("self-check passed", flush=True)
     threading.Thread(target=worker, args=(model,), daemon=True).start()
     host = os.environ.get("HOST", "::")
-    # "::" is dual stack: IPv4 and IPv6 hosts both reach it. Lifelog Host sets 127.0.0.1.
+    # "::" is dual stack: IPv4 and IPv6 hosts both reach it. Voice Host sets 127.0.0.1.
     Server.address_family = socket.AF_INET6 if ":" in host else socket.AF_INET
     Server((host, int(os.environ.get("PORT", "8000"))), Handler).serve_forever()
 

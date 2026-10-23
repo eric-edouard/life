@@ -1,6 +1,6 @@
 // The text model for conversation intelligence, asked for a strict JSON schema: the Mac,
 // on the owner's subscription, and nothing else. Only transcript text, speaker names, capture
-// times and the owner's title are sent (docs/providers.md). Tests pass a fake `Provider`.
+// times and the owner's title are sent (docs/voice/providers.md). Tests pass a fake `Provider`.
 
 import type { MacEngine } from "@life/voice-db/schema";
 import type { Late, MacSocket } from "./mac-socket";

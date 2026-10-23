@@ -1,6 +1,6 @@
 # Omi
 
-Can an Omi pendant feed lifelog's page pipeline? A read-only spike, 22 Oct 2026, against Omi's open-source repository
+Can an Omi pendant feed Life's page pipeline? A read-only spike, 22 Oct 2026, against Omi's open-source repository
 (BasedHardware/omi, `main` at 29797760, MIT). The same day the app gained Omi support on the owner's decision below;
 "What the app does" says how.
 
@@ -50,7 +50,7 @@ the firmware frees on delivery.
   own characteristic. Live audio is never subscribed to.
 - **Letting go.** After each drain the phone disconnects (`ConnectionState.resting`): an Omi drops its audio while a
   phone is connected without streaming. The next sync connects again: the app coming forward, the 5-minute
-  foreground cycle, the Pendant screen, and the "Sync lifelog" shortcut. Nothing wakes the app in the background.
+  foreground cycle, the Pendant screen, and the "Sync Life" shortcut. Nothing wakes the app in the background.
 - **Its own slot.** Records are stored raw under the source id `omi-pendant`, so the server needs nothing new: any id
   but `import:` is a Pendant's. The page decoder reads a page by its source's kind (`DeviceKind.decodePage`).
 - **One pendant per phone.** Pairing an Omi moves `CaptureStore.deviceID` to `omi-pendant`, so Limitless pages not
@@ -94,9 +94,9 @@ older firmware use other storage commands, and Omi's own app picks the protocol 
 - **Firmware 3.0.22 (draft).** Only the app's ADVANCE frees. It can also keep live audio in the ring while streaming,
   gives the ring a random id (so a cleared ring is a new flash life), and flags timestamps that are uptime, not UTC.
 
-## Against lifelog's pipeline
+## Against Life's pipeline
 
-| Omi | lifelog | Fit |
+| Omi | Life | Fit |
 | --- | --- | --- |
 | Ring record, 64-bit number | a page, its index | Good: store the raw record as the page |
 | READ from a number after reconnect | resend after a disconnect | Good: ask from the oldest page not stored |
@@ -137,4 +137,4 @@ The friend's own Omi app must not drain the pendant at the same time: on 3.0.21 
 - Firmware: `omi/firmware/omi/src/lib/core/{transport,storage,button,codec,config}.*`, `src/sd_card.c`, `omi.conf`.
 - Omi's app: `app/lib/services/devices/ring_protocol.dart`, `connectors/omi_connection.dart`.
 - BasedHardware/omi#7216 (ring buffer, merged 28 Jun 2026) and BasedHardware/omi#20450 (custody, open draft).
-- lifelog: `docs/pendant.md`, `PageSink.swift`, `Capture/`, `AudioPipeline/SourceAudio.swift`, `Upload/`.
+- Life: `docs/voice/pendant.md`, `PageSink.swift`, `Capture/`, `AudioPipeline/SourceAudio.swift`, `Upload/`.

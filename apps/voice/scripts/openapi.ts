@@ -11,7 +11,7 @@ const config = loadConfig({
   DATABASE_PATH: ":memory:",
   DEVICE_TOKEN_HASH: "0".repeat(64),
   ELEVENLABS_API_KEY: "unused",
-  PUBLIC_BASE_URL: "https://lifelog.invalid",
+  PUBLIC_BASE_URL: "https://voice.invalid",
 });
 const app = createApp(services(config, drizzle.mock({ schema })));
 const path = `${import.meta.dir}/../openapi.json`;
