@@ -252,7 +252,9 @@ export const loadConfig = (env: Record<string, string | undefined>): Config =>
   Env.parse(env);
 
 /** The config, or the names of the variables it lacks or can't read (never their values). */
-export function configOf(env: Record<string, string | undefined>) {
+export function configOf(
+  env: Record<string, string | undefined>
+): { config: Config } | { issues: string } {
   const read = Env.safeParse(env);
   return read.success
     ? { config: read.data }
