@@ -49,16 +49,7 @@ export function createStatusReads(
 export function createStatusPage(signIn: SignIn) {
   const app = new Hono()
     .get("/status", () => redirect("/status/"))
-    .get("/status/*", async (c, next) => {
-      const refused = await signIn.refusal(
-        c.req.raw,
-        c.req.path === "/status/"
-      );
-      if (refused) {
-        return refused;
-      }
-      await next();
-    })
+    .get("/status/*", signIn.gate("/status/"))
     .get("/status/snapshot", async () => json(await snapshot()));
   return serveAssets(app, {
     "/status/": "status/index.html",

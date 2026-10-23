@@ -59,7 +59,6 @@ const form = (
   note = ""
 ) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Life</title>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>${TOKENS}
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--white);color:var(--ink);font:16px/1.55 var(--serif)}
 form{display:grid;gap:12px;width:min(320px,calc(100vw - 32px))}h1{font-size:36px;line-height:1.1;margin:0 0 12px}

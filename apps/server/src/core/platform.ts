@@ -66,15 +66,28 @@ export const openAppArgs = MAC
   ? (app: string) => ["open", "-g", "-j", "-a", app]
   : undefined;
 
+/** The Mac's Cloudflare tunnel, a LaunchAgent. */
+const CLOUDFLARED = "com.eric.cloudflared";
+
 /** The command that restarts the Mac's Cloudflare tunnel (its LaunchAgent); none elsewhere, where its own supervisor does. */
 export const TUNNEL_RESTART = MAC
-  ? [
-      "launchctl",
-      "kickstart",
-      "-k",
-      `gui/${process.getuid?.()}/com.eric.cloudflared`,
-    ]
+  ? ["launchctl", "kickstart", "-k", `gui/${process.getuid?.()}/${CLOUDFLARED}`]
   : undefined;
+
+/**
+ * The LaunchAgents the status shows, on the Mac only: the nightly tick runs every 30 min, so no process between ticks
+ * is fine (`ticks`).
+ */
+export const LAUNCH_AGENTS = MAC
+  ? [
+      {
+        label: "com.ericedouard.life.memory-nightly",
+        name: "nightly tick",
+        ticks: true,
+      },
+      { label: CLOUDFLARED, name: "cloudflared", ticks: false },
+    ]
+  : [];
 
 /**
  * When process `pid` started, as the system counts it (Linux's /proc: ticks since boot), to tell one process from a

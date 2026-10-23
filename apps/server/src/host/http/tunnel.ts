@@ -15,8 +15,9 @@ export const TUNNEL_EVERY_MS = 2 * MIN;
 /** Only Cloudflare's 530 (no tunnel to us) means the tunnel is down; no answer (0) or any other status does not. */
 export const tunnelDown = (status: number) => status === 530;
 
-const statusOf = (url: string) =>
-  fetch(url, { method: "HEAD", signal: AbortSignal.timeout(15_000) }).then(
+/** What `url` answers: its status, or 0 when nothing answered in 15 s. */
+export const statusOf = (url: string, method = "HEAD") =>
+  fetch(url, { method, signal: AbortSignal.timeout(15_000) }).then(
     (r) => r.status,
     () => 0
   );

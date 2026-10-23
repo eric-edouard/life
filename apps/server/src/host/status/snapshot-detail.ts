@@ -6,7 +6,7 @@ import { SOURCES } from "../../memory/sources";
 import { clip } from "../../memory/units";
 import { taskList } from "../agent";
 import { clientName } from "../events";
-import { sleeps } from "./mac";
+import { sleeps } from "./machine";
 import { cached, type LogLine, spent, type Tone, toneOfRun } from "./snapshot";
 
 // A card's detail for the app's status window (apps/server/src/host/http/status-reads.ts serves it): its history, its raw log lines, and a run's steps

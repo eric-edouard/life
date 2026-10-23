@@ -171,7 +171,7 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
 
 - **Code.** `apps/server/src/host/status/snapshot.ts` reads every part (sources, capture, pipeline, memory, outputs, the machine: the Mac or a server) into cards
   (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
-  source's own module), the machine's probes are `apps/server/src/host/status/mac.ts` (disk and memory everywhere; battery, LaunchAgents and sleeps on the Mac only), and the tunnel card asks the connector's public address for `/health`. `apps/server/src/host/status/snapshot-detail.ts` gives a card's history and log lines
+  source's own module), the machine's probes are `apps/server/src/host/status/machine.ts` (disk and memory everywhere; battery, LaunchAgents and sleeps on the Mac only), and the tunnel card asks the connector's public address for `/health`. `apps/server/src/host/status/snapshot-detail.ts` gives a card's history and log lines
   (`detail`) and a run's steps and what it wrote (`runDetail`, from `read_processing_runs` and `read_memory_changes`). `apps/server/src/host/http/status-reads.ts` serves
   them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
   key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.

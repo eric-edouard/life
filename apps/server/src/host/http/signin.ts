@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { type Context, Hono, type Next } from "hono";
 import { z } from "zod";
 import { same, secretIn } from "../../core/secret";
 import { connector } from "../../core/settings";
@@ -174,7 +175,30 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     return redirect(`${pathname}${search}`, sessionCookies(token), 307);
   }
 
-  return { callback, login, refusal };
+  /**
+   * The gate of a page at `page` (e.g. "/check/"), for every path under it: nothing without the owner's session (the
+   * page itself sends him to sign in), and a write only from this site's own pages.
+   */
+  const gate = (page: string) => async (c: Context, next: Next) => {
+    const refused = await refusal(c.req.raw, c.req.path === page);
+    if (refused) {
+      return refused;
+    }
+    if (
+      c.req.method === "POST" &&
+      c.req.header("origin") !== connector().origin
+    ) {
+      return text("cross-origin", 400);
+    }
+    await next();
+  };
+
+  /** The sign-in's own routes, for every page. */
+  const routes = new Hono()
+    .all("/check/login", () => login())
+    .all("/check/callback", (c) => callback(c.req.raw, new URL(c.req.url)));
+
+  return { callback, gate, login, refusal, routes };
 }
 
 export type SignIn = ReturnType<typeof createSignIn>;

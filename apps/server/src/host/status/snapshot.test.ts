@@ -126,3 +126,14 @@ test("a fresh install with no agent: its card is off, not broken, so the verdict
     setSettings({ agent });
   }
 }, 30_000);
+
+test("the speech service failing now is red, even after it answered before", async () => {
+  const { speechCardOf } = await import("./snapshot");
+  const earlier = "2026-10-21T14:00:00.000Z";
+  expect(
+    speechCardOf({ configured: true, lastError: "timeout", lastOkAt: earlier })
+  ).toMatchObject({ tone: "bad", word: "failing" });
+  expect(
+    speechCardOf({ configured: true, lastError: null, lastOkAt: earlier })
+  ).toMatchObject({ tone: "ok", word: "answering" });
+});

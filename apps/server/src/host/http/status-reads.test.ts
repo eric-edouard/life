@@ -34,7 +34,6 @@ test("the status page: nothing before the owner's sign-in, which comes back to i
     await import("jose");
   const { connector } = await import("../../core/settings");
   const { ownerTokens } = await import("./auth");
-  const { createCheck } = await import("./check-page");
   const { createSignIn } = await import("./signin");
   const { createStatusPage } = await import("./status-reads");
   const { issuer, origin, resource } = connector();
@@ -67,7 +66,7 @@ test("the status page: nothing before the owner's sign-in, which comes back to i
       })
   );
   const page = createStatusPage(signIn);
-  const check = createCheck(signIn);
+  const check = signIn.routes;
   const at = (app: typeof page, path: string, cookie = "") =>
     app.request(new Request(`${origin}${path}`, { headers: { cookie } }));
 

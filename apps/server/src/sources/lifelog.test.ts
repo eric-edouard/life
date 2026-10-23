@@ -414,8 +414,15 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
     ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
     ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
     ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
-    // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
-    // optional and nullable (tested below) and there is nothing to compare.
+    // /status: only the parts its contract types (the speech service and the queue). It leaves pendant and
+    // phoneHeartbeat untyped, so LifelogStatus takes each of their fields as optional and nullable (tested below).
+    ...drift(
+      ours(LifelogStatus.pick({ identity: true, pipeline: true })),
+      // /status is LiveStatus extended (an allOf): its typed parts are LiveStatus's.
+      defs.LiveStatus,
+      defs,
+      "status"
+    ),
   ]).toEqual([]);
 });
 

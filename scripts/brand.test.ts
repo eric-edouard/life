@@ -71,6 +71,19 @@ test("the app's colours are tokens.css's, light and dark", async () => {
   }
 });
 
+test("the status page's tone dots are the app's status tokens", async () => {
+  const css = await asset("assets/status/status.css");
+  const dots = [
+    ...css.matchAll(
+      /\[data-tone="(\w+)"\][^{]*\{\s*background: var\(--(\w+)\);/g
+    ),
+  ];
+  expect(dots.length).toBeGreaterThan(0);
+  for (const [, tone = "", token = ""] of dots) {
+    expect([tone, token]).toEqual([tone, tones[tone] ?? "not a tone"]);
+  }
+});
+
 test("the email's and the app's radii and the email's font stacks are tokens.css's", async () => {
   const value = (name: string) =>
     tokens.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1] ?? "";

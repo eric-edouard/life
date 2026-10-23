@@ -5,7 +5,7 @@ import { filesIn, linesOf } from "../../core/files";
 import type { Call } from "../../core/log";
 import { isAgent, type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
-import { OWNER_DATA_DIR } from "../../core/paths";
+import { OWNER_DATA_DIR, TEST } from "../../core/paths";
 import { MACHINE } from "../../core/platform";
 import { git } from "../../core/proc";
 import { agentName, connector, settings } from "../../core/settings";
@@ -34,9 +34,10 @@ import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
+import { statusOf } from "../http/tunnel";
 import { reportKey } from "../report";
 import { lifeStatus } from "./life";
-import { macState, sleeps } from "./mac";
+import { machineState, sleeps } from "./machine";
 
 // The status snapshot (`apps/server/src/host/http/status-reads.ts` serves it to the app): every part of Life as a card in a group, each with its
 // state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only
@@ -285,16 +286,11 @@ const newestOf = async () =>
 
 /**
  * What the connector's public address answers now: its tunnel (Cloudflare or Tailscale) reaches this server's
- * `/health` (`server.ts`); 0 when nothing answered; null with no connector.
+ * `/health` (`server.ts`); 0 when nothing answered; null with no connector, and in a test run, which reaches nothing.
  */
 const reachedStatus = () =>
-  isOn("connector")
-    ? fetch(`${connector().origin}/health`, {
-        signal: AbortSignal.timeout(10_000),
-      }).then(
-        (res) => res.status,
-        () => 0
-      )
+  isOn("connector") && !TEST
+    ? statusOf(`${connector().origin}/health`, "GET")
     : null;
 
 /** Every read the status snapshot is made of, each cached for as long as it may lag. */
@@ -306,7 +302,7 @@ async function reads(now: Date) {
     failing,
     turn,
     life,
-    mac,
+    machine,
     mem,
     open,
     truth,
@@ -323,7 +319,7 @@ async function reads(now: Date) {
     cached("failing", 15_000, () => archiveFailing()),
     cached("turn", 3000, () => safe(newestTurn)),
     cached("lifelog", 30_000, () => safe(lifelogStatus)),
-    cached("mac", 15_000, () => macState()),
+    cached("machine", 15_000, () => machineState()),
     cached("mem", MIN, () => memoryCounts()),
     cached("unreflected", 5 * MIN, () => safe(unreflected)),
     cached("truth", MIN, () => truthState()),
@@ -362,7 +358,7 @@ async function reads(now: Date) {
     failingStores: new Map(failing),
     health: readHealth(),
     life,
-    mac,
+    machine,
     mcp,
     mem,
     models: of("model.run", 1),
@@ -384,7 +380,7 @@ async function reads(now: Date) {
 
 type Reads = Awaited<ReturnType<typeof reads>>;
 const serviceOf = (r: Reads, name: string) =>
-  r.mac.services.find((s) => s.name === name);
+  r.machine.services.find((s) => s.name === name);
 const polling = (r: Reads) => r.status.watcher.state === "ok";
 
 /** How quiet the Pendant is: silence counts from the start of his waking hours at the earliest (a night is not silence). */
@@ -498,14 +494,17 @@ function lifelogCard(r: Reads): Card {
 }
 
 /** The speech service (apps/speech), as the voice server last heard from it. */
-function speechCard(r: Reads): Card {
-  const s = r.life.ok ? r.life.value.identity : undefined;
+type Identity = Extract<Reads["life"], { ok: true }>["value"]["identity"];
+
+/** The speech service's card from what the voice server last said of it; `reached` false: the voice server didn't answer. */
+export function speechCardOf(s: Identity, reached = true): Card {
   return {
     ...firstOf(
-      [!r.life.ok, { tone: "idle", word: "unknown" }],
+      [!reached, { tone: "idle", word: "unknown" }],
       [!s?.configured, { tone: "idle", word: "off" }],
+      // The voice server clears its last error on every answer: one set is the latest call failing.
       [
-        !!s?.lastError && !s.lastOkAt,
+        !!s?.lastError,
         {
           ask: ASK("the speech service failing"),
           tone: "bad",
@@ -580,7 +579,11 @@ function sourceCards(r: Reads): Card[] {
         return [unreadableCard(d, why)];
       }
       return d.kind === "voice"
-        ? [pendantCard(r, d), lifelogCard(r), speechCard(r)]
+        ? [
+            pendantCard(r, d),
+            lifelogCard(r),
+            speechCardOf(r.life.ok ? r.life.value.identity : null, r.life.ok),
+          ]
         : [sourceCard(r, d)];
     }),
     {
@@ -1166,7 +1169,7 @@ function outputCards(r: Reads): Card[] {
   ];
 }
 
-const serviceState = (sv: Reads["mac"]["services"][number]) => {
+const serviceState = (sv: Reads["machine"]["services"][number]) => {
   if (sv.running) {
     return { headline: "running", state: "running" };
   }
@@ -1175,8 +1178,8 @@ const serviceState = (sv: Reads["mac"]["services"][number]) => {
     : { headline: "down", state: `not running (${sv.status})` };
 };
 
-function macCards(r: Reads): Card[] {
-  const down = r.mac.services.filter((s) => !s.ok);
+function machineCards(r: Reads): Card[] {
+  const down = r.machine.services.filter((s) => !s.ok);
   return [
     {
       ...(down.length
@@ -1189,12 +1192,14 @@ function macCards(r: Reads): Card[] {
           }
         : { tone: "ok", word: "online" }),
       facts: [
-        { at: r.mac.awakeSince, label: MACHINE.up },
-        ...(r.mac.battery ? [{ label: "Battery", value: r.mac.battery }] : []),
-        { label: "Disk free", value: `${r.mac.freeGb} GB` },
+        { at: r.machine.awakeSince, label: MACHINE.up },
+        ...(r.machine.battery
+          ? [{ label: "Battery", value: r.machine.battery }]
+          : []),
+        { label: "Disk free", value: `${r.machine.freeGb} GB` },
         {
           label: "Memory free",
-          value: `${r.mac.memory.freeGb} of ${r.mac.memory.totalGb} GB`,
+          value: `${r.machine.memory.freeGb} of ${r.machine.memory.totalGb} GB`,
         },
       ],
       group: "mac",
@@ -1202,7 +1207,7 @@ function macCards(r: Reads): Card[] {
       id: "mac",
       name: MACHINE.card,
     },
-    ...r.mac.services.map((sv): Card => {
+    ...r.machine.services.map((sv): Card => {
       const { headline, state } = serviceState(sv);
       return {
         ...firstOf(
@@ -1283,7 +1288,7 @@ export async function snapshot(now = clock()) {
     ...pipelineCards(r),
     ...memoryCards(r),
     ...outputCards(r),
-    ...macCards(r),
+    ...machineCards(r),
   ];
   // One rule for a card in trouble: the app's menu and window list them.
   const trouble = cards

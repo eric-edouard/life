@@ -94,6 +94,7 @@ export function signedIn() {
   }
   return app
     .route("/", mcp)
+    .route("/", signIn.routes)
     .route("/", createCheck(signIn))
     .route("/", createStatusPage(signIn))
     .route("/", createPortrait())

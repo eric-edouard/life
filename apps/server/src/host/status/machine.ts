@@ -3,7 +3,7 @@ import { freemem, totalmem, uptime } from "node:os";
 import { clock, DAY } from "../../core/clock";
 import { holder } from "../../core/lock";
 import { LIFE_STATE_DIR, TEST } from "../../core/paths";
-import { MAC } from "../../core/platform";
+import { LAUNCH_AGENTS, MAC } from "../../core/platform";
 import { exec } from "../../core/proc";
 
 // The machine Life runs on, as the status snapshot shows it (apps/server/src/host/status/snapshot.ts): up since, disk
@@ -18,22 +18,10 @@ const ZONE_OFFSET = / ([+-]\d{2})(\d{2})$/;
 const PS_LINE = /^(\d+)\s+(.+)$/;
 
 /** One read of this computer; a test run reads none, as it reads its own data and never this computer's; off the Mac, none. */
-const machine = (cmd: string[], o?: Parameters<typeof exec>[1]) =>
+const run = (cmd: string[], o?: Parameters<typeof exec>[1]) =>
   TEST || !MAC
     ? Promise.resolve({ code: 0, killed: null, stderr: "", stdout: "" })
     : exec(cmd, o);
-
-/** The services launchd runs; the nightly tick runs every 30 min, so no process between ticks is fine. None off the Mac. */
-const SERVICES = MAC
-  ? [
-      {
-        label: "com.ericedouard.life.memory-nightly",
-        name: "nightly tick",
-        ticks: true,
-      },
-      { label: "com.eric.cloudflared", name: "cloudflared", ticks: false },
-    ]
-  : [];
 
 const GB = 1e9;
 
@@ -42,7 +30,7 @@ async function startedAt(pids: string[]) {
   if (pids.length === 0) {
     return new Map<string, string>();
   }
-  const out = await machine(["ps", "-o", "pid=,lstart=", "-p", pids.join(",")]);
+  const out = await run(["ps", "-o", "pid=,lstart=", "-p", pids.join(",")]);
   return new Map(
     out.stdout
       .trim()
@@ -57,11 +45,11 @@ async function startedAt(pids: string[]) {
   );
 }
 
-export async function macState() {
+export async function machineState() {
   const [list, batt, wake] = await Promise.all([
-    machine(["launchctl", "list"]),
-    machine(["pmset", "-g", "batt"]),
-    machine(["sysctl", "-n", "kern.waketime"]),
+    run(["launchctl", "list"]),
+    run(["pmset", "-g", "batt"]),
+    run(["sysctl", "-n", "kern.waketime"]),
   ]);
   const rows = new Map(
     list.stdout.split("\n").map((l) => {
@@ -70,7 +58,7 @@ export async function macState() {
     })
   );
   const started = await startedAt(
-    SERVICES.flatMap((s) => {
+    LAUNCH_AGENTS.flatMap((s) => {
       const pid = rows.get(s.label)?.pid;
       return pid && pid !== "-" ? [pid] : [];
     })
@@ -103,7 +91,7 @@ export async function macState() {
     },
     services: [
       ...held,
-      ...SERVICES.map((s) => {
+      ...LAUNCH_AGENTS.map((s) => {
         const r = rows.get(s.label);
         const running = !!r && r.pid !== "-";
         return {
@@ -121,7 +109,7 @@ export async function macState() {
 
 /** The Mac's sleeps since `now` less a day, from the power log. */
 export async function sleeps(now: number) {
-  const out = await machine(["pmset", "-g", "log"], { timeout: 20_000 });
+  const out = await run(["pmset", "-g", "log"], { timeout: 20_000 });
   const list: { at: string; end?: string }[] = [];
   for (const line of out.stdout.split("\n")) {
     const m = line.match(POWER_LINE);

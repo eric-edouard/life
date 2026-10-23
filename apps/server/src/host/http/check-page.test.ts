@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { Hono } from "hono";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -57,7 +58,10 @@ const lifelog = (async (_url: string, init?: RequestInit) => {
     ? Response.json({ access_token: await token(issued), expires_in: 3600 })
     : new Response("bad", { status: 400 });
 }) as typeof fetch;
-const check = createCheck(createSignIn(verify, lifelog));
+/** The check page as the server mounts it: the sign-in's own routes beside it. */
+const withSignIn = (signIn: ReturnType<typeof createSignIn>) =>
+  new Hono().route("/", signIn.routes).route("/", createCheck(signIn));
+const check = withSignIn(createSignIn(verify, lifelog));
 
 const get = async (path: string, cookie = "", init: RequestInit = {}) =>
   (await check.request(
@@ -98,9 +102,9 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
   expect((await check.request(new Request(`${ORIGIN}/mcp`))).status).toBe(404);
 });
 
-test("the page's policy lets in the fonts its stylesheet imports", async () => {
+test("the page's policy lets in the fonts its brand tokens import", async () => {
   const css = await Bun.file(
-    join(LIFE_CODE_DIR, "assets", "check", "check.css")
+    join(LIFE_CODE_DIR, "assets", "brand", "tokens.css")
   ).text();
   const host = new URL(css.match(IMPORT)?.[1] ?? "").origin;
   expect(
@@ -109,7 +113,7 @@ test("the page's policy lets in the fonts its stylesheet imports", async () => {
 });
 
 test("lifelog's keys out of reach: the page and the sign-in answer 503, never a sign-in or a refusal", async () => {
-  const down = createCheck(
+  const down = withSignIn(
     createSignIn(
       async () => ({ refusal: "unreachable", why: "request timed out" }),
       lifelog

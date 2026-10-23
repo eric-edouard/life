@@ -1,5 +1,7 @@
 /* Life's brand (docs/brand.md): the one source of its values. Pages link this file; the email (apps/server/src/memory/email.ts)
    and the app (apps/mac/Sources/LifeApp/Brand.swift) copy them, and brand.test.ts fails when a copy drifts. */
+/* Its fonts, for every page that links or inlines this file (docs/brand.md). */
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 :root {
   --ink: #181818;
   --white: #ffffff;
