@@ -66,7 +66,7 @@ when the settings or the keys change, and a SIGTERM ends them all. Its environme
 `LIFE_STATE_DIR`, `HOME` (or `XDG_DATA_HOME`) on the one data volume, and `TZ`: the nightly's hours follow the
 process's clock, and on Linux only a `TZ` set for Life counts as the owner's zone (`systemZone`). It needs `git` on the
 PATH, and an init (Compose's `init: true`) to reap its children's children. The public port (`PUBLIC_PORT`) listens
-on loopback, so the tunnel shares the container's network. Where `/proc` tells a process's start, a lock keeps its
+on loopback, or on `LIFE_LISTEN_HOST` (0.0.0.0 for a tunnel in another container); the local port always on loopback. Where `/proc` tells a process's start, a lock keeps its
 holder's and only that process holds it (`held`), since a container starts its pids again at 1.
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
