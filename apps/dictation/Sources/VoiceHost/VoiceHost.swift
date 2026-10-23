@@ -80,6 +80,6 @@ struct HostMenu: View {
         Button("Settings…") { open("settings") }
         Divider()
         // Quitting stops every child: the model ends them on willTerminate.
-        Button("Quit Life") { NSApp.terminate(nil) }
+        Button("Quit Voice Host") { NSApp.terminate(nil) }
     }
 }

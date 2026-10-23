@@ -6,10 +6,10 @@ import Testing
     let secrets = Secrets(
         macToken: "mac-token", deviceToken: "phone-token", readerToken: "reader-token", elevenLabsKey: "el")
     let env = Host.serverEnvironment(
-        support: URL(filePath: "/tmp/Life-host"), secrets: secrets,
+        support: URL(filePath: "/tmp/voice-host"), secrets: secrets,
         server: URL(string: "https://mac.example.ts.net"))
-    #expect(env["DATABASE_PATH"] == "/tmp/Life-host/archive.sqlite")
-    #expect(env["AUDIO_DIR"] == "/tmp/Life-host/audio")
+    #expect(env["DATABASE_PATH"] == "/tmp/voice-host/archive.sqlite")
+    #expect(env["AUDIO_DIR"] == "/tmp/voice-host/audio")
     #expect(env["LISTEN_HOST"] == "127.0.0.1")
     #expect(env["PUBLIC_BASE_URL"] == "https://mac.example.ts.net")
     #expect(env["DEVICE_TOKEN_HASH"] == Host.sha256Hex("phone-token"))
@@ -64,7 +64,7 @@ import Testing
     #expect(extra["EMPTY"] == "")
     #expect(extra["abc"] == nil, "a line inside a quoted value is not a key")
     let env = Host.serverEnvironment(
-        support: URL(filePath: "/tmp/Life-host"), secrets: Secrets(elevenLabsKey: "el"), server: nil,
+        support: URL(filePath: "/tmp/voice-host"), secrets: Secrets(elevenLabsKey: "el"), server: nil,
         build: "abc1234", extra: extra.merging(["BUILD_SHA": "stale"]) { $1 })
     #expect(env["RESEND_API_KEY"] == "re_123")
     #expect(env["PORT"] == String(Host.port), "Host's own win")

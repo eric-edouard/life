@@ -200,7 +200,7 @@ up and how it last answered (`lastOkAt`, `lastError`); the server never probes i
 - Both print one JSON line, `{ ok, files, bytes }`, or `{ ok: false, error }` with exit code 1.
 - With `RESTIC_REPOSITORY`, `RESTIC_PASSWORD` and `RESTIC_BINARY` (restic ≥ 0.17; Host bundles 0.19.1) set, the
   daily copy is a restic snapshot of an export (`restic.ts`), staged in `restic-staging/` beside the archive and
-  removed after, tagged `daily` from host `Life`. The repository is made the first time (exit 10, or restic's
+  removed after, tagged `daily` from host `lifelog`. The repository is made the first time (exit 10, or restic's
   words for no repository). On Sundays by the Mac's clock: `forget --keep-daily 14 --keep-weekly 8 --keep-monthly 24
   --prune`, then `check --read-data-subset=5%`. Three tries a local day at most, an hour apart. A snapshot restic
   saved without some file (exit 3) counts, and its error says it is incomplete. `GET /status` `backup.restic` gives
