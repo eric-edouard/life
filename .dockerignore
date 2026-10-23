@@ -1,0 +1,11 @@
+**/node_modules
+**/.build
+**/.env
+**/.env.*
+.git
+.claude
+derived
+memory
+truth
+apps/android
+apps/ios

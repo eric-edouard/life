@@ -1,0 +1,70 @@
+# Life on a server (docs/use/server.md). Data lives under LIFE_DIR on the host, secrets in 0600 files under
+# LIFE_ETC, outside the repo; install.sh makes both. No port is published: cloudflared reaches life and voice on this
+# network, and administration is over Tailscale. Memory limits fit an 8 GB box (speech peaks about 5.1 GB).
+name: life
+
+x-bun: &bun
+  build:
+    context: ..
+    dockerfile: deploy/bun.Dockerfile
+  image: life-bun
+  restart: unless-stopped
+  init: true
+
+services:
+  life:
+    <<: *bun
+    command: ["bun", "apps/server/src/host/headless.ts"]
+    env_file: ${LIFE_ETC:-/etc/life}/life.env
+    environment:
+      HOME: /data/home
+      LIFE_OWNER_DATA_DIR: /data/owner
+      LIFE_STATE_DIR: /data/state
+    volumes:
+      - ${LIFE_DIR:-/srv/life}/life:/data
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "bun", "-e", "process.exit((await fetch('http://127.0.0.1:46200/health').catch(() => ({}))).ok ? 0 : 1)"]
+      interval: 30s
+      start_period: 60s
+
+  voice:
+    <<: *bun
+    command: ["bun", "apps/voice/src/index.ts"]
+    env_file: ${LIFE_ETC:-/etc/life}/voice.env
+    environment:
+      AUDIO_DIR: /data/audio
+      DATABASE_PATH: /data/archive.sqlite
+      IDENTITY_URL: http://speech:8000
+      PORT: "3000"
+      RESTIC_BINARY: /usr/local/bin/restic
+    volumes:
+      - ${LIFE_DIR:-/srv/life}/voice:/data
+    mem_limit: 768m
+    depends_on: [speech]
+    healthcheck:
+      test: ["CMD", "bun", "-e", "process.exit((await fetch('http://127.0.0.1:3000/health').catch(() => ({}))).ok ? 0 : 1)"]
+      interval: 30s
+      start_period: 30s
+
+  speech:
+    build: ../apps/speech
+    image: life-speech
+    restart: unless-stopped
+    env_file: ${LIFE_ETC:-/etc/life}/speech.env
+    mem_limit: 5632m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      start_period: 120s
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.6.1
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:2000", "run"]
+    env_file: ${LIFE_ETC:-/etc/life}/tunnel.env
+    mem_limit: 128m
+    depends_on: [life, voice]
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
+      interval: 30s
