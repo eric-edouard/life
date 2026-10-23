@@ -175,8 +175,8 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
   (`detail`) and a run's steps and what it wrote (`runDetail`, from `read_processing_runs` and `read_memory_changes`). `apps/server/src/host/http/status-reads.ts` serves
   them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
   key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.
-  The status page (`assets/status/`, `createStatusPage`) serves the same reads on the public port at `/status/`, behind
-  the owner's sign-in instead of the key, and draws them every 15 s: a server install's status window.
+  The status page (`assets/status/`, `createStatusPage`) serves the status snapshot alone on the public port at
+  `/status/`, behind the owner's sign-in instead of the key, and draws it every 15 s: a server install's status window.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
   Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.

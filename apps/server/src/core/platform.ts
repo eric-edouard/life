@@ -12,6 +12,26 @@ import { LIFE_STATE_DIR, TEST } from "./paths";
 export const MAC = process.platform === "darwin";
 export const WINDOWS = process.platform === "win32";
 
+/** How Life's status names the machine it runs on: its group, its card, since when it is up, where a service runs. */
+export const MACHINE = (() => {
+  if (MAC) {
+    return {
+      card: "MacBook",
+      group: "The Mac",
+      up: "Awake since",
+      where: "on the Mac",
+    };
+  }
+  return WINDOWS
+    ? { card: "PC", group: "This PC", up: "Up since", where: "on this PC" }
+    : {
+        card: "Server",
+        group: "The server",
+        up: "Up since",
+        where: "on the server",
+      };
+})();
+
 /** A relative path with `/` between its parts, as git, an export and a test name it on every system. */
 export const slashed = (p: string) => p.split(sep).join("/");
 

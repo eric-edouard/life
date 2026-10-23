@@ -75,10 +75,10 @@ export async function macState() {
       return pid && pid !== "-" ? [pid] : [];
     })
   );
-  // The Mac's last wake; elsewhere its boot.
-  const sec = MAC
-    ? Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0)
-    : Math.round(clock().getTime() / 1000 - uptime());
+  // The Mac's last wake; elsewhere (no sysctl answer) its boot.
+  const sec =
+    Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0) ||
+    Math.round(clock().getTime() / 1000 - uptime());
   // The disk Life's state is on (a server's data volume).
   const disk = statfsSync(LIFE_STATE_DIR);
   // The archive and the watcher, whoever runs them (launchd or the app): who holds each one's lock (`hold`, lock.ts).
@@ -94,9 +94,8 @@ export async function macState() {
   });
   return {
     awakeSince: sec ? new Date(sec * 1000).toISOString() : null,
-    battery: MAC
-      ? (batt.stdout.match(BATTERY)?.slice(1, 3).join(", ") ?? "?")
-      : null,
+    // None where pmset doesn't answer: a server, a PC, a Mac with no battery.
+    battery: batt.stdout.match(BATTERY)?.slice(1, 3).join(", ") ?? null,
     freeGb: Math.round((disk.bavail * disk.bsize) / GB),
     memory: {
       freeGb: Math.round((freemem() / GB) * 10) / 10,

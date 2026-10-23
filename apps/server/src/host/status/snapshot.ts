@@ -6,7 +6,7 @@ import type { Call } from "../../core/log";
 import { isAgent, type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
-import { MAC } from "../../core/platform";
+import { MACHINE } from "../../core/platform";
 import { git } from "../../core/proc";
 import { agentName, connector, settings } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
@@ -242,8 +242,8 @@ export const GROUPS = [
   { id: "pipeline", name: "Pipeline" },
   { id: "memory", name: "Memory" },
   { id: "outputs", name: "Outputs" },
-  // The machine Life runs on: the Mac, or a server (its id stays "mac", which Life.app reads).
-  { id: "mac", name: MAC ? "The Mac" : "The server" },
+  // The machine Life runs on (its id stays "mac", which Life.app reads).
+  { id: "mac", name: MACHINE.group },
 ] as const;
 
 /** A run that recorded any use: runs from before 21 Oct have no tokens and no readings. */
@@ -1182,14 +1182,14 @@ function macCards(r: Reads): Card[] {
       ...(down.length
         ? {
             ask: ASK(
-              `${down.map((s) => s.name).join(", ")} not running on the Mac`
+              `${down.map((s) => s.name).join(", ")} not running ${MACHINE.where}`
             ),
             tone: "bad",
             word: `${down.length} down`,
           }
         : { tone: "ok", word: "online" }),
       facts: [
-        { at: r.mac.awakeSince, label: MAC ? "Awake since" : "Up since" },
+        { at: r.mac.awakeSince, label: MACHINE.up },
         ...(r.mac.battery ? [{ label: "Battery", value: r.mac.battery }] : []),
         { label: "Disk free", value: `${r.mac.freeGb} GB` },
         {
@@ -1200,7 +1200,7 @@ function macCards(r: Reads): Card[] {
       group: "mac",
       headline: "online",
       id: "mac",
-      name: MAC ? "MacBook" : "Server",
+      name: MACHINE.card,
     },
     ...r.mac.services.map((sv): Card => {
       const { headline, state } = serviceState(sv);
@@ -1209,7 +1209,9 @@ function macCards(r: Reads): Card[] {
           [
             !sv.ok,
             {
-              ask: ASK(`that the ${sv.name} service is not running on the Mac`),
+              ask: ASK(
+                `that the ${sv.name} service is not running ${MACHINE.where}`
+              ),
               tone: "bad",
               word: "down",
             },

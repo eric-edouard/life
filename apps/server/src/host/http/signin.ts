@@ -48,18 +48,15 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       state,
     }).toString();
     return redirect(url.toString(), [
-      cookie(
-        LOGIN,
-        `${state}.${verifier}.${encodeURIComponent(page)}`,
-        LOGIN_MAX_S
-      ),
+      cookie(LOGIN, `${state}.${verifier}.${page}`, LOGIN_MAX_S),
     ]);
   }
 
   /** Back from lifelog: the code is traded for a token, which must be the owner's before it becomes the session. */
   async function callback(req: Request, url: URL) {
-    const [state, verifier, page] = (cookieOf(req, LOGIN) ?? "").split(".");
-    const back = decodeURIComponent(page ?? "");
+    const [state, verifier, back = ""] = (cookieOf(req, LOGIN) ?? "").split(
+      "."
+    );
     const code = url.searchParams.get("code");
     if (
       !(state && verifier && code) ||

@@ -113,8 +113,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task` and `log_reply_to_owner`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
-- **Pages serve nothing of his before their sign-in check** (`/check`, `/me`; the app's status reads behind the local
-  key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
+- **Pages serve nothing of his before their sign-in check** (`/check`, `/status`, `/me`; the app's status reads behind the
+  local key; `/health` answers only `ok`). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge the
   same text.
 - **He is the center, not one more person:** his page is a projection like every page; his goals are only in

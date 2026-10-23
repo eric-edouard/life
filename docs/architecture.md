@@ -189,7 +189,7 @@ Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
 - **The status page** (`apps/server/src/host/http/status-reads.ts`, `/status/`) draws the status snapshot, the same
-  reads Life.app has on the local port, behind the same sign-in as the check page. The sign-in goes back to the page
+  one Life.app reads on the local port (its card details and runs stay there), behind the same sign-in as the check page. The sign-in goes back to the page
   that sent the owner. `/health` answers `ok` and nothing else, before any sign-in: the container's healthcheck and the
   tunnel card's probe.
 - **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from

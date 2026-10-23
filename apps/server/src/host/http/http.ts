@@ -1,4 +1,4 @@
-// How Life's server answers (`mcp.ts`, `check-page.ts`, `portrait.ts`), the one place for it: never cached, never framed,
+// How Life's server answers (`mcp.ts`, `check-page.ts`, `status-reads.ts`, `portrait.ts`), the one place for it: never cached, never framed,
 // no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -64,7 +64,7 @@ export const text = (
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
 
-/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me). */
+/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /status, /me, /health). */
 export const PUBLIC_PORT = 46_200;
 /**
  * Where the public port listens: loopback, or the address a container's tunnel reaches it on (`LIFE_LISTEN_HOST`,

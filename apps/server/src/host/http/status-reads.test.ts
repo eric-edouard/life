@@ -71,10 +71,15 @@ test("the status page: nothing before the owner's sign-in, which comes back to i
   const at = (app: typeof page, path: string, cookie = "") =>
     app.request(new Request(`${origin}${path}`, { headers: { cookie } }));
 
+  const session = `__Host-life=${await token()}`;
   const first = await at(page, "/status/");
   expect(first.status).toBe(302);
   expect(first.headers.get("location")).toContain(`${issuer}/oauth2/authorize`);
   expect((await at(page, "/status/snapshot")).status).toBe(401);
+  // Without its slash, the page's address still goes to the page, never to a read's 401.
+  expect((await at(page, "/status")).headers.get("location")).toBe("/status/");
+  // The page reads the snapshot only: a card's detail stays on the local port.
+  expect((await at(page, "/status/card/tasks", session)).status).toBe(404);
   expect((await at(page, "/status/status.js")).status).toBe(401);
 
   // Back from the issuer to the page that sent him, and only to a page of this site.
@@ -84,11 +89,10 @@ test("the status page: nothing before the owner's sign-in, which comes back to i
   const login = (first.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
   const back = await at(check, `/check/callback?code=c&state=${state}`, login);
   expect(back.headers.get("location")).toBe("/status/");
-  const forged = login.replace(LAST_PART, encodeURIComponent("//elsewhere/"));
+  const forged = login.replace(LAST_PART, "//elsewhere/");
   const kept = await at(check, `/check/callback?code=c&state=${state}`, forged);
   expect(kept.headers.get("location")).toBe("/check/");
 
-  const session = `__Host-life=${await token()}`;
   expect((await at(page, "/status/", session)).status).toBe(200);
   const snap = await at(page, "/status/snapshot", session);
   expect(snap.status).toBe(200);

@@ -1,6 +1,6 @@
 // Life's status page: the status snapshot (apps/server/src/host/status/snapshot.ts), the same one Life.app shows,
-// read again every 15 seconds. Cards in trouble first, each with its sentence to paste into a session; his words and
-// errors' text only with "Show content" on (remembered on this browser).
+// read again every 15 seconds. Cards in trouble first, each with its sentence to paste into a session. His words and
+// errors' text arrive with the snapshot (behind the sign-in) and are hidden on screen until "Show content" is on.
 
 const EVERY_MS = 15_000;
 const $ = (id) => document.getElementById(id);
