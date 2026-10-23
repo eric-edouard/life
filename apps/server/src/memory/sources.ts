@@ -198,9 +198,9 @@ const LISTED: Descriptor[] = [
       if (!settings().repos) {
         return "no repos folder set";
       }
-      if (settings().forge && !process.env.GITHUB_TOKEN) {
-        return "no GITHUB_TOKEN";
-      }
+      return settings().forge && !process.env.GITHUB_TOKEN
+        ? "no GITHUB_TOKEN"
+        : undefined;
     },
     // On a host without his checkouts, the repos his projects list, from his forge.
     ...(settings().forge

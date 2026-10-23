@@ -169,3 +169,44 @@ JVBERi0=
     words: [expect.stringMatching(NEWEST)],
   });
 });
+
+test("his addresses come from all his sent mail, an alias sent long before the window included, never a sender-less one", () => {
+  const root = mkdtempSync(join(tmpdir(), "maildir-"));
+  put(
+    root,
+    "Sent",
+    "1.M1P1.host,U=1:2,S",
+    "2025-01-01T08:00:00Z",
+    "From: Me <alias@mine.test>\nSubject: Old\nMessage-ID: <old@mine.test>\n\nhi\n"
+  );
+  put(
+    root,
+    "Sent",
+    "2.M2P1.host,U=2:2,S",
+    "2025-01-02T08:00:00Z",
+    "Subject: No sender\nMessage-ID: <none@mine.test>\n\nhi\n"
+  );
+  put(
+    root,
+    "INBOX",
+    "3.M3P1.host,U=1:2,S",
+    "2026-10-09T08:00:00Z",
+    "From: alias@mine.test\nSubject: Note\nMessage-ID: <new@mine.test>\n\nto self\n"
+  );
+  put(
+    root,
+    "INBOX",
+    "4.M4P1.host,U=2:2,S",
+    "2026-10-09T09:00:00Z",
+    "Subject: Anonymous\nMessage-ID: <anon@example.com>\n\nwho\n"
+  );
+  expect(
+    readMaildir(at("2026-10-01T00:00:00Z"), root, "me@mine.test").map((e) => [
+      e.id,
+      e.fromMe,
+    ])
+  ).toEqual([
+    ["mail:new@mine.test", true],
+    ["mail:anon@example.com", false],
+  ]);
+});

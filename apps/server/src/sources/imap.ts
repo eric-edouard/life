@@ -190,7 +190,10 @@ export function readMaildir(
   const sent = all.filter((f) => isSentBox(f.box));
   return mailEvents(messagesSince(since, all), [
     user,
-    ...sent.map((f) => addressOf(messageAt(f.path)?.headers.get("from"))),
+    ...sent.flatMap((f) => {
+      const from = messageAt(f.path)?.headers.get("from");
+      return from ? [addressOf(from)] : [];
+    }),
   ]);
 }
 
