@@ -19,7 +19,7 @@ import { type ModelCall, macProvider } from "./providers";
 import { services } from "./services";
 import { subscriptions } from "./subscriptions";
 import { latestValid } from "./summaries";
-import { loadSwitches, switches } from "./switches";
+import { setSwitches, switches } from "./switches";
 import {
   fakeAnswer,
   mapJob,
@@ -68,7 +68,8 @@ beforeEach(() => {
   env.reset();
   nudged.length = 0;
   calls.length = 0;
-  loadSwitches(env.db);
+  // These tests run summaries: on (off by default).
+  setSwitches(env.db, { ai: true });
   mac.resetUnable();
 });
 
