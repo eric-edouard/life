@@ -88,7 +88,7 @@ export function healthWatch(db: Db, config: Config) {
       if (rose.length > 0) {
         const status = await emailOwner(config, {
           key: `archive-${Math.floor(at / ALERT_EVERY_MS)}`,
-          subject: "Life: the archive breaks its invariants",
+          subject: "Voice server: the archive breaks its invariants",
           text: `${rose.map(([kind, n]) => `${kind} ${n}`).join(", ")}.\n\nGET /status shows the details (archive-health.ts).`,
         });
         record(db, "archive.alert", { status });

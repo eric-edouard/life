@@ -9,7 +9,7 @@ and what it does not.
 
 - Everything Life derives lives on the owner's Mac: the data root (`truth/`, `memory/`) is a local git repository with
   no remote. The nightly commits there and refuses to commit to a repository that has one, so nothing is pushed.
-- Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, lifelog); Life opens their stores read-only.
+- Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, the voice server); Life opens their stores read-only.
   The one copy it keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone
   and old note versions.
 - Backups are optional: restic snapshots, encrypted with a password kept in the Keychain, written to the folder the

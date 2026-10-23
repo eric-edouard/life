@@ -6,7 +6,7 @@
     "@anthropic-ai/sdk": "1.1.0",
     "@modelcontextprotocol/server": "catalog:",
     "@openai/codex": "0.162.1",
-    "hono": "4.13.13",
+    "hono": "catalog:",
     "jose": "^6.2.12",
     "zod": "catalog:"
   }
