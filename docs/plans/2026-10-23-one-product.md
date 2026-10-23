@@ -23,45 +23,43 @@ are separate apps, and the phone's invariants (ACK, paid once, dictation) stay i
 | Transcription on the iPhone | Parked: transcripts must come within minutes; iOS runs heavy work mostly while charging |
 | Android | Parked (below) |
 | lifelog's summaries | Life stops depending on them; they stay app UI only, or are turned off |
+| Host | OVHcloud VPS-2, Singapore; Hetzner CX33 as fallback |
 | Latency | A transcript within minutes of speech, so the agent can act on "hey <agent>" |
 | lifelog's own server plan (lifelog #57) | Folded into Life's [server plan](2026-10-22-server.md) |
 
 ## Transcription on the server
 
-ElevenLabs Scribe for every hour costs too much for the owner and for most people. lifelog's transcription bench
-(lifelog `docs/research/transcription-bench.md`) found:
+ElevenLabs Scribe for every hour costs too much for the owner and for most people. Measured on 70 two-minute clips
+of the owner's recordings, against Scribe's stored transcript (distances from Scribe, not error rates; lifelog
+`docs/research/transcription-bench.md`, with its CPU section):
 
-- English and French: Parakeet Ultra is as close to Scribe as anything measured (8.6% from it in English, 24.4% in
-  French) and sometimes right where Scribe is wrong.
-- Other languages (Thai, measured): no open model is good enough. VoxLingua107 finds them (3.1% of the Thai missed,
-  combined with "Parakeet wrote nothing"), and only those turns go to Scribe: 15 to 25% of the audio.
-- Speakers: pyannote credits 15.7% of words to another speaker than Scribe; Scribe run again with the language set
-  differs from its own first run by 13.7%, so part of that gap is Scribe's own.
+| Step | Model | Result |
+|---|---|---|
+| Speakers | NVIDIA Nemotron-3-Diarization | 8.5–8.9% of words credited to another speaker than Scribe (pyannote community-1: 15.7%; Scribe against itself: 13.7%) |
+| Language, per turn | VoxLingua107 | Neither English nor French, or Parakeet wrote nothing: to Scribe. 1.6% of Thai seconds missed, 15.4% of English and French sent needlessly |
+| English and French | Parakeet Ultra | 8.6% English, 24.5% French, 20.2% mixed: the best open model, sometimes right where Scribe is wrong |
+| Everything else | Scribe, language on auto | 15 to 25% of the audio; a block 70% routed goes whole |
 
-So the pipeline is diarization, then VoxLingua107 per turn, Parakeet Ultra for English and French, Scribe for the
-rest. On the Mac host it runs through MLX (74× real time); on a server, on CPU through ONNX (sherpa-onnx exports the
-NeMo checkpoint). The owner's target is a Hetzner CX43 at €12.49 a month (8 shared vCPU, 16 GB, no GPU); estimated,
-not measured: 10–20 s for Parakeet and about 15 s for `diarize` per 2-minute block (pyannote about 100 s), about 4 GB
-of RAM for every model, a transcript 2–3 minutes after speech. Scribe drops from about $50–65 to $10–15 a month at the
-owner's volume. A transcription engine is one contract with two implementations (MLX, ONNX), chosen by the host, never
-by a branch on its name.
+No open model is good enough on Thai, hence Scribe for the rest: about $10–15 a month instead of $50–65 at the owner's
+volume.
 
-### The benchmark, first
+**On a CPU server** (measured on an 8 shared vCPU AMD EPYC box, Ubuntu 24.04): Parakeet Ultra runs as ONNX fp32
+(onnx-asr, CPU), within 0.3 points of MLX; int8 exports drop up to 87% of the words and are never used.
+Nemotron runs through Hugging Face Transformers on CPU (NeMo-Speech.cpp is the lighter runtime, not yet timed). One
+2-minute block, every model loaded in one process: about 12 s on 8 threads, 17 s on 4, 27 s on 2, so a transcript
+lands 1–3 minutes after speech, upload included. Peak RAM 5.1 GB (Parakeet fp32 alone 3.9 GB; fp16 being measured).
+**On the Mac host** the same pipeline runs through MLX (Parakeet about 74× real time) and NeMo-Speech.cpp on Metal
+(Nemotron about 240×). A transcription engine is one contract with two implementations, chosen by the host, never by
+a branch on its name.
 
-Before any code: rent a CX43 by the hour, run the bench's 70 clips through Parakeet Ultra (ONNX int8), `diarize`,
-pyannote and VoxLingua107, measure speed and distance from Scribe, delete the box. Run from the owner's Mac (the clips
-hold his voice and stay in his private notes); the clips leave the Mac for that hour only. Diarization variants
-measured in the same run:
+**Rejected** on top of Nemotron, none better than its 8.9%: splitting turns where the voice drifts (ECAPA windows,
+9.9%), the owner's enrolled voice as an anchor (16.3%: it credits others to him), boundaries snapped to Parakeet's word
+gaps (9.0%).
 
-- **Drift splits:** speaker embeddings on sliding windows inside each turn (the ECAPA model `apps/identity` already
-  runs); a turn whose voice drifts past a threshold is split where it drifts, then the pieces are clustered again.
-  This catches a change of speaker the diarizer missed.
-- **The owner's voice as an anchor:** his enrolled voice is known, so each turn is first scored against it. Owner
-  versus everyone else is the split that matters most to the memory, and the easiest to get right.
-- **Word times:** Parakeet's word timestamps move a speaker boundary to the nearest word gap instead of the middle of
-  a word.
-
-Each variant is kept only if it lowers the words credited to the wrong speaker on the multi-speaker clips.
+**The host** needs 4 vCPU (2 work), 8 GB of RAM with Life, x86; its location barely matters at minutes of latency.
+Decided: OVHcloud VPS-2 in Singapore (4 vCPU, 8 GB, about $8.50 a month,
+managed by API); Hetzner CX33 (€10.19) is the fallback. Shared cores vary, so a 10-minute end-to-end check runs on
+the box first.
 
 ## Life without lifelog's summaries
 
@@ -89,8 +87,8 @@ writer, life and backup. Merging them would put two processes behind one lock fo
 
 ## The move
 
-1. **Transcription on the server.** The benchmark above, then the engine contract, the ONNX engine and VoxLingua
-   routing in lifelog's server, behind a switch: off is today's Scribe path. Both write the same transcript shape, so
+1. **Transcription on the server.** The engine contract, its MLX and ONNX engines, Nemotron and VoxLingua routing in
+   lifelog's server, behind a switch: off is today's Scribe path. Both write the same transcript shape, so
    the feed and Life don't change.
 2. **Life stops depending on summaries** (above).
 3. **The repo folds in.** lifelog's apps move under `apps/` (`apps/lifelog-ios`, `apps/lifelog-server`, the Mac sensor,
