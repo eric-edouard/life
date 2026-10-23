@@ -74,7 +74,7 @@ export async function snapshotArchive(
   if (kept) {
     return false;
   }
-  const file = join(tmpdir(), `Life-archive-${randomUUID()}.sqlite`);
+  const file = join(tmpdir(), `voice-archive-${randomUUID()}.sqlite`);
   try {
     db.run(sql`vacuum into ${file}`);
     const bytes = await Bun.file(file).bytes();

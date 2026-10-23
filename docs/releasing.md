@@ -26,4 +26,4 @@ LIFE_RELEASES_REPO=<owner/name> LIFE_SPARKLE_KEY=<public EdDSA key> LIFE_VERSION
 bun scripts/release.ts
 ```
 
-Set `LIFELOG_HOST_APP` to also put lifelog's host app in the DMG.
+Set `LIFELOG_HOST_APP` to also put Voice Host in the DMG.
