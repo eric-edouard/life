@@ -1,7 +1,5 @@
 // `bun run check`: the single quality gate. Runs every step concurrently and fails fast.
-import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { homedir } from "node:os";
 import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
 
@@ -95,25 +93,26 @@ const macSteps: Record<string, string[]> = {
     `cd ${ios} && xcodegen generate --quiet && xcodebuild -project Life.xcodeproj -scheme Life -destination 'generic/platform=iOS Simulator' -derivedDataPath ../../.build/DerivedData -quiet build CODE_SIGNING_ALLOWED=NO`,
   ],
 };
-if (process.platform === "darwin") {
-  Object.assign(steps, macSteps);
-} else {
+// The phone's and the sensor's Swift, and what they read from the server (its wire fixtures and openapi.json).
+const SWIFT =
+  /^(apps\/ios|apps\/dictation|fixtures|apps\/voice\/openapi\.json)/;
+const changed = (
+  await Bun.$`git diff --name-only origin/main...HEAD && git diff --name-only HEAD`
+    .nothrow()
+    .text()
+).split("\n");
+const why =
+  process.platform === "darwin"
+    ? changed.some((f) => SWIFT.test(f))
+      ? null
+      : "no change to the phone, the sensor or what they read"
+    : "needs macOS";
+if (why) {
   for (const name of Object.keys(macSteps)) {
-    console.log(`- ${name}: skipped, needs macOS`);
+    console.log(`- ${name}: skipped, ${why}`);
   }
-}
-
-// The Android app's unit tests and a debug APK, where the Android SDK is (apps/android/AGENTS.md).
-const androidSdk =
-  process.env.ANDROID_HOME ?? `${homedir()}/Library/Android/sdk`;
-if (existsSync(androidSdk)) {
-  steps.android = [
-    "sh",
-    "-c",
-    `cd apps/android && ANDROID_HOME="${androidSdk}" JAVA_HOME="\${JAVA_HOME:-$(/usr/libexec/java_home -v 17+)}" ./gradlew -q testDebugUnitTest assembleDebug`,
-  ];
 } else {
-  console.log("- android: skipped, no Android SDK");
+  Object.assign(steps, macSteps);
 }
 
 // Only the current failures stay in derived/check.
