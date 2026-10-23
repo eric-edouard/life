@@ -75,7 +75,9 @@ One Python service does all of it: speaker embeddings, VoxLingua107, Nemotron di
 - One HTTP contract, two runtimes: CPU on a server (Transformers, onnx-asr fp32; never int8: it drops up to 87% of the
   words), MLX and NeMo-Speech.cpp on Metal on the Mac. The host picks the runtime; nothing branches on a name.
 - Done when: the bench's results reproduce through the service on both runtimes (the local session runs it on his
-  clips; the numbers go to the bench write-up, never his audio).
+  clips; the numbers go to the bench write-up, never his audio). The CPU proof of concept that produced them (one
+  script per model, the box run, its lockfile) is in his notes beside the clips, `lifelog/stt-bench/cpu/`: a reference
+  for the CPU runtime, not code to copy (it loads each model in three scripts).
 
 ### 3. Transcription moves to the speech service
 
@@ -157,4 +159,5 @@ installs, Android.
 - DeepSeek V4.1 Flash for the memory steps is unmeasured: the bench (`bun scripts/bench.ts`) runs it against today's
   models before step 5 merges, on the owner's yes (it spends quota).
 - Which OpenRouter host serves DeepSeek with no retention, and its price at the owner's volume.
-- The OVH box's real RAM: 5.1 GB of models plus Life on 8 GB is tight; the fp16 measurement decides.
+- The OVH box's real RAM: 5.1 GB of models plus Life on 8 GB is tight. fp16 doesn't help on CPU (6.0 GB, no faster), so
+  the 10-minute check measures Life's own share there; if it doesn't fit, the next OVH size up, not a smaller model.

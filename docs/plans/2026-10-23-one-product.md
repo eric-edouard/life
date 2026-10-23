@@ -47,13 +47,14 @@ volume.
 (onnx-asr, CPU), within 0.3 points of MLX; int8 exports drop up to 87% of the words and are never used. Nemotron runs
 through Hugging Face Transformers on CPU (NeMo-Speech.cpp is the lighter runtime, not yet timed). One 2-minute block,
 every model loaded in one process: about 12 s on 8 threads, 17 s on 4, 27 s on 2, so a transcript lands 1–3 minutes
-after speech, upload included. Peak RAM 5.1 GB (Parakeet fp32 alone 3.9 GB; fp16 being measured). **On the Mac host**
+after speech, upload included. Peak RAM 5.1 GB (Parakeet fp32 alone 3.9 GB; fp16 is no faster on CPU and takes 6.0 GB, so 8 GB is the floor). **On the Mac host**
 the same pipeline runs through MLX (Parakeet about 74× real time) and NeMo-Speech.cpp on Metal (Nemotron about 240×).
 A transcription engine is one contract with two implementations, chosen by the host, never by a branch on its name.
 
-**Rejected** on top of Nemotron, none better than its 8.9%: splitting turns where the voice drifts (ECAPA windows,
-9.9%), the owner's enrolled voice as an anchor (16.3%: it credits others to him), boundaries snapped to Parakeet's
-word gaps (9.0%).
+**Speaker fixes, inconclusive** on top of Nemotron: splitting turns where the voice drifts (ECAPA windows), the
+owner's enrolled voice as an anchor, boundaries snapped to Parakeet's word gaps. None scored better than its 8.9%, but
+the scoring counted their new labels as wrong by construction and the "gaps" were word onsets (lifelog's bench doc).
+Not worth more until a method keeps each person under one label; Nemotron as is ships.
 
 **The host** needs 4 vCPU (2 work), 8 GB of RAM with Life, x86; its location barely matters at minutes of latency.
 Decided: OVHcloud VPS-2 in Singapore (4 vCPU, 8 GB, about $8.50 a month, managed by API); Hetzner CX33 (€10.19) is the
