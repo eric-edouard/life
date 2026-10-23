@@ -51,7 +51,7 @@ class SyncService : Service() {
         val outbox = Outbox(filesDir)
         // Not reference-counted: a cycle past the timeout releases nothing instead of throwing.
         val lock = getSystemService(PowerManager::class.java)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Life:drain").apply { setReferenceCounted(false) }
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "life:drain").apply { setReferenceCounted(false) }
         store.status.update { it.copy(syncing = true, queued = outbox.count) }
         while (scope.isActive) {
             // A service stopped and started again may still be finishing its last cycle: they never overlap.

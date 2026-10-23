@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import {
   appendFileSync,
@@ -15,133 +16,89 @@ import { join } from "node:path";
 import type { z } from "zod";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { MACHINE_DIR } from "../core/platform";
-import { momentId } from "../memory/moments";
-import { observationId } from "../memory/observe";
-import { lineHash } from "../memory/page-format";
-import {
-  action,
-  madeBy,
-  unit as unitRecord,
-  verdict as verdictRecord,
-} from "../memory/record-fixtures";
-import { unitId } from "../memory/units";
-import { LedgerEntry } from "../records/ledger-entry";
-import { InferredPerson, Observation } from "../records/observation";
-import { Rating, Statement } from "../records/statement";
-import { MemoryLabel, Unit, Verdict } from "../records/unit";
-import { entryId } from "./act";
-import { migrateStored, relabeled, renameStored } from "./migrate";
+import { madeBy, unit as unitRecord } from "../memory/record-fixtures";
+import { unitId, VOICE_STEP } from "../memory/units";
+import { Observation } from "../records/observation";
+import { Statement } from "../records/statement";
+import { MemoryLabel, Migration, Unit } from "../records/unit";
+import { storeFiles, WATCH } from "../sources/voice";
+import { migrateStored, renameStored } from "./migrate";
 
-// Made-up memory as it was written before the rename: old ids minted by the old recipes, old keys and values.
-const old = (id: string) => `u_${id.slice(5)}`;
-const chat = old(
-  unitId("whatsapp", "33600000000@s.whatsapp.net", "2026-10-20")
-);
-const ask = "act_0123456789ab";
-const agentUnit = old(unitId("atlas", ask, "2026-10-20"));
-const quote = "Je passe demain, u_000000000000 compris";
-const obs = `obs_${observationId(chat, "todo", quote, "Lou comes by tomorrow.").slice(4)}`;
-const mom = momentId(["2026-10-20", "2026-10-20 18:00", chat]);
-const line = `- Lou comes by tomorrow. [${obs}]`;
-
+// Made-up memory as it was written before the rename: lifelog's chapter units (one on the day the rename runs, one
+// before it), and every record naming the source `lifelog`, beside words that say lifelog and must keep it.
+const TODAY = "2026-10-25";
+const chapter = (id: string, date: string) => ({
+  ...unitRecord({ date, id, key: "conv-1", refs: ["conv-1#ch"] }),
+  source: "lifelog",
+  summary: "They talk about lifelog.",
+  title: "lifelog's title",
+});
+const OLD_DAY = "unit_00000000000a";
+const OF_TODAY = "unit_00000000000b";
 const jsonl = (...lines: object[]) =>
   `${lines.map((r) => JSON.stringify(r)).join("\n")}\n`;
+const observation = {
+  about: "person:me",
+  area: null,
+  at: "2026-10-20T08:00:00.000Z",
+  confidence: 0.8,
+  date: "2026-10-20",
+  entities: ["project:lifelog"],
+  id: "obs_00000000000a",
+  importance: 2,
+  madeBy: { ...madeBy, unitHash: "0123456789abcdef" },
+  quote: "the lifelog app",
+  schemaVersion: 1,
+  source: { channel: "lifelog", ref: "job-1:0@2026-10-20T08:00:00.000Z" },
+  speaker: "person:me",
+  text: "He fixes the lifelog app.",
+  type: "to_do",
+  tz: "Europe/Paris",
+  unit: OLD_DAY,
+  validFrom: null,
+  validTo: null,
+  when: null,
+};
+const statement = {
+  at: "2026-10-20T08:00:00.000Z",
+  date: "2026-10-20",
+  group: "project:lifelog",
+  kind: "fact",
+  ref: "obs_00000000000a",
+  schemaVersion: 1,
+  source: "lifelog",
+  text: "He fixes the lifelog app.",
+  units: [OLD_DAY],
+};
 const before = new Map([
   [
     "memory/units/2026-10-20.jsonl",
     jsonl(
-      {
-        date: "2026-10-20",
-        id: chat,
-        key: "33600000000@s.whatsapp.net",
-        source: "whatsapp",
-      },
-      {
-        date: "2026-10-20",
-        id: agentUnit,
-        key: ask,
-        refs: [`atlas:${ask}`],
-        source: "atlas",
-      }
+      chapter(OLD_DAY, "2026-10-20"),
+      unitRecord({ id: "unit_00000000000c", key: "lifelog", source: "git" })
+    ),
+  ],
+  ["memory/units/2026-10-25.jsonl", jsonl(chapter(OF_TODAY, TODAY))],
+  ["memory/observations/2026-10.jsonl", jsonl(observation)],
+  ["memory/statements.jsonl", jsonl(statement)],
+  [
+    "memory/labels.jsonl",
+    jsonl(
+      { matters: true, unitId: OLD_DAY },
+      { matters: false, unitId: OF_TODAY }
     ),
   ],
   [
     "memory/verdicts.jsonl",
-    jsonl(
-      { salience: 2, type: "waiting", unit: chat },
-      { salience: 3, type: "person", unit: agentUnit }
-    ),
+    jsonl({ reason: "lifelog work", topics: ["lifelog"], unit: OLD_DAY }),
   ],
   [
-    "memory/observations/2026-10.jsonl",
-    jsonl({
-      entities: ["person:inf-plumber"],
-      id: obs,
-      quote,
-      salience: 2,
-      source: { channel: "whatsapp", ref: "whatsapp:x/1" },
-      text: "Lou comes by tomorrow.",
-      type: "todo",
-      unit: chat,
-    }),
-  ],
-  [
-    "memory/moments/2026-10-20.jsonl",
-    jsonl({
-      day: "2026-10-20",
-      id: mom,
-      start: "2026-10-20 18:00",
-      title: "Lou",
-      units: [chat],
-    }),
-  ],
-  [
-    "memory/actions.jsonl",
-    jsonl(
-      { id: ask, kind: "ask", madeBy: "watch", target: "atlas" },
-      {
-        id: "act_00000000000b",
-        kind: "update",
-        madeBy: "connector",
-        target: ask,
-      },
-      {
-        id: "act_00000000000c",
-        instruction: { ref: obs },
-        kind: "add",
-        madeBy: "session",
-        target: "reminder:1",
-      }
-    ),
-  ],
-  ["memory/statements.jsonl", jsonl({ claim: obs, units: [chat] })],
-  ["memory/ratings.jsonl", jsonl({ answer: "true", claim: mom })],
-  ["memory/labels.jsonl", jsonl({ matters: true, type: "todo", unitId: chat })],
-  [
-    "memory/people-inferred.jsonl",
-    jsonl({
-      evidence: [{ quote: "inf-plumber", unit: chat }],
-      id: "inf-plumber",
-    }),
-  ],
-  [
-    "memory/corrections.jsonl",
-    jsonl(
-      { kind: "wrong", observations: [obs, mom] },
-      { kind: "reread", units: [chat] }
-    ),
-  ],
-  [
-    "memory/pages/people/inf-plumber.md",
-    `---\npage: "person:inf-plumber"\nlines: ${JSON.stringify({ [lineHash(line)]: [obs] })}\n---\n## Now\n${line}\n- His own line.\n`,
-  ],
-  [
-    "memory/zones.jsonl",
-    jsonl({ from: "2026-01-01T00:00:00Z", tz: "Europe/Paris" }),
+    "docs/evals/clef/cases.json",
+    JSON.stringify([{ channel: "lifelog", text: "lifelog said" }]),
   ],
 ]);
 
-const { files, moves } = renameStored(before);
+const { files, plan } = renameStored(before, TODAY);
 const after = new Map([...before, ...files]);
 const rows = (path: string) =>
   (after.get(path) ?? "")
@@ -149,343 +106,58 @@ const rows = (path: string) =>
     .split("\n")
     .map((l) => JSON.parse(l));
 
-const unit = `unit_${chat.slice(2)}`;
-const newObs = observationId(unit, "to_do", quote, "Lou comes by tomorrow.");
-const newMom = momentId(["2026-10-20", "2026-10-20 18:00", unit]);
-
-test("ids are renamed as the code now mints them, so a later reading finds the same ones", () => {
-  const [u, agent] = rows("memory/units/2026-10-20.jsonl");
-  expect(u.id).toBe(unit);
-  expect(agent).toMatchObject({
-    id: unitId("agent", "entry_0123456789ab", "2026-10-20"),
-    key: "entry_0123456789ab",
-    refs: ["agent:entry_0123456789ab"],
-    source: "agent",
-  });
-  expect(rows("memory/observations/2026-10.jsonl")[0].id).toBe(newObs);
-  expect(rows("memory/moments/2026-10-20.jsonl")[0]).toMatchObject({
-    id: newMom,
-    units: [unit],
-  });
-  expect(rows("memory/corrections.jsonl")).toMatchObject([
-    { observations: [newObs, newMom] },
-    { units: [unit] },
-  ]);
-});
-
-test("keys and values take their new names; quotes keep the source's own words", () => {
-  const [o] = rows("memory/observations/2026-10.jsonl");
-  expect(o).toMatchObject({
-    entities: ["person:inf_plumber"],
-    importance: 2,
-    quote,
-    type: "to_do",
-  });
-  expect(o.salience).toBeUndefined();
-  expect(rows("memory/verdicts.jsonl")).toMatchObject([
-    { importance: 2, type: "waiting_on_someone", unit },
+test("the source lifelog is voice wherever it is a source's name; words, topics, projects and repos keep theirs", () => {
+  expect(rows("memory/units/2026-10-20.jsonl")).toMatchObject([
     {
-      type: "about_a_person",
-      unit: rows("memory/units/2026-10-20.jsonl")[1].id,
+      id: OLD_DAY,
+      source: "voice",
+      summary: "They talk about lifelog.",
+      title: "lifelog's title",
     },
+    { key: "lifelog", source: "git" },
   ]);
-  expect(rows("memory/actions.jsonl")).toMatchObject([
-    { id: "entry_0123456789ab", target: "agent", via: "watch" },
-    {
-      id: "entry_00000000000b",
-      target: "entry_0123456789ab",
-      via: "connector",
-    },
-    { instruction: { ref: newObs }, via: "session" },
+  expect(rows("memory/observations/2026-10.jsonl")).toEqual([
+    { ...observation, source: { ...observation.source, channel: "voice" } },
   ]);
-  expect(rows("memory/statements.jsonl")[0]).toEqual({
-    ref: newObs,
-    units: [unit],
-  });
-  expect(rows("memory/ratings.jsonl")[0]).toEqual({
-    answer: "true",
-    ref: newMom,
-  });
-  expect(rows("memory/labels.jsonl")[0]).toEqual({
-    matters: true,
-    type: "to_do",
-    unitId: unit,
-  });
-  expect(rows("memory/people-inferred.jsonl")[0]).toEqual({
-    evidence: [{ quote: "inf-plumber", unit }],
-    id: "inf_plumber",
-  });
+  expect(rows("memory/statements.jsonl")).toEqual([
+    { ...statement, source: "voice" },
+  ]);
+  expect(files.has("memory/verdicts.jsonl")).toBe(false);
+  expect(JSON.parse(after.get("docs/evals/clef/cases.json") ?? "")).toEqual([
+    { channel: "voice", text: "lifelog said" },
+  ]);
 });
 
-test("a page's ids and line hashes move together; his own lines stay word for word", () => {
-  const page = after.get("memory/pages/people/inf-plumber.md") ?? "";
-  const moved = `- Lou comes by tomorrow. [${newObs}]`;
-  expect(page).toContain('page: "person:inf_plumber"');
-  expect(page).toContain(
-    `lines: ${JSON.stringify({ [lineHash(moved)]: [newObs] })}`
-  );
-  expect(page).toContain(`${moved}\n- His own line.\n`);
+test("a label on one of today's chapters moves to its conversation-day; an older chapter keeps its id; the cutover is today", () => {
+  expect(rows("memory/labels.jsonl")).toEqual([
+    { matters: true, unitId: OLD_DAY },
+    { matters: false, unitId: unitId("voice", "conv-1", TODAY) },
+  ]);
+  expect(plan.cutover).toBe(TODAY);
+  // An install that never had lifelog's chapters has no cutover: every voice unit is a conversation-day.
+  expect(
+    renameStored(new Map([["memory/statements.jsonl", ""]]), TODAY).plan.cutover
+  ).toBeUndefined();
 });
 
-test("every line keeps its place; the ledger and an inferred person's page move; the rest is untouched", () => {
-  for (const [path, text] of files) {
-    expect(text.split("\n").length).toBe(
-      before.get(path)?.split("\n").length ?? -1
+test("every line keeps its place, renamed records parse, and run again it changes nothing", () => {
+  for (const [path, text] of [...files].filter(([p]) => p.endsWith(".jsonl"))) {
+    expect(text.split("\n")).toHaveLength(
+      (before.get(path) ?? "").split("\n").length
     );
   }
-  expect(moves).toEqual([
-    ["memory/actions.jsonl", "memory/ledger.jsonl"],
-    [
-      "memory/pages/people/inf-plumber.md",
-      "memory/pages/people/inf_plumber.md",
-    ],
-  ]);
-  expect(files.has("memory/zones.jsonl")).toBe(false);
-});
-
-test("run again on renamed data, it changes nothing", () => {
-  const again = renameStored(after);
-  expect([...again.files.keys()]).toEqual([]);
-});
-
-// Records as the new code writes them, aged into the old names, renamed back: the same records, and each parses.
-const AT = "2026-10-20T08:00:00.000Z";
-const observation = {
-  about: "person:inf_plumber",
-  area: null,
-  at: AT,
-  confidence: 0.8,
-  date: "2026-10-20",
-  entities: ["person:inf_plumber"],
-  id: "obs_00000000000a",
-  importance: 2,
-  madeBy: { ...madeBy, unitHash: "0123456789abcdef" },
-  quote: "je passe demain",
-  schemaVersion: 1,
-  source: { channel: "whatsapp", ref: "whatsapp:x/1" },
-  speaker: "agent:agent",
-  speakerFrom: "agent",
-  text: "The plumber comes by tomorrow.",
-  type: "waiting_on_someone",
-  tz: "Europe/Paris",
-  unit: "unit_00000000000a",
-  validFrom: null,
-  validTo: null,
-  when: null,
-};
-const records: [string, z.ZodType, object][] = [
-  [
-    "memory/units/2026-10-09.jsonl",
-    Unit,
-    unitRecord({ refs: ["agent:entry_0123456789ab"], source: "agent" }),
-  ],
-  [
-    "memory/verdicts.jsonl",
-    Verdict,
-    verdictRecord(unitRecord(), { type: "about_a_person" }),
-  ],
-  ["memory/observations/2026-10.jsonl", Observation, observation],
-  [
-    "memory/actions.jsonl",
-    LedgerEntry,
-    action({ target: "agent", via: "watch" }),
-  ],
-  [
-    "memory/actions.jsonl",
-    LedgerEntry,
-    action({
-      after: { state: "waiting-owner", taken: true },
-      id: "entry_00000000000f",
-      instruction: undefined,
-      kind: "update",
-      target: "entry_0123456789ab",
-      via: "connector",
-    }),
-  ],
-  [
-    "memory/statements.jsonl",
-    Statement,
-    {
-      at: AT,
-      date: "2026-10-20",
-      group: "person:inf_plumber",
-      kind: "fact",
-      ref: "obs_00000000000a",
-      schemaVersion: 1,
-      source: "whatsapp",
-      text: "The plumber comes by tomorrow.",
-      units: ["unit_00000000000a"],
-    },
-  ],
-  [
-    "memory/ratings.jsonl",
-    Rating,
-    { answer: "true", at: AT, ref: "mom_00000000000a", schemaVersion: 1 },
-  ],
-  [
-    "memory/labels.jsonl",
-    MemoryLabel,
-    { matters: true, type: "to_do", unitId: "unit_00000000000a" },
-  ],
-  [
-    "memory/people-inferred.jsonl",
-    InferredPerson,
-    {
-      area: null,
-      at: AT,
-      confidence: 0.7,
-      evidence: [{ quote: "je passe demain", unit: "unit_00000000000a" }],
-      id: "inf_plumber",
-      madeBy,
-      name: "The plumber",
-      project: null,
-      relation: "fixes the sink",
-      schemaVersion: 1,
-      surfaces: ["+33600000000"],
-    },
-  ],
-];
-const SALIENCE = /verdicts|observations/;
-const CLAIMED = /statements|ratings/;
-const aged = (path: string, r: object) => {
-  let s = JSON.stringify(r)
-    .replaceAll("unit_", "u_")
-    .replaceAll("entry_", "act_")
-    .replaceAll("inf_", "inf-")
-    .replaceAll('"agent"', '"atlas"')
-    .replaceAll("agent:agent", "agent:atlas")
-    .replaceAll("agent:act_", "atlas:act_")
-    .replaceAll('"to_do"', '"todo"')
-    .replaceAll('"waiting_on_someone"', '"waiting"')
-    .replaceAll('"about_a_person"', '"person"')
-    .replaceAll('"waiting-owner"', '"waiting-eric"')
-    .replaceAll('"taken":', '"claim":');
-  if (SALIENCE.test(path)) {
-    s = s.replace('"importance":', '"salience":');
+  const parsers: [string, z.ZodType][] = [
+    ["memory/observations/2026-10.jsonl", Observation],
+    ["memory/statements.jsonl", Statement],
+    ["memory/labels.jsonl", MemoryLabel],
+    ["memory/units/2026-10-25.jsonl", Unit],
+  ];
+  for (const [path, schema] of parsers) {
+    for (const r of rows(path)) {
+      expect(() => schema.parse(r)).not.toThrow();
+    }
   }
-  if (path.endsWith("actions.jsonl")) {
-    s = s.replace('"via":', '"madeBy":');
-  }
-  if (CLAIMED.test(path)) {
-    s = s.replace('"ref":"', '"claim":"');
-  }
-  return s;
-};
-
-test("records the new code writes, aged into the old names, come back the same and parse", () => {
-  // One file per path, the records of a path on its lines in order.
-  const stored = new Map<string, string>();
-  for (const [path, , r] of records) {
-    stored.set(path, `${stored.get(path) ?? ""}${aged(path, r)}\n`);
-  }
-  const renamed = renameStored(stored).files;
-  const seen = new Map<string, number>();
-  for (const [path, schema, r] of records) {
-    const k = seen.get(path) ?? 0;
-    seen.set(path, k + 1);
-    const lines = (renamed.get(path) ?? stored.get(path) ?? "").split("\n");
-    const back = JSON.parse(lines[k] ?? "");
-    expect(back).toEqual(r);
-    expect(schema.safeParse(back).success).toBe(true);
-  }
-});
-
-test("the agent's old word changes only where it was a stored value; words read off files keep theirs", () => {
-  const renamed = renameStored(
-    new Map([
-      [
-        "memory/verdicts.jsonl",
-        `${JSON.stringify({ area: "atlas", topics: ["atlas"], unit: "u_00000000000a" })}\n`,
-      ],
-      [
-        "memory/files.jsonl",
-        `${JSON.stringify({ ref: "mail:x#1", text: "ref u_00000000000a, person:inf-x", what: "atlas" })}\n`,
-      ],
-    ])
-  ).files;
-  expect(JSON.parse(renamed.get("memory/verdicts.jsonl") ?? "")).toEqual({
-    area: "atlas",
-    topics: ["atlas"],
-    unit: "unit_00000000000a",
-  });
-  expect(renamed.has("memory/files.jsonl")).toBe(false);
-});
-
-test("a board item's notes get the task's new id on their first line, a split's minted again; his words untouched", () => {
-  const parent = "act_0123456789ab";
-  const split = `act_${entryId(parent, "ask", "call the bank").slice(6)}`;
-  const { rename } = renameStored(
-    new Map([
-      [
-        "memory/actions.jsonl",
-        jsonl(
-          { id: parent, instruction: { ref: "session:x" }, kind: "ask" },
-          { after: { parent, title: "call the bank" }, id: split, kind: "ask" }
-        ),
-      ],
-    ])
-  );
-  expect(relabeled(`${parent}\nhey Orbit, ${parent}\nworking`, rename)).toBe(
-    `entry_0123456789ab\nhey Orbit, ${parent}\nworking`
-  );
-  expect(relabeled(split, rename)).toBe(
-    entryId("entry_0123456789ab", "ask", "call the bank")
-  );
-});
-
-test("in a data dir: renamed once and recorded; lines an old process appends later join the new ledger", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "life-rename-"));
-  const write = (path: string, text: string) => {
-    mkdirSync(join(dir, path, ".."), { recursive: true });
-    writeFileSync(join(dir, path), text);
-  };
-  for (const [path, text] of before) {
-    write(path, text);
-  }
-  await migrateStored(dir);
-  const ledger = () => readFileSync(join(dir, "memory/ledger.jsonl"), "utf8");
-  expect(existsSync(join(dir, "memory/actions.jsonl"))).toBe(false);
-  expect(ledger().trim().split("\n")).toHaveLength(3);
-  expect(readFileSync(join(dir, "memory/migrations.jsonl"), "utf8")).toContain(
-    "stored-names-2026-10-22"
-  );
-  write(
-    "memory/actions.jsonl",
-    jsonl({
-      id: "act_00000000000d",
-      kind: "add",
-      madeBy: "session",
-      target: "reminder:2",
-    })
-  );
-  await migrateStored(dir);
-  const lines = ledger()
-    .trim()
-    .split("\n")
-    .map((l) => JSON.parse(l));
-  expect(lines).toHaveLength(4);
-  expect(lines[3]).toEqual({
-    id: "entry_00000000000d",
-    kind: "add",
-    target: "reminder:2",
-    via: "session",
-  });
-  expect(existsSync(join(dir, "memory/actions.jsonl"))).toBe(false);
-});
-
-test("a checkout's rename of its own copy never waits for another Life's watcher", async () => {
-  // Another Life's watcher, alive (this test's parent process), as the app's would be while the demo runs.
-  const lock = join(MACHINE_DIR, "watch.lock");
-  mkdirSync(MACHINE_DIR, { recursive: true });
-  writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
-  try {
-    await migrateStored(OWNER_DATA_DIR);
-    expect(read(OWNER_DATA_DIR, "memory/migrations.jsonl")).toContain(
-      "stored-names-2026-10-22"
-    );
-  } finally {
-    rmSync(lock, { force: true });
-  }
+  expect([...renameStored(after, TODAY).files.keys()]).toEqual([]);
 });
 
 /** A data dir holding `before`, plus `extra` files. */
@@ -499,59 +171,91 @@ function dataDir(extra: [string, string][] = []) {
 }
 const read = (dir: string, path: string) =>
   readFileSync(join(dir, path), "utf8");
+const lines = (dir: string, path: string) =>
+  read(dir, path)
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+
+test("in a data dir: renamed once and recorded with its cutover; run again, nothing moves", async () => {
+  const dir = dataDir();
+  await migrateStored(dir);
+  const [done] = lines(dir, "memory/migrations.jsonl");
+  expect(Migration.parse(done)).toMatchObject({ name: VOICE_STEP });
+  expect(done.cutover).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(read(dir, "memory/statements.jsonl")).toContain('"source":"voice"');
+  const once = read(dir, "memory/units/2026-10-20.jsonl");
+  await migrateStored(dir);
+  expect(read(dir, "memory/units/2026-10-20.jsonl")).toBe(once);
+  expect(lines(dir, "memory/migrations.jsonl")).toHaveLength(1);
+});
+
+test("a checkout's rename of its own copy never waits for another Life's watcher, and moves the store once, titles blanked", async () => {
+  // Another Life's watcher, alive (this test's parent process), as the app's would be while the demo runs.
+  const lock = join(MACHINE_DIR, "watch.lock");
+  mkdirSync(MACHINE_DIR, { recursive: true });
+  writeFileSync(lock, `${process.ppid}\n/elsewhere/state`);
+  mkdirSync(WATCH, { recursive: true });
+  const old = new Database(join(WATCH, "lifelog.sqlite"));
+  old.run("create table conversations (id text primary key, title text)");
+  old.run("insert into conversations values ('c1', 'A model title')");
+  old.close();
+  try {
+    await migrateStored(OWNER_DATA_DIR);
+    expect(read(OWNER_DATA_DIR, "memory/migrations.jsonl")).toContain(
+      VOICE_STEP
+    );
+    expect(existsSync(join(WATCH, "lifelog.sqlite"))).toBe(false);
+    const db = new Database(storeFiles().file, { readonly: true });
+    expect(db.query("select id, title from conversations").all()).toEqual([
+      { id: "c1", title: "" },
+    ]);
+    db.close();
+  } finally {
+    rmSync(lock, { force: true });
+    rmSync(storeFiles().file, { force: true });
+  }
+});
 
 test("a run cut off while building is built again; memory/ was never touched", async () => {
   const dir = dataDir([["memory.renamed/units/x.jsonl", "half"]]);
   await migrateStored(dir);
   expect(existsSync(join(dir, "memory.renamed"))).toBe(false);
-  expect(read(dir, "memory/ledger.jsonl").trim().split("\n")).toHaveLength(3);
   expect(existsSync(join(dir, "memory/units/x.jsonl"))).toBe(false);
+  expect(read(dir, "memory/statements.jsonl")).toContain('"source":"voice"');
 });
 
 /** The state right after the swap: the new memory in place, the old one beside it. */
 function swapped() {
   const dir = dataDir();
-  const out = renameStored(before);
   renameSync(join(dir, "memory"), join(dir, "memory.old"));
   for (const [path, text] of before) {
-    const to = out.moves.find(([from]) => from === path)?.[1] ?? path;
-    mkdirSync(join(dir, to, ".."), { recursive: true });
-    writeFileSync(join(dir, to), out.files.get(path) ?? text);
+    mkdirSync(join(dir, path, ".."), { recursive: true });
+    writeFileSync(join(dir, path), files.get(path) ?? text);
   }
   writeFileSync(
     join(dir, "memory/migrations.jsonl"),
-    `${JSON.stringify({ name: "stored-names-2026-10-22" })}\n`
+    `${JSON.stringify({ at: `${TODAY}T08:00:00.000Z`, cutover: TODAY, name: VOICE_STEP, schemaVersion: 1 })}\n`
   );
   return dir;
 }
-const late = jsonl({
-  id: "act_00000000000e",
-  instruction: { ref: obs },
-  kind: "add",
-  madeBy: "session",
-});
-const ledgerRows = (dir: string) =>
-  read(dir, "memory/ledger.jsonl")
-    .trim()
-    .split("\n")
-    .map((l) => JSON.parse(l));
+const late = jsonl({ ...statement, ref: "obs_00000000000b" });
 
 test("a run cut off after the swap is settled: a late line renamed onto the new memory, once, the old copy gone", async () => {
   const dir = swapped();
-  appendFileSync(join(dir, "memory.old/actions.jsonl"), late);
+  appendFileSync(join(dir, "memory.old/statements.jsonl"), late);
   // Cut off again mid-settle: the old copy is still there; settled twice, nothing is added twice.
   const copy = mkdtempSync(join(tmpdir(), "life-old-"));
   cpSync(join(dir, "memory.old"), copy, { recursive: true });
   await migrateStored(dir);
   cpSync(copy, join(dir, "memory.old"), { recursive: true });
   await migrateStored(dir);
-  const lines = ledgerRows(dir);
-  expect(lines).toHaveLength(4);
-  expect(lines[3]).toEqual({
-    id: "entry_00000000000e",
-    instruction: { ref: newObs },
-    kind: "add",
-    via: "session",
+  const all = lines(dir, "memory/statements.jsonl");
+  expect(all).toHaveLength(2);
+  expect(all[1]).toEqual({
+    ...statement,
+    ref: "obs_00000000000b",
+    source: "voice",
   });
   expect(existsSync(join(dir, "memory.old"))).toBe(false);
 });
@@ -561,43 +265,13 @@ test("a memory/ made between the two renames is kept and settled, never dropped"
   // Back to the moment between the renames: the new memory not yet in place, a stray memory/ written meanwhile.
   renameSync(join(dir, "memory"), join(dir, "memory.renamed"));
   mkdirSync(join(dir, "memory"));
-  writeFileSync(join(dir, "memory/actions.jsonl"), late);
+  writeFileSync(join(dir, "memory/statements.jsonl"), late);
   await migrateStored(dir);
-  expect(ledgerRows(dir)).toHaveLength(4);
-  expect(read(dir, "memory/units/2026-10-20.jsonl")).toContain(unit);
+  expect(lines(dir, "memory/statements.jsonl")).toHaveLength(2);
+  expect(read(dir, "memory/units/2026-10-20.jsonl")).toContain(
+    '"source":"voice"'
+  );
   for (const d of ["memory.old", "memory.renamed", "memory.stray"]) {
     expect(existsSync(join(dir, d))).toBe(false);
   }
-});
-
-test("the agent bench's cases name the tools and ids as they now are", () => {
-  const path = "docs/evals/agent-bench-cases.json";
-  const cases = renameStored(
-    new Map([
-      [
-        path,
-        JSON.stringify([
-          {
-            ask: "act_0123456789ab",
-            call: [
-              { args: { claim: true, state: "waiting-eric" }, tool: "task" },
-            ],
-            not: { call: ["correct"] },
-          },
-        ]),
-      ],
-    ])
-  );
-  expect(JSON.parse(cases.files.get(path) ?? "")).toEqual([
-    {
-      ask: "entry_0123456789ab",
-      call: [
-        {
-          args: { state: "waiting-owner", taken: true },
-          tool: "update_agent_task",
-        },
-      ],
-      not: { call: ["correct_memory"] },
-    },
-  ]);
 });

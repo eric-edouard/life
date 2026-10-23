@@ -361,7 +361,7 @@ test("a store made before the contract's closed and endedOnSilence opens, drops 
   }
 });
 
-// The voice server's published contract, in this repo and kept current by the gate.
+// The voice server's published contract, kept current by the gate's openapi step.
 const CONTRACT = join(import.meta.dir, "../../../voice/openapi.json");
 
 interface Json {

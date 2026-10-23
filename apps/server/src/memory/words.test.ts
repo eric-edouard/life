@@ -1,5 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { DAY, MIN } from "../core/clock";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { copyBeeper, readBeeper } from "../sources/beeper";
@@ -125,30 +128,38 @@ test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns 
 });
 
 test('a conversation-day read for its moments: its title, then who said what and when, "hey Life" said; a chapter keeps its text', async () => {
-  const conversations = readConversations(open(), new Date(0));
-  // Its turns are on 14 Oct; dated after the cutover, it is a conversation-day.
-  const [day] = voiceUnits(conversations, "2026-10-14");
-  const store = open();
-  const [b, chapter] = await voiceText(
-    [
-      day && {
-        ...day,
-        unit: { ...day.unit, date: "2026-10-25", marked: ["job-1:0@x"] },
-      },
-      { ...(day as Built), text: "Shop\nA summary", unit: unit({}) },
-    ] as Built[],
-    () => null,
-    { people: [] } as unknown as Truth,
-    () => store
+  // This install's voice rename ran on 12 Oct over lifelog's chapters: the 9 Oct unit is one, 14 Oct's a conversation-day.
+  const migrations = join(OWNER_DATA_DIR, "memory/migrations.jsonl");
+  writeFileSync(
+    migrations,
+    `${JSON.stringify({ at: "2026-10-12T08:00:00.000Z", cutover: "2026-10-12", name: "voice-names", schemaVersion: 1 })}\n`
   );
-  expect(b?.text.split("\n")).toEqual([
-    "Recorded conversation",
-    `${time("2026-10-14T10:00:00.000Z")} speaker_0: Allo`,
-    `${time("2026-10-14T10:01:00.000Z")} Plumber: Salut`,
-    `${time("2026-10-14T10:06:00.000Z")} speaker_0: Fin`,
-    MARKED,
-  ]);
-  expect(chapter?.text).toBe("Shop\nA summary");
+  try {
+    const [day] = voiceUnits(
+      readConversations(open(), new Date(0)),
+      "2026-10-12"
+    );
+    const store = open();
+    const [b, chapter] = await voiceText(
+      [
+        day && { ...day, unit: { ...day.unit, marked: ["job-1:0@x"] } },
+        { ...(day as Built), text: "Shop\nA summary", unit: unit({}) },
+      ] as Built[],
+      () => null,
+      { people: [] } as unknown as Truth,
+      () => store
+    );
+    expect(b?.text.split("\n")).toEqual([
+      "Recorded conversation",
+      `${time("2026-10-14T10:00:00.000Z")} speaker_0: Allo`,
+      `${time("2026-10-14T10:01:00.000Z")} Plumber: Salut`,
+      `${time("2026-10-14T10:06:00.000Z")} speaker_0: Fin`,
+      MARKED,
+    ]);
+    expect(chapter?.text).toBe("Shop\nA summary");
+  } finally {
+    rmSync(migrations, { force: true });
+  }
 });
 
 test("transcripts: a recording the voice server no longer has is silent, a failed fetch throws", async () => {

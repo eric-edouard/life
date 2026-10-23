@@ -8,7 +8,7 @@ import { buildHost } from "./build-host";
 const TOKEN = "host-test-token";
 
 test("the host binary runs alone: it migrates a new archive, answers and labels pages", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "Life-host-"));
+  const dir = await mkdtemp(join(tmpdir(), "voice-host-"));
   try {
     const binary = await buildHost(dir);
     const port = 40_000 + Math.floor(Math.random() * 10_000);
@@ -96,7 +96,7 @@ test("the host binary runs alone: it migrates a new archive, answers and labels 
 }, 60_000);
 
 test("the host binary compiles for Windows, its VAD worker and runtime inside", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "Life-host-windows-"));
+  const dir = await mkdtemp(join(tmpdir(), "voice-host-windows-"));
   try {
     const binary = await buildHost(dir, "bun-windows-x64");
     const bytes = await Bun.file(binary).bytes();

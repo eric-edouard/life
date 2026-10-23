@@ -13,7 +13,7 @@
         nonisolated static let isRequested = ProcessInfo.processInfo.arguments.contains("-fixtureLibrary")
         nonisolated static let extraDays = UserDefaults.standard.integer(forKey: "fixtureDays")
         nonisolated static let directory = URL.temporaryDirectory.appending(
-            path: "Life-fixtures", directoryHint: .isDirectory)
+            path: "life-fixtures", directoryHint: .isDirectory)
         nonisolated static var audio: DerivedAudioDirectory {
             DerivedAudioDirectory(url: directory.appending(path: "derived", directoryHint: .isDirectory))
         }

@@ -16,7 +16,13 @@ import {
   Unresolved,
 } from "../records/observation";
 import { Rating, Statement } from "../records/statement";
-import { FileEntry, MemoryLabel, Unit, Verdict } from "../records/unit";
+import {
+  FileEntry,
+  MemoryLabel,
+  Migration,
+  Unit,
+  Verdict,
+} from "../records/unit";
 
 // memory/ on disk: every path, the readers of the ledgers and what they say of an
 // observation (`stateOf`: where it stands). It appends only what the steps that write hand it.
@@ -62,6 +68,7 @@ export const FILES = join(MEMORY, "files.jsonl");
 export const STATEMENTS = join(MEMORY, "statements.jsonl");
 export const RATINGS = join(MEMORY, "ratings.jsonl");
 export const SCORES = join(MEMORY, "scores.jsonl");
+const MIGRATIONS = join(MEMORY, "migrations.jsonl");
 /** Everyone whose page is written, by ref (the inverse of `pagePath`). */
 export const writtenPeople = async () =>
   (await filesIn(join(PAGES, "people"), ".md")).map(
@@ -74,6 +81,9 @@ const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
 /** Every unit in memory/units/, oldest day first. */
 export const readUnits = () => readFolder(UNITS, Unit);
 /** The units of these days only. */
+/** The renames of stored names done on this data (host/migrate.ts). */
+export const readMigrations = () => rowsOf(MIGRATIONS, Migration);
+
 export const readUnitsOf = (dates: string[]) =>
   dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
 

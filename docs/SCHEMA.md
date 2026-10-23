@@ -31,7 +31,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 ## units/YYYY-MM-DD.jsonl (layer L1)
 
 One line per unit that started that day. A unit is one conversation-day (the turns of one recorded conversation on one
-local day; before the cutover, 24 Oct 2026, one of lifelog's chapters, kept as stored and never built again), one
+local day; before the cutover, the day the voice rename ran on this data (`migrations.jsonl`), one of lifelog's
+chapters, kept as stored and never built again), one
 chat-day (every message of one chat on one day), one mail thread-day, one note-day (what the owner changed in one Apple Note on one day) or one repo-day (the owner's commits in one repo on one day). Deterministic code output only (no model's judgement): rebuilt by `bun life memory
 moments` for the days it covers; the voice units from the cutover on are also kept current by `bun life watch` (every
 change to a conversation's turns) and checked by the nightly.
@@ -379,13 +380,16 @@ how unit ids are made ships an old→new id map applied to `labels.jsonl` in the
 ## migrations.jsonl
 
 The renames of stored names Life has written into this data, one line each, append-only: `{schemaVersion: 1, name,
-at}`. `stored-names-2026-10-22` (`apps/server/src/host/migrate.ts`): the names of docs/glossary.md, written once by
-the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledger was `actions.jsonl`, ids were `u_`,
-`act_` and `inf-`, the types `todo`, `waiting` and `person`, `importance` was `salience`, a ledger entry's `via` was
-`madeBy`, a statement's and a rating's `ref` was `claim`, a task update's `taken` was `claim`, `waiting-owner` was
-`waiting-eric`, and the agent's word was `atlas`. The data repo's commits
-"Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides. The renamed memory is built
-beside it (`memory.renamed/`) and swapped in; `memory.old/` (and `memory.stray/`) exist only until it is settled.
+at, cutover?}` (`Migration`). `stored-names-2026-10-22`: the names of docs/glossary.md (the ledger was `actions.jsonl`,
+ids were `u_`, `act_` and `inf-`, and more; its code is gone, his data's commits "Memory: before the stored names'
+rename" and "Memory: stored names renamed" hold both sides). `voice-names` (`apps/server/src/host/migrate.ts`): the
+source `lifelog` is `voice` (a unit's `source`, an observation's `source.channel`, a statement's `source`, and in the
+regression cases), a label on a chapter unit of that day moves to its conversation-day, and the watcher's store is
+`voice.sqlite`; its `cutover` (the local day it ran, present only when memory held lifelog's units) is the day from
+which voice units are conversation-days (`voiceCutover`). Commits "Memory: before the voice source's rename" and
+"Memory: the voice source renamed". Each is written once by the app at its next start (AGENTS.md, "A rename
+backfills"); the renamed memory is built beside it (`memory.renamed/`) and swapped in; `memory.old/` (and
+`memory.stray/`) exist only until it is settled.
 
 ## The search index (not in memory/)
 

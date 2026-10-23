@@ -1,5 +1,5 @@
 // Fails if a name, phone, email, handle or chat id from his truth/ appears in a tracked file of the current repo
-// (`bun run check`; the voice server runs it too), limited to the git pathspecs given as arguments. Skips when his data is
+// (`bun run check`), limited to the git pathspecs given as arguments. Skips when his data is
 // absent (CI, other machines).
 import { existsSync } from "node:fs";
 import { join } from "node:path";

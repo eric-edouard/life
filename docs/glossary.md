@@ -48,8 +48,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | conversation | What the voice server groups his speech into, by rules (no model): Life's voice units come from its turns. | |
 | turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
 | conversation-day | A voice unit: one conversation's turns on one local day. | |
-| chapter | One of lifelog's summarized stretches of a conversation: Life's voice units before the cutover (24 Oct 2026), kept as stored, never built again. | |
-| cutover | The day from which voice units are conversation-days (`VOICE_CUTOVER`). | |
+| chapter | One of lifelog's summarized stretches of a conversation: Life's voice units before the cutover, kept as stored, never built again. | |
+| cutover | The day from which voice units are conversation-days: the day the voice rename ran on an install that had lifelog's chapters (`voiceCutover`); a fresh install has none. | |
+| voice handle | A person's voice server id in `truth/people.yaml`, stored under the key `lifelog` (his file: renamed only when he does). | |
 | archive | Life's own copy of the WhatsApp, Beeper and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory

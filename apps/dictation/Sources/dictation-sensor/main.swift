@@ -506,7 +506,7 @@ final class Helper: NSObject, URLSessionWebSocketDelegate, @unchecked Sendable {
                 .unrun(id: request.id, signedOut: true, why: "sign in: Voice Host → Settings → Summaries"))
         }
         let files = FileManager.default
-        let folder = files.temporaryDirectory.appending(path: "Life-llm-\(UUID().uuidString)")
+        let folder = files.temporaryDirectory.appending(path: "dictation-llm-\(UUID().uuidString)")
         let input = folder.appending(path: "prompt.txt")
         let output = folder.appending(path: "out.json")
         let errors = folder.appending(path: "err.txt")

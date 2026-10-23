@@ -68,14 +68,14 @@ struct SettingsView: View {
                 Section {
                     // Read again after each change (`readLoginItem`).
                     Toggle(
-                        "Open Life at login",
+                        "Open Voice Host at login",
                         isOn: Binding(
                             get: { loginItem },
                             set: { on in
                                 host.openAtLogin(on)
                                 readLoginItem()
                             }))
-                    Button("Save and restart Life") { Task { await host.apply(keys, settings) } }
+                    Button("Save and restart Voice Host") { Task { await host.apply(keys, settings) } }
                         .disabled(!ready || host.busy)
                     LabeledContent(
                         "Version",
@@ -94,7 +94,7 @@ struct SettingsView: View {
                     Button("Import an export…") { Task { await importExport() } }
                         .disabled(!ready || host.busy)
                     Text(
-                        "Import a folder made by Export everything…, on this Mac or another. Life then opens at "
+                        "Import a folder made by Export everything…, on this Mac or another. Voice Host then opens at "
                             + "login; Settings can turn that off."
                     )
                     .font(.caption).foregroundStyle(.secondary)
@@ -147,7 +147,7 @@ struct SettingsView: View {
                 SecureField("Tunnel token", text: $keys.cloudflare)
                 Text(
                     "In Cloudflare's Zero Trust dashboard, Networks, Tunnels: create a tunnel, copy its token, and "
-                        + "route your address to http://127.0.0.1:\(Host.port). Life runs the tunnel."
+                        + "route your address to http://127.0.0.1:\(Host.port). Voice Host runs the tunnel."
                 )
                 .font(.caption).foregroundStyle(.secondary)
             }
@@ -236,7 +236,7 @@ struct SettingsView: View {
 
     private func export() async {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "Life export \(Date.now.formatted(.iso8601.year().month().day()))"
+        panel.nameFieldStringValue = "Voice export \(Date.now.formatted(.iso8601.year().month().day()))"
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
         await host.export(to: url)

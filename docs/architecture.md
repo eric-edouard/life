@@ -6,27 +6,29 @@ Life is a memory of one person's life, built from their own sources and kept on 
 shape and the reasons for it. Record formats are in `docs/SCHEMA.md`, sources in `docs/sources.md`, the agent and the
 connector in `docs/tasks.md`, how it runs in `docs/operations.md`.
 
-## The voice server and Life
+## The voice half and the memory
 
-Life's voice half is the voice server (`apps/voice`), which came in from lifelog. Each has one job:
+Life is one repo with two halves, each with one job (the voice half came from lifelog, server playbook step 1):
 
-| | The voice server | Life |
+| | The voice half | The memory |
 |---|---|---|
-| Job | Voice capture: audio, transcripts, speakers, conversations grouped by rules, search | Memory across sources: voice (through the voice server), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Job | Voice capture: audio, transcripts, speakers, conversations grouped by rules, search (`docs/voice/`) | Memory across sources: voice, WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Apps | `apps/ios`, `apps/voice`, `apps/speech`, `apps/dictation` | `apps/server`, `apps/mac` |
 | Owns | The raw spoken archive | The people across channels, observations, people and project pages |
-| Runs | The Mac host or the server, and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
+| Runs | The phone, and the voice server on a Mac (Voice Host) or a server | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
 | Acts? | Never | Only on the owner's clear request (`docs/tasks.md`) |
 
-- Life reads the voice server one way, its REST API with a device token (`apps/server/src/sources/voice.ts`), whether
-  the two share a host or not: the change feed into a small store of who spoke when (never the words), and the words of
-  a turn, search and places on demand. Reading the archive's SQLite file instead would be a second way beside the API
-  calls Life needs anyway, and would tie Life to the server's schema.
-- Life builds its voice units from conversations and their turns, by code: the voice server's summaries (its `ai`
-  switch, off by default) are never read. lifelog's chapters, Life's voice units before the cutover (24 Oct 2026), stay
-  as stored, so the voice history is not read through the models again.
-- Life writes to the voice server only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
+- The memory reads the voice server one way, its REST API with a token (`apps/server/src/sources/voice.ts`), whether
+  the two share a host or not: the change feed into a small store of who spoke when (never the words), and the words
+  of a turn, search and places on demand. Reading the archive's SQLite file instead would be a second way beside the
+  API calls it needs anyway, and would tie the memory to the server's schema.
+- The memory builds its voice units from conversations and their turns, by code: the voice server's summaries (its
+  `ai` switch, off by default) are never read. lifelog's chapters, an install's voice units from before its voice
+  migration, stay as stored, so the voice history is not read through the models again.
+- The memory writes to the voice server only through `forward`: the owner's explicit corrections (speaker, title,
+  rename, merge).
 - Memory does not move into the voice server: memory about one person comes from voice, chats and mail together, and
-  chats must not leave the Mac, nor their text go to a third party for embeddings.
+  chats must not leave the host, nor their text go to a third party for embeddings.
 
 ## The pipeline
 

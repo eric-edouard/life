@@ -130,6 +130,19 @@ export const Unit = z
 
 export type Unit = z.infer<typeof Unit>;
 
+/**
+ * memory/migrations.jsonl: a rename of stored names done (host/migrate.ts), when, and for the voice one the cutover:
+ * the local day from which voice units are conversation-days, when memory held lifelog's chapters.
+ */
+export const Migration = z
+  .object({
+    at: isoDateTime,
+    cutover: isoDate.optional(),
+    name: z.string(),
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+
 /** memory/zones.jsonl: the owner's IANA time zone from `from` on. */
 export const Zone = z
   .object({ from: isoDateTime, schemaVersion: z.literal(1), tz: z.string() })

@@ -1,5 +1,5 @@
 [project]
-name = "Life-stt-bench-local"
+name = "transcription-bench-local"
 version = "0.1.0"
 description = "Open speech-to-text models run on the Mac for the Life transcription bench"
 requires-python = "==3.12.*"

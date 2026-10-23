@@ -21,6 +21,7 @@ import {
   keptConversations,
   readFiles,
   readInferredRepos,
+  readMigrations,
   readUnits,
   readUnitsOf,
   UNITS,
@@ -31,7 +32,7 @@ import { enabledSources, kindOf, readySources, sourceOf } from "./sources";
 import { dayStart, localDate, wall } from "./zones";
 
 // Units (docs/architecture.md, "The pipeline"): one conversation-day, chat-day, mail thread-day, note-day or repo-day
-// (and, before `VOICE_CUTOVER`, lifelog's chapters as stored). Built by code, nothing judged yet. A unit's id is stable
+// (and, before an install's voice cutover, lifelog's chapters as stored). Built by code, nothing judged yet. A unit's id is stable
 // (same conversation or chat and day -> same id); its hash changes when its content does, so a verdict is reused only
 // while the content is unchanged.
 
@@ -221,16 +222,21 @@ export const head = (text: string) =>
 export const MARKED =
   '[He said "hey Life" here: he asked Life to remember what he says after it.]';
 
-/**
- * The day from which voice units are conversation-days (the owner's OK, step 4 of the server playbook). The voice
- * units of earlier days are lifelog's old chapters: kept as stored, never built again (`isFrozen`), so the voice
- * history is not read through the models again.
- */
-export const VOICE_CUTOVER = "2026-10-24";
+/** The voice rename's name in memory/migrations.jsonl (host/migrate.ts). */
+export const VOICE_STEP = "voice-names";
 
-/** A voice unit from before `VOICE_CUTOVER`: one of lifelog's chapters, as stored. */
-export const isFrozen = (u: Pick<Unit, "date" | "source">) =>
-  kindOf(u.source) === "voice" && u.date < VOICE_CUTOVER;
+/**
+ * The local day from which voice units are conversation-days: the day this install's voice rename ran on memory that
+ * held lifelog's chapters (its line's `cutover`). Earlier voice units are those chapters, kept as stored, never built
+ * again (`isFrozen`), so the voice history is not read through the models again. "" (every day) on an install that never
+ * had chapters.
+ */
+export const voiceCutover = () =>
+  readMigrations().find((m) => m.name === VOICE_STEP)?.cutover ?? "";
+
+/** A voice unit from before the cutover: one of lifelog's chapters, as stored. */
+export const isFrozen = (u: Pick<Unit, "date" | "source">, cutover: string) =>
+  kindOf(u.source) === "voice" && u.date < cutover;
 
 /** A stored chapter unit as the steps take it: its text the chapter's title and summary, its hash as stored. */
 const frozen = (unit: Unit): Built => ({
@@ -248,7 +254,7 @@ const frozen = (unit: Unit): Built => ({
  */
 export function voiceUnits(
   conversations: VoiceConversation[],
-  from = VOICE_CUTOVER
+  from: string
 ): Built[] {
   return conversations.flatMap((c) =>
     [...Map.groupBy(c.turns, (t) => localDate(t.at))]
@@ -324,9 +330,15 @@ const byDay = (events: SourceEvent[]) => [
   ...Map.groupBy(events, dayUnitId).values(),
 ];
 
-/** Chat-days, mail thread-days and note-days: every message of one chat, thread or note on one local day. */
+/** One chat's, thread's, note's or repo's events of a day, cut into its unit by its source's kind. */
+const cut = (list: SourceEvent[], resolve: Resolve) =>
+  kindOf((list[0] as SourceEvent).source) === "repo"
+    ? repoDay(list)
+    : chatDay(list, resolve);
+
+/** Chat-days, mail thread-days, note-days and repo-days: every event of one chat, thread, note or repo on one local day. */
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
-  byDay(events).map((list) => chatDay(list, resolve));
+  byDay(events).map((list) => cut(list, resolve));
 
 /** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
 export const unitTitle = (first: SourceEvent) =>
@@ -428,12 +440,9 @@ export function lineCounts(stats: Unit["stats"][]) {
 }
 
 /**
- * Repo-days: one unit per repo and local day, made like a chat-day. The summary is the day's commit subjects, which
- * makes them searchable; the title counts commits and lines.
+ * The unit of one repo's commits on a local day (a repo-day), made like a chat-day. The summary is the day's commit
+ * subjects, which makes them searchable; the title counts commits and lines.
  */
-export const repoUnits = (events: SourceEvent[]) => byDay(events).map(repoDay);
-
-/** The unit of one repo's commits. */
 function repoDay(list: SourceEvent[]): Built {
   const byId = new Map(list.map((e) => [e.id, e]));
   const { messages, text, unit } = chatDay(list, () => null);
@@ -625,6 +634,11 @@ export function tablesOf(sources: Descriptor[]) {
 export const tables = () => tablesOf(readySources());
 export type Tables = ReturnType<typeof tablesOf>;
 
+type Read = Exclude<Descriptor, { kind: "voice" }>;
+/** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files. */
+const readOf = (s: Read, since: Date, map: { me: Person; repos: RepoMap }) =>
+  s.kind === "repo" ? s.read(since, map) : s.read(since);
+
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
  * `start` to its `end`, whatever zone it was cut in. Nothing for a voice unit, or when they are all gone.
@@ -639,16 +653,14 @@ export function builtFor(
   if (source.kind === "voice") {
     return;
   }
-  const since = new Date(unit.start);
-  const read = (
-    source.kind === "repo"
-      ? source.read(since, { me, repos })
-      : source.read(since)
-  ).filter((e) => e.chat === unit.key && e.at <= unit.end);
-  // A repo's commits carry no files.
-  const events = source.kind === "repo" ? read : showFiles(read, readFiles());
+  const events = showFiles(
+    readOf(source, new Date(unit.start), { me, repos }).filter(
+      (e) => e.chat === unit.key && e.at <= unit.end
+    ),
+    readFiles()
+  );
   if (events.length > 0) {
-    return source.kind === "repo" ? repoDay(events) : chatDay(events, resolve);
+    return cut(events, resolve);
   }
 }
 
@@ -726,41 +738,34 @@ export async function gather(
         failed
       )
     : [];
-  const chapters = readUnitsOf(datesIn(window, VOICE_CUTOVER))
-    .filter(isFrozen)
+  const cutover = voiceCutover();
+  const chapters = readUnitsOf(datesIn(window, cutover))
+    .filter((u) => isFrozen(u, cutover))
     .map(frozen);
   const read = await Promise.all(
     sources
       .flatMap((s) => (s.kind === "voice" ? [] : [s]))
       .map(async (s) => ({
-        events: await safely(
-          s.name,
-          () => (s.kind === "repo" ? s.read(since, ctx) : s.read(since)),
-          failed
-        ),
+        events: await safely(s.name, () => readOf(s, since, ctx), failed),
         s,
       }))
   );
-  // A repo's commits carry no files; the others' recent messages have theirs described, then shown.
+  // The recent messages' files are described, then every message's shown.
   const recent = dayStart(lastDays(clock(), DAYS).from).toISOString();
   const files = await describeFiles(
-    read
-      .flatMap(({ events, s }) => (s.kind === "repo" ? [] : events))
-      .filter((e) => e.at >= recent)
+    read.flatMap(({ events }) => events).filter((e) => e.at >= recent)
   );
   const known = readFiles();
   const shown = read.map(({ events, s }) => ({
-    events: s.kind === "repo" ? events : showFiles(events, known),
+    events: showFiles(events, known),
     s,
   }));
   const built = [
     ...chapters,
     ...applyRules(
       [
-        ...voiceUnits(voice),
-        ...shown.flatMap(({ events, s }) =>
-          s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
-        ),
+        ...voiceUnits(voice, cutover),
+        ...shown.flatMap(({ events }) => messageUnits(events, resolve)),
       ],
       keptConversations()
     ),
@@ -823,11 +828,15 @@ export async function writeUnits(
  */
 export async function syncVoiceUnits(store: Store) {
   const truth = await loadTruth();
+  const cutover = voiceCutover();
   const want = applyRules(
-    voiceUnits(readConversations(store, new Date(0), voiceNames(truth)))
+    voiceUnits(
+      readConversations(store, new Date(0), voiceNames(truth)),
+      cutover
+    )
   ).map((b) => Unit.parse(b.unit));
   const all = await readUnits();
-  const have = all.filter((u) => u.source === "voice" && !isFrozen(u));
+  const have = all.filter((u) => u.source === "voice" && !isFrozen(u, cutover));
   const json = (units: Unit[]) =>
     new Map(units.map((u) => [u.id, JSON.stringify(u)]));
   const [had, wants] = [json(have), json(want)];
@@ -845,7 +854,7 @@ export async function syncVoiceUnits(store: Store) {
   await writeUnits(
     [...dates],
     want,
-    (u) => u.source !== "voice" || isFrozen(u)
+    (u) => u.source !== "voice" || isFrozen(u, cutover)
   );
   return {
     added: added.length,

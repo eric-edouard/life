@@ -111,7 +111,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 ## The watcher
 
 - Voice units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/voice.sqlite`; `bun life status`), one per
-  transcribed conversation and local day from the cutover (24 Oct 2026); earlier days keep lifelog's chapters. Only
+  transcribed conversation and local day from the cutover (the day the voice rename ran, `voiceCutover`); earlier days
+  keep lifelog's chapters. Only
   the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (the "hey Life"
   spans, refs only) is the one thing there not rebuilt from the feed.
 - It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by the voice server's own signals (its

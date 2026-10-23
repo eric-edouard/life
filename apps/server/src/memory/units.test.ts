@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { AGENT_WORD } from "../core/names";
+import { OWNER_DATA_DIR } from "../core/paths";
 import { readSettings, setSettings } from "../core/settings";
 import { Imported } from "../records/observation";
 import type { SourceEvent } from "../records/source";
@@ -43,11 +44,10 @@ import {
   messageUnits,
   normalizeTopics,
   oneToOne,
-  repoUnits,
   speakerOf,
   syncVoiceUnits,
   unitId,
-  VOICE_CUTOVER,
+  voiceCutover,
   voiceUnits,
   writeUnits,
 } from "./units";
@@ -179,7 +179,7 @@ test("the same chat content seen twice hashes the same and the second unit is dr
 });
 
 test("a conversation's day is one unit, built from its turns alone: first and last turn refs, him and its names unresolved", () => {
-  const [b] = voiceUnits([conversation]);
+  const [b] = voiceUnits([conversation], "");
   const unit = b?.unit;
   expect(unit?.id).toBe(unitId("voice", conversation.id, "2026-10-25"));
   expect(unit?.refs).toEqual([
@@ -201,7 +201,7 @@ test("a conversation's day is one unit, built from its turns alone: first and la
   // Life holds no words: its text is filled when its day is read (voiceText).
   expect(b?.text).toBe("");
   expect(
-    voiceUnits([{ ...conversation, title: "Plumber" }])[0]?.unit.title
+    voiceUnits([{ ...conversation, title: "Plumber" }], "")[0]?.unit.title
   ).toBe("Plumber");
 });
 
@@ -212,41 +212,56 @@ test("a conversation across midnight is two units, and none before the cutover: 
     endedAt: "2026-10-25T23:30:00.000Z",
     turns: [said(12 * 60 + 50, null, true), said(13 * 60 + 10, "Gaston")],
   };
-  expect(voiceUnits([late]).map((b) => [b.unit.date, b.unit.end])).toEqual([
+  expect(voiceUnits([late], "").map((b) => [b.unit.date, b.unit.end])).toEqual([
     ["2026-10-25", "2026-10-25T23:00:00.000Z"],
     ["2026-10-26", "2026-10-25T23:30:00.000Z"],
   ]);
   expect(voiceUnits([late], "2026-10-26").map((b) => b.unit.date)).toEqual([
     "2026-10-26",
   ]);
-  expect(isFrozen({ date: "2026-10-23", source: "voice" })).toBe(true);
-  expect(isFrozen({ date: VOICE_CUTOVER, source: "voice" })).toBe(false);
-  expect(isFrozen({ date: "2026-10-23", source: "beeper" })).toBe(false);
+  const cutover = "2026-10-24";
+  expect(isFrozen({ date: "2026-10-23", source: "voice" }, cutover)).toBe(true);
+  expect(isFrozen({ date: cutover, source: "voice" }, cutover)).toBe(false);
+  expect(isFrozen({ date: "2026-10-23", source: "beeper" }, cutover)).toBe(
+    false
+  );
+  // An install that never had chapters: none is frozen.
+  expect(isFrozen({ date: "2026-10-23", source: "voice" }, "")).toBe(false);
 });
 
 test('a turn he marked "hey Life" moves its unit\'s hash and its refs are kept; a turn added moves it too, a name given does not', () => {
-  const [plain] = voiceUnits([conversation]);
-  const [marked] = voiceUnits([
-    {
-      ...conversation,
-      turns: [
-        { ...said(0, null, true), marks: ["job-1:0@x", "job-1:1@x"] },
-        ...conversation.turns.slice(1),
-      ],
-    },
-  ]);
+  const [plain] = voiceUnits([conversation], "");
+  const [marked] = voiceUnits(
+    [
+      {
+        ...conversation,
+        turns: [
+          { ...said(0, null, true), marks: ["job-1:0@x", "job-1:1@x"] },
+          ...conversation.turns.slice(1),
+        ],
+      },
+    ],
+    ""
+  );
   expect(marked?.unit.marked).toEqual(["job-1:0@x", "job-1:1@x"]);
   expect(marked?.unit.hash).not.toBe(plain?.unit.hash);
-  const [grown] = voiceUnits([
-    { ...conversation, turns: [...conversation.turns, said(35, null)] },
-  ]);
+  const [grown] = voiceUnits(
+    [{ ...conversation, turns: [...conversation.turns, said(35, null)] }],
+    ""
+  );
   expect(grown?.unit.hash).not.toBe(plain?.unit.hash);
-  const [named] = voiceUnits([
-    {
-      ...conversation,
-      turns: conversation.turns.map((t) => ({ ...t, name: t.name ?? "Anne" })),
-    },
-  ]);
+  const [named] = voiceUnits(
+    [
+      {
+        ...conversation,
+        turns: conversation.turns.map((t) => ({
+          ...t,
+          name: t.name ?? "Anne",
+        })),
+      },
+    ],
+    ""
+  );
   expect(named?.unit.hash).toBe(plain?.unit.hash);
 });
 
@@ -452,11 +467,14 @@ test("a repo-day is a unit: commits and lines in the title, the subjects as summ
     text: `Change ${n}`,
     ...over,
   });
-  const [b] = repoUnits([
-    commit(1, {}),
-    commit(2, { fromMe: false, sender: "Jérôme" }),
-    commit(3, { fromMe: false, sender: "Jérôme" }),
-  ]);
+  const [b] = messageUnits(
+    [
+      commit(1, {}),
+      commit(2, { fromMe: false, sender: "Jérôme" }),
+      commit(3, { fromMe: false, sender: "Jérôme" }),
+    ],
+    () => null
+  );
   expect(b?.unit).toMatchObject({
     id: unitId("git", "photo-app", "2026-10-09"),
     key: "photo-app",
@@ -605,7 +623,14 @@ test("a conversation that moves to another day leaves its old day's file; other 
         .entries()
         .map(([d, us]) => [d, us.map((u) => u.source)])
     );
+  // This install's voice rename ran on 24 Oct over memory that held lifelog's chapters.
+  const migrations = join(OWNER_DATA_DIR, "memory/migrations.jsonl");
+  writeFileSync(
+    migrations,
+    `${JSON.stringify({ at: "2026-10-24T08:00:00.000Z", cutover: "2026-10-24", name: "voice-names", schemaVersion: 1 })}\n`
+  );
   try {
+    expect(voiceCutover()).toBe("2026-10-24");
     await writeUnits(
       ["2026-10-25", chapter.date],
       [{ ...chat, date: "2026-10-25" }, chapter]
@@ -638,6 +663,7 @@ test("a conversation that moves to another day leaves its old day's file; other 
     expect(await days()).toMatchObject({ "2026-10-25": ["whatsapp", "mail"] });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
+    rmSync(migrations, { force: true });
   }
 });
 
@@ -660,10 +686,9 @@ test("a conversation from 23:40 to 00:30 at the window start is read whole: its 
     })
   );
   expect(
-    voiceUnits(readConversations(store, dayStart("2026-10-26"))).map((b) => [
-      b.unit.date,
-      b.unit.start,
-    ])
+    voiceUnits(readConversations(store, dayStart("2026-10-26")), "").map(
+      (b) => [b.unit.date, b.unit.start]
+    )
   ).toEqual([
     ["2026-10-25", "2026-10-25T22:40:00.000Z"],
     ["2026-10-26", "2026-10-25T23:10:00.000Z"],

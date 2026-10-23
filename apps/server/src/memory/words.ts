@@ -41,6 +41,7 @@ import {
   time,
   UNKNOWN,
   unitTitle,
+  voiceCutover,
   voiceNames,
 } from "./units";
 import { meant, type People, readPeople } from "./who";
@@ -107,8 +108,9 @@ export async function voiceText(
   truth: Truth,
   open = openStore
 ) {
+  const cutover = voiceCutover();
   const spoken = units.filter(
-    (b) => kindOf(b.unit.source) === "voice" && !isFrozen(b.unit)
+    (b) => kindOf(b.unit.source) === "voice" && !isFrozen(b.unit, cutover)
   );
   if (spoken.length === 0) {
     return units;
