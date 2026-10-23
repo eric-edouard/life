@@ -130,6 +130,9 @@ this step's PR; the archive keeps its rule (never moved, never rewritten): the h
 
 - Done when: a message sent on the Mac shows in the hub's memory within minutes, and one deleted after it stays
   archived.
+- Parked (23 Oct, the owner): Matrix bridges replace the push (the [server plan](2026-10-22-server.md), phases 2–3).
+  The push contract and its code stay on branch `claude/zen-roentgen-b29483` (eric-edouard/life#196, closed). Meanwhile
+  the server reads Beeper Desktop's API on the Mac over the tailnet.
 
 ### 7. The server's Compose
 
