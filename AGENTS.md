@@ -76,8 +76,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   his material goes to his data repo, his settings to `LIFE_STATE_DIR/settings.json`, secrets to `.env` or the Keychain. The
   `scrub` step catches full names, aliases, surnames, phones, emails, handles and chat ids from his `truth/`; first
   names, places, project names, `.env` values and git history are on you. The domain in Life's own infrastructure
-  labels (sender, LaunchAgent labels) is kept on purpose. lifelog's check runs `scripts/scrub-check.ts` by this path
-  with git pathspecs as arguments: keep both.
+  labels (sender, LaunchAgent labels) is kept on purpose.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
@@ -156,7 +155,9 @@ concept, the same in docs, app, email, connector and code. A new concept gets it
 
 ## One way to do each thing
 
-Before adding a helper, use the one that exists:
+Before adding a helper, use the one that exists. The table is Life's (`apps/server`, `scripts`); the voice half
+(`apps/voice`, `apps/ios`, `apps/dictation`) keeps its own ways in its `AGENTS.md` until a step moves it, and imports
+only `core` from Life (`.fallowrc.json`, zone `voice`):
 
 | Need | Use |
 |---|---|
@@ -193,8 +194,8 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
   `derived/settings.json` into a worktree before model runs. `bun test` uses its own made-up copy.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
-- lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
-  (`lifelog.test.ts` checks them against lifelog's `openapi.json` when that repo is beside this one).
+- The voice server is read through its REST API; the zod shapes accept every null and absent field its contract allows
+  (`lifelog.test.ts` checks them against `apps/voice/openapi.json`).
 - The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
   `closed`), never a timing rule of Life's (`docs/operations.md`).
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).

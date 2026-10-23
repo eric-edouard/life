@@ -10,7 +10,7 @@ import { vouchedThrough } from "./mac-socket";
 import { macView } from "./quiet-ranges";
 
 test("a second server on the same archive stops before it touches it", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "Life-lock-"));
+  const dir = await mkdtemp(join(tmpdir(), "voice-lock-"));
   try {
     const file = join(dir, "archive.sqlite");
     const first = holdArchive(file);

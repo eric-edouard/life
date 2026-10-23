@@ -731,7 +731,7 @@ export function jobWorker(
     alerted[level] = now();
     const status = await emailOwner(config, {
       key: `credits-${level}-${Math.floor(now() / CREDITS_ALERT_EVERY_MS)}`,
-      subject: `Life: ${CREDITS_EMAIL[level]}`,
+      subject: `Voice server: ${CREDITS_EMAIL[level]}`,
       text: `ElevenLabs: ${read.used} of ${read.limit} credits used. Used up, jobs wait queued, unsent, until the plan is upgraded or renews; nothing is lost.`,
     });
     record(db, "elevenlabs.quota_alert", { level, status });

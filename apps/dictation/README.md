@@ -98,9 +98,9 @@ Sources: [Codex account limits](https://developers.openai.com/codex/app-server),
 [setup-token scope limitation](https://github.com/anthropics/claude-code/issues/24200),
 [WidgetKit refresh budgets](https://developer.apple.com/documentation/widgetkit/keeping-a-widget-up-to-date).
 
-## Voice Host (Life on your own Mac)
+## Voice Host (the voice server on your own Mac)
 
-`Voice Host.app` runs all of Life on a Mac: a menu-bar app with the server, this helper,
+`Voice Host.app` runs the voice half on a Mac: a menu-bar app with the server, this helper,
 `cloudflared`, `restic`, `codex` and `uv` inside it (`Contents/Helpers`), and speaker recognition (`apps/speech`),
 which it installs itself.
 
@@ -111,18 +111,18 @@ which it installs itself.
    on both (free), or, with a domain on Cloudflare, create a tunnel in Zero Trust (Networks, Tunnels), copy its
    token and route your address to `http://127.0.0.1:47613`.
 3. Build it with `bun run host:app` (prebuilt, notarized releases are not published yet; "Building it" below), move
-   `Voice Host.app` to Applications and open it. Settings opens by itself until Life is set up.
+   `Voice Host.app` to Applications and open it. Settings opens by itself until it is set up. A Mac that had `Lifelog Host.app` (the same app, same bundle id) removes it first.
 4. Paste the keys, choose how your phone reaches this Mac, then **Start fresh**, or **Import an export…** to bring
-   an archive from another Mac. Life starts and opens at login from then on.
+   an archive from another Mac. Voice Host starts and opens at login from then on.
 5. Under **Summaries**, sign the helper in to your subscription: **Sign in to ChatGPT…** (in the browser, with the
    Codex inside the app), or for Claude, with Claude Code installed, run `claude setup-token` in Terminal and paste
-   the token it prints. Once Life runs, **Run on** picks the one summaries use; saving a Claude token restarts the helper.
+   the token it prints. Once it runs, **Run on** picks the one summaries use; saving a Claude token restarts the helper.
 6. Settings now shows a QR code: open the Camera on the iPhone (with Life installed) and point it at it. There is
    no built-in server: a phone pairs only this way.
 7. Optional: turn on **Back up to iCloud Drive every day**, then **Copy the backup password** into your password
    manager. Without it nobody can read the backup.
 
-The ring-and-dot in the menu bar says "Life: all good" or how many things to look at, then one line each: what
+The ring-and-dot in the menu bar says "Voice Host: all good" or how many things to look at, then one line each: what
 waits to be transcribed, what is at ElevenLabs, the AI pass (running, waiting, blocked), the Pendant, the phone, the
 Mac helper, speaker recognition (off, failing, or when it last answered), ElevenLabs credits and the backup. **Open
 status…** shows all of it in full, with the last day's problems, the archive's checks, and Host's processes with their
@@ -134,7 +134,7 @@ The backup's password is `resticPassword` in `~/Library/Application Support/life
 backup password** copies it, so keep it somewhere safe. If `secrets.json` is lost (a new Mac), put the saved password
 back there as `resticPassword` before turning backups on, or the new backups go nowhere the old ones can be read.
 To restore, take the export out of the latest snapshot into a new folder (restic asks for the password), then
-**Import an export…** that folder (`~/Life-restore`) into a new install. The server backs up its staging folder
+**Import an export…** that folder (`~/voice-restore`) into a new install. The server backs up its staging folder
 by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, so name that path after `latest:`
 (checked with restic 0.19.1); from another account than the one backed up, use that account's home, which
 `restic snapshots` shows:
@@ -142,14 +142,14 @@ by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, s
 ```sh
 "/Applications/Voice Host.app/Contents/Helpers/restic" \
   -r "$HOME/Library/Mobile Documents/com~apple~CloudDocs/lifelog backup/restic" \
-  restore "latest:$HOME/Library/Application Support/lifelog/restic-staging" --target ~/Life-restore
+  restore "latest:$HOME/Library/Application Support/lifelog/restic-staging" --target ~/voice-restore
 ```
 
 ### How it works
 
-- The archive and audio live in `~/Library/Application Support/lifelog`; logs in `~/Library/Logs/Life-*.log`
+- The archive and audio live in `~/Library/Application Support/lifelog`; logs in `~/Library/Logs/lifelog-*.log`
   (server, quiet, tunnel, identity). `Supervisor` starts each process again 5 s after it stops, with its environment
-  read anew; a Save or an import starts them all again on the new settings. While Life runs the Mac doesn't idle-sleep
+  read anew; a Save or an import starts them all again on the new settings. While Voice Host runs the Mac doesn't idle-sleep
   (like `caffeinate -i`); the screen still sleeps.
 - The keys, the tunnel token, the backup password and speaker recognition's secret are in the helper's
   `secrets.json` (mode 0600, never the Keychain). Host mints the phone's, the helper's and a reader's token, the
@@ -213,7 +213,7 @@ way.
    cd apps/dictation   # from the checkout
    swift build -c release
    mkdir -p ~/.local/bin ~/Library/LaunchAgents
-   cp .build/release/dictation-sensor ~/.local/bin/
+   cp .build/release/dictation-sensor ~/.local/bin/lifelog-quiet
    sed -e "s|__HOME__|$HOME|g" -e "s|__SERVER__|https://your-server.example|g" com.lifelog.quiet.plist \
      > ~/Library/LaunchAgents/com.lifelog.quiet.plist   # your server's address: the helper needs LIFELOG_URL
    ```
@@ -278,7 +278,7 @@ not the Keychain. A LaunchAgent installed before the helper needed `LIFELOG_URL`
 step 2, with `__SERVER__`), or the new helper won't start.
 
 ```sh
-rm ~/.local/bin/lifelog-quiet && cp .build/release/dictation-sensor ~/.local/bin/
+rm ~/.local/bin/lifelog-quiet && cp .build/release/dictation-sensor ~/.local/bin/lifelog-quiet
 launchctl kickstart -k gui/$(id -u)/com.lifelog.quiet
 ```
 
@@ -291,8 +291,8 @@ To remove it:
 launchctl bootout gui/$(id -u)/com.lifelog.quiet
 rm ~/Library/LaunchAgents/com.lifelog.quiet.plist ~/.local/bin/lifelog-quiet
 rm ~/Library/Application\ Support/lifelog-quiet/secrets.json
-security delete-generic-password -s dictation-sensor -a mac-token    # old Keychain items, if still there
-security delete-generic-password -s dictation-sensor -a claude-token
+security delete-generic-password -s lifelog-quiet -a mac-token    # old Keychain items, if still there
+security delete-generic-password -s lifelog-quiet -a claude-token
 ```
 
 To add another dictation app, add its bundle id (as `--list` prints it, or as the log names it) to
