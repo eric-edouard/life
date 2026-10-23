@@ -1,8 +1,21 @@
 // `bun run check`: the single quality gate. Runs every step concurrently and fails fast.
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import process from "node:process";
+import { held, take } from "@life/server/src/core/lock";
+
+// One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
+const LOCK = join(tmpdir(), "life-check.lock");
+if (!take(LOCK, process.cwd())) {
+  console.log(`- waiting for the check running in ${held(LOCK)?.note}`);
+  while (!take(LOCK, process.cwd())) {
+    // biome-ignore lint/performance/noAwaitInLoops: one try every 5 s
+    await Bun.sleep(5000);
+  }
+}
+process.on("exit", () => rmSync(LOCK, { force: true }));
 
 const ios = "apps/ios";
 const dictation = "apps/dictation";
