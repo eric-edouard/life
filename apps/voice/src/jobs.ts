@@ -1,7 +1,7 @@
-// The transcription jobs: one worker that sends them to ElevenLabs (after the cutter made them),
-// and what comes back. A job's audio is in the bucket (audio-store.ts) before the job exists, and
-// every send reads it from there, so a retry never needs the phone. ElevenLabs keeps its own copy
-// under its retention policy.
+// The transcription jobs: one worker that sends them to ElevenLabs, or to the speech service with
+// Scribe for the turns it routes (after the cutter made them), and what comes back. A job's audio
+// is in the bucket (audio-store.ts) before the job exists, and every send reads it from there, so a
+// retry never needs the phone. ElevenLabs keeps its own copy under its retention policy.
 
 import type { Db } from "@life/voice-db";
 import {
@@ -25,6 +25,7 @@ import {
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 import type { z } from "zod";
 import { emailOwner } from "./alert";
+import { cutOggOpus, oggOpusSeconds } from "./audio";
 import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
 import { type Config, singleFlight } from "./config";
@@ -39,12 +40,15 @@ import {
   type SubmitOutcome,
   safeJson,
   submit,
+  transcribeNow,
   WebhookEvent,
   webhookMetadata,
 } from "./elevenlabs";
 import { record } from "./events";
 import { markDirty, regroupAfterCommit } from "./grouping";
 import { type MacSocket, macSocket } from "./mac-socket";
+import { routeTurns, scribeRanges, transcriptOf, uncut } from "./route-turns";
+import { identitySet, transcribeBlock } from "./speech-service";
 import { switches } from "./switches";
 import { rebuildTurnsIn } from "./turns";
 
@@ -297,6 +301,9 @@ function readWebhook(body: string) {
 const LOST_AFTER_MS = 30 * 60 * 1000;
 // A send ElevenLabs may have taken without giving an id to ask by waits this long for its webhook.
 const UNANSWERED_MS = 24 * 3600 * 1000;
+// A block at the speech service is done well within this (its answer, then Scribe's for the routed
+// turns); still submitted after it, a restart cut it off.
+const SPEECH_CUT_OFF_MS = 10 * 60 * 1000;
 
 // What the 5-minute tick settles about one submitted job, without buying anything: "applied" when
 // its transcript came, "retried" or "failed" when it left submitted, null while it waits.
@@ -307,6 +314,7 @@ const UNANSWERED_MS = 24 * 3600 * 1000;
 //   have it, and only its webhook can say: it is never sent again. A day without a webhook fails
 //   it, marked maybe billed; a webhook after that still completes it. A host without a webhook
 //   waits the same day, though nothing will answer.
+// - At the speech service, one cut off goes again unless Scribe may have billed its routed turns.
 async function settle(
   db: Db,
   config: Config,
@@ -314,6 +322,18 @@ async function settle(
   onCompleted: OnCompleted
 ) {
   const age = Date.now() - (job.requestSentAt?.getTime() ?? 0);
+  if (job.transcriber === "speech") {
+    if (age <= SPEECH_CUT_OFF_MS) {
+      return null;
+    }
+    return job.maybeBilled
+      ? fail(
+          db,
+          job,
+          "cut off while Scribe heard its other-language turns: it may have billed them, so it is not sent again"
+        ) && ("failed" as const)
+      : back(db, job, "cut off at the speech service") && ("retried" as const);
+  }
   if (!job.providerTranscriptionId) {
     if (age <= UNANSWERED_MS) {
       return null;
@@ -462,10 +482,14 @@ export function jobWorker(
   // gate is the last word: still queued, ending where the Mac vouches, and no quiet range touching
   // it. The cutter checks the same before a job exists, on purpose: there a late range withdraws
   // one fragment; here it withdraws the whole job, which a range coming after its block closed
-  // (the phone's playback) still needs.
+  // (the phone's playback) still needs. The speech service takes one block at a time, so it gets one.
   const claim = () => {
     const vouched = mac.vouchedThrough();
     const at = new Date();
+    const transcriber =
+      switches().transcriber === "speech" && identitySet(config)
+        ? ("speech" as const)
+        : ("scribe" as const);
     return db.transaction((tx) => {
       const atProvider = tx
         .select({ n: count() })
@@ -477,7 +501,10 @@ export function jobWorker(
           )
         )
         .get();
-      const room = config.ELEVENLABS_SLOTS - (atProvider?.n ?? 0);
+      const room = Math.min(
+        config.ELEVENLABS_SLOTS - (atProvider?.n ?? 0),
+        transcriber === "speech" ? 1 : Number.POSITIVE_INFINITY
+      );
       if (room <= 0) {
         return { claimed: [], quiet: [] };
       }
@@ -504,7 +531,7 @@ export function jobWorker(
         go.length > 0
           ? tx
               .update(jobs)
-              .set({ requestSentAt: at, state: "submitted" })
+              .set({ requestSentAt: at, state: "submitted", transcriber })
               .where(and(inArray(jobs.id, go), eq(jobs.state, "queued")))
               .returning()
               .all()
@@ -530,6 +557,14 @@ export function jobWorker(
       fail(db, job, "its audio is not in the bucket");
       return;
     }
+    if (job.transcriber === "speech") {
+      await hear(job, bytes);
+      return;
+    }
+    await toScribe(job, bytes);
+  }
+
+  async function toScribe(job: Job, bytes: Uint8Array) {
     const started = Date.now();
     const outcome = await submit(config, job, new Blob([bytes.slice()]));
     record(db, `elevenlabs.${outcome.kind}`, {
@@ -539,6 +574,95 @@ export function jobWorker(
       ...(outcome.kind === "accepted" ? { requestId: outcome.requestId } : {}),
     });
     answered(db, job, outcome, completed);
+  }
+
+  // A block through the speech service: its words, and Scribe's for the turns it routes, cut from
+  // the block's own audio and sent once, without a webhook; a block mostly routed goes to Scribe
+  // whole, as a Scribe job. The service down or busy: queued again, nothing bought.
+  async function hear(job: Job, bytes: Uint8Array) {
+    const started = Date.now();
+    const said = await transcribeBlock(config, bytes);
+    if ("error" in said && said.error !== "invalid_audio") {
+      back(db, job, `the speech service: ${said.error}`);
+      return;
+    }
+    // Audio the service can't read goes to Scribe whole, which may.
+    const route =
+      "heard" in said ? routeTurns(said.heard) : { kind: "whole" as const };
+    record(db, "speech.heard", {
+      job: job.id,
+      ms: Date.now() - started,
+      route: route.kind,
+      routed: route.kind === "turns" ? route.routed.length : null,
+    });
+    if (route.kind === "whole" || !("heard" in said)) {
+      onSend(db, job, { transcriber: "scribe" });
+      await toScribe({ ...job, transcriber: "scribe" }, bytes);
+      return;
+    }
+    const routed = await scribeTurns(job, bytes, route.routed);
+    if (routed === "later") {
+      return;
+    }
+    complete(
+      db,
+      { jobId: job.id },
+      transcriptOf(said.heard, route.routed, routed.scribe),
+      completed
+    );
+    const { billableSeconds, error, maybeBilled } = routed;
+    db.update(jobs)
+      .set({ billableSeconds, error, maybeBilled })
+      .where(eq(jobs.id, job.id))
+      .run();
+  }
+
+  // Scribe's words for a block's routed turns, cut from its audio and sent once, without a webhook:
+  // "later" when Scribe took nothing now (the job is queued again). Refused or maybe billed, the
+  // turns stay without words, never sent again.
+  async function scribeTurns(
+    job: Job,
+    bytes: Uint8Array,
+    routed: Parameters<typeof scribeRanges>[0]
+  ) {
+    const excerpt = cutOggOpus(bytes, scribeRanges(routed));
+    if (!excerpt) {
+      return {
+        billableSeconds: 0,
+        error: null,
+        maybeBilled: false,
+        scribe: null,
+      };
+    }
+    // A send that may be billed leaves: from here it is never sent again (`settle`).
+    onSend(db, job, { maybeBilled: true });
+    const heard = await transcribeNow(
+      config,
+      new Blob([excerpt.audio.slice()]),
+      job.settings.keyterms
+    );
+    record(db, `elevenlabs.${heard.kind}`, { job: job.id, turns: true });
+    const billableSeconds = oggOpusSeconds(excerpt.audio) ?? 0;
+    if (heard.kind === "done") {
+      const words = uncut(heard.transcript.words, excerpt.spans);
+      return {
+        billableSeconds,
+        error: null,
+        maybeBilled: false,
+        scribe: { languageCode: heard.transcript.languageCode, words },
+      };
+    }
+    if (heard.later) {
+      onSend(db, job, { maybeBilled: false });
+      back(db, job, heard.error);
+      return "later" as const;
+    }
+    return {
+      billableSeconds,
+      error: `its other-language turns are missing: ${heard.error.slice(0, 200)}`,
+      maybeBilled: heard.billed,
+      scribe: null,
+    };
   }
 
   const sendable = () => switches().transcription && levelOf(plan) !== "out";

@@ -14,7 +14,7 @@ import { memoryAudioStore } from "./audio-store";
 import { excerptSampler } from "./excerpts";
 import { services } from "./services";
 import {
-  fakeIdentity,
+  fakeSpeechService,
   mapJob,
   OWNER_TOKEN,
   oggOpus,
@@ -23,7 +23,7 @@ import {
   testDb,
 } from "./testing";
 
-const identity = fakeIdentity();
+const identity = fakeSpeechService();
 const audio = memoryAudioStore();
 let env: Awaited<ReturnType<typeof testDb>>;
 let sampler: ReturnType<typeof excerptSampler>;

@@ -303,6 +303,7 @@ test("switches: AI off, a run waits with the Mac there and runs once AI is back 
     ai: false,
     engine: "claude",
     openAppAfterMinutes: 15,
+    transcriber: "scribe",
     transcription: false,
   });
   const changes = await (
@@ -312,6 +313,7 @@ test("switches: AI off, a run waits with the Mac there and runs once AI is back 
     ai: false,
     engine: "claude",
     openAppAfterMinutes: 15,
+    transcriber: "scribe",
     transcription: false,
   });
 
@@ -323,6 +325,7 @@ test("switches: AI off, a run waits with the Mac there and runs once AI is back 
     ai: true,
     engine: "claude",
     openAppAfterMinutes: 15,
+    transcriber: "scribe",
     transcription: false,
   });
   expect((await settledRun(id)).provider).toBe("claude-code");

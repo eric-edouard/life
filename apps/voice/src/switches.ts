@@ -1,10 +1,15 @@
 // The owner's switches for paid processing, set from the app or `bun run switches`. Off, nothing
 // new is sent: uploads wait unsent (jobs.ts), voices aren't embedded (identity.ts), summaries wait
 // as if the Mac were away (providers.ts), search falls back to keywords (search.ts). Turned back
-// on, what waited goes on by itself.
+// on, what waited goes on by itself. `transcriber` picks who transcribes the next blocks: Scribe
+// whole, or the speech service with Scribe for the turns it routes (jobs.ts).
 
 import type { Db } from "@life/voice-db";
-import { type MacEngine, processingSwitches } from "@life/voice-db/schema";
+import {
+  type MacEngine,
+  processingSwitches,
+  type Transcriber,
+} from "@life/voice-db/schema";
 import { logChange } from "./change-log";
 import { record } from "./events";
 
@@ -12,6 +17,7 @@ export interface Switches {
   ai: boolean;
   engine: MacEngine;
   openAppAfterMinutes: number;
+  transcriber: Transcriber;
   transcription: boolean;
 }
 
@@ -19,6 +25,7 @@ const DEFAULTS: Switches = {
   ai: true,
   engine: "claude",
   openAppAfterMinutes: 15,
+  transcriber: "scribe",
   transcription: true,
 };
 
@@ -34,6 +41,7 @@ export function loadSwitches(db: Db) {
         ai: row.ai,
         engine: row.engine,
         openAppAfterMinutes: row.openAppAfterMinutes,
+        transcriber: row.transcriber,
         transcription: row.transcription,
       }
     : DEFAULTS;
@@ -48,6 +56,7 @@ export function setSwitches(
     transcription?: boolean | undefined;
     engine?: MacEngine | undefined;
     openAppAfterMinutes?: number | undefined;
+    transcriber?: Transcriber | undefined;
   }
 ) {
   const before = loadSwitches(db);
@@ -56,6 +65,7 @@ export function setSwitches(
     engine: patch.engine ?? before.engine,
     openAppAfterMinutes:
       patch.openAppAfterMinutes ?? before.openAppAfterMinutes,
+    transcriber: patch.transcriber ?? before.transcriber,
     transcription: patch.transcription ?? before.transcription,
   };
   db.transaction((tx) => {

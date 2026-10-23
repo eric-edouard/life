@@ -28,16 +28,20 @@ const steps: Record<string, string[]> = {
   cases: ["bun", "scripts/cases-check.ts"],
   fallow: ["bun", "x", "--bun", "fallow", "--fail-on-issues"],
   openapi: ["bun", "apps/voice/scripts/openapi.ts", "--check"],
-  // The speech service's real test needs the model; its Docker build runs it.
-  "py compile": [
-    "python3",
-    "-m",
-    "py_compile",
-    "apps/speech/app.py",
-    "apps/speech/test_app.py",
-  ],
+  // The speech service's real test needs the models (apps/speech/AGENTS.md); this one needs none.
+  "py compile": ["python3", "-m", "py_compile", "apps/speech/test_app.py"],
   // Vendored skills are upstream text.
   scrub: ["bun", "scripts/scrub-check.ts", ":!.claude/skills"],
+  "speech test": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "apps/speech",
+    "-p",
+    "test_contract.py",
+  ],
   test: ["bun", "test", "./apps/server/src/", "./scripts/", "./apps/edge/"],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
   "voice test": [

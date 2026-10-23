@@ -29,7 +29,7 @@ import {
 } from "./people";
 import { services } from "./services";
 import {
-  fakeIdentity,
+  fakeSpeechService,
   mapJob,
   OWNER_TOKEN,
   seedTranscript,
@@ -37,7 +37,7 @@ import {
   testDb,
 } from "./testing";
 
-const identity = fakeIdentity();
+const identity = fakeSpeechService();
 let env: Awaited<ReturnType<typeof testDb>>;
 let app: ReturnType<typeof createApp>;
 

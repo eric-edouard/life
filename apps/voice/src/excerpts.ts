@@ -21,13 +21,13 @@ import { type AudioStore, isBlockKey } from "./audio-store";
 import { type Config, EXCERPTS, RECOGNITION } from "./config";
 import { touchesQuiet } from "./cutter";
 import { record } from "./events";
-import { embedRanges, identitySet } from "./identity";
 import {
   keepServerSamples,
   loadTranscript,
   recognize,
   uncleanTurn,
 } from "./people";
+import { embedRanges, identitySet } from "./speech-service";
 import { switches } from "./switches";
 
 // The clean turns of a job without a sample yet, longest first up to the cap, in order.

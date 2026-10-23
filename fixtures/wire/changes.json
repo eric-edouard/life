@@ -206,6 +206,7 @@
     "ai": true,
     "engine": "claude",
     "openAppAfterMinutes": 15,
+    "transcriber": "scribe",
     "transcription": true
   }
 }
