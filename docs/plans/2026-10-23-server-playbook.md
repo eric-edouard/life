@@ -111,6 +111,10 @@ list, and the cutover date for the new units.
 - Life's own OAuth issuer serves the connector on the server.
 - Done when: a copy of the data runs a full night (sweep, moments, extraction, pages, the nightly email) in a
   container on Linux, and the connector answers.
+- Built (23 Oct): `bun life headless` (the container's command), Linux paths and Mac-only capabilities in
+  `platform.ts`, `openrouter` as an engine (DeepSeek V4.1 Flash, zero retention, the default on Linux), the server's
+  keys in `LIFE_STATE_DIR/secrets.env`, locks that survive a container's restart. Network sources are their own
+  session's.
 
 ### 6. The Mac companion
 

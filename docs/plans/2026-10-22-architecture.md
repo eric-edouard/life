@@ -105,7 +105,7 @@ Each step is one PR that changes no behaviour, passes `bun run check`, and leave
    units, moments, observations, statements, and the field shapes they share). The records stay a layer of their
    own rather than moving into their users: the sources read records the memory also uses (people, projects, units,
    the ledger), so moving them into the memory would point the sources up. Every layer but core may import them. The
-   names the settings validate (`Engine`, `Runner`, `SourceName`, `AGENT_WORD`) go to `core/names.ts`, so core imports
+   names the settings validate (`Engine`, `SourceName`, `AGENT_WORD`) go to `core/names.ts`, so core imports
    nothing above it.
 6. **No baseline** (#167). The source registry moves into the memory (`memory/sources.ts`), with the agent's source,
    which reads Life's own ledger; `digest` to `core/hash.ts`; `CLOSED_ON_SILENCE_S` to lifelog's reader; the tests

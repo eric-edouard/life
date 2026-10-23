@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { AGENT_WORD } from "../core/names";
 import { LIFE_STATE_DIR } from "../core/paths";
-import { APP_DATA, HOME, MACHINE_DIR, WINDOWS } from "../core/platform";
+import { APP_DATA, HOME, MAC, MACHINE_DIR } from "../core/platform";
 import { expand } from "../core/settings";
 import { Unit } from "../records/unit";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -121,7 +121,7 @@ test("an archived source can't be read until the archive copied its store; other
   // A Mac-only app's archived copy is read on any system; one with no copy says it is the Mac's.
   expect(sourceOf("notes").missing?.()).toBe("Notes not archived yet");
   for (const name of ["imessage", "mail"] as const) {
-    expect(sourceOf(name).missing?.() === "macOS only").toBe(WINDOWS);
+    expect(sourceOf(name).missing?.() === "macOS only").toBe(!MAC);
   }
 });
 

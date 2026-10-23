@@ -38,6 +38,12 @@ export async function exec(
   return { code, killed: proc.signalCode, stderr, stdout };
 }
 
+/** Starts `cmd` and leaves it running, its output this process's own: a service a supervisor keeps (`headless.ts`). */
+export const startKept = (
+  cmd: string[],
+  env: Record<string, string | undefined>
+) => Bun.spawn(cmd, { env, stderr: "inherit", stdout: "inherit" });
+
 /** `exec` for a step that must work: its output, or an error with what it said, named by its first two words. */
 export async function execOk(
   cmd: string[],
