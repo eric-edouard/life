@@ -1003,13 +1003,19 @@ function agentCards(r: Reads): Card[] {
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
   return [
     {
-      ...(live
-        ? { tone: "ok", word: pulls ? "checking in" : "subscribed" }
-        : {
+      ...firstOf(
+        // No agent set up is off, not broken: nothing is meant to receive asks.
+        [!settings().agent, { tone: "idle", word: "off" }],
+        [live, { tone: "ok", word: pulls ? "checking in" : "subscribed" }],
+        [
+          true,
+          {
             ask: ASK(`that ${agentName()} isn't receiving asks`),
             tone: "bad",
             word: pulls ? "not checking in" : "no subscription",
-          }),
+          },
+        ]
+      ),
       facts: [
         { at: events.subscription?.verifiedAt, label: "Subscription verified" },
         { at: events.subscription?.refreshBefore, label: "Refresh before" },
