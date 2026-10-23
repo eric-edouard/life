@@ -73,7 +73,7 @@
   },
   "pipeline": {
     "ai": {
-      "blockedBy": "aiOff",
+      "blockedBy": null,
       "lastSummaryAt": "2026-10-14T10:02:50.000Z",
       "running": [
         {

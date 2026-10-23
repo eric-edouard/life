@@ -1037,7 +1037,7 @@ interface IndexedUnit {
 
 /**
  * derived/memory/index.sqlite, rebuilt from scratch: observations (with the observation that replaced each retired
- * one, and its end date), full-text search over claims and quotes, links; and the units (titles, the voice server's summaries and
+ * one, and its end date), full-text search over claims and quotes, links; and the units (titles, a chapter's or repo-day's summary and
  * the topics of their verdicts), so today's material is searchable before the nightly pass. Rebuilt in place, in one
  * write-ahead-log transaction, so a reader holding the file keeps the old index until the commit and sees the new one
  * after it; a rebuild waits for another to commit.

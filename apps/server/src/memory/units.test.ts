@@ -41,6 +41,7 @@ import {
   isFrozen,
   LIFE_CHAT,
   lastDays,
+  MARKED,
   messageUnits,
   normalizeTopics,
   oneToOne,
@@ -749,6 +750,46 @@ test("with no source turned on, a sweep reads nothing and fails nothing", async 
     expect(e.failed).toEqual([]);
   } finally {
     setSettings({ sources: before });
+  }
+});
+
+test("a sweep reads the days before the cutover with their chapters as stored, a marked one still saying so", async () => {
+  const before = readSettings().sources;
+  const migrations = join(OWNER_DATA_DIR, "memory/migrations.jsonl");
+  writeFileSync(
+    migrations,
+    `${JSON.stringify({ at: "2026-10-24T08:00:00.000Z", cutover: "2026-10-24", name: "voice-names", schemaVersion: 1 })}\n`
+  );
+  const marked: Unit = {
+    date: "2026-10-20",
+    end: "2026-10-20T10:20:00.000Z",
+    hash: "0123456789abcdef",
+    id: "unit_00000000000d",
+    key: "conv-1",
+    marked: ["job-1:0@x"],
+    people: [],
+    refs: ["conv-1#ch"],
+    schemaVersion: 1,
+    source: "voice",
+    start: "2026-10-20T10:00:00.000Z",
+    stats: { chars: 9, fromMe: 0, items: 2 },
+    summary: "A summary.",
+    title: "Shop",
+  };
+  try {
+    setSettings({ sources: [] });
+    await writeUnits([marked.date], [marked]);
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.built.map((b) => [b.unit.id, b.text])).toEqual([
+      [marked.id, `Shop\nA summary.\n${MARKED}`],
+    ]);
+  } finally {
+    setSettings({ sources: before });
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(migrations, { force: true });
   }
 });
 

@@ -10,11 +10,7 @@ import {
   Unresolved,
 } from "../records/observation";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
-import {
-  turnsBetween,
-  type VoiceConversation,
-  withStore,
-} from "../sources/voice";
+import type { VoiceConversation } from "../sources/voice";
 import { closeNow } from "./closeness";
 import {
   EXTRACTED,
@@ -42,11 +38,10 @@ import {
   localTime,
   MARKED,
   UNKNOWN,
-  voiceNames,
   within,
 } from "./units";
 import { observationsNow, readPeople, unitNow, who } from "./who";
-import { chatLines, transcripts, voiceLines } from "./words";
+import { chatLines, spokenLines } from "./words";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
@@ -399,33 +394,16 @@ export async function extract(evidence: Evidence) {
 
   const read = groups.flatMap((g) => g.units);
   const reread = new Set([...read, ...copies].map((b) => b.unit.id));
-  const turns = await withStore(
-    (store) =>
-      new Map(
-        read.flatMap(({ unit }) =>
-          kindOf(unit.source) === "voice"
-            ? [
-                [
-                  unit.id,
-                  turnsBetween(
-                    store,
-                    unit.key,
-                    unit.start,
-                    unit.end,
-                    voiceNames(truth)
-                  ),
-                ] as const,
-              ]
-            : []
-        )
-      )
+  const spoken = await spokenLines(
+    read.map((b) => b.unit),
+    resolve,
+    truth
   );
-  const jobs = await transcripts([...turns.values()].flat());
   let truncated = 0;
   const sourceOf = (b: Built): Source[] => {
     const all =
       kindOf(b.unit.source) === "voice"
-        ? voiceLines(turns.get(b.unit.id) ?? [], jobs, resolve)
+        ? (spoken.get(b.unit.id) ?? [])
         : chatLines(b, resolve);
     // ponytail: a unit longer than UNIT_MAX keeps its first lines only (a longer line cut to it, as a whole note's text
     // can be); split the unit if long conversations matter.

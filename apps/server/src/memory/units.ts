@@ -238,10 +238,12 @@ export const voiceCutover = () =>
 export const isFrozen = (u: Pick<Unit, "date" | "source">, cutover: string) =>
   kindOf(u.source) === "voice" && u.date < cutover;
 
-/** A stored chapter unit as the steps take it: its text the chapter's title and summary, its hash as stored. */
+/** A stored chapter unit as the steps take it: its text the chapter's title and summary (and `MARKED`), its hash as stored. */
 const frozen = (unit: Unit): Built => ({
   messages: [],
-  text: `${unit.title}\n${unit.summary ?? ""}`,
+  text: [unit.title, unit.summary ?? "", ...(unit.marked ? [MARKED] : [])].join(
+    "\n"
+  ),
   unit,
 });
 

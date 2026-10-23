@@ -98,6 +98,34 @@ export async function transcripts(turns: VoiceTurn[]) {
 }
 
 /**
+ * The lines of each voice unit among `units`, by unit id: who spoke and when from the watcher's store, the words from
+ * the voice server (`voiceLines`). The one way the memory steps read a recording's words.
+ */
+export async function spokenLines(
+  units: Unit[],
+  resolve: Resolve,
+  truth: Truth,
+  open = openStore
+) {
+  const turns = await withStore(
+    (store) =>
+      new Map(
+        units
+          .filter((u) => kindOf(u.source) === "voice")
+          .map((u) => [
+            u.id,
+            turnsBetween(store, u.key, u.start, u.end, voiceNames(truth)),
+          ])
+      ),
+    open
+  );
+  const jobs = await transcripts([...turns.values()].flat());
+  return new Map(
+    [...turns].map(([id, said]) => [id, voiceLines(said, jobs, resolve)])
+  );
+}
+
+/**
  * The conversation-days among `units` with their text filled from their words, as the moments model reads them (its
  * `head`): the title, then each turn as `HH:MM speaker: words`, and `MARKED` when he said "hey Life" in it. Life holds
  * no words, so they are fetched only for the days being read. Other units come back as they are.
@@ -109,39 +137,22 @@ export async function voiceText(
   open = openStore
 ) {
   const cutover = voiceCutover();
-  const spoken = units.filter(
-    (b) => kindOf(b.unit.source) === "voice" && !isFrozen(b.unit, cutover)
-  );
-  if (spoken.length === 0) {
-    return units;
-  }
-  const turns = await withStore(
-    (store) =>
-      new Map(
-        spoken.map((b) => [
-          b.unit.id,
-          turnsBetween(
-            store,
-            b.unit.key,
-            b.unit.start,
-            b.unit.end,
-            voiceNames(truth)
-          ),
-        ])
-      ),
+  const spoken = await spokenLines(
+    units.map((b) => b.unit).filter((u) => !isFrozen(u, cutover)),
+    resolve,
+    truth,
     open
   );
-  const jobs = await transcripts([...turns.values()].flat());
   return units.map((b) => {
-    const said = turns.get(b.unit.id);
-    if (!said) {
+    const lines = spoken.get(b.unit.id);
+    if (!lines) {
       return b;
     }
-    const lines = voiceLines(said, jobs, resolve).map(
+    const said = lines.map(
       (l) =>
         `${time(l.at)} ${l.speaker.startsWith(UNKNOWN) ? l.speaker.slice(UNKNOWN.length) : l.speaker.replace(PERSON, "")}: ${l.text}`
     );
-    const text = [b.unit.title, ...lines, ...(b.unit.marked ? [MARKED] : [])];
+    const text = [b.unit.title, ...said, ...(b.unit.marked ? [MARKED] : [])];
     return { ...b, text: text.join("\n") };
   });
 }

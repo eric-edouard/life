@@ -28,7 +28,7 @@ public struct HostStatus: Decodable, Sendable {
             }
             public var running: [Run]?
             public var waiting: Int?
-            /// "macAway" or "aiOff".
+            /// "macAway".
             public var blockedBy: String?
             public var lastSummaryAt: Date?
         }
@@ -218,7 +218,7 @@ extension Host {
 
         let ai = status.pipeline?.ai
         let running = ai?.running ?? []
-        let blocked = ai?.blockedBy.map { $0 == "aiOff" ? "AI is off" : $0 == "macAway" ? "the Mac is away" : $0 }
+        let blocked = ai?.blockedBy.map { $0 == "macAway" ? "the Mac is away" : $0 }
         let aiWaiting = ai?.waiting ?? 0
         let aiParts =
             (running.isEmpty

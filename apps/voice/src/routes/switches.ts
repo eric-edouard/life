@@ -12,7 +12,7 @@ export const SwitchesView = z
     ai: z
       .boolean()
       .describe(
-        "Summaries and titles on the Mac, off by default. Off: they wait"
+        "Summaries and titles on the Mac, off by default. Off: none is made"
       ),
     engine: z
       .enum(macEngines)

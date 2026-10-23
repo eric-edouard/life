@@ -581,7 +581,7 @@
             "properties": {
               "blockedBy": {
                 "type": ["string", "null"],
-                "enum": ["aiOff", "macAway", null]
+                "enum": ["macAway", null]
               },
               "lastSummaryAt": {
                 "type": ["string", "null"],
@@ -2266,7 +2266,7 @@
         "properties": {
           "ai": {
             "type": "boolean",
-            "description": "Summaries and titles on the Mac, off by default. Off: they wait"
+            "description": "Summaries and titles on the Mac, off by default. Off: none is made"
           },
           "engine": {
             "type": "string",
@@ -5278,7 +5278,7 @@
                 "properties": {
                   "ai": {
                     "type": "boolean",
-                    "description": "Summaries and titles on the Mac, off by default. Off: they wait"
+                    "description": "Summaries and titles on the Mac, off by default. Off: none is made"
                   },
                   "engine": {
                     "type": "string",

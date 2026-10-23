@@ -33,8 +33,8 @@ import { storeFiles, WATCH } from "../sources/voice";
 // The renames: a source `lifelog` is `voice` (a unit's `source`, an observation's `source.channel`, a statement's
 // `source`, and the same in his regression cases); a label on one of today's chapter units moves to its
 // conversation-day (unit ids change recipe from the cutover on, SCHEMA.md "labels.jsonl"); the watcher's store is
-// `voice.sqlite`, its conversations' titles blanked (they were the server's model titles: his own come back with the
-// feed). The step's line records the cutover (`voiceCutover`, units.ts): today, when memory held lifelog's units.
+// `voice.sqlite`, its conversations' titles blanked and its feed read again (the titles were the server's model ones:
+// the feed brings back only his own). The step's line records the cutover (`voiceCutover`, units.ts): today, when memory held lifelog's units.
 
 /** The migrations done, one line each (memory/migrations.jsonl). */
 const DONE = "memory/migrations.jsonl";
@@ -158,12 +158,15 @@ const done = (dir: string) =>
 
 /** The watcher's store under its old name (only this install's, the one `WATCH` names). */
 const oldStore = () => join(WATCH, `${OLD}.sqlite`);
+/** The store still to move: there under its old name, not yet under its new one (one an old process made again stays). */
+const storeToMove = () =>
+  existsSync(oldStore()) && !existsSync(storeFiles().file);
 
 /** Is there anything for the rename to do: memory not renamed yet, a run to finish, or the store under its old name? */
 export const needsRename = (dir = OWNER_DATA_DIR) =>
   [STAGED, OLD_MEMORY, STRAY].some((d) => existsSync(join(dir, d))) ||
   (existsSync(join(dir, "memory")) && !done(dir)) ||
-  (dir === OWNER_DATA_DIR && existsSync(oldStore()));
+  (dir === OWNER_DATA_DIR && storeToMove());
 
 /** Every file under `folder`, by its path relative to `dir`. */
 function filesUnder(dir: string, folder: string) {
@@ -327,22 +330,24 @@ function carryOver(
 }
 
 /**
- * The watcher's store under its new name, its conversations' titles blanked (his own come back with the feed): moved
- * whole with its journal, never rebuilt, since its hearing marks and arrival times are not in the feed. Once.
+ * The watcher's store under its new name, moved whole (its hearing marks and when each turn arrived are not in the
+ * feed): its journal folded in first, its conversations' titles blanked and its cursor dropped, so the feed is read
+ * again from the start and brings back only his own titles. A cut-off move is done again from the old file. Once.
  */
 function moveStore() {
-  const { file } = storeFiles();
-  if (!existsSync(oldStore()) || existsSync(file)) {
+  if (!storeToMove()) {
     return;
   }
-  for (const end of ["", "-wal", "-shm"]) {
-    if (existsSync(`${oldStore()}${end}`)) {
-      renameSync(`${oldStore()}${end}`, `${file}${end}`);
-    }
-  }
-  const db = new Database(file);
+  const db = new Database(oldStore());
+  db.run("pragma wal_checkpoint(truncate)");
   db.run("update conversations set title = ''");
   db.close();
+  const { cursor, file } = storeFiles();
+  rmSync(cursor, { force: true });
+  for (const end of ["-wal", "-shm"]) {
+    rmSync(`${oldStore()}${end}`, { force: true });
+  }
+  renameSync(oldStore(), file);
   log("memory.renamed", { store: file });
 }
 

@@ -191,7 +191,7 @@ test("in a data dir: renamed once and recorded with its cutover; run again, noth
   expect(rowsAt(dir, "memory/migrations.jsonl")).toHaveLength(1);
 });
 
-test("a checkout's rename of its own copy never waits for another Life's watcher, and moves the store once, titles blanked", async () => {
+test("a checkout's rename of its own copy never waits for another Life's watcher, and moves the store once: titles blanked, feed read again", async () => {
   // Another Life's watcher, alive (this test's parent process), as the app's would be while the demo runs.
   const lock = join(MACHINE_DIR, "watch.lock");
   mkdirSync(MACHINE_DIR, { recursive: true });
@@ -201,6 +201,7 @@ test("a checkout's rename of its own copy never waits for another Life's watcher
   old.run("create table conversations (id text primary key, title text)");
   old.run("insert into conversations values ('c1', 'A model title')");
   old.close();
+  writeFileSync(storeFiles().cursor, '{"cursor":"42"}\n');
   try {
     await migrateStored(OWNER_DATA_DIR);
     expect(read(OWNER_DATA_DIR, "memory/migrations.jsonl")).toContain(
@@ -212,7 +213,14 @@ test("a checkout's rename of its own copy never waits for another Life's watcher
       { id: "c1", title: "" },
     ]);
     db.close();
+    // Read again from the start, so the feed brings back only his own titles.
+    expect(existsSync(storeFiles().cursor)).toBe(false);
+    // An old process that makes the old store again after the move: left alone, and no command waits on it.
+    writeFileSync(join(WATCH, "lifelog.sqlite"), "");
+    await migrateStored(OWNER_DATA_DIR);
+    expect(existsSync(join(WATCH, "lifelog.sqlite"))).toBe(true);
   } finally {
+    rmSync(join(WATCH, "lifelog.sqlite"), { force: true });
     rmSync(lock, { force: true });
     rmSync(storeFiles().file, { force: true });
   }
