@@ -1,4 +1,5 @@
 import { clock, MIN } from "../../core/clock";
+import { TUNNEL_RESTART } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { connector, settings } from "../../core/settings";
 
@@ -20,10 +21,11 @@ const statusOf = (url: string) =>
     () => 0
   );
 
-/** One probe: restarts cloudflared when the tunnel is down; nothing to probe without a Cloudflare tunnel. */
+/** One probe: restarts cloudflared when the tunnel is down; nothing to probe without a Cloudflare tunnel this Mac runs. */
 export async function healTunnel() {
   if (
     !(
+      TUNNEL_RESTART &&
       settings().connector?.tunnel === "cloudflare" &&
       tunnelDown(await statusOf(connector().metadata))
     )
@@ -31,12 +33,7 @@ export async function healTunnel() {
     return;
   }
   console.log(`${clock().toISOString()} tunnel: 530, restarting cloudflared`);
-  const { code, stderr } = await exec([
-    "launchctl",
-    "kickstart",
-    "-k",
-    `gui/${process.getuid?.()}/com.eric.cloudflared`,
-  ]);
+  const { code, stderr } = await exec(TUNNEL_RESTART);
   if (code !== 0) {
     throw new Error(`launchctl kickstart exited ${code}: ${stderr.trim()}`);
   }

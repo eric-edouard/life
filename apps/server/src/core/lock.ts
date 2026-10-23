@@ -9,24 +9,31 @@ import { uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { clock, MIN } from "./clock";
 import { LIFE_STATE_DIR, real } from "./paths";
-import { MACHINE_DIR } from "./platform";
+import { MACHINE_DIR, startTicks } from "./platform";
 
 // Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, memory-lock.ts)
 // and the services' (`hold`): one Life per Mac.
 
 /**
  * Who holds the lock file `path`: its pid, since when and its note; null when none does (no file, a dead pid, or a
- * lock from before the boot: pids are reused).
+ * pid reused since). Where the system tells a process's start (Linux), the lock keeps its holder's on a third line and
+ * only that same process holds it: a container starts its pids again at 1 and shares its host's uptime. Elsewhere a
+ * lock from before the boot holds nothing.
  */
 export function held(path: string) {
   try {
     const since = statSync(path).mtime;
-    const [pid = "", note = ""] = readFileSync(path, "utf8").split("\n");
+    const [pid = "", note = "", start = ""] = readFileSync(path, "utf8").split(
+      "\n"
+    );
     process.kill(Number(pid), 0);
+    const now = startTicks(Number(pid));
     // ponytail: the lock's real mtime and boot time against the clock; a frozen run (the bench) never takes a lock.
-    return since.getTime() >= clock().getTime() - uptime() * 1000
-      ? { note, pid, since }
-      : null;
+    const live =
+      start && now !== undefined
+        ? start === now
+        : since.getTime() >= clock().getTime() - uptime() * 1000;
+    return live ? { note, pid, since } : null;
   } catch {
     return null;
   }
@@ -39,7 +46,11 @@ export function held(path: string) {
  */
 export function take(path: string, note?: string, retry = true): boolean {
   try {
-    writeFileSync(path, [process.pid, note].join("\n"), { flag: "wx" });
+    writeFileSync(
+      path,
+      [process.pid, note ?? "", startTicks(process.pid) ?? ""].join("\n"),
+      { flag: "wx" }
+    );
     return true;
   } catch {
     if (!retry || held(path)) {

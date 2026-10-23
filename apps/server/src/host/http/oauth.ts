@@ -18,7 +18,7 @@ import { HEADERS, TOKENS, text } from "./http";
 
 // Life's own sign-in for one owner, when no other OAuth server issues its tokens (the `connector` setting has no
 // `issuer`): the endpoints ChatGPT and Claude look for, under `<origin>/auth`. An app is approved by a pairing code
-// shown on the Mac (`bun life pair`, the app's menu later): whoever holds the Mac approves. PKCE is required, an
+// shown where Life runs (`bun life pair`: on the Mac, or in a server's container): whoever holds that machine approves. PKCE is required, an
 // authorization code serves once, a refresh token is replaced each time it is used, and every token is for this one
 // resource and owner.
 
@@ -291,7 +291,7 @@ export function createIssuer(
         .join("");
       const back = new URL(a.data.redirect_uri).host;
       return page(
-        `<h1>Connect ${escapeHtml(client.name)} to Life?</h1><p>It will read your memory, and it goes back to <span class="host">${escapeHtml(back)}</span>. Type the pairing code your Mac shows (<code>bun life pair</code>), only if you started this.</p>${req.method === "POST" ? '<p class="bad">That code did not match, or it expired.</p>' : ""}<form method="post">${hidden}<input name="pairing" autocomplete="one-time-code" autofocus> <button>Connect</button></form>`
+        `<h1>Connect ${escapeHtml(client.name)} to Life?</h1><p>It will read your memory, and it goes back to <span class="host">${escapeHtml(back)}</span>. Type the pairing code Life shows (<code>bun life pair</code>), only if you started this.</p>${req.method === "POST" ? '<p class="bad">That code did not match, or it expired.</p>' : ""}<form method="post">${hidden}<input name="pairing" autocomplete="one-time-code" autofocus> <button>Connect</button></form>`
       );
     }
     // Paired: a registered client is kept from now on.
