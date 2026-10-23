@@ -40,7 +40,7 @@ Merging on a green review never covers these; each waits for the owner's yes in 
 2. Order the OVH VPS-2 in Singapore (Ubuntu 24.04), and add it to his tailnet.
 3. An OpenRouter key, with data collection denied and zero data retention in its privacy settings.
 4. A B2 or R2 bucket and its keys; a new restic password kept in his password manager, never on the server.
-5. A Cloudflare Tunnel for the box, with routes `life.<domain>` → `localhost:46200` (the tunnel shares Life's network) and `voice.<domain>` → `voice:3000`.
+5. A Cloudflare Tunnel for the box, with the routes in [Run Life on a server](../use/server.md).
 
 ## Who does what
 

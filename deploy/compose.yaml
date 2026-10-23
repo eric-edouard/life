@@ -1,6 +1,6 @@
 # Life on a server (docs/use/server.md). Data lives under LIFE_DIR on the host and the speech models in a volume;
 # secrets in 0600 files under LIFE_ETC, outside the repo; install.sh makes both. No port is published: cloudflared
-# reaches life and voice from inside, and administration is over Tailscale. Memory limits fit an 8 GB box (speech
+# reaches life and voice on the Compose network, and administration is over Tailscale. Memory limits fit an 8 GB box (speech
 # peaks about 5.1 GB).
 name: life
 
@@ -19,6 +19,8 @@ services:
     # Its own keys are state/secrets.env (install.sh makes it), its settings state/settings.json.
     env_file: ${LIFE_ETC:-/etc/life}/shared.env
     environment:
+      # The connector's port on the Compose network, for the tunnel; the status reads' port stays on loopback.
+      LIFE_LISTEN_HOST: 0.0.0.0
       LIFE_OWNER_DATA_DIR: /data/owner
       LIFE_STATE_DIR: /data/state
       XDG_DATA_HOME: /data/machine
@@ -72,8 +74,6 @@ services:
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:2000", "run"]
     env_file: ${LIFE_ETC:-/etc/life}/tunnel.env
-    # Life serves on loopback only, so the tunnel shares its network: life is localhost:46200, voice is voice:3000.
-    network_mode: service:life
     mem_limit: 128m
     depends_on: [life, voice]
     healthcheck:

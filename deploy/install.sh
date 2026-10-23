@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Prepares a fresh Ubuntu 24.04 box for Life (docs/use/server.md), as root, from a checkout at /opt/life:
 # Docker, Tailscale (SSH on the tailnet), a firewall that takes nothing from outside the tailnet, the data and
-# secrets folders, then the first `up` once every env file is filled in. Safe to run again.
+# secrets folders, Life's address (LIFE_ORIGIN, else asked), then the first `up` once every env file is filled in, and
+# the code that opens Life's setup page. Safe to run again.
 set -euo pipefail
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 ETC=/etc/life
@@ -44,4 +45,12 @@ if [ -n "$missing" ]; then
   echo "Fill in these files, then run this again: $missing"
   exit 1
 fi
-docker compose -f "$REPO/deploy/compose.yaml" up -d --build
+COMPOSE=(docker compose -f "$REPO/deploy/compose.yaml")
+"${COMPOSE[@]}" build
+if [ ! -e "$DATA/life/state/settings.json" ]; then
+  [ -n "${LIFE_ORIGIN:-}" ] || read -rp "Life's address (https://life.example.com): " LIFE_ORIGIN
+  "${COMPOSE[@]}" run --rm --no-deps life bun apps/server/src/host/cli.ts settings set \
+    "{\"connector\":{\"origin\":\"$LIFE_ORIGIN\",\"tunnel\":\"cloudflare\"}}" >/dev/null
+fi
+"${COMPOSE[@]}" up -d
+"${COMPOSE[@]}" exec -T life bun apps/server/src/host/cli.ts pair
