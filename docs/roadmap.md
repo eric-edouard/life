@@ -32,7 +32,8 @@ What Life is building next, in order, and what is parked. Each item gets its own
 - Onboarding, scoped for both the Mac and the server: the first-run experience and connecting each source and
   assistant.
 - One product: lifelog folds into Life, its repo into this one, transcription moves off Scribe to open models on the
-  server, and Life stops depending on lifelog's summaries ([one product plan](plans/2026-10-23-one-product.md)).
+  server, and Life stops depending on lifelog's summaries ([one product plan](plans/2026-10-23-one-product.md)); the
+  steps to get there and onto the server are the [server playbook](plans/2026-10-23-server-playbook.md).
 
 ## Parked
 

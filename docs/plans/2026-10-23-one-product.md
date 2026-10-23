@@ -87,6 +87,8 @@ writer, life and backup. Merging them would put two processes behind one lock fo
 
 ## The move
 
+The [server playbook](2026-10-23-server-playbook.md) orders these with the server's steps, and is what agents work from.
+
 1. **Transcription on the server.** The engine contract, its MLX and ONNX engines, Nemotron and VoxLingua routing in
    lifelog's server, behind a switch: off is today's Scribe path. Both write the same transcript shape, so
    the feed and Life don't change.
