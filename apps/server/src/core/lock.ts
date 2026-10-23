@@ -9,24 +9,30 @@ import { uptime } from "node:os";
 import { dirname, join } from "node:path";
 import { clock, MIN } from "./clock";
 import { LIFE_STATE_DIR, real } from "./paths";
-import { MACHINE_DIR } from "./platform";
+import { MACHINE_DIR, startedAt } from "./platform";
 
 // Lock files: one process holds each, its pid on the first line and a note after. Memory's lock (`locked`, memory-lock.ts)
 // and the services' (`hold`): one Life per Mac.
 
 /**
  * Who holds the lock file `path`: its pid, since when and its note; null when none does (no file, a dead pid, or a
- * lock from before the boot: pids are reused).
+ * pid reused since: its process started after the lock was written, or the lock is from before the boot). A container
+ * starts its pids again at 1 and shares its host's uptime, so where the system tells a process's start (Linux) that
+ * decides.
  */
 export function held(path: string) {
   try {
     const since = statSync(path).mtime;
     const [pid = "", note = ""] = readFileSync(path, "utf8").split("\n");
     process.kill(Number(pid), 0);
+    const started = startedAt(Number(pid));
     // ponytail: the lock's real mtime and boot time against the clock; a frozen run (the bench) never takes a lock.
-    return since.getTime() >= clock().getTime() - uptime() * 1000
-      ? { note, pid, since }
-      : null;
+    // /proc's boot time is whole seconds: a start up to 2 s after the lock is still its holder's.
+    const live =
+      started === undefined
+        ? since.getTime() >= clock().getTime() - uptime() * 1000
+        : started <= since.getTime() + 2000;
+    return live ? { note, pid, since } : null;
   } catch {
     return null;
   }

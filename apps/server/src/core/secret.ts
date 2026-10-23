@@ -18,6 +18,8 @@ import { LIFE_STATE_DIR } from "./paths";
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
+  /** A server's keys, `NAME=value` lines (`setSecretEnv`): what the Keychain is to Life.app, read by `bun life headless`. */
+  env: join(LIFE_STATE_DIR, "secrets.env"),
   events: join(LIFE_STATE_DIR, "events.json"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
   /** Life's own sign-in: its key, the apps and their tokens. */
@@ -74,4 +76,42 @@ export function secretIn(name: "localKey"): string {
     rmSync(tmp, { force: true });
   }
   return readFileSync(path, "utf8");
+}
+
+const NAME = /^[A-Z][A-Z0-9_]*$/;
+const LINE = /^([A-Z][A-Z0-9_]*)=(.*)$/;
+const BREAK = /[\r\n]/;
+
+/** The server's keys by name (`SECRETS.env`); none when there is no file. */
+export function readSecretEnv(): Record<string, string> {
+  if (!existsSync(SECRETS.env)) {
+    return {};
+  }
+  return Object.fromEntries(
+    readFileSync(SECRETS.env, "utf8")
+      .split("\n")
+      .flatMap((l) => {
+        const m = LINE.exec(l);
+        return m ? [[m[1], m[2]]] : [];
+      })
+  );
+}
+
+/**
+ * Sets some of the server's keys, keeping the rest (null removes one), for a page that takes them: a name in capitals,
+ * a value on one line. The services read them when they start again (`bun life headless` restarts them on a change).
+ */
+export function setSecretEnv(parts: Record<string, string | null>) {
+  const next = { ...readSecretEnv(), ...parts };
+  for (const [name, value] of Object.entries(next)) {
+    if (!NAME.test(name) || (value !== null && BREAK.test(value))) {
+      throw new Error(`not a key Life keeps: ${name}`);
+    }
+  }
+  writeSecret(
+    "env",
+    Object.entries(next)
+      .flatMap(([k, v]) => (v === null ? [] : [`${k}=${v}\n`]))
+      .join("")
+  );
 }

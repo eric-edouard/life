@@ -56,7 +56,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("openrouter: pinned, zero retention, no fallback; another host, a cut reply or an error is refused", async () => {
+test("openrouter: zero retention; pinned, no fallback; another host, a cut reply or an error is refused", async () => {
   const asked: Record<string, unknown>[] = [];
   let reply: { finish: string; provider: string; status: number } = {
     finish: "stop",
@@ -85,15 +85,24 @@ test("openrouter: pinned, zero retention, no fallback; another host, a cut reply
     );
   }) as unknown as typeof fetch);
   process.env.OPENROUTER_API_KEY = "test-key";
-  const ask = () =>
+  const ask = (model = "x/y@deepinfra") =>
     askOnce({
       dir: mkdtempSync(join(tmpdir(), "life-or-")),
       input: { a: 1 },
-      llm: { effort: "high", engine: "openrouter", model: "x/y@deepinfra" },
+      llm: { effort: "high", engine: "openrouter", model },
       prompt: "eval-judge.v1",
       run: "r",
     });
   try {
+    // A server's engine: any endpoint that keeps nothing, whoever hosts it.
+    const server = llmFor("deep", "openrouter");
+    expect(server.model).toBe("deepseek/deepseek-v4.1-flash-1017");
+    expect(await ask(server.model)).toEqual({ ok: true });
+    expect(asked.shift()?.provider).toEqual({
+      data_collection: "deny",
+      require_parameters: true,
+      zdr: true,
+    });
     expect(await ask()).toEqual({ ok: true });
     expect(asked[0]?.model).toBe("x/y");
     expect(asked[0]?.provider).toEqual({

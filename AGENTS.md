@@ -123,8 +123,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   the only step that retires an observation (besides his `outdated` answers).
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.
-- **Model calls use the owner's subscriptions**, or an API key on an install with neither; never another provider
-  except the bench's (`docs/operations.md`, "Model engines").
+- **Model calls use the owner's subscriptions on the Mac host; on a server, OpenRouter with his key**, routed only to
+  endpoints that keep nothing; or an API key on an install with neither. Never another provider
+  (`docs/operations.md`, "Model engines").
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/cycles.test.ts` fail the check on any import against them; never suppress one, move the code instead.
