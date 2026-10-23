@@ -14,7 +14,7 @@ import { memoryAudioStore } from "./audio-store";
 import { excerptSampler } from "./excerpts";
 import { services } from "./services";
 import {
-  fakeIdentity,
+  fakeSpeechService,
   mapJob,
   OWNER_TOKEN,
   oggOpus,
@@ -23,7 +23,7 @@ import {
   testDb,
 } from "./testing";
 
-const identity = fakeIdentity();
+const speech = fakeSpeechService();
 const audio = memoryAudioStore();
 let env: Awaited<ReturnType<typeof testDb>>;
 let sampler: ReturnType<typeof excerptSampler>;
@@ -34,20 +34,20 @@ beforeAll(() => {
     env.db,
     testConfig("http://localhost:1", {
       IDENTITY_SECRET: "identity-test-secret",
-      IDENTITY_URL: `http://localhost:${identity.server.port}`,
+      IDENTITY_URL: `http://localhost:${speech.server.port}`,
     }),
     audio
   );
 });
 afterAll(() => {
   env.drop();
-  identity.server.stop(true);
+  speech.server.stop(true);
 });
 beforeEach(() => {
   env.reset();
   seeded = 0;
-  identity.busy = false;
-  identity.ranges.length = 0;
+  speech.busy = false;
+  speech.ranges.length = 0;
 });
 
 // A unit vector along one axis.
@@ -126,7 +126,7 @@ const conversation = [
 test("a block's clean turns are cut from its audio, once, and recognized, with no phone upload", async () => {
   const jobId = job(conversation);
   expect(await sampler.job(jobId)).toBe(3);
-  expect(identity.ranges).toEqual([
+  expect(speech.ranges).toEqual([
     [
       [0, 5],
       [6, 36],
@@ -153,15 +153,15 @@ test("a block's clean turns are cut from its audio, once, and recognized, with n
 
   // Nothing is cut or embedded twice.
   expect(await sampler.job(jobId)).toBe(0);
-  expect(identity.ranges).toHaveLength(1);
+  expect(speech.ranges).toHaveLength(1);
 });
 
 test("a job waits for identity and for its conversation, and nothing is marked cut meanwhile", async () => {
   const jobId = job(conversation);
-  identity.busy = true;
+  speech.busy = true;
   expect(await sampler.job(jobId)).toBeNull();
   expect(cutAt(jobId)).toBeNull();
-  identity.busy = false;
+  speech.busy = false;
 
   const ungrouped = job(conversation, { grouped: false });
   expect(await sampler.job(ungrouped)).toBeNull();
@@ -207,7 +207,7 @@ test("a job without bucket audio is left alone", async () => {
     .where(eq(transcriptionJobs.id, jobId))
     .run();
   expect(await sampler.job(jobId)).toBe(0);
-  expect(identity.ranges).toEqual([]);
+  expect(speech.ranges).toEqual([]);
   expect(samplesOf(jobId)).toEqual([]);
 });
 
@@ -258,7 +258,7 @@ test("identity gets no audio a quiet range touches, nor an old job's", async () 
     .run();
   audio.objects.set(`jobs/${old}.ogg`, oggOpus(60));
   expect([await sampler.job(dictated), await sampler.job(old)]).toEqual([0, 0]);
-  expect(identity.ranges).toEqual([]);
+  expect(speech.ranges).toEqual([]);
   expect([cutAt(dictated), cutAt(old)]).toEqual([
     expect.any(Date),
     expect.any(Date),

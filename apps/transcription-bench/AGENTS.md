@@ -20,6 +20,8 @@ wrote, so a step can be stopped and run again.
   run one at a time.
 - `scribe-th` is Scribe through its API (`local/scribe.py`, `ELEVENLABS_API_KEY`): it spends
   ElevenLabs credits, so `run` without names skips it. Ask the owner before running it.
+- `service <name>` sends every clip to the speech service (`SPEECH_URL`, `IDENTITY_SECRET`) and writes its words
+  and speaker turns as a model's output, so `score` measures the service as it runs (`apps/speech/AGENTS.md`).
 - Everything it writes holds the owner's voice or words: it lives in `~/Life/docs/lifelog/stt-bench/`
   (`STT_BENCH_DIR` to move it), never in the repo.
 

@@ -1,11 +1,16 @@
 // The owner's switches for paid processing, set from the app or `bun run switches`. Off, nothing
-// new is sent: uploads wait unsent (jobs.ts), voices aren't embedded (identity.ts), summaries wait
+// new is sent: uploads wait unsent (jobs.ts), voices aren't embedded (speech-service.ts), summaries wait
 // as if the Mac were away (providers.ts). Turned back on, what waited goes on by itself. Summaries
 // (`ai`) are off by default: Life reads the words, not them (server playbook, step 4). Search's
-// embeddings follow the OpenAI key alone (search.ts).
+// embeddings follow the OpenAI key alone (search.ts). `transcriber` picks who transcribes the next
+// blocks: Scribe whole, or the speech service with Scribe for the turns it routes (jobs.ts).
 
 import type { Db } from "@life/voice-db";
-import { type MacEngine, processingSwitches } from "@life/voice-db/schema";
+import {
+  type MacEngine,
+  processingSwitches,
+  type Transcriber,
+} from "@life/voice-db/schema";
 import { logChange } from "./change-log";
 import { record } from "./events";
 
@@ -13,6 +18,7 @@ export interface Switches {
   ai: boolean;
   engine: MacEngine;
   openAppAfterMinutes: number;
+  transcriber: Transcriber;
   transcription: boolean;
 }
 
@@ -20,6 +26,7 @@ const DEFAULTS: Switches = {
   ai: false,
   engine: "claude",
   openAppAfterMinutes: 15,
+  transcriber: "scribe",
   transcription: true,
 };
 
@@ -35,6 +42,7 @@ export function loadSwitches(db: Db) {
         ai: row.ai,
         engine: row.engine,
         openAppAfterMinutes: row.openAppAfterMinutes,
+        transcriber: row.transcriber,
         transcription: row.transcription,
       }
     : DEFAULTS;
@@ -49,6 +57,7 @@ export function setSwitches(
     transcription?: boolean | undefined;
     engine?: MacEngine | undefined;
     openAppAfterMinutes?: number | undefined;
+    transcriber?: Transcriber | undefined;
   }
 ) {
   const before = loadSwitches(db);
@@ -57,6 +66,7 @@ export function setSwitches(
     engine: patch.engine ?? before.engine,
     openAppAfterMinutes:
       patch.openAppAfterMinutes ?? before.openAppAfterMinutes,
+    transcriber: patch.transcriber ?? before.transcriber,
     transcription: patch.transcription ?? before.transcription,
   };
   db.transaction((tx) => {

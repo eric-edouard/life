@@ -61,8 +61,9 @@ export function take(path: string, note?: string, retry = true): boolean {
   }
 }
 
-type Service = "archive" | "watch";
-/** A service's lock: one per Mac, so two installs never run the same service at once (two archivers, two watchers). */
+type Service = "archive" | "watch" | "check";
+/** A service's lock: one per Mac, so two installs never run the same service at once (two archivers, two watchers, two
+ * `bun run check`s, whose tests time out when several load the Mac). */
 const serviceLock = (name: Service) => join(MACHINE_DIR, `${name}.lock`);
 
 /** Who runs a service now: its pid, since when, and the state dir it runs on as its note; null when none does. */
@@ -78,19 +79,19 @@ export const isOtherLife = (
  * Waits until this process runs `name` on this Mac (while another install's copy runs, it says so once and checks
  * each minute), and keeps it until it exits; a crash or a SIGTERM leaves a stale lock the next start clears.
  */
-export async function hold(name: Service) {
+export async function hold(name: Service, note = LIFE_STATE_DIR, every = MIN) {
   const path = serviceLock(name);
   mkdirSync(dirname(path), { recursive: true });
   let said = false;
-  while (!take(path, LIFE_STATE_DIR)) {
+  while (!take(path, note)) {
     if (!said) {
       console.log(
-        `${clock().toISOString()} ${name}: another Life runs it (${holder(name)?.note}), waiting`
+        `${clock().toISOString()} ${name}: another runs it (${holder(name)?.note}), waiting`
       );
       said = true;
     }
-    // biome-ignore lint/performance/noAwaitInLoops: one check a minute
-    await Bun.sleep(MIN);
+    // biome-ignore lint/performance/noAwaitInLoops: one try each `every`
+    await Bun.sleep(every);
   }
   process.on("exit", () => {
     if (holder(name)?.pid === String(process.pid)) {

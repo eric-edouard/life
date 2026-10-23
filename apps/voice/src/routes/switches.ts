@@ -1,7 +1,7 @@
 // The owner's switches for paid processing (switches.ts), from the app or `bun run switches`, and
 // the words he wants spelled right (vocabulary.ts).
 import { createRoute, z } from "@hono/zod-openapi";
-import { macEngines } from "@life/voice-db/schema";
+import { macEngines, transcribers } from "@life/voice-db/schema";
 import type { Services } from "../services";
 import { setSwitches, switches } from "../switches";
 import { Keyterm, setVocabulary } from "../vocabulary";
@@ -27,6 +27,13 @@ export const SwitchesView = z
       .describe(
         "Minutes the Pendant's audio may wait on the phone, while it records, before a notification " +
           "asks the owner to open the app. 0: never"
+      ),
+    transcriber: z
+      .enum(transcribers)
+      .describe(
+        "Who transcribes the next blocks: ElevenLabs Scribe whole, or the speech service with " +
+          "Scribe for the turns in other languages (docs/voice/processing.md). Speech without the " +
+          "speech service set up (IDENTITY_URL) still goes to Scribe"
       ),
     transcription: z
       .boolean()
@@ -65,7 +72,7 @@ export function switchRoutes({
     .openapi(
       createRoute({
         description:
-          "Turns transcription or AI on or off, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone " +
+          "Turns transcription or AI on or off, picks who transcribes, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone " +
           "is nudged to send its waiting audio, summaries due run on the Mac.",
         method: "put",
         path: "/switches",
@@ -81,6 +88,9 @@ export function switchRoutes({
       }),
       (c) => {
         const { before, after } = setSwitches(db, c.req.valid("json"));
+        if (after.transcriber !== before.transcriber) {
+          worker.poke();
+        }
         if (after.transcription && !before.transcription) {
           nudge("resumed", { switch: "transcription" });
           worker.poke();

@@ -169,7 +169,8 @@ by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, s
 - Speaker recognition (Settings, **Recognize speakers by their voice**, on by default): the app carries
   `apps/speech`'s `app.py`, `pyproject.toml` and `uv.lock` in `Contents/Resources/identity`. Once per launch Host
   runs `uv sync --frozen` and `app.py download` into `~/Library/Application Support/lifelog/identity` (the venv, uv's
-  own Python 3.12, the model; about 630 MB the first time, seconds after), then runs the service on
+  own Python 3.12, the models with Parakeet on MLX; about 3 GB the first time, seconds after; the service holds
+  about 3 GB of memory), then runs the service on
   `127.0.0.1:47614`. Until it is installed, or if it fails, the reason shows under the menu and Settings, and Save
   tries again. The server gets `IDENTITY_URL` and `IDENTITY_SECRET` (minted once into `secrets.json`); off, it gets
   neither and names no voices, and the menu says "Speaker recognition: off".

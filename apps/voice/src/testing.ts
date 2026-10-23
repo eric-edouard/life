@@ -17,6 +17,7 @@ import { type Config, loadConfig, sha256Hex } from "./config";
 import { PARSER_VERSION } from "./elevenlabs";
 import { requestRoll } from "./intelligence";
 import type { ModelCall, Provider } from "./providers";
+import type { Heard } from "./speech-service";
 import { rebuildTurns } from "./turns";
 
 export const OWNER_TOKEN = "owner-test-token";
@@ -288,20 +289,29 @@ export function fakeElevenLabs() {
 
 // A stand-in for apps/speech. The "excerpt" is a JSON vector, returned as its embedding. For
 // /embed-ranges, `cut` says what each range holds (null: unusable), and `ranges` records every call.
-export function fakeIdentity() {
+// /transcribe answers `heard` (500 while `failing`), after `meanwhile`; `blocks` counts its calls.
+export function fakeSpeechService() {
   const fake: {
+    blocks: number;
     busy: boolean;
+    failing: boolean;
+    meanwhile: () => void;
     cut: (range: [number, number]) => {
       durationSeconds: number;
       embedding: number[];
     } | null;
+    heard: Heard;
     ranges: [number, number][][];
   } = {
+    blocks: 0,
     busy: false,
     cut: ([from, to]) => ({
       durationSeconds: to - from,
       embedding: Array.from({ length: 192 }, (_, i) => (i === 5 ? 1 : 0)),
     }),
+    failing: false,
+    heard: { durationSeconds: 0, models: {}, turns: [], words: [] },
+    meanwhile: () => undefined,
     ranges: [],
   };
   const server = Bun.serve({
@@ -311,6 +321,13 @@ export function fakeIdentity() {
           headers: { "Retry-After": "7" },
           status: 503,
         });
+      }
+      if (new URL(req.url).pathname === "/transcribe") {
+        fake.blocks += 1;
+        fake.meanwhile();
+        return fake.failing
+          ? new Response("RuntimeError", { status: 500 })
+          : Response.json(fake.heard);
       }
       if (new URL(req.url).pathname === "/embed-ranges") {
         const ranges = JSON.parse(req.headers.get("X-Ranges") ?? "[]");

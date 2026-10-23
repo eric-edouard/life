@@ -21,13 +21,13 @@ import { type AudioStore, isBlockKey } from "./audio-store";
 import { type Config, EXCERPTS, RECOGNITION } from "./config";
 import { touchesQuiet } from "./cutter";
 import { record } from "./events";
-import { embedRanges, identitySet } from "./identity";
 import {
   keepServerSamples,
   loadTranscript,
   recognize,
   uncleanTurn,
 } from "./people";
+import { embedRanges, speechServiceSet } from "./speech-service";
 import { switches } from "./switches";
 
 // The clean turns of a job without a sample yet, longest first up to the cap, in order.
@@ -179,7 +179,10 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
   }
 
   const job = async (jobId: string) => {
-    if (!(identitySet(config) && switches().transcription) || busy.has(jobId)) {
+    if (
+      !(speechServiceSet(config) && switches().transcription) ||
+      busy.has(jobId)
+    ) {
       return null;
     }
     busy.add(jobId);
@@ -193,7 +196,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
   return {
     // Speaker recognition: off without IDENTITY_URL and IDENTITY_SECRET, else the service's last answer.
     identity: () => ({
-      configured: identitySet(config),
+      configured: speechServiceSet(config),
       lastError,
       lastOkAt,
     }),

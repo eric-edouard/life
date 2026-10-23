@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { joinOggOpus, oggOpusSeconds } from "./audio";
+import {
+  cutOggOpus,
+  joinOggOpus,
+  oggOpusPackets,
+  oggOpusSeconds,
+  pendantOggOpus,
+} from "./audio";
 import { oggOpus } from "./testing";
 import { captureMillis, keptAt } from "./transcript";
 
@@ -90,4 +96,27 @@ test("a fragment that isn't Ogg Opus, keeps nothing, or whose map outruns its au
       { ...a, map: { ...a.map, segments: [first, [from, to + 500]] } },
     ])
   ).toBeNull();
+});
+
+test("a cut keeps the packets starting in its ranges, and says where each range landed", () => {
+  // 10 s of 20 ms packets (TOC 8: one SILK frame of 960 samples), each marked by its index.
+  const packets = Array.from(
+    { length: 500 },
+    (_, i) => new Uint8Array([8, i % 256])
+  );
+  const cut = cutOggOpus(pendantOggOpus(packets, 10_000), [
+    [1, 2],
+    [5, 6],
+  ]);
+  expect(cut?.spans).toEqual([
+    { at: 0, from: 1 },
+    { at: 1, from: 5 },
+  ]);
+  expect(oggOpusSeconds(cut?.audio ?? new Uint8Array())).toBe(2);
+  const kept = oggOpusPackets(cut?.audio ?? new Uint8Array()) ?? [];
+  expect(kept.map((p) => p[1])).toEqual([
+    ...Array.from({ length: 50 }, (_, i) => 50 + i),
+    ...Array.from({ length: 50 }, (_, i) => (250 + i) % 256),
+  ]);
+  expect(cutOggOpus(pendantOggOpus(packets, 10_000), [[20, 21]])).toBeNull();
 });

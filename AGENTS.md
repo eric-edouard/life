@@ -42,7 +42,9 @@ bun run host:app [out]           # build Voice Host.app (needs librsvg)
 bun run events --since 30m       # the voice server's, the phone's and the Mac's events in time order
 ```
 
-The check runs the Swift and Xcode steps on a Mac only and says it skipped them elsewhere; Android where its SDK is.
+The check runs one at a time per machine. It runs the Swift and Xcode steps only on a Mac and only when the branch
+touches `apps/ios`, `apps/dictation`, `fixtures/` or `apps/voice/openapi.json`, and says when it skips them. Android is
+parked: its build is out of the check (`apps/android/AGENTS.md` has the command).
 
 ## Working with the owner
 
