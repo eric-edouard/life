@@ -324,7 +324,7 @@ export function buildServer() {
   tool(
     server,
     "read_chats",
-    "Read chats (WhatsApp, Telegram, LINE, iMessage, messages deleted for everyone included), as far back as the archive goes. `who` (a person) or `chat`: the latest 200 messages from `from` (without it, the last 90 days for `who`, 7 for `chat`); `before` pages back (each answer names the next). To find messages by their words, use `search`.",
+    "Read chats (WhatsApp, Telegram, LINE, Instagram, iMessage, messages deleted for everyone included), as far back as the archive goes. `who` (a person) or `chat`: the latest 200 messages from `from` (without it, the last 90 days for `who`, 7 for `chat`); `before` pages back (each answer names the next). To find messages by their words, use `search`.",
     z.object({
       before: z.iso
         .datetime({ offset: true })
