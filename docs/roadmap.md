@@ -42,12 +42,12 @@ What Life is building next, in order, and what is parked. Each item gets its own
   ([releasing](releasing.md)) and the server alike.
 - Onboarding, scoped for both the Mac and the server: the first-run experience and connecting each source and
   assistant.
-- An investigation of on-device transcription: what speech models running on the phone or the Mac can do (accuracy,
-  speakers, languages, battery), compared with lifelog's cloud transcription.
+- One product: lifelog folds into Life, its repo into this one, transcription moves off Scribe to open models on the
+  server, and Life stops depending on lifelog's summaries ([one product plan](plans/2026-10-23-one-product.md)); the
+  steps to get there and onto the server are the [server playbook](plans/2026-10-23-server-playbook.md).
 - A comparison of cloud transcription providers for Thai, beyond ElevenLabs Scribe: Microsoft MAI-Transcribe 1.5,
   Google Chirp 3, Soniox and AssemblyAI Universal, run on the same recordings for accuracy, speakers, mixed Thai and
   English, price and latency.
-
 - Keep rated facts when the memory is re-read, without reworded twins: one extraction rule under one prompt bump,
   checked on the 12–20 Oct facts. It unblocks re-reading 6 Sep to 13 Oct under today's prompts. Both wait for the
   model quota reset on 28 Oct.
@@ -60,6 +60,10 @@ What Life is building next, in order, and what is parked. Each item gets its own
 
 ## Parked
 
+- lifelog's Android app: the owner uses an iPhone, and the server it talks to changes in the move to one product
+  ([one product plan](plans/2026-10-23-one-product.md#android-parked)).
+- Transcription on the iPhone: transcripts must arrive within minutes, and iOS runs heavy work mostly while charging
+  ([one product plan](plans/2026-10-23-one-product.md#on-device-transcription-parked)).
 - Windows. The platform module and the Windows fixes stay as seams; what a restart would need is at the end of the
   [platforms and modules plan](plans/2026-10-22-platforms.md).
 - Search by meaning: tried and measured on 21 Oct, it did not improve answers and made each search about 23% bigger.
