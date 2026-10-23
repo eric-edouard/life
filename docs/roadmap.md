@@ -40,6 +40,11 @@ What Life is building next, in order, and what is parked. Each item gets its own
 - Two release channels from one codebase: the Mac app and the server.
 - A release pipeline: publishing a release ships the update to every install, the Mac app through its updater
   ([releasing](releasing.md)) and the server alike.
+- Installs for people who aren't technical: Life.app on a Mac; on a server, `deploy/install.sh` (tested on a scratch
+  box) driven by the person's own Claude Code from a prompt in the README, which stops for what only they can do
+  (accounts, keys, the phone's pairing, the connector's sign-in); a Railway template as the fallback without a
+  terminal. A public address without a domain through Tailscale Funnel or Railway's. Needs Life's images published
+  where a friend's server can pull them, while the code stays private.
 - Onboarding, scoped for both the Mac and the server: the first-run experience and connecting each source and
   assistant.
 - One product: lifelog folds into Life and its name goes (the iPhone app is Life), its repo into this one,
