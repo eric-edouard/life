@@ -620,9 +620,12 @@ export function jobWorker(
       transcriptOf(said.heard, route.routed, routed.scribe),
       completed
     );
-    const { billableSeconds, error, maybeBilled } = routed;
     db.update(jobs)
-      .set({ billableSeconds, error, maybeBilled })
+      .set({
+        billableSeconds: routed.billableSeconds,
+        error: routed.error,
+        maybeBilled: routed.maybeBilled,
+      })
       .where(eq(jobs.id, job.id))
       .run();
   }
