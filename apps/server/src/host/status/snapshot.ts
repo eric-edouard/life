@@ -454,8 +454,9 @@ function voiceCard(r: Reads): Card {
     ],
     group: "sources",
     headline: r.health?.lastOkAt ? "polling" : "never polled",
-    id: "voice",
-    name: "the voice server server",
+    // A connector name: renamed with the next batched connector change.
+    id: "lifelog",
+    name: "Voice server",
   };
 }
 

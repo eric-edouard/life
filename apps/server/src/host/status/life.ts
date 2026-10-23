@@ -77,7 +77,8 @@ export async function lifeStatus(now = clock()) {
       archive: copiedByStore(),
       // The key keeps its name for the status reads' contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
-      voiceOkAt: health?.lastOkAt ?? null,
+      // A connector name: renamed with the next batched connector change.
+      lifelogOkAt: health?.lastOkAt ?? null,
     },
     consolidation: lastOf(list, "memory.pages"),
     extraction: lastOf(list, "memory.extract"),

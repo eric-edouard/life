@@ -59,10 +59,7 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
       },
       responses: {
         200: json(z.object({ hits: z.array(SearchHit) }), "Best first"),
-        503: json(
-          ApiError,
-          "No OpenAI key configured"
-        ),
+        503: json(ApiError, "No OpenAI key configured"),
       },
     }),
     async (c) => {
