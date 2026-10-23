@@ -1,6 +1,7 @@
-# Life on a server (docs/use/server.md). Data lives under LIFE_DIR on the host, secrets in 0600 files under
-# LIFE_ETC, outside the repo; install.sh makes both. No port is published: cloudflared reaches life and voice on this
-# network, and administration is over Tailscale. Memory limits fit an 8 GB box (speech peaks about 5.1 GB).
+# Life on a server (docs/use/server.md). Data lives under LIFE_DIR on the host and the speech models in a volume;
+# secrets in 0600 files under LIFE_ETC, outside the repo; install.sh makes both. No port is published: cloudflared
+# reaches life and voice on this network, and administration is over Tailscale. Memory limits fit an 8 GB box (speech
+# peaks about 5.1 GB).
 name: life
 
 x-bun: &bun
@@ -52,11 +53,14 @@ services:
     image: life-speech
     restart: unless-stopped
     env_file: ${LIFE_ETC:-/etc/life}/speech.env
+    # The models (about 3 GB), fetched from Hugging Face at the first start.
+    volumes:
+      - models:/models
     mem_limit: 5632m
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s
-      start_period: 120s
+      start_period: 5m
 
   tunnel:
     image: cloudflare/cloudflared:2026.6.1
@@ -68,3 +72,6 @@ services:
     healthcheck:
       test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
       interval: 30s
+
+volumes:
+  models:
