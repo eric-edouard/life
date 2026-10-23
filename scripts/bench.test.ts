@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { factTable } from "./bench";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
+import { git } from "@life/server/src/core/proc";
+import { checkout, factTable } from "./bench";
 
 const counts = (held: number) => ({
   contradicted: 1,
@@ -49,3 +54,17 @@ test("bench table: within the baseline's spread (or 3) is a tie; no baseline is 
   expect(alone).toContain("no baseline");
   expect(alone).toContain("| life1 | life | failed: exited 1 |");
 });
+
+test("a bench worktree runs its own code: its workspace packages resolve inside it, never to the main checkout", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "life-checkout-"));
+  const dir = join(tmp, "code");
+  try {
+    await checkout(dir, []);
+    expect(realpathSync(join(dir, "node_modules/@life/server"))).toBe(
+      join(realpathSync(dir), "apps/server")
+    );
+  } finally {
+    git(LIFE_CODE_DIR, ["worktree", "remove", "--force", dir]);
+    rmSync(tmp, { force: true, recursive: true });
+  }
+}, 60_000);

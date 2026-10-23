@@ -16,7 +16,7 @@ import {
   LIFE_STATE_DIR,
   OWNER_DATA_DIR,
 } from "@life/server/src/core/paths";
-import { exec, git, gitOut } from "@life/server/src/core/proc";
+import { exec, execOk, git, gitOut } from "@life/server/src/core/proc";
 import { extract } from "@life/server/src/memory/extract";
 import { ratedFacts } from "@life/server/src/memory/ledger";
 import { locked } from "@life/server/src/memory/memory-lock";
@@ -123,7 +123,7 @@ async function run(
   return JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "");
 }
 
-/** The main checkout (this repo's first worktree): its dependencies, .env, lifelog store and engine setting. */
+/** The main checkout (this repo's first worktree): its .env. */
 export const mainCheckout = () =>
   dirname(
     gitOut(LIFE_CODE_DIR, [
@@ -134,17 +134,15 @@ export const mainCheckout = () =>
   );
 
 /**
- * This code at HEAD in `dir`, a throwaway worktree, with the main checkout's `links` (its dependencies, .env, …) and
- * `state` from this process's state dir (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
+ * This code at HEAD in `dir`, a throwaway worktree, with its own dependencies (a link to the main checkout's would load
+ * the main checkout's code: the workspace packages link back into it), the main checkout's .env, and `state` from this
+ * process's state dir (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
  */
-export async function checkout(dir: string, links: string[], state: string[]) {
+export async function checkout(dir: string, state: string[]) {
   gitOut(LIFE_CODE_DIR, ["worktree", "add", "--detach", dir, "HEAD"]);
+  await execOk(["bun", "install", "--frozen-lockfile"], { cwd: dir });
   await mkdir(join(dir, "derived"), { recursive: true });
-  const main = mainCheckout();
-  for (const p of links) {
-    // biome-ignore lint/performance/noAwaitInLoops: a few links
-    await symlink(join(main, p), join(dir, p));
-  }
+  await symlink(join(mainCheckout(), ".env"), join(dir, ".env"));
   for (const p of state) {
     // biome-ignore lint/performance/noAwaitInLoops: a few links
     await symlink(join(LIFE_STATE_DIR, p), join(dir, "derived", p));
@@ -155,7 +153,6 @@ async function bench(models: string[], runs: number) {
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
   const base = join(tmp, "base");
   const worktrees: string[] = [];
-  const links = ["node_modules", ".env"];
   try {
     await mkdir(join(base, "memory"), { recursive: true });
     for (const p of SEED) {
@@ -184,7 +181,7 @@ async function bench(models: string[], runs: number) {
         const code = join(tmp, p.label, "code");
         const data = join(tmp, p.label, "data");
         worktrees.push(code);
-        await checkout(code, links, ["watch", "settings.json"]);
+        await checkout(code, ["watch", "settings.json"]);
         cpSync(base, data, { recursive: true });
         const started = performance.now();
         try {
