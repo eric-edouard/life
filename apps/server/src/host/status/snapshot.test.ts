@@ -114,3 +114,15 @@ test(
   },
   MIN
 );
+
+test("a fresh install with no agent: its card is off, not broken, so the verdict isn't red for it", async () => {
+  const { setSettings, settings } = await import("../../core/settings");
+  const agent = settings().agent;
+  setSettings({ agent: null });
+  try {
+    const card = (await snapshot()).cards.find((c) => c.id === "asks");
+    expect(card).toMatchObject({ tone: "idle", word: "off" });
+  } finally {
+    setSettings({ agent });
+  }
+}, 30_000);
