@@ -17,7 +17,7 @@ tailnet.
 ## What you need first
 
 1. The box, with Ubuntu 24.04, and its root SSH access for the first login.
-2. A Cloudflare Tunnel and its token, with two public hostnames: `life.<your domain>` → `http://life:46200` and
+2. A Cloudflare Tunnel and its token, with two public hostnames: `life.<your domain>` → `http://localhost:46200` and
    `voice.<your domain>` → `http://voice:3000`.
 3. An R2 (or any S3) bucket and a key that can read and write it, and two restic passwords, one for Life's
    repository and one for the voice server's. Keep both in your password manager: without them the backup can't be
@@ -43,15 +43,25 @@ tailnet.
    ```
 
    It stops and names the files to fill in. From now on, log in over the tailnet: `ssh root@life`.
-3. Fill in each file in `/etc/life` (`nano /etc/life/voice.env`). Every line says what goes in it. Use the same
+3. Fill in each file it names: the voice server's, the speech service's and the tunnel's in `/etc/life`, Life's keys in
+   `/srv/life/life/state/secrets.env` (`nano /etc/life/voice.env`). Every line says what goes in it. Use the same
    `IDENTITY_SECRET` in `voice.env` and `speech.env`.
-4. Run the installer again. It builds and starts everything, which takes about ten minutes the first time:
+4. Give Life its first data, once: your name (and your emails and phone numbers, each repeated), or an export of a
+   Life you already run (`import <folder>`, the folder copied under `/srv/life/life` first):
+
+   ```sh
+   cd /opt/life/deploy && docker compose build life
+   docker compose run --rm --no-deps life bun apps/server/src/host/cli.ts init --name "Your Name" --email you@example.com
+   ```
+
+5. Run the installer again. It builds and starts everything. The first start takes about fifteen minutes: the speech
+   service fetches its models (about 3 GB) before it answers.
 
    ```sh
    /opt/life/deploy/install.sh
    ```
 
-5. Check that all four are `healthy`:
+6. Check that all four are `healthy`:
 
    ```sh
    docker compose -f /opt/life/deploy/compose.yaml ps
@@ -72,9 +82,10 @@ It pulls `main`, rebuilds what changed and restarts it. A container that fails i
 
 | What | Where on the box |
 |---|---|
-| Life's memory, state and archive | `/srv/life/life` |
+| Life's memory, state and archive | `/srv/life/life` (`owner`, `state`, `machine`) |
+| The speech models | the `life_models` Docker volume |
 | The voice server's archive and audio | `/srv/life/voice` |
-| Secrets | `/etc/life/*.env` (mode 0600) |
+| Secrets | `/etc/life/*.env` and Life's `/srv/life/life/state/secrets.env` (mode 0600) |
 | The code | `/opt/life` |
 
 ## Backups

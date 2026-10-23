@@ -29,15 +29,17 @@ ufw allow in on tailscale0
 ufw allow 41641/udp
 ufw --force enable
 
-# The data (the containers run as uid 1000, `bun`) and the secrets, 0600, outside the repo.
-install -d -o 1000 -g 1000 "$DATA/life" "$DATA/voice"
+# The data (the containers run as uid 1000, `bun`) and the secrets, 0600, outside the repo: the voice server's, the
+# speech service's and the tunnel's in /etc/life, Life's keys in its state folder, where `bun life headless` reads them.
+install -d -o 1000 -g 1000 "$DATA/life" "$DATA/life/state" "$DATA/voice"
 install -d -m 0700 "$ETC"
-for example in "$REPO"/deploy/env/*.env.example; do
-  file="$ETC/$(basename "$example" .example)"
-  [ -e "$file" ] || install -m 0600 "$example" "$file"
+for name in voice speech tunnel; do
+  [ -e "$ETC/$name.env" ] || install -m 0600 "$REPO/deploy/env/$name.env.example" "$ETC/$name.env"
 done
+LIFE_KEYS="$DATA/life/state/secrets.env"
+[ -e "$LIFE_KEYS" ] || install -m 0600 -o 1000 -g 1000 "$REPO/deploy/env/life.env.example" "$LIFE_KEYS"
 
-missing=$(grep -lE '^[A-Z_]+=$' "$ETC"/*.env || true)
+missing=$(grep -lE '^[A-Z_]+=$' "$ETC"/*.env "$LIFE_KEYS" || true)
 if [ -n "$missing" ]; then
   echo "Fill in these files, then run this again: $missing"
   exit 1
