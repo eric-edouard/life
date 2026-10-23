@@ -60,7 +60,7 @@ every Keychain secret in its environment:
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
 would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
 lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status snapshot reads
-those locks (`holder`, `core/lock.ts`).
+those locks (`holder`, `core/lock.ts`). `bun run check` holds a `check` lock there too: one gate per Mac, since its timed tests fail when two run at once.
 
 ### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
 

@@ -606,7 +606,7 @@ export const tables = () => tablesOf(readySources());
 export type Tables = ReturnType<typeof tablesOf>;
 
 type Read = Exclude<Descriptor, { kind: "voice" }>;
-/** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files. */
+/** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files (a commit without a subject is dropped, like any empty message). */
 const readOf = (s: Read, since: Date, map: { me: Person; repos: RepoMap }) =>
   s.kind === "repo" ? s.read(since, map) : s.read(since);
 
