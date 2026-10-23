@@ -49,22 +49,26 @@ tailnet.
    voice server and the speech service share, `voice.env` and `tunnel.env` their own. Life's own keys can wait for
    its setup page.
 4. Run the installer again. It asks for Life's address (`https://life.<your domain>`), builds and starts everything,
-   and prints a one-time code. The first start takes about fifteen minutes: the speech service fetches its models
-   (about 3 GB) before it answers.
+   and prints a one-time code. To move an existing Life or voice server instead of starting a new one,
+   [restore it](#restore) first.
 
    ```sh
    /opt/life/deploy/install.sh
    ```
 
-5. Check that all four are `healthy`:
+5. Open `https://life.<your domain>/settings/` and give it the code within 5 minutes: [set up and watch Life from
+   your browser](server-settings.md). A new code, if that one ran out:
+
+   ```sh
+   docker compose -f /opt/life/deploy/compose.yaml exec life bun apps/server/src/host/cli.ts pair
+   ```
+
+6. Check that all four are `healthy`. The speech service takes about fifteen minutes the first time: it fetches its
+   models (about 3 GB) before it answers.
 
    ```sh
    docker compose -f /opt/life/deploy/compose.yaml ps
    ```
-
-Then open `https://life.<your domain>/settings/` and give it the code: [set up and watch Life from your
-browser](server-settings.md). To move an existing Life or voice server instead of starting a new one,
-[restore it](#restore) before you open the page.
 
 ## Update
 
@@ -93,17 +97,18 @@ Each app backs itself up once a day with restic, encrypted, to its own repositor
 
 ### Restore
 
-On a new box, after step 4, with the files of step 3 filled in. Each import checks every file against
-the export's list before it writes anything, and refuses data that is already there.
+On a new box, after step 3 and before step 4, with the files of step 3 filled in. Each import checks every file
+against the export's list before it writes anything, and refuses data that is already there.
 
 ```sh
-cd /opt/life/deploy && docker compose stop life voice
+cd /opt/life/deploy && docker compose build life voice
 docker compose run --rm --no-deps life sh -c 'restic -r s3:https://ACCOUNT_ID.r2.cloudflarestorage.com/life-server-backup/life \
   restore latest --tag daily --target /data/restore &&
   bun apps/server/src/host/cli.ts import "$(find /data/restore -type d -name backup-staging)" && rm -rf /data/restore'
 docker compose run --rm --no-deps voice sh -c 'restic restore latest --tag daily --target /data/restore &&
   bun apps/voice/src/index.ts import /data/restore/data/restic-staging && rm -rf /data/restore'
-docker compose up -d
 ```
 
-Then give Life its keys again on its setup page: a backup holds no secrets.
+The restored Life keeps its old address: if it changes, set the new one before step 4 (`settings set
+'{"connector":{"origin":"https://life.<your domain>","tunnel":"cloudflare"}}'`, run as above). Then go on with step 4,
+and give Life its keys again on its setup page: a backup holds no secrets.

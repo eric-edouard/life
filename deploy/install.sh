@@ -50,7 +50,8 @@ COMPOSE=(docker compose -f "$REPO/deploy/compose.yaml")
 if [ ! -e "$DATA/life/state/settings.json" ]; then
   [ -n "${LIFE_ORIGIN:-}" ] || read -rp "Life's address (https://life.example.com): " LIFE_ORIGIN
   "${COMPOSE[@]}" run --rm --no-deps life bun apps/server/src/host/cli.ts settings set \
-    "{\"connector\":{\"origin\":\"$LIFE_ORIGIN\",\"tunnel\":\"cloudflare\"}}" >/dev/null
+    "{\"connector\":{\"origin\":\"${LIFE_ORIGIN%/}\",\"tunnel\":\"cloudflare\"}}" >/dev/null
 fi
 "${COMPOSE[@]}" up -d
+# Life's setup page takes this code for 5 minutes; Life answers before the speech service has its models.
 "${COMPOSE[@]}" exec -T life bun apps/server/src/host/cli.ts pair
