@@ -39,7 +39,7 @@ Merging on a green review never covers these; each waits for the owner's yes in 
 1. Make `eric-edouard/life` private (GitHub, Settings, General, Danger Zone). It is public today.
 2. Order the OVH VPS-2 in Singapore (Ubuntu 24.04), and add it to his tailnet.
 3. An OpenRouter key, with data collection denied and zero data retention in its privacy settings.
-4. A B2 or R2 bucket and its keys; a new restic password kept in his password manager, never on the server.
+4. An R2 bucket and its keys; a new restic password, kept in his password manager and on the box in a 0600 file (restic needs it to back up).
 5. A Cloudflare Tunnel for the box, with the routes in [Run Life on a server](../use/server.md).
 
 ## Who does what
