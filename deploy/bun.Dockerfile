@@ -8,5 +8,5 @@ COPY --from=restic/restic:0.18.1 /usr/bin/restic /usr/local/bin/restic
 WORKDIR /app
 ENV NODE_ENV=production
 COPY . .
-RUN bun install --frozen-lockfile --production --ignore-scripts
+RUN bun install --frozen-lockfile --production --ignore-scripts && install -d -o bun -g bun /data
 USER bun
