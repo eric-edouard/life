@@ -20,14 +20,13 @@ Reference: the rules every page in this repository follows. Read them before you
 
 ## The playbook
 
-`docs/agent.md` is not read by developers: the agent reads it on every call, so every line costs on every run.
+`docs/agent.md` is not read by developers: the agent reads it on every call, so every line costs on every run. Rules
+1 to 11 don't apply to it; these do. Changing it is "ask first" (AGENTS.md).
 
 12. Write to the agent as "you", about the owner as "he": imperative, present tense.
 13. Each rule once, in the section where the agent needs it. No section restates another.
 14. Say what to do and the condition that changes it. Give a reason only where the agent would otherwise guess wrong.
-15. Tools, fields and values exactly as the connector spells them. No code paths, file names or Life's internals.
+15. Tools, fields and values exactly as the connector spells them. No code paths or developer detail.
 16. Cut every word that changes nothing the agent does.
-17. A change needs the owner's OK and a re-run of the agent's cases (`bun scripts/bench-agent.ts`): it changes the
-    agent and its seal.
 
 Next: the [docs index](../README.md#docs).
