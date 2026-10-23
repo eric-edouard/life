@@ -11,7 +11,8 @@ import { sourceFile } from "./contract";
 const MAIL = join(HOME, "Library", "Mail");
 const ACCOUNTS_DB = join(HOME, "Library", "Accounts", "Accounts4.sqlite");
 const SNIPPET = 1500;
-const SENT = /sent|envoy/i;
+// A word starting with it: "Sent Mail", "Messages envoyés", never "Consent" or "Presentations".
+const SENT = /\b(?:sent|envoy)/i;
 /**
  * The words of mailboxes never read as mail. Drafts were never sent: read as mail, an unsent draft would pass for
  * something he wrote to someone.
@@ -502,12 +503,12 @@ export function readMessage(
   return read;
 }
 
-const MESSAGE_ID = /<([^>]+)>/;
-/** A message's id: its Message-ID header without its brackets, else what its store names it by. */
+const BRACKETS = /^<|>$/g;
+/** A message's id: its Message-ID header without its brackets, else what its store names it by (the ids stored since Oct 2026). */
 export const mailIdOf = (
   header: string | null | undefined,
   fallback: number | string
-) => `mail:${header?.match(MESSAGE_ID)?.[1] || header?.trim() || fallback}`;
+) => `mail:${header?.replace(BRACKETS, "") || fallback}`;
 
 /** A message as a store gives it: its file (when it is there) and what the store says of it. */
 export interface StoredMessage {

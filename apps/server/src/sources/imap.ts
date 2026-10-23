@@ -141,7 +141,7 @@ const messageAt = (path: string) => {
 
 /** Whether the file at `path` is a whole message (an .emlx, a file of the copy), its files inside it. */
 export const isMessageFile = (path: string, root = MAILDIR) =>
-  path.endsWith(".emlx") || path.startsWith(root);
+  path.endsWith(".emlx") || path.startsWith(join(root, "/"));
 
 /** The copy's messages received at or after `since`, oldest first, as Mail's store gives them. */
 function messagesSince(since: Date, root: string): StoredMessage[] {
