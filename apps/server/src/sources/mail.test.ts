@@ -3,7 +3,14 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { emlxPart, mailAccounts, mailRoot, readMail } from "./mail";
+import {
+  isSentBox,
+  mailAccounts,
+  mailIdOf,
+  mailRoot,
+  messagePart,
+  readMail,
+} from "./mail";
 
 const emlx = (message: string) => {
   const bytes = Buffer.from(message.replace(/\n/g, "\r\n"), "utf8");
@@ -217,10 +224,10 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   ]);
   // A file inside the .emlx is read back by its part number; a part that is not there is nothing.
   expect(
-    emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#2")?.toString()
+    messagePart(join(dir, "1006.emlx"), "mail:files@example.com#2")?.toString()
   ).toBe("%PDF-");
   expect(
-    emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#9")
+    messagePart(join(dir, "1006.emlx"), "mail:files@example.com#9")
   ).toBeUndefined();
   // Each file is read once; a partial message is read again once Mail has it whole, under its own name.
   writeFileSync(join(dir, "1007.emlx"), emlx(ALTERNATIVE));
@@ -233,4 +240,15 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   ).toBe(
     "Big prize\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
   );
+});
+
+test("a message's id keeps what was stored, and a sent box is one by a word of its name", () => {
+  expect(mailIdOf("<abc@example.com>", 7)).toBe("mail:abc@example.com");
+  expect(mailIdOf("abc@example.com", 7)).toBe("mail:abc@example.com");
+  expect(mailIdOf(null, 7)).toBe("mail:7");
+  expect(
+    ["Sent Mail", "Messages envoyés", "Consent forms", "Presentations"].map(
+      isSentBox
+    )
+  ).toEqual([true, true, false, false]);
 });

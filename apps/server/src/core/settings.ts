@@ -55,6 +55,27 @@ export const Settings = z
       .optional(),
     /** The model runner the memory steps use; by default the host's (`HOST_ENGINE`). */
     engine: Engine.default(HOST_ENGINE),
+    /**
+     * His forge, where the git source's repos come from on a host without his checkouts: each repo his projects list
+     * (truth `repos:`) cloned into the `repos` folder and fetched every few minutes (`sources/forge.ts`), with the
+     * token `GITHUB_TOKEN`. Without it the `repos` folder is read as it is.
+     */
+    forge: z.literal("github").optional(),
+    /**
+     * His mailbox over IMAP, for a host without Mail.app: mbsync mirrors it into a Maildir every few minutes
+     * (`sources/imap.ts`) and the mail source reads that copy instead of Mail's store. The password is
+     * `LIFE_IMAP_PASSWORD` (an app password); `folders` are mbsync patterns, by default every folder but junk, trash
+     * and drafts (Gmail: `["[Gmail]/All Mail", "[Gmail]/Sent Mail"]`: every label once, and his sent mail, by which his addresses are known).
+     */
+    imap: z
+      .object({
+        folders: z.array(z.string()).min(1).optional(),
+        host: z.string(),
+        port: z.number().int().default(993),
+        user: z.string(),
+      })
+      .strict()
+      .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** lifelog's server; its token is `LIFELOG_TOKEN`. */
