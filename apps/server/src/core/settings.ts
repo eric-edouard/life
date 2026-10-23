@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./names";
 import { LIFE_STATE_DIR, real, runsFromRepo } from "./paths";
-import { HOME, MACHINE_DIR } from "./platform";
+import { HOME, HOST_ENGINE, MACHINE_DIR } from "./platform";
 
 /** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
 export const PAGES_CLIENT = "life";
@@ -53,8 +53,8 @@ export const Settings = z
         message: "another issuer needs its client and owner",
       })
       .optional(),
-    /** The model runner the memory steps use. */
-    engine: Engine.default("claude"),
+    /** The model runner the memory steps use; by default the host's (`HOST_ENGINE`). */
+    engine: Engine.default(HOST_ENGINE),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */

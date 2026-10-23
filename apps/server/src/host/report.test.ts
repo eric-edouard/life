@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import { AGENT_WORD } from "../core/names";
-import { notifyArgs, WINDOWS } from "../core/platform";
+import { MAC, notifyArgs } from "../core/platform";
 import { action, madeBy } from "../memory/record-fixtures";
 import { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../todo-list/items";
@@ -353,7 +353,7 @@ test('each "hey Life" is listed with what the memory holds of it', () => {
   expect(text).toContain("nothing held");
 });
 
-test.skipIf(WINDOWS)(
+test.skipIf(!MAC)(
   "a notification's words are the script's arguments, never its text",
   () => {
     const title = 'Life · "night" \u0007 done';

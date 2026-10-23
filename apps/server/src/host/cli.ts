@@ -23,6 +23,7 @@ import { archiveCommand } from "./archive";
 import { backup } from "./backup";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
+import { headless } from "./headless";
 import { LOCAL_PORT } from "./http/http";
 import { pair } from "./http/oauth";
 import { localKey } from "./http/signin";
@@ -217,6 +218,8 @@ const commands: Record<string, () => Promise<number>> = {
     console.log(`${done.id}: ${entryLine(done)}`);
     return 0;
   },
+  /** Life without the app (a server container's command): the services kept running, the nightly ticked (`headless.ts`). */
+  headless,
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
    * install, checked before and counted after), or his claude.ai or ChatGPT export (once; `--dry` only counts).

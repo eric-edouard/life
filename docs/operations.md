@@ -12,7 +12,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 | `OWNER_DATA_DIR` (env `LIFE_OWNER_DATA_DIR`) | The owner's data: `truth/`, `memory/`, `imports/` (the owner's claude.ai and ChatGPT exports, copied once by `bun life import`), `playbook.md` | Life.app: `MACHINE_DIR/data`; a checkout: `~/Life` |
 | `LIFE_STATE_DIR` (env too) | Life's own state: settings, log, the watcher's store, runs, the index | Life.app: `MACHINE_DIR/state`; a checkout: its own `derived/` |
 | `LIFE_CODE_DIR` (env too) | Life's own files: prompts, `docs/agent.md`, assets | Life.app: the helper's resources; a checkout: the checkout |
-| `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
+| `MACHINE_DIR` | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, `$XDG_DATA_HOME/Life` (default `~/.local/share/Life`) on Linux, shared by every install: the archive, the backup's staging, Codex's home, the service locks | |
 
 - `OWNER_DATA_DIR` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
@@ -42,7 +42,11 @@ sources, the agent, the agents' report senders, the Reminders and Past calendar 
   service starts again (the app restarts them; a checkout's LaunchAgents need a `kickstart`).
 - `bun life settings` prints it; `bun life settings set '<json>'` replaces parts of it, checked whole before anything is
   written. The app reads and writes settings only through this.
-- Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout.
+- Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout, and on a server
+  `LIFE_STATE_DIR/secrets.env` (mode 600, written by `setSecretEnv`, `core/secret.ts`), which `bun life headless`
+  passes to the services as the app passes the Keychain.
+- A page writes settings with `setSettings` and keys with `setSecretEnv`; `bun life headless` restarts the services
+  within about 10 s of either file changing.
 - Owner values are never defaults in code. Tests read `apps/server/src/test-data/state/settings.json`, made up.
 
 ## The services
@@ -55,6 +59,15 @@ every Keychain secret in its environment:
 | `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls the voice server's change feed into its store, rewrites the voice units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
+
+On a server `bun life headless` does the same, as the container's command (`apps/server/src/host/headless.ts`): the
+two services kept running, the tick every 30 minutes, `secrets.env` in their environment, every service started again
+when the settings or the keys change, and a SIGTERM ends them all. Its environment: `LIFE_OWNER_DATA_DIR`,
+`LIFE_STATE_DIR`, `HOME` (or `XDG_DATA_HOME`) on the one data volume, and `TZ`: the nightly's hours follow the
+process's clock, and on Linux only a `TZ` set for Life counts as the owner's zone (`systemZone`). It needs `git` on the
+PATH, and an init (Compose's `init: true`) to reap its children's children. The public port (`PUBLIC_PORT`) listens
+on loopback, or on `LIFE_LISTEN_HOST` (0.0.0.0 for a tunnel in another container); the local port always on loopback. Where `/proc` tells a process's start, a lock keeps its
+holder's and only that process holds it (`held`), since a container starts its pids again at 1.
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
@@ -149,7 +162,9 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
 ## Model engines
 
 - Calls go through `apps/server/src/models/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
-  claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
+  claude|codex`) on the Mac host; on a server `openrouter` with `OPENROUTER_API_KEY`, DeepSeek V4.1 Flash on every
+  tier, every request `zdr: true` and `data_collection: "deny"`; or an API key (engine `anthropic` or `openai`) for an
+  install with neither. An install with no `engine` setting takes its host's (`HOST_ENGINE`, `platform.ts`). Each provider is one
   entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction
@@ -158,8 +173,8 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
   is the agent bench's agent, whose only tools are Life's connector, frozen and dry: Codex still read-only, with no
   shell but code mode's `exec` (its only way to MCP) and its nested real-time clock, which the bench's prompt says not
   to read.
-- The model bench's OpenRouter calls (`askOpenRouter`, `OPENROUTER_API_KEY`) are pinned to hosts on OpenRouter's
-  zero-retention list and run only through `LIFE_LLM` on a copy of the data; `LIFE_LLM` is refused on the live data.
+- The model bench pins its OpenRouter calls to one host (`author/model@host` in `LIFE_LLM`), fp8, no fallback, on a
+  copy of the data only; `LIFE_LLM` is refused on the live data.
 
 ## Backups and exports
 

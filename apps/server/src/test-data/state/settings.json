@@ -15,6 +15,7 @@
     "origin": "https://life.example.test",
     "owner": "owner-sub"
   },
+  "engine": "claude",
   "lifeChat": "!life:beeper.local",
   "mail": {
     "from": "alerts@life.example.test",

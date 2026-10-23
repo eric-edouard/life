@@ -306,7 +306,7 @@ final class HostModel {
     /// Life's voice settings: the voice server's address and the reader's token (corrections scope).
     func copyReaderSettings() {
         guard let server, let token = secrets.readerToken else { return }
-        copy("lifelog url: \(server.absoluteString)\nLIFELOG_TOKEN=\(token)")
+        copy("voice server url: \(server.absoluteString)\nVOICE_TOKEN=\(token)")
     }
 
     func copy(_ text: String) {

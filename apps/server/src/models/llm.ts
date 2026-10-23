@@ -1,5 +1,6 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
-// engine (`claude -p` or `codex exec`), or for the bench alone through OpenRouter; and how full his Codex quota is. The
+// engine (`claude -p` or `codex exec` on the Mac host, OpenRouter on a server, or an API key); and how full his Codex
+// quota is. The
 // one call with tools is the agent bench's (scripts/bench-agent.ts): Life's own connector, frozen, and nothing else.
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -8,7 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { MIN } from "../core/clock";
 import { log } from "../core/log";
-import { type Engine, Runner } from "../core/names";
+import { Engine } from "../core/names";
 import { isHis, LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { CODEX, MACHINE_DIR, MODEL_ENV } from "../core/platform";
 import { exec, firstLine } from "../core/proc";
@@ -41,10 +42,10 @@ export function extractJson(text: string): unknown {
 /** What a step needs: repos and files fast, pages main, moments and extract deep (~/Life/docs/evals/events-2026-10-18.md). */
 export type Tier = "fast" | "main" | "deep";
 
-/** The runner, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an OpenRouter model is `author/model@host`). */
+/** The runner, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an OpenRouter model may be pinned, `author/model@host`). */
 export interface Llm {
   effort?: string;
-  engine: Runner;
+  engine: Engine;
   model: string;
 }
 
@@ -109,7 +110,7 @@ export function llmOverride(
   if (rest.length === 0) {
     throw new Error(`LIFE_LLM is engine/model[/effort], not ${set}`);
   }
-  return { effort, engine: Runner.parse(engine), model: rest.join("/") };
+  return { effort, engine: Engine.parse(engine), model: rest.join("/") };
 }
 
 /** An `Llm` as `LIFE_LLM` names it, `engine/model[/effort]`: for `LIFE_LLM`, the log and the nightly email. */
@@ -117,6 +118,16 @@ export const llmSpec = (l: Llm) =>
   [l.engine, l.model, l.effort].filter(Boolean).join("/");
 
 const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+/**
+ * A server's model on every tier (benched 23 Oct 2026): DeepSeek V4.1 Flash, the 17 Oct snapshot, through OpenRouter,
+ * on any endpoint that keeps nothing (`askOpenRouter`).
+ */
+const DEEPSEEK: Record<Tier, string> = {
+  deep: "deepseek/deepseek-v4.1-flash-1017",
+  fast: "deepseek/deepseek-v4.1-flash-1017",
+  main: "deepseek/deepseek-v4.1-flash-1017",
+};
 
 /** The API's models by tier, as the CLI's: Opus deep, Sonnet main, Haiku fast. */
 const ANTHROPIC_MODELS: Record<Tier, string> = {
@@ -467,36 +478,28 @@ export async function quota(engine?: Engine) {
 }
 
 /**
- * One call through OpenRouter, the bench's alone (`llmOverride`): pinned to the host after `@`, in fp8 (each bench
- * host's endpoint for its model is, 20 Oct 2026), routed only to endpoints that keep nothing (`zdr`, `data_collection: deny`), no
- * fallback, every parameter honored, and refused when another host served it. No tools; the key
- * (OPENROUTER_API_KEY in .env) is read here only.
+ * One call through OpenRouter: a server's engine, and the bench's. Routed only to endpoints that keep nothing (`zdr`,
+ * `data_collection: deny`), every parameter honored. A model pinned to a host (`author/model@host`, the bench's) runs
+ * there alone, in fp8 (each bench host's endpoint for its model is, 20 Oct 2026), with no fallback, and is refused when
+ * another host served it. No tools; the key (OPENROUTER_API_KEY) is read here only.
  */
 async function askOpenRouter({ dir, images, input, llm, system }: Call) {
   const key = process.env.OPENROUTER_API_KEY;
   const [model, host] = llm.model.split("@");
-  if (!(key && host)) {
-    throw new Error(
-      "openrouter needs OPENROUTER_API_KEY in .env and a model as author/model@host"
-    );
-  }
-  if (images.length > 0) {
-    throw new Error("the bench sends no images through OpenRouter");
+  if (!key) {
+    throw new Error("openrouter needs OPENROUTER_API_KEY");
   }
   const answer = await chatCompletion("openrouter", OPENROUTER, key, dir, {
     max_tokens: OPENROUTER_MAX_TOKENS,
-    messages: [
-      { content: system, role: "system" },
-      { content: JSON.stringify(input), role: "user" },
-    ],
+    messages: await chatMessages(system, input, images),
     model,
     provider: {
-      allow_fallbacks: false,
       data_collection: "deny",
-      only: [host],
-      quantizations: ["fp8"],
       require_parameters: true,
       zdr: true,
+      ...(host
+        ? { allow_fallbacks: false, only: [host], quantizations: ["fp8"] }
+        : {}),
     },
     ...(llm.effort ? { reasoning: { effort: llm.effort } } : {}),
   });
@@ -504,13 +507,34 @@ async function askOpenRouter({ dir, images, input, llm, system }: Call) {
   const fields = {
     costUsd: reply.usage.cost,
     host: reply.provider,
+    tokens: tokensOf(reply.usage),
     usage: reply.usage,
   };
   const refusal =
-    slug(reply.provider) === slug(host)
+    !host || slug(reply.provider) === slug(host)
       ? undefined
       : `openrouter: served by ${reply.provider}, not ${host}`;
   return { fields, refusal: refusal ?? answer.refusal, text: answer.text };
+}
+
+/** The system prompt, then the input as JSON with its images after it, as chat completions take them. */
+async function chatMessages(system: string, input: unknown, images: string[]) {
+  const pictures = await Promise.all(
+    images.map(async (path) => {
+      const { source } = await imageBlock(path);
+      return {
+        image_url: { url: `data:${source.media_type};base64,${source.data}` },
+        type: "image_url",
+      };
+    })
+  );
+  return [
+    { content: system, role: "system" },
+    {
+      content: [{ text: JSON.stringify(input), type: "text" }, ...pictures],
+      role: "user",
+    },
+  ];
 }
 
 /**
@@ -615,43 +639,32 @@ const OpenAIUsage = z
   })
   .nullish();
 
+/** A chat completion's usage as `Tokens`; none when it sent no usage. */
+const tokensOf = (usage: unknown): Tokens | undefined => {
+  const u = OpenAIUsage.safeParse(usage).data;
+  return u
+    ? {
+        cached: u.prompt_tokens_details?.cached_tokens ?? 0,
+        input: u.prompt_tokens,
+        output: u.completion_tokens,
+      }
+    : undefined;
+};
+
 /** One call through OpenAI's API with his key, at the tier's reasoning effort. */
 async function askOpenAI({ dir, images, input, llm, system }: Call) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     throw new Error("openai needs OPENAI_API_KEY");
   }
-  const pictures = await Promise.all(
-    images.map(async (path) => {
-      const { source } = await imageBlock(path);
-      return {
-        image_url: { url: `data:${source.media_type};base64,${source.data}` },
-        type: "image_url",
-      };
-    })
-  );
   const answer = await chatCompletion("openai", OPENAI, key, dir, {
-    messages: [
-      { content: system, role: "system" },
-      {
-        content: [{ text: JSON.stringify(input), type: "text" }, ...pictures],
-        role: "user",
-      },
-    ],
+    messages: await chatMessages(system, input, images),
     model: llm.model,
     reasoning_effort: llm.effort,
   });
-  const u = z.object({ usage: OpenAIUsage }).parse(answer.json).usage;
+  const tokens = tokensOf((answer.json as { usage?: unknown }).usage);
   return {
-    fields: u
-      ? {
-          tokens: {
-            cached: u.prompt_tokens_details?.cached_tokens ?? 0,
-            input: u.prompt_tokens,
-            output: u.completion_tokens,
-          },
-        }
-      : undefined,
+    fields: tokens ? { tokens } : undefined,
     refusal: answer.refusal,
     text: answer.text,
   };
@@ -669,18 +682,17 @@ const codexQuota = async () =>
   );
 
 /**
- * Every model provider, one entry each: its models by tier (OpenRouter's come from `LIFE_LLM` alone), its effort, its
- * call, whether it may run tools (his subscriptions only), and how full its quota is when it has one.
+ * Every model provider, one entry each: its models by tier, its effort, its call, whether it may run tools (his
+ * subscriptions only), and how full its quota is when it has one.
  */
 interface Provider {
   ask: (call: Call) => Promise<Answer>;
   effort?: Record<Tier, string>;
-  models?: Record<Tier, string>;
+  models: Record<Tier, string>;
   quota?: () => Promise<Quota | undefined>;
   tools: boolean;
 }
-const PROVIDERS: Record<Engine, Provider & { models: Record<Tier, string> }> &
-  Record<"openrouter", Provider> = {
+const PROVIDERS: Record<Engine, Provider> = {
   anthropic: {
     ask: askAnthropic,
     effort: EFFORT,
@@ -696,7 +708,12 @@ const PROVIDERS: Record<Engine, Provider & { models: Record<Tier, string> }> &
     tools: true,
   },
   openai: { ask: askOpenAI, effort: EFFORT, models: SOL, tools: false },
-  openrouter: { ask: askOpenRouter, tools: false },
+  openrouter: {
+    ask: askOpenRouter,
+    effort: EFFORT,
+    models: DEEPSEEK,
+    tools: false,
+  },
 };
 
 /**

@@ -29,7 +29,8 @@ and what it does not.
   to its code. The one exception is the owner's spoken "hey Life" marker, which only keeps a conversation read; it never
   acts. Models return JSON validated by schemas, and every quote is checked against its source.
 - The text Life reads is sent to the model provider the owner chooses (Anthropic or OpenAI, through the owner's own
-  subscription's CLI or an API key the owner provides). That provider's terms apply to it.
+  subscription's CLI or an API key the owner provides; on a server, OpenRouter with the owner's key, every request
+  routed only to endpoints with zero data retention that do not collect data). That provider's terms apply to it.
 
 ### Network surface
 
@@ -50,7 +51,8 @@ and what it does not.
 
 This is the one list; nothing else leaves.
 
-- To the model provider the owner chose (Anthropic or OpenAI): the text Life reads, as described under Models.
+- To the model provider the owner chose (Anthropic or OpenAI; on a server, OpenRouter and the zero-retention host it
+  routes to): the text Life reads, as described under Models.
 - To an assistant the owner connected: what it reads through the connector, when it asks.
 - The nightly report and the alerts, by email to the owner through Resend, when the `mail` setting is set (otherwise a
   macOS notification, which stays on the Mac).
