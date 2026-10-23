@@ -13,7 +13,7 @@ import {
 import { git } from "../core/proc";
 import { SETTINGS } from "../core/settings";
 import { type Chat, Person } from "../records/truth";
-import { WATCH } from "../sources/lifelog";
+import { WATCH } from "../sources/voice";
 import { OUT } from "./ledger";
 import {
   goalProjects,

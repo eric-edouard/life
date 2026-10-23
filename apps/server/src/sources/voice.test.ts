@@ -1,16 +1,22 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import {
+  conversation,
+  pageFixture,
+  voiceStore as store,
+  turnFixture,
+  voiceServer,
+} from "./store-fixtures";
 import {
   apply,
   conversationsWith,
   endedOnSilence,
   Hits,
   isConversationClosed,
-  LifelogStatus,
   newestTurn,
   openStore,
   ownerSpoke,
@@ -24,17 +30,10 @@ import {
   Transcript,
   turnPlace,
   turnsBetween,
+  VoiceStatus,
   visits,
   writeMarks,
-} from "./lifelog";
-import {
-  chapter,
-  conversation,
-  lifelogServer,
-  pageFixture,
-  lifelogStore as store,
-  turnFixture,
-} from "./store-fixtures";
+} from "./voice";
 
 const since = new Date("2026-10-01T00:00:00Z");
 const JEAN = "person-jean";
@@ -46,10 +45,6 @@ test("a name given to one turn names that turn, not the whole voice", () => {
   apply(
     s,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-        chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
-      ],
       conversations: [conversation("c1")],
       turns: [
         turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
@@ -60,7 +55,12 @@ test("a name given to one turn names that turn, not the whole voice", () => {
     })
   );
   const [c] = readConversations(s, since);
-  expect(c?.chapters.map((h) => h.people)).toEqual([["Anne-Sophie"], []]);
+  expect(c?.turns.map((t) => t.name)).toEqual([
+    null,
+    "Anne-Sophie",
+    null,
+    null,
+  ]);
   expect(
     turnsBetween(
       s,
@@ -71,7 +71,7 @@ test("a name given to one turn names that turn, not the whole voice", () => {
   ).toEqual([null, "Anne-Sophie", null]);
 });
 
-test("a turn is his while the store credits him now: one lifelog later names someone else, or no one, is not", () => {
+test("a turn is his while the store credits him now: one the voice server later names someone else, or no one, is not", () => {
   const s = store();
   const at = "2026-10-14T10:00:00.000Z";
   const ref = `job-1:0@${at}`;
@@ -92,42 +92,60 @@ test("a turn is his while the store credits him now: one lifelog later names som
   expect(ownerSpoke(s, "msg-1")).toBe(false);
 });
 
-test("a chapter holds its turns, its first turn's ref, and names the map gives its people", () => {
+test("a conversation holds its turns, in order, with the names the map gives its people, and only his own title", () => {
   const s = store();
   apply(
     s,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-        chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
-      ],
       conversations: [conversation("c1", { ownerTitle: "Plumber visit" })],
       turns: [
-        turnFixture(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)"),
         turnFixture(1, "2026-10-14T10:04:00.000Z", ANNE, "Anne-Sophie"),
-        turnFixture(2, "2026-10-14T10:05:00.000Z", ANNE, "Anne-Sophie"),
+        turnFixture(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)"),
       ],
     })
   );
   const [c] = readConversations(s, since, new Map([[JEAN, "Jean Dupont"]]));
   expect(c?.title).toBe("Plumber visit");
-  const [a, b] = c?.chapters ?? [];
-  expect(a?.items).toBe(2);
-  expect(a?.ref).toBe("job-1:0@2026-10-14T10:00:00.000Z");
-  expect(a?.people).toEqual(["Jean Dupont", "Anne-Sophie"]);
-  expect(b?.items).toBe(1);
-  expect(b?.ref).toBe("job-1:2@2026-10-14T10:05:00.000Z");
+  expect(c?.turns.map((t) => [t.turnIndex, t.name])).toEqual([
+    [0, "Jean Dupont"],
+    [1, "Anne-Sophie"],
+  ]);
+  // The server's own (model) title is never read.
+  apply(
+    s,
+    pageFixture({
+      conversations: [conversation("c1", { title: "A model's title" })],
+    })
+  );
+  expect(readConversations(s, since)[0]?.title).toBe("");
 });
 
-test("a retired conversation gives no units, its successor's chapters do; removed rows go", () => {
+test("only a transcribed conversation with words is read: not one still transcribing, nor a silent one", () => {
   const s = store();
   apply(
     s,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-        chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
+      conversations: [
+        conversation("c1"),
+        conversation("c2", { state: "transcribing" }),
+        conversation("c3", { state: "summarized" }),
+        conversation("c4"),
       ],
+      turns: [
+        turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1"),
+        turnFixture(1, "2026-10-14T10:01:00.000Z", null, null, "c2"),
+        turnFixture(2, "2026-10-14T10:02:00.000Z", null, null, "c3"),
+      ],
+    })
+  );
+  expect(readConversations(s, since).map((c) => c.id)).toEqual(["c1", "c3"]);
+});
+
+test("a retired conversation is not read, its successor is; removed rows go", () => {
+  const s = store();
+  apply(
+    s,
+    pageFixture({
       conversations: [
         conversation("c1"),
         conversation("c0", { retired: { successorId: "c1" } }),
@@ -136,31 +154,22 @@ test("a retired conversation gives no units, its successor's chapters do; remove
       turns: [
         turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
         turnFixture(1, "2026-10-14T10:06:00.000Z", null, null),
+        turnFixture(2, "2026-10-14T10:07:00.000Z", null, null, "c0"),
       ],
     })
   );
   expect(readConversations(s, since).map((x) => x.id)).toEqual(["c1"]);
-  apply(
-    s,
-    pageFixture({
-      removed: [
-        { kind: "chapter", ref: "b" },
-        { kind: "turn", ref: "job-1:1" },
-      ],
-    })
-  );
+  apply(s, pageFixture({ removed: [{ kind: "turn", ref: "job-1:1" }] }));
   const [c] = readConversations(s, since);
-  expect(c?.chapters.map((h) => h.id)).toEqual(["a"]);
-  expect(c?.chapters[0]?.items).toBe(1);
+  expect(c?.turns.map((t) => t.turnIndex)).toEqual([0]);
+  apply(s, pageFixture({ removed: [{ kind: "conversation", ref: "c1" }] }));
+  expect(readConversations(s, since)).toEqual([]);
 });
 
 test("applying a page twice changes nothing, and an empty store is no conversations", () => {
   const s = store();
   expect(readConversations(s, since)).toEqual([]);
   const p = pageFixture({
-    chapters: [
-      chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-    ],
     conversations: [conversation("c1")],
     turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null)],
   });
@@ -199,7 +208,7 @@ test("a turn's place in its conversation, and a person's conversations newest fi
 });
 
 test("search posts the words and the range with the device token and returns the hits", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     "/search": () => ({
       hits: [
         {
@@ -247,7 +256,7 @@ test("the owner flag is stored and read back; poll lists a turn as his once, a l
     "Anne-Sophie",
     "c1"
   );
-  const server = lifelogServer({
+  const server = voiceServer({
     "/changes": () =>
       pageFixture({
         conversations: [conversation("c1")],
@@ -306,7 +315,7 @@ test("a turn keeps its end and when the feed first brought it", () => {
 test("poll also lists a new turn nobody is named for, once", async () => {
   const s = store();
   const lost = turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1");
-  const server = lifelogServer({
+  const server = voiceServer({
     "/changes": () =>
       pageFixture({ conversations: [conversation("c1")], turns: [lost] }),
   });
@@ -321,7 +330,7 @@ test("poll also lists a new turn nobody is named for, once", async () => {
 });
 
 test("a store made before the contract's closed and endedOnSilence opens, drops its old jobs table and reads both", () => {
-  const dir = mkdtempSync(join(tmpdir(), "life-lifelog-"));
+  const dir = mkdtempSync(join(tmpdir(), "life-voice-"));
   try {
     const old = new Database(storeFiles(dir).file);
     old.run(`create table conversations (
@@ -352,8 +361,8 @@ test("a store made before the contract's closed and endedOnSilence opens, drops 
   }
 });
 
-// lifelog's published contract, kept current by its own gate. On a Mac without the checkout there is nothing to check.
-const CONTRACT = join(homedir(), "Work/lifelog/apps/server/openapi.json");
+// The voice server's published contract, in this repo and kept current by the gate.
+const CONTRACT = join(import.meta.dir, "../../../voice/openapi.json");
 
 interface Json {
   $ref?: string;
@@ -396,47 +405,32 @@ function drift(
     : out;
 }
 
-test.skipIf(!existsSync(CONTRACT))(
-  "Life reads lifelog's API with the contract's nullability: a field lifelog may send null or leave out never stops the watcher",
-  async () => {
-    const api = await Bun.file(CONTRACT).json();
-    const answer = (path: string, method: string) =>
-      api.paths[path][method].responses["200"].content["application/json"]
-        .schema;
-    const ours = (s: z.ZodType) =>
-      z.toJSONSchema(s, { io: "input", unrepresentable: "any" }) as Json;
-    const defs = api.components.schemas;
-    expect([
-      ...drift(ours(Page), answer("/changes", "get"), defs, "changes"),
-      ...drift(
-        ours(Transcript),
-        answer("/transcription-jobs/{id}/transcript", "get"),
-        defs,
-        "transcript"
-      ),
-      ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
-      ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
-      ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
-      // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
-      // optional and nullable (tested below) and there is nothing to compare.
-    ]).toEqual([]);
-  }
-);
+test("Life reads the voice server's API with the contract's nullability: a field the voice server may send null or leave out never stops the watcher", async () => {
+  const api = await Bun.file(CONTRACT).json();
+  const answer = (path: string, method: string) =>
+    api.paths[path][method].responses["200"].content["application/json"].schema;
+  const ours = (s: z.ZodType) =>
+    z.toJSONSchema(s, { io: "input", unrepresentable: "any" }) as Json;
+  const defs = api.components.schemas;
+  expect([
+    ...drift(ours(Page), answer("/changes", "get"), defs, "changes"),
+    ...drift(
+      ours(Transcript),
+      answer("/transcription-jobs/{id}/transcript", "get"),
+      defs,
+      "transcript"
+    ),
+    ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
+    ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
+    ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
+    // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so VoiceStatus takes each field as
+    // optional and nullable (tested below) and there is nothing to compare.
+  ]).toEqual([]);
+});
 
 test("a feed page with a turn not yet in a conversation and a conversation retired with no successor is read", () => {
   const p = Page.parse(
     pageFixture({
-      chapters: [
-        {
-          ...chapter(
-            "a",
-            "2026-10-14T10:00:00.000Z",
-            "2026-10-14T10:05:00.000Z"
-          ),
-          summary: null,
-          title: null,
-        },
-      ],
       conversations: [conversation("c1", { retired: { successorId: null } })],
       turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, null)],
     })
@@ -448,9 +442,9 @@ test("a feed page with a turn not yet in a conversation and a conversation retir
   expect(readConversations(s, since)).toEqual([]);
 });
 
-test("visits: lifelog's 404 (no place the phone named matches) is no stays", async () => {
-  // No route: the test server answers 404, as lifelog does when nothing matches.
-  const server = lifelogServer({});
+test("visits: the voice server's 404 (no place the phone named matches) is no stays", async () => {
+  // No route: the test server answers 404, as the voice server does when nothing matches.
+  const server = voiceServer({});
   try {
     expect(await visits({ place: "Nowhere" })).toEqual([]);
   } finally {
@@ -458,30 +452,12 @@ test("visits: lifelog's 404 (no place the phone named matches) is no stays", asy
   }
 });
 
-test("a chapter holds the marks whose wake turn is in it, as lifelog has the turn now: re-cut, named or gone", () => {
+test("a turn holds the marks whose wake it is, as the voice server has the turn now: regrouped, named or gone", () => {
   const s = store();
   const R0 = "job-1:0@2026-10-14T10:01:00.000Z";
   const R1 = "job-1:1@2026-10-14T10:06:00.000Z";
   const cut = (id: string) =>
     pageFixture({
-      chapters: [
-        {
-          ...chapter(
-            "a",
-            "2026-10-14T10:00:00.000Z",
-            "2026-10-14T10:05:00.000Z"
-          ),
-          conversationId: id,
-        },
-        {
-          ...chapter(
-            "b",
-            "2026-10-14T10:05:00.000Z",
-            "2026-10-14T10:10:00.000Z"
-          ),
-          conversationId: id,
-        },
-      ],
       conversations: [conversation(id)],
       turns: [
         turnFixture(0, "2026-10-14T10:01:00.000Z", null, null, id, true),
@@ -493,16 +469,16 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
   const marked = (id: string) =>
     readConversations(s, since)
       .find((c) => c.id === id)
-      ?.chapters.map((h) => h.marked);
+      ?.turns.map((t) => t.marks);
   expect(marked("c1")).toEqual([[R0, "r0b"], [R1]]);
-  // Re-cut into c2: the marks follow their turns. Heard again with no mark from 10:05: that one goes.
+  // Regrouped into c2: the marks follow their turns. Heard again with no mark from 10:05: that one goes.
   apply(s, cut("c2"));
   expect(marked("c2")).toEqual([[R0, "r0b"], [R1]]);
   writeMarks(s, "c2", "2026-10-14T10:05:00.000Z", []);
-  expect(marked("c2")).toEqual([[R0, "r0b"], undefined]);
+  expect(marked("c2")).toEqual([[R0, "r0b"], []]);
   // Heard again unchanged: nothing to rebuild.
   expect(writeMarks(s, "c2", "", [[R0, "r0b"]])).toBe(false);
-  // lifelog transcribed the recording again: another turn at the same index (a new start) is not the wake.
+  // the voice server transcribed the recording again: another turn at the same index (a new start) is not the wake.
   apply(
     s,
     pageFixture({
@@ -511,7 +487,7 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
       ],
     })
   );
-  expect(marked("c2")).toEqual([undefined, undefined]);
+  expect(marked("c2")).toEqual([[], []]);
   apply(
     s,
     pageFixture({
@@ -520,7 +496,7 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
       ],
     })
   );
-  // lifelog names someone else for the wake turn: no longer his mark.
+  // the voice server names someone else for the wake turn: no longer his mark.
   apply(
     s,
     pageFixture({
@@ -529,19 +505,19 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
       ],
     })
   );
-  expect(marked("c2")).toEqual([undefined, undefined]);
+  expect(marked("c2")).toEqual([[], []]);
 });
 
-test("lifelog's /status is read whatever its untyped objects hold: absent, null, or partly there", () => {
-  expect(LifelogStatus.parse({})).toEqual({});
+test("the voice server's /status is read whatever its untyped objects hold: absent, null, or partly there", () => {
+  expect(VoiceStatus.parse({})).toEqual({});
   expect(
-    LifelogStatus.parse({ other: 1, pendant: null, phoneHeartbeat: null })
+    VoiceStatus.parse({ other: 1, pendant: null, phoneHeartbeat: null })
   ).toEqual({
     pendant: null,
     phoneHeartbeat: null,
   });
   expect(
-    LifelogStatus.parse({
+    VoiceStatus.parse({
       pendant: { batteryPercent: 0, connection: null, recording: "recording" },
       phoneHeartbeat: { backlog: null },
     }).pendant?.batteryPercent

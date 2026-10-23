@@ -7,14 +7,6 @@ import { AGENT_WORD } from "../core/names";
 import type { Moment } from "../records/moment";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { apply, readConversations } from "../sources/lifelog";
-import {
-  chapter,
-  conversation,
-  lifelogStore,
-  pageFixture,
-  turnFixture,
-} from "../sources/store-fixtures";
 import { tasksOf } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
 import { action } from "./record-fixtures";
@@ -38,20 +30,8 @@ import { newestDays } from "./units";
 import { meant, namedLike, nearNames } from "./who";
 import { holdsAll } from "./words";
 
-test("day: the conversations with their chapters and people, then the chat and mail units", () => {
-  const store = lifelogStore();
-  apply(
-    store,
-    pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-      ],
-      conversations: [conversation("c1")],
-      turns: [turnFixture(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie")],
-    })
-  );
+test("day: its units, a recorded conversation among them, then its key observations", () => {
   const lines = dayLines({
-    conversations: readConversations(store, new Date("2026-10-14T00:00:00Z")),
     facts: ['- obs_1 2026-10-14 todo: Call the glazier "call him"'],
     units: [
       {
@@ -61,18 +41,21 @@ test("day: the conversations with their chapters and people, then the chat and m
         title: "Team",
         topics: "glass",
       },
+      {
+        date: "2026-10-14",
+        id: "unit_000000000002",
+        source: "voice",
+        title: "Recorded conversation",
+        topics: "plumbing",
+      },
     ],
   });
-  expect(lines).toContain("Recorded conversations (1; `fetch <id>`):");
-  expect(
-    lines.some((l) => l.includes("- c1 ") && l.endsWith("The plumber"))
-  ).toBe(true);
-  expect(lines.some((l) => l.includes("a (Anne-Sophie): Summary of a"))).toBe(
-    true
-  );
-  expect(lines).toContain("Chat and mail units (1; `fetch <unit id>`):");
+  expect(lines).toContain("Units (2; `fetch <unit id>`):");
   expect(lines).toContain(
     "- unit_000000000001 2026-10-14 whatsapp: Team [glass]"
+  );
+  expect(lines).toContain(
+    "- unit_000000000002 2026-10-14 voice: Recorded conversation [plumbing]"
   );
   expect(lines.slice(-2)).toEqual([
     "Key observations:",
@@ -126,7 +109,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
     id: "obs_1",
     importance: 2,
     quote: "il est à rework",
-    source: { channel: "lifelog", ref: "j:0@x" },
+    source: { channel: "voice", ref: "j:0@x" },
     text: "Jean will rework the photo-app beautify prompt.",
     type: "to_do",
     unit: "unit_000000000001",
@@ -135,7 +118,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
     date: "2026-10-14",
     id: "unit_000000000001",
     people: ["person:jerome", "unknown:Bob"],
-    source: "lifelog",
+    source: "voice",
     title: "Improving output prompts before advertising tests",
   } as unknown as Unit;
   const standing = {
@@ -148,7 +131,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
   const db = new Database(path, { readonly: true });
   const [hit] = searchMatches(db, "beautify");
   expect(hit).toEndWith(
-    '(lifelog "Improving output prompts before advertising tests"; jerome, Bob)'
+    '(voice "Improving output prompts before advertising tests"; jerome, Bob)'
   );
   // A handle held across a rebuild reads the new index (one held across a file swap failed).
   buildIndex([{ ...o, text: "Jean will polish the prompt." }], path, standing);
@@ -191,9 +174,9 @@ test("search: an observation hit names the unit it comes from and who is in it",
   // What Life holds about someone: by source and by month, and what it can't hold.
   const cover = coverageLines(db, "person:jerome", []);
   expect(cover[0]).toContain("its memory starts on 2026-10-14");
-  expect(cover).toContain("- lifelog: 1 units, 2026-10-14 to 2026-10-14");
+  expect(cover).toContain("- voice: 1 units, 2026-10-14 to 2026-10-14");
   expect(cover).toContain(
-    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 moments"
+    "- 2026-10: 1 units (voice 1), 0 observations, 0 moments"
   );
   expect(cover.at(-1)).toContain("calls");
   db.close();
@@ -266,7 +249,7 @@ test("a day opens with what happened: its moments, when, what, where, how they s
     "Moments (what happened or is planned):",
     momentLine(m),
   ]);
-  expect(dayLines({})[0]).toStartWith("Recorded conversations");
+  expect(dayLines({})[0]).toStartWith("Units (0;");
 });
 
 test("holding all the words: case and accents ignored, every word needed, a query with no word holds nothing", () => {
@@ -326,7 +309,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
       id,
       importance: 3,
       quote: "tomorrow I'm going to call them",
-      source: { channel: "lifelog", ref: "j:8@x" },
+      source: { channel: "voice", ref: "j:8@x" },
       speaker: "person:me",
       text: "Call the shop to ask for a morning pickup before booking the train.",
       type: "to_do",
@@ -406,7 +389,7 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
   expect(lines.filter((l) => l.endsWith(" (overdue)"))).toEqual(
     lines.slice(4, 6)
   );
-  // Who spoke, when not him: "by" a sender, "heard as" a voice (lifelog misnames some).
+  // Who spoke, when not him: "by" a sender, "heard as" a voice (the voice server misnames some).
   expect(lines.map((l) => l.match(SAID_BY)?.[0] ?? "")).toEqual([
     " by jean",
     " heard as jean",

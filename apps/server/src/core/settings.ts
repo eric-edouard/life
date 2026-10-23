@@ -57,8 +57,6 @@ export const Settings = z
     engine: Engine.default("claude"),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
-    /** lifelog's server; its token is `LIFELOG_TOKEN`. */
-    lifelog: z.object({ url: z.url() }).strict().optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
     /** The calendar the moments are projected on (`host/past-calendar.ts`): a Google one through `gog` as `account`, or without one an Apple one through the app's EventKit tool. */
@@ -74,7 +72,7 @@ export const Settings = z
     sources: z.array(SourceName).default([]),
     /**
      * His agent, the one "hey <name>" hands his words to (`hear.ts`, `host/agent.ts`): its name (what Life calls it, and
-     * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
+     * its Reminders board), the words that wake it, how the voice server mishears them (a misheard wake counts only on his own
      * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
      * nothing wakes an agent.
      */
@@ -91,6 +89,8 @@ export const Settings = z
           .strict(),
       ])
       .optional(),
+    /** The voice server; its token is `VOICE_TOKEN`. */
+    voice: z.object({ url: z.url() }).strict().optional(),
   })
   .strict();
 export type Settings = z.infer<typeof Settings>;
@@ -103,7 +103,7 @@ export function readSettings(path = SETTINGS): Settings {
     // The app's settings (a checkout's link to them included) only the app renames: it is still reading them.
     if (runsFromRepo() && real(path).startsWith(real(MACHINE_DIR))) {
       throw new Error(
-        `${path} has the names from before 22 Oct 2026: the new Life.app renames them, never a checkout`
+        `${path} has the names from before the voice cutover: the new Life.app renames them, never a checkout`
       );
     }
     writeWhole(path, renamed);
@@ -112,22 +112,22 @@ export function readSettings(path = SETTINGS): Settings {
 }
 
 /**
- * The names this file had before 22 Oct 2026, renamed (AGENTS.md, "A rename backfills"): the `actions` key is
- * `todo_list`, the agent's source `atlas` is `agent`. Here, not in host/migrate.ts: settings are read as modules load.
- * The same object when there is nothing to rename. Delete once every install has read its file again.
+ * The names this file had before the voice cutover, renamed (AGENTS.md, "A rename backfills"): the `lifelog` key is
+ * `voice`, and so is the source. Here, not in host/migrate.ts: settings are read as modules load. The same object when
+ * there is nothing to rename. Delete once every install has read its file again.
  */
 export function renamedSettings(raw: Record<string, unknown>) {
-  const { actions, ...rest } = raw;
+  const { lifelog, ...rest } = raw;
   const sources = Array.isArray(raw.sources) ? raw.sources : [];
-  if (actions === undefined && !sources.includes("atlas")) {
+  if (lifelog === undefined && !sources.includes("lifelog")) {
     return raw;
   }
   return {
     ...rest,
     ...(Array.isArray(raw.sources)
-      ? { sources: sources.map((s) => (s === "atlas" ? "agent" : s)) }
+      ? { sources: sources.map((s) => (s === "lifelog" ? "voice" : s)) }
       : {}),
-    ...(actions === undefined ? {} : { todo_list: actions }),
+    ...(lifelog === undefined ? {} : { voice: lifelog }),
   };
 }
 

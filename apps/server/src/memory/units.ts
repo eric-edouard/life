@@ -10,11 +10,12 @@ import { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
 import {
-  type LifelogConversation,
   readConversations,
   type Store,
+  turnRef,
+  type VoiceConversation,
   withStore,
-} from "../sources/lifelog";
+} from "../sources/voice";
 import { LIFE_MAIL } from "./email";
 import {
   keptConversations,
@@ -29,9 +30,10 @@ import { loadTruth, OWNER, ownerIn, type Truth } from "./read-truth";
 import { enabledSources, kindOf, readySources, sourceOf } from "./sources";
 import { dayStart, localDate, wall } from "./zones";
 
-// Units (docs/architecture.md, "The pipeline"): one lifelog chapter, one chat-day, mail thread-day, note-day or repo-day. Built by
-// code, nothing judged yet. A unit's id is stable (same chapter or day -> same id); its hash changes when its content
-// does, so a verdict is reused only while the content is unchanged.
+// Units (docs/architecture.md, "The pipeline"): one conversation-day, chat-day, mail thread-day, note-day or repo-day
+// (and, before `VOICE_CUTOVER`, lifelog's chapters as stored). Built by code, nothing judged yet. A unit's id is stable
+// (same conversation or chat and day -> same id); its hash changes when its content does, so a verdict is reused only
+// while the content is unchanged.
 
 /** How much of a unit's text the moments model reads (`head`). */
 const TEXT_MAX = 1500;
@@ -215,61 +217,83 @@ export const head = (text: string) =>
     ? text
     : `${text.slice(0, TEXT_MAX / 2)}\n…\n${text.slice(-TEXT_MAX / 2)}`;
 
-/** What a chapter he marked with "hey Life" adds to its text (`lifelogUnits`). */
+/** What a unit he marked with "hey Life" adds to its text (`voiceText`, words.ts). */
 export const MARKED =
   '[He said "hey Life" here: he asked Life to remember what he says after it.]';
 
-/** Its chapters as units, each with the names lifelog gave its people kept unresolved (`unknown:`, read by `refOf`). */
-export function lifelogUnits(conversations: LifelogConversation[]): Built[] {
-  return conversations.flatMap((c): Built[] => {
-    if (c.chapters.length === 0) {
-      // Not summarized (yet): kept in units/ so the gap is counted, dropped by rule `no-summary`.
-      return [
-        {
+/**
+ * The day from which voice units are conversation-days (the owner's OK, step 4 of the server playbook). The voice
+ * units of earlier days are lifelog's old chapters: kept as stored, never built again (`isFrozen`), so the voice
+ * history is not read through the models again.
+ */
+export const VOICE_CUTOVER = "2026-10-24";
+
+/** A voice unit from before `VOICE_CUTOVER`: one of lifelog's chapters, as stored. */
+export const isFrozen = (u: Pick<Unit, "date" | "source">) =>
+  kindOf(u.source) === "voice" && u.date < VOICE_CUTOVER;
+
+/** A stored chapter unit as the steps take it: its text the chapter's title and summary, its hash as stored. */
+const frozen = (unit: Unit): Built => ({
+  messages: [],
+  text: `${unit.title}\n${unit.summary ?? ""}`,
+  unit,
+});
+
+/**
+ * Conversation-days: the turns of one conversation on one local day, from `from` on, cut by code alone (no model). Its
+ * people are the names the voice server gave them, unresolved (`unknown:`, read by `refOf`), and him when he spoke.
+ * Life holds no words: its text is filled when it is read (`voiceText`, words.ts), and its hash is its turns and
+ * marks, so a turn added, moved or marked has it read again.
+ * ponytail: words transcribed again under the same turn refs keep the hash; hash the words if re-transcription matters.
+ */
+export function voiceUnits(
+  conversations: VoiceConversation[],
+  from = VOICE_CUTOVER
+): Built[] {
+  return conversations.flatMap((c) =>
+    [...Map.groupBy(c.turns, (t) => localDate(t.at))]
+      .filter(([date]) => date >= from)
+      .map(([date, turns]): Built => {
+        const first = turns[0] as (typeof turns)[number];
+        const next = dayStart(daysBefore(date, -1)).toISOString();
+        const marked = turns.flatMap((t) => t.marks);
+        const refs = turns.map((t) => turnRef(t.jobId, t.turnIndex, t.at));
+        return {
           messages: [],
           text: "",
           unit: {
-            date: localDate(c.startedAt),
-            end: c.endedAt,
-            hash: contentHash(`${c.id}|${c.state}`),
-            id: unitId("lifelog", c.id, "none"),
+            date,
+            end: c.endedAt < next ? c.endedAt : next,
+            hash: contentHash([...refs, ...marked].join("\n")),
+            id: unitId("voice", c.id, date),
             key: c.id,
-            people: [],
-            refs: [c.id],
+            ...(marked.length > 0 ? { marked } : {}),
+            people: [
+              ...new Set(
+                turns.flatMap((t) => {
+                  if (t.owner) {
+                    return [OWNER];
+                  }
+                  return t.name ? [`${UNKNOWN}${t.name}`] : [];
+                })
+              ),
+            ].sort(),
+            refs: [...new Set([refs[0], refs.at(-1)])].filter(
+              (r): r is string => !!r
+            ),
             schemaVersion: 1,
-            source: "lifelog",
-            start: c.startedAt,
-            stats: { chars: 0, fromMe: 0, items: 0 },
-            title: c.title || "(not summarized yet)",
+            source: "voice",
+            start: first.at,
+            stats: {
+              chars: 0,
+              fromMe: turns.filter((t) => t.owner).length,
+              items: turns.length,
+            },
+            title: c.title || "Recorded conversation",
           },
-        },
-      ];
-    }
-    return c.chapters.map((ch) => {
-      // A chapter he marked says so in its text: only its hash moves, so only it is read again, and the moments model sees it.
-      const text = `${c.title}\n${ch.title}\n${ch.summary}${ch.marked ? `\n${MARKED}` : ""}`;
-      return {
-        messages: [],
-        text,
-        unit: {
-          date: localDate(ch.start),
-          end: ch.end,
-          hash: contentHash(text),
-          id: unitId("lifelog", ch.id),
-          key: c.id,
-          ...(ch.marked ? { marked: ch.marked } : {}),
-          people: [...new Set(ch.people.map((n) => `${UNKNOWN}${n}`))],
-          refs: [`${c.id}#${ch.id}`, ...(ch.ref ? [ch.ref] : [])],
-          schemaVersion: 1,
-          source: "lifelog",
-          start: ch.start,
-          stats: { chars: ch.summary.length, fromMe: 0, items: ch.items },
-          summary: ch.summary,
-          title: ch.title,
-        },
-      };
-    });
-  });
+        };
+      })
+  );
 }
 
 /** A chat's title when only one other person writes in it that day (a 1:1 chat names its other member). */
@@ -476,7 +500,6 @@ const RULES: [
   string,
   (b: Built, seen: Set<string>, kept: Set<string>) => boolean,
 ][] = [
-  ["no-summary", (b) => kindOf(b.unit.source) === "voice" && !b.unit.summary],
   // Life's own chat (see LIFE_CHAT) and mail.
   ["life-output", (b) => b.unit.key === LIFE_CHAT || lifeMail(b)],
   // An imported conversation the import step did not keep as about his life (memory/imported.jsonl).
@@ -629,8 +652,8 @@ export function builtFor(
   }
 }
 
-/** Lifelog person id -> the name on the map, for the people `truth/people.yaml` holds a `lifelog` handle for. */
-export const lifelogNames = (truth: Truth) =>
+/** The voice server's person id -> the name on the map, for the people `truth/people.yaml` holds a `lifelog` handle for. */
+export const voiceNames = (truth: Truth) =>
   new Map(
     truth.people.flatMap((p) =>
       p.handles.lifelog ? [[p.handles.lifelog, p.name]] : []
@@ -638,8 +661,8 @@ export const lifelogNames = (truth: Truth) =>
   );
 
 /**
- * The default look-back of every step: yesterday, plus what a sleeping Mac or a late summary left behind, and the
- * lifelog units lifelog re-summarizes a few days later (their new hash needs a new verdict). Files are described
+ * The default look-back of every step: yesterday, plus what a sleeping Mac or a late transcript left behind, and the
+ * conversations the voice server regroups a few days later (their new hash needs a new verdict). Files are described
  * (`describeFiles`) only on messages of these days: an older one stays a tag.
  */
 export const DAYS = 7;
@@ -657,7 +680,7 @@ export function lastDays(now: Date, days: number): Window {
 }
 
 /**
- * The evidence of a window of local days: every source (lifelog,
+ * The evidence of a window of local days: every source (his conversations,
  * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
  * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
@@ -665,6 +688,16 @@ export function lastDays(now: Date, days: number): Window {
  * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
  * their importance at 1).
  */
+/** The local days of `window` before `before`, in order. */
+function datesIn(window: Window, before: string) {
+  const dates: string[] = [];
+  for (let d = window.from; d <= window.to && d < before; ) {
+    dates.push(d);
+    d = daysBefore(d, -1);
+  }
+  return dates;
+}
+
 export async function gather(
   window: Window,
   { resolve, truth }: { resolve: Resolve; truth: Truth }
@@ -675,23 +708,27 @@ export async function gather(
   const failed: string[] = [];
   const repos = repoMap(truth, await readInferredRepos());
   const ctx = { me: ownerIn(truth.people), repos };
-  // Lifelog's units come from the watcher's store, cut first as the registry lists it; every other source's from its
-  // events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
+  // Voice units come from the watcher's store, cut first as the registry lists it (before the cutover, as stored);
+  // every other source's from its events, in the registry's order. Only the sources he turned on that can be read now;
+  // the others' units are kept.
   const sources = readySources();
   const skipped = enabledSources().filter((s) => !sources.includes(s));
   for (const s of skipped) {
     log("source.read", { ok: true, skipped: s.missing?.(), source: s.name });
   }
-  const lifelog = sources.some((s) => s.kind === "voice")
+  const voice = sources.some((s) => s.kind === "voice")
     ? await safely(
-        "lifelog",
+        "voice",
         () =>
           withStore((store) =>
-            readConversations(store, since, lifelogNames(truth))
+            readConversations(store, since, voiceNames(truth))
           ),
         failed
       )
     : [];
+  const chapters = readUnitsOf(datesIn(window, VOICE_CUTOVER))
+    .filter(isFrozen)
+    .map(frozen);
   const read = await Promise.all(
     sources
       .flatMap((s) => (s.kind === "voice" ? [] : [s]))
@@ -716,24 +753,27 @@ export async function gather(
     events: s.kind === "repo" ? events : showFiles(events, known),
     s,
   }));
-  const built = applyRules(
-    [
-      ...lifelogUnits(lifelog),
-      ...shown.flatMap(({ events, s }) =>
-        s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
-      ),
-    ],
-    keptConversations()
-  )
+  const built = [
+    ...chapters,
+    ...applyRules(
+      [
+        ...voiceUnits(voice),
+        ...shown.flatMap(({ events, s }) =>
+          s.kind === "repo" ? repoUnits(events) : messageUnits(events, resolve)
+        ),
+      ],
+      keptConversations()
+    ),
+  ]
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
   return {
     built,
-    conversations: lifelog,
+    conversations: voice,
     failed,
     files,
     read: {
-      lifelog: lifelog.length,
+      voice: voice.length,
       ...Object.fromEntries(
         shown.map(({ events, s }) => [s.name, events.length])
       ),
@@ -775,19 +815,19 @@ export async function writeUnits(
 }
 
 /**
- * Makes the lifelog units in memory/units/ the ones the store gives (what the watcher does after a page). A day's file
- * is rewritten only when its lifelog units differ; other sources' units in it stay. Returns how many units were built,
- * changed and removed.
- * ponytail: `gather` (moments) applies the `duplicate` rule to the window's units of every source, this to all lifelog
- * units, so a lifelog unit repeating one from before the window may flip between the two writers; one writer settles it.
+ * Makes the voice units in memory/units/ the ones the store gives (what the watcher does after a page), from the
+ * cutover on: a chapter unit before it stays as stored. A day's file is rewritten only when its voice units differ;
+ * other sources' units in it stay. Returns how many units were built, changed and removed.
+ * ponytail: `gather` (moments) applies the `duplicate` rule to the window's units of every source, this to all voice
+ * units, so a voice unit repeating one from before the window may flip between the two writers; one writer settles it.
  */
-export async function syncLifelogUnits(store: Store) {
+export async function syncVoiceUnits(store: Store) {
   const truth = await loadTruth();
   const want = applyRules(
-    lifelogUnits(readConversations(store, new Date(0), lifelogNames(truth)))
+    voiceUnits(readConversations(store, new Date(0), voiceNames(truth)))
   ).map((b) => Unit.parse(b.unit));
   const all = await readUnits();
-  const have = all.filter((u) => u.source === "lifelog");
+  const have = all.filter((u) => u.source === "voice" && !isFrozen(u));
   const json = (units: Unit[]) =>
     new Map(units.map((u) => [u.id, JSON.stringify(u)]));
   const [had, wants] = [json(have), json(want)];
@@ -802,7 +842,11 @@ export async function syncLifelogUnits(store: Store) {
       .filter((u) => had.get(u.id) !== wants.get(u.id))
       .map((u) => u.date)
   );
-  await writeUnits([...dates], want, (u) => u.source !== "lifelog");
+  await writeUnits(
+    [...dates],
+    want,
+    (u) => u.source !== "voice" || isFrozen(u)
+  );
   return {
     added: added.length,
     changed: changed.length,

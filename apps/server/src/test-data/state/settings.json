@@ -16,9 +16,6 @@
     "owner": "owner-sub"
   },
   "lifeChat": "!life:beeper.local",
-  "lifelog": {
-    "url": "https://voice.example.test"
-  },
   "mail": {
     "from": "alerts@life.example.test",
     "to": "owner@example.test"
@@ -27,7 +24,7 @@
   "reports": ["alerts@agents.example.test"],
   "repos": "~/Work",
   "sources": [
-    "lifelog",
+    "voice",
     "imessage",
     "whatsapp",
     "beeper",
@@ -37,5 +34,8 @@
     "chatgpt",
     "agent",
     "git"
-  ]
+  ],
+  "voice": {
+    "url": "https://voice.example.test"
+  }
 }

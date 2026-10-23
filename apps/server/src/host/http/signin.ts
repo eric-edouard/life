@@ -28,10 +28,10 @@ const sessionCookies = (t: z.infer<typeof Tokens>) => [
 /** How the token exchange reaches the issuer: `fetch`, or the issuer itself when it is Life's own (server.ts). */
 export type Exchange = (url: string, init: RequestInit) => Promise<Response>;
 
-export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
+export function createSignIn(verify: Verify, exchange: Exchange = fetch) {
   const { client, issuer, origin, resource } = connector();
   const CALLBACK = `${origin}/check/callback`;
-  /** Off to lifelog's sign-in (silent once he is signed in there and consented), with PKCE; back to /check/ after. */
+  /** Off to the voice server's sign-in (silent once he is signed in there and consented), with PKCE; back to /check/ after. */
   function login() {
     const state = randomBytes(16).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
@@ -51,7 +51,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     ]);
   }
 
-  /** Back from lifelog: the code is traded for a token, which must be the owner's before it becomes the session. */
+  /** Back from the sign-in: the code is traded for a token, which must be the owner's before it becomes the session. */
   async function callback(req: Request, url: URL) {
     const [state, verifier] = (cookieOf(req, LOGIN) ?? "").split(".");
     const code = url.searchParams.get("code");
@@ -85,7 +85,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
 
   /**
    * Null when the request carries the owner's session; else the answer: a sign-in for the page itself (`page`), 401
-   * for its reads, 403 for someone else, 503 when lifelog's keys are out of reach.
+   * for its reads, 403 for someone else, 503 when the voice server's keys are out of reach.
    */
   async function refusal(req: Request, page = false) {
     const whose = await verify(cookieOf(req, SESSION) ?? "");
@@ -124,7 +124,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
    * or the check says no, "unreachable" when the issuer or its keys can't be reached in time.
    */
   async function trade(fields: Record<string, string>) {
-    const res = await lifelog(`${issuer}/oauth2/token`, {
+    const res = await exchange(`${issuer}/oauth2/token`, {
       body: new URLSearchParams({ client_id: client, ...fields }),
       method: "POST",
       signal: AbortSignal.timeout(15_000),

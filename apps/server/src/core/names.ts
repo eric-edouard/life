@@ -24,7 +24,7 @@ export const AGENT_WORD = "agent";
 
 /** Where a unit or an observation comes from. */
 export const SourceName = z.enum([
-  "lifelog",
+  "voice",
   "beeper",
   "whatsapp",
   "imessage",

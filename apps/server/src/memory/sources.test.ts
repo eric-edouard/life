@@ -20,7 +20,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
   expect(names.toSorted()).toEqual(Unit.shape.source.options.toSorted());
   // Of two units with the same content the first cut stays: moving a source changes which.
   expect(names).toEqual([
-    "lifelog",
+    "voice",
     "imessage",
     "whatsapp",
     "beeper",

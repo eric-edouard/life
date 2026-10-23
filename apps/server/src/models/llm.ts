@@ -53,7 +53,7 @@ const CLAUDE_MODELS: Record<Tier, string> = {
   fast: "haiku",
   main: "sonnet",
 };
-// Same model as lifelog, through Codex or OpenAI's API alike. Older codex clients reject it, and this Mac has several (an
+// Same model as the voice server, through Codex or OpenAI's API alike. Older codex clients reject it, and this Mac has several (an
 // nvm global, a broken /usr/local one, the app's bundled one), so Life runs the version pinned in package.json, natively
 // (launchd has no node).
 const SOL: Record<Tier, string> = {

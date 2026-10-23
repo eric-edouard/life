@@ -241,7 +241,7 @@ test("the standing grant switches off when he deletes one of its reminders by ha
     now: AT,
     o: {
       importance: 3,
-      source: { channel: "lifelog" },
+      source: { channel: "voice" },
       type: "to_do",
     } as never,
     state: "active",

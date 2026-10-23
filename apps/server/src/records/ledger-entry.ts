@@ -52,7 +52,7 @@ export const LedgerEntry = z
     // "<prefix>:<id>" (an item of the actions backend: "reminder:<numericId>", "gtask:<list>/<task>"), "<prefix>:new" (a failed add), `AGENT_WORD` (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).
     target: z.string(),
     // An ask heard in his speech: where the time went (spoke = instruction.at, recorded = at). `ended`: his last turn of
-    // it ended; `arrived`: lifelog's feed had brought all of it. Until 19 Oct, a heard request's `heard`, `modelMs`, `actMs`.
+    // it ended; `arrived`: the voice server's feed had brought all of it. Until 19 Oct, a heard request's `heard`, `modelMs`, `actMs`.
     timing: z
       .object({
         actMs: z.int().optional(),

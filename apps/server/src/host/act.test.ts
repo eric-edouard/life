@@ -72,13 +72,13 @@ const mine = {
   now: NOW,
   o: {
     importance: 3,
-    source: { channel: "lifelog" as const, ref: "job:3@2026-10-21T09:00:00Z" },
+    source: { channel: "voice" as const, ref: "job:3@2026-10-21T09:00:00Z" },
     type: "to_do" as const,
   },
   state: "active",
 };
 
-test("the grant adds his own current importance-3 to-do from a turn lifelog credits to him, on a list nobody shares", () => {
+test("the grant adds his own current importance-3 to-do from a turn the voice server credits to him, on a list nobody shares", () => {
   expect(grantRefusal(mine)).toBeUndefined();
   expect(
     grantRefusal({ ...mine, o: { ...mine.o, type: "promise" } })
@@ -92,9 +92,9 @@ test("the grant refuses a chat or mail observation, another speaker's or an unna
         ...mine,
         o: { ...mine.o, source: { channel, ref: "m1" } },
       })
-    ).toContain("lifelog credits to his voice");
+    ).toContain("the voice server credits to his voice");
   }
-  // Re-read at act time: someone else's turn, or one lifelog no longer names him on.
+  // Re-read at act time: someone else's turn, or one the voice server no longer names him on.
   expect(grantRefusal({ ...mine, mine: false })).toContain("his voice");
   expect(grantRefusal({ ...mine, state: "retired" })).toContain("not current");
   expect(grantRefusal({ ...mine, o: { ...mine.o, importance: 2 } })).toContain(

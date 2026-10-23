@@ -346,13 +346,13 @@ test("two authors filed as one person who now resolve to two different people: n
   expect(now[2]?.text).toBe("Jean asked Gaston.");
 });
 
-test("a voice kept by lifelog's id resolves by the name lifelog gave it when the map does not know the id", () => {
+test("a voice kept by the voice server's id resolves by the name the voice server gave it when the map does not know the id", () => {
   const facts = [
     {
       entities: [],
       id: "obs_1",
       speaker: "unknown:Pops",
-      speakerFrom: "lifelog-id-the-map-lacks",
+      speakerFrom: "voice-id-the-map-lacks",
       speakerName: "Pops",
       text: "Pops called.",
       unit: "unit_000000000007",
@@ -493,7 +493,7 @@ test("the extractor's reply is checked: quotes, units, entities; unknown names r
     area: SHOP,
     entities: ["person:me", "project:bakery"],
     quote: "Il faut que j’appelle le vitrier",
-    source: { channel: "lifelog", ref: "job-1:0@2026-10-09T10:00:00.000Z" },
+    source: { channel: "voice", ref: "job-1:0@2026-10-09T10:00:00.000Z" },
     speaker: "person:me",
     when: "2026-10-12",
   });

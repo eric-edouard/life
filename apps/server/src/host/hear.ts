@@ -9,7 +9,7 @@ import {
   turnsBetween,
   whose,
   writeMarks,
-} from "../sources/lifelog";
+} from "../sources/voice";
 import { ask } from "./agent";
 
 // Hears "hey <agent>" in his recorded speech and records each ask for the agent (`ask`, delivered by the watcher as an MCP
@@ -18,7 +18,7 @@ import { ask } from "./agent";
 
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;
-/** How long a wake with no speaker waits for lifelog to name him (70% of recordings within 10 s, 5% more by 40 s). */
+/** How long a wake with no speaker waits for the voice server to name him (70% of recordings within 10 s, 5% more by 40 s). */
 const NAMING_MS = 40_000;
 
 type Confidence = "high" | "low";
@@ -39,7 +39,7 @@ const wakeWords = (t: Turn) =>
 /** One turn as the hearing sees it: whose it is (his, unattributed, someone else's) and its words. */
 export interface Turn {
   at: string;
-  /** When it ended, and when lifelog's feed first brought it (both `at` on a turn stored before 20 Oct). */
+  /** When it ended, and when the voice server's feed first brought it (both `at` on a turn stored before 20 Oct). */
   end: string;
   ref: string;
   seen: string;
@@ -103,8 +103,8 @@ function spansIn(
 
 /**
  * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's,
- * ends a recording nobody spoke after for 30 s (`endedOnSilence`), or lifelog has settled the conversation (`closed`):
- * lifelog's own signals, never a timing rule of Life's. Else `open` (the next recording may go on with it).
+ * ends a recording nobody spoke after for 30 s (`endedOnSilence`), or the voice server has settled the conversation (`closed`):
+ * the voice server's own signals, never a timing rule of Life's. Else `open` (the next recording may go on with it).
  */
 export function speechIn(store: Store, conversation: string, from: string) {
   const last = turnsBetween(store, conversation, from).at(-1);
@@ -119,8 +119,8 @@ export function speechIn(store: Store, conversation: string, from: string) {
 
 /**
  * Hears one conversation from `from` on and records its asks, except a wake with no speaker younger than NAMING_MS
- * (lifelog may still name him: a `low` ask stays low): `heard` false while one is held; `marked` when its "hey Life"
- * marks changed. The words are fetched from lifelog; a
+ * (the voice server may still name him: a `low` ask stays low): `heard` false while one is held; `marked` when its "hey Life"
+ * marks changed. The words are fetched from the voice server; a
  * failed fetch throws (the watcher hears the conversation again), never reads as silence.
  */
 export async function hear(
@@ -148,7 +148,7 @@ export async function hear(
       who: whose(t),
     })
   );
-  // A wake with no speaker, younger than NAMING_MS: held, so lifelog can still name him.
+  // A wake with no speaker, younger than NAMING_MS: held, so the voice server can still name him.
   const held = (a: { timing: { arrived: string }; turns: number[] }) =>
     turns[a.turns[0] ?? -1]?.who === "unknown" &&
     now - Date.parse(a.timing.arrived) < NAMING_MS;
@@ -163,14 +163,14 @@ export async function hear(
       a.timing
     );
   }
-  // His "hey Life" spans, for memory only: their chapter's unit carries them, read again at importance 3 (units.ts, moments.ts).
+  // His "hey Life" spans, for memory only: their unit carries them, read again at importance 3 (units.ts, moments.ts).
   const marked = writeMarks(
     store,
     conversation,
     from,
     marksIn(turns, from).map((m) => m.turns.flatMap((i) => turns[i]?.ref ?? []))
   );
-  // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
+  // His misheard wake is an ask only once the voice server names him: a turn with no speaker yet waits too.
   const misheard = turns.some(
     (t) =>
       t.who === "unknown" &&

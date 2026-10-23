@@ -12,7 +12,7 @@ import { areaOf, type Built, slugOf, UNKNOWN } from "./units";
 const ID_MAX = 40;
 const SUFFIX = 6;
 const TRAILING_DASH = /-+$/;
-// Lifelog labels a voice it cannot name "speaker_1"; that is not a name.
+// The voice server labels a voice it cannot name "speaker_1"; that is not a name.
 const VOICE = /^speaker[_ ]?\d+$/i;
 
 const Said = z.object({
@@ -93,7 +93,7 @@ export function checkPeople(
 
 /**
  * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, Beeper) and
- * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
+ * names the voice server gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
  * corrections, a confident inferred person).
  */
 export function unknownIn(units: Built[], known: (s: string) => boolean) {

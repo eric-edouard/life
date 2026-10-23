@@ -20,9 +20,9 @@ import {
   newestImessage,
   readImessage,
 } from "../sources/imessage";
-import { lifelogMissing } from "../sources/lifelog";
 import { mailRoot, newestMail, readMail } from "../sources/mail";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
+import { voiceMissing } from "../sources/voice";
 import {
   copyWhatsapp,
   isWhatsappGroup,
@@ -45,7 +45,7 @@ function unreadable(path: string, why: string) {
 }
 export const FULL_DISK = "Full Disk Access for Life";
 /**
- * Every source, in the order units are cut (`gather` cuts lifelog's from the watcher's store first, then each other
+ * Every source, in the order units are cut (`gather` cuts the voice server's from the watcher's store first, then each other
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
 const LISTED: Descriptor[] = [
@@ -53,8 +53,8 @@ const LISTED: Descriptor[] = [
   {
     kind: "voice",
     label: "Pendant",
-    missing: lifelogMissing,
-    name: "lifelog",
+    missing: voiceMissing,
+    name: "voice",
     silentAfter: 6 * HOUR,
   },
   {

@@ -10,7 +10,7 @@ import { settings } from "./settings";
 // error messages. Never message text or quotes (those live in the sources and memory/), with two exceptions:
 // `mcp.call` logs the client's question (its arguments, strings clipped to 200 chars) or why it was refused, never the
 // answer's text, and
-// `lifelog.write` logs the correction it forwards and lifelog's answer.
+// `voice.write` logs the correction it forwards and the voice server's answer.
 
 export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 
@@ -20,7 +20,7 @@ type LogKind =
   | "email.sent"
   | "event.sent"
   | "file.read"
-  | "lifelog.write"
+  | "voice.write"
   | "mcp.call"
   | "memory.renamed"
   | "model.run"

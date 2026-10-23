@@ -13,7 +13,7 @@ import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { SETTINGS } from "../core/settings";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { storeFiles } from "../sources/lifelog";
+import { storeFiles } from "../sources/voice";
 import {
   FORMAT,
   headOf,

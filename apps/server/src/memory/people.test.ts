@@ -21,7 +21,7 @@ const chat = (unit: string, sender: string, texts: string[]) =>
     },
   }) as unknown as Built;
 
-test("a day's unknown people: chat senders no handle maps and names lifelog gave, never a known one, a mail sender or a numbered voice", () => {
+test("a day's unknown people: chat senders no handle maps and names the voice server gave, never a known one, a mail sender or a numbered voice", () => {
   const a = chat("unit_1", "+33600000001", ["Ok ?", "Je passe demain"]);
   const b = chat("unit_2", "+33600000002", ["Merci", "De rien"]);
   const mail = {

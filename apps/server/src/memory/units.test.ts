@@ -11,23 +11,22 @@ import type { SourceEvent } from "../records/source";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { readAssistant } from "../sources/assistants";
-import {
-  apply,
-  type LifelogChapter,
-  type LifelogConversation,
-  readConversations,
-} from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
-  chapter,
   claudeExport,
   conversation as feedConversation,
-  lifelogStore,
   noteData,
   notesFixture,
   pageFixture,
   runFixture,
+  turnFixture,
+  voiceStore,
 } from "../sources/store-fixtures";
+import {
+  apply,
+  readConversations,
+  type VoiceConversation,
+} from "../sources/voice";
 import { LIFE_MAIL } from "./email";
 import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
 import { showFiles } from "./message-files";
@@ -38,17 +37,18 @@ import {
   dayRange,
   daysBefore,
   gather,
+  isFrozen,
   LIFE_CHAT,
   lastDays,
-  lifelogUnits,
-  MARKED,
   messageUnits,
   normalizeTopics,
   oneToOne,
   repoUnits,
   speakerOf,
-  syncLifelogUnits,
+  syncVoiceUnits,
   unitId,
+  VOICE_CUTOVER,
+  voiceUnits,
   writeUnits,
 } from "./units";
 import { resolver, unitNow } from "./who";
@@ -90,34 +90,25 @@ const msg = (over: Partial<SourceEvent>): SourceEvent => ({
   ...over,
 });
 
-const conversation: LifelogConversation = {
-  chapters: [
-    {
-      end: "2026-10-09T10:20:00.000Z",
-      id: "chapter-1",
-      items: 10,
-      people: ["Jean (Me)", "Gaston"],
-      ref: "job-1:0@2026-10-09T10:00:00.000Z",
-      start: "2026-10-09T10:00:00.000Z",
-      summary: "Jean and Gaston list the shop repairs.",
-      title: "Shop repairs",
-    },
-    {
-      end: "2026-10-09T10:40:00.000Z",
-      id: "chapter-2",
-      items: 11,
-      people: [],
-      ref: "job-1:10@2026-10-09T10:20:00.000Z",
-      start: "2026-10-09T10:20:00.000Z",
-      summary: "Customers ask about stencils.",
-      title: "Counter talk",
-    },
-  ],
-  endedAt: "2026-10-09T10:40:00.000Z",
+/** A turn of the conversation below: `n` minutes after 10:00 on 25 Oct (UTC), by `name` or by him. */
+const said = (n: number, name: string | null, owner = false) => ({
+  at: new Date(Date.parse("2026-10-25T10:00:00.000Z") + n * MIN).toISOString(),
+  end: null,
+  jobId: "job-1",
+  marks: [] as string[],
+  name,
+  owner,
+  personId: null,
+  seen: null,
+  turnIndex: n,
+});
+
+const conversation: VoiceConversation = {
+  endedAt: "2026-10-25T10:40:00.000Z",
   id: "00000000-0000-8000-8000-01a1210b4bdf",
-  startedAt: "2026-10-09T10:00:00.000Z",
-  state: "summarized",
-  title: "At the shop",
+  startedAt: "2026-10-25T10:00:00.000Z",
+  title: "",
+  turns: [said(0, null, true), said(5, "Gaston"), said(30, "Jean (Me)")],
 };
 
 test("unit ids are stable and hashes follow the content", () => {
@@ -187,41 +178,76 @@ test("the same chat content seen twice hashes the same and the second unit is dr
   expect(second?.unit.drop).toBe("duplicate");
 });
 
-test("lifelog chapters become units with lifelog's summary, turn refs and its names unresolved", () => {
-  const units = lifelogUnits([conversation]).map((b) => b.unit);
-  expect(units).toHaveLength(2);
-  expect(units[0]?.refs).toEqual([
-    "00000000-0000-8000-8000-01a1210b4bdf#chapter-1",
-    "job-1:0@2026-10-09T10:00:00.000Z",
+test("a conversation's day is one unit, built from its turns alone: first and last turn refs, him and its names unresolved", () => {
+  const [b] = voiceUnits([conversation]);
+  const unit = b?.unit;
+  expect(unit?.id).toBe(unitId("voice", conversation.id, "2026-10-25"));
+  expect(unit?.refs).toEqual([
+    "job-1:0@2026-10-25T10:00:00.000Z",
+    "job-1:30@2026-10-25T10:30:00.000Z",
   ]);
-  expect(units[0]?.id).toBe(unitId("lifelog", "chapter-1"));
-  expect(units[0]?.stats.items).toBe(10);
-  expect(units[0]?.people).toEqual(["unknown:Jean (Me)", "unknown:Gaston"]);
-  expect(units[0]?.end).toBe("2026-10-09T10:20:00.000Z");
-  expect(units[1]?.end).toBe(conversation.endedAt);
-  expect(units[0]?.summary).toBe("Jean and Gaston list the shop repairs.");
-  const unsummarized = lifelogUnits([
-    { ...conversation, chapters: [], state: "transcribed" },
+  expect(unit?.people).toEqual([
+    "person:me",
+    "unknown:Gaston",
+    "unknown:Jean (Me)",
   ]);
-  expect(applyRules(unsummarized)[0]?.unit.drop).toBe("no-summary");
+  expect(unit?.stats).toEqual({ chars: 0, fromMe: 1, items: 3 });
+  expect([unit?.start, unit?.end]).toEqual([
+    "2026-10-25T10:00:00.000Z",
+    conversation.endedAt,
+  ]);
+  expect(unit?.title).toBe("Recorded conversation");
+  expect(unit?.summary).toBeUndefined();
+  // Life holds no words: its text is filled when its day is read (voiceText).
+  expect(b?.text).toBe("");
+  expect(
+    voiceUnits([{ ...conversation, title: "Plumber" }])[0]?.unit.title
+  ).toBe("Plumber");
 });
 
-test('a chapter he marked "hey Life" says so in its text, so only its hash moves, and keeps the marked refs', () => {
-  const [plain, other] = lifelogUnits([conversation]);
-  const [first] = conversation.chapters;
-  const [marked, same] = lifelogUnits([
+test("a conversation across midnight is two units, and none before the cutover: those days keep lifelog's chapters", () => {
+  // Lagos, UTC+1: 23:50 on the 25th is 22:50Z, 00:10 on the 26th is 23:10Z.
+  const late = {
+    ...conversation,
+    endedAt: "2026-10-25T23:30:00.000Z",
+    turns: [said(12 * 60 + 50, null, true), said(13 * 60 + 10, "Gaston")],
+  };
+  expect(voiceUnits([late]).map((b) => [b.unit.date, b.unit.end])).toEqual([
+    ["2026-10-25", "2026-10-25T23:00:00.000Z"],
+    ["2026-10-26", "2026-10-25T23:30:00.000Z"],
+  ]);
+  expect(voiceUnits([late], "2026-10-26").map((b) => b.unit.date)).toEqual([
+    "2026-10-26",
+  ]);
+  expect(isFrozen({ date: "2026-10-23", source: "voice" })).toBe(true);
+  expect(isFrozen({ date: VOICE_CUTOVER, source: "voice" })).toBe(false);
+  expect(isFrozen({ date: "2026-10-23", source: "beeper" })).toBe(false);
+});
+
+test('a turn he marked "hey Life" moves its unit\'s hash and its refs are kept; a turn added moves it too, a name given does not', () => {
+  const [plain] = voiceUnits([conversation]);
+  const [marked] = voiceUnits([
     {
       ...conversation,
-      chapters: [
-        { ...(first as LifelogChapter), marked: ["j:1@a"] },
-        ...conversation.chapters.slice(1),
+      turns: [
+        { ...said(0, null, true), marks: ["job-1:0@x", "job-1:1@x"] },
+        ...conversation.turns.slice(1),
       ],
     },
   ]);
-  expect(marked?.unit.marked).toEqual(["j:1@a"]);
-  expect(marked?.text).toEndWith(MARKED);
+  expect(marked?.unit.marked).toEqual(["job-1:0@x", "job-1:1@x"]);
   expect(marked?.unit.hash).not.toBe(plain?.unit.hash);
-  expect(same?.unit.hash).toBe(other?.unit.hash);
+  const [grown] = voiceUnits([
+    { ...conversation, turns: [...conversation.turns, said(35, null)] },
+  ]);
+  expect(grown?.unit.hash).not.toBe(plain?.unit.hash);
+  const [named] = voiceUnits([
+    {
+      ...conversation,
+      turns: conversation.turns.map((t) => ({ ...t, name: t.name ?? "Anne" })),
+    },
+  ]);
+  expect(named?.unit.hash).toBe(plain?.unit.hash);
 });
 
 test("names: aliases resolve, parentheses are ignored, a shared name resolves to nobody", () => {
@@ -539,7 +565,7 @@ test("topics are lower case, singular where trivial, dashed, at most three, no r
   expect(normalizeTopics(null)).toEqual([]);
 });
 
-test("a lifelog chapter that moves to another day leaves its old day's file; other sources' units in that file stay", async () => {
+test("a conversation that moves to another day leaves its old day's file; other sources' units in that file stay, and so do lifelog's chapters", async () => {
   expect(existsSync(UNITS)).toBe(false); // test data has no units: this test makes and removes them
   const chat: Unit = {
     date: "2026-10-14",
@@ -555,16 +581,23 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
     stats: { chars: 40, fromMe: 1, items: 1 },
     title: "Team",
   };
-  const store = lifelogStore();
+  const chapter: Unit = {
+    ...chat,
+    date: "2026-10-23",
+    id: "unit_00000000000c",
+    source: "voice",
+    summary: "A chapter lifelog summarized.",
+  };
+  const store = voiceStore();
   const on = (day: string) =>
     pageFixture({
-      chapters: [chapter("a", `${day}T10:00:00.000Z`, `${day}T10:05:00.000Z`)],
       conversations: [
         feedConversation("c1", {
           endAt: `${day}T10:10:00.000Z`,
           startAt: `${day}T10:00:00.000Z`,
         }),
       ],
+      turns: [turnFixture(0, `${day}T10:00:00.000Z`, null, null)],
     });
   const days = async () =>
     Object.fromEntries(
@@ -573,51 +606,67 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
         .map(([d, us]) => [d, us.map((u) => u.source)])
     );
   try {
-    await writeUnits([chat.date], [chat]);
-    apply(store, on("2026-10-14"));
-    await syncLifelogUnits(store);
-    expect(await days()).toEqual({ "2026-10-14": ["whatsapp", "lifelog"] });
-    apply(store, on("2026-10-15"));
-    expect(await syncLifelogUnits(store)).toMatchObject({ changed: 1 });
+    await writeUnits(
+      ["2026-10-25", chapter.date],
+      [{ ...chat, date: "2026-10-25" }, chapter]
+    );
+    apply(store, on("2026-10-25"));
+    await syncVoiceUnits(store);
     expect(await days()).toEqual({
-      "2026-10-14": ["whatsapp"],
-      "2026-10-15": ["lifelog"],
+      "2026-10-23": ["voice"],
+      "2026-10-25": ["whatsapp", "voice"],
+    });
+    // Regrouped onto the next day: a new id, the old one leaves (unit ids are by conversation and day).
+    apply(store, on("2026-10-26"));
+    expect(await syncVoiceUnits(store)).toMatchObject({
+      added: 1,
+      removed: 1,
+    });
+    expect(await days()).toEqual({
+      "2026-10-23": ["voice"],
+      "2026-10-25": ["whatsapp"],
+      "2026-10-26": ["voice"],
     });
     // A night that could not read WhatsApp (its access gone) rewrites the day without losing its units.
-    const mail = { ...chat, id: "unit_00000000000b", source: "mail" as const };
-    await writeUnits([chat.date], [mail], (u) => u.source === "whatsapp");
-    expect(await days()).toMatchObject({ "2026-10-14": ["whatsapp", "mail"] });
+    const mail = {
+      ...chat,
+      date: "2026-10-25",
+      id: "unit_00000000000b",
+      source: "mail" as const,
+    };
+    await writeUnits(["2026-10-25"], [mail], (u) => u.source === "whatsapp");
+    expect(await days()).toMatchObject({ "2026-10-25": ["whatsapp", "mail"] });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
   }
 });
 
-test("a conversation from 23:40 to 00:30 at the window start is read whole: its 00:10 chapter is on the window's first day", () => {
-  // Berlin, UTC+2: 23:40 on the 14th is 21:40Z, the window starts at 00:00 on the 15th (22:00Z).
-  const store = lifelogStore();
+test("a conversation from 23:40 to 00:30 at the window start is read whole: its 00:10 turn is on the window's first day", () => {
+  // Lagos, UTC+1: 23:40 on the 25th is 22:40Z, the window starts at 00:00 on the 26th (23:00Z).
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T21:40:00.000Z", "2026-10-14T22:10:00.000Z"),
-        chapter("b", "2026-10-14T22:10:00.000Z", "2026-10-14T22:30:00.000Z"),
-      ],
       conversations: [
         feedConversation("c1", {
-          endAt: "2026-10-14T22:30:00.000Z",
-          startAt: "2026-10-14T21:40:00.000Z",
+          endAt: "2026-10-25T23:30:00.000Z",
+          startAt: "2026-10-25T22:40:00.000Z",
         }),
+      ],
+      turns: [
+        turnFixture(0, "2026-10-25T22:40:00.000Z", null, null),
+        turnFixture(1, "2026-10-25T23:10:00.000Z", null, null),
       ],
     })
   );
   expect(
-    lifelogUnits(readConversations(store, dayStart("2026-10-15"))).map((b) => [
+    voiceUnits(readConversations(store, dayStart("2026-10-26"))).map((b) => [
       b.unit.date,
       b.unit.start,
     ])
   ).toEqual([
-    ["2026-10-14", "2026-10-14T21:40:00.000Z"],
-    ["2026-10-15", "2026-10-14T22:10:00.000Z"],
+    ["2026-10-25", "2026-10-25T22:40:00.000Z"],
+    ["2026-10-26", "2026-10-25T23:10:00.000Z"],
   ]);
 });
 

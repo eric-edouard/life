@@ -6,18 +6,17 @@ import { gzipSync } from "node:zlib";
 import { clock, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { toAppleNs, toAppleS } from "./imessage";
-import { openStore } from "./lifelog";
+import { openStore } from "./voice";
 
-// Small stores to test the readers against: lifelog's change feed, and the Mac apps' databases the archive copies.
+// Small stores to test the readers against: the voice server's change feed, and the Mac apps' databases the archive copies.
 
 const tmp = (prefix: string) => mkdtempSync(join(tmpdir(), prefix));
 
-/** An empty lifelog store in a fresh folder. */
-export const lifelogStore = () => openStore(tmp("life-lifelog-"));
+/** An empty voice store in a fresh folder. */
+export const voiceStore = () => openStore(tmp("life-voice-"));
 
-/** A page of lifelog's change feed. */
+/** A page of the voice server's change feed. */
 export const pageFixture = (over: Record<string, unknown> = {}) => ({
-  chapters: [],
   conversations: [],
   cursor: "1",
   jobs: [],
@@ -37,8 +36,7 @@ export const conversation = (
   ownerTitle: null,
   retired: null,
   startAt: "2026-10-14T10:00:00.000Z",
-  state: "summarized",
-  title: "The plumber",
+  state: "transcribed",
   ...over,
 });
 
@@ -56,15 +54,6 @@ export const turnFixture = (
   speaker: { isOwner, personId, personName },
   startAt,
   turnIndex,
-});
-
-export const chapter = (id: string, startAt: string, endAt: string) => ({
-  conversationId: "c1",
-  endAt,
-  id,
-  startAt,
-  summary: `Summary of ${id}`,
-  title: id,
 });
 
 /** WhatsApp's own store (one chat, `120@g.us` "Team", one group member `777@lid`) and the archive folder beside it. */
@@ -317,10 +306,10 @@ export function imessageFixture(
 }
 
 /**
- * A stand-in for lifelog's REST API: `routes` map a path to what it answers (given the POSTed body). The `lifelog`
- * setting and LIFELOG_TOKEN point at it until `close`. `seen` records each request.
+ * A stand-in for the voice server's REST API: `routes` map a path to what it answers (given the POSTed body). The `the voice server`
+ * setting and VOICE_TOKEN point at it until `close`. `seen` records each request.
  */
-export function lifelogServer(
+export function voiceServer(
   routes: Record<string, (body: unknown) => unknown>
 ) {
   const seen: { auth: string | null; body: unknown; path: string }[] = [];
@@ -336,17 +325,17 @@ export function lifelogServer(
     },
     port: 0,
   });
-  const [token, lifelog] = [process.env.LIFELOG_TOKEN, settings().lifelog];
-  setSettings({ lifelog: { url: `http://localhost:${server.port}` } });
-  process.env.LIFELOG_TOKEN = "test-token";
+  const [token, voice] = [process.env.VOICE_TOKEN, settings().voice];
+  setSettings({ voice: { url: `http://localhost:${server.port}` } });
+  process.env.VOICE_TOKEN = "test-token";
   return {
     close() {
       server.stop(true);
-      setSettings({ lifelog });
+      setSettings({ voice });
       if (token === undefined) {
-        delete process.env.LIFELOG_TOKEN;
+        delete process.env.VOICE_TOKEN;
       } else {
-        process.env.LIFELOG_TOKEN = token;
+        process.env.VOICE_TOKEN = token;
       }
     },
     seen,

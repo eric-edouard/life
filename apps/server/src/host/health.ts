@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { readJson } from "../core/files";
-import { WATCH } from "../sources/lifelog";
+import { WATCH } from "../sources/voice";
 
 // The watcher's health record (derived/watch/health.json): written by the watcher after every poll, read by
 // `bun life status` and the status reads.

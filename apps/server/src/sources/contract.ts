@@ -50,7 +50,7 @@ export type Descriptor = {
   /** The app store the archive keeps a copy of; its units are read from that copy. */
   store?: AppStore;
   name: SourceName;
-  /** Its newest item (the status snapshot's card); a voice source's is lifelog's to tell. */
+  /** Its newest item (the status snapshot's card); a voice source's is the voice server's to tell. */
   newest?: () => Newest | Promise<Newest>;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */
   searchDays?: number;
@@ -71,7 +71,7 @@ export type Descriptor = {
       kind: "repo";
       read: (since: Date, map: { me: Person; repos: RepoMap }) => SourceEvent[];
     }
-  /** Recorded conversations: their units come from the watcher's store, their words from lifelog. */
+  /** Recorded conversations: their units come from the watcher's store, their words from the voice server. */
   | { kind: "voice" }
 );
 

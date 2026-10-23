@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Moment } from "../records/moment";
 import type { Observation } from "../records/observation";
-import type { LifelogConversation } from "../sources/lifelog";
+import type { VoiceConversation } from "../sources/voice";
 import {
   byDays,
   closedConversations,
@@ -14,27 +14,21 @@ import { momentsNow } from "./ledger";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import type { Built } from "./units";
 
-const conversation = (
-  id: string,
-  state: string,
-  endedAt: string
-): LifelogConversation => ({
-  chapters: [],
+const conversation = (id: string, endedAt: string): VoiceConversation => ({
   endedAt,
   id,
   startedAt: "2026-10-15T08:00:00.000Z",
-  state,
   title: "t",
+  turns: [],
 });
 
-test("only a summarized conversation quiet for an hour is closed", () => {
+test("a transcribed conversation quiet for an hour is closed", () => {
   const now = new Date("2026-10-15T13:00:00.000Z");
   const closed = closedConversations(
     [
-      conversation("old", "summarized", "2026-10-15T11:59:00.000Z"),
-      conversation("sharp", "summarized", "2026-10-15T12:00:00.000Z"),
-      conversation("recent", "summarized", "2026-10-15T12:30:00.000Z"),
-      conversation("raw", "transcribed", "2026-10-15T10:00:00.000Z"),
+      conversation("old", "2026-10-15T11:59:00.000Z"),
+      conversation("sharp", "2026-10-15T12:00:00.000Z"),
+      conversation("recent", "2026-10-15T12:30:00.000Z"),
     ],
     now
   );

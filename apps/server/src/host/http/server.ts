@@ -59,9 +59,9 @@ export function signedIn() {
   const life = own ? createIssuer(origin, resource) : null;
   const verify = ownerTokens({
     issuer,
-    // lifelog's keys rarely change: kept a day (a key it dropped stops working within it), or refetched sooner when a
+    // the voice server's keys rarely change: kept a day (a key it dropped stops working within it), or refetched sooner when a
     // token names a key they lack, so its latency reaches about one request a day; a failed fetch answers 503 (jose
-    // serves no stale keys, so lifelog down when the day ends is a 503 until it is back).
+    // serves no stale keys, so the voice server down when the day ends is a 503 until it is back).
     jwks:
       life?.jwks ??
       createRemoteJWKSet(new URL(`${issuer}/jwks`), {

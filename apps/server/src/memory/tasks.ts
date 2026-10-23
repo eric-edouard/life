@@ -9,7 +9,7 @@ import { clip } from "./units";
 
 const SPACES = /\s+/;
 const NON_WORD = /\W+/g;
-/** One wake word as lifelog may write it: its words, with any spaces or punctuation between them. */
+/** One wake word as the voice server may write it: its words, with any spaces or punctuation between them. */
 const phrase = (w: string) =>
   w.trim().split(SPACES).map(RegExp.escape).join(String.raw`\W+`);
 /** A wake word as heard, compared: lower case, one space between words. */
@@ -17,13 +17,13 @@ const asHeard = (w: string) => w.toLowerCase().replace(NON_WORD, " ").trim();
 const agentSetting = settings().agent;
 const NAMES = new Set((agentSetting?.wake ?? []).map(asHeard));
 /**
- * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: a mishearing lifelog made on 20 Oct,
+ * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: a mishearing the voice server made on 20 Oct,
  * audit 4, or a real name people he knows go by). A misheard one wakes only on his own turn, as `low` (the agent
  * confirms with him).
  */
 export const isName = (word: string) => NAMES.has(asHeard(word));
 /**
- * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
+ * "hey" as the voice server writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
  * longer word. Shared by both wakes.
  */
 const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
@@ -36,7 +36,7 @@ export const WAKE = new RegExp(
   WAKES.length > 0 ? String.raw`${GREETING}(${WAKES.join("|")})\b` : "(?!)",
   "i"
 );
-/** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is lifelog's misspelling. */
+/** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is the voice server's misspelling. */
 export const MARK = new RegExp(String.raw`${GREETING}li[fv]e\b`, "i");
 /** Everything up to "hey <agent>" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");

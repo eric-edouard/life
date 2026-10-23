@@ -21,7 +21,7 @@ import { LOCK, locked } from "../memory/memory-lock";
 import { INDEX } from "../memory/search";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { storeFiles, WATCH } from "../sources/lifelog";
+import { storeFiles, WATCH } from "../sources/voice";
 import { isEmpty } from "./init";
 
 // A whole copy of what Life holds, as a folder (`stage`): `bun life export <dir>`, the app's Export…, and the folder

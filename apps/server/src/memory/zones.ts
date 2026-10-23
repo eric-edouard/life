@@ -85,7 +85,7 @@ export function cutAt(now: Date, was: string, tz: string) {
  * Records the Mac's zone (the system's, whatever TZ the process runs with) when it is not the last one recorded:
  * launchd's tick calls it, every 30 minutes, holding the lock. What happened before it was noticed keeps its zone.
  * ponytail: the Mac travels with him; the Mac mini (roadmap 4.7) stays home, so its zone will need another source then
- * (his phone's, or lifelog's stays).
+ * (his phone's, or the voice server's stays).
  */
 export async function noteZone(now = clock()) {
   const tz = systemZone();

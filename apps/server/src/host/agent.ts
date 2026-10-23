@@ -121,7 +121,7 @@ const taskOf = (tasks: Task[], id?: string) =>
   tasks.find((t) => t.ask.id === id);
 
 /**
- * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, lifelog's feed had all
+ * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, the voice server's feed had all
  * of them, Life recorded the ask, the agent got it (the `event.sent` log), claimed it and closed it; null where unknown
  * (not speech, not yet, or before 20 Oct). A split's parts are left out: they share their parent's times.
  */

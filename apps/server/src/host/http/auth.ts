@@ -13,12 +13,12 @@ const refused = (
   why,
 });
 export type Refused = ReturnType<typeof refused>;
-/** What an `unreachable` refusal answers, with a 503: Life is up, lifelog's keys are not. */
-export const UNREACHABLE = "lifelog unreachable, try again";
+/** What an `unreachable` refusal answers, with a 503: Life is up, the voice server's keys are not. */
+export const UNREACHABLE = "the voice server unreachable, try again";
 
 /**
- * Whose a token is: the owner's OAuth client and scopes when lifelog's OAuth server issued it for Life (`life:read`) to the owner, else a
- * `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `unreachable` when lifelog's keys
+ * Whose a token is: the owner's OAuth client and scopes when the voice server's OAuth server issued it for Life (`life:read`) to the owner, else a
+ * `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `unreachable` when the voice server's keys
  * could not be fetched (the token was not judged), `invalid` otherwise. The one check behind /mcp and the check page.
  */
 export function ownerTokens({
@@ -35,7 +35,7 @@ export function ownerTokens({
   resource: string;
 }) {
   return async (token: string) => {
-    // Only a key set that has no key for this token is the token's fault; any other failure to get keys is lifelog's.
+    // Only a key set that has no key for this token is the token's fault; any other failure to get keys is the voice server's.
     let unreachable = false;
     const keys: JWTVerifyGetKey = async (header, jws) => {
       try {

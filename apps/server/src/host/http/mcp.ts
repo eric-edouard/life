@@ -18,7 +18,7 @@ import { clip } from "../../memory/units";
 import { chatsOf, fetchOf } from "../../memory/words";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
-import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
+import { Fix, FORWARD_KINDS, forward } from "../../sources/voice";
 import {
   BOARD,
   openItemsNow,
@@ -89,7 +89,7 @@ const Reminders = Change.extend({
 
 /**
  * A frozen world (`LIFE_NOW`, the agent bench) reaches nothing outside Life's copy of the data: a tool that would read
- * or change his live Reminders or lifelog answers that it did nothing (its call is logged as every call is, `mcp.call`
+ * or change his live Reminders or the voice server answers that it did nothing (its call is logged as every call is, `mcp.call`
  * with its arguments, so the bench grades it), and an event request is refused. `update_agent_task` and `log_reply_to_owner` still run: they
  * write only to the copy's ledger.
  */
@@ -155,7 +155,7 @@ const Correct = Fix.extend({
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
-/** Applies one correction the owner asked for: a Life memory correction or one of lifelog's four. */
+/** Applies one correction the owner asked for: a Life memory correction or one of the voice server's four. */
 export async function correct(a: z.infer<typeof Correct>) {
   await (a.kind === "memory"
     ? recordCorrection(a.correction)
@@ -510,7 +510,7 @@ export function createMcp(verify: Verify) {
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     return { ...(await verify(token)), token };
   }
-  /** The 401, 403 or 503 (lifelog's keys out of reach) that answers a refused token. */
+  /** The 401, 403 or 503 (the voice server's keys out of reach) that answers a refused token. */
   function denied({ refusal, token }: Refused & { token: string }) {
     if (refusal === "forbidden") {
       return text("forbidden", 403);

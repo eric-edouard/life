@@ -2,20 +2,20 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { MIN } from "../core/clock";
 import { LEDGER, tasksOf } from "../memory/ledger";
-import { apply } from "../sources/lifelog";
 import {
   turnFixture as fed,
-  lifelogServer,
-  lifelogStore,
   pageFixture,
+  voiceServer,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply } from "../sources/voice";
 import type { Health } from "./health";
 import { hear } from "./hear";
 import { afterPoll, hearings, holdFor, type Pending, resumed } from "./watch";
 
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
-const fail = { error: "lifelog GET /changes: 502" };
+const fail = { error: "voice server GET /changes: 502" };
 
 test("a successful poll resets the errors and the lag; a failed one keeps the last cursor", () => {
   let h: Health | null = null;
@@ -91,7 +91,7 @@ test("after a 3-day outage, his turns from before it are still heard, once, from
 });
 
 test("a restart hears again every turn first seen in the 10 minutes before the newest, even after an outage: the ask is recorded once", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: null, text: "hey Orbit, call the bank" },
@@ -101,7 +101,7 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
       ],
     }),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   const said = "2026-10-19T10:00:00.000Z";
   const seen = Date.parse("2026-10-19T10:00:10.000Z");
   const iso = (ms: number) => new Date(ms).toISOString();

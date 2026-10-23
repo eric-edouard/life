@@ -9,9 +9,9 @@ import { LEDGER, readLedger, tasksOf } from "../memory/ledger";
 import { isLocked, locked } from "../memory/memory-lock";
 import { reindex } from "../memory/search";
 import { listening } from "../memory/sources";
-import { syncLifelogUnits } from "../memory/units";
+import { syncVoiceUnits } from "../memory/units";
 import { LedgerEntry } from "../records/ledger-entry";
-import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
+import { lastSeen, openStore, poll, type Store } from "../sources/voice";
 import { checks, pull } from "../todo-list/backend";
 import { marks, push } from "../todo-list/board";
 import { chase, closings, receipts } from "./agent";
@@ -22,8 +22,8 @@ import { serve } from "./http/server";
 import { healTunnel, TUNNEL_EVERY_MS } from "./http/tunnel";
 import { inbound } from "./inbound";
 
-// `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
-// anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
+// `bun life watch` (a KeepAlive LaunchAgent): long-polls the voice server's change feed into the store and, when a page changed
+// anything, rebuilds the voice units and the index (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
@@ -69,7 +69,7 @@ async function pass(now: number) {
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
 /**
- * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
+ * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once the voice server's rows for
  * it have settled (its speaker, mostly within 3 s), open speech once the next recording is usually in. A wake with no
  * speaker yet waits longer, in `hear` (`NAMING_MS`).
  * ponytail: a recording later than that ends the ask before it (`asksIn` starts at a wake); joining it to the open
@@ -183,10 +183,10 @@ export function resumed(store: Store, now: number) {
   return pending;
 }
 
-/** Rebuilds the lifelog units and the index holding the lock; false, nothing done, when another run holds it. */
+/** Rebuilds the voice units and the index holding the lock; false, nothing done, when another run holds it. */
 async function syncUnits(store: Store, cursor: string) {
   const n = await locked(async () => {
-    const built = await syncLifelogUnits(store);
+    const built = await syncVoiceUnits(store);
     await reindex();
     return built;
   });

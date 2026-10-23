@@ -103,7 +103,7 @@ export function resolver(
   return (surface: string): string | null => {
     const ks = keys(surface);
     const truth = handles.get(ks[0] ?? "") ?? handles.get(ks[1] ?? "");
-    // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
+    // A name as the voice server gives it, its parentheses left out ("Jean (Me)").
     const named = names.get(normalize(surface.trim().replace(PAREN, "")));
     const ref = [
       ...ks.map((k) => said.get(k)),
@@ -148,7 +148,7 @@ export function aboutNow(
     const was = canon(o.speaker);
     const unknown = was.startsWith(UNKNOWN);
     const from = authorFrom(o, chatOf);
-    // A voice keeps lifelog's id, which the map may not know: then, for an unknown one, the name lifelog gave it.
+    // A voice keeps the voice server's id, which the map may not know: then, for an unknown one, the name the voice server gave it.
     const now =
       (from && resolve(from)) ||
       (unknown && resolve(was.slice(UNKNOWN.length))) ||

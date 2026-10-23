@@ -54,14 +54,14 @@ export const Observation = z
     source: z
       .object({
         channel: SourceName,
-        // lifelog: jobId:turnIndex@capturedAt; chats and mail: the message id.
+        // voice: jobId:turnIndex@capturedAt; chats and mail: the message id.
         ref: z.string().min(1),
       })
       .strict(),
     /** Who said or wrote the cited line: person:<slug>, unknown:<label>, or agent:<name> (an agent's report, never a person). */
     speaker: z.string(),
     /**
-     * The handle or name the cited line's author came from (a chat sender; for a voice, lifelog's id, else its name), from
+     * The handle or name the cited line's author came from (a chat sender; for a voice, the voice server's id, else its name), from
      * 21 Oct 2026: readers resolve it again (`aboutNow`), so a later identity fix needs no new reading.
      */
     speakerFrom: z.string().optional(),

@@ -30,7 +30,7 @@ test("each marked unit is listed once read since the last night, with the observ
     ({ at, unit: id, unitHash }) as Extracted;
   const latest = (...lines: Extracted[]) => latestExtractions(lines);
   const held = {
-    source: { channel: "lifelog", ref: "j:2@a" },
+    source: { channel: "voice", ref: "j:2@a" },
     text: "He will vote for the stones.",
   } as Observation;
   const since = "2026-10-10T02:00:00.000Z";

@@ -5,7 +5,7 @@ import { stamp } from "../models/llm";
 import type { MadeBy } from "../records/fields";
 import { Closeness, type Correction, Level } from "../records/observation";
 import type { SourceEvent } from "../records/source";
-import { type Store, speakerTurns, withStore } from "../sources/lifelog";
+import { type Store, speakerTurns, withStore } from "../sources/voice";
 import { CLOSENESS, latestBy, readCorrections, writtenPeople } from "./ledger";
 import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, chunks, inBatches, meContext } from "./run";
@@ -107,7 +107,7 @@ export function chatDays(
   return days;
 }
 
-/** The days each person spoke in his recordings (`speakerTurns`: live conversations, lifelog's own speakers). */
+/** The days each person spoke in his recordings (`speakerTurns`: live conversations, the voice server's own speakers). */
 export function voiceDays(
   store: Store,
   resolve: (s: string) => string | null,

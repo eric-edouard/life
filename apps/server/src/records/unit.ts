@@ -28,8 +28,8 @@ export const MemoryType = z.enum([
 
 export type MemoryType = z.infer<typeof MemoryType>;
 
-/** What kind of recording a lifelog chapter is (decision 6: the fast-tier model tags it). */
-export const ChapterKind = z.enum([
+/** What kind of recording a unit is (decision 6: the fast-tier model tags it). */
+export const RecordingKind = z.enum([
   "conversation",
   "small-talk",
   "media",
@@ -58,7 +58,7 @@ export const Verdict = z
     area: slug.nullable(),
     hash: ContentHash,
     importance: Importance,
-    kind: ChapterKind.optional(),
+    kind: RecordingKind.optional(),
     madeBy: MadeBy,
     reason: z.string(),
     schemaVersion: z.literal(1),
@@ -91,7 +91,7 @@ export const FileEntry = z
 
 export type FileEntry = z.infer<typeof FileEntry>;
 
-/** L1: one lifelog chapter, one chat-day or one mail thread-day. Refs, hashes and metadata; never raw text. */
+/** L1: one conversation-day, chat-day or mail thread-day (or, before the voice cutover, one lifelog chapter). Refs, hashes and metadata; never raw text. */
 export const Unit = z
   .object({
     date: isoDate,
@@ -102,11 +102,11 @@ export const Unit = z
     id: UnitId,
     // The conversation, chat or mail thread the unit belongs to.
     key: z.string(),
-    // lifelog: the refs of the turns of his "hey Life" spans in it (the hearing's marks); absent when none.
+    // voice: the refs of the turns of his "hey Life" spans in it (the hearing's marks); absent when none.
     marked: z.array(z.string()).optional(),
     // As the source names them, unresolved (unknown:<name or sender>, person:me): readers map them (`unitNow`, who.ts).
     people: z.array(z.string()),
-    // lifelog: conversation#turns and jobId:turnIndex@capturedAt; chats: first and last message id; mail: message ids.
+    // voice: conversation#turns and jobId:turnIndex@capturedAt; chats: first and last message id; mail: message ids.
     refs: z.array(z.string()).min(1),
     schemaVersion: z.literal(1),
     source: SourceName,
@@ -122,7 +122,7 @@ export const Unit = z
         removed: z.int().min(0).optional(),
       })
       .strict(),
-    // lifelog's own chapter summary; chats and mail have none.
+    // the voice server's own chapter summary; chats and mail have none.
     summary: z.string().optional(),
     title: z.string(),
   })

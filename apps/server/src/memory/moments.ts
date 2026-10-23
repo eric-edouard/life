@@ -8,7 +8,7 @@ import type { MadeBy } from "../records/fields";
 import { LocalTime, Moment } from "../records/moment";
 import { type Correction, InferredPerson } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
-import { ChapterKind, KEEP_AT, MemoryType } from "../records/unit";
+import { KEEP_AT, MemoryType, RecordingKind } from "../records/unit";
 import { closeNow } from "./closeness";
 import {
   appendVerdicts,
@@ -44,6 +44,7 @@ import {
   writeUnits,
 } from "./units";
 import { readPeople, unitNow } from "./who";
+import { voiceText } from "./words";
 
 // `bun life memory moments`: what happened in the owner's life, day by day. For each day of the window with a unit not yet
 // judged on its current content, the deep-tier model reads every unit of the day from every channel in time order,
@@ -115,7 +116,7 @@ const Judged = z.object({
   id: z.string(),
   importance: z.int().min(0).max(3),
   // Chats and mail have no kind; the model sometimes says so with null.
-  kind: ChapterKind.nullish().transform((k) => k ?? undefined),
+  kind: RecordingKind.nullish().transform((k) => k ?? undefined),
   reason: z.string().min(1).max(300),
   topics: z.array(z.string()).nullish(),
   type: MemoryType,
@@ -373,13 +374,15 @@ export async function moments(evidence: Evidence) {
       continue;
     }
     const earlier = earlierFor(day, lines, corrections);
-    // Known: on the map, inferred confidently, or answered earlier in this run (one person, one id).
-    const unknown = unknownIn(
-      units,
-      (s) => resolve(s) !== null || named.some((p) => p.surfaces.includes(s))
-    );
     // biome-ignore lint/performance/noAwaitInLoops: a day reads the moments the day before it wrote
     const got = await step.attempt(async () => {
+      // The day's conversations with their words: fetched only now, for the day being read.
+      const spoken = await voiceText(units, resolve, truth);
+      // Known: on the map, inferred confidently, or answered earlier in this run (one person, one id).
+      const unknown = unknownIn(
+        spoken,
+        (s) => resolve(s) !== null || named.some((p) => p.surfaces.includes(s))
+      );
       const json = await step.ask({
         context: { ...context, topics: topTopics(verdicts.values()) },
         dir: join(step.dir, day),
@@ -395,7 +398,7 @@ export async function moments(evidence: Evidence) {
               title,
             })
           ),
-          units: units.map(({ text, unit }) => ({
+          units: spoken.map(({ text, unit }) => ({
             areaHint: hints.get(unit.key),
             end: localTime(unit.end),
             id: unit.id,
@@ -419,7 +422,7 @@ export async function moments(evidence: Evidence) {
         madeBy,
         people: new Set(context.people.map((p) => p.ref)),
         resolve,
-        units: new Map(units.map((b) => [b.unit.id, b.unit])),
+        units: new Map(spoken.map((b) => [b.unit.id, b.unit])),
       });
       const who = checkPeople(reading.who, {
         areas,

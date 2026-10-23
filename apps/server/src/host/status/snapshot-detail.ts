@@ -38,12 +38,12 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   contacts: read("contacts"),
   email: (e) => e.kind === "email.sent",
   engine: (e) => e.kind === "quota.read" || e.kind === "model.run",
-  lifelog: (e) => e.step === "watch" || read("lifelog")(e),
   past: (e) => e.kind === "calendar.write",
-  pendant: read("lifelog"),
+  pendant: read("voice"),
   reminders: (e) => e.kind === "board.write" || e.kind === "sync.pull",
   tasks: (e) => e.kind === "board.write" || e.kind === "event.sent",
   tunnel: (e) => e.step === "tunnel",
+  voice: (e) => e.step === "watch" || read("voice")(e),
   watcher: (e) => e.step === "watch",
 };
 

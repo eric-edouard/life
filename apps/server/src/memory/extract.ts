@@ -11,10 +11,10 @@ import {
 } from "../records/observation";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import {
-  type LifelogConversation,
   turnsBetween,
+  type VoiceConversation,
   withStore,
-} from "../sources/lifelog";
+} from "../sources/voice";
 import { closeNow } from "./closeness";
 import {
   EXTRACTED,
@@ -39,10 +39,10 @@ import {
   type Built,
   daysBefore,
   type Evidence,
-  lifelogNames,
   localTime,
   MARKED,
   UNKNOWN,
+  voiceNames,
   within,
 } from "./units";
 import { observationsNow, readPeople, unitNow, who } from "./who";
@@ -59,7 +59,7 @@ const EXTRACT_PROMPT = "memory-extract.v5";
 /** Characters of unit text per call: whole moments, as many as fit. */
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
-/** A conversation this quiet and summarized is closed: its units are final enough to read before the day is over. */
+/** A transcribed conversation this quiet is closed: its units are final enough to read before the day is over. */
 const QUIET_MS = HOUR;
 /** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
@@ -70,18 +70,14 @@ const BOND_MAX = 10;
 /** Facts from the moment's own units, of any age (a plan carried to its day), at most this many. */
 const MOMENT_MAX = 20;
 
-/** The ids of the lifelog conversations that are summarized and have been quiet for an hour. */
+/** The ids of the transcribed conversations (`readConversations`) that have been quiet for an hour. */
 export function closedConversations(
-  conversations: LifelogConversation[],
+  conversations: VoiceConversation[],
   now: Date
 ) {
   return new Set(
     conversations
-      .filter(
-        (c) =>
-          c.state === "summarized" &&
-          Date.parse(c.endedAt) <= now.getTime() - QUIET_MS
-      )
+      .filter((c) => Date.parse(c.endedAt) <= now.getTime() - QUIET_MS)
       .map((c) => c.id)
   );
 }
@@ -357,7 +353,7 @@ export async function extract(evidence: Evidence) {
   const { built, conversations, failed, truth } = evidence;
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
-  // Today is not over: its chats are still growing, so they wait for tomorrow; only closed lifelog conversations go now.
+  // Today is not over: its chats are still growing, so they wait for tomorrow; only closed conversations go now.
   const closed = closedConversations(conversations, now);
   const verdicts = await readVerdicts();
   const people = await readPeople();
@@ -416,7 +412,7 @@ export async function extract(evidence: Evidence) {
                     unit.key,
                     unit.start,
                     unit.end,
-                    lifelogNames(truth)
+                    voiceNames(truth)
                   ),
                 ] as const,
               ]
@@ -432,7 +428,7 @@ export async function extract(evidence: Evidence) {
         ? voiceLines(turns.get(b.unit.id) ?? [], jobs, resolve)
         : chatLines(b, resolve);
     // ponytail: a unit longer than UNIT_MAX keeps its first lines only (a longer line cut to it, as a whole note's text
-    // can be); split the unit if long chapters matter.
+    // can be); split the unit if long conversations matter.
     const shownLines = within(
       all.map((l) => ({ ...l, text: l.text.slice(0, UNIT_MAX) })),
       UNIT_MAX,
@@ -557,7 +553,7 @@ export async function extract(evidence: Evidence) {
       await one(call, k === 0 ? bdir : `${bdir}-${k}`);
     }
   });
-  // Names lifelog gave a voice that the map doesn't know (a chat's unknown senders are handles, not names).
+  // Names the voice server gave a voice that the map doesn't know (a chat's unknown senders are handles, not names).
   for (const { unit } of finished.filter(
     (s) => kindOf(s.unit.source) === "voice"
   )) {

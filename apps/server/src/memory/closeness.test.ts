@@ -3,14 +3,13 @@ import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type Closeness, Correction } from "../records/observation";
 import type { SourceEvent } from "../records/source";
-import { apply } from "../sources/lifelog";
 import {
-  chapter,
   conversation,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply } from "../sources/voice";
 import {
   bucket,
   chatDays,
@@ -190,14 +189,11 @@ test("the judgment is checked: a person not asked about, twice, or a level out o
   ]);
 });
 
-test("voice days are the days someone spoke in a live recording, by lifelog's own speakers", () => {
-  const store = lifelogStore();
+test("voice days are the days someone spoke in a live recording, by the voice server's own speakers", () => {
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-      ],
       conversations: [conversation("c1")],
       turns: [
         turnFixture(0, "2026-10-14T10:01:00.000Z", "p1", "Anne-Sophie"),

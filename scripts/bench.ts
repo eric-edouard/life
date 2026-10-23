@@ -123,7 +123,7 @@ async function run(
   return JSON.parse(r.stdout.trim().split("\n").at(-1) ?? "");
 }
 
-/** The main checkout (this repo's first worktree): its dependencies, .env, lifelog store and engine setting. */
+/** The main checkout (this repo's first worktree): its dependencies, .env, the voice server store and engine setting. */
 export const mainCheckout = () =>
   dirname(
     gitOut(LIFE_CODE_DIR, [

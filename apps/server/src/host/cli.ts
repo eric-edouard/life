@@ -297,7 +297,7 @@ const commands: Record<string, () => Promise<number>> = {
     console.log(JSON.stringify(readSettings(), null, 2));
     return Promise.resolve(0);
   },
-  /** What the lifelog watcher says about itself (derived/watch/health.json). */
+  /** What the voice watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),
   /** Validates truth/: schemas plus every reference between people, chats, projects and areas. */
   async validate() {
@@ -310,7 +310,7 @@ const commands: Record<string, () => Promise<number>> = {
     }
     return issues.length === 0 ? 0 : 1;
   },
-  /** Follows lifelog's change feed and keeps the lifelog units current; never returns (the LaunchAgent). */
+  /** Follows the voice server's change feed and keeps the voice units current; never returns (the LaunchAgent). */
   watch,
 };
 

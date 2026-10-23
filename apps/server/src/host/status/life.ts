@@ -46,8 +46,8 @@ function lastOf(list: Run[], step: string) {
 }
 /**
  * Is Life working, how fresh is its memory, and what runs next. Four clocks, kept apart: capture (the watcher folds
- * lifelog in as it arrives; the archive copies chats), extraction (midday, nightly, backfill weeks), consolidation
- * (pages: midday and nightly) and the index (rebuilt by the watcher on any lifelog change and by every sweep: a new index is not new memory).
+ * the voice server in as it arrives; the archive copies chats), extraction (midday, nightly, backfill weeks), consolidation
+ * (pages: midday and nightly) and the index (rebuilt by the watcher on any voice change and by every sweep: a new index is not new memory).
  * A missing record is "unknown", never healthy.
  */
 export async function lifeStatus(now = clock()) {
@@ -77,7 +77,7 @@ export async function lifeStatus(now = clock()) {
       archive: copiedByStore(),
       // The key keeps its name for the status reads' contract: the verdicts are the moments step's since 18 Oct.
       lastTriage: lastOf(list, "memory.moments").latest?.result ?? null,
-      lifelogOkAt: health?.lastOkAt ?? null,
+      voiceOkAt: health?.lastOkAt ?? null,
     },
     consolidation: lastOf(list, "memory.pages"),
     extraction: lastOf(list, "memory.extract"),

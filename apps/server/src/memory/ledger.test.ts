@@ -88,7 +88,7 @@ const line = (id: string, unit: string, unitHash = "h1", run = "r1") =>
   ({
     ...obs(id, unit, unitHash, run),
     entities: [],
-    source: { channel: "lifelog", ref: "x" },
+    source: { channel: "voice", ref: "x" },
     validTo: null,
   }) as unknown as Observation;
 const fixture = {

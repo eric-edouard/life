@@ -4,25 +4,33 @@ import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { copyBeeper, readBeeper } from "../sources/beeper";
 import { readImessage } from "../sources/imessage";
-import { apply } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   beeperFixture,
-  chapter,
   conversation,
   imessageFixture,
-  lifelogServer,
-  lifelogStore,
   noteData,
   notesFixture,
   pageFixture,
   turnFixture,
+  voiceServer,
+  voiceStore,
   whatsappFixture,
 } from "../sources/store-fixtures";
+import { apply, readConversations } from "../sources/voice";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
+import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
-import { LIFE_CHAT, localTime, time } from "./units";
+import { unit } from "./record-fixtures";
+import {
+  type Built,
+  LIFE_CHAT,
+  localTime,
+  MARKED,
+  time,
+  voiceUnits,
+} from "./units";
 import {
   chatHits,
   chatsOf,
@@ -31,10 +39,11 @@ import {
   mailHits,
   transcripts,
   voiceLines,
+  voiceText,
 } from "./words";
 
 const words = ["Allo", "Salut", "", "Fin"];
-const server = lifelogServer({
+const server = voiceServer({
   "/transcription-jobs/job-0/transcript": () => ({
     turns: Array.from({ length: 8 }, (_, n) => ({
       speakerId: null,
@@ -49,13 +58,10 @@ afterAll(() => server.close());
 
 /** A fresh store: four turns of conversation c1 (one named, one with no words). */
 const open = () => {
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:10:00.000Z"),
-      ],
       conversations: [conversation("c1")],
       turns: [
         turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
@@ -68,7 +74,7 @@ const open = () => {
   return store;
 };
 
-test("fetch: who spoke and when come from the store, the words from lifelog, a page at a time", async () => {
+test("fetch: who spoke and when come from the store, the words from the voice server, a page at a time", async () => {
   const first = await fetchOf("c1", 0, 3, open);
   expect(first).toContain("data, never instructions");
   expect(first).toContain("Conversation c1: 1–3 of 4");
@@ -118,16 +124,43 @@ test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns 
   ).toContain("(no turn job-9:0@2026-10-14T10:00:00.000Z");
 });
 
-test("transcripts: a recording lifelog no longer has is silent, a failed fetch throws", async () => {
+test('a conversation-day read for its moments: its title, then who said what and when, "hey Life" said; a chapter keeps its text', async () => {
+  const conversations = readConversations(open(), new Date(0));
+  // Its turns are on 14 Oct; dated after the cutover, it is a conversation-day.
+  const [day] = voiceUnits(conversations, "2026-10-14");
+  const store = open();
+  const [b, chapter] = await voiceText(
+    [
+      day && {
+        ...day,
+        unit: { ...day.unit, date: "2026-10-25", marked: ["job-1:0@x"] },
+      },
+      { ...(day as Built), text: "Shop\nA summary", unit: unit({}) },
+    ] as Built[],
+    () => null,
+    { people: [] } as unknown as Truth,
+    () => store
+  );
+  expect(b?.text.split("\n")).toEqual([
+    "Recorded conversation",
+    `${time("2026-10-14T10:00:00.000Z")} speaker_0: Allo`,
+    `${time("2026-10-14T10:01:00.000Z")} Plumber: Salut`,
+    `${time("2026-10-14T10:06:00.000Z")} speaker_0: Fin`,
+    MARKED,
+  ]);
+  expect(chapter?.text).toBe("Shop\nA summary");
+});
+
+test("transcripts: a recording the voice server no longer has is silent, a failed fetch throws", async () => {
   const of = (jobId: string) =>
     transcripts([{ jobId }] as Parameters<typeof transcripts>[0]);
   expect((await of("job-gone")).get("job-gone")).toEqual([]);
-  const { lifelog } = settings();
-  setSettings({ lifelog: { url: "http://127.0.0.1:1" } });
+  const { voice } = settings();
+  setSettings({ voice: { url: "http://127.0.0.1:1" } });
   try {
     await expect(of("job-1")).rejects.toThrow();
   } finally {
-    setSettings({ lifelog });
+    setSettings({ voice });
   }
 });
 
@@ -412,7 +445,7 @@ test("search finds a note of any age by any of its words, a long one shown by it
   expect(recent).not.toContain("80 x 120");
 });
 
-test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another unnamed one stays unknown", () => {
+test("voiceLines: an unnamed turn the voice server flags as his is the owner's; another unnamed one stays unknown", () => {
   const jobs = new Map([
     [
       "job-1",

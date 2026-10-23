@@ -2,15 +2,14 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { LEDGER, tasksOf } from "../memory/ledger";
 import { MARK, WAKE } from "../memory/tasks";
-import { apply, readConversations, whose } from "../sources/lifelog";
 import {
-  chapter,
   conversation,
   turnFixture as fed,
-  lifelogServer,
-  lifelogStore,
   pageFixture,
+  voiceServer,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply, readConversations, whose } from "../sources/voice";
 import { asksIn, hear, marksIn, speechIn, type Turn } from "./hear";
 
 test("only “hey Orbit” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
@@ -51,7 +50,7 @@ test("only “hey Orbit” or its misheard word, in order, wake it, whatever the
   }
 });
 
-test('"hey Life" as lifelog writes it (audit of 21 Oct), never an idiom', () => {
+test('"hey Life" as the voice server writes it (audit of 21 Oct), never an idiom', () => {
   for (const said of [
     "Hey Life, remind me",
     "Uh, hey, Life.",
@@ -84,7 +83,7 @@ const turn = (s: number, who: Turn["who"], text: string, long = 0): Turn => ({
   who,
 });
 
-test("a turn is his, someone else's when lifelog named anyone (by id or name), else nobody's", () => {
+test("a turn is his, someone else's when the voice server named anyone (by id or name), else nobody's", () => {
   const t = { at: "", end: null, jobId: "j", seen: null, turnIndex: 0 };
   expect(whose({ ...t, name: "Me", owner: true, personId: "p0" })).toBe("me");
   expect(whose({ ...t, name: "Ana", owner: false, personId: null })).toBe(
@@ -118,7 +117,7 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
-// audit-4-hej-agent: lifelog wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.
+// audit-4-hej-agent: the voice server wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.
 test("“Hej Orbit” from an unattributed voice is a low ask, from a named other none; “hey, or bit” is his low ask only", () => {
   const asks = asksIn(
     [
@@ -137,7 +136,7 @@ test("“Hej Orbit” from an unattributed voice is a low ask, from a named othe
   ]);
 });
 
-test("his own “hey Zorba” (the misheard setting) is lifelog mishearing “hey Orbit”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
+test("his own “hey Zorba” (the misheard setting) is the voice server mishearing “hey Orbit”: a low ask, never someone else's, an unattributed one or a plain Zorba", () => {
   const asks = asksIn(
     [
       turn(0, "me", "Hey Zorba, add milk to the list"),
@@ -199,8 +198,8 @@ test("the pause is measured from a turn's end; the ask keeps when its last turn 
   expect(ask?.timing).toEqual({ arrived: iso(100), ended: iso(43) });
 });
 
-test("speech is complete once its last turn is someone else's, ends a recording nobody spoke after, or lifelog settled the conversation", () => {
-  const store = lifelogStore();
+test("speech is complete once its last turn is someone else's, ends a recording nobody spoke after, or the voice server settled the conversation", () => {
+  const store = voiceStore();
   const at = "2026-10-19T10:00:00.000Z";
   const state = (
     silence: boolean | null,
@@ -225,7 +224,7 @@ test("speech is complete once its last turn is someone else's, ends a recording 
   const nobody = fed(1, "2026-10-19T10:00:09.000Z", null, null);
   expect(state(true, [his])).toBe("complete");
   expect(state(false, [his])).toBe("open");
-  // lifelog could not tell (an older recording): unknown, so wait.
+  // the voice server could not tell (an older recording): unknown, so wait.
   expect(state(null, [his])).toBe("open");
   // Settled: nothing more will join it.
   expect(state(false, [his], true)).toBe("complete");
@@ -234,8 +233,8 @@ test("speech is complete once its last turn is someone else's, ends a recording 
   expect(state(true, [his, nobody])).toBe("complete");
 });
 
-test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds back only itself (his misheard one waits for nothing)", async () => {
-  const server = lifelogServer({
+test("a wake with no speaker waits up to 40 s for the voice server to name him, and holds back only itself (his misheard one waits for nothing)", async () => {
+  const server = voiceServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: null, text: "hey Orbit, water the plant" },
@@ -243,7 +242,7 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
       ],
     }),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
@@ -273,13 +272,13 @@ test("a wake with no speaker waits up to 40 s for lifelog to name him, and holds
   }
 });
 
-test("his misheard wake with no speaker yet waits for lifelog to name him", async () => {
-  const server = lifelogServer({
+test("his misheard wake with no speaker yet waits for the voice server to name him", async () => {
+  const server = voiceServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [{ speakerId: null, text: "hey Zorba, buy milk" }],
     }),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   const at = "2026-10-19T10:00:00.000Z";
   apply(
     store,
@@ -308,8 +307,8 @@ test("his misheard wake with no speaker yet waits for lifelog to name him", asyn
 });
 
 test("a failed word fetch throws, so the watcher hears it again: never read as silence", async () => {
-  const server = lifelogServer({});
-  const store = lifelogStore();
+  const server = voiceServer({});
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
@@ -337,8 +336,8 @@ test('a "hey Life" span is his (high) or unattributed (low), never someone else\
   expect(marksIn([turn(0, "me", "hey Orbit, book it")], "")).toEqual([]);
 });
 
-test('his "hey Life" heard in a conversation marks its chapter; heard again from later, the earlier mark stays', async () => {
-  const server = lifelogServer({
+test('his "hey Life" heard in a conversation marks its wake turn; heard again from later, the earlier mark stays', async () => {
+  const server = voiceServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: null, text: "hey Life, the stones are for Nina" },
@@ -347,13 +346,10 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
       ],
     }),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-19T09:00:00.000Z", "2026-10-19T11:00:00.000Z"),
-      ],
       conversations: [conversation("c1")],
       turns: [
         fed(0, "2026-10-19T10:00:00.000Z", "p-me", "Me", "c1", true),
@@ -364,7 +360,7 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
     "2026-10-19T10:00:30.000Z"
   );
   const marked = () =>
-    readConversations(store, new Date("2026-10-01"))[0]?.chapters[0]?.marked;
+    readConversations(store, new Date("2026-10-01"))[0]?.turns[0]?.marks;
   try {
     expect(
       (await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"))).marked

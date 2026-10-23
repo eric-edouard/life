@@ -47,9 +47,9 @@ const token = (sub = "owner") =>
     .setExpirationTime("1h")
     .sign(privateKey);
 
-/** lifelog's token endpoint: Life's own client and a good code with its verifier get `issued`'s token. */
+/** the voice server's token endpoint: Life's own client and a good code with its verifier get `issued`'s token. */
 let issued = "owner";
-const lifelog = (async (_url: string, init?: RequestInit) => {
+const issuer = (async (_url: string, init?: RequestInit) => {
   const form = new URLSearchParams(String(init?.body));
   return form.get("code") === "good" &&
     form.get("code_verifier") &&
@@ -57,7 +57,7 @@ const lifelog = (async (_url: string, init?: RequestInit) => {
     ? Response.json({ access_token: await token(issued), expires_in: 3600 })
     : new Response("bad", { status: 400 });
 }) as typeof fetch;
-const check = createCheck(createSignIn(verify, lifelog));
+const check = createCheck(createSignIn(verify, issuer));
 
 const get = async (path: string, cookie = "", init: RequestInit = {}) =>
   (await check.request(
@@ -108,11 +108,11 @@ test("the page's policy lets in the fonts its stylesheet imports", async () => {
   ).toContain(host);
 });
 
-test("lifelog's keys out of reach: the page and the sign-in answer 503, never a sign-in or a refusal", async () => {
+test("the voice server's keys out of reach: the page and the sign-in answer 503, never a sign-in or a refusal", async () => {
   const down = createCheck(
     createSignIn(
       async () => ({ refusal: "unreachable", why: "request timed out" }),
-      lifelog
+      issuer
     )
   );
   const at = async (path: string, jar = "") =>

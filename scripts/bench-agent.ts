@@ -1,6 +1,6 @@
 // `bun scripts/bench-agent.ts [cases.json] [--only id,…] [--engine codex|claude]`: the agent, end to end, on his past asks.
 // Each case is one ask of memory/ledger.jsonl, replayed in the world as it was then: a clone of ~/Life at its last
-// commit before the ask, the ledger cut at the ask, the lifelog store cut at its instant, the index rebuilt from that
+// commit before the ask, the ledger cut at the ask, the voice store cut at its instant, the index rebuilt from that
 // copy, and the clock frozen there (`LIFE_NOW`, apps/server/src/core/clock.ts) in a throwaway worktree of this code. A headless agent on
 // his subscription gets Life's connector, frozen and dry (mcp.ts), as its only tools, and the playbook through `read_open_agent_tasks`:
 // Codex's main tier (Sol), as close as it gets to the agent, a ChatGPT agent (his rule). `--engine claude` only checks the
@@ -165,8 +165,8 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     // biome-ignore lint/performance/noAwaitInLoops: two folders
     await mkdir(join(code, "derived", d), { recursive: true });
   }
-  const store = join(code, "derived/watch/lifelog.sqlite");
-  const live = new Database(join(LIFE_STATE_DIR, "watch/lifelog.sqlite"), {
+  const store = join(code, "derived/watch/voice.sqlite");
+  const live = new Database(join(LIFE_STATE_DIR, "watch/voice.sqlite"), {
     readonly: true,
   });
   live.run("vacuum into ?", [store]);
@@ -220,7 +220,7 @@ async function runCase(
     prompt: "agent-bench.v1",
     run: o.run,
     tools: {
-      // Its worktree's code, and the .env there (lifelog's token).
+      // Its worktree's code, and the .env there (the voice server's token).
       command: ["bun", "--cwd", o.code, "scripts/bench-agent.ts", "--serve"],
       env: {
         LIFE_NOW: world.at,

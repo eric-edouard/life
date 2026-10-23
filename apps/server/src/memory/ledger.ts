@@ -112,7 +112,7 @@ export const liveUnits = (units: Unit[]) =>
 /**
  * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), or
  * the unit has none: a unit read again, under another content hash or another prompt version, leaves its older facts
- * in the ledger, replaced; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
+ * in the ledger, replaced; a unit gone (a conversation regrouped) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
   { latest, live }: Pick<Standing, "latest" | "live">,
@@ -128,7 +128,7 @@ export function isCurrent(
 /**
  * Whether an observation is new since `at` (none: all are): no observation of `all` made by then cites its source line
  * (the exact message or transcript turn). A re-read (a prompt bump, a re-summarized chapter) cites the same lines, so
- * nothing in it is new; a chat-day that grew, or a lifelog job transcribed again, has new lines.
+ * nothing in it is new; a chat-day that grew, or a voice job transcribed again, has new lines.
  */
 export function newSince(all: Observation[], at?: string) {
   const run = at ? runId(new Date(at)) : "";

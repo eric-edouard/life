@@ -92,8 +92,8 @@ struct SettingsView: View {
   @State private var agentSaved: [String: Any] = [:]
   /// remctl's download and installer, or an import, are under way: the controls they touch wait.
   @State private var installing = false
-  @State private var lifelogURL = ""
-  @State private var lifelogToken = ""
+  @State private var voiceURL = ""
+  @State private var voiceToken = ""
   @State private var origin = ""
   @State private var status = ""
   @State private var loginItem = SMAppService.mainApp.status == .enabled
@@ -148,8 +148,8 @@ struct SettingsView: View {
             }
             Text("Turn Life on there, then come back: it checks again.").caption()
           }
-          TextField("lifelog address", text: $lifelogURL)
-          SecureField("lifelog token", text: $lifelogToken)
+          TextField("lifelog address", text: $voiceURL)
+          SecureField("lifelog token", text: $voiceToken)
         }
         if supervisor.info?.todoList == "google" {
           // Google Tasks is the backend (set in his settings): shown on, never switched from here.
@@ -236,9 +236,9 @@ struct SettingsView: View {
     agentSaved = agent ?? [:]
     wake = (agent?["wake"] as? [String])?.first ?? ""
     transport = agent?["transport"] as? String ?? "mcp-event"
-    lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
+    voiceURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
-    lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
+    voiceToken = Keychain.read("VOICE_TOKEN") ?? ""
     key = Keychain.read(keyName) ?? ""
   }
 
@@ -259,13 +259,13 @@ struct SettingsView: View {
     if engine == "anthropic" || engine == "openai" {
       Keychain.write(keyName, key)
     }
-    Keychain.write("LIFELOG_TOKEN", lifelogToken)
+    Keychain.write("VOICE_TOKEN", voiceToken)
     var parts: [String: Any] = ["engine": engine]
     if !agentName.isEmpty {
       let words = wake.isEmpty ? agentName.lowercased() : wake
       parts["agent"] = agentSaved.merging(["name": agentName, "wake": [words], "transport": transport]) { _, new in new }
     }
-    if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
+    if !voiceURL.isEmpty { parts["lifelog"] = ["url": voiceURL] }
     await set(parts)
     await supervisor.restart()
   }

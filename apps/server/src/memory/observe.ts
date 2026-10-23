@@ -17,7 +17,7 @@ export interface SourceLine {
   at: string;
   /** The handle or name the speaker was resolved from (none for the owner): stored as `speakerFrom`. */
   from?: string;
-  /** Exact location: the message id, or lifelog's `jobId:turnIndex@capturedAt`. */
+  /** Exact location: the message id, or the voice server's `jobId:turnIndex@capturedAt`. */
   ref: string;
   /** person:<slug>, unknown:<label>, or agent:<name> (`speakerOf`). */
   speaker: string;

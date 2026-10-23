@@ -163,7 +163,7 @@ async function spawnBoth(tools?: Tools) {
   const files = spyOn(Bun, "file").mockImplementation(((p: string) =>
     file(p.endsWith("auth.json") ? import.meta.path : p)) as typeof Bun.file);
   const env = { ...process.env };
-  for (const k of ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "LIFELOG_TOKEN"]) {
+  for (const k of ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "VOICE_TOKEN"]) {
     process.env[k] = "secret";
   }
   try {

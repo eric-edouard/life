@@ -8,7 +8,7 @@ import { normalize } from "../memory/units";
 import { localDate } from "../memory/zones";
 import { type Instruction, LedgerEntry, stands } from "../records/ledger-entry";
 import type { Observation } from "../records/observation";
-import { ownerSpoke, withStore } from "../sources/lifelog";
+import { ownerSpoke, withStore } from "../sources/voice";
 import {
   BOARD,
   backend,
@@ -157,7 +157,7 @@ export const grantedFrom = (actions: LedgerEntry[], obs: string) =>
  * Why the standing grant (his yes, decision 2 of the 21 Oct review) may not add a reminder from this observation, or
  * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
  * (`setGrant`, the latest such line standing), and off again once a reminder it added was removed after that (his undo),
- * it adds at most GRANT_DAILY a day (his local day), only from his current importance-3 to-do or promise in a lifelog
+ * it adds at most GRANT_DAILY a day (his local day), only from his current importance-3 to-do or promise in a the voice server
  * turn the store credits to him now (`mine`); a shared list is the backend's `shared`, checked last (it reads his lists).
  */
 export function grantRefusal(g: {
@@ -187,7 +187,7 @@ export function grantRefusal(g: {
     return "only his importance-3 to-dos and promises";
   }
   if (kindOf(g.o.source.channel) !== "voice" || !g.mine) {
-    return "only from a turn lifelog credits to his voice";
+    return "only from a turn the voice server credits to his voice";
   }
   const today = localDate(g.now);
   if (made.filter((a) => localDate(a.at) === today).length >= GRANT_DAILY) {

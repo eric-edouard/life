@@ -7,11 +7,11 @@ import {
   visits,
   whereAt,
   withStore,
-} from "../sources/lifelog";
+} from "../sources/voice";
 import { clip, dayRange, localTime, time } from "./units";
 import { asData } from "./words";
 
-// `bun life memory places`, and the connector's `read_places_visited`: where the owner was (lifelog's stays, from the iPhone's
+// `bun life memory places`, and the connector's `read_places_visited`: where the owner was (the voice server's stays, from the iPhone's
 // location history), each stay with the titles of the conversations recorded during it, joined here from Life's store.
 // Coordinates come from the asker: Life does no geocoding.
 

@@ -26,7 +26,7 @@ import { clip } from "../../memory/units";
 import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
-import { lifelogStatus, newestTurn } from "../../sources/lifelog";
+import { newestTurn, voiceStatus } from "../../sources/voice";
 import { checks } from "../../todo-list/backend";
 import { escalation, taskList } from "../agent";
 import { archiveFailing } from "../archive";
@@ -305,7 +305,7 @@ async function reads(now: Date) {
     cached("log", 5000, () => recentEvents<LogLine>(8, "")),
     cached("failing", 15_000, () => archiveFailing()),
     cached("turn", 3000, () => safe(newestTurn)),
-    cached("lifelog", 30_000, () => safe(lifelogStatus)),
+    cached("voice", 30_000, () => safe(voiceStatus)),
     cached("mac", 15_000, () => macState()),
     cached("mem", MIN, () => memoryCounts()),
     cached("unreflected", 5 * MIN, () => safe(unreflected)),
@@ -386,7 +386,7 @@ const pendantFacts = (
 ): Fact[] => [
   {
     at: p?.recordingKnownAt,
-    // lifelog's phone reports each change as it happens: the state stands since then.
+    // the voice server's phone reports each change as it happens: the state stands since then.
     label: "Recording state, since",
     value: p?.recording ?? "unknown",
   },
@@ -398,7 +398,7 @@ const pendantFacts = (
   { at: spokeAt, label: "Newest speech heard" },
 ];
 
-/** The Pendant, as lifelog last heard from the phone, and the newest speech the watcher folded in. */
+/** The Pendant, as the voice server last heard from the phone, and the newest speech the watcher folded in. */
 function pendantCard(r: Reads, d: Descriptor): Card {
   const pendant = r.life.ok ? r.life.value.pendant : undefined;
   const recording = pendant?.recording === "recording";
@@ -418,7 +418,7 @@ function pendantCard(r: Reads, d: Descriptor): Card {
   };
 }
 
-function lifelogCard(r: Reads): Card {
+function voiceCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
   const backlog = r.life.ok
     ? r.life.value.phoneHeartbeat?.backlog?.pages
@@ -428,7 +428,9 @@ function lifelogCard(r: Reads): Card {
       [
         !polling(r),
         {
-          ask: ASK("that the watcher has not polled lifelog for 15 minutes"),
+          ask: ASK(
+            "that the watcher has not polled the voice server for 15 minutes"
+          ),
           tone: "bad",
           word: "not polling",
         },
@@ -452,8 +454,8 @@ function lifelogCard(r: Reads): Card {
     ],
     group: "sources",
     headline: r.health?.lastOkAt ? "polling" : "never polled",
-    id: "lifelog",
-    name: "lifelog server",
+    id: "voice",
+    name: "the voice server server",
   };
 }
 
@@ -513,7 +515,7 @@ function sourceCards(r: Reads): Card[] {
         return [unreadableCard(d, why)];
       }
       return d.kind === "voice"
-        ? [pendantCard(r, d), lifelogCard(r)]
+        ? [pendantCard(r, d), voiceCard(r)]
         : [sourceCard(r, d)];
     }),
     {
@@ -1161,7 +1163,7 @@ function todayOf(r: Reads): Tick[] {
         label: `${x.step.replace("memory.", "")} ${x.outcome}`,
         tone: toneOfRun(x.outcome),
       })),
-    // The watcher retries lifelog on its own: a timeout is a retry, not a failure.
+    // The watcher retries the voice server on its own: a timeout is a retry, not a failure.
     ...r.errorsToday.map((e) => ({
       at: e.at,
       label: `${e.step} ${e.step === "watch" ? "retried" : "failed"}`,

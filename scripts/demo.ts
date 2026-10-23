@@ -88,7 +88,7 @@ interface Demo {
   key: string;
   moment?: { place: string | null; title: string; with: string };
   ref: string;
-  source: "lifelog" | "mail" | "whatsapp";
+  source: "voice" | "mail" | "whatsapp";
   title: string;
 }
 const DEMO: Demo[] = [
@@ -163,7 +163,7 @@ const DEMO: Demo[] = [
       with: "hans",
     },
     ref: "job-demo-1:4@2026-10-17T09:05:00.000Z",
-    source: "lifelog",
+    source: "voice",
     title: "Kitchen sink repair with the plumber",
   },
   {

@@ -8,7 +8,7 @@ import {
   type Stay,
   whereAt,
   withStore,
-} from "../sources/lifelog";
+} from "../sources/voice";
 import { momentsNow, readMoments, readUnits } from "./ledger";
 import { where } from "./places";
 import { momentText } from "./statements";
@@ -17,12 +17,12 @@ import { observationsNow, readPeople } from "./who";
 import { dayStart, localDate } from "./zones";
 
 // The Past calendar (his request, 21 Oct): what it should hold. Every moment that happened, as an event with who,
-// where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
+// where he was (the voice server's stays), the conversations recorded, what Life noted and every unit it was read from. A
 // one-way projection of the moments, like the board: each event carries its moment's id and a hash of what it shows,
 // a moment that changed is written again, one gone (hidden, cancelled, never happened) is deleted.
 // `host/past-calendar.ts` writes it.
 
-// ponytail: a moment goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
+// ponytail: a moment goes on the calendar 2 h after it ends, so the voice server has its stays: they are read once, when it
 // is written, and are not in its hash. Hash them (a read per moment each tick) if late stays turn out to matter.
 const SETTLE = 2 * HOUR;
 // Google takes 8,192 characters; a busy moment's units would pass it.
@@ -198,7 +198,7 @@ async function located(
       ...(stays.length > 0
         ? [
             "",
-            "Where he was (lifelog):",
+            "Where he was:",
             ...stays.map(
               (s) =>
                 `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} https://maps.google.com/?q=${s.latitude},${s.longitude}`
@@ -209,7 +209,10 @@ async function located(
         ? [
             "",
             "Conversations recorded:",
-            ...talks.map((c) => `- ${time(c.start_at)} ${c.title} (${c.id})`),
+            ...talks.map(
+              (c) =>
+                `- ${time(c.start_at)}${c.title ? ` ${c.title}` : ""} (${c.id})`
+            ),
           ]
         : []),
     ],

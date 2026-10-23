@@ -20,15 +20,14 @@ import {
 } from "../../core/settings";
 import { LEDGER } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
-import { apply, forward, type Stay } from "../../sources/lifelog";
 import {
-  chapter,
   conversation,
-  lifelogServer,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceServer,
+  voiceStore,
 } from "../../sources/store-fixtures";
+import { apply, forward, type Stay } from "../../sources/voice";
 import { protocol, sealed, update } from "../agent";
 import { ownerTokens } from "./auth";
 import { correct, createMcp } from "./mcp";
@@ -55,7 +54,7 @@ const connector = createMcp(verify);
 
 const SECONDS = Math.floor(NOW.getTime() / 1000);
 
-/** A token as lifelog would issue it, unless `over` says otherwise; `lifetime` in seconds from NOW. */
+/** A token as the voice server would issue it, unless `over` says otherwise; `lifetime` in seconds from NOW. */
 function token(over: Record<string, unknown> = {}, lifetime = 3600) {
   return new SignJWT({
     aud: RESOURCE,
@@ -151,9 +150,9 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
 });
 
-test("lifelog's keys out of reach answer 503, not a refused token; a key it lacks is still the token's fault", async () => {
+test("the voice server's keys out of reach answer 503, not a refused token; a key it lacks is still the token's fault", async () => {
   // 20 Oct: a JWKS fetch timing out was reported as an invalid token.
-  const lifelog = Bun.serve({
+  const issuer = Bun.serve({
     fetch: async ({ url }) => {
       const { pathname } = new URL(url);
       if (pathname === "/slow") {
@@ -169,7 +168,7 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
     const refusal = async (path: string, kid = "k1") => {
       const at = ownerTokens({
         issuer: ISSUER,
-        jwks: createRemoteJWKSet(new URL(path, lifelog.url), {
+        jwks: createRemoteJWKSet(new URL(path, issuer.url), {
           timeoutDuration: 100,
         }),
         now: () => NOW.getTime(),
@@ -195,7 +194,7 @@ test("lifelog's keys out of reach answer 503, not a refused token; a key it lack
     );
     expect(res?.status).toBe(503);
   } finally {
-    lifelog.stop(true);
+    issuer.stop(true);
   }
 });
 
@@ -515,7 +514,7 @@ test("the server is named Life, carries its icons, and its instructions open wit
   ]);
 });
 
-const server = lifelogServer({
+const server = voiceServer({
   "/conversations/c1/title": () => ({ id: "c1" }),
   "/people/p1": () => ({ id: "p1" }),
   "/people/p1/merge": () => ({ id: "p1" }),
@@ -536,7 +535,7 @@ test("forward sends the four corrections and nothing else", async () => {
   );
 });
 
-test("correct names what is missing and sends a merge as lifelog takes it", async () => {
+test("correct names what is missing and sends a merge as the voice server takes it", async () => {
   await expect(correct({ kind: "title" })).rejects.toThrow(
     "title needs: id, title"
   );
@@ -555,19 +554,16 @@ test("correct names what is missing and sends a merge as lifelog takes it", asyn
 
 test("places: each stay lists the conversations recorded during it", async () => {
   const open = () => {
-    const store = lifelogStore();
+    const store = voiceStore();
     apply(
       store,
       pageFixture({
-        chapters: [
-          chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:10:00.000Z"),
-        ],
         conversations: [
-          conversation("c1"),
+          conversation("c1", { ownerTitle: "The plumber" }),
           conversation("c2", {
             endAt: "2026-10-12T09:10:00.000Z",
+            ownerTitle: "Elsewhere",
             startAt: "2026-10-12T09:00:00.000Z",
-            title: "Elsewhere",
           }),
         ],
         turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null)],

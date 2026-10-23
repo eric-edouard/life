@@ -55,7 +55,7 @@ export interface Night {
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
-  /** Each chapter he marked "hey Life", read since the last night, and what the memory holds of it (`whatIsNew`). */
+  /** Each unit he marked "hey Life", read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
   /** The days whose moments were read again, and how many moments they hold. */
   moments: Result<typeof moments>;
@@ -157,7 +157,7 @@ export function successReport(day: string, ms: number, n: Night) {
             .map((s) => s.label)
             .join(", ") || "none (turn one on to start)"
         }`,
-        `Lifelog: ${watcherLine(n.watcher)}`,
+        `The voice server: ${watcherLine(n.watcher)}`,
         `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.archive,

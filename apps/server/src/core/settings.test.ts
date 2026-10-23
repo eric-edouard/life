@@ -39,24 +39,24 @@ test("settings set with one bad part writes nothing", () => {
   expect(readSettings()).toEqual(before);
 });
 
-test("the old names (the actions key, the agent's atlas) are renamed where the file is read, once", () => {
+test("the old names (the voice key and source) are renamed where the file is read, once", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
   writeFileSync(
     path,
     JSON.stringify({
-      actions: { backend: "reminders" },
-      sources: ["lifelog", "atlas"],
+      lifelog: { url: "https://voice.example.test" },
+      sources: ["lifelog", "agent"],
     })
   );
   expect(readSettings(path)).toMatchObject({
-    sources: ["lifelog", "agent"],
-    todo_list: { backend: "reminders" },
+    sources: ["voice", "agent"],
+    voice: { url: "https://voice.example.test" },
   });
   const once = readFileSync(path, "utf8");
-  expect(JSON.parse(once).actions).toBeUndefined();
+  expect(JSON.parse(once).lifelog).toBeUndefined();
   readSettings(path);
   expect(readFileSync(path, "utf8")).toBe(once);
-  expect(renamedSettings({ sources: ["agent"] })).toEqual({
-    sources: ["agent"],
+  expect(renamedSettings({ sources: ["voice"] })).toEqual({
+    sources: ["voice"],
   });
 });
