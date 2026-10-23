@@ -197,16 +197,18 @@ export function readGit(
   root = WORK
 ): SourceEvent[] {
   const seen = new Set<string>();
-  const unmapped = (r: Repo) => Number(!repos.get(r.key)?.project);
+  const mapped = (key: string) => Boolean(repos.get(key)?.project);
   const ordered = listRepos(root).toSorted(
-    (a, b) => unmapped(a) - unmapped(b) || a.key.localeCompare(b.key)
+    (a, b) =>
+      Number(mapped(b.key)) - Number(mapped(a.key)) ||
+      a.key.localeCompare(b.key)
   );
   return ordered.flatMap(({ key, path }) => {
     const out = git(path, [
       "log",
       "--all",
       "--no-merges",
-      ...(repos.get(key)?.project ? [] : mine(me)),
+      ...(mapped(key) ? [] : mine(me)),
       `--since=${since.toISOString()}`,
       "--numstat",
       `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`,

@@ -48,7 +48,6 @@ import {
   speakerOf,
   syncLifelogUnits,
   unitId,
-  unitsOf,
   writeUnits,
 } from "./units";
 import { resolver, unitNow } from "./who";
@@ -426,8 +425,7 @@ test("a repo-day is a unit: commits and lines in the title, the subjects as summ
     text: `Change ${n}`,
     ...over,
   });
-  const [b] = unitsOf(
-    "repo",
+  const [b] = messageUnits(
     [
       commit(1, {}),
       commit(2, { fromMe: false, sender: "Jérôme" }),
