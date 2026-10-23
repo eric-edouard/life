@@ -1,11 +1,13 @@
+import { join } from "node:path";
 import { Hono } from "hono";
 import { createRemoteJWKSet } from "jose";
 import { DAY } from "../../core/clock";
 import { off } from "../../core/outputs";
+import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check-page";
-import { LOCAL_PORT, PUBLIC_PORT } from "./http";
+import { HEADERS, LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
@@ -53,6 +55,20 @@ function listen(port: number, app: Hono) {
   console.log(`Life: listening on 127.0.0.1:${port}`);
 }
 
+/** Life's brand, nothing of his, open to all: so his agent styles what it makes for him (docs/brand.md). */
+const BRAND: Record<string, string> = {
+  "/brand/brand.md": "docs/brand.md",
+  "/brand/tokens.css": "assets/brand/tokens.css",
+};
+const brand = new Hono();
+for (const [path, file] of Object.entries(BRAND)) {
+  brand.get(
+    path,
+    () =>
+      new Response(Bun.file(join(LIFE_CODE_DIR, file)), { headers: HEADERS })
+  );
+}
+
 /** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */
 export function signedIn() {
   const { issuer, origin, own, owner, resource } = connector();
@@ -87,5 +103,6 @@ export function signedIn() {
     .route("/", mcp)
     .route("/", createCheck(signIn))
     .route("/", createPortrait())
+    .route("/", brand)
     .notFound(notFound);
 }

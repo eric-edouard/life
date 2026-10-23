@@ -8,7 +8,7 @@ import { LOG_DIR, logDays, logEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { agentName } from "../core/settings";
+import { agentName, type Settings, settings } from "../core/settings";
 import { LEDGER, type Task, tasksOf } from "../memory/ledger";
 import {
   closed,
@@ -19,7 +19,7 @@ import {
   type Update,
 } from "../memory/tasks";
 import { clip, localTime } from "../memory/units";
-import { localDate } from "../memory/zones";
+import { dayStart, localDate } from "../memory/zones";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import type { Receipt } from "../todo-list/board";
 import { entryId, requested } from "./act";
@@ -91,6 +91,30 @@ export function ask(...a: Parameters<typeof askLine>) {
     appendJsonl(LEDGER, LedgerEntry, [action]);
   }
   return old ?? action;
+}
+
+/** Where a daily ask's words are: `daily:<his local day>`. */
+const DAILY = "daily:";
+
+/**
+ * His daily ask (the `daily_ask` setting), each minute: once his local time (where he is) passes its `time`, one ask
+ * of his text for that day. Its id comes from the day, so a restart never asks twice; the Mac asleep then asks at wake.
+ */
+export function dailyAsk(
+  now = clock().getTime(),
+  d: Settings["daily_ask"] = settings().daily_ask
+) {
+  const day = localDate(iso(now));
+  const due = dayStart(day, undefined, d?.time).getTime();
+  if (d?.on && now >= due) {
+    ask(
+      { at: iso(due), quote: d.text, ref: `${DAILY}${day}` },
+      { confidence: "high" },
+      "watch",
+      "his daily ask",
+      now
+    );
+  }
 }
 
 /** The agent's own line on a task (or `chat`), as a ledger line: an update, or a reply (its id also over its text). */
@@ -356,11 +380,15 @@ export function reply(
   return `${target}: reply logged`;
 }
 
-/** The asks recorded since `since` (his spoken ones, Life's and the tasks the agent made from his chat words; not splits) with no reply line: the nightly's gap count. */
+/** The asks recorded since `since` (his spoken ones, Life's and the tasks the agent made from his chat words; not splits or daily asks) with no reply line: the nightly's gap count. */
 export const unanswered = (since: number, tasks = tasksOf()) =>
   tasks.filter(
     (t) =>
-      !t.ask.after.parent &&
+      !(
+        t.ask.after.parent ||
+        // A daily ask needs no reply: the agent takes it and closes it.
+        t.ask.instruction.ref.startsWith(DAILY)
+      ) &&
       Date.parse(t.ask.at) >= since &&
       !t.lines.some((l) => l.kind === "reply")
   ).length;

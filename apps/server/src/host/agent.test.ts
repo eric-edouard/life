@@ -16,6 +16,7 @@ import type { TodoItem } from "../todo-list/contract";
 import {
   alerts,
   chase,
+  dailyAsk,
   escalation,
   protocol,
   receipts,
@@ -482,6 +483,44 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
       target: "chat",
       via: "connector",
     });
+  } finally {
+    rmSync(LEDGER, { force: true });
+  }
+});
+
+test("his daily ask: one a day once his local time passes its time, his text whole, no reply expected; off, none", () => {
+  const daily = {
+    on: true,
+    text: "React to each message with an emoji.",
+    time: "09:00",
+  };
+  // He is in Lagos (UTC+1) from 19 Oct: 09:00 there is 08:00Z.
+  const nine = Date.parse("2026-10-20T08:00:00.000Z");
+  try {
+    dailyAsk(nine - MIN, daily);
+    expect(tasksOf()).toEqual([]);
+    dailyAsk(nine, daily);
+    dailyAsk(nine + 3 * 60 * MIN, daily);
+    dailyAsk(nine + 24 * 60 * MIN, { ...daily, on: false });
+    dailyAsk(nine + 24 * 60 * MIN, undefined);
+    dailyAsk(nine + 25 * 60 * MIN, daily);
+    const asks = tasksOf().map((t) => t.ask);
+    expect(
+      asks.map((a) => [
+        a.instruction?.ref,
+        a.instruction?.at,
+        a.instruction?.quote,
+      ])
+    ).toEqual([
+      ["daily:2026-10-20", "2026-10-20T08:00:00.000Z", daily.text],
+      ["daily:2026-10-21", "2026-10-21T08:00:00.000Z", daily.text],
+    ]);
+    expect(asks[0]).toMatchObject({
+      after: { confidence: "high" },
+      kind: "ask",
+      via: "watch",
+    });
+    expect(unanswered(nine, tasksOf())).toBe(0);
   } finally {
     rmSync(LEDGER, { force: true });
   }
