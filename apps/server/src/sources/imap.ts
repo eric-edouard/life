@@ -29,8 +29,6 @@ import {
 
 const DIR = join(MACHINE_DIR, "mail");
 export const MAILDIR = join(DIR, "maildir");
-// ponytail: a message over 25 MB is left out of the copy whole; raise it if big attachments matter.
-const MAX_SIZE = "25m";
 const ADDRESS = /<([^>]+)>/;
 const PREFIX = /^(?:(?:re|fwd?|tr|aw)\s*:\s*)+/i;
 const FLAGS = /:2,([A-Z]*)$/;
@@ -64,7 +62,7 @@ Create Near
 Sync Pull
 Expunge Near
 SyncState *
-MaxSize ${MAX_SIZE}
+CopyArrivalDate yes
 `;
 
 /** Brings the copy up to date with his mailbox (the first run copies it all: hours for years of mail). */
@@ -144,8 +142,11 @@ export const isMessageFile = (path: string, root = MAILDIR) =>
   path.endsWith(".emlx") || path.startsWith(join(root, "/"));
 
 /** The copy's messages received at or after `since`, oldest first, as Mail's store gives them. */
-function messagesSince(since: Date, root: string): StoredMessage[] {
-  return files(root)
+function messagesSince(
+  since: Date,
+  all: ReturnType<typeof files>
+): StoredMessage[] {
+  return all
     .filter((f) => f.at >= since.getTime())
     .sort((a, b) => a.at - b.at)
     .flatMap((f) => {
@@ -166,7 +167,6 @@ function messagesSince(since: Date, root: string): StoredMessage[] {
           chat: thread ? `mail:${thread}` : id,
           chatName: subject.replace(PREFIX, ""),
           id,
-          isSent: isSentBox(f.box),
           // A draft or a deleted message, by its flag: Gmail keeps both in All Mail too.
           isSkipped: isSkippedBox(f.box) || DRAFT_OR_TRASHED.test(f.flags),
           path: f.path,
@@ -177,13 +177,21 @@ function messagesSince(since: Date, root: string): StoredMessage[] {
     });
 }
 
-/** His mail in the copy at `root` since `since`: his own by his login and his sent folders. */
+/**
+ * His mail in the copy at `root` since `since`: his own by his login and every sender of his sent folders (an alias
+ * included), all time, as Mail's accounts on the Mac.
+ */
 export function readMaildir(
   since: Date,
   root = MAILDIR,
   user = settings().imap?.user ?? ""
 ): SourceEvent[] {
-  return mailEvents(messagesSince(since, root), [user]);
+  const all = files(root);
+  const sent = all.filter((f) => isSentBox(f.box));
+  return mailEvents(messagesSince(since, all), [
+    user,
+    ...sent.map((f) => addressOf(messageAt(f.path)?.headers.get("from"))),
+  ]);
 }
 
 /** The newest message in the copy, its sender and subject (the status snapshot). */

@@ -126,7 +126,12 @@ const LISTED: Descriptor[] = [
     ...(settings().imap
       ? {
           mirror: () => mirrorImap(),
-          missing: () => (isMirrored() ? undefined : "not mirrored yet"),
+          missing: () => {
+            if (!process.env.LIFE_IMAP_PASSWORD) {
+              return "no LIFE_IMAP_PASSWORD";
+            }
+            return isMirrored() ? undefined : "not mirrored yet";
+          },
           newest: () => newestMaildir(),
           read: (since: Date) => readMaildir(since),
         }
@@ -189,7 +194,14 @@ const LISTED: Descriptor[] = [
   {
     kind: "repo",
     label: "Git",
-    missing: () => (settings().repos ? undefined : "no repos folder set"),
+    missing: () => {
+      if (!settings().repos) {
+        return "no repos folder set";
+      }
+      if (settings().forge && !process.env.GITHUB_TOKEN) {
+        return "no GITHUB_TOKEN";
+      }
+    },
     // On a host without his checkouts, the repos his projects list, from his forge.
     ...(settings().forge
       ? {

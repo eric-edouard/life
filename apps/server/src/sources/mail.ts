@@ -518,8 +518,6 @@ export interface StoredMessage {
   /** The subject without its prefix. */
   chatName: string;
   id: string;
-  /** In a mailbox of sent mail: its sender is one of his addresses. */
-  isSent: boolean;
   /** In a mailbox never read as mail (junk, trash, drafts). */
   isSkipped: boolean;
   path: string | null;
@@ -530,16 +528,13 @@ export interface StoredMessage {
 
 /**
  * Each message once, as an event: a message stored in a skipped mailbox is skipped everywhere (Gmail keeps a draft's
- * copy in All Mail too). His own are from `addresses` or a sender of his sent mail.
+ * copy in All Mail too). His own are from his `addresses`.
  */
 export function mailEvents(
   stored: StoredMessage[],
   addresses: string[]
 ): SourceEvent[] {
-  const mine = new Set([
-    ...addresses.map((a) => a.toLowerCase()),
-    ...stored.filter((m) => m.isSent).map((m) => m.sender),
-  ]);
+  const mine = new Set(addresses.map((a) => a.toLowerCase()));
   const seen = new Set(stored.filter((m) => m.isSkipped).map((m) => m.id));
   const events: SourceEvent[] = [];
   for (const m of stored) {
@@ -580,7 +575,6 @@ export function readMail(
           : `${r.mailbox}#${subject}`,
         chatName: subject,
         id: mailIdOf(r.header, r.globalId),
-        isSent: isSentBox(mailboxName(r.mailbox)),
         isSkipped: isSkippedBox(mailboxName(r.mailbox)),
         path: emlxPath(root, r.mailbox, r.rowid),
         prefix: r.prefix ?? "",

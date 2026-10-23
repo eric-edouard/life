@@ -40,6 +40,8 @@ test("mbsync mirrors every folder but junk, trash and drafts, or the ones set, t
   expect(config).toContain("TLSType IMAPS");
   expect(config).toContain('Patterns "*" "!*junk*" "!*Junk*"');
   expect(config).toContain("Sync Pull");
+  // Dated by when the server received it, never by when it was copied.
+  expect(config).toContain("CopyArrivalDate yes");
   expect(
     mbsyncConfig(
       { folders: ["[Gmail]/All Mail"], host: "h", port: 143, user: "u" },

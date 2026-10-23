@@ -20,7 +20,7 @@ LIFE_IMAP_PASSWORD=<an app password>
 
 Life copies your mailbox to the server over IMAP with mbsync, every 5 minutes, and reads the copy. It only reads: it
 never moves, flags or deletes anything in your mailbox. The first copy of years of mail takes hours and a few GB of
-disk; a message over 25 MB is left out.
+disk. The server needs mbsync (Debian and Ubuntu: `apt install isync`).
 
 For Gmail, turn on 2-Step Verification, then make an app password at
 [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords). `[Gmail]/All Mail` holds each message
