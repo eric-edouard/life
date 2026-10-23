@@ -133,6 +133,8 @@ this step's PR; the archive keeps its rule (never moved, never rewritten): the h
 - Parked (23 Oct, the owner): Matrix bridges replace the push (the [server plan](2026-10-22-server.md), phases 2–3).
   The push contract and its code stay on branch `claude/zen-roentgen-b29483` (eric-edouard/life#196, closed). Meanwhile
   the server reads Beeper Desktop's API on the Mac over the tailnet.
+- Beeper over the tailnet: planned, not now; Matrix first (the owner, 23 Oct). The plan: a second input to
+  `copyBeeper`, Beeper Desktop's API with a read-only token, into the server's own archive, read by `readBeeper`.
 
 ### 7. The server's Compose
 
