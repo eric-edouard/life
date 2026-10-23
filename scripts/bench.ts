@@ -134,9 +134,10 @@ const mainCheckout = () =>
   );
 
 /**
- * This code at HEAD in `dir`, a throwaway worktree, with its own dependencies, installed without scripts (they write the git config every worktree shares; a link to the main checkout's would load
- * the main checkout's code: the workspace packages link back into it), the main checkout's .env, and `state` from this
- * process's state dir (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
+ * This code at HEAD in `dir`, a throwaway worktree, with its own dependencies (a link to the main checkout's would load
+ * the main checkout's code: the workspace packages link back into it), installed without scripts (`prepare` writes the
+ * git config every worktree shares, which parallel checkouts would race on), the main checkout's .env, and `state` from
+ * this process's state dir (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
  */
 export async function checkout(dir: string, state: string[]) {
   gitOut(LIFE_CODE_DIR, ["worktree", "add", "--detach", dir, "HEAD"]);
