@@ -29,7 +29,7 @@ import {
 } from "./people";
 import { services } from "./services";
 import {
-  fakeIdentity,
+  fakeSpeechService,
   mapJob,
   OWNER_TOKEN,
   seedTranscript,
@@ -37,7 +37,7 @@ import {
   testDb,
 } from "./testing";
 
-const identity = fakeIdentity();
+const speech = fakeSpeechService();
 let env: Awaited<ReturnType<typeof testDb>>;
 let app: ReturnType<typeof createApp>;
 
@@ -47,7 +47,7 @@ beforeAll(() => {
     services(
       testConfig("http://localhost:1", {
         IDENTITY_SECRET: "identity-test-secret",
-        IDENTITY_URL: `http://localhost:${identity.server.port}`,
+        IDENTITY_URL: `http://localhost:${speech.server.port}`,
       }),
       env.db
     )
@@ -55,11 +55,11 @@ beforeAll(() => {
 });
 afterAll(() => {
   env.drop();
-  identity.server.stop(true);
+  speech.server.stop(true);
 });
 beforeEach(() => {
   env.reset();
-  identity.busy = false;
+  speech.busy = false;
 });
 
 const auth = { Authorization: `Bearer ${OWNER_TOKEN}` };

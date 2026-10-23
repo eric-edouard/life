@@ -1,13 +1,14 @@
 # Providers
 
 Which outside services see what, and what we keep. Transcription (ElevenLabs) is described in
-`docs/voice/transcription-server.md`.
+`docs/voice/transcription-server.md`; the speech service's share of it (`transcriber` `speech`) in
+`docs/voice/processing.md`, "Who transcribes".
 
 ## Speaker recognition: our own service, no third party
 
-Voices are recognized by `apps/speech`, a small Python service you run yourself (CPU).
-It wraps SpeechBrain's ECAPA model (`speechbrain/spkrec-ecapa-voxceleb`, pinned to one revision and
-baked into the image). No outside provider sees audio or embeddings for recognition.
+Voices are recognized by `apps/speech`, the speech service, which you run yourself. It wraps SpeechBrain's ECAPA
+model (`speechbrain/spkrec-ecapa-voxceleb`, pinned to one revision), beside the transcription models (Nemotron 3,
+VoxLingua107, Parakeet Ultra). No outside provider sees audio or embeddings for recognition.
 
 **Flow**
 
@@ -47,8 +48,9 @@ baked into the image). No outside provider sees audio or embeddings for recognit
 - On the server set `IDENTITY_URL` (for example `http://127.0.0.1:8000`) and the same `IDENTITY_SECRET`, in
   `server.env`. Without them the server cuts nothing, everything else keeps working, and its status says
   speaker recognition is off.
-- The image build downloads the model and runs its self-check test; the service runs the
-  self-check again at startup before it serves.
+- The models (about 3 GB on a server, 1.8 GB with MLX on a Mac; every revision pinned) go in a volume at `/models`, fetched at the first start; the image
+  build runs the contract tests, and the service runs its self-check at startup before it serves. It needs 4 GB of
+  RAM with every model loaded (about 4.4 GB at its peak), and takes a block at a time.
 
 ## Titles and summaries: ChatGPT or Claude on the Mac
 

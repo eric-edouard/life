@@ -158,6 +158,26 @@ itself. The Pendant screen shows a card while one is off, and no screen offers a
 The same row holds `openAppAfterMinutes`, the delay of the "Open Life" alert (Settings, Alerts; 0 is off). It is not
 a switch, but it is set the same way.
 
+### Who transcribes
+
+The same row holds `transcriber`, who transcribes the next blocks (`PUT /switches {"transcriber": …}`; the status
+and the feed show it with the switches):
+
+- `scribe` (the default): each block goes to ElevenLabs Scribe whole, as above.
+- `speech`: each block goes to the speech service (`apps/speech`, `POST /transcribe`), which answers Nemotron 3's
+  speaker turns, VoxLingua107's language per turn and Parakeet Ultra's words (`route-turns.ts`). A turn of a second
+  or more goes to Scribe when its language is neither English nor French, or the service wrote nothing in it; a
+  block 70% foreign goes to Scribe whole, as a `scribe` job. The routed turns are cut from the block's own Ogg Opus (packets moved, a
+  quarter second around each) and sent to Scribe once, without a webhook; their words come back into the turns'
+  seconds with the service's speakers. The transcript has Scribe's shape, so turns, conversations, speakers, the
+  feed and Life read it the same. Why these rules: `docs/voice/research/transcription-bench.md`.
+
+A job keeps the transcriber it was sent with (`transcription_jobs.transcriber`). The service busy, the block is
+queued again (not an attempt); down or failing, it is an attempt, and the third goes to Scribe whole, so nothing
+loops. One cut off by a restart goes again after 10 minutes, unless its routed turns had left for Scribe: those may
+be billed, so it fails. Its `billableSeconds` are Scribe's price of the seconds it heard. Without `IDENTITY_URL` set,
+`speech` still sends to Scribe. Dictation never reaches either: the worker's gate runs first.
+
 ### No limits
 
 Nothing holds or caps transcription: every admitted job goes. Spending counts every job and the

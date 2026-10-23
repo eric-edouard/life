@@ -8,6 +8,8 @@
 //   bun run bench route [diarizer] how well each detector finds the Thai on that diarizer's turns
 //                                 (routing/<diarizer>/routing.md; pyannote by default)
 //   bun run bench pipeline [thai] the proposed pipeline (Ultra, a Thai model on routed turns) as a model
+//   bun run bench service <name>  every clip through the speech service at SPEECH_URL (out/<name>/):
+//                                 its words and speaker turns, scored like a model
 import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -258,6 +260,48 @@ async function models(names: string[]) {
       join(OUT, name),
       ...rest.slice(1),
     ]);
+  }
+}
+
+// Each clip through the speech service (apps/speech `/transcribe`), with the secret it shares.
+async function service(name: string | undefined) {
+  const { IDENTITY_SECRET: secret, SPEECH_URL: url } = process.env;
+  if (!(name && url && secret)) {
+    throw new Error(
+      "usage: SPEECH_URL=… IDENTITY_SECRET=… bench service <name>"
+    );
+  }
+  await mkdir(join(OUT, name), { recursive: true });
+  const ids = (await readdir(CLIPS)).filter((f) => f.endsWith(".wav"));
+  for (const wav of ids.sort()) {
+    const target = Bun.file(join(OUT, name, wav.replace(".wav", ".json")));
+    // biome-ignore lint/performance/noAwaitInLoops: the service runs one block at a time
+    if (await target.exists()) {
+      continue;
+    }
+    const began = performance.now();
+    const res = await fetch(new URL("/transcribe", url), {
+      body: Bun.file(join(CLIPS, wav)),
+      headers: { "X-Identity-Secret": secret },
+      method: "POST",
+    });
+    if (!res.ok) {
+      throw new Error(`${wav}: ${res.status} ${await res.text()}`);
+    }
+    const heard = (await res.json()) as {
+      turns: { end: number; speaker: string; start: number }[];
+      words: { text: string }[];
+    };
+    const wallSeconds = (performance.now() - began) / 1000;
+    await Bun.write(
+      target,
+      JSON.stringify({
+        segments: heard.turns,
+        text: heard.words.map((w) => w.text).join(" "),
+        wallSeconds,
+      })
+    );
+    console.log(`${wav} ${wallSeconds.toFixed(1)}s`);
   }
 }
 
@@ -554,6 +598,7 @@ const commands: Record<string, () => Promise<void>> = {
   run: () => models(params),
   sample: () => draw(params[0]),
   score,
+  service: () => service(params[0]),
 };
 const chosen = commands[command ?? ""];
 if (!chosen) {

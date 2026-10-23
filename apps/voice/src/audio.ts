@@ -202,6 +202,45 @@ function oggOpusFile(head: Uint8Array, packets: Uint8Array[], end: number) {
   return concat(pages);
 }
 
+// Where a stretch of a cut came from: `at` seconds in the cut are `from` seconds in the original.
+export interface CutSpan {
+  at: number;
+  from: number;
+}
+
+// The packets of an Ogg Opus file that start inside `ranges` (seconds of its audio, sorted, apart),
+// moved into one Ogg Opus file as joinOggOpus does: no decoding, so no loss, to the packet (20 ms).
+// Null when it isn't Ogg Opus or no packet starts in a range.
+export function cutOggOpus(bytes: Uint8Array, ranges: [number, number][]) {
+  const file = readOggOpus(bytes);
+  if (!file) {
+    return null;
+  }
+  const seconds = (samples: number) =>
+    (samples - file.preSkip) / (GRANULES_PER_MS * 1000);
+  const kept: Uint8Array[] = [];
+  const spans: CutSpan[] = [];
+  let decoded = 0;
+  let out = 0;
+  let open = -1;
+  for (const packet of file.audio) {
+    const at = seconds(decoded);
+    const range = ranges.findIndex(([start, end]) => start <= at && at < end);
+    if (range >= 0) {
+      if (range !== open) {
+        spans.push({ at: seconds(out), from: at });
+      }
+      kept.push(packet);
+      out += packetSamples(packet);
+    }
+    open = range;
+    decoded += packetSamples(packet);
+  }
+  return kept.length > 0
+    ? { audio: oggOpusFile(file.head, kept, out), spans }
+    : null;
+}
+
 // 16 kHz mono Pendant packets as an Ogg Opus file of `ms` milliseconds, as they are: no pre-skip,
 // so each packet plays where the timeline put it.
 export function pendantOggOpus(packets: Uint8Array[], ms: number) {
