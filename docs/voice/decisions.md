@@ -72,7 +72,7 @@ reverse it, change its entry here in the same commit.
 - **Speakers are tokens named when read.** The model writes `{S2}`; the server renders the person's name, else
   "Speaker N", so naming a voice later fixes every summary at no cost.
 - **A thin phone's pages are labeled and cut on the server, by the iPhone's rules.** Silero VAD v6 runs on the
-  official ONNX model (snakers4/silero-vad `v6.0`, `silero_vad_16k_op15.onnx`, MIT, in `apps/server/models`) in
+  official ONNX model (snakers4/silero-vad `v6.0`, `silero_vad_16k_op15.onnx`, MIT, in `apps/voice/models`) in
   onnxruntime-web 1.30.0's WASM runtime, single-threaded; Opus decodes with opus-decoder 0.7.12 (libopus in WASM). Both
   run in a Bun Worker (`vad-worker.ts`, a second entrypoint of the compiled server), so the runtime's Emscripten globals
   stay out of the server's thread, and so does about 0.6 s of CPU per minute of audio (M-series Mac). Both are reached
@@ -91,7 +91,7 @@ reverse it, change its entry here in the same commit.
   quiet range touches is never decoded: Silero hears silence there. The iPhone labels on the phone, which is the
   owner's own device; the server is not, so the rule holds with no exception for speech detection.
 - **Dictation is stored, never processed.** The Mac helper reports when the owner dictates to the Mac; the ranges
-  the server makes of it are cut from every job before ElevenLabs, `apps/identity` or a model sees it, checked in the cutter and again in the
+  the server makes of it are cut from every job before ElevenLabs, `apps/speech` or a model sees it, checked in the cutter and again in the
   worker's `claim`. The raw backup holds everything the Pendant heard. One exception: a press of the Pendant's button
   sends the last minute as it is, because the owner is sending his own words to his own tools.
 
@@ -113,7 +113,7 @@ reverse it, change its entry here in the same commit.
 - **Readers use a contract, not the phone's API.** A reader such as Life follows the feed with its own `read` or
   `corrections` token, never writes in the background, and lifelog never calls it (`docs/voice-source.md`).
 - **OAuth codes go only to known callbacks.** The issuer a reader's MCP clients sign in with gives a code only to the
-  callbacks `trustedRedirects` lists in `packages/auth` (Life's from `LIFE_URL`), or to loopback, so an app that
+  callbacks `trustedRedirects` lists in `apps/voice/packages/auth` (Life's from `LIFE_URL`), or to loopback, so an app that
   registers under a familiar name never gets one; the owner's consent stays the last guard.
 - **Events trace each chain.** Every step the owner relies on (pushes, the Mac socket, quiet ranges, uploads,
   ElevenLabs, what the phone saw) is an event of ids, states, counts and status codes, kept 14 days; `bun run events`
@@ -137,12 +137,12 @@ reverse it, change its entry here in the same commit.
   `bun create better-t-stack@latest lifelog --frontend none --backend hono --runtime bun --database sqlite --orm drizzle
   --api none --auth better-auth --payments none --addons turborepo biome ultracite skills --examples none --db-setup none
   --web-deploy none --server-deploy none --no-git --package-manager bun --no-install` (3.47.0) into a scratch folder,
-  and the repo moved into its shape: `apps/server` (Hono), `packages/db` (Drizzle, SQLite), `packages/auth` (Better
+  and the repo moved into its shape: `apps/voice` (Hono), `apps/voice/packages/db` (Drizzle, SQLite), `apps/voice/packages/auth` (Better
   Auth, as it already was), `packages/config`, a Bun workspace with a catalog (every version two packages share),
   Turborepo, Biome with Ultracite and the skills lock. The native apps stay in `apps/`. Left out of the skeleton:
   varlock (`config.ts` validates the environment with Zod), tsdown (the server ships as `bun build --compile`), libsql
   and Drizzle 1.0's release candidate (the archive is `bun:sqlite`, synchronous on purpose), `bunfig.toml`'s
-  `env = false` (the server reads `apps/server/.env` in development), a hoisted install (nothing runs a binary from
+  `env = false` (the server reads `apps/voice/.env` in development), a hoisted install (nothing runs a binary from
   `node_modules`: Host downloads its helpers pinned) and `bts.jsonc` (this entry keeps the command).
 - **Clients are generated at build time, never committed.** The Android app's `api/` module is generated
   from the whole contract (OpenAPI Generator; tuples read as JSON), so a contract change needs only a rebuild. Plan of

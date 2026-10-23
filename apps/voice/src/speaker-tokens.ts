@@ -2,8 +2,8 @@
 // {S2}, one per voice of the transcript; the run keeps which voices each token stands for. The
 // text is rendered whenever it is read, with the name the transcript gives that voice now
 // (transcript.ts `speakerNames`): a person's name, the owner's too, else "Speaker N". So naming a
-// voice later fixes every summary at no cost. Cases: apps/server/fixtures/speaker-tokens.json.
-import type { Db } from "@lifelog/db";
+// voice later fixes every summary at no cost. Cases: apps/voice/fixtures/speaker-tokens.json.
+import type { Db } from "@life/voice-db";
 import { listAssignments, speakerOf, voiceId } from "./people";
 import { loadTurns, personOf } from "./transcript";
 

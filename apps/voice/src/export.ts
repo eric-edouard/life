@@ -16,7 +16,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
-import { connect, type Db, holdArchive, migrateDb } from "@lifelog/db";
+import { sha256Of } from "@life/server/src/core/hash";
+import { connect, type Db, holdArchive, migrateDb } from "@life/voice-db";
 import { sql } from "drizzle-orm";
 import { keyPath } from "./audio-store";
 
@@ -49,14 +50,6 @@ async function filesUnder(dir: string) {
     }
   }
   return files;
-}
-
-async function sha256Of(path: string) {
-  const hasher = new Bun.CryptoHasher("sha256");
-  for await (const chunk of Bun.file(path).stream()) {
-    hasher.update(chunk);
-  }
-  return hasher.digest("hex");
 }
 
 // A clone where the disk can (APFS), its mtime kept, so restic reads again only what changed.

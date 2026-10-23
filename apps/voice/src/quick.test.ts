@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
-import { countRows } from "@lifelog/db";
-import { quickTranscriptions, transcriptionJobs } from "@lifelog/db/schema";
+import { countRows } from "@life/voice-db";
+import { quickTranscriptions, transcriptionJobs } from "@life/voice-db/schema";
 import { createApp } from "./app";
 import { services } from "./services";
 import { setSwitches } from "./switches";

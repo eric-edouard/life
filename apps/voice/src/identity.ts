@@ -1,4 +1,4 @@
-// Client for the speaker embedding service (apps/identity). Audio is forwarded from memory and
+// Client for the speaker embedding service (apps/speech). Audio is forwarded from memory and
 // never stored; only the embeddings and their provenance are kept.
 import { z } from "zod";
 import type { Config } from "./config";

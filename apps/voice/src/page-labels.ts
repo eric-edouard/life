@@ -6,13 +6,13 @@
 // piece would on the phone. A page stored after labeling passed it (a late page) is labeled on its
 // own, and the cut goes back to it.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   PROCESSED_CODECS,
   pagePieces,
   rawPages,
   sources,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import {
   and,
   asc,

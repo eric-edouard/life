@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { basename, isAbsolute, join, relative } from "node:path";
 import { clock } from "../core/clock";
+import { sha256Of } from "../core/hash";
 import { LIFE_CODE_DIR, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { slashed } from "../core/platform";
 import { execOk } from "../core/proc";
@@ -47,15 +48,6 @@ export const filesUnder = (dir: string) =>
   (readdirSync(dir, { recursive: true }) as string[])
     .filter((p) => lstatSync(join(dir, p)).isFile())
     .map(slashed);
-
-/** A file's sha256, read as a stream. */
-export async function sha256Of(path: string) {
-  const hasher = new Bun.CryptoHasher("sha256");
-  for await (const chunk of Bun.file(path).stream()) {
-    hasher.update(chunk);
-  }
-  return hasher.digest("hex");
-}
 
 /**
  * One SQLite file copied whole while it is written to (`VACUUM INTO`: one consistent read, the path a bound value), as a

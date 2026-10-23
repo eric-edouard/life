@@ -1,8 +1,8 @@
 // The words the owner wants spelled right, and a block's keyterms: his vocabulary, then people's
 // names and aliases. The feed carries the vocabulary whole on every page (feed.ts).
 
-import type { Db } from "@lifelog/db";
-import { people, vocabulary } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { people, vocabulary } from "@life/voice-db/schema";
 import { notInArray } from "drizzle-orm";
 import { z } from "zod";
 import { logChange } from "./change-log";

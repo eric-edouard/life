@@ -3,13 +3,13 @@
 // ElevenLabs, and the problems and chain steps of the last day; its cheap part alone for the Mac
 // host's poll (`GET /status/live`). Spending stays on the phone's route.
 import { z } from "@hono/zod-openapi";
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   conversations,
   diagnostics,
   intelligenceRuns,
   macWatch,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { archiveHealth } from "./archive-health";
 import { backupStatus } from "./backup";
@@ -122,7 +122,7 @@ export const BackupStatus = z
   })
   .openapi("BackupStatus");
 
-// Speaker recognition (apps/identity): whether it is set up (`identitySet`), and how the service last
+// Speaker recognition (apps/speech): whether it is set up (`identitySet`), and how the service last
 // answered (null: not since the server started). Off, voices are not named.
 export const IdentityStatus = z
   .object({

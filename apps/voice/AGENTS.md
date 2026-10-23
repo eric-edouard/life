@@ -1,24 +1,24 @@
-# apps/server
+# apps/voice
 
 Routes are in `src/routes/<domain>.ts` (Hono with Zod OpenAPI schemas); the logic is in `src/<domain>.ts`, tested
-beside it. The database is `packages/db` (`@lifelog/db`): the Drizzle schema of one SQLite file (`DATABASE_PATH`) in
+beside it. The database is `apps/voice/packages/db` (`@life/voice-db`): the Drizzle schema of one SQLite file (`DATABASE_PATH`) in
 `src/schema`, the committed migrations in `src/migrations`, applied at boot, and `connect`. Life's OAuth issuer is
-`packages/auth` (`@lifelog/auth`, Better Auth). Nothing but the server uses either, and the notes below hold for them.
+`apps/voice/packages/auth` (`@life/voice-auth`, Better Auth). Nothing but the server uses either, and the notes below hold for them.
 Model calls go to the Mac over its socket (`mac-socket.ts`), and `openapi.json` is the contract the phone is checked
 against. What the server owns and what the phone copies: `docs/sync.md`.
 
 ## How to
 
 - **Add a route or field:** follow "Where to add a feature" in `docs/architecture.md`. After any route or schema
-  change, run `bun run --cwd apps/server openapi`; the gate fails on a stale `openapi.json`.
-- **Change a table:** edit `packages/db/src/schema`, run `bun run --cwd packages/db db:generate` and commit the
+  change, run `bun run --cwd apps/voice openapi`; the gate fails on a stale `openapi.json`.
+- **Change a table:** edit `apps/voice/packages/db/src/schema`, run `bun run --cwd apps/voice/packages/db db:generate` and commit the
   migration. Add a new migration rather than editing a committed one.
-- **Test:** `bun run --cwd apps/server test`. Each test file gets its own SQLite file through `testDb()` in
+- **Test:** `bun run --cwd apps/voice test`. Each test file gets its own SQLite file through `testDb()` in
   `src/testing.ts`.
 
 ## Worth knowing
 
-- One process writes the file: a server holds `<file>.lock` (`@lifelog/db` `holdArchive`) and a second one exits before it
+- One process writes the file: a server holds `<file>.lock` (`@life/voice-db` `holdArchive`) and a second one exits before it
   migrates; scripts open it read-only
   (`connect(file, { readonly: true })`), except `scripts/owner.ts`, which writes the sign-in owner. Queries run
   synchronously: `.all()`, `.get()`, `.run()`, never `await` a query. A long synchronous pass holds every request,
@@ -47,9 +47,9 @@ against. What the server owns and what the phone copies: `docs/sync.md`.
   `conversation_jobs` view); nothing else says which job belongs to which conversation.
 - `fixtures/wire/` holds real answers, checked by `wire.test.ts` and decoded by Kit's `WireTests`; after a deliberate
   change to a shape run it with `WRITE_WIRE=1`; `fixtures/time-map.json` is read by
-  both sides too, and so is `fixtures/fragments/` (the join's `joined.ogg`, rewritten by `WRITE_WIRE=1`). Cases only the server reads are in `apps/server/fixtures/` (grouping, speaker tokens).
+  both sides too, and so is `fixtures/fragments/` (the join's `joined.ogg`, rewritten by `WRITE_WIRE=1`). Cases only the server reads are in `apps/voice/fixtures/` (grouping, speaker tokens).
 - Events carry ids, states, counts and status codes, never transcript text. Every job's audio is kept in the audio store, a folder
   under `AUDIO_DIR` or an S3 bucket (`audio-store.ts`; keys are relative paths, never `..`): key
   `blocks/<sourceId>/<firstPage>-<sha>.ogg`, a joined job's too, `jobs/<sha256>.ogg` before blocks; a speech fragment's waits under `fragments/<sourceId>/<firstPage>-<sha>.ogg` until its block closes; a thin
   phone's raw pages are batches under `pages/<sourceId>/<firstPage>-<sha>.bin` (`pages.ts`);
-  `apps/identity` gets excerpts for one request and keeps none.
+  `apps/speech` gets excerpts for one request and keeps none.

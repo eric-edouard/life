@@ -1,14 +1,14 @@
 // What a conversation's summary is now: its runs as the feed and readers read them, and the
 // `chapters` rows written from the latest valid one. Runs are made by intelligence.ts.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   chapters as chapterRows,
   holdsTurn,
   intelligenceRuns as runs,
   settled,
   type TurnRef,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, desc, eq, inArray, type SQL, sql } from "drizzle-orm";
 import { logChange, TURN_REF } from "./change-log";
 import { uuidOf } from "./config";

@@ -9,7 +9,7 @@ struct HostSettings: Equatable {
     var domain = ""
     /// A daily restic snapshot into iCloud Drive, run by the server.
     var backups = false
-    /// Speaker recognition (apps/identity) on this Mac: on unless turned off.
+    /// Speaker recognition (apps/speech) on this Mac: on unless turned off.
     var speakers = true
 
     static func load() -> HostSettings {

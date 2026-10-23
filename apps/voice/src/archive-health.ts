@@ -1,5 +1,5 @@
 // The archive's invariants (docs/sync.md), in `GET /status`, checked every hour (index.ts) and by
-// `bun run --cwd apps/server check:archive`. Each count should be 0:
+// `bun run --cwd apps/voice check:archive`. Each count should be 0:
 // - strayTurns: turns that start in no live conversation;
 // - overlaps: pairs of live conversations whose ranges overlap, so a turn would show in both;
 // - deadPassages: search passages of a conversation that isn't live;
@@ -8,8 +8,8 @@
 //   (paid work happens once), and speech fragments the same (`twice`).
 // A count that rose since the last check emails the owner, at most once per 12 hours.
 
-import type { Db } from "@lifelog/db";
-import { events, holdsTurn } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { events, holdsTurn } from "@life/voice-db/schema";
 import { desc, eq, type SQL, sql } from "drizzle-orm";
 import { emailOwner } from "./alert";
 import type { Config } from "./config";

@@ -2,7 +2,7 @@
 // intelligence runs and embeddings. Every figure is our estimate at list prices;
 // ElevenLabs' own report is added beside it when it answers, never mixed in.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   embeddingCalls,
   type IntelligenceProvider,
@@ -10,7 +10,7 @@ import {
   intelligenceRuns,
   transcriptionJobs as jobs,
   quickTranscriptions as quick,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, gte, ne, notInArray } from "drizzle-orm";
 import {
   type Config,

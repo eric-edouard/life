@@ -39,7 +39,7 @@ public struct LLMRequest: Equatable, Sendable {
     }
 }
 
-/// What became of a call, reported raw: the server reads it (apps/server/src/mac-llm.ts).
+/// What became of a call, reported raw: the server reads it (apps/voice/src/mac-llm.ts).
 public enum LLMOutput: Equatable, Sendable {
     /// The CLI ran: its stdout and stderr, Codex's final answer file, its exit status, and whether it was killed.
     case ran(id: String, stdout: String, stderr: String, final: String?, status: Int32, timedOut: Bool)

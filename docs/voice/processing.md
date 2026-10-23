@@ -146,7 +146,7 @@ bun run switches                      # what they are now
 bun run switches transcription off    # transcription | ai | all, on | off
 ```
 
-- **Transcription** covers audio to ElevenLabs and voices to `apps/identity`. Off, blocks still go up and wait on the
+- **Transcription** covers audio to ElevenLabs and voices to `apps/speech`. Off, blocks still go up and wait on the
   server (`waiting.reason` `transcriptionOff`). Jobs already with ElevenLabs still finish and come back.
 - **AI** covers summaries, titles and chapters on the Mac, and search embeddings. Off, runs wait
   (`aiOff`). Search answers `search_unavailable`, so the app searches its own cache only.
@@ -169,7 +169,7 @@ When a block's job completes, the server cuts its clean turns itself (`excerpts.
 speaker, at least 1.5 s, no overlap with another speaker and no word stretched over 3 s (the provider sometimes
 stretches a word over speech it didn't transcribe): `uncleanTurn` in `people.ts` is the one rule. Clean turns are cut
 from the job's own Ogg Opus, longest first up to 200 per job, each to its first 30 s. The audio and the turns' ranges
-go to `apps/identity` once (`POST /embed-ranges`), which returns one embedding per range; they are stored as voice
+go to `apps/speech` once (`POST /embed-ranges`), which returns one embedding per range; they are stored as voice
 samples of source `server`, and the server recognizes. Identity gets the whole Ogg, so a block whose map touches a
 quiet range (dictation, playback) is never cut, nor is an old job's audio the phone sent again (`PUT /jobs/{id}/audio`):
 it may hold dictation from before the Mac kept quiet ranges. A turn the phone sampled before the rebuild keeps that

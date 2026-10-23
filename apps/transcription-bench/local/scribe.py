@@ -1,6 +1,6 @@
 """Transcribes every clip in a folder with ElevenLabs Scribe, through its API (paid: run it on purpose).
 
-    uv run --project apps/stt-bench/local python apps/stt-bench/local/scribe.py <model id> <clips> <out> [json]
+    uv run --project apps/transcription-bench/local python apps/transcription-bench/local/scribe.py <model id> <clips> <out> [json]
 
 The JSON holds the request's form fields (`language_code`, say) and may hold `groups`, as in run.py.
 Writes <out>/<clip>.json like run.py: the text, the language Scribe names, its words as timed segments

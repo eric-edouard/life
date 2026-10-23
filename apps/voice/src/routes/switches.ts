@@ -1,7 +1,7 @@
 // The owner's switches for paid processing (switches.ts), from the app or `bun run switches`, and
 // the words he wants spelled right (vocabulary.ts).
 import { createRoute, z } from "@hono/zod-openapi";
-import { macEngines } from "@lifelog/db/schema";
+import { macEngines } from "@life/voice-db/schema";
 import type { Services } from "../services";
 import { setSwitches, switches } from "../switches";
 import { Keyterm, setVocabulary } from "../vocabulary";

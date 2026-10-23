@@ -11,7 +11,7 @@
 // This is the one writer of a page source's heard-through and sent-through; the iPhone's timeline
 // writes its own sources' (routes/timeline.ts).
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   hasRawPages,
   holdsPages,
@@ -20,7 +20,7 @@ import {
   rawPages,
   sources,
   speechFragments,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import {
   and,
   asc,

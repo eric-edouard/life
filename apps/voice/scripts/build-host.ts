@@ -2,7 +2,7 @@
 // migrations, the VAD worker (a second entrypoint) and onnxruntime-web's WASM runtime are inside it;
 // NOTICE, the licenses of what it bundles, goes beside it. `out` defaults to `.build/host`; `target`
 // cross-compiles (`bun-windows-x64`).
-//   bun run --cwd apps/server build:host [out]
+//   bun run --cwd apps/voice build:host [out]
 import { copyFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { $ } from "bun";
@@ -19,7 +19,7 @@ export async function buildHost(out: string, target?: string) {
     ? target.includes("windows")
     : process.platform === "win32";
   const binary = join(out, windows ? "lifelog-server.exe" : "lifelog-server");
-  await $`bun build --compile ${target ? [`--target=${target}`] : []} ./src/index.ts ./src/vad-worker.ts --asset ../../packages/db/src/migrations ${runtime} --outfile ${binary}`
+  await $`bun build --compile ${target ? [`--target=${target}`] : []} ./src/index.ts ./src/vad-worker.ts --asset ./packages/db/src/migrations ${runtime} --outfile ${binary}`
     .cwd(root)
     .quiet();
   await copyFile(join(root, "NOTICE"), join(out, "NOTICE"));

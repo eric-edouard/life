@@ -7,7 +7,7 @@ import {
   intelligenceRuns,
   people,
   type Turn,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { createApp } from "./app";
 import { latestSeq } from "./change-log";

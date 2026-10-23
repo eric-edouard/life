@@ -1,7 +1,7 @@
 // Speech: the phone's kept speech as fragments of whole Pendant pages, which the server closes into
 // blocks itself (cutter.ts), and the pages it holds of a source.
 import { createRoute, z } from "@hono/zod-openapi";
-import { joinTouching } from "@lifelog/db/schema";
+import { joinTouching } from "@life/voice-db/schema";
 import { joinOggOpus } from "../audio";
 import { Sha256 } from "../config";
 import { storeFragment } from "../cutter";

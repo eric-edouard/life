@@ -3,9 +3,9 @@
 // dictation, location moves and owner edits. Forward-only: a change marks its range dirty on the
 // source, and a run regroups from the last boundary before it to the first closed conversation
 // after it; a conversation 5 minutes behind heard-through is closed. Cases:
-// apps/server/fixtures/segmentation/*.json. Reasoning: docs/timeline.md.
+// apps/voice/fixtures/segmentation/*.json. Reasoning: docs/timeline.md.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   conversations,
   holdsTurn,
@@ -18,7 +18,7 @@ import {
   timelineSpans,
   touchesJob,
   turns,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import {
   and,
   asc,

@@ -2,12 +2,12 @@
 // (PUT /sources/{id}/timeline); the server writes a raw-page source's from its labels
 // (page-labels.ts `spansOf`). One shape and one writer function for both.
 import { z } from "@hono/zod-openapi";
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   holdsPages,
   transcriptionJobs as jobs,
   timelineSpans,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { markDirty } from "./grouping";
 

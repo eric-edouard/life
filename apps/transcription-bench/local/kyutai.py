@@ -4,7 +4,7 @@
 # ///
 """Transcribes every clip in a folder with a Kyutai STT model on this Mac (MLX), loaded once.
 
-    uv run --script apps/stt-bench/local/kyutai.py <hf-model> <clips> <out> [json]
+    uv run --script apps/transcription-bench/local/kyutai.py <hf-model> <clips> <out> [json]
 
 Its own environment: moshi-mlx pins an older MLX than mlx-audio. Writes <out>/<clip>.json with the
 text and the wall time, like run.py (Kyutai reports no language). The JSON may hold `groups`, as

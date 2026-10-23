@@ -1,7 +1,7 @@
 // Language routing: which stretches of a recording hold Thai, so that only those go to a model that
 // knows Thai while the rest stay with a faster English and French one. A segment is a speaker turn
 // (a diarizer's); Scribe's words say whether it holds Thai (written in Thai script).
-import type { Word } from "@lifelog/db/schema";
+import type { Word } from "@life/voice-db/schema";
 import { THAI, type Turn } from "./score";
 
 // Turns of one speaker this close make one segment; shorter ones say too little to judge.

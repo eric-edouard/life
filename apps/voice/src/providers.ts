@@ -2,12 +2,12 @@
 // on the owner's subscription, and nothing else. Only transcript text, speaker names, capture
 // times and the owner's title are sent (docs/providers.md). Tests pass a fake `Provider`.
 
-import type { MacEngine } from "@lifelog/db/schema";
+import type { MacEngine } from "@life/voice-db/schema";
 import type { Late, MacSocket } from "./mac-socket";
 import { switches } from "./switches";
 
 const MAX_OUTPUT_TOKENS = 16_000;
-// What the Mac helper runs (apps/mac-quiet): Sonnet for every call (owner, October 11: one
+// What the Mac helper runs (apps/dictation): Sonnet for every call (owner, October 11: one
 // model for titles, recaps and who's who; Haiku named people too unreliably).
 const MAC_MODELS = {
   claude: "claude-sonnet-5-5",

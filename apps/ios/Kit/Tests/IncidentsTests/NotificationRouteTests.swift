@@ -3,7 +3,7 @@ import Testing
 
 @testable import Incidents
 
-/// Payloads as `apps/server/src/naming-queue.ts` and `IncidentNotifier.announce` send them.
+/// Payloads as `apps/voice/src/naming-queue.ts` and `IncidentNotifier.announce` send them.
 @Test func routesEachNotificationKind() {
     let aps: [AnyHashable: Any] = ["alert": ["title": "New people", "body": "2 voices to name"], "sound": "default"]
     #expect(

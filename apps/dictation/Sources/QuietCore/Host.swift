@@ -7,7 +7,7 @@ public enum Host {
     /// The server's port on this Mac, on loopback only; Tailscale Serve or a Cloudflare tunnel puts HTTPS in front.
     public static let port = 47613
     public static let loopback = "http://127.0.0.1:\(port)"
-    /// Speaker recognition's (apps/identity), on loopback beside it.
+    /// Speaker recognition's (apps/speech), on loopback beside it.
     public static let identityPort = 47614
 
     /// How phones reach this Mac: Tailscale Serve on the owner's tailnet (the default), or a Cloudflare tunnel to an

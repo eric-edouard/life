@@ -7,9 +7,9 @@ import Upload
 
 @testable import AudioPipeline
 
-/// The server turns a thin phone's raw pages into speech fragments by the phone's rules (`apps/server/src/page-rules.ts`).
+/// The server turns a thin phone's raw pages into speech fragments by the phone's rules (`apps/voice/src/page-rules.ts`).
 /// This runs the phone's own code on the same made-up Omi records (`fixtures/pages/omi.bin`, written by
-/// `apps/server/scripts/page-fixture.ts`) and checks it against `fixtures/pages/expected.json`, which the server's test
+/// `apps/voice/scripts/page-fixture.ts`) and checks it against `fixtures/pages/expected.json`, which the server's test
 /// checks too. `WRITE_PAGES=1` rewrites it.
 private let pages = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

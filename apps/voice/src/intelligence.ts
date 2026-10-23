@@ -10,7 +10,7 @@
 // - A valid run's high-confidence boundaries become AI splits at once, the medium ones are offered
 //   as "Split here?" (`splitsOf`, summaries.ts).
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   type Coverage,
   conversations,
@@ -19,7 +19,7 @@ import {
   type RawCall,
   intelligenceRuns as runs,
   type TurnRef,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { logChange, turnRef } from "./change-log";
 import { logged, sha256Hex } from "./config";

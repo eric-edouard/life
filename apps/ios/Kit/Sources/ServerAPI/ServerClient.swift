@@ -2,7 +2,7 @@ import Foundation
 import Library
 import Timeline
 
-/// Typed client for the lifelog server (`apps/server/openapi.json`), one file per domain as in `apps/server/src/routes`.
+/// Typed client for the lifelog server (`apps/voice/openapi.json`), one file per domain as in `apps/voice/src/routes`.
 /// Every call goes to the paired server (read on each request, like the token) and carries the device token as a
 /// bearer. Nothing here retries on its own: the server's idempotency makes a
 /// repeated submit return the same job.

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Word } from "@lifelog/db/schema";
+import type { Word } from "@life/voice-db/schema";
 
 // Which jobs the bench reads: a fixed, stratified draw by language and by one or several speakers,
 // the same on every run for the same jobs and seed.

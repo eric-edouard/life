@@ -4,14 +4,14 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connect, type Db, migrateDb } from "@lifelog/db";
+import { connect, type Db, migrateDb } from "@life/voice-db";
 import {
   conversations,
   type Turn,
   transcriptionJobs,
   transcripts,
   type Word,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, sql } from "drizzle-orm";
 import { type Config, loadConfig, sha256Hex } from "./config";
 import { PARSER_VERSION } from "./elevenlabs";
@@ -286,7 +286,7 @@ export function fakeElevenLabs() {
   return Object.assign(fake, { server });
 }
 
-// A stand-in for apps/identity. The "excerpt" is a JSON vector, returned as its embedding. For
+// A stand-in for apps/speech. The "excerpt" is a JSON vector, returned as its embedding. For
 // /embed-ranges, `cut` says what each range holds (null: unusable), and `ranges` records every call.
 export function fakeIdentity() {
   const fake: {

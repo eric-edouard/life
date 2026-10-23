@@ -1,5 +1,5 @@
-import { connect, holdArchive, migrateDb } from "@lifelog/db";
-import { intelligenceRuns } from "@lifelog/db/schema";
+import { connect, holdArchive, migrateDb } from "@life/voice-db";
+import { intelligenceRuns } from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { audioStore } from "./audio-store";
@@ -19,8 +19,9 @@ if (command === "export" || command === "import") {
 }
 
 const config = loadConfig(process.env);
-// Kept referenced: the lock lasts as long as its connection.
-const _archiveLock = holdArchive(config.DATABASE_PATH);
+// Kept referenced until exit: the lock lasts as long as its connection.
+const archiveLock = holdArchive(config.DATABASE_PATH);
+process.on("exit", () => archiveLock.close());
 const db = connect(config.DATABASE_PATH);
 migrateDb(db);
 refreshOwnerTimeZone(db);

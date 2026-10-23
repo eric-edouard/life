@@ -2,7 +2,7 @@ import Foundation
 import QuietCore
 import Testing
 
-// The dictation rules are the server's (apps/server/src/dictation.test.ts); the helper only keeps its events.
+// The dictation rules are the server's (apps/voice/src/dictation.test.ts); the helper only keeps its events.
 
 private func object(_ frame: String) throws -> [String: Any] {
     try #require(try JSONSerialization.jsonObject(with: Data(frame.utf8)) as? [String: Any])

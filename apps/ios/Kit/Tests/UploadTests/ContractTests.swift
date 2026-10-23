@@ -6,13 +6,13 @@ import Testing
 import ServerAPI
 import Timeline
 
-/// The client against the server's own spec (`apps/server/openapi.json`, kept fresh by the gate): every enum the client
+/// The client against the server's own spec (`apps/voice/openapi.json`, kept fresh by the gate): every enum the client
 /// mirrors has the spec's values, and every path it calls exists.
 private let apps = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
 private func spec() throws -> [String: Any] {
-    let data = try Data(contentsOf: apps.appending(path: "server/openapi.json"))
+    let data = try Data(contentsOf: apps.appending(path: "voice/openapi.json"))
     return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 }
 

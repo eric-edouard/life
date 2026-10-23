@@ -1,7 +1,7 @@
 // What a model call's run on the Mac means: the helper sends the CLI's raw output (mac-socket.ts
 // `llm.output`), and this reads it into an answer or a failure. Pure; tested in mac-llm.test.ts.
 
-import type { MacEngine } from "@lifelog/db/schema";
+import type { MacEngine } from "@life/voice-db/schema";
 import type { ModelReply } from "./providers";
 
 // The Mac kills a call after this; the server waits a little longer for its word (mac-socket.ts).

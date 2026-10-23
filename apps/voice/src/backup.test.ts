@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { countRows } from "@lifelog/db";
-import { backupFiles, transcriptionJobs } from "@lifelog/db/schema";
+import { countRows } from "@life/voice-db";
+import { backupFiles, transcriptionJobs } from "@life/voice-db/schema";
 import { Glob } from "bun";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";

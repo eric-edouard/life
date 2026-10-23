@@ -9,7 +9,7 @@
 // once it has a job, and covered (its pages held, nothing sent) with neither. The rules the worker
 // shares (`touchesQuiet`, `withdrawRows`) are here too, so jobs.ts calls the cutter and not back.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   hasRawPages,
   holdsPages,
@@ -21,7 +21,7 @@ import {
   sources,
   speechFragments,
   type TranscriptionSettings,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, eq, gt, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { joinOggOpus, oggOpusSeconds } from "./audio";
 import {

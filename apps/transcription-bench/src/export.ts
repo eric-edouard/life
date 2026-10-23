@@ -1,8 +1,8 @@
 // The archive, read-only (DATABASE_PATH and AUDIO_DIR, as in Lifelog Host's server.env): the completed
 // jobs with stored audio, and Scribe's stored words of some of them.
 import { join } from "node:path";
-import { connect } from "@lifelog/db";
-import { transcriptionJobs, transcripts } from "@lifelog/db/schema";
+import { connect } from "@life/voice-db";
+import { transcriptionJobs, transcripts } from "@life/voice-db/schema";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { THAI, tokens } from "./score";
 

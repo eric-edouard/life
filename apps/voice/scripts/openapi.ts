@@ -1,7 +1,7 @@
 // Writes openapi.json for the iOS client to mirror (enums, shapes): `bun run openapi`.
 // `--check` writes nothing and fails when the committed file is stale (the gate runs it).
 
-import { schema } from "@lifelog/db";
+import { schema } from "@life/voice-db";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { createApp, openApiDocument } from "../src/app";
 import { loadConfig } from "../src/config";
@@ -22,7 +22,7 @@ if (process.argv.includes("--check")) {
     JSON.stringify(await Bun.file(path).json()) !== JSON.stringify(document)
   ) {
     console.error(
-      "openapi.json is stale: run `bun run --cwd apps/server openapi`"
+      "openapi.json is stale: run `bun run --cwd apps/voice openapi`"
     );
     process.exit(1);
   }

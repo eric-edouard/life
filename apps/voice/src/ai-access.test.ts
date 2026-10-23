@@ -1,8 +1,8 @@
-// Life's OAuth (@lifelog/auth): a client registered by dynamic registration signs the owner in and
+// Life's OAuth (@life/voice-auth): a client registered by dynamic registration signs the owner in and
 // gets a token whose audience is Life, signed with the keys this server publishes.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
-import { authFor, LIFE_SCOPE, lifeResource, setOwner } from "@lifelog/auth";
+import { authFor, LIFE_SCOPE, lifeResource, setOwner } from "@life/voice-auth";
 import { sql } from "drizzle-orm";
 import { createApp } from "./app";
 import { authSettings } from "./config";

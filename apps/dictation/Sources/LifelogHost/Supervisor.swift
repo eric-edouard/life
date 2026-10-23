@@ -6,7 +6,7 @@ enum Child: String, CaseIterable, Sendable {
     case server, quiet, tunnel, identity
 
     static let helpers = Bundle.main.bundleURL.appending(path: "Contents/Helpers")
-    /// Speaker recognition's files (apps/identity's `app.py`, `pyproject.toml`, `uv.lock`), in the bundle.
+    /// Speaker recognition's files (apps/speech's `app.py`, `pyproject.toml`, `uv.lock`), in the bundle.
     static let identityProject = Bundle.main.bundleURL.appending(path: "Contents/Resources/identity")
     static let identityScript = identityProject.appending(path: "app.py")
     /// Its venv, Python and model, installed by `uv sync` and `app.py download` (`HostModel.installIdentity`).

@@ -1,9 +1,9 @@
-# apps/mac-quiet
+# apps/dictation
 
 A LaunchAgent on the owner's Mac, a sensor and a runner: it reports on its socket which processes have the microphone
 on and when the Mac sleeps, and runs the server's model calls with Codex or `claude -p` on the selected subscription,
 reporting their raw output. `README.md` explains how it works and how to install it. The tested logic is in
-`QuietCore`; test it with `swift test --package-path apps/mac-quiet --scratch-path .build/mac-quiet`. Its log is
+`QuietCore`; test it with `swift test --package-path apps/dictation --scratch-path .build/dictation`. Its log is
 `~/Library/Logs/lifelog-quiet.log`, and `bun run events mac` reads it alongside the server's events.
 
 Rules live on the server, once: which apps are dictation and how events become quiet ranges (`dictation.ts`), what
@@ -17,7 +17,7 @@ decisions are `QuietCore.Host` and `HostStatus` (the server's environment, the t
 status report the menu and window show, the export/import result) and `Summaries` (the helper's sign-in to ChatGPT
 or Claude, shared with its `--setup-*` flags), tested. `HostModel` holds the settings and
 says how each `Child` runs; `Supervisor` keeps the children alive; the views only show. Speaker recognition
-(`apps/identity`) is a child too: `HostModel.installIdentity` installs it with the bundled `uv` once per launch,
+(`apps/speech`) is a child too: `HostModel.installIdentity` installs it with the bundled `uv` once per launch,
 started by `restart`, before the child runs. The app delegate owns the
 only model. Its secrets share the helper's `secrets.json`, never the Keychain (`docs/decisions.md`); whoever writes
 the file reads it first, so neither drops the other's fields. Its other settings are the app's defaults

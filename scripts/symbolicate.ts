@@ -10,7 +10,7 @@ import {
   Diagnostic,
   frameLabel,
   problemLines,
-} from "../apps/server/src/diagnostics";
+} from "../apps/voice/src/diagnostics";
 import { findDwarfs } from "./dsyms";
 import { serverFetch } from "./server";
 

@@ -6,8 +6,8 @@ import {
   consentPage,
   redirectHost,
   signInPage,
-} from "@lifelog/auth";
-import { authOauthClient } from "@lifelog/db/schema/auth";
+} from "@life/voice-auth";
+import { authOauthClient } from "@life/voice-db/schema/auth";
 import { eq } from "drizzle-orm";
 import { bearerAuth } from "hono/bearer-auth";
 import { except } from "hono/combine";
@@ -29,7 +29,7 @@ import { timelineRoutes } from "./routes/timeline";
 import { transcriptionRoutes } from "./routes/transcription";
 import type { Services } from "./services";
 
-// Life's OAuth (@lifelog/auth) answers for itself; its tokens are for Life and open nothing here.
+// Life's OAuth (@life/voice-auth) answers for itself; its tokens are for Life and open nothing here.
 const PUBLIC_PATHS = [
   "/health",
   "/webhooks/elevenlabs",

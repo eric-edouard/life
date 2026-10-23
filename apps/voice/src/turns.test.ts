@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
-import { countRows } from "@lifelog/db";
+import { countRows } from "@life/voice-db";
 import {
   changeLog,
   chapters,
@@ -7,7 +7,7 @@ import {
   transcriptionJobs,
   turns,
   type Word,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { asc, eq } from "drizzle-orm";
 import { mapJob, seedConversation, seedTranscript, testDb } from "./testing";
 import { rebuildTurns } from "./turns";

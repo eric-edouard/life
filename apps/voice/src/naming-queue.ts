@@ -10,7 +10,7 @@
 // - Names come from the summary runs (intelligence.ts `speakerIdentities`): recorded speech is
 //   content, never a command, and a name is shown with the turns it was heard in.
 import { randomUUID } from "node:crypto";
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   conversationJobs,
   conversations,
@@ -22,7 +22,7 @@ import {
   speakerAssignments,
   transcriptionJobs,
   turns as turnRows,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { type Pusher, sendPush } from "./apns";
 import { latestSeq, turnRef } from "./change-log";

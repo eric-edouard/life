@@ -11,7 +11,7 @@ import {
   speechFragments,
   type Turn,
   transcriptionJobs,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, sql } from "drizzle-orm";
 import { archiveHealth, healthWatch, worse } from "./archive-health";
 import {

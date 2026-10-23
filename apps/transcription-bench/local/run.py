@@ -1,6 +1,6 @@
 """Transcribes every clip in a folder with one open model on this Mac (MLX), loaded once.
 
-    uv run --project apps/stt-bench/local python apps/stt-bench/local/run.py <hf-model> <clips> <out> [json]
+    uv run --project apps/transcription-bench/local python apps/transcription-bench/local/run.py <hf-model> <clips> <out> [json]
 
 The optional JSON holds arguments for the model's `generate` (Voxtral's language, say), plus
 `groups`: only the clips of those groups (its <clip>.json `group`), for a model that covers some

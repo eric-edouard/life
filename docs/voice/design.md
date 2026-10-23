@@ -84,7 +84,7 @@ not lifelog's token spending. The ChatGPT dial is explicitly Codex's quota, not 
 A dial updates when the app pulls the feed, so when it is woken, usually by the Pendant. Minute timeline entries update the countdown. A reading older than an hour is dimmed and marked `?`; VoiceOver names
 its observation time. Missing usage shows `—` in a dashed ring. After a reset, a dashed ring with `↻` means waiting
 for new usage, never an assumed zero.
-Provider credentials stay on the Mac. Claude requires the status-line bridge in `apps/mac-quiet/README.md`.
+Provider credentials stay on the Mac. Claude requires the status-line bridge in `apps/dictation/README.md`.
 
 ## Feel
 

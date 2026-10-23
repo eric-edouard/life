@@ -1,4 +1,4 @@
-# apps/stt-bench
+# apps/transcription-bench
 
 Measures what replacing ElevenLabs Scribe with open models run on the Mac would cost in quality:
 text (English, French, Thai, mixed), language detection and who spoke. Scribe's transcript of each
@@ -6,13 +6,13 @@ clip is already stored and is the reference. What it found: `docs/research/trans
 
 ## How to run it
 
-`bun run --cwd apps/stt-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
+`bun run --cwd apps/transcription-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
 `score`, then `route [diarizer]` (finding the other languages on that diarizer's turns, pyannote's by
 default; needs its run and Parakeet Ultra's; caches and report in `routing/<diarizer>/`) and
 `pipeline [thai model]` (the proposed pipeline on pyannote's turns, scored like a model). Each step skips what it already
 wrote, so a step can be stopped and run again.
 
-- `jobs` and `clips` read the archive read-only through `@lifelog/db` (`src/export.ts`):
+- `jobs` and `clips` read the archive read-only through `@life/voice-db` (`src/export.ts`):
   `DATABASE_PATH` and `AUDIO_DIR` as Lifelog Host's `server.env` sets them.
 - `run` needs `uv` (`local/`, Python, mlx-audio) and, for `pyannote`, `HF_TOKEN` with the model's
   terms accepted once on Hugging Face; for `nemotron-diar`, NVIDIA's `nemo-speech` binary on PATH or

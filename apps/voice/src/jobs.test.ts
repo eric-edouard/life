@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { countRows } from "@lifelog/db";
+import { countRows } from "@life/voice-db";
 import {
   conversations,
   events,
@@ -12,7 +12,7 @@ import {
   transcriptionJobs,
   transcripts,
   turns,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, sql } from "drizzle-orm";
 import { phoneNudger, storePushToken } from "./apns";
 import { createApp } from "./app";

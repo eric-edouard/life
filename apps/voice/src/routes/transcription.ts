@@ -1,7 +1,7 @@
 // Transcription: a job's transcript (readers read it), spending, the ElevenLabs webhook. Audio comes
 // in as speech fragments (routes/speech.ts).
 import { createRoute, z } from "@hono/zod-openapi";
-import { transcripts } from "@lifelog/db/schema";
+import { transcripts } from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import { oggOpusSeconds } from "../audio";
 import { sha256Hex } from "../config";

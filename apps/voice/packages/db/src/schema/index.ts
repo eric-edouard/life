@@ -533,7 +533,7 @@ export const conversationJobs = sqliteView("conversation_jobs", {
   where c.retired_at is null`);
 
 // A stretch the owner spent dictating to the Mac (FluidVoice, macOS dictation, an AI app), posted by the
-// Mac helper (apps/mac-quiet) already padded. The phone leaves it out of the audio it sends, and
+// Mac helper (apps/dictation) already padded. The phone leaves it out of the audio it sends, and
 // words already bought inside it are hidden wherever transcripts are read. Never edited; the
 // helper's own id makes a retried post a no-op.
 export const quietRanges = sqliteTable(
@@ -587,7 +587,7 @@ export const macWatch = sqliteTable("mac_watch", {
 });
 
 // The owner's two switches, one row (switches.ts). Transcription: audio to ElevenLabs and voices to
-// apps/identity. AI: summaries on the Mac and search embeddings. Off, that work waits. No row: both on.
+// apps/speech. AI: summaries on the Mac and search embeddings. Off, that work waits. No row: both on.
 export const macEngines = ["claude", "codex"] as const;
 export type MacEngine = (typeof macEngines)[number];
 // Two latest observations, not a usage history. Only the Mac's authenticated socket writes these.

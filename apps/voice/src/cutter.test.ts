@@ -7,7 +7,7 @@ import {
   sources,
   speechFragments,
   transcriptionJobs,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { joinOggOpus, oggOpusSeconds } from "./audio";

@@ -9,8 +9,8 @@ the shapes mean.
 
 Every route takes `Authorization: Bearer <token>`. A reader gets its own token, never the phone's:
 
-- `bun run --cwd apps/server mint-token read` prints a token and `READ_TOKEN_HASH`. It opens the reads below.
-- `bun run --cwd apps/server mint-token corrections` prints a token and `CORRECTIONS_TOKEN_HASH`. It opens the reads and
+- `bun run --cwd apps/voice mint-token read` prints a token and `READ_TOKEN_HASH`. It opens the reads below.
+- `bun run --cwd apps/voice mint-token corrections` prints a token and `CORRECTIONS_TOKEN_HASH`. It opens the reads and
   the corrections.
 
 Only the hash goes in the server's environment. Mint again to rotate. A token on a route it doesn't open gets 403; an
@@ -71,5 +71,5 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 
 ## Still to change
 
-The OAuth issuer in `packages/auth` (Better Auth, the sign-in and consent pages, `scripts/owner.ts`) signs tokens for a
+The OAuth issuer in `apps/voice/packages/auth` (Better Auth, the sign-in and consent pages, `scripts/owner.ts`) signs tokens for a
 reader's own MCP clients. It goes once that reader runs its own authorization server.

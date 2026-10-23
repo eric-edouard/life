@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { diagnostics, heartbeats } from "@lifelog/db/schema";
+import { diagnostics, heartbeats } from "@life/voice-db/schema";
 import { createApp } from "./app";
 import { DEFAULT_TIME_ZONE, ownerTimeZone, setOwnerTimeZone } from "./config";
 import {

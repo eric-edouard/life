@@ -9,3 +9,13 @@ node_modules
 dist/
 apps/mac/.build/
 apps/mac/Frameworks/
+# The phone, the Watch and the dictation sensor
+*.xcodeproj/
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+.env.*
+!.env.example
+research-fixtures/
+*.bun-build

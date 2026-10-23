@@ -63,7 +63,7 @@ let package = Package(
         .testTarget(
             name: "AudioPipelineTests", dependencies: ["AudioPipeline", "PendantProtocol", "SourceStore", "Timeline"],
             resources: [.copy("Fixtures")], swiftSettings: settings),
-        // The server's API, for every store that talks to it: one file per domain, as in `apps/server/src/routes`.
+        // The server's API, for every store that talks to it: one file per domain, as in `apps/voice/src/routes`.
         .target(name: "ServerAPI", dependencies: ["Glance", "Library", "Timeline"], swiftSettings: settings),
         // The phone's side after capture: the scanned timeline, its facts, blocks and their uploader, edit replay.
         .target(

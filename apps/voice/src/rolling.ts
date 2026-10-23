@@ -8,8 +8,12 @@
 // owner's Generate rolls it again from its first turn; the summary shown stays until a newer valid
 // run replaces it. Only the Mac runs a roll (its subscription); nothing here reaches a paid API.
 
-import type { Db } from "@lifelog/db";
-import { conversations, intelligenceRuns, isSettled } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import {
+  conversations,
+  intelligenceRuns,
+  isSettled,
+} from "@life/voice-db/schema";
 import { desc, eq } from "drizzle-orm";
 import type { Nudge } from "./apns";
 import { touchedSince } from "./change-log";

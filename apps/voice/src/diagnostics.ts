@@ -4,13 +4,13 @@
 // transcripts, names, places, coordinates or request bodies. Kept RETENTION_DAYS after arrival.
 import { randomUUID } from "node:crypto";
 import { z } from "@hono/zod-openapi";
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   diagnosticKinds,
   diagnostics,
   heartbeatReasons,
   heartbeats,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { isTimeZone, setOwnerTimeZone } from "./config";
 

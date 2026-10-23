@@ -1,6 +1,6 @@
 # Transcription bench: can open models replace Scribe?
 
-October 2026. The code is `apps/stt-bench`; its data (clips, every model's output, the per-clip reports) holds the
+October 2026. The code is `apps/transcription-bench`; its data (clips, every model's output, the per-clip reports) holds the
 owner's voice and stays in the owner's private notes.
 
 ## Why

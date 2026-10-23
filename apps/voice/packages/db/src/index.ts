@@ -1,6 +1,6 @@
 // The archive: one SQLite file, one process writing it (docs/architecture.md). Queries run
 // synchronously, so a transaction is a plain function: nothing else runs while it does, and its
-// body never awaits (apps/server/AGENTS.md).
+// body never awaits (apps/voice/AGENTS.md).
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { count, type SQL } from "drizzle-orm";
@@ -80,7 +80,7 @@ export function holdArchive(file: string) {
 }
 
 // Beside this file, or inside a compiled server's binary: `bun build --compile --asset` embeds the folder under its
-// own name beside every module (apps/server/scripts/build-host.ts).
+// own name beside every module (apps/voice/scripts/build-host.ts).
 export const MIGRATIONS = join(import.meta.dir, "migrations");
 
 export const migrateDb = (db: ReturnType<typeof connect>) =>

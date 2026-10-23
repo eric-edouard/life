@@ -3,8 +3,8 @@
 // as if the Mac were away (providers.ts), search falls back to keywords (search.ts). Turned back
 // on, what waited goes on by itself.
 
-import type { Db } from "@lifelog/db";
-import { type MacEngine, processingSwitches } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { type MacEngine, processingSwitches } from "@life/voice-db/schema";
 import { logChange } from "./change-log";
 import { record } from "./events";
 

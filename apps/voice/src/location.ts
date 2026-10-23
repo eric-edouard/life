@@ -3,8 +3,8 @@
 // (`GET /where`, `GET /visits`). A place is named by the phone's name of a fix taken there (Apple's,
 // places.ts); otherwise coordinates stand alone.
 
-import type { Db } from "@lifelog/db";
-import { locationHistory } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { locationHistory } from "@life/voice-db/schema";
 import { and, asc, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { logChange } from "./change-log";
 import { ownerTimeZone } from "./config";

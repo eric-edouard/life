@@ -1,7 +1,7 @@
 // Account limits observed by the Mac's CLIs, never inferred from lifelog's token ledger.
 import { z } from "@hono/zod-openapi";
-import type { Db } from "@lifelog/db";
-import { macEngines, subscriptionUsage } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { macEngines, subscriptionUsage } from "@life/voice-db/schema";
 import { sql } from "drizzle-orm";
 
 const Window = z.object({

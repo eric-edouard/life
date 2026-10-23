@@ -4,7 +4,7 @@
 // The argument is days (default 14). `--json` prints one group per signature instead: ids (newest
 // first), kinds, count, builds, the app binary UUIDs (the dSYMs to symbolicate with) and first and
 // last seen. Symbolicate one with `bun run symbolicate <id>` from the repo root.
-import { connect } from "@lifelog/db";
+import { connect } from "@life/voice-db";
 import {
   appBinaryUUIDs,
   attributedStack,

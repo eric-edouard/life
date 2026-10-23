@@ -1,6 +1,6 @@
 """A Qwen3-ASR checkpoint in Hugging Face's transformers layout, renamed to mlx-audio's.
 
-    uv run --project apps/stt-bench/local python apps/stt-bench/local/convert_qwen3.py <src dir> <mlx build dir> <out dir>
+    uv run --project apps/transcription-bench/local python apps/transcription-bench/local/convert_qwen3.py <src dir> <mlx build dir> <out dir>
 
 mlx-audio reads only the original layout (`thinker.*`) or its own; a transformers one (`model.audio_tower`,
 `model.language_model`, `model.multi_modal_projector`) loads without error with its audio encoder left

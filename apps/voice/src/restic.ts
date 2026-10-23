@@ -7,8 +7,8 @@
 // see it) shows neither it nor the repository.
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { Db } from "@lifelog/db";
-import { backupFiles } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { backupFiles } from "@life/voice-db/schema";
 import { and, eq } from "drizzle-orm";
 import type { Config } from "./config";
 import { exportArchive } from "./export";

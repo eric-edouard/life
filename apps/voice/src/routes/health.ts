@@ -1,7 +1,7 @@
 // Health: liveness, the phone's heartbeats, diagnostics and push token, the event trail, and
 // the status the owner's sessions read.
 import { createRoute, z } from "@hono/zod-openapi";
-import { diagnosticKinds } from "@lifelog/db/schema";
+import { diagnosticKinds } from "@life/voice-db/schema";
 import { storePushToken } from "../apns";
 import {
   Diagnostic,

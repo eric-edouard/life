@@ -5,7 +5,7 @@ import {
   sources,
   type Turn,
   type Word,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import type { Server } from "bun";
 import { createApp } from "./app";
 import { sha256Hex } from "./config";

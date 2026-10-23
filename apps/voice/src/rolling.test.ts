@@ -9,7 +9,7 @@ import {
   timelineSpans,
   transcriptionJobs,
   transcripts,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { asc, eq } from "drizzle-orm";
 import { PARSER_VERSION } from "./elevenlabs";
 import { feed } from "./feed";

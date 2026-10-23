@@ -1,12 +1,12 @@
 // Conversations: one read (readers), the owner's titles, summaries.
 import { createRoute, z } from "@hono/zod-openapi";
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   conversations,
   intelligenceProviders,
   intelligenceStates,
   type JobMap,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, sql } from "drizzle-orm";
 import type { Services } from "../services";
 import { latestRun, latestValidOutput, type Run, runAfter } from "../summaries";

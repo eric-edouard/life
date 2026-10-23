@@ -6,19 +6,32 @@
   "workspaces": {
     "packages": [
       "apps/*",
+      "apps/voice/packages/*",
       "packages/*"
     ],
     "catalog": {
+      "@better-auth/oauth-provider": "1.7.7",
       "@modelcontextprotocol/server": "2.3.1",
+      "@types/bun": "1.4.3",
+      "better-auth": "1.7.7",
+      "drizzle-kit": "0.31.11",
+      "drizzle-orm": "0.45.3",
       "zod": "^4.6.5"
     }
   },
   "scripts": {
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
-    "fix": "bun x --bun ultracite fix",
+    "check:offline": "cd apps/ios && xcodegen generate --quiet && xcodebuild test -project Lifelog.xcodeproj -scheme Lifelog -only-testing:LifelogUITests -destination \"platform=iOS Simulator,name=${SIMULATOR:-iPhone 17}\" -derivedDataPath ../../.build/DerivedData -quiet",
+    "events": "bun scripts/events.ts",
+    "fix": "bun x --bun ultracite fix && swift format --in-place --recursive apps/ios apps/dictation",
+    "host:app": "bun scripts/host-app.ts",
+    "install:phone": "bun scripts/install-phone.ts",
+    "ios:project": "cd apps/ios && xcodegen generate --quiet",
     "life": "bun apps/server/src/host/cli.ts",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git config core.hooksPath .githooks",
+    "switches": "bun scripts/switches.ts",
+    "symbolicate": "bun scripts/symbolicate.ts"
   },
   "dependencies": {
     "@life/server": "workspace:*",
@@ -26,12 +39,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
+    "@biomejs/biome": "2.5.15",
     "@life/config": "workspace:*",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "catalog:",
     "fallow": "3.32.0",
-    "typescript": "^6",
-    "ultracite": "7.12.2"
+    "typescript": "7.0.2",
+    "ultracite": "7.12.4"
   },
   "packageManager": "bun@1.4.2"
 }

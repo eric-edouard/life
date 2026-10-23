@@ -12,7 +12,7 @@
 // recording changed; the first pass after a start does all. Rows that change are written and
 // logged.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   type ConversationState,
   conversations,
@@ -20,7 +20,7 @@ import {
   settled,
   touchesJob,
   type waitingReasons,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { sql } from "drizzle-orm";
 import { logChange, touchedSince } from "./change-log";
 import { latestHeartbeat, pendantRecords } from "./diagnostics";

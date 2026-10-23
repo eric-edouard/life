@@ -3,13 +3,13 @@
 // every send reads it from there, so a retry never needs the phone. ElevenLabs keeps its own copy
 // under its retention policy.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   transcriptionJobs as jobs,
   sources,
   speechFragments,
   transcripts,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import {
   and,
   count,

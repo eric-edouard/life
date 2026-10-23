@@ -153,7 +153,7 @@ raw/<sourceId>/source-db/<yyyy-mm-dd>-<sha256>.sqlite   a VACUUM INTO snapshot o
 A pack is uploaded once with `PUT /backup/packs/{sourceId}/{packName}` (at most 64 MB, `X-Content-Sha256` set and
 checked); `GET /backup/{sourceId}` lists what is held, so the phone sends only the rest. The snapshot holds the receipts
 that say how to read the packs; the server keeps one per UTC date, the last 7. Packs hold everything the Pendant
-heard, dictation to the Mac included: they are stored and never sent to ElevenLabs, `apps/identity` or a model, and
+heard, dictation to the Mac included: they are stored and never sent to ElevenLabs, `apps/speech` or a model, and
 no server code but `backup.ts` knows these keys. Speech audio of transcribed jobs is separate: the prepared Ogg goes to
 `jobs/<sha256>.ogg` through `PUT /jobs/{jobId}/audio`.
 

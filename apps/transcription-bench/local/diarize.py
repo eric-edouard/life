@@ -1,7 +1,7 @@
 """Who spoke when in every clip, with pyannote's open pipeline on this Mac (needs HF_TOKEN, and
 the model's terms accepted on Hugging Face once).
 
-    uv run --project apps/stt-bench/local python apps/stt-bench/local/diarize.py <clips> <out>
+    uv run --project apps/transcription-bench/local python apps/transcription-bench/local/diarize.py <clips> <out>
 
 Writes <out>/<clip>.json: speaker turns without overlap (the one speaker a word is credited to),
 and the wall time. A clip already written is skipped.

@@ -2,7 +2,7 @@
 //   DATABASE_PATH="$HOME/Library/Application Support/lifelog/archive.sqlite" bun run check:archive
 // Exits 1 when an invariant is broken.
 
-import { connect } from "@lifelog/db";
+import { connect } from "@life/voice-db";
 import { archiveHealth } from "../src/archive-health";
 
 const url = process.env.DATABASE_PATH;

@@ -6,7 +6,7 @@ import type {
   TranscriptionSettings,
   Turn,
   Word,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { z } from "zod";
 import { type Config, ownerTimeZone } from "./config";
 

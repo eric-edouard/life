@@ -8,7 +8,7 @@
 // Measured on the owner's corrections, this is as good as the label rules it replaced on other
 // people and better on the owner. The caller leaves out what the owner answered: his answers win.
 
-import type { Candidates } from "@lifelog/db/schema";
+import type { Candidates } from "@life/voice-db/schema";
 import { RECOGNITION } from "./config";
 
 export type Vector = number[];

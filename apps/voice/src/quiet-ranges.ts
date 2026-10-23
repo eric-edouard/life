@@ -3,8 +3,8 @@
 // are hidden (transcript.ts `keptWords`). The Mac also vouches for time: every dictation before its
 // watermark is already among the ranges, or the Mac is asleep.
 import { randomUUID } from "node:crypto";
-import type { Db } from "@lifelog/db";
-import { type Dictation, macWatch, quietRanges } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { type Dictation, macWatch, quietRanges } from "@life/voice-db/schema";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { z } from "zod";
 import { logChange, logPlacedIn } from "./change-log";

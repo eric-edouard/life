@@ -2,13 +2,13 @@
 // the server's `llm` calls; without it runs wait. Nothing reaches a paid API.
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { countRows } from "@lifelog/db";
+import { countRows } from "@life/voice-db";
 import {
   conversations,
   intelligenceCalls,
   intelligenceRuns,
   type Turn,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import type { Server } from "bun";
 import { eq as is } from "drizzle-orm";
 import { createApp } from "./app";

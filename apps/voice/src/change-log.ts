@@ -2,8 +2,8 @@
 // reader follows logs it here in the same transaction, so a reader of `seq` never skips a change.
 // The feed loads the current row of each (kind, ref) it finds (feed.ts).
 
-import type { Db } from "@lifelog/db";
-import { changeLog, touchesJob } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { changeLog, touchesJob } from "@life/voice-db/schema";
 import { sql } from "drizzle-orm";
 
 export type ChangeKind =

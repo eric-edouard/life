@@ -7,7 +7,7 @@ import {
   transcriptionJobs,
   transcripts,
   voiceSamples,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { memoryAudioStore } from "./audio-store";

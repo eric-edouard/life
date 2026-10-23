@@ -11,7 +11,7 @@
 import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Word } from "@lifelog/db/schema";
+import type { Word } from "@life/voice-db/schema";
 import { jobRows, storedWords } from "./export";
 import {
   compose,

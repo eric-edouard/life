@@ -1,8 +1,8 @@
 // Everything the routes and the background loops share, built once: index.ts serves it, the
 // tests override parts of it, scripts/openapi.ts only reads the routes it gives.
 
-import { type Auth, authFor } from "@lifelog/auth";
-import type { Db } from "@lifelog/db";
+import { type Auth, authFor } from "@life/voice-auth";
+import type { Db } from "@life/voice-db";
 import { apnsFor, type Nudge, type Pusher, phoneNudger } from "./apns";
 import { type HealthWatch, healthWatch } from "./archive-health";
 import { type AudioStore, memoryAudioStore } from "./audio-store";

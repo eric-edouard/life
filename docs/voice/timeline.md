@@ -112,8 +112,8 @@ Kit's `FactsBuilder.spans` of the same pages, which the server matches.
 
 ## Grouping (server)
 
-`apps/server/src/grouping.ts`, per source under a lock, from the facts, the transcribed words, Mac dictation, location
-fixes and owner and AI edits. Its cases are in `apps/server/fixtures/segmentation/`. The constants are `POLICY`, in one
+`apps/voice/src/grouping.ts`, per source under a lock, from the facts, the transcribed words, Mac dictation, location
+fixes and owner and AI edits. Its cases are in `apps/voice/fixtures/segmentation/`. The constants are `POLICY`, in one
 place, and a deploy applies a change forward.
 
 **What counts as speech.** Possible speech is the facts' speech plus the words, less Mac dictation (dictation is not

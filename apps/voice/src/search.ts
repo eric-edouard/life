@@ -7,14 +7,14 @@
 //   unchanged keeps its embedding, so a rebuild only pays for what changed.
 // - Only passage text (speaker names and words) goes to OpenAI (docs/providers.md).
 import { createHash } from "node:crypto";
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   EMBEDDING_DIMENSIONS,
   embeddingCalls,
   float32,
   searchIndex,
   searchPassages,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
 import { touchedSince } from "./change-log";

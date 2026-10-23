@@ -2,8 +2,8 @@
 // speaker a token with a legend, the signals the chapters call is told (silences, travel), and
 // the owner's people.
 
-import type { Db } from "@lifelog/db";
-import { locationHistory, people, type TurnRef } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { locationHistory, people, type TurnRef } from "@life/voice-db/schema";
 import { between } from "drizzle-orm";
 import { voiceId } from "./people";
 import { distanceM } from "./places";

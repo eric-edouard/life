@@ -3,7 +3,7 @@
 // what the call cost (`quick_transcriptions`), which counts in the spending. The same
 // audio is transcribed again in its block (owner, Oct 15).
 import { createRoute, z } from "@hono/zod-openapi";
-import { quickTranscriptions } from "@lifelog/db/schema";
+import { quickTranscriptions } from "@life/voice-db/schema";
 import { oggOpusSeconds } from "../audio";
 import { billableSeconds } from "../config";
 import { textOf, transcribeNow } from "../elevenlabs";

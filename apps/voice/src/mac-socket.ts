@@ -1,4 +1,4 @@
-// The Mac helper's one WebSocket (apps/mac-quiet), opened with the Mac's token at protocol
+// The Mac helper's one WebSocket (apps/dictation), opened with the Mac's token at protocol
 // MAC_PROTOCOL; another protocol is refused (routes/sync.ts). The helper is a sensor and a runner:
 // it reports raw facts and runs what it is told, and every rule lives here (docs/sync.md).
 //
@@ -33,8 +33,8 @@
 // are in mac_watch, so a restart falls back to them.
 
 import { randomUUID } from "node:crypto";
-import type { Db } from "@lifelog/db";
-import { type MacEngine, macEngines } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { type MacEngine, macEngines } from "@life/voice-db/schema";
 import type { Server, ServerWebSocket } from "bun";
 import { z } from "zod";
 import { logChange } from "./change-log";
@@ -84,7 +84,7 @@ const MAC_SILENCE_MS = 2 * 3_600_000;
 // helper ever spoke. Silence frees nothing while a dictation is pending: the watermark then stops
 // at its start, before the last frame heard (`macView`), and holds until it is a range.
 // The cutter closes no block ending after it (cutter.ts), and the job worker sends no job ending
-// after it (jobs.ts `claim`). Cases in apps/server/fixtures/mac-vouches.json.
+// after it (jobs.ts `claim`). Cases in apps/voice/fixtures/mac-vouches.json.
 export function vouchedThrough(watch: MacView | null, now = new Date()) {
   const mark = watch ? new Date(watch.watchedThrough) : now;
   const free =

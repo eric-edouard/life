@@ -148,7 +148,7 @@ steps, problems). `fixtures/wire/status-live.json` is its shape. `pipeline` hold
 `GET /usage/summary` adds up what was spent, per day in the owner's zone, from our own ledgers at
 list prices: transcription (billable hours of every job that is not `failed`, keyterms counted at their extra price), titles and summaries (the
 token cost on each intelligence run) and search embeddings. Jobs marked `maybe_billed` count. Days and months are the owner's, in
-the time zone of the iPhone's latest heartbeat (UTC until one names it). Prices live in `apps/server/src/config.ts`.
+the time zone of the iPhone's latest heartbeat (UTC until one names it). Prices live in `apps/voice/src/config.ts`.
 
 Beside it, ElevenLabs' own speech-to-text figure for the month, from its workspace analytics
 (`POST /v1/workspace/analytics/query/usage-by-product-over-time`, product `STT`). That covers the
@@ -157,19 +157,19 @@ doesn't answer.
 
 ## Running the server
 
-The server runs on the owner's Mac, inside Lifelog Host (`apps/mac-quiet/README.md`, "Lifelog Host"): one binary, the
+The server runs on the owner's Mac, inside Lifelog Host (`apps/dictation/README.md`, "Lifelog Host"): one binary, the
 SQLite file and the audio folder under `~/Library/Application Support/lifelog`, listening on 127.0.0.1 only. Phones
 reach it through the owner's tailnet (Tailscale Serve) or a Cloudflare tunnel to their own domain.
 
-- `bun run --cwd apps/server build:host [out]` writes `lifelog-server`, one file with its migrations inside; it needs
+- `bun run --cwd apps/voice build:host [out]` writes `lifelog-server`, one file with its migrations inside; it needs
   no Bun or checkout, and migrates its file at boot. `bun run host:app` puts it in the app.
 - One process writes the file: the server holds `<file>.lock` and a second one exits before it migrates.
-- Variables are `Env` in `apps/server/src/config.ts`; `apps/server/.env.example` lists them. Host sets the archive's
+- Variables are `Env` in `apps/voice/src/config.ts`; `apps/voice/.env.example` lists them. Host sets the archive's
   paths, the token hashes, the keys, restic and the identity service; anything else (APNs, Resend, `AUTH_SECRET`,
   the webhook) goes in `server.env` beside the archive, mode 0600.
-- Mint the device token with `bun run --cwd apps/server mint-token`; with `PUBLIC_BASE_URL` set it also prints the
+- Mint the device token with `bun run --cwd apps/voice mint-token`; with `PUBLIC_BASE_URL` set it also prints the
   phone's pairing link. Host mints its own tokens and shows the link as a QR code.
-- For development, `bun run --cwd apps/server dev` runs it from a checkout with `apps/server/.env`.
+- For development, `bun run --cwd apps/voice dev` runs it from a checkout with `apps/voice/.env`.
 
 ### The ElevenLabs webhook
 
@@ -181,9 +181,9 @@ the send maybe billed and its block never transcribed, so restart between sends.
 
 ### Speaker recognition
 
-`apps/identity` (`docs/providers.md`) is optional: without `IDENTITY_URL` and `IDENTITY_SECRET` the server recognizes
+`apps/speech` (`docs/providers.md`) is optional: without `IDENTITY_URL` and `IDENTITY_SECRET` the server recognizes
 no speakers and everything else works. Lifelog Host installs and runs it itself, on loopback, and sets both (on by
-default; `apps/mac-quiet/README.md`). Elsewhere run it where the server can reach it (its Dockerfile, or `uv run
+default; `apps/dictation/README.md`). Elsewhere run it where the server can reach it (its Dockerfile, or `uv run
 python app.py`), with the same `IDENTITY_SECRET` on both. `GET /status/live` says under `identity` whether it is set
 up and how it last answered (`lastOkAt`, `lastError`); the server never probes it per poll.
 
@@ -206,7 +206,7 @@ up and how it last answered (`lastOkAt`, `lastError`); the server never probes i
   saved without some file (exit 3) counts, and its error says it is incomplete. `GET /status` `backup.restic` gives
   the last snapshot and the last error; never the repository or the password (readers see `/status`).
 - To restore: `restic restore latest --target <dir>`, then `lifelog-server import <dir>/…/restic-staging` into an
-  empty install (`apps/mac-quiet/README.md`, "Restoring a backup").
+  empty install (`apps/dictation/README.md`, "Restoring a backup").
 
 ### A restore from a daily copy
 
@@ -220,5 +220,5 @@ past the archive's last change, so the feed starts them over from the beginning 
 ### Reading the archive
 
 Open it read-only, never write it: `sqlite3 -readonly "$HOME/Library/Application Support/lifelog/archive.sqlite"`.
-The server's scripts take the same path: `DATABASE_PATH=<that path> bun run --cwd apps/server check:archive` (the
+The server's scripts take the same path: `DATABASE_PATH=<that path> bun run --cwd apps/voice check:archive` (the
 archive's invariants) or `diagnostics:recent [days] [--json]` (crashes and errors); both open it read-only.

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { intelligenceRuns, type Turn } from "@lifelog/db/schema";
+import { intelligenceRuns, type Turn } from "@life/voice-db/schema";
 import { createApp } from "./app";
 import { services } from "./services";
 import {

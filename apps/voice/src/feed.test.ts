@@ -6,7 +6,7 @@ import {
   intelligenceRuns,
   ownerEdits,
   type Turn,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { sql } from "drizzle-orm";
 import { createApp } from "./app";
 import { latestSeq, logChange } from "./change-log";
@@ -73,7 +73,7 @@ const get = async (query: string) => {
 // writes queue behind it and the reader pages. A seq handed out before commit order would let the
 // reader pass a change it hadn't seen yet.
 const WRITER = `
-  import { connect } from ${JSON.stringify(Bun.resolveSync("@lifelog/db", import.meta.dir))};
+  import { connect } from ${JSON.stringify(Bun.resolveSync("@life/voice-db", import.meta.dir))};
   import { logChange } from ${JSON.stringify(`${import.meta.dir}/change-log.ts`)};
   self.onmessage = async ({ data: { file, ids } }) => {
     const db = connect(file);

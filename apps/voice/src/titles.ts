@@ -2,8 +2,8 @@
 // was made and the latest one wins. A phone edit made offline keeps its own time; a time in the
 // future is clamped to now. An edit without a time is stamped now.
 
-import type { Db } from "@lifelog/db";
-import { conversations } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { conversations } from "@life/voice-db/schema";
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { logChange } from "./change-log";
 

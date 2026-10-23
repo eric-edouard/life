@@ -2,15 +2,15 @@
 // the archive survives losing the phone. Raw packs hold dictation to the Mac too, so they are
 // stored and never processed: they sit under `raw/`, nothing here reads an object back, and
 // nothing else in the server knows these keys (backup.test.ts checks). Only speech blocks with
-// quiet ranges removed (`blocks/`, `jobs/`) go to ElevenLabs, `apps/identity` or a model. The
+// quiet ranges removed (`blocks/`, `jobs/`) go to ElevenLabs, `apps/speech` or a model. The
 // server's own archive is copied beside them once a day (`archive/`): the file on its disk is
 // otherwise the only copy. With restic set up, restic.ts snapshots it instead.
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Db } from "@lifelog/db";
-import { backupFiles, transcriptionJobs } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { backupFiles, transcriptionJobs } from "@life/voice-db/schema";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { type AudioStore, audioKey, storeAudio } from "./audio-store";
 import { sha256Hex } from "./config";

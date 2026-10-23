@@ -1,6 +1,6 @@
 """The language heard in each segment, by an audio language detector on this Mac.
 
-    uv run --project apps/stt-bench/local python apps/stt-bench/local/lid.py <clips> <segments.json> <out.json>
+    uv run --project apps/transcription-bench/local python apps/transcription-bench/local/lid.py <clips> <segments.json> <out.json>
 
 segments.json is [{clip, start, end}] (seconds in the clip's .wav). Writes the same list with
 `voxlingua`: SpeechBrain's VoxLingua107 ECAPA (21M parameters), its top language and the

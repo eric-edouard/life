@@ -4,7 +4,7 @@ import Foundation
 public let macProtocol = 2
 
 /// A raw fact the helper reports: which processes have the microphone on, whenever that set changes, or that the
-/// Mac is going to sleep. The server turns them into quiet ranges (apps/server/src/dictation.ts); the helper decides
+/// Mac is going to sleep. The server turns them into quiet ranges (apps/voice/src/dictation.ts); the helper decides
 /// nothing about them. `seq` orders them: the server applies only a seq greater than the last it applied.
 public struct MacEvent: Codable, Equatable, Sendable {
     public var seq: Int

@@ -4,7 +4,7 @@ import {
   intelligenceRuns,
   type JobState,
   transcriptionJobs,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { createApp } from "./app";
 import { ownerTimeZone, setOwnerTimeZone } from "./config";
 import { services } from "./services";

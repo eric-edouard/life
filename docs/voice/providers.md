@@ -5,7 +5,7 @@ Which outside services see what, and what we keep. Transcription (ElevenLabs) is
 
 ## Speaker recognition: our own service, no third party
 
-Voices are recognized by `apps/identity`, a small Python service you run yourself (CPU).
+Voices are recognized by `apps/speech`, a small Python service you run yourself (CPU).
 It wraps SpeechBrain's ECAPA model (`speechbrain/spkrec-ecapa-voxceleb`, pinned to one revision and
 baked into the image). No outside provider sees audio or embeddings for recognition.
 
@@ -41,7 +41,7 @@ baked into the image). No outside provider sees audio or embeddings for recognit
 **Running it**
 
 - Lifelog Host installs it and runs it on `127.0.0.1` with its own secret, unless Settings turns it off.
-- Elsewhere build `apps/identity/Dockerfile`, or run it with `uv` (`apps/identity/AGENTS.md`), on a host the server
+- Elsewhere build `apps/speech/Dockerfile`, or run it with `uv` (`apps/speech/AGENTS.md`), on a host the server
   reaches. On it set `IDENTITY_SECRET` (a long random string), `PORT` (8000 by default) and, to listen on one address
   only, `HOST` (every address by default).
 - On the server set `IDENTITY_URL` (for example `http://127.0.0.1:8000`) and the same `IDENTITY_SECRET`, in
@@ -187,7 +187,7 @@ retried with backoff; in Low Power Mode only crash reports and event heartbeats 
 No audio, transcript text, names, places, coordinates or Bluetooth identifiers. Shortened error
 messages are the one exception: they go only to the owner's own server. It keeps both tables 90
 days. `diagnostics:recent` prints recent crashes, hangs and errors by signature, read-only on the archive:
-`DATABASE_PATH=<the archive> bun run --cwd apps/server diagnostics:recent 1`.
+`DATABASE_PATH=<the archive> bun run --cwd apps/voice diagnostics:recent 1`.
 Add `--json` after the days for one group per signature, with its ids, count, builds, app binary
 UUIDs and first and last seen.
 

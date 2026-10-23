@@ -17,7 +17,7 @@
 //   and `expire` deletes voice data that is nobody's evidence after 30 days.
 // - Nothing here calls the transcription provider.
 import { randomUUID } from "node:crypto";
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   speakerAssignments as assignments,
   type Candidates,
@@ -28,7 +28,7 @@ import {
   transcripts,
   voiceProfiles,
   voiceSamples,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import {
   and,
   eq,

@@ -11,7 +11,7 @@ import {
   sources,
   timelineSpans,
   transcriptionJobs,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { asc, eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { conversationStates, type Inputs } from "./conversation-state";
@@ -39,7 +39,7 @@ import {
 } from "./testing";
 import { setOwnerTitle } from "./titles";
 
-// ---- The cases in apps/server/fixtures/segmentation ------------------------------------------
+// ---- The cases in apps/voice/fixtures/segmentation ------------------------------------------
 
 const BASE = 1_790_000_000_000;
 const at = (s: number) => BASE + Math.round(s * 1000);

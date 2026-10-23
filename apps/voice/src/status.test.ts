@@ -8,7 +8,7 @@ import {
   macWatch,
   speechFragments,
   transcriptionJobs,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { createApp } from "./app";
 import { sha256Hex } from "./config";
 import {

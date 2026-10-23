@@ -7,7 +7,7 @@ transcription. Dictation the phone already transcribed (the Mac was offline) is 
 
 How it works: macOS knows which process has the microphone open. The helper watches that flag for every process
 using audio and, whenever the set capturing changes, sends it on its socket; before the Mac sleeps it says so. That
-is all it decides: the server's rules (`apps/server/src/dictation.ts`, `docs/sync.md`) turn those facts into quiet
+is all it decides: the server's rules (`apps/voice/src/dictation.ts`, `docs/sync.md`) turn those facts into quiet
 ranges. Only dictation apps count; calls (FaceTime, WhatsApp, a browser) are conversations. Each dictation is padded
 1 s before and 1.5 s after, dictations less than 5 s apart are one, one over 10 minutes or cut by sleep is dropped,
 and a flag still on after 10 minutes stops holding the phone back. The server names only dictation apps and counts
@@ -73,7 +73,7 @@ payload instead; no cookie scraping, extra model requests or credentials copied 
 beside the helper, then add it to the `statusLine.command` in your Claude Code settings:
 
 ```sh
-cp apps/mac-quiet/claude-usage-statusline.sh ~/.local/bin/lifelog-claude-usage
+cp apps/dictation/claude-usage-statusline.sh ~/.local/bin/lifelog-claude-usage
 chmod 700 ~/.local/bin/lifelog-claude-usage
 ```
 
@@ -101,7 +101,7 @@ Sources: [Codex account limits](https://developers.openai.com/codex/app-server),
 ## Lifelog Host (lifelog on your own Mac)
 
 `Lifelog Host.app` runs all of lifelog on a Mac: a menu-bar app with the server, this helper,
-`cloudflared`, `restic`, `codex` and `uv` inside it (`Contents/Helpers`), and speaker recognition (`apps/identity`),
+`cloudflared`, `restic`, `codex` and `uv` inside it (`Contents/Helpers`), and speaker recognition (`apps/speech`),
 which it installs itself.
 
 ### Setting it up (for a friend)
@@ -167,7 +167,7 @@ by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, s
   --protocol http2 --edge-ip-version 4 run --url http://127.0.0.1:47613`, the token in its environment
   (`TUNNEL_TOKEN`) so `ps` never shows it.
 - Speaker recognition (Settings, **Recognize speakers by their voice**, on by default): the app carries
-  `apps/identity`'s `app.py`, `pyproject.toml` and `uv.lock` in `Contents/Resources/identity`. Once per launch Host
+  `apps/speech`'s `app.py`, `pyproject.toml` and `uv.lock` in `Contents/Resources/identity`. Once per launch Host
   runs `uv sync --frozen` and `app.py download` into `~/Library/Application Support/lifelog/identity` (the venv, uv's
   own Python 3.12, the model; about 630 MB the first time, seconds after), then runs the service on
   `127.0.0.1:47614`. Until it is installed, or if it fails, the reason shows under the menu and Settings, and Save
@@ -199,7 +199,7 @@ way.
    routes.
 
    ```sh
-   bun run --cwd apps/server mint-token mac   # prints the token and MAC_TOKEN_HASH=<its hash>
+   bun run --cwd apps/voice mint-token mac   # prints the token and MAC_TOKEN_HASH=<its hash>
    ```
 
    Put `MAC_TOKEN_HASH` in the server's environment.
@@ -209,7 +209,7 @@ way.
 2. Build and install the helper:
 
    ```sh
-   cd apps/mac-quiet   # from the checkout
+   cd apps/dictation   # from the checkout
    swift build -c release
    mkdir -p ~/.local/bin ~/Library/LaunchAgents
    cp .build/release/lifelog-quiet ~/.local/bin/
@@ -295,4 +295,4 @@ security delete-generic-password -s lifelog-quiet -a claude-token
 ```
 
 To add another dictation app, add its bundle id (as `--list` prints it, or as the log names it) to
-`DICTATION_APPS` in `apps/server/src/dictation.ts`; a command-line tool goes by its process name. Only the server changes.
+`DICTATION_APPS` in `apps/voice/src/dictation.ts`; a command-line tool goes by its process name. Only the server changes.

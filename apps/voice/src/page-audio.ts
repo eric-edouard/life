@@ -2,7 +2,7 @@
 // (vad-worker.ts, one request at a time), and kept speech written back as Ogg Opus from the
 // original packets.
 
-import type { JobMap } from "@lifelog/db/schema";
+import type { JobMap } from "@life/voice-db/schema";
 import { pendantOggOpus } from "./audio";
 import {
   type Interval,

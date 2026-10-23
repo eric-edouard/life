@@ -2,7 +2,7 @@ import Foundation
 import QuietCore
 import Testing
 
-/// The server's real answers (`fixtures/wire/`, written by `apps/server/src/wire.test.ts`), read with Host's decoder.
+/// The server's real answers (`fixtures/wire/`, written by `apps/voice/src/wire.test.ts`), read with Host's decoder.
 private let wire = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     .appending(path: "fixtures/wire")

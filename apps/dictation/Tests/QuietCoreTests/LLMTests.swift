@@ -2,7 +2,7 @@ import Foundation
 import QuietCore
 import Testing
 
-// What a call's output means is the server's (apps/server/src/mac-llm.test.ts); the helper runs it and reports it raw.
+// What a call's output means is the server's (apps/voice/src/mac-llm.test.ts); the helper runs it and reports it raw.
 
 @Test func parsesAnLLMMessage() throws {
     let message = """

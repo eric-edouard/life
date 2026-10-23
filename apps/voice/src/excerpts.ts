@@ -2,20 +2,20 @@
 //
 // When a block's job is stored, its clean turns (people.ts `uncleanTurn`, the one rule) are cut
 // from the block's own Ogg Opus, whose timeline is the one the turns' seconds are in. The audio goes
-// to apps/identity once with the turns' ranges; the embeddings are stored as voice samples of
+// to apps/speech once with the turns' ranges; the embeddings are stored as voice samples of
 // source "server", and recognition runs. Nothing here transcribes, buys or stores audio. A turn the
 // phone sampled before the rebuild keeps its sample. Identity gets the whole Ogg, so a block whose
 // map touches a quiet range (dictation, playback) is never sent, and neither is an old job's audio
 // (sent again by the phone, `PUT /jobs/{id}/audio`): it may hold dictation from before the Mac kept
 // quiet ranges.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   type ParsedTranscript,
   transcriptionJobs,
   transcripts,
   voiceSamples,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, desc, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import { type AudioStore, isBlockKey } from "./audio-store";
 import { type Config, EXCERPTS, RECOGNITION } from "./config";

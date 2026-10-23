@@ -1,4 +1,4 @@
-import type { AuthSettings } from "@lifelog/auth";
+import type { AuthSettings } from "@life/voice-auth";
 import { z } from "zod";
 
 // Prices from docs/research/elevenlabs.md (live pricing page, 2026-10-07).
@@ -181,7 +181,7 @@ const Env = z.object({
   APNS_TOPIC: z.string().min(1).default("com.ericedouard.lifelog"),
   // Where audio is kept without a bucket (audio-store.ts); the S3_* settings win when set.
   AUDIO_DIR: z.string().min(1).optional(),
-  // Signs Life's OAuth tokens (@lifelog/auth). Life's sign-in is off without it and LIFE_URL.
+  // Signs Life's OAuth tokens (@life/voice-auth). Life's sign-in is off without it and LIFE_URL.
   AUTH_SECRET: z.string().min(32).optional(),
   // The build's git commit, which Lifelog Host passes from its Info.plist; names the build in
   // server error reports.
@@ -189,7 +189,7 @@ const Env = z.object({
   // A reader's tokens (docs/voice-source.md), minted by `bun run mint-token read|corrections`:
   // `read` opens the contract's reads, `corrections` those and the owner's corrections.
   CORRECTIONS_TOKEN_HASH: TokenHash.optional(),
-  // The archive's SQLite file (@lifelog/db), created and migrated at boot.
+  // The archive's SQLite file (@life/voice-db), created and migrated at boot.
   DATABASE_PATH: z.string().min(1),
   // sha256 hex of the owner's device token (`bun run mint-token`); the token itself is only in
   // the iPhone's Keychain.
@@ -207,17 +207,17 @@ const Env = z.object({
   ELEVENLABS_WEBHOOK_SECRET: z.string().min(1).optional(),
   // Search by meaning uses OPENAI_API_KEY; without it only the app's keyword search works.
   EMBEDDING_MODEL: z.string().min(1).default("text-embedding-3-large"),
-  // The speaker embedding service (apps/identity), with the same IDENTITY_SECRET as that service.
+  // The speaker embedding service (apps/speech), with the same IDENTITY_SECRET as that service.
   // Recognition is unavailable without it.
   IDENTITY_SECRET: z.string().min(16).optional(),
   IDENTITY_URL: z.url().optional(),
-  // Life's address (@lifelog/auth): LIFE_URL/mcp is its tokens' audience, LIFE_URL/check/callback a
+  // Life's address (@life/voice-auth): LIFE_URL/mcp is its tokens' audience, LIFE_URL/check/callback a
   // trusted OAuth callback. Life's sign-in is off without it.
   LIFE_URL: z.url().optional(),
   // The address the server listens on; every interface without it. The Mac host sets 127.0.0.1,
   // so only Tailscale Serve reaches it.
   LISTEN_HOST: z.string().min(1).optional(),
-  // The Mac helper's token (apps/mac-quiet), minted by `bun run mint-token mac`. It opens only
+  // The Mac helper's token (apps/dictation), minted by `bun run mint-token mac`. It opens only
   // the Mac's socket (mac-socket.ts); without it the socket refuses everyone.
   MAC_TOKEN_HASH: TokenHash.optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
@@ -241,7 +241,7 @@ const Env = z.object({
 
 export type Config = z.infer<typeof Env>;
 
-// Life's OAuth issuer's settings (@lifelog/auth).
+// Life's OAuth issuer's settings (@life/voice-auth).
 export const authSettings = (config: Config): AuthSettings => ({
   baseUrl: config.PUBLIC_BASE_URL,
   lifeUrl: config.LIFE_URL,

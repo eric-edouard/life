@@ -2,7 +2,7 @@
 // heard-through and the owner's grouping edits. All idempotent; a write that can move a boundary
 // regroups after it commits (grouping.ts).
 import { createRoute, z } from "@hono/zod-openapi";
-import { hasRawPages, sources } from "@lifelog/db/schema";
+import { hasRawPages, sources } from "@life/voice-db/schema";
 import { sql } from "drizzle-orm";
 import { record } from "../events";
 import { pendantSources, regroupAfterCommit, saveEdit } from "../grouping";

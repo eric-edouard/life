@@ -1,7 +1,7 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // AI access (Better Auth, tables "auth_*").
-// The OAuth 2.1 server ChatGPT and Claude use to sign in to Life (@lifelog/auth). Shapes are
+// The OAuth 2.1 server ChatGPT and Claude use to sign in to Life (@life/voice-auth). Shapes are
 // Better Auth's (user, session, account, verification, jwks and the OAuth
 // provider's tables); its adapter reads and writes them. Prefixed, apart from the archive.
 

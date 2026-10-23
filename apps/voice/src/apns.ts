@@ -2,8 +2,8 @@
 // digest). Token auth: an ES256 JWT signed with the .p8 key, over HTTP/2.
 import { createPrivateKey, type KeyObject, sign } from "node:crypto";
 import { connect } from "node:http2";
-import type { Db } from "@lifelog/db";
-import { alertPushToken } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { alertPushToken } from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import type { Config } from "./config";
 import { type Fields, record, tokenPrefix } from "./events";

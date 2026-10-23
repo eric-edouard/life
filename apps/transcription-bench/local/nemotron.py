@@ -2,7 +2,7 @@
 NeMo-Speech.cpp (`nemo-speech`, its macOS Metal release; `NEMO_SPEECH` names the binary when it is
 not on PATH). The model downloads on first use.
 
-    uv run --project apps/stt-bench/local python apps/stt-bench/local/nemotron.py <clips> <out>
+    uv run --project apps/transcription-bench/local python apps/transcription-bench/local/nemotron.py <clips> <out>
 
 Writes <out>/<clip>.json like diarize.py: speaker turns and the wall time. A clip already written
 is skipped. The offline preset suits the bench's two-minute clips.

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
-import { subscriptionUsage } from "@lifelog/db/schema";
+import { subscriptionUsage } from "@life/voice-db/schema";
 import {
   SubscriptionMessage,
   storeSubscriptionUsage,

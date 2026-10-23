@@ -1,4 +1,4 @@
-// The server's client, generated from its whole contract (`apps/server/openapi.json`) at build time: nothing generated
+// The server's client, generated from its whole contract (`apps/voice/openapi.json`) at build time: nothing generated
 // is committed, so a changed contract only needs a rebuild.
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -11,7 +11,7 @@ val generated = layout.buildDirectory.dir("generated/openapi")
 openApiGenerate {
     generatorName.set("kotlin")
     library.set("jvm-okhttp4")
-    inputSpec.set(rootDir.resolve("../server/openapi.json").path)
+    inputSpec.set(rootDir.resolve("../voice/openapi.json").path)
     outputDir.set(generated.get().asFile.path)
     packageName.set("com.ericedouard.lifelog.api")
     configOptions.set(mapOf("serializationLibrary" to "kotlinx_serialization", "omitGradleWrapper" to "true"))

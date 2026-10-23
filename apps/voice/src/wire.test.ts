@@ -1,4 +1,4 @@
-import { countRows } from "@lifelog/db";
+import { countRows } from "@life/voice-db";
 // The wire the phone reads, as real answers: each test writes what the server answers to
 // `fixtures/wire/`, and Kit's `WireTests` decode the same files with the phone's types. A drift on
 // either side fails the gate. Run with WRITE_WIRE=1 to rewrite them after a deliberate change.
@@ -15,7 +15,7 @@ import {
   speechFragments,
   transcriptionJobs,
   transcripts,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { memoryAudioStore } from "./audio-store";

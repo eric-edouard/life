@@ -4,7 +4,7 @@
 // older job's copied from the conversation parts that cited it (migration `rebuild`). A
 // conversation shows the turns that start inside its range; the feed reads them (feed.ts).
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   holdsTurn,
   type JobMap,
@@ -13,7 +13,7 @@ import {
   type TurnWord,
   transcripts,
   turns,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, sql } from "drizzle-orm";
 import { logChange, logPlacedIn, turnRef } from "./change-log";
 import { PARSER_VERSION, parseTranscript } from "./elevenlabs";

@@ -4,7 +4,7 @@
 // - A row edited again is logged again, so it comes again under the same key with a newer seq.
 // - What no longer exists (a turn a map moved off, a person merged away) is in `removed`.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   changeLog,
   chapters,
@@ -18,7 +18,7 @@ import {
   quietRanges,
   speakerAssignments,
   turns,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import {
   and,
   asc,

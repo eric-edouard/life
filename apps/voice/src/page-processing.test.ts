@@ -9,7 +9,7 @@ import {
   speechFragments,
   timelineSpans,
   transcriptionJobs,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, sql } from "drizzle-orm";
 import { oggOpusSeconds } from "./audio";
 import { type AudioStore, memoryAudioStore } from "./audio-store";

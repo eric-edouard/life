@@ -3,13 +3,13 @@
 // Its tokens' audience is Life, which checks them against this server's keys (/api/auth/jwks);
 // they open nothing here. The phone never uses this: it keeps its device token.
 import { oauthProvider } from "@better-auth/oauth-provider";
-import type { Db } from "@lifelog/db";
-import { authSchema } from "@lifelog/db/schema/auth";
+import type { Db } from "@life/voice-db";
+import { authSchema } from "@life/voice-db/schema/auth";
 import { type BetterAuthPlugin, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { jwt } from "better-auth/plugins";
 
-// What the issuer needs, from the server's settings (apps/server/src/config.ts `authSettings`).
+// What the issuer needs, from the server's settings (apps/voice/src/config.ts `authSettings`).
 export interface AuthSettings {
   baseUrl: string;
   lifeUrl: string | undefined;

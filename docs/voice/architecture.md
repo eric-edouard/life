@@ -31,10 +31,10 @@ flowchart TB
   end
 
   subgraph host["The owner's Mac (Lifelog Host)"]
-    Server["apps/server<br/>Bun · Hono · SQLite · audio folder"]
-    Mac["apps/mac-quiet<br/>Mac helper"]
+    Server["apps/voice<br/>Bun · Hono · SQLite · audio folder"]
+    Mac["apps/dictation<br/>Mac helper"]
   end
-  Identity["apps/identity<br/>speaker embeddings (optional)"]
+  Identity["apps/speech<br/>speaker embeddings (optional)"]
   Android["Android phone (apps/android)<br/>drains an Omi, sends raw pages"]
   Life(["A reader, such as Life"])
 
@@ -87,7 +87,7 @@ readings get there is `docs/sync.md`.
 
 **The server** owns everything after capture: audio blocks in its audio store (a folder, or an S3 bucket), transcription jobs, words in capture time,
 grouping into conversations, speakers and people, chapters and summaries, places, search by meaning, and the REST
-surface for readers (`docs/voice-source.md`), with the sign-in a reader's MCP still uses. `apps/identity` turns voice excerpts into embeddings and keeps no audio. The Mac helper is a
+surface for readers (`docs/voice-source.md`), with the sign-in a reader's MCP still uses. `apps/speech` turns voice excerpts into embeddings and keeps no audio. The Mac helper is a
 sensor and a runner: it reports which processes have the microphone on and when the Mac sleeps, which the server turns
 into quiet ranges (`dictation.ts`), and runs the model calls the server sends on the selected ChatGPT or Claude
 subscription, reporting their raw output (`mac-llm.ts` reads it).
@@ -98,7 +98,7 @@ Between the phone, the server and the Mac: the table in [`docs/sync.md`](sync.md
 places audio in capture time, labels speech and uploads; the server owns what is made from it; the owner's edits go
 to the server as requests and show on the phone until it has them. `fixtures/` holds what both sides' tests read: the
 server's real answers in `wire/`, which Kit decodes, and the time map. Cases only the server reads
-(grouping, speaker tokens) are in `apps/server/fixtures/`.
+(grouping, speaker tokens) are in `apps/voice/fixtures/`.
 
 On the phone, each piece of state has one owner, and only that owner writes it:
 
@@ -152,7 +152,7 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
 8. **Grouped.** The server groups the source's timeline facts, words, dictation, places and edits into conversations,
    from the changed instant on. A conversation shows the turns that start inside its range, and is closed once
    heard-through is 5 minutes past its end ([`docs/timeline.md`](timeline.md)).
-9. **Recognized.** The server cuts the job's clean turns from its own audio, `apps/identity` embeds them, and the
+9. **Recognized.** The server cuts the job's clean turns from its own audio, `apps/speech` embeds them, and the
    server decides who spoke each turn.
 10. **Summarized.** Whenever a conversation's words change (one rule, `turns_fp`), the Mac rolls its tail; each
     chapter that closes is summarized, and the title and TLDR are written again from the chapters.
@@ -165,11 +165,11 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
 
 **A new server field or route.**
 
-1. Add it to the route file for its domain in `apps/server/src/routes/`, with its Zod schema (`.openapi("Name")`),
+1. Add it to the route file for its domain in `apps/voice/src/routes/`, with its Zod schema (`.openapi("Name")`),
    and the logic in the matching `src/<domain>.ts`, tested beside it in `<domain>.test.ts`.
-2. A table change goes in `packages/db/src/schema`; generate the migration with
-   `bun run --cwd packages/db db:generate` and commit it.
-3. Run `bun run --cwd apps/server openapi`. The gate fails if `openapi.json` is stale.
+2. A table change goes in `apps/voice/packages/db/src/schema`; generate the migration with
+   `bun run --cwd apps/voice/packages/db db:generate` and commit it.
+3. Run `bun run --cwd apps/voice openapi`. The gate fails if `openapi.json` is stale.
 4. Call it from the matching `Kit/Sources/ServerAPI/ServerClient+<Domain>.swift`. A new server enum is
    `UnknownTolerant` on the phone and goes in the mirror list of `ContractTests.swift`, which also checks every path
    the client calls.
@@ -230,7 +230,7 @@ the Library shows rows and the status.
 - **Dictation is stored, never processed.** The raw packs on the server (the phone's backup) hold everything the
   Pendant heard, dictation to the Mac included, and a speech fragment may hold dictation the Mac hasn't reported yet
   until its block closes. Only jobs, with the quiet ranges of the Mac's dictation and
-  of audio played out loud cut out, reach ElevenLabs, `apps/identity` or a model. One exception: the minutes before
+  of audio played out loud cut out, reach ElevenLabs, `apps/speech` or a model. One exception: the minutes before
   the owner presses the Pendant's button, transcribed at once as they are (`docs/decisions.md`).
 - **One owner per fact.** The server owns conversations, words, speakers and summaries; the phone caches them and
   sends the owner's edits as requests. Never run the app on a copy of the phone's data with the production token.

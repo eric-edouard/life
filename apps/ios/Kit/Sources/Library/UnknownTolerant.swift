@@ -1,4 +1,4 @@
-/// A server enum (`apps/server/openapi.json`). A value this app doesn't know yet decodes as `unknown` instead of
+/// A server enum (`apps/voice/openapi.json`). A value this app doesn't know yet decodes as `unknown` instead of
 /// failing the whole response: one new value must never stop the changes feed. The contract test checks every
 /// conformer's cases against the spec.
 public protocol UnknownTolerant: RawRepresentable<String>, Decodable, CaseIterable {

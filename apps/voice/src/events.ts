@@ -4,8 +4,8 @@
 // `events`, which outlives the log's rotation. Ids, states, counts, durations and status codes
 // only: never tokens, transcript text, audio or photos. Read them with `bun run events` (repo root).
 import { z } from "@hono/zod-openapi";
-import type { Db } from "@lifelog/db";
-import { eventSources, events } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { eventSources, events } from "@life/voice-db/schema";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 
 const RETENTION_DAYS = 14;

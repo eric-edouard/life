@@ -1,7 +1,11 @@
 // Speakers: a job's audio, the owner's answers, and the people they name. Voice samples are cut on
 // the server (excerpts.ts).
 import { createRoute, z } from "@hono/zod-openapi";
-import { people, speakerStatuses, suggestionKinds } from "@lifelog/db/schema";
+import {
+  people,
+  speakerStatuses,
+  suggestionKinds,
+} from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import { byteRange } from "../audio-store";
 import { logChange } from "../change-log";

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { conversations } from "@lifelog/db/schema";
+import { conversations } from "@life/voice-db/schema";
 import { mapJob, seedTranscript, testDb } from "./testing";
 import { captureMillis, loadTurns } from "./transcript";
 

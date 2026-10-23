@@ -117,7 +117,7 @@ Every writer of something the feed carries logs `(kind, ref)` in `change_log`, l
 - Conversations carry `kind`, `state` (`uploaded`, `transcribing`, `transcribed`, `summarized` or `failed`:
   `conversation-state.ts`, the one rule), `runId` (the summary shown), `place`, `waiting`, `splitSuggestions`, `startEdit` and
   `endEdit` (the live split each edge comes from, or for `startEdit` else the merge that joined it: what Undo undoes)
-  and, once merged away, `retired`; `closed` once grouping is done with it (`packages/db/src/schema` `isSettled`). A dismissed
+  and, once merged away, `retired`; `closed` once grouping is done with it (`apps/voice/packages/db/src/schema` `isSettled`). A dismissed
   suggestion re-sends its conversation.
 - Jobs carry their state, pages, `durationSeconds` (seconds of speech audio) and `endedOnSilence` (true: the cutter
   closed the block on 30 s with nothing kept, `cutter.ts` rule 3; false: the cap or a pause closed it, whatever
@@ -137,7 +137,7 @@ Every writer of something the feed carries logs `(kind, ref)` in `change_log`, l
 A reader (a program following the owner's speech, never the phone) uses the routes in `docs/voice-source.md`, with
 its own `read` or `corrections` token. Lifelog never calls it.
 
-The OAuth issuer in `packages/auth` signs tokens for a reader's MCP clients (ChatGPT, Claude): their audience is the
+The OAuth issuer in `apps/voice/packages/auth` signs tokens for a reader's MCP clients (ChatGPT, Claude): their audience is the
 reader's MCP, scopes `life:read` and `offline_access`, checked against `/api/auth/jwks`. They open nothing here. Codes
 go only to the callbacks `trustedRedirects` lists (Life's at `LIFE_URL`), and loopback (`docs/decisions.md`). It goes once the reader signs
 its own tokens (`docs/voice-source.md`, "Still to change").
@@ -151,7 +151,7 @@ waiting, the backup, ElevenLabs and the last day's problems. Spending stays out 
 `archive-health.ts` counts five things that must be 0: turns in no live conversation, live conversations that
 overlap, search passages of a conversation that isn't live, the owner's speaker names on a job no live
 conversation holds, and pages held twice (by two jobs that aren't failed, or two fragments). It runs every hour, emails the owner when a count rises (at most once per 12 hours) and is read
-by `GET /status` and `bun run --cwd apps/server check:archive`.
+by `GET /status` and `bun run --cwd apps/voice check:archive`.
 
 ## After the cutover
 
@@ -173,7 +173,7 @@ older observations and clocks more than a minute ahead cannot overwrite it. The 
 them (`{claude, codex}`, each a reading or `null`), like the Mac's other state; the app writes them to the app group
 after each pull, and the Lock Screen dials read only that.
 
-The Mac helper (`apps/mac-quiet`) opens one WebSocket at `GET /quiet-ranges/socket?protocol=2` with the Mac's token
+The Mac helper (`apps/dictation`) opens one WebSocket at `GET /quiet-ranges/socket?protocol=2` with the Mac's token
 as a bearer (`MAC_TOKEN_HASH`). It pings every 30 s. The server's side is `mac-socket.ts`. Another protocol (a
 helper older or newer than the server; no `protocol` is 1) gets `426` with what to install, and `mac.refused`.
 

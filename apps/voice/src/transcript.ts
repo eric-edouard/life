@@ -1,7 +1,7 @@
 // A conversation's transcript as intelligence, search and the feed read it: the turns
 // starting in its range (the one rule), with one name per speaker, minus media and quiet ranges.
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   type JobMap,
   transcriptionJobs as jobs,
@@ -11,7 +11,7 @@ import {
   type TurnWord,
   turns as turnRows,
   type Word,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, asc, gt, gte, lt, notInArray } from "drizzle-orm";
 import { textOf } from "./elevenlabs";
 import { listAssignments, speakerOf, voiceId } from "./people";

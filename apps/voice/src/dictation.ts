@@ -5,7 +5,7 @@
 // A flag on past MAX_MS stops holding the watermark at once, and nothing counts until it goes off.
 // A cancelled dictation can't be told apart, so it counts like any other. Pure: the socket keeps
 // the state in `mac_watch` (quiet-ranges.ts `applyMacEvent`).
-import type { Dictation } from "@lifelog/db/schema";
+import type { Dictation } from "@life/voice-db/schema";
 
 const BEFORE_MS = 1000;
 const AFTER_MS = 1500;

@@ -1,7 +1,7 @@
 // biome-ignore-all lint/suspicious/noBitwiseOperators: Ogg's CRC and Opus's TOC byte are bit fields
 // Ogg Opus (RFC 7845) without decoding: measures uploaded audio, so the cost guard never trusts a
 // client-declared duration, and joins speech fragments into one job's audio by moving packets.
-import type { JobMap } from "@lifelog/db/schema";
+import type { JobMap } from "@life/voice-db/schema";
 import { startsOf } from "./transcript";
 
 const OGG_CAPTURE = 0x4f_67_67_53; // "OggS"

@@ -11,7 +11,7 @@ import {
   transcripts,
   voiceProfiles,
   voiceSamples,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq as is } from "drizzle-orm";
 import type { PushRequest } from "./apns";
 import { setOwnerTimeZone } from "./config";

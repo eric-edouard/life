@@ -1,5 +1,5 @@
 // lifelog-quiet: reports to the lifelog server which processes have the microphone on, and when the Mac sleeps, so
-// the server leaves the Pendant's audio of the owner's dictation out of transcription (apps/mac-quiet/README.md).
+// the server leaves the Pendant's audio of the owner's dictation out of transcription (apps/dictation/README.md).
 // It is a sensor and a runner: which apps count as dictation, and every other rule, is the server's.
 //
 // It watches Core Audio's per-process "capturing input" flag (macOS 14.2+) of every process using audio, and sends

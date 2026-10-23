@@ -2,7 +2,7 @@
 // owner's audio) encoded as the Omi does (Opus CELT, 16 kHz mono, 20 ms, 32 kbps), packed 444 bytes
 // a record with whole-second stamps. The server's page-processing test and Kit's
 // PageProcessingParityTests read them; WRITE_PAGES=1 on Kit's test writes the expected output.
-//   bun apps/server/scripts/page-fixture.ts   (macOS, ffmpeg)
+//   bun apps/voice/scripts/page-fixture.ts   (macOS, ffmpeg)
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";

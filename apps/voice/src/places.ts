@@ -2,8 +2,8 @@
 // taken (`placeName`, reverse-geocoded on the phone). A conversation's place, and a stay's, is the
 // name of its most accurate named fix. Never from upload time.
 
-import type { Db } from "@lifelog/db";
-import { locationHistory } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { locationHistory } from "@life/voice-db/schema";
 import { and, asc, gte, isNotNull, lte } from "drizzle-orm";
 
 // ---- Geometry ---------------------------------------------------------------

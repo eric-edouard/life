@@ -5,12 +5,12 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { connect, countRows, holdArchive } from "@lifelog/db";
+import { connect, countRows, holdArchive } from "@life/voice-db";
 import {
   conversations,
   EMBEDDING_DIMENSIONS,
   searchPassages,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { eq, sql } from "drizzle-orm";
 import { exportArchive, importArchive, runCommand } from "./export";
 import { testDb } from "./testing";

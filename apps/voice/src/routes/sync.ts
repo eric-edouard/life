@@ -7,7 +7,7 @@ import {
   jobStates,
   ownerEditKinds,
   waitingReasons,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { latestSeq } from "../change-log";
 import { record } from "../events";
 import { feed, SEQ, waitForChange } from "../feed";

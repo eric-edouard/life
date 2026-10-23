@@ -15,7 +15,7 @@ import java.security.MessageDigest
 
 /**
  * Sends the outbox's records to the server as raw pages (`PUT /sources/{id}/pages/{firstPage}`), oldest drain first,
- * through the client generated from `apps/server/openapi.json`. The server decides what is speech and what gets
+ * through the client generated from `apps/voice/openapi.json`. The server decides what is speech and what gets
  * transcribed; a drain's file goes only once a 200 says the server holds its last batch.
  */
 class Uploader(

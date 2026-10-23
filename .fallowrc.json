@@ -5,7 +5,8 @@
     "assets/**/*.js",
     "assets/**/*.tsx",
     "assets/**/*.css",
-    "apps/edge/*.ts"
+    "apps/edge/*.ts",
+    "apps/voice/fixtures/fake-restic.ts"
   ],
   "ignoreUnresolvedImports": ["./tokens.css"],
   "ignoreDependencies": ["@openai/codex", "fallow", "ultracite"],

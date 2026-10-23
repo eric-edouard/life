@@ -16,7 +16,7 @@ The SDK is found through `ANDROID_HOME`, else `~/Library/Android/sdk`; the gate 
 
 ## Worth knowing
 
-- `api/` is the server's client, generated at build time from the whole `apps/server/openapi.json`
+- `api/` is the server's client, generated at build time from the whole `apps/voice/openapi.json`
   (`api/build.gradle.kts`). Nothing generated is committed: a contract change needs only a rebuild.
 - Omi only. The Limitless Pendant speaks another protocol (protobuf fragments, `apps/ios/Kit/Sources/PendantProtocol`);
   porting it is a project of its own. Read `docs/research/omi.md` first, as for any Omi work.

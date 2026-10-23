@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { rawPages } from "@lifelog/db/schema";
+import { rawPages } from "@life/voice-db/schema";
 import { createApp } from "./app";
 import { diskAudioStore, memoryAudioStore, pagesKey } from "./audio-store";
 import { sha256Hex } from "./config";

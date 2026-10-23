@@ -5,7 +5,7 @@ import Synchronization
 import Testing
 @testable import Upload
 
-/// The server's real answers (`fixtures/wire/`, written by `apps/server/src/wire.test.ts`), read with the phone's
+/// The server's real answers (`fixtures/wire/`, written by `apps/voice/src/wire.test.ts`), read with the phone's
 /// types. A drift on either side fails the gate.
 private let wire = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

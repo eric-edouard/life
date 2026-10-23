@@ -6,7 +6,7 @@ import {
   people,
   speakerAssignments,
   type Turn,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { createApp } from "./app";
 import { addQuietRange } from "./quiet-ranges";
 import {

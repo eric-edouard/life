@@ -1,14 +1,14 @@
 // How fast speech becomes words and summaries: measured over the last day (`GET /status`), and
 // pushed along while the Pendant records (`askForUploads`).
 
-import type { Db } from "@lifelog/db";
+import type { Db } from "@life/voice-db";
 import {
   chapters,
   hasRawPages,
   isPendant,
   transcriptionJobs as jobs,
   sources,
-} from "@lifelog/db/schema";
+} from "@life/voice-db/schema";
 import { and, eq, gt, isNotNull, max, not } from "drizzle-orm";
 import type { Nudge } from "./apns";
 import { latestHeartbeat, pendantRecords } from "./diagnostics";

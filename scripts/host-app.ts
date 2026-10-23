@@ -1,5 +1,5 @@
 // Lifelog Host.app (packaging 4.6b): the menu-bar app, with the server, the Mac helper, cloudflared, restic, Codex and uv
-// in Contents/Helpers, and speaker recognition's files (apps/identity) in Contents/Resources/identity; its icon is the
+// in Contents/Helpers, and speaker recognition's files (apps/speech) in Contents/Resources/identity; its icon is the
 // iPhone app's (AppIcon.icon), its menu-bar mark the same ring and dot.
 //   bun run host:app [out]    (default .build/host; signed ad hoc unless LIFELOG_SIGN_IDENTITY is set)
 // An identity (Developer ID, for a release) signs under the hardened runtime, which the server, a Bun binary, needs
@@ -9,7 +9,7 @@ import { existsSync } from "node:fs";
 import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { $ } from "bun";
-import { buildHost } from "../apps/server/scripts/build-host";
+import { buildHost } from "../apps/voice/scripts/build-host";
 
 const root = resolve(import.meta.dir, "..");
 const out = resolve(process.argv[2] ?? join(root, ".build/host"));
@@ -17,7 +17,7 @@ const app = join(out, "Lifelog Host.app");
 const contents = join(app, "Contents");
 const helpers = join(contents, "Helpers");
 const resources = join(contents, "Resources");
-const swift = join(root, ".build/mac-quiet-release");
+const swift = join(root, ".build/dictation-release");
 const identity = process.env.LIFELOG_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFELOG_VERSION ?? "1.0";
 const arch = process.arch === "arm64" ? "arm64" : "amd64";
@@ -118,9 +118,9 @@ await Promise.all(
   )
 );
 
-await $`swift build -c release --package-path ${join(root, "apps/mac-quiet")} --scratch-path ${swift}`;
+await $`swift build -c release --package-path ${join(root, "apps/dictation")} --scratch-path ${swift}`;
 const bin = (
-  await $`swift build -c release --package-path ${join(root, "apps/mac-quiet")} --scratch-path ${swift} --show-bin-path`.text()
+  await $`swift build -c release --package-path ${join(root, "apps/dictation")} --scratch-path ${swift} --show-bin-path`.text()
 ).trim();
 await cp(join(bin, "LifelogHost"), join(contents, "MacOS/LifelogHost"));
 await cp(join(bin, "lifelog-quiet"), join(helpers, "lifelog-quiet"));
@@ -135,7 +135,7 @@ await $`tar -xzf ${await download(TOOLS.uv)} -C ${helpers} --strip-components 1 
 await $`chmod 755 ${join(helpers, "cloudflared")} ${join(helpers, "restic")} ${join(helpers, "codex")} ${join(helpers, "uv")}`;
 // Host installs speaker recognition from these (uv sync --frozen, app.py download) into Application Support.
 await mkdir(join(resources, "identity"));
-await $`cp ${["app.py", "pyproject.toml", "uv.lock"].map((f) => join(root, "apps/identity", f))} ${join(resources, "identity")}`;
+await $`cp ${["app.py", "pyproject.toml", "uv.lock"].map((f) => join(root, "apps/speech", f))} ${join(resources, "identity")}`;
 await writeFile(join(contents, "Info.plist"), PLIST);
 
 // The app icon (Assets.car and AppIcon.icns) from the iPhone's Icon Composer file, and the menu bar's template PDF

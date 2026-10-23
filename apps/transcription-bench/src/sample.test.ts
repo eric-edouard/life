@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Word } from "@lifelog/db/schema";
+import type { Word } from "@life/voice-db/schema";
 import { groupOf, type Job, QUOTA, sample, window } from "./sample";
 
 const job = (over: Partial<Job>): Job => ({

@@ -5,6 +5,7 @@
 // A prefix keeps only events whose name starts with it ("apns", "mac."); the Mac's log lines count
 // as "mac".
 import { homedir } from "node:os";
+import { clock } from "@life/server/src/core/clock";
 import { serverFetch } from "./server";
 
 const UNITS = { d: 86_400_000, h: 3_600_000, m: 60_000, s: 1000 } as const;
@@ -20,7 +21,7 @@ if (!match) {
 }
 const prefixes = args.filter((_, i) => i !== sinceAt && i !== sinceAt + 1);
 const since = new Date(
-  Date.now() - Number(match[1]) * UNITS[match[2] as keyof typeof UNITS]
+  clock().getTime() - Number(match[1]) * UNITS[match[2] as keyof typeof UNITS]
 );
 
 interface Line {

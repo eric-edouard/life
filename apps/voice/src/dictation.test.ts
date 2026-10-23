@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Dictation } from "@lifelog/db/schema";
+import type { Dictation } from "@life/voice-db/schema";
 import {
   blocked,
   type DictatedRange,

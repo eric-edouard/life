@@ -5,11 +5,15 @@
 // every sample of a voice (production leaves out turns with their own row). Run it before and
 // after a change to `match`, `decide` or `weighProfiles`, on the same export. The export holds his
 // voice: keep it out of the repo.
-//   DATABASE_PATH=<the archive> bun run --cwd apps/server eval:voices export > <outside the repo>/voices.json
-//   bun run --cwd apps/server eval:voices <outside the repo>/voices.json
+//   DATABASE_PATH=<the archive> bun run --cwd apps/voice eval:voices export > <outside the repo>/voices.json
+//   bun run --cwd apps/voice eval:voices <outside the repo>/voices.json
 
-import { connect, type Db } from "@lifelog/db";
-import { people, speakerAssignments, voiceSamples } from "@lifelog/db/schema";
+import { connect, type Db } from "@life/voice-db";
+import {
+  people,
+  speakerAssignments,
+  voiceSamples,
+} from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import {
   evidenceRows,

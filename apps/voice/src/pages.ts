@@ -2,8 +2,8 @@
 // send pages"). This is the ingest half: a source's pages kept byte for byte, idempotent by
 // index; page-processing.ts labels and cuts them.
 
-import type { Db } from "@lifelog/db";
-import { rawPages, sources } from "@lifelog/db/schema";
+import type { Db } from "@life/voice-db";
+import { rawPages, sources } from "@life/voice-db/schema";
 import { and, between, eq, max } from "drizzle-orm";
 import { z } from "zod";
 import { type AudioStore, pagesKey, storeAudio } from "./audio-store";

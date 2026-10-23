@@ -1,7 +1,7 @@
 // One error rate for every language: Latin and digit words count as one token each, Thai (written
 // without spaces) one token per character. On English or French it is the word error rate, on
 // Thai the character error rate, on mixed speech the mixed error rate of code-switching studies.
-import type { Word } from "@lifelog/db/schema";
+import type { Word } from "@life/voice-db/schema";
 import type { Group, Pick } from "./sample";
 
 export const THAI = /[\u0E00-\u0E7F]/;
