@@ -62,6 +62,8 @@ This is the one list; nothing else leaves.
 - The to-do items Life writes (his clear to-dos and the agent's board), to Google Tasks, when the actions backend is
   Google (with Reminders they stay in his Apple account, which syncs as Reminders does).
 - The owner's corrections about recordings, to the owner's own voice server.
+- On a server, to copy what a Mac reads locally: the IMAP login to his mail provider, when the `imap` setting is set,
+  and the GitHub token to GitHub, when the `forge` setting is set. Both only read; nothing of his is sent.
 - From the voice half (the iPhone and the voice server, in this repo since the playbook's step 1, unchanged by the
   move): speech blocks to ElevenLabs for transcription, the summaries' text to the owner's ChatGPT or Claude
   subscription through the Mac helper, passages and queries to OpenAI's embeddings when a key is set, and the
