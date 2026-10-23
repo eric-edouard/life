@@ -48,7 +48,7 @@ const Heard = z.object({
 export type Heard = z.infer<typeof Heard>;
 
 // The speech service is set up: its address and the secret it shares, both or neither.
-export const identitySet = (
+export const speechServiceSet = (
   config: Config
 ): config is Config & { IDENTITY_SECRET: string; IDENTITY_URL: string } =>
   Boolean(config.IDENTITY_URL && config.IDENTITY_SECRET);
@@ -65,7 +65,7 @@ async function post<T>(
   if (!switches().transcription) {
     return { error: "identity_busy", retryAfter: "3600" };
   }
-  if (!identitySet(config)) {
+  if (!speechServiceSet(config)) {
     return {
       error: "identity_unavailable",
       message: "IDENTITY_URL or IDENTITY_SECRET is not set",

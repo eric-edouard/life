@@ -169,17 +169,16 @@ def words_of(tokens: list[tuple[str, float, float]]) -> list[dict]:
     return [w for w in words if w["text"]]
 
 
-def exclusive(turns: list[dict]) -> list[dict]:
-    """Turns in time order, one speaker's joined across a gap under JOIN_GAP_SECONDS, each ending where
-    the next starts; empty ones go."""
-    joined: list[dict] = []
-    for turn in sorted(turns, key=lambda t: t["start"]):
-        same = next((t for t in reversed(joined) if t["speaker"] == turn["speaker"]), None)
-        if same and turn["start"] - same["end"] < JOIN_GAP_SECONDS:
-            same["end"] = max(same["end"], turn["end"])
+def exclusive(turns_in: list[dict]) -> list[dict]:
+    """Turns in time order, a turn joined to the one before when it is the same speaker's within
+    JOIN_GAP_SECONDS (as the bench's turns), each ending where the next starts; empty ones go."""
+    turns = []
+    for turn in sorted(turns_in, key=lambda t: t["start"]):
+        last = turns[-1] if turns else None
+        if last and last["speaker"] == turn["speaker"] and turn["start"] - last["end"] < JOIN_GAP_SECONDS:
+            last["end"] = max(last["end"], turn["end"])
         else:
-            joined.append(dict(turn))
-    turns = sorted(joined, key=lambda t: t["start"])
+            turns.append(dict(turn))
     for previous, following in zip(turns, turns[1:]):
         previous["end"] = min(previous["end"], following["start"])
     return [t for t in turns if t["end"] > t["start"]]

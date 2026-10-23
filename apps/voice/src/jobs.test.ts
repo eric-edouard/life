@@ -73,6 +73,8 @@ beforeEach(() => {
   fake.respond = accept;
   speech.blocks = 0;
   speech.busy = false;
+  speech.failing = false;
+  speech.meanwhile = () => undefined;
 });
 
 // The app with its own bucket and worker; `s.worker.work()` waits for what it sends.
@@ -1286,4 +1288,51 @@ test("the speech service: one cut off by a restart goes again, unless Scribe may
   expect(jobRow(fresh)).toMatchObject({ requestSentAt: null, state: "queued" });
   expect(jobRow(billed).state).toBe("failed");
   expect(uploads()).toHaveLength(0);
+});
+
+test("the speech service: a block it keeps failing goes to Scribe whole after its attempts; a moved job is never sent", async () => {
+  const app = appWith(withSpeech);
+  setSwitches(env.db, { transcriber: "speech" });
+  speech.failing = true;
+  const jobId = await admitFragment(app, speechAudio(10), 1);
+  for (const attempt of [1, 2]) {
+    // biome-ignore lint/performance/noAwaitInLoops: one attempt after the other
+    await app.s.worker.work();
+    expect(jobRow(jobId)).toMatchObject({ attempts: attempt, state: "queued" });
+    due(jobId);
+  }
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+  expect(jobRow(jobId)).toMatchObject({
+    state: "submitted",
+    transcriber: "scribe",
+  });
+
+  // Moved back while the service heard it: nothing is bought.
+  speech.failing = false;
+  speech.heard = {
+    durationSeconds: 10,
+    models: {},
+    turns: [turn(0, 10, "0", "th")],
+    words: [],
+  };
+  const moved = await admitFragment(app, speechAudio(10, 2), 100);
+  speech.meanwhile = () => {
+    speech.meanwhile = () => undefined;
+    env.db
+      .update(transcriptionJobs)
+      .set({
+        nextAttemptAt: new Date(Date.now() + 60_000),
+        requestSentAt: null,
+        state: "queued",
+      })
+      .where(eq(transcriptionJobs.id, moved))
+      .run();
+  };
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+  expect(jobRow(moved)).toMatchObject({
+    state: "queued",
+    transcriber: "speech",
+  });
 });

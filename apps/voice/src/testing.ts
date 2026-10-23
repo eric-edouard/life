@@ -289,11 +289,13 @@ export function fakeElevenLabs() {
 
 // A stand-in for apps/speech. The "excerpt" is a JSON vector, returned as its embedding. For
 // /embed-ranges, `cut` says what each range holds (null: unusable), and `ranges` records every call.
-// /transcribe answers `heard`, and `blocks` counts its calls.
+// /transcribe answers `heard` (500 while `failing`), after `meanwhile`; `blocks` counts its calls.
 export function fakeSpeechService() {
   const fake: {
     blocks: number;
     busy: boolean;
+    failing: boolean;
+    meanwhile: () => void;
     cut: (range: [number, number]) => {
       durationSeconds: number;
       embedding: number[];
@@ -307,7 +309,9 @@ export function fakeSpeechService() {
       durationSeconds: to - from,
       embedding: Array.from({ length: 192 }, (_, i) => (i === 5 ? 1 : 0)),
     }),
+    failing: false,
     heard: { durationSeconds: 0, models: {}, turns: [], words: [] },
+    meanwhile: () => undefined,
     ranges: [],
   };
   const server = Bun.serve({
@@ -320,7 +324,10 @@ export function fakeSpeechService() {
       }
       if (new URL(req.url).pathname === "/transcribe") {
         fake.blocks += 1;
-        return Response.json(fake.heard);
+        fake.meanwhile();
+        return fake.failing
+          ? new Response("RuntimeError", { status: 500 })
+          : Response.json(fake.heard);
       }
       if (new URL(req.url).pathname === "/embed-ranges") {
         const ranges = JSON.parse(req.headers.get("X-Ranges") ?? "[]");

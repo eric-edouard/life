@@ -28,7 +28,7 @@ import { emailOwner } from "./alert";
 import { cutOggOpus, oggOpusSeconds } from "./audio";
 import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
-import { type Config, singleFlight } from "./config";
+import { billableSeconds, type Config, singleFlight } from "./config";
 import { cut, touchesQuiet, withdrawRows } from "./cutter";
 import {
   credits,
@@ -48,7 +48,7 @@ import { record } from "./events";
 import { markDirty, regroupAfterCommit } from "./grouping";
 import { type MacSocket, macSocket } from "./mac-socket";
 import { routeTurns, scribeRanges, transcriptOf, uncut } from "./route-turns";
-import { identitySet, transcribeBlock } from "./speech-service";
+import { speechServiceSet, transcribeBlock } from "./speech-service";
 import { switches } from "./switches";
 import { rebuildTurnsIn } from "./turns";
 
@@ -487,7 +487,7 @@ export function jobWorker(
     const vouched = mac.vouchedThrough();
     const at = new Date();
     const transcriber =
-      switches().transcriber === "speech" && identitySet(config)
+      switches().transcriber === "speech" && speechServiceSet(config)
         ? ("speech" as const)
         : ("scribe" as const);
     return db.transaction((tx) => {
@@ -577,16 +577,24 @@ export function jobWorker(
   }
 
   // A block through the speech service: its words, and Scribe's for the turns it routes, cut from
-  // the block's own audio and sent once, without a webhook; a block mostly routed goes to Scribe
-  // whole, as a Scribe job. The service down or busy: queued again, nothing bought.
+  // the block's own audio and sent once, without a webhook; a block mostly foreign goes to Scribe
+  // whole, as a Scribe job. The service busy: queued again. Down or failing: an attempt, and a block
+  // it fails the last time goes to Scribe whole too, so a failure that repeats never loops.
   async function hear(job: Job, bytes: Uint8Array) {
     const started = Date.now();
     const said = await transcribeBlock(config, bytes);
-    if ("error" in said && said.error !== "invalid_audio") {
-      back(db, job, `the speech service: ${said.error}`);
+    if ("error" in said && said.error === "identity_busy") {
+      back(db, job, "the speech service is busy");
       return;
     }
-    // Audio the service can't read goes to Scribe whole, which may.
+    if (
+      "error" in said &&
+      said.error === "identity_unavailable" &&
+      job.attempts + 1 < MAX_ATTEMPTS
+    ) {
+      retry(db, job, `the speech service: ${said.message.slice(0, 200)}`);
+      return;
+    }
     const route =
       "heard" in said ? routeTurns(said.heard) : { kind: "whole" as const };
     record(db, "speech.heard", {
@@ -596,12 +604,14 @@ export function jobWorker(
       routed: route.kind === "turns" ? route.routed.length : null,
     });
     if (route.kind === "whole" || !("heard" in said)) {
-      onSend(db, job, { transcriber: "scribe" });
-      await toScribe({ ...job, transcriber: "scribe" }, bytes);
+      // Only while it is still this send: a moved job is never bought again.
+      if (onSend(db, job, { transcriber: "scribe" })) {
+        await toScribe({ ...job, transcriber: "scribe" }, bytes);
+      }
       return;
     }
     const routed = await scribeTurns(job, bytes, route.routed);
-    if (routed === "later") {
+    if (!routed) {
       return;
     }
     complete(
@@ -618,8 +628,8 @@ export function jobWorker(
   }
 
   // Scribe's words for a block's routed turns, cut from its audio and sent once, without a webhook:
-  // "later" when Scribe took nothing now (the job is queued again). Refused or maybe billed, the
-  // turns stay without words, never sent again.
+  // null when there is nothing to complete now (the job moved, or Scribe took nothing and it is
+  // queued again). Refused or maybe billed, the turns stay without words, never sent again.
   async function scribeTurns(
     job: Job,
     bytes: Uint8Array,
@@ -634,19 +644,25 @@ export function jobWorker(
         scribe: null,
       };
     }
-    // A send that may be billed leaves: from here it is never sent again (`settle`).
-    onSend(db, job, { maybeBilled: true });
+    // A send that may be billed leaves, only while it is still this send: from here it is never
+    // sent again (`settle`).
+    if (!onSend(db, job, { maybeBilled: true })) {
+      return null;
+    }
     const heard = await transcribeNow(
       config,
       new Blob([excerpt.audio.slice()]),
       job.settings.keyterms
     );
     record(db, `elevenlabs.${heard.kind}`, { job: job.id, turns: true });
-    const billableSeconds = oggOpusSeconds(excerpt.audio) ?? 0;
+    const billed = billableSeconds(
+      oggOpusSeconds(excerpt.audio) ?? 0,
+      job.settings
+    );
     if (heard.kind === "done") {
       const words = uncut(heard.transcript.words, excerpt.spans);
       return {
-        billableSeconds,
+        billableSeconds: billed,
         error: null,
         maybeBilled: false,
         scribe: { languageCode: heard.transcript.languageCode, words },
@@ -655,10 +671,10 @@ export function jobWorker(
     if (heard.later) {
       onSend(db, job, { maybeBilled: false });
       back(db, job, heard.error);
-      return "later" as const;
+      return null;
     }
     return {
-      billableSeconds,
+      billableSeconds: heard.billed ? billed : 0,
       error: `its other-language turns are missing: ${heard.error.slice(0, 200)}`,
       maybeBilled: heard.billed,
       scribe: null,

@@ -49,6 +49,21 @@ class Turns(unittest.TestCase):
             [{"end": 4.0, "speaker": "0", "start": 0.0}, {"end": 6.0, "speaker": "0", "start": 5.0}],
         )
 
+    def test_another_speaker_between_keeps_the_turns_apart(self):
+        turns = [
+            {"end": 2.0, "speaker": "A", "start": 0.0},
+            {"end": 2.3, "speaker": "B", "start": 2.1},
+            {"end": 6.0, "speaker": "A", "start": 2.4},
+        ]
+        self.assertEqual(
+            app.exclusive(turns),
+            [
+                {"end": 2.0, "speaker": "A", "start": 0.0},
+                {"end": 2.3, "speaker": "B", "start": 2.1},
+                {"end": 6.0, "speaker": "A", "start": 2.4},
+            ],
+        )
+
     def test_ranges(self):
         self.assertEqual(app.parse_ranges("[[0, 1.5], [2, 3]]"), [(0, 1.5), (2, 3)])
         for bad in ("[[3, 1]]", "nope", "[]"):
