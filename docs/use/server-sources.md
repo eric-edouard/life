@@ -10,7 +10,7 @@ Secrets never do: put each one in the server's environment file (the Compose's 0
 ## Mail
 
 ```sh
-bun life settings set '{"imap":{"host":"imap.gmail.com","user":"you@gmail.com","folders":["[Gmail]/All Mail"]}}'
+bun life settings set '{"imap":{"host":"imap.gmail.com","user":"you@gmail.com","folders":["[Gmail]/All Mail","[Gmail]/Sent Mail"]}}'
 ```
 
 ```sh
@@ -23,7 +23,7 @@ disk; a message over 25 MB is left out.
 
 For Gmail, turn on 2-Step Verification, then make an app password at
 [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords). `[Gmail]/All Mail` holds each message
-once, whatever its labels. For another provider (iCloud, Fastmail), leave `folders` out: Life copies every folder but
+once, whatever its labels; `[Gmail]/Sent Mail` tells Life which addresses are yours (an alias included). For another provider (iCloud, Fastmail), leave `folders` out: Life copies every folder but
 junk, trash and drafts. Turn on **Mail** under **Sources** as on a Mac.
 
 ## Your code

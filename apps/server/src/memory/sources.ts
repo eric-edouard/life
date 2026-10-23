@@ -3,7 +3,7 @@ import { HOUR, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
-import { agentName, expand, settings } from "../core/settings";
+import { agentName, settings } from "../core/settings";
 import { archiveDb } from "../sources/archived";
 import {
   FORMATS,
@@ -14,9 +14,9 @@ import {
 import { copyBeeper, newestBeeper, readBeeper } from "../sources/beeper";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { mirrorForge } from "../sources/forge";
-import { newestCommit, readGit } from "../sources/git";
+import { newestCommit, REPOS_DIR, readGit } from "../sources/git";
 import {
-  MAILDIR,
+  isMirrored,
   mirrorImap,
   newestMaildir,
   readMaildir,
@@ -126,7 +126,7 @@ const LISTED: Descriptor[] = [
     ...(settings().imap
       ? {
           mirror: () => mirrorImap(),
-          missing: () => (existsSync(MAILDIR) ? undefined : "not mirrored yet"),
+          missing: () => (isMirrored() ? undefined : "not mirrored yet"),
           newest: () => newestMaildir(),
           read: (since: Date) => readMaildir(since),
         }
@@ -193,11 +193,14 @@ const LISTED: Descriptor[] = [
     // On a host without his checkouts, the repos his projects list, from his forge.
     ...(settings().forge
       ? {
-          mirror: async () =>
-            mirrorForge(
-              (await loadTruth()).projects.flatMap((p) => p.repos),
-              expand(settings().repos ?? "")
-            ),
+          mirror: async () => {
+            if (REPOS_DIR) {
+              await mirrorForge(
+                (await loadTruth()).projects.flatMap((p) => p.repos),
+                REPOS_DIR
+              );
+            }
+          },
         }
       : {}),
     name: "git",

@@ -9,7 +9,8 @@ import { exec } from "../core/proc";
 import { stamp } from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
-import { isMessageFile, messagePart } from "../sources/mail";
+import { isMessageFile } from "../sources/imap";
+import { messagePart } from "../sources/mail";
 import { FILES, readFiles } from "./ledger";
 import { begin, chunks, inBatches } from "./run";
 

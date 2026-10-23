@@ -65,7 +65,7 @@ export const Settings = z
      * His mailbox over IMAP, for a host without Mail.app: mbsync mirrors it into a Maildir every few minutes
      * (`sources/imap.ts`) and the mail source reads that copy instead of Mail's store. The password is
      * `LIFE_IMAP_PASSWORD` (an app password); `folders` are mbsync patterns, by default every folder but junk, trash
-     * and drafts (Gmail: `["[Gmail]/All Mail"]`, which holds every label once).
+     * and drafts (Gmail: `["[Gmail]/All Mail", "[Gmail]/Sent Mail"]`: every label once, and his sent mail, by which his addresses are known).
      */
     imap: z
       .object({

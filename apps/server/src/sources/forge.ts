@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { basename, join } from "node:path";
 import { MIN } from "../core/clock";
 import { execOk } from "../core/proc";
 
@@ -75,19 +75,29 @@ export async function mirrorForge(
   const visible = await visibleRepos(token, get);
   for (const full of forgeRepos(names, visible)) {
     const dir = join(root, full.split("/")[1] ?? full);
+    const run = (cmd: string[]) =>
+      execOk([...git, ...cmd], {
+        env: { ...process.env, GITHUB_TOKEN: token },
+        timeout: 30 * MIN,
+      });
+    // A clone lands under its name only once whole (`.cloning` is no repo the git source reads): one cut short is
+    // made again next time, never fetched into.
+    const partial = join(root, ".cloning", basename(dir));
+    const clone = async () => {
+      rmSync(partial, { force: true, recursive: true });
+      await run([
+        "clone",
+        "--no-checkout",
+        "--quiet",
+        `https://github.com/${full}.git`,
+        partial,
+      ]);
+      renameSync(partial, dir);
+    };
     // biome-ignore lint/performance/noAwaitInLoops: one git at a time
-    await execOk(
-      existsSync(dir)
-        ? [...git, "-C", dir, "fetch", "--all", "--prune", "--quiet"]
-        : [
-            ...git,
-            "clone",
-            "--no-checkout",
-            "--quiet",
-            `https://github.com/${full}.git`,
-            dir,
-          ],
-      { env: { ...process.env, GITHUB_TOKEN: token }, timeout: 30 * MIN }
+    await (existsSync(dir)
+      ? run(["-C", dir, "fetch", "--all", "--prune", "--quiet"])
+      : clone()
     ).catch((e: Error) => errors.push(`${full}: ${e.message}`));
   }
   if (errors.length > 0) {

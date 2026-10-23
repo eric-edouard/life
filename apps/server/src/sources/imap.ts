@@ -17,7 +17,9 @@ import {
   isSentBox,
   isSkippedBox,
   mailEvents,
+  mailIdOf,
   readMessage,
+  SKIPPED_BOXES,
   type StoredMessage,
 } from "./mail";
 
@@ -31,7 +33,6 @@ export const MAILDIR = join(DIR, "maildir");
 const MAX_SIZE = "25m";
 const ADDRESS = /<([^>]+)>/;
 const PREFIX = /^(?:(?:re|fwd?|tr|aw)\s*:\s*)+/i;
-const ID = /<[^>]+>/;
 const FLAGS = /:2,([A-Z]*)$/;
 const DRAFT_OR_TRASHED = /[DT]/;
 const SEP = /[/\\]/;
@@ -58,7 +59,7 @@ SubFolders Verbatim
 Channel life
 Far :far:
 Near :near:
-Patterns ${(imap.folders ?? ["*", "!*Junk*", "!*Spam*", "!*Trash*", "!*Corbeille*", "!*Deleted*", "!*Draft*", "!*Brouillon*"]).map((p) => JSON.stringify(p)).join(" ")}
+Patterns ${(imap.folders ?? ["*", ...SKIPPED_BOXES.flatMap((w) => [`!*${w}*`, `!*${w[0]?.toUpperCase()}${w.slice(1)}*`])]).map((p) => JSON.stringify(p)).join(" ")}
 Create Near
 Sync Pull
 Expunge Near
@@ -92,69 +93,97 @@ function folders(root: string): { dir: string; name: string }[] {
   ];
 }
 
+/** Whether mbsync has copied any folder yet. */
+export const isMirrored = (root = MAILDIR) =>
+  existsSync(root) && folders(root).length > 0;
+
 /** Each message file in the copy, with its folder and when the server received it (mbsync sets it as the file's time). */
 function files(root: string) {
   return folders(root).flatMap(({ dir, name }) =>
     ["cur", "new"].flatMap((sub) =>
-      readdirSync(join(dir, sub)).map((f) => ({
-        at: statSync(join(dir, sub, f)).mtimeMs,
-        box: name,
-        flags: f.match(FLAGS)?.[1] ?? "",
-        path: join(dir, sub, f),
-      }))
+      readdirSync(join(dir, sub)).flatMap((f) => {
+        // mbsync renames a file whose flags change, and removes one gone from the mailbox, while Life reads.
+        const at = statSync(join(dir, sub, f), {
+          throwIfNoEntry: false,
+        })?.mtimeMs;
+        return at === undefined
+          ? []
+          : [
+              {
+                at,
+                box: name,
+                flags: f.match(FLAGS)?.[1] ?? "",
+                path: join(dir, sub, f),
+              },
+            ];
+      })
     )
   );
 }
 
 const addressOf = (from = "") =>
   (from.match(ADDRESS)?.[1] ?? from).trim().toLowerCase() || "unknown";
-const bare = (id = "") => id.match(ID)?.[0].slice(1, -1) ?? "";
+const bare = (id = "") => id.match(ADDRESS)?.[1] ?? "";
+/** A message's id in the copy: its Message-ID, else its file's unique name (the same whatever its flags). */
+const idOfFile = (path: string) => (h: Map<string, string>) =>
+  mailIdOf(h.get("message-id"), path.split(SEP).at(-1)?.split(":")[0] ?? path);
+/** The message in a file of the copy; nothing when mbsync moved it meanwhile (the next read finds it under its new name). */
+const messageAt = (path: string) => {
+  try {
+    return readMessage(path, idOfFile(path));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+      return;
+    }
+    throw e;
+  }
+};
+
+/** Whether the file at `path` is a whole message (an .emlx, a file of the copy), its files inside it. */
+export const isMessageFile = (path: string, root = MAILDIR) =>
+  path.endsWith(".emlx") || path.startsWith(root);
 
 /** The copy's messages received at or after `since`, oldest first, as Mail's store gives them. */
-function messagesSince(
-  since: Date,
-  root: string
-): (StoredMessage & { sentBox: boolean })[] {
+function messagesSince(since: Date, root: string): StoredMessage[] {
   return files(root)
     .filter((f) => f.at >= since.getTime())
     .sort((a, b) => a.at - b.at)
-    .map((f) => {
-      const idOf = (h: Map<string, string>) =>
-        `mail:${bare(h.get("message-id")) || f.path.split(SEP).at(-1)?.split(":")[0]}`;
-      const { headers } = readMessage(f.path, idOf);
+    .flatMap((f) => {
+      const read = messageAt(f.path);
+      if (!read) {
+        return [];
+      }
+      const { headers } = read;
       const subject = decodeWords(headers.get("subject") ?? "");
       // The thread's first message, which every reply's References start with.
       const thread =
         bare(headers.get("references")) || bare(headers.get("in-reply-to"));
-      const id = idOf(headers);
-      return {
-        at: new Date(f.at).toISOString(),
-        bulk: headers.has("list-id") || headers.has("list-unsubscribe"),
-        chat: thread ? `mail:${thread}` : id,
-        chatName: subject.replace(PREFIX, ""),
-        id,
-        // A draft or a deleted message, by its flag: Gmail keeps both in All Mail too.
-        isSkipped: isSkippedBox(f.box) || DRAFT_OR_TRASHED.test(f.flags),
-        path: f.path,
-        prefix: subject.match(PREFIX)?.[0] ?? "",
-        sender: addressOf(headers.get("from")),
-        sentBox: isSentBox(f.box),
-      };
+      const id = idOfFile(f.path)(headers);
+      return [
+        {
+          at: new Date(f.at).toISOString(),
+          bulk: headers.has("list-id") || headers.has("list-unsubscribe"),
+          chat: thread ? `mail:${thread}` : id,
+          chatName: subject.replace(PREFIX, ""),
+          id,
+          isSent: isSentBox(f.box),
+          // A draft or a deleted message, by its flag: Gmail keeps both in All Mail too.
+          isSkipped: isSkippedBox(f.box) || DRAFT_OR_TRASHED.test(f.flags),
+          path: f.path,
+          prefix: subject.match(PREFIX)?.[0] ?? "",
+          sender: addressOf(headers.get("from")),
+        },
+      ];
     });
 }
 
-/** His mail in the copy at `root` since `since`: his own by his login and what his sent folders hold. */
+/** His mail in the copy at `root` since `since`: his own by his login and his sent folders. */
 export function readMaildir(
   since: Date,
   root = MAILDIR,
   user = settings().imap?.user ?? ""
 ): SourceEvent[] {
-  const stored = messagesSince(since, root);
-  const mine = new Set([
-    user.toLowerCase(),
-    ...stored.filter((m) => m.sentBox).map((m) => m.sender),
-  ]);
-  return mailEvents(stored, mine);
+  return mailEvents(messagesSince(since, root), [user]);
 }
 
 /** The newest message in the copy, its sender and subject (the status snapshot). */
@@ -163,10 +192,7 @@ export function newestMaildir(root = MAILDIR): Newest {
   if (!newest) {
     return { at: null };
   }
-  const { headers } = readMessage(
-    newest.path,
-    (h) => `mail:${bare(h.get("message-id"))}`
-  );
+  const headers = messageAt(newest.path)?.headers ?? new Map<string, string>();
   return {
     at: new Date(newest.at).toISOString(),
     words: [

@@ -2,8 +2,13 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mbsyncConfig, newestMaildir, readMaildir } from "./imap";
-import { isMessageFile, messagePart } from "./mail";
+import {
+  isMessageFile,
+  mbsyncConfig,
+  newestMaildir,
+  readMaildir,
+} from "./imap";
+import { messagePart } from "./mail";
 
 const at = (iso: string) => new Date(iso);
 // Two messages came last at once: either is the newest.
@@ -33,7 +38,7 @@ test("mbsync mirrors every folder but junk, trash and drafts, or the ones set, t
   );
   expect(config).toContain('PassCmd "printenv LIFE_IMAP_PASSWORD"');
   expect(config).toContain("TLSType IMAPS");
-  expect(config).toContain('Patterns "*" "!*Junk*"');
+  expect(config).toContain('Patterns "*" "!*junk*" "!*Junk*"');
   expect(config).toContain("Sync Pull");
   expect(
     mbsyncConfig(
@@ -149,7 +154,8 @@ JVBERi0=
     },
   ]);
   // A file inside a Maildir message is read back by its part number, as from an .emlx.
-  expect(isMessageFile(files)).toBe(true);
+  expect(isMessageFile(files, root)).toBe(true);
+  expect(isMessageFile(join(tmpdir(), "new", "photo.jpg"), root)).toBe(false);
   expect(messagePart(files, "mail:reply@mine.test#2")?.toString()).toBe(
     "%PDF-"
   );

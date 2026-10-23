@@ -12,9 +12,22 @@ const MAIL = join(HOME, "Library", "Mail");
 const ACCOUNTS_DB = join(HOME, "Library", "Accounts", "Accounts4.sqlite");
 const SNIPPET = 1500;
 const SENT = /sent|envoy/i;
-// Drafts were never sent: read as mail, an unsent draft would pass for something he wrote to someone.
-const SKIP =
-  /junk|spam|trash|corbeille|deleted|supprim|indesirable|draft|brouillon/i;
+/**
+ * The words of mailboxes never read as mail. Drafts were never sent: read as mail, an unsent draft would pass for
+ * something he wrote to someone.
+ */
+export const SKIPPED_BOXES = [
+  "junk",
+  "spam",
+  "trash",
+  "corbeille",
+  "deleted",
+  "supprim",
+  "indesirable",
+  "draft",
+  "brouillon",
+];
+const SKIP = new RegExp(SKIPPED_BOXES.join("|"), "i");
 const VERSION_DIR = /^V\d+$/;
 const MAILBOX_URL = /^\w+:\/\/([^/]+)\/(.*)$/;
 const BLANK_LINE = /\r?\n\r?\n/;
@@ -332,14 +345,21 @@ function filesOf(part: Part, path: string, id: string, at = ""): SourceFile[] {
   }
   const name = decodeWords(named);
   const section = at || "1";
-  // <rowid>.emlx or <rowid>.partial.emlx
-  const rowid = basename(path).split(".")[0] ?? "";
-  const saved = join(dirname(dirname(path)), "Attachments", rowid, section);
+  // A part Mail's <rowid>.emlx or <rowid>.partial.emlx left out is in its Attachments folder; a Maildir file holds all.
+  const saved = path.endsWith(".emlx")
+    ? join(
+        dirname(dirname(path)),
+        "Attachments",
+        basename(path).split(".")[0] ?? "",
+        section,
+        name
+      )
+    : undefined;
   return [
     sourceFile({
       mime: type.split(";")[0]?.trim().toLowerCase(),
       name,
-      path: part.body.trim() ? path : join(saved, name),
+      path: part.body.trim() ? path : saved,
       ref: `${id}#${section}`,
     }),
   ];
@@ -375,11 +395,6 @@ function snippetOf(message: Part) {
     .trim()
     .slice(0, SNIPPET);
 }
-
-const MAILDIR_FILE = /[/\\](?:cur|new)[/\\][^/\\]+$/;
-/** Whether the file at `path` is a whole message (an .emlx, a Maildir file), its files inside it. */
-export const isMessageFile = (path: string) =>
-  path.endsWith(".emlx") || MAILDIR_FILE.test(path);
 
 /** The RFC 822 message in a file: an .emlx holds a byte-length line, the message, then a plist; any other file is the message. */
 function messageIn(path: string) {
@@ -487,6 +502,13 @@ export function readMessage(
   return read;
 }
 
+const MESSAGE_ID = /<([^>]+)>/;
+/** A message's id: its Message-ID header without its brackets, else what its store names it by. */
+export const mailIdOf = (
+  header: string | null | undefined,
+  fallback: number | string
+) => `mail:${header?.match(MESSAGE_ID)?.[1] || header?.trim() || fallback}`;
+
 /** A message as a store gives it: its file (when it is there) and what the store says of it. */
 export interface StoredMessage {
   at: string;
@@ -495,6 +517,8 @@ export interface StoredMessage {
   /** The subject without its prefix. */
   chatName: string;
   id: string;
+  /** In a mailbox of sent mail: its sender is one of his addresses. */
+  isSent: boolean;
   /** In a mailbox never read as mail (junk, trash, drafts). */
   isSkipped: boolean;
   path: string | null;
@@ -503,11 +527,18 @@ export interface StoredMessage {
   sender: string;
 }
 
-/** Each message once, as an event: a message stored in a skipped mailbox is skipped everywhere (Gmail keeps a draft's copy in All Mail too). */
+/**
+ * Each message once, as an event: a message stored in a skipped mailbox is skipped everywhere (Gmail keeps a draft's
+ * copy in All Mail too). His own are from `addresses` or a sender of his sent mail.
+ */
 export function mailEvents(
   stored: StoredMessage[],
-  mine: Set<string>
+  addresses: string[]
 ): SourceEvent[] {
+  const mine = new Set([
+    ...addresses.map((a) => a.toLowerCase()),
+    ...stored.filter((m) => m.isSent).map((m) => m.sender),
+  ]);
   const seen = new Set(stored.filter((m) => m.isSkipped).map((m) => m.id));
   const events: SourceEvent[] = [];
   for (const m of stored) {
@@ -537,9 +568,6 @@ export function readMail(
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB
 ): SourceEvent[] {
-  const mine = new Set(
-    mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
-  );
   return mailEvents(
     messagesSince(since, root).map((r) => {
       const subject = r.subject ?? "";
@@ -550,13 +578,14 @@ export function readMail(
           ? `mail:${r.conversation}`
           : `${r.mailbox}#${subject}`,
         chatName: subject,
-        id: `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`,
+        id: mailIdOf(r.header, r.globalId),
+        isSent: isSentBox(mailboxName(r.mailbox)),
         isSkipped: isSkippedBox(mailboxName(r.mailbox)),
         path: emlxPath(root, r.mailbox, r.rowid),
         prefix: r.prefix ?? "",
         sender: (r.sender ?? "unknown").toLowerCase(),
       };
     }),
-    mine
+    mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
   );
 }
