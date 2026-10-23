@@ -604,9 +604,11 @@ export function jobWorker(
       routed: route.kind === "turns" ? route.routed.length : null,
     });
     if (route.kind === "whole" || !("heard" in said)) {
-      // Only while it is still this send: a moved job is never bought again.
-      if (onSend(db, job, { transcriber: "scribe" })) {
-        await toScribe({ ...job, transcriber: "scribe" }, bytes);
+      // Only while it is still this send: a moved job is never bought again. Scribe gets its own
+      // attempts.
+      const scribe = { attempts: 0, transcriber: "scribe" as const };
+      if (onSend(db, job, scribe)) {
+        await toScribe({ ...job, ...scribe }, bytes);
       }
       return;
     }

@@ -1304,6 +1304,7 @@ test("the speech service: a block it keeps failing goes to Scribe whole after it
   await app.s.worker.work();
   expect(uploads()).toHaveLength(1);
   expect(jobRow(jobId)).toMatchObject({
+    attempts: 0,
     state: "submitted",
     transcriber: "scribe",
   });
