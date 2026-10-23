@@ -59,6 +59,8 @@ export interface LabelRequest {
 // The worker, started on first use; it holds no process open. `lives` counts the workers that
 // ended: a piece left open in one is gone, and is labeled again from its first page.
 let worker: Worker | undefined;
+// Ends the current worker at once: its calls reject, and the next call starts a new one.
+let end: ((why: string) => void) | undefined;
 let lives = 0;
 export const workerLife = () => lives;
 let chain: Promise<unknown> = Promise.resolve();
@@ -106,12 +108,13 @@ function started() {
   w.onerror = (event) => ended(event.message);
   w.addEventListener("close", () => ended("it exited"));
   worker = w;
+  end = ended;
   return w;
 }
 
-// Ends the worker (tests, and nothing else): its calls reject and the next starts a new one.
+// Ends the worker (tests, and nothing else), as its exit would, but before stopWorker returns.
 export function stopWorker() {
-  worker?.terminate();
+  end?.("it was stopped");
 }
 
 // Labels one piece, after every request before it: Silero runs one call at a time.
