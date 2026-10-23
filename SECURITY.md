@@ -67,6 +67,9 @@ This is the one list; nothing else leaves.
   [docs/voice/providers.md](docs/voice/providers.md).
 - The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud
   Drive does).
+- On a server ([Run Life on a server](docs/use/server.md)): everything Life and the voice server hold lives on the
+  box the owner rents (OVHcloud), which can read a running machine; what reaches `life.` and `voice.` passes through
+  Cloudflare's tunnel, which ends TLS; both encrypted backups go to the owner's bucket (Cloudflare R2).
 
 ## Known risks
 

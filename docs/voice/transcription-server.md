@@ -159,7 +159,8 @@ doesn't answer.
 
 The server runs on the owner's Mac, inside Voice Host (`apps/dictation/README.md`, "Voice Host"): one binary, the
 SQLite file and the audio folder under `~/Library/Application Support/lifelog`, listening on 127.0.0.1 only. Phones
-reach it through the owner's tailnet (Tailscale Serve) or a Cloudflare tunnel to their own domain.
+reach it through the owner's tailnet (Tailscale Serve) or a Cloudflare tunnel to their own domain. On a server it
+runs in Docker beside Life: [Run Life on a server](../use/server.md).
 
 - `bun run --cwd apps/voice build:host [out]` writes `voice-server`, one file with its migrations inside; it needs
   no Bun or checkout, and migrates its file at boot. `bun run host:app` puts it in the app.

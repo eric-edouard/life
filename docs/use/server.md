@@ -19,9 +19,8 @@ tailnet.
 1. The box, with Ubuntu 24.04, and its root SSH access for the first login.
 2. A Cloudflare Tunnel and its token, with two public hostnames: `life.<your domain>` → `http://localhost:46200` and
    `voice.<your domain>` → `http://voice:3000`.
-3. An R2 (or any S3) bucket and a key that can read and write it, and two restic passwords, one for Life's
-   repository and one for the voice server's. Keep both in your password manager: without them the backup can't be
-   read.
+3. An R2 (or any S3) bucket, a key that can read and write it, and a new restic password. Keep the password in your
+   password manager: without it the backups can't be read.
 4. The keys the apps take: an OpenRouter key for Life, an ElevenLabs key for the voice server.
 
 ## Set it up
@@ -35,23 +34,28 @@ tailnet.
    ```
 
 2. Run the installer. It installs Docker and Tailscale, prints a Tailscale sign-in link (open it to add the box to
-   your tailnet), closes every port but the tailnet's, and creates the secrets files in `/etc/life`, readable by root
-   only:
+   your tailnet), closes every port but the tailnet's, and creates the files for your secrets, readable by root only:
 
    ```sh
    /opt/life/deploy/install.sh
    ```
 
    It stops and names the files to fill in. From now on, log in over the tailnet: `ssh root@life`.
-3. Fill in each file it names: the voice server's, the speech service's and the tunnel's in `/etc/life`, Life's keys in
-   `/srv/life/life/state/secrets.env` (`nano /etc/life/voice.env`). Every line says what goes in it. Use the same
-   `IDENTITY_SECRET` in `voice.env` and `speech.env`.
-4. Give Life its first data, once: your name (and your emails and phone numbers, each repeated), or an export of a
-   Life you already run (`import <folder>`, the folder copied under `/srv/life/life` first):
+3. Fill in each file it names (`nano /etc/life/shared.env`); every line says what goes in it. `shared.env` holds what
+   Life and the voice server share (the bucket, the restic password, your time zone), `identity.env` the secret the
+   voice server and the speech service share, `voice.env` and `tunnel.env` their own, and
+   `/srv/life/life/state/secrets.env` Life's keys.
+4. Give Life its data and settings, once. On a new install, your name (and your emails and phone numbers, each
+   repeated); to move an existing Life or voice server instead, [restore it](#restore). Then Life's address and its
+   backup:
 
    ```sh
    cd /opt/life/deploy && docker compose build life
    docker compose run --rm --no-deps life bun apps/server/src/host/cli.ts init --name "Your Name" --email you@example.com
+   docker compose run --rm --no-deps life bun apps/server/src/host/cli.ts settings set '{
+     "connector": {"origin": "https://life.example.com"},
+     "backup": {"repository": "s3:https://ACCOUNT_ID.r2.cloudflarestorage.com/life-server-backup/life",
+                "password": "printenv RESTIC_PASSWORD"}}'
    ```
 
 5. Run the installer again. It builds and starts everything. The first start takes about fifteen minutes: the speech
@@ -83,8 +87,8 @@ It pulls `main`, rebuilds what changed and restarts it. A container that fails i
 | What | Where on the box |
 |---|---|
 | Life's memory, state and archive | `/srv/life/life` (`owner`, `state`, `machine`) |
-| The speech models | the `life_models` Docker volume |
 | The voice server's archive and audio | `/srv/life/voice` |
+| The speech models | the `life_models` Docker volume |
 | Secrets | `/etc/life/*.env` and Life's `/srv/life/life/state/secrets.env` (mode 0600) |
 | The code | `/opt/life` |
 
@@ -94,14 +98,18 @@ Each app backs itself up once a day with restic, encrypted, to its own repositor
 `…/life-server-backup/life` (its `backup` setting), the voice server's at `…/life-server-backup/voice`
 (`RESTIC_REPOSITORY` in `voice.env`). On Sundays each also prunes old snapshots and reads 5% back.
 
-To restore the voice server on a new box, after the setup above and before its first start (`import` refuses an
-archive that already holds conversations):
+### Restore
+
+On a new box, in step 4 instead of `init`, with the files of step 3 filled in. Each import checks every file against
+the export's list before it writes anything, and refuses data that is already there.
 
 ```sh
-cd /opt/life/deploy && docker compose stop voice
-docker compose run --rm voice sh -c 'restic restore latest --tag daily --target /data/restore &&
+cd /opt/life/deploy
+docker compose run --rm --no-deps life sh -c 'restic -r s3:https://ACCOUNT_ID.r2.cloudflarestorage.com/life-server-backup/life \
+  restore latest --tag daily --target /data/restore &&
+  bun apps/server/src/host/cli.ts import "$(find /data/restore -type d -name backup-staging)" && rm -rf /data/restore'
+docker compose run --rm --no-deps voice sh -c 'restic restore latest --tag daily --target /data/restore &&
   bun apps/voice/src/index.ts import /data/restore/data/restic-staging && rm -rf /data/restore'
-docker compose up -d voice
 ```
 
-The import checks every file against the export's list before it writes anything. Life restores the same way from its own repository: [Back up and restore](backup.md#restore).
+Then give Life its settings (step 4) and keys again: a backup holds no secrets.

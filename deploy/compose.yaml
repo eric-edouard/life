@@ -16,7 +16,8 @@ services:
   life:
     <<: *bun
     command: ["bun", "apps/server/src/host/cli.ts", "headless"]
-    # Its keys are state/secrets.env (install.sh makes it), its settings state/settings.json.
+    # Its own keys are state/secrets.env (install.sh makes it), its settings state/settings.json.
+    env_file: ${LIFE_ETC:-/etc/life}/shared.env
     environment:
       LIFE_OWNER_DATA_DIR: /data/owner
       LIFE_STATE_DIR: /data/state
@@ -33,7 +34,10 @@ services:
   voice:
     <<: *bun
     command: ["bun", "apps/voice/src/index.ts"]
-    env_file: ${LIFE_ETC:-/etc/life}/voice.env
+    env_file:
+      - ${LIFE_ETC:-/etc/life}/shared.env
+      - ${LIFE_ETC:-/etc/life}/identity.env
+      - ${LIFE_ETC:-/etc/life}/voice.env
     environment:
       AUDIO_DIR: /data/audio
       DATABASE_PATH: /data/archive.sqlite
@@ -53,7 +57,7 @@ services:
     build: ../apps/speech
     image: life-speech
     restart: unless-stopped
-    env_file: ${LIFE_ETC:-/etc/life}/speech.env
+    env_file: ${LIFE_ETC:-/etc/life}/identity.env
     # The models (about 3 GB), fetched from Hugging Face at the first start.
     volumes:
       - models:/models

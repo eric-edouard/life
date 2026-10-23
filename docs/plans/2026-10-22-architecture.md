@@ -66,7 +66,7 @@ packages/
   api/         the HTTP contract (zod schemas) the server serves and the web UI calls: types from one source
   brand/       assets/brand/tokens.css and what the web UI, the email and the app copy from it
   config/      the TypeScript base
-deploy/        compose.yaml, the DigitalOcean cloud-init, Coolify's notes
+deploy/        compose.yaml, its image, install.sh and update.sh (docs/use/server.md)
 prompts/ scripts/ docs/
 ```
 

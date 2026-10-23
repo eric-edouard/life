@@ -29,11 +29,11 @@ ufw allow in on tailscale0
 ufw allow 41641/udp
 ufw --force enable
 
-# The data (the containers run as uid 1000, `bun`) and the secrets, 0600, outside the repo: the voice server's, the
-# speech service's and the tunnel's in /etc/life, Life's keys in its state folder, where `bun life headless` reads them.
-install -d -o 1000 -g 1000 "$DATA/life" "$DATA/life/state" "$DATA/voice"
+# The data (the containers run as uid 1000, `bun`) and the secrets, 0600, outside the repo: what the services
+# share and the voice server's and the tunnel's own in /etc/life, Life's keys in its state folder, where `bun life headless` reads them.
+install -d -m 0700 -o 1000 -g 1000 "$DATA/life" "$DATA/life/state" "$DATA/voice"
 install -d -m 0700 "$ETC"
-for name in voice speech tunnel; do
+for name in shared identity voice tunnel; do
   [ -e "$ETC/$name.env" ] || install -m 0600 "$REPO/deploy/env/$name.env.example" "$ETC/$name.env"
 done
 LIFE_KEYS="$DATA/life/state/secrets.env"
