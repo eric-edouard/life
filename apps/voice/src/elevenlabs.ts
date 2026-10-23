@@ -76,14 +76,14 @@ export function submit(
 
 // Transcribes a press's audio at once (routes/quick.ts): no webhook, so the answer is the transcript, and no
 // diarization, which only slows it: a press asks about the words, not who said them. `billed` false: refused before
-// it could cost anything.
+// it could cost anything; `later`: not taken now (no room, the account), fine to send again.
 export async function transcribeNow(
   config: Config,
   audio: Blob,
   keyterms: string[]
 ): Promise<
   | { kind: "done"; transcript: ParsedTranscript }
-  | { billed: boolean; error: string; kind: "failed" }
+  | { billed: boolean; error: string; kind: "failed"; later: boolean }
 > {
   const answer = await post(
     config,
@@ -100,11 +100,13 @@ export async function transcribeNow(
         billed: true,
         error: "an answer that isn't a transcript",
         kind: "failed",
+        later: false,
       }
     : {
         billed: answer.kind === "unknown",
         error: answer.error,
         kind: "failed",
+        later: answer.kind === "later",
       };
 }
 

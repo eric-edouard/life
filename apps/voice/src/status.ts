@@ -122,7 +122,7 @@ export const BackupStatus = z
   })
   .openapi("BackupStatus");
 
-// Speaker recognition (apps/speech): whether it is set up (`identitySet`), and how the service last
+// Speaker recognition (apps/speech): whether it is set up (`speechServiceSet`), and how the service last
 // answered (null: not since the server started). Off, voices are not named.
 export const IdentityStatus = z
   .object({

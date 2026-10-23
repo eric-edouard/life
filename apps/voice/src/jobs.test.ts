@@ -16,6 +16,7 @@ import {
 import { eq, sql } from "drizzle-orm";
 import { phoneNudger, storePushToken } from "./apns";
 import { createApp } from "./app";
+import { pendantOggOpus } from "./audio";
 import { blockKey, memoryAudioStore } from "./audio-store";
 import { sha256Hex } from "./config";
 import { admit, bought, storeFragment } from "./cutter";
@@ -28,6 +29,7 @@ import { services } from "./services";
 import { setSwitches } from "./switches";
 import {
   fakeElevenLabs,
+  fakeSpeechService,
   OWNER_TOKEN,
   oggOpus,
   providerTranscript,
@@ -41,6 +43,11 @@ import { blockKeyterms } from "./vocabulary";
 
 const fake = fakeElevenLabs();
 const baseUrl = `http://localhost:${fake.server.port}`;
+const speech = fakeSpeechService();
+const withSpeech = {
+  IDENTITY_SECRET: "speech-test-secret",
+  IDENTITY_URL: `http://localhost:${speech.server.port}`,
+};
 let env: Awaited<ReturnType<typeof testDb>>;
 
 beforeAll(() => {
@@ -49,6 +56,7 @@ beforeAll(() => {
 afterAll(() => {
   env.drop();
   fake.server.stop(true);
+  speech.server.stop(true);
 });
 const accept = () =>
   Response.json(
@@ -63,6 +71,10 @@ beforeEach(() => {
   env.reset();
   fake.calls.length = 0;
   fake.respond = accept;
+  speech.blocks = 0;
+  speech.busy = false;
+  speech.failing = false;
+  speech.meanwhile = () => undefined;
 });
 
 // The app with its own bucket and worker; `s.worker.work()` waits for what it sends.
@@ -1137,4 +1149,191 @@ test("a parser bump gives stored words their spacing from raw and leaves turns a
     [" ", "there."],
     [" ", "Bonjour!"],
   ]);
+});
+
+// Real Opus packets, so a cut can be made of them: 20 ms each (TOC 8), marked by their index and
+// the file's `mark`.
+function speechAudio(seconds: number, mark = 0) {
+  const packets = Array.from(
+    { length: seconds * 50 },
+    (_, i) => new Uint8Array([8, i % 256, Math.floor(i / 256), mark])
+  );
+  const data = pendantOggOpus(packets, seconds * 1000);
+  return { data, seconds, sha: sha256Hex(data) };
+}
+const turn = (
+  start: number,
+  end: number,
+  speaker: string,
+  language: string | null
+) => ({ end, language, speaker, start });
+const said = (start: number, text: string) => ({
+  end: start + 0.3,
+  start,
+  text,
+});
+const thaiAnswer = () =>
+  Response.json({
+    language_code: "tha",
+    language_probability: 0.9,
+    words: [
+      {
+        end: 0.8,
+        speaker_id: "speaker_0",
+        start: 0.5,
+        text: "สวัสดี",
+        type: "word",
+      },
+    ],
+  });
+
+test("the speech service: English and French stay with it, other turns go to Scribe cut from the block, once", async () => {
+  const app = appWith(withSpeech);
+  setSwitches(env.db, { transcriber: "speech" });
+  speech.heard = {
+    durationSeconds: 30,
+    models: {},
+    turns: [
+      turn(0, 10, "0", "en"),
+      turn(10, 14, "1", "th"),
+      turn(14, 30, "0", "fr"),
+    ],
+    words: [said(1, "Hello"), said(11, "noise"), said(15, "Salut")],
+  };
+  fake.respond = thaiAnswer;
+  const jobId = await admitFragment(app, speechAudio(30), 1);
+  await app.s.worker.work();
+
+  expect(speech.blocks).toBe(1);
+  expect(uploads()).toHaveLength(1);
+  const form = uploads()[0]?.form;
+  expect(form?.get("diarize")).toBe("false");
+  expect(form?.get("webhook")).toBeNull();
+  const job = jobRow(jobId);
+  expect(job).toMatchObject({
+    billableSeconds: 4.5,
+    maybeBilled: false,
+    state: "completed",
+    transcriber: "speech",
+  });
+  const stored = env.db
+    .select()
+    .from(transcripts)
+    .where(eq(transcripts.jobId, jobId))
+    .get();
+  // The cut starts with the first packet in [9.75, 14.25), at 9.76 s: Scribe's word at 0.5 s of it
+  // is 10.26 s into the block, in the Thai turn.
+  expect(
+    stored?.parsed.words.map((w) => [w.text, w.start, w.speakerId])
+  ).toEqual([
+    ["Hello", 1, "speaker_0"],
+    ["สวัสดี", 10.26, "speaker_1"],
+    ["Salut", 15, "speaker_0"],
+  ]);
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+});
+
+test("the speech service: a block 70% routed goes to Scribe whole, as a Scribe job; busy, it waits", async () => {
+  const app = appWith(withSpeech);
+  setSwitches(env.db, { transcriber: "speech" });
+  speech.busy = true;
+  const jobId = await admitFragment(app, speechAudio(10), 1);
+  await app.s.worker.work();
+  expect(jobRow(jobId)).toMatchObject({
+    attempts: 0,
+    requestSentAt: null,
+    state: "queued",
+  });
+  expect(uploads()).toHaveLength(0);
+
+  speech.busy = false;
+  speech.heard = {
+    durationSeconds: 10,
+    models: {},
+    turns: [turn(0, 2, "0", "en"), turn(2, 10, "1", "th")],
+    words: [said(1, "Hi")],
+  };
+  due(jobId);
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+  expect(uploads()[0]?.form?.get("diarize")).toBe("true");
+  expect(jobRow(jobId)).toMatchObject({
+    state: "submitted",
+    transcriber: "scribe",
+  });
+});
+
+test("the speech service: one cut off by a restart goes again, unless Scribe may have billed its turns", async () => {
+  const app = appWith(withSpeech);
+  const fresh = await admitFragment(app, speechAudio(10), 1);
+  const billed = await admitFragment(app, speechAudio(10, 1), 100);
+  const sent = Date.now() - 11 * 60_000;
+  env.db
+    .update(transcriptionJobs)
+    .set({
+      requestSentAt: new Date(sent),
+      state: "submitted",
+      transcriber: "speech",
+    })
+    .run();
+  env.db
+    .update(transcriptionJobs)
+    .set({ maybeBilled: true })
+    .where(eq(transcriptionJobs.id, billed))
+    .run();
+  setSwitches(env.db, { transcription: false });
+  await app.s.worker.tick();
+  setSwitches(env.db, { transcription: true });
+  expect(jobRow(fresh)).toMatchObject({ requestSentAt: null, state: "queued" });
+  expect(jobRow(billed).state).toBe("failed");
+  expect(uploads()).toHaveLength(0);
+});
+
+test("the speech service: a block it keeps failing goes to Scribe whole after its attempts; a moved job is never sent", async () => {
+  const app = appWith(withSpeech);
+  setSwitches(env.db, { transcriber: "speech" });
+  speech.failing = true;
+  const jobId = await admitFragment(app, speechAudio(10), 1);
+  for (const attempt of [1, 2]) {
+    // biome-ignore lint/performance/noAwaitInLoops: one attempt after the other
+    await app.s.worker.work();
+    expect(jobRow(jobId)).toMatchObject({ attempts: attempt, state: "queued" });
+    due(jobId);
+  }
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+  expect(jobRow(jobId)).toMatchObject({
+    attempts: 0,
+    state: "submitted",
+    transcriber: "scribe",
+  });
+
+  // Moved back while the service heard it: nothing is bought.
+  speech.failing = false;
+  speech.heard = {
+    durationSeconds: 10,
+    models: {},
+    turns: [turn(0, 10, "0", "th")],
+    words: [],
+  };
+  const moved = await admitFragment(app, speechAudio(10, 2), 100);
+  speech.meanwhile = () => {
+    speech.meanwhile = () => undefined;
+    env.db
+      .update(transcriptionJobs)
+      .set({
+        nextAttemptAt: new Date(Date.now() + 60_000),
+        requestSentAt: null,
+        state: "queued",
+      })
+      .where(eq(transcriptionJobs.id, moved))
+      .run();
+  };
+  await app.s.worker.work();
+  expect(uploads()).toHaveLength(1);
+  expect(jobRow(moved)).toMatchObject({
+    state: "queued",
+    transcriber: "speech",
+  });
 });

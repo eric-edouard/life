@@ -1,18 +1,32 @@
-"""Speaker embeddings for the voice server: SpeechBrain ECAPA on CPU.
+"""The speech service: audio in, numbers out, nothing stored.
 
-POST /embed-ranges   body: Ogg Opus (any rate or channels, up to 16 MB). Headers X-Identity-Secret
+POST /embed-ranges  body: Ogg Opus (any rate or channels, up to 16 MB). Headers X-Identity-Secret
               and X-Ranges, a JSON list of [start, end] seconds of the file (at most 400).
               -> {embeddings: one {embedding: 192 floats, L2-normalized, durationSeconds} or null
                   per range (null when it lies outside the file or holds under 0.5 s; one over
                   30 s is cut to its first 30 s), modelId, modelRevision}
+POST /transcribe    body: one block's audio, as above. Header X-Identity-Secret.
+              -> {durationSeconds, turns: [{start, end, speaker, language}], words: [{start, end,
+                  text}], models: {name: "id@revision"}}
+                  turns: Nemotron 3's speaker turns in time order, one speaker's joined across a
+                  gap under 0.5 s, made exclusive (a turn ends where the next starts); speaker
+                  "0", "1"…; language VoxLingua107's code ("en", "th"…) for a turn of a second or
+                  more, else null.
+                  words: Parakeet Ultra's over the whole block. Routing them is the caller's.
 GET  /health  -> {ok: true}
 
-One worker thread runs the model behind a bounded queue; a full queue answers 503 with
+One worker thread runs the models behind a bounded queue; a full queue answers 503 with
 Retry-After. Audio stays in memory for one request and is never written or logged.
 
-  python app.py download   fetch the pinned model revision into MODEL_DIR (image build)
+Parakeet has two runtimes, picked by the host with SPEECH_RUNTIME: "onnx" (onnx-asr on CPU, fp32;
+never int8, it drops words) and "mlx" (Apple silicon). The default is mlx on macOS, onnx elsewhere.
+Everything else runs on torch's CPU.
+
+  python app.py download   fetch the pinned models into MODEL_DIR (once; the server's volume)
   python app.py            load, self-check, serve on HOST (default "::", every address) and PORT
 """
+
+from __future__ import annotations
 
 import hmac
 import io
@@ -26,14 +40,40 @@ from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import numpy as np
-
-MODEL_ID = "speechbrain/spkrec-ecapa-voxceleb"
-MODEL_REVISION = "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286"
-MODEL_DIR = os.environ.get("MODEL_DIR", "/models/ecapa")
+MODEL_DIR = os.environ.get("MODEL_DIR", "/models")
+RUNTIME = os.environ.get("SPEECH_RUNTIME", "mlx" if sys.platform == "darwin" else "onnx")
+THREADS = int(os.environ.get("THREADS", "0")) or os.cpu_count() or 1
+# name: (Hugging Face repo, pinned revision, the files used; None for all)
+MODELS = {
+    "ecapa": ("speechbrain/spkrec-ecapa-voxceleb", "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286", None),
+    "voxlingua": (
+        "speechbrain/lang-id-voxlingua107-ecapa",
+        "0253049ae131d6a4be1c4f0d8b0ff483a0f8c8e9",
+        ["*.ckpt", "hyperparams.yaml", "label_encoder.txt"],
+    ),
+    "nemotron": (
+        "nvidia/Nemotron-3-Diarization",
+        "f667ed73aee57d40cc39428eb768b4fd87a0a29e",
+        ["config.json", "processor_config.json", "model.safetensors"],
+    ),
+    "parakeet": {
+        "onnx": (
+            "Masterx/parakeet-tdt-0.6b-ultra-onnx",
+            "99b09f030a5a6efeaa13cf2cf54592100ce2c3f1",
+            ["config.json", "vocab.txt", "encoder-model.onnx", "encoder-model.onnx.data", "decoder_joint-model.onnx"],
+        ),
+        "mlx": ("selcukkubur/parakeet-ultra-mlx", "b554592c50b2a48471add2daa3d46fa9f00fef5e", None),
+    }[RUNTIME],
+}
 SAMPLE_RATE = 16_000
 DIMENSIONS = 192
 MIN_SECONDS, MAX_SECONDS = 0.5, 30.0
+# The bench's turns (docs/voice/research/transcription-bench.md): one speaker's joined across a short
+# gap, and VoxLingua107 judged on those of a second or more.
+JOIN_GAP_SECONDS = 0.5
+LANGUAGE_MIN_SECONDS = 1.0
+# onnx-asr gives a token's start only: it ends at the next one, or this long after it.
+TOKEN_MAX_SECONDS = 0.5
 QUEUE_SIZE = int(os.environ.get("QUEUE_SIZE", "8"))
 RETRY_AFTER = "5"
 WAIT_SECONDS = 120
@@ -41,29 +81,115 @@ WAIT_SECONDS = 120
 MAX_OGG_BYTES = 16 * 1024 * 1024
 MAX_RANGES = 400
 
-# One request's clips, embedded together by the worker.
-jobs: "queue.Queue[tuple[list[np.ndarray], Future]]" = queue.Queue(maxsize=QUEUE_SIZE)
+# One request's work for the worker: a function of the loaded models.
+jobs: queue.Queue = queue.Queue(maxsize=QUEUE_SIZE)
+
+
+def model_path(name: str) -> str:
+    return os.path.join(MODEL_DIR, name)
+
+
+def provenance(name: str) -> str:
+    repo, revision, _ = MODELS[name]
+    return f"{repo}@{revision}"
 
 
 def download():
     from huggingface_hub import snapshot_download
 
-    snapshot_download(MODEL_ID, revision=MODEL_REVISION, local_dir=MODEL_DIR)
+    for name, (repo, revision, files) in MODELS.items():
+        snapshot_download(repo, revision=revision, local_dir=model_path(name), allow_patterns=files)
 
 
-def load_model():
-    from speechbrain.inference.speaker import EncoderClassifier
+class Models:
+    """Every model, loaded once per process."""
 
-    return EncoderClassifier.from_hparams(
-        source=MODEL_DIR, savedir=MODEL_DIR, run_opts={"device": "cpu"}
-    )
+    def __init__(self):
+        import torch
+        from speechbrain.inference.classifiers import EncoderClassifier as Classifier
+        from speechbrain.inference.speaker import EncoderClassifier
+        from transformers import AutoModelForAudioFrameClassification, AutoProcessor
+
+        torch.set_num_threads(THREADS)
+        cpu = {"device": "cpu"}
+        self.ecapa = EncoderClassifier.from_hparams(model_path("ecapa"), savedir=model_path("ecapa"), run_opts=cpu)
+        self.voxlingua = Classifier.from_hparams(model_path("voxlingua"), savedir=model_path("voxlingua"), run_opts=cpu)
+        self.processor = AutoProcessor.from_pretrained(model_path("nemotron"))
+        self.nemotron = AutoModelForAudioFrameClassification.from_pretrained(model_path("nemotron")).eval()
+        self.parakeet = PARAKEETS[RUNTIME](model_path("parakeet"))
 
 
-def embed(model, samples: np.ndarray) -> list[float]:
+class OnnxParakeet:
+    def __init__(self, path: str):
+        import onnx_asr
+        import onnxruntime
+
+        options = onnxruntime.SessionOptions()
+        options.intra_op_num_threads = THREADS
+        options.inter_op_num_threads = 1
+        self.model = onnx_asr.load_model(
+            "nemo-parakeet-tdt-0.6b-v3", path, providers=["CPUExecutionProvider"], sess_options=options
+        ).with_timestamps()
+
+    def tokens(self, samples) -> list[tuple[str, float, float]]:
+        heard = self.model.recognize(samples, sample_rate=SAMPLE_RATE)
+        starts = list(heard.timestamps or [])
+        ends = starts[1:] + [len(samples) / SAMPLE_RATE]
+        return [
+            (piece.replace("▁", " "), start, min(end, start + TOKEN_MAX_SECONDS))
+            for piece, start, end in zip(heard.tokens or [], starts, ends)
+        ]
+
+
+class MlxParakeet:
+    def __init__(self, path: str):
+        from mlx_audio.stt.utils import load_model
+
+        self.model = load_model(path)
+
+    def tokens(self, samples) -> list[tuple[str, float, float]]:
+        import mlx.core as mx
+
+        heard = self.model.generate(mx.array(samples))
+        return [(t.text, t.start, t.end) for s in heard.sentences for t in s.tokens]
+
+
+PARAKEETS = {"onnx": OnnxParakeet, "mlx": MlxParakeet}
+
+
+def words_of(tokens: list[tuple[str, float, float]]) -> list[dict]:
+    """Subword tokens as words: a token that starts with a space starts a word."""
+    words: list[dict] = []
+    for text, start, end in tokens:
+        if words and not text.startswith(" "):
+            words[-1]["text"] += text
+            words[-1]["end"] = end
+        elif text.strip():
+            words.append({"end": end, "start": start, "text": text.strip()})
+    return [w for w in words if w["text"]]
+
+
+def exclusive(turns_in: list[dict]) -> list[dict]:
+    """Turns in time order, a turn joined to the one before when it is the same speaker's within
+    JOIN_GAP_SECONDS (as the bench's turns), each ending where the next starts; empty ones go."""
+    turns = []
+    for turn in sorted(turns_in, key=lambda t: t["start"]):
+        last = turns[-1] if turns else None
+        if last and last["speaker"] == turn["speaker"] and turn["start"] - last["end"] < JOIN_GAP_SECONDS:
+            last["end"] = max(last["end"], turn["end"])
+        else:
+            turns.append(dict(turn))
+    for previous, following in zip(turns, turns[1:]):
+        previous["end"] = min(previous["end"], following["start"])
+    return [t for t in turns if t["end"] > t["start"]]
+
+
+def embed(models: Models, samples) -> list[float]:
+    import numpy as np
     import torch
 
     with torch.inference_mode():
-        out = model.encode_batch(torch.from_numpy(samples).unsqueeze(0))
+        out = models.ecapa.encode_batch(torch.from_numpy(samples).unsqueeze(0))
     vector = out.reshape(-1).numpy().astype(np.float64)
     norm = np.linalg.norm(vector)
     if vector.shape != (DIMENSIONS,) or not np.isfinite(vector).all() or norm == 0:
@@ -71,9 +197,35 @@ def embed(model, samples: np.ndarray) -> list[float]:
     return (vector / norm).tolist()
 
 
-def read_ranges(data: bytes, ranges: list[tuple[float, float]]) -> list[np.ndarray | None]:
-    """The clips of an audio file (Ogg Opus, or anything libsndfile reads) at 16 kHz mono; None for
-    a range that lies outside it or holds under MIN_SECONDS. A range over MAX_SECONDS is cut."""
+def language(models: Models, samples) -> str:
+    import torch
+
+    with torch.inference_mode():
+        scores = models.voxlingua.classify_batch(torch.from_numpy(samples)[None])[0][0]
+    return models.voxlingua.hparams.label_encoder.ind2lab[int(scores.argmax())].split(":")[0]
+
+
+def transcribe(models: Models, samples) -> dict:
+    import torch
+
+    inputs = models.processor(samples, sampling_rate=SAMPLE_RATE)
+    with torch.inference_mode():
+        logits = models.nemotron(**inputs).logits
+    found = models.processor.extract_speaker_dict(logits, inputs.attention_mask)[0]
+    turns = exclusive([{"end": s["End"], "speaker": str(s["Speaker"]), "start": s["Start"]} for s in found])
+    for turn in turns:
+        piece = samples[int(turn["start"] * SAMPLE_RATE) : int(turn["end"] * SAMPLE_RATE)]
+        turn["language"] = language(models, piece) if piece.size >= LANGUAGE_MIN_SECONDS * SAMPLE_RATE else None
+    return {
+        "durationSeconds": samples.size / SAMPLE_RATE,
+        "models": {name: provenance(name) for name in ("nemotron", "voxlingua", "parakeet")},
+        "turns": turns,
+        "words": words_of(models.parakeet.tokens(samples)),
+    }
+
+
+def read_audio(data: bytes):
+    """An audio file (Ogg Opus, or anything libsndfile reads) as 16 kHz mono float32."""
     import soundfile
 
     try:
@@ -86,6 +238,11 @@ def read_ranges(data: bytes, ranges: list[tuple[float, float]]) -> list[np.ndarr
         from torchaudio.functional import resample
 
         samples = resample(torch.from_numpy(samples), rate, SAMPLE_RATE).numpy()
+    return samples
+
+
+def clips_of(samples, ranges: list[tuple[float, float]]) -> list:
+    """The clips of `ranges`; None for one outside the audio or under MIN_SECONDS. Over MAX_SECONDS is cut."""
     clips = []
     for start, end in ranges:
         clip = samples[int(start * SAMPLE_RATE) : int(min(end, start + MAX_SECONDS) * SAMPLE_RATE)]
@@ -103,8 +260,10 @@ def parse_ranges(header: str) -> list[tuple[float, float]]:
     return ranges
 
 
-def synthetic_clip(seconds: float = 3.0) -> np.ndarray:
+def synthetic_clip(seconds: float = 3.0):
     """A voiced-sounding tone: harmonics of 140 Hz at a syllable-like rate, plus noise."""
+    import numpy as np
+
     t = np.arange(int(seconds * SAMPLE_RATE)) / SAMPLE_RATE
     voice = sum(np.sin(2 * np.pi * 140 * k * t) / k for k in range(1, 6))
     envelope = 0.5 + 0.5 * np.sin(2 * np.pi * 4 * t)
@@ -112,20 +271,24 @@ def synthetic_clip(seconds: float = 3.0) -> np.ndarray:
     return (0.2 * voice * envelope + 0.01 * noise).astype(np.float32)
 
 
-def self_check(model):
-    """Fails loudly if the model doesn't give a stable, normalized 192-d embedding."""
-    first = np.array(embed(model, synthetic_clip()))
+def self_check(models: Models):
+    """Fails loudly if a model doesn't load and answer in shape."""
+    import numpy as np
+
+    first = np.array(embed(models, synthetic_clip()))
     assert first.shape == (DIMENSIONS,), first.shape
     assert abs(np.linalg.norm(first) - 1) < 1e-6
-    assert np.allclose(first, embed(model, synthetic_clip()), atol=1e-5), "not deterministic"
+    assert np.allclose(first, embed(models, synthetic_clip()), atol=1e-5), "not deterministic"
+    heard = transcribe(models, synthetic_clip(5.0))
+    assert set(heard) == {"durationSeconds", "models", "turns", "words"}, heard.keys()
 
 
-def worker(model):
+def worker(models: Models):
     while True:
-        clips, future = jobs.get()
+        work, future = jobs.get()
         if future.set_running_or_notify_cancel():
             try:
-                future.set_result([embed(model, clip) for clip in clips])
+                future.set_result(work(models))
             except Exception as error:  # reported to the waiting request
                 future.set_exception(error)
 
@@ -140,7 +303,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.path != "/embed-ranges":
+        if self.path not in ("/embed-ranges", "/transcribe"):
             return self.reply(404, {"error": "not found"})
         given = self.headers.get("X-Identity-Secret", "").encode()
         if not hmac.compare_digest(given, self.secret):
@@ -150,29 +313,43 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(413, {"error": "body too large"})
         body = self.rfile.read(length)
         try:
-            clips = read_ranges(body, parse_ranges(self.headers.get("X-Ranges", "")))
+            if self.path == "/transcribe":
+                samples = read_audio(body)
+                return self.run(lambda models: transcribe(models, samples), lambda heard: heard)
+            clips = clips_of(read_audio(body), parse_ranges(self.headers.get("X-Ranges", "")))
         except ValueError as error:
             return self.reply(400, {"error": str(error)})
+        kept = [c for c in clips if c is not None]
+
+        def answer(embeddings):
+            found = iter(embeddings)
+            repo, revision, _ = MODELS["ecapa"]
+            return {
+                "embeddings": [
+                    None if c is None else {"durationSeconds": c.size / SAMPLE_RATE, "embedding": next(found)}
+                    for c in clips
+                ],
+                "modelId": repo,
+                "modelRevision": revision,
+            }
+
+        self.run(lambda models: [embed(models, c) for c in kept], answer)
+
+    def run(self, work, answer):
+        """`work` on the worker; its result through `answer` to the caller."""
         future: Future = Future()
         try:
-            jobs.put_nowait(([c for c in clips if c is not None], future))
+            jobs.put_nowait((work, future))
         except queue.Full:
             return self.reply(503, {"error": "busy"}, {"Retry-After": RETRY_AFTER})
         try:
-            embeddings = iter(future.result(timeout=WAIT_SECONDS))
+            result = future.result(timeout=WAIT_SECONDS)
         except FutureTimeout:
             future.cancel()
             return self.reply(503, {"error": "timed out"}, {"Retry-After": RETRY_AFTER})
         except Exception as error:
             return self.reply(500, {"error": type(error).__name__})
-        found = [
-            None if clip is None else {
-                "durationSeconds": clip.size / SAMPLE_RATE,
-                "embedding": next(embeddings),
-            }
-            for clip in clips
-        ]
-        self.reply(200, {"embeddings": found, "modelId": MODEL_ID, "modelRevision": MODEL_REVISION})
+        self.reply(200, answer(result))
 
     def reply(self, status: int, body: dict, headers: dict | None = None):
         data = json.dumps(body).encode()
@@ -195,10 +372,10 @@ def main():
     if len(secret) < 16:
         sys.exit("IDENTITY_SECRET must be set (16+ characters)")
     Handler.secret = secret.encode()
-    model = load_model()
-    self_check(model)
-    print("self-check passed", flush=True)
-    threading.Thread(target=worker, args=(model,), daemon=True).start()
+    models = Models()
+    self_check(models)
+    print(f"self-check passed ({RUNTIME})", flush=True)
+    threading.Thread(target=worker, args=(models,), daemon=True).start()
     host = os.environ.get("HOST", "::")
     # "::" is dual stack: IPv4 and IPv6 hosts both reach it. Voice Host sets 127.0.0.1.
     Server.address_family = socket.AF_INET6 if ":" in host else socket.AF_INET
