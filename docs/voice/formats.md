@@ -214,7 +214,7 @@ restored source store, a rebuild of every playback file whose sidecar came back 
 rebuilds a sidecar without audio instead of skipping it; files evicted to save space wait until they are played), and schedules the switch. At the next launch, before
 any store opens:
 
-1. The live folder `Life` moves aside to `lifelog-previous-<unix time>`. It is never deleted.
+1. The live folder `lifelog` moves aside to `lifelog-previous-<unix time>`. It is never deleted.
 2. The restored folder moves into its place.
 
 If a step fails, the live folder is put back and the owner reads why in Backup & restore. The schedule is

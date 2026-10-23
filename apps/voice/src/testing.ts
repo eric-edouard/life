@@ -26,7 +26,7 @@ export const WEBHOOK_SECRET = "whsec-test";
 // change log's seq keeps growing across them, as in production, so a reader's cursor held by a
 // service built once per file never points past the newest change.
 export function testDb() {
-  const dir = mkdtempSync(join(tmpdir(), "Life-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "voice-test-"));
   const db = connect(join(dir, "archive.sqlite"));
   migrateDb(db);
   const tables = db

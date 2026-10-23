@@ -20,7 +20,7 @@ wrote, so a step can be stopped and run again.
   run one at a time.
 - `scribe-th` is Scribe through its API (`local/scribe.py`, `ELEVENLABS_API_KEY`): it spends
   ElevenLabs credits, so `run` without names skips it. Ask the owner before running it.
-- Everything it writes holds the owner's voice or words: it lives in `~/Life/docs/Life/stt-bench/`
+- Everything it writes holds the owner's voice or words: it lives in `~/Life/docs/lifelog/stt-bench/`
   (`STT_BENCH_DIR` to move it), never in the repo.
 
 ## Worth knowing

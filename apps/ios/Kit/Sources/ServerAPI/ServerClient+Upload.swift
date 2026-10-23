@@ -60,7 +60,7 @@ extension ServerClient {
 
     /// Sends `audio` (Ogg Opus) and its JSON `metadata`, if any, as one multipart body.
     func upload(audio: URL, metadata: Data? = nil, to request: URLRequest) async throws -> Data {
-        let boundary = "Life-\(UUID().uuidString)"
+        let boundary = "life-\(UUID().uuidString)"
         var body = Data()
         func field(_ name: String, filename: String? = nil, type: String, _ content: Data) {
             body += Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"".utf8)
