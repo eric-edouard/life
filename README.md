@@ -142,6 +142,7 @@ Use Life:
 - [Set up voice](docs/use/voice.md)
 - [Set up your agent](docs/use/agent.md)
 - [Settings with no screen yet](docs/use/settings.md): email, code, older months, past assistant chats
+- [Your mail, code and Google Tasks on a server](docs/use/server-sources.md)
 - [Back up and restore](docs/use/backup.md)
 - [Move to a new Mac](docs/use/move.md)
 

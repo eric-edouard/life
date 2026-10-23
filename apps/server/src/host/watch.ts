@@ -8,7 +8,7 @@ import { codeAt } from "../core/proc";
 import { LEDGER, readLedger, tasksOf } from "../memory/ledger";
 import { isLocked, locked } from "../memory/memory-lock";
 import { reindex } from "../memory/search";
-import { listening } from "../memory/sources";
+import { listening, MIRROR_EVERY_MS, mirrorSources } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
@@ -227,6 +227,8 @@ export async function watch(): Promise<number> {
       ),
     TUNNEL_EVERY_MS
   );
+  mirrorSources();
+  setInterval(mirrorSources, MIRROR_EVERY_MS);
   if (!listening()) {
     return quiet(running);
   }

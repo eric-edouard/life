@@ -14,7 +14,7 @@ import type { Newest, RepoMap } from "./contract";
 
 /** The folder holding his repos; none set, there are none. */
 const folder = settings().repos;
-const WORK = folder && expand(folder);
+export const REPOS_DIR = folder && expand(folder);
 const RS = "\x1e";
 const US = "\x1f";
 // Lockfiles and single-file changes this big are generated: they would drown the real work in the line counts.
@@ -30,7 +30,7 @@ export interface Repo {
 }
 
 /** The repos under `root`: a folder with a `.git`, worktrees folded into their main repo by the common git dir. */
-export function listRepos(root = WORK): Repo[] {
+export function listRepos(root = REPOS_DIR): Repo[] {
   if (!root) {
     return [];
   }
@@ -194,7 +194,7 @@ export function readGit(
   since: Date,
   repos: RepoMap,
   me: Person,
-  root = WORK
+  root = REPOS_DIR
 ): SourceEvent[] {
   const seen = new Set<string>();
   const mapped = (key: string) => Boolean(repos.get(key)?.project);
