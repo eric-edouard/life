@@ -112,3 +112,36 @@ test("worktrees fold into their main repo; other authors count only in mapped re
   expect(text([])).toEqual(["branch", "mine"]);
   expect(text(["photo-app"])).toEqual(["branch", "mine", "theirs"]);
 }, 20_000); // a dozen git runs: seconds on Windows, where a process starts slowly
+
+test("a commit in two clones of one repo counts once: in a mapped clone first, else the first by key", () => {
+  const root = mkdtempSync(join(tmpdir(), "life-git-"));
+  const owner = ["owner@example.com", "Jean Dupont"];
+  const [fork, template] = [
+    join(root, "bakery-shop"),
+    join(root, "app-template"),
+  ];
+  git(root, owner, "init", "-q", template);
+  writeFileSync(join(template, "base"), "x\n");
+  git(template, owner, "add", "base");
+  git(template, owner, "commit", "-q", "-m", "base");
+  git(root, owner, "clone", "-q", template, fork);
+  writeFileSync(join(fork, "menu"), "x\n");
+  git(fork, owner, "add", "menu");
+  git(fork, owner, "commit", "-q", "-m", "menu");
+
+  const since = new Date(Date.now() - HOUR);
+  const ids = (mapped: string[]) =>
+    readGit(
+      since,
+      new Map(mapped.map((k) => [k, { area: null, project: k }])),
+      me,
+      root
+    )
+      .map((e) => `${e.chat}:${e.text}`)
+      .sort();
+  expect(ids([])).toEqual(["app-template:base", "bakery-shop:menu"]);
+  expect(ids(["bakery-shop"])).toEqual([
+    "bakery-shop:base",
+    "bakery-shop:menu",
+  ]);
+}, 20_000);
