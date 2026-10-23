@@ -183,7 +183,7 @@ only `core` from Life (`.fallowrc.json`, zone `voice`):
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
-| Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
+| Anything that differs between macOS, Windows and Linux | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications, what only the Mac has); a Mac-only source is `macOnly` |
 
 Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts

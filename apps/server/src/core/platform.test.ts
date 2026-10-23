@@ -12,7 +12,12 @@ test.skipIf(!(MAC || WINDOWS))(
   }
 );
 
-test.skipIf(!systemZone())("the system's time zone is one Intl knows", () => {
-  const zone = systemZone() ?? "";
-  expect(() => new Intl.DateTimeFormat("en", { timeZone: zone })).not.toThrow();
-});
+test.skipIf(!(MAC || WINDOWS))(
+  "the system's time zone is one Intl knows",
+  () => {
+    const zone = systemZone() ?? "";
+    expect(
+      () => new Intl.DateTimeFormat("en", { timeZone: zone })
+    ).not.toThrow();
+  }
+);

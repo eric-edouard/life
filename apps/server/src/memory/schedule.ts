@@ -88,7 +88,8 @@ export function middayDue(now: Date, last: string | undefined) {
 }
 
 /** launchd's tick: a window opens at `earliest` and a run is expected by `latest`, if the Mac is awake and the lock is free. */
-const TICK_MS = 30 * MIN;
+/** How often the nightly is started: its schedule decides what each start does. */
+export const TICK_MS = 30 * MIN;
 const windowAt = (earliest: Date, why: string) => ({
   earliest: earliest.toISOString(),
   latest: new Date(earliest.getTime() + TICK_MS).toISOString(),

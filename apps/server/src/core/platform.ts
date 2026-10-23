@@ -57,23 +57,18 @@ export const TUNNEL_RESTART = MAC
   : undefined;
 
 /**
- * When process `pid` started (ms), where the system says: Linux's /proc. Undefined elsewhere, or when it has no such
- * process. ponytail: 100 ticks a second, as on every Linux Life runs on; `getconf CLK_TCK` if one ever differs.
+ * When process `pid` started, as the system counts it (Linux's /proc: ticks since boot), to tell one process from a
+ * later one with the same pid; undefined where the system doesn't say (the Mac, Windows) or there is no such process.
  */
-export function startedAt(pid: number) {
+export function startTicks(pid: number) {
   try {
     const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
-    // After the command's closing parenthesis: the state is field 3, the start time (ticks since boot) field 22.
-    const ticks = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19]);
-    const boot = Number(readFileSync("/proc/stat", "utf8").match(BTIME)?.[1]);
-    return Number.isFinite(ticks + boot)
-      ? (boot + ticks / 100) * 1000
-      : undefined;
+    // After the command's closing parenthesis: the state is field 3, the start time field 22.
+    return stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19];
   } catch {
-    // No /proc (the Mac, Windows), or no such process.
+    // No /proc, or no such process.
   }
 }
-const BTIME = /^btime (\d+)$/m;
 
 /** The engine an install runs with until he picks one: his subscriptions on a Mac or a PC, OpenRouter on a server. */
 export const HOST_ENGINE: Engine = MAC || WINDOWS ? "claude" : "openrouter";

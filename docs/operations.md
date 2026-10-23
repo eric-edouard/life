@@ -43,8 +43,8 @@ sources, the agent, the agents' report senders, the Reminders and Past calendar 
 - `bun life settings` prints it; `bun life settings set '<json>'` replaces parts of it, checked whole before anything is
   written. The app reads and writes settings only through this.
 - Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout, and on a server
-  `LIFE_STATE_DIR/secrets.env` (mode 600, written by `setSecretEnv`, `core/secret.ts`) or the container's env file
-  (0600); secrets.env wins.
+  `LIFE_STATE_DIR/secrets.env` (mode 600, written by `setSecretEnv`, `core/secret.ts`), which `bun life headless`
+  passes to the services as the app passes the Keychain.
 - A page writes settings with `setSettings` and keys with `setSecretEnv`; `bun life headless` restarts the services
   within about 10 s of either file changing.
 - Owner values are never defaults in code. Tests read `apps/server/src/test-data/state/settings.json`, made up.
@@ -65,9 +65,9 @@ two services kept running, the tick every 30 minutes, `secrets.env` in their env
 when the settings or the keys change, and a SIGTERM ends them all. Its environment: `LIFE_OWNER_DATA_DIR`,
 `LIFE_STATE_DIR`, `HOME` (or `XDG_DATA_HOME`) on the one data volume, and `TZ`: the nightly's hours follow the
 process's clock, and on Linux only a `TZ` set for Life counts as the owner's zone (`systemZone`). It needs `git` on the
-PATH. The public port (`PUBLIC_PORT`) listens on loopback, so the tunnel shares the container's network. A lock's
-holder is checked by its process's start time where `/proc` says it (`held`), since a container starts its pids again
-at 1.
+PATH, and an init (Compose's `init: true`) to reap its children's children. The public port (`PUBLIC_PORT`) listens
+on loopback, so the tunnel shares the container's network. Where `/proc` tells a process's start, a lock keeps its
+holder's and only that process holds it (`held`), since a container starts its pids again at 1.
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers

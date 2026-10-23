@@ -1,8 +1,10 @@
 import { statSync } from "node:fs";
 import { basename } from "node:path";
-import { clock, MIN } from "../core/clock";
+import { clock } from "../core/clock";
+import { startKept } from "../core/proc";
 import { readSecretEnv, SECRETS } from "../core/secret";
 import { SETTINGS } from "../core/settings";
+import { TICK_MS } from "../memory/schedule";
 
 // `bun life headless`: what Life.app's Supervisor does (apps/mac/Sources/LifeApp/Supervisor.swift), without the app, as
 // a server container's command. The archive and the watcher always running (started again 5 s after either stops: new
@@ -12,7 +14,6 @@ import { SETTINGS } from "../core/settings";
 // with). A SIGTERM or SIGINT ends every child, then this.
 
 const SERVICES = [["archive"], ["watch"]];
-const TICK_MS = 30 * MIN;
 const RESTART_MS = 5000;
 /** How often the settings and the keys are looked at for a change. */
 const LOOK_MS = 5000;
@@ -38,38 +39,30 @@ export async function headless(): Promise<number> {
   const services = new Map<string, Bun.Subprocess>();
   let nightly: Bun.Subprocess | undefined;
   /** Set once a signal came: nothing starts again. */
-  const stopping = new AbortController();
-  /** The children still running (an exit code is null after a signal too, so it can't tell). */
-  const running = new Set<Bun.Subprocess>();
-  const start = (args: string[]) => {
-    const p = Bun.spawn([...self(), ...args], {
-      env: { ...process.env, ...readSecretEnv() },
-      stderr: "inherit",
-      stdout: "inherit",
-    });
-    running.add(p);
-    p.exited.then(() => running.delete(p));
-    return p;
-  };
+  const state: { stopping: boolean } = { stopping: false };
+  const isRunning = (p: Bun.Subprocess) =>
+    p.exitCode === null && p.signalCode === null;
+  const start = (args: string[]) =>
+    startKept([...self(), ...args], { ...process.env, ...readSecretEnv() });
   const keep = (args: string[]) => {
     const name = args.join(" ");
     const p = start(args);
     services.set(name, p);
     p.exited.then(async () => {
       await Bun.sleep(RESTART_MS);
-      if (!stopping.signal.aborted && services.get(name) === p) {
+      if (!state.stopping && services.get(name) === p) {
         keep(args);
       }
     });
   };
   const tick = () => {
-    if (stopping.signal.aborted || (nightly && running.has(nightly))) {
+    if (state.stopping || (nightly && isRunning(nightly))) {
       return;
     }
     nightly = start(["memory", "nightly"]);
   };
   const end = (p: Bun.Subprocess | undefined) => {
-    if (p && running.has(p)) {
+    if (p && isRunning(p)) {
       p.kill("SIGTERM");
     }
     return p?.exited;
@@ -101,7 +94,7 @@ export async function headless(): Promise<number> {
       process.on(s, () => resolve(s));
     }
   });
-  stopping.abort();
+  state.stopping = true;
   clearInterval(ticks);
   clearInterval(looks);
   console.log(`${clock().toISOString()} ${signal}: stopping`);
