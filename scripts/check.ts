@@ -96,15 +96,18 @@ const macSteps: Record<string, string[]> = {
 // The phone's and the sensor's Swift, and what they read from the server (its wire fixtures and openapi.json).
 const SWIFT =
   /^(apps\/ios|apps\/dictation|fixtures|apps\/voice\/openapi\.json)/;
-const changed = (
-  await Bun.$`git diff --name-only origin/main...HEAD && git diff --name-only HEAD`
-    .nothrow()
-    .text()
-).split("\n");
+// Without main to compare with (a clone with no origin), every step runs.
+const base = await Bun.$`git merge-base origin/main HEAD`.nothrow().quiet();
+const changed =
+  base.exitCode === 0
+    ? (
+        await Bun.$`git diff --name-only ${base.text().trim()}; git ls-files --others --exclude-standard`.text()
+      ).split("\n")
+    : null;
 let why: string | null = null;
 if (process.platform !== "darwin") {
   why = "needs macOS";
-} else if (!changed.some((f) => SWIFT.test(f))) {
+} else if (changed && !changed.some((f) => SWIFT.test(f))) {
   why = "no change to the phone, the sensor or what they read";
 }
 if (why) {
