@@ -1,0 +1,53 @@
+[
+  {
+    "case": "encoded URL",
+    "link": "lifelog://pair?url=https%3A%2F%2Fmac.example.ts.net&token=abc_123-XYZ_456-tok",
+    "pairing": {
+      "server": "https://mac.example.ts.net",
+      "token": "abc_123-XYZ_456-tok"
+    }
+  },
+  {
+    "case": "Voice Host's QR code leaves the URL unencoded",
+    "link": "lifelog://pair?url=https://mac.example.ts.net&token=abc_DEF-123-xyz_456",
+    "pairing": {
+      "server": "https://mac.example.ts.net",
+      "token": "abc_DEF-123-xyz_456"
+    }
+  },
+  {
+    "case": "plain HTTP",
+    "link": "lifelog://pair?url=http%3A%2F%2Fmac.example.ts.net&token=abcdefghijklmnop",
+    "pairing": null
+  },
+  {
+    "case": "no token",
+    "link": "lifelog://pair?url=https%3A%2F%2Fmac.example.ts.net",
+    "pairing": null
+  },
+  {
+    "case": "empty token",
+    "link": "lifelog://pair?url=https%3A%2F%2Fmac.example.ts.net&token=",
+    "pairing": null
+  },
+  {
+    "case": "a token too short",
+    "link": "lifelog://pair?url=https%3A%2F%2Fmac.example.ts.net&token=abc",
+    "pairing": null
+  },
+  {
+    "case": "another link",
+    "link": "lifelog://split?url=https%3A%2F%2Fmac.example.ts.net&token=abcdefghijklmnop",
+    "pairing": null
+  },
+  {
+    "case": "another scheme",
+    "link": "https://pair?url=https%3A%2F%2Fmac.example.ts.net&token=abcdefghijklmnop",
+    "pairing": null
+  },
+  {
+    "case": "a header in the token",
+    "link": "lifelog://pair?url=https%3A%2F%2Fmac.example.ts.net&token=abcdefghijklmnop%0D%0AX-Evil:%201",
+    "pairing": null
+  }
+]

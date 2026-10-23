@@ -1,5 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "@life/config/tsconfig.base.json",
-  "include": ["apps/server/src", "scripts", "apps/edge"]
+  "include": [
+    "apps/server/src",
+    "apps/edge",
+    "apps/voice/src",
+    "apps/voice/scripts",
+    "apps/voice/fixtures",
+    "apps/voice/packages/*/src",
+    "apps/voice/packages/db/drizzle.config.ts",
+    "apps/transcription-bench/src",
+    "scripts"
+  ]
 }

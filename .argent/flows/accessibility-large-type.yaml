@@ -1,0 +1,69 @@
+steps:
+  - echo: Largest Dynamic Type walk-through of Pendant, Library and Conversation; screenshots are the evidence for clipped text.
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Confirmed by the Pendant
+      timeoutMs: 10000
+  - tool: screenshot
+  - tool: gesture-swipe
+    args:
+      fromX: 0.5
+      fromY: 0.8
+      toX: 0.5
+      toY: 0.2
+      durationMs: 500
+      momentum: false
+  - tool: screenshot
+  - tool: gesture-swipe
+    args:
+      fromX: 0.5
+      fromY: 0.8
+      toX: 0.5
+      toY: 0.2
+      durationMs: 500
+      momentum: false
+  - tool: screenshot
+  - tap:
+      id: books.vertical.fill
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Condo call with Somchai
+        role: StaticText
+      timeoutMs: 10000
+  - tool: screenshot
+  - await:
+      idle: true
+  - echo: Open the first conversation row (tapped by coordinate; rows have no id).
+  - tool: gesture-tap
+    args:
+      x: 0.4
+      y: 0.815
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: conversation.copy
+      timeoutMs: 8000
+  - tool: screenshot
+  - tool: gesture-swipe
+    args:
+      fromX: 0.5
+      fromY: 0.7
+      toX: 0.5
+      toY: 0.2
+      durationMs: 500
+      momentum: false
+  - tool: screenshot
+  - tap:
+      id: chevron.backward
+  - await:
+      idle: true
+executionPrerequisite: Simulator text size set to the largest accessibility size
+  (`xcrun simctl ui <UDID> content_size accessibility-extra-extra-extra-large`),
+  then Life launched with `-fixtureLibrary -fakePendant healthyRecording`;
+  Pendant tab showing. Screenshots are human evidence for clipping; restore
+  content_size afterwards.

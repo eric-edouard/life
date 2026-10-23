@@ -5,7 +5,8 @@
     "assets/**/*.js",
     "assets/**/*.tsx",
     "assets/**/*.css",
-    "apps/edge/*.ts"
+    "apps/edge/*.ts",
+    "apps/voice/fixtures/fake-restic.ts"
   ],
   "ignoreUnresolvedImports": ["./tokens.css"],
   "ignoreDependencies": ["@openai/codex", "fallow", "ultracite"],
@@ -45,6 +46,10 @@
       {
         "name": "host",
         "patterns": ["apps/server/src/host/**"]
+      },
+      {
+        "name": "voice",
+        "patterns": ["apps/voice/**"]
       }
     ],
     "rules": [
@@ -75,6 +80,10 @@
       {
         "from": "host",
         "allow": ["core", "models", "sources", "todo-list", "memory", "records"]
+      },
+      {
+        "from": "voice",
+        "allow": ["core"]
       }
     ]
   }

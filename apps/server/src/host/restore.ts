@@ -8,6 +8,7 @@ import {
   rmSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { sha256Of } from "../core/hash";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { SETTINGS } from "../core/settings";
 import { ARCHIVED } from "../memory/sources";
@@ -20,7 +21,6 @@ import {
   type Manifest,
   pathIn,
   rowsIn,
-  sha256Of,
 } from "./export";
 import { isEmpty } from "./init";
 

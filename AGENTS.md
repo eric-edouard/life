@@ -11,6 +11,20 @@ backups, evals, the read CLI), `docs/status-reads.md` (the connector's status re
 `SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
 documentation: it is the agent's playbook, read at run time.
 
+## The apps
+
+Life's memory and connector are `apps/server` (Bun) and `apps/mac` (Life.app). The voice half came in from lifelog
+(server playbook, step 1); each app has its own `AGENTS.md` with its invariants, read it before changing the app:
+
+- `apps/ios`: Life for iPhone, its Watch app, widgets and `Kit/` (Swift). It drains the Pendant or Omi; ACK rules.
+- `apps/voice`: the voice server (Bun, Hono, Drizzle, one SQLite archive) with `packages/db` and `packages/auth`.
+- `apps/speech`: the speech service (Python), voice excerpts in, numbers out, nothing stored.
+- `apps/dictation`: the dictation sensor and the Mac helper, and Voice Host, the menu-bar app that runs the voice
+  server on a Mac until Life.app does (playbook step 9).
+- `apps/android` (parked) and `apps/transcription-bench` (Scribe against open models, hand-run).
+
+The voice half's docs are in `docs/voice/`; the order of the server work is `docs/plans/2026-10-23-server-playbook.md`.
+
 ## Commands
 
 ```sh
@@ -21,7 +35,14 @@ bun run fix                      # format and lint fixes
 bun life <command>               # the CLI (apps/server/src/host/cli.ts); `bun life memory …` for the pipeline and reads
 bun life validate                # check truth/ (from the live checkout only, never a worktree)
 bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, else ad hoc)
+bun run --cwd apps/voice test src/feed.test.ts                                       # one voice server test
+swift test --package-path apps/ios/Kit --scratch-path .build/kit --filter WireTests  # one Kit suite
+bun run ios:project              # regenerate the phone's Xcode project after editing project.yml
+bun run host:app [out]           # build Voice Host.app (needs librsvg)
+bun run events --since 30m       # the voice server's, the phone's and the Mac's events in time order
 ```
+
+The check runs the Swift and Xcode steps on a Mac only and says it skipped them elsewhere; Android where its SDK is.
 
 ## Working with the owner
 
@@ -55,8 +76,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   his material goes to his data repo, his settings to `LIFE_STATE_DIR/settings.json`, secrets to `.env` or the Keychain. The
   `scrub` step catches full names, aliases, surnames, phones, emails, handles and chat ids from his `truth/`; first
   names, places, project names, `.env` values and git history are on you. The domain in Life's own infrastructure
-  labels (sender, LaunchAgent labels) is kept on purpose. lifelog's check runs `scripts/scrub-check.ts` by this path
-  with git pathspecs as arguments: keep both.
+  labels (sender, LaunchAgent labels) is kept on purpose.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
@@ -135,7 +155,9 @@ concept, the same in docs, app, email, connector and code. A new concept gets it
 
 ## One way to do each thing
 
-Before adding a helper, use the one that exists:
+Before adding a helper, use the one that exists. The table is Life's (`apps/server`, `scripts`); the voice half
+(`apps/voice`, `apps/ios`, `apps/dictation`) keeps its own ways in its `AGENTS.md` until a step moves it, and imports
+only `core` from Life (`.fallowrc.json`, zone `voice`):
 
 | Need | Use |
 |---|---|
@@ -172,8 +194,8 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
   `derived/settings.json` into a worktree before model runs. `bun test` uses its own made-up copy.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
-- lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
-  (`lifelog.test.ts` checks them against lifelog's `openapi.json` when that repo is beside this one).
+- The voice server is read through its REST API; the zod shapes accept every null and absent field its contract allows
+  (`lifelog.test.ts` checks them against `apps/voice/openapi.json`).
 - The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
   `closed`), never a timing rule of Life's (`docs/operations.md`).
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).

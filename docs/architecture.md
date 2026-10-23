@@ -6,22 +6,25 @@ Life is a memory of one person's life, built from their own sources and kept on 
 shape and the reasons for it. Record formats are in `docs/SCHEMA.md`, sources in `docs/sources.md`, the agent and the
 connector in `docs/tasks.md`, how it runs in `docs/operations.md`.
 
-## lifelog and Life
+## The voice half and the memory
 
-Life works beside lifelog, a companion project that captures voice. Each has one job:
+Life is one repo with two halves, each with one job (the voice half came from lifelog, server playbook step 1):
 
-| | lifelog | Life |
+| | The voice half | The memory |
 |---|---|---|
-| Job | Voice capture: audio, transcripts, speakers, per-conversation chapters and summaries, search | Memory across sources: voice (through lifelog), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Job | Voice capture: audio, transcripts, speakers, conversations, search (`docs/voice/`) | Memory across sources: voice, WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Apps | `apps/ios`, `apps/voice`, `apps/speech`, `apps/dictation` | `apps/server`, `apps/mac` |
 | Owns | The raw spoken archive | The people across channels, observations, people and project pages |
-| Runs | Its own host and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
+| Runs | The phone, and the voice server on a Mac (Voice Host) or a server | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
 | Acts? | Never | Only on the owner's clear request (`docs/tasks.md`) |
 
-- Life reads lifelog through its REST API with a device token (`apps/server/src/sources/lifelog.ts`). It keeps chapter titles,
-  summaries and turn refs, not transcript text (except an ask's words). Exact quotes are fetched on demand.
-- Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
-- Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must
-  not leave the Mac, nor their text go to a third party for embeddings.
+- The memory reads the voice server through its REST API with a token (`apps/server/src/sources/lifelog.ts`; the
+  source keeps its stored name `lifelog` until step 4). It keeps conversation titles, summaries and turn refs, not
+  transcript text (except an ask's words). Exact quotes are fetched on demand.
+- The memory writes to the voice server only through `forward`: the owner's explicit corrections (speaker, title,
+  rename, merge).
+- Memory does not move into the voice server: memory about one person comes from voice, chats and mail together, and
+  chats must not leave the host, nor their text go to a third party for embeddings.
 
 ## The pipeline
 

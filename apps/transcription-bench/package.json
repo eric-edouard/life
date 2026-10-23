@@ -1,0 +1,17 @@
+{
+  "name": "@life/transcription-bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "bun src/bench.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@life/voice-db": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@life/config": "workspace:*",
+    "@types/bun": "catalog:"
+  }
+}

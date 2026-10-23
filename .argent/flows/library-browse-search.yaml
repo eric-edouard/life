@@ -1,0 +1,148 @@
+steps:
+  - echo: "Note: typing uses paste (the simulator hardware keyboard is AZERTY, so typed ASCII is remapped; Thai cannot be typed). SwiftUI identifiers (library.row, conversation.copy) are only visible to raw await-ui-element, not to tap/assert, so result rows, Close and the menu item are tapped by coordinate (iPhone 17)."
+  - tap:
+      id: books.vertical.fill
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Titles, words, people, places
+  - await:
+      idle: true
+  - tap:
+      text: Titles, words, people, places
+  - tool: paste
+    args:
+      text: market
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Coffee with Mai
+        role: StaticText
+  - echo: English search shows a result. Open it; it opens at the matching passage.
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: library.row
+  - tool: gesture-tap
+    args:
+      x: 0.5
+      y: 0.27
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: conversation.copy
+      timeoutMs: 8000
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: going to the market
+  - await:
+      idle: true
+  - tap:
+      id: chevron.backward
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Matches
+  - await:
+      idle: true
+  - tap:
+      id: xmark.circle.fill
+  - tool: paste
+    args:
+      text: เท่าไหร่
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: near Riverside
+  - echo: Thai search shows the Riverside result first. Open it at the matching passage.
+  - tool: gesture-tap
+    args:
+      x: 0.5
+      y: 0.27
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: conversation.copy
+      timeoutMs: 8000
+  - await:
+      idle: true
+  - tap:
+      id: chevron.backward
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Close
+  - await:
+      idle: true
+  - echo: Close search, open More > Go to date.
+  - tool: gesture-tap
+    args:
+      x: 0.9
+      y: 0.098
+  - await:
+      idle: true
+  - tap:
+      id: ellipsis
+  - await:
+      idle: true
+  - tool: gesture-tap
+    args:
+      x: 0.649
+      y: 0.108
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Go to date
+  - await:
+      idle: true
+  - echo: "Date-dependent: picks day 7 (recorded on Thu Oct 8 2026; fixtures put 5 conversations on 'yesterday')."
+  - tap:
+      text: "7"
+  - tap:
+      id: checkmark
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Show the newest
+  - await:
+      idle: true
+  - tool: gesture-tap
+    args:
+      x: 0.765
+      y: 0.289
+  - tool: await-ui-element
+    args:
+      condition: hidden
+      selector:
+        text: Show the newest
+  - echo: Opening a result at its passage loaded its audio (paused); stop it so nothing is loaded for the next flows.
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: miniPlayer.stop
+  - tool: gesture-tap
+    args:
+      x: 0.883
+      y: 0.866
+  - tool: await-ui-element
+    args:
+      condition: hidden
+      selector:
+        identifier: miniPlayer.stop
+executionPrerequisite: Life (Debug) launched with `xcrun simctl launch
+  --terminate-running-process <UDID> com.ericedouard.lifelog -fixtureLibrary
+  -fakePendant healthyRecording` (argent injection armed), on the Pendant tab,
+  no sheet open.
