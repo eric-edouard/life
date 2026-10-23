@@ -39,15 +39,15 @@ if (keysFile) {
     }
   }, 5000);
 }
-const read = configOf(env);
-if ("issues" in read) {
+function waitForKeys(issues: string): Promise<never> {
   if (!keysFile) {
-    throw new Error(`missing or unreadable: ${read.issues}`);
+    throw new Error(`missing or unreadable: ${issues}`);
   }
-  console.log(`waiting for its keys in ${keysFile}: ${read.issues}`);
-  await new Promise(() => undefined);
+  console.log(`waiting for its keys in ${keysFile}: ${issues}`);
+  return new Promise(() => undefined);
 }
-const { config } = read;
+const read = configOf(env);
+const config = "config" in read ? read.config : await waitForKeys(read.issues);
 // Kept referenced until exit: the lock lasts as long as its connection.
 const archiveLock = holdArchive(config.DATABASE_PATH);
 process.on("exit", () => archiveLock.close());
