@@ -300,9 +300,15 @@ const byDay = (events: SourceEvent[]) => [
   ...Map.groupBy(events, dayUnitId).values(),
 ];
 
-/** Chat-days, mail thread-days and note-days: every message of one chat, thread or note on one local day. */
+/** One chat's, thread's, note's or repo's events of a day, cut into its unit by its source's kind. */
+const cut = (list: SourceEvent[], resolve: Resolve) =>
+  kindOf((list[0] as SourceEvent).source) === "repo"
+    ? repoDay(list)
+    : chatDay(list, resolve);
+
+/** Chat-days, mail thread-days, note-days and repo-days: every event of one chat, thread, note or repo on one local day. */
 export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
-  byDay(events).map((list) => chatDay(list, resolve));
+  byDay(events).map((list) => cut(list, resolve));
 
 /** A chat-day's or thread-day's title: its chat's name, else for mail "(no subject)", else the chat id. */
 export const unitTitle = (first: SourceEvent) =>
@@ -603,13 +609,6 @@ type Read = Exclude<Descriptor, { kind: "voice" }>;
 /** A source's events since `since`: a repo's are read with his map (whose repos are whose, who he is) and carry no files. */
 const readOf = (s: Read, since: Date, map: { me: Person; repos: RepoMap }) =>
   s.kind === "repo" ? s.read(since, map) : s.read(since);
-type Kind = Descriptor["kind"];
-/** One chat's, thread's, note's or repo's events, cut into its unit by its source's kind. */
-const cut = (kind: Kind, list: SourceEvent[], resolve: Resolve) =>
-  kind === "repo" ? repoDay(list) : chatDay(list, resolve);
-/** A source's events, cut into one unit per chat (thread, note, repo) and local day. */
-export const unitsOf = (kind: Kind, events: SourceEvent[], resolve: Resolve) =>
-  byDay(events).map((list) => cut(kind, list, resolve));
 
 /**
  * The chat-day, mail thread-day, note-day or repo-day behind a unit, read from its source again: its chat's messages from its
@@ -632,7 +631,7 @@ export function builtFor(
     readFiles()
   );
   if (events.length > 0) {
-    return cut(source.kind, events, resolve);
+    return cut(events, resolve);
   }
 }
 
@@ -720,7 +719,7 @@ export async function gather(
   const built = applyRules(
     [
       ...lifelogUnits(lifelog),
-      ...shown.flatMap(({ events, s }) => unitsOf(s.kind, events, resolve)),
+      ...shown.flatMap(({ events }) => messageUnits(events, resolve)),
     ],
     keptConversations()
   )
