@@ -71,8 +71,11 @@ function parseMailboxUrl(url: string) {
     : null;
 }
 const plain = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "");
-const mailboxName = (url: string) =>
-  plain(parseMailboxUrl(url)?.path.at(-1) ?? "");
+/** A mailbox never read as mail (junk, trash, drafts), by its name. */
+export const isSkippedBox = (name: string) => SKIP.test(plain(name));
+/** A mailbox of sent mail, by its name. */
+export const isSentBox = (name: string) => SENT.test(plain(name));
+const mailboxName = (url: string) => parseMailboxUrl(url)?.path.at(-1) ?? "";
 
 interface MailAccount {
   addresses: string[];
@@ -107,7 +110,7 @@ export function mailAccounts(
       }
       const addresses = accounts.get(account) ?? new Set<string>();
       accounts.set(account, addresses);
-      if (SENT.test(mailboxName(url))) {
+      if (isSentBox(mailboxName(url))) {
         for (const { address } of senders.all(id)) {
           addresses.add(address);
         }
@@ -154,7 +157,7 @@ function accountNames(path: string) {
   return names;
 }
 
-// --- .emlx parsing -------------------------------------------------------------------------------
+// --- message parsing -------------------------------------------------------------------------------
 
 interface Part {
   body: string; // raw bytes as latin1
@@ -239,7 +242,7 @@ const decodeBody = ({ body, headers }: Part) =>
 const ENCODED_WORD = /[=]\?([^?]+)\?([bq])\?([^?]*)\?=/gi;
 const BETWEEN_WORDS = /\?=\s+=\?/g;
 /** A header value with its encoded words decoded (RFC 2047): "=?UTF-8?Q?Cr=C3=A9ation.jpg?=" -> "Création.jpg". */
-const decodeWords = (s: string) =>
+export const decodeWords = (s: string) =>
   s
     .replace(BETWEEN_WORDS, "?==?")
     .replace(ENCODED_WORD, (_, charset: string, b: string, text: string) =>
@@ -310,14 +313,14 @@ function textOf(part: Part): { html: boolean; text: string } | null {
 }
 
 /**
- * The files in a MIME part of message `id`, kept at `emlx`: every leaf that names one, cited by its part number as IMAP
+ * The files in a MIME part of message `id`, kept at `path`: every leaf that names one, cited by its part number as IMAP
  * gives it ("2", "2.1"). A part a partial .emlx left out is in Mail's Attachments folder, when Mail downloaded it.
  */
-function filesOf(part: Part, emlx: string, id: string, at = ""): SourceFile[] {
+function filesOf(part: Part, path: string, id: string, at = ""): SourceFile[] {
   const parts = childrenOf(part);
   if (parts) {
     return parts.flatMap((p, i) =>
-      filesOf(p, emlx, id, at ? `${at}.${i + 1}` : `${i + 1}`)
+      filesOf(p, path, id, at ? `${at}.${i + 1}` : `${i + 1}`)
     );
   }
   const type = part.headers.get("content-type") ?? "";
@@ -330,21 +333,24 @@ function filesOf(part: Part, emlx: string, id: string, at = ""): SourceFile[] {
   const name = decodeWords(named);
   const section = at || "1";
   // <rowid>.emlx or <rowid>.partial.emlx
-  const rowid = basename(emlx).split(".")[0] ?? "";
-  const saved = join(dirname(dirname(emlx)), "Attachments", rowid, section);
+  const rowid = basename(path).split(".")[0] ?? "";
+  const saved = join(dirname(dirname(path)), "Attachments", rowid, section);
   return [
     sourceFile({
       mime: type.split(";")[0]?.trim().toLowerCase(),
       name,
-      path: part.body.trim() ? emlx : join(saved, name),
+      path: part.body.trim() ? path : join(saved, name),
       ref: `${id}#${section}`,
     }),
   ];
 }
 
-/** The bytes of the file `ref` cites (`mail:<Message-ID>#<part>`, as `filesOf` makes it) in the .emlx at `emlx`, if it is there. */
-export function emlxPart(emlx: string, ref: string) {
-  let part: Part | undefined = splitPart(rfc822(readFileSync(emlx)));
+/**
+ * The bytes of the file `ref` cites (`mail:<Message-ID>#<part>`, as `filesOf` makes it) in the message file at `path`
+ * (an .emlx or a Maildir file), if it is there.
+ */
+export function messagePart(path: string, ref: string) {
+  let part: Part | undefined = splitPart(messageIn(path));
   for (const i of ref.slice(ref.lastIndexOf("#") + 1).split(".")) {
     const parts: Part[] | null = childrenOf(part);
     // A message that is not multipart is its own part 1.
@@ -370,8 +376,17 @@ function snippetOf(message: Part) {
     .slice(0, SNIPPET);
 }
 
-/** The RFC 822 message inside an .emlx file: a byte-length line, the message, then a plist. */
-function rfc822(file: Buffer) {
+const MAILDIR_FILE = /[/\\](?:cur|new)[/\\][^/\\]+$/;
+/** Whether the file at `path` is a whole message (an .emlx, a Maildir file), its files inside it. */
+export const isMessageFile = (path: string) =>
+  path.endsWith(".emlx") || MAILDIR_FILE.test(path);
+
+/** The RFC 822 message in a file: an .emlx holds a byte-length line, the message, then a plist; any other file is the message. */
+function messageIn(path: string) {
+  const file = readFileSync(path);
+  if (!path.endsWith(".emlx")) {
+    return file.toString("latin1");
+  }
   const newline = file.indexOf(10);
   const length = Number.parseInt(file.subarray(0, newline).toString(), 10);
   return file.subarray(newline + 1, newline + 1 + length).toString("latin1");
@@ -443,21 +458,78 @@ function messagesSince(since: Date, root = mailRoot()): Row[] {
 }
 
 /**
- * Each message file's text and files, read once per process: a file never changes (a partial one is replaced by the
- * whole one, under another name), so `search` reads only new mail after its first call.
+ * Each message file's headers, text and files, read once per process: a file never changes (a partial one is replaced
+ * by the whole one, under another name), so `search` reads only new mail after its first call.
  * Whether a partial message's saved attachment exists is read then too: one Mail downloads later shows at the next
  * process. ponytail: keeps every message read (up to about 2 KB each) for the process's life: the nightly's three years
  * for closeness, and in the server every mail any search's `from` reached; prune it if memory matters.
  */
-const parsed = new Map<string, { files: SourceFile[]; snippet: string }>();
-function parse(path: string, id: string) {
-  const message = splitPart(rfc822(readFileSync(path)));
+const parsed = new Map<
+  string,
+  { files: SourceFile[]; headers: Map<string, string>; snippet: string }
+>();
+/** The message in the file at `path`, its files cited by the id `idOf` gives it. */
+export function readMessage(
+  path: string,
+  idOf: (headers: Map<string, string>) => string
+) {
+  const known = parsed.get(path);
+  if (known) {
+    return known;
+  }
+  const message = splitPart(messageIn(path));
   const read = {
-    files: filesOf(message, path, id),
+    files: filesOf(message, path, idOf(message.headers)),
+    headers: message.headers,
     snippet: snippetOf(message),
   };
   parsed.set(path, read);
   return read;
+}
+
+/** A message as a store gives it: its file (when it is there) and what the store says of it. */
+export interface StoredMessage {
+  at: string;
+  bulk: boolean;
+  chat: string;
+  /** The subject without its prefix. */
+  chatName: string;
+  id: string;
+  /** In a mailbox never read as mail (junk, trash, drafts). */
+  isSkipped: boolean;
+  path: string | null;
+  /** "Re: ", "Fwd: ". */
+  prefix: string;
+  sender: string;
+}
+
+/** Each message once, as an event: a message stored in a skipped mailbox is skipped everywhere (Gmail keeps a draft's copy in All Mail too). */
+export function mailEvents(
+  stored: StoredMessage[],
+  mine: Set<string>
+): SourceEvent[] {
+  const seen = new Set(stored.filter((m) => m.isSkipped).map((m) => m.id));
+  const events: SourceEvent[] = [];
+  for (const m of stored) {
+    if (seen.has(m.id)) {
+      continue;
+    }
+    seen.add(m.id);
+    const read = m.path ? readMessage(m.path, () => m.id) : null;
+    events.push({
+      at: m.at,
+      bulk: m.bulk,
+      chat: m.chat,
+      ...(m.chatName ? { chatName: m.chatName } : {}),
+      files: read?.files ?? [],
+      fromMe: mine.has(m.sender),
+      id: m.id,
+      sender: m.sender,
+      source: "mail",
+      text: `${m.prefix}${m.chatName}\n${read?.snippet ?? ""}`.trim(),
+    });
+  }
+  return events;
 }
 
 export function readMail(
@@ -468,38 +540,23 @@ export function readMail(
   const mine = new Set(
     mailAccounts(root, accountsDb).flatMap((a) => a.addresses)
   );
-  const rows = messagesSince(since, root);
-  const idOf = (r: Row) =>
-    `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`;
-  // A message in a skipped mailbox is skipped everywhere: Gmail keeps a draft's copy in All Mail too.
-  const seen = new Set(
-    rows.filter((r) => SKIP.test(mailboxName(r.mailbox))).map(idOf)
+  return mailEvents(
+    messagesSince(since, root).map((r) => {
+      const subject = r.subject ?? "";
+      return {
+        at: new Date(r.received * 1000).toISOString(),
+        bulk: r.bulk === 1,
+        chat: r.conversation
+          ? `mail:${r.conversation}`
+          : `${r.mailbox}#${subject}`,
+        chatName: subject,
+        id: `mail:${r.header?.replace(/^<|>$/g, "") || r.globalId}`,
+        isSkipped: isSkippedBox(mailboxName(r.mailbox)),
+        path: emlxPath(root, r.mailbox, r.rowid),
+        prefix: r.prefix ?? "",
+        sender: (r.sender ?? "unknown").toLowerCase(),
+      };
+    }),
+    mine
   );
-  const events: SourceEvent[] = [];
-  for (const r of rows) {
-    const id = idOf(r);
-    if (seen.has(id)) {
-      continue;
-    }
-    seen.add(id);
-    const subject = r.subject ?? "";
-    const path = emlxPath(root, r.mailbox, r.rowid);
-    const read = path ? (parsed.get(path) ?? parse(path, id)) : null;
-    const sender = (r.sender ?? "unknown").toLowerCase();
-    events.push({
-      at: new Date(r.received * 1000).toISOString(),
-      bulk: r.bulk === 1,
-      chat: r.conversation
-        ? `mail:${r.conversation}`
-        : `${r.mailbox}#${subject}`,
-      ...(subject ? { chatName: subject } : {}),
-      files: read?.files ?? [],
-      fromMe: mine.has(sender),
-      id,
-      sender,
-      source: "mail",
-      text: `${r.prefix ?? ""}${subject}\n${read?.snippet ?? ""}`.trim(),
-    });
-  }
-  return events;
 }

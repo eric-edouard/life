@@ -45,6 +45,11 @@ export type Descriptor = {
    * archive's copy and never copied.
    */
   macOnly?: true;
+  /**
+   * What brings it to this host when it lives on the network (his IMAP mailbox, his forge's repos): run by the watcher
+   * every few minutes, never by a read, which reads only the copy.
+   */
+  mirror?: () => Promise<void>;
   /** What he calls it. */
   label: string;
   /** The app store the archive keeps a copy of; its units are read from that copy. */

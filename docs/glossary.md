@@ -46,6 +46,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | chapter | One recording in lifelog. | |
+| mirror | A network source's copy on the host Life runs on, which its reader reads: the Maildir of his IMAP mailbox, the clones of his forge's repos. Brought up to date by the watcher (`mirror` in the descriptor), never by a read. | |
 | archive | Life's own copy of the WhatsApp, Beeper and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory

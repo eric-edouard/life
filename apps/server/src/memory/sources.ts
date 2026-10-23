@@ -1,8 +1,9 @@
 import { closeSync, existsSync, openSync } from "node:fs";
-import { HOUR } from "../core/clock";
+import { HOUR, MIN } from "../core/clock";
+import { log } from "../core/log";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
-import { agentName, settings } from "../core/settings";
+import { agentName, expand, settings } from "../core/settings";
 import { archiveDb } from "../sources/archived";
 import {
   FORMATS,
@@ -12,7 +13,14 @@ import {
 } from "../sources/assistants";
 import { copyBeeper, newestBeeper, readBeeper } from "../sources/beeper";
 import type { AppStore, Descriptor } from "../sources/contract";
+import { mirrorForge } from "../sources/forge";
 import { newestCommit, readGit } from "../sources/git";
+import {
+  MAILDIR,
+  mirrorImap,
+  newestMaildir,
+  readMaildir,
+} from "../sources/imap";
 import {
   DB,
   handleOf,
@@ -31,6 +39,7 @@ import {
   readWhatsapp,
 } from "../sources/whatsapp";
 import { newestAgent, readAgent } from "./agent-source";
+import { loadTruth } from "./read-truth";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, units.ts).
@@ -106,22 +115,33 @@ const LISTED: Descriptor[] = [
       media: "''",
     },
   },
+  // His mail, read from a copy on this host: the Maildir mbsync keeps of his IMAP mailbox when the `imap` setting is
+  // set (a server), else Mail.app's own store (the Mac).
   {
     kind: "mail",
     label: "Mail",
-    macOnly: true,
-    missing: () => {
-      try {
-        mailRoot();
-      } catch {
-        return FULL_DISK;
-      }
-    },
     name: "mail",
-    newest: newestMail,
-    read: readMail,
     searchDays: 90,
     silentAfter: 12 * HOUR,
+    ...(settings().imap
+      ? {
+          mirror: () => mirrorImap(),
+          missing: () => (existsSync(MAILDIR) ? undefined : "not mirrored yet"),
+          newest: () => newestMaildir(),
+          read: (since: Date) => readMaildir(since),
+        }
+      : {
+          macOnly: true as const,
+          missing: () => {
+            try {
+              mailRoot();
+            } catch {
+              return FULL_DISK;
+            }
+          },
+          newest: newestMail,
+          read: (since: Date) => readMail(since),
+        }),
   },
   {
     kind: "own_writing",
@@ -170,6 +190,16 @@ const LISTED: Descriptor[] = [
     kind: "repo",
     label: "Git",
     missing: () => (settings().repos ? undefined : "no repos folder set"),
+    // On a host without his checkouts, the repos his projects list, from his forge.
+    ...(settings().forge
+      ? {
+          mirror: async () =>
+            mirrorForge(
+              (await loadTruth()).projects.flatMap((p) => p.repos),
+              expand(settings().repos ?? "")
+            ),
+        }
+      : {}),
     name: "git",
     newest: newestCommit,
     read: (since, { me, repos }) => readGit(since, repos, me),
@@ -217,6 +247,33 @@ export const keptStores = (on = settings().sources) =>
  */
 export const readySources = (all = enabledSources()) =>
   all.filter((s) => !s.missing?.());
+
+export const MIRROR_EVERY_MS = 5 * MIN;
+let mirroring = false;
+/**
+ * Brings the network sources he turned on to this host (`mirror`), one after another, never two passes at once (a
+ * mailbox's first copy takes hours): a failure is logged, and the others still run.
+ */
+export async function mirrorSources() {
+  if (mirroring) {
+    return;
+  }
+  mirroring = true;
+  try {
+    for (const s of enabledSources()) {
+      // biome-ignore lint/performance/noAwaitInLoops: one copy at a time
+      await s.mirror?.().catch((e: Error) =>
+        log("run.error", {
+          error: e.message,
+          source: s.name,
+          step: "source.mirror",
+        })
+      );
+    }
+  } finally {
+    mirroring = false;
+  }
+}
 
 /** Whether a voice source is on and set up: what the watcher listens to, and what voice search and `read_day` read. */
 export const listening = () => readySources().some((s) => s.kind === "voice");

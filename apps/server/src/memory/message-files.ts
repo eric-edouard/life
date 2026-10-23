@@ -9,7 +9,7 @@ import { exec } from "../core/proc";
 import { stamp } from "../models/llm";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
-import { emlxPart } from "../sources/mail";
+import { isMessageFile, messagePart } from "../sources/mail";
 import { FILES, readFiles } from "./ledger";
 import { begin, chunks, inBatches } from "./run";
 
@@ -78,12 +78,12 @@ const readable = (f: SourceFile): f is Readable =>
     DOCUMENT.test(f.mime));
 
 /**
- * A file's bytes: the file, or its part of the .emlx that holds it; nothing when it is gone, unreadable or empty (a
+ * A file's bytes: the file, or its part of the message file that holds it (an .emlx, a Maildir file); nothing when it is gone, unreadable or empty (a
  * download that failed: every empty file has the same hash, and must not take another's line).
  */
 const bytesOf = (f: Readable): Promise<Buffer | undefined> =>
-  (f.path.endsWith(".emlx")
-    ? Promise.resolve().then(() => emlxPart(f.path, f.ref))
+  (isMessageFile(f.path)
+    ? Promise.resolve().then(() => messagePart(f.path, f.ref))
     : Bun.file(f.path)
         .bytes()
         .then((b) => Buffer.from(b))

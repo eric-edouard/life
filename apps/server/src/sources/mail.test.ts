@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { emlxPart, mailAccounts, mailRoot, readMail } from "./mail";
+import { mailAccounts, mailRoot, messagePart, readMail } from "./mail";
 
 const emlx = (message: string) => {
   const bytes = Buffer.from(message.replace(/\n/g, "\r\n"), "utf8");
@@ -217,10 +217,10 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   ]);
   // A file inside the .emlx is read back by its part number; a part that is not there is nothing.
   expect(
-    emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#2")?.toString()
+    messagePart(join(dir, "1006.emlx"), "mail:files@example.com#2")?.toString()
   ).toBe("%PDF-");
   expect(
-    emlxPart(join(dir, "1006.emlx"), "mail:files@example.com#9")
+    messagePart(join(dir, "1006.emlx"), "mail:files@example.com#9")
   ).toBeUndefined();
   // Each file is read once; a partial message is read again once Mail has it whole, under its own name.
   writeFileSync(join(dir, "1007.emlx"), emlx(ALTERNATIVE));
