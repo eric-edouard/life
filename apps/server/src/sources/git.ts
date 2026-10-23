@@ -132,15 +132,16 @@ export function myCommits(path: string, me: Person) {
 
 /**
  * The commits in a `git log --numstat` of `key`, authored at or after `since` (git's own --since is the committer date),
- * each once. Lines count without lockfiles, binary files and generated-size changes.
+ * each once (`seen`: the shas already taken, by this log or an earlier repo's). Lines count without lockfiles, binary
+ * files and generated-size changes.
  */
 export function parseLog(
   out: string,
   key: string,
   since: Date,
-  me: Person
+  me: Person,
+  seen = new Set<string>()
 ): SourceEvent[] {
-  const seen = new Set<string>();
   return out
     .split(RS)
     .slice(1)
@@ -183,7 +184,9 @@ export function parseLog(
 
 /**
  * Every commit since `since` in every repo of `root`, all branches, no merges: his in any repo, other authors' too in
- * the ones mapped to a project. A repo whose log fails is logged and skipped; an unreadable `root` throws.
+ * the ones mapped to a project. A commit in two clones of one repo counts once, in the first that has it: a repo mapped
+ * to a project before one that isn't, then by key. A repo whose log fails is logged and skipped; an unreadable `root`
+ * throws.
  * ponytail: a rebased commit already pushed can count twice (an old sha stays on a remote-tracking ref); every repo is
  * scanned even when only one unit is wanted (`fetch`).
  */
@@ -193,12 +196,19 @@ export function readGit(
   me: Person,
   root = WORK
 ): SourceEvent[] {
-  return listRepos(root).flatMap(({ key, path }) => {
+  const seen = new Set<string>();
+  const mapped = (key: string) => Boolean(repos.get(key)?.project);
+  const ordered = listRepos(root).toSorted(
+    (a, b) =>
+      Number(mapped(b.key)) - Number(mapped(a.key)) ||
+      a.key.localeCompare(b.key)
+  );
+  return ordered.flatMap(({ key, path }) => {
     const out = git(path, [
       "log",
       "--all",
       "--no-merges",
-      ...(repos.get(key)?.project ? [] : mine(me)),
+      ...(mapped(key) ? [] : mine(me)),
       `--since=${since.toISOString()}`,
       "--numstat",
       `--format=${RS}%H${US}%aI${US}%ae${US}%an${US}%s`,
@@ -211,6 +221,6 @@ export function readGit(
       });
       return [];
     }
-    return parseLog(out.stdout.toString(), key, since, me);
+    return parseLog(out.stdout.toString(), key, since, me, seen);
   });
 }

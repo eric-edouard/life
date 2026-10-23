@@ -45,7 +45,6 @@ import {
   messageUnits,
   normalizeTopics,
   oneToOne,
-  repoUnits,
   speakerOf,
   syncLifelogUnits,
   unitId,
@@ -426,11 +425,14 @@ test("a repo-day is a unit: commits and lines in the title, the subjects as summ
     text: `Change ${n}`,
     ...over,
   });
-  const [b] = repoUnits([
-    commit(1, {}),
-    commit(2, { fromMe: false, sender: "Jérôme" }),
-    commit(3, { fromMe: false, sender: "Jérôme" }),
-  ]);
+  const [b] = messageUnits(
+    [
+      commit(1, {}),
+      commit(2, { fromMe: false, sender: "Jérôme" }),
+      commit(3, { fromMe: false, sender: "Jérôme" }),
+    ],
+    () => null
+  );
   expect(b?.unit).toMatchObject({
     id: unitId("git", "photo-app", "2026-10-09"),
     key: "photo-app",
