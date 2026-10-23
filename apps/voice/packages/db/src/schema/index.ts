@@ -93,7 +93,7 @@ export const editSources = ["owner", "ai"] as const;
 
 // Transcription job lifecycle (jobs.ts). Shared with the client through the OpenAPI document.
 //   queued      admitted, waiting for the worker (or its next attempt not due yet)
-//   submitted   sent to ElevenLabs (requestSentAt), waiting for its transcript
+//   submitted   sent to ElevenLabs or the speech service (requestSentAt), waiting for its transcript
 //   completed   transcript stored
 //   failed      never sent again: the audio was refused or left the bucket, or a send that may
 //               have been billed went unanswered for a day. Its pages stay its own.
@@ -104,6 +104,11 @@ export const jobStates = [
   "failed",
 ] as const;
 export type JobState = (typeof jobStates)[number];
+
+// Who transcribes a block: ElevenLabs Scribe whole, or the speech service with Scribe for the turns
+// it routes (route-turns.ts). The owner's switch picks it; a job keeps the one it was sent with.
+export const transcribers = ["scribe", "speech"] as const;
+export type Transcriber = (typeof transcribers)[number];
 
 export interface TranscriptionSettings {
   keyterms: string[];
@@ -184,6 +189,9 @@ export const transcriptionJobs = sqliteTable(
     settingsHash: text("settings_hash").notNull(),
     sourceId: text("source_id"),
     state: text("state", { enum: jobStates }).notNull().default("queued"),
+    transcriber: text("transcriber", { enum: transcribers })
+      .notNull()
+      .default("scribe"),
     updatedAt,
   },
   (t) => [
@@ -603,6 +611,9 @@ export const processingSwitches = sqliteTable("processing_switches", {
   // Minutes the Pendant's audio may wait on the phone before the server asks the owner to open
   // the app (latency.ts); 0 is off. Its default is `switches.ts` DEFAULTS.
   openAppAfterMinutes: integer("open_app_after_minutes").notNull(),
+  transcriber: text("transcriber", { enum: transcribers })
+    .notNull()
+    .default("scribe"),
   transcription: boolean("transcription").notNull(),
   updatedAt: instant("updated_at").notNull().$defaultFn(now),
 });

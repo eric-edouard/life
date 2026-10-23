@@ -75,7 +75,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Life for iPhone | The iPhone app (`apps/ios`), with its Watch app and widgets: drains the recorder, keeps every page, uploads speech. Shown as Life; its stored ids still say lifelog. | |
 | recorder | The wearable that hears the owner's day: a Limitless Pendant or an Omi. | |
 | voice server | `apps/voice`: takes the phone's speech, transcribes it, groups it into conversations and speakers, one SQLite archive. Was lifelog's server. | |
-| speech service | `apps/speech`: audio in, numbers out (speaker embeddings today; language, diarization and words in step 2), nothing stored. | |
+| speech service | `apps/speech`: audio in, numbers out (speaker embeddings, and a block's speaker turns, language per turn and words), nothing stored. | |
+| transcriber | Who transcribes a block: `scribe` (ElevenLabs Scribe, whole) or `speech` (the speech service, Scribe for the turns it routes). The owner's switch picks it; a job keeps the one it was sent with. | |
+| routed turn | A speaker turn the speech service leaves to Scribe: neither English nor French, or no words from it. | |
 | dictation sensor | `apps/dictation`'s helper: tells the voice server when the owner dictates to the Mac, so that audio is never processed; runs the voice server's model calls on his subscription. | inside Life.app (step 9) |
 | Voice Host | The menu-bar app that runs the voice server and the dictation sensor on a Mac (`apps/dictation`). | retired (step 9) |
 | transcription bench | `apps/transcription-bench`: Scribe against open models on the owner's clips, hand-run. Not the bench, which measures Life's model steps. | |
@@ -87,6 +89,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Past calendar | The calendar Life writes every moment that happened to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
+| headless | Life without the app: `bun life headless` keeps the archive and the watcher running and ticks the nightly, a server container's command (`host/headless.ts`). | |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks, delivers them and syncs the board. | |
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |

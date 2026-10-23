@@ -78,6 +78,9 @@ One Python service does all of it: speaker embeddings, VoxLingua107, Nemotron di
   clips; the numbers go to the bench write-up, never his audio). The CPU proof of concept that produced them (one
   script per model, the box run, its lockfile) is in his notes beside the clips, `lifelog/stt-bench/cpu/`: a reference
   for the CPU runtime, not code to copy (it loads each model in three scripts).
+- Landed (`apps/speech`, `POST /transcribe`): the runtimes differ in Parakeet only (onnx-asr fp32 or MLX); Nemotron
+  runs through Transformers on both, not NeMo-Speech.cpp, which would need its binary installed beside the service
+  for 0.4 points of speakers (8.5% against 8.9%). The models sit in a volume, fetched at the first start.
 
 ### 3. Transcription moves to the speech service
 
@@ -88,6 +91,9 @@ One Python service does all of it: speaker embeddings, VoxLingua107, Nemotron di
   dictation is still cut before any model hears it.
 - Done when: a day of real speech runs with the switch on, on the Mac route, and the owner's spot check of a few
   conversations finds nothing worse.
+- Landed: the switch is `transcriber` (`scribe` | `speech`, `PUT /switches`, shown in the status and the feed),
+  `scribe` by default; the rule is `apps/voice/src/route-turns.ts`, the flow `docs/voice/processing.md`, "Who
+  transcribes". Left: the day with it on (it needs a Voice Host build with the new service, and the owner's yes).
 
 ### 4. Life stops depending on lifelog's summaries
 
@@ -111,6 +117,10 @@ list, and the cutover date for the new units.
 - Life's own OAuth issuer serves the connector on the server.
 - Done when: a copy of the data runs a full night (sweep, moments, extraction, pages, the nightly email) in a
   container on Linux, and the connector answers.
+- Built (23 Oct): `bun life headless` (the container's command), Linux paths and Mac-only capabilities in
+  `platform.ts`, `openrouter` as an engine (DeepSeek V4.1 Flash, zero retention, the default on Linux), the server's
+  keys in `LIFE_STATE_DIR/secrets.env`, locks that survive a container's restart. Network sources are their own
+  session's.
 
 ### 6. The Mac companion
 

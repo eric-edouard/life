@@ -1,16 +1,37 @@
 # apps/speech
 
-An optional Python service (SpeechBrain ECAPA, CPU): voice excerpts in, embeddings out. Voice Host ships these
-files and installs and runs them on the owner's Mac (`apps/dictation/README.md`); a change to `uv.lock` reaches it with
-the next Host build. The server calls it when
-`IDENTITY_URL` and `IDENTITY_SECRET` are set (`docs/voice/providers.md`). Its endpoints are listed at
-the top of `app.py`. Audio stays in memory for one request and is never written or logged.
+The speech service (Python): audio in, numbers out, nothing stored. Speaker embeddings (SpeechBrain ECAPA) for the
+voice server's recognition, and a block's speaker turns (Nemotron 3), language per turn (VoxLingua107) and words
+(Parakeet Ultra) for its transcription (`docs/voice/processing.md`, "Who transcribes"). Its endpoints are listed at
+the top of `app.py`. Audio stays in memory for one request and is never written or logged. Voice Host ships these
+files and installs and runs them on the owner's Mac (`apps/dictation/README.md`); a change to `uv.lock` reaches it
+with the next Host build. The server calls it when `IDENTITY_URL` and `IDENTITY_SECRET` are set
+(`docs/voice/providers.md`).
 
-It uses `uv` with Python 3.12, and torch comes from the CPU-only index set in `pyproject.toml`. The gate only
-byte-compiles the files; the real test needs the model and runs in the Docker build. Run it yourself before pushing:
+## Invariants
+
+- **One contract, two Parakeet runtimes**, picked by the host with `SPEECH_RUNTIME` (mlx on macOS, onnx elsewhere),
+  each a class with `tokens(samples)` in `PARAKEETS`. Nothing else branches on the runtime. ONNX is fp32: every int8
+  export drops up to 87% of the words (`docs/voice/research/transcription-bench.md`).
+- **Every model is pinned** to a revision in `MODELS` and loaded once per process; one worker thread runs them.
+- **Routing is the voice server's** (`apps/voice/src/route-turns.ts`): the service answers what it heard, nothing
+  about Scribe.
+
+## Running and testing
+
+It uses `uv` with Python 3.12; torch comes from the CPU-only index on Linux. `test_contract.py` needs no models and
+no dependencies, and the gate runs it with any `python3`. `test_app.py` needs the models (a made-up two-voice clip,
+`fixtures/two-voices.ogg`, made with macOS `say`); run it before pushing a change to the models or their code:
 
 ```bash
 cd apps/speech && uv sync
-MODEL_DIR=/tmp/ecapa uv run python app.py download   # once; the default MODEL_DIR is the image's
-MODEL_DIR=/tmp/ecapa uv run python -m unittest -v
+MODEL_DIR=/tmp/speech uv run python app.py download   # once; the image's MODEL_DIR is its /models volume
+MODEL_DIR=/tmp/speech uv run python -m unittest -v test_app
 ```
+
+In Docker: `docker build -t speech apps/speech`, then `docker run -v speech-models:/models -e IDENTITY_SECRET=…
+speech` (the first start fetches about 3 GB), and the real test with `docker run --rm -v speech-models:/models speech
+python -m unittest -v test_app`. `THREADS` caps torch's and onnxruntime's threads (all cores by default).
+
+The bench scores the service like any model: `SPEECH_URL=… IDENTITY_SECRET=… bun run --cwd
+apps/transcription-bench bench service <name>`, then `bench score`.

@@ -5,25 +5,31 @@ import { off } from "../../core/outputs";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check-page";
-import { LOCAL_PORT, PUBLIC_PORT, text } from "./http";
+import { LOCAL_PORT, PUBLIC_HOST, PUBLIC_PORT, text } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
 import { createSignIn, keyRefusal } from "./signin";
 import { createStatusPage, createStatusReads } from "./status-reads";
 
-// The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
+// The watcher's one HTTP server, on loopback (the public port where `LIFE_LISTEN_HOST` says); a tunnel forwards the
+// `connector` setting's origin to it.
 
 /**
- * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
- * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, `/health`,
- * the check page (`check-page.ts`), the status page (`status-reads.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
+ * Serves on loopback (the public port where `PUBLIC_HOST` says), bodies up to 256 KiB: the app's status reads on
+ * `LOCAL_PORT`, by its local key, always; and with the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards
+ * its origin) the connector, its issuer, `/health`, the check page (`check-page.ts`), the status page
+ * (`status-reads.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
  * public port. 404 for any other path.
  */
 export function serve() {
   // The app's port taken (another install's watcher) only leaves the app without its status; the public one never waits on it.
   try {
-    listen(LOCAL_PORT, createStatusReads(keyRefusal()).notFound(notFound));
+    listen(
+      "127.0.0.1",
+      LOCAL_PORT,
+      createStatusReads(keyRefusal()).notFound(notFound)
+    );
   } catch (e) {
     console.error(
       `Life: 127.0.0.1:${LOCAL_PORT} is off: ${(e as Error).message}`
@@ -34,23 +40,23 @@ export function serve() {
     console.log(`${why}: /mcp, /check, /status and /me are off`);
     return;
   }
-  listen(PUBLIC_PORT, signedIn());
+  listen(PUBLIC_HOST, PUBLIC_PORT, signedIn());
 }
 
 /** Any path a port's app has no route for (a route that serves nothing, `/me`'s, answers the same). */
 const notFound = () => new Response("not found", { status: 404 });
 
-/** One listener on loopback, for `app`'s routes; a port it can't take throws. */
-function listen(port: number, app: Hono) {
+/** One listener, for `app`'s routes; a port it can't take throws. */
+function listen(hostname: string, port: number, app: Hono) {
   Bun.serve({
     // No stack traces or source in an error page: much of this answers before sign-in.
     development: false,
     fetch: app.fetch,
-    hostname: "127.0.0.1",
+    hostname,
     maxRequestBodySize: 256 * 1024,
     port,
   });
-  console.log(`Life: listening on 127.0.0.1:${port}`);
+  console.log(`Life: listening on ${hostname}:${port}`);
 }
 
 /**
