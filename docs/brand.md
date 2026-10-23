@@ -5,7 +5,7 @@
 The image is a visual reference; the exact values are the brand guide's and `assets/brand/tokens.css`'s.
 
 A private memory. Calm by nature, personal by design. Everything Life shows follows this page: the nightly email,
-`/check`, `/me`, the pairing page, the app (menu-bar panel, status window, settings, first run) and the icons.
+`/check`, `/status`, `/me`, the pairing page, the app (menu-bar panel, status window, settings, first run) and the icons.
 
 ## The values
 
@@ -14,7 +14,7 @@ can't read CSS variables copy its values, and `scripts/brand.test.ts` fails when
 
 | Surface | How it takes the tokens |
 | --- | --- |
-| `/check` | `assets/check/index.html` links `tokens.css` (served at `/check/tokens.css`, `apps/server/src/host/http/check-page.ts`) before `check.css` |
+| `/check`, `/status` | `assets/check/index.html` and `assets/status/index.html` link `tokens.css` (served beside each page, `serveAssets` in `apps/server/src/host/http/http.ts`) before their own CSS |
 | `/me` password page, pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`apps/server/src/host/http/portrait.ts`, `apps/server/src/host/http/oauth.ts`) |
 | Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
 | The app | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`, copied, light and dark |

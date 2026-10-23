@@ -91,6 +91,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |
+| status page | The status snapshot in a browser, `/status/` on the public port behind the owner's sign-in: how a server install is watched. | |
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory`, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write; `search` and `fetch` keep ChatGPT's names. | |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `moment.ts`, `ledger-entry.ts`…). | |

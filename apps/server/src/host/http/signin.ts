@@ -5,11 +5,12 @@ import { connector } from "../../core/settings";
 import { SCOPE, UNREACHABLE, type Verify } from "./auth";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
 
-// The owner's sign-in for /check/: the connector's OAuth server with PKCE, the
-// token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.
-// The callback stays /check/callback, the one redirect the issuer knows for this client.
+// The owner's sign-in for his pages (/check/, /status/): the connector's OAuth server with PKCE, the token in an
+// HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token. The callback
+// stays /check/callback, the one redirect the issuer knows for this client; it goes back to the page that sent him.
 
 const LOGIN = "__Host-life-login";
+const PAGE_PATH = /^\/[\w-]+\/$/;
 const LOGIN_MAX_S = 600;
 /** The issuer's refresh token, when it gives one: the session is renewed with it, no sign-in again each hour. */
 const REFRESH = "__Host-life-refresh";
@@ -31,8 +32,8 @@ export type Exchange = (url: string, init: RequestInit) => Promise<Response>;
 export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
   const { client, issuer, origin, resource } = connector();
   const CALLBACK = `${origin}/check/callback`;
-  /** Off to lifelog's sign-in (silent once he is signed in there and consented), with PKCE; back to /check/ after. */
-  function login() {
+  /** Off to the issuer's sign-in (silent once he is signed in there and consented), with PKCE; back to `page` after. */
+  function login(page = "/check/") {
     const state = randomBytes(16).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
     const url = new URL(`${issuer}/oauth2/authorize`);
@@ -47,13 +48,18 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       state,
     }).toString();
     return redirect(url.toString(), [
-      cookie(LOGIN, `${state}.${verifier}`, LOGIN_MAX_S),
+      cookie(
+        LOGIN,
+        `${state}.${verifier}.${encodeURIComponent(page)}`,
+        LOGIN_MAX_S
+      ),
     ]);
   }
 
   /** Back from lifelog: the code is traded for a token, which must be the owner's before it becomes the session. */
   async function callback(req: Request, url: URL) {
-    const [state, verifier] = (cookieOf(req, LOGIN) ?? "").split(".");
+    const [state, verifier, page] = (cookieOf(req, LOGIN) ?? "").split(".");
+    const back = decodeURIComponent(page ?? "");
     const code = url.searchParams.get("code");
     if (
       !(state && verifier && code) ||
@@ -77,7 +83,8 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (token === "refused") {
       return text("Not signed in as the owner.", 403);
     }
-    return redirect("/check/", [
+    // Only a page of this site: a path, never `//host`.
+    return redirect(PAGE_PATH.test(back) ? back : "/check/", [
       ...sessionCookies(token),
       cookie(LOGIN, "", 0),
     ]);
@@ -106,7 +113,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     // being away, is kept: renew answered 503 then).
     const dropped = renewed === "refused" ? [cookie(REFRESH, "", 0)] : [];
     if (page) {
-      const answer = login();
+      const answer = login(new URL(req.url).pathname);
       for (const c of dropped) {
         answer.headers.append("set-cookie", c);
       }

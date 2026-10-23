@@ -8,6 +8,7 @@ import { LIFE_STATE_DIR, TEST } from "./paths";
 // docs/plans/2026-10-22-platforms.md). Linux is not a target. Sources that exist only on the Mac say so in their
 // descriptor (`macOnly`); their stores' paths stay with their readers.
 
+export const MAC = process.platform === "darwin";
 export const WINDOWS = process.platform === "win32";
 
 /** A relative path with `/` between its parts, as git, an export and a test name it on every system. */

@@ -2,6 +2,7 @@
 // no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Hono } from "hono";
 import { LIFE_CODE_DIR } from "../../core/paths";
 
 /** Life's brand tokens (assets/brand/tokens.css), for the pages that inline their styles. */
@@ -17,6 +18,20 @@ export const HEADERS = {
   "referrer-policy": "same-origin",
   "x-content-type-options": "nosniff",
 };
+
+/** Serves a page's files on `app`, by path, from `assets/` (behind whatever gate `app` already has). */
+export function serveAssets(app: Hono, files: Record<string, string>) {
+  for (const [path, file] of Object.entries(files)) {
+    app.get(
+      path,
+      () =>
+        new Response(Bun.file(join(LIFE_CODE_DIR, "assets", file)), {
+          headers: HEADERS,
+        })
+    );
+  }
+  return app;
+}
 
 /** The owner's session cookie, set by the sign-in (`signin.ts`). */
 export const SESSION = "__Host-life";

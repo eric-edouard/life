@@ -6,8 +6,9 @@ import type { Call } from "../../core/log";
 import { isAgent, type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
+import { MAC } from "../../core/platform";
 import { git } from "../../core/proc";
-import { agentName, settings } from "../../core/settings";
+import { agentName, connector, settings } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
 import {
   CORRECTIONS,
@@ -241,7 +242,8 @@ export const GROUPS = [
   { id: "pipeline", name: "Pipeline" },
   { id: "memory", name: "Memory" },
   { id: "outputs", name: "Outputs" },
-  { id: "mac", name: "The Mac" },
+  // The machine Life runs on: the Mac, or a server (its id stays "mac", which Life.app reads).
+  { id: "mac", name: MAC ? "The Mac" : "The server" },
 ] as const;
 
 /** A run that recorded any use: runs from before 21 Oct have no tokens and no readings. */
@@ -281,6 +283,20 @@ const newestOf = async () =>
     )
   );
 
+/**
+ * What the connector's public address answers now: its tunnel (Cloudflare or Tailscale) reaches this server's
+ * `/health` (`server.ts`); 0 when nothing answered; null with no connector.
+ */
+const reachedStatus = () =>
+  isOn("connector")
+    ? fetch(`${connector().origin}/health`, {
+        signal: AbortSignal.timeout(10_000),
+      }).then(
+        (res) => res.status,
+        () => 0
+      )
+    : null;
+
 /** Every read the status snapshot is made of, each cached for as long as it may lag. */
 async function reads(now: Date) {
   const t = now.getTime();
@@ -300,6 +316,7 @@ async function reads(now: Date) {
     actions,
     actionChecks,
     newest,
+    reached,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
     cached("log", 5000, () => recentEvents<LogLine>(8, "")),
@@ -327,6 +344,7 @@ async function reads(now: Date) {
     cached("actions", 15_000, readLedger),
     cached("actionChecks", MIN, checks),
     newestOf(),
+    cached("reached", MIN, reachedStatus),
   ]);
   const of = (kind: string, days: number) =>
     since(
@@ -352,6 +370,7 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
+    reached,
     sent: of("email.sent", 2),
     sleepList,
     status,
@@ -418,11 +437,31 @@ function pendantCard(r: Reads, d: Descriptor): Card {
   };
 }
 
+type Queue = NonNullable<
+  Extract<Reads["life"], { ok: true }>["value"]["pipeline"]
+>["transcription"];
+
+/** The voice server's transcription queue, as it last said. */
+const queueFacts = (q: Queue | undefined): Fact[] => [
+  {
+    label: "Waiting to transcribe",
+    value: q
+      ? `${q.waiting.blocks} blocks, ${Math.round(q.waiting.seconds / 60)} min`
+      : "?",
+  },
+  { at: q?.lastTranscriptAt, label: "Last transcript" },
+  {
+    label: "Transcriptions failed today",
+    value: q ? String(q.failedLast24h) : "?",
+  },
+];
+
 function lifelogCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
   const backlog = r.life.ok
     ? r.life.value.phoneHeartbeat?.backlog?.pages
     : undefined;
+  const queue = r.life.ok ? r.life.value.pipeline?.transcription : undefined;
   return {
     ...firstOf(
       [
@@ -449,11 +488,39 @@ function lifelogCard(r: Reads): Card {
         label: "Phone backlog",
         value: r.life.ok ? `${backlog ?? "?"} pages` : "unreachable",
       },
+      ...queueFacts(queue),
     ],
     group: "sources",
     headline: r.health?.lastOkAt ? "polling" : "never polled",
     id: "lifelog",
-    name: "lifelog server",
+    name: "Voice server",
+  };
+}
+
+/** The speech service (apps/speech), as the voice server last heard from it. */
+function speechCard(r: Reads): Card {
+  const s = r.life.ok ? r.life.value.identity : undefined;
+  return {
+    ...firstOf(
+      [!r.life.ok, { tone: "idle", word: "unknown" }],
+      [!s?.configured, { tone: "idle", word: "off" }],
+      [
+        !!s?.lastError && !s.lastOkAt,
+        {
+          ask: ASK("the speech service failing"),
+          tone: "bad",
+          word: "failing",
+        },
+      ],
+      [!!s?.lastOkAt, { tone: "ok", word: "answering" }],
+      [true, { tone: "idle", word: "not asked yet" }]
+    ),
+    content: s?.lastError ? [`Error: ${s.lastError}`] : undefined,
+    facts: [{ at: s?.lastOkAt, label: "Last answer" }],
+    group: "sources",
+    headline: s?.configured ? "set up" : "not set up",
+    id: "speech",
+    name: "Speech service",
   };
 }
 
@@ -513,7 +580,7 @@ function sourceCards(r: Reads): Card[] {
         return [unreadableCard(d, why)];
       }
       return d.kind === "voice"
-        ? [pendantCard(r, d), lifelogCard(r)]
+        ? [pendantCard(r, d), lifelogCard(r), speechCard(r)]
         : [sourceCard(r, d)];
     }),
     {
@@ -538,7 +605,6 @@ function sourceCards(r: Reads): Card[] {
 function captureCards(r: Reads): Card[] {
   const archiveUp = serviceOf(r, "archive")?.running;
   const watching = serviceOf(r, "watch")?.running;
-  const tunnel = serviceOf(r, "cloudflared");
   const calls = since(r.mcp, DAY, r.t);
   const asksToday = r.actions.filter(
     (a) => a.kind === "ask" && r.t - Date.parse(a.at) < DAY
@@ -627,23 +693,27 @@ function captureCards(r: Reads): Card[] {
         : { tone: "idle", word: "off" }),
     },
     {
-      ...(tunnel?.running
-        ? { tone: "ok", word: "up" }
-        : {
-            ask: ASK("that cloudflared is not running"),
+      // Whether the public address reaches this server, whatever carries it.
+      ...firstOf(
+        [r.reached === null, { tone: "idle", word: "off" }],
+        [r.reached === 200, { tone: "ok", word: "up" }],
+        [
+          true,
+          {
+            ask: ASK("that Life's public address does not reach it"),
             tone: "bad",
             word: "down",
-          }),
+          },
+        ]
+      ),
       facts: [
         {
-          label: "cloudflared",
-          value: tunnel?.running ? "running" : (tunnel?.status ?? "?"),
+          label: "Public address answered",
+          value: r.reached ? String(r.reached) : "nothing",
         },
-        // cloudflared's start is its last restart or reboot (tunnel.ts no longer fires: #133).
-        { at: tunnel?.since, label: "Up since" },
       ],
       group: "capture",
-      headline: tunnel?.running ? "connected" : "down",
+      headline: r.reached === 200 ? "reachable" : "unreachable",
       id: "tunnel",
       name: "Tunnel",
     },
@@ -1113,14 +1183,18 @@ function macCards(r: Reads): Card[] {
           }
         : { tone: "ok", word: "online" }),
       facts: [
-        { at: r.mac.awakeSince, label: "Awake since" },
-        { label: "Battery", value: r.mac.battery },
+        { at: r.mac.awakeSince, label: MAC ? "Awake since" : "Up since" },
+        ...(r.mac.battery ? [{ label: "Battery", value: r.mac.battery }] : []),
         { label: "Disk free", value: `${r.mac.freeGb} GB` },
+        {
+          label: "Memory free",
+          value: `${r.mac.memory.freeGb} of ${r.mac.memory.totalGb} GB`,
+        },
       ],
       group: "mac",
       headline: "online",
       id: "mac",
-      name: "MacBook",
+      name: MAC ? "MacBook" : "Server",
     },
     ...r.mac.services.map((sv): Card => {
       const { headline, state } = serviceState(sv);

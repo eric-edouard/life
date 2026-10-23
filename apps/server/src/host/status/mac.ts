@@ -1,34 +1,41 @@
-import { DAY } from "../../core/clock";
+import { statfsSync } from "node:fs";
+import { freemem, totalmem, uptime } from "node:os";
+import { clock, DAY } from "../../core/clock";
 import { holder } from "../../core/lock";
-import { TEST } from "../../core/paths";
+import { LIFE_STATE_DIR, TEST } from "../../core/paths";
+import { MAC } from "../../core/platform";
 import { exec } from "../../core/proc";
 
-// The Mac Life runs on, as the status snapshot shows it (apps/server/src/host/status/snapshot.ts): awake since, battery, disk, the LaunchAgents and
-// cloudflared, and its sleeps of the last day. Read-only.
+// The machine Life runs on, as the status snapshot shows it (apps/server/src/host/status/snapshot.ts): up since, disk
+// and memory, the archive and the watcher; on the Mac also its battery, the LaunchAgents and cloudflared, and its sleeps
+// of the last day (a server has none of those). Read-only.
 
 const WAKE_SEC = /sec = (\d+)/;
-const SPACES = /\s+/;
 const BATTERY = /(\d+)%;\s*([^;]+)/;
 const POWER_LINE =
   /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}) (Sleep|Wake)\s/;
 const ZONE_OFFSET = / ([+-]\d{2})(\d{2})$/;
 const PS_LINE = /^(\d+)\s+(.+)$/;
 
-/** One read of this computer; a test run reads none, as it reads its own data and never this computer's. */
+/** One read of this computer; a test run reads none, as it reads its own data and never this computer's; off the Mac, none. */
 const machine = (cmd: string[], o?: Parameters<typeof exec>[1]) =>
-  TEST
+  TEST || !MAC
     ? Promise.resolve({ code: 0, killed: null, stderr: "", stdout: "" })
     : exec(cmd, o);
 
-/** The services launchd runs; the nightly tick runs every 30 min, so no process between ticks is fine. */
-const SERVICES = [
-  {
-    label: "com.ericedouard.life.memory-nightly",
-    name: "nightly tick",
-    ticks: true,
-  },
-  { label: "com.eric.cloudflared", name: "cloudflared", ticks: false },
-];
+/** The services launchd runs; the nightly tick runs every 30 min, so no process between ticks is fine. None off the Mac. */
+const SERVICES = MAC
+  ? [
+      {
+        label: "com.ericedouard.life.memory-nightly",
+        name: "nightly tick",
+        ticks: true,
+      },
+      { label: "com.eric.cloudflared", name: "cloudflared", ticks: false },
+    ]
+  : [];
+
+const GB = 1e9;
 
 /** When each process started, by pid (`ps`'s local start time). */
 async function startedAt(pids: string[]) {
@@ -51,10 +58,9 @@ async function startedAt(pids: string[]) {
 }
 
 export async function macState() {
-  const [list, batt, disk, wake] = await Promise.all([
+  const [list, batt, wake] = await Promise.all([
     machine(["launchctl", "list"]),
     machine(["pmset", "-g", "batt"]),
-    machine(["df", "-k", "/"]),
     machine(["sysctl", "-n", "kern.waketime"]),
   ]);
   const rows = new Map(
@@ -69,9 +75,12 @@ export async function macState() {
       return pid && pid !== "-" ? [pid] : [];
     })
   );
-  const sec = Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0);
-  const free =
-    Number(disk.stdout.trim().split("\n").at(-1)?.split(SPACES)[3] ?? 0) * 1024;
+  // The Mac's last wake; elsewhere its boot.
+  const sec = MAC
+    ? Number(wake.stdout.match(WAKE_SEC)?.[1] ?? 0)
+    : Math.round(clock().getTime() / 1000 - uptime());
+  // The disk Life's state is on (a server's data volume).
+  const disk = statfsSync(LIFE_STATE_DIR);
   // The archive and the watcher, whoever runs them (launchd or the app): who holds each one's lock (`hold`, lock.ts).
   const held = (["archive", "watch"] as const).map((name) => {
     const h = holder(name);
@@ -85,8 +94,14 @@ export async function macState() {
   });
   return {
     awakeSince: sec ? new Date(sec * 1000).toISOString() : null,
-    battery: batt.stdout.match(BATTERY)?.slice(1, 3).join(", ") ?? "?",
-    freeGb: Math.round(free / 1e9),
+    battery: MAC
+      ? (batt.stdout.match(BATTERY)?.slice(1, 3).join(", ") ?? "?")
+      : null,
+    freeGb: Math.round((disk.bavail * disk.bsize) / GB),
+    memory: {
+      freeGb: Math.round((freemem() / GB) * 10) / 10,
+      totalGb: Math.round(totalmem() / GB),
+    },
     services: [
       ...held,
       ...SERVICES.map((s) => {

@@ -1,18 +1,15 @@
-import { join } from "node:path";
 import { Hono } from "hono";
-import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector } from "../../core/settings";
 import { readRatings, readStatements, recordRating } from "../../memory/ledger";
 import { plain as asOf } from "../../memory/statements";
 import { readPeople } from "../../memory/who";
 import { Rating } from "../../records/statement";
-import { HEADERS, redirect, text } from "./http";
+import { HEADERS, redirect, serveAssets, text } from "./http";
 import type { SignIn } from "./signin";
 
 // The check page (/check/): he rates the statements (memory/statements.jsonl), each answer appended to ratings.jsonl.
 // Behind the owner's sign-in (`signin.ts`); nothing but the sign-in redirects answers before that check.
 
-const ASSETS = join(LIFE_CODE_DIR, "assets");
 const FILES: Record<string, string> = {
   "/check/": "check/index.html",
   "/check/check.css": "check/check.css",
@@ -70,11 +67,5 @@ export function createCheck(signIn: SignIn) {
       await recordRating(a.data.ref, a.data.answer);
       return new Response(null, { headers: HEADERS, status: 204 });
     });
-  for (const [path, file] of Object.entries(FILES)) {
-    app.get(
-      path,
-      () => new Response(Bun.file(join(ASSETS, file)), { headers: HEADERS })
-    );
-  }
-  return app;
+  return serveAssets(app, FILES);
 }

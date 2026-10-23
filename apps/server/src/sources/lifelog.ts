@@ -171,10 +171,18 @@ async function call(
 }
 
 /**
- * What the status snapshot reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
- * The contract leaves both objects untyped, so every field here may be absent or null.
+ * What the status snapshot reads of the voice server's `GET /status`: the Pendant and the phone as the phone last
+ * reported them, its transcription queue, and how the speech service last answered. The contract leaves the first two
+ * untyped, so every field here may be absent or null.
  */
 export const LifelogStatus = z.object({
+  identity: z
+    .object({
+      configured: z.boolean(),
+      lastError: z.string().nullish(),
+      lastOkAt: z.string().nullish(),
+    })
+    .nullish(),
   pendant: z
     .object({
       batteryPercent: z.number().nullish(),
@@ -186,6 +194,15 @@ export const LifelogStatus = z.object({
   phoneHeartbeat: z
     .object({
       backlog: z.object({ pages: z.number().nullish() }).nullish(),
+    })
+    .nullish(),
+  pipeline: z
+    .object({
+      transcription: z.object({
+        failedLast24h: z.number(),
+        lastTranscriptAt: z.string().nullish(),
+        waiting: z.object({ blocks: z.number(), seconds: z.number() }),
+      }),
     })
     .nullish(),
 });

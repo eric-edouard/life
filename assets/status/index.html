@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      name="viewport"
+    >
+    <title>Life · Status</title>
+    <link href="/icon.svg" rel="icon">
+    <link href="./tokens.css" rel="stylesheet">
+    <link href="./status.css" rel="stylesheet">
+    <script src="./status.js" type="module"></script>
+  </head>
+  <body>
+    <header>
+      <p class="eyebrow">Life · status</p>
+      <h1 id="verdict">Reading…</h1>
+      <p class="quiet" id="observed" role="status"></p>
+      <label class="toggle"
+        ><input id="content" type="checkbox">
+        Show content</label
+      >
+    </header>
+    <section aria-label="Needs you" id="trouble"></section>
+    <main id="groups"></main>
+  </body>
+</html>

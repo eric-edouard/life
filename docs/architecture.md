@@ -176,6 +176,10 @@ Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
   `wrong` correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
   appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
   verdicts out.
+- **The status page** (`apps/server/src/host/http/status-reads.ts`, `/status/`) draws the status snapshot, the same
+  reads Life.app has on the local port, behind the same sign-in as the check page. The sign-in goes back to the page
+  that sent the owner. `/health` answers `ok` and nothing else, before any sign-in: the container's healthcheck and the
+  tunnel card's probe.
 - **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
   `OWNER_DATA_DIR/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
   `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player

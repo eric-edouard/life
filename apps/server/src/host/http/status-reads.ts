@@ -1,16 +1,18 @@
 import { Hono } from "hono";
 import { snapshot } from "../status/snapshot";
 import { detail, runDetail } from "../status/snapshot-detail";
-import { HEADERS, text } from "./http";
+import { HEADERS, redirect, serveAssets, text } from "./http";
+import type { SignIn } from "./signin";
 
-// The app's status reads (`/status/` on the local port, behind its key): the status snapshot (`snapshot.ts`), a card's detail and a
-// run (`snapshot-detail.ts`), as JSON for Life.app's native window and menu. Read-only: it changes nothing, sends nothing.
+// The status reads: the status snapshot (`snapshot.ts`), a card's detail and a run (`snapshot-detail.ts`), as JSON:
+// for Life.app's native window and menu on the local port, behind its key; and for the status page (`/status/`, the
+// same JSON drawn in a browser) on the public port, behind the owner's sign-in. Read-only: it changes nothing, sends nothing.
 
 const json = (body: unknown) => Response.json(body, { headers: HEADERS });
 
 const CARD = "/status/card/";
 
-/** The reads behind `refusal` (`keyRefusal`: the local key the app holds). */
+/** The reads behind `refusal` (`keyRefusal`: the local key the app holds; or the owner's sign-in). */
 export function createStatusReads(
   refusal: (req: Request) => Promise<Response | null>
 ) {
@@ -38,4 +40,17 @@ export function createStatusReads(
         return run ? json(run) : text("no such run", 404);
       })
   );
+}
+
+/** The status page (`assets/status/`) and its reads, behind the owner's sign-in: the page itself sends him to it. */
+export function createStatusPage(signIn: SignIn) {
+  const app = createStatusReads((req) =>
+    signIn.refusal(req, new URL(req.url).pathname === "/status/")
+  ).get("/status", () => redirect("/status/"));
+  return serveAssets(app, {
+    "/status/": "status/index.html",
+    "/status/status.css": "status/status.css",
+    "/status/status.js": "status/status.js",
+    "/status/tokens.css": "brand/tokens.css",
+  });
 }

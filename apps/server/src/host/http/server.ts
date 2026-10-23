@@ -5,19 +5,19 @@ import { off } from "../../core/outputs";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check-page";
-import { LOCAL_PORT, PUBLIC_PORT } from "./http";
+import { LOCAL_PORT, PUBLIC_PORT, text } from "./http";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
 import { createSignIn, keyRefusal } from "./signin";
-import { createStatusReads } from "./status-reads";
+import { createStatusPage, createStatusReads } from "./status-reads";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
 /**
  * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
- * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the check
- * page (`check-page.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
+ * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, `/health`,
+ * the check page (`check-page.ts`), the status page (`status-reads.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
  * public port. 404 for any other path.
  */
 export function serve() {
@@ -31,7 +31,7 @@ export function serve() {
   }
   const why = off("connector");
   if (why) {
-    console.log(`${why}: /mcp, /check and /me are off`);
+    console.log(`${why}: /mcp, /check, /status and /me are off`);
     return;
   }
   listen(PUBLIC_PORT, signedIn());
@@ -53,7 +53,10 @@ function listen(port: number, app: Hono) {
   console.log(`Life: listening on 127.0.0.1:${port}`);
 }
 
-/** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */
+/**
+ * The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check, /status and /me. `/health`
+ * says only that this server answers (the container's healthcheck, the tunnel card's probe).
+ */
 export function signedIn() {
   const { issuer, origin, own, owner, resource } = connector();
   const life = own ? createIssuer(origin, resource) : null;
@@ -79,13 +82,14 @@ export function signedIn() {
       ? async (url: string, init: RequestInit) => life.app.request(url, init)
       : fetch
   );
-  const app = new Hono();
+  const app = new Hono().get("/health", () => text("ok", 200));
   if (life) {
     app.route("/", life.app);
   }
   return app
     .route("/", mcp)
     .route("/", createCheck(signIn))
+    .route("/", createStatusPage(signIn))
     .route("/", createPortrait())
     .notFound(notFound);
 }

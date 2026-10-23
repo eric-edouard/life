@@ -169,12 +169,14 @@ snapshot must date it and mark it stale, and where it is stored is a separate de
 Life.app's status window and menu-bar panel (`apps/mac/Sources/LifeApp/`): Life's architecture as live cards,
 native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no connector tool.
 
-- **Code.** `apps/server/src/host/status/snapshot.ts` reads every part (sources, capture, pipeline, memory, outputs, the Mac) into cards
+- **Code.** `apps/server/src/host/status/snapshot.ts` reads every part (sources, capture, pipeline, memory, outputs, the machine: the Mac or a server) into cards
   (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
-  source's own module), the Mac's probes are `apps/server/src/host/status/mac.ts`. `apps/server/src/host/status/snapshot-detail.ts` gives a card's history and log lines
+  source's own module), the machine's probes are `apps/server/src/host/status/mac.ts` (disk and memory everywhere; battery, LaunchAgents and sleeps on the Mac only), and the tunnel card asks the connector's public address for `/health`. `apps/server/src/host/status/snapshot-detail.ts` gives a card's history and log lines
   (`detail`) and a run's steps and what it wrote (`runDetail`, from `read_processing_runs` and `read_memory_changes`). `apps/server/src/host/http/status-reads.ts` serves
   them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
   key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.
+  The status page (`assets/status/`, `createStatusPage`) serves the same reads on the public port at `/status/`, behind
+  the owner's sign-in instead of the key, and draws them every 15 s: a server install's status window.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
   Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
