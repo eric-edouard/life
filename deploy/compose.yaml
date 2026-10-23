@@ -21,6 +21,8 @@ services:
     environment:
       # The connector's port on the Compose network, for the tunnel; the status reads' port stays on loopback.
       LIFE_LISTEN_HOST: 0.0.0.0
+      # gog's and git's own files (Google's keys, credentials) live on the volume too.
+      HOME: /data
       LIFE_OWNER_DATA_DIR: /data/owner
       LIFE_STATE_DIR: /data/state
       XDG_DATA_HOME: /data/machine
