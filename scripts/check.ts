@@ -1,6 +1,10 @@
 // `bun run check`: the single quality gate. Runs every step concurrently and fails fast.
 import { rm } from "node:fs/promises";
 import process from "node:process";
+import { hold } from "@life/server/src/core/lock";
+
+// One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
+await hold("check", process.cwd(), 5000);
 
 const steps: Record<string, string[]> = {
   biome: ["bun", "x", "--bun", "ultracite", "check"],
