@@ -5,7 +5,8 @@ and your Google Tasks. On a Mac none of this is needed; Life reads Mail.app's st
 are. Each part is optional and costs nothing but the account access it names.
 
 Settings go in the server's `settings.json` with `bun life settings set`, as on a Mac ([settings](settings.md)).
-Secrets never do: put each one in the server's environment file (the Compose's 0600 env file), then restart Life.
+Secrets never do: each `NAME=value` line below goes in Life's keys file, `secrets.env` in its state folder (the setup
+pages write it), and Life restarts its services when it changes.
 
 ## Mail
 

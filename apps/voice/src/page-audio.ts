@@ -89,29 +89,32 @@ function started() {
       call?.resolve(data.labels);
     }
   };
-  // A crash or an exit settles every call waiting on it, so none hangs and the chain goes on.
-  const ended = (why: string) => {
-    if (worker !== w) {
-      return;
-    }
-    for (const call of waiting.values()) {
-      call.reject(new Error(`VAD worker: ${why}`));
-    }
-    waiting.clear();
-    worker = undefined;
-    lives += 1;
-    // A crash may leave it running: it is ended for good.
-    w.terminate();
-  };
-  w.onerror = (event) => ended(event.message);
-  w.addEventListener("close", () => ended("it exited"));
+  w.onerror = (event) => ended(w, event.message);
+  w.addEventListener("close", () => ended(w, "it exited"));
   worker = w;
   return w;
 }
 
-// Ends the worker (tests, and nothing else): its calls reject and the next starts a new one.
+// A crash or an exit settles every call waiting on it, so none hangs and the chain goes on.
+function ended(w: Worker, why: string) {
+  if (worker !== w) {
+    return;
+  }
+  for (const call of waiting.values()) {
+    call.reject(new Error(`VAD worker: ${why}`));
+  }
+  waiting.clear();
+  worker = undefined;
+  lives += 1;
+  // A crash may leave it running: it is ended for good.
+  w.terminate();
+}
+
+// Ends the worker (tests, and nothing else), as its exit would, but before stopWorker returns.
 export function stopWorker() {
-  worker?.terminate();
+  if (worker) {
+    ended(worker, "it was stopped");
+  }
 }
 
 // Labels one piece, after every request before it: Silero runs one call at a time.

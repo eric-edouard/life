@@ -2,7 +2,7 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { HOUR, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { AGENT_WORD, type SourceName } from "../core/names";
-import { WINDOWS } from "../core/platform";
+import { MAC } from "../core/platform";
 import { agentName, settings } from "../core/settings";
 import { archiveDb } from "../sources/archived";
 import {
@@ -211,7 +211,7 @@ const LISTED: Descriptor[] = [
 ];
 
 /** Whether its app is on this system: a Mac-only one only on the Mac. */
-const appHere = (s: Descriptor) => !(s.macOnly && WINDOWS);
+const appHere = (s: Descriptor) => !(s.macOnly && !MAC);
 
 export const SOURCES = LISTED.map((s): Descriptor => {
   if (!(s.store || appHere(s))) {

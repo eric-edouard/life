@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR, MIN } from "../core/clock";
 import { log } from "../core/log";
-import { WINDOWS } from "../core/platform";
+import { MAC } from "../core/platform";
 import { ARCHIVED, keptStores } from "../memory/sources";
 import { toAppleS } from "../sources/imessage";
 import { copyWhatsapp } from "../sources/whatsapp";
@@ -100,11 +100,11 @@ test("a message deleted for everyone keeps its text and media in the archive", (
 
 test("only the stores of the sources he turned on are copied and kept open", () => {
   expect(keptStores(["notes", "imessage"]).map((s) => s.name)).toEqual(
-    WINDOWS ? [] : ["notes"]
+    MAC ? ["notes"] : []
   );
   // A Mac-only app is never opened elsewhere; the others are.
   expect(keptStores(["beeper", "notes"]).map((s) => s.name)).toEqual(
-    WINDOWS ? ["beeper"] : ["beeper", "notes"]
+    MAC ? ["beeper", "notes"] : ["beeper"]
   );
   expect(keptStores([])).toEqual([]);
   expect(appsToOpen([], 1e12, new Map(), keptStores(["beeper"]))).toEqual([

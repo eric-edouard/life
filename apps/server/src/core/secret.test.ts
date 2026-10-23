@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { SECRETS, same, secretIn } from "./secret";
+import {
+  existsSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { readSecretEnv, SECRETS, same, secretIn, setSecretEnv } from "./secret";
 
 const KEY = /^[0-9a-f]{64}$/;
 
@@ -31,4 +37,14 @@ test("a key file is made whole once; an empty or broken one is replaced, never u
       writeFileSync(path, before);
     }
   }
+});
+
+test("a server's keys: set some, keep the rest, null removes one; a bad name or a second line is refused", () => {
+  setSecretEnv({ MADE_UP_KEY: "a=b", OTHER_KEY: "x" });
+  setSecretEnv({ OTHER_KEY: null, THIRD_KEY: "y" });
+  expect(readSecretEnv()).toEqual({ MADE_UP_KEY: "a=b", THIRD_KEY: "y" });
+  expect((statSync(SECRETS.env).mode % 0o1000).toString(8)).toBe("600");
+  expect(() => setSecretEnv({ "bad name": "x" })).toThrow("bad name");
+  expect(() => setSecretEnv({ MADE_UP_KEY: "x\nEVIL=1" })).toThrow();
+  expect(readSecretEnv()).toEqual({ MADE_UP_KEY: "a=b", THIRD_KEY: "y" });
 });
