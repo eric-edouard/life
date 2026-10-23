@@ -170,7 +170,7 @@ there): `docs/status-reads.md`.
 
 `bun life headless` (`apps/server/src/host/headless.ts`) is the app's supervisor without the app, a server container's
 command: the archive and the watcher kept running, the nightly tick every 30 minutes, the server's keys
-(`LIFE_STATE_DIR/secrets.env`, `setSecretEnv`) in their environment as the app passes the Keychain's, and every service
+(`LIFE_STATE_DIR/keys/secrets.env`, `setSecretEnv`) in their environment as the app passes the Keychain's, and every service
 started again when the settings or the keys change. The same code runs both routes; what only the Mac has
 (notifications, opening apps, launchd's tunnel restart, the Mac-only sources) is absent on Linux by capability in
 `platform.ts`, never a branch on a name. The engine defaults to the host's (`HOST_ENGINE`): OpenRouter on a server.

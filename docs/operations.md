@@ -43,7 +43,7 @@ sources, the agent, the agents' report senders, the Reminders and Past calendar 
 - `bun life settings` prints it; `bun life settings set '<json>'` replaces parts of it, checked whole before anything is
   written. The app reads and writes settings only through this.
 - Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout, and on a server
-  `LIFE_STATE_DIR/secrets.env` (mode 600, written by `setSecretEnv`, `core/secret.ts`), which `bun life headless`
+  `LIFE_STATE_DIR/keys/secrets.env` (mode 600, written by `setSecretEnv`, `core/secret.ts`), which `bun life headless`
   passes to the services as the app passes the Keychain.
 - A page writes settings with `setSettings` and keys with `setSecretEnv`; `bun life headless` restarts the services
   within about 10 s of either file changing.

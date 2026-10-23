@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { parseEnvFile } from "./env-file";
 import { LIFE_STATE_DIR } from "./paths";
 
 /**
@@ -18,8 +19,11 @@ import { LIFE_STATE_DIR } from "./paths";
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
-  /** A server's keys, `NAME=value` lines (`setSecretEnv`): what the Keychain is to Life.app, read by `bun life headless`. */
-  env: join(LIFE_STATE_DIR, "secrets.env"),
+  /**
+   * A server's keys, `NAME=value` lines (`setSecretEnv`): what the Keychain is to Life.app, read by `bun life headless`;
+   * in a folder of its own, which the voice server's container mounts read-only (`KEYS_FILE`).
+   */
+  env: join(LIFE_STATE_DIR, "keys", "secrets.env"),
   events: join(LIFE_STATE_DIR, "events.json"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
   /** Life's own sign-in: its key, the apps and their tokens. */
@@ -79,7 +83,6 @@ export function secretIn(name: "localKey"): string {
 }
 
 const NAME = /^[A-Z][A-Z0-9_]*$/;
-const LINE = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const BREAK = /[\r\n]/;
 
 /** The server's keys by name (`SECRETS.env`); none when there is no file. */
@@ -87,14 +90,7 @@ export function readSecretEnv(): Record<string, string> {
   if (!existsSync(SECRETS.env)) {
     return {};
   }
-  return Object.fromEntries(
-    readFileSync(SECRETS.env, "utf8")
-      .split("\n")
-      .flatMap((l) => {
-        const m = LINE.exec(l);
-        return m ? [[m[1], m[2]]] : [];
-      })
-  );
+  return parseEnvFile(readFileSync(SECRETS.env, "utf8"));
 }
 
 /**

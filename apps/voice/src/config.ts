@@ -251,6 +251,14 @@ export const authSettings = (config: Config): AuthSettings => ({
 export const loadConfig = (env: Record<string, string | undefined>): Config =>
   Env.parse(env);
 
+/** The config, or the names of the variables it lacks or can't read (never their values). */
+export function configOf(env: Record<string, string | undefined>) {
+  const read = Env.safeParse(env);
+  return read.success
+    ? { config: read.data }
+    : { issues: read.error.issues.map((i) => i.path.join(".")).join(", ") };
+}
+
 // Token hashes (DEVICE_TOKEN_HASH and the others) and audio hashes; `Sha256` is one, as sent.
 export const Sha256 = z.string().regex(/^[0-9a-f]{64}$/);
 export const sha256Hex = (data: string | ArrayBuffer | Uint8Array) =>

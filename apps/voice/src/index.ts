@@ -1,10 +1,12 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { parseEnvFile } from "@life/server/src/core/env-file";
 import { connect, holdArchive, migrateDb } from "@life/voice-db";
 import { intelligenceRuns } from "@life/voice-db/schema";
 import { eq } from "drizzle-orm";
 import { createApp } from "./app";
 import { audioStore } from "./audio-store";
 import { snapshotArchive } from "./backup";
-import { loadConfig, logged } from "./config";
+import { configOf, logged } from "./config";
 import { refreshOwnerTimeZone } from "./diagnostics";
 import { runCommand } from "./export";
 import { regroupDirty } from "./grouping";
@@ -18,7 +20,34 @@ if (command === "export" || command === "import") {
   process.exit(await runCommand(process.argv.slice(2), process.env));
 }
 
-const config = loadConfig(process.env);
+// On a server, the keys Life's setup page writes (KEYS_FILE: Life's keys/secrets.env, mounted read-only) join the
+// environment. A change to the file ends this process, and Docker starts it again with the new keys; until the keys it
+// needs are there, it waits for them rather than starting again and again.
+const keysFile = process.env.KEYS_FILE;
+const keysAt = () =>
+  keysFile && existsSync(keysFile) ? statSync(keysFile).mtimeMs : 0;
+const env = {
+  ...process.env,
+  ...(keysAt() ? parseEnvFile(readFileSync(keysFile as string, "utf8")) : {}),
+};
+if (keysFile) {
+  const seen = keysAt();
+  setInterval(() => {
+    if (keysAt() !== seen) {
+      console.log(`${keysFile} changed: starting again with its keys`);
+      process.exit(0);
+    }
+  }, 5000);
+}
+const read = configOf(env);
+if ("issues" in read) {
+  if (!keysFile) {
+    throw new Error(`missing or unreadable: ${read.issues}`);
+  }
+  console.log(`waiting for its keys in ${keysFile}: ${read.issues}`);
+  await new Promise(() => undefined);
+}
+const config = read.config;
 // Kept referenced until exit: the lock lasts as long as its connection.
 const archiveLock = holdArchive(config.DATABASE_PATH);
 process.on("exit", () => archiveLock.close());
