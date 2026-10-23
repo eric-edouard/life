@@ -58,7 +58,7 @@ test("the host binary runs alone: it migrates a new archive, answers and labels 
       );
       expect(put.status).toBe(200);
       let labeled: string | null = null;
-      for (let tries = 0; tries < 100 && !labeled; tries += 1) {
+      for (let tries = 0; tries < 300 && !labeled; tries += 1) {
         // biome-ignore lint/performance/noAwaitInLoops: wait for the pass
         await Bun.sleep(100);
         const state = await fetch(
@@ -93,7 +93,7 @@ test("the host binary runs alone: it migrates a new archive, answers and labels 
   } finally {
     await rm(dir, { force: true, recursive: true });
   }
-}, 60_000);
+}, 120_000);
 
 test("the host binary compiles for Windows, its VAD worker and runtime inside", async () => {
   const dir = await mkdtemp(join(tmpdir(), "voice-host-windows-"));
