@@ -27,6 +27,7 @@ import { migrateStored, renameStored } from "./migrate";
 // Made-up memory as it was written before the rename: lifelog's chapter units (one on the day the rename runs, one
 // before it), and every record naming the source `lifelog`, beside words that say lifelog and must keep it.
 const TODAY = "2026-10-25";
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const chapter = (id: string, date: string) => ({
   ...unitRecord({ date, id, key: "conv-1", refs: ["conv-1#ch"] }),
   source: "lifelog",
@@ -171,7 +172,7 @@ function dataDir(extra: [string, string][] = []) {
 }
 const read = (dir: string, path: string) =>
   readFileSync(join(dir, path), "utf8");
-const lines = (dir: string, path: string) =>
+const rowsAt = (dir: string, path: string) =>
   read(dir, path)
     .trim()
     .split("\n")
@@ -180,14 +181,14 @@ const lines = (dir: string, path: string) =>
 test("in a data dir: renamed once and recorded with its cutover; run again, nothing moves", async () => {
   const dir = dataDir();
   await migrateStored(dir);
-  const [done] = lines(dir, "memory/migrations.jsonl");
+  const [done] = rowsAt(dir, "memory/migrations.jsonl");
   expect(Migration.parse(done)).toMatchObject({ name: VOICE_STEP });
-  expect(done.cutover).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(done.cutover).toMatch(DATE);
   expect(read(dir, "memory/statements.jsonl")).toContain('"source":"voice"');
   const once = read(dir, "memory/units/2026-10-20.jsonl");
   await migrateStored(dir);
   expect(read(dir, "memory/units/2026-10-20.jsonl")).toBe(once);
-  expect(lines(dir, "memory/migrations.jsonl")).toHaveLength(1);
+  expect(rowsAt(dir, "memory/migrations.jsonl")).toHaveLength(1);
 });
 
 test("a checkout's rename of its own copy never waits for another Life's watcher, and moves the store once, titles blanked", async () => {
@@ -250,7 +251,7 @@ test("a run cut off after the swap is settled: a late line renamed onto the new 
   await migrateStored(dir);
   cpSync(copy, join(dir, "memory.old"), { recursive: true });
   await migrateStored(dir);
-  const all = lines(dir, "memory/statements.jsonl");
+  const all = rowsAt(dir, "memory/statements.jsonl");
   expect(all).toHaveLength(2);
   expect(all[1]).toEqual({
     ...statement,
@@ -267,7 +268,7 @@ test("a memory/ made between the two renames is kept and settled, never dropped"
   mkdirSync(join(dir, "memory"));
   writeFileSync(join(dir, "memory/statements.jsonl"), late);
   await migrateStored(dir);
-  expect(lines(dir, "memory/statements.jsonl")).toHaveLength(2);
+  expect(rowsAt(dir, "memory/statements.jsonl")).toHaveLength(2);
   expect(read(dir, "memory/units/2026-10-20.jsonl")).toContain(
     '"source":"voice"'
   );

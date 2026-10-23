@@ -77,7 +77,7 @@ const unitsIn = (files: Map<string, string>): any[] =>
  * What a run of the rename on `files` does on `today` (a local day): each chapter unit of today's id to its
  * conversation-day's, and the cutover (today, when memory holds lifelog's units; none on an install that never did).
  */
-function plan(files: Map<string, string>, today: string) {
+function planFor(files: Map<string, string>, today: string) {
   const chapters = unitsIn(files).filter((u) => u.source === OLD);
   return {
     cutover: chapters.length > 0 ? today : undefined,
@@ -88,7 +88,7 @@ function plan(files: Map<string, string>, today: string) {
     ),
   };
 }
-type Plan = ReturnType<typeof plan>;
+type Plan = ReturnType<typeof planFor>;
 
 function value(v: unknown, key: string): unknown {
   if (typeof v === "string") {
@@ -113,7 +113,7 @@ function row(path: string, r: Record<string, unknown>, { ids }: Plan) {
   return out;
 }
 
-function file(path: string, text: string, p: Plan) {
+function renamedFile(path: string, text: string, p: Plan) {
   if (isJsonl(path)) {
     return text
       .split("\n")
@@ -139,10 +139,10 @@ function file(path: string, text: string, p: Plan) {
  * plan it followed. Pure.
  */
 export function renameStored(files: Map<string, string>, today: string) {
-  const p = plan(files, today);
+  const p = planFor(files, today);
   const out = new Map<string, string>();
   for (const [path, text] of files) {
-    const next = file(path, text, p);
+    const next = renamedFile(path, text, p);
     if (next !== text) {
       out.set(path, next);
     }
@@ -202,7 +202,7 @@ function writeWhole(path: string, text: string) {
 }
 
 const ensureNewline = (s: string) => (s.endsWith("\n") ? s : `${s}\n`);
-const today = () => localDate(clock().toISOString());
+const todayHere = () => localDate(clock().toISOString());
 
 /**
  * The renamed memory, built whole beside it (memory.renamed/), then swapped in by two renames and settled (`settle`).
@@ -226,7 +226,7 @@ function renameIn(dir: string) {
     commitMemory(PATHS, "Memory: before the voice source's rename");
   }
   const stored = readStored(dir);
-  const { files: renamed, plan: p } = renameStored(stored, today());
+  const { files: renamed, plan: planned } = renameStored(stored, todayHere());
   const staged = (path: string) => join(dir, STAGED, relative("memory", path));
   // A stored file is staged from the text the rename read (a line written since is carried over by `settle`, renamed);
   // any other file is copied.
@@ -243,7 +243,7 @@ function renameIn(dir: string) {
     staged(DONE),
     `${JSON.stringify({
       at: clock().toISOString(),
-      ...(p.cutover ? { cutover: p.cutover } : {}),
+      ...(planned.cutover ? { cutover: planned.cutover } : {}),
       name: VOICE_STEP,
       schemaVersion: 1,
     })}\n`
@@ -278,18 +278,20 @@ function settle(dir: string) {
   const recorded = linesOf(readFileSync(at(DONE), "utf8"))
     .map((l) => JSON.parse(l))
     .find((l) => l.name === VOICE_STEP);
-  const { plan: p } = renameStored(
+  const { plan: planned } = renameStored(
     existsSync(at(OLD_MEMORY)) ? sourceOf(OLD_MEMORY) : new Map(),
-    recorded?.cutover ?? today()
+    recorded?.cutover ?? todayHere()
   );
   for (const [path, text] of readStored(dir)) {
-    const next = under(path, "memory") ? text : file(path, text, p);
+    const next = under(path, "memory")
+      ? text
+      : renamedFile(path, text, planned);
     if (next !== text) {
       writeWhole(at(path), next);
     }
   }
   for (const source of [OLD_MEMORY, STRAY].filter((d) => existsSync(at(d)))) {
-    carryOver(dir, source, sourceOf(source), p);
+    carryOver(dir, source, sourceOf(source), planned);
     rmSync(at(source), { force: true, recursive: true });
   }
   if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
@@ -306,12 +308,12 @@ function carryOver(
   dir: string,
   source: string,
   old: Map<string, string>,
-  p: Plan
+  planned: Plan
 ) {
   for (const [path, text] of old) {
     const to = join(dir, path);
     const now = existsSync(to) ? readFileSync(to, "utf8") : "";
-    const next = file(path, text, p);
+    const next = renamedFile(path, text, planned);
     if (isJsonl(path)) {
       const have = new Set(linesOf(now));
       const missing = linesOf(next).filter((l) => !have.has(l));
