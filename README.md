@@ -61,9 +61,9 @@ Access. Each of these adds something if you have it:
 
 - WhatsApp's Mac app: your WhatsApp chats, including messages later deleted for everyone.
 - Beeper Desktop: LINE, Telegram and Instagram chats.
-- lifelog, Life's iPhone app, which records and transcribes your conversations: voice, where you were, and "hey
-  <agent>" requests. It is not public yet, and is moving into this repo. Its Android app is parked: no one uses it
-  today, and the server it talks to is changing ([one product plan](docs/plans/2026-10-23-one-product.md)).
+- Life's iPhone app (lifelog today, renamed Life), which records and transcribes your conversations: voice, where
+  you were, and "hey <agent>" requests. It is not public yet, and is moving into this repo. Its Android app is parked:
+  no one uses it today, and the server it talks to is changing ([one product plan](docs/plans/2026-10-23-one-product.md)).
   [Set up voice](docs/use/voice.md).
 - [remctl](https://github.com/viticci/remctl): Life changes Apple Reminders when you ask it to. Turn on **Use your
   Reminders** in Life's settings and the app installs it.
