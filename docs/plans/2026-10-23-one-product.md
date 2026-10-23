@@ -80,9 +80,11 @@ writer, life and backup. Merging them would put two processes behind one lock fo
 - The voice server's archive (`archive.sqlite`, lifelog's today): one file, one writer. Unchanged.
 - Life's archive of deleted messages and note versions (one file per source): unchanged, never migrated.
 - Life's search index (`index.sqlite`): derived, rebuilt.
-- Life's lifelog store (`derived/watch/lifelog.sqlite`): a copy of lifelog's feed. This one is a duplicate once both
-  live in one repo on one host. Life's voice source then reads lifelog's archive read-only, as lifelog's own scripts
-  do, and the copy is deleted.
+- Life's voice store (`derived/watch/voice.sqlite`, was `lifelog.sqlite`): Life's fold of the voice server's feed,
+  who spoke each turn and when, never the words, plus Life's own hearing marks and when each turn arrived. Kept
+  (decided in step 4): Life reads the voice server one way, its API, whether they share a host or not (the server and
+  the Mac companion are both routes), and needs the API anyway for the words, search, places and corrections. Reading
+  the archive's file too would be a second way, tied to the server's schema.
 
 ## The move
 
@@ -99,7 +101,7 @@ from.
    one model.
 5. **The copies go:** Lifelog Host (Life.app runs the voice server and the dictation sensor on a Mac-only install),
    lifelog's OAuth issuer (`packages/auth`; Life's own issuer serves the connector, in the next batched reconnect),
-   the second runner, the second tunnel and backup, the feed copy above.
+   the second runner, the second tunnel and backup.
 
 ## Names
 
@@ -114,7 +116,7 @@ The name lifelog goes from the product, the code, the docs and the stored data. 
 | lifelog-quiet, the Mac helper | the dictation sensor, inside Life.app | `apps/mac` |
 | Lifelog Host | retired: Life.app runs the voice server | |
 | lifelog's Android app | Life for Android, parked | `apps/android` |
-| The source `lifelog`, the `lifelog` setting, `LIFELOG_TOKEN`, `derived/watch/lifelog.sqlite` | `voice`, `VOICE_TOKEN`; the feed copy is deleted (step 5) | stored: in the summaries migration, on the owner's OK |
+| The source `lifelog`, the `lifelog` setting, `LIFELOG_TOKEN`, `derived/watch/lifelog.sqlite` | `voice`, `VOICE_TOKEN`, `voice.sqlite` (kept, "Storage" above) | stored: in the summaries migration, on the owner's OK |
 | `lifelog.<domain>` | `voice.<domain>` | the tunnel |
 | The lifelog repo | archived | |
 

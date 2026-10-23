@@ -30,11 +30,11 @@ Break one of these and audio is lost, paid for twice, leaked or acted on. The ph
   `server.env` (both mode 0600) and the iPhone's Keychain. `.env.device-token` is a bare token that redaction filters
   miss: read it into a variable (`T=$(tr -d '[:space:]' < .env.device-token)`), never `cat` it. List a file's keys
   with `grep -oE '^[A-Z_]+='`; `sed` still prints the multi-line APNs key.
-- **Stored names keep the word lifelog** until the summaries migration (server playbook, step 4) or a phone release
-  can move them: the bundle and Keychain ids, the URL scheme `lifelog://`, the APNs key, the Ogg vendor tag, the
-  export manifest's `app`, restic's host, the folders under Application Support and Logs, the LaunchAgent, the
-  Android application id, and the environment `LIFELOG_URL`, `LIFELOG_TOKEN`, `LIFELOG_SERVER_URL`,
-  `LIFELOG_DEVICE_TOKEN`. Life's own source `lifelog` and its setting move in step 4 too. Nothing else says lifelog.
+- **Stored names keep the word lifelog** until a phone release can move them: the bundle and Keychain ids, the URL
+  scheme `lifelog://`, the APNs key, the Ogg vendor tag, the export manifest's `app`, restic's host, the folders under
+  Application Support and Logs, the LaunchAgent, the Android application id, and the environment `LIFELOG_URL`,
+  `LIFELOG_SERVER_URL`, `LIFELOG_DEVICE_TOKEN`. Life's own source, setting and token moved in step 4 (`voice`,
+  `VOICE_TOKEN`). Nothing else says lifelog.
 
 ## Gotchas
 

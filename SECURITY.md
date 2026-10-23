@@ -9,7 +9,7 @@ and what it does not.
 
 - Everything Life derives lives on the owner's Mac: the data root (`truth/`, `memory/`) is a local git repository with
   no remote. The nightly commits there and refuses to commit to a repository that has one, so nothing is pushed.
-- Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, lifelog); Life opens their stores read-only.
+- Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, the voice server); Life opens their stores read-only.
   The one copy it keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone
   and old note versions.
 - Backups are optional: restic snapshots, encrypted with a password kept in the Keychain, written to the folder the
@@ -62,7 +62,7 @@ This is the one list; nothing else leaves.
 - The owner's corrections about recordings, to the owner's own voice server.
 - From the voice half (the iPhone and the voice server, in this repo since the playbook's step 1, unchanged by the
   move): speech blocks to ElevenLabs for transcription, the summaries' text to the owner's ChatGPT or Claude
-  subscription through the Mac helper, passages and queries to OpenAI's embeddings when a key is set, and the
+  subscription through the Mac helper when he turns summaries on (off by default), passages and queries to OpenAI's embeddings when a key is set, and the
   encrypted restic backup. Details in [docs/voice/security.md](docs/voice/security.md) and
   [docs/voice/providers.md](docs/voice/providers.md).
 - The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud

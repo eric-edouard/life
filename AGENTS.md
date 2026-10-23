@@ -1,6 +1,6 @@
 # Life
 
-A self-running memory of one person's life (the owner), built on his Mac from his voice (lifelog), chats, iMessage,
+A self-running memory of one person's life (the owner), built on his Mac from his voice (the voice server), chats, iMessage,
 mail, Apple Notes, git and imported assistant chats: sources → units → moments → observations → people and area pages,
 plus an always-on archive of deleted messages and old note versions. Shipped as Life.app; a checkout is for development.
 
@@ -176,7 +176,7 @@ Before adding a helper, use the one that exists:
 | Running another program | `apps/server/src/core/proc.ts` |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
-| The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
+| The voice store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
@@ -193,9 +193,11 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
   `derived/settings.json` into a worktree before model runs. `bun test` uses its own made-up copy.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
-- lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
-  (`lifelog.test.ts` checks them against lifelog's `openapi.json` when that repo is beside this one).
-- The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
+- The voice server is read one way, through its REST API, on one host or two; the zod shapes accept every null and
+  absent field its contract allows (`voice.test.ts` checks them against `apps/voice/openapi.json`). Life never reads its
+  summaries: voice units are conversation-days built from turns, and lifelog's chapters before the cutover
+  (`VOICE_CUTOVER`, 24 Oct 2026) stay as stored, never built again.
+- The watcher hears a conversation only once its speech is complete, by the voice server's own signals (`endedOnSilence`,
   `closed`), never a timing rule of Life's (`docs/operations.md`).
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).
 - Secrets live in `.env` (gitignored) or the Keychain: never print or commit them.

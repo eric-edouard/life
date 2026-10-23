@@ -6,22 +6,27 @@ Life is a memory of one person's life, built from their own sources and kept on 
 shape and the reasons for it. Record formats are in `docs/SCHEMA.md`, sources in `docs/sources.md`, the agent and the
 connector in `docs/tasks.md`, how it runs in `docs/operations.md`.
 
-## lifelog and Life
+## The voice server and Life
 
-Life works beside lifelog, a companion project that captures voice. Each has one job:
+Life's voice half is the voice server (`apps/voice`), which came in from lifelog. Each has one job:
 
-| | lifelog | Life |
+| | The voice server | Life |
 |---|---|---|
-| Job | Voice capture: audio, transcripts, speakers, per-conversation chapters and summaries, search | Memory across sources: voice (through lifelog), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Job | Voice capture: audio, transcripts, speakers, conversations grouped by rules, search | Memory across sources: voice (through the voice server), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
 | Owns | The raw spoken archive | The people across channels, observations, people and project pages |
-| Runs | Its own host and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
+| Runs | The Mac host or the server, and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
 | Acts? | Never | Only on the owner's clear request (`docs/tasks.md`) |
 
-- Life reads lifelog through its REST API with a device token (`apps/server/src/sources/lifelog.ts`). It keeps chapter titles,
-  summaries and turn refs, not transcript text (except an ask's words). Exact quotes are fetched on demand.
-- Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
-- Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must
-  not leave the Mac, nor their text go to a third party for embeddings.
+- Life reads the voice server one way, its REST API with a device token (`apps/server/src/sources/voice.ts`), whether
+  the two share a host or not: the change feed into a small store of who spoke when (never the words), and the words of
+  a turn, search and places on demand. Reading the archive's SQLite file instead would be a second way beside the API
+  calls Life needs anyway, and would tie Life to the server's schema.
+- Life builds its voice units from conversations and their turns, by code: the voice server's summaries (its `ai`
+  switch, off by default) are never read. lifelog's chapters, Life's voice units before the cutover (24 Oct 2026), stay
+  as stored, so the voice history is not read through the models again.
+- Life writes to the voice server only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
+- Memory does not move into the voice server: memory about one person comes from voice, chats and mail together, and
+  chats must not leave the Mac, nor their text go to a third party for embeddings.
 
 ## The pipeline
 
@@ -29,7 +34,7 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 flowchart LR
   subgraph Mac["The Mac"]
     direction LR
-    S["Sources<br/>voice · chats · mail · notes · git"] --> U["Units<br/>a chapter, a chat-day, a thread-day"]
+    S["Sources<br/>voice · chats · mail · notes · git"] --> U["Units<br/>a conversation-day, a chat-day, a thread-day"]
     U --> M["Moments<br/>one read per day,<br/>a verdict per unit"]
     M --> O["Observations<br/>quote-checked facts"]
     O --> P["Pages<br/>people · areas · the owner"]
@@ -45,12 +50,14 @@ flowchart LR
 
 - **Sources** (`apps/server/src/sources/`, one descriptor each in `apps/server/src/memory/sources.ts`) return events with stable ids, so reading
   twice never duplicates anything. Raw data stays in its own app.
-- **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a
+- **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a conversation-day, a chat-day, a mail thread-day, a
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees
   it.
 - **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
   writes a verdict per unit (type, importance, area) and what happened or is planned. The same call says who the day's
-  unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later).
+  unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later). Each unit shows it the head and
+  tail of its text (`TEXT_MAX`); a conversation-day's text is its words, fetched only for the day being read
+  (`voiceText`).
 - **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
   that retires an observation (besides the owner rating one outdated).
@@ -94,7 +101,7 @@ A question like "what is my arc with this friend?" needs more than recent logist
 - **Names:** misheard and other spellings resolve to the person, and the Mac's Contacts name handles Life can't place.
 - **Backfill:** older months can be read later (`bun life memory backfill`), oldest first, a few weeks a day.
 
-Known limits: no call records, no unrecorded time together, no location history before lifelog's; a spoken claim about
+Known limits: no call records, no unrecorded time together, no location history before the voice server's; a spoken claim about
 someone else is capped at 0.6 confidence.
 
 ## Why the memory stays on the Mac

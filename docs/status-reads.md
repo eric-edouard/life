@@ -12,7 +12,7 @@ the way `fetch` reads it (to show who sent the line). Every answer is JSON, sent
 `structuredContent`: the model would read it twice), and carries `observedAt`, the server's time.
 
 Auth is the connector's, unchanged: a JWT for `<your connector origin>/mcp` (from Life's own issuer or the `connector`
-setting's), `life:read`, `sub` = the owner. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The
+setting's), `life:read`, `sub` = the owner. Without it: 401; another user: 403; the issuer's keys out of reach: 503. The
 four tools are annotated read-only.
 
 ## status
@@ -21,12 +21,12 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
 
 | Field | Clock | From |
 |---|---|---|
-| `capture.lifelogOkAt` | the watcher folds lifelog in as it arrives | `derived/watch/health.json` |
+| `capture.lifelogOkAt` (a connector name, renamed in the next batched connector change) | the watcher folds the voice server's feed in as it arrives | `derived/watch/health.json` |
 | `capture.archive.{whatsapp,beeper,notes}` | last copy into Life's archive (a new message or note version), not a health check | each store's newest `seenAt` (`lastCopied`) |
 | `capture.lastTriage` | the last run that judged units (the moments step since 18 Oct, its counts per source under `sources`; the key keeps its name) | derived/log |
 | `extraction` | midday (13:00, 19:00), nightly and backfill weeks | derived/log, `memory.extract` |
 | `consolidation` | pages: midday (13:00, 19:00) and nightly (or a hand run) | derived/log, `memory.pages` |
-| `indexBuiltAt` | rebuilt by the watcher on any lifelog change and by each sweep: **not new memory** | index file time |
+| `indexBuiltAt` | rebuilt by the watcher on any voice change and by each sweep: **not new memory** | index file time |
 
 - `watcher.state`: `ok` (a good poll in the last 15 min), `not-polling`, `off` (no voice source), or `unknown` (no
   health file).
@@ -107,7 +107,7 @@ Filters: `types` (types or prefixes: `observation`, `correction`, `ledger.failed
 filter narrows the items, never the cursor's reach: every match is still returned, page by page.
 
 - **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its unit
-  no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced` (its unit was read again; the
+  no longer exists, a conversation regrouped, or a code rule drops it now), `replaced` (its unit was read again; the
   newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner rated it outdated; still
   indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
   hidden on (pages carry importance 2+ only). It is the rule the index and the pages go by (`stateOf`,

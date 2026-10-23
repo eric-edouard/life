@@ -33,7 +33,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 ## Settings
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
-the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
+the connector's origin, issuer and owner, the voice server's address (`voice`), Life's mail, the engine, the backup, the repos folder, the
 sources, the agent, the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.
@@ -53,7 +53,7 @@ every Keychain secret in its environment:
 | Service | What it does |
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
-| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
+| `watch` (kept running) | Long-polls the voice server's change feed into its store, rewrites the voice units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
@@ -85,7 +85,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then moments, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
 - **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
-  closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs.
+  closed conversations (transcribed, quiet for an hour), the index, the pages with new observations. No commit or email; a failure only logs.
   The nightly commits and its report counts what the midday runs found.
 - **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - Everything looks back 7 days.
@@ -110,14 +110,15 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 
 ## The watcher
 
-- Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per chapter id. Only
+- Voice units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/voice.sqlite`; `bun life status`), one per
+  transcribed conversation and local day from the cutover (24 Oct 2026); earlier days keep lifelog's chapters. Only
   the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (the "hey Life"
   spans, refs only) is the one thing there not rebuilt from the feed.
-- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by lifelog's own signals (its
-  voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation lifelog settled
+- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by the voice server's own signals (its
+  voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation the server settled
   (`closed`); never a timing rule of Life's. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
-  40 s) for lifelog to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
-  becomes an ask only once lifelog names the owner.
+  40 s) for the server to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
+  becomes an ask only once the server names the owner.
 - The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both
   ways (the read takes about 10 s, `sync.pull` in the log).
 - `deliver` (`LIFE_STATE_DIR/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
@@ -126,7 +127,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   section lists every ask either way.
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
-**Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a
+**Offline means delayed, never lost.** The Mac is the host. The voice feed's cursor is gap-free, hearing reaches back a
 week (`RECENT_MS`; skipped turns are logged) and delivery waits for a good poll, so nothing alerts on an outage.
 Reachability rests on the Mac being kept awake. Reconsider a server only on a measured loss (an ask lost, or acted on
 late with harm), or spoken asks above about one a day for a month.
@@ -247,7 +248,7 @@ policy (P).
 Everything is in the CLI (`bun life memory …`), and the connector's tools are the same reads:
 
 - `search <words> [--from d --to d]`: moments, the agent's tasks, observations (each says who spoke when not the
-  owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), lifelog's exact spoken words
+  owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), the voice server's exact spoken words
   (the best 20, each with a conversation id and a turn), chat messages (the last 90 days, or from `--from`), note
   versions and messages to AI assistants (any age), then mail (the last 90 days, no newsletters nor Life's own, the
   newest 5 thread-days holding all the words: `searchableMail`). `--from`/`--to` bound every section.
@@ -257,11 +258,11 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   day's moments, conversations, chat units, key observations, and what Life changed that day and why.
 - `person [name] [--before d]`: the whole page, when it was built, the next birthday, what Life holds by source and
   month, then every observation and moment linked to them, newest first, paging back with `--before`. `person me` is
-  the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among lifelog's
+  the owner's own page with their goals. No name lists who has a page; an unknown name is looked for among the voice server's
   speakers and near names.
 - `area <name>`, `topics [tag]`, `unresolved` (what Life inferred, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where
-  the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
+  the owner was (the voice server's location stays), with the conversations recorded during each. Life does no geocoding.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, Beeper and iMessage,
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is

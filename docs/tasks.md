@@ -29,8 +29,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 - An ask is the owner's words handed over, never acted on by Life. It comes from a `hey <agent>` turn (`apps/server/src/host/hear.ts`:
   the two words, no model call), or from `bun life ask` in a Claude session.
-  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. The owner's own "hey" plus the word lifelog
-    hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
+  - The owner's turn is `confidence: "high"`. An unattributed turn is `"low"`. The owner's own "hey" plus the word the voice server
+    hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn the voice server gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
 - `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
@@ -143,7 +143,7 @@ words>'`, a `grant` line in the ledger, the latest standing). The owner's "stop"
 takes authority away.
 
 - While on, `change_todo_item` with `obs` in place of `said` adds a reminder (title, list, due, section) from the owner's current
-  importance-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
+  importance-3 to-do or promise in a voice turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
   by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
 - Its authority is the observation alone: never the board, a `/check` tap or a chat `said`. It binds the connector, not
@@ -161,8 +161,8 @@ events with `lifeMoment` are Life's output and must be dropped.
 
 The owner's marker, for memory only. The owner's turn holding it (an unattributed one too) and the owner's turns right after
 (`marksIn`, `apps/server/src/host/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
-watcher's store (`writeMarks`, refs only). Their chapter's unit carries them (`marked`, `readConversations`) and says
-so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
+watcher's store (`writeMarks`, refs only). Their conversation-day's unit carries them (`marked`, `readConversations`), so only its hash moves and only it is read
+again, with no prompt change; its text says so (`MARKED`). Code makes its
 importance 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
 observations citing it. It never acts, asks or sends.
 
@@ -173,8 +173,8 @@ on the owner's explicit request (in the chat, or in an ask through the agent's `
 grant, and logs the agent's replies.
 
 - **Tools:** thirteen read-only ones (`read_open_agent_tasks`; `read_open_todo_items`, read from Reminders, never the board; the status reads
-  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads); `correct_memory` (lifelog
-  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `change_todo_item` (through `act`, with the owner's words
+  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads); `correct_memory` (the voice server's
+  writes all go through the table in `forward`, `apps/server/src/sources/voice.ts`); `change_todo_item` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant); `update_agent_task` (the agent's updates, through `update`); `log_reply_to_owner` (one `ledger.jsonl`
   line, appended only: it sends nothing).
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item`, `update_agent_task` and `log_reply_to_owner` are not (a remove goes to

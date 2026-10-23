@@ -42,17 +42,21 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `beeper`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
+| source | Where Life reads from, named after the app or service: `voice`, `whatsapp`, `imessage`, `beeper`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
 | kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | |
-| Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
-| chapter | One recording in lifelog. | |
+| Voice | The voice source as the owner sees it: his recordings, through the voice server. | the app's card, Pendant today |
+| conversation | What the voice server groups his speech into, by rules (no model): Life's voice units come from its turns. | |
+| turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
+| conversation-day | A voice unit: one conversation's turns on one local day. | |
+| chapter | One of lifelog's summarized stretches of a conversation: Life's voice units before the cutover (24 Oct 2026), kept as stored, never built again. | |
+| cutover | The day from which voice units are conversation-days (`VOICE_CUTOVER`). | |
 | archive | Life's own copy of the WhatsApp, Beeper and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory
 
 | Word | Means | Planned |
 |---|---|---|
-| unit | The smallest piece Life reads: one chapter, a chat's day, a mail thread's day, a note's day, a repo's day. Id `unit_…`. | |
+| unit | The smallest piece Life reads: a conversation-day (a chapter before the cutover), a chat's day, a mail thread's day, a note's day, a repo's day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | moment | A stretch of the owner's day, read from the day's units together. Id `mom_…`. | |
 | observation | One small dated reading of a moment, with a quote checked against its source: a model's reading, not a verified fact. Id `obs_…`. | |
@@ -74,7 +78,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | Life for iPhone | The iPhone app (`apps/ios`), with its Watch app and widgets: drains the recorder, keeps every page, uploads speech. Shown as Life; its stored ids still say lifelog. | |
 | recorder | The wearable that hears the owner's day: a Limitless Pendant or an Omi. | |
-| voice server | `apps/voice`: takes the phone's speech, transcribes it, groups it into conversations and speakers, one SQLite archive. Was lifelog's server. | |
+| voice server | `apps/voice`: takes the phone's speech, transcribes it, groups it into conversations and speakers, one SQLite archive. Was lifelog's server. Its summaries (the `ai` switch) are off by default; Life never reads them. | |
 | speech service | `apps/speech`: audio in, numbers out (speaker embeddings today; language, diarization and words in step 2), nothing stored. | |
 | dictation sensor | `apps/dictation`'s helper: tells the voice server when the owner dictates to the Mac, so that audio is never processed; runs the voice server's model calls on his subscription. | inside Life.app (step 9) |
 | Voice Host | The menu-bar app that runs the voice server and the dictation sensor on a Mac (`apps/dictation`). | retired (step 9) |
@@ -87,7 +91,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Past calendar | The calendar Life writes every moment that happened to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
-| watcher | The always-on service: every minute it folds in lifelog, hears asks, delivers them and syncs the board. | |
+| watcher | The always-on service: every minute it folds in the voice server's feed, hears asks, delivers them and syncs the board. | |
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |

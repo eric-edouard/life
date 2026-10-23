@@ -99,6 +99,11 @@ list, and the cutover date for the new units.
 
 - Then the voice server's model runner and summaries are off by default; the phone shows conversations without them.
 - Done when: a measured day (moments and extraction, `docs/operations.md`, "Measuring") is no worse than before.
+- Built: a voice unit is one transcribed conversation's turns on one local day; its words are fetched for the day being
+  read (`voiceText`), the moment call sees their head and tail. The cutover is 24 Oct 2026: chapter units before it stay
+  as stored. The `ai` switch is summaries only, off by default; search follows the OpenAI key. Life keeps reading the
+  feed over HTTP (one way on one host or two). The status reads keep `lifelog` connector names for the next batched
+  connector change.
 
 ### 5. Life runs headless on Linux
 
@@ -145,9 +150,9 @@ A runbook in the shape of the names rollout (`2026-10-23-names-rollout.md`), wri
 
 ### 9. What goes
 
-Lifelog Host, the voice server's `packages/auth`, its model runner and summaries code, Life's feed copy
-(`derived/watch/lifelog.sqlite`: Life reads the voice server's archive read-only), the second tunnel and backup, the
-names migration (`host/migrate.ts`'s step, once his data shows it ran), the plans this playbook finished.
+Lifelog Host, the voice server's `packages/auth`, its model runner and summaries code, the second tunnel and backup,
+the names migration (`host/migrate.ts`'s step, once his data shows it ran), the plans this playbook finished. Life's
+voice store stays: Life reads the voice server through its API only (step 4).
 
 ### Later
 

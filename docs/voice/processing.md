@@ -148,12 +148,15 @@ bun run switches transcription off    # transcription | ai | all, on | off
 
 - **Transcription** covers audio to ElevenLabs and voices to `apps/speech`. Off, blocks still go up and wait on the
   server (`waiting.reason` `transcriptionOff`). Jobs already with ElevenLabs still finish and come back.
-- **AI** covers summaries, titles and chapters on the Mac, and search embeddings. Off, runs wait
-  (`aiOff`). Search answers `search_unavailable`, so the app searches its own cache only.
+- **AI** (Summaries in the app) covers summaries, titles and chapters on the Mac, and is off by default: Life reads
+  the words, never the summaries (server playbook, step 4). Off, no conversation waits for one (`status`'s
+  `pipeline.ai.blockedBy` still says `aiOff`). Search embeddings follow the OpenAI key alone: without one, search
+  answers `search_unavailable` and the app searches its own cache only.
 
 The server keeps both in one row (`processing_switches`) and checks them before every call. The phone reads them in
 the feed and sets them through the outbox (`PUT /switches`), like any edit. Turned back on, what waited goes on by
-itself. The Pendant screen shows a card while one is off, and no screen offers a summary while AI is.
+itself. The Pendant screen shows a card while transcription is off; with AI off, a conversation shows no summary
+card unless it has one from before, and no screen offers a summary.
 
 The same row holds `openAppAfterMinutes`, the delay of the "Open Life" alert (Settings, Alerts; 0 is off). It is not
 a switch, but it is set the same way.
