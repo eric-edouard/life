@@ -75,7 +75,8 @@ const unitsIn = (files: Map<string, string>): any[] =>
     .flatMap(([p, text]) => linesOf(text).map((l, i) => parsed(p, l, i)));
 
 /**
- * What a run of the rename on `files` does on `today` (a local day): each chapter unit of today's id to its
+ * What a run of the rename on `files` does on `today` (a local day; "" when it ran on memory without chapters, so no
+ * label moves): each chapter unit of today's id to its
  * conversation-day's, and the cutover (today, when memory holds lifelog's units; none on an install that never did).
  */
 function planFor(files: Map<string, string>, today: string) {
@@ -84,7 +85,7 @@ function planFor(files: Map<string, string>, today: string) {
     cutover: chapters.length > 0 ? today : undefined,
     ids: new Map<string, string>(
       chapters
-        .filter((u) => u.date >= today)
+        .filter((u) => today !== "" && u.date >= today)
         .map((u) => [u.id, unitId(NEW, u.key, u.date)])
     ),
   };
