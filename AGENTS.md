@@ -124,8 +124,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   the only step that retires an observation (besides his `outdated` answers).
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.
-- **Model calls use the owner's subscriptions**, or an API key on an install with neither; never another provider
-  except the bench's (`docs/operations.md`, "Model engines").
+- **Model calls use the owner's subscriptions on the Mac host; on a server, OpenRouter with his key**, routed only to
+  endpoints that keep nothing; or an API key on an install with neither. Never another provider
+  (`docs/operations.md`, "Model engines").
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
   `scripts/cycles.test.ts` fail the check on any import against them; never suppress one, move the code instead.
@@ -184,7 +185,7 @@ only `core` from Life (`.fallowrc.json`, zone `voice`):
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
-| Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
+| Anything that differs between macOS, Windows and Linux | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications, what only the Mac has); a Mac-only source is `macOnly` |
 
 Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
