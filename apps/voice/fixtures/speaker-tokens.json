@@ -1,0 +1,26 @@
+[
+  {
+    "case": "a person by name, the owner too, whatever the language",
+    "text": "{S1} complained about the trains. {S2} laughed at {S1}.",
+    "names": { "S1": "Dave", "S2": "Hervé" },
+    "rendered": "Dave complained about the trains. Hervé laughed at Dave."
+  },
+  {
+    "case": "possessives",
+    "text": "{S2} borrowed {S1}'s bike. {S1}'s plan won over {S2}'s.",
+    "names": { "S1": "Dave", "S2": "Hervé" },
+    "rendered": "Hervé borrowed Dave's bike. Dave's plan won over Hervé's."
+  },
+  {
+    "case": "a voice with no person is the transcript's Speaker N; a video, capitalized at a sentence start",
+    "text": "{S3} asked {S2} for the keys. {S4} played in the background? {S4} kept going.",
+    "names": { "S2": "Hervé", "S3": "Speaker 1", "S4": "a video" },
+    "rendered": "Speaker 1 asked Hervé for the keys. A video played in the background? A video kept going."
+  },
+  {
+    "case": "a token without a speaker, and text without tokens",
+    "text": "{S9} left. Nothing else {happened}.",
+    "names": {},
+    "rendered": "A speaker left. Nothing else {happened}."
+  }
+]

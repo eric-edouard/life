@@ -1,0 +1,81 @@
+[
+  {
+    "case": "late audio extends a conversation and keeps its id",
+    "spans": [
+      {
+        "start": 0,
+        "end": 300,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 100], [130, 250]],
+    "audible": [[0, 300]],
+    "previous": [0],
+    "expected": [
+      {
+        "start": 0,
+        "end": 250,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "anchors survive a regroup that moved the starts a little",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 60], [299, 360], [500, 560]],
+    "previous": [1, 300],
+    "expected": [
+      {
+        "start": 0,
+        "end": 60,
+        "id": "00000000-0000-8000-8000-01a0c4506fe8"
+      },
+      {
+        "start": 299,
+        "end": 360,
+        "id": "00000000-0000-8000-8000-01a0c454ffe0"
+      },
+      {
+        "start": 500,
+        "end": 560,
+        "id": "00000000-0000-8000-8000-01a0c4580d20"
+      }
+    ]
+  },
+  {
+    "case": "a split keeps the id on the part holding the anchor",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 600]],
+    "previous": [0],
+    "edits": [
+      {
+        "kind": "split",
+        "at": 240
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 240,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 240,
+        "end": 600,
+        "id": "00000000-0000-8000-8000-01a0c4541580"
+      }
+    ]
+  }
+]

@@ -1,0 +1,25 @@
+[project]
+name = "lifelog-identity"
+version = "0.1.0"
+description = "Speaker embeddings (SpeechBrain ECAPA) for the lifelog server"
+requires-python = "==3.12.*"
+dependencies = [
+  "numpy==2.3.4",
+  "soundfile==0.14.0",
+  "speechbrain==1.1.1",
+  "torch==2.11.0",
+  "torchaudio==2.11.0",
+]
+
+# CPU-only wheels on Linux (the Docker image); macOS wheels on PyPI are already CPU-only.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchaudio = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv]
+package = false

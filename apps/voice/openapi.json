@@ -1,0 +1,5448 @@
+{
+  "info": {
+    "title": "lifelog",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://lifelog.invalid"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "Bearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "FragmentMetadata": {
+        "type": "object",
+        "properties": {
+          "audioSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 3600
+          },
+          "map": {
+            "$ref": "#/components/schemas/TimeMap"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": ["audioSha256", "durationSeconds", "map", "pages"]
+      },
+      "TimeMap": {
+        "type": "object",
+        "properties": {
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "minItems": 1
+          },
+          "separatorMs": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": ["segments", "separatorMs"]
+      },
+      "PageBatch": {
+        "type": "object",
+        "properties": {
+          "codec": {
+            "type": "string",
+            "enum": ["limitless", "omi"],
+            "description": "How the bytes read: a Limitless `StorageBufferMsg` or an Omi ring record"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "The phone's store index: the flash life times 2^40 plus the device's own index"
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "startMs": {
+                  "type": "integer",
+                  "description": "Capture placement, epoch ms; left out for an Omi record (the server places it from its stamp)"
+                }
+              },
+              "required": ["index", "length"]
+            },
+            "minItems": 1,
+            "maxItems": 500
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Of the `pages` part, whole"
+          }
+        },
+        "required": ["codec", "pages", "sha256"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "audio_hash_mismatch",
+              "audio_store_unavailable",
+              "held",
+              "identity_busy",
+              "identity_unavailable",
+              "intelligence_unavailable",
+              "internal_error",
+              "invalid_audio",
+              "invalid_request",
+              "invalid_state",
+              "not_found",
+              "page_conflict",
+              "payload_too_large",
+              "search_unavailable",
+              "transcription_failed",
+              "transcription_off"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["error", "message"]
+      },
+      "HeartbeatUpload": {
+        "type": "object",
+        "properties": {
+          "backlog": {
+            "type": "object",
+            "properties": {
+              "estimatedSeconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": ["observedAt", "pages"]
+          },
+          "build": {
+            "type": "object",
+            "properties": {
+              "appBuild": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "appVersion": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "device": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "Model identifier, \"iPhone17,1\"."
+              },
+              "os": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "executableUUID": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": ["appBuild", "appVersion", "device", "os"]
+          },
+          "connection": {
+            "type": "object",
+            "properties": {
+              "disconnectReason": {
+                "type": "string",
+                "enum": ["link_lost", "connect_failed", "cancelled"]
+              },
+              "lastContact": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "lastReply": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "since": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "idle",
+                  "bluetooth_off",
+                  "unauthorized",
+                  "unsupported",
+                  "scanning",
+                  "connecting",
+                  "discovering",
+                  "pairing_pending",
+                  "ready",
+                  "busy_elsewhere",
+                  "disconnected"
+                ]
+              }
+            },
+            "required": ["since", "state"]
+          },
+          "droppedMessages": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Pendant messages the phone dropped since launch: a malformed fragment or one that didn't decode."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incidents": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "integrity_conflict",
+                "encrypted_audio",
+                "undecodable_page",
+                "storage_write_failed",
+                "recording_stopped_unexpectedly",
+                "recording_control_failed"
+              ]
+            },
+            "maxItems": 16
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pendant": {
+            "type": "object",
+            "properties": {
+              "batteryPercent": {
+                "type": "integer"
+              },
+              "charging": {
+                "type": "string",
+                "enum": ["charging", "unverified"]
+              },
+              "freePages": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "totalPages": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "phone": {
+            "type": "object",
+            "properties": {
+              "batteryLevel": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "charging": {
+                "type": "boolean"
+              },
+              "freeBytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lowPowerMode": {
+                "type": "boolean"
+              }
+            },
+            "required": ["lowPowerMode"]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "periodic",
+              "disconnect",
+              "storage_incident",
+              "write_failure",
+              "recording"
+            ]
+          },
+          "recording": {
+            "type": "object",
+            "properties": {
+              "lastKnown": {
+                "type": "string",
+                "enum": ["recording", "not_recording", "listening", "unknown"]
+              },
+              "lastKnownAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "recording",
+                  "paused",
+                  "pause_requested",
+                  "resume_requested",
+                  "failed"
+                ]
+              }
+            },
+            "required": ["state"]
+          },
+          "sync": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "requesting_status",
+              "downloading",
+              "persisting",
+              "acking",
+              "gap_recorded",
+              "caught_up",
+              "failed"
+            ]
+          },
+          "timeZone": {
+            "type": "string",
+            "description": "The phone's time zone, \"Europe/Berlin\": the owner's days and times follow it."
+          },
+          "wakes": {
+            "type": "object",
+            "properties": {
+              "bytes24h": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "duplicates24h": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "last24h": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lastAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "pagesSaved24h": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "bytes24h",
+              "duplicates24h",
+              "last24h",
+              "pagesSaved24h"
+            ],
+            "description": "Background wakes: counts only."
+          }
+        },
+        "required": [
+          "build",
+          "connection",
+          "id",
+          "incidents",
+          "observedAt",
+          "pendant",
+          "phone",
+          "reason",
+          "recording",
+          "sync",
+          "wakes"
+        ]
+      },
+      "Status": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LiveStatus"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "transcription": {
+                "description": "ElevenLabs' credits and latency"
+              },
+              "archive": {
+                "description": "The archive's invariants, each count 0"
+              },
+              "intelligence": {
+                "description": "Seconds from a chapter's end to its summary"
+              },
+              "lastStepsLast24h": {
+                "description": "Each chain step's latest event"
+              },
+              "problemsLast24h": {
+                "description": "Crashes and errors, by kind"
+              }
+            }
+          }
+        ]
+      },
+      "BackupStatus": {
+        "type": "object",
+        "properties": {
+          "jobsWithAudio": {
+            "type": "integer"
+          },
+          "jobsWithoutAudio": {
+            "type": "integer"
+          },
+          "latestSnapshotAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "packBytes": {
+            "type": "integer"
+          },
+          "packs": {
+            "type": "integer"
+          },
+          "restic": {
+            "type": ["object", "null"],
+            "properties": {
+              "lastError": {
+                "type": ["string", "null"]
+              },
+              "lastSnapshotAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              }
+            },
+            "required": ["lastError", "lastSnapshotAt"]
+          }
+        },
+        "required": [
+          "jobsWithAudio",
+          "jobsWithoutAudio",
+          "latestSnapshotAt",
+          "packBytes",
+          "packs",
+          "restic"
+        ]
+      },
+      "IdentityStatus": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "lastError": {
+            "type": ["string", "null"]
+          },
+          "lastOkAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        },
+        "required": ["configured", "lastError", "lastOkAt"]
+      },
+      "PendantStatus": {
+        "type": ["object", "null"],
+        "properties": {
+          "batteryPercent": {
+            "type": ["integer", "null"]
+          },
+          "charging": {
+            "type": ["string", "null"],
+            "enum": ["charging", "unverified", null]
+          },
+          "connection": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "bluetooth_off",
+              "unauthorized",
+              "unsupported",
+              "scanning",
+              "connecting",
+              "discovering",
+              "pairing_pending",
+              "ready",
+              "busy_elsewhere",
+              "disconnected"
+            ]
+          },
+          "knownAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recording": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["recording", "not_recording", "listening", "unknown"]
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "unknown",
+                  "recording",
+                  "paused",
+                  "pause_requested",
+                  "resume_requested",
+                  "failed"
+                ]
+              }
+            ]
+          },
+          "recordingKnownAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "batteryPercent",
+          "charging",
+          "connection",
+          "knownAt",
+          "recording",
+          "recordingKnownAt"
+        ],
+        "description": "The Pendant as the phone last saw it; null before any heartbeat"
+      },
+      "Heartbeat": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HeartbeatUpload"
+          },
+          {
+            "type": ["object", "null"],
+            "properties": {
+              "receivedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": ["receivedAt"]
+          }
+        ],
+        "description": "The phone's last heartbeat; null before any"
+      },
+      "Pipeline": {
+        "type": "object",
+        "properties": {
+          "ai": {
+            "type": "object",
+            "properties": {
+              "blockedBy": {
+                "type": ["string", "null"],
+                "enum": ["aiOff", "macAway", null]
+              },
+              "lastSummaryAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "running": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "title": {
+                      "type": ["string", "null"]
+                    }
+                  },
+                  "required": ["conversationId", "startedAt", "title"]
+                }
+              },
+              "waiting": {
+                "type": "integer"
+              }
+            },
+            "required": ["blockedBy", "lastSummaryAt", "running", "waiting"]
+          },
+          "transcription": {
+            "type": "object",
+            "properties": {
+              "atProvider": {
+                "type": "object",
+                "properties": {
+                  "jobs": {
+                    "type": "integer"
+                  },
+                  "oldestSentAt": {
+                    "type": ["string", "null"],
+                    "format": "date-time"
+                  }
+                },
+                "required": ["jobs", "oldestSentAt"]
+              },
+              "failedLast24h": {
+                "type": "integer"
+              },
+              "fragments": {
+                "type": "object",
+                "properties": {
+                  "seconds": {
+                    "type": "number"
+                  }
+                },
+                "required": ["seconds"]
+              },
+              "lastTranscriptAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "waiting": {
+                "type": "object",
+                "properties": {
+                  "blocks": {
+                    "type": "integer"
+                  },
+                  "seconds": {
+                    "type": "number"
+                  }
+                },
+                "required": ["blocks", "seconds"]
+              }
+            },
+            "required": [
+              "atProvider",
+              "failedLast24h",
+              "fragments",
+              "lastTranscriptAt",
+              "waiting"
+            ]
+          }
+        },
+        "required": ["ai", "transcription"]
+      },
+      "LiveStatus": {
+        "type": "object",
+        "properties": {
+          "backup": {
+            "$ref": "#/components/schemas/BackupStatus"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/IdentityStatus"
+          },
+          "mac": {
+            "description": "The Mac helper, live or as it last left"
+          },
+          "pendant": {
+            "$ref": "#/components/schemas/PendantStatus"
+          },
+          "phoneHeartbeat": {
+            "$ref": "#/components/schemas/Heartbeat"
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/Pipeline"
+          },
+          "switches": {
+            "description": "The owner's switches"
+          },
+          "transcription": {
+            "type": "object",
+            "properties": {
+              "quota": {
+                "description": "ElevenLabs' credits as last read"
+              }
+            }
+          }
+        },
+        "required": [
+          "backup",
+          "identity",
+          "pendant",
+          "phoneHeartbeat",
+          "pipeline",
+          "transcription"
+        ]
+      },
+      "DiagnosticUpload": {
+        "type": "object",
+        "properties": {
+          "begin": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "binaries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "uuid": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": ["name", "uuid"]
+            },
+            "maxItems": 1024,
+            "description": "Every binary in the call stacks: the app's UUIDs are its dSYMs'."
+          },
+          "build": {
+            "type": "object",
+            "properties": {
+              "appBuild": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "appVersion": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "device": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "Model identifier, \"iPhone17,1\"."
+              },
+              "os": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": ["appBuild", "appVersion", "device", "os"],
+            "description": "The build and OS the diagnostic was recorded on."
+          },
+          "bytesWritten": {
+            "type": "number",
+            "minimum": 0
+          },
+          "callStacks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "frames": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "address": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "binaryName": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "binaryUUID": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "depth": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4096
+                      },
+                      "offsetIntoBinaryTextSegment": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sampleCount": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": ["depth"]
+                  },
+                  "maxItems": 8192
+                },
+                "threadAttributed": {
+                  "type": "boolean"
+                }
+              },
+              "required": ["frames", "threadAttributed"]
+            },
+            "maxItems": 4096
+          },
+          "crash": {
+            "type": "object",
+            "properties": {
+              "exceptionCode": {
+                "type": "number",
+                "minimum": 0
+              },
+              "exceptionType": {
+                "type": "integer"
+              },
+              "objcException": {
+                "type": "object",
+                "properties": {
+                  "className": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "formatString": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "type": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": ["className", "formatString", "name", "type"],
+                "description": "Never the composed message or its arguments."
+              },
+              "signal": {
+                "type": "integer"
+              },
+              "terminationCategory": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "terminationReason": {
+                "type": "string",
+                "maxLength": 1000
+              }
+            }
+          },
+          "durationSeconds": {
+            "type": "number",
+            "minimum": 0,
+            "description": "A hang's duration, or a CPU exception's CPU time."
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "description": "The NSError code."
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "Repeats within the hour, sent again under the same id."
+              },
+              "domain": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "The NSError domain."
+              },
+              "file": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "httpStatus": {
+                "type": "integer",
+                "description": "The server's answer, if any."
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 1000,
+                "description": "Shortened."
+              },
+              "method": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "route": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "serverCode": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "The server's `Error.error`."
+              },
+              "stack": {
+                "type": "string",
+                "maxLength": 8000,
+                "description": "A server error's frames."
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": ["message", "type"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "crash",
+              "hang",
+              "cpu_exception",
+              "disk_write_exception",
+              "metrics",
+              "app_error",
+              "server_error"
+            ]
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "A day of MetricKit metrics, numbers only: seconds, bytes, counts."
+          },
+          "truncated": {
+            "type": "boolean",
+            "default": false,
+            "description": "The phone dropped frames past its cap."
+          }
+        },
+        "required": [
+          "begin",
+          "binaries",
+          "build",
+          "callStacks",
+          "end",
+          "id",
+          "kind"
+        ]
+      },
+      "Diagnostic": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiagnosticUpload"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "receivedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "signature": {
+                "type": "string"
+              }
+            },
+            "required": ["receivedAt", "signature"]
+          }
+        ]
+      },
+      "AppEvent": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "default": {}
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The phone's; a retried event is stored once."
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.]{0,63}$"
+          }
+        },
+        "required": ["at", "id", "name"]
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["server", "app"]
+          }
+        },
+        "required": ["at", "fields", "id", "name", "source"]
+      },
+      "Transcript": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "languageCode": {
+            "type": "string"
+          },
+          "languageProbability": {
+            "type": "number"
+          },
+          "parserVersion": {
+            "type": "integer"
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "end": {
+                  "type": "number"
+                },
+                "speakerId": {
+                  "type": ["string", "null"]
+                },
+                "start": {
+                  "type": "number"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": ["end", "speakerId", "start", "text"]
+            }
+          },
+          "words": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "end": {
+                  "type": "number"
+                },
+                "logprob": {
+                  "type": ["number", "null"]
+                },
+                "spacing": {
+                  "type": "string"
+                },
+                "speakerId": {
+                  "type": ["string", "null"]
+                },
+                "start": {
+                  "type": "number"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "end",
+                "logprob",
+                "spacing",
+                "speakerId",
+                "start",
+                "text"
+              ]
+            }
+          }
+        },
+        "required": [
+          "jobId",
+          "languageCode",
+          "languageProbability",
+          "parserVersion",
+          "turns",
+          "words"
+        ]
+      },
+      "UsageSummary": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/SpendPeriod"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "date": {
+                      "type": "string",
+                      "format": "date"
+                    }
+                  },
+                  "required": ["date"]
+                }
+              ]
+            },
+            "description": "The last 30 local days, oldest first, today last."
+          },
+          "elevenLabsThisMonth": {
+            "type": ["object", "null"],
+            "properties": {
+              "hours": {
+                "type": "number"
+              },
+              "usd": {
+                "type": "number"
+              }
+            },
+            "required": ["hours", "usd"],
+            "description": "Speech-to-text ElevenLabs itself reports this month for the whole workspace (every key and app). Null when it didn't answer."
+          },
+          "last30Days": {
+            "$ref": "#/components/schemas/SpendPeriod"
+          },
+          "monthStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "thisMonth": {
+            "$ref": "#/components/schemas/SpendPeriod"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "today": {
+            "$ref": "#/components/schemas/SpendPeriod"
+          }
+        },
+        "required": [
+          "days",
+          "elevenLabsThisMonth",
+          "last30Days",
+          "monthStart",
+          "thisMonth",
+          "timeZone",
+          "today"
+        ]
+      },
+      "SpendPeriod": {
+        "type": "object",
+        "properties": {
+          "intelligence": {
+            "type": "object",
+            "properties": {
+              "byProvider": {
+                "type": "object",
+                "properties": {
+                  "anthropic": {
+                    "type": "number"
+                  },
+                  "claude-code": {
+                    "type": "number",
+                    "description": "Always 0: the Mac runs on the Max plan."
+                  },
+                  "codex": {
+                    "type": "number",
+                    "description": "Always 0: the Mac runs on the ChatGPT plan."
+                  },
+                  "openai": {
+                    "type": "number"
+                  }
+                },
+                "required": ["anthropic", "claude-code", "codex", "openai"]
+              },
+              "unpricedRuns": {
+                "type": "integer",
+                "description": "Runs on a model with no known price: not in usd."
+              },
+              "usd": {
+                "type": "number",
+                "description": "Estimated from tokens at list prices."
+              }
+            },
+            "required": ["byProvider", "unpricedRuns", "usd"]
+          },
+          "search": {
+            "type": "object",
+            "properties": {
+              "tokens": {
+                "type": "integer"
+              },
+              "usd": {
+                "type": "number",
+                "description": "Embeddings for search by meaning, at list prices."
+              }
+            },
+            "required": ["tokens", "usd"]
+          },
+          "totalUsd": {
+            "type": "number"
+          },
+          "transcription": {
+            "type": "object",
+            "properties": {
+              "hours": {
+                "type": "number",
+                "description": "Billable hours at the base rate, keyterms included."
+              },
+              "usd": {
+                "type": "number"
+              }
+            },
+            "required": ["hours", "usd"]
+          }
+        },
+        "required": ["intelligence", "search", "totalUsd", "transcription"]
+      },
+      "SourceBlocks": {
+        "type": "object",
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "jobId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "pages": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": ["jobId", "pages"]
+            }
+          },
+          "handedOver": {
+            "type": "boolean"
+          }
+        },
+        "required": ["blocks", "handedOver"]
+      },
+      "SpeechFragment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The job its block became; null while open"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "required": ["id", "jobId", "pages"]
+      },
+      "IngestState": {
+        "type": "object",
+        "properties": {
+          "highestPage": {
+            "type": ["integer", "null"],
+            "description": "The highest page index stored, null when none is: a hint, not a resume cursor (holes stay below it)"
+          },
+          "labeledUntil": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Capture time up to which the server has labeled the source's speech, null before any"
+          }
+        },
+        "required": ["highestPage", "labeledUntil"]
+      },
+      "PageConflict": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer",
+                "description": "The first index that holds other bytes: the phone moves it and the pages after it to a new band"
+              }
+            },
+            "required": ["page"]
+          }
+        ]
+      },
+      "QuickTranscript": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": ["text"]
+      },
+      "BackupHeld": {
+        "type": "object",
+        "properties": {
+          "latestSnapshot": {
+            "type": "object",
+            "properties": {
+              "bytes": {
+                "type": "integer"
+              },
+              "date": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "uploadedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": ["bytes", "date", "sha256", "uploadedAt"]
+          },
+          "packs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": ["bytes", "name", "sha256"]
+            }
+          }
+        },
+        "required": ["packs"]
+      },
+      "SpeakerAssignment": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "personName": {
+            "type": ["string", "null"]
+          },
+          "speakerLabel": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["person", "unknown", "candidate", "media"]
+          },
+          "turnIndex": {
+            "type": ["integer", "null"]
+          }
+        },
+        "required": [
+          "jobId",
+          "personId",
+          "personName",
+          "speakerLabel",
+          "status",
+          "turnIndex"
+        ]
+      },
+      "SpeakerTarget": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["person"]
+              },
+              "personId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": ["kind", "personId"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["new"]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "required": ["id", "kind", "name"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["unknown"]
+              }
+            },
+            "required": ["kind"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["media"]
+              }
+            },
+            "required": ["kind"]
+          }
+        ]
+      },
+      "Person": {
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isOwner": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["aliases", "id", "isOwner", "name"]
+      },
+      "QueueItem": {
+        "type": "object",
+        "properties": {
+          "clips": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                },
+                "audio": {
+                  "type": ["object", "null"],
+                  "properties": {
+                    "end": {
+                      "type": "number"
+                    },
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "start": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["end", "jobId", "start"]
+                },
+                "conversationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "jobId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "personId": {
+                  "type": ["string", "null"],
+                  "format": "uuid"
+                },
+                "speakerLabel": {
+                  "type": ["string", "null"]
+                },
+                "text": {
+                  "type": "string"
+                },
+                "turnIndex": {
+                  "type": "integer"
+                },
+                "until": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                },
+                "words": {
+                  "$ref": "#/components/schemas/TimedWords"
+                }
+              },
+              "required": [
+                "at",
+                "audio",
+                "conversationId",
+                "jobId",
+                "personId",
+                "speakerLabel",
+                "text",
+                "turnIndex",
+                "until",
+                "words"
+              ]
+            }
+          },
+          "conversations": {
+            "type": "integer"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                },
+                "conversationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": ["at", "conversationId", "text"]
+            }
+          },
+          "exchanges": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["new_person", "known_person", "several"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "personId": {
+            "type": ["string", "null"],
+            "format": "uuid"
+          },
+          "seconds": {
+            "type": "number"
+          },
+          "voices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "conversationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "jobId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "speakerLabel": {
+                  "type": "string"
+                }
+              },
+              "required": ["conversationId", "jobId", "speakerLabel"]
+            }
+          }
+        },
+        "required": [
+          "clips",
+          "conversations",
+          "evidence",
+          "exchanges",
+          "id",
+          "kind",
+          "name",
+          "personId",
+          "seconds",
+          "voices"
+        ]
+      },
+      "TimedWords": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "description": "Each word: start and end in ms from the passage's start, and its UTF-16 length in the text with the spacing before it (none before the first)"
+      },
+      "Capabilities": {
+        "type": "object",
+        "properties": {
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["corrections", "places", "search", "status"]
+            }
+          },
+          "contract": {
+            "type": "number",
+            "enum": [1]
+          }
+        },
+        "required": ["capabilities", "contract"]
+      },
+      "Feed": {
+        "type": "object",
+        "properties": {
+          "chapters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "conversationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "endAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Stable: a re-summarized chapter keeps it"
+                },
+                "startAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "summary": {
+                  "type": ["string", "null"]
+                },
+                "title": {
+                  "type": ["string", "null"]
+                }
+              },
+              "required": [
+                "conversationId",
+                "endAt",
+                "id",
+                "startAt",
+                "summary",
+                "title"
+              ]
+            }
+          },
+          "conversations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedConversation"
+            }
+          },
+          "cursor": {
+            "type": "string",
+            "description": "The last seq read: pass it as `since` next time"
+          },
+          "edits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                },
+                "editedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "from": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["split", "merge", "undo", "dismissSplit"]
+                },
+                "source": {
+                  "type": "string",
+                  "enum": ["owner", "ai"]
+                },
+                "target": {
+                  "type": ["string", "null"],
+                  "format": "uuid"
+                },
+                "to": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                },
+                "undoneAt": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "at",
+                "editedAt",
+                "from",
+                "id",
+                "kind",
+                "source",
+                "target",
+                "to",
+                "undoneAt"
+              ]
+            }
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "durationSeconds": {
+                  "type": "number",
+                  "description": "Seconds of speech audio the job holds"
+                },
+                "endedOnSilence": {
+                  "type": ["boolean", "null"],
+                  "description": "True: no speech for at least 30 s after its audio, so no turn follows it closely. False: closed at 2 minutes or on a 5 s pause, whatever followed. Null on older jobs"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "pages": {
+                  "type": ["array", "null"],
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  }
+                },
+                "sourceId": {
+                  "type": ["string", "null"]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": ["queued", "submitted", "completed", "failed"]
+                }
+              },
+              "required": [
+                "durationSeconds",
+                "endedOnSilence",
+                "id",
+                "pages",
+                "sourceId",
+                "state"
+              ]
+            }
+          },
+          "mac": {
+            "type": "object",
+            "properties": {
+              "dictatingSince": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "llm": {
+                "$ref": "#/components/schemas/MacLlm"
+              },
+              "subscriptions": {
+                "$ref": "#/components/schemas/Subscriptions"
+              },
+              "watch": {
+                "$ref": "#/components/schemas/MacWatch"
+              }
+            },
+            "required": ["dictatingSince", "llm", "subscriptions", "watch"]
+          },
+          "more": {
+            "type": "boolean",
+            "description": "Ask again at once with the new cursor"
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Person"
+            }
+          },
+          "quietRanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuietRange"
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "firstPage": {
+                  "type": "integer",
+                  "description": "A withdrawn job or speech fragment's first page: the phone sends its pages again"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "ref": {
+                  "type": "string"
+                },
+                "sourceId": {
+                  "type": "string"
+                }
+              },
+              "required": ["kind", "ref"]
+            },
+            "description": "Rows that no longer exist (a turn moved off its map, a person merged away, a job's last speaker row, unsent audio withdrawn): drop them"
+          },
+          "switches": {
+            "$ref": "#/components/schemas/Switches"
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedTurn"
+            }
+          },
+          "vocabulary": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The owner's words, whole on every page"
+          }
+        },
+        "required": [
+          "chapters",
+          "conversations",
+          "cursor",
+          "edits",
+          "jobs",
+          "mac",
+          "more",
+          "people",
+          "quietRanges",
+          "removed",
+          "switches",
+          "turns",
+          "vocabulary"
+        ]
+      },
+      "FeedConversation": {
+        "type": "object",
+        "properties": {
+          "closed": {
+            "type": "boolean",
+            "description": "Settled: the source heard on 5 minutes past its end (an imported one always), so grouping adds nothing to it; late audio or an edit can still reopen it"
+          },
+          "endAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endEdit": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The live split its end comes from: what Undo undoes"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["conversation", "dictation", "silent", "imported"]
+          },
+          "ownerTitle": {
+            "type": ["string", "null"]
+          },
+          "ownerTitleAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "place": {
+            "type": ["string", "null"],
+            "description": "Apple's name of its most accurate named fix"
+          },
+          "retired": {
+            "type": ["object", "null"],
+            "properties": {
+              "successorId": {
+                "type": ["string", "null"],
+                "format": "uuid"
+              }
+            },
+            "required": ["successorId"],
+            "description": "Out of the live set (merged or undone): drop what was built from it"
+          },
+          "runId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The summary its title, TLDR and chapters come from: Generate's `after`"
+          },
+          "splitSuggestions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "confidence": {
+                  "type": "string",
+                  "enum": ["medium"]
+                }
+              },
+              "required": ["at", "confidence"]
+            },
+            "description": "Where the latest summary would split it, unsure: the owner splits there or dismisses it"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startEdit": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The live split its start comes from (in the gap before it, or at it), else the merge that joined it: what Undo undoes"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "uploaded",
+              "transcribing",
+              "transcribed",
+              "summarized",
+              "failed"
+            ],
+            "description": "Where it stands (conversation-state.ts); the phone adds only Not uploaded yet"
+          },
+          "title": {
+            "type": ["string", "null"],
+            "description": "Generated: the latest summary's"
+          },
+          "tldr": {
+            "type": ["string", "null"]
+          },
+          "waiting": {
+            "type": ["object", "null"],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "macAway",
+                  "creditsOut",
+                  "transcriptionOff",
+                  "aiOff",
+                  "phoneQuiet"
+                ]
+              },
+              "since": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              }
+            },
+            "required": ["reason", "since"]
+          }
+        },
+        "required": [
+          "closed",
+          "endAt",
+          "endEdit",
+          "id",
+          "kind",
+          "ownerTitle",
+          "ownerTitleAt",
+          "place",
+          "retired",
+          "runId",
+          "splitSuggestions",
+          "startAt",
+          "startEdit",
+          "state",
+          "title",
+          "tldr",
+          "waiting"
+        ]
+      },
+      "MacLlm": {
+        "type": "object",
+        "properties": {
+          "able": {
+            "type": "boolean",
+            "description": "Summaries run on the Mac now; otherwise they wait for it"
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "enum": ["auth", "limit", null],
+            "description": "Why the Mac can't, for 10 minutes after it said so. auth: the selected CLI is signed out on the Mac; limit: the selected subscription's usage limit. Null: away, asleep, or able"
+          }
+        },
+        "required": ["able", "reason"]
+      },
+      "Subscriptions": {
+        "type": "object",
+        "properties": {
+          "claude": {
+            "type": ["object", "null"],
+            "properties": {
+              "fiveHour": {
+                "type": ["object", "null"],
+                "properties": {
+                  "resetsAt": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 253402300799
+                  },
+                  "usedPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "default": null,
+                "required": ["resetsAt", "usedPercent"]
+              },
+              "observedAt": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 253402300799
+              },
+              "sevenDay": {
+                "type": ["object", "null"],
+                "properties": {
+                  "resetsAt": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 253402300799
+                  },
+                  "usedPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "default": null,
+                "required": ["resetsAt", "usedPercent"]
+              }
+            },
+            "required": ["observedAt"]
+          },
+          "codex": {
+            "type": ["object", "null"],
+            "properties": {
+              "fiveHour": {
+                "type": ["object", "null"],
+                "properties": {
+                  "resetsAt": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 253402300799
+                  },
+                  "usedPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "default": null,
+                "required": ["resetsAt", "usedPercent"]
+              },
+              "observedAt": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 253402300799
+              },
+              "sevenDay": {
+                "type": ["object", "null"],
+                "properties": {
+                  "resetsAt": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 253402300799
+                  },
+                  "usedPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "default": null,
+                "required": ["resetsAt", "usedPercent"]
+              }
+            },
+            "required": ["observedAt"]
+          }
+        },
+        "required": ["claude", "codex"]
+      },
+      "MacWatch": {
+        "type": ["object", "null"],
+        "properties": {
+          "asleep": {
+            "type": "boolean",
+            "description": "The Mac was going to sleep: nothing could be dictated to it from then on"
+          },
+          "heardAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the server last heard from the Mac"
+          },
+          "watchedThrough": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Every dictation before this is already a quiet range: now while the Mac's socket is open and nothing is pending, else the last time it was heard"
+          }
+        },
+        "required": ["asleep", "heardAt", "watchedThrough"]
+      },
+      "QuietRange": {
+        "type": "object",
+        "properties": {
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["endedAt", "id", "startedAt"]
+      },
+      "Switches": {
+        "type": "object",
+        "properties": {
+          "ai": {
+            "type": "boolean",
+            "description": "Summaries and titles on the Mac, and search embeddings. Off: they wait"
+          },
+          "engine": {
+            "type": "string",
+            "enum": ["claude", "codex"],
+            "description": "Which subscription runs AI on the Mac: Claude Max or ChatGPT Codex"
+          },
+          "openAppAfterMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440,
+            "description": "Minutes the Pendant's audio may wait on the phone, while it records, before a notification asks the owner to open the app. 0: never"
+          },
+          "transcription": {
+            "type": "boolean",
+            "description": "Audio to ElevenLabs and voices to speaker recognition. Off: uploads wait unsent"
+          }
+        },
+        "required": ["ai", "engine", "openAppAfterMinutes", "transcription"]
+      },
+      "FeedTurn": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": ["string", "null"],
+            "format": "uuid",
+            "description": "The live conversation its start falls in: the server's placement, the one rule"
+          },
+          "endAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "language": {
+            "type": "string"
+          },
+          "speaker": {
+            "type": "object",
+            "properties": {
+              "displayName": {
+                "type": "string",
+                "description": "What every reader calls it: the person's name, else \"Speaker N\" in its conversation, as the summaries do"
+              },
+              "isOwner": {
+                "type": "boolean"
+              },
+              "label": {
+                "type": ["string", "null"]
+              },
+              "personId": {
+                "type": ["string", "null"],
+                "format": "uuid"
+              },
+              "personName": {
+                "type": ["string", "null"],
+                "description": "As emitted; a rename comes in `people`"
+              }
+            },
+            "required": [
+              "displayName",
+              "isOwner",
+              "label",
+              "personId",
+              "personName"
+            ]
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "text": {
+            "type": "string",
+            "description": "Without dictation and media: empty when all of it is hidden"
+          },
+          "turnIndex": {
+            "type": "integer"
+          },
+          "words": {
+            "$ref": "#/components/schemas/TimedWords"
+          }
+        },
+        "required": [
+          "conversationId",
+          "endAt",
+          "jobId",
+          "language",
+          "speaker",
+          "startAt",
+          "text",
+          "turnIndex",
+          "words"
+        ]
+      },
+      "QuietRangeInput": {
+        "type": "object",
+        "properties": {
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The dictating app's bundle id, or \"playback\" from the phone"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["endedAt", "id", "source", "startedAt"]
+      },
+      "Conversation": {
+        "type": "object",
+        "properties": {
+          "captureEndedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "captureStartedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "latestRun": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IntelligenceRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ownerTitle": {
+            "type": ["string", "null"]
+          },
+          "ownerTitleAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationPart"
+            },
+            "description": "The jobs whose turns start inside it, in order, with their time maps"
+          },
+          "title": {
+            "type": ["string", "null"]
+          },
+          "titleSource": {
+            "type": "string",
+            "enum": ["owner", "generated", "none"]
+          }
+        },
+        "required": [
+          "captureEndedAt",
+          "captureStartedAt",
+          "id",
+          "latestRun",
+          "ownerTitle",
+          "ownerTitleAt",
+          "parts",
+          "title",
+          "titleSource"
+        ]
+      },
+      "IntelligenceRun": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "costUsd": {
+            "type": ["number", "null"]
+          },
+          "coverage": {
+            "type": ["object", "null"],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": ["whole", "windowed", "reused", "rolling"],
+                "description": "rolling for every run since Oct 14; the others are older"
+              },
+              "turnCount": {
+                "type": "integer"
+              },
+              "windows": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": ["mode", "turnCount", "windows"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inputTokens": {
+            "type": "integer"
+          },
+          "latencyMs": {
+            "type": ["integer", "null"]
+          },
+          "model": {
+            "type": "string"
+          },
+          "outputTokens": {
+            "type": "integer"
+          },
+          "promptVersion": {
+            "type": "integer"
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["openai", "anthropic", "claude-code", "codex"]
+          },
+          "raw": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "inputTokens": {
+                  "type": "integer"
+                },
+                "latencyMs": {
+                  "type": "integer"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "outputTokens": {
+                  "type": "integer"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": ["openai", "anthropic", "claude-code", "codex"]
+                },
+                "reasoningEffort": {
+                  "type": ["string", "null"]
+                },
+                "stage": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "turns": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "integer"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "inputTokens",
+                "latencyMs",
+                "outputTokens",
+                "stage",
+                "text"
+              ]
+            }
+          },
+          "reasoningEffort": {
+            "type": ["string", "null"]
+          },
+          "result": {
+            "type": ["object", "null"],
+            "properties": {
+              "boundarySuggestions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "cause": {
+                      "type": "string",
+                      "enum": ["people", "call", "place", "silence"]
+                    },
+                    "confidence": {
+                      "type": "string",
+                      "enum": ["high", "medium"]
+                    },
+                    "evidenceTurnIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": ["merge_with_previous", "split_at_turn"]
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "turnId": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["evidenceTurnIds", "kind", "reason", "turnId"]
+                }
+              },
+              "chapters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "endTurnId": {
+                      "type": "integer"
+                    },
+                    "evidenceTurnIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "startTurnId": {
+                      "type": "integer"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "endTurnId",
+                    "evidenceTurnIds",
+                    "startTurnId",
+                    "summary",
+                    "title"
+                  ]
+                }
+              },
+              "languages": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "speakerIdentities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "evidenceTurnIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": ["live", "phone", "media", "announcement"]
+                    },
+                    "name": {
+                      "type": ["string", "null"]
+                    },
+                    "personId": {
+                      "type": ["string", "null"],
+                      "format": "uuid"
+                    },
+                    "speakerLabel": {
+                      "type": "string"
+                    },
+                    "withOwner": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "evidenceTurnIds",
+                    "jobId",
+                    "kind",
+                    "name",
+                    "personId",
+                    "speakerLabel",
+                    "withOwner"
+                  ]
+                }
+              },
+              "speakerKinds": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": ["live", "phone", "media"]
+                    },
+                    "speakerLabel": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["jobId", "kind", "speakerLabel"]
+                }
+              },
+              "speakers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": ["live", "phone", "media"]
+                    },
+                    "speaker": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["kind", "speaker"]
+                }
+              },
+              "speakerTokens": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "speakerLabel": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["jobId", "speakerLabel", "token"]
+                }
+              },
+              "title": {
+                "type": "object",
+                "properties": {
+                  "evidenceTurnIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": ["evidenceTurnIds", "text"]
+              },
+              "tldr": {
+                "type": "object",
+                "properties": {
+                  "evidenceTurnIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": ["evidenceTurnIds", "text"]
+              }
+            },
+            "required": [
+              "boundarySuggestions",
+              "chapters",
+              "languages",
+              "title",
+              "tldr"
+            ],
+            "description": "Turn ids index into turns. Kept even when invalid. From prompt version 4, chapters come first and each chapter's summary is its own call; boundarySuggestions are only strong ones, each with a cause (people, call, place or silence) and, from prompt version 7, a confidence: high is an AI split, medium is offered for the owner to split at or dismiss. From prompt version 8, chapter summaries and the TLDR write speakers as tokens like {S2}; speakerTokens says which voices each stands for, to render with the name the transcript gives them."
+          },
+          "state": {
+            "type": "string",
+            "enum": ["running", "valid", "invalid", "failed", "waiting"]
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "capturedAt": {
+                  "type": ["string", "null"],
+                  "format": "date-time"
+                },
+                "jobId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "turnIndex": {
+                  "type": "integer"
+                }
+              },
+              "required": ["capturedAt", "jobId", "turnIndex"]
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validationErrors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "conversationId",
+          "costUsd",
+          "coverage",
+          "createdAt",
+          "error",
+          "id",
+          "inputTokens",
+          "latencyMs",
+          "model",
+          "outputTokens",
+          "promptVersion",
+          "provider",
+          "raw",
+          "reasoningEffort",
+          "result",
+          "state",
+          "turns",
+          "updatedAt",
+          "validationErrors"
+        ]
+      },
+      "ConversationPart": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ]
+            }
+          },
+          "separatorMs": {
+            "type": "integer"
+          },
+          "starts": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Where each segment begins in the job's audio (ms), when the server joined it from speech fragments; absent, each begins one separator after the one before"
+          }
+        },
+        "required": ["jobId", "segments", "separatorMs"]
+      },
+      "LocationFix": {
+        "type": "object",
+        "properties": {
+          "accuracyM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "placeName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Apple's name for where it was taken (a street or a district, and the city)"
+          }
+        },
+        "required": ["accuracyM", "latitude", "longitude", "observedAt"]
+      },
+      "LocationVisit": {
+        "type": "object",
+        "properties": {
+          "accuracyM": {
+            "type": "number",
+            "minimum": 0
+          },
+          "arrivedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "departedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "accuracyM",
+          "arrivedAt",
+          "departedAt",
+          "latitude",
+          "longitude"
+        ]
+      },
+      "Visit": {
+        "type": "object",
+        "properties": {
+          "arrivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "leftAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "place": {
+            "type": "string",
+            "description": "The phone's name for the place, when it has one"
+          }
+        },
+        "required": ["arrivedAt", "latitude", "leftAt", "longitude"]
+      },
+      "SearchHit": {
+        "type": "object",
+        "properties": {
+          "capturedFrom": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "capturedTo": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "exact": {
+            "type": "boolean",
+            "description": "The passage contains the query as typed."
+          },
+          "firstTurn": {
+            "type": "integer"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "languageCode": {
+            "type": "string"
+          },
+          "lastTurn": {
+            "type": "integer"
+          },
+          "passageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "score": {
+            "type": "number"
+          },
+          "speakers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "People the owner named."
+          },
+          "text": {
+            "type": "string",
+            "description": "\"Name: words\" lines; unnamed speakers bare."
+          }
+        },
+        "required": [
+          "capturedFrom",
+          "capturedTo",
+          "conversationId",
+          "exact",
+          "firstTurn",
+          "jobId",
+          "languageCode",
+          "lastTurn",
+          "passageId",
+          "score",
+          "speakers",
+          "text"
+        ]
+      },
+      "SearchRequest": {
+        "type": "object",
+        "properties": {
+          "dateRange": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "to": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "description": "Capture time of the passage's start: from inclusive, to exclusive."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 50,
+            "description": "Person ids: passages where one of them speaks."
+          },
+          "query": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": ["query"]
+      },
+      "Vocabulary": {
+        "type": "object",
+        "properties": {
+          "terms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 49,
+              "pattern": "^[^<>{}[\\]\\\\]+$"
+            },
+            "maxItems": 100,
+            "description": "The owner's words, sent as keyterms before people's names and aliases"
+          }
+        },
+        "required": ["terms"]
+      },
+      "Timeline": {
+        "type": "object",
+        "properties": {
+          "heardThrough": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Capture time of the durable, analyzed, contiguous page prefix; only moves forward"
+          },
+          "sentThrough": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Every kept second before it is in a speech fragment the server holds: the start of the first stretch not sent, or heard-through when none waits. The server closes blocks on it"
+          },
+          "spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineSpan"
+            },
+            "maxItems": 2000
+          }
+        },
+        "required": ["heardThrough", "spans"]
+      },
+      "TimelineSpan": {
+        "type": "object",
+        "properties": {
+          "audible": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            },
+            "description": "Some analyzer but Silero heard sound"
+          },
+          "breaks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "kind": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                }
+              },
+              "required": ["at", "kind"]
+            },
+            "description": "Why this span starts apart from the one before (`missingPages`, `untimedPage`, …), at its start"
+          },
+          "endAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "firstPage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pauses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": ["at"]
+            },
+            "description": "Recording pauses the Pendant confirmed"
+          },
+          "speech": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            },
+            "description": "Speech as segmentation counts it (uncertain audio included)"
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "unanalyzed": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            },
+            "description": "Audio no analyzer reached yet, pieces of a second or more"
+          }
+        },
+        "required": [
+          "audible",
+          "breaks",
+          "endAt",
+          "firstPage",
+          "pauses",
+          "speech",
+          "startAt",
+          "unanalyzed"
+        ]
+      },
+      "OwnerEdit": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "editedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["split"]
+              }
+            },
+            "required": ["editedAt", "id", "at", "kind"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "editedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["merge"]
+              },
+              "to": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": ["editedAt", "id", "from", "kind", "to"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "editedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "edit": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["undo"]
+              }
+            },
+            "required": ["editedAt", "id", "edit", "kind"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "editedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["dismissSplit"]
+              }
+            },
+            "required": ["editedAt", "id", "at", "kind"]
+          }
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["ok"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/heartbeat": {
+      "post": {
+        "description": "The phone's capture health: at most every 6 h while the app runs, at once on each change of the Pendant's connection or recording, and on notable events. Idempotent by id. Kept 90 days.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeartbeatUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored, or already stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/push-token": {
+      "put": {
+        "description": "The app's push token (hex), for silent pushes and alerts such as the morning's voices to name. Sent at every launch; replaces the one before.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{16,512}$"
+                  }
+                },
+                "required": ["token"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "description": "How capture and processing are doing, for the owner's own sessions: the archive's invariants, the Pendant and phone as last reported, the Mac helper, the backups, ElevenLabs' credits and latency, where audio and summaries are (`pipeline`), and the last day's problems and chain steps. It scans the last day: call it on demand, poll `/status/live`. Spending is not here.",
+        "responses": {
+          "200": {
+            "description": "Status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status/live": {
+      "get": {
+        "description": "The cheap part of `/status`, for the Mac host's menu, polled every 30 s: the pipeline, the backups, speaker recognition, the Mac, the Pendant and phone as last reported, ElevenLabs' credits and the switches. The device token only.",
+        "responses": {
+          "200": {
+            "description": "Live status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diagnostics": {
+      "post": {
+        "description": "One MetricKit diagnostic (crash, hang, CPU or disk-write exception) or a day of metrics. Idempotent by id. Kept 90 days.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagnosticUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored, or already stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "Diagnostics received since `since`, newest first, or the one with `id`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "crash",
+                "hang",
+                "cpu_exception",
+                "disk_write_exception",
+                "metrics",
+                "app_error",
+                "server_error"
+              ]
+            },
+            "required": false,
+            "name": "kind",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "since",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Diagnostics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Diagnostic"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "post": {
+        "description": "One step the phone saw in a chain the owner relies on (a push, playback kept quiet, the cutover). Ids, states and counts only. Idempotent by id. Kept 14 days with the server's own.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored, or already stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "The server's and the phone's events since `since`: the latest `limit`, oldest first.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": true,
+            "name": "since",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Event"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcription-jobs/{id}/transcript": {
+      "get": {
+        "description": "A job's parsed transcript; a turn's index in `turns` is its `turnIndex`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Parsed transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transcript"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/usage/summary": {
+      "get": {
+        "description": "What was spent, from our own ledgers at list prices: today, the last 30 days and this month (days in the owner's time zone), split by service.",
+        "responses": {
+          "200": {
+            "description": "Spending by day and service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/elevenlabs": {
+      "post": {
+        "description": "ElevenLabs transcription webhook. Verified with ElevenLabs-Signature over the raw body.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Accepted or ignored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["result"]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bad signature",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["result"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/blocks": {
+      "get": {
+        "description": "The pages the server holds of a source: every job's, any state, and every speech fragment's in no job. The phone sends kept speech from every other page. `jobId` is the job's or the fragment's id, read only by the phone build of Oct 15. `handedOver`: whether the cutover happened; a reinstalled phone starts its cursor from this only then.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9:._-]{1,128}$",
+              "description": "A Pendant's deviceID, or import:<oldId>"
+            },
+            "required": true,
+            "description": "A Pendant's deviceID, or import:<oldId>",
+            "name": "sourceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The source's pages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceBlocks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/speech/{firstPage}": {
+      "put": {
+        "description": "Upload one speech fragment: the kept speech of a run of whole Pendant pages the server doesn't hold, as Ogg Opus, with its pages and map. The server checks the hash, the Ogg duration (1 s tolerance) and that the map fits the audio, and keeps it in the bucket until it closes the fragment's block itself (on its own clock, the phone's `sentThrough`, or 2 minutes of speech). Idempotent: the same pages and audio answer the same fragment; any 2xx means the pages are with the server. Refused with 409 `held`, nothing kept, when a job or another fragment holds any of its pages: the phone reads `GET /sources/{sourceId}/blocks` and renders again without them. When its block closes, a fragment bought already (or from before the Mac's quiet ranges) is covered, its pages held and nothing sent; one a quiet range touches is withdrawn, and the feed lists it as a removed job with its first page: its pages are the phone's to send again.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9:._-]{1,128}$",
+              "description": "A Pendant's deviceID, or import:<oldId>"
+            },
+            "required": true,
+            "description": "A Pendant's deviceID, or import:<oldId>",
+            "name": "sourceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "required": true,
+            "name": "firstPage",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "metadata": {
+                    "type": "string",
+                    "description": "JSON-encoded FragmentMetadata"
+                  }
+                },
+                "required": ["audio", "metadata"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The fragment, new or existing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeechFragment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid metadata, audio hash mismatch, or audio that is not Ogg Opus of the declared duration or its map",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Some of its pages are held already (held): nothing was kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The audio could not be stored (audio_store_unavailable): nothing was kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/ingest": {
+      "get": {
+        "description": "What the server holds of a source's raw pages.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9:._-]{1,128}$",
+              "description": "A Pendant's deviceID, or import:<oldId>"
+            },
+            "required": true,
+            "description": "A Pendant's deviceID, or import:<oldId>",
+            "name": "sourceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The source's ingest state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/pages/{firstPage}": {
+      "put": {
+        "description": "Upload raw pages exactly as the phone stored them, contiguous from `firstPage`, in index order. Idempotent: a page already stored with the same bytes is accepted and kept once. Any 200 means every page of the batch is with the server. The server decides what gets transcribed: it labels the speech of an Omi source's pages and cuts it into speech fragments itself, as the iPhone would.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9:._-]{1,128}$",
+              "description": "A Pendant's deviceID, or import:<oldId>"
+            },
+            "required": true,
+            "description": "A Pendant's deviceID, or import:<oldId>",
+            "name": "sourceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "required": true,
+            "name": "firstPage",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metadata": {
+                    "type": "string",
+                    "description": "JSON-encoded PageBatch"
+                  },
+                  "pages": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": ["metadata", "pages"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored, or held already",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid metadata, a hash mismatch, lengths that don't add up, or pages not contiguous from firstPage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A page's index holds other bytes (page_conflict), as after a new flash life the phone didn't band: nothing was kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageConflict"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The pages could not be stored (audio_store_unavailable): nothing was kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quick-transcriptions": {
+      "post": {
+        "description": "Transcribes the audio before a press of the Pendant's button at once, with the blocks' keyterms, and answers its words. Nothing of it is stored but what it cost. Refused while transcription is off (409).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": ["audio"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Its words",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuickTranscript"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Audio that is not Ogg Opus of at most 2 minutes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transcription is off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "ElevenLabs didn't transcribe it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{jobId}/audio": {
+      "put": {
+        "description": "The prepared Ogg Opus of a completed job whose audio the bucket lacks, re-rendered by the phone from its packs (the render is deterministic, so the hash matches). Refused with 409 audio_hash_mismatch unless its sha256 is the job's audioSha256, and 400 invalid_audio unless it lasts the job's duration (1 s tolerance). Stored under the job's key (`jobs/<sha256>.ogg`) and recorded on the job; idempotent. Nothing is admitted, sent or billed. Also for imported old-app recordings: their jobs exist with their sha.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The audio is in the bucket",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "objectKey": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["jobId", "objectKey"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not Ogg Opus of the job's duration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The hash is not the job's, or the job is not completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Over 64 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The bucket is down (audio_store_unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backup/packs/{sourceId}/{name}": {
+      "put": {
+        "description": "A sealed raw pack, content-addressed (`raw/<sourceId>/<name>-<sha256>.pack`), at most 64 MB, with its hash in `X-Content-Sha256`. It holds everything the Pendant heard, dictation included: stored, never processed. Idempotent: one already held answers `stored: false`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,128}$"
+            },
+            "required": true,
+            "name": "name",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9:._-]{1,128}$",
+              "description": "A Pendant's deviceID, or import:<oldId>"
+            },
+            "required": true,
+            "description": "A Pendant's deviceID, or import:<oldId>",
+            "name": "sourceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "required": true,
+            "name": "x-content-sha256",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Held; `stored` is false when it already was",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body does not hash to X-Content-Sha256",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Over 64 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The bucket is down (audio_store_unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backup/source-db/{sourceId}": {
+      "put": {
+        "description": "A snapshot of the phone's source.sqlite (the receipts that tell how to read the packs), at most 64 MB, hash in `X-Content-Sha256`. One per UTC date is kept, the last 7 dates; idempotent for the same bytes.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9:._-]{1,128}$",
+              "description": "A Pendant's deviceID, or import:<oldId>"
+            },
+            "required": true,
+            "description": "A Pendant's deviceID, or import:<oldId>",
+            "name": "sourceId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "required": true,
+            "name": "x-content-sha256",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Held; `stored` is false when it already was",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body does not hash to X-Content-Sha256",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Over 64 MB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The bucket is down (audio_store_unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/backup/{sourceId}": {
+      "get": {
+        "description": "What the server holds of this source's raw backup: each pack's name, hash and size, and the newest source.sqlite snapshot. The phone uploads only what is missing.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9:._-]{1,128}$",
+              "description": "A Pendant's deviceID, or import:<oldId>"
+            },
+            "required": true,
+            "description": "A Pendant's deviceID, or import:<oldId>",
+            "name": "sourceId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The source's held files",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupHeld"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcripts/{jobId}/audio": {
+      "get": {
+        "description": "The Ogg Opus audio of a job, as kept in the bucket: the file a queue clip's `audio` points into (seconds from its start). Honors one `Range: bytes=` header. 404 for a job from before the bucket.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The audio, or the range asked for (206)",
+            "content": {
+              "audio/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The bucket is unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcripts/{jobId}/speakers/{speakerLabel}": {
+      "put": {
+        "description": "The owner names (kind new), assigns (kind person) or un-assigns (kind unknown) a speaker, or one turn when turnIndex is set. Evidence from that scope in this transcript moves with it. Survives every later recognition run. A new person takes the id the phone chose, so a replay makes nobody twice.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "required": true,
+            "name": "speakerLabel",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "$ref": "#/components/schemas/SpeakerTarget"
+                  },
+                  "turnIndex": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": ["target"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assignments after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SpeakerAssignment"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{id}": {
+      "patch": {
+        "description": "Rename a person or set the other names they go by (the whole list). Evidence and assignments are untouched.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "aliases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "maxItems": 20
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The renamed person",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Person"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/people/{id}/merge": {
+      "post": {
+        "description": "Merge personId into {id}: its evidence and assignments move over, then it is deleted; its names become aliases. A replay, once personId is gone, answers {id} as it is.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": ["personId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The merged person",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Person"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/naming-queue": {
+      "get": {
+        "description": "The voices to name: unnamed voices of the last 30 days that talked with the owner (at least 10 turns traded and a minute of talk), one item per voice across conversations and days, the most back-and-forth first, each with clean clips of its voice and the name the summaries heard or who it sounds like.",
+        "responses": {
+          "200": {
+            "description": "Voices to name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QueueItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/naming-queue/answer": {
+      "post": {
+        "description": "The owner's answer for a queue item's voices: a new person (name), a person (personId), nobody they know (ignore), a video or TV playing (media), or several people (several: who; each turn is decided among them), then the rest of their turns as they read (rest). Each voice becomes the owner's correction of that speaker, so voice evidence moves with it; answered voices leave the queue.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answer": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["confirm"]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        },
+                        "required": ["kind", "name"]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["assign"]
+                          },
+                          "personId": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": ["kind", "personId"]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["ignore"]
+                          }
+                        },
+                        "required": ["kind"]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["media"]
+                          }
+                        },
+                        "required": ["kind"]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": ["several"]
+                          },
+                          "people": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "maxItems": 50,
+                            "default": []
+                          },
+                          "unknown": {
+                            "type": "boolean",
+                            "default": false
+                          }
+                        },
+                        "required": ["kind"]
+                      }
+                    ]
+                  },
+                  "voices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "jobId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "speakerLabel": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["jobId", "speakerLabel"]
+                    },
+                    "minItems": 1,
+                    "maxItems": 100
+                  }
+                },
+                "required": ["answer", "voices"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The person the voices went to",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personId": {
+                      "type": ["string", "null"],
+                      "format": "uuid"
+                    }
+                  },
+                  "required": ["personId"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/capabilities": {
+      "get": {
+        "description": "What this voice source offers a reader (docs/voice-source.md): the contract's version and its optional parts. A reader's token may still not open every one.",
+        "responses": {
+          "200": {
+            "description": "Capabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/changes": {
+      "get": {
+        "description": "The feed (docs/voice-source.md): `since` a decimal seq (none or 0 for everything); up to 500 changes after it, each row as it is now. `wait` holds the request up to that many seconds while nothing is newer (an empty page with the same cursor at the end).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "required": false,
+            "name": "since",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "maximum": 60
+            },
+            "required": false,
+            "name": "wait",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Feed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/quiet-ranges": {
+      "post": {
+        "description": "A stretch to leave out of transcription, from the phone (its device token): `source` \"playback\" while it plays a recording out loud. (The Mac's dictation ranges come on its socket.) Words already bought inside it are hidden. Idempotent by id: a retry returns the range as stored.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuietRangeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The range, as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuietRange"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}": {
+      "get": {
+        "description": "One conversation: its range, titles, latest run and jobs.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation and its title",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/title": {
+      "put": {
+        "description": "Set (or clear, with null) the owner's title. It always wins over generated titles and no regeneration overwrites it. Between edits, the latest by editedAt wins.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "editedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When the owner made the edit, on the device that did; now when omitted. A time in the future counts as now. An edit older than the stored one is ignored."
+                  },
+                  "title": {
+                    "type": ["string", "null"],
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": ["title"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The conversation, with the title that won",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/intelligence": {
+      "post": {
+        "description": "The owner's Generate: the title, TLDR, chapters and boundary suggestions again. `after` is the summary he saw (the feed's `runId`, null for none): when a run newer than it is already valid, running or waiting, nothing happens and it answers 200 with that run, so a replay asks nothing twice. Otherwise it is summarized again from its first turn, window after window, on the Mac (the owner's subscription); with the Mac away it waits for it. The summary shown stays until a newer run is valid. Answers 202 with the latest run as it stands; read the feed for the rest. Never on a paid API.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "after": {
+                    "type": ["string", "null"],
+                    "format": "uuid"
+                  }
+                },
+                "required": ["after"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A run newer than `after`: nothing asked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntelligenceRun"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Generating: the latest run as it stands, if any",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/IntelligenceRun"
+                    },
+                    {
+                      "type": ["object", "null"]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such job or transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No provider configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/location-history": {
+      "post": {
+        "description": "The phone's whole location history: every fix it took, with Apple's place name when it has one, and every visit iOS reported. The server names conversations' places from it. Idempotent: one fix per instant (a name sent later fills one stored without); a visit is keyed by its arrival (its departure when iOS didn't see it arrive) and replaced when sent again with its departure.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fixes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/LocationFix"
+                    },
+                    "maxItems": 1000,
+                    "default": []
+                  },
+                  "visits": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/LocationVisit"
+                    },
+                    "maxItems": 1000,
+                    "default": []
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rows written; a fix already stored as it is counts 0",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fixes": {
+                      "type": "integer"
+                    },
+                    "visits": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["fixes", "visits"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/where": {
+      "get": {
+        "description": "Where the owner was. At an instant: the stay around it, or the nearest point within 30 minutes, else nothing. On a day (owner's time zone): each stay, in order.",
+        "parameters": [
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              ]
+            },
+            "required": true,
+            "name": "at",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stays",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Visit"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/visits": {
+      "get": {
+        "description": "Each visit to a place, newest first, at most 200: by the name the phone gave it (`place`, matched in part), or by `latitude` and `longitude` within `radiusM` (100 m). `from` and `to` bound it; the whole history without them.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": ["number", "null"]
+            },
+            "required": false,
+            "name": "latitude",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": ["number", "null"]
+            },
+            "required": false,
+            "name": "longitude",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "place",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "minimum": 10,
+              "maximum": 5000
+            },
+            "required": false,
+            "name": "radiusM",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Visits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Visit"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No place the phone named matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "description": "Passages (about 30 to 60 s of turns) ranked by meaning and by the words typed, best first: a passage containing the query as typed outranks one that only means it. The query is embedded by OpenAI (docs/providers.md); identical queries reuse it for a few minutes. Conversations are indexed in the background after each change.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Best first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hits": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SearchHit"
+                      }
+                    }
+                  },
+                  "required": ["hits"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No OpenAI key configured, or the AI switch is off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/switches": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "The switches now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Switches"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Turns transcription or AI on or off, or sets when the app asks to be opened. Turned back on, what waited goes on: the phone is nudged to send its waiting audio, summaries due run on the Mac, search catches up.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ai": {
+                    "type": "boolean",
+                    "description": "Summaries and titles on the Mac, and search embeddings. Off: they wait"
+                  },
+                  "engine": {
+                    "type": "string",
+                    "enum": ["claude", "codex"],
+                    "description": "Which subscription runs AI on the Mac: Claude Max or ChatGPT Codex"
+                  },
+                  "openAppAfterMinutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1440,
+                    "description": "Minutes the Pendant's audio may wait on the phone, while it records, before a notification asks the owner to open the app. 0: never"
+                  },
+                  "transcription": {
+                    "type": "boolean",
+                    "description": "Audio to ElevenLabs and voices to speaker recognition. Off: uploads wait unsent"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The switches now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Switches"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vocabulary": {
+      "put": {
+        "description": "Replaces the owner's words with this list (idempotent); the feed carries them (`vocabulary`). Blocks uploaded from then on are transcribed with them; nothing is transcribed again.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Vocabulary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The owner's words now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Vocabulary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sources/{sourceId}/timeline": {
+      "put": {
+        "description": "The phone's timeline facts for a source, by span. A span replaces the stored one with the same first page; heard-through only moves forward. Conversations are regrouped from the earliest change; the handover's history (spans of negative first page) stays beside the phone's spans.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "sourceId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Timeline"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stored; conversations regrouped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "heardThrough": {
+                      "type": ["string", "null"],
+                      "format": "date-time"
+                    },
+                    "spans": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["heardThrough", "spans"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edits": {
+      "post": {
+        "description": "An owner's grouping edit, idempotent by its id: split, merge, undo (of an earlier edit) or a dismissed split suggestion. Conversations are regrouped from where it applies.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kept (or already)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stored": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["stored"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An undo of an undo, or a split or merge inside an imported recording",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "An undo of an edit the server doesn't have",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

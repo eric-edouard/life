@@ -1,0 +1,52 @@
+steps:
+  - echo: "Gates use accessibilityIdentifiers through await-ui-element. Taps stay coordinate taps (iPhone 18 Pro, 402x874 pt): the tap/await directives don't resolve this app's SwiftUI elements yet, each tap is gated on its target's identifier first."
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: pendant.card.incident.unreadablePage
+      timeoutMs: 15000
+  - echo: The title says when the lost audio was recorded; the raw page index is only in the details.
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: couldn't be read
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: pendant.incident.gap
+  - await:
+      idle: true
+  - tool: gesture-tap
+    args:
+      x: 0.261
+      y: 0.592
+  - echo: A centered alert, never a popover over the tab bar; confirming stays on the Pendant tab.
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: pendant.incident.confirm
+  - await:
+      idle: true
+  - tool: gesture-tap
+    args:
+      x: 0.5
+      y: 0.559
+  - tool: await-ui-element
+    args:
+      condition: hidden
+      selector:
+        identifier: pendant.card.incident.unreadablePage
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: pendant.switch
+executionPrerequisite: Run right after `xcrun simctl launch
+  --terminate-running-process <UDID> com.ericedouard.lifelog -fixtureLibrary
+  -fakePendant corruptPage` (argent injection armed by a prior restart-app;
+  notifications already answered, so no invite card), Pendant tab scrolled to
+  top.

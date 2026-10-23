@@ -1,0 +1,211 @@
+{
+  "chapters": [
+    {
+      "conversationId": "00000000-0000-4000-8000-000000000001",
+      "endAt": "2026-10-14T10:01:00.000Z",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "startAt": "2026-10-14T10:00:00.000Z",
+      "summary": "The plumber comes Monday.",
+      "title": "Plumber"
+    }
+  ],
+  "conversations": [
+    {
+      "closed": true,
+      "endAt": "2026-10-14T10:01:00.000Z",
+      "endEdit": null,
+      "id": "00000000-0000-4000-8000-000000000001",
+      "kind": "conversation",
+      "ownerTitle": "The plumber",
+      "ownerTitleAt": "2026-10-14T10:05:00.000Z",
+      "place": "Bakery, Oakridge 31",
+      "retired": null,
+      "runId": "00000000-0000-4000-8000-000000000015",
+      "splitSuggestions": [
+        {
+          "at": "2026-10-14T10:00:05.000Z",
+          "confidence": "medium"
+        }
+      ],
+      "startAt": "2026-10-14T10:00:00.000Z",
+      "startEdit": null,
+      "state": "summarized",
+      "title": "Turns 0-1",
+      "tldr": "They talked.",
+      "waiting": {
+        "reason": "macAway",
+        "since": "2026-10-14T10:01:10.000Z"
+      }
+    },
+    {
+      "closed": true,
+      "endAt": "2026-10-14T10:03:20.000Z",
+      "endEdit": null,
+      "id": "00000000-0000-4000-8000-000000000002",
+      "kind": "conversation",
+      "ownerTitle": null,
+      "ownerTitleAt": null,
+      "place": "Bakery, Oakridge 31",
+      "retired": {
+        "successorId": "00000000-0000-4000-8000-000000000001"
+      },
+      "runId": null,
+      "splitSuggestions": [],
+      "startAt": "2026-10-14T10:02:00.000Z",
+      "startEdit": null,
+      "state": "transcribed",
+      "title": null,
+      "tldr": null,
+      "waiting": null
+    }
+  ],
+  "cursor": "19",
+  "edits": [
+    {
+      "at": "2026-10-14T10:00:20.000Z",
+      "editedAt": "2026-10-14T10:06:40.000Z",
+      "from": null,
+      "id": "00000000-0000-4000-8000-000000000008",
+      "kind": "split",
+      "source": "owner",
+      "target": null,
+      "to": null,
+      "undoneAt": null
+    },
+    {
+      "at": null,
+      "editedAt": "2026-10-14T10:06:50.000Z",
+      "from": "2026-10-14T10:00:30.000Z",
+      "id": "00000000-0000-4000-8000-000000000013",
+      "kind": "merge",
+      "source": "owner",
+      "target": null,
+      "to": "2026-10-14T10:02:30.000Z",
+      "undoneAt": "2026-10-14T10:07:00.000Z"
+    },
+    {
+      "at": null,
+      "editedAt": "2026-10-14T10:07:00.000Z",
+      "from": null,
+      "id": "00000000-0000-4000-8000-000000000014",
+      "kind": "undo",
+      "source": "owner",
+      "target": "00000000-0000-4000-8000-000000000013",
+      "to": null,
+      "undoneAt": null
+    }
+  ],
+  "jobs": [
+    {
+      "durationSeconds": 60,
+      "endedOnSilence": null,
+      "id": "00000000-0000-4000-8000-000000000003",
+      "pages": [[1200, 1290]],
+      "sourceId": "dev1",
+      "state": "completed"
+    }
+  ],
+  "more": false,
+  "people": [
+    {
+      "aliases": ["Mari"],
+      "id": "00000000-0000-4000-8000-000000000004",
+      "isOwner": false,
+      "name": "Marie-Jo"
+    },
+    {
+      "aliases": [],
+      "id": "00000000-0000-4000-8000-000000000012",
+      "isOwner": true,
+      "name": "Dave"
+    }
+  ],
+  "quietRanges": [
+    {
+      "endedAt": "2026-10-14T10:00:50.000Z",
+      "id": "00000000-0000-4000-8000-000000000007",
+      "startedAt": "2026-10-14T10:00:45.000Z"
+    }
+  ],
+  "removed": [
+    {
+      "firstPage": 200,
+      "kind": "job",
+      "ref": "00000000-0000-4000-8000-000000000009",
+      "sourceId": "pendant-1"
+    },
+    {
+      "kind": "person",
+      "ref": "00000000-0000-4000-8000-000000000005"
+    }
+  ],
+  "turns": [
+    {
+      "conversationId": "00000000-0000-4000-8000-000000000001",
+      "endAt": "2026-10-14T10:00:02.800Z",
+      "jobId": "00000000-0000-4000-8000-000000000003",
+      "language": "eng",
+      "speaker": {
+        "displayName": "Dave",
+        "isOwner": true,
+        "label": "speaker_0",
+        "personId": "00000000-0000-4000-8000-000000000012",
+        "personName": "Dave"
+      },
+      "startAt": "2026-10-14T10:00:00.000Z",
+      "turnIndex": 0,
+      "text": "Remember the plumber.",
+      "words": [[0, 800, 8], [1000, 1800, 4], [2000, 2800, 9]]
+    },
+    {
+      "conversationId": "00000000-0000-4000-8000-000000000001",
+      "endAt": "2026-10-14T10:00:09.000Z",
+      "jobId": "00000000-0000-4000-8000-000000000003",
+      "language": "eng",
+      "speaker": {
+        "displayName": "Marie-Jo",
+        "isOwner": false,
+        "label": "speaker_1",
+        "personId": "00000000-0000-4000-8000-000000000004",
+        "personName": "Marie-Jo"
+      },
+      "startAt": "2026-10-14T10:00:05.000Z",
+      "turnIndex": 1,
+      "text": "Monday at nine.",
+      "words": []
+    }
+  ],
+  "vocabulary": ["Oakridge"],
+  "mac": {
+    "dictatingSince": null,
+    "llm": {
+      "able": false,
+      "reason": null
+    },
+    "subscriptions": {
+      "claude": null,
+      "codex": {
+        "fiveHour": {
+          "resetsAt": 1800010000,
+          "usedPercent": 0
+        },
+        "observedAt": 1750000000,
+        "sevenDay": {
+          "resetsAt": 1800600000,
+          "usedPercent": 42.5
+        }
+      }
+    },
+    "watch": {
+      "asleep": false,
+      "heardAt": "2026-10-14T10:08:20.000Z",
+      "watchedThrough": "2026-10-14T10:08:20.000Z"
+    }
+  },
+  "switches": {
+    "ai": true,
+    "engine": "claude",
+    "openAppAfterMinutes": 15,
+    "transcription": true
+  }
+}

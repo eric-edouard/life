@@ -1,0 +1,98 @@
+[
+  {
+    "case": "over 60 minutes with no boundary, cut at the longest pause",
+    "spans": [
+      {
+        "start": 0,
+        "end": 5000,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 1000], [1010, 2000], [2030, 4000]],
+    "audible": [[0, 5000]],
+    "capSplits": [2015],
+    "expected": [
+      {
+        "start": 0,
+        "end": 2000,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 2030,
+        "end": 4000,
+        "id": "00000000-0000-8000-8000-01a0c46f65b0"
+      }
+    ]
+  },
+  {
+    "case": "the owner's merge is never cut by the cap",
+    "spans": [
+      {
+        "start": 0,
+        "end": 5000,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 1000], [1010, 2000], [2030, 4000]],
+    "audible": [[0, 5000]],
+    "edits": [
+      {
+        "kind": "merge",
+        "from": 0,
+        "to": 4000
+      }
+    ],
+    "capSplits": [],
+    "expected": [
+      {
+        "start": 0,
+        "end": 4000,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "a word is speech: no boundary falls inside one",
+    "spans": [
+      {
+        "start": 0,
+        "end": 300,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 30], [100, 130]],
+    "words": [[25, 35], [50, 60], [80, 105]],
+    "expected": [
+      {
+        "start": 0,
+        "end": 130,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "dictation is not conversation",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 460]],
+    "audible": [[0, 600]],
+    "dictation": [[60, 400]],
+    "expected": [
+      {
+        "start": 0,
+        "end": 60,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 400,
+        "end": 460,
+        "id": "00000000-0000-8000-8000-01a0c4568680"
+      }
+    ]
+  }
+]

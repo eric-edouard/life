@@ -1,0 +1,16 @@
+steps:
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Pendant busy with another app
+      timeoutMs: 15000
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.hero.recovery
+      expectedText: Try again
+executionPrerequisite: Run right after `xcrun simctl launch
+  --terminate-running-process <UDID> com.ericedouard.lifelog -fixtureLibrary
+  -fakePendant busyElsewhere` (argent injection armed by a prior restart-app).

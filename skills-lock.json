@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "core-bluetooth": {
+      "source": "dpearson2699/swift-ios-skills",
+      "sourceType": "github",
+      "skillPath": "skills/core-bluetooth/SKILL.md",
+      "computedHash": "eeeca95d8f952b1ca342f894e390c6fc7e06bbc4e7cdf2726275079408423ac2"
+    },
+    "hono": {
+      "source": "honojs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/hono/SKILL.md",
+      "computedHash": "e3f141a41800df815000216a53510fe6f888629471c214706cc05adff27297fb"
+    },
+    "swift-concurrency": {
+      "source": "avdlee/swift-concurrency-agent-skill",
+      "sourceType": "github",
+      "skillPath": "skills/swift-concurrency/SKILL.md",
+      "computedHash": "49e4df69412710a0ca320c21a9d26cf4abb6d2c553960cffaceea5a09e3be792"
+    },
+    "swift-testing-pro": {
+      "source": "twostraws/swift-testing-agent-skill",
+      "sourceType": "github",
+      "skillPath": "swift-testing-pro/SKILL.md",
+      "computedHash": "576d9b4705c76262095e2470e99bb9a89324ac4467e7ee54b7032697a8789b3d"
+    },
+    "swiftui-expert-skill": {
+      "source": "avdlee/swiftui-agent-skill",
+      "sourceType": "github",
+      "skillPath": "skills/swiftui-expert-skill/SKILL.md",
+      "computedHash": "5388cd2368b525d2906798ac313c70415e971da35670e571e98baf8a7140505f"
+    }
+  }
+}

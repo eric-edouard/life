@@ -1,0 +1,36 @@
+steps:
+  - echo: Checking is said once, by the hero (its switch carries the sentence); there is no separate card for it.
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.switch
+      expectedText: Checking
+      timeoutMs: 8000
+  - tool: await-ui-element
+    args:
+      condition: hidden
+      selector:
+        identifier: pendant.card.checking
+  - tool: await-ui-element
+    args:
+      condition: exists
+      selector:
+        text: Catching up
+      timeoutMs: 15000
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.switch
+      expectedText: Recording.
+      timeoutMs: 15000
+  - tool: await-ui-element
+    args:
+      condition: exists
+      selector:
+        text: All saved
+      timeoutMs: 40000
+executionPrerequisite: Run within 1 s of `xcrun simctl launch
+  --terminate-running-process <UDID> com.ericedouard.lifelog -fixtureLibrary
+  -fakePendant offlineBacklog` (argent injection armed by a prior restart-app).

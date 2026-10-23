@@ -1,0 +1,138 @@
+steps:
+  - echo: "Selects the first two rows (Select-mode circles), opens Export, cancels, reopens, switches to Text only, turns JSON off (Plain text only), exports and opens the share sheet. Toggles and sheet buttons are tapped by coordinate (iPhone 17); their SwiftUI identifiers (export.start, export.share, export.again) are visible to raw await-ui-element only."
+  - tap:
+      text: Select
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: library.row
+  - tool: gesture-tap
+    args:
+      x: 0.072
+      y: 0.365
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: 1 selected
+  - tool: gesture-tap
+    args:
+      x: 0.072
+      y: 0.489
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: 2 selected
+  - tap:
+      id: square.and.arrow.up
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: M4A (compressed)
+        role: Button
+  - tap:
+      id: xmark
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: hidden
+      selector:
+        text: M4A (compressed)
+        role: Button
+  - tap:
+      id: square.and.arrow.up
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Export, Audio and text
+  - tap:
+      text: Audio and text
+  - tap:
+      text: Text only
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: hidden
+      selector:
+        text: M4A (compressed)
+        role: Button
+  - tool: gesture-tap
+    args:
+      x: 0.85
+      y: 0.662
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: exists
+      selector:
+        text: JSON data
+        role: Button
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: export.start
+  - tool: gesture-tap
+    args:
+      x: 0.5
+      y: 0.908
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: export.share
+      timeoutMs: 15000
+  - tool: gesture-tap
+    args:
+      x: 0.5
+      y: 0.835
+  - await:
+      idle: true
+  - echo: The system share sheet is up (a separate process the tree tools cannot read); swipe it away.
+  - tool: gesture-swipe
+    args:
+      fromX: 0.5
+      fromY: 0.65
+      toX: 0.5
+      toY: 0.99
+      durationMs: 300
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        identifier: export.again
+  - tap:
+      id: xmark
+  - await:
+      idle: true
+  - tool: await-ui-element
+    args:
+      condition: hidden
+      selector:
+        identifier: export.again
+  - tap:
+      text: Done
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Select
+        role: Button
+executionPrerequisite: fixtureLibrary + healthyRecording launch, Library tab
+  root showing with conversations listed (not in Select mode), list scrolled to
+  top.
