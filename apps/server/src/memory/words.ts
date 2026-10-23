@@ -107,15 +107,17 @@ export async function spokenLines(
   truth: Truth,
   open = openStore
 ) {
+  const voice = units.filter((u) => kindOf(u.source) === "voice");
+  if (voice.length === 0) {
+    return new Map<string, SourceLine[]>();
+  }
   const turns = await withStore(
     (store) =>
       new Map(
-        units
-          .filter((u) => kindOf(u.source) === "voice")
-          .map((u) => [
-            u.id,
-            turnsBetween(store, u.key, u.start, u.end, voiceNames(truth)),
-          ])
+        voice.map((u) => [
+          u.id,
+          turnsBetween(store, u.key, u.start, u.end, voiceNames(truth)),
+        ])
       ),
     open
   );

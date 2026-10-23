@@ -134,8 +134,8 @@ A conversation that isn't finished says why in the feed (`waiting.reason`, `sinc
 sentence. While a job over it isn't completed, the reason is `transcriptionOff` or `creditsOut`. Otherwise, `macAway` while a refused event blocks the Mac's
 watermark (`docs/voice/sync.md`), `phoneQuiet`
 when heard-through is more than 10 minutes behind and before the conversation's end while the Pendant records (audio of
-it the phone hasn't sent), and, for a conversation with words that is still open or due (Summaries, below), `aiOff`
-or `macAway` (its summary waits for the Mac).
+it the phone hasn't sent), and, for a conversation with words that is still open or due while summaries are on (below),
+`macAway` (its summary waits for the Mac).
 
 ### Pausing transcription and AI
 
@@ -149,8 +149,8 @@ bun run switches transcription off    # transcription | ai | all, on | off
 - **Transcription** covers audio to ElevenLabs and voices to `apps/speech`. Off, blocks still go up and wait on the
   server (`waiting.reason` `transcriptionOff`). Jobs already with ElevenLabs still finish and come back.
 - **AI** (Summaries in the app) covers summaries, titles and chapters on the Mac, and is off by default: Life reads
-  the words, never the summaries (server playbook, step 4). Off, no conversation waits for one (`status`'s
-  `pipeline.ai.blockedBy` still says `aiOff`). Search embeddings follow the OpenAI key alone: without one, search
+  the words, never the summaries (server playbook, step 4). Off, no conversation waits for one and `status`'s
+  `pipeline.ai.blockedBy` is null. Search embeddings follow the OpenAI key alone: without one, search
   answers `search_unavailable` and the app searches its own cache only.
 
 The server keeps both in one row (`processing_switches`) and checks them before every call. The phone reads them in

@@ -225,6 +225,14 @@ test("status's pipeline: blocks waiting and at ElevenLabs, open speech, failures
     waiting: 1,
   });
   expect(pipeline.ai.lastSummaryAt).not.toBeNull();
+  // Summaries off (the default): none is coming, so nothing blocks them.
+  setSwitches(env.db, { ai: false });
+  const off = await (
+    await createApp(s).request("/status", {
+      headers: { Authorization: `Bearer ${OWNER_TOKEN}` },
+    })
+  ).json();
+  expect(off.pipeline.ai.blockedBy).toBeNull();
 });
 
 test("the live status is the cheap part, for the device token only", async () => {
