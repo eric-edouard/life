@@ -41,7 +41,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   sends no `ask` event.
 - **The daily ask** (`dailyAsk`, `apps/server/src/host/agent.ts`, in the watcher's minute): with the `daily_ask` setting on, once
   the owner's local time (`zoneAt`, where he is, never the Mac's clock) passes its `time`, one ask of its `text` for that day,
-  `ref` `daily:<day>`, `via: "watch"`, `confidence: "high"`. Its id comes from the day, so a restart never asks twice; a Mac
+  `ref` `daily:<day>`, `via: "watch"`, `confidence: "high"`. Its id comes from the day, so a restart never asks twice and an edited text goes out the next day; a Mac
   asleep then asks at wake, a day it stays off gets none. It is a task like any ask (delivered, chased at 30 min, on the
   board, in the nightly's rows), but `unanswered` skips it: the agent takes it and closes it, with no reply.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory

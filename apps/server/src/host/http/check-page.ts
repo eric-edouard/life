@@ -17,7 +17,6 @@ const FILES: Record<string, string> = {
   "/check/": "check/index.html",
   "/check/check.css": "check/check.css",
   "/check/check.js": "check/check.js",
-  "/check/tokens.css": "brand/tokens.css",
 };
 
 const Answer = Rating.pick({ answer: true, ref: true });

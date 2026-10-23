@@ -180,7 +180,7 @@ Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
   password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with
   the password, failed tries capped.
 
-- **The brand** (`apps/server/src/host/http/server.ts`, `/brand/brand.md` and `/brand/tokens.css`), with no sign-in: Life's
+- **The brand** (`apps/server/src/host/http/server.ts`: `/docs/brand.md`, `/assets/brand/tokens.css` and the files they link), with no sign-in: Life's
   own files, nothing of the owner's, for his agent to style what it makes for him.
 
 Everything Life shows follows Life's brand, one source in `assets/brand/tokens.css`: where each surface takes it is

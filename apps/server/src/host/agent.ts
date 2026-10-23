@@ -104,9 +104,12 @@ export function dailyAsk(
   now = clock().getTime(),
   d: Settings["daily_ask"] = settings().daily_ask
 ) {
+  if (!d?.on) {
+    return;
+  }
   const day = localDate(iso(now));
-  const due = dayStart(day, undefined, d?.time).getTime();
-  if (d?.on && now >= due) {
+  const due = dayStart(day, undefined, d.time).getTime();
+  if (now >= due) {
     ask(
       { at: iso(due), quote: d.text, ref: `${DAILY}${day}` },
       { confidence: "high" },

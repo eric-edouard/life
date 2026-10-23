@@ -84,10 +84,6 @@ test("nothing of his without the owner's token: the page sends him to sign in, t
   );
   const ok = await get("/check/statements", await session());
   expect(ok.status).toBe(200);
-  // The brand's tokens, which the page links, are served beside it.
-  expect(
-    await (await get("/check/tokens.css", await session())).text()
-  ).toContain("--ink");
   const { groups } = (await ok.json()) as {
     groups: { name: string; statements: { asOf: string }[] }[];
   };

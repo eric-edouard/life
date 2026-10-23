@@ -55,15 +55,21 @@ function listen(port: number, app: Hono) {
   console.log(`Life: listening on 127.0.0.1:${port}`);
 }
 
-/** Life's brand, nothing of his, open to all: so his agent styles what it makes for him (docs/brand.md). */
-const BRAND: Record<string, string> = {
-  "/brand/brand.md": "docs/brand.md",
-  "/brand/tokens.css": "assets/brand/tokens.css",
-};
+/**
+ * Life's brand, nothing of his, open to all at its paths in the repo (so the guide's links work): his agent styles what
+ * it makes for him with it, and `/check` links its tokens.
+ */
+const BRAND = [
+  "docs/brand.md",
+  "docs/brand/reference.png",
+  "assets/brand/tokens.css",
+  "assets/brand/life.svg",
+  "assets/icon/icon.svg",
+];
 const brand = new Hono();
-for (const [path, file] of Object.entries(BRAND)) {
+for (const file of BRAND) {
   brand.get(
-    path,
+    `/${file}`,
     () =>
       new Response(Bun.file(join(LIFE_CODE_DIR, file)), { headers: HEADERS })
   );

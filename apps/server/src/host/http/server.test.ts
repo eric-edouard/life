@@ -10,10 +10,13 @@ test("the public port refuses the owner's pages without a session, serves Life's
   expect((await get("/mcp")).status).toBe(401);
   expect((await get("/auth/oauth2/token")).status).toBe(404);
   expect((await get("/me/..%2Fetc")).status).toBe(404);
-  const css = await get("/brand/tokens.css");
-  expect([css.status, (await css.text()).includes("--")]).toEqual([200, true]);
-  expect((await get("/brand/brand.md")).status).toBe(200);
-  expect((await get("/brand/reference.png")).status).toBe(404);
+  const css = await get("/assets/brand/tokens.css");
+  expect([css.status, (await css.text()).includes("--ink")]).toEqual([
+    200,
+    true,
+  ]);
+  expect((await get("/docs/brand.md")).status).toBe(200);
+  expect((await get("/docs/agent.md")).status).toBe(404);
   const none = await get("/nope");
   expect([none.status, await none.text()]).toEqual([404, "not found"]);
 });

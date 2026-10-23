@@ -14,9 +14,9 @@ can't read CSS variables copy its values, and `scripts/brand.test.ts` fails when
 
 | Surface | How it takes the tokens |
 | --- | --- |
-| `/check` | `assets/check/index.html` links `tokens.css` (served at `/check/tokens.css`, `apps/server/src/host/http/check-page.ts`) before `check.css` |
+| `/check` | `assets/check/index.html` links `/assets/brand/tokens.css` (served open, `apps/server/src/host/http/server.ts`) before `check.css` |
 | `/me` password page, pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`apps/server/src/host/http/portrait.ts`, `apps/server/src/host/http/oauth.ts`) |
-| What the agent makes for the owner | `<origin>/brand/brand.md` and `<origin>/brand/tokens.css`, served open (`apps/server/src/host/http/server.ts`) |
+| What the agent makes for the owner | `<origin>/docs/brand.md` and `<origin>/assets/brand/tokens.css`, served open (`apps/server/src/host/http/server.ts`) |
 | Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
 | The app | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`, copied, light and dark |
 
