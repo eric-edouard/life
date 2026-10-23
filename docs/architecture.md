@@ -106,7 +106,8 @@ someone else is capped at 0.6 confidence.
 - The archive (deleted messages, old note versions) is the only live copy of what the apps delete; it lives in
   Application Support and in the encrypted backup, nowhere else.
 - The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or
-  OpenAI, through the owner's subscription's CLI or an API key: `docs/operations.md`, "Model engines"). Calls run in
+  OpenAI through the owner's subscription's CLI or an API key on the Mac; on a server, OpenRouter with his key, to
+  endpoints that keep nothing: `docs/operations.md`, "Model engines"). Calls run in
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
   the prompt.
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
@@ -164,6 +165,17 @@ Support/Life`, secrets from the Keychain. The app never reads Life's files: it a
 Its menu-bar panel and status window are native SwiftUI, reading the status snapshot from the watcher's local status reads
 (`apps/server/src/host/http/status-reads.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
 there): `docs/status-reads.md`.
+
+## Headless (a server)
+
+`bun life headless` (`apps/server/src/host/headless.ts`) is the app's supervisor without the app, a server container's
+command: the archive and the watcher kept running, the nightly tick every 30 minutes, the server's keys
+(`LIFE_STATE_DIR/secrets.env`, `setSecretEnv`) in their environment as the app passes the Keychain's, and every service
+started again when the settings or the keys change. The same code runs both routes; what only the Mac has
+(notifications, opening apps, launchd's tunnel restart, the Mac-only sources) is absent on Linux by capability in
+`platform.ts`, never a branch on a name. The engine defaults to the host's (`HOST_ENGINE`): OpenRouter on a server.
+Life's own issuer serves the connector from the `connector` setting's public origin, so a Cloudflare tunnel in front of
+`PUBLIC_PORT` needs nothing else.
 
 ## Pages
 

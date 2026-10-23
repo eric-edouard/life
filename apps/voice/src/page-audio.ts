@@ -59,8 +59,6 @@ export interface LabelRequest {
 // The worker, started on first use; it holds no process open. `lives` counts the workers that
 // ended: a piece left open in one is gone, and is labeled again from its first page.
 let worker: Worker | undefined;
-// Ends the current worker at once: what `stopWorker` calls.
-let stop: (() => void) | undefined;
 let lives = 0;
 export const workerLife = () => lives;
 let chain: Promise<unknown> = Promise.resolve();
@@ -91,31 +89,32 @@ function started() {
       call?.resolve(data.labels);
     }
   };
-  // A crash or an exit settles every call waiting on it, so none hangs and the chain goes on.
-  const ended = (why: string) => {
-    if (worker !== w) {
-      return;
-    }
-    for (const call of waiting.values()) {
-      call.reject(new Error(`VAD worker: ${why}`));
-    }
-    waiting.clear();
-    worker = undefined;
-    lives += 1;
-    // A crash may leave it running: it is ended for good.
-    w.terminate();
-  };
-  w.onerror = (event) => ended(event.message);
-  w.addEventListener("close", () => ended("it exited"));
-  stop = () => ended("it was stopped");
+  w.onerror = (event) => ended(w, event.message);
+  w.addEventListener("close", () => ended(w, "it exited"));
   worker = w;
   return w;
 }
 
-// Ends the worker (tests, and nothing else): its calls reject at once and the next starts a new
-// one, never waiting for its close event, which may come after the next call.
+// A crash or an exit settles every call waiting on it, so none hangs and the chain goes on.
+function ended(w: Worker, why: string) {
+  if (worker !== w) {
+    return;
+  }
+  for (const call of waiting.values()) {
+    call.reject(new Error(`VAD worker: ${why}`));
+  }
+  waiting.clear();
+  worker = undefined;
+  lives += 1;
+  // A crash may leave it running: it is ended for good.
+  w.terminate();
+}
+
+// Ends the worker (tests, and nothing else), as its exit would, but before stopWorker returns.
 export function stopWorker() {
-  stop?.();
+  if (worker) {
+    ended(worker, "it was stopped");
+  }
 }
 
 // Labels one piece, after every request before it: Silero runs one call at a time.

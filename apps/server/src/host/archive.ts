@@ -5,6 +5,7 @@ import { clock, DAY } from "../core/clock";
 import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { LIFE_CODE_DIR } from "../core/paths";
+import { openAppArgs } from "../core/platform";
 import { codeAt, exec } from "../core/proc";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -58,12 +59,16 @@ export const appsToOpen = (
  * `open` given 5 s at most, so a hung LaunchServices never holds up the copies.
  */
 async function keepAppsOpen() {
+  const open = openAppArgs;
+  if (!open) {
+    return;
+  }
   const now = clock().getTime();
   const running = (await exec(["ps", "-axco", "comm="])).stdout.split("\n");
   await Promise.all(
     appsToOpen(running, now).map(async (app) => {
       openedAt.set(app, now);
-      const { code, stderr } = await exec(["open", "-g", "-j", "-a", app], {
+      const { code, stderr } = await exec(open(app), {
         timeout: 5000,
       });
       console.log(
