@@ -101,12 +101,12 @@ const changed = (
     .nothrow()
     .text()
 ).split("\n");
-const why =
-  process.platform === "darwin"
-    ? changed.some((f) => SWIFT.test(f))
-      ? null
-      : "no change to the phone, the sensor or what they read"
-    : "needs macOS";
+let why: string | null = null;
+if (process.platform !== "darwin") {
+  why = "needs macOS";
+} else if (!changed.some((f) => SWIFT.test(f))) {
+  why = "no change to the phone, the sensor or what they read";
+}
 if (why) {
   for (const name of Object.keys(macSteps)) {
     console.log(`- ${name}: skipped, ${why}`);
