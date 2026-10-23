@@ -63,12 +63,16 @@ What Life is building next, in order, and what is parked. Each item gets its own
   `people.ts`, `closeness.ts`, voice speakers). Much of it leans on voice; it should lean on each source's own
   identifiers (chat handles, phones, emails, mail headers). Findings and a fix, measured on real cases.
 
+## Later
+
+- Try transcription on the iPhone itself (Parakeet Ultra on the Neural Engine): audio could stay on the phone. Not
+  before the server pipeline runs; the open questions are speed, battery, and transcripts within minutes while iOS
+  runs heavy work mostly when charging ([one product plan](plans/2026-10-23-one-product.md#on-device-transcription-parked)).
+
 ## Parked
 
 - lifelog's Android app: the owner uses an iPhone, and the server it talks to changes in the move to one product
   ([one product plan](plans/2026-10-23-one-product.md#android-parked)).
-- Transcription on the iPhone: transcripts must arrive within minutes, and iOS runs heavy work mostly while charging
-  ([one product plan](plans/2026-10-23-one-product.md#on-device-transcription-parked)).
 - Windows. The platform module and the Windows fixes stay as seams; what a restart would need is at the end of the
   [platforms and modules plan](plans/2026-10-22-platforms.md).
 - Search by meaning: tried and measured on 21 Oct, it did not improve answers and made each search about 23% bigger.
