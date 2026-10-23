@@ -16,7 +16,7 @@ import { createStatusReads } from "./status-reads";
 // `connector` setting's origin to it.
 
 /**
- * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
+ * Serves on loopback (the public port where `PUBLIC_HOST` says), bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
  * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the check
  * page (`check-page.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
  * public port. 404 for any other path.

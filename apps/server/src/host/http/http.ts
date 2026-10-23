@@ -55,6 +55,6 @@ export const PUBLIC_PORT = 46_200;
  * Where the public port listens: loopback, or the address a container's tunnel reaches it on (`LIFE_LISTEN_HOST`,
  * e.g. 0.0.0.0 in Compose). The local port is always loopback.
  */
-export const PUBLIC_HOST = process.env.LIFE_LISTEN_HOST ?? "127.0.0.1";
+export const PUBLIC_HOST = process.env.LIFE_LISTEN_HOST || "127.0.0.1";
 /** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = 46_201;
