@@ -47,7 +47,7 @@ if ("issues" in read) {
   console.log(`waiting for its keys in ${keysFile}: ${read.issues}`);
   await new Promise(() => undefined);
 }
-const config = read.config;
+const { config } = read;
 // Kept referenced until exit: the lock lasts as long as its connection.
 const archiveLock = holdArchive(config.DATABASE_PATH);
 process.on("exit", () => archiveLock.close());
