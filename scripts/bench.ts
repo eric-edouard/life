@@ -124,7 +124,7 @@ async function run(
 }
 
 /** The main checkout (this repo's first worktree): its .env. */
-export const mainCheckout = () =>
+const mainCheckout = () =>
   dirname(
     gitOut(LIFE_CODE_DIR, [
       "rev-parse",
@@ -134,13 +134,15 @@ export const mainCheckout = () =>
   );
 
 /**
- * This code at HEAD in `dir`, a throwaway worktree, with its own dependencies (a link to the main checkout's would load
+ * This code at HEAD in `dir`, a throwaway worktree, with its own dependencies, installed without scripts (they write the git config every worktree shares; a link to the main checkout's would load
  * the main checkout's code: the workspace packages link back into it), the main checkout's .env, and `state` from this
  * process's state dir (`LIFE_STATE_DIR`: production's when run from the main checkout) in its own derived/.
  */
 export async function checkout(dir: string, state: string[]) {
   gitOut(LIFE_CODE_DIR, ["worktree", "add", "--detach", dir, "HEAD"]);
-  await execOk(["bun", "install", "--frozen-lockfile"], { cwd: dir });
+  await execOk(["bun", "install", "--frozen-lockfile", "--ignore-scripts"], {
+    cwd: dir,
+  });
   await mkdir(join(dir, "derived"), { recursive: true });
   await symlink(join(mainCheckout(), ".env"), join(dir, ".env"));
   for (const p of state) {
