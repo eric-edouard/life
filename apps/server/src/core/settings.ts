@@ -53,6 +53,18 @@ export const Settings = z
         message: "another issuer needs its client and owner",
       })
       .optional(),
+    /**
+     * His daily ask (`dailyAsk`, host/agent.ts): his own text, handed to his agent once a day when his local time passes
+     * `time`, so instructions it forgets come back. `on: false` keeps the text; without it, there is none.
+     */
+    daily_ask: z
+      .object({
+        on: z.boolean().default(true),
+        text: z.string().trim().min(1),
+        time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "HH:MM"),
+      })
+      .strict()
+      .optional(),
     /** The model runner the memory steps use. */
     engine: Engine.default("claude"),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */

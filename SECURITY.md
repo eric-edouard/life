@@ -60,6 +60,9 @@ This is the one list; nothing else leaves.
 - The to-do items Life writes (his clear to-dos and the agent's board), to Google Tasks, when the actions backend is
   Google (with Reminders they stay in his Apple account, which syncs as Reminders does).
 - The owner's corrections about recordings, to the owner's own lifelog server.
+- Life's brand, nothing of the owner's, to anyone at its paths in the repo: `docs/brand.md`, `docs/brand/reference.png`,
+  `assets/brand/tokens.css`, `assets/brand/life.svg` and `assets/icon/icon.svg` (`BRAND`, `server.ts`), so his agent
+  can style what it makes for him.
 - The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud
   Drive does).
 

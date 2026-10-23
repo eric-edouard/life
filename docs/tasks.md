@@ -14,8 +14,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (see `SECURITY.md`): an unattended run reads others' text with full
   access. Revisit it before any send goes out without the owner's yes on that send.
-- Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent, and
-  `bun life ask`. Nothing else Life reads ever does.
+- Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent,
+  `bun life ask`, and his daily ask (his own text in settings). Nothing else Life reads ever does.
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
   `playbook.md` in the owner data dir. `read_open_agent_tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
   hash of the text and a 6-hour window); `update_agent_task` refuses a write without the current seal and answers with the text.
@@ -39,6 +39,11 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
   (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is taken in the same call, so it
   sends no `ask` event.
+- **The daily ask** (`dailyAsk`, `apps/server/src/host/agent.ts`, in the watcher's minute): with the `daily_ask` setting on, once
+  the owner's local time (`zoneAt`, where he is, never the Mac's clock) passes its `time`, one ask of its `text` for that day,
+  `ref` `daily:<day>`, `via: "watch"`, `confidence: "high"`. Its id comes from the day, so a restart never asks twice and an edited text goes out the next day; a Mac
+  asleep then asks at wake, a day it stays off gets none. It is a task like any ask (delivered, chased at 30 min, on the
+  board, in the nightly's rows), but `unanswered` skips it: the agent takes it and closes it, with no reply.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
 - `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded, delivered,

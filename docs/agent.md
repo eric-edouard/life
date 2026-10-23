@@ -55,6 +55,11 @@ the ask points at something it doesn't say ("this", "what we discussed"), also `
 before its `at` (a `search` section "cut at 12": narrow `from` and `to` before you conclude something is absent). Keep only what
 he said or what was said to him, never a TV or someone else's call. Ask him what he meant only if it stays unclear.
 
+## His daily ask
+
+An ask whose `ref` is `daily:<day>` is his daily ask: his standing instructions, written in Life's settings. Take it,
+follow it from now on until the next one replaces it, and close it `done` with the outcome "read". It needs no reply.
+
 ## The process, on every run
 
 1. Call `read_open_agent_tasks` once, first, and again only for a new event or a refused write (an `update_agent_task` answer confirms the write):
