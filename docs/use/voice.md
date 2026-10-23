@@ -34,6 +34,7 @@ bun life settings set '{"voice":{"url":"https://voice.your-domain.example"},"sou
 echo 'VOICE_TOKEN=<the token>' >> .env
 ```
 
-`bun life settings` shows the current list. Restart the watcher afterwards.
+`bun life settings` shows the current list. Restart the watcher afterwards. A checkout set up before the voice rename has `LIFELOG_TOKEN` in its `.env`: rename it
+`VOICE_TOKEN` (Life.app moves its Keychain item itself).
 
 Next: [set up your agent](agent.md).

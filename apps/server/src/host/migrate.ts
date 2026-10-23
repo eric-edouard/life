@@ -16,6 +16,7 @@ import { clock } from "../core/clock";
 import { holder } from "../core/lock";
 import { log } from "../core/log";
 import { mayMigrate, OWNER_DATA_DIR, runsFromRepo } from "../core/paths";
+import { readMigrations } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
 import { commitMemory } from "../memory/run";
 import { reindex } from "../memory/search";
@@ -150,11 +151,10 @@ export function renameStored(files: Map<string, string>, today: string) {
   return { files: out, plan: p };
 }
 
-const done = (dir: string) =>
-  existsSync(join(dir, DONE)) &&
-  linesOf(readFileSync(join(dir, DONE), "utf8")).some(
-    (l) => JSON.parse(l).name === VOICE_STEP
-  );
+/** This rename's line in `dir`'s memory/migrations.jsonl, once it is done. */
+const doneLine = (dir: string) =>
+  readMigrations(join(dir, DONE)).find((m) => m.name === VOICE_STEP);
+const done = (dir: string) => doneLine(dir) !== undefined;
 
 /** The watcher's store under its old name (only this install's, the one `WATCH` names). */
 const oldStore = () => join(WATCH, `${OLD}.sqlite`);
@@ -278,12 +278,10 @@ function settle(dir: string) {
             ] as const
         )
     );
-  const recorded = linesOf(readFileSync(at(DONE), "utf8"))
-    .map((l) => JSON.parse(l))
-    .find((l) => l.name === VOICE_STEP);
+  // The day it ran: its cutover, or (memory held no chapters) any day, there being nothing to remap.
   const { plan: planned } = renameStored(
     existsSync(at(OLD_MEMORY)) ? sourceOf(OLD_MEMORY) : new Map(),
-    recorded?.cutover ?? todayHere()
+    doneLine(dir)?.cutover ?? ""
   );
   for (const [path, text] of readStored(dir)) {
     const next = under(path, "memory")

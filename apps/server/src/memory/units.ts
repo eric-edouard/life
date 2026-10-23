@@ -693,15 +693,6 @@ export function lastDays(now: Date, days: number): Window {
   return { from: daysBefore(to, days - 1), to };
 }
 
-/**
- * The evidence of a window of local days: every source (his conversations,
- * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
- * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
- * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
- * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
- * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
- * their importance at 1).
- */
 /** The local days of `window` before `before`, in order. */
 function datesIn(window: Window, before: string) {
   const dates: string[] = [];
@@ -712,6 +703,15 @@ function datesIn(window: Window, before: string) {
   return dates;
 }
 
+/**
+ * The evidence of a window of local days: every source (his conversations,
+ * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
+ * what the later stages need around them. The one reader of the sources for the memory steps: a sweep gathers once
+ * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
+ * (`describeFiles`), so a unit's hash moves once when its file is described; an older window (a backfill) keeps its
+ * files as tags. A repo's units are never extracted nor read for people (extract skips them; the moments step caps
+ * their importance at 1).
+ */
 export async function gather(
   window: Window,
   { resolve, truth }: { resolve: Resolve; truth: Truth }
@@ -838,7 +838,9 @@ export async function syncVoiceUnits(store: Store) {
     )
   ).map((b) => Unit.parse(b.unit));
   const all = await readUnits();
-  const have = all.filter((u) => u.source === "voice" && !isFrozen(u, cutover));
+  const have = all.filter(
+    (u) => kindOf(u.source) === "voice" && !isFrozen(u, cutover)
+  );
   const json = (units: Unit[]) =>
     new Map(units.map((u) => [u.id, JSON.stringify(u)]));
   const [had, wants] = [json(have), json(want)];
@@ -856,7 +858,7 @@ export async function syncVoiceUnits(store: Store) {
   await writeUnits(
     [...dates],
     want,
-    (u) => u.source !== "voice" || isFrozen(u, cutover)
+    (u) => kindOf(u.source) !== "voice" || isFrozen(u, cutover)
   );
   return {
     added: added.length,

@@ -80,10 +80,10 @@ const readFolder = async <T>(dir: string, schema: z.ZodType<T>) =>
 
 /** Every unit in memory/units/, oldest day first. */
 export const readUnits = () => readFolder(UNITS, Unit);
-/** The units of these days only. */
-/** The renames of stored names done on this data (host/migrate.ts). */
-export const readMigrations = () => rowsOf(MIGRATIONS, Migration);
+/** The renames of stored names done on this data, or on the data dir whose file `path` is (host/migrate.ts). */
+export const readMigrations = (path = MIGRATIONS) => rowsOf(path, Migration);
 
+/** The units of these days only. */
 export const readUnitsOf = (dates: string[]) =>
   dates.flatMap((d) => rowsOf(join(UNITS, `${d}.jsonl`), Unit));
 

@@ -329,6 +329,41 @@ test("poll also lists a new turn nobody is named for, once", async () => {
   }
 });
 
+test("the feed read again from the start (the voice rename drops the cursor) hears nothing again: his turns, marks and arrival times stay, his own title comes back", async () => {
+  const s = store();
+  const his = turnFixture(
+    0,
+    "2026-10-14T10:00:00.000Z",
+    JEAN,
+    "Me",
+    "c1",
+    true
+  );
+  const lost = turnFixture(1, "2026-10-14T10:01:00.000Z", null, null, "c1");
+  const server = voiceServer({
+    "/changes": () =>
+      pageFixture({
+        conversations: [conversation("c1", { ownerTitle: "Lease" })],
+        turns: [his, lost],
+      }),
+  });
+  try {
+    expect((await poll(s, 0)).owner).toHaveLength(2);
+    const ref = "job-1:0@2026-10-14T10:00:00.000Z";
+    writeMarks(s, "c1", "", [[ref]]);
+    const seen = turnsBetween(s, "c1").map((t) => t.seen);
+    // The rename: titles blanked, cursor gone, so the next poll asks from 0.
+    s.db.run("update conversations set title = ''");
+    rmSync(s.cursor, { force: true });
+    expect((await poll(s, 0)).owner).toEqual([]);
+    expect(turnsBetween(s, "c1").map((t) => t.seen)).toEqual(seen);
+    const [c] = readConversations(s, since);
+    expect([c?.title, c?.turns[0]?.marks]).toEqual(["Lease", [ref]]);
+  } finally {
+    server.close();
+  }
+});
+
 test("a store made before the contract's closed and endedOnSilence opens, drops its old jobs table and reads both", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-voice-"));
   try {
