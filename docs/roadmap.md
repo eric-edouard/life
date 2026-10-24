@@ -21,13 +21,8 @@ What Life is building next, in order, and what is parked. Each item gets its own
 - lifelog's Android capture app: a minimal native Kotlin app that drains an Omi and uploads to the server.
 - The architecture: dependencies point one way between layers, enforced by the check; `app/` and `worker/` became
   `apps/mac` and `apps/edge` ([architecture plan](plans/2026-10-22-architecture.md), [the code](architecture.md#the-code)).
-
-- The agent roadmap (October 2026), from the review of how the agent gets its context: a model quota guard, one
-  registry of source descriptors, a smaller connector payload and search, mail in search, context handed to the agent
-  with each ask and its replies logged in the ledger, watcher and alert hygiene, the closure fix with done agent tasks
-  as evidence, open items as one ranked, derived list synced both ways with the to-do list, the daily message, the
-  first standing grant, birthday reminders, an end-to-end agent benchmark with a frozen clock, and the "hey Life"
-  marker.
+- The agent roadmap (October 2026): context handed to the agent with each ask, the model quota guard, one registry
+  of source descriptors, the closure fix, the daily message and an end-to-end agent benchmark.
 - Life's public address reaches the Mac over Tailscale Funnel, so it works behind a VPN.
 - lifelog: sign-in codes go only to known callbacks, and the local server tests no longer hang.
 
@@ -55,10 +50,9 @@ What Life is building next, in order, and what is parked. Each item gets its own
 - A comparison of cloud transcription providers for Thai, beyond ElevenLabs Scribe: Microsoft MAI-Transcribe 1.5,
   Google Chirp 3, Soniox and AssemblyAI Universal, run on the same recordings for accuracy, speakers, mixed Thai and
   English, price and latency.
-
-- Keep rated facts when the memory is re-read, without reworded twins: one extraction rule under one prompt bump,
-  checked on the 12–20 Oct facts. It unblocks re-reading 6 Sep to 13 Oct under today's prompts. Both wait for the
-  model quota reset on 28 Oct.
+- No reworded twins of rated facts on a re-read (a re-read already keeps a fact he rated true): one extraction rule
+  under one prompt bump, checked on the 12–20 Oct facts. The rule and the re-read of 6 Sep to 13 Oct it unblocks wait
+  for the model quota reset on 28 Oct.
 - lifelog: name the other voices that land inside the owner's voice cluster, measured against the 22 Oct baseline.
 - Proper logging: research a structured logging library and a local store that stays fast to query as years of logs
   pile up, then move every caller onto it and delete `core/log.ts`'s ad hoc path and the stray console calls.
