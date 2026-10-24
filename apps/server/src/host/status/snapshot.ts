@@ -936,6 +936,7 @@ function agentCards(r: Reads): Card[] {
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
   return [
     {
+      headline: "not receiving asks",
       ...firstOf(
         [
           !isOn("agent"),
@@ -953,7 +954,6 @@ function agentCards(r: Reads): Card[] {
           true,
           {
             ask: ASK(`that ${agentName()} isn't receiving asks`),
-            headline: "not receiving asks",
             tone: "bad",
             word: pulls ? "not checking in" : "no subscription",
           },
