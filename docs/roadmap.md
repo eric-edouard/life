@@ -50,7 +50,7 @@ What Life is building next, in order, and what is parked. Each item gets its own
 - A comparison of cloud transcription providers for Thai, beyond ElevenLabs Scribe: Microsoft MAI-Transcribe 1.5,
   Google Chirp 3, Soniox and AssemblyAI Universal, run on the same recordings for accuracy, speakers, mixed Thai and
   English, price and latency.
-- No reworded twins of rated facts on a re-read (a re-read already keeps a fact he rated true): one extraction rule
+- No reworded twins of rated facts on a re-read (a re-read already keeps a fact the owner rated true): one extraction rule
   under one prompt bump, checked on the 12–20 Oct facts. The rule and the re-read of 6 Sep to 13 Oct it unblocks wait
   for the model quota reset on 28 Oct.
 - lifelog: name the other voices that land inside the owner's voice cluster, measured against the 22 Oct baseline.
