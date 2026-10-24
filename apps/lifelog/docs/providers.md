@@ -189,7 +189,7 @@ retried with backoff; in Low Power Mode only crash reports and event heartbeats 
 No audio, transcript text, names, places, coordinates or Bluetooth identifiers. Shortened error
 messages are the one exception: they go only to the owner's own server. It keeps both tables 90
 days. `diagnostics:recent` prints recent crashes, hangs and errors by signature, read-only on the archive:
-`DATABASE_PATH=<the archive> bun run --cwd apps/server diagnostics:recent 1`.
+`DATABASE_PATH=<the archive> bun run --cwd apps/lifelog/apps/server diagnostics:recent 1`.
 Add `--json` after the days for one group per signature, with its ids, count, builds, app binary
 UUIDs and first and last seen.
 

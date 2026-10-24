@@ -22,7 +22,7 @@ if (process.argv.includes("--check")) {
     JSON.stringify(await Bun.file(path).json()) !== JSON.stringify(document)
   ) {
     console.error(
-      "openapi.json is stale: run `bun run --cwd apps/server openapi`"
+      "openapi.json is stale: run `bun run --cwd apps/lifelog/apps/server openapi`"
     );
     process.exit(1);
   }

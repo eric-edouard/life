@@ -8,13 +8,13 @@ generates the gitignored `.xcodeproj`. `docs/architecture.md` names every store 
 ## How to
 
 - **Regenerate the project** after editing `project.yml`: `bun run ios:project`.
-- **Test Kit alone**, from the repo root: `swift test --package-path apps/ios/Kit --scratch-path .build/kit`.
+- **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
   (see `FakeScenario.swift`) and `-offline`; launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
   DEBUG-only that leaks out of `#if DEBUG` breaks the install:
-  `xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -configuration Release -destination 'generic/platform=iOS Simulator' build`.
+  `xcodebuild -project apps/lifelog/apps/ios/Lifelog.xcodeproj -scheme Lifelog -configuration Release -destination 'generic/platform=iOS Simulator' build`.
 - **Install on the phone** with `bun run install:phone -- --no-watch`; include the Watch only when the Watch app
   changed. If the Watch install fails with "Connection invalid", the owner restarts the Watch on its charger and you
   retry once.

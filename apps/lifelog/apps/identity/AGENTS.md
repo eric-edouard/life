@@ -24,7 +24,7 @@ no dependencies, and the gate runs it with any `python3`. `test_app.py` needs th
 `fixtures/two-voices.ogg`, made with macOS `say`); run it before pushing a change to the models or their code:
 
 ```bash
-cd apps/identity && uv sync
+cd apps/lifelog/apps/identity && uv sync
 MODEL_DIR=/tmp/speech uv run python app.py download   # once; the image's MODEL_DIR is its /models volume
 MODEL_DIR=/tmp/speech uv run python -m unittest -v test_app
 ```

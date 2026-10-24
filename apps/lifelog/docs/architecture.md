@@ -168,8 +168,8 @@ and safe to lose (iOS may clear Caches; the next answer fills it). People read t
 1. Add it to the route file for its domain in `apps/server/src/routes/`, with its Zod schema (`.openapi("Name")`),
    and the logic in the matching `src/<domain>.ts`, tested beside it in `<domain>.test.ts`.
 2. A table change goes in `packages/db/src/schema`; generate the migration with
-   `bun run --cwd packages/db db:generate` and commit it.
-3. Run `bun run --cwd apps/server openapi`. The gate fails if `openapi.json` is stale.
+   `bun run --cwd apps/lifelog/packages/db db:generate` and commit it.
+3. Run `bun run --cwd apps/lifelog/apps/server openapi`. The gate fails if `openapi.json` is stale.
 4. Call it from the matching `Kit/Sources/ServerAPI/ServerClient+<Domain>.swift`. A new server enum is
    `UnknownTolerant` on the phone and goes in the mirror list of `ContractTests.swift`, which also checks every path
    the client calls.
