@@ -33,8 +33,6 @@ export const LIFE_STATE_DIR = real(
     ? join(OWNER_DATA_DIR, "state")
     : (process.env.LIFE_STATE_DIR ?? join(LIFE_CODE_DIR, "derived"))
 );
-/** Does this code run from a repo (a checkout or a worktree) rather than from Life.app's resources? */
-export const runsFromRepo = () => existsSync(join(LIFE_CODE_DIR, ".git"));
 /** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
 export function isHis(data = OWNER_DATA_DIR) {
   return real(data) === real(join(homedir(), "Life"));
