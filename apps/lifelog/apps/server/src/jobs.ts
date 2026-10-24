@@ -495,6 +495,8 @@ export function jobWorker(
   let onCompleted: OnCompleted = () => Promise.resolve();
   const completed: OnCompleted = (job) => onCompleted(job);
   const alerted: Partial<Record<"low" | "out", number>> = {};
+  // Whether this process has heard the blocks waiting for credits again (`checkCredits`).
+  let reheard = false;
 
   // Queued jobs move to submitted, as many as there is room for; requestSentAt is set as they
   // leave, so a send cut off by a restart is known (reconcile). The one way to ElevenLabs, so its
@@ -794,8 +796,14 @@ export function jobWorker(
     const before = levelOf(plan);
     plan = { ...read, checkedAt: new Date(now()).toISOString() };
     const level = levelOf(plan);
-    if (level !== "out") {
-      // The blocks waiting for credits go now (after a restart too).
+    // The blocks waiting for credits go now (after a restart too). With the speech service, once per
+    // start even while credits are out: each is heard again under the routing as it is now, so one a
+    // rule change keeps local completes, and one that still needs Scribe waits again.
+    // ponytail: every restart re-hears them all (free, on the Mac); keep a rule version per job if
+    // restarts get frequent with a long queue.
+    const rehear = !reheard && transcriberNow(config) === "speech";
+    reheard ||= rehear;
+    if (level !== "out" || rehear) {
       const due = db
         .update(jobs)
         .set({ error: null, nextAttemptAt: null })

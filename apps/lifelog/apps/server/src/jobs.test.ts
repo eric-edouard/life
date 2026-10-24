@@ -1307,6 +1307,45 @@ test("the speech service, credits used up: a block with other-language turns wai
   expect(jobRow(jobId)).toMatchObject({ state: "completed" });
 });
 
+test("credits used up, a restarted server hears the blocks waiting for them again once: one the routing now keeps local completes", async () => {
+  const app = appWith(withSpeech);
+  setSwitches(env.db, { transcriber: "speech" });
+  fake.respond = (call) =>
+    call.path.endsWith("/v1/user/subscription")
+      ? Response.json({ character_count: 1000, character_limit: 1000 })
+      : thaiAnswer();
+  await app.s.worker.checkCredits();
+  speech.heard = {
+    durationSeconds: 30,
+    models: {},
+    turns: [turn(0, 10, "0", "en"), turn(10, 14, "1", "th")],
+    words: [said(1, "Hello")],
+  };
+  const jobId = await admitFragment(app, speechAudio(30), 1);
+  await app.s.worker.work();
+  expect(jobRow(jobId).state).toBe("queued");
+  // The same process checks again: the block keeps waiting, unheard.
+  await app.s.worker.checkCredits();
+  await app.s.worker.work();
+  expect(speech.blocks).toBe(1);
+  // Restarted, the server hears it again once; heard as French this time, it completes on the Mac.
+  speech.heard = {
+    durationSeconds: 30,
+    models: {},
+    turns: [turn(0, 10, "0", "en"), turn(10, 14, "1", "fr")],
+    words: [said(1, "Hello"), said(11, "Salut")],
+  };
+  const restarted = appWith(withSpeech, app.audio);
+  await restarted.s.worker.checkCredits();
+  await restarted.s.worker.work();
+  expect(speech.blocks).toBe(2);
+  expect(uploads()).toHaveLength(0);
+  expect(jobRow(jobId)).toMatchObject({
+    state: "completed",
+    transcriber: "speech",
+  });
+});
+
 test("the speech service: a block 70% routed goes to Scribe whole, as a Scribe job; busy, it waits", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
