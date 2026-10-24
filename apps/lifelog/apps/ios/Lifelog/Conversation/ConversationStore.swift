@@ -74,7 +74,7 @@ final class ConversationStore {
     /// A new summary was asked for and waits to be sent.
     var summaryRequested: Bool { pending.summarizing(id) }
 
-    /// The owner turned AI off: summaries wait, and nothing offers one.
+    /// Summaries are off (the server's default): none is made, and nothing offers one.
     var aiOff: Bool { sync?.switches?.ai == false }
 
     // MARK: Reading

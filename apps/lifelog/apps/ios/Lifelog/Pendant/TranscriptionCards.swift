@@ -29,8 +29,8 @@ struct TranscriptionCards: View {
                     "\(conversationCount(count)) wait for words. Top up ElevenLabs and they go on their own."
             )
         }
-        // Summaries, and audio the Mac hasn't checked for dictation yet. With AI off (the default), no summary waits.
-        if let count = facts.waiting[.macAway], facts.switches?.ai != false {
+        // Summaries (only while they are on), and audio the Mac hasn't checked for dictation yet.
+        if let count = facts.waiting[.macAway] {
             AttentionCard(
                 id: "pendant.card.macAway", title: "\(conversationCount(count)) waiting for your Mac",
                 systemImage: "laptopcomputer", detail: macDetail)
