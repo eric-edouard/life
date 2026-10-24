@@ -112,7 +112,7 @@ export const liveUnits = (units: Unit[]) =>
 /**
  * True when `o`'s unit is live and `o` comes from that unit's latest extraction (its last line in extracted.jsonl), or
  * the unit has none: a unit read again, under another content hash or another prompt version, leaves its older facts
- * in the ledger, replaced; a unit gone (a lifelog chapter re-cut) or dropped (a code rule) leaves them all.
+ * in the ledger, replaced; a unit gone (a conversation regrouped) or dropped (a code rule) leaves them all.
  */
 export function isCurrent(
   { latest, live }: Pick<Standing, "latest" | "live">,

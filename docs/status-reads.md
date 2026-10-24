@@ -107,7 +107,7 @@ Filters: `types` (types or prefixes: `observation`, `correction`, `ledger.failed
 filter narrows the items, never the cursor's reach: every match is still returned, page by page.
 
 - **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its unit
-  no longer exists, a lifelog chapter re-cut, or a code rule drops it now), `replaced` (its unit was read again; the
+  no longer exists, a conversation regrouped, or a code rule drops it now), `replaced` (its unit was read again; the
   newer extraction counts), `retired` (superseded: `by`, `why`; `by` itself when the owner rated it outdated; still
   indexed, still cited on its page, never new there), or `active`. Retired and active carry `hiddenOn`: pages it is
   hidden on (pages carry importance 2+ only). It is the rule the index and the pages go by (`stateOf`,

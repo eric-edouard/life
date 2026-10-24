@@ -22,7 +22,6 @@ import { LEDGER } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
 import { apply, forward, type Stay } from "../../sources/lifelog";
 import {
-  chapter,
   conversation,
   lifelogServer,
   lifelogStore,
@@ -559,9 +558,6 @@ test("places: each stay lists the conversations recorded during it", async () =>
     apply(
       store,
       pageFixture({
-        chapters: [
-          chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:10:00.000Z"),
-        ],
         conversations: [
           conversation("c1"),
           conversation("c2", {

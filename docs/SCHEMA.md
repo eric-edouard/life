@@ -10,7 +10,7 @@ when they are read again. Every record has `schemaVersion`; a record a model jud
 which model and which prompt version (`prompts/<name>.md` in the code repo) did it.
 
 The raw material stays in its own app (lifelog, Messages, Beeper, Mail). These files hold ids, refs, hashes,
-metadata, lifelog's own chapter summaries, short model verdicts and, in observations, short verbatim quotes; never
+metadata, lifelog's own chapter summaries (on the chapter units stored before conversation-days), short model verdicts and, in observations, short verbatim quotes; never
 whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 
 ## Words used below
@@ -30,26 +30,28 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 
 ## units/YYYY-MM-DD.jsonl (layer L1)
 
-One line per unit that started that day. A unit is one lifelog chapter, one chat-day (every message of one chat on one
+One line per unit that started that day. A unit is one conversation-day (the turns of one recorded conversation on one
+local day; or one of lifelog's chapters, stored before conversation-days, kept as stored and never built again while
+its conversation is live, removed with it when lifelog retires or drops it: its conversation gets no conversation-days), one chat-day (every message of one chat on one
 day), one mail thread-day, one note-day (what the owner changed in one Apple Note on one day) or one repo-day (the owner's commits in one repo on one day). Deterministic code output only (no model's judgement): rebuilt by `bun life memory
-moments` for the days it covers; the lifelog units are also kept current by `bun life watch` (every change to a
-chapter) and checked by the nightly.
+moments` for the days it covers; the conversation-days are also kept current by `bun life watch` (every change to a
+conversation's turns) and checked by the nightly.
 
 | Field | Meaning |
 |---|---|
 | `schemaVersion` | `1` |
-| `id` | `unit_` + 12 hex. Stable: the same chapter (lifelog's chapter id, which is stable per conversation and start), chat-day (source + chat + day) or thread-day always gets the same id. A lifelog conversation with no chapter yet has one unit with `drop: no-summary`, id from the conversation id. |
-| `hash` | 16 hex of SHA-256 over the unit's content (lifelog: titles + summary; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
+| `id` | `unit_` + 12 hex. Stable: the same conversation-day (`lifelog` + conversation + day), chat-day (source + chat + day) or thread-day always gets the same id. A chapter unit keeps the id it was stored with (from lifelog's chapter id). |
+| `hash` | 16 hex of SHA-256 over the unit's content (a conversation-day: its turn refs and marks, as Life holds no words; a chapter: as stored; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
 | `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `beeper` (LINE, Telegram, Instagram, from Life's own Beeper archive, `beeper.sqlite`, which keeps messages deleted for everyone), `imessage` (Messages' chat.db), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `git` (local `git log` of every repo under the `repos` setting's folder; commits are never extracted: code caps their importance at 1), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, imported once into `imports/<source>/conversations.json` beside `memory/`; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its importance to 2, so it is always read) |
-| `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor's chapters bring their own), the chat id (a Beeper chat id, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the mail thread id, the note id, or the repo (its main folder name under the `repos` setting's folder: worktrees fold into it) |
+| `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor brings its own), the chat id (a Beeper chat id, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the mail thread id, the note id, or the repo (its main folder name under the `repos` setting's folder: worktrees fold into it) |
 | `date`, `start`, `end` | Local day; first and last instant |
-| `title` | Lifelog chapter title, chat name, mail subject, or note title (`(shared)` after a shared note's) |
-| `summary` | Lifelog only: lifelog's own summary of the chapter (written by its model, not by Life) |
+| `title` | The conversation's title, else `Recorded conversation` (a chapter: its chapter title), chat name, mail subject, or note title (`(shared)` after a shared note's) |
+| `summary` | A chapter's: lifelog's own summary (written by its model, not by Life), which marks the unit as a chapter; a repo-day's: below. Never on a conversation-day |
 | `marked` | Lifelog only, when the owner said "hey Life" in it: the refs of the turns of the owner's marked spans (the hearing's marks); its text then ends with `MARKED`, so its hash moves and it is read again, at importance 3 |
-| `people` | Kept unresolved, as each source names them: `unknown:<name>` for each name lifelog gives someone who speaks in the chapter (a name given to one turn names that turn only), `unknown:<sender>` for each sender of a chat or a mail, `person:me` for the owner. Readers map them as of their day (`unitNow`, `memory/who.ts`); older units may still hold `person:<id>`, which maps the same |
-| `refs` | Where to find the raw material. Lifelog: `<conversation id>#<chapter id>` and `<jobId>:<turnIndex>@<turn start>` of the first turn in the chapter's range [`start`, `end`). Chats: first and last message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`), notes the first and last version (`notes:<note>/<version>`, the archive's rowid). Mail: every message id (`mail:<Message-ID header>`). |
-| `stats` | `items` (messages, or turns in the chapter for lifelog, or commits), `fromMe` (messages the owner sent, or the owner's commits), `chars`. Git only: `added` and `removed` (lines, without lockfiles, binaries and single-file changes over 3,000 lines) and `others` (author name -> commits; in a repo of one of the owner's projects every author's commits count, elsewhere only the owner's). A git unit's `summary` is the day's commit subjects, which makes them searchable; its refs are the first and last `git:<repo>/<sha>` |
-| `drop` | Absent unless a code rule dropped the unit as obvious noise; then the rule's name: `no-summary` (lifelog has not summarized the conversation), `not-kept` (an imported assistant conversation the import step did not keep as about the owner's life, `imported.jsonl`), `life-output` (Life's own output: its chat, the `lifeChat` setting, and its nightly report and alerts, `Life · ` mail from the `mail` setting's sender), `duplicate` (same content as an earlier unit), `too-short`, `one-time-code` (a short message with a login code, or a mail whose subject says it is one), `newsletter` (Mail saw a list id or unsubscribe link and the owner never wrote in the thread), `automated` (mail from a no-reply, notification or alerts address that the owner never wrote in, with no money, booking, deadline, account, delivery, health, legal or bad news in it; the owner's agents' reports, from the `reports` setting's senders, are left to the model). A dropped unit is never judged or extracted. |
+| `people` | Kept unresolved, as each source names them: `unknown:<name>` for each name lifelog gives someone who speaks in it (a name given to one turn names that turn only), `person:me` when the owner speaks (not on a chapter), `unknown:<sender>` for each sender of a chat or a mail, `person:me` for the owner. Readers map them as of their day (`unitNow`, `memory/who.ts`); older units may still hold `person:<id>`, which maps the same |
+| `refs` | Where to find the raw material. A conversation-day: its first and last turn, `<jobId>:<turnIndex>@<turn start>`; its turns are the conversation's in [`start`, `end`). A chapter: `<conversation id>#<chapter id>` and its first turn. Chats: first and last message id (`whatsapp:<chat>/<message>`, `beeper:<chat>/<message>`, `imessage:<guid>`), notes the first and last version (`notes:<note>/<version>`, the archive's rowid). Mail: every message id (`mail:<Message-ID header>`). |
+| `stats` | `items` (messages, turns, or commits), `fromMe` (messages the owner sent, his turns, or his commits), `chars` (0 on a conversation-day: Life holds no words). Git only: `added` and `removed` (lines, without lockfiles, binaries and single-file changes over 3,000 lines) and `others` (author name -> commits; in a repo of one of the owner's projects every author's commits count, elsewhere only the owner's). A git unit's `summary` is the day's commit subjects, which makes them searchable; its refs are the first and last `git:<repo>/<sha>` |
+| `drop` | Absent unless a code rule dropped the unit as obvious noise; then the rule's name (`no-summary` on an older lifelog unit, a conversation lifelog had not summarized: such a unit is replaced by conversation-days), `not-kept` (an imported assistant conversation the import step did not keep as about the owner's life, `imported.jsonl`), `life-output` (Life's own output: its chat, the `lifeChat` setting, and its nightly report and alerts, `Life · ` mail from the `mail` setting's sender), `duplicate` (same content as an earlier unit), `too-short`, `one-time-code` (a short message with a login code, or a mail whose subject says it is one), `newsletter` (Mail saw a list id or unsubscribe link and the owner never wrote in the thread), `automated` (mail from a no-reply, notification or alerts address that the owner never wrote in, with no money, booking, deadline, account, delivery, health, legal or bad news in it; the owner's agents' reports, from the `reports` setting's senders, are left to the model). A dropped unit is never judged or extracted. |
 
 ## verdicts.jsonl
 
@@ -142,8 +144,8 @@ line per unit and run, `observations` being how many it kept (often 0); lines of
 the prompt version changes, or when a `reread` correction names it after its last reading (the night reads the last
 7 days, `backfill` older ones). Who someone is needs no new reading: readers resolve a fact's author and entities as of
 today. Only the latest extraction of a unit counts: observations from an older one are ignored
-(`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a lifelog chapter
-re-cut, Life's own mail).
+(`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a conversation
+regrouped, Life's own mail).
 
 ## unresolved.jsonl
 
@@ -342,7 +344,7 @@ append-only: `{schemaVersion: 1, run, at, rated, trues, held, missed, contradict
 statements judged (`trues` of them true), `held` true ones the memory still states, `missed` true ones it no longer states, `contradicted` true ones it
 contradicts, `restated` false ones it says again, `ungraded` ones the judge left out; `outdated` ones (counted true and held, not judged: closures Life
 missed; absent before 19 Oct); `gone` rated statements were not
-judged because none of their units is live any more (a re-cut chapter, or a unit a code rule now drops).
+judged because none of their units is live any more (a regrouped conversation, or a unit a code rule now drops).
 
 ## supersessions.jsonl
 
@@ -370,10 +372,11 @@ The owner's hand labels on units, appended by a Claude session when the owner sa
 `{schemaVersion: 1, unitId, matters: boolean, type?, area?, at}`. They are the frozen evaluation set for the verdicts: a
 unit "matters" to the owner or it doesn't; `type` is the right one when the owner gave it, `area` the right area (an id from `truth/areas.yaml`).
 
-A label belongs to a unit id, so labels are only as stable as the ids. A lifelog chapter's id is lifelog's own and stable
-per conversation and start: when lifelog re-cuts a conversation, its chapters get new ids, and labels (and observations) on the
-old ones point at units that no longer exist (the agreement figure counts them as "not in memory/units"). **Any change to
-how unit ids are made ships an old→new id map applied to `labels.jsonl` in the same commit.**
+A label belongs to a unit id, so labels are only as stable as the ids. A conversation-day's id is stable per conversation
+and day: when lifelog regroups a conversation, its units get new ids, and labels (and observations) on the old ones
+point at units that no longer exist (the agreement figure counts them as "not in memory/units"). **Any change to
+how stored unit ids are made ships an old→new id map applied to `labels.jsonl` in the same commit**; a new recipe for
+new units only, every stored id kept (conversation-days beside the stored chapters), is not one.
 
 ## migrations.jsonl
 
@@ -391,5 +394,5 @@ beside it (`memory.renamed/`) and swapped in; `memory.old/` (and `memory.stray/`
 `derived/memory/index.sqlite` is rebuilt from `observations/` and `units/` by `bun life memory index` (and by the nightly run, once, at the end):
 table `observations` (with `superseded_by` and its end date in `valid_to` for retired ones), full-text table
 `search` (claim and quote, accent-insensitive) and table `links` (observation, entity); and the units: table `units`,
-full-text table `unit_search` (title, lifelog summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
+full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict topics), `unit_topics` and `unit_people`. Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|unresolved|chats|places` (read-only).
