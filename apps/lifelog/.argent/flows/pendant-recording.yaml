@@ -1,0 +1,37 @@
+steps:
+  - echo: "Gates use accessibilityIdentifiers through await-ui-element. UIKit-backed targets (the tab bar) are tapped by id. The switch and tiles are pure SwiftUI, which argent's simulator flow runner cannot resolve (it reads the UIView hierarchy, not the accessibility tree), so they stay coordinate taps (iPhone 18 Pro, 402x874 pt, Pendant tab at the top, no notifications invite), each gated on its target's identifier first."
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.switch
+      expectedText: Confirmed by the Pendant
+  - echo: Recording with freshness shown. Tap the switch to pause; expect a pending
+      state then Paused after ~1.5 s.
+  - tool: gesture-tap
+    args:
+      x: 0.5
+      y: 0.309
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.switch
+      expectedText: Paused.
+      timeoutMs: 6000
+  - tool: gesture-tap
+    args:
+      x: 0.5
+      y: 0.309
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.switch
+      expectedText: Recording.
+      timeoutMs: 6000
+executionPrerequisite: lifelog (Debug) freshly launched with `xcrun simctl
+  launch --terminate-running-process <UDID> com.ericedouard.lifelog
+  -fixtureLibrary -fakePendant healthyRecording` (after argent armed
+  native-devtools injection, e.g. one prior restart-app), notifications already
+  answered, Pendant tab showing "Recording." at the top.

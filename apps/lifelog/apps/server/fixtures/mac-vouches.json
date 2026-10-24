@@ -1,0 +1,89 @@
+{
+  "about": "Whether the Mac vouches for audio ending at `end`, read at `now` (mac-socket.ts `vouchedThrough`): the job worker sends only audio that ends by it.",
+  "cases": [
+    {
+      "why": "before the helper ever spoke",
+      "watch": null,
+      "end": "2026-10-14T10:00:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": true
+    },
+    {
+      "why": "the watermark passed the end",
+      "watch": {
+        "watchedThrough": "2026-10-14T10:01:00.000Z",
+        "asleep": false,
+        "heardAt": "2026-10-14T10:04:30.000Z"
+      },
+      "end": "2026-10-14T10:00:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": true
+    },
+    {
+      "why": "awake and heard, the watermark behind: a dictation may be under way",
+      "watch": {
+        "watchedThrough": "2026-10-14T09:59:00.000Z",
+        "asleep": false,
+        "heardAt": "2026-10-14T10:04:30.000Z"
+      },
+      "end": "2026-10-14T10:00:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": false
+    },
+    {
+      "why": "asleep: nothing could be dictated",
+      "watch": {
+        "watchedThrough": "2026-10-14T09:00:00.000Z",
+        "asleep": true,
+        "heardAt": "2026-10-14T09:00:00.000Z"
+      },
+      "end": "2026-10-14T10:00:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": true
+    },
+    {
+      "why": "silent for 2 hours: off, or the helper gone",
+      "watch": {
+        "watchedThrough": "2026-10-14T08:05:00.000Z",
+        "asleep": false,
+        "heardAt": "2026-10-14T08:05:00.000Z"
+      },
+      "end": "2026-10-14T10:00:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": true
+    },
+    {
+      "why": "silent for 2 hours, a dictation pending when it went: held at its start",
+      "watch": {
+        "watchedThrough": "2026-10-14T08:00:00.000Z",
+        "asleep": false,
+        "heardAt": "2026-10-14T08:05:00.000Z"
+      },
+      "end": "2026-10-14T08:30:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": false
+    },
+    {
+      "why": "silent for less than 2 hours",
+      "watch": {
+        "watchedThrough": "2026-10-14T08:06:00.000Z",
+        "asleep": false,
+        "heardAt": "2026-10-14T08:06:00.000Z"
+      },
+      "end": "2026-10-14T10:00:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": false
+    },
+    {
+      "why": "asleep, but the audio ends after what the watch was read at",
+      "watch": {
+        "watchedThrough": "2026-10-14T09:00:00.000Z",
+        "asleep": true,
+        "heardAt": "2026-10-14T09:00:00.000Z"
+      },
+      "end": "2026-10-14T10:06:00.000Z",
+      "now": "2026-10-14T10:05:00.000Z",
+      "vouches": false
+    }
+  ]
+}

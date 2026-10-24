@@ -1,0 +1,120 @@
+{
+  "chapters" : [
+    {
+      "at" : {
+        "audioMs" : 1000,
+        "captureMs" : 1790000001000
+      },
+      "title" : "Greetings"
+    },
+    {
+      "at" : {
+        "audioMs" : 10000,
+        "captureMs" : 1790000010000
+      },
+      "summary" : "Tom yum.",
+      "title" : "Lunch"
+    }
+  ],
+  "end" : {
+    "audioMs" : 60000,
+    "captureMs" : 1790000060000
+  },
+  "id" : "00000000-0000-8000-8000-01a0c4506c00",
+  "kind" : "conversation",
+  "locations" : [
+    {
+      "accuracyMeters" : 12,
+      "at" : {
+        "audioMs" : 5000,
+        "captureMs" : 1790000005000
+      },
+      "latitude" : 21.0285,
+      "longitude" : 105.8542
+    }
+  ],
+  "place" : "Home",
+  "start" : {
+    "audioMs" : 0,
+    "captureMs" : 1790000000000
+  },
+  "startUTC" : "2026-09-21T14:13:20.000Z",
+  "timeZone" : "Asia/Jakarta",
+  "title" : {
+    "source" : "generated",
+    "text" : "Lunch plans"
+  },
+  "tldr" : "Mai and you decide to get tom yum.",
+  "transcript" : [
+    {
+      "end" : {
+        "audioMs" : 2800,
+        "captureMs" : 1790000002800
+      },
+      "language" : "en",
+      "name" : "You",
+      "speaker" : "speaker_0",
+      "start" : {
+        "audioMs" : 1000,
+        "captureMs" : 1790000001000
+      },
+      "text" : "Hello Mai, how are you?"
+    },
+    {
+      "end" : {
+        "audioMs" : 4600,
+        "captureMs" : 1790000004600
+      },
+      "language" : "en",
+      "name" : "Mai",
+      "personId" : "00000000-0000-0000-0000-000000000001",
+      "speaker" : "speaker_1",
+      "start" : {
+        "audioMs" : 3500,
+        "captureMs" : 1790000003500
+      },
+      "text" : "สบายดีครับ"
+    },
+    {
+      "end" : {
+        "audioMs" : 11400,
+        "captureMs" : 1790000011400
+      },
+      "language" : "en",
+      "name" : "You",
+      "speaker" : "speaker_0",
+      "start" : {
+        "audioMs" : 10000,
+        "captureMs" : 1790000010000
+      },
+      "text" : "Let's get tom yum."
+    },
+    {
+      "end" : {
+        "audioMs" : 26000,
+        "captureMs" : 1790000026000
+      },
+      "language" : "en",
+      "name" : "Speaker 1",
+      "speaker" : "speaker_2",
+      "start" : {
+        "audioMs" : 20000,
+        "captureMs" : 1790000020000
+      },
+      "text" : "And a long sentence that goes on and on, past what one caption holds, so it is cut in two."
+    }
+  ],
+  "unrecorded" : [
+    {
+      "end" : {
+        "audioMs" : 40000,
+        "captureMs" : 1790000040000
+      },
+      "start" : {
+        "audioMs" : 30000,
+        "captureMs" : 1790000030000
+      }
+    }
+  ],
+  "version" : 3
+}

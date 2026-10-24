@@ -1,0 +1,16 @@
+steps:
+  - tool: await-ui-element
+    args:
+      condition: visible
+      selector:
+        text: Bluetooth is off.
+      timeoutMs: 8000
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.hero.recovery
+      expectedText: Open Settings
+executionPrerequisite: Run right after `xcrun simctl launch
+  --terminate-running-process <UDID> com.ericedouard.lifelog -fixtureLibrary
+  -fakePendant bluetoothOff` (argent injection armed by a prior restart-app).

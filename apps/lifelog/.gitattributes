@@ -1,0 +1,2 @@
+# LF everywhere, Windows checkouts too: biome and the tests read the files as committed.
+* text=auto eol=lf

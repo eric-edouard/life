@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1792626732513,
+      "tag": "20261021235212_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792670061520,
+      "tag": "20261022115421_raw_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792680953652,
+      "tag": "20261022145553_mac_watch_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792682307902,
+      "tag": "20261022151827_page_pieces",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792683937125,
+      "tag": "20261022154537_page_timeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792717489798,
+      "tag": "20261023010449_transcriber",
+      "breakpoints": true
+    }
+  ]
+}

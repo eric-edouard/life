@@ -4,6 +4,11 @@ A self-running memory of one person's life (the owner), built on his Mac from hi
 mail, Apple Notes, git and imported assistant chats: sources → units → moments → observations → people and area pages,
 plus an always-on archive of deleted messages and old note versions. Shipped as Life.app; a checkout is for development.
 
+lifelog (the pendant pipeline: the iPhone app, its server, the Mac helper and Lifelog Host) lives in `apps/lifelog`,
+folded in from its own repo on 24 Oct 2026, with its own `AGENTS.md`. It still runs as its own service on the Mac, and
+Life reads it only through its REST contract (`apps/lifelog/apps/server/openapi.json`), never its code or its database;
+lifelog may use Life's `core/`. One gate, `bun run check` at the root, covers both.
+
 Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
@@ -55,8 +60,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   his material goes to his data repo, his settings to `LIFE_STATE_DIR/settings.json`, secrets to `.env` or the Keychain. The
   `scrub` step catches full names, aliases, surnames, phones, emails, handles and chat ids from his `truth/`; first
   names, places, project names, `.env` values and git history are on you. The domain in Life's own infrastructure
-  labels (sender, LaunchAgent labels) is kept on purpose. lifelog's check runs `scripts/scrub-check.ts` by this path
-  with git pathspecs as arguments: keep both.
+  labels (sender, LaunchAgent labels) is kept on purpose.
 - **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
@@ -177,7 +181,7 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
-  (`lifelog.test.ts` checks them against lifelog's `openapi.json` when that repo is beside this one).
+  (`lifelog.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).
 - The watcher hears a conversation only once its speech is complete, by lifelog's own signals (`endedOnSilence`,
   `closed`), never a timing rule of Life's (`docs/operations.md`).
 - Codex is pinned in `package.json` and runs with its own `CODEX_HOME` (`docs/operations.md`).

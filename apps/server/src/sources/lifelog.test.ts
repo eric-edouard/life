@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import {
@@ -352,8 +352,11 @@ test("a store made before the contract's closed and endedOnSilence opens, drops 
   }
 });
 
-// lifelog's published contract, kept current by its own gate. On a Mac without the checkout there is nothing to check.
-const CONTRACT = join(homedir(), "Work/lifelog/apps/server/openapi.json");
+// lifelog's published contract, in this repo, kept current by the gate's openapi step.
+const CONTRACT = join(
+  import.meta.dir,
+  "../../../lifelog/apps/server/openapi.json"
+);
 
 interface Json {
   $ref?: string;
@@ -396,32 +399,28 @@ function drift(
     : out;
 }
 
-test.skipIf(!existsSync(CONTRACT))(
-  "Life reads lifelog's API with the contract's nullability: a field lifelog may send null or leave out never stops the watcher",
-  async () => {
-    const api = await Bun.file(CONTRACT).json();
-    const answer = (path: string, method: string) =>
-      api.paths[path][method].responses["200"].content["application/json"]
-        .schema;
-    const ours = (s: z.ZodType) =>
-      z.toJSONSchema(s, { io: "input", unrepresentable: "any" }) as Json;
-    const defs = api.components.schemas;
-    expect([
-      ...drift(ours(Page), answer("/changes", "get"), defs, "changes"),
-      ...drift(
-        ours(Transcript),
-        answer("/transcription-jobs/{id}/transcript", "get"),
-        defs,
-        "transcript"
-      ),
-      ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
-      ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
-      ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
-      // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
-      // optional and nullable (tested below) and there is nothing to compare.
-    ]).toEqual([]);
-  }
-);
+test("Life reads lifelog's API with the contract's nullability: a field lifelog may send null or leave out never stops the watcher", async () => {
+  const api = await Bun.file(CONTRACT).json();
+  const answer = (path: string, method: string) =>
+    api.paths[path][method].responses["200"].content["application/json"].schema;
+  const ours = (s: z.ZodType) =>
+    z.toJSONSchema(s, { io: "input", unrepresentable: "any" }) as Json;
+  const defs = api.components.schemas;
+  expect([
+    ...drift(ours(Page), answer("/changes", "get"), defs, "changes"),
+    ...drift(
+      ours(Transcript),
+      answer("/transcription-jobs/{id}/transcript", "get"),
+      defs,
+      "transcript"
+    ),
+    ...drift(ours(Hits), answer("/search", "post"), defs, "search"),
+    ...drift(ours(Stays), answer("/visits", "get"), defs, "visits"),
+    ...drift(ours(Stays), answer("/where", "get"), defs, "where"),
+    // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
+    // optional and nullable (tested below) and there is nothing to compare.
+  ]).toEqual([]);
+});
 
 test("a feed page with a turn not yet in a conversation and a conversation retired with no successor is read", () => {
   const p = Page.parse(

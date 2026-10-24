@@ -1,0 +1,183 @@
+[
+  {
+    "case": "an owner split cuts unbroken talk",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 600]],
+    "edits": [
+      {
+        "kind": "split",
+        "at": 240
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 240,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 240,
+        "end": 600,
+        "id": "00000000-0000-8000-8000-01a0c4541580"
+      }
+    ]
+  },
+  {
+    "case": "an owner merge joins across a boundary and keeps the earliest anchor",
+    "spans": [
+      {
+        "start": 0,
+        "end": 800,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 60], [400, 460]],
+    "audible": [[0, 800]],
+    "previous": [0, 400],
+    "edits": [
+      {
+        "kind": "merge",
+        "from": 30,
+        "to": 430
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 460,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "an undone merge brings the merged conversation back at its id",
+    "spans": [
+      {
+        "start": 0,
+        "end": 800,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 60], [400, 460]],
+    "audible": [[0, 800]],
+    "previous": [0, 400],
+    "edits": [
+      {
+        "kind": "merge",
+        "from": 30,
+        "to": 430,
+        "undone": true
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 60,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 400,
+        "end": 460,
+        "id": "00000000-0000-8000-8000-01a0c4568680"
+      }
+    ]
+  },
+  {
+    "case": "an AI split cuts talk",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 600]],
+    "edits": [
+      {
+        "kind": "aiSplit",
+        "at": 240
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 240,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 240,
+        "end": 600,
+        "id": "00000000-0000-8000-8000-01a0c4541580"
+      }
+    ]
+  },
+  {
+    "case": "the owner's merge undoes an AI split, whichever came first",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 600]],
+    "edits": [
+      {
+        "kind": "merge",
+        "from": 200,
+        "to": 300
+      },
+      {
+        "kind": "aiSplit",
+        "at": 240
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 600,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "an owner split after a merge cuts again",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 600]],
+    "edits": [
+      {
+        "kind": "merge",
+        "from": 0,
+        "to": 600
+      },
+      {
+        "kind": "split",
+        "at": 240
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 240,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 240,
+        "end": 600,
+        "id": "00000000-0000-8000-8000-01a0c4541580"
+      }
+    ]
+  }
+]

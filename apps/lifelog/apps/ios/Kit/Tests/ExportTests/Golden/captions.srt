@@ -1,0 +1,19 @@
+1
+00:00:01,000 --> 00:00:02,800
+You: Hello Mai, how are you?
+
+2
+00:00:03,500 --> 00:00:04,600
+Mai: สบายดีครับ
+
+3
+00:00:10,000 --> 00:00:11,400
+You: Let's get tom yum.
+
+4
+00:00:20,000 --> 00:00:25,528
+Speaker 1: And a long sentence that goes on and on, past what one caption holds, so it is cut
+
+5
+00:00:25,528 --> 00:00:26,000
+Speaker 1: in two.

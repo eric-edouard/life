@@ -1,0 +1,33 @@
+{
+  "name": "@lifelog/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:host": "bun scripts/build-host.ts",
+    "check:archive": "bun scripts/check-archive.ts",
+    "dev": "bun --watch src/index.ts",
+    "diagnostics:recent": "bun scripts/diagnostics-recent.ts",
+    "eval:voices": "bun scripts/eval-voices.ts",
+    "fixture:pages": "bun scripts/page-fixture.ts",
+    "mint-token": "bun scripts/mint-token.ts",
+    "openapi": "bun scripts/openapi.ts && biome format --write openapi.json",
+    "owner": "bun scripts/owner.ts",
+    "start": "bun src/index.ts",
+    "test": "bun test --timeout 60000"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "1.6.3",
+    "@life/server": "workspace:*",
+    "@lifelog/auth": "workspace:*",
+    "@lifelog/db": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "hono": "4.13.13",
+    "onnxruntime-web": "1.30.0",
+    "openai": "7.30.0",
+    "opus-decoder": "0.7.12",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

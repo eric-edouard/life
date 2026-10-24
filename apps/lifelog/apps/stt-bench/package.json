@@ -1,0 +1,16 @@
+{
+  "name": "@lifelog/stt-bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "bun src/bench.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@lifelog/db": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

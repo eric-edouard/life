@@ -9,3 +9,5 @@ node_modules
 dist/
 apps/mac/.build/
 apps/mac/Frameworks/
+# The gate's Swift and Xcode scratch builds, at the root (scripts/check.ts); lifelog's own scripts keep theirs in apps/lifelog/.build
+.build/

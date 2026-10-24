@@ -1,0 +1,15 @@
+node_modules/
+.turbo/
+dist/
+.env
+.env.*
+!.env.example
+*.xcodeproj/
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+.DS_Store
+research-fixtures/
+.claude/worktrees/
+*.bun-build
