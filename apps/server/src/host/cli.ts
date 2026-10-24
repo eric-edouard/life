@@ -28,7 +28,6 @@ import { pair } from "./http/oauth";
 import { localKey } from "./http/signin";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
-import { migrateStored } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { status, watch } from "./watch";
@@ -320,6 +319,4 @@ if (!command) {
   console.error(`usage: bun life <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
-// The stored names' rename runs once, before any command reads or writes the memory (AGENTS.md, "A rename backfills").
-await migrateStored();
 process.exit(await command());
