@@ -5,7 +5,7 @@ import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import {
-  type ChapterTurn,
+  type LifelogTurn,
   openStore,
   parseTurnRef,
   readTranscript,
@@ -17,7 +17,7 @@ import {
 import { type Candidate, owed } from "../todo-list/items";
 import { readInferredRepos, readUnits } from "./ledger";
 import type { SourceLine } from "./observe";
-import { handlesOf, OWNER, ownerIn } from "./read-truth";
+import { handlesOf, OWNER, ownerIn, type Truth } from "./read-truth";
 import { isDirect, kindOf, sourceOf } from "./sources";
 import {
   type Built,
@@ -25,12 +25,15 @@ import {
   clip,
   dayRange,
   dayUnitId,
+  isFrozen,
   LIFE_CHAT,
   lifelogNames,
   localTime,
+  MARKED,
   newestDays,
   normalize,
   oneToOne,
+  PERSON,
   type Resolve,
   searchableMail,
   speakerOf,
@@ -71,7 +74,7 @@ const FETCHES = 8;
  * The transcripts of every recording these turns are in, a few requests at a time. A recording lifelog no longer has
  * (404) has no words; any other failure throws, so a fetch that failed never reads as silence.
  */
-export async function transcripts(turns: ChapterTurn[]) {
+export async function transcripts(turns: LifelogTurn[]) {
   const out = new Map<string, Awaited<ReturnType<typeof readTranscript>>>();
   const list = [...new Set(turns.map((t) => t.jobId))];
   for (let i = 0; i < list.length; i += FETCHES) {
@@ -91,6 +94,68 @@ export async function transcripts(turns: ChapterTurn[]) {
     );
   }
   return out;
+}
+
+/**
+ * The lines of each voice unit among `units`, by unit id: who spoke and when from the watcher's store, the words from
+ * lifelog (`voiceLines`). The one way the memory steps read a recording's words.
+ */
+export async function spokenLines(
+  units: Unit[],
+  resolve: Resolve,
+  truth: Truth,
+  open = openStore
+) {
+  const voice = units.filter((u) => kindOf(u.source) === "voice");
+  if (voice.length === 0) {
+    return new Map<string, SourceLine[]>();
+  }
+  const turns = await withStore(
+    (store) =>
+      new Map(
+        voice.map((u) => [
+          u.id,
+          turnsBetween(store, u.key, u.start, u.end, lifelogNames(truth)),
+        ])
+      ),
+    open
+  );
+  const jobs = await transcripts([...turns.values()].flat());
+  return new Map(
+    [...turns].map(([id, said]) => [id, voiceLines(said, jobs, resolve)])
+  );
+}
+
+/**
+ * The conversation-days among `units` with their text filled from their words, as the moments model reads them (its
+ * `head`): the title, then each turn as `HH:MM speaker: words`, and `MARKED` when he said "hey Life" in it. Life holds
+ * no words, so they are fetched only for the days being read. Other units (a chapter unit among them) come back as
+ * they are.
+ */
+export async function voiceText(
+  units: Built[],
+  resolve: Resolve,
+  truth: Truth,
+  open = openStore
+) {
+  const spoken = await spokenLines(
+    units.map((b) => b.unit).filter((u) => !isFrozen(u)),
+    resolve,
+    truth,
+    open
+  );
+  return units.map((b) => {
+    const lines = spoken.get(b.unit.id);
+    if (!lines) {
+      return b;
+    }
+    const said = lines.map(
+      (l) =>
+        `${time(l.at)} ${l.speaker.startsWith(UNKNOWN) ? l.speaker.slice(UNKNOWN.length) : l.speaker.replace(PERSON, "")}: ${l.text}`
+    );
+    const text = [b.unit.title, ...said, ...(b.unit.marked ? [MARKED] : [])];
+    return { ...b, text: text.join("\n") };
+  });
 }
 
 /** The lines of a chat-day or mail thread-day, each cited to its message id. */
@@ -113,14 +178,14 @@ export function chatLines(b: Built, resolve: Resolve): SourceLine[] {
 }
 
 /** Where a voice's author came from: lifelog's id when it has one (the map may move it later), else its name; not the owner. */
-const fromOf = (t: ChapterTurn) => {
+const fromOf = (t: LifelogTurn) => {
   const from = t.owner ? null : (t.personId ?? t.name);
   return from ? { from } : {};
 };
 
 /** The lines of recorded turns, each cited `jobId:turnIndex@capturedAt`; a turn with no words is left out, an unnamed one lifelog says is his is the owner's. */
 export function voiceLines(
-  turns: ChapterTurn[],
+  turns: LifelogTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
   resolve: Resolve
 ): SourceLine[] {

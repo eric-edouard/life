@@ -11,8 +11,9 @@ import { settings } from "../core/settings";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
-// page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: conversations, chapter
-// titles and summaries, and for every turn only who spoke, when, and when the feed brought it, never its text) and builds units from that store.
+// page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: the conversations, and
+// for every turn only who spoke, when, and when the feed brought it, never its text; plus the hearing's marks) and builds
+// units from that store.
 // Only the watcher (apps/server/src/host/watch.ts) calls `poll`: a page folded in anywhere else would never be heard (eric-edouard/life#5).
 
 const WAIT_MARGIN_S = 30;
@@ -20,25 +21,9 @@ const WAIT_MARGIN_S = 30;
 export const WATCH = join(LIFE_STATE_DIR, "watch");
 
 // The shapes Life reads from lifelog's API, each field as nullable or optional as lifelog's contract says
-// (`apps/server/openapi.json` in lifelog; lifelog.test.ts checks it). Fields Life doesn't read are left out and ignored.
+// (`apps/server/openapi.json` in lifelog; lifelog.test.ts checks it). Fields Life doesn't read (its chapters and
+// summaries among them) are left out and ignored.
 export const Page = z.object({
-  chapters: z.array(
-    z.object({
-      conversationId: z.string(),
-      endAt: z.string(),
-      id: z.string(),
-      startAt: z.string(),
-      // Stored as "" until lifelog summarizes the chapter: its unit is dropped as `no-summary`.
-      summary: z
-        .string()
-        .nullable()
-        .transform((x) => x ?? ""),
-      title: z
-        .string()
-        .nullable()
-        .transform((x) => x ?? ""),
-    })
-  ),
   conversations: z.array(
     z.object({
       // Settled (the contract's `closed`): grouping adds nothing more to it; late audio or an edit can reopen it.
@@ -87,33 +72,8 @@ export const Page = z.object({
 });
 type Page = z.infer<typeof Page>;
 
-export interface LifelogChapter {
-  end: string;
-  id: string;
-  /** Turns in it. */
-  items: number;
-  /** The refs of his "hey Life" spans that start in it (the hearing's marks, `writeMarks`); absent when none. */
-  marked?: string[];
-  /** Names lifelog gave the people who speak in it. */
-  people: string[];
-  /** `jobId:turnIndex@startAt` of its first turn, the stable quote ref; absent when it has no turn. */
-  ref?: string;
-  start: string;
-  summary: string;
-  title: string;
-}
-
-export interface LifelogConversation {
-  chapters: LifelogChapter[];
-  endedAt: string;
-  id: string;
-  startedAt: string;
-  state: string;
-  title: string;
-}
-
-/** A turn of a chapter: where its words are (`readTranscript(jobId)[turnIndex]`), when, and who lifelog says spoke. */
-export interface ChapterTurn {
+/** A recorded turn: where its words are (`readTranscript(jobId)[turnIndex]`), when, and who lifelog says spoke. */
+export interface LifelogTurn {
   at: string;
   /** When it ended, and when the feed first brought it; null on a turn stored before 20 Oct. */
   end: string | null;
@@ -125,6 +85,15 @@ export interface ChapterTurn {
   personId: string | null;
   seen: string | null;
   turnIndex: number;
+}
+
+/** A transcribed conversation with its turns, each with the "hey Life" span that starts at it (the hearing's marks). */
+export interface LifelogConversation {
+  endedAt: string;
+  id: string;
+  startedAt: string;
+  title: string;
+  turns: (LifelogTurn & { marks: string[] })[];
 }
 
 /** lifelog's server (REST API): its address from settings, its token from the environment. */
@@ -212,9 +181,6 @@ export function openStore(dir = WATCH) {
   db.run(`create table if not exists conversations (
     id text primary key, start_at text not null, end_at text not null, kind text not null, state text not null,
     title text not null, successor text, closed integer);
-  create table if not exists chapters (
-    id text primary key, conversation_id text not null, start_at text not null, end_at text not null,
-    title text not null, summary text not null);
   create table if not exists turns (
     job_id text not null, turn_index integer not null, conversation_id text not null, start_at text not null,
     person_id text, person_name text, is_owner integer not null default 0, end_at text, seen_at text,
@@ -223,10 +189,10 @@ export function openStore(dir = WATCH) {
   create table if not exists marks (
     job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
-  create index if not exists chapters_conversation on chapters (conversation_id);
-  drop table if exists jobs;`);
+  drop table if exists jobs;
+  drop table if exists chapters;`);
   // The contract's `closed`, on a store made before it: rows fill it as they come again.
-  // ponytail: this and the drop above are a one-time upgrade of older stores; delete once every install has run it.
+  // ponytail: this and the drops above are a one-time upgrade of older stores; delete once every install has run it.
   const columns = db
     .query<{ name: string }, []>("pragma table_info(conversations)")
     .all();
@@ -279,6 +245,8 @@ export function readCursor(store: Store) {
 
 /** A live conversation (`c`) of the kinds Life reads: not replaced or retired (see `successor`), not a note or a call. */
 const LIVE = "c.successor is null and c.kind in ('conversation', 'imported')";
+/** Transcribed (`c`): none of its audio still out (`summarized` is transcribed and summarized too). */
+const TRANSCRIBED = "c.state in ('transcribed', 'summarized')";
 /** A transcript turn's ref, the `<job>:<turn>@<instant>` every reader cites. */
 export const turnRef = (job: string, turn: number, at: string) =>
   `${job}:${turn}@${at}`;
@@ -305,10 +273,10 @@ export const ownerSpoke = (store: Store, ref: string) => {
 const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
 
-/** Deletes what the feed says went: a conversation, a chapter or a turn (`<job>:<turn>`). */
+/** Deletes what the feed says went: a conversation or a turn (`<job>:<turn>`). */
 function drop(db: Database, r: Page["removed"][number]) {
-  if (r.kind === "chapter" || r.kind === "conversation") {
-    db.run(`delete from ${r.kind}s where id = ?`, [r.ref]);
+  if (r.kind === "conversation") {
+    db.run("delete from conversations where id = ?", [r.ref]);
   } else if (r.kind === "turn") {
     const at = r.ref.lastIndexOf(":");
     db.run("delete from turns where job_id = ? and turn_index = ?", [
@@ -327,9 +295,6 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
   const conversation = db.prepare(
     `insert or replace into conversations (id, start_at, end_at, kind, state, title, successor, closed)
     values (?, ?, ?, ?, ?, ?, ?, ?)`
-  );
-  const chapter = db.prepare(
-    "insert or replace into chapters values (?, ?, ?, ?, ?, ?)"
   );
   const turn = db.prepare(
     `insert into turns (job_id, turn_index, conversation_id, start_at, person_id, person_name, is_owner, end_at, seen_at)
@@ -357,16 +322,6 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
         c.closed ? 1 : 0
       );
     }
-    for (const c of page.chapters) {
-      chapter.run(
-        c.id,
-        c.conversationId,
-        c.startAt,
-        c.endAt,
-        c.title,
-        c.summary
-      );
-    }
     for (const t of page.turns) {
       turn.run(
         t.jobId,
@@ -385,11 +340,7 @@ export function apply(store: Store, page: Page, seen = clock().toISOString()) {
     }
   })();
   return (
-    page.conversations.length +
-      page.chapters.length +
-      page.turns.length +
-      page.removed.length >
-    0
+    page.conversations.length + page.turns.length + page.removed.length > 0
   );
 }
 
@@ -453,9 +404,9 @@ interface TurnRow {
 }
 
 /**
- * The live conversations still going at `since` or after it (one that spans midnight keeps its chapters after) and have words to summarize (silent ones and the owner's
- * dictation have none), with their chapters, oldest first. A retired conversation is gone: its successor's chapters come
- * through the feed. `byId`: lifelog person id -> the name on the map.
+ * The live conversations still going at `since` or after it that are transcribed (none of their audio still out) and
+ * have words (silent ones and the owner's dictation have none), with their turns, oldest first. A retired conversation
+ * is gone: its successor comes through the feed. `byId`: lifelog person id -> the name on the map.
  */
 export function readConversations(
   store: Store,
@@ -463,7 +414,7 @@ export function readConversations(
   byId: Map<string, string> = new Map()
 ): LifelogConversation[] {
   const { db } = store;
-  const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
+  const live = `from conversations c where ${LIVE} and ${TRANSCRIBED} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
@@ -485,81 +436,34 @@ export function readConversations(
         JSON.parse(m.refs) as string[],
       ])
   );
-  const chapters = Map.groupBy(
-    db
-      .query<
-        {
-          conversation_id: string;
-          end_at: string;
-          id: string;
-          start_at: string;
-          summary: string;
-          title: string;
-        },
-        [string]
-      >(
-        `select h.* from chapters h where h.conversation_id in (select c.id ${live}) order by h.start_at`
-      )
-      .all(from)
-      .map((c) => {
-        const inside = (turns.get(c.conversation_id) ?? []).filter(
-          (t) => t.start_at >= c.start_at && t.start_at < c.end_at
-        );
-        const [first] = inside;
-        const marked = inside.flatMap((t) =>
-          // A turn lifelog gave someone else, or a recording transcribed again (its wake ref no longer this turn's): no mark.
-          (() => {
-            const refs = marks.get(`${t.job_id}:${t.turn_index}`) ?? [];
-            return whose(chapterTurn(t, byId)) === "other" ||
-              refs[0] !== turnRef(t.job_id, t.turn_index, t.start_at)
-              ? []
-              : refs;
-          })()
-        );
-        const chapter: LifelogChapter = {
-          end: c.end_at,
-          id: c.id,
-          items: inside.length,
-          people: [
-            ...new Set(
-              inside.flatMap((t) => {
-                const n = nameOf(t.person_id, t.person_name, byId);
-                return n ? [n] : [];
-              })
-            ),
-          ],
-          ...(marked.length > 0 ? { marked } : {}),
-          ...(first
-            ? { ref: turnRef(first.job_id, first.turn_index, first.start_at) }
-            : {}),
-          start: c.start_at,
-          summary: c.summary,
-          title: c.title,
-        };
-        return { chapter, conversation: c.conversation_id };
-      }),
-    (c) => c.conversation
-  );
   return db
     .query<
-      {
-        end_at: string;
-        id: string;
-        start_at: string;
-        state: string;
-        title: string;
-      },
+      { end_at: string; id: string; start_at: string; title: string },
       [string]
     >(`select c.* ${live} order by c.start_at`)
     .all(from)
-    .map((c) => ({
-      chapters: (chapters.get(c.id) ?? []).map((h) => h.chapter),
-      endedAt: c.end_at,
-      id: c.id,
-      startedAt: c.start_at,
-      state: c.state,
-      title: c.title,
-    }));
+    .flatMap((c) => {
+      const said = (turns.get(c.id) ?? []).map((t) => {
+        const turn = lifelogTurn(t, byId);
+        const refs = marks.get(`${t.job_id}:${t.turn_index}`) ?? [];
+        // A turn lifelog gave someone else, or a recording transcribed again (its wake ref no longer this turn's): no mark.
+        const marked =
+          whose(turn) !== "other" &&
+          refs[0] === turnRef(t.job_id, t.turn_index, t.start_at);
+        return { ...turn, marks: marked ? refs : [] };
+      });
+      return said.length > 0
+        ? [
+            {
+              endedAt: c.end_at,
+              id: c.id,
+              startedAt: c.start_at,
+              title: c.title,
+              turns: said,
+            },
+          ]
+        : [];
+    });
 }
 
 /** Whether lifelog says nobody spoke for 30 s after a recording (the contract's `endedOnSilence`). */
@@ -578,31 +482,31 @@ export const isConversationClosed = (store: Store, conversation: string) =>
     )
     .get(conversation)?.closed === 1;
 
-/** The turns of a conversation between two instants (a chapter's range; the whole conversation by default), in order. */
+/** The turns of a conversation between two instants (a unit's range; the whole conversation by default), in order. */
 export function turnsBetween(
   store: Store,
   conversationId: string,
   start = "",
   end = "9999",
   byId: Map<string, string> = new Map()
-): ChapterTurn[] {
+): LifelogTurn[] {
   return store.db
     .query<TurnRow, [string, string, string]>(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
-    .map((t) => chapterTurn(t, byId));
+    .map((t) => lifelogTurn(t, byId));
 }
 
 /** Whose a turn is, as lifelog has it: his, someone lifelog named (by id or name), or nobody's. */
-export function whose(t: ChapterTurn): "me" | "unknown" | "other" {
+export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
   if (t.owner) {
     return "me";
   }
   return t.personId || t.name ? "other" : "unknown";
 }
 
-const chapterTurn = (t: TurnRow, byId: Map<string, string>): ChapterTurn => ({
+const lifelogTurn = (t: TurnRow, byId: Map<string, string>): LifelogTurn => ({
   at: t.start_at,
   end: t.end_at,
   jobId: t.job_id,

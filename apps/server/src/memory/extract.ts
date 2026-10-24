@@ -10,11 +10,7 @@ import {
   Unresolved,
 } from "../records/observation";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
-import {
-  type LifelogConversation,
-  turnsBetween,
-  withStore,
-} from "../sources/lifelog";
+import type { LifelogConversation } from "../sources/lifelog";
 import { closeNow } from "./closeness";
 import {
   EXTRACTED,
@@ -39,14 +35,13 @@ import {
   type Built,
   daysBefore,
   type Evidence,
-  lifelogNames,
   localTime,
   MARKED,
   UNKNOWN,
   within,
 } from "./units";
 import { observationsNow, readPeople, unitNow, who } from "./who";
-import { chatLines, transcripts, voiceLines } from "./words";
+import { chatLines, spokenLines } from "./words";
 
 // `bun life memory extract`: stage 2 of the memory cascade. For every unit kept (importance >= KEEP_AT, i.e. 2, moments.ts),
 // the deep-tier model reads the moment it belongs to (moments.ts: every unit of it, from every channel and day, from
@@ -59,7 +54,7 @@ const EXTRACT_PROMPT = "memory-extract.v5";
 /** Characters of unit text per call: whole moments, as many as fit. */
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
-/** A conversation this quiet and summarized is closed: its units are final enough to read before the day is over. */
+/** A transcribed conversation this quiet is closed: its units are final enough to read before the day is over. */
 const QUIET_MS = HOUR;
 /** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
@@ -70,18 +65,14 @@ const BOND_MAX = 10;
 /** Facts from the moment's own units, of any age (a plan carried to its day), at most this many. */
 const MOMENT_MAX = 20;
 
-/** The ids of the lifelog conversations that are summarized and have been quiet for an hour. */
+/** The ids of the transcribed conversations (`readConversations`) that have been quiet for an hour. */
 export function closedConversations(
   conversations: LifelogConversation[],
   now: Date
 ) {
   return new Set(
     conversations
-      .filter(
-        (c) =>
-          c.state === "summarized" &&
-          Date.parse(c.endedAt) <= now.getTime() - QUIET_MS
-      )
+      .filter((c) => Date.parse(c.endedAt) <= now.getTime() - QUIET_MS)
       .map((c) => c.id)
   );
 }
@@ -403,36 +394,19 @@ export async function extract(evidence: Evidence) {
 
   const read = groups.flatMap((g) => g.units);
   const reread = new Set([...read, ...copies].map((b) => b.unit.id));
-  const turns = await withStore(
-    (store) =>
-      new Map(
-        read.flatMap(({ unit }) =>
-          kindOf(unit.source) === "voice"
-            ? [
-                [
-                  unit.id,
-                  turnsBetween(
-                    store,
-                    unit.key,
-                    unit.start,
-                    unit.end,
-                    lifelogNames(truth)
-                  ),
-                ] as const,
-              ]
-            : []
-        )
-      )
+  const spoken = await spokenLines(
+    read.map((b) => b.unit),
+    resolve,
+    truth
   );
-  const jobs = await transcripts([...turns.values()].flat());
   let truncated = 0;
   const sourceOf = (b: Built): Source[] => {
     const all =
       kindOf(b.unit.source) === "voice"
-        ? voiceLines(turns.get(b.unit.id) ?? [], jobs, resolve)
+        ? (spoken.get(b.unit.id) ?? [])
         : chatLines(b, resolve);
     // ponytail: a unit longer than UNIT_MAX keeps its first lines only (a longer line cut to it, as a whole note's text
-    // can be); split the unit if long chapters matter.
+    // can be); split the unit if long conversations matter.
     const shownLines = within(
       all.map((l) => ({ ...l, text: l.text.slice(0, UNIT_MAX) })),
       UNIT_MAX,
