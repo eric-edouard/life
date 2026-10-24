@@ -14,7 +14,7 @@ records and turns it into searchable, listenable conversations, with a server th
 Folded into Life's repo on 24 Oct 2026 (Life's root `AGENTS.md`): one Bun workspace, one TypeScript config and one gate,
 `bun run check` at Life's root, which runs every step below (the Swift ones on a Mac when a branch touches the phone, the
 helper or what they read). The Android app is parked, outside the gate. Its TypeScript follows Life's base, which
-adds the unused-code rules and drops lifelog's `exactOptionalPropertyTypes`. The commands below run from Life's root.
+adds the unused-code rules and drops lifelog's `exactOptionalPropertyTypes`. Commands run from Life's root; file paths in lifelog's docs are relative to this folder.
 
 Each app has its own `AGENTS.md`. Read `docs/architecture.md` before a change that crosses apps, and
 `docs/decisions.md` before reversing a choice. The other docs go by topic: `docs/sync.md`, `docs/processing.md`,

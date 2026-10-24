@@ -7,7 +7,7 @@ thin phone"). One status screen. Kotlin, Jetpack Compose, Android 13 (API 33) an
 ## How to
 
 ```sh
-cd apps/android
+cd apps/lifelog/apps/android
 ./gradlew testDebugUnitTest assembleDebug       # the gate's step; needs JDK 17+ and the Android SDK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```

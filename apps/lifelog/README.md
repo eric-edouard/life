@@ -98,7 +98,7 @@ bun install
 Build it with `bun run host:app`:
 
 ```sh
-bun run host:app            # builds .build/host/Lifelog Host.app (ad hoc signed without LIFELOG_SIGN_IDENTITY)
+bun run host:app            # builds apps/lifelog/.build/host/Lifelog Host.app (ad hoc signed without LIFELOG_SIGN_IDENTITY)
 ```
 
 Move it to Applications and open it. Settings opens until lifelog is set up: paste your ElevenLabs key (and OpenAI's,
@@ -110,7 +110,7 @@ keep its password somewhere safe.
 **The iPhone.**
 
 ```sh
-bun run ios:project         # generates apps/ios/Lifelog.xcodeproj
+bun run ios:project         # generates apps/lifelog/apps/ios/Lifelog.xcodeproj
 ```
 
 Set `DEVELOPMENT_TEAM` and `LIFELOG_BUNDLE_ID` in `apps/ios/project.yml` to your own (every id derives from the bundle
