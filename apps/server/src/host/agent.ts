@@ -427,6 +427,10 @@ export function taskList(now = clock().getTime()) {
  * every task with a new cause (one that goes silent again after an update is new).
  */
 export async function chase(tasks: Task[], now: number, live?: boolean) {
+  // No agent set up: nothing is meant to receive asks, so none has lapsed.
+  if (!isOn("agent")) {
+    return;
+  }
   const due = alerts(tasks, now, live ?? (await agentLive(now)));
   const fresh = new Set(await unsent(due.map((a) => a.key)));
   const news = due.filter((a) => fresh.has(a.key));
