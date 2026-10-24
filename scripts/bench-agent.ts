@@ -319,7 +319,7 @@ async function bench(file: string, only: string[], engine: Engine) {
   const lines = linesOf(LEDGER);
   try {
     await ended(rec, async () => {
-      await checkout(code, ["node_modules", ".env"], ["settings.json"]);
+      await checkout(code, ["settings.json"]);
       const rows: Row[] = [];
       for (const c of cases) {
         // One at a time: the cases share the worktree's derived/.
