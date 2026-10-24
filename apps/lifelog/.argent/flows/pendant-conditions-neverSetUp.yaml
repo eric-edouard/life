@@ -1,0 +1,12 @@
+steps:
+  - echo: "The 'No Pendant set up yet' / Pair Pendant state lasts ~3 s after launch, too short to gate reliably; expect the found Pendant to be adopted."
+  - tool: await-ui-element
+    args:
+      condition: text
+      selector:
+        identifier: pendant.switch
+      expectedText: Recording.
+      timeoutMs: 15000
+executionPrerequisite: Run right after `xcrun simctl launch
+  --terminate-running-process <UDID> com.ericedouard.lifelog -fixtureLibrary
+  -fakePendant neverSetUp` (argent injection armed by a prior restart-app).

@@ -1,0 +1,22 @@
+{
+  "about": "Prepared audio is the kept capture intervals back to back with a separator between them. The phone's TimeMap renders blocks with it; the server's captureMillis reads a job's map. Milliseconds; capture instants since an arbitrary origin.",
+  "segments": [[1000, 2000], [5000, 6000], [9000, 9500]],
+  "separatorMs": 400,
+  "preparedMs": 3300,
+  "points": [
+    { "prepared": 0, "capture": 1000 },
+    { "prepared": 500, "capture": 1500 },
+    { "prepared": 999, "capture": 1999 },
+    { "prepared": 1400, "capture": 5000 },
+    { "prepared": 1500, "capture": 5100 },
+    { "prepared": 2399, "capture": 5999 },
+    { "prepared": 2800, "capture": 9000 },
+    { "prepared": 3299, "capture": 9499 }
+  ],
+  "inSeparator": [
+    { "prepared": 1000, "nextCapture": 5000 },
+    { "prepared": 1399, "nextCapture": 5000 },
+    { "prepared": 2400, "nextCapture": 9000 }
+  ],
+  "past": [3300, 4000]
+}

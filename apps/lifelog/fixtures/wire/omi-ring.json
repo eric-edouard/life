@@ -1,0 +1,66 @@
+{
+  "_comment": "The Omi's ring protocol (firmware 3.0.21, BasedHardware/omi storage.c): bytes as hex with what they mean. Read by OmiTests.swift and OmiTest.kt.",
+  "commands": [
+    {
+      "name": "info",
+      "hex": "10"
+    },
+    {
+      "name": "read",
+      "seq": 258,
+      "hex": "110000000000000102"
+    },
+    {
+      "name": "advance",
+      "seq": 7,
+      "hex": "120000000000000007"
+    },
+    {
+      "name": "clock",
+      "unixMillis": 1700000000999,
+      "hex": "00f15365"
+    }
+  ],
+  "notifications": [
+    {
+      "name": "ack",
+      "status": 10,
+      "hex": "010a"
+    },
+    {
+      "name": "info",
+      "read": 40,
+      "write": 1000,
+      "capacity": 1134000,
+      "dropped": 3,
+      "hex": "02000000000000002800000000000003e800114db0000000000000000301bc"
+    },
+    {
+      "name": "data",
+      "bytes": "010203",
+      "hex": "03010203"
+    },
+    {
+      "name": "done",
+      "status": 0,
+      "next": 1000,
+      "hex": "040000000000000003e8"
+    },
+    {
+      "name": "readBegin",
+      "start": 40,
+      "count": 960,
+      "hex": "050000000000000028000003c0"
+    },
+    {
+      "name": "truncated",
+      "hex": "0200",
+      "error": "truncated"
+    },
+    {
+      "name": "unknown",
+      "hex": "09",
+      "error": "unknown"
+    }
+  ]
+}

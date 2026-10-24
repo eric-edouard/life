@@ -1,0 +1,212 @@
+[
+  {
+    "case": "a confirmed pause splits, even a short one",
+    "spans": [
+      {
+        "start": 0,
+        "end": 200,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 60], [70, 130]],
+    "audible": [[0, 200]],
+    "pauses": [65],
+    "expected": [
+      {
+        "start": 0,
+        "end": 60,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 70,
+        "end": 130,
+        "id": "00000000-0000-8000-8000-01a0c4517d70"
+      }
+    ]
+  },
+  {
+    "case": "5 minutes without speech split even with sound; 4 don't",
+    "spans": [
+      {
+        "start": 0,
+        "end": 800,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 60], [300, 360], [700, 760]],
+    "audible": [[0, 800]],
+    "expected": [
+      {
+        "start": 0,
+        "end": 360,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 700,
+        "end": 760,
+        "id": "00000000-0000-8000-8000-01a0c45b1a60"
+      }
+    ]
+  },
+  {
+    "case": "45 s of quiet splits; 44 s doesn't",
+    "spans": [
+      {
+        "start": 0,
+        "end": 300,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 30], [74, 100], [150, 180]],
+    "expected": [
+      {
+        "start": 0,
+        "end": 100,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 150,
+        "end": 180,
+        "id": "00000000-0000-8000-8000-01a0c452b5f0"
+      }
+    ]
+  },
+  {
+    "case": "sound inside a gap breaks the quiet",
+    "spans": [
+      {
+        "start": 0,
+        "end": 300,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 30], [90, 120]],
+    "audible": [[50, 60]],
+    "expected": [
+      {
+        "start": 0,
+        "end": 120,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "a move of 500 m across 2 minutes splits; staying put doesn't",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 60], [200, 260], [400, 460]],
+    "audible": [[0, 600]],
+    "locations": [
+      {
+        "at": 55,
+        "latitude": 21.0,
+        "longitude": 105.8,
+        "accuracyM": 10
+      },
+      {
+        "at": 205,
+        "latitude": 21.01,
+        "longitude": 105.8,
+        "accuracyM": 10
+      },
+      {
+        "at": 405,
+        "latitude": 21.01,
+        "longitude": 105.8,
+        "accuracyM": 10
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 60,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      },
+      {
+        "start": 200,
+        "end": 460,
+        "id": "00000000-0000-8000-8000-01a0c4537940"
+      }
+    ]
+  },
+  {
+    "case": "GPS drift within the fixes' error never splits",
+    "spans": [
+      {
+        "start": 0,
+        "end": 600,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 60], [200, 260]],
+    "audible": [[0, 600]],
+    "locations": [
+      {
+        "at": 55,
+        "latitude": 21.0,
+        "longitude": 105.8,
+        "accuracyM": 100
+      },
+      {
+        "at": 205,
+        "latitude": 21.0055,
+        "longitude": 105.8,
+        "accuracyM": 100
+      }
+    ],
+    "expected": [
+      {
+        "start": 0,
+        "end": 260,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "missing pages are possible speech",
+    "spans": [
+      {
+        "start": 0,
+        "end": 60,
+        "breaks": []
+      },
+      {
+        "start": 120,
+        "end": 180,
+        "breaks": ["missingPages"]
+      }
+    ],
+    "speech": [[0, 30], [150, 180]],
+    "expected": [
+      {
+        "start": 0,
+        "end": 180,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  },
+  {
+    "case": "audio no analyzer reached is possible speech",
+    "spans": [
+      {
+        "start": 0,
+        "end": 200,
+        "breaks": []
+      }
+    ],
+    "speech": [[0, 30], [150, 180]],
+    "unanalyzed": [[30, 150]],
+    "expected": [
+      {
+        "start": 0,
+        "end": 180,
+        "id": "00000000-0000-8000-8000-01a0c4506c00"
+      }
+    ]
+  }
+]

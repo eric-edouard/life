@@ -1,0 +1,20 @@
+{
+  "entry": ["apps/server/fixtures/fake-restic.ts"],
+  "ignoreDependencies": ["fallow", "ultracite"],
+  "health": {
+    "thresholdOverrides": [
+      {
+        "files": ["apps/stt-bench/src/bench.ts"],
+        "functions": ["pipeline", "models"],
+        "maxCrap": 250,
+        "reason": "hand-run steps that drive models and files; the pipeline's logic is compose (routing.ts), tested"
+      },
+      {
+        "files": ["apps/stt-bench/src/score.ts"],
+        "functions": ["align"],
+        "maxCrap": 50,
+        "reason": "a Levenshtein backtrace, tested through distance and wordErrors"
+      }
+    ]
+  }
+}
