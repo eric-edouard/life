@@ -83,8 +83,7 @@ export interface Judged extends Segment {
 // 24 Oct 2026; the server's, apps/server/src/route-turns.ts). It once also took any other language
 // and turns Parakeet Ultra wrote nothing for, but VoxLingua tags short noisy French as other
 // languages; the numbers in docs/research/transcription-bench.md are that earlier rule's.
-export const foreign = (s: Judged) => s.voxlingua?.lang === "th";
-export const routed = foreign;
+export const routed = (s: Judged) => s.voxlingua?.lang === "th";
 // Parakeet Ultra wrote nothing where someone spoke: counted in the bench's report, no longer routed.
 export const silent = (s: Judged) => s.heard === "";
 
@@ -117,7 +116,7 @@ export function compose({
   const seconds = (ts: Judged[]) => ts.reduce((t, s) => t + s.end - s.start, 0);
   if (
     mine.length > 0 &&
-    seconds(mine.filter(foreign)) >= WHOLE_BLOCK * seconds(mine) &&
+    seconds(mine.filter(routed)) >= WHOLE_BLOCK * seconds(mine) &&
     whole?.text !== undefined
   ) {
     return whole.text;

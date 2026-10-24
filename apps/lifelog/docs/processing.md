@@ -181,7 +181,8 @@ be billed, so it fails. Its `billableSeconds` are Scribe's price of the seconds 
 the whole speech service, transcription included. ElevenLabs credits used up, Scribe's jobs wait queued, but the speech service
 still hears every block: one with only English and French completes; one that needs Scribe waits for the credits,
 queued and never due, until a read of them finds them back, and is then heard again (on the Mac, free) before its
-Thai turns go. A server start hears the waiting blocks again once too, so a routing change reaches them. The waiting reason `creditsOut` follows: every busy conversation while Scribe transcribes; with the speech
+Thai turns go. The blocks waiting when the rule became Thai only were made due once by a migration (24 Oct 2026), so they
+were heard again under it. The waiting reason `creditsOut` follows: every busy conversation while Scribe transcribes; with the speech
 service, a conversation with a block waiting for credits (`waitsForCredits`). The status counts them
 (`waiting.forCredits`) and Host's menu shows them. Dictation never reaches either: the worker's gate runs first.
 
