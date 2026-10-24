@@ -200,7 +200,7 @@ way.
    routes.
 
    ```sh
-   bun run --cwd apps/server mint-token mac   # prints the token and MAC_TOKEN_HASH=<its hash>
+   bun run --cwd apps/lifelog/apps/server mint-token mac   # prints the token and MAC_TOKEN_HASH=<its hash>
    ```
 
    Put `MAC_TOKEN_HASH` in the server's environment.

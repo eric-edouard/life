@@ -9,8 +9,8 @@ the shapes mean.
 
 Every route takes `Authorization: Bearer <token>`. A reader gets its own token, never the phone's:
 
-- `bun run --cwd apps/server mint-token read` prints a token and `READ_TOKEN_HASH`. It opens the reads below.
-- `bun run --cwd apps/server mint-token corrections` prints a token and `CORRECTIONS_TOKEN_HASH`. It opens the reads and
+- `bun run --cwd apps/lifelog/apps/server mint-token read` prints a token and `READ_TOKEN_HASH`. It opens the reads below.
+- `bun run --cwd apps/lifelog/apps/server mint-token corrections` prints a token and `CORRECTIONS_TOKEN_HASH`. It opens the reads and
   the corrections.
 
 Only the hash goes in the server's environment. Mint again to rotate. A token on a route it doesn't open gets 403; an

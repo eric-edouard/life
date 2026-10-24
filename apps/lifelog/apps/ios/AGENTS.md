@@ -8,7 +8,7 @@ generates the gitignored `.xcodeproj`. `docs/architecture.md` names every store 
 ## How to
 
 - **Regenerate the project** after editing `project.yml`: `bun run ios:project`.
-- **Test Kit alone**, from the repo root: `swift test --package-path apps/ios/Kit --scratch-path .build/kit`.
+- **Test Kit alone**, from Life's root: `swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit`.
 - **Run in the simulator.** Debug builds take `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
   (see `FakeScenario.swift`) and `-offline`; launch with `xcrun simctl launch <udid> com.ericedouard.lifelog <args>`.
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.

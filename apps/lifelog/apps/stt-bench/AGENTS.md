@@ -6,7 +6,7 @@ clip is already stored and is the reference. What it found: `docs/research/trans
 
 ## How to run it
 
-`bun run --cwd apps/stt-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
+`bun run --cwd apps/lifelog/apps/stt-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
 `score`, then `route [diarizer]` (finding the other languages on that diarizer's turns, pyannote's by
 default; needs its run and Parakeet Ultra's; caches and report in `routing/<diarizer>/`) and
 `pipeline [thai model]` (the proposed pipeline on pyannote's turns, scored like a model). Each step skips what it already

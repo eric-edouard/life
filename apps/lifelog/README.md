@@ -85,11 +85,11 @@ More in [docs/architecture.md](docs/architecture.md).
 
 ## Install
 
-Build both from source (prebuilt, notarized releases are not published yet).
+Build both from source (prebuilt, notarized releases are not published yet). The commands below run from Life's root.
 
 ```sh
-git clone https://github.com/eric-edouard/lifelog.git
-cd lifelog
+git clone https://github.com/eric-edouard/life.git   # lifelog lives in Life's repo, in apps/lifelog
+cd life
 bun install
 ```
 
@@ -123,7 +123,7 @@ code in Lifelog Host's Settings to pair it, and pair your recorder from the Pend
   the whole pipeline, the archive's checks and each process's log.
 - **Pause processing:** Settings → Processing on the phone (transcription and AI, each on or off).
 - **Switch the summary engine:** Settings → Processing → AI model on the phone, or Summaries in Lifelog Host.
-- **Connect a reader:** `bun run --cwd apps/server mint-token read` prints a token for a program that follows your
+- **Connect a reader:** `bun run --cwd apps/lifelog/apps/server mint-token read` prints a token for a program that follows your
   conversations ([docs/voice-source.md](docs/voice-source.md)) and its hash: put `READ_TOKEN_HASH=<hash>` in
   `~/Library/Application Support/lifelog/server.env`, then Save in Lifelog Host. For Life, Lifelog Host's "Copy Life's
   lifelog settings" does it all.
@@ -133,12 +133,11 @@ code in Lifelog Host's Settings to pair it, and pair your recorder from the Pend
 ## Development
 
 ```sh
-git config core.hooksPath .githooks          # the pre-push hook runs the gate
 bun run check                                # lint, types, every test suite, openapi, scrub, a Debug app build
 bun run fix                                  # format
-bun run --cwd apps/server test src/feed.test.ts
-swift test --package-path apps/ios/Kit --scratch-path .build/kit
-bun run --cwd apps/server dev                # the server from a checkout, with apps/server/.env (see .env.example)
+bun run --cwd apps/lifelog/apps/server test src/feed.test.ts
+swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit
+bun run --cwd apps/lifelog/apps/server dev                # the server from a checkout, with apps/lifelog/apps/server/.env (see .env.example)
 ```
 
 In the simulator, Debug builds take `-fixtureLibrary` (a demo library with audio), `-fakePendant <scenario>`
