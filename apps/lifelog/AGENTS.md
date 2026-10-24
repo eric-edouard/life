@@ -13,7 +13,8 @@ records and turns it into searchable, listenable conversations, with a server th
 
 Folded into Life's repo on 24 Oct 2026 (Life's root `AGENTS.md`): one Bun workspace, one TypeScript config and one gate,
 `bun run check` at Life's root, which runs every step below (the Swift ones on a Mac when a branch touches the phone, the
-helper or what they read). The Android app is parked, outside the gate. The commands below that are root scripts
+helper or what they read). The Android app is parked, outside the gate. Its TypeScript follows Life's base, which
+adds the unused-code rules and drops lifelog's `exactOptionalPropertyTypes`. The commands below that are root scripts
 (`host:app`, `install:phone`, `events`, `ios:project`, `check:offline`) move to Life's root next; until then run the
 script with `bun apps/lifelog/scripts/<name>.ts`.
 
@@ -69,8 +70,8 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   with `grep -oE '^[A-Z_]+='`; `sed` still prints the multi-line APNs key. Never put a token on a command line.
 - **Nothing of the owner's is committed**, in code, tests, fixtures or docs: tests use made-up people, places and
   zones, and studies of real recordings stay in the owner's private notes. The gate's `scrub` step fails on any name,
-  alias, phone, email, handle or chat id from the owner's private list (the script `LIFELOG_SCRUB` names in his
-  shell; it skips without one); first
+  alias, phone, email, handle or chat id from the owner's `truth/` (Life's `scripts/scrub-check.ts`; it skips
+  without his data); first
   names, places and git history are on you.
 - **One process writes the archive.** The server holds `<file>.lock`; scripts open it read-only. Read production
   with `sqlite3 -readonly`, never write it.
