@@ -2,8 +2,8 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { Engine, SourceName } from "./names";
-import { LIFE_STATE_DIR, real, runsFromRepo } from "./paths";
-import { HOME, MACHINE_DIR } from "./platform";
+import { LIFE_STATE_DIR } from "./paths";
+import { HOME } from "./platform";
 
 /** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
 export const PAGES_CLIENT = "life";
@@ -110,37 +110,7 @@ export type Settings = z.infer<typeof Settings>;
 /** The settings in `path`; a missing file is every default, a corrupt one throws (never a silent switch of engine). */
 export function readSettings(path = SETTINGS): Settings {
   const raw = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
-  const renamed = renamedSettings(raw);
-  if (renamed !== raw) {
-    // The app's settings (a checkout's link to them included) only the app renames: it is still reading them.
-    if (runsFromRepo() && real(path).startsWith(real(MACHINE_DIR))) {
-      throw new Error(
-        `${path} has the names from before 22 Oct 2026: the new Life.app renames them, never a checkout`
-      );
-    }
-    writeWhole(path, renamed);
-  }
-  return Settings.parse(renamed);
-}
-
-/**
- * The names this file had before 22 Oct 2026, renamed (AGENTS.md, "A rename backfills"): the `actions` key is
- * `todo_list`, the agent's source `atlas` is `agent`. Here, not in host/migrate.ts: settings are read as modules load.
- * The same object when there is nothing to rename. Delete once every install has read its file again.
- */
-export function renamedSettings(raw: Record<string, unknown>) {
-  const { actions, ...rest } = raw;
-  const sources = Array.isArray(raw.sources) ? raw.sources : [];
-  if (actions === undefined && !sources.includes("atlas")) {
-    return raw;
-  }
-  return {
-    ...rest,
-    ...(Array.isArray(raw.sources)
-      ? { sources: sources.map((s) => (s === "atlas" ? "agent" : s)) }
-      : {}),
-    ...(actions === undefined ? {} : { todo_list: actions }),
-  };
+  return Settings.parse(raw);
 }
 
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */

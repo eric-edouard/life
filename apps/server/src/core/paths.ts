@@ -2,15 +2,6 @@ import { cpSync, existsSync, mkdtempSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-// The old names (before 22 Oct 2026) are refused, never read: a copy pointed at by LIFE_DATA must not fall back to his
-// live data. Delete this once no shell, script or profile of his sets them.
-for (const old of ["LIFE_DATA", "LIFE_STATE", "LIFE_ROOT"]) {
-  if (process.env[old]) {
-    throw new Error(
-      `${old} is no longer read: set LIFE_OWNER_DATA_DIR, LIFE_STATE_DIR or LIFE_CODE_DIR (docs/operations.md)`
-    );
-  }
-}
 /** Life's own files (prompts, docs/agent.md, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). */
 export const LIFE_CODE_DIR =
   process.env.LIFE_CODE_DIR ?? join(import.meta.dir, "..", "..", "..", "..");
@@ -44,12 +35,6 @@ export const LIFE_STATE_DIR = real(
 );
 /** Does this code run from a repo (a checkout or a worktree) rather than from Life.app's resources? */
 export const runsFromRepo = () => existsSync(join(LIFE_CODE_DIR, ".git"));
-/**
- * Only the running app migrates his own data (AGENTS.md, "A rename backfills"): a checkout or worktree may migrate a
- * copy, never his live data, which the installed app is still reading.
- */
-export const mayMigrate = (data = OWNER_DATA_DIR) =>
-  !(runsFromRepo() && isHis(data));
 /** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
 export function isHis(data = OWNER_DATA_DIR) {
   return real(data) === real(join(homedir(), "Life"));
