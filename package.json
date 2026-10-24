@@ -23,9 +23,16 @@
   "scripts": {
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
+    "check:offline": "cd apps/lifelog/apps/ios && xcodegen generate --quiet && xcodebuild test -project Lifelog.xcodeproj -scheme Lifelog -only-testing:LifelogUITests -destination \"platform=iOS Simulator,name=${SIMULATOR:-iPhone 17}\" -derivedDataPath ../../.build/DerivedData -quiet",
+    "events": "bun apps/lifelog/scripts/events.ts",
     "fix": "bun x --bun ultracite fix && swift format --in-place --recursive apps/lifelog/apps/ios apps/lifelog/apps/mac-quiet",
+    "host:app": "bun apps/lifelog/scripts/host-app.ts",
+    "install:phone": "bun apps/lifelog/scripts/install-phone.ts",
+    "ios:project": "cd apps/lifelog/apps/ios && xcodegen generate --quiet",
     "life": "bun apps/server/src/host/cli.ts",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git config core.hooksPath .githooks",
+    "switches": "bun apps/lifelog/scripts/switches.ts",
+    "symbolicate": "bun apps/lifelog/scripts/symbolicate.ts"
   },
   "dependencies": {
     "@life/server": "workspace:*",

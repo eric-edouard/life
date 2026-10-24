@@ -34,8 +34,10 @@ const sha = (
   await $`git -C ${root} rev-parse --short ${`${ref}^{commit}`}`.text()
 ).trim();
 const tree = `${root}/.claude/worktrees/install-${sha}`;
-const ios = `${tree}/apps/ios`;
-const derived = `${tree}/.build/device`;
+// lifelog's folder in the worktree of Life's repo.
+const lifelog = `${tree}/apps/lifelog`;
+const ios = `${lifelog}/apps/ios`;
+const derived = `${lifelog}/.build/device`;
 const products = `${derived}/Build/Products`;
 const build = (scheme: string, udid: string, ...extra: string[]) =>
   $`xcodebuild -project Lifelog.xcodeproj -scheme ${scheme} -configuration Release -destination ${`id=${udid}`} -derivedDataPath ${derived} -allowProvisioningUpdates ${extra} -quiet build`.cwd(
