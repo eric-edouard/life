@@ -17,7 +17,6 @@ export const lifelogStore = () => openStore(tmp("life-lifelog-"));
 
 /** A page of lifelog's change feed. */
 export const pageFixture = (over: Record<string, unknown> = {}) => ({
-  chapters: [],
   conversations: [],
   cursor: "1",
   jobs: [],
@@ -37,7 +36,7 @@ export const conversation = (
   ownerTitle: null,
   retired: null,
   startAt: "2026-10-14T10:00:00.000Z",
-  state: "summarized",
+  state: "transcribed",
   title: "The plumber",
   ...over,
 });
@@ -56,15 +55,6 @@ export const turnFixture = (
   speaker: { isOwner, personId, personName },
   startAt,
   turnIndex,
-});
-
-export const chapter = (id: string, startAt: string, endAt: string) => ({
-  conversationId: "c1",
-  endAt,
-  id,
-  startAt,
-  summary: `Summary of ${id}`,
-  title: id,
 });
 
 /** WhatsApp's own store (one chat, `120@g.us` "Team", one group member `777@lid`) and the archive folder beside it. */

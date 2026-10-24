@@ -4,11 +4,10 @@ import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { copyBeeper, readBeeper } from "../sources/beeper";
 import { readImessage } from "../sources/imessage";
-import { apply } from "../sources/lifelog";
+import { apply, readConversations } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   beeperFixture,
-  chapter,
   conversation,
   imessageFixture,
   lifelogServer,
@@ -21,8 +20,17 @@ import {
 } from "../sources/store-fixtures";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
+import type { Truth } from "./read-truth";
 import { OWNER } from "./read-truth";
-import { LIFE_CHAT, localTime, time } from "./units";
+import { unit } from "./record-fixtures";
+import {
+  type Built,
+  LIFE_CHAT,
+  lifelogUnits,
+  localTime,
+  MARKED,
+  time,
+} from "./units";
 import {
   chatHits,
   chatsOf,
@@ -31,6 +39,7 @@ import {
   mailHits,
   transcripts,
   voiceLines,
+  voiceText,
 } from "./words";
 
 const words = ["Allo", "Salut", "", "Fin"];
@@ -53,9 +62,6 @@ const open = () => {
   apply(
     store,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:10:00.000Z"),
-      ],
       conversations: [conversation("c1")],
       turns: [
         turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
@@ -116,6 +122,32 @@ test("fetch by turn ref: an earlier recording uploaded late still opens 5 turns 
   expect(
     await fetchOf("job-9:0@2026-10-14T10:00:00.000Z", undefined, 200, open)
   ).toContain("(no turn job-9:0@2026-10-14T10:00:00.000Z");
+});
+
+test('a conversation-day read for its moments: its title, then who said what and when, "hey Life" said; a chapter unit keeps its text', async () => {
+  const [day] = lifelogUnits(readConversations(open(), new Date(0)), new Set());
+  const store = open();
+  const [b, chapter] = await voiceText(
+    [
+      day && { ...day, unit: { ...day.unit, marked: ["job-1:0@x"] } },
+      {
+        ...(day as Built),
+        text: "Shop\nA summary",
+        unit: unit({ summary: "A summary" }),
+      },
+    ] as Built[],
+    () => null,
+    { people: [] } as unknown as Truth,
+    () => store
+  );
+  expect(b?.text.split("\n")).toEqual([
+    "The plumber",
+    `${time("2026-10-14T10:00:00.000Z")} speaker_0: Allo`,
+    `${time("2026-10-14T10:01:00.000Z")} Plumber: Salut`,
+    `${time("2026-10-14T10:06:00.000Z")} speaker_0: Fin`,
+    MARKED,
+  ]);
+  expect(chapter?.text).toBe("Shop\nA summary");
 });
 
 test("transcripts: a recording lifelog no longer has is silent, a failed fetch throws", async () => {

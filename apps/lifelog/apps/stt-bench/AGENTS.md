@@ -6,8 +6,8 @@ clip is already stored and is the reference. What it found: `docs/research/trans
 
 ## How to run it
 
-`bun run --cwd apps/stt-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
-`score`, then `route [diarizer]` (finding the other languages on that diarizer's turns, pyannote's by
+`bun run --cwd apps/lifelog/apps/stt-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
+`score`, then `route [diarizer]` (finding Thai on that diarizer's turns, pyannote's by
 default; needs its run and Parakeet Ultra's; caches and report in `routing/<diarizer>/`) and
 `pipeline [thai model]` (the proposed pipeline on pyannote's turns, scored like a model). Each step skips what it already
 wrote, so a step can be stopped and run again.
@@ -33,8 +33,9 @@ wrote, so a step can be stopped and run again.
   that fixes Scribe's mistakes scores worse for it.
 - Speakers are scored by time: each Scribe word goes to the speaker turn holding its middle, labels
   paired one to one. Any model that returns timed speaker turns is scored the same way.
-- Routing (`src/routing.ts`) is judged per speaker turn, in seconds: other-language speech left with
-  the English and French model (missed) against English or French sent away (false alarms). A turn is
-  routed when VoxLingua107 hears neither English nor French, or Parakeet Ultra wrote nothing there.
+- Routing (`src/routing.ts`) is judged per speaker turn, in seconds: Thai left with the English and
+  French model (missed) against English or French sent away (false alarms). A turn is routed when
+  VoxLingua107 hears Thai (since 24 Oct 2026; before, any language but English and French, or a turn
+  Parakeet Ultra wrote nothing for: the report measures both).
 - Before adding models, sweep what was released lately (Hugging Face's API by date): the first runs
   were picked from memory and missed Parakeet Ultra, the eventual leader.

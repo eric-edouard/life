@@ -34,7 +34,7 @@ the server compares its hash.
 
 - The **device token** (the phone's) opens every route: reading the whole archive, editing it, and changing the
   processing switches. Whoever holds it is the owner, as far as the server knows. Mint a new one
-  (`bun run --cwd apps/server mint-token`) and re-pair the phone to rotate it.
+  (`bun run --cwd apps/lifelog/apps/server mint-token`) and re-pair the phone to rotate it.
 - A **reader token** opens only the reads the voice-source contract lists, and a `corrections` token also the
   owner's explicit corrections (titles, speakers, people). Both see every transcript and the location history. Lifelog
   Host's reader token is a `corrections` token.

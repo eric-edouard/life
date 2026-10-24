@@ -18,8 +18,6 @@ import type { Unit, Verdict } from "../records/unit";
 import { KEEP_AT } from "../records/unit";
 import {
   conversationsWith,
-  type LifelogConversation,
-  readConversations,
   searchVoice,
   speakers,
   turnPlace,
@@ -60,7 +58,6 @@ import {
   clip,
   dayRange,
   daysBefore,
-  lifelogNames,
   localTime,
   newestDays,
   normalize,
@@ -91,8 +88,8 @@ import { dayStart, localDate, when } from "./zones";
 // The read path, as `bun life memory search|person|area` (apps/server/src/host/command.ts): short cited results from the pages
 // and derived/memory/index.sqlite. It also owns the index: buildIndex writes it, nothing else here writes.
 //   search <words>   moments, observations and units matching the words, the exact spoken words (lifelog's search) and chats
-//   day <date>       what happened that day (its moments), its recorded conversations and chapters, its units from the
-//                    other sources and its key observations
+//   day <date>       what happened that day (its moments), its units (recorded conversations among them) and its key
+//                    observations
 //   person [name]    a person's page, what Life holds about them, their observations, moments and recorded conversations,
 //                    paged back by day; with no name, the people
 //   area <id>        an area's page and latest observations
@@ -645,17 +642,14 @@ const linkedCount = (db: Database, id: string) =>
     )
     .get(`person:${id}`)?.n ?? 0;
 
-const SUMMARY = 200;
-
 /**
  * The lines of `read_day`: the birthdays coming (`birthdaysNear`), what is due that day (`dueOf`), what happened (its moments,
- * planned ones included), the day's conversations with their chapters, its chat and mail units, its key observations,
+ * planned ones included), its units (conversations, chats, mail and the rest), its key observations,
  * then what Life changed for him.
  */
 export function dayLines({
   actions = [],
   born = [],
-  conversations = [],
   due = [],
   facts = [],
   moments = [],
@@ -663,7 +657,6 @@ export function dayLines({
 }: {
   actions?: LedgerEntry[];
   born?: string[];
-  conversations?: LifelogConversation[];
   due?: string[];
   facts?: string[];
   moments?: Moment[];
@@ -687,16 +680,7 @@ export function dayLines({
           "",
         ]
       : []),
-    `Recorded conversations (${conversations.length}; \`fetch <id>\`):`,
-    ...conversations.flatMap((c) => [
-      `- ${c.id} ${time(c.startedAt)}–${time(c.endedAt)} ${clip(c.title, 80)}`,
-      ...c.chapters.map(
-        (h) =>
-          `    ${time(h.start)} ${clip(h.title, 60)}${h.people.length > 0 ? ` (${h.people.join(", ")})` : ""}: ${clip(redact(h.summary), SUMMARY)}`
-      ),
-    ]),
-    "",
-    `Chat and mail units (${units.length}; \`fetch <unit id>\`):`,
+    `Units (${units.length}; \`fetch <unit id>\`):`,
     ...units.map(unitLine),
     ...(facts.length > 0 ? ["", "Key observations:", ...facts] : []),
     ...(actions.length > 0
@@ -713,39 +697,31 @@ export function dayLines({
 
 export async function day(date: string) {
   const truth = await loadTruth();
-  const names = lifelogNames(truth);
   const born = birthdaysNear(truth.people, date);
   const actions = (await readLedger()).filter(
     (a) => isListed(a) && localDate(a.at) === date
   );
   const moments = await momentsWhere(inDays({ from: date, to: date }));
   const context = await dueContext(date, truth);
-  return withStore((store) =>
-    withIndex((db) =>
-      dayLines({
-        actions,
-        born,
-        conversations: readConversations(store, dayStart(date), names).filter(
-          (c) => localDate(c.startedAt) === date
-        ),
-        due: dueOf(db, date, context),
-        facts: db
-          .query<Row, [string]>(
-            `select ${COLUMNS} from observations o where o.date = ? and o.importance >= ${KEEP_AT} and ${CURRENT}
+  return withIndex((db) =>
+    dayLines({
+      actions,
+      born,
+      due: dueOf(db, date, context),
+      facts: db
+        .query<Row, [string]>(
+          `select ${COLUMNS} from observations o where o.date = ? and o.importance >= ${KEEP_AT} and ${CURRENT}
              order by o.importance desc, o.at limit ${DAY_FACTS}`
-          )
-          .all(date)
-          .map(line),
-        moments,
-        units: db
-          .query<UnitRow, [string]>(
-            "select id, date, source, title, topics from units where date = ? order by source, title"
-          )
-          .all(date)
-          // A voice unit is listed with its conversation.
-          .filter((u) => kindOf(u.source) !== "voice"),
-      })
-    )
+        )
+        .all(date)
+        .map(line),
+      moments,
+      units: db
+        .query<UnitRow, [string]>(
+          "select id, date, source, title, topics from units where date = ? order by source, title"
+        )
+        .all(date),
+    })
   );
 }
 
@@ -1061,7 +1037,7 @@ interface IndexedUnit {
 
 /**
  * derived/memory/index.sqlite, rebuilt from scratch: observations (with the observation that replaced each retired
- * one, and its end date), full-text search over claims and quotes, links; and the units (titles, lifelog summaries and
+ * one, and its end date), full-text search over claims and quotes, links; and the units (titles, a chapter's or repo-day's summary and
  * the topics of their verdicts), so today's material is searchable before the nightly pass. Rebuilt in place, in one
  * write-ahead-log transaction, so a reader holding the file keeps the old index until the commit and sees the new one
  * after it; a rebuild waits for another to commit.

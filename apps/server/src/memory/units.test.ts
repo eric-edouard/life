@@ -13,20 +13,22 @@ import type { Unit } from "../records/unit";
 import { readAssistant } from "../sources/assistants";
 import {
   apply,
-  type LifelogChapter,
   type LifelogConversation,
+  openStore,
   readConversations,
+  WATCH,
 } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
-  chapter,
   claudeExport,
   conversation as feedConversation,
+  lifelogServer,
   lifelogStore,
   noteData,
   notesFixture,
   pageFixture,
   runFixture,
+  turnFixture,
 } from "../sources/store-fixtures";
 import { LIFE_MAIL } from "./email";
 import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
@@ -38,6 +40,7 @@ import {
   dayRange,
   daysBefore,
   gather,
+  isFrozen,
   LIFE_CHAT,
   lastDays,
   lifelogUnits,
@@ -89,35 +92,30 @@ const msg = (over: Partial<SourceEvent>): SourceEvent => ({
   ...over,
 });
 
+/** A turn of the conversation below: `n` minutes after 10:00 on 25 Oct (UTC), by `name` or by him. */
+const said = (n: number, name: string | null, owner = false) => ({
+  at: new Date(Date.parse("2026-10-25T10:00:00.000Z") + n * MIN).toISOString(),
+  end: null,
+  jobId: "job-1",
+  marks: [] as string[],
+  name,
+  owner,
+  personId: null,
+  seen: null,
+  turnIndex: n,
+});
+
 const conversation: LifelogConversation = {
-  chapters: [
-    {
-      end: "2026-10-09T10:20:00.000Z",
-      id: "chapter-1",
-      items: 10,
-      people: ["Jean (Me)", "Gaston"],
-      ref: "job-1:0@2026-10-09T10:00:00.000Z",
-      start: "2026-10-09T10:00:00.000Z",
-      summary: "Jean and Gaston list the shop repairs.",
-      title: "Shop repairs",
-    },
-    {
-      end: "2026-10-09T10:40:00.000Z",
-      id: "chapter-2",
-      items: 11,
-      people: [],
-      ref: "job-1:10@2026-10-09T10:20:00.000Z",
-      start: "2026-10-09T10:20:00.000Z",
-      summary: "Customers ask about stencils.",
-      title: "Counter talk",
-    },
-  ],
-  endedAt: "2026-10-09T10:40:00.000Z",
+  closed: false,
+  endedAt: "2026-10-25T10:40:00.000Z",
   id: "00000000-0000-8000-8000-01a1210b4bdf",
-  startedAt: "2026-10-09T10:00:00.000Z",
-  state: "summarized",
-  title: "At the shop",
+  startedAt: "2026-10-25T10:00:00.000Z",
+  title: "",
+  turns: [said(0, null, true), said(5, "Gaston"), said(30, "Jean (Me)")],
 };
+
+/** No stored chapter unit: every conversation becomes conversation-days. */
+const none = new Set<string>();
 
 test("unit ids are stable and hashes follow the content", () => {
   const [a] = messageUnits([msg({})], () => null);
@@ -186,41 +184,88 @@ test("the same chat content seen twice hashes the same and the second unit is dr
   expect(second?.unit.drop).toBe("duplicate");
 });
 
-test("lifelog chapters become units with lifelog's summary, turn refs and its names unresolved", () => {
-  const units = lifelogUnits([conversation]).map((b) => b.unit);
-  expect(units).toHaveLength(2);
-  expect(units[0]?.refs).toEqual([
-    "00000000-0000-8000-8000-01a1210b4bdf#chapter-1",
-    "job-1:0@2026-10-09T10:00:00.000Z",
+test("a conversation's day is one unit, built from its turns alone: first and last turn refs, him and its names unresolved", () => {
+  const [b] = lifelogUnits([conversation], none);
+  const unit = b?.unit;
+  expect(unit?.id).toBe(unitId("lifelog", conversation.id, "2026-10-25"));
+  expect(unit?.refs).toEqual([
+    "job-1:0@2026-10-25T10:00:00.000Z",
+    "job-1:30@2026-10-25T10:30:00.000Z",
   ]);
-  expect(units[0]?.id).toBe(unitId("lifelog", "chapter-1"));
-  expect(units[0]?.stats.items).toBe(10);
-  expect(units[0]?.people).toEqual(["unknown:Jean (Me)", "unknown:Gaston"]);
-  expect(units[0]?.end).toBe("2026-10-09T10:20:00.000Z");
-  expect(units[1]?.end).toBe(conversation.endedAt);
-  expect(units[0]?.summary).toBe("Jean and Gaston list the shop repairs.");
-  const unsummarized = lifelogUnits([
-    { ...conversation, chapters: [], state: "transcribed" },
+  expect(unit?.people).toEqual([
+    "person:me",
+    "unknown:Gaston",
+    "unknown:Jean (Me)",
   ]);
-  expect(applyRules(unsummarized)[0]?.unit.drop).toBe("no-summary");
+  expect(unit?.stats).toEqual({ chars: 0, fromMe: 1, items: 3 });
+  expect([unit?.start, unit?.end]).toEqual([
+    "2026-10-25T10:00:00.000Z",
+    conversation.endedAt,
+  ]);
+  expect(unit?.title).toBe("Recorded conversation");
+  expect(unit?.summary).toBeUndefined();
+  // Life holds no words: its text is filled when its day is read (voiceText).
+  expect(b?.text).toBe("");
+  expect(
+    lifelogUnits([{ ...conversation, title: "Plumber" }], none)[0]?.unit.title
+  ).toBe("Plumber");
 });
 
-test('a chapter he marked "hey Life" says so in its text, so only its hash moves, and keeps the marked refs', () => {
-  const [plain, other] = lifelogUnits([conversation]);
-  const [first] = conversation.chapters;
-  const [marked, same] = lifelogUnits([
-    {
-      ...conversation,
-      chapters: [
-        { ...(first as LifelogChapter), marked: ["j:1@a"] },
-        ...conversation.chapters.slice(1),
-      ],
-    },
+test("a conversation across midnight is two units; a conversation with a stored chapter unit is none", () => {
+  // Lagos, UTC+1: 23:50 on the 25th is 22:50Z, 00:10 on the 26th is 23:10Z.
+  const late = {
+    ...conversation,
+    endedAt: "2026-10-25T23:30:00.000Z",
+    turns: [said(12 * 60 + 50, null, true), said(13 * 60 + 10, "Gaston")],
+  };
+  expect(
+    lifelogUnits([late], none).map((b) => [b.unit.date, b.unit.end])
+  ).toEqual([
+    ["2026-10-25", "2026-10-25T23:00:00.000Z"],
+    ["2026-10-26", "2026-10-25T23:30:00.000Z"],
   ]);
-  expect(marked?.unit.marked).toEqual(["j:1@a"]);
-  expect(marked?.text).toEndWith(MARKED);
+  expect(lifelogUnits([late], new Set([late.id]))).toEqual([]);
+  // A chapter unit carries lifelog's summary; a placeholder (never summarized) and a repo-day's summary don't freeze.
+  expect(isFrozen({ source: "lifelog", summary: "A summary." })).toBe(true);
+  expect(isFrozen({ source: "lifelog", summary: "" })).toBe(false);
+  expect(isFrozen({ source: "lifelog" })).toBe(false);
+  expect(isFrozen({ source: "git", summary: "Change 1" })).toBe(false);
+});
+
+test('a turn he marked "hey Life" moves its unit\'s hash and its refs are kept; a turn added moves it too, a name given does not', () => {
+  const [plain] = lifelogUnits([conversation], none);
+  const [marked] = lifelogUnits(
+    [
+      {
+        ...conversation,
+        turns: [
+          { ...said(0, null, true), marks: ["job-1:0@x", "job-1:1@x"] },
+          ...conversation.turns.slice(1),
+        ],
+      },
+    ],
+    none
+  );
+  expect(marked?.unit.marked).toEqual(["job-1:0@x", "job-1:1@x"]);
   expect(marked?.unit.hash).not.toBe(plain?.unit.hash);
-  expect(same?.unit.hash).toBe(other?.unit.hash);
+  const [grown] = lifelogUnits(
+    [{ ...conversation, turns: [...conversation.turns, said(35, null)] }],
+    none
+  );
+  expect(grown?.unit.hash).not.toBe(plain?.unit.hash);
+  const [named] = lifelogUnits(
+    [
+      {
+        ...conversation,
+        turns: conversation.turns.map((t) => ({
+          ...t,
+          name: t.name ?? "Anne",
+        })),
+      },
+    ],
+    none
+  );
+  expect(named?.unit.hash).toBe(plain?.unit.hash);
 });
 
 test("names: aliases resolve, parentheses are ignored, a shared name resolves to nobody", () => {
@@ -541,11 +586,19 @@ test("topics are lower case, singular where trivial, dashed, at most three, no r
   expect(normalizeTopics(null)).toEqual([]);
 });
 
-test("a lifelog chapter that moves to another day leaves its old day's file; other sources' units in that file stay", async () => {
+/** The sources of the units in memory/units/, by day. */
+const sourcesByDay = async () =>
+  Object.fromEntries(
+    Map.groupBy(await readUnits(), (u) => u.date)
+      .entries()
+      .map(([d, us]) => [d, us.map((u) => u.source)])
+  );
+
+test("a conversation that moves to another day leaves its old day's file; other sources' units in that file stay", async () => {
   expect(existsSync(UNITS)).toBe(false); // test data has no units: this test makes and removes them
   const chat: Unit = {
-    date: "2026-10-14",
-    end: "2026-10-14T09:00:00.000Z",
+    date: "2026-10-25",
+    end: "2026-10-25T09:00:00.000Z",
     hash: "0123456789abcdef",
     id: "unit_00000000000a",
     key: "120@g.us",
@@ -553,73 +606,142 @@ test("a lifelog chapter that moves to another day leaves its old day's file; oth
     refs: ["whatsapp:120@g.us/1"],
     schemaVersion: 1,
     source: "whatsapp",
-    start: "2026-10-14T09:00:00.000Z",
+    start: "2026-10-25T09:00:00.000Z",
     stats: { chars: 40, fromMe: 1, items: 1 },
     title: "Team",
   };
   const store = lifelogStore();
   const on = (day: string) =>
     pageFixture({
-      chapters: [chapter("a", `${day}T10:00:00.000Z`, `${day}T10:05:00.000Z`)],
       conversations: [
         feedConversation("c1", {
           endAt: `${day}T10:10:00.000Z`,
           startAt: `${day}T10:00:00.000Z`,
         }),
       ],
+      turns: [turnFixture(0, `${day}T10:00:00.000Z`, null, null)],
     });
-  const days = async () =>
-    Object.fromEntries(
-      Map.groupBy(await readUnits(), (u) => u.date)
-        .entries()
-        .map(([d, us]) => [d, us.map((u) => u.source)])
-    );
   try {
     await writeUnits([chat.date], [chat]);
-    apply(store, on("2026-10-14"));
+    apply(store, on("2026-10-25"));
     await syncLifelogUnits(store);
-    expect(await days()).toEqual({ "2026-10-14": ["whatsapp", "lifelog"] });
-    apply(store, on("2026-10-15"));
-    expect(await syncLifelogUnits(store)).toMatchObject({ changed: 1 });
-    expect(await days()).toEqual({
-      "2026-10-14": ["whatsapp"],
-      "2026-10-15": ["lifelog"],
+    expect(await sourcesByDay()).toEqual({
+      "2026-10-25": ["whatsapp", "lifelog"],
+    });
+    // Regrouped onto the next day: a new id, the old one leaves (unit ids are by conversation and day).
+    apply(store, on("2026-10-26"));
+    expect(await syncLifelogUnits(store)).toMatchObject({
+      added: 1,
+      removed: 1,
+    });
+    expect(await sourcesByDay()).toEqual({
+      "2026-10-25": ["whatsapp"],
+      "2026-10-26": ["lifelog"],
     });
     // A night that could not read WhatsApp (its access gone) rewrites the day without losing its units.
     const mail = { ...chat, id: "unit_00000000000b", source: "mail" as const };
     await writeUnits([chat.date], [mail], (u) => u.source === "whatsapp");
-    expect(await days()).toMatchObject({ "2026-10-14": ["whatsapp", "mail"] });
+    expect(await sourcesByDay()).toMatchObject({
+      "2026-10-25": ["whatsapp", "mail"],
+    });
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
   }
 });
 
-test("a conversation from 23:40 to 00:30 at the window start is read whole: its 00:10 chapter is on the window's first day", () => {
-  // Berlin, UTC+2: 23:40 on the 14th is 21:40Z, the window starts at 00:00 on the 15th (22:00Z).
+/** A stored lifelog unit of conversation `key` on 20 Oct: a chapter when it has a summary. */
+const storedVoice = (id: string, key: string, summary?: string): Unit => ({
+  date: "2026-10-20",
+  end: "2026-10-20T10:20:00.000Z",
+  hash: "0123456789abcdef",
+  id,
+  key,
+  people: [],
+  refs: [`${key}#ch`],
+  schemaVersion: 1,
+  source: "lifelog",
+  start: "2026-10-20T10:00:00.000Z",
+  stats: { chars: 9, fromMe: 0, items: 2 },
+  ...(summary ? { summary } : {}),
+  title: "Shop",
+});
+
+test("a stored chapter unit stays as stored while its conversation is live, and gets it no conversation-day; a placeholder is replaced; another conversation becomes conversation-days; a retired one takes its chapter with it", async () => {
+  expect(existsSync(UNITS)).toBe(false);
+  const chapter = storedVoice("unit_00000000000c", "c1", "A summary.");
+  const placeholder = storedVoice("unit_00000000000e", "c2");
+  const store = lifelogStore();
+  const at = "2026-10-20T10:00:00.000Z";
+  apply(
+    store,
+    pageFixture({
+      conversations: [feedConversation("c1"), feedConversation("c2")],
+      turns: [
+        turnFixture(0, at, null, null, "c1"),
+        turnFixture(1, at, null, null, "c2"),
+      ],
+    })
+  );
+  try {
+    await writeUnits([chapter.date], [chapter, placeholder]);
+    expect(await syncLifelogUnits(store)).toMatchObject({
+      added: 1,
+      removed: 1,
+    });
+    expect((await readUnits()).map((u) => [u.id, u.key])).toEqual([
+      [chapter.id, "c1"],
+      [unitId("lifelog", "c2", "2026-10-20"), "c2"],
+    ]);
+    expect((await readUnits())[0]).toEqual(chapter);
+    // lifelog retires c1 into c3: c1's chapter goes with it, c3's days come.
+    apply(
+      store,
+      pageFixture({
+        conversations: [
+          feedConversation("c1", { retired: { successorId: "c3" } }),
+          feedConversation("c3"),
+        ],
+        turns: [turnFixture(0, at, null, null, "c3")],
+      })
+    );
+    expect(await syncLifelogUnits(store)).toMatchObject({
+      added: 1,
+      removed: 1,
+    });
+    expect((await readUnits()).map((u) => u.id)).toEqual([
+      unitId("lifelog", "c2", "2026-10-20"),
+      unitId("lifelog", "c3", "2026-10-20"),
+    ]);
+  } finally {
+    rmSync(UNITS, { force: true, recursive: true });
+  }
+});
+
+test("a conversation from 23:40 to 00:30 at the window start is read whole: its 00:10 turn is on the window's first day", () => {
+  // Lagos, UTC+1: 23:40 on the 25th is 22:40Z, the window starts at 00:00 on the 26th (23:00Z).
   const store = lifelogStore();
   apply(
     store,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T21:40:00.000Z", "2026-10-14T22:10:00.000Z"),
-        chapter("b", "2026-10-14T22:10:00.000Z", "2026-10-14T22:30:00.000Z"),
-      ],
       conversations: [
         feedConversation("c1", {
-          endAt: "2026-10-14T22:30:00.000Z",
-          startAt: "2026-10-14T21:40:00.000Z",
+          endAt: "2026-10-25T23:30:00.000Z",
+          startAt: "2026-10-25T22:40:00.000Z",
         }),
+      ],
+      turns: [
+        turnFixture(0, "2026-10-25T22:40:00.000Z", null, null),
+        turnFixture(1, "2026-10-25T23:10:00.000Z", null, null),
       ],
     })
   );
   expect(
-    lifelogUnits(readConversations(store, dayStart("2026-10-15"))).map((b) => [
-      b.unit.date,
-      b.unit.start,
-    ])
+    lifelogUnits(readConversations(store, dayStart("2026-10-26")), none).map(
+      (b) => [b.unit.date, b.unit.start]
+    )
   ).toEqual([
-    ["2026-10-14", "2026-10-14T21:40:00.000Z"],
-    ["2026-10-15", "2026-10-14T22:10:00.000Z"],
+    ["2026-10-25", "2026-10-25T22:40:00.000Z"],
+    ["2026-10-26", "2026-10-25T23:10:00.000Z"],
   ]);
 });
 
@@ -677,6 +799,35 @@ test("with no source turned on, a sweep reads nothing and fails nothing", async 
     expect(e.failed).toEqual([]);
   } finally {
     setSettings({ sources: before });
+  }
+});
+
+test("a sweep reads a stored chapter unit as stored, a marked one still saying so", async () => {
+  const before = readSettings().sources;
+  const marked = {
+    ...storedVoice("unit_00000000000d", "conv-1", "A summary."),
+    marked: ["job-1:0@x"],
+  };
+  // lifelog set up, its store holding conv-1 live (no words: no conversation-day either way).
+  const server = lifelogServer({});
+  const store = openStore();
+  apply(store, pageFixture({ conversations: [feedConversation("conv-1")] }));
+  store.db.close();
+  try {
+    setSettings({ sources: ["lifelog"] });
+    await writeUnits([marked.date], [marked]);
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.built.map((b) => [b.unit.id, b.text])).toEqual([
+      [marked.id, `Shop\nA summary.\n${MARKED}`],
+    ]);
+  } finally {
+    server.close();
+    setSettings({ sources: before });
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(WATCH, { force: true, recursive: true });
   }
 });
 

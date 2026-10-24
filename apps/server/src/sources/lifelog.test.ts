@@ -28,7 +28,6 @@ import {
   writeMarks,
 } from "./lifelog";
 import {
-  chapter,
   conversation,
   lifelogServer,
   pageFixture,
@@ -46,10 +45,6 @@ test("a name given to one turn names that turn, not the whole voice", () => {
   apply(
     s,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-        chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
-      ],
       conversations: [conversation("c1")],
       turns: [
         turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
@@ -60,7 +55,12 @@ test("a name given to one turn names that turn, not the whole voice", () => {
     })
   );
   const [c] = readConversations(s, since);
-  expect(c?.chapters.map((h) => h.people)).toEqual([["Anne-Sophie"], []]);
+  expect(c?.turns.map((t) => t.name)).toEqual([
+    null,
+    "Anne-Sophie",
+    null,
+    null,
+  ]);
   expect(
     turnsBetween(
       s,
@@ -92,42 +92,54 @@ test("a turn is his while the store credits him now: one lifelog later names som
   expect(ownerSpoke(s, "msg-1")).toBe(false);
 });
 
-test("a chapter holds its turns, its first turn's ref, and names the map gives its people", () => {
+test("a conversation holds its turns, in order, with the names the map gives its people", () => {
   const s = store();
   apply(
     s,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-        chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
-      ],
       conversations: [conversation("c1", { ownerTitle: "Plumber visit" })],
       turns: [
-        turnFixture(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)"),
         turnFixture(1, "2026-10-14T10:04:00.000Z", ANNE, "Anne-Sophie"),
-        turnFixture(2, "2026-10-14T10:05:00.000Z", ANNE, "Anne-Sophie"),
+        turnFixture(0, "2026-10-14T10:00:00.000Z", JEAN, "Jean (Me)"),
       ],
     })
   );
   const [c] = readConversations(s, since, new Map([[JEAN, "Jean Dupont"]]));
   expect(c?.title).toBe("Plumber visit");
-  const [a, b] = c?.chapters ?? [];
-  expect(a?.items).toBe(2);
-  expect(a?.ref).toBe("job-1:0@2026-10-14T10:00:00.000Z");
-  expect(a?.people).toEqual(["Jean Dupont", "Anne-Sophie"]);
-  expect(b?.items).toBe(1);
-  expect(b?.ref).toBe("job-1:2@2026-10-14T10:05:00.000Z");
+  expect(c?.turns.map((t) => [t.turnIndex, t.name])).toEqual([
+    [0, "Jean Dupont"],
+    [1, "Anne-Sophie"],
+  ]);
 });
 
-test("a retired conversation gives no units, its successor's chapters do; removed rows go", () => {
+test("a conversation with words is read whatever its state, with its state and lifelog's closed; a silent one is not", () => {
   const s = store();
   apply(
     s,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-        chapter("b", "2026-10-14T10:05:00.000Z", "2026-10-14T10:10:00.000Z"),
+      conversations: [
+        conversation("c1", { closed: true }),
+        conversation("c2", { state: "transcribing" }),
+        conversation("c4"),
       ],
+      turns: [
+        turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1"),
+        turnFixture(1, "2026-10-14T10:01:00.000Z", null, null, "c2"),
+      ],
+    })
+  );
+  expect(readConversations(s, since).map((c) => [c.id, c.closed])).toEqual([
+    ["c1", true],
+    // Still transcribing: read all the same, its units stay while late audio reopens it.
+    ["c2", false],
+  ]);
+});
+
+test("a retired conversation is not read, its successor is; removed rows go", () => {
+  const s = store();
+  apply(
+    s,
+    pageFixture({
       conversations: [
         conversation("c1"),
         conversation("c0", { retired: { successorId: "c1" } }),
@@ -136,31 +148,22 @@ test("a retired conversation gives no units, its successor's chapters do; remove
       turns: [
         turnFixture(0, "2026-10-14T10:00:00.000Z", null, null),
         turnFixture(1, "2026-10-14T10:06:00.000Z", null, null),
+        turnFixture(2, "2026-10-14T10:07:00.000Z", null, null, "c0"),
       ],
     })
   );
   expect(readConversations(s, since).map((x) => x.id)).toEqual(["c1"]);
-  apply(
-    s,
-    pageFixture({
-      removed: [
-        { kind: "chapter", ref: "b" },
-        { kind: "turn", ref: "job-1:1" },
-      ],
-    })
-  );
+  apply(s, pageFixture({ removed: [{ kind: "turn", ref: "job-1:1" }] }));
   const [c] = readConversations(s, since);
-  expect(c?.chapters.map((h) => h.id)).toEqual(["a"]);
-  expect(c?.chapters[0]?.items).toBe(1);
+  expect(c?.turns.map((t) => t.turnIndex)).toEqual([0]);
+  apply(s, pageFixture({ removed: [{ kind: "conversation", ref: "c1" }] }));
+  expect(readConversations(s, since)).toEqual([]);
 });
 
 test("applying a page twice changes nothing, and an empty store is no conversations", () => {
   const s = store();
   expect(readConversations(s, since)).toEqual([]);
   const p = pageFixture({
-    chapters: [
-      chapter("a", "2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
-    ],
     conversations: [conversation("c1")],
     turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null)],
   });
@@ -425,17 +428,6 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
 test("a feed page with a turn not yet in a conversation and a conversation retired with no successor is read", () => {
   const p = Page.parse(
     pageFixture({
-      chapters: [
-        {
-          ...chapter(
-            "a",
-            "2026-10-14T10:00:00.000Z",
-            "2026-10-14T10:05:00.000Z"
-          ),
-          summary: null,
-          title: null,
-        },
-      ],
       conversations: [conversation("c1", { retired: { successorId: null } })],
       turns: [turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, null)],
     })
@@ -457,30 +449,12 @@ test("visits: lifelog's 404 (no place the phone named matches) is no stays", asy
   }
 });
 
-test("a chapter holds the marks whose wake turn is in it, as lifelog has the turn now: re-cut, named or gone", () => {
+test("a turn holds the marks whose wake it is, as lifelog has the turn now: regrouped, named or gone", () => {
   const s = store();
   const R0 = "job-1:0@2026-10-14T10:01:00.000Z";
   const R1 = "job-1:1@2026-10-14T10:06:00.000Z";
   const cut = (id: string) =>
     pageFixture({
-      chapters: [
-        {
-          ...chapter(
-            "a",
-            "2026-10-14T10:00:00.000Z",
-            "2026-10-14T10:05:00.000Z"
-          ),
-          conversationId: id,
-        },
-        {
-          ...chapter(
-            "b",
-            "2026-10-14T10:05:00.000Z",
-            "2026-10-14T10:10:00.000Z"
-          ),
-          conversationId: id,
-        },
-      ],
       conversations: [conversation(id)],
       turns: [
         turnFixture(0, "2026-10-14T10:01:00.000Z", null, null, id, true),
@@ -492,13 +466,13 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
   const marked = (id: string) =>
     readConversations(s, since)
       .find((c) => c.id === id)
-      ?.chapters.map((h) => h.marked);
+      ?.turns.map((t) => t.marks);
   expect(marked("c1")).toEqual([[R0, "r0b"], [R1]]);
-  // Re-cut into c2: the marks follow their turns. Heard again with no mark from 10:05: that one goes.
+  // Regrouped into c2: the marks follow their turns. Heard again with no mark from 10:05: that one goes.
   apply(s, cut("c2"));
   expect(marked("c2")).toEqual([[R0, "r0b"], [R1]]);
   writeMarks(s, "c2", "2026-10-14T10:05:00.000Z", []);
-  expect(marked("c2")).toEqual([[R0, "r0b"], undefined]);
+  expect(marked("c2")).toEqual([[R0, "r0b"], []]);
   // Heard again unchanged: nothing to rebuild.
   expect(writeMarks(s, "c2", "", [[R0, "r0b"]])).toBe(false);
   // lifelog transcribed the recording again: another turn at the same index (a new start) is not the wake.
@@ -510,7 +484,7 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
       ],
     })
   );
-  expect(marked("c2")).toEqual([undefined, undefined]);
+  expect(marked("c2")).toEqual([[], []]);
   apply(
     s,
     pageFixture({
@@ -528,7 +502,7 @@ test("a chapter holds the marks whose wake turn is in it, as lifelog has the tur
       ],
     })
   );
-  expect(marked("c2")).toEqual([undefined, undefined]);
+  expect(marked("c2")).toEqual([[], []]);
 });
 
 test("lifelog's /status is read whatever its untyped objects hold: absent, null, or partly there", () => {

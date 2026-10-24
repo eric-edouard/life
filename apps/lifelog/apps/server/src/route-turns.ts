@@ -1,9 +1,12 @@
 // What a block's words come from when the speech service transcribes it (docs/processing.md,
-// "Who transcribes"): its own words for English and French, Scribe's for the turns it routes. A
-// turn of a second or more is routed when VoxLingua107 hears neither English nor French in it
-// (foreign), or Parakeet Ultra wrote nothing there; a block 70% foreign goes to Scribe whole. The
-// bench's rule exactly (apps/stt-bench/src/routing.ts), and its numbers:
-// docs/research/transcription-bench.md.
+// "Who transcribes"): its own words, and Scribe's only for Thai (the owner's rule, 24 Oct 2026). A
+// turn of a second or more is routed when VoxLingua107 hears Thai in it; a block 70% Thai goes to
+// Scribe whole. Every other language, and a turn Parakeet Ultra wrote nothing for, stays local:
+// VoxLingua tags short noisy French as Breton, Portuguese or Malagasy, and those turns held
+// Parakeet's words. The bench's rule exactly (apps/stt-bench/src/routing.ts); its numbers, measured
+// under the earlier rule: docs/research/transcription-bench.md.
+// ponytail: VoxLingua hears some short Thai as Lao, Malay or Vietnamese; those turns stay local.
+// Add their codes to SCRIBE if Thai goes missing.
 //
 // The result is a transcript in Scribe's own shape, so it is stored, parsed and turned into turns
 // exactly like one of Scribe's (jobs.ts `complete`).
@@ -18,6 +21,8 @@ const OURS = new Map([
   ["en", "eng"],
   ["fr", "fra"],
 ]);
+// The languages Scribe transcribes; the speech service keeps every other one.
+const SCRIBE = new Set(["th"]);
 const WHOLE_BLOCK = 0.7;
 const MIN_ROUTED_SECONDS = 1;
 // A routed turn's audio reaches Scribe with this much around it, so a word Nemotron's boundary
@@ -31,20 +36,15 @@ const inside = (turn: HeardTurn, at: number) =>
 
 export type Route = { kind: "whole" } | { kind: "turns"; routed: HeardTurn[] };
 
-export function routeTurns({ turns, words }: Heard): Route {
+export function routeTurns({ turns }: Heard): Route {
   const judged = turns.filter((t) => t.end - t.start >= MIN_ROUTED_SECONDS);
-  const foreign = judged.filter(
-    (t) => t.language !== null && !OURS.has(t.language)
+  const thai = judged.filter(
+    (t) => t.language !== null && SCRIBE.has(t.language)
   );
-  if (judged.length > 0 && seconds(foreign) >= WHOLE_BLOCK * seconds(judged)) {
+  if (judged.length > 0 && seconds(thai) >= WHOLE_BLOCK * seconds(judged)) {
     return { kind: "whole" };
   }
-  const silent = (t: HeardTurn) =>
-    !words.some((w) => inside(t, (w.start + w.end) / 2));
-  return {
-    kind: "turns",
-    routed: judged.filter((t) => foreign.includes(t) || silent(t)),
-  };
+  return { kind: "turns", routed: thai };
 }
 
 // The stretches of audio Scribe hears for the routed turns: each padded, overlaps joined.

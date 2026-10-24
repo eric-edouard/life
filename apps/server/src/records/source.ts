@@ -38,7 +38,7 @@ export const SourceEvent = z
     removed: z.int().min(0).optional(),
     // The sender's handle as the source shows it: phone, email, Beeper participant id; git: the author's name.
     sender: z.string(),
-    // lifelog has chapters, not events.
+    // lifelog has turns in the watcher's store, not events.
     source: SourceName.exclude(["lifelog"]),
     text: z.string(),
   })

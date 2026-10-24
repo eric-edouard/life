@@ -10,10 +10,10 @@ against. What the server owns and what the phone copies: `docs/sync.md`.
 ## How to
 
 - **Add a route or field:** follow "Where to add a feature" in `docs/architecture.md`. After any route or schema
-  change, run `bun run --cwd apps/server openapi`; the gate fails on a stale `openapi.json`.
-- **Change a table:** edit `packages/db/src/schema`, run `bun run --cwd packages/db db:generate` and commit the
+  change, run `bun run --cwd apps/lifelog/apps/server openapi`; the gate fails on a stale `openapi.json`.
+- **Change a table:** edit `packages/db/src/schema`, run `bun run --cwd apps/lifelog/packages/db db:generate` and commit the
   migration. Add a new migration rather than editing a committed one.
-- **Test:** `bun run --cwd apps/server test`. Each test file gets its own SQLite file through `testDb()` in
+- **Test:** `bun run --cwd apps/lifelog/apps/server test`. Each test file gets its own SQLite file through `testDb()` in
   `src/testing.ts`.
 
 ## Worth knowing

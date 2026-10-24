@@ -162,15 +162,15 @@ The server runs on the owner's Mac, inside Lifelog Host (`apps/mac-quiet/README.
 SQLite file and the audio folder under `~/Library/Application Support/lifelog`, listening on 127.0.0.1 only. Phones
 reach it through the owner's tailnet (Tailscale Serve) or a Cloudflare tunnel to their own domain.
 
-- `bun run --cwd apps/server build:host [out]` writes `lifelog-server`, one file with its migrations inside; it needs
+- `bun run --cwd apps/lifelog/apps/server build:host [out]` writes `lifelog-server`, one file with its migrations inside; it needs
   no Bun or checkout, and migrates its file at boot. `bun run host:app` puts it in the app.
 - One process writes the file: the server holds `<file>.lock` and a second one exits before it migrates.
 - Variables are `Env` in `apps/server/src/config.ts`; `apps/server/.env.example` lists them. Host sets the archive's
   paths, the token hashes, the keys, restic and the identity service; anything else (APNs, Resend, `AUTH_SECRET`,
   the webhook) goes in `server.env` beside the archive, mode 0600.
-- Mint the device token with `bun run --cwd apps/server mint-token`; with `PUBLIC_BASE_URL` set it also prints the
+- Mint the device token with `bun run --cwd apps/lifelog/apps/server mint-token`; with `PUBLIC_BASE_URL` set it also prints the
   phone's pairing link. Host mints its own tokens and shows the link as a QR code.
-- For development, `bun run --cwd apps/server dev` runs it from a checkout with `apps/server/.env`.
+- For development, `bun run --cwd apps/lifelog/apps/server dev` runs it from a checkout with `apps/lifelog/apps/server/.env`.
 
 ### The ElevenLabs webhook
 
@@ -221,5 +221,5 @@ past the archive's last change, so the feed starts them over from the beginning 
 ### Reading the archive
 
 Open it read-only, never write it: `sqlite3 -readonly "$HOME/Library/Application Support/lifelog/archive.sqlite"`.
-The server's scripts take the same path: `DATABASE_PATH=<that path> bun run --cwd apps/server check:archive` (the
+The server's scripts take the same path: `DATABASE_PATH=<that path> bun run --cwd apps/lifelog/apps/server check:archive` (the
 archive's invariants) or `diagnostics:recent [days] [--json]` (crashes and errors); both open it read-only.
