@@ -2,8 +2,8 @@
 
 Routes are in `src/routes/<domain>.ts` (Hono with Zod OpenAPI schemas); the logic is in `src/<domain>.ts`, tested
 beside it. The database is `packages/db` (`@lifelog/db`): the Drizzle schema of one SQLite file (`DATABASE_PATH`) in
-`src/schema`, the committed migrations in `src/migrations`, applied at boot, and `connect`. Life's OAuth issuer is
-`packages/auth` (`@lifelog/auth`, Better Auth). Nothing but the server uses either, and the notes below hold for them.
+`src/schema`, the committed migrations in `src/migrations`, applied at boot, and `connect`. Nothing but the server
+uses it, and the notes below hold for it.
 Model calls go to the Mac over its socket (`mac-socket.ts`), and `openapi.json` is the contract the phone is checked
 against. What the server owns and what the phone copies: `docs/sync.md`.
 
@@ -20,7 +20,7 @@ against. What the server owns and what the phone copies: `docs/sync.md`.
 
 - One process writes the file: a server holds `<file>.lock` (`@lifelog/db` `holdArchive`) and a second one exits before it
   migrates; scripts open it read-only
-  (`connect(file, { readonly: true })`), except `scripts/owner.ts`, which writes the sign-in owner. Queries run
+  (`connect(file, { readonly: true })`). Queries run
   synchronously: `.all()`, `.get()`, `.run()`, never `await` a query. A long synchronous pass holds every request,
   socket and long poll while it runs: keep passes incremental, and time a new full scan on a real-sized archive.
 - The server runs on Windows too (checked by hand on a Windows PC): close a `connect` with `$client.close(true)` before removing or

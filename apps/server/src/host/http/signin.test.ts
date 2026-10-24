@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Hono } from "hono";
 import { connector } from "../../core/settings";
 import type { Verify } from "./auth";
 import { createSignIn } from "./signin";
@@ -10,6 +11,14 @@ const verify = (async (token: string) =>
     ? { clientId: "life", scopes: ["life:read"] }
     : { refusal: "invalid" as const, why: "expired" }) as Verify;
 
+/** Life's issuer in this process, its token endpoint answering with `answer`. */
+const issuerAnswering = (answer: (body: string) => Response) => ({
+  app: new Hono().post("/auth/oauth2/token", async (c) =>
+    answer(await c.req.text())
+  ),
+  issuer: `${origin}/auth`,
+});
+
 const post = (cookie: string) =>
   new Request(`${origin}/check/answer`, {
     body: "{}",
@@ -18,14 +27,17 @@ const post = (cookie: string) =>
   });
 
 test("a session that ran out is renewed with its refresh token: the same request again, with the new cookies", async () => {
-  const signIn = createSignIn(verify, async (_url, init) =>
-    new URLSearchParams(String(init.body)).get("refresh_token") === "r1"
-      ? Response.json({
-          access_token: "fresh",
-          expires_in: 3600,
-          refresh_token: "r2",
-        })
-      : new Response("no", { status: 400 })
+  const signIn = createSignIn(
+    verify,
+    issuerAnswering((body) =>
+      new URLSearchParams(body).get("refresh_token") === "r1"
+        ? Response.json({
+            access_token: "fresh",
+            expires_in: 3600,
+            refresh_token: "r2",
+          })
+        : new Response("no", { status: 400 })
+    )
   );
   const res = (await signIn.refusal(
     post("__Host-life=old; __Host-life-refresh=r1")
@@ -44,9 +56,12 @@ test("a session that ran out is renewed with its refresh token: the same request
   expect(refused.status).toBe(401);
   expect(refused.headers.get("set-cookie")).toContain("__Host-life-refresh=;");
 
-  // The issuer out of reach: a 503, and the refresh token kept for when it is back.
-  const down = createSignIn(verify, () => Promise.reject(new Error("down")));
-  const away = (await down.refusal(post("__Host-life-refresh=r1"))) as Response;
-  expect(away.status).toBe(503);
-  expect(away.headers.get("set-cookie")).toBeNull();
+  // The issuer's own failure is a fault, never a refusal: the refresh token is not dropped.
+  const broken = createSignIn(
+    verify,
+    issuerAnswering(() => new Response("boom", { status: 500 }))
+  );
+  expect(broken.refusal(post("__Host-life-refresh=r1"))).rejects.toThrow(
+    "the issuer failed its token exchange (500)"
+  );
 });

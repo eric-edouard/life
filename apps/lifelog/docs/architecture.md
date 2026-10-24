@@ -87,7 +87,7 @@ readings get there is `docs/sync.md`.
 
 **The server** owns everything after capture: audio blocks in its audio store (a folder, or an S3 bucket), transcription jobs, words in capture time,
 grouping into conversations, speakers and people, chapters and summaries, places, search by meaning, and the REST
-surface for readers (`docs/voice-source.md`), with the sign-in a reader's MCP still uses. `apps/identity` turns voice excerpts into embeddings and keeps no audio. The Mac helper is a
+surface for readers (`docs/voice-source.md`). `apps/identity` turns voice excerpts into embeddings and keeps no audio. The Mac helper is a
 sensor and a runner: it reports which processes have the microphone on and when the Mac sleeps, which the server turns
 into quiet ranges (`dictation.ts`), and runs the model calls the server sends on the selected ChatGPT or Claude
 subscription, reporting their raw output (`mac-llm.ts` reads it).

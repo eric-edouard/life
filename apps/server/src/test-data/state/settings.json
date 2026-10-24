@@ -10,10 +10,7 @@
     "repository": "~/made-up-backup"
   },
   "connector": {
-    "client": "test-check-client",
-    "issuer": "https://voice.example.test/api/auth",
-    "origin": "https://life.example.test",
-    "owner": "owner-sub"
+    "origin": "https://life.example.test"
   },
   "lifeChat": "!life:beeper.local",
   "lifelog": {

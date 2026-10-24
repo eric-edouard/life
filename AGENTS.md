@@ -101,6 +101,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   arguments stable.
 - **Pages serve nothing of his before their sign-in check** (`/check`, `/me`; the app's status reads behind the local
   key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
+- **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
+  owner's subject and the pages' client; an app (ChatGPT, Claude, `/check`) is approved by a pairing code from the Mac.
+  lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge the
   same text.
 - **He is the center, not one more person:** his page is a projection like every page; his goals are only in

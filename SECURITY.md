@@ -34,8 +34,7 @@ and what it does not.
 ### Network surface
 
 - The connector (`/mcp`), the check page and the portrait are served by the Mac. Every request to the
-  connector needs a signed token for the owner (Life's own OAuth server with pairing codes and PKCE, or a configured
-  issuer). The pages check the owner's sign-in (or a password, for the portrait) before serving anything of theirs; the
+  connector needs a signed token for the owner (Life's own OAuth server with pairing codes and PKCE). The pages check the owner's sign-in (or a password, for the portrait) before serving anything of theirs; the
   local port used by the app needs a local key and is never exposed.
 - Exposure is through the owner's tailnet (Tailscale Serve), optionally Tailscale Funnel or a Cloudflare tunnel the
   owner controls, so cloud assistants can reach it. The owner's own install also has a Cloudflare Worker

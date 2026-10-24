@@ -4,8 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts",
-    "./schema/auth": "./src/schema/auth.ts"
+    "./schema": "./src/schema/index.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate"

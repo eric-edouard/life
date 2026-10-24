@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { Hono } from "hono";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -19,14 +20,11 @@ import {
 } from "../../memory/ledger";
 import { ownerTokens } from "./auth";
 import { createCheck } from "./check-page";
+import { PAGES_CLIENT } from "./oauth";
 import { createSignIn } from "./signin";
 
-const {
-  client: CHECK_CLIENT,
-  issuer: ISSUER,
-  origin: ORIGIN,
-  resource: RESOURCE,
-} = connector();
+const { origin: ORIGIN, resource: RESOURCE } = connector();
+const ISSUER = `${ORIGIN}/auth`;
 
 const SESSION_COOKIE =
   /^__Host-life=.+; Path=\/; Max-Age=3600; Secure; HttpOnly; SameSite=Lax$/;
@@ -47,17 +45,20 @@ const token = (sub = "owner") =>
     .setExpirationTime("1h")
     .sign(privateKey);
 
-/** lifelog's token endpoint: Life's own client and a good code with its verifier get `issued`'s token. */
+/** The issuer's token endpoint: Life's own client and a good code with its verifier get `issued`'s token. */
 let issued = "owner";
-const lifelog = (async (_url: string, init?: RequestInit) => {
-  const form = new URLSearchParams(String(init?.body));
-  return form.get("code") === "good" &&
-    form.get("code_verifier") &&
-    form.get("client_id") === CHECK_CLIENT
-    ? Response.json({ access_token: await token(issued), expires_in: 3600 })
-    : new Response("bad", { status: 400 });
-}) as typeof fetch;
-const check = createCheck(createSignIn(verify, lifelog));
+const issuer = {
+  app: new Hono().post("/auth/oauth2/token", async (c) => {
+    const form = new URLSearchParams(await c.req.text());
+    return form.get("code") === "good" &&
+      form.get("code_verifier") &&
+      form.get("client_id") === PAGES_CLIENT
+      ? Response.json({ access_token: await token(issued), expires_in: 3600 })
+      : new Response("bad", { status: 400 });
+  }),
+  issuer: ISSUER,
+};
+const check = createCheck(createSignIn(verify, issuer));
 
 const get = async (path: string, cookie = "", init: RequestInit = {}) =>
   (await check.request(
@@ -102,29 +103,6 @@ test("the page's policy lets in the fonts its stylesheet imports", async () => {
   expect(
     (await get("/check/")).headers.get("content-security-policy")
   ).toContain(host);
-});
-
-test("lifelog's keys out of reach: the page and the sign-in answer 503, never a sign-in or a refusal", async () => {
-  const down = createCheck(
-    createSignIn(
-      async () => ({ refusal: "unreachable", why: "request timed out" }),
-      lifelog
-    )
-  );
-  const at = async (path: string, jar = "") =>
-    (await down.request(
-      new Request(`${ORIGIN}${path}`, { headers: { cookie: jar } })
-    )) as Response;
-  expect((await at("/check/", await session())).status).toBe(503);
-  const login = await at("/check/login");
-  const state = new URL(login.headers.get("location") ?? "").searchParams.get(
-    "state"
-  );
-  const loginCookie =
-    (login.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  expect(
-    (await at(`/check/callback?code=good&state=${state}`, loginCookie)).status
-  ).toBe(503);
 });
 
 test("sign-in: PKCE with a state cookie; only the owner's token becomes the session cookie", async () => {

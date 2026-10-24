@@ -156,7 +156,7 @@ by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, s
   backup password and `identitySecret` there once, keeping
   any already in it; the server gets only the tokens' hashes. Other choices (how phones reach the Mac, the domain,
   backups and speaker recognition on or off) are in the app's defaults.
-- Keys Host doesn't manage (APNs, Resend and `ALERT_EMAIL_FROM`/`_TO`, `AUTH_SECRET` and `LIFE_URL`, webhook id and
+- Keys Host doesn't manage (APNs, Resend and `ALERT_EMAIL_FROM`/`_TO`, webhook id and
   secret…) go in
   `~/Library/Application Support/lifelog/server.env`, `KEY='value'` lines, mode 0600 (the server won't start if
   others can read it). The server gets them under Host's own, which win; a key Host manages (restic's, speaker

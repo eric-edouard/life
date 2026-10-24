@@ -167,7 +167,7 @@ reach it through the owner's tailnet (Tailscale Serve) or a Cloudflare tunnel to
   no Bun or checkout, and migrates its file at boot. `bun run host:app` puts it in the app.
 - One process writes the file: the server holds `<file>.lock` and a second one exits before it migrates.
 - Variables are `Env` in `apps/server/src/config.ts`; `apps/server/.env.example` lists them. Host sets the archive's
-  paths, the token hashes, the keys, restic and the identity service; anything else (APNs, Resend, `AUTH_SECRET`,
+  paths, the token hashes, the keys, restic and the identity service; anything else (APNs, Resend,
   the webhook) goes in `server.env` beside the archive, mode 0600.
 - Mint the device token with `bun run --cwd apps/lifelog/apps/server mint-token`; with `PUBLIC_BASE_URL` set it also prints the
   phone's pairing link. Host mints its own tokens and shows the link as a QR code.

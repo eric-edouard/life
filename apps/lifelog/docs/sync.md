@@ -140,11 +140,6 @@ Every writer of something the feed carries logs `(kind, ref)` in `change_log`, l
 A reader (a program following the owner's speech, never the phone) uses the routes in `docs/voice-source.md`, with
 its own `read` or `corrections` token. Lifelog never calls it.
 
-The OAuth issuer in `packages/auth` signs tokens for a reader's MCP clients (ChatGPT, Claude): their audience is the
-reader's MCP, scopes `life:read` and `offline_access`, checked against `/api/auth/jwks`. They open nothing here. Codes
-go only to the callbacks `trustedRedirects` lists (Life's at `LIFE_URL`), and loopback (`docs/decisions.md`). It goes once the reader signs
-its own tokens (`docs/voice-source.md`, "Still to change").
-
 `GET /status` is for the owner's own sessions: the archive's invariants, the Pendant, the phone, the Mac, summaries
 waiting, the backup, ElevenLabs and the last day's problems. Spending stays out of chats; the phone keeps
 `GET /usage/summary`.

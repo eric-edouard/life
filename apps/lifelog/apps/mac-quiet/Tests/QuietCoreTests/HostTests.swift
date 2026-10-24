@@ -50,7 +50,7 @@ import Testing
     let file = """
         # the owner's extras
         RESEND_API_KEY='re_123'
-        export AUTH_SECRET="a secret with spaces"
+        export IDENTITY_SECRET="a secret with spaces"
         PORT=1
         APNS_PRIVATE_KEY='-----BEGIN PRIVATE KEY-----
         abc=
@@ -59,7 +59,7 @@ import Testing
         """
     let extra = Host.environmentFile(file)
     #expect(extra["RESEND_API_KEY"] == "re_123")
-    #expect(extra["AUTH_SECRET"] == "a secret with spaces")
+    #expect(extra["IDENTITY_SECRET"] == "a secret with spaces")
     #expect(extra["APNS_PRIVATE_KEY"] == "-----BEGIN PRIVATE KEY-----\nabc=\n-----END PRIVATE KEY-----")
     #expect(extra["EMPTY"] == "")
     #expect(extra["abc"] == nil, "a line inside a quoted value is not a key")

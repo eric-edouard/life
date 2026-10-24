@@ -37,7 +37,7 @@ import {
   unsubscribe,
 } from "../events";
 import { lifeStatus } from "../status/life";
-import { type Refused, SCOPE, UNREACHABLE, type Verify } from "./auth";
+import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
 
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
@@ -494,10 +494,10 @@ export function buildServer() {
 }
 
 /**
- * The connector's routes: `/mcp`, the protected-resource metadata and the icons.
+ * The connector's routes: `/mcp`, the protected-resource metadata (naming `issuer`) and the icons.
  */
-export function createMcp(verify: Verify) {
-  const { issuer, metadata, resource } = connector();
+export function createMcp(verify: Verify, issuer: string) {
+  const { metadata, resource } = connector();
   const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="${SCOPES.join(" ")}"`;
   // The SDK's own rejections (a request it refuses before any handler) are logged; it says which.
   const handler = createMcpHandler(buildServer, {
@@ -510,13 +510,10 @@ export function createMcp(verify: Verify) {
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
     return { ...(await verify(token)), token };
   }
-  /** The 401, 403 or 503 (lifelog's keys out of reach) that answers a refused token. */
+  /** The 401 or 403 that answers a refused token. */
   function denied({ refusal, token }: Refused & { token: string }) {
     if (refusal === "forbidden") {
       return text("forbidden", 403);
-    }
-    if (refusal === "unreachable") {
-      return text(UNREACHABLE, 503);
     }
     return text("unauthorized", 401, {
       "WWW-Authenticate": token

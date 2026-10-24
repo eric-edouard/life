@@ -1,14 +1,6 @@
-// The server: auth, error handling and Life's OAuth, around each domain's routes (routes/).
+// The server: auth and error handling, around each domain's routes (routes/).
 import { timingSafeEqual } from "node:crypto";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import {
-  asNativeIfLoopback,
-  consentPage,
-  redirectHost,
-  signInPage,
-} from "@lifelog/auth";
-import { authOauthClient } from "@lifelog/db/schema/auth";
-import { eq } from "drizzle-orm";
 import { bearerAuth } from "hono/bearer-auth";
 import { except } from "hono/combine";
 import { HTTPException } from "hono/http-exception";
@@ -29,15 +21,7 @@ import { timelineRoutes } from "./routes/timeline";
 import { transcriptionRoutes } from "./routes/transcription";
 import type { Services } from "./services";
 
-// Life's OAuth (@lifelog/auth) answers for itself; its tokens are for Life and open nothing here.
-const PUBLIC_PATHS = [
-  "/health",
-  "/webhooks/elevenlabs",
-  "/api/auth/*",
-  "/.well-known/*",
-  "/consent",
-  "/sign-in",
-];
+const PUBLIC_PATHS = ["/health", "/webhooks/elevenlabs"];
 // What a reader's token opens (docs/voice-source.md); the device token opens every route.
 const READS = [
   "GET /capabilities",
@@ -75,7 +59,7 @@ const UNSEARCHED = new Set([
 ]);
 
 export function createApp(s: Services) {
-  const { auth, config, db, search } = s;
+  const { config, db, search } = s;
   // Each token's hash, and the routes it opens (null: all).
   const tokens = [
     [config.DEVICE_TOKEN_HASH, null],
@@ -146,28 +130,6 @@ export function createApp(s: Services) {
       timingSafeEqual(Buffer.from(sha256Hex(token), "hex"), macHash),
   });
   app.use(MAC_SOCKET_PATH, macAuth);
-  if (auth) {
-    app.post("/api/auth/oauth2/register", async (c) =>
-      auth.handler(await asNativeIfLoopback(c.req.raw))
-    );
-    app.on(["GET", "POST"], ["/api/auth/*", "/.well-known/*"], (c) =>
-      auth.handler(c.req.raw)
-    );
-    app.get("/sign-in", (c) => c.html(signInPage()));
-    app.get("/consent", (c) => {
-      const client = db
-        .select({ name: authOauthClient.name })
-        .from(authOauthClient)
-        .where(eq(authOauthClient.clientId, c.req.query("client_id") ?? ""))
-        .get();
-      return c.html(
-        consentPage(
-          client?.name ?? "An assistant",
-          redirectHost(c.req.query("redirect_uri") ?? "")
-        )
-      );
-    });
-  }
   // Whatever a write changed (a transcript, the time map, a speaker, a person's name),
   // the search index catches up in the background. A sweep reads only what is stale.
   app.use("*", async (c, next) => {

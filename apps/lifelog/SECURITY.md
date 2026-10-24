@@ -41,8 +41,6 @@ the server compares its hash.
 - The **Mac token** opens only the helper's socket, but that socket carries the summaries' prompts (transcript text)
   and the dictation ranges. A stolen one could read prompts while the real helper is away, answer them with made-up
   summaries, and vouch for the Mac without sending ranges, which would let dictation reach ElevenLabs.
-- A reader's MCP clients sign in through the server's OAuth issuer (`AUTH_SECRET`). Codes go only to the callbacks
-  `trustedRedirects` lists in `packages/auth` (Life's from `LIFE_URL`), or to loopback; the owner's consent is the last guard.
 
 **Network exposure.** The server listens on 127.0.0.1 only.
 

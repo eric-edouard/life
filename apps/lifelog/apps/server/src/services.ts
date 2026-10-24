@@ -1,12 +1,11 @@
 // Everything the routes and the background loops share, built once: index.ts serves it, the
 // tests override parts of it, scripts/openapi.ts only reads the routes it gives.
 
-import { type Auth, authFor } from "@lifelog/auth";
 import type { Db } from "@lifelog/db";
 import { apnsFor, type Nudge, type Pusher, phoneNudger } from "./apns";
 import { type HealthWatch, healthWatch } from "./archive-health";
 import { type AudioStore, memoryAudioStore } from "./audio-store";
-import { authSettings, type Config } from "./config";
+import type { Config } from "./config";
 import {
   type ConversationStates,
   conversationStates,
@@ -40,7 +39,6 @@ export function services(
     // The one sender of jobs to ElevenLabs, from the bucket; it first closes the phone's speech
     // fragments into blocks (cutter.ts).
     worker = jobWorker(db, config, audio, mac),
-    auth = authFor(authSettings(config), db),
     // Summaries run only on the Mac, on the owner's Max plan; never on a paid API.
     intelligence = macProvider(mac, () => !switches().ai),
     // Tells the phone a transcript or summary is ready (a silent push to the same app).
@@ -66,7 +64,6 @@ export function services(
   }: {
     apns?: Pusher | null;
     audio?: AudioStore;
-    auth?: Auth | null;
     morning?: MorningPush;
     excerpts?: ExcerptSampler;
     health?: HealthWatch;
@@ -118,7 +115,6 @@ export function services(
   });
   return {
     audio,
-    auth,
     config,
     db,
     excerpts,

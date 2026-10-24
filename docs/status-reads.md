@@ -11,8 +11,8 @@ call as `mcp.call`), and read no source except, for `read_observation`, the cite
 the way `fetch` reads it (to show who sent the line). Every answer is JSON, sent once as text content (no
 `structuredContent`: the model would read it twice), and carries `observedAt`, the server's time.
 
-Auth is the connector's, unchanged: a JWT for `<your connector origin>/mcp` (from Life's own issuer or the `connector`
-setting's), `life:read`, `sub` = the owner. Without it: 401; another user: 403; lifelog's keys out of reach: 503. The
+Auth is the connector's, unchanged: a JWT for `<your connector origin>/mcp` from Life's own issuer, `life:read`, `sub` =
+the owner. Without it: 401; another user: 403. The
 four tools are annotated read-only.
 
 ## status

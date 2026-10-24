@@ -5,10 +5,6 @@ import { Engine, SourceName } from "./names";
 import { LIFE_STATE_DIR } from "./paths";
 import { HOME } from "./platform";
 
-/** Life's own pages' client and the one subject Life's own issuer signs for (`oauth.ts`). */
-export const PAGES_CLIENT = "life";
-export const OWNER_SUB = "owner";
-
 // What makes one install differ from another, in one file: who it serves, where its parts are, what is turned on.
 // Secrets are not here: they stay in the environment (`.env` for a checkout, the app passes them to the helper). A
 // part left out is off. A test run reads its own (apps/server/src/test-data/state/settings.json), never his.
@@ -34,24 +30,15 @@ export const Settings = z
       .object({ password: z.string(), repository: z.string() })
       .strict()
       .optional(),
-    /** The connector (/mcp) and its sign-in; without it Life serves no HTTP at all. */
+    /** The connector (/mcp) and its sign-in (Life's own issuer, `oauth.ts`); without it Life serves no HTTP at all. */
     connector: z
       .object({
-        /** The check page's public client at another issuer (PKCE, no secret). */
-        client: z.string().optional(),
-        /** Another OAuth server whose tokens it accepts; without it Life issues them itself (`oauth.ts`). */
-        issuer: z.url().optional(),
         /** Its public address, where clients reach /mcp. */
         origin: z.url(),
-        /** The one subject (`sub`) another issuer lets in: the owner. */
-        owner: z.string().optional(),
         /** What carries the origin to this Mac: Tailscale (`bun life connect`), or his own Cloudflare tunnel. */
         tunnel: z.enum(["tailscale", "cloudflare"]).default("tailscale"),
       })
       .strict()
-      .refine((c) => !c.issuer || (c.client && c.owner), {
-        message: "another issuer needs its client and owner",
-      })
       .optional(),
     /**
      * His daily ask (`dailyAsk`, host/agent.ts): his own text, handed to his agent once a day when his local time passes
@@ -155,13 +142,8 @@ export function connector() {
   }
   return {
     ...c,
-    client: c.client ?? PAGES_CLIENT,
-    /** Life's own issuer (`oauth.ts`) unless another is set. */
-    issuer: c.issuer ?? `${c.origin}/auth`,
     /** The resource's OAuth metadata; also the tunnel's health probe (apps/server/src/host/http/tunnel.ts). */
     metadata: `${c.origin}/.well-known/oauth-protected-resource/mcp`,
-    own: !c.issuer,
-    owner: c.owner ?? OWNER_SUB,
     resource: `${c.origin}/mcp`,
   };
 }
