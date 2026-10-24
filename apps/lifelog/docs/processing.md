@@ -165,12 +165,13 @@ and the feed show it with the switches):
 
 - `scribe` (the default): each block goes to ElevenLabs Scribe whole, as above.
 - `speech`: each block goes to the speech service (`apps/identity`, `POST /transcribe`), which answers Nemotron 3's
-  speaker turns, VoxLingua107's language per turn and Parakeet Ultra's words (`route-turns.ts`). A turn of a second
-  or more goes to Scribe when its language is neither English nor French, or the service wrote nothing in it; a
-  block 70% foreign goes to Scribe whole, as a `scribe` job. The routed turns are cut from the block's own Ogg Opus (packets moved, a
+  speaker turns, VoxLingua107's language per turn and Parakeet Ultra's words (`route-turns.ts`). Only Thai goes to
+  Scribe (the owner's rule, 24 Oct 2026): a turn of a second or more VoxLingua hears as Thai; a block 70% Thai goes to
+  Scribe whole, as a `scribe` job. Every other language, and a turn the service wrote nothing in, stays the service's
+  (VoxLingua tags short noisy French as Breton, Portuguese or Malagasy). The routed turns are cut from the block's own Ogg Opus (packets moved, a
   quarter second around each) and sent to Scribe once, without a webhook; their words come back into the turns'
   seconds with the service's speakers. The transcript has Scribe's shape, so turns, conversations, speakers, the
-  feed and Life read it the same. Why these rules: `docs/research/transcription-bench.md`.
+  feed and Life read it the same. Why these models: `docs/research/transcription-bench.md` (its routing numbers are the earlier rule's).
 
 A job keeps the transcriber it was sent with (`transcription_jobs.transcriber`). The service busy, the block is
 queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, so nothing
@@ -180,7 +181,8 @@ be billed, so it fails. Its `billableSeconds` are Scribe's price of the seconds 
 the whole speech service, transcription included. ElevenLabs credits used up, Scribe's jobs wait queued, but the speech service
 still hears every block: one with only English and French completes; one that needs Scribe waits for the credits,
 queued and never due, until a read of them finds them back, and is then heard again (on the Mac, free) before its
-other-language turns go. The waiting reason `creditsOut` follows: every busy conversation while Scribe transcribes; with the speech
+Thai turns go. The blocks waiting when the rule became Thai only were made due once by a migration (24 Oct 2026), so they
+were heard again under it. The waiting reason `creditsOut` follows: every busy conversation while Scribe transcribes; with the speech
 service, a conversation with a block waiting for credits (`waitsForCredits`). The status counts them
 (`waiting.forCredits`) and Host's menu shows them. Dictation never reaches either: the worker's gate runs first.
 

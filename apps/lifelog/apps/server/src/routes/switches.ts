@@ -32,7 +32,7 @@ export const SwitchesView = z
       .enum(transcribers)
       .describe(
         "Who transcribes the next blocks: ElevenLabs Scribe whole, or the speech service with " +
-          "Scribe for the turns in other languages (docs/processing.md). Speech without the " +
+          "Scribe for the Thai turns (docs/processing.md). Speech without the " +
           "speech service set up (IDENTITY_URL) still goes to Scribe"
       ),
     transcription: z

@@ -15,7 +15,6 @@ import type { Word } from "@lifelog/db/schema";
 import { jobRows, storedWords } from "./export";
 import {
   compose,
-  foreign,
   heardIn,
   type Judged,
   routed,
@@ -425,11 +424,18 @@ async function guessLanguages(ROUTING: string, all: Judged[]) {
 async function route(diarizer = DIARIZER) {
   const { all, ROUTING } = await judge(diarizer);
   const thaiProb = (s: Judged) => s.voxlingua?.thai ?? 0;
+  // The rule before 24 Oct, measured beside the one routed now (VoxLingua107 hears Thai).
+  const neither = (s: Judged) =>
+    !["en", "fr"].includes(s.voxlingua?.lang ?? "en");
   const rules: [string, (s: Judged) => boolean][] = [
     ["VoxLingua107: Thai likelier than not", (s) => thaiProb(s) >= 0.5],
-    ["VoxLingua107: neither English nor French", foreign],
+    ["VoxLingua107: Thai (routed)", routed],
+    ["VoxLingua107: neither English nor French", neither],
     ["Parakeet Ultra wrote nothing", silent],
-    ["VoxLingua107 neither English nor French, or Ultra wrote nothing", routed],
+    [
+      "VoxLingua107 neither English nor French, or Ultra wrote nothing (before 24 Oct)",
+      (s) => neither(s) || silent(s),
+    ],
   ];
 
   const labelled = all.filter((s) => s.thai !== null);
@@ -451,8 +457,8 @@ async function route(diarizer = DIARIZER) {
   console.log(report);
 }
 
-// The proposed pipeline, scored like any model (out/pipeline). A block whose speech is mostly neither
-// English nor French goes whole to the Thai model, which needs the context (Qwen3: Thai 26% from
+// The proposed pipeline, scored like any model (out/pipeline). A block whose speech is mostly Thai
+// goes whole to the Thai model, which needs the context (Qwen3: Thai 26% from
 // Scribe, against 40% turn by turn); any other block is Parakeet Ultra's words, except in the turns
 // the router sends away, where the Thai model run on those turns alone takes over (Qwen3: Thai with
 // English 29%). Chosen on 16 Thai clips: the 70% is a first cut, not a tuned value. The Thai model is

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { countRows } from "@lifelog/db";
+import { join } from "node:path";
+import { countRows, MIGRATIONS } from "@lifelog/db";
 import {
   conversations,
   events,
@@ -1269,7 +1270,7 @@ test("the speech service, credits used up: English and French still complete on 
   expect(app.s.worker.creditsOut()).toBe(false);
 });
 
-test("the speech service, credits used up: a block with other-language turns waits for them, and goes when they are back", async () => {
+test("the speech service, credits used up: a block with Thai turns waits for them, and goes when they are back", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
   let used = 1000;
@@ -1305,6 +1306,48 @@ test("the speech service, credits used up: a block with other-language turns wai
   // Released, it is heard again on the Mac before its turns go.
   expect(speech.blocks).toBe(2);
   expect(jobRow(jobId)).toMatchObject({ state: "completed" });
+});
+
+test("credits used up, the 24 Oct migration makes the blocks waiting for them due once: one the routing now keeps local completes on the Mac", async () => {
+  const app = appWith(withSpeech);
+  setSwitches(env.db, { transcriber: "speech" });
+  fake.respond = (call) =>
+    call.path.endsWith("/v1/user/subscription")
+      ? Response.json({ character_count: 1000, character_limit: 1000 })
+      : thaiAnswer();
+  await app.s.worker.checkCredits();
+  speech.heard = {
+    durationSeconds: 30,
+    models: {},
+    turns: [turn(0, 10, "0", "en"), turn(10, 14, "1", "th")],
+    words: [said(1, "Hello")],
+  };
+  const jobId = await admitFragment(app, speechAudio(30), 1);
+  await app.s.worker.work();
+  expect(jobRow(jobId).state).toBe("queued");
+  await app.s.worker.work();
+  expect(speech.blocks).toBe(1);
+  // The migration, as the server runs it at its next start; heard again as French, the block completes.
+  env.db.run(
+    sql.raw(
+      await Bun.file(
+        join(MIGRATIONS, "20261024140119_rehear_credit_waits.sql")
+      ).text()
+    )
+  );
+  speech.heard = {
+    durationSeconds: 30,
+    models: {},
+    turns: [turn(0, 10, "0", "en"), turn(10, 14, "1", "fr")],
+    words: [said(1, "Hello"), said(11, "Salut")],
+  };
+  await app.s.worker.work();
+  expect(speech.blocks).toBe(2);
+  expect(uploads()).toHaveLength(0);
+  expect(jobRow(jobId)).toMatchObject({
+    state: "completed",
+    transcriber: "speech",
+  });
 });
 
 test("the speech service: a block 70% routed goes to Scribe whole, as a Scribe job; busy, it waits", async () => {

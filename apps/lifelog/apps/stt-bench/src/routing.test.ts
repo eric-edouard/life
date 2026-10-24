@@ -84,8 +84,8 @@ const ultra = [
   { end: 6, start: 5, text: "three" },
 ];
 
-test("a block mostly neither English nor French is the Thai model's whole text", () => {
-  const mine = [turn(0, 1, "en"), turn(1, 4, "lo")];
+test("a block mostly Thai is the Thai model's whole text", () => {
+  const mine = [turn(0, 1, "en"), turn(1, 4, "th")];
   expect(
     compose({
       heard: null,
@@ -98,8 +98,8 @@ test("a block mostly neither English nor French is the Thai model's whole text",
 });
 
 test("elsewhere, the routed turns take the Thai model's words and the rest stays Ultra's", () => {
-  // The turn from 2 to 4 is routed (Ultra wrote nothing there), the others stay.
-  const mine = [turn(0, 2, "en"), turn(2, 4, "en", ""), turn(4, 10, "fr")];
+  // The turn from 2 to 4 is routed (VoxLingua heard Thai), the others stay.
+  const mine = [turn(0, 2, "en"), turn(2, 4, "th"), turn(4, 10, "fr")];
   const heard = { segments: [{ end: 3, start: 2, text: "สวัสดี" }] };
   expect(compose({ heard, mine, timed: false, ultra, whole: undefined })).toBe(
     "one สวัสดี three"

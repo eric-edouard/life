@@ -27,7 +27,7 @@ const heard = (turns: Heard["turns"], words: Heard["words"]): Heard => ({
   words,
 });
 
-test("a turn of a second or more is routed when it is neither English nor French, or holds no word", () => {
+test("only a turn of a second or more VoxLingua hears as Thai is routed: other languages and wordless turns stay local", () => {
   const thai = turn(10, 20, "1", "th");
   const silent = turn(20, 24, "0", "en");
   const block = heard(
@@ -38,6 +38,9 @@ test("a turn of a second or more is routed when it is neither English nor French
       turn(24, 24.6, "1", null),
       turn(25, 25.8, "1", "th"),
       turn(30, 40, "0", "fr"),
+      // Noisy French a café blurs, heard as Breton and Portuguese (24 Oct): it stays local.
+      turn(40, 42, "0", "br"),
+      turn(42, 45, "0", "pt"),
     ],
     // "ok" starts in the silent turn but its middle is past it.
     [
@@ -47,10 +50,10 @@ test("a turn of a second or more is routed when it is neither English nor French
       word(31, "salut"),
     ]
   );
-  expect(routeTurns(block)).toEqual({ kind: "turns", routed: [thai, silent] });
+  expect(routeTurns(block)).toEqual({ kind: "turns", routed: [thai] });
 });
 
-test("a block 70% foreign goes to Scribe whole; silent turns don't count toward it", () => {
+test("a block 70% Thai goes to Scribe whole; silent turns don't count toward it", () => {
   const thai = heard(
     [turn(0, 3, "0", "en"), turn(3, 10, "1", "th")],
     [word(1, "hi")]

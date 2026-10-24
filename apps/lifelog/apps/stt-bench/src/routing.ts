@@ -79,14 +79,13 @@ export interface Judged extends Segment {
   voxlingua?: { lang: string; thai: number };
 }
 
-// A turn leaves the English and French model on either of two signs: an audio guess of neither
-// English nor French (VoxLingua hears short Thai as Lao, Malay or Vietnamese, so any other language
-// counts), or Parakeet Ultra writing nothing where someone spoke (it mostly does for Thai). How well
-// it does: docs/research/transcription-bench.md.
-export const foreign = (s: Judged) =>
-  !["en", "fr"].includes(s.voxlingua?.lang ?? "en");
+// A turn leaves the English and French model when VoxLingua hears Thai in it (the owner's rule,
+// 24 Oct 2026; the server's, apps/server/src/route-turns.ts). It once also took any other language
+// and turns Parakeet Ultra wrote nothing for, but VoxLingua tags short noisy French as other
+// languages; the numbers in docs/research/transcription-bench.md are that earlier rule's.
+export const routed = (s: Judged) => s.voxlingua?.lang === "th";
+// Parakeet Ultra wrote nothing where someone spoke: counted in the bench's report, no longer routed.
 export const silent = (s: Judged) => s.heard === "";
-export const routed = (s: Judged) => foreign(s) || silent(s);
 
 // What a model wrote for a clip: its text and its segments with their times.
 interface Heard {
@@ -94,12 +93,12 @@ interface Heard {
   text?: string;
 }
 
-// A block this much neither English nor French goes whole to the Thai model (pipeline, bench.ts).
+// A block this much Thai goes whole to the Thai model (pipeline, bench.ts).
 const WHOLE_BLOCK = 0.7;
 const SPACES = /\s+/g;
 
 // One clip's pipeline text: the Thai model's whole transcript when most of the clip sounds like
-// neither English nor French; else Ultra's tokens outside the routed turns and the Thai model's
+// Thai; else Ultra's tokens outside the routed turns and the Thai model's
 // inside them (its turn-by-turn segments, or its timed words when `timed`), in time order.
 export function compose({
   heard,
@@ -117,7 +116,7 @@ export function compose({
   const seconds = (ts: Judged[]) => ts.reduce((t, s) => t + s.end - s.start, 0);
   if (
     mine.length > 0 &&
-    seconds(mine.filter(foreign)) >= WHOLE_BLOCK * seconds(mine) &&
+    seconds(mine.filter(routed)) >= WHOLE_BLOCK * seconds(mine) &&
     whole?.text !== undefined
   ) {
     return whole.text;

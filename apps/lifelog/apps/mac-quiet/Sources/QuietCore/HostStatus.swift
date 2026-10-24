@@ -310,7 +310,7 @@ extension Host {
                 ],
                 inMenu: true))
 
-        // Local transcription: the Mac transcribes, Scribe hears only the other-language turns.
+        // Local transcription: the Mac transcribes, Scribe hears only the Thai turns.
         let forCredits = status.pipeline?.transcription?.waiting?.forCredits ?? 0
         let localText: String =
             switch status.switches?.transcriber {

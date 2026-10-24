@@ -363,7 +363,7 @@ function settleSpeech(db: Db, job: Job, age: number) {
     ? fail(
         db,
         job,
-        "cut off while Scribe heard its other-language turns: it may have billed them, so it is not sent again"
+        "cut off while Scribe heard its Thai turns: it may have billed them, so it is not sent again"
       ) && ("failed" as const)
     : back(db, job, "cut off at the speech service") && ("retried" as const);
 }
@@ -593,7 +593,7 @@ export function jobWorker(
   }
 
   // A block through the speech service: its words, and Scribe's for the turns it routes, cut from
-  // the block's own audio and sent once, without a webhook; a block mostly foreign goes to Scribe
+  // the block's own audio and sent once, without a webhook; a block mostly Thai goes to Scribe
   // whole, as a Scribe job. The service busy: queued again. Down or failing: an attempt, and a block
   // it fails the last time goes to Scribe whole too, so a failure that repeats never loops.
   async function hear(job: Job, bytes: Uint8Array) {
@@ -730,7 +730,7 @@ export function jobWorker(
     }
     return {
       billableSeconds: heard.billed ? billed : 0,
-      error: `its other-language turns are missing: ${heard.error.slice(0, 200)}`,
+      error: `its Thai turns are missing: ${heard.error.slice(0, 200)}`,
       maybeBilled: heard.billed,
       scribe: null,
     };
