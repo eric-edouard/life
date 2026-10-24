@@ -14,7 +14,7 @@ generates the gitignored `.xcodeproj`. `docs/architecture.md` names every store 
   The device token goes in through `SIMCTL_CHILD_LIFELOG_DEVICE_TOKEN` with `SIMCTL_CHILD_LIFELOG_SERVER_URL`, read from the file without printing it.
 - **Check Release before an install.** The gate builds Debug only and `install:phone` builds Release, so anything
   DEBUG-only that leaks out of `#if DEBUG` breaks the install:
-  `xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -configuration Release -destination 'generic/platform=iOS Simulator' build`.
+  `xcodebuild -project apps/lifelog/apps/ios/Lifelog.xcodeproj -scheme Lifelog -configuration Release -destination 'generic/platform=iOS Simulator' build`.
 - **Install on the phone** with `bun run install:phone -- --no-watch`; include the Watch only when the Watch app
   changed. If the Watch install fails with "Connection invalid", the owner restarts the Watch on its charger and you
   retry once.
