@@ -186,7 +186,7 @@ by its full path, `<home>/Library/Application Support/lifelog/restic-staging`, s
 
 ### Building it
 
-`bun run host:app [out]` builds into `.build/host`. It needs Xcode and Homebrew's `librsvg` (`brew install librsvg`,
+`bun run host:app [out]` builds into `apps/lifelog/.build/host`. It needs Xcode and Homebrew's `librsvg` (`brew install librsvg`,
 for `rsvg-convert`, which draws the menu-bar icon). Set `LIFELOG_SIGN_IDENTITY` to sign with a Developer ID and
 `LIFELOG_VERSION` for its version. cloudflared, restic, Codex and uv come from their GitHub releases, pinned by sha256; a
 download that doesn't match is refused.
@@ -200,7 +200,7 @@ way.
    routes.
 
    ```sh
-   bun run --cwd apps/server mint-token mac   # prints the token and MAC_TOKEN_HASH=<its hash>
+   bun run --cwd apps/lifelog/apps/server mint-token mac   # prints the token and MAC_TOKEN_HASH=<its hash>
    ```
 
    Put `MAC_TOKEN_HASH` in the server's environment.
@@ -210,7 +210,7 @@ way.
 2. Build and install the helper:
 
    ```sh
-   cd apps/mac-quiet   # from the checkout
+   cd apps/lifelog/apps/mac-quiet   # from Life's root
    swift build -c release
    mkdir -p ~/.local/bin ~/Library/LaunchAgents
    cp .build/release/lifelog-quiet ~/.local/bin/

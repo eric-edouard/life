@@ -154,7 +154,7 @@ waiting, the backup, ElevenLabs and the last day's problems. Spending stays out 
 `archive-health.ts` counts five things that must be 0: turns in no live conversation, live conversations that
 overlap, search passages of a conversation that isn't live, the owner's speaker names on a job no live
 conversation holds, and pages held twice (by two jobs that aren't failed, or two fragments). It runs every hour, emails the owner when a count rises (at most once per 12 hours) and is read
-by `GET /status` and `bun run --cwd apps/server check:archive`.
+by `GET /status` and `bun run --cwd apps/lifelog/apps/server check:archive`.
 
 ## After the cutover
 

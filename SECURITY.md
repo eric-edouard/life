@@ -48,7 +48,8 @@ and what it does not.
 
 ## What leaves the Mac
 
-This is the one list; nothing else leaves.
+This is the one list of what Life sends; nothing else leaves. lifelog (`apps/lifelog`), which runs as its own service,
+keeps its own list in [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
 - To the model provider the owner chose (Anthropic or OpenAI): the text Life reads, as described under Models.
 - To an assistant the owner connected: what it reads through the connector, when it asks.

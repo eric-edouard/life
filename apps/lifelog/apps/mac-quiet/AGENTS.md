@@ -3,7 +3,7 @@
 A LaunchAgent on the owner's Mac, a sensor and a runner: it reports on its socket which processes have the microphone
 on and when the Mac sleeps, and runs the server's model calls with Codex or `claude -p` on the selected subscription,
 reporting their raw output. `README.md` explains how it works and how to install it. The tested logic is in
-`QuietCore`; test it with `swift test --package-path apps/mac-quiet --scratch-path .build/mac-quiet`. Its log is
+`QuietCore`; test it with `swift test --package-path apps/lifelog/apps/mac-quiet --scratch-path .build/mac-quiet`. Its log is
 `~/Library/Logs/lifelog-quiet.log`, and `bun run events mac` reads it alongside the server's events.
 
 Rules live on the server, once: which apps are dictation and how events become quiet ranges (`dictation.ts`), what
