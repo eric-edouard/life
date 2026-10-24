@@ -46,14 +46,17 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `beeper`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
 | kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
-| chapter | One recording in lifelog. | |
+| conversation | What lifelog groups the owner's speech into, by rules: Life's voice units come from its turns. | |
+| turn | One speaker's stretch of a recording, cited `<job>:<turn>@<start>`. | |
+| conversation-day | A voice unit: one conversation's turns on one local day, its words fetched only when its day is read. | |
+| chapter | One of lifelog's summarized stretches of a conversation. A stored unit that is one (it carries lifelog's summary) is kept as stored, never built again, and its conversation gets no conversation-days. | |
 | archive | Life's own copy of the WhatsApp, Beeper and Notes stores, the only live copy of deleted messages and old note versions. | |
 
 ## The memory
 
 | Word | Means | Planned |
 |---|---|---|
-| unit | The smallest piece Life reads: one chapter, a chat's day, a mail thread's day, a note's day, a repo's day. Id `unit_…`. | |
+| unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | moment | A stretch of the owner's day, read from the day's units together. Id `mom_…`. | |
 | observation | One small dated reading of a moment, with a quote checked against its source: a model's reading, not a verified fact. Id `obs_…`. | |

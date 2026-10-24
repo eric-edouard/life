@@ -172,7 +172,7 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
   live.run("vacuum into ?", [store]);
   live.close();
   const cut = new Database(store);
-  for (const t of ["conversations", "chapters", "turns"]) {
+  for (const t of ["conversations", "turns"]) {
     cut.run(`delete from ${t} where start_at > ?`, [at]);
   }
   cut.close();

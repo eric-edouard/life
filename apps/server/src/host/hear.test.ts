@@ -4,7 +4,6 @@ import { LEDGER, tasksOf } from "../memory/ledger";
 import { MARK, WAKE } from "../memory/tasks";
 import { apply, readConversations, whose } from "../sources/lifelog";
 import {
-  chapter,
   conversation,
   turnFixture as fed,
   lifelogServer,
@@ -337,7 +336,7 @@ test('a "hey Life" span is his (high) or unattributed (low), never someone else\
   expect(marksIn([turn(0, "me", "hey Orbit, book it")], "")).toEqual([]);
 });
 
-test('his "hey Life" heard in a conversation marks its chapter; heard again from later, the earlier mark stays', async () => {
+test('his "hey Life" heard in a conversation marks its wake turn; heard again from later, the earlier mark stays', async () => {
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
@@ -351,9 +350,6 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
   apply(
     store,
     pageFixture({
-      chapters: [
-        chapter("a", "2026-10-19T09:00:00.000Z", "2026-10-19T11:00:00.000Z"),
-      ],
       conversations: [conversation("c1")],
       turns: [
         fed(0, "2026-10-19T10:00:00.000Z", "p-me", "Me", "c1", true),
@@ -364,7 +360,7 @@ test('his "hey Life" heard in a conversation marks its chapter; heard again from
     "2026-10-19T10:00:30.000Z"
   );
   const marked = () =>
-    readConversations(store, new Date("2026-10-01"))[0]?.chapters[0]?.marked;
+    readConversations(store, new Date("2026-10-01"))[0]?.turns[0]?.marks;
   try {
     expect(
       (await hear(store, "c1", "", Date.parse("2026-10-19T10:05:00Z"))).marked
