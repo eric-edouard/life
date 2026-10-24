@@ -3,13 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  emlxPart,
-  isSentBox,
-  mailAccounts,
-  mailRoot,
-  readMail,
-} from "./mail";
+import { emlxPart, isSentBox, mailAccounts, mailRoot, readMail } from "./mail";
 
 const emlx = (message: string) => {
   const bytes = Buffer.from(message.replace(/\n/g, "\r\n"), "utf8");
