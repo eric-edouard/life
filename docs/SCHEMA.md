@@ -31,8 +31,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 ## units/YYYY-MM-DD.jsonl (layer L1)
 
 One line per unit that started that day. A unit is one conversation-day (the turns of one recorded conversation on one
-local day; or one of lifelog's chapters, stored before conversation-days, kept as stored and never built again: its
-conversation gets no conversation-days), one chat-day (every message of one chat on one
+local day; or one of lifelog's chapters, stored before conversation-days, kept as stored and never built again while
+its conversation is live, removed with it when lifelog retires or drops it: its conversation gets no conversation-days), one chat-day (every message of one chat on one
 day), one mail thread-day, one note-day (what the owner changed in one Apple Note on one day) or one repo-day (the owner's commits in one repo on one day). Deterministic code output only (no model's judgement): rebuilt by `bun life memory
 moments` for the days it covers; the conversation-days are also kept current by `bun life watch` (every change to a
 conversation's turns) and checked by the nightly.
