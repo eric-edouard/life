@@ -30,7 +30,7 @@ public struct HostStatus: Decodable, Sendable {
             }
             public var running: [Run]?
             public var waiting: Int?
-            /// "macAway" or "aiOff".
+            /// "macAway": summaries are on and the Mac is away.
             public var blockedBy: String?
             public var lastSummaryAt: Date?
         }
@@ -221,7 +221,7 @@ extension Host {
 
         let ai = status.pipeline?.ai
         let running = ai?.running ?? []
-        let blocked = ai?.blockedBy.map { $0 == "aiOff" ? "AI is off" : $0 == "macAway" ? "the Mac is away" : $0 }
+        let blocked = ai?.blockedBy.map { $0 == "macAway" ? "the Mac is away" : $0 }
         let aiWaiting = ai?.waiting ?? 0
         let aiParts =
             (running.isEmpty
@@ -231,7 +231,11 @@ extension Host {
         sections.append(
             Section(
                 summary: Row(
-                    "AI", ai == nil ? unknown : aiParts.isEmpty ? "idle" : aiParts.joined(separator: " · "),
+                    "Summaries",
+                    ai == nil
+                        ? unknown
+                        : !aiParts.isEmpty
+                            ? aiParts.joined(separator: " · ") : status.switches?.ai == false ? "off" : "idle",
                     trouble: blocked != nil && aiWaiting > 0),
                 details: running.map { Row("Summarizing “\($0.title ?? "untitled")”", "started \(ago($0.startedAt))") }
                     + [

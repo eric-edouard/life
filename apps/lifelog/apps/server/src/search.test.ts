@@ -16,6 +16,7 @@ import {
   wordSimilarity,
 } from "./search";
 import { services } from "./services";
+import { setSwitches } from "./switches";
 import {
   mapJob,
   OWNER_TOKEN,
@@ -380,8 +381,10 @@ test("keyword similarity is pg_trgm's word_similarity", () => {
   expect(wordSimilarity("Somchai", "Somchai said the boat")).toBe(1);
 });
 
-test("search needs the owner's token and an OpenAI key", async () => {
+test("search needs the owner's token and an OpenAI key, not summaries", async () => {
   const { app } = setup();
+  setSwitches(env.db, { ai: false });
+  expect(await find(app, { query: "anything" })).toEqual([]);
   const anonymous = await app.request("/search", {
     body: JSON.stringify({ query: "anything" }),
     headers: { "Content-Type": "application/json" },

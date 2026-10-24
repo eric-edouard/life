@@ -32,9 +32,9 @@ struct SettingsView: View {
                     ) { on in set(.switches(transcription: on, ai: nil, engine: nil)) }
                     .accessibilityIdentifier("settings.switch.transcription")
                     SwitchToggle(
-                        title: "AI",
+                        title: "Summaries",
                         detail:
-                            "Summaries, titles and search by meaning. Off, they wait, and search finds words only.",
+                            "Summaries and titles on your Mac, off by default: Life reads the words themselves. Search works either way.",
                         isOn: switches?.ai
                     ) { on in set(.switches(transcription: nil, ai: on, engine: nil)) }
                     .accessibilityIdentifier("settings.switch.ai")

@@ -29,7 +29,8 @@ struct ConversationHeader: View {
             }
             facts.padding(.top, 8)
             speakers.padding(.top, 12)
-            if !store.lines.isEmpty {
+            // With summaries off (the server's default) and none made before, there is no summary to show or wait for.
+            if !store.lines.isEmpty, conversation.tldr != nil || !store.aiOff {
                 SummaryCard(store: store, conversation: conversation).padding(.top, 14)
             }
         }
@@ -121,7 +122,7 @@ struct ConversationHeader: View {
 
 /// The TLDR folded to one line; unfolded, the whole TLDR, chapters, each playable, and Regenerate.
 /// Without one, why it waits; once all the words are in and nothing waits, Generate. The one place a summary is asked
-/// for: never while AI is off, and a request waiting to sync says so instead.
+/// for: never while summaries are off, and a request waiting to sync says so instead.
 private struct SummaryCard: View {
     let store: ConversationStore
     let conversation: CachedConversation
@@ -202,7 +203,7 @@ private struct SummaryCard: View {
         }
     }
 
-    /// Asks the Mac for a summary; once asked, that it waits to sync. Nothing while AI is off.
+    /// Asks the Mac for a summary; once asked, that it waits to sync. Nothing while summaries are off.
     @ViewBuilder private func summarize(_ title: String) -> some View {
         if store.summaryRequested {
             Label("Summary asked for · waiting to sync", systemImage: "arrow.triangle.2.circlepath")

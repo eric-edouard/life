@@ -123,7 +123,6 @@ extension WaitingReason {
         case .macAway: "Waiting for your Mac"
         case .creditsOut: "Waiting for ElevenLabs credits"
         case .transcriptionOff: "Transcription is off"
-        case .aiOff: "AI is off"
         case .phoneQuiet: "Waiting for the Pendant's audio"
         case .unknown: "Waiting"
         }
@@ -133,7 +132,7 @@ extension WaitingReason {
         switch self {
         case .macAway: "laptopcomputer"
         case .creditsOut: "creditcard"
-        case .transcriptionOff, .aiOff: "pause.circle"
+        case .transcriptionOff: "pause.circle"
         case .phoneQuiet: "iphone"
         case .unknown: "hourglass"
         }

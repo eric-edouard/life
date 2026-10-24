@@ -37,7 +37,7 @@ private func iso(_ minutesAgo: Double) -> String {
     let menu = Dictionary(uniqueKeysWithValues: sections.map { ($0.summary.label, $0.summary) })
     #expect(menu["To transcribe"]?.value == "3 blocks · 12 min")
     #expect(menu["At ElevenLabs"]?.value == "2 jobs, since 5 min ago")
-    #expect(menu["AI"]?.value == "summarizing “Lunch” · 4 waiting")
+    #expect(menu["Summaries"]?.value == "summarizing “Lunch” · 4 waiting")
     #expect(menu["Pendant"]?.value == "81% · recording · seen 3 h ago")
     #expect(menu["Phone"]?.value == "heard 3 h ago")
     #expect(menu["Mac helper"]?.trouble == false)
@@ -56,15 +56,20 @@ private func iso(_ minutesAgo: Double) -> String {
     #expect(HostStatus.decode(Data("[]".utf8)) == nil)
 }
 
-@Test func aBlockedAIIsTroubleOnlyWithWorkWaiting() throws {
+@Test func blockedSummariesAreTroubleOnlyWithWorkWaiting() throws {
     let status = { (waiting: Int) in
         try #require(
             HostStatus.decode(Data(#"{"pipeline": {"ai": {"waiting": \#(waiting), "blockedBy": "macAway"}}}"#.utf8)))
     }
-    let ai = { (s: HostStatus) in Host.report(s, now: now).first { $0.summary.label == "AI" }?.summary }
+    let ai = { (s: HostStatus) in Host.report(s, now: now).first { $0.summary.label == "Summaries" }?.summary }
     #expect(try ai(status(2))?.value == "2 waiting · blocked: the Mac is away")
     #expect(try ai(status(2))?.trouble == true)
     #expect(try ai(status(0))?.trouble == false)
+    // Summaries off (the default) is simply off.
+    let off = try #require(
+        HostStatus.decode(
+            Data(#"{"switches": {"ai": false}, "pipeline": {"ai": {"waiting": 0, "blockedBy": null}}}"#.utf8)))
+    #expect(ai(off)?.value == "off" && ai(off)?.trouble == false)
 }
 
 @Test func aListeningPendantIsRecording() throws {

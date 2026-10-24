@@ -1,7 +1,6 @@
 // Search: passages ranked by meaning and by the words typed.
 import { createRoute, z } from "@hono/zod-openapi";
 import type { Services } from "../services";
-import { switches } from "../switches";
 import { ApiError, json, router } from "./common";
 
 const SearchRequest = z
@@ -60,18 +59,15 @@ export function searchRoutes({ search }: Pick<Services, "search">) {
       },
       responses: {
         200: json(z.object({ hits: z.array(SearchHit) }), "Best first"),
-        503: json(
-          ApiError,
-          "No OpenAI key configured, or the AI switch is off"
-        ),
+        503: json(ApiError, "No OpenAI key configured"),
       },
     }),
     async (c) => {
-      if (!(search && switches().ai)) {
+      if (!search) {
         return c.json(
           {
             error: "search_unavailable" as const,
-            message: search ? "AI is off" : "OPENAI_API_KEY is not set",
+            message: "OPENAI_API_KEY is not set",
           },
           503
         );

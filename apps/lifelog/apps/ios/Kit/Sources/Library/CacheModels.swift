@@ -84,7 +84,7 @@ public enum ConversationKind: String, Sendable, UnknownTolerant {
 public enum WaitingReason: String, Sendable, UnknownTolerant {
     /// The Mac is away: summaries, or audio past its dictation watermark.
     case macAway
-    case creditsOut, transcriptionOff, aiOff
+    case creditsOut, transcriptionOff
     /// Heard-through stalled while the Pendant records.
     case phoneQuiet
     case unknown

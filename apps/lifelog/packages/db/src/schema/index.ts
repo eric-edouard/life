@@ -71,7 +71,6 @@ export const waitingReasons = [
   "macAway",
   "creditsOut",
   "transcriptionOff",
-  "aiOff",
   "phoneQuiet",
 ] as const;
 // Where a conversation stands (conversation-state.ts); the phone adds only "Not uploaded yet".

@@ -8,7 +8,7 @@ extension ServerClient {
     public struct Switches: Sendable, Codable, Equatable {
         /// Audio to ElevenLabs and voices to speaker recognition.
         public var transcription: Bool
-        /// Summaries and titles on the Mac, and search by meaning.
+        /// Summaries and titles on the Mac, off by default. Search doesn't depend on it.
         public var ai: Bool
         public enum Engine: String, Sendable, Codable, UnknownTolerant { case claude, codex, unknown }
         public var engine: Engine

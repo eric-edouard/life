@@ -18,6 +18,7 @@ import { requestRoll } from "./intelligence";
 import type { Provider } from "./providers";
 import { dueConversations, fingerprint, type Run, splitsOf } from "./summaries";
 import { PROMPT_VERSION, Result } from "./summary-calls";
+import { switches } from "./switches";
 
 // What a roll reads past the closed chapters: about 20 minutes of talk, some 6k tokens.
 const WINDOW_CHARS = 24_000;
@@ -140,12 +141,19 @@ export function rollingChapters(
     return rows.filter((r) => !r.later).map((r) => r.id);
   }
 
-  // Every due conversation, a few at a time, while the Mac is there (it woke, a source was
-  // grouped, every 5 minutes). Without it, a drain only updates what is due (`GET /status` counts
+  // Every due conversation, a few at a time, while summaries are on and the Mac is there (it woke, a
+  // source was grouped, every 5 minutes). Without it, a drain only updates what is due (`GET /status` counts
   // it). One drain at a time; a call while one runs makes it go round again. ponytail: what is due
   // is worked out every tick even with the Mac away (the change log since the last drain, and what
   // was left due); skip it while away if that pass ever shows in a profile.
   const draining = singleFlight(async () => {
+    // Summaries off (switches.ts): nothing is due, and once on, the next drain looks at every
+    // conversation again.
+    if (!switches().ai) {
+      cursor = null;
+      due.clear();
+      return;
+    }
     const ready = check();
     for (let i = 0; i < ready.length && able(); i += AT_ONCE) {
       // biome-ignore lint/performance/noAwaitInLoops: a few conversations at a time
