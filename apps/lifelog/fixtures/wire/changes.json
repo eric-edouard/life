@@ -203,7 +203,7 @@
     }
   },
   "switches": {
-    "ai": true,
+    "ai": false,
     "engine": "claude",
     "openAppAfterMinutes": 15,
     "transcriber": "scribe",

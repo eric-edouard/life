@@ -1,8 +1,9 @@
 // The owner's switches for paid processing, set from the app or `bun run switches`. Off, nothing
 // new is sent: uploads wait unsent (jobs.ts), voices aren't embedded (speech-service.ts), summaries wait
-// as if the Mac were away (providers.ts), search falls back to keywords (search.ts). Turned back
-// on, what waited goes on by itself. `transcriber` picks who transcribes the next blocks: Scribe
-// whole, or the speech service with Scribe for the turns it routes (jobs.ts).
+// as if the Mac were away (providers.ts). Turned back on, what waited goes on by itself. Summaries
+// (`ai`) are off by default: Life reads the words, not them. Search's embeddings follow the OpenAI
+// key alone (search.ts). `transcriber` picks who transcribes the next blocks: Scribe whole, or the
+// speech service with Scribe for the turns it routes (jobs.ts).
 
 import type { Db } from "@lifelog/db";
 import {
@@ -22,7 +23,7 @@ export interface Switches {
 }
 
 const DEFAULTS: Switches = {
-  ai: true,
+  ai: false,
   engine: "claude",
   openAppAfterMinutes: 15,
   transcriber: "scribe",

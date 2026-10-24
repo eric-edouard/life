@@ -113,8 +113,9 @@ export function waitingOf(f: Facts, w: World): Reason | null {
   if (f.open && f.stalled && w.recording) {
     return "phoneQuiet";
   }
-  // An open conversation always has chapters to come; a closed one while it is due.
-  return f.words && (f.open || f.due) ? summaryWait(w) : null;
+  // An open conversation always has chapters to come; a closed one while it is due. With summaries
+  // off (the default) none are coming, so nothing waits for them.
+  return w.ai && f.words && (f.open || f.due) ? summaryWait(w) : null;
 }
 
 export interface Inputs {

@@ -22,13 +22,6 @@ struct TranscriptionCards: View {
                     "Recorded audio waits on the server. Recording and sync go on, and it's transcribed once you turn it back on in Settings."
             )
         }
-        if facts.switches?.ai == false {
-            AttentionCard(
-                id: "pendant.card.aiOff", title: "AI is off", systemImage: "pause.circle",
-                detail:
-                    "Summaries, titles and search by meaning wait until you turn it back on in Settings. Search still finds words."
-            )
-        }
         if let count = facts.waiting[.creditsOut] {
             AttentionCard(
                 id: "pendant.card.credits", title: "ElevenLabs credits are out", systemImage: "creditcard",
@@ -36,8 +29,7 @@ struct TranscriptionCards: View {
                     "\(conversationCount(count)) wait for words. Top up ElevenLabs and they go on their own."
             )
         }
-        // Summaries, and audio the Mac hasn't checked for dictation yet. With AI off, its own card says why
-        // summaries wait.
+        // Summaries, and audio the Mac hasn't checked for dictation yet. With AI off (the default), no summary waits.
         if let count = facts.waiting[.macAway], facts.switches?.ai != false {
             AttentionCard(
                 id: "pendant.card.macAway", title: "\(conversationCount(count)) waiting for your Mac",
