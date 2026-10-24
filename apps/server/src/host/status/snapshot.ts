@@ -252,7 +252,10 @@ const ASK = (what: string) => `Life's status shows ${what}: look into it.`;
 
 /** The first state whose condition holds: a card's tone and word (and its ask) by precedence. */
 const firstOf = (
-  ...rules: [boolean | undefined, Pick<Card, "ask" | "tone" | "word">][]
+  ...rules: [
+    boolean | undefined,
+    Pick<Card, "ask" | "tone" | "word"> & Partial<Pick<Card, "headline">>,
+  ][]
 ) =>
   rules.find(([holds]) => holds)?.[1] ?? {
     tone: "idle" as Tone,
@@ -934,13 +937,23 @@ function agentCards(r: Reads): Card[] {
   return [
     {
       ...firstOf(
-        // No agent set up is off, not broken: nothing is meant to receive asks.
-        [!settings().agent, { tone: "idle", word: "off" }],
-        [live, { tone: "ok", word: pulls ? "checking in" : "subscribed" }],
+        [
+          !isOn("agent"),
+          { headline: "no agent set up", tone: "idle", word: "off" },
+        ],
+        [
+          live,
+          {
+            headline: "receiving asks",
+            tone: "ok",
+            word: pulls ? "checking in" : "subscribed",
+          },
+        ],
         [
           true,
           {
             ask: ASK(`that ${agentName()} isn't receiving asks`),
+            headline: "not receiving asks",
             tone: "bad",
             word: pulls ? "not checking in" : "no subscription",
           },
@@ -957,7 +970,6 @@ function agentCards(r: Reads): Card[] {
         { at: calls.at(-1)?.at, label: "Last call" },
       ],
       group: "outputs",
-      headline: live ? "receiving asks" : "not receiving asks",
       id: "asks",
       name: agentName(),
     },
