@@ -5,7 +5,6 @@
   "scripts": {
     "build:host": "bun scripts/build-host.ts",
     "check:archive": "bun scripts/check-archive.ts",
-    "check-types": "tsc --noEmit -p .",
     "dev": "bun --watch src/index.ts",
     "diagnostics:recent": "bun scripts/diagnostics-recent.ts",
     "eval:voices": "bun scripts/eval-voices.ts",
@@ -18,6 +17,7 @@
   },
   "dependencies": {
     "@hono/zod-openapi": "1.6.3",
+    "@life/server": "workspace:*",
     "@lifelog/auth": "workspace:*",
     "@lifelog/db": "workspace:*",
     "drizzle-orm": "catalog:",
@@ -28,7 +28,6 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@lifelog/config": "workspace:*",
     "@types/bun": "catalog:"
   }
 }

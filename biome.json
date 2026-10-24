@@ -2,7 +2,14 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite/biome/core"],
   "files": {
-    "includes": ["!!.claude"]
+    "includes": [
+      "!!.claude",
+      "!!apps/lifelog/apps/ios",
+      "!!apps/lifelog/research-fixtures",
+      "!!apps/lifelog/docs/research/*.html"
+    ]
   },
-  "javascript": { "globals": ["Bun"] }
+  "javascript": {
+    "globals": ["Bun"]
+  }
 }

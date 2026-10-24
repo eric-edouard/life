@@ -5,7 +5,9 @@
     "assets/**/*.js",
     "assets/**/*.tsx",
     "assets/**/*.css",
-    "apps/edge/*.ts"
+    "apps/edge/*.ts",
+    "apps/lifelog/apps/server/fixtures/fake-restic.ts",
+    "apps/lifelog/scripts/*.ts"
   ],
   "ignoreUnresolvedImports": ["./tokens.css"],
   "ignoreDependencies": ["@openai/codex", "fallow", "ultracite"],

@@ -10,8 +10,12 @@ records and turns it into searchable, listenable conversations, with a server th
 - `apps/identity`: the optional Python speaker-embedding service.
 - `apps/stt-bench`: the transcription bench, Scribe against open models on the Mac (`docs/research/transcription-bench.md`).
 - `packages/db` and `packages/auth`: the server's database (schema, migrations, `connect`) and Life's OAuth issuer.
-- `packages/config`: the TypeScript base. The repo follows Better-T-Stack's layout (`docs/decisions.md`): a Bun workspace with
-  Turborepo, Biome with Ultracite.
+
+Folded into Life's repo on 24 Oct 2026 (Life's root `AGENTS.md`): one Bun workspace, one TypeScript config and one gate,
+`bun run check` at Life's root, which runs every step below (the Swift ones on a Mac when a branch touches the phone, the
+helper or what they read). The Android app is parked, outside the gate. The commands below that are root scripts
+(`host:app`, `install:phone`, `events`, `ios:project`, `check:offline`) move to Life's root next; until then run the
+script with `bun apps/lifelog/scripts/<name>.ts`.
 
 Each app has its own `AGENTS.md`. Read `docs/architecture.md` before a change that crosses apps, and
 `docs/decisions.md` before reversing a choice. The other docs go by topic: `docs/sync.md`, `docs/processing.md`,
@@ -37,7 +41,7 @@ bun run host:app [out]                             # build Lifelog Host.app (nee
 bun run events --since 30m [prefix]                # the server's, the phone's and the Mac's events in time order
 ```
 
-A failed gate step prints its tail; the full log is `.build/check/<step>.log`.
+A failed gate step prints its tail; the full log is `derived/check/<step>.log` at Life's root.
 
 ## Invariants
 

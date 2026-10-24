@@ -8,14 +8,12 @@
     "./schema/auth": "./src/schema/auth.ts"
   },
   "scripts": {
-    "check-types": "tsc --noEmit -p .",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {
-    "@lifelog/config": "workspace:*",
     "@types/bun": "catalog:",
     "drizzle-kit": "catalog:"
   }

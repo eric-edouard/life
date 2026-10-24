@@ -1,4 +1,0 @@
-{
-  "extends": "@lifelog/config/tsconfig.base.json",
-  "include": ["src"]
-}

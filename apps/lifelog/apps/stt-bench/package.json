@@ -4,7 +4,6 @@
   "type": "module",
   "scripts": {
     "bench": "bun src/bench.ts",
-    "check-types": "tsc --noEmit -p .",
     "test": "bun test"
   },
   "dependencies": {
@@ -12,7 +11,6 @@
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {
-    "@lifelog/config": "workspace:*",
     "@types/bun": "catalog:"
   }
 }

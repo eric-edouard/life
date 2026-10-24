@@ -19,8 +19,9 @@ if (command === "export" || command === "import") {
 }
 
 const config = loadConfig(process.env);
-// Kept referenced: the lock lasts as long as its connection.
-const _archiveLock = holdArchive(config.DATABASE_PATH);
+// Kept referenced until exit: the lock lasts as long as its connection.
+const archiveLock = holdArchive(config.DATABASE_PATH);
+process.on("exit", () => archiveLock.close());
 const db = connect(config.DATABASE_PATH);
 migrateDb(db);
 refreshOwnerTimeZone(db);

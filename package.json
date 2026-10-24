@@ -6,17 +6,24 @@
   "workspaces": {
     "packages": [
       "apps/*",
+      "apps/lifelog/apps/*",
+      "apps/lifelog/packages/*",
       "packages/*"
     ],
     "catalog": {
+      "@better-auth/oauth-provider": "1.7.7",
       "@modelcontextprotocol/server": "2.3.1",
+      "@types/bun": "1.4.3",
+      "better-auth": "1.7.7",
+      "drizzle-kit": "0.31.11",
+      "drizzle-orm": "0.45.3",
       "zod": "^4.6.5"
     }
   },
   "scripts": {
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
-    "fix": "bun x --bun ultracite fix",
+    "fix": "bun x --bun ultracite fix && swift format --in-place --recursive apps/lifelog/apps/ios apps/lifelog/apps/mac-quiet",
     "life": "bun apps/server/src/host/cli.ts",
     "prepare": "git config core.hooksPath .githooks"
   },
@@ -26,12 +33,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
+    "@biomejs/biome": "2.5.15",
     "@life/config": "workspace:*",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "catalog:",
     "fallow": "3.32.0",
-    "typescript": "^6",
-    "ultracite": "7.12.2"
+    "typescript": "7.0.2",
+    "ultracite": "7.12.4"
   },
   "packageManager": "bun@1.4.2"
 }

@@ -9,3 +9,5 @@ node_modules
 dist/
 apps/mac/.build/
 apps/mac/Frameworks/
+# Swift scratch builds of the gate (scripts/check.ts)
+.build/
