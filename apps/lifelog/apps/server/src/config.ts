@@ -1,4 +1,3 @@
-import type { AuthSettings } from "@lifelog/auth";
 import { z } from "zod";
 
 // Prices from docs/research/elevenlabs.md (live pricing page, 2026-10-07).
@@ -181,8 +180,6 @@ const Env = z.object({
   APNS_TOPIC: z.string().min(1).default("com.ericedouard.lifelog"),
   // Where audio is kept without a bucket (audio-store.ts); the S3_* settings win when set.
   AUDIO_DIR: z.string().min(1).optional(),
-  // Signs Life's OAuth tokens (@lifelog/auth). Life's sign-in is off without it and LIFE_URL.
-  AUTH_SECRET: z.string().min(32).optional(),
   // The build's git commit, which Lifelog Host passes from its Info.plist; names the build in
   // server error reports.
   BUILD_SHA: z.string().optional(),
@@ -211,9 +208,6 @@ const Env = z.object({
   // Recognition is unavailable without it.
   IDENTITY_SECRET: z.string().min(16).optional(),
   IDENTITY_URL: z.url().optional(),
-  // Life's address (@lifelog/auth): LIFE_URL/mcp is its tokens' audience, LIFE_URL/check/callback a
-  // trusted OAuth callback. Life's sign-in is off without it.
-  LIFE_URL: z.url().optional(),
   // The address the server listens on; every interface without it. The Mac host sets 127.0.0.1,
   // so only Tailscale Serve reaches it.
   LISTEN_HOST: z.string().min(1).optional(),
@@ -240,13 +234,6 @@ const Env = z.object({
 });
 
 export type Config = z.infer<typeof Env>;
-
-// Life's OAuth issuer's settings (@lifelog/auth).
-export const authSettings = (config: Config): AuthSettings => ({
-  baseUrl: config.PUBLIC_BASE_URL,
-  lifeUrl: config.LIFE_URL,
-  secret: config.AUTH_SECRET,
-});
 
 export const loadConfig = (env: Record<string, string | undefined>): Config =>
   Env.parse(env);

@@ -142,7 +142,7 @@ and Life moved into its shape with `git mv`:
 **What slots in later, without another restructure:** the web UI as `apps/web` (Vite, Tailwind), added with
 `create-better-t-stack add`, talking to the server over HTTP (routes gain `@hono/zod-openapi` as it needs their
 contracts) and bringing Turborepo; Better Auth in the server, behind the one sign-in seam (`ownerTokens` in
-`auth.ts`, today fed by Life's own issuer or lifelog's); OpenRouter as a full model provider: it is already in
+`auth.ts`, today fed by Life's own issuer); OpenRouter as a full model provider: it is already in
 `PROVIDERS` (`llm.ts`) as the bench's runner, so it is one entry gaining its models per tier, plus `Engine` gaining
 `openrouter`.
 

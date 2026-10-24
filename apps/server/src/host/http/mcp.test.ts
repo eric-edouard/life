@@ -3,7 +3,6 @@ import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
-  createRemoteJWKSet,
   exportJWK,
   generateKeyPair,
   type JWK,
@@ -32,7 +31,8 @@ import { protocol, sealed, update } from "../agent";
 import { ownerTokens } from "./auth";
 import { correct, createMcp } from "./mcp";
 
-const { issuer: ISSUER, metadata, resource: RESOURCE } = settingsOf();
+const { metadata, origin, resource: RESOURCE } = settingsOf();
+const ISSUER = `${origin}/auth`;
 
 const OWNER = "owner-sub";
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
@@ -50,11 +50,11 @@ const verify = ownerTokens({
   ownerSub: OWNER,
   resource: RESOURCE,
 });
-const connector = createMcp(verify);
+const connector = createMcp(verify, ISSUER);
 
 const SECONDS = Math.floor(NOW.getTime() / 1000);
 
-/** A token as lifelog would issue it, unless `over` says otherwise; `lifetime` in seconds from NOW. */
+/** A token as the issuer would sign it, unless `over` says otherwise; `lifetime` in seconds from NOW. */
 function token(over: Record<string, unknown> = {}, lifetime = 3600) {
   return new SignJWT({
     aud: RESOURCE,
@@ -150,52 +150,14 @@ test("a token for another audience, issuer, owner, scope or time is refused; the
   expect((await rpc(await token(), "tools/list")).res.status).toBe(200);
 });
 
-test("lifelog's keys out of reach answer 503, not a refused token; a key it lacks is still the token's fault", async () => {
-  // 20 Oct: a JWKS fetch timing out was reported as an invalid token.
-  const lifelog = Bun.serve({
-    fetch: async ({ url }) => {
-      const { pathname } = new URL(url);
-      if (pathname === "/slow") {
-        await Bun.sleep(1000);
-      }
-      return pathname === "/down"
-        ? new Response("", { status: 502 })
-        : Response.json({ keys: [jwk] });
-    },
-    port: 0,
-  });
-  try {
-    const refusal = async (path: string, kid = "k1") => {
-      const at = ownerTokens({
-        issuer: ISSUER,
-        jwks: createRemoteJWKSet(new URL(path, lifelog.url), {
-          timeoutDuration: 100,
-        }),
-        now: () => NOW.getTime(),
-        ownerSub: OWNER,
-        resource: RESOURCE,
-      });
-      const bearer = await new SignJWT({ aud: RESOURCE, iss: ISSUER })
-        .setProtectedHeader({ alg: "EdDSA", kid })
-        .setExpirationTime(SECONDS + 60)
-        .sign(privateKey);
-      return (await at(bearer)) as { refusal?: string };
-    };
-    expect((await refusal("/slow")).refusal).toBe("unreachable");
-    expect((await refusal("/down")).refusal).toBe("unreachable");
-    expect((await refusal("/keys", "k2")).refusal).toBe("invalid");
-    expect((await refusal("/keys")).refusal).toBe("forbidden");
-    const down = createMcp(async () => ({ refusal: "unreachable", why: "x" }));
-    const res = await down.request(
-      new Request(RESOURCE, {
-        headers: { authorization: "Bearer t" },
-        method: "POST",
-      })
-    );
-    expect(res?.status).toBe(503);
-  } finally {
-    lifelog.stop(true);
-  }
+test("a token signed with a key the issuer lacks is the token's fault", async () => {
+  const bearer = await new SignJWT({ aud: RESOURCE, iss: ISSUER })
+    .setProtectedHeader({ alg: "EdDSA", kid: "k2" })
+    .setExpirationTime(SECONDS + 60)
+    .sign(privateKey);
+  expect(((await verify(bearer)) as { refusal?: string }).refusal).toBe(
+    "invalid"
+  );
 });
 
 test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write but are not destructive, so Orbit runs unattended", async () => {

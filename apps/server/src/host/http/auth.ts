@@ -1,25 +1,20 @@
-import { errors, type JWTVerifyGetKey, jwtVerify } from "jose";
+import { type JWTVerifyGetKey, jwtVerify } from "jose";
 
-// The owner's sign-in, for the connector (/mcp, a Bearer token) and the check page (a cookie): an OAuth server issues
-// the tokens for Life's resource (Life's own, `oauth.ts`, or the `connector` setting's issuer); this checks them.
+// The owner's sign-in, for the connector (/mcp, a Bearer token) and the check page (a cookie): Life's own issuer
+// (`oauth.ts`) issues the tokens for Life's resource; this checks them.
 
 export const SCOPE = "life:read";
 
-const refused = (
-  refusal: "forbidden" | "invalid" | "unreachable",
-  why: string
-) => ({
+const refused = (refusal: "forbidden" | "invalid", why: string) => ({
   refusal,
   why,
 });
 export type Refused = ReturnType<typeof refused>;
-/** What an `unreachable` refusal answers, with a 503: Life is up, lifelog's keys are not. */
-export const UNREACHABLE = "lifelog unreachable, try again";
 
 /**
- * Whose a token is: the owner's OAuth client and scopes when lifelog's OAuth server issued it for Life (`life:read`) to the owner, else a
- * `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `unreachable` when lifelog's keys
- * could not be fetched (the token was not judged), `invalid` otherwise. The one check behind /mcp and the check page.
+ * Whose a token is: the owner's OAuth client and scopes when the issuer signed it for Life (`life:read`) to the owner,
+ * else a `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `invalid` otherwise.
+ * The one check behind /mcp and the check page.
  */
 export function ownerTokens({
   issuer,
@@ -35,21 +30,8 @@ export function ownerTokens({
   resource: string;
 }) {
   return async (token: string) => {
-    // Only a key set that has no key for this token is the token's fault; any other failure to get keys is lifelog's.
-    let unreachable = false;
-    const keys: JWTVerifyGetKey = async (header, jws) => {
-      try {
-        return await jwks(header, jws);
-      } catch (e) {
-        unreachable = !(
-          e instanceof errors.JWKSNoMatchingKey ||
-          e instanceof errors.JWKSMultipleMatchingKeys
-        );
-        throw e;
-      }
-    };
     try {
-      const { payload } = await jwtVerify(token, keys, {
+      const { payload } = await jwtVerify(token, jwks, {
         algorithms: ["EdDSA"],
         audience: resource,
         currentDate: new Date(now()),
@@ -62,10 +44,7 @@ export function ownerTokens({
       }
       return { clientId: String(payload.client_id), scopes };
     } catch (e) {
-      return refused(
-        unreachable ? "unreachable" : "invalid",
-        (e as Error).message
-      );
+      return refused("invalid", (e as Error).message);
     }
   };
 }

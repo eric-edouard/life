@@ -1,7 +1,5 @@
 import { join } from "node:path";
 import { Hono } from "hono";
-import { createRemoteJWKSet } from "jose";
-import { DAY } from "../../core/clock";
 import { off } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector } from "../../core/settings";
@@ -75,39 +73,20 @@ for (const file of BRAND) {
   );
 }
 
-/** The connector's parts, behind its sign-in: Life's own issuer or another, /mcp, /check and /me. */
+/** The connector's parts, behind Life's own sign-in: its issuer, /mcp, /check and /me. */
 export function signedIn() {
-  const { issuer, origin, own, owner, resource } = connector();
-  const life = own ? createIssuer(origin, resource) : null;
+  const { origin, resource } = connector();
+  const life = createIssuer(origin, resource);
   const verify = ownerTokens({
-    issuer,
-    // lifelog's keys rarely change: kept a day (a key it dropped stops working within it), or refetched sooner when a
-    // token names a key they lack, so its latency reaches about one request a day; a failed fetch answers 503 (jose
-    // serves no stale keys, so lifelog down when the day ends is a 503 until it is back).
-    jwks:
-      life?.jwks ??
-      createRemoteJWKSet(new URL(`${issuer}/jwks`), {
-        cacheMaxAge: DAY,
-        timeoutDuration: 15_000,
-      }),
-    ownerSub: owner,
+    issuer: life.issuer,
+    jwks: life.jwks,
+    ownerSub: life.owner,
     resource,
   });
-  const mcp = createMcp(verify);
-  // Life's own issuer answers its pages' token exchange in this process.
-  const signIn = createSignIn(
-    verify,
-    life
-      ? async (url: string, init: RequestInit) => life.app.request(url, init)
-      : fetch
-  );
-  const app = new Hono();
-  if (life) {
-    app.route("/", life.app);
-  }
-  return app
-    .route("/", mcp)
-    .route("/", createCheck(signIn))
+  return new Hono()
+    .route("/", life.app)
+    .route("/", createMcp(verify, life.issuer))
+    .route("/", createCheck(createSignIn(verify, life)))
     .route("/", createPortrait())
     .route("/", brand)
     .notFound(notFound);

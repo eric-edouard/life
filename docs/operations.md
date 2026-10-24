@@ -33,7 +33,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 ## Settings
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
-the connector's origin, issuer and owner, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
+the connector's origin and tunnel, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
 sources, the agent, the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.

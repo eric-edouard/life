@@ -68,8 +68,3 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
   `knownAt`), `phoneHeartbeat` (the phone's last report, `backlog.pages` among it), `pipeline` (where audio and
   summaries are, `docs/transcription-server.md`) and `backup` are typed; the rest is for the owner's own sessions and
   may change. `GET /status/live`, its cheap part, is the device token's only.
-
-## Still to change
-
-The OAuth issuer in `packages/auth` (Better Auth, the sign-in and consent pages, `scripts/owner.ts`) signs tokens for a
-reader's own MCP clients. It goes once that reader runs its own authorization server.

@@ -2,10 +2,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { same, secretIn } from "../../core/secret";
 import { connector } from "../../core/settings";
-import { SCOPE, UNREACHABLE, type Verify } from "./auth";
+import { SCOPE, type Verify } from "./auth";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
+import { PAGES_CLIENT } from "./oauth";
 
-// The owner's sign-in for /check/: the connector's OAuth server with PKCE, the
+// The owner's sign-in for /check/: Life's own issuer (`oauth.ts`) with PKCE, the
 // token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.
 // The callback stays /check/callback, the one redirect the issuer knows for this client.
 
@@ -25,13 +26,19 @@ const sessionCookies = (t: z.infer<typeof Tokens>) => [
   ...(t.refresh_token ? [cookie(REFRESH, t.refresh_token, REFRESH_MAX_S)] : []),
 ];
 
-/** How the token exchange reaches the issuer: `fetch`, or the issuer itself when it is Life's own (server.ts). */
-export type Exchange = (url: string, init: RequestInit) => Promise<Response>;
+/** The issuer the pages sign in at: its address, and its routes, which answer the token exchange in this process. */
+export interface Issuer {
+  app: {
+    request: (url: string, init: RequestInit) => Response | Promise<Response>;
+  };
+  issuer: string;
+}
 
-export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
-  const { client, issuer, origin, resource } = connector();
+export function createSignIn(verify: Verify, { app, issuer }: Issuer) {
+  const { origin, resource } = connector();
+  const client = PAGES_CLIENT;
   const CALLBACK = `${origin}/check/callback`;
-  /** Off to lifelog's sign-in (silent once he is signed in there and consented), with PKCE; back to /check/ after. */
+  /** Off to the issuer's approval page (a pairing code from the Mac), with PKCE; back to /check/ after. */
   function login() {
     const state = randomBytes(16).toString("base64url");
     const verifier = randomBytes(32).toString("base64url");
@@ -51,7 +58,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     ]);
   }
 
-  /** Back from lifelog: the code is traded for a token, which must be the owner's before it becomes the session. */
+  /** Back from the issuer: the code is traded for a token, which must be the owner's before it becomes the session. */
   async function callback(req: Request, url: URL) {
     const [state, verifier] = (cookieOf(req, LOGIN) ?? "").split(".");
     const code = url.searchParams.get("code");
@@ -71,9 +78,6 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       redirect_uri: CALLBACK,
       resource,
     });
-    if (token === "unreachable") {
-      return text(UNREACHABLE, 503);
-    }
     if (token === "refused") {
       return text("Not signed in as the owner.", 403);
     }
@@ -85,7 +89,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
 
   /**
    * Null when the request carries the owner's session; else the answer: a sign-in for the page itself (`page`), 401
-   * for its reads, 403 for someone else, 503 when lifelog's keys are out of reach.
+   * for its reads, 403 for someone else.
    */
   async function refusal(req: Request, page = false) {
     const whose = await verify(cookieOf(req, SESSION) ?? "");
@@ -99,11 +103,7 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (whose.refusal === "forbidden") {
       return text("forbidden", 403);
     }
-    if (whose.refusal === "unreachable") {
-      return text(UNREACHABLE, 503);
-    }
-    // A refresh token the issuer refused is dropped, or every request would try it again (one it never saw, the issuer
-    // being away, is kept: renew answered 503 then).
+    // A refresh token the issuer refused is dropped, or every request would try it again.
     const dropped = renewed === "refused" ? [cookie(REFRESH, "", 0)] : [];
     if (page) {
       const answer = login();
@@ -120,18 +120,16 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
   }
 
   /**
-   * One trade at the issuer's token endpoint (a code or a refresh token): the owner's tokens, "refused" when the issuer
-   * or the check says no, "unreachable" when the issuer or its keys can't be reached in time.
+   * One trade at the issuer's token endpoint (a code or a refresh token): the owner's tokens, or "refused" when the
+   * issuer or the check says no. The issuer's own failure (5xx) is a fault, never a refusal of the token.
    */
   async function trade(fields: Record<string, string>) {
-    const res = await lifelog(`${issuer}/oauth2/token`, {
+    const res = await app.request(`${issuer}/oauth2/token`, {
       body: new URLSearchParams({ client_id: client, ...fields }),
       method: "POST",
-      signal: AbortSignal.timeout(15_000),
-    }).catch(() => null);
-    // No answer, or the issuer's own failure (5xx): out of reach, not a refusal of the token.
-    if (!res || res.status >= 500) {
-      return "unreachable";
+    });
+    if (res.status >= 500) {
+      throw new Error(`the issuer failed its token exchange (${res.status})`);
     }
     const token = Tokens.safeParse(
       res.ok ? await res.json().catch(() => null) : null
@@ -139,16 +137,15 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
     if (!token.success) {
       return "refused";
     }
-    const whose = await verify(token.data.access_token);
-    if ("refusal" in whose) {
-      return whose.refusal === "unreachable" ? "unreachable" : "refused";
+    if ("refusal" in (await verify(token.data.access_token))) {
+      return "refused";
     }
     return token.data;
   }
 
   /**
-   * A spent session renewed with its refresh token: the same address again, with the new cookies; a 503 when the issuer
-   * can't be reached (the token kept); "refused" when the issuer said no; "none" with no refresh token.
+   * A spent session renewed with its refresh token: the same address again, with the new cookies; "refused" when the
+   * issuer said no; "none" with no refresh token.
    */
   async function renew(req: Request): Promise<Response | "none" | "refused"> {
     const refresh = cookieOf(req, REFRESH);
@@ -159,9 +156,6 @@ export function createSignIn(verify: Verify, lifelog: Exchange = fetch) {
       grant_type: "refresh_token",
       refresh_token: refresh,
     });
-    if (token === "unreachable") {
-      return text(UNREACHABLE, 503);
-    }
     if (token === "refused") {
       return token;
     }

@@ -188,11 +188,10 @@ grant, and logs the agent's replies.
   evidence of what was done.
 - One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `apps/server/src/host/events.ts`), behind the same auth. Callbacks go to
   OpenAI's hosts only, verified before anything is sent.
-- **Auth:** every request needs a JWT for this resource with `life:read`, from its issuer: Life's own (`apps/server/src/host/http/oauth.ts`,
-  at `<origin>/auth`: an app is approved with a pairing code from `bun life pair`, PKCE, one-use codes, refresh tokens
-  replaced on use, its key in `LIFE_STATE_DIR/oauth`), or the `connector` setting's (lifelog's, `sub` = its owner)
-  (`ownerTokens`, `apps/server/src/host/http/auth.ts`). Another issuer's keys are kept a day (`server.ts`). Failing to fetch them is
-  `unreachable`: a 503 on `/mcp` and `/check`, never a refused token.
+- **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
+  (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app, `/check` included, is approved with a pairing code
+  from Life's panel, "Pair an app"; PKCE, one-use codes, refresh tokens replaced on use and kept 90 days, its key in
+  `LIFE_STATE_DIR/oauth`), checked by `ownerTokens` (`apps/server/src/host/http/auth.ts`).
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid
   arguments (`tool()` validates them itself) are logged as `mcp.call` with `error`. Nothing reads a response back.
 - **Origin:** the Mac's tailnet name (`bun life connect`; `--public` through Tailscale Funnel for ChatGPT and

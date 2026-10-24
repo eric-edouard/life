@@ -118,9 +118,10 @@ reverse it, change its entry here in the same commit.
 
 - **Readers use a contract, not the phone's API.** A reader such as Life follows the feed with its own `read` or
   `corrections` token, never writes in the background, and lifelog never calls it (`docs/voice-source.md`).
-- **OAuth codes go only to known callbacks.** The issuer a reader's MCP clients sign in with gives a code only to the
-  callbacks `trustedRedirects` lists in `packages/auth` (Life's from `LIFE_URL`), or to loopback, so an app that
-  registers under a familiar name never gets one; the owner's consent stays the last guard.
+- **lifelog signs no tokens for readers.** Its OAuth issuer (`packages/auth`, Better Auth) signed Life's tokens until
+  24 Oct 2026; Life now signs its own (Life's `oauth.ts`, approved by a pairing code on the Mac), so the issuer, its
+  pages, `AUTH_SECRET`, `LIFE_URL` and the `auth_*` tables went. A reader reaches lifelog only with its own `read` or
+  `corrections` token.
 - **Events trace each chain.** Every step the owner relies on (pushes, the Mac socket, quiet ranges, uploads,
   ElevenLabs, what the phone saw) is an event of ids, states, counts and status codes, kept 14 days; `bun run events`
   reads them in time order beside the Mac helper's log.
