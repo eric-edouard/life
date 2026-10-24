@@ -12,13 +12,16 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 
 | | lifelog | Life |
 |---|---|---|
-| Job | Voice capture: audio, transcripts, speakers, per-conversation chapters and summaries, search | Memory across sources: voice (through lifelog), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Job | Voice capture: audio, transcripts, speakers, conversations, search | Memory across sources: voice (through lifelog), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
 | Owns | The raw spoken archive | The people across channels, observations, people and project pages |
 | Runs | Its own host and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
 | Acts? | Never | Only on the owner's clear request (`docs/tasks.md`) |
 
-- Life reads lifelog through its REST API with a device token (`apps/server/src/sources/lifelog.ts`). It keeps chapter titles,
-  summaries and turn refs, not transcript text (except an ask's words). Exact quotes are fetched on demand.
+- Life reads lifelog through its REST API with a device token (`apps/server/src/sources/lifelog.ts`): the change feed
+  into a small store of who spoke when, never the words (except an ask's), and a turn's words, search and places on
+  demand.
+- Life builds its voice units from lifelog's conversations and their turns, by code; lifelog's summaries are never
+  read. The chapter units already stored stay as they are, so the voice history is not read through the models again.
 - Life writes to lifelog only through `forward`: the owner's explicit corrections (speaker, title, rename, merge).
 - Memory does not move into lifelog: memory about one person comes from voice, chats and mail together, and chats must
   not leave the Mac, nor their text go to a third party for embeddings.
@@ -29,7 +32,7 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 flowchart LR
   subgraph Mac["The Mac"]
     direction LR
-    S["Sources<br/>voice · chats · mail · notes · git"] --> U["Units<br/>a chapter, a chat-day, a thread-day"]
+    S["Sources<br/>voice · chats · mail · notes · git"] --> U["Units<br/>a conversation-day, a chat-day, a thread-day"]
     U --> M["Moments<br/>one read per day,<br/>a verdict per unit"]
     M --> O["Observations<br/>quote-checked facts"]
     O --> P["Pages<br/>people · areas · the owner"]
@@ -45,12 +48,13 @@ flowchart LR
 
 - **Sources** (`apps/server/src/sources/`, one descriptor each in `apps/server/src/memory/sources.ts`) return events with stable ids, so reading
   twice never duplicates anything. Raw data stays in its own app.
-- **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a lifelog chapter, a chat-day, a mail thread-day, a
+- **Units** (`apps/server/src/memory/units.ts` only, through `gather`): a conversation-day, a chat-day, a mail thread-day, a
   note-day, a repo-day. Code drops obvious noise (one-time codes, newsletters, Life's own output) before any model sees
   it.
 - **Moments** (`moments.ts`): one deep model call per day reads every unit of the day from every channel in time order,
   writes a verdict per unit (type, importance, area) and what happened or is planned. The same call says who the day's
-  unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later).
+  unknown people are (`memory/people-inferred.jsonl`, used at once, corrected later). A conversation-day's text is its
+  words, fetched only for the day being read (`voiceText`).
 - **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
   that retires an observation (besides the owner rating one outdated).

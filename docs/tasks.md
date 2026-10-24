@@ -166,7 +166,7 @@ events with `lifeMoment` are Life's output and must be dropped.
 
 The owner's marker, for memory only. The owner's turn holding it (an unattributed one too) and the owner's turns right after
 (`marksIn`, `apps/server/src/host/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
-watcher's store (`writeMarks`, refs only). Their chapter's unit carries them (`marked`, `readConversations`) and says
+watcher's store (`writeMarks`, refs only). Their unit carries them (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
 importance 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
 observations citing it. It never acts, asks or sends.
