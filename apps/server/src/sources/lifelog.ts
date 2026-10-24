@@ -87,11 +87,15 @@ export interface LifelogTurn {
   turnIndex: number;
 }
 
-/** A transcribed conversation with its turns, each with the "hey Life" span that starts at it (the hearing's marks). */
+/** A recorded conversation with its turns, each with the "hey Life" span that starts at it (the hearing's marks). */
 export interface LifelogConversation {
+  /** lifelog has settled it (the contract's `closed`): grouping adds nothing more to it. */
+  closed: boolean;
   endedAt: string;
   id: string;
   startedAt: string;
+  /** Where lifelog stands with it (`transcribed`, `summarized`, …), as the feed last sent it. */
+  state: string;
   title: string;
   turns: (LifelogTurn & { marks: string[] })[];
 }
@@ -189,10 +193,12 @@ export function openStore(dir = WATCH) {
   create table if not exists marks (
     job_id text not null, turn_index integer not null, refs text not null, primary key (job_id, turn_index));
   create index if not exists turns_conversation on turns (conversation_id, start_at);
-  drop table if exists jobs;
-  drop table if exists chapters;`);
+  drop table if exists jobs;`);
+  // ponytail: an older store's `chapters` table is no longer written but kept, so an older Life.app rolled back still
+  // finds its chapters (without them it would see every conversation unsummarized and its sync would remove every
+  // chapter unit); drop it once no rollback past this is possible.
   // The contract's `closed`, on a store made before it: rows fill it as they come again.
-  // ponytail: this and the drops above are a one-time upgrade of older stores; delete once every install has run it.
+  // ponytail: this and the drop above are a one-time upgrade of older stores; delete once every install has run it.
   const columns = db
     .query<{ name: string }, []>("pragma table_info(conversations)")
     .all();
@@ -245,8 +251,6 @@ export function readCursor(store: Store) {
 
 /** A live conversation (`c`) of the kinds Life reads: not replaced or retired (see `successor`), not a note or a call. */
 const LIVE = "c.successor is null and c.kind in ('conversation', 'imported')";
-/** Transcribed (`c`): none of its audio still out (`summarized` is transcribed and summarized too). */
-const TRANSCRIBED = "c.state in ('transcribed', 'summarized')";
 /** A transcript turn's ref, the `<job>:<turn>@<instant>` every reader cites. */
 export const turnRef = (job: string, turn: number, at: string) =>
   `${job}:${turn}@${at}`;
@@ -404,9 +408,9 @@ interface TurnRow {
 }
 
 /**
- * The live conversations still going at `since` or after it that are transcribed (none of their audio still out) and
- * have words (silent ones and the owner's dictation have none), with their turns, oldest first. A retired conversation
- * is gone: its successor comes through the feed. `byId`: lifelog person id -> the name on the map.
+ * The live conversations still going at `since` or after it that have words (silent ones and the owner's dictation
+ * have none), with their turns, oldest first, whatever their state (late audio can reopen one: its units stay). A
+ * retired conversation is gone: its successor comes through the feed. `byId`: lifelog person id -> the name on the map.
  */
 export function readConversations(
   store: Store,
@@ -414,7 +418,7 @@ export function readConversations(
   byId: Map<string, string> = new Map()
 ): LifelogConversation[] {
   const { db } = store;
-  const live = `from conversations c where ${LIVE} and ${TRANSCRIBED} and c.end_at >= ?`;
+  const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
@@ -438,7 +442,14 @@ export function readConversations(
   );
   return db
     .query<
-      { end_at: string; id: string; start_at: string; title: string },
+      {
+        closed: number | null;
+        end_at: string;
+        id: string;
+        start_at: string;
+        state: string;
+        title: string;
+      },
       [string]
     >(`select c.* ${live} order by c.start_at`)
     .all(from)
@@ -455,9 +466,11 @@ export function readConversations(
       return said.length > 0
         ? [
             {
+              closed: c.closed === 1,
               endedAt: c.end_at,
               id: c.id,
               startedAt: c.start_at,
+              state: c.state,
               title: c.title,
               turns: said,
             },
@@ -473,6 +486,17 @@ export const endedOnSilence = (store: Store, jobId: string) =>
       "select ended_on_silence from transcription_jobs where id = ?"
     )
     .get(jobId)?.ended_on_silence === 1;
+
+/** The ids of the live conversations: a stored chapter unit stays only while its conversation is one (`frozenUnits`). */
+export const liveConversations = (store: Store) =>
+  new Set(
+    store.db
+      .query<{ id: string }, []>(
+        `select c.id from conversations c where ${LIVE}`
+      )
+      .all()
+      .map((c) => c.id)
+  );
 
 /** Whether lifelog has settled a conversation (the contract's `closed`). */
 export const isConversationClosed = (store: Store, conversation: string) =>

@@ -11,6 +11,7 @@ import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
 import {
   type LifelogConversation,
+  liveConversations,
   readConversations,
   type Store,
   turnRef,
@@ -222,8 +223,9 @@ export const MARKED =
   '[He said "hey Life" here: he asked Life to remember what he says after it.]';
 
 /**
- * A stored voice unit that is one of lifelog's chapters (it carries lifelog's summary): kept as stored, never built
- * again, so the voice history is not read through the models again; its conversation gets no conversation-days.
+ * A stored voice unit that is one of lifelog's chapters (it carries lifelog's summary): kept as stored while its
+ * conversation is live (`frozenUnits`), never built again, so the voice history is not read through the models again;
+ * its conversation gets no conversation-days.
  * ponytail: a conversation that had chapters when conversation-days came stays chapter-only, even if it grows after;
  * build days for its later turns if that matters.
  */
@@ -239,9 +241,14 @@ const frozen = (unit: Unit): Built => ({
   unit,
 });
 
-/** The stored chapter units of these days. */
-const frozenOn = (dates: Iterable<string>) =>
-  readUnitsOf([...new Set(dates)]).filter(isFrozen);
+/**
+ * The stored chapter units among `units` whose conversation is live in the store: the one frozen set of both writers
+ * (`gather`, `syncLifelogUnits`). A chapter of a conversation lifelog retired or dropped is not, so it goes.
+ */
+export const frozenUnits = (store: Store, units: Unit[]) => {
+  const live = liveConversations(store);
+  return units.filter((u) => isFrozen(u) && live.has(u.key));
+};
 
 /**
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every
@@ -363,6 +370,15 @@ export function speakerOf(
   return resolve(m.sender) ?? `${UNKNOWN}${m.sender}`;
 }
 
+/** A line of a unit's text, `HH:MM who: text`: `who` the speaker without `person:`, or `unknownAs` when unresolved. */
+export const lineOf = (
+  at: string,
+  speaker: string,
+  unknownAs: string,
+  text: string
+) =>
+  `${time(at)} ${speaker.startsWith(UNKNOWN) ? unknownAs : speaker.replace(PERSON, "")}: ${text}`;
+
 /**
  * The unit of one chat's (or thread's) messages. Where people write (a chat, a mail) it keeps each sender as
  * `unknown:<sender>`, never resolved here: a reader maps them as of its day (`unitNow`). Its text, read once by the
@@ -374,10 +390,9 @@ function chatDay(list: SourceEvent[], resolve: Resolve): Built {
   const last = sorted.at(-1) as SourceEvent;
   const kind = kindOf(first.source);
   const written = kind === "chat" || kind === "mail";
-  const lines = sorted.map((e) => {
-    const who = speakerOf(kind, e, resolve);
-    return `${time(e.at)} ${who.startsWith(UNKNOWN) ? e.sender : who.replace(PERSON, "")}: ${redact(e.text)}`;
-  });
+  const lines = sorted.map((e) =>
+    lineOf(e.at, speakerOf(kind, e, resolve), e.sender, redact(e.text))
+  );
   const title = unitTitle(first);
   const ids = sorted.map((e) => e.id);
   return {
@@ -685,15 +700,6 @@ export interface Window {
   to: string;
 }
 
-/** The local days of a window, in order. */
-function daysIn(window: Window) {
-  const days: string[] = [];
-  for (let d = window.from; d <= window.to; d = daysBefore(d, -1)) {
-    days.push(d);
-  }
-  return days;
-}
-
 /** The last `days` local days, today included. */
 export function lastDays(now: Date, days: number): Window {
   const to = localDate(now.toISOString());
@@ -726,21 +732,21 @@ export async function gather(
   for (const s of skipped) {
     log("source.read", { ok: true, skipped: s.missing?.(), source: s.name });
   }
+  // The stored chapter units whose conversation is live, read with the conversations (`frozenUnits`).
+  let chapters: Unit[] = [];
   const lifelog = sources.some((s) => s.kind === "voice")
     ? await safely(
         "lifelog",
-        () =>
-          withStore((store) =>
-            readConversations(store, since, lifelogNames(truth))
-          ),
+        async () => {
+          const units = await readUnits();
+          return withStore((store) => {
+            chapters = frozenUnits(store, units);
+            return readConversations(store, since, lifelogNames(truth));
+          });
+        },
         failed
       )
     : [];
-  // The chapter units of the window, and of any day a conversation read here was on (one that spans midnight).
-  const chapters = frozenOn([
-    ...daysIn(window),
-    ...lifelog.flatMap((c) => c.turns.map((t) => localDate(t.at))),
-  ]);
   const read = await Promise.all(
     sources
       .flatMap((s) => (s.kind === "voice" ? [] : [s]))
@@ -820,7 +826,7 @@ export async function writeUnits(
 
 /**
  * Makes the lifelog units in memory/units/ the ones the store gives (what the watcher does after a page); a chapter unit
- * stays as stored. A day's file is rewritten only when its lifelog units differ; other sources' units in it stay. Returns how many units were built,
+ * stays as stored while its conversation is live (`frozenUnits`), and goes with it. A day's file is rewritten only when its lifelog units differ; other sources' units in it stay. Returns how many units were built,
  * changed and removed.
  * ponytail: `gather` (moments) applies the `duplicate` rule to the window's units of every source, this to all lifelog
  * units, so a lifelog unit repeating one from before the window may flip between the two writers; one writer settles it.
@@ -828,14 +834,17 @@ export async function writeUnits(
 export async function syncLifelogUnits(store: Store) {
   const truth = await loadTruth();
   const all = await readUnits();
-  const voice = all.filter((u) => kindOf(u.source) === "voice");
-  const want = applyRules(
-    lifelogUnits(
-      readConversations(store, new Date(0), lifelogNames(truth)),
-      new Set(voice.filter(isFrozen).map((u) => u.key))
-    )
-  ).map((b) => Unit.parse(b.unit));
-  const have = voice.filter((u) => !isFrozen(u));
+  const have = all.filter((u) => kindOf(u.source) === "voice");
+  const chapters = frozenUnits(store, have);
+  const want = [
+    ...chapters,
+    ...applyRules(
+      lifelogUnits(
+        readConversations(store, new Date(0), lifelogNames(truth)),
+        new Set(chapters.map((u) => u.key))
+      )
+    ).map((b) => Unit.parse(b.unit)),
+  ];
   const json = (units: Unit[]) =>
     new Map(units.map((u) => [u.id, JSON.stringify(u)]));
   const [had, wants] = [json(have), json(want)];
@@ -850,11 +859,7 @@ export async function syncLifelogUnits(store: Store) {
       .filter((u) => had.get(u.id) !== wants.get(u.id))
       .map((u) => u.date)
   );
-  await writeUnits(
-    [...dates],
-    want,
-    (u) => kindOf(u.source) !== "voice" || isFrozen(u)
-  );
+  await writeUnits([...dates], want, (u) => kindOf(u.source) !== "voice");
   return {
     added: added.length,
     changed: changed.length,

@@ -112,25 +112,28 @@ test("a conversation holds its turns, in order, with the names the map gives its
   ]);
 });
 
-test("only a transcribed conversation with words is read: not one still transcribing, nor a silent one", () => {
+test("a conversation with words is read whatever its state, with its state and lifelog's closed; a silent one is not", () => {
   const s = store();
   apply(
     s,
     pageFixture({
       conversations: [
-        conversation("c1"),
+        conversation("c1", { closed: true }),
         conversation("c2", { state: "transcribing" }),
-        conversation("c3", { state: "summarized" }),
         conversation("c4"),
       ],
       turns: [
         turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1"),
         turnFixture(1, "2026-10-14T10:01:00.000Z", null, null, "c2"),
-        turnFixture(2, "2026-10-14T10:02:00.000Z", null, null, "c3"),
       ],
     })
   );
-  expect(readConversations(s, since).map((c) => c.id)).toEqual(["c1", "c3"]);
+  expect(
+    readConversations(s, since).map((c) => [c.id, c.state, c.closed])
+  ).toEqual([
+    ["c1", "transcribed", true],
+    ["c2", "transcribing", false],
+  ]);
 });
 
 test("a retired conversation is not read, its successor is; removed rows go", () => {

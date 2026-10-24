@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { HOUR } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { stamp } from "../models/llm";
 import type { Moment } from "../records/moment";
@@ -54,8 +53,6 @@ const EXTRACT_PROMPT = "memory-extract.v5";
 /** Characters of unit text per call: whole moments, as many as fit. */
 const BUDGET = 40_000;
 const UNIT_MAX = 30_000;
-/** A transcribed conversation this quiet is closed: its units are final enough to read before the day is over. */
-const QUIET_MS = HOUR;
 /** Earlier facts shown with a moment: about its people, from the 14 days before it, newest 40 (and the slots of `priorFor`). */
 const PRIOR_DAYS = 14;
 const PRIOR_MAX = 40;
@@ -65,17 +62,12 @@ const BOND_MAX = 10;
 /** Facts from the moment's own units, of any age (a plan carried to its day), at most this many. */
 const MOMENT_MAX = 20;
 
-/** The ids of the transcribed conversations (`readConversations`) that have been quiet for an hour. */
-export function closedConversations(
-  conversations: LifelogConversation[],
-  now: Date
-) {
-  return new Set(
-    conversations
-      .filter((c) => Date.parse(c.endedAt) <= now.getTime() - QUIET_MS)
-      .map((c) => c.id)
-  );
-}
+/**
+ * The ids of the conversations lifelog has settled (the contract's `closed`, its own signal, never a timing rule of
+ * Life's): their units are final enough to read before the day is over.
+ */
+export const closedConversations = (conversations: LifelogConversation[]) =>
+  new Set(conversations.filter((c) => c.closed).map((c) => c.id));
 
 const size = (s: Source) => s.lines.reduce((n, l) => n + l.text.length, 0);
 
@@ -349,7 +341,7 @@ export async function extract(evidence: Evidence) {
   // A source that could not be read counts as a failure: the night must not commit a partial day.
   step.stats.failed += failed.length;
   // Today is not over: its chats are still growing, so they wait for tomorrow; only closed lifelog conversations go now.
-  const closed = closedConversations(conversations, now);
+  const closed = closedConversations(conversations);
   const verdicts = await readVerdicts();
   const people = await readPeople();
   const { corrections, inferred, refOf, resolve } = people;

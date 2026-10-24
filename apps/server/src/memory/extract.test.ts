@@ -14,25 +14,22 @@ import { momentsNow } from "./ledger";
 import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import type { Built } from "./units";
 
-const conversation = (id: string, endedAt: string): LifelogConversation => ({
-  endedAt,
+const conversation = (id: string, closed: boolean): LifelogConversation => ({
+  closed,
+  endedAt: "2026-10-15T09:00:00.000Z",
   id,
   startedAt: "2026-10-15T08:00:00.000Z",
+  state: "transcribed",
   title: "t",
   turns: [],
 });
 
-test("a transcribed conversation quiet for an hour is closed", () => {
-  const now = new Date("2026-10-15T13:00:00.000Z");
-  const closed = closedConversations(
-    [
-      conversation("old", "2026-10-15T11:59:00.000Z"),
-      conversation("sharp", "2026-10-15T12:00:00.000Z"),
-      conversation("recent", "2026-10-15T12:30:00.000Z"),
-    ],
-    now
-  );
-  expect([...closed]).toEqual(["old", "sharp"]);
+test("a conversation is closed when lifelog says it settled it, however long ago it ended", () => {
+  const closed = closedConversations([
+    conversation("settled", true),
+    conversation("open", false),
+  ]);
+  expect([...closed]).toEqual(["settled"]);
 });
 
 const built = (id: string, over: Parameters<typeof unit>[0] = {}): Built => ({

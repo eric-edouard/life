@@ -28,12 +28,12 @@ import {
   isFrozen,
   LIFE_CHAT,
   lifelogNames,
+  lineOf,
   localTime,
   MARKED,
   newestDays,
   normalize,
   oneToOne,
-  PERSON,
   type Resolve,
   searchableMail,
   speakerOf,
@@ -149,9 +149,8 @@ export async function voiceText(
     if (!lines) {
       return b;
     }
-    const said = lines.map(
-      (l) =>
-        `${time(l.at)} ${l.speaker.startsWith(UNKNOWN) ? l.speaker.slice(UNKNOWN.length) : l.speaker.replace(PERSON, "")}: ${l.text}`
+    const said = lines.map((l) =>
+      lineOf(l.at, l.speaker, l.speaker.slice(UNKNOWN.length), l.text)
     );
     const text = [b.unit.title, ...said, ...(b.unit.marked ? [MARKED] : [])];
     return { ...b, text: text.join("\n") };

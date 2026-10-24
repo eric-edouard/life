@@ -14,12 +14,15 @@ import { readAssistant } from "../sources/assistants";
 import {
   apply,
   type LifelogConversation,
+  openStore,
   readConversations,
+  WATCH,
 } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   claudeExport,
   conversation as feedConversation,
+  lifelogServer,
   lifelogStore,
   noteData,
   notesFixture,
@@ -103,9 +106,11 @@ const said = (n: number, name: string | null, owner = false) => ({
 });
 
 const conversation: LifelogConversation = {
+  closed: false,
   endedAt: "2026-10-25T10:40:00.000Z",
   id: "00000000-0000-8000-8000-01a1210b4bdf",
   startedAt: "2026-10-25T10:00:00.000Z",
+  state: "transcribed",
   title: "",
   turns: [said(0, null, true), said(5, "Gaston"), said(30, "Jean (Me)")],
 };
@@ -662,7 +667,7 @@ const storedVoice = (id: string, key: string, summary?: string): Unit => ({
   title: "Shop",
 });
 
-test("a stored chapter unit stays as stored and its conversation gets no conversation-day; a placeholder is replaced; another conversation becomes conversation-days", async () => {
+test("a stored chapter unit stays as stored while its conversation is live, and gets it no conversation-day; a placeholder is replaced; another conversation becomes conversation-days; a retired one takes its chapter with it", async () => {
   expect(existsSync(UNITS)).toBe(false);
   const chapter = storedVoice("unit_00000000000c", "c1", "A summary.");
   const placeholder = storedVoice("unit_00000000000e", "c2");
@@ -689,6 +694,25 @@ test("a stored chapter unit stays as stored and its conversation gets no convers
       [unitId("lifelog", "c2", "2026-10-20"), "c2"],
     ]);
     expect((await readUnits())[0]).toEqual(chapter);
+    // lifelog retires c1 into c3: c1's chapter goes with it, c3's days come.
+    apply(
+      store,
+      pageFixture({
+        conversations: [
+          feedConversation("c1", { retired: { successorId: "c3" } }),
+          feedConversation("c3"),
+        ],
+        turns: [turnFixture(0, at, null, null, "c3")],
+      })
+    );
+    expect(await syncLifelogUnits(store)).toMatchObject({
+      added: 1,
+      removed: 1,
+    });
+    expect((await readUnits()).map((u) => u.id)).toEqual([
+      unitId("lifelog", "c2", "2026-10-20"),
+      unitId("lifelog", "c3", "2026-10-20"),
+    ]);
   } finally {
     rmSync(UNITS, { force: true, recursive: true });
   }
@@ -785,8 +809,13 @@ test("a sweep reads a stored chapter unit as stored, a marked one still saying s
     ...storedVoice("unit_00000000000d", "conv-1", "A summary."),
     marked: ["job-1:0@x"],
   };
+  // lifelog set up, its store holding conv-1 live (no words: no conversation-day either way).
+  const server = lifelogServer({});
+  const store = openStore();
+  apply(store, pageFixture({ conversations: [feedConversation("conv-1")] }));
+  store.db.close();
   try {
-    setSettings({ sources: [] });
+    setSettings({ sources: ["lifelog"] });
     await writeUnits([marked.date], [marked]);
     const e = await gather(
       { from: "2026-10-20", to: "2026-10-21" },
@@ -796,8 +825,10 @@ test("a sweep reads a stored chapter unit as stored, a marked one still saying s
       [marked.id, `Shop\nA summary.\n${MARKED}`],
     ]);
   } finally {
+    server.close();
     setSettings({ sources: before });
     rmSync(UNITS, { force: true, recursive: true });
+    rmSync(WATCH, { force: true, recursive: true });
   }
 });
 
