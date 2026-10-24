@@ -11,7 +11,8 @@ import { sourceFile } from "./contract";
 const MAIL = join(HOME, "Library", "Mail");
 const ACCOUNTS_DB = join(HOME, "Library", "Accounts", "Accounts4.sqlite");
 const SNIPPET = 1500;
-const SENT = /sent|envoy/i;
+// A word starting with it: "Sent Mail", "Messages envoyés", never "Consent" or "Presentations".
+const SENT = /\b(?:sent|envoy)/i;
 // Drafts were never sent: read as mail, an unsent draft would pass for something he wrote to someone.
 const SKIP =
   /junk|spam|trash|corbeille|deleted|supprim|indesirable|draft|brouillon/i;
@@ -73,6 +74,8 @@ function parseMailboxUrl(url: string) {
 const plain = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "");
 const mailboxName = (url: string) =>
   plain(parseMailboxUrl(url)?.path.at(-1) ?? "");
+/** A mailbox of sent mail, by its name. */
+export const isSentBox = (name: string) => SENT.test(name);
 
 interface MailAccount {
   addresses: string[];
@@ -107,7 +110,7 @@ export function mailAccounts(
       }
       const addresses = accounts.get(account) ?? new Set<string>();
       accounts.set(account, addresses);
-      if (SENT.test(mailboxName(url))) {
+      if (isSentBox(mailboxName(url))) {
         for (const { address } of senders.all(id)) {
           addresses.add(address);
         }
