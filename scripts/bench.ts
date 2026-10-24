@@ -184,10 +184,10 @@ async function bench(models: string[], runs: number) {
         const code = join(tmp, p.label, "code");
         const data = join(tmp, p.label, "data");
         worktrees.push(code);
-        await checkout(code, ["watch", "settings.json"]);
-        cpSync(base, data, { recursive: true });
         const started = performance.now();
         try {
+          await checkout(code, ["watch", "settings.json"]);
+          cpSync(base, data, { recursive: true });
           const read = await run(code, data, p.llm, [
             "scripts/bench.ts",
             "--read-week",

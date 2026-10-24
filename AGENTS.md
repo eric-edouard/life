@@ -170,6 +170,8 @@ on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events'
 
 - Every worktree reads and writes the same live data and lock. Point `LIFE_OWNER_DATA_DIR` at a copy to experiment; copy
   `derived/settings.json` into a worktree before model runs. `bun test` uses its own made-up copy.
+- A worktree installs its own dependencies (`bun install --ignore-scripts`); never link another checkout's
+  `node_modules`: its workspace links resolve back into that checkout, so the worktree would run that checkout's code.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
