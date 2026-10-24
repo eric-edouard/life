@@ -197,8 +197,8 @@ owner's OK.
 
 - A branch and a PR per change, small commits. Prefer deleting code to adding it; one way to do each thing; docs stay
   short and written for humans.
-- Every PR passes a debt review before merge (the `debt-review` skill where available): architecture first, did it add
-  or reduce debt?
+- Every PR passes the golden rule (the `golden-rule` skills where available): a plan checked before code, and
+  `golden-rule-verdict` before merge: did it add or reduce debt?
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
 - A PR that changes `prompts/`, `docs/agent.md` or the owner's `playbook.md` says which cases of those stages it
