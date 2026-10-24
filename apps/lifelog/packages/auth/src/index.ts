@@ -5,7 +5,7 @@
 import { oauthProvider } from "@better-auth/oauth-provider";
 import type { Db } from "@lifelog/db";
 import { authSchema } from "@lifelog/db/schema/auth";
-import { type BetterAuthPlugin, betterAuth } from "better-auth";
+import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { jwt } from "better-auth/plugins";
 
@@ -53,7 +53,6 @@ function createAuth(baseUrl: string, db: Db, secret: string, lifeUrl: string) {
     emailAndPassword: { disableSignUp: true, enabled: true },
     plugins: [
       jwt(),
-      // Cast: Better Auth's own plugin types don't satisfy exactOptionalPropertyTypes.
       oauthProvider({
         // ChatGPT and Claude register themselves (RFC 7591). Registration alone grants
         // nothing: every token still needs the owner's sign-in and consent, and a trusted callback.
@@ -75,7 +74,7 @@ function createAuth(baseUrl: string, db: Db, secret: string, lifeUrl: string) {
         scopes: ["offline_access", LIFE_SCOPE],
         validateRedirectUri: (uri, _registered, matched) =>
           matched && (trusted.has(uri) || LOOPBACK.test(uri)),
-      }) as unknown as BetterAuthPlugin,
+      }),
     ],
     secret,
   });

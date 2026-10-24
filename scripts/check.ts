@@ -102,7 +102,7 @@ const macSteps: Record<string, string[]> = {
   xcodebuild: [
     "sh",
     "-c",
-    `cd ${ios} && xcodegen generate --quiet && xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -destination 'generic/platform=iOS Simulator' -derivedDataPath ${process.cwd()}/.build/DerivedData -quiet build CODE_SIGNING_ALLOWED=NO`,
+    `cd '${ios}' && xcodegen generate --quiet && xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -destination 'generic/platform=iOS Simulator' -derivedDataPath '${process.cwd()}/.build/DerivedData' -quiet build CODE_SIGNING_ALLOWED=NO`,
   ],
 };
 // The phone's and the helper's Swift, and what they read from the server (its wire fixtures and openapi.json).
