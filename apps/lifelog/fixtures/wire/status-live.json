@@ -73,7 +73,7 @@
   },
   "pipeline": {
     "ai": {
-      "blockedBy": "aiOff",
+      "blockedBy": null,
       "lastSummaryAt": "2026-10-14T10:02:50.000Z",
       "running": [
         {
@@ -82,7 +82,7 @@
           "title": "The plumber"
         }
       ],
-      "waiting": 1
+      "waiting": 0
     },
     "transcription": {
       "atProvider": {

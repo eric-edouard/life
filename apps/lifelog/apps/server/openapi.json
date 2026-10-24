@@ -581,7 +581,7 @@
             "properties": {
               "blockedBy": {
                 "type": ["string", "null"],
-                "enum": ["aiOff", "macAway", null]
+                "enum": ["macAway", null]
               },
               "lastSummaryAt": {
                 "type": ["string", "null"],
@@ -2087,7 +2087,6 @@
                   "macAway",
                   "creditsOut",
                   "transcriptionOff",
-                  "aiOff",
                   "phoneQuiet"
                 ]
               },

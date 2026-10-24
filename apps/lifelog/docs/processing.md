@@ -149,11 +149,12 @@ bun run switches transcription off    # transcription | ai | all, on | off
 - **Transcription** covers audio to ElevenLabs and voices to `apps/identity`. Off, blocks still go up and wait on the
   server (`waiting.reason` `transcriptionOff`). Jobs already with ElevenLabs still finish and come back.
 - **AI** covers summaries, titles and chapters on the Mac, and is off by default: Life reads the words, not the
-  summaries. Off, no summary is made or waited for. Search's embeddings follow the OpenAI key alone.
+  summaries. Off, no summary is made or waited for: nothing is due, and turned back on, the next drain looks at every
+  conversation once. Search's embeddings follow the OpenAI key alone.
 
 The server keeps both in one row (`processing_switches`) and checks them before every call. The phone reads them in
 the feed and sets them through the outbox (`PUT /switches`), like any edit. Turned back on, what waited goes on by
-itself. The Pendant screen shows a card while one is off, and no screen offers a summary while AI is.
+itself. The Pendant screen shows a card while transcription is off, and no screen offers a summary while AI is.
 
 The same row holds `openAppAfterMinutes`, the delay of the "Open lifelog" alert (Settings, Alerts; 0 is off). It is not
 a switch, but it is set the same way.
@@ -257,7 +258,7 @@ call is waiting, not failed, when the Mac is away. Owner titles are never sent, 
 the server, of talk, is **due** when its words differ from what its last finished roll read (`conversations.turns_fp`:
 its turn keys, and whether it was open), or when its latest run waits. However late its words came (held audio,
 credits out, the phone offline), it is summarized once they are there, and it shows `macAway` while the Mac is gone.
-Due conversations roll after each grouping, when the Mac wakes, and every 5 minutes while it is there, three at a
+With summaries on, due conversations roll after each grouping, when the Mac wakes, and every 5 minutes while it is there, three at a
 time, newest first. A drain looks only at the conversations the change log touched since the last one and those left
 due, never at the whole archive. At most one roll per conversation runs; a request during a roll makes one more after
 it.

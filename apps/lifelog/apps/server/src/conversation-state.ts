@@ -90,15 +90,12 @@ const audioWait = (f: Facts, w: World): Reason | null => {
 };
 
 // Why summaries wait now, whichever conversation (`GET /status` `pipeline.ai.blockedBy` says it too).
-export const summaryWaits = ["aiOff", "macAway"] as const;
+// Off (the default), none is coming, so none waits.
+export const summaryWaits = ["macAway"] as const;
 export const summaryWait = (
   w: Pick<World, "ai" | "macAble">
-): (typeof summaryWaits)[number] | null => {
-  if (!w.ai) {
-    return "aiOff";
-  }
-  return w.macAble ? null : "macAway";
-};
+): (typeof summaryWaits)[number] | null =>
+  w.ai && !w.macAble ? "macAway" : null;
 
 export function waitingOf(f: Facts, w: World): Reason | null {
   if (f.imported) {
@@ -113,9 +110,8 @@ export function waitingOf(f: Facts, w: World): Reason | null {
   if (f.open && f.stalled && w.recording) {
     return "phoneQuiet";
   }
-  // An open conversation always has chapters to come; a closed one while it is due. With summaries
-  // off (the default) none are coming, so nothing waits for them.
-  return w.ai && f.words && (f.open || f.due) ? summaryWait(w) : null;
+  // An open conversation always has chapters to come; a closed one while it is due.
+  return f.words && (f.open || f.due) ? summaryWait(w) : null;
 }
 
 export interface Inputs {

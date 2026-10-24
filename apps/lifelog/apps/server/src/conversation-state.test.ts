@@ -59,7 +59,7 @@ test("waiting: its audio first, then the Mac's watermark, the phone, the summary
   expect(waitingOf(quiet, world())).toBeNull();
   const due = facts({ due: true, words: true });
   // Summaries off (the default): none is coming, so none waits.
-  expect(waitingOf(due, world({ ai: false }))).toBeNull();
+  expect(waitingOf(due, world({ ai: false, macAble: false }))).toBeNull();
   expect(waitingOf(due, world({ macAble: false }))).toBe("macAway");
   expect(
     waitingOf(facts({ words: true }), world({ macAble: false }))

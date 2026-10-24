@@ -19,6 +19,7 @@ import { MacGone, type ModelCall } from "./providers";
 import { rollingChapters } from "./rolling";
 import { dueConversations, fingerprint } from "./summaries";
 import { PROMPT_VERSION } from "./summary-calls";
+import { setSwitches } from "./switches";
 import { fakeAnswer, fakeModel, stageOf, testDb } from "./testing";
 import { rebuildTurns } from "./turns";
 
@@ -32,6 +33,8 @@ afterAll(() => {
 });
 beforeEach(() => {
   env.reset();
+  // Summaries on (off by default), as these tests roll them.
+  setSwitches(env.db, { ai: true });
 });
 
 const SOURCE = "pendant-1";
@@ -248,6 +251,20 @@ test("chapters are summarized while the conversation goes on, the last when it c
     ["valid", "claude-code", 0],
   ]);
   expect(chapterLatency(env.db, new Date(0)).chapters).toBe(4);
+});
+
+test("summaries off: a due conversation makes no run and nothing is due; turned on, it rolls", async () => {
+  setSwitches(env.db, { ai: false });
+  const model = fakeModel(answer());
+  const rolling = rollingChapters(env.db, { mac: model, windowChars: 100_000 });
+  block(0, 10, 1000);
+  await rolling.drain();
+  expect(env.db.select().from(intelligenceRuns).all()).toEqual([]);
+  expect(rolling.due()).toEqual([]);
+  setSwitches(env.db, { ai: true });
+  await rolling.drain();
+  const runs = env.db.select().from(intelligenceRuns).all();
+  expect(runs.map((r) => r.state)).toEqual(["valid"]);
 });
 
 test("a confident new conversation becomes an AI split, grouped at once, once", async () => {
