@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { emlxPart, isSentBox, mailAccounts, mailRoot, readMail } from "./mail";
+import { emlxPart, mailAccounts, mailRoot, readMail } from "./mail";
 
 const emlx = (message: string) => {
   const bytes = Buffer.from(message.replace(/\n/g, "\r\n"), "utf8");
@@ -112,10 +112,13 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   const acct = "AAAA-1111";
   db.run(`insert into mailboxes values (1, 'imap://${acct}/INBOX'),
             (2, 'imap://${acct}/%5BGmail%5D/Sent%20Mail'), (3, 'imap://${acct}/Junk'),
-            (4, 'imap://${acct}/%5BGmail%5D/All%20Mail'), (5, 'imap://${acct}/%5BGmail%5D/Brouillons')`);
+            (4, 'imap://${acct}/%5BGmail%5D/All%20Mail'), (5, 'imap://${acct}/%5BGmail%5D/Brouillons'),
+            (6, 'imap://${acct}/Consent%20forms'), (7, 'imap://${acct}/Messages%20envoy%C3%A9s'),
+            (8, 'imap://${acct}/%C3%80%20envoyer')`);
   db.run("insert into subjects values (1, 'Devis'), (2, 'Big prize')");
   db.run(
-    "insert into addresses values (1, 'Ana@Example.com', 'Ana'), (2, 'Me@Mine.test', '')"
+    `insert into addresses values (1, 'Ana@Example.com', 'Ana'), (2, 'Me@Mine.test', ''),
+      (3, 'Me@Other.test', ''), (4, 'Bo@Example.com', 'Bo')`
   );
   db.run(
     "insert into message_global_data values (10, '<abc@example.com>'), (11, null), (14, '<files@example.com>')"
@@ -130,7 +133,10 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
             (1006, 14, 1, null, 2, ${t + 180}, 1, 0, 10, 0, null),
             (1007, 15, 1, null, 2, ${t + 240}, 1, 0, 11, 0, null),
             (1008, 16, 2, null, 1, ${t + 300}, 5, 0, 12, 0, null),
-            (1009, 16, 2, null, 1, ${t + 300}, 4, 0, 12, 0, null)`);
+            (1009, 16, 2, null, 1, ${t + 300}, 4, 0, 12, 0, null),
+            (6, 17, 1, null, 1, ${t - 864_000}, 6, 0, 13, 0, null),
+            (7, 18, 3, null, 1, ${t - 864_000}, 7, 0, 14, 0, null),
+            (8, 19, 4, null, 1, ${t - 864_000}, 8, 0, 15, 0, null)`);
   db.run("insert into labels values (1003, 2)");
   db.close();
   const dir = join(root, acct, "INBOX.mbox", "STORE", "Data", "1", "Messages");
@@ -143,8 +149,9 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   writeFileSync(join(saved, "vue été.jpg"), "bytes");
 
   expect(mailRoot(base)).toBe(root);
+  // A sent box by a whole word of its name, accented or not: "Consent forms" and "À envoyer" are not.
   expect(mailAccounts(root, join(base, "none.sqlite"))).toEqual([
-    { addresses: ["me@mine.test"], id: acct, name: acct },
+    { addresses: ["me@mine.test", "me@other.test"], id: acct, name: acct },
   ]);
   const events = readMail(
     new Date("2026-10-08T00:00:00Z"),
@@ -233,12 +240,4 @@ test("readMail reads every account, dedupes, skips junk and drafts, and knows th
   ).toBe(
     "Big prize\nBonjour, voici le devis pour la cuisine. Ca coûte 1 200 €, livré lundi."
   );
-});
-
-test("a sent box is one by a word of its name: Consent and Presentations are not", () => {
-  expect(
-    ["Sent Mail", "Messages envoyes", "Consent forms", "Presentations"].map(
-      isSentBox
-    )
-  ).toEqual([true, true, false, false]);
 });
