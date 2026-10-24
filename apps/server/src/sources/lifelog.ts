@@ -94,8 +94,6 @@ export interface LifelogConversation {
   endedAt: string;
   id: string;
   startedAt: string;
-  /** Where lifelog stands with it (`transcribed`, `summarized`, …), as the feed last sent it. */
-  state: string;
   title: string;
   turns: (LifelogTurn & { marks: string[] })[];
 }
@@ -447,7 +445,6 @@ export function readConversations(
         end_at: string;
         id: string;
         start_at: string;
-        state: string;
         title: string;
       },
       [string]
@@ -470,7 +467,6 @@ export function readConversations(
               endedAt: c.end_at,
               id: c.id,
               startedAt: c.start_at,
-              state: c.state,
               title: c.title,
               turns: said,
             },

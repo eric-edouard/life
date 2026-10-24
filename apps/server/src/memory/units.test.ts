@@ -110,7 +110,6 @@ const conversation: LifelogConversation = {
   endedAt: "2026-10-25T10:40:00.000Z",
   id: "00000000-0000-8000-8000-01a1210b4bdf",
   startedAt: "2026-10-25T10:00:00.000Z",
-  state: "transcribed",
   title: "",
   turns: [said(0, null, true), said(5, "Gaston"), said(30, "Jean (Me)")],
 };

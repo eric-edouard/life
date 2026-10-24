@@ -19,7 +19,6 @@ const conversation = (id: string, closed: boolean): LifelogConversation => ({
   endedAt: "2026-10-15T09:00:00.000Z",
   id,
   startedAt: "2026-10-15T08:00:00.000Z",
-  state: "transcribed",
   title: "t",
   turns: [],
 });

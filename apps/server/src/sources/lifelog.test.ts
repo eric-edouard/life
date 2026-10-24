@@ -128,11 +128,10 @@ test("a conversation with words is read whatever its state, with its state and l
       ],
     })
   );
-  expect(
-    readConversations(s, since).map((c) => [c.id, c.state, c.closed])
-  ).toEqual([
-    ["c1", "transcribed", true],
-    ["c2", "transcribing", false],
+  expect(readConversations(s, since).map((c) => [c.id, c.closed])).toEqual([
+    ["c1", true],
+    // Still transcribing: read all the same, its units stay while late audio reopens it.
+    ["c2", false],
   ]);
 });
 
