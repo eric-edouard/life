@@ -108,9 +108,30 @@ test(
   "an output's card says off when its switch is off, on when it is on",
   async () => {
     const cards = new Map((await snapshot()).cards.map((c) => [c.id, c]));
-    // The made-up settings set a connector and no Past calendar.
+    // The made-up settings set a connector, an agent with no subscription, and no Past calendar.
     expect(cards.get("past")?.word).toBe("off");
     expect(cards.get("connector")?.word).toBe("serving");
+    expect(cards.get("asks")?.tone).toBe("bad");
+  },
+  MIN
+);
+
+test(
+  "a fresh install with no agent: its card is off, not broken, so the verdict isn't red for it",
+  async () => {
+    const { setSettings, settings } = await import("../../core/settings");
+    const { agent } = settings();
+    setSettings({ agent: null });
+    try {
+      const card = (await snapshot()).cards.find((c) => c.id === "asks");
+      expect(card).toMatchObject({
+        headline: "no agent set up",
+        tone: "idle",
+        word: "off",
+      });
+    } finally {
+      setSettings({ agent });
+    }
   },
   MIN
 );

@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MIN } from "../core/clock";
+import { DAY, MIN } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
@@ -264,6 +264,16 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
     await chase(tasks, T0 + 52 * MIN, false);
     await chase(tasks, T0 + 53 * MIN, false);
     expect(subjects.slice(2)).toEqual(["Life · Orbit isn't receiving asks"]);
+    // No agent set up: no lapse to report, the next day either.
+    const { setSettings, settings } = await import("../core/settings");
+    const { agent } = settings();
+    setSettings({ agent: null });
+    try {
+      await chase(tasks, T0 + DAY + 52 * MIN, false);
+    } finally {
+      setSettings({ agent });
+    }
+    expect(subjects).toHaveLength(3);
   } finally {
     post.mockRestore();
     process.env = env;

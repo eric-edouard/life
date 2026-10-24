@@ -4,6 +4,8 @@ import { settings } from "./settings";
 // switch, read from settings here. Off, an output does nothing and says so (`off`); its own module does the work and
 // reads the rest of its settings.
 export const OUTPUTS = {
+  /** His agent, handed his asks as ledger events (`host/events.ts`): off, nothing is meant to receive them. */
+  agent: { label: "Agent", on: () => Boolean(settings().agent) },
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
   /** The connector, its OAuth issuer and the pages behind sign-in (`server.ts`). */
