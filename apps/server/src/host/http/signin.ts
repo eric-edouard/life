@@ -4,7 +4,7 @@ import { same, secretIn } from "../../core/secret";
 import { connector } from "../../core/settings";
 import { SCOPE, type Verify } from "./auth";
 import { cookie, cookieOf, redirect, SESSION, text } from "./http";
-import { PAGES_CLIENT } from "./oauth";
+import { type createIssuer, PAGES_CLIENT } from "./oauth";
 
 // The owner's sign-in for /check/: Life's own issuer (`oauth.ts`) with PKCE, the
 // token in an HttpOnly cookie for the whole site, checked on every request by `ownerTokens` like /mcp's Bearer token.
@@ -26,15 +26,11 @@ const sessionCookies = (t: z.infer<typeof Tokens>) => [
   ...(t.refresh_token ? [cookie(REFRESH, t.refresh_token, REFRESH_MAX_S)] : []),
 ];
 
-/** The issuer the pages sign in at: its address, and its routes, which answer the token exchange in this process. */
-export interface Issuer {
-  app: {
-    request: (url: string, init: RequestInit) => Response | Promise<Response>;
-  };
-  issuer: string;
-}
-
-export function createSignIn(verify: Verify, { app, issuer }: Issuer) {
+/** The issuer's address and its routes, which answer the pages' token exchange in this process. */
+export function createSignIn(
+  verify: Verify,
+  { app, issuer }: Pick<ReturnType<typeof createIssuer>, "app" | "issuer">
+) {
   const { origin, resource } = connector();
   const client = PAGES_CLIENT;
   const CALLBACK = `${origin}/check/callback`;

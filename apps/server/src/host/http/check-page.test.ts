@@ -1,6 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { Hono } from "hono";
 import {
   createLocalJWKSet,
   exportJWK,
@@ -47,16 +48,14 @@ const token = (sub = "owner") =>
 /** The issuer's token endpoint: Life's own client and a good code with its verifier get `issued`'s token. */
 let issued = "owner";
 const issuer = {
-  app: {
-    request: async (_url: string, init: RequestInit) => {
-      const form = new URLSearchParams(String(init.body));
-      return form.get("code") === "good" &&
-        form.get("code_verifier") &&
-        form.get("client_id") === PAGES_CLIENT
-        ? Response.json({ access_token: await token(issued), expires_in: 3600 })
-        : new Response("bad", { status: 400 });
-    },
-  },
+  app: new Hono().post("/auth/oauth2/token", async (c) => {
+    const form = new URLSearchParams(await c.req.text());
+    return form.get("code") === "good" &&
+      form.get("code_verifier") &&
+      form.get("client_id") === PAGES_CLIENT
+      ? Response.json({ access_token: await token(issued), expires_in: 3600 })
+      : new Response("bad", { status: 400 });
+  }),
   issuer: ISSUER,
 };
 const check = createCheck(createSignIn(verify, issuer));

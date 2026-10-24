@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Hono } from "hono";
 import { connector } from "../../core/settings";
 import type { Verify } from "./auth";
 import { createSignIn } from "./signin";
@@ -11,8 +12,10 @@ const verify = (async (token: string) =>
     : { refusal: "invalid" as const, why: "expired" }) as Verify;
 
 /** Life's issuer in this process, its token endpoint answering with `answer`. */
-const issuerAnswering = (answer: (init: RequestInit) => Response) => ({
-  app: { request: (_url: string, init: RequestInit) => answer(init) },
+const issuerAnswering = (answer: (body: string) => Response) => ({
+  app: new Hono().post("/auth/oauth2/token", async (c) =>
+    answer(await c.req.text())
+  ),
   issuer: `${origin}/auth`,
 });
 
@@ -26,8 +29,8 @@ const post = (cookie: string) =>
 test("a session that ran out is renewed with its refresh token: the same request again, with the new cookies", async () => {
   const signIn = createSignIn(
     verify,
-    issuerAnswering((init) =>
-      new URLSearchParams(String(init.body)).get("refresh_token") === "r1"
+    issuerAnswering((body) =>
+      new URLSearchParams(body).get("refresh_token") === "r1"
         ? Response.json({
             access_token: "fresh",
             expires_in: 3600,
