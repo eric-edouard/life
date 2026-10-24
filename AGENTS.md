@@ -68,12 +68,14 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   pass (`inbound`, `closings`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (next).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
-  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts`), with the owner's OK on the list of
-  renames: the app runs it at its next start, under the lock (a checkout only on a copy, `mayMigrate`); it rewrites the stored lines in place (same count, same
+  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts`, written fresh: the last
+  one, `stored-names-2026-10-22`, is in git history), with the owner's OK on the list of renames: the app runs it at its
+  next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
   writes it) and the archive are never migrated. A renamed value the models return changes a prompt's words, not its
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
+  A new recipe for new units only, every stored id kept, is not a rename.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
   correction, a rating) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
