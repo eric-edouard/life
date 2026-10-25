@@ -24,7 +24,7 @@ public actor Uploader {
     public struct Configuration: Sendable {
         /// Spans per timeline request.
         public var spansPerRequest = 200
-        /// A failed fragment waits this long, doubled on each failure up to an hour.
+        /// A failed fragment waits this long before the next run may retry it.
         public var retryMillis: Int64 = 30_000
         /// Fragment renders start no new one past this much time in a run, so the edits and the feed never wait long
         /// behind a backlog.
@@ -310,11 +310,10 @@ public actor Uploader {
     /// Tries of one fragment the server refuses for itself before it is skipped.
     static let attemptsBeforeSkip = 3
 
-    /// The next fragment waits 30 s, doubling on each failure at the same cursor up to an hour.
+    /// A failed fragment waits the same interval each time, so a recovered connection can drain its backlog promptly.
     private func fail(_ fragment: SpeechFragment, cursor: UInt64, status: Int?, _ message: String) {
         let attempts = failure?.cursor == cursor ? (failure?.attempts ?? 0) + 1 : 1
-        let wait = min(configuration.retryMillis << min(attempts - 1, 20), 3_600_000)
-        failure = (message, attempts, .now + .milliseconds(wait), cursor)
+        failure = (message, attempts, .now + .milliseconds(configuration.retryMillis), cursor)
         event(
             "upload.failed",
             [

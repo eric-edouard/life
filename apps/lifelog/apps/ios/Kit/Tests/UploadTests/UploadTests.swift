@@ -566,7 +566,7 @@ private func lose(_ fixture: ScannerFixture, where isLost: (UInt64) -> Bool) thr
     #expect(RebuildServer.requests(host, "GET", "/sources/pendant-1/blocks").count == 2, "read again once")
 }
 
-@Test(arguments: [503, 413]) func aFragmentTheServerCantTakeWaitsAndSaysWhy(status: Int) async throws {
+@Test(arguments: [408, 530, 503, 413]) func aFragmentTheServerCantTakeWaitsAndSaysWhy(status: Int) async throws {
     let host = "failing-\(UUID().uuidString).test"
     let fixture = try ScannerFixture()
     try await fixture.store(0..<60)
@@ -580,6 +580,33 @@ private func lose(_ fixture: ScannerFixture, where isLost: (UInt64) -> Bool) thr
     #expect(state.unsent == .seconds(60))
     let timeline = try json(try #require(RebuildServer.requests(host, "PUT", "/sources/pendant-1/timeline").last).body)
     #expect(try seconds(timeline["sentThrough"]) == 0, "the server waits for it")
+}
+
+@Test(arguments: [408, 530, 503]) func repeatedOutagesNeverLengthenTheRetryWaitOrSkipSpeech(status: Int) async throws {
+    let host = "recovery-\(UUID().uuidString).test"
+    let fixture = try ScannerFixture()
+    try await fixture.store(0..<60)
+    let path = "/sources/pendant-1/speech/0"
+    RebuildServer.hosts.withLock { $0[host, default: .init()].failures[path] = Array(repeating: status, count: 4) }
+    var configuration = Uploader.Configuration()
+    configuration.retryMillis = 100
+    let failedAt = Mutex(ContinuousClock.now)
+    let uploader = try makeUploader(fixture, host: host, configuration: configuration) { name, _ in
+        if name == "upload.failed" { failedAt.withLock { $0 = .now } }
+    }
+    for attempt in 1...4 {
+        try await uploader.run(savedThrough: at(400).date)
+        let failure = try #require(await uploader.failure)
+        #expect(failure.retryAt <= failedAt.withLock { $0 } + .milliseconds(configuration.retryMillis))
+        #expect(try await uploader.state()?.nextPage == 0, "an outage never skips the audio")
+        #expect(RebuildServer.requests(host, "PUT", path).count == attempt)
+        try await Task.sleep(until: failure.retryAt + .milliseconds(1), clock: .continuous)
+    }
+    try await uploader.run(savedThrough: at(400).date)
+    #expect(RebuildServer.requests(host, "PUT", path).count == 5, "the same fragment recovers on the next eligible run")
+    #expect(try await uploader.state()?.nextPage == 60)
+    #expect(try await uploader.status()?.lastError == nil)
+    #expect(try await uploader.status()?.unsent == .zero)
 }
 
 /// A refusal of the fragment itself is skipped after three tries, so the speech after it goes; an outage or a refused
