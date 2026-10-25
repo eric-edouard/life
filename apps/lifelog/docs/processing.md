@@ -43,7 +43,7 @@ when the network returns. A run cut short loses nothing: the next resumes. Captu
    drain, a held page repaired) and for a fragment the feed says the server withdrew (the feed's row carries its
    first page). A page goes in one fragment: a 409 `held` reads the server's pages and renders again without
    them, and the same pages and audio sent again answer the same fragment, so a crash before the cursor is saved buys
-   nothing twice. Any 2xx moves the cursor. Another refusal, or an outage, waits 30 s, doubling to an hour, and the
+   nothing twice. Any 2xx moves the cursor. Another refusal, or an outage, waits 30 s before each retry, and the
    status sheet says why (`upload.failed`). A fragment the server refuses for itself (a 4xx but 408, 429 or `held`),
    or that can't be rendered, is skipped after three tries (`upload.skipped`, its pages), so the speech after it goes;
    a 5xx never is. Offline stops the run. No render starts after a minute in a run, so the edits and the feed never
