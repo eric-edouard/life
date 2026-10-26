@@ -76,6 +76,35 @@ import Upload
         #expect(machine.handle(.disconnected(id, .cancelled)) == [.connect(id)])
     }
 
+    @Test func aSecondLinkUpKeepsAReadyConnectionReady() {
+        // 25 Oct: a relaunch connected twice; the second link-up left the session running under "not ready yet".
+        let id = UUID()
+        var machine = ConnectionMachine()
+        _ = machine.handle(.availability(.poweredOn))
+        _ = machine.handle(.start(knownDevice: id))
+        _ = machine.handle(.linkUp(id))
+        _ = machine.handle(.ready(id))
+        #expect(machine.handle(.linkUp(id)) == [])
+        #expect(machine.state == .ready(id))
+    }
+
+    @Test func aLinkNeverReadyIsDroppedAndReconnected() async throws {
+        let harness = Harness(.observe, stallTimeout: .seconds(300))
+        await harness.fake.record(pages: 10)
+        await harness.fake.setWithholdsReady(true)
+        await harness.run {
+            #expect(await eventually { await harness.fake.connectionCount == 1 })
+            await harness.fake.setWithholdsReady(false)
+            // Time moves on until the watchdog, which may not be waiting yet, has dropped the link.
+            #expect(
+                await eventually {
+                    await harness.advanceClock(by: .seconds(301))
+                    return await harness.fake.connectionCount > 1
+                })
+            #expect(await eventually { await harness.sink.pages.count == 10 })
+        }
+    }
+
     @Test func aPendantThatSpeaksEveryFewMinutesNeverStalls() async throws {
         let harness = Harness(.observe, stallTimeout: .seconds(300))
         await harness.fake.record(pages: 10)

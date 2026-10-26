@@ -37,7 +37,8 @@ public enum ConnectionEvent: Sendable, Equatable {
     case pairingRequired(UUID)
     /// The handshake status query got no reply at all.
     case unresponsive(UUID)
-    /// The app stopped handling the Pendant's messages on a live link (`DrainCoordinator.watchStall`).
+    /// The app stopped handling the Pendant's messages on a live link (`DrainCoordinator.watchStall`), or the link
+    /// never got ready (`watchDiscovery`).
     case stalled(UUID)
     /// A drain settled on a pendant that must not stay connected.
     case release(UUID)
@@ -98,7 +99,8 @@ public struct ConnectionMachine: Sendable {
             if state == .idle { state = .connecting(id) }
             return []
         case .linkUp(let id):
-            guard id == device else { return [] }
+            // Once ready, the link is up: a second one must not leave its session running under "not ready" (25 Oct).
+            guard id == device, state != .ready(id) else { return [] }
             state = .discovering(id)
             return []
         case .ready(let id):
@@ -117,7 +119,7 @@ public struct ConnectionMachine: Sendable {
             state = .busyElsewhere(id)
             return ended + [.disconnect]
         case .stalled(let id):
-            guard id == device, case .ready = state else { return [] }
+            guard id == device, state == .ready(id) || state == .discovering(id) else { return [] }
             let ended = endSession()
             state = .connecting(id)
             // The disconnect it causes reconnects (`.disconnected`).

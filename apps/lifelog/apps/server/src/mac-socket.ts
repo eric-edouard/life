@@ -426,6 +426,9 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       }
       if (applied) {
         told(fact, applied.ranges);
+        // Only an event applied now is news: one sent again (its ack lost) can come after the
+        // hello that woke the Mac, and its sleep must not put it back to sleep (26 Oct).
+        ws.data.asleep ||= fact.kind === "sleep";
       }
     } catch (error: unknown) {
       record(db, "mac.event_failed", {
@@ -434,7 +437,6 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       });
       return refuse(ws, "event not stored", 1011);
     }
-    ws.data.asleep ||= fact.kind === "sleep";
     ws.data.heardAt = new Date(Math.max(at, ws.data.heardAt.getTime()));
     ws.send(JSON.stringify({ seq: data.seq, type: "ack" }));
     schedule();

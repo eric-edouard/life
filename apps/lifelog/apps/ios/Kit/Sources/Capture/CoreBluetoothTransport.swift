@@ -42,8 +42,6 @@ public actor CoreBluetoothTransport: PendantTransport {
     private var batteryCharacteristic: CBCharacteristic?
     private var notifying = false
     private var reportedReady = false
-    private var wantsScan = false
-    private var wantedPeripheral: UUID?
     private var writes:
         [(data: Data, target: WriteTarget, done: CheckedContinuation<Result<Void, TransportError>, Never>)] = []
     private var writeInFlight = false
@@ -76,20 +74,18 @@ public actor CoreBluetoothTransport: PendantTransport {
     public func start() {}
 
     public func scan() {
-        wantsScan = true
         guard central.state == .poweredOn else { return }
         // Background scans must name a service; foreground ones do too, to save power. An Omi advertises its audio service.
         central.scanForPeripherals(withServices: [serviceUUID, omiAudioUUID])
     }
 
     public func stopScan() {
-        wantsScan = false
         central.stopScan()
     }
 
     public func connect(_ id: UUID) {
-        wantedPeripheral = id
-        guard central.state == .poweredOn else { return }  // resumed on .poweredOn
+        // The connection machine asks again once Bluetooth is on (`ConnectionMachine.resume`).
+        guard central.state == .poweredOn else { return }
         guard
             let target = peripheral?.identifier == id
                 ? peripheral : discovered[id] ?? central.retrievePeripherals(withIdentifiers: [id]).first
@@ -108,7 +104,6 @@ public actor CoreBluetoothTransport: PendantTransport {
     }
 
     public func disconnect() {
-        wantedPeripheral = nil
         if let peripheral { central.cancelPeripheralConnection(peripheral) }
     }
 
@@ -138,16 +133,14 @@ public actor CoreBluetoothTransport: PendantTransport {
             default: .unknown
             }
         if availability != .poweredOn { resetLink(failingWritesWith: .notReady) }
+        // Only the connection machine scans or connects again, on this event: reconnecting here as well set the link
+        // up twice on a relaunch (25 Oct).
         continuation.yield(.availability(availability))
-        guard availability == .poweredOn else { return }
-        if wantsScan { scan() }
-        if let wantedPeripheral { connect(wantedPeripheral) }
     }
 
     fileprivate func willRestore(_ match: CBPeripheral) {
         peripheral = match
         match.delegate = delegate
-        wantedPeripheral = match.identifier
         continuation.yield(.restored(match.identifier))
     }
 
