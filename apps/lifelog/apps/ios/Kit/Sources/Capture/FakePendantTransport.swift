@@ -64,7 +64,6 @@
         // Behaviours.
         private var busyWithOtherClient = false
         private var needsPairing = false
-        private var withholdsReady = false
         private var ignoresRecordingCommands = false
         private var answersDeviceInfo = true
         private var hangsWrites = false
@@ -184,8 +183,6 @@
         public func dropLink(afterSendingPages count: Int?) { dropLinkAfterPages = count }
         public func setBusyWithOtherClient(_ busy: Bool) { busyWithOtherClient = busy }
         public func setNeedsPairing(_ needs: Bool) { needsPairing = needs }
-        /// The link comes up but never reports ready, as on 25 Oct.
-        public func setWithholdsReady(_ withholds: Bool) { withholdsReady = withholds }
         public func setIgnoresRecordingCommands(_ ignores: Bool) { ignoresRecordingCommands = ignores }
         public func setAnswersDeviceInfo(_ answers: Bool) { answersDeviceInfo = answers }
         /// Writes never complete until the link drops, like a write-with-response whose callback never comes.
@@ -207,8 +204,14 @@
 
         public func setBluetooth(_ new: BluetoothAvailability) {
             availability = new
-            if new != .poweredOn, connected { linkLost("Bluetooth turned off") }
+            // As CoreBluetooth: the state change comes first, and turning off ends every scan and pending connect,
+            // so only the connection machine brings them back.
             continuation.yield(.availability(new))
+            if new != .poweredOn {
+                if connected { linkLost("Bluetooth turned off") }
+                pendingConnect = false
+                isScanning = false
+            }
             reachIfPossible()
         }
 
@@ -481,7 +484,6 @@
             continuation.yield(.linkUp(id))
             // Service discovery reads the standard battery level (0x2A19), as `CoreBluetoothTransport` does.
             readBattery()
-            guard !withholdsReady else { return }
             continuation.yield(needsPairing ? .pairingRequired(id) : .ready(id, .limitless))
         }
 

@@ -170,8 +170,6 @@ interface Pending extends Queued {
 }
 
 interface Session {
-  // Said "sleep": closing.
-  asleep: boolean;
   // The engines its hello listed; null until it said hello.
   engines: MacEngine[] | null;
   // An event failed: the socket is closing, and nothing more on it counts.
@@ -211,9 +209,11 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     const hold = unable.get(engine);
     return hold && hold.until > Date.now() ? hold.reason : null;
   };
-  // Said hello, awake, and not held back by an auth or limit failure.
+  // Said hello, awake as the stored rules say (a hello wakes it, only an applied sleep puts it to
+  // sleep: a sleep sent again never does), and not held back by an auth or limit failure.
   const able = (engine: MacEngine = switches().engine) =>
-    Boolean(current?.data.engines?.includes(engine) && !current.data.asleep) &&
+    Boolean(current?.data.engines?.includes(engine)) &&
+    !macRow(db)?.state.asleep &&
     unableNow(engine) === null;
   // Sends what waits while the Mac has a free slot.
   const pump = () => {
@@ -426,9 +426,6 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       }
       if (applied) {
         told(fact, applied.ranges);
-        // Only an event applied now is news: one sent again (its ack lost) can come after the
-        // hello that woke the Mac, and its sleep must not put it back to sleep (26 Oct).
-        ws.data.asleep ||= fact.kind === "sleep";
       }
     } catch (error: unknown) {
       record(db, "mac.event_failed", {
@@ -545,7 +542,6 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       return (
         (env as Server<Session> | undefined)?.upgrade(request, {
           data: {
-            asleep: false,
             engines: null,
             failed: false,
             heardAt: new Date(),
@@ -603,7 +599,6 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
         const wasAble = able();
         current = ws;
         ws.data.engines = message.engines;
-        ws.data.asleep = false;
         ws.data.heardAt = new Date();
         // A hello means the Mac is awake: it opens a socket only then.
         logged("mac watch not stored", () =>

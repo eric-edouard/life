@@ -295,7 +295,6 @@ public actor DrainCoordinator {
         case .linkUp(let id):
             status.lastContact = now()
             await apply(connection.handle(.linkUp(id)))
-            watchDiscovery(id, connection.generation)
         case .ready(let id, let kind):
             status.deviceKind = kind
             await apply(connection.handle(.ready(id)))
@@ -460,21 +459,6 @@ public actor DrainCoordinator {
             Stall(silentSeconds: Int(silent), parkedIn: parkedIn, writesInFlight: writesInFlight), at: now())
         await apply(connection.handle(.stalled(current.peripheral)))
         return nil
-    }
-
-    /// On 25 Oct a link sat "connected, not ready yet" for 17 h: nothing leaves that state but the transport's ready.
-    /// A link not ready within the stall timeout is dropped like a stalled one, and the reconnect discovers it afresh.
-    private func watchDiscovery(_ id: UUID, _ generation: UInt64) {
-        let timeout = configuration.stallTimeout
-        Task {
-            try? await clock.sleep(for: timeout)
-            await self.discoveryTimedOut(id, generation)
-        }
-    }
-
-    private func discoveryTimedOut(_ id: UUID, _ generation: UInt64) async {
-        guard connection.state == .discovering(id), connection.generation == generation else { return }
-        await apply(connection.handle(.stalled(id)))
     }
 
     private func handshakeTimedOut(_ generation: UInt64) async {
