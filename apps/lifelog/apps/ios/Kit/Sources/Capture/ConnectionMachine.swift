@@ -98,7 +98,8 @@ public struct ConnectionMachine: Sendable {
             if state == .idle { state = .connecting(id) }
             return []
         case .linkUp(let id):
-            guard id == device else { return [] }
+            // Once ready, the link is up: a second one must not leave its session running under "not ready" (25 Oct).
+            guard id == device, state != .ready(id) else { return [] }
             state = .discovering(id)
             return []
         case .ready(let id):

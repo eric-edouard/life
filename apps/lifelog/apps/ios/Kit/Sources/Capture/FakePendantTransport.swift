@@ -204,8 +204,14 @@
 
         public func setBluetooth(_ new: BluetoothAvailability) {
             availability = new
-            if new != .poweredOn, connected { linkLost("Bluetooth turned off") }
+            // As CoreBluetooth: the state change comes first, and turning off ends every scan and pending connect,
+            // so only the connection machine brings them back.
             continuation.yield(.availability(new))
+            if new != .poweredOn {
+                if connected { linkLost("Bluetooth turned off") }
+                pendingConnect = false
+                isScanning = false
+            }
             reachIfPossible()
         }
 

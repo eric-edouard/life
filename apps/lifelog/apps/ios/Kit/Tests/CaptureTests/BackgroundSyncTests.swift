@@ -76,6 +76,18 @@ import Upload
         #expect(machine.handle(.disconnected(id, .cancelled)) == [.connect(id)])
     }
 
+    @Test func aSecondLinkUpKeepsAReadyConnectionReady() {
+        // 25 Oct: a relaunch connected twice; the second link-up left the session running under "not ready yet".
+        let id = UUID()
+        var machine = ConnectionMachine()
+        _ = machine.handle(.availability(.poweredOn))
+        _ = machine.handle(.start(knownDevice: id))
+        _ = machine.handle(.linkUp(id))
+        _ = machine.handle(.ready(id))
+        #expect(machine.handle(.linkUp(id)) == [])
+        #expect(machine.state == .ready(id))
+    }
+
     @Test func aPendantThatSpeaksEveryFewMinutesNeverStalls() async throws {
         let harness = Harness(.observe, stallTimeout: .seconds(300))
         await harness.fake.record(pages: 10)

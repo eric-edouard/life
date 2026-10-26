@@ -403,6 +403,36 @@ test("unknown messages are ignored, and the Mac going to sleep makes it unable",
   await away(ws);
 });
 
+test("a sleep sent again after the Mac woke leaves it able", async () => {
+  // 26 Oct: the ack of the sleep was lost; the helper's ping sent it again after the hello, and the
+  // Mac stayed "away" until its next socket.
+  const sleep = JSON.stringify({
+    at: new Date().toISOString(),
+    seq: 1,
+    type: "sleep",
+  });
+  const before = await fakeMac();
+  before.send(sleep);
+  await until(mac.live, (live) => live?.asleep === true);
+  await away(before);
+  const ws = await fakeMac();
+  await until(mac.able, Boolean);
+  const acked: number[] = [];
+  ws.addEventListener("message", (event) => {
+    const frame = JSON.parse(String(event.data));
+    if (frame.type === "ack") {
+      acked.push(frame.seq);
+    }
+  });
+  ws.send(sleep);
+  await until(
+    () => acked,
+    (seqs) => seqs.includes(1)
+  );
+  expect(mac.able()).toBe(true);
+  await away(ws);
+});
+
 // Last: the Mac stays unable for 10 minutes after it.
 test("an auth failure makes the Mac unable: runs wait and the feed says why", async () => {
   const ws = await fakeMac((call) => ({
