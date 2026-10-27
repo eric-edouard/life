@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { DAY } from "../../core/clock";
 import { log } from "../../core/log";
+import { systemZone } from "../../core/platform";
 import { lifeStatus } from "./life";
 
 test("the status holds the midday while the last quota reading is over the reserve; an unread one holds nothing", async () => {
@@ -37,5 +38,23 @@ test("the status reads only read: no write, log, model call, action or send", as
   // git only reads: log and show.
   for (const m of source.matchAll(/git\(\w+, \[\s*"([a-z-]+)"/g)) {
     expect(["log", "show"]).toContain(m[1] as string);
+  }
+});
+
+test("the status's time zone is the Mac's read now, never the process's own (a long-running server keeps the zone it started in)", async () => {
+  const was = process.env.TZ;
+  // The process in another zone than the Mac's, as a server started before a move is.
+  process.env.TZ =
+    systemZone() === "Pacific/Kiritimati"
+      ? "Africa/Lagos"
+      : "Pacific/Kiritimati";
+  try {
+    expect((await lifeStatus(new Date())).timeZone).toBe(systemZone());
+  } finally {
+    if (was === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = was;
+    }
   }
 });

@@ -21,7 +21,7 @@ import {
   unresolved,
 } from "../memory/search";
 import { addStatements } from "../memory/statements";
-import { DAYS, gather, lastDays } from "../memory/units";
+import { DAYS, gather, isDay, lastDays } from "../memory/units";
 import { readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
 import { firstZoneDay } from "../memory/zones";
@@ -108,14 +108,11 @@ async function json(answer: Promise<unknown>) {
 const list = (v?: string) => v?.split(",").filter(Boolean);
 const words = (rest: string[]) => rest.join(" ").trim();
 const count = (n?: string) => (n === undefined ? undefined : Number(n));
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 const HANDLERS: Record<string, Handler> = {
   area: (_values, rest) => printed(rest.length > 0 ? area(words(rest)) : null),
   backfill(v) {
-    if (
-      !(v.from && v.to && DAY.test(v.from) && DAY.test(v.to) && v.from <= v.to)
-    ) {
+    if (!(v.from && v.to && isDay(v.from) && isDay(v.to) && v.from <= v.to)) {
       return Promise.resolve(usage());
     }
     // His zones must cover it first: a past zone can't be added once memory has units of its days (SCHEMA.md).
@@ -156,7 +153,7 @@ const HANDLERS: Record<string, Handler> = {
       return usage();
     }
   },
-  day: (_values, [date = ""]) => printed(DAY.test(date) ? day(date) : null),
+  day: (_values, [date = ""]) => printed(isDay(date) ? day(date) : null),
   extract: step(async (v) => extract(await gathered(v))),
   fetch: (values, [id]) =>
     printed(

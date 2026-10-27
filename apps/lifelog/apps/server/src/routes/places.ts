@@ -90,29 +90,28 @@ export function placeRoutes({ db }: Pick<Services, "db">) {
     .openapi(
       createRoute({
         description:
-          "Where the owner was. At an instant: the stay around it, or the nearest point within " +
-          "30 minutes, else nothing. On a day (owner's time zone): each stay, in order.",
+          "Where the owner was at an instant: the stay around it, or the nearest point within " +
+          "30 minutes, else nothing. A day's stays: `GET /visits` with its `from` and `to`.",
         method: "get",
         path: "/where",
         request: {
           query: z.object({
-            at: z.union([z.iso.date(), Instant]),
+            at: Instant,
           }),
         },
         responses: { 200: json(z.array(Visit), "Stays") },
       }),
       (c) => {
         const { at } = c.req.valid("query");
-        const when = at.includes("T") ? { at: new Date(at) } : { day: at };
-        return c.json(whereVisits(db, when), 200);
+        return c.json(whereVisits(db, new Date(at)), 200);
       }
     )
     .openapi(
       createRoute({
         description:
-          "Each visit to a place, newest first, at most 200: by the name the phone gave it " +
+          "Each stay, newest first, at most 200: every one, or those at the place the phone named " +
           "(`place`, matched in part), or by `latitude` and `longitude` within `radiusM` (100 m). " +
-          "`from` and `to` bound it; the whole history without them.",
+          "`from` and `to` bound it (a day: the reader's own bounds of it); the whole history without them.",
         method: "get",
         path: "/visits",
         request: {
@@ -127,9 +126,9 @@ export function placeRoutes({ db }: Pick<Services, "db">) {
             })
             .refine(
               (q) =>
-                (q.place === undefined) !==
-                (q.latitude === undefined || q.longitude === undefined),
-              { message: "give either place, or latitude and longitude" }
+                (q.latitude === undefined) === (q.longitude === undefined) &&
+                (q.place === undefined || q.latitude === undefined),
+              { message: "give place, or latitude and longitude, or neither" }
             ),
         },
         responses: {
@@ -140,16 +139,14 @@ export function placeRoutes({ db }: Pick<Services, "db">) {
       (c) => {
         const { from, latitude, longitude, place, radiusM, to } =
           c.req.valid("query");
-        const visits = visitsTo(
-          db,
-          place === undefined
-            ? { latitude: latitude ?? 0, longitude: longitude ?? 0, radiusM }
-            : { place },
-          {
-            from: from === undefined ? undefined : new Date(from),
-            to: to === undefined ? undefined : new Date(to),
-          }
-        );
+        const circle =
+          latitude === undefined || longitude === undefined
+            ? undefined
+            : { latitude, longitude, radiusM };
+        const visits = visitsTo(db, place === undefined ? circle : { place }, {
+          from: from === undefined ? undefined : new Date(from),
+          to: to === undefined ? undefined : new Date(to),
+        });
         return visits
           ? c.json(visits, 200)
           : c.json(

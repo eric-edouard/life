@@ -560,6 +560,29 @@ test("places: each stay lists the conversations recorded during it", async () =>
   // The 13 Oct stay has no conversation, and the 12 Oct one is outside both stays.
   expect(answer).not.toContain("Elsewhere");
   expect(await placesOf({}, read, open)).toBeNull();
+  // A date is his day where he was then, not where the phone is now: 6 Oct began in Jakarta and ended in Berlin.
+  const asked: unknown[] = [];
+  await placesOf(
+    { at: "2026-10-06" },
+    {
+      visits: (q) => {
+        asked.push(q);
+        return Promise.resolve([]);
+      },
+      where: () => Promise.reject(new Error("a date is never sent")),
+    },
+    open
+  );
+  expect(asked).toEqual([
+    {
+      from: "2026-10-05T17:00:00.000Z",
+      latitude: undefined,
+      longitude: undefined,
+      place: undefined,
+      radiusM: undefined,
+      to: "2026-10-06T22:00:00.000Z",
+    },
+  ]);
 });
 
 test("with the actions output off, the connector offers no Reminders tool", async () => {

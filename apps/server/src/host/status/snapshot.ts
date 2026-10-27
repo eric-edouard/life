@@ -6,6 +6,7 @@ import type { Call } from "../../core/log";
 import { isAgent, type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
+import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
 import { agentName, settings } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
@@ -22,7 +23,8 @@ import {
 import { loadTruth } from "../../memory/read-truth";
 import { runs, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
-import { clip } from "../../memory/units";
+import { clip, daysBefore } from "../../memory/units";
+import { dayStart, wall } from "../../memory/zones";
 import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
@@ -103,20 +105,22 @@ export function toneOf(
     : { tone: "warn", word: "silent" };
 }
 
-/** Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (AGENTS.md). */
-export const waking = (d: Date) => d.getHours() >= 8 || d.getHours() < 1;
+/**
+ * Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (AGENTS.md), in `tz` (the
+ * Mac's zone read now, `systemZone`: a long-running process's own zone can be the one it started in).
+ */
+export const waking = (d: Date, tz: string | undefined) => {
+  const hour = wall(d.toISOString(), tz).hms.slice(0, 2);
+  return hour >= "08" || hour < "01";
+};
 
 /** When the waking hours `d` falls in began (08:00, the day before after midnight); null outside them. */
-export function wokeAt(d: Date) {
-  if (!waking(d)) {
+export function wokeAt(d: Date, tz: string | undefined) {
+  if (!waking(d, tz)) {
     return null;
   }
-  const w = new Date(d);
-  w.setHours(8, 0, 0, 0);
-  if (d.getHours() < 1) {
-    w.setDate(w.getDate() - 1);
-  }
-  return w;
+  const { day, hms } = wall(d.toISOString(), tz);
+  return dayStart(hms < "01" ? daysBefore(day, 1) : day, tz, "08:00");
 }
 
 /** A run's outcome as a colour: the status snapshot and its details use this one. */
@@ -373,7 +377,7 @@ const polling = (r: Reads) => r.status.watcher.state === "ok";
 
 /** How quiet the Pendant is: silence counts from the start of his waking hours at the earliest (a night is not silence). */
 function pendantQuiet(r: Reads, d: Descriptor, spokeAt: string | null) {
-  const woke = wokeAt(r.now)?.toISOString();
+  const woke = wokeAt(r.now, systemZone())?.toISOString();
   const quietSince = spokeAt && woke && woke > spokeAt ? woke : spokeAt;
   const limit = woke ? d.silentAfter : Number.POSITIVE_INFINITY;
   return toneOf(quietSince, limit, r.t, r.turn.ok);

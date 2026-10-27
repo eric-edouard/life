@@ -6,13 +6,13 @@ import type { Unit } from "../records/unit";
 import {
   conversationsBetween,
   type Stay,
-  whereAt,
+  visits,
   withStore,
 } from "../sources/lifelog";
 import { momentsNow, readMoments, readUnits } from "./ledger";
 import { where } from "./places";
 import { momentText } from "./statements";
-import { clip, daysBefore, time } from "./units";
+import { clip, dayRange, daysBefore, time } from "./units";
 import { observationsNow, readPeople } from "./who";
 import { dayStart, localDate } from "./zones";
 
@@ -249,10 +249,11 @@ export async function* described(fresh: Draft[]) {
       d.allDay ? [] : conversationsBetween(store, d.from, d.to)
     )
   );
-  // A day's stays, asked once per sync.
+  // A day's stays (his local day, where he was then), asked once per sync.
   const days = new Map<string, Promise<Stay[]>>();
   const staysOn = (day: string) =>
-    days.get(day) ?? (days.set(day, whereAt(day)).get(day) as Promise<Stay[]>);
+    days.get(day) ??
+    (days.set(day, visits(dayRange(day, day))).get(day) as Promise<Stay[]>);
   for (const [i, d] of fresh.entries()) {
     const { lines, location } = d.allDay
       ? { lines: [], location: d.place }
