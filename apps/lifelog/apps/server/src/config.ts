@@ -1,3 +1,4 @@
+import { isTimeZone } from "@life/server/src/core/clock";
 import { z } from "zod";
 
 // Prices from docs/research/elevenlabs.md (live pricing page, 2026-10-07).
@@ -15,19 +16,6 @@ export const billableSeconds = (seconds: number, s: { keyterms: string[] }) =>
 // Days, months (spending) and clock times are the owner's: the zone the
 // iPhone named in its latest heartbeat (`refreshOwnerTimeZone`), UTC until it has named one.
 export const DEFAULT_TIME_ZONE = "UTC";
-// An IANA name Intl knows, never an offset ("+07:00"): the owner's days follow the zone's rules.
-const ZONE_NAME = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/;
-export function isTimeZone(zone: string) {
-  try {
-    // Throws a RangeError for a zone it doesn't know.
-    return (
-      ZONE_NAME.test(zone) &&
-      Boolean(new Intl.DateTimeFormat("en", { timeZone: zone }))
-    );
-  } catch {
-    return false;
-  }
-}
 let ownerZone = DEFAULT_TIME_ZONE;
 export const ownerTimeZone = () => ownerZone;
 export const setOwnerTimeZone = (zone: string | null | undefined) => {

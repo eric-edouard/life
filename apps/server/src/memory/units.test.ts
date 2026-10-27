@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
@@ -31,7 +37,7 @@ import {
   turnFixture,
 } from "../sources/store-fixtures";
 import { LIFE_MAIL } from "./email";
-import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
+import { IMPORTED, keptConversations, readUnits, UNITS, ZONES } from "./ledger";
 import { showFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
@@ -55,7 +61,15 @@ import {
 } from "./units";
 import { resolver, unitNow } from "./who";
 import { chatLines } from "./words";
-import { cutAt, dayStart, firstZoneDay, localDate, zoneAt } from "./zones";
+import {
+  cutAt,
+  dayStart,
+  firstZoneDay,
+  localDate,
+  noteZone,
+  readZoneHere,
+  zoneAt,
+} from "./zones";
 
 const people = [
   {
@@ -515,6 +529,54 @@ test("his zone at an instant is the latest record before it, the first one befor
   // The day he flew to Germany lasts until Berlin midnight: no hour of it is lost.
   expect(dayStart("2026-10-06").toISOString()).toBe("2026-10-05T17:00:00.000Z");
   expect(dayStart("2026-10-07").toISOString()).toBe("2026-10-06T22:00:00.000Z");
+});
+
+test("where he is now: the phone's zone while its observation is at most 12 h old, else the Mac's; lifelog unread, no news", async () => {
+  const now = new Date("2026-10-21T12:00:00.000Z");
+  const read = (at: string | null, phone = "Asia/Jakarta") => ({
+    mac: () => "Europe/Berlin",
+    phone: () => Promise.resolve(at ? { at, tz: phone } : null),
+  });
+  // An hour old: he is where the phone is, wherever the Mac is.
+  expect(await readZoneHere(now, read("2026-10-21T11:00:00.000Z"))).toBe(
+    "Asia/Jakarta"
+  );
+  expect(await readZoneHere(now, read("2026-10-21T00:00:00.000Z"))).toBe(
+    "Asia/Jakarta"
+  );
+  // Older than two heartbeat periods, after now (a frozen clock, a phone clock ahead), or no zone at all: the Mac's.
+  expect(await readZoneHere(now, read("2026-10-20T23:59:00.000Z"))).toBe(
+    "Europe/Berlin"
+  );
+  expect(await readZoneHere(now, read("2026-10-21T12:01:00.000Z"))).toBe(
+    "Europe/Berlin"
+  );
+  expect(await readZoneHere(now, read(null))).toBe("Europe/Berlin");
+  // lifelog set up but down: no change, never the Mac's zone in the phone's place.
+  expect(
+    await readZoneHere(now, {
+      mac: () => "Europe/Berlin",
+      phone: () => Promise.reject(new Error("lifelog down")),
+    })
+  ).toBeNull();
+});
+
+test("a zone noticed is recorded once, from when `cutAt` says; none or the same, nothing", async () => {
+  const was = readFileSync(ZONES, "utf8");
+  // The fixture's latest move: Lagos from 19 Oct.
+  const noon = new Date("2026-11-02T10:00:00.000Z");
+  try {
+    await noteZone(null, noon);
+    await noteZone("Africa/Lagos", noon);
+    expect(readFileSync(ZONES, "utf8")).toBe(was);
+    await noteZone("Asia/Jakarta", noon);
+    await noteZone("Asia/Jakarta", noon);
+    expect(readFileSync(ZONES, "utf8").slice(was.length)).toBe(
+      `${JSON.stringify({ from: cutAt(noon, "Africa/Lagos", "Asia/Jakarta").toISOString(), schemaVersion: 1, tz: "Asia/Jakarta" })}\n`
+    );
+  } finally {
+    writeFileSync(ZONES, was);
+  }
 });
 
 test("a move takes effect at once on a shared day, else at the next midnight of the zone ahead, so days never go back", () => {

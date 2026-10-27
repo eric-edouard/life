@@ -44,7 +44,7 @@ import {
   type Window,
 } from "../memory/units";
 import { observationsNow, readPeople } from "../memory/who";
-import { dayStart, localDate, noteZone } from "../memory/zones";
+import { dayStart, localDate, noteZone, readZoneHere } from "../memory/zones";
 import { type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
@@ -176,8 +176,10 @@ export async function nightly(days: number, force = false) {
       archiveFailedReport(name, e.at, String(e.error))
     );
   }
-  // Each tick is a fresh process: the place to notice he moved (only the Mac's own zone counts, never a TZ variable).
-  await locked(() => noteZone(now));
+  // Each tick is a fresh process: the place to notice he moved (`readZoneHere`, never a TZ variable). The phone's
+  // zone is read before the lock: a network read never holds memory.
+  const here = await readZoneHere(now);
+  await locked(() => noteZone(here, now));
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.
   const states = () => ({

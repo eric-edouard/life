@@ -1,8 +1,10 @@
 import { statSync } from "node:fs";
-import { clock, DAY } from "../core/clock";
+import { clock, DAY, HOUR } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
+import { log } from "../core/log";
 import { systemZone } from "../core/platform";
 import { Zone } from "../records/unit";
+import { readPhoneZone } from "../sources/lifelog";
 import { ZONES } from "./ledger";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, the Mac's zone from each `from` on, and the wall clock
@@ -81,14 +83,39 @@ export function cutAt(now: Date, was: string, tz: string) {
   return dayStart(next.toISOString().slice(0, 10), ahead);
 }
 
+/** How long the phone's zone stands for where he is: two of its heartbeat periods (6 h), so one missed beat is not a move. */
+const PHONE_FRESH = 12 * HOUR;
+
 /**
- * Records the Mac's zone (the system's, whatever TZ the process runs with) when it is not the last one recorded:
- * launchd's tick calls it, every 30 minutes, holding the lock. What happened before it was noticed keeps its zone.
- * ponytail: the Mac travels with him; the Mac mini (roadmap 4.7) stays home, so its zone will need another source then
- * (his phone's, or lifelog's stays).
+ * Where he is now, his decision (27 Oct): the phone's zone while its observation is fresh (at most `PHONE_FRESH` old,
+ * never after now), since the phone is always with him; else the Mac's (lifelog not set up, the phone silent, no zone).
+ * Null when lifelog is set up but can't be read: no change, since a failed read is no news that he moved.
  */
-export async function noteZone(now = clock()) {
-  const tz = systemZone();
+export async function readZoneHere(
+  now = clock(),
+  read = { mac: systemZone, phone: readPhoneZone }
+) {
+  let phone: Awaited<ReturnType<typeof read.phone>>;
+  try {
+    phone = await read.phone();
+  } catch (e) {
+    log("source.read", {
+      error: (e as Error).message,
+      ok: false,
+      source: "lifelog",
+      what: "zone",
+    });
+    return null;
+  }
+  const age = phone ? now.getTime() - Date.parse(phone.at) : Number.NaN;
+  return phone && age >= 0 && age <= PHONE_FRESH ? phone.tz : read.mac();
+}
+
+/**
+ * Records `tz`, where he is now (`readZoneHere`), when it is not the last one recorded: launchd's tick calls it, every
+ * 30 minutes, holding the lock. What happened before it was noticed keeps its zone.
+ */
+export async function noteZone(tz: string | null | undefined, now = clock()) {
   const was = zones().at(-1)?.tz;
   if (tz && was && tz !== was) {
     const from = cutAt(now, was, tz).toISOString();

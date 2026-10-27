@@ -521,6 +521,25 @@ test("lifelog's /status is read whatever its untyped objects hold: absent, null,
   ).toBe(0);
 });
 
+test("the phone's zone comes from fields lifelog's heartbeat contract holds: `timeZone` and `observedAt`", async () => {
+  // `/status` leaves `phoneHeartbeat` untyped, so the drift check above can't see these: the heartbeat's own schema can.
+  const api = JSON.parse(await Bun.file(CONTRACT).text());
+  const beat = api.components.schemas.HeartbeatUpload.properties;
+  expect(beat.timeZone.type).toBe("string");
+  expect(beat.observedAt.type).toBe("string");
+  expect(
+    LifelogStatus.parse({
+      phoneHeartbeat: {
+        observedAt: "2026-10-21T11:00:00.000Z",
+        timeZone: "Asia/Jakarta",
+      },
+    }).phoneHeartbeat
+  ).toEqual({
+    observedAt: "2026-10-21T11:00:00.000Z",
+    timeZone: "Asia/Jakarta",
+  });
+});
+
 test("the newest turn is read without creating or changing the store: no store, no file", async () => {
   const dir = mkdtempSync(join(tmpdir(), "life-newest-turn-"));
   expect(await newestTurn(join(dir, "watch"))).toBeNull();

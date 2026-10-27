@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock, unfrozen } from "../core/clock";
+import { clock, isTimeZone, unfrozen } from "../core/clock";
 import { readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
@@ -157,11 +157,27 @@ export const LifelogStatus = z.object({
   phoneHeartbeat: z
     .object({
       backlog: z.object({ pages: z.number().nullish() }).nullish(),
+      observedAt: z.string().nullish(),
+      timeZone: z.string().nullish(),
     })
     .nullish(),
 });
 export const lifelogStatus = async () =>
   LifelogStatus.parse(await call("/status", 15));
+
+/**
+ * The phone's zone and when the phone observed it (its newest heartbeat); null when lifelog is not set up or the
+ * heartbeat names no zone Intl knows. Throws when lifelog can't be read.
+ */
+export async function readPhoneZone() {
+  if (lifelogMissing()) {
+    return null;
+  }
+  const beat = (await lifelogStatus()).phoneHeartbeat;
+  return beat?.observedAt && beat.timeZone && isTimeZone(beat.timeZone)
+    ? { at: beat.observedAt, tz: beat.timeZone }
+    : null;
+}
 
 /** The store's file in `dir` and its cursor's. */
 export const storeFiles = (dir = WATCH) => ({
