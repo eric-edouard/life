@@ -361,7 +361,7 @@ Where the owner was, as an IANA time zone, append-only: `{schemaVersion: 1, from
 read in `from` order (the earliest also covers everything before it). Every local day and time in memory/ comes from it (`zoneAt`,
 `apps/server/src/memory/zones.ts`), so a unit's day, and the id of a chat-day or mail thread-day, stays the same when the day is
 read again from another country. The nightly tick (every 30 minutes) appends a line when where he is (`readZoneHere`:
-the phone's zone from its newest heartbeat at most 12 h old, else the Mac's own zone, never a `TZ` variable; nothing
+the phone's zone from its newest heartbeat at most 12 h old, else the Mac's own zone, never a `TZ` variable, also
 when lifelog is set up but can't be read) differs from the latest one, taking effect at once, or at the next midnight
 of the zone ahead when the two are on different days (`cutAt`: a local day never goes back); what came before it was
 noticed keeps the old zone. `bun life init` seeds it by the same rule. The owner's past may be appended later (their own account of where they lived) only

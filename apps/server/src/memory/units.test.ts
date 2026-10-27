@@ -22,6 +22,7 @@ import {
   type LifelogConversation,
   openStore,
   readConversations,
+  readPhoneZone,
   WATCH,
 } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
@@ -531,7 +532,7 @@ test("his zone at an instant is the latest record before it, the first one befor
   expect(dayStart("2026-10-07").toISOString()).toBe("2026-10-06T22:00:00.000Z");
 });
 
-test("where he is now: the phone's zone while its observation is at most 12 h old, else the Mac's; lifelog unread, no news", async () => {
+test("where he is now: the phone's zone while its observation is at most 12 h old, else the Mac's, lifelog unreadable included", async () => {
   const now = new Date("2026-10-21T12:00:00.000Z");
   const read = (at: string | null, phone = "Asia/Jakarta") => ({
     mac: () => "Europe/Berlin",
@@ -556,13 +557,30 @@ test("where he is now: the phone's zone while its observation is at most 12 h ol
     "Europe/Berlin"
   );
   expect(await readZoneHere(now, read(null))).toBe("Europe/Berlin");
-  // lifelog set up but down: no change, never the Mac's zone in the phone's place.
+  // lifelog set up but unreadable is the phone unavailable: the Mac's, never the last zone kept.
   expect(
     await readZoneHere(now, {
       mac: () => "Europe/Berlin",
       phone: () => Promise.reject(new Error("lifelog down")),
     })
-  ).toBeNull();
+  ).toBe("Europe/Berlin");
+  // The same through lifelog's real status read: a failed request (no route, 404) and an answer it can't read.
+  const mac = () => "Europe/Berlin";
+  const failing: Record<string, () => unknown>[] = [
+    {},
+    { "/status": () => ({ phoneHeartbeat: "not a heartbeat" }) },
+  ];
+  for (const routes of failing) {
+    const server = lifelogServer(routes);
+    try {
+      // biome-ignore lint/performance/noAwaitInLoops: one fake lifelog at a time, each sets the settings it is read by
+      expect(await readZoneHere(now, { mac, phone: readPhoneZone })).toBe(
+        "Europe/Berlin"
+      );
+    } finally {
+      server.close();
+    }
+  }
 });
 
 test("a zone noticed is recorded once, from when `cutAt` says; none or the same, nothing", async () => {

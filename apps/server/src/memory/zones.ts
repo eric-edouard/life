@@ -90,8 +90,8 @@ const PHONE_SKEW = 5 * MIN;
 
 /**
  * Where he is now, his decision (27 Oct): the phone's zone while its observation is fresh (at most `PHONE_FRESH` old,
- * never later than `PHONE_SKEW` after now), since the phone is always with him; else the Mac's (lifelog not set up, the phone silent, no zone).
- * Null when lifelog is set up but can't be read: no change, since a failed read is no news that he moved.
+ * never later than `PHONE_SKEW` after now), since the phone is always with him; else the Mac's, whenever the phone's
+ * observation is unavailable (lifelog not set up, or set up but unreadable: logged), missing, stale or invalid.
  */
 export async function readZoneHere(
   now = clock(),
@@ -107,7 +107,7 @@ export async function readZoneHere(
       source: "lifelog",
       what: "zone",
     });
-    return null;
+    return read.mac();
   }
   const age = phone ? now.getTime() - Date.parse(phone.at) : Number.NaN;
   return phone && age >= -PHONE_SKEW && age <= PHONE_FRESH
