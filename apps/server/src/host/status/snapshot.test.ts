@@ -26,24 +26,23 @@ test("a source is red only when Life can't read it; silence is quiet, then amber
   expect(toneOf(null, DAY, now)).toEqual({ tone: "idle", word: "nothing yet" });
 });
 
-test("the Pendant is expected to hear him between 08:00 and 01:00 only", () => {
-  const at = (h: number) => new Date(2026, 9, 21, h, 30);
-  expect([7, 8, 13, 23, 0, 1, 4].map((h) => waking(at(h)))).toEqual([
-    false,
-    true,
-    true,
-    true,
-    true,
-    false,
-    false,
-  ]);
+test("the Pendant is expected to hear him between 08:00 and 01:00 only, on the clock of the zone given", () => {
+  // Lagos is UTC+1 all year: 06:30Z is 07:30 there.
+  const at = (h: number) => new Date(Date.UTC(2026, 9, 21, h - 1, 30));
+  expect(
+    [7, 8, 13, 23, 24, 25, 28].map((h) => waking(at(h), "Africa/Lagos"))
+  ).toEqual([false, true, true, true, true, false, false]);
+  // The same instant in another zone: 07:30 in Lagos is 13:30 in Jakarta.
+  expect(waking(at(7), "Asia/Jakarta")).toBe(true);
 });
 
 test("his waking hours began at 08:00, the day before after midnight: a night is not silence", () => {
-  const at = (day: number, h: number) => new Date(2026, 9, day, h, 30);
-  expect(wokeAt(at(21, 9))).toEqual(new Date(2026, 9, 21, 8, 0));
-  expect(wokeAt(at(22, 0))).toEqual(new Date(2026, 9, 21, 8, 0));
-  expect(wokeAt(at(22, 4))).toBeNull();
+  const lagos = (day: number, h: number) =>
+    new Date(Date.UTC(2026, 9, day, h - 1, 30));
+  const eight = new Date("2026-10-21T07:00:00.000Z");
+  expect(wokeAt(lagos(21, 9), "Africa/Lagos")).toEqual(eight);
+  expect(wokeAt(lagos(22, 0), "Africa/Lagos")).toEqual(eight);
+  expect(wokeAt(lagos(22, 4), "Africa/Lagos")).toBeNull();
 });
 
 test("connector clients go by the names he knows them by", () => {

@@ -58,8 +58,9 @@ The page carries more for the phone (`edits`, `quietRanges`, `mac`, `switches`, 
 
 - **search**: `POST /search` with a query; passages of about 30 to 60 s, best first. Matching by meaning needs the
   server's embedding key; without it, words only.
-- **places**: `GET /where?at=` (an instant: the stay around it; a day: each stay) and `GET /visits` (by `place`, or
-  `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A stay is
+- **places**: `GET /where?at=` (an instant: the stay around it) and `GET /visits` (every stay, or by `place`, or
+  `latitude`, `longitude`, `radiusM`; `from`, `to`; at most 200, newest first). A day's stays are `/visits` between
+  its bounds: a local day depends on where the owner was then, which only the reader knows. A stay is
   `{ place?, latitude, longitude, arrivedAt, leftAt }`.
 - **corrections**, only the owner's explicit ones, never in the background: `PUT /transcripts/{jobId}/speakers/{label}`
   (with `turnIndex` for one turn), `PUT /conversations/{id}/title`, `PATCH /people/{id}`, `POST /people/{id}/merge`.

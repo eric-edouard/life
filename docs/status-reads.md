@@ -43,7 +43,7 @@ Is Life working, how fresh is its memory, what runs next. Four clocks, kept apar
   today: no more tries until tomorrow", "today's night succeeded", "the next slot", or "held: Codex quota 91% used, over
   75%" (the midday waits for the quota's reset: `earliest` is the first slot after it, or after the next tick when the
   reading has no reset time). Not a countdown.
-- `timeZone`: the Mac's, which every schedule follows.
+- `timeZone`: the Mac's, read at each call (`systemZone`), which every schedule follows.
 
 ## runs
 

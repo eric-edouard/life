@@ -164,10 +164,12 @@ test("the phone's history is stored once, a visit takes its departure, and a rea
   };
   expect(await (await get(`/where?at=${at(320)}`)).json()).toEqual([home]);
   expect(await (await get(`/where?at=${at(200)}`)).json()).toEqual([]);
-  expect(await (await get("/where?at=2026-10-01")).json()).toEqual([
-    morning,
-    home,
-  ]);
+  // A day is the reader's to bound: only instants cross, never a local date.
+  expect((await get("/where?at=2026-10-01")).status).toBe(400);
+  expect(
+    await (await get(`/visits?from=${at(0)}&to=${at(24 * 60)}`)).json()
+  ).toEqual([home, morning]);
+  expect(await (await get(`/visits?from=${at(100)}`)).json()).toEqual([home]);
   expect(
     await (await get(`/visits?place=${encodeURIComponent("école")}`)).json()
   ).toEqual([home, morning]);
@@ -177,5 +179,5 @@ test("the phone's history is stored once, a visit takes its departure, and a rea
   );
   expect((await get("/visits?place=nowhere")).status).toBe(404);
   expect((await get(`/visits?place=home&${around}`)).status).toBe(400);
-  expect((await get("/visits")).status).toBe(400);
+  expect((await get(`/visits?latitude=${HOME.latitude}`)).status).toBe(400);
 });
