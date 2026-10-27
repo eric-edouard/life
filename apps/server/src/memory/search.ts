@@ -83,7 +83,7 @@ import {
   mailHits,
   repliesOwed,
 } from "./words";
-import { dayStart, localDate, when } from "./zones";
+import { dayNow, dayStart, localDate, when } from "./zones";
 
 // The read path, as `bun life memory search|person|area` (apps/server/src/host/command.ts): short cited results from the pages
 // and derived/memory/index.sqlite. It also owns the index: buildIndex writes it, nothing else here writes.
@@ -525,10 +525,7 @@ export async function person(name?: string, o: { before?: string } = {}) {
   const mapped = truth.people.find((p) => p.id === id);
   const lifelog = mapped?.handles.lifelog;
   const birthday = mapped?.birthday
-    ? [
-        `Birthday: ${birthdayText(nextBirthday(mapped.birthday, localDate(clock().toISOString())))}`,
-        "",
-      ]
+    ? [`Birthday: ${birthdayText(nextBirthday(mapped.birthday, dayNow()))}`, ""]
     : [];
   const close = await closenessLine(ref);
   // Pages go by whole local days: a day is never cut between two answers.
@@ -839,7 +836,7 @@ async function dueContext(date: string, truth: Truth) {
     urgent: Boolean(f.urgent || f.flagged),
     when: f.due ? `${f.due}`.slice(0, 10) : undefined,
   }));
-  const today = localDate(clock().toISOString());
+  const today = dayNow();
   const end = Math.min(
     clock().getTime(),
     dayStart(daysBefore(date, -1)).getTime()

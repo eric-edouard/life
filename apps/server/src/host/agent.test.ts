@@ -7,9 +7,10 @@ import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { LIFE_CODE_DIR } from "../core/paths";
-import { LEDGER, type Task, tasksOf } from "../memory/ledger";
+import { LEDGER, type Task, tasksOf, ZONES } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
 import { standing, type Update } from "../memory/tasks";
+import { cutAt, dayStart, localDate, zoneAt } from "../memory/zones";
 import { LedgerEntry } from "../records/ledger-entry";
 import { planOf } from "../todo-list/board";
 import type { TodoItem } from "../todo-list/contract";
@@ -494,6 +495,36 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
       via: "connector",
     });
   } finally {
+    rmSync(LEDGER, { force: true });
+  }
+});
+
+test("his daily ask follows him the moment a move is noticed, though the days of what was recorded keep the old zone", () => {
+  const daily = { on: true, text: "Plan my day.", time: "09:00" };
+  const was = readFileSync(ZONES, "utf8");
+  // Noticed at 21:00Z on 21 Oct: 22:00 in Lagos, 04:00 on the 22nd in Jakarta, so memory moves at Jakarta's next midnight.
+  const noticed = new Date("2026-10-21T21:00:00.000Z");
+  const from = cutAt(noticed, "Africa/Lagos", "Asia/Jakarta").toISOString();
+  writeFileSync(
+    ZONES,
+    `${was}${JSON.stringify({ from, schemaVersion: 1, tz: "Asia/Jakarta" })}\n`
+  );
+  try {
+    expect(localDate("2026-10-22T02:00:00.000Z")).toBe("2026-10-22");
+    expect(zoneAt("2026-10-22T02:00:00.000Z")).toBe("Africa/Lagos");
+    // 09:00 in Jakarta is 02:00Z, not Lagos's 09:00 (15:00 where he is).
+    dailyAsk(Date.parse("2026-10-22T01:59:00.000Z"), daily);
+    expect(tasksOf()).toEqual([]);
+    dailyAsk(Date.parse("2026-10-22T02:00:00.000Z"), daily);
+    expect(tasksOf().map((t) => t.ask.instruction?.ref)).toEqual([
+      "daily:2026-10-22",
+    ]);
+    // A DST day keeps 09:00 local: Berlin's clocks go back on 25 Oct.
+    expect(dayStart("2026-10-25", "Europe/Berlin", "09:00").toISOString()).toBe(
+      "2026-10-25T08:00:00.000Z"
+    );
+  } finally {
+    writeFileSync(ZONES, was);
     rmSync(LEDGER, { force: true });
   }
 });
