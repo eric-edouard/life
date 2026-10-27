@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { clock, DAY, HOUR, MIN } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { log } from "../core/log";
 import { systemZone } from "../core/platform";
@@ -83,23 +83,17 @@ export function cutAt(now: Date, was: string, tz: string) {
   return dayStart(next.toISOString().slice(0, 10), ahead);
 }
 
-/** How long the phone's zone stands for where he is: two of its heartbeat periods (6 h), so one missed beat is not a move. */
-const PHONE_FRESH = 12 * HOUR;
-/** How far ahead the phone's clock may be: a beat a few seconds "from the future" is still now (a frozen clock's isn't). */
-const PHONE_SKEW = 5 * MIN;
-
 /**
- * Where he is now, his decision (27 Oct): the phone's zone while its observation is fresh (at most `PHONE_FRESH` old,
- * never later than `PHONE_SKEW` after now), since the phone is always with him; else the Mac's, whenever the phone's
- * observation is unavailable (lifelog not set up, or set up but unreadable: logged), missing, stale or invalid.
+ * Where he is now, his decision (27 Oct): the phone's latest zone, whatever its age. The phone is the source of truth (the
+ * recordings go through it, and every upload brings a new one), while the Life server may run anywhere. Undefined when
+ * lifelog is set up but can't be read (logged): the last zone recorded, the phone's, stands. The Mac's zone only when no
+ * phone ever said one (lifelog not set up, or no heartbeat named a zone).
  */
 export async function readZoneHere(
-  now = clock(),
   read = { mac: systemZone, phone: readPhoneZone }
 ) {
-  let phone: Awaited<ReturnType<typeof read.phone>>;
   try {
-    phone = await read.phone();
+    return (await read.phone()) ?? read.mac();
   } catch (e) {
     log("source.read", {
       error: (e as Error).message,
@@ -107,12 +101,7 @@ export async function readZoneHere(
       source: "lifelog",
       what: "zone",
     });
-    return read.mac();
   }
-  const age = phone ? now.getTime() - Date.parse(phone.at) : Number.NaN;
-  return phone && age >= -PHONE_SKEW && age <= PHONE_FRESH
-    ? phone.tz
-    : read.mac();
 }
 
 /**

@@ -178,7 +178,7 @@ export async function nightly(days: number, force = false) {
   }
   // Each tick is a fresh process: the place to notice he moved (`readZoneHere`, never a TZ variable). The phone's
   // zone is read before the lock: a network read never holds memory.
-  const here = await readZoneHere(now);
+  const here = await readZoneHere();
   await locked(() => noteZone(here, now));
   const day = localDate(now.toISOString());
   // `force` skips the day's schedule, never the lock: two nights must not write memory/ at once. A hand run never backs up.

@@ -174,10 +174,9 @@ Before adding a helper, use the one that exists:
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
 Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`) follow the Mac's clock.
-Where he is (`zones.jsonl`) follows the phone first: its zone while its newest heartbeat is at most 12 h old (two
-heartbeat periods), else the Mac's (`readZoneHere`, his decision of 27 Oct). lifelog's own owner zone (`ownerTimeZone`,
-its spend days and nightly hours) keeps the phone's newest zone with no age limit, so the two can differ while the
-phone is silent.
+Where he is (`zones.jsonl`) is the phone's latest zone, whatever its age (`readZoneHere`, his decision of 27 Oct): the
+phone is the source of truth and the Life server may run anywhere. The Mac's zone only when no phone ever named one;
+lifelog unreadable changes nothing. lifelog's own owner zone (`ownerTimeZone`) follows the same newest heartbeat.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
 on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events' `post` and the Past calendar).
 

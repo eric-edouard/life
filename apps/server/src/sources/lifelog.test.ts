@@ -523,16 +523,14 @@ test("lifelog's /status is read whatever its untyped objects hold: absent, null,
 });
 
 test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none, an offset or lifelog not set up, null; lifelog down, throws", async () => {
+  // Days old still counts: the phone's latest zone is where he is.
   let beat: unknown = {
-    observedAt: "2026-10-21T11:00:00.000Z",
+    observedAt: "2026-09-01T11:00:00.000Z",
     timeZone: "Asia/Jakarta",
   };
   const server = lifelogServer({ "/status": () => ({ phoneHeartbeat: beat }) });
   try {
-    expect(await readPhoneZone()).toEqual({
-      at: "2026-10-21T11:00:00.000Z",
-      tz: "Asia/Jakarta",
-    });
+    expect(await readPhoneZone()).toBe("Asia/Jakarta");
     beat = { observedAt: "2026-10-21T11:00:00.000Z", timeZone: "+07:00" };
     expect(await readPhoneZone()).toBeNull();
     beat = { observedAt: "2026-10-21T11:00:00.000Z" };
@@ -557,23 +555,15 @@ test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none
   }
 });
 
-test("the phone's zone comes from fields lifelog's heartbeat contract holds: `timeZone` and `observedAt`", async () => {
-  // `/status` leaves `phoneHeartbeat` untyped, so the drift check above can't see these: the heartbeat's own schema can.
+test("the phone's zone comes from a field lifelog's heartbeat contract holds: `timeZone`", async () => {
+  // `/status` leaves `phoneHeartbeat` untyped, so the drift check above can't see it: the heartbeat's own schema can.
   const api = JSON.parse(await Bun.file(CONTRACT).text());
   const beat = api.components.schemas.HeartbeatUpload.properties;
   expect(beat.timeZone.type).toBe("string");
-  expect(beat.observedAt.type).toBe("string");
   expect(
-    LifelogStatus.parse({
-      phoneHeartbeat: {
-        observedAt: "2026-10-21T11:00:00.000Z",
-        timeZone: "Asia/Jakarta",
-      },
-    }).phoneHeartbeat
-  ).toEqual({
-    observedAt: "2026-10-21T11:00:00.000Z",
-    timeZone: "Asia/Jakarta",
-  });
+    LifelogStatus.parse({ phoneHeartbeat: { timeZone: "Asia/Jakarta" } })
+      .phoneHeartbeat
+  ).toEqual({ timeZone: "Asia/Jakarta" });
 });
 
 test("the newest turn is read without creating or changing the store: no store, no file", async () => {

@@ -158,7 +158,6 @@ export const LifelogStatus = z.object({
   phoneHeartbeat: z
     .object({
       backlog: z.object({ pages: z.number().nullish() }).nullish(),
-      observedAt: z.string().nullish(),
       timeZone: z.string().nullish(),
     })
     .nullish(),
@@ -167,17 +166,15 @@ export const lifelogStatus = async () =>
   LifelogStatus.parse(await call("/status", 15));
 
 /**
- * The phone's zone and when the phone observed it (its newest heartbeat); null when lifelog is not set up or the
- * heartbeat names no zone Intl knows. Throws when lifelog can't be read.
+ * The phone's zone, from its newest heartbeat; null when lifelog is not set up or that heartbeat names no zone Intl
+ * knows. Throws when lifelog can't be read.
  */
 export async function readPhoneZone() {
   if (lifelogMissing()) {
     return null;
   }
   const beat = (await lifelogStatus()).phoneHeartbeat;
-  return beat?.observedAt && beat.timeZone && isTimeZone(beat.timeZone)
-    ? { at: beat.observedAt, tz: beat.timeZone }
-    : null;
+  return beat?.timeZone && isTimeZone(beat.timeZone) ? beat.timeZone : null;
 }
 
 /** The store's file in `dir` and its cursor's. */

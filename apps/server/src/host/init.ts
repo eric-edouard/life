@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { systemZone } from "../core/platform";
 import { git } from "../core/proc";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { readZoneHere } from "../memory/zones";
@@ -37,8 +38,8 @@ export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
   }
   await mkdir(join(truth, "projects"), { recursive: true });
   await mkdir(join(data, "memory"), { recursive: true });
-  // Where he is, by the same rule as every tick (the phone first, else the Mac).
-  const here = await readZoneHere(now);
+  // Where he is, by the same rule as every tick (the phone's zone, else the Mac's); a first line must name one.
+  const here = (await readZoneHere()) ?? systemZone();
   const me = {
     handles: { email: owner.email, phone: owner.phone },
     id: "me",

@@ -532,40 +532,23 @@ test("his zone at an instant is the latest record before it, the first one befor
   expect(dayStart("2026-10-07").toISOString()).toBe("2026-10-06T22:00:00.000Z");
 });
 
-test("where he is now: the phone's zone while its observation is at most 12 h old, else the Mac's, lifelog unreadable included", async () => {
-  const now = new Date("2026-10-21T12:00:00.000Z");
-  const read = (at: string | null, phone = "Asia/Jakarta") => ({
-    mac: () => "Europe/Berlin",
-    phone: () => Promise.resolve(at ? { at, tz: phone } : null),
-  });
-  // An hour old: he is where the phone is, wherever the Mac is.
-  expect(await readZoneHere(now, read("2026-10-21T11:00:00.000Z"))).toBe(
+test("where he is now: the phone's latest zone, whatever its age; the Mac's only when no phone said one; lifelog unreadable, no change", async () => {
+  const mac = () => "Europe/Berlin";
+  const phone = (tz: string | null) => () => Promise.resolve(tz);
+  // The Life server may run anywhere: the phone says where he is.
+  expect(await readZoneHere({ mac, phone: phone("Asia/Jakarta") })).toBe(
     "Asia/Jakarta"
   );
-  expect(await readZoneHere(now, read("2026-10-21T00:00:00.000Z"))).toBe(
-    "Asia/Jakarta"
-  );
-  // Older than two heartbeat periods, or no zone at all: the Mac's.
-  expect(await readZoneHere(now, read("2026-10-20T23:59:00.000Z"))).toBe(
-    "Europe/Berlin"
-  );
-  // A phone clock a minute ahead is still now; a beat an hour ahead (a frozen clock's past) is not.
-  expect(await readZoneHere(now, read("2026-10-21T12:01:00.000Z"))).toBe(
-    "Asia/Jakarta"
-  );
-  expect(await readZoneHere(now, read("2026-10-21T13:00:00.000Z"))).toBe(
-    "Europe/Berlin"
-  );
-  expect(await readZoneHere(now, read(null))).toBe("Europe/Berlin");
-  // lifelog set up but unreadable is the phone unavailable: the Mac's, never the last zone kept.
+  // No phone ever named a zone (lifelog not set up, or no heartbeat with one): the Mac's.
+  expect(await readZoneHere({ mac, phone: phone(null) })).toBe("Europe/Berlin");
+  // lifelog set up but unreadable: nothing to record, so the last zone (the phone's) stands; never the server's.
   expect(
-    await readZoneHere(now, {
-      mac: () => "Europe/Berlin",
+    await readZoneHere({
+      mac,
       phone: () => Promise.reject(new Error("lifelog down")),
     })
-  ).toBe("Europe/Berlin");
+  ).toBeUndefined();
   // The same through lifelog's real status read: a failed request (no route, 404) and an answer it can't read.
-  const mac = () => "Europe/Berlin";
   const failing: Record<string, () => unknown>[] = [
     {},
     { "/status": () => ({ phoneHeartbeat: "not a heartbeat" }) },
@@ -574,9 +557,7 @@ test("where he is now: the phone's zone while its observation is at most 12 h ol
     const server = lifelogServer(routes);
     try {
       // biome-ignore lint/performance/noAwaitInLoops: one fake lifelog at a time, each sets the settings it is read by
-      expect(await readZoneHere(now, { mac, phone: readPhoneZone })).toBe(
-        "Europe/Berlin"
-      );
+      expect(await readZoneHere({ mac, phone: readPhoneZone })).toBeUndefined();
     } finally {
       server.close();
     }
