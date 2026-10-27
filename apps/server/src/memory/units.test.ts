@@ -544,11 +544,15 @@ test("where he is now: the phone's zone while its observation is at most 12 h ol
   expect(await readZoneHere(now, read("2026-10-21T00:00:00.000Z"))).toBe(
     "Asia/Jakarta"
   );
-  // Older than two heartbeat periods, after now (a frozen clock, a phone clock ahead), or no zone at all: the Mac's.
+  // Older than two heartbeat periods, or no zone at all: the Mac's.
   expect(await readZoneHere(now, read("2026-10-20T23:59:00.000Z"))).toBe(
     "Europe/Berlin"
   );
+  // A phone clock a minute ahead is still now; a beat an hour ahead (a frozen clock's past) is not.
   expect(await readZoneHere(now, read("2026-10-21T12:01:00.000Z"))).toBe(
+    "Asia/Jakarta"
+  );
+  expect(await readZoneHere(now, read("2026-10-21T13:00:00.000Z"))).toBe(
     "Europe/Berlin"
   );
   expect(await readZoneHere(now, read(null))).toBe("Europe/Berlin");

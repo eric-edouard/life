@@ -17,6 +17,7 @@ import {
   Page,
   poll,
   readConversations,
+  readPhoneZone,
   Stays,
   searchVoice,
   speakers,
@@ -519,6 +520,41 @@ test("lifelog's /status is read whatever its untyped objects hold: absent, null,
       phoneHeartbeat: { backlog: null },
     }).pendant?.batteryPercent
   ).toBe(0);
+});
+
+test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none, an offset or lifelog not set up, null; lifelog down, throws", async () => {
+  let beat: unknown = {
+    observedAt: "2026-10-21T11:00:00.000Z",
+    timeZone: "Asia/Jakarta",
+  };
+  const server = lifelogServer({ "/status": () => ({ phoneHeartbeat: beat }) });
+  try {
+    expect(await readPhoneZone()).toEqual({
+      at: "2026-10-21T11:00:00.000Z",
+      tz: "Asia/Jakarta",
+    });
+    beat = { observedAt: "2026-10-21T11:00:00.000Z", timeZone: "+07:00" };
+    expect(await readPhoneZone()).toBeNull();
+    beat = { observedAt: "2026-10-21T11:00:00.000Z" };
+    expect(await readPhoneZone()).toBeNull();
+    beat = null;
+    expect(await readPhoneZone()).toBeNull();
+    // An answer it can't read is lifelog unreadable: a throw, never a guess.
+    beat = "not a heartbeat";
+    await expect(readPhoneZone()).rejects.toThrow();
+  } finally {
+    server.close();
+  }
+  // Set up nowhere: no phone to read, so no throw.
+  const token = process.env.LIFELOG_TOKEN;
+  delete process.env.LIFELOG_TOKEN;
+  try {
+    expect(await readPhoneZone()).toBeNull();
+  } finally {
+    if (token !== undefined) {
+      process.env.LIFELOG_TOKEN = token;
+    }
+  }
 });
 
 test("the phone's zone comes from fields lifelog's heartbeat contract holds: `timeZone` and `observedAt`", async () => {

@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { clock, DAY, HOUR } from "../core/clock";
+import { clock, DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import { log } from "../core/log";
 import { systemZone } from "../core/platform";
@@ -7,8 +7,8 @@ import { Zone } from "../records/unit";
 import { readPhoneZone } from "../sources/lifelog";
 import { ZONES } from "./ledger";
 
-// Where the owner was, as a time zone: memory/zones.jsonl, the Mac's zone from each `from` on, and the wall clock
-// there. Local days and times come from here, never from the zone of the process reading them, so a day read again
+// Where the owner was, as a time zone: memory/zones.jsonl, where he was from each `from` on (`readZoneHere`), and the
+// wall clock there. Local days and times come from here, never from the zone of the process reading them, so a day read again
 // later (in another country) keeps its units' dates and ids. (Schedules, schedule.ts, follow the Mac's own clock.)
 
 let cache = { list: [] as { from: number; tz: string }[], mtime: -1 };
@@ -85,10 +85,12 @@ export function cutAt(now: Date, was: string, tz: string) {
 
 /** How long the phone's zone stands for where he is: two of its heartbeat periods (6 h), so one missed beat is not a move. */
 const PHONE_FRESH = 12 * HOUR;
+/** How far ahead the phone's clock may be: a beat a few seconds "from the future" is still now (a frozen clock's isn't). */
+const PHONE_SKEW = 5 * MIN;
 
 /**
  * Where he is now, his decision (27 Oct): the phone's zone while its observation is fresh (at most `PHONE_FRESH` old,
- * never after now), since the phone is always with him; else the Mac's (lifelog not set up, the phone silent, no zone).
+ * never later than `PHONE_SKEW` after now), since the phone is always with him; else the Mac's (lifelog not set up, the phone silent, no zone).
  * Null when lifelog is set up but can't be read: no change, since a failed read is no news that he moved.
  */
 export async function readZoneHere(
@@ -108,7 +110,9 @@ export async function readZoneHere(
     return null;
   }
   const age = phone ? now.getTime() - Date.parse(phone.at) : Number.NaN;
-  return phone && age >= 0 && age <= PHONE_FRESH ? phone.tz : read.mac();
+  return phone && age >= -PHONE_SKEW && age <= PHONE_FRESH
+    ? phone.tz
+    : read.mac();
 }
 
 /**
