@@ -41,7 +41,7 @@ import { macState, sleeps } from "./mac";
 
 // The status snapshot (`apps/server/src/host/http/status-reads.ts` serves it to the app): every part of Life as a card in a group, each with its
 // state now, read from Life's own records and stores, nothing written. A card's colour is `toneOf`'s rule: red only
-// when Life can't read or run a part, grey when it is just quiet, amber when quiet past its source's `silentAfter`. His
+// when Life can't read or run a part, grey when it is just quiet, amber when quiet past its source's `silentAfter` (a source with parts: its quietest part). His
 // words and any error's text live only in a card's `content`: the app hides them when its "Show content" is off.
 
 export type Tone = "bad" | "busy" | "idle" | "ok" | "teal" | "warn";
@@ -104,6 +104,12 @@ export function toneOf(
     ? { tone: "idle", word: "quiet" }
     : { tone: "warn", word: "silent" };
 }
+
+/** When a source last heard anything, or for one with parts (Beeper's networks) its quietest part: one quiet network shows. */
+export const quietestAt = (n: Newest) =>
+  n.parts?.length
+    ? n.parts.map((p) => p.at).reduce((a, b) => (a < b ? a : b))
+    : n.at;
 
 /**
  * Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (AGENTS.md), in `tz` (the
@@ -474,7 +480,7 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   const broken = r.failingStores.get(d.name);
   // The archive's stores: when it last copied one in (lifeStatus).
   const copiedAt = r.status.capture.archive[d.name];
-  const tone = toneOf(n.at, d.silentAfter, r.t, read.ok && !broken);
+  const tone = toneOf(quietestAt(n), d.silentAfter, r.t, read.ok && !broken);
   const why = broken?.error ?? (read.ok ? undefined : read.error);
   return {
     ...tone,
