@@ -19,7 +19,7 @@ import {
   type Update,
 } from "../memory/tasks";
 import { clip, localTime } from "../memory/units";
-import { dayNow, dayStart, zoneNow } from "../memory/zones";
+import { dayNow, dayStart, wall, zoneNow } from "../memory/zones";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import type { Receipt } from "../todo-list/board";
 import { entryId, requested } from "./act";
@@ -108,7 +108,7 @@ export function dailyAsk(
     return;
   }
   const tz = zoneNow();
-  const day = dayNow(new Date(now));
+  const { day } = wall(iso(now), tz);
   const due = dayStart(day, tz, d.time).getTime();
   if (now >= due) {
     ask(

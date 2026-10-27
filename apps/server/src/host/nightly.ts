@@ -44,7 +44,7 @@ import {
   type Window,
 } from "../memory/units";
 import { observationsNow, readPeople } from "../memory/who";
-import { dayStart, localDate, noteZone } from "../memory/zones";
+import { dayNow, dayStart, localDate, noteZone } from "../memory/zones";
 import { type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
@@ -172,7 +172,7 @@ export async function nightly(days: number, force = false) {
   for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
     // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
     await sendReport(
-      `archive/${name}/${e.at}/${localDate(now.toISOString())}`,
+      `archive/${name}/${e.at}/${dayNow(now)}`,
       archiveFailedReport(name, e.at, String(e.error))
     );
   }

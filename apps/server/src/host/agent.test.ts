@@ -519,6 +519,19 @@ test("his daily ask follows him the moment a move is noticed, though the days of
     expect(tasksOf().map((t) => t.ask.instruction?.ref)).toEqual([
       "daily:2026-10-22",
     ]);
+    // Back west the same day (noticed at 03:00Z: 04:00 in Lagos, 10:00 in Jakarta): Lagos's 09:00 is that day again,
+    // asked already, so no second ask.
+    const back = cutAt(
+      new Date("2026-10-22T03:00:00.000Z"),
+      "Asia/Jakarta",
+      "Africa/Lagos"
+    ).toISOString();
+    writeFileSync(
+      ZONES,
+      `${readFileSync(ZONES, "utf8")}${JSON.stringify({ from: back, schemaVersion: 1, tz: "Africa/Lagos" })}\n`
+    );
+    dailyAsk(Date.parse("2026-10-22T08:00:00.000Z"), daily);
+    expect(tasksOf()).toHaveLength(1);
   } finally {
     writeFileSync(ZONES, was);
     rmSync(LEDGER, { force: true });
