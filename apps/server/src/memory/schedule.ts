@@ -62,8 +62,8 @@ export const reserved = (
   (q?.used ?? 0) > RESERVE && !(q?.resetsAt && Date.parse(q.resetsAt) <= now);
 
 /** The nightly email's line on the quota. */
-export const quotaLine = (q: Quota | undefined) =>
-  `Codex quota: ${q ? `${q.used}% used${q.resetsAt ? `, resets ${localTime(q.resetsAt)}` : ""}` : "not read"}${reserved(q) ? `: over ${RESERVE}%, the middays, backfill and evals wait` : ""}`;
+export const quotaLine = (q: Quota | undefined, now = clock().getTime()) =>
+  `Codex quota: ${q ? `${q.used}% used${q.resetsAt ? `, resets ${localTime(q.resetsAt)}` : ""}` : "not read"}${reserved(q, now) ? `: over ${RESERVE}%, the middays, backfill and evals wait` : ""}`;
 
 /** An eval or a bench run starts only under the reserve (his decision 12, 21 Oct: evals right after a reset). */
 export async function spareQuota(engine?: Engine) {

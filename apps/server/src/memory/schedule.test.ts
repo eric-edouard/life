@@ -189,7 +189,8 @@ test("over 75% of his Codex quota a tick runs only the night, until the quota re
       quota: quota(99),
     })
   ).toBe("midday");
-  expect(quotaLine(quota(80))).toBe(
+  // At the tick's own time, never the test's: the reset is a fixed date that the real clock passes.
+  expect(quotaLine(quota(80), at(14).getTime())).toBe(
     `Codex quota: 80% used, resets ${localTime(at(7, 27).toISOString())}: over 75%, the middays, backfill and evals wait`
   );
   expect(quotaLine({ resetsAt: null, used: 12 })).toBe("Codex quota: 12% used");
