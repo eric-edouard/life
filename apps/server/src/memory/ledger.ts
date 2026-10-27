@@ -263,7 +263,7 @@ export const hiding = (corrections: Correction[], id: string) =>
 /**
  * Where an observation stands: the one rule the index, the pages and the status reads go by. First match wins: `hidden`
  * (the owner said wrong or not important, everywhere), `gone` (its unit no longer exists or a code rule drops it now),
- * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he rated it outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
+ * `replaced` (its unit was read again and the newer extraction counts), `retired` (a newer observation superseded it, or he said it is outdated: `by` itself; still indexed, with `by`, and still cited on a page, never new
  * there), `active`. `hiddenOn`: the pages the owner hid it on; it stays indexed. An observation is a model's reading,
  * its quote checked against the source: `active` does not mean verified.
  */

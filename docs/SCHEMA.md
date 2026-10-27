@@ -334,8 +334,8 @@ The owner's answers to the statements, append-only, from the check page (`<your 
 `apps/server/src/host/http/check-page.ts`): `{schemaVersion: 1, ref, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
 recorded it, not anymore), `skip` or null (the owner took their last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
 (`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
-lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` retires the claim as a supersession would
-(`ratedOutdated`, `by` the claim itself, `why` `rated outdated`, `validTo` the answer's UTC day), after extraction's own; on a
+lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` reads as an `outdated` correction
+(`readCorrections` adds it, note `rated outdated`), which retires the claim by itself (`outdatedBy`, `validTo` the answer's UTC day), after extraction's own; on a
 moment it changes nothing. A skipped statement is not asked again.
 
 ## scores.jsonl
