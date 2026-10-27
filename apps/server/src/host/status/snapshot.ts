@@ -109,13 +109,13 @@ export function toneOf(
  * Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (AGENTS.md), in `tz` (the
  * Mac's zone read now, `systemZone`: a long-running process's own zone can be the one it started in).
  */
-export const waking = (d: Date, tz?: string) => {
+export const waking = (d: Date, tz: string | undefined) => {
   const hour = wall(d.toISOString(), tz).hms.slice(0, 2);
   return hour >= "08" || hour < "01";
 };
 
 /** When the waking hours `d` falls in began (08:00, the day before after midnight); null outside them. */
-export function wokeAt(d: Date, tz?: string) {
+export function wokeAt(d: Date, tz: string | undefined) {
   if (!waking(d, tz)) {
     return null;
   }

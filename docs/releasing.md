@@ -27,3 +27,6 @@ bun scripts/release.ts
 ```
 
 Set `LIFELOG_HOST_APP` to also put lifelog's host app in the DMG.
+
+A release whose lifelog contract changed (`apps/lifelog/apps/server/openapi.json`) updates Lifelog Host first, then
+Life: Life reads lifelog only through that contract, and an older Host refuses the new calls.
