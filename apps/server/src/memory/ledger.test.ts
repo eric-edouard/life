@@ -15,6 +15,7 @@ import {
   latestExtractions,
   latestRatings,
   newSince,
+  outdatedBy,
   ratedFalse,
   ratedOutdated,
   retiredBy,
@@ -132,10 +133,12 @@ const fixture = {
     ])
   ).set(
     "O",
-    ratedOutdated(
-      latestRatings([
-        { answer: "outdated", at: "2026-10-19T08:00:00Z", ref: "O" },
-      ] as Rating[])
+    outdatedBy(
+      ratedOutdated(
+        latestRatings([
+          { answer: "outdated", at: "2026-10-19T08:00:00Z", ref: "O" },
+        ] as Rating[])
+      )
     )[0] as Supersession
   ),
 };
@@ -293,6 +296,31 @@ test("a claim he rated false is hidden as wrong until an undo or a later answer 
   ).toEqual(["obs_a", "mom_e"]);
 });
 
+test("audit-7: a promise he says he kept is retired by itself with his words, as history, not wrong or hidden", () => {
+  const kept = {
+    at: "2026-10-27T14:50:00Z",
+    kind: "outdated",
+    note: "it's already done",
+    observations: ["obs_a"],
+    schemaVersion: 1,
+  } as Correction;
+  const s = {
+    corrections: [kept],
+    latest: new Map(),
+    live: new Set(["unit_1"]),
+    retired: retiredBy(outdatedBy([kept]), new Set(["obs_a"])),
+  } as Standing;
+  expect(stateOf(obs("obs_a", "unit_1", "h1"), s)).toEqual({
+    at: "2026-10-27T14:50:00Z",
+    by: "obs_a",
+    hiddenOn: [],
+    page: undefined,
+    state: "retired",
+    validTo: "2026-10-27",
+    why: "it's already done",
+  });
+});
+
 test("a claim he rated outdated is retired by itself, as history, not wrong; an undo lifts it, extraction's retirement wins", () => {
   const rate = (claim: string, answer: Rating["answer"]) =>
     ({
@@ -308,7 +336,7 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
       latest: new Map(),
       live: new Set(["unit_1"]),
       retired: retiredBy(
-        [...first, ...ratedOutdated(latestRatings(ratings))],
+        [...first, ...outdatedBy(ratedOutdated(latestRatings(ratings)))],
         new Set(["obs_a", "obs_b"])
       ),
     }) as Standing;

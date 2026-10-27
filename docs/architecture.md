@@ -57,7 +57,8 @@ flowchart LR
   words, fetched only for the day being read (`voiceText`).
 - **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
-  that retires an observation (besides the owner rating one outdated).
+  that retires an observation, besides the owner's word that one is outdated (a check-page answer or an `outdated`
+  correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
 - **The index** (`LIFE_STATE_DIR/memory/index.sqlite`): rebuilt from observations and units; read by the CLI and the connector.

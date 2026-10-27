@@ -208,6 +208,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 |---|---|---|
 | `wrong` | `observations: [obs_…, mom_…]`, optional `page` | Never shown (pages, search; a moment: every read, and the next days' reading), or off that page only |
 | `not-important` | `observations`, optional `page` | Same; a true fact the owner does not want |
+| `outdated` | `observations: [obs_…]` | Retired by itself, as history (true then, not anymore: a promise kept, a to-do done); `note` holds his words. His check-page `outdated` answers read as these |
 | `keep-mine` | `page`, `section` (`now`, `history`; on the owner's own page also `views`, `health`; on a close person's `bond`), `text` | The line stays on the page as written |
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |

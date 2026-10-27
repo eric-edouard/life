@@ -162,8 +162,9 @@ test("an answer must come from Life's own page and name a statement; a false hid
   expect(await wrong()).toBe(false);
   // Outdated: closed as history (a retirement, ledger.test.ts), not wrong.
   const closed = () =>
-    ratedOutdated(readRatings()).find((r) => r.observation === claim)?.why ??
-    null;
+    ratedOutdated(readRatings()).find(
+      (c) => c.kind === "outdated" && c.observations.includes(claim)
+    )?.note ?? null;
   expect((await post(ORIGIN, { answer: "outdated", ref: claim })).status).toBe(
     204
   );

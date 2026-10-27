@@ -38,6 +38,8 @@ exception: the truth benchmark on `/check`, rated when he likes, never waited on
 
 - When he states or corrects a fact, record it before moving on: `bun life memory correct '<json>'` (kinds in
   `docs/SCHEMA.md`). When it's about who someone is, offer to add it to `truth/` and do it on his yes.
+- When he says a promise is kept or a to-do is done (\"it's already done\"), close it: `bun life memory correct
+  '{\"kind\":\"outdated\",\"observations\":[\"obs_…\"],\"note\":\"<his words>\"}'`, after checking it's the observation he means.
 - When he says something matters or doesn't, also append a label to `memory/labels.jsonl`.
 - When he states or changes a goal or priority, offer to put it in `truth/me.md` `## Goals` (numbered, his order, each
   with the project ids it serves) and do it on his yes. His goals live there only.
@@ -111,7 +113,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
 - **Facts are read by moment:** one call per day reads every unit of the day (`moments.ts`), then extraction reads a
   moment's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
-  the only step that retires an observation (besides his `outdated` answers).
+  the only step that retires an observation, besides his word that one is outdated (a check-page answer or an
+  `outdated` correction).
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.
 - **Model calls use the owner's subscriptions**, or an API key on an install with neither; never another provider
