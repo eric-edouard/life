@@ -4,6 +4,7 @@
 // transcripts, names, places, coordinates or request bodies. Kept RETENTION_DAYS after arrival.
 import { randomUUID } from "node:crypto";
 import { z } from "@hono/zod-openapi";
+import { isTimeZone } from "@life/server/src/core/time-zone";
 import type { Db } from "@lifelog/db";
 import {
   diagnosticKinds,
@@ -12,7 +13,7 @@ import {
   heartbeats,
 } from "@lifelog/db/schema";
 import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
-import { isTimeZone, setOwnerTimeZone } from "./config";
+import { setOwnerTimeZone } from "./config";
 
 const RETENTION_DAYS = 90;
 // Request bodies past these are refused before parsing. A crash with every thread's stack is

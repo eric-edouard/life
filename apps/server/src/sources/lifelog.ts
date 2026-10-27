@@ -8,6 +8,7 @@ import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
+import { isTimeZone } from "../core/time-zone";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
@@ -157,11 +158,24 @@ export const LifelogStatus = z.object({
   phoneHeartbeat: z
     .object({
       backlog: z.object({ pages: z.number().nullish() }).nullish(),
+      timeZone: z.string().nullish(),
     })
     .nullish(),
 });
 export const lifelogStatus = async () =>
   LifelogStatus.parse(await call("/status", 15));
+
+/**
+ * The phone's zone, from its newest heartbeat; null when lifelog is not set up or that heartbeat names no zone Intl
+ * knows. Throws when lifelog can't be read.
+ */
+export async function readPhoneZone() {
+  if (lifelogMissing()) {
+    return null;
+  }
+  const beat = (await lifelogStatus()).phoneHeartbeat;
+  return beat?.timeZone && isTimeZone(beat.timeZone) ? beat.timeZone : null;
+}
 
 /** The store's file in `dir` and its cursor's. */
 export const storeFiles = (dir = WATCH) => ({

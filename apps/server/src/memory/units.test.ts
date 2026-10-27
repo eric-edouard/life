@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DAY, HOUR, MIN } from "../core/clock";
@@ -16,6 +22,7 @@ import {
   type LifelogConversation,
   openStore,
   readConversations,
+  readPhoneZone,
   WATCH,
 } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
@@ -31,7 +38,7 @@ import {
   turnFixture,
 } from "../sources/store-fixtures";
 import { LIFE_MAIL } from "./email";
-import { IMPORTED, keptConversations, readUnits, UNITS } from "./ledger";
+import { IMPORTED, keptConversations, readUnits, UNITS, ZONES } from "./ledger";
 import { showFiles } from "./message-files";
 import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
@@ -55,7 +62,15 @@ import {
 } from "./units";
 import { resolver, unitNow } from "./who";
 import { chatLines } from "./words";
-import { cutAt, dayStart, firstZoneDay, localDate, zoneAt } from "./zones";
+import {
+  cutAt,
+  dayStart,
+  firstZoneDay,
+  localDate,
+  noteZone,
+  readZoneHere,
+  zoneAt,
+} from "./zones";
 
 const people = [
   {
@@ -515,6 +530,56 @@ test("his zone at an instant is the latest record before it, the first one befor
   // The day he flew to Germany lasts until Berlin midnight: no hour of it is lost.
   expect(dayStart("2026-10-06").toISOString()).toBe("2026-10-05T17:00:00.000Z");
   expect(dayStart("2026-10-07").toISOString()).toBe("2026-10-06T22:00:00.000Z");
+});
+
+test("where he is now: the phone's latest zone, whatever its age; the Mac's only when no phone said one; lifelog unreadable, no change", async () => {
+  const mac = () => "Europe/Berlin";
+  const phone = (tz: string | null) => () => Promise.resolve(tz);
+  // The Life server may run anywhere: the phone says where he is.
+  expect(await readZoneHere({ mac, phone: phone("Asia/Jakarta") })).toBe(
+    "Asia/Jakarta"
+  );
+  // No phone ever named a zone (lifelog not set up, or no heartbeat with one): the Mac's.
+  expect(await readZoneHere({ mac, phone: phone(null) })).toBe("Europe/Berlin");
+  // lifelog set up but unreadable: nothing to record, so the last zone (the phone's) stands; never the server's.
+  expect(
+    await readZoneHere({
+      mac,
+      phone: () => Promise.reject(new Error("lifelog down")),
+    })
+  ).toBeUndefined();
+  // The same through lifelog's real status read: a failed request (no route, 404) and an answer it can't read.
+  const failing: Record<string, () => unknown>[] = [
+    {},
+    { "/status": () => ({ phoneHeartbeat: "not a heartbeat" }) },
+  ];
+  for (const routes of failing) {
+    const server = lifelogServer(routes);
+    try {
+      // biome-ignore lint/performance/noAwaitInLoops: one fake lifelog at a time, each sets the settings it is read by
+      expect(await readZoneHere({ mac, phone: readPhoneZone })).toBeUndefined();
+    } finally {
+      server.close();
+    }
+  }
+});
+
+test("a zone noticed is recorded once, from when `cutAt` says; none or the same, nothing", async () => {
+  const was = readFileSync(ZONES, "utf8");
+  // The fixture's latest move: Lagos from 19 Oct.
+  const noon = new Date("2026-11-02T10:00:00.000Z");
+  try {
+    await noteZone(undefined, noon);
+    await noteZone("Africa/Lagos", noon);
+    expect(readFileSync(ZONES, "utf8")).toBe(was);
+    await noteZone("Asia/Jakarta", noon);
+    await noteZone("Asia/Jakarta", noon);
+    expect(readFileSync(ZONES, "utf8").slice(was.length)).toBe(
+      `${JSON.stringify({ from: cutAt(noon, "Africa/Lagos", "Asia/Jakarta").toISOString(), schemaVersion: 1, tz: "Asia/Jakarta" })}\n`
+    );
+  } finally {
+    writeFileSync(ZONES, was);
+  }
 });
 
 test("a move takes effect at once on a shared day, else at the next midnight of the zone ahead, so days never go back", () => {

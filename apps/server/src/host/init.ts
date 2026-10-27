@@ -7,6 +7,7 @@ import { OWNER_DATA_DIR } from "../core/paths";
 import { systemZone } from "../core/platform";
 import { git } from "../core/proc";
 import { integrity, loadTruth } from "../memory/read-truth";
+import { readZoneHere } from "../memory/zones";
 import { Zone } from "../records/unit";
 
 // A new install's data: the smallest truth that validates (only the owner), his zone from now on, and the data repo
@@ -49,7 +50,13 @@ export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
     writeFile(join(truth, "projects", ".gitkeep"), ""),
     writeFile(join(truth, "me.md"), `# Me\n\n${owner.name}.\n`),
     appendJsonl(join(data, "memory", "zones.jsonl"), Zone, [
-      { from: now.toISOString(), schemaVersion: 1, tz: systemZone() ?? "UTC" },
+      {
+        from: now.toISOString(),
+        schemaVersion: 1,
+        // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with lifelog
+        // unreadable: there is no earlier zone to stand.
+        tz: (await readZoneHere()) ?? systemZone() ?? "UTC",
+      },
     ]),
   ]);
   const issues = integrity(await loadTruth(data));
