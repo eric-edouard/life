@@ -119,7 +119,7 @@ export async function readZoneHere(
  * Records `tz`, where he is now (`readZoneHere`), when it is not the last one recorded: launchd's tick calls it, every
  * 30 minutes, holding the lock. What happened before it was noticed keeps its zone.
  */
-export async function noteZone(tz: string | null | undefined, now = clock()) {
+export async function noteZone(tz: string | undefined, now = clock()) {
   const was = zones().at(-1)?.tz;
   if (tz && was && tz !== was) {
     const from = cutAt(now, was, tz).toISOString();

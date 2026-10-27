@@ -588,7 +588,7 @@ test("a zone noticed is recorded once, from when `cutAt` says; none or the same,
   // The fixture's latest move: Lagos from 19 Oct.
   const noon = new Date("2026-11-02T10:00:00.000Z");
   try {
-    await noteZone(null, noon);
+    await noteZone(undefined, noon);
     await noteZone("Africa/Lagos", noon);
     expect(readFileSync(ZONES, "utf8")).toBe(was);
     await noteZone("Asia/Jakarta", noon);
