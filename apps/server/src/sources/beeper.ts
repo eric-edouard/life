@@ -89,7 +89,16 @@ export const newestBeeper = (dir = ARCHIVE) =>
     dir
   );
 
-const LOCAL = /^local-/;
+// The networks read from Beeper. Beeper names an account `local-<network>_<id>` (a bridge on this Mac), `<network>.<id>`
+// (a bridge on its servers, which LINE moved to after 17 Oct 2026) or `<network>`.
+const NETWORKS = ["line", "telegram", "instagram"].map((name) => ({
+  form: new RegExp(`^(local-${name}(_|$)|${name}(\\.|$))`),
+  name,
+}));
+
+/** The network of a Beeper account id, or null for one Life doesn't read (WhatsApp, iMessage: their own sources). */
+const networkOf = (account: string) =>
+  NETWORKS.find((n) => n.form.test(account))?.name ?? null;
 
 interface BeeperRow {
   account: string;
@@ -119,8 +128,7 @@ const BEEPER_SQL = `select m.id, m.eventID as eventId, m.roomID as chat, t.accou
   from mx_room_messages m
   join threads t on t.threadID = m.roomID
   left join participants p on p.room_id = m.roomID and p.id = m.senderContactID
- where m.type not in ('HIDDEN', 'REACTION')
-   and (t.accountID = 'line' or t.accountID like 'local-telegram%' or t.accountID like 'local-instagram%')`;
+ where m.type not in ('HIDDEN', 'REACTION')`;
 
 // One row per version a message was seen in: the original, each edit, and the deleted state (text wiped). The same for
 // its attachments in `files`, which a delete wipes too.
@@ -158,7 +166,13 @@ export function copyBeeper(
   try {
     // The whole table every time, which also backfills the first run: a few thousand rows, and Beeper backfills old
     // chats into it at any time. Rows already archived are ignored.
-    const rows = beeper.query<BeeperRow, []>(BEEPER_SQL).all();
+    const rows = beeper
+      .query<BeeperRow, []>(BEEPER_SQL)
+      .all()
+      .flatMap((r) => {
+        const network = networkOf(r.account);
+        return network ? [{ ...r, network }] : [];
+      });
     const seenAt = new Date(now).toISOString();
     const files = insertAll(
       archive,
@@ -170,8 +184,7 @@ export function copyBeeper(
       `insert or ignore into messages (id, eventId, chat, chatName, network, sender, senderName, fromMe, at, type, text, deleted, seenAt)
        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       rows.map((r) => [
-        ...[r.id, r.eventId, r.chat, r.chatName],
-        r.account.replace(LOCAL, "").split("_")[0] ?? r.account,
+        ...[r.id, r.eventId, r.chat, r.chatName, r.network],
         ...[r.sender, r.senderName, r.fromMe, new Date(r.ts).toISOString()],
         ...[r.type, r.text, r.deleted, seenAt],
       ])

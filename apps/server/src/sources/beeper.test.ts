@@ -46,6 +46,28 @@ test("the archive keeps the text of Beeper messages deleted or edited later, wit
   expect(deleted).toEqual([{ text: "pay the carpenter" }]);
 });
 
+test("audit-6: every form of a network's account id is copied under the network's name; WhatsApp is left to its own source", () => {
+  const { add, dir, now, source } = beeperFixture();
+  add(1, "!ln", "TEXT", "the bank details");
+  add(2, "!ig", "TEXT", "see you there");
+  add(3, "!tg", "TEXT", "meet at 9");
+  add(4, "!wa", "TEXT", "read from WhatsApp's own archive");
+  add(5, "!no", "TEXT", "an account that only starts like a network");
+  expect(copyBeeper(source, dir, now)).toBe(3);
+  const db = new Database(join(dir, "beeper.sqlite"));
+  const networks = db
+    .query<{ chat: string; network: string }, []>(
+      "select chat, network from messages order by chat"
+    )
+    .all();
+  db.close();
+  expect(networks).toEqual([
+    { chat: "!ig", network: "instagram" },
+    { chat: "!ln", network: "line" },
+    { chat: "!tg", network: "telegram" },
+  ]);
+});
+
 test("each network's newest message is that row whole, never another row's words", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-newest-"));
   const db = new Database(join(dir, "beeper.sqlite"));
