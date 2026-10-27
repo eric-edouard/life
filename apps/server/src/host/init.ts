@@ -38,8 +38,6 @@ export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
   }
   await mkdir(join(truth, "projects"), { recursive: true });
   await mkdir(join(data, "memory"), { recursive: true });
-  // Where he is, by the same rule as every tick (the phone's zone, else the Mac's); a first line must name one.
-  const here = (await readZoneHere()) ?? systemZone();
   const me = {
     handles: { email: owner.email, phone: owner.phone },
     id: "me",
@@ -55,7 +53,9 @@ export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
       {
         from: now.toISOString(),
         schemaVersion: 1,
-        tz: here ?? "UTC",
+        // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with lifelog
+        // unreadable: there is no earlier zone to stand.
+        tz: (await readZoneHere()) ?? systemZone() ?? "UTC",
       },
     ]),
   ]);
