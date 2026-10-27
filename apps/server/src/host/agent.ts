@@ -19,7 +19,7 @@ import {
   type Update,
 } from "../memory/tasks";
 import { clip, localTime } from "../memory/units";
-import { dayStart, localDate } from "../memory/zones";
+import { dayNow, dayStart, wall, zoneNow } from "../memory/zones";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import type { Receipt } from "../todo-list/board";
 import { entryId, requested } from "./act";
@@ -107,8 +107,9 @@ export function dailyAsk(
   if (!d?.on) {
     return;
   }
-  const day = localDate(iso(now));
-  const due = dayStart(day, undefined, d.time).getTime();
+  const tz = zoneNow();
+  const { day } = wall(iso(now), tz);
+  const due = dayStart(day, tz, d.time).getTime();
   if (now >= due) {
     ask(
       { at: iso(due), quote: d.text, ref: `${DAILY}${day}` },
@@ -224,7 +225,7 @@ export function alerts(tasks: Task[], now: number, live: boolean) {
   if (!live) {
     const open = tasks.filter((t) => !closed(standing(t).state)).length;
     return open
-      ? [{ cause: LAPSE, key: `lapse/${localDate(iso(now))}`, open }]
+      ? [{ cause: LAPSE, key: `lapse/${dayNow(new Date(now))}`, open }]
       : [];
   }
   return tasks.flatMap((t) => {

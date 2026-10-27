@@ -95,7 +95,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Life state dir | Life's own state: settings, log, the search index (`LIFE_STATE_DIR`, env too). | |
 | machine dir | One per computer: the archive, the locks, Codex's home (`MACHINE_DIR`). | |
 | Life code dir | Life's code, prompts and assets (`LIFE_CODE_DIR`, env too). | |
-| time zone | Where the owner was, for local days (`zones.jsonl`, `zones.ts`); where he is now is the phone's latest zone, else the Mac's (`readZoneHere`). | |
+| time zone | Where the owner was, for local days (`zones.jsonl`, `zones.ts`): a recorded line's at that instant (`zoneAt`), the present's the latest noticed (`zoneNow`); where he is now is the phone's latest zone, else the Mac's (`readZoneHere`). | |
 | boundary zone | One layer of the code in fallow's checks (`.fallowrc.json`). | |
 
 Next: the [architecture](architecture.md) and [every record](SCHEMA.md).

@@ -1,6 +1,7 @@
 import { statSync } from "node:fs";
 import { clock } from "../../core/clock";
 import { recentEvents } from "../../core/log";
+import { systemZone } from "../../core/platform";
 import { lockedSince } from "../../memory/memory-lock";
 import { latestRuns, type Run, SWEEPS } from "../../memory/run-log";
 import {
@@ -107,7 +108,8 @@ export async function lifeStatus(now = clock()) {
           sweep: running.find((r) => SWEEPS.has(r.step))?.id ?? null,
         }
       : { state: "idle" },
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    // Read now: the long-running server's own zone can be the one it started in.
+    timeZone: systemZone(),
     watcher,
   };
 }

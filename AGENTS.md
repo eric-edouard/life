@@ -7,7 +7,8 @@ plus an always-on archive of deleted messages and old note versions. Shipped as 
 lifelog (the pendant pipeline: the iPhone app, its server, the Mac helper and Lifelog Host) lives in `apps/lifelog`,
 folded in from its own repo on 24 Oct 2026, with its own `AGENTS.md`. It still runs as its own service on the Mac, and
 Life reads it only through its REST contract (`apps/lifelog/apps/server/openapi.json`), never its code or its database;
-lifelog may use Life's `core/`. One gate, `bun run check` at the root, covers both.
+lifelog may use Life's `core/`. Only instants cross that contract: a local day is Life's to bound (`zoneAt`), since
+lifelog knows only where the phone is now. One gate, `bun run check` at the root, covers both.
 
 Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),
@@ -155,7 +156,7 @@ Before adding a helper, use the one that exists:
 | Who has a page / who is close personally | `pagedNow`, `personallyClose` (`closeness.ts`); never a list |
 | Who a name, handle or ref is | `memory/who.ts` (`readPeople`; `meant` for `read_person_page` and `read_chats`) |
 | Who wrote a message | `speakerOf` (`units.ts`); units keep people unresolved, readers map them with `unitNow` |
-| A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone |
+| A local day or time | `localDate`, `dayStart` (`zones.ts`), `time` (`units.ts`), in the zone he was in (`zoneAt`), never the process's zone; the present (his day now, a daily ask) is `dayNow`, `zoneNow` |
 | Now | `clock()` (`apps/server/src/core/clock.ts`), never `new Date()` or `Date.now()`; a duration is `performance.now()` |
 | A duration, an instant as the ledgers write it | `MIN`, `HOUR`, `DAY`, `iso` (`apps/server/src/core/clock.ts`) |
 | A capability's types | its `contract.ts` (`sources/`, `todo-list/`): implementations import it, its registry imports them, never back |
@@ -173,7 +174,7 @@ Before adding a helper, use the one that exists:
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
-Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`) follow the Mac's clock.
+Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`, given `systemZone()`) follow the Mac's clock.
 Where he is (`zones.jsonl`) is the phone's latest zone, whatever its age (`readZoneHere`, his decision of 27 Oct): the
 phone is the source of truth and the Life server may run anywhere. The Mac's zone only when no phone ever named one;
 lifelog unreadable changes nothing. lifelog's own owner zone (`ownerTimeZone`) follows the same newest heartbeat.

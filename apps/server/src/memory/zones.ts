@@ -41,6 +41,15 @@ export function zoneAt(iso: string) {
   return ((list.findLast((z) => z.from <= at) ?? list[0]) as { tz: string }).tz;
 }
 
+/**
+ * The zone he is in now: the latest move noticed, even one whose `from` is still ahead. `cutAt` keeps the days of what
+ * was recorded whole; the present (a daily ask, "in 3 days") follows him at once.
+ */
+export const zoneNow = () => zones().at(-1)?.tz;
+
+/** His local day now, where he is: for the present only, never to date a recorded line (that is `localDate`). */
+export const dayNow = (now = clock()) => wall(now.toISOString(), zoneNow()).day;
+
 const clocks = new Map<string, Intl.DateTimeFormat>();
 /** An instant's wall clock in `tz` (by default where he was then): `YYYY-MM-DD` and `HH:MM:SS`. */
 export function wall(iso: string, tz = zoneAt(iso)) {
@@ -109,7 +118,7 @@ export async function readZoneHere(
  * 30 minutes, holding the lock. What happened before it was noticed keeps its zone.
  */
 export async function noteZone(tz: string | undefined, now = clock()) {
-  const was = zones().at(-1)?.tz;
+  const was = zoneNow();
   if (tz && was && tz !== was) {
     const from = cutAt(now, was, tz).toISOString();
     await appendJsonl(ZONES, Zone, [{ from, schemaVersion: 1, tz }]);

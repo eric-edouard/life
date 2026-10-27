@@ -652,12 +652,12 @@ export const Stays = z.array(
 );
 export type Stay = z.infer<typeof Stays>[number];
 
-/** Where the owner was: `at` an ISO instant (0 or 1 stay) or a YYYY-MM-DD date (that day's stays). */
+/** Where the owner was at `at`, an ISO instant: 0 or 1 stay. A day's stays: `visits` with its bounds (`dayRange`). */
 export async function whereAt(at: string) {
   return Stays.parse(await call(`/where?at=${encodeURIComponent(at)}`));
 }
 
-/** The owner's stays over the whole history, newest first, at most 200: by place name or by coordinates, within `from`/`to`. */
+/** The owner's stays, newest first, at most 200, within `from`/`to` (the whole history without them): all, or by place name or coordinates. */
 export async function visits(q: Record<string, string | number | undefined>) {
   const query = new URLSearchParams(
     Object.entries(q).flatMap(([k, v]) =>

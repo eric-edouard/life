@@ -8,7 +8,7 @@ import {
   whereAt,
   withStore,
 } from "../sources/lifelog";
-import { clip, dayRange, localTime, time } from "./units";
+import { clip, dayRange, isDay, localTime, time } from "./units";
 import { asData } from "./words";
 
 // `bun life memory places`, and the connector's `read_places_visited`: where the owner was (lifelog's stays, from the iPhone's
@@ -43,10 +43,12 @@ export async function placesOf(
   if (!(q.at || q.place || located)) {
     return null;
   }
-  const range = dayRange(q.from, q.to);
+  // A date is a day of his, bounded where he was then (Life's zones): lifelog only takes instants.
+  const day = q.at && isDay(q.at) ? q.at : undefined;
+  const range = day ? dayRange(day, day) : dayRange(q.from, q.to);
   const now = clock().toISOString();
   const stays = (
-    q.at
+    q.at && !day
       ? await read.where(q.at)
       : await read.visits({
           from: range.from,

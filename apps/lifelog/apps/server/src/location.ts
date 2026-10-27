@@ -7,7 +7,6 @@ import type { Db } from "@lifelog/db";
 import { locationHistory } from "@lifelog/db/schema";
 import { and, asc, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { logChange } from "./change-log";
-import { ownerTimeZone } from "./config";
 import {
   type Circle,
   distanceM,
@@ -294,17 +293,6 @@ export function zonedInstant(local: string, zone: string) {
   return new Date(wall - offset(wall - offset(wall)));
 }
 
-// Midnight starting a day and the next, in the owner's zone.
-function dayBounds(isoDate: string) {
-  const next = new Date(Date.parse(`${isoDate}T00:00Z`) + 24 * HOUR)
-    .toISOString()
-    .slice(0, 10);
-  return {
-    from: zonedInstant(`${isoDate}T00:00`, ownerTimeZone()),
-    to: zonedInstant(`${next}T00:00`, ownerTimeZone()),
-  };
-}
-
 // ---- Reading ----------------------------------------------------------------
 
 function pointsBetween(db: Db, from: number, to: number) {
@@ -373,50 +361,44 @@ function visitOf(
   };
 }
 
-// Where the owner was: at an instant, the stay around it or the nearest point within 30 minutes
-// (none otherwise); on a day (owner's time zone), each stay in order.
-export function whereVisits(
-  db: Db,
-  when: { at: Date } | { day: string }
-): Visit[] {
-  if ("at" in when) {
-    const t = when.at.getTime();
-    const found = locate(pointsBetween(db, t, t + 24 * HOUR), t);
-    if (found.kind === "stay") {
-      return [visitOf(db, found.run.from, found.run.to, found.run.best)];
-    }
-    return found.kind === "point"
-      ? [visitOf(db, found.point.from, found.point.to, found.point)]
-      : [];
+// Where the owner was at an instant: the stay around it or the nearest point within 30 minutes
+// (none otherwise).
+export function whereVisits(db: Db, at: Date): Visit[] {
+  const t = at.getTime();
+  const found = locate(pointsBetween(db, t, t + 24 * HOUR), t);
+  if (found.kind === "stay") {
+    return [visitOf(db, found.run.from, found.run.to, found.run.best)];
   }
-  const { from, to } = dayBounds(when.day);
-  const [start, end] = [from.getTime(), Math.min(to.getTime(), Date.now())];
-  const found = stays(pointsBetween(db, start, end + MAX_GAP_MS)).filter(
-    (r) => isStay(r) && r.to >= start && r.from < end
-  );
-  return found.map((r) => visitOf(db, r.from, r.to, r.best));
+  return found.kind === "point"
+    ? [visitOf(db, found.point.from, found.point.to, found.point)]
+    : [];
 }
 
-// Each visit to a named place or a circle within [from, to) (the whole history by default),
-// newest first, at most 200. Null when no place the phone named matches.
+// Each visit within [from, to) (the whole history by default), newest first, at most 200: every
+// stay, or those at a named place or in a circle. Null when no place the phone named matches.
 // ponytail: reads every point in the range into memory (~100k a year); page it if years pile up.
 export function visitsTo(
   db: Db,
   target:
     | { place: string }
-    | { latitude: number; longitude: number; radiusM?: number | undefined },
+    | { latitude: number; longitude: number; radiusM?: number | undefined }
+    | undefined,
   range: { from?: Date | undefined; to?: Date | undefined }
 ) {
   const circles =
-    "place" in target
+    target &&
+    ("place" in target
       ? placeCircles(db, target.place)
-      : [{ ...target, radiusM: target.radiusM ?? DEFAULT_RADIUS_M }];
-  if (circles.length === 0) {
+      : [{ ...target, radiusM: target.radiusM ?? DEFAULT_RADIUS_M }]);
+  if (circles?.length === 0) {
     return null;
   }
   const from = range.from?.getTime() ?? 0;
   const to = range.to?.getTime() ?? Date.now();
-  const found = visitsIn(pointsBetween(db, from, to + MAX_GAP_MS), circles)
+  const points = pointsBetween(db, from, to + MAX_GAP_MS);
+  const found = (
+    circles ? visitsIn(points, circles) : stays(points).filter(isStay)
+  )
     .filter((r) => r.to >= from && r.from < to)
     .reverse()
     .slice(0, MAX_VISITS);

@@ -5100,20 +5100,12 @@
     },
     "/where": {
       "get": {
-        "description": "Where the owner was. At an instant: the stay around it, or the nearest point within 30 minutes, else nothing. On a day (owner's time zone): each stay, in order.",
+        "description": "Where the owner was at an instant: the stay around it, or the nearest point within 30 minutes, else nothing. A day's stays: `GET /visits` with its `from` and `to`.",
         "parameters": [
           {
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "string",
-                  "format": "date-time"
-                }
-              ]
+              "type": "string",
+              "format": "date-time"
             },
             "required": true,
             "name": "at",
@@ -5139,7 +5131,7 @@
     },
     "/visits": {
       "get": {
-        "description": "Each visit to a place, newest first, at most 200: by the name the phone gave it (`place`, matched in part), or by `latitude` and `longitude` within `radiusM` (100 m). `from` and `to` bound it; the whole history without them.",
+        "description": "Each stay, newest first, at most 200: every one, or those at the place the phone named (`place`, matched in part), or by `latitude` and `longitude` within `radiusM` (100 m). `from` and `to` bound it (a day: the reader's own bounds of it); the whole history without them.",
         "parameters": [
           {
             "schema": {

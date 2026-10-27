@@ -364,7 +364,8 @@ read again from another country. The nightly tick (every 30 minutes) appends a l
 the phone's zone from its newest heartbeat, whatever its age; the Mac's own zone, never a `TZ` variable, only when no
 phone ever named one; nothing when lifelog is set up but can't be read) differs from the latest one, taking effect at once, or at the next midnight
 of the zone ahead when the two are on different days (`cutAt`: a local day never goes back); what came before it was
-noticed keeps the old zone. `bun life init` seeds it by the same rule. The owner's past may be appended later (their own account of where they lived) only
+noticed keeps the old zone. The present (`dayNow`, the daily ask) follows the latest line at once, even before its
+`from`. `bun life init` seeds it by the same rule. The owner's past may be appended later (their own account of where they lived) only
 before the first day memory has units of: an earlier unit's day, and so its id, would move.
 
 ## labels.jsonl
