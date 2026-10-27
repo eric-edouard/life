@@ -1,4 +1,4 @@
-import { isTimeZone } from "@life/server/src/core/clock";
+import { isTimeZone } from "@life/server/src/core/time-zone";
 import { z } from "zod";
 
 // Prices from docs/research/elevenlabs.md (live pricing page, 2026-10-07).

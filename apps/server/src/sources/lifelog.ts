@@ -2,12 +2,13 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock, isTimeZone, unfrozen } from "../core/clock";
+import { clock, unfrozen } from "../core/clock";
 import { readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
+import { isTimeZone } from "../core/time-zone";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one POST is /search), except `forward`: the owner's explicit corrections. The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each

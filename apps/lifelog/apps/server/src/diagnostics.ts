@@ -4,7 +4,7 @@
 // transcripts, names, places, coordinates or request bodies. Kept RETENTION_DAYS after arrival.
 import { randomUUID } from "node:crypto";
 import { z } from "@hono/zod-openapi";
-import { isTimeZone } from "@life/server/src/core/clock";
+import { isTimeZone } from "@life/server/src/core/time-zone";
 import type { Db } from "@lifelog/db";
 import {
   diagnosticKinds,
