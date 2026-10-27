@@ -52,6 +52,7 @@ test("audit-6: every form of a network's account id is copied under the network'
   add(2, "!ig", "TEXT", "see you there");
   add(3, "!tg", "TEXT", "meet at 9");
   add(4, "!wa", "TEXT", "read from WhatsApp's own archive");
+  add(5, "!no", "TEXT", "an account that only starts like a network");
   expect(copyBeeper(source, dir, now)).toBe(3);
   const db = new Database(join(dir, "beeper.sqlite"));
   const networks = db

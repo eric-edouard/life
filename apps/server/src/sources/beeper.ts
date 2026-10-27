@@ -91,13 +91,14 @@ export const newestBeeper = (dir = ARCHIVE) =>
 
 // The networks read from Beeper. Beeper names an account `local-<network>_<id>` (a bridge on this Mac), `<network>.<id>`
 // (a bridge on its servers, which LINE moved to after 17 Oct 2026) or `<network>`.
-const NETWORKS = ["line", "telegram", "instagram"];
+const NETWORKS = ["line", "telegram", "instagram"].map((name) => ({
+  form: new RegExp(`^(local-${name}(_|$)|${name}(\\.|$))`),
+  name,
+}));
 
 /** The network of a Beeper account id, or null for one Life doesn't read (WhatsApp, iMessage: their own sources). */
 const networkOf = (account: string) =>
-  NETWORKS.find((n) =>
-    new RegExp(`^(local-${n}(_|$)|${n}(\\.|$))`).test(account)
-  ) ?? null;
+  NETWORKS.find((n) => n.form.test(account))?.name ?? null;
 
 interface BeeperRow {
   account: string;

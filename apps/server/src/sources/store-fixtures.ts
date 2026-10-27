@@ -120,7 +120,7 @@ export function beeperFixture() {
     "create table participants (room_id text, id text, full_name text, is_self integer)"
   );
   index.run(
-    "insert into threads values ('!tg', 'local-telegram_x', '{}'), ('!wa', 'whatsapp.33600000000', '{}'), ('!ln', 'line.Uabc', '{}'), ('!ig', 'local-instagram_ba_y', '{}')"
+    "insert into threads values ('!tg', 'local-telegram_x', '{}'), ('!wa', 'whatsapp.33600000000', '{}'), ('!ln', 'line.Uabc', '{}'), ('!ig', 'local-instagram_ba_y', '{}'), ('!no', 'linexyz', '{}')"
   );
   index.run("insert into participants values ('!tg', '@ana:tg', 'Ana', 0)");
   const bridge = join(source, "local-telegram");
