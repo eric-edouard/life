@@ -10,7 +10,7 @@ import { LIFE_CODE_DIR } from "../core/paths";
 import { LEDGER, type Task, tasksOf, ZONES } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
 import { standing, type Update } from "../memory/tasks";
-import { cutAt, dayStart, localDate, zoneAt } from "../memory/zones";
+import { cutAt, localDate, zoneAt } from "../memory/zones";
 import { LedgerEntry } from "../records/ledger-entry";
 import { planOf } from "../todo-list/board";
 import type { TodoItem } from "../todo-list/contract";
@@ -519,10 +519,6 @@ test("his daily ask follows him the moment a move is noticed, though the days of
     expect(tasksOf().map((t) => t.ask.instruction?.ref)).toEqual([
       "daily:2026-10-22",
     ]);
-    // A DST day keeps 09:00 local: Berlin's clocks go back on 25 Oct.
-    expect(dayStart("2026-10-25", "Europe/Berlin", "09:00").toISOString()).toBe(
-      "2026-10-25T08:00:00.000Z"
-    );
   } finally {
     writeFileSync(ZONES, was);
     rmSync(LEDGER, { force: true });

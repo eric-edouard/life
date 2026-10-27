@@ -836,6 +836,7 @@ async function dueContext(date: string, truth: Truth) {
     urgent: Boolean(f.urgent || f.flagged),
     when: f.due ? `${f.due}`.slice(0, 10) : undefined,
   }));
+  // His present gates which days have come; `end` and the said days are recorded days (history).
   const today = dayNow();
   const end = Math.min(
     clock().getTime(),

@@ -19,7 +19,7 @@ import {
   type Update,
 } from "../memory/tasks";
 import { clip, localTime } from "../memory/units";
-import { dayNow, dayStart, localDate, zoneNow } from "../memory/zones";
+import { dayNow, dayStart, zoneNow } from "../memory/zones";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import type { Receipt } from "../todo-list/board";
 import { entryId, requested } from "./act";
@@ -225,7 +225,7 @@ export function alerts(tasks: Task[], now: number, live: boolean) {
   if (!live) {
     const open = tasks.filter((t) => !closed(standing(t).state)).length;
     return open
-      ? [{ cause: LAPSE, key: `lapse/${localDate(iso(now))}`, open }]
+      ? [{ cause: LAPSE, key: `lapse/${dayNow(new Date(now))}`, open }]
       : [];
   }
   return tasks.flatMap((t) => {
