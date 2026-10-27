@@ -362,8 +362,7 @@ function visitOf(
 }
 
 // Where the owner was at an instant: the stay around it or the nearest point within 30 minutes
-// (none otherwise). A day is the reader's to bound (`GET /visits` with `from` and `to`): its local
-// day depends on where the owner was then, which only the reader's history knows.
+// (none otherwise).
 export function whereVisits(db: Db, at: Date): Visit[] {
   const t = at.getTime();
   const found = locate(pointsBetween(db, t, t + 24 * HOUR), t);

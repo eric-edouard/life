@@ -111,7 +111,7 @@ export function placeRoutes({ db }: Pick<Services, "db">) {
         description:
           "Each stay, newest first, at most 200: every one, or those at the place the phone named " +
           "(`place`, matched in part), or by `latitude` and `longitude` within `radiusM` (100 m). " +
-          "`from` and `to` bound it (a local day is the reader's to turn into them); the whole history without them.",
+          "`from` and `to` bound it (a day: the reader's own bounds of it); the whole history without them.",
         method: "get",
         path: "/visits",
         request: {

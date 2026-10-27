@@ -41,6 +41,20 @@ test("the status reads only read: no write, log, model call, action or send", as
   }
 });
 
-test("the status's time zone is the Mac's read now, never the process's own (`bun test` runs in UTC; a long-running server keeps the zone it started in)", async () => {
-  expect((await lifeStatus(new Date())).timeZone).toBe(systemZone());
+test("the status's time zone is the Mac's read now, never the process's own (a long-running server keeps the zone it started in)", async () => {
+  const was = process.env.TZ;
+  // The process in another zone than the Mac's, as a server started before a move is.
+  process.env.TZ =
+    systemZone() === "Pacific/Kiritimati"
+      ? "Africa/Lagos"
+      : "Pacific/Kiritimati";
+  try {
+    expect((await lifeStatus(new Date())).timeZone).toBe(systemZone());
+  } finally {
+    if (was === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = was;
+    }
+  }
 });

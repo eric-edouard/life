@@ -174,7 +174,7 @@ Before adding a helper, use the one that exists:
 | A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
-Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`) follow the Mac's clock.
+Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`, given `systemZone()`) follow the Mac's clock.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
 on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events' `post` and the Past calendar).
 
