@@ -148,9 +148,15 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
 
 ## Model engines
 
-- Calls go through `apps/server/src/models/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription (`bun life engine
-  claude|codex`), or an API key (engine `anthropic` or `openai`) for an install with neither. Each provider is one
-  entry in `PROVIDERS` there: its models by tier, effort, call, whether it may run tools, and its quota.
+- Calls go through `apps/server/src/models/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription, or
+  allmodels with his API key (since 28 Oct 2026 the only API engine: Anthropic's and OpenAI's went), chosen with
+  `bun life engine <engine>` or the app. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
+  call, key, whether it may run tools, and its quota.
+- allmodels (`ALLMODELS_API_KEY`) pins each tier's model to one host (`author/model@host`, fp8), with no fallback; a
+  reply from another host is refused. The fast tier's host takes images (the files step sends them).
+- Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'
+  (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a sweep's steps under
+  it; the quota lines appear only for an engine that has one (`hasQuota`).
 - Codex is pinned in `package.json` and run as its native binary: other `codex` installs may reject the model.
 - Codex always loads `AGENTS.md` from its home, so Life gives it a home of its own, `MACHINE_DIR/codex`, with no instruction
   files and one login: `CODEX_HOME="$HOME/Library/Application Support/Life/codex" codex login --device-auth`.
@@ -158,8 +164,8 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
   is the agent bench's agent, whose only tools are Life's connector, frozen and dry: Codex still read-only, with no
   shell but code mode's `exec` (its only way to MCP) and its nested real-time clock, which the bench's prompt says not
   to read.
-- The model bench's OpenRouter calls (`askOpenRouter`, `OPENROUTER_API_KEY`) are pinned to hosts on OpenRouter's
-  zero-retention list and run only through `LIFE_LLM` on a copy of the data; `LIFE_LLM` is refused on the live data.
+- The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, allmodels' as `model@host`), only
+  on a copy of the data; `LIFE_LLM` is refused on the live data.
 
 ## Backups and exports
 

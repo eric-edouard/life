@@ -296,7 +296,7 @@ test("a claim he rated false is hidden as wrong until an undo or a later answer 
   ).toEqual(["obs_a", "mom_e"]);
 });
 
-test("audit-7: a promise he says he kept is retired by itself with his words, as history, not wrong or hidden", () => {
+test("audit-7-close-kept-promise: a promise he says he kept is retired by itself with his words, as history, not wrong or hidden", () => {
   const kept = {
     at: "2026-10-27T14:50:00Z",
     kind: "outdated",

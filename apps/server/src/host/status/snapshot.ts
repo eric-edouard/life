@@ -21,10 +21,11 @@ import {
   tasksOf,
 } from "../../memory/ledger";
 import { loadTruth } from "../../memory/read-truth";
-import { runs, type Use, useText } from "../../memory/run-log";
+import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip, daysBefore } from "../../memory/units";
 import { dayStart, wall } from "../../memory/zones";
+import { hasQuota, readEngine } from "../../models/llm";
 import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
@@ -325,18 +326,11 @@ async function reads(now: Date) {
     cached("truth", MIN, () => truthState()),
     cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
     safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
-    cached("sweeps", 15_000, () =>
-      runs({
-        limit: 30,
-        steps: [
-          "memory.nightly",
-          "memory.midday",
-          "memory.backfill",
-          "eval",
-          "bench.agent",
-        ],
-      })
-    ),
+    // The runs that can spend, a sweep's steps inside it (its use counts theirs).
+    cached("sweeps", 15_000, async () => {
+      const page = await runs({ limit: 30, steps: SPENDING });
+      return { ...page, items: page.items.filter((x) => !x.sweep) };
+    }),
     cached("actions", 15_000, readLedger),
     cached("actionChecks", MIN, checks),
     newestOf(),
@@ -812,9 +806,13 @@ function backupCard(r: Reads): Card {
 }
 
 function engineCard(r: Reads): Card {
-  const q = r.quotas.findLast((x) => typeof x.used === "number") as
-    | { resetsAt?: string; used: number }
-    | undefined;
+  const metered = hasQuota();
+  // An older engine's reading never shows on one with no quota.
+  const q = metered
+    ? (r.quotas.findLast((x) => typeof x.used === "number") as
+        | { resetsAt?: string; used: number }
+        | undefined)
+    : undefined;
   const week = r.swept.items.filter(
     (x) => spent(x.use) && r.t - Date.parse(x.startedAt ?? "") < 7 * DAY
   );
@@ -825,16 +823,24 @@ function engineCard(r: Reads): Card {
   const thinking =
     (r.status.processing as Processing).state === "running" ||
     since(r.models, 2 * MIN, r.t).length > 0;
+  let headline = `${Math.round(tokens / 1e3)}k tokens this week`;
+  if (metered) {
+    headline = q ? `${q.used}% of the week` : "quota not read";
+  }
   return {
     ...firstOf(
-      [!q, { tone: "idle", word: "unread" }],
+      [metered && !q, { tone: "idle", word: "unread" }],
       [(q?.used ?? 0) > 75, { tone: "warn", word: "over reserve" }],
       [thinking, { tone: "busy", word: "thinking" }],
-      [true, { tone: "ok", word: "spare" }]
+      [true, { tone: "ok", word: metered ? "spare" : "ready" }]
     ),
     facts: [
-      { label: "Quota used", value: q ? `${q.used}%` : "not read" },
-      { at: q?.resetsAt, label: "Resets" },
+      ...(metered
+        ? [
+            { label: "Quota used", value: q ? `${q.used}%` : "not read" },
+            { at: q?.resetsAt, label: "Resets" },
+          ]
+        : []),
       {
         label: "Tokens this week (recorded runs)",
         value: `${Math.round(tokens / 1e3)}k`,
@@ -845,9 +851,9 @@ function engineCard(r: Reads): Card {
       })),
     ],
     group: "pipeline",
-    headline: q ? `${q.used}% of the week` : "quota not read",
+    headline,
     id: "engine",
-    name: "Engine · Codex",
+    name: `Engine · ${readEngine()}`,
   };
 }
 

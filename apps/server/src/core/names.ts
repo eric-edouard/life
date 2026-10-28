@@ -1,20 +1,15 @@
 import { z } from "zod";
 
-// Life's fixed names, which its settings use too: the model engines and runners, the sources, the agent's word.
+// Life's fixed names, which its settings use too: the model engines, the sources, the agent's word.
 
 /**
- * The model runner he chooses for every step (apps/server/src/models/llm.ts, `bun life engine`). claude and codex: the
- * owner's subscriptions, through their CLIs; anthropic and openai: an API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`),
- * for an install that has none.
+ * The model engine he chooses for every step (apps/server/src/models/llm.ts, `bun life engine`); the bench names one
+ * per run (`LIFE_LLM`). claude and codex: the owner's subscriptions, through their CLIs; allmodels: his API key
+ * (`ALLMODELS_API_KEY`).
  */
-export const Engine = z.enum(["claude", "codex", "anthropic", "openai"]);
+export const Engine = z.enum(["claude", "codex", "allmodels"]);
 
 export type Engine = z.infer<typeof Engine>;
-
-/** What can run one call: his engines, and OpenRouter for the bench alone (`llmOverride`, only on a copy of his data). */
-export const Runner = z.enum([...Engine.options, "openrouter"]);
-
-export type Runner = z.infer<typeof Runner>;
 
 /**
  * The word stored for his agent, whatever its name: an ask's `target`, its source's name and its units' sender. Never

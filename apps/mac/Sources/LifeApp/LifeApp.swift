@@ -103,7 +103,7 @@ struct SettingsView: View {
 
   private var started: Bool { supervisor.info?.started == true }
   private var sources: [Source] { supervisor.info?.sources ?? [] }
-  private var keyName: String { engine == "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY" }
+  private var keyName: String? { supervisor.info?.engineKeys[engine] }
 
   var body: some View {
     Form {
@@ -125,12 +125,11 @@ struct SettingsView: View {
           Picker("Engine", selection: $engine) {
             Text("Claude (your subscription)").tag("claude")
             Text("ChatGPT (your subscription, Codex)").tag("codex")
-            Text("Anthropic API key").tag("anthropic")
-            Text("OpenAI API key").tag("openai")
+            Text("allmodels.io API key").tag("allmodels")
           }
           // Each key under its own name: a switch shows the new engine's, never carries the old one over.
-          .onChange(of: engine) { _, _ in key = Keychain.read(keyName) ?? "" }
-          if engine == "anthropic" || engine == "openai" {
+          .onChange(of: engine) { _, _ in key = keyName.flatMap(Keychain.read) ?? "" }
+          if keyName != nil {
             SecureField("API key", text: $key)
           }
         }
@@ -264,7 +263,7 @@ struct SettingsView: View {
         minute: Calendar.current.component(.minute, from: d), second: 0, of: .now)!
     }
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
-    key = Keychain.read(keyName) ?? ""
+    key = keyName.flatMap(Keychain.read) ?? ""
   }
 
   private func start() async {
@@ -281,7 +280,7 @@ struct SettingsView: View {
   }
 
   private func save() async {
-    if engine == "anthropic" || engine == "openai" {
+    if let keyName {
       Keychain.write(keyName, key)
     }
     Keychain.write("LIFELOG_TOKEN", lifelogToken)

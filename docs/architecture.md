@@ -108,7 +108,7 @@ someone else is capped at 0.6 confidence.
 - The archive (deleted messages, old note versions) is the only live copy of what the apps delete; it lives in
   Application Support and in the encrypted backup, nowhere else.
 - The exception is the model: the text a step reads is sent to the provider of the chosen engine (Anthropic or
-  OpenAI, through the owner's subscription's CLI or an API key: `docs/operations.md`, "Model engines"). Calls run in
+  OpenAI through the owner's subscription's CLI, or allmodels.io with his key: `docs/operations.md`, "Model engines"). Calls run in
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
   the prompt.
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.

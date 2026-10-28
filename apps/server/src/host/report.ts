@@ -62,12 +62,12 @@ export interface Night {
   /** Observations that show and whose source line was first cited since the last good night (`newSince`): midday runs' included. */
   observed: number;
   paged: Result<typeof pages>;
-  /** His Codex quota as the night ended (`quotaLine`). */
-  quota: string;
+  /** His engine's quota as the night ended (`quotaLine`), when it has one. */
+  quota?: string;
   repos: Result<typeof mapRepos>;
   /** Observations retired since the last good night: midday runs' included. */
   retired: number;
-  /** What the night and the day's earlier sweeps spent of his Codex plan, a line each (`spent`, nightly.ts). */
+  /** What the model calls of the last 24 h spent, a line per run and per sweep's step (`spent`, nightly.ts). */
   spent: string[];
   /** The watcher's health (`readHealth`) when the night read its store, as it stood. */
   watcher: Health | null;
@@ -162,7 +162,7 @@ export function successReport(day: string, ms: number, n: Night) {
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.archive,
         n.backup,
-        n.quota,
+        ...(n.quota ? [n.quota] : []),
         ...n.spent,
         "Failures: none",
       ],

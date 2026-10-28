@@ -26,18 +26,24 @@ import { claimsNow } from "@life/server/src/memory/statements";
 import type { tally } from "@life/server/src/memory/tally";
 import { gather } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
-import { llmFor, llmSpec } from "@life/server/src/models/llm";
+import {
+  add,
+  llmFor,
+  llmSpec,
+  NONE,
+  type Tokens,
+} from "@life/server/src/models/llm";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(OWNER_DATA_DIR, "docs/evals/events-2026-10-16.json");
 /** Short names for `--models` (an `engine/model/effort` works too). */
 // Benched 20 Oct and dropped: MiMo V2.6 Pro (at high it spends the whole token budget reasoning, at medium its host
-// errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). DeepSeek Flash is on Parasail:
-// DeepInfra rate-limits it upstream.
+// errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). Through allmodels since 28 Oct,
+// each on an fp8 host.
 const MODELS: Record<string, string> = {
   "deepseek-flash":
-    "openrouter/deepseek/deepseek-v4.1-flash-1017@parasail/high",
-  glm: "openrouter/z-ai/glm-5.3@z-ai/high",
+    "allmodels/deepseek/deepseek-v4.1-flash-abliterated@hopper/high",
+  glm: "allmodels/z-ai/glm-5.3-abliterated@abliteration/high",
   opus: "claude/opus/medium",
 };
 /** What Life runs, always benched, at least twice so its own spread shows. */
@@ -75,17 +81,21 @@ async function readWeek() {
         .map((c) => JSON.stringify({ date: c.date, id: c.ref, text: c.text }))
         .join("\n")
     );
-    // This worktree's log holds this run alone so far: its calls' cost (codex reports none).
-    const costs = (await logDays(LOG_DIR))
-      .flatMap((n) => logEvents<{ costUsd?: number }>(n, "model.run"))
-      .flatMap((l) => (typeof l.costUsd === "number" ? [l.costUsd] : []));
+    // This worktree's log holds this run alone so far: its calls' cost (claude's alone report one), else their tokens.
+    const calls = (await logDays(LOG_DIR)).flatMap((n) =>
+      logEvents<{ costUsd?: number; tokens?: Tokens }>(n, "model.run")
+    );
+    const costs = calls.flatMap((l) =>
+      typeof l.costUsd === "number" ? [l.costUsd] : []
+    );
+    const tokens = calls.reduce((t, l) => add(t, l.tokens ?? NONE), NONE);
     return {
       calls: m.calls + e.calls,
       claims: claims.length,
       cost:
         costs.length > 0
           ? `$${costs.reduce((a, b) => a + b, 0).toFixed(2)}`
-          : "subscription",
+          : `${Math.round((tokens.input + tokens.output) / 1e3)}k tokens`,
       failed: m.failed + e.failed,
       model: llmSpec(llmFor("deep")),
     };
