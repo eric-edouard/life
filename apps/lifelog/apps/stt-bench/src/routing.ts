@@ -2,11 +2,15 @@
 // knows Thai while the rest stay with a faster English and French one. A segment is a speaker turn
 // (a diarizer's); Scribe's words say whether it holds Thai (written in Thai script).
 import type { Word } from "@lifelog/db/schema";
+import {
+  MIN_ROUTED_SECONDS,
+  routeTurns,
+  toScribe,
+} from "@lifelog/server/src/route-turns";
 import { THAI, type Turn } from "./score";
 
 // Turns of one speaker this close make one segment; shorter ones say too little to judge.
 const JOIN_GAP = 0.5;
-const MIN_SECONDS = 1;
 // A segment holds Thai when at least this share of its words is in Thai script.
 export const THAI_SHARE = 0.3;
 
@@ -28,7 +32,7 @@ export function segments(turns: Turn[], words: Word[]): Segment[] {
     }
   }
   return joined
-    .filter((t) => t.end - t.start >= MIN_SECONDS)
+    .filter((t) => t.end - t.start >= MIN_ROUTED_SECONDS)
     .map(({ end, start }) => {
       const inside = words.filter((w) => {
         const middle = (w.start + w.end) / 2;
@@ -79,11 +83,11 @@ export interface Judged extends Segment {
   voxlingua?: { lang: string; thai: number };
 }
 
-// A turn leaves the English and French model when VoxLingua hears Thai in it (the owner's rule,
-// 24 Oct 2026; the server's, apps/server/src/route-turns.ts). It once also took any other language
+// A turn leaves the English and French model by the server's rule (apps/server/src/route-turns.ts:
+// VoxLingua hears Thai in it, the owner's rule of 24 Oct 2026). It once also took any other language
 // and turns Parakeet Ultra wrote nothing for, but VoxLingua tags short noisy French as other
 // languages; the numbers in docs/research/transcription-bench.md are that earlier rule's.
-export const routed = (s: Judged) => s.voxlingua?.lang === "th";
+export const routed = (s: Judged) => toScribe(s.voxlingua?.lang ?? null);
 // Parakeet Ultra wrote nothing where someone spoke: counted in the bench's report, no longer routed.
 export const silent = (s: Judged) => s.heard === "";
 
@@ -93,12 +97,10 @@ interface Heard {
   text?: string;
 }
 
-// A block this much Thai goes whole to the Thai model (pipeline, bench.ts).
-const WHOLE_BLOCK = 0.7;
 const SPACES = /\s+/g;
 
-// One clip's pipeline text: the Thai model's whole transcript when most of the clip sounds like
-// Thai; else Ultra's tokens outside the routed turns and the Thai model's
+// One clip's pipeline text: the Thai model's whole transcript when the server would send the whole
+// block to Scribe (`routeTurns`); else Ultra's tokens outside the routed turns and the Thai model's
 // inside them (its turn-by-turn segments, or its timed words when `timed`), in time order.
 export function compose({
   heard,
@@ -113,12 +115,15 @@ export function compose({
   ultra: { end: number; start: number; text: string }[];
   whole: Heard | undefined;
 }) {
-  const seconds = (ts: Judged[]) => ts.reduce((t, s) => t + s.end - s.start, 0);
-  if (
-    mine.length > 0 &&
-    seconds(mine.filter(routed)) >= WHOLE_BLOCK * seconds(mine) &&
-    whole?.text !== undefined
-  ) {
+  const route = routeTurns({
+    turns: mine.map((s) => ({
+      end: s.end,
+      language: s.voxlingua?.lang ?? null,
+      speaker: "",
+      start: s.start,
+    })),
+  });
+  if (route.kind === "whole" && whole?.text !== undefined) {
     return whole.text;
   }
   const turns = mine.filter(routed);

@@ -3,13 +3,14 @@
 // turn of a second or more is routed when VoxLingua107 hears Thai in it; a block 70% Thai goes to
 // Scribe whole. Every other language, and a turn Parakeet Ultra wrote nothing for, stays local:
 // VoxLingua tags short noisy French as Breton, Portuguese or Malagasy, and those turns held
-// Parakeet's words. The bench's rule exactly (apps/stt-bench/src/routing.ts); its numbers, measured
-// under the earlier rule: docs/research/transcription-bench.md.
+// Parakeet's words. The bench's numbers, measured under the earlier rule:
+// docs/research/transcription-bench.md.
 // ponytail: VoxLingua hears some short Thai as Lao, Malay or Vietnamese; those turns stay local.
 // Add their codes to SCRIBE if Thai goes missing.
 //
 // The result is a transcript in Scribe's own shape, so it is stored, parsed and turned into turns
-// exactly like one of Scribe's (jobs.ts `complete`).
+// exactly like one of Scribe's (jobs.ts `complete`). The transcription bench routes by the same
+// rule (apps/stt-bench/src/routing.ts imports it).
 
 import type { Word } from "@lifelog/db/schema";
 import type { CutSpan } from "./audio";
@@ -24,7 +25,7 @@ const OURS = new Map([
 // The languages Scribe transcribes; the speech service keeps every other one.
 const SCRIBE = new Set(["th"]);
 const WHOLE_BLOCK = 0.7;
-const MIN_ROUTED_SECONDS = 1;
+export const MIN_ROUTED_SECONDS = 1;
 // A routed turn's audio reaches Scribe with this much around it, so a word Nemotron's boundary
 // clips is still heard whole; only the words inside the turn are kept.
 const PAD_SECONDS = 0.25;
@@ -36,11 +37,13 @@ const inside = (turn: HeardTurn, at: number) =>
 
 export type Route = { kind: "whole" } | { kind: "turns"; routed: HeardTurn[] };
 
-export function routeTurns({ turns }: Heard): Route {
+/** Whether Scribe transcribes a turn VoxLingua heard in `language`. */
+export const toScribe = (language: string | null) =>
+  language !== null && SCRIBE.has(language);
+
+export function routeTurns({ turns }: Pick<Heard, "turns">): Route {
   const judged = turns.filter((t) => t.end - t.start >= MIN_ROUTED_SECONDS);
-  const thai = judged.filter(
-    (t) => t.language !== null && SCRIBE.has(t.language)
-  );
+  const thai = judged.filter((t) => toScribe(t.language));
   if (judged.length > 0 && seconds(thai) >= WHOLE_BLOCK * seconds(judged)) {
     return { kind: "whole" };
   }

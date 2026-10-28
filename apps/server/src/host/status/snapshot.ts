@@ -36,7 +36,7 @@ import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
-import { reportKey } from "../report";
+import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
@@ -545,7 +545,6 @@ function sourceCards(r: Reads): Card[] {
 function captureCards(r: Reads): Card[] {
   const archiveUp = serviceOf(r, "archive")?.running;
   const watching = serviceOf(r, "watch")?.running;
-  const tunnel = serviceOf(r, "cloudflared");
   const calls = since(r.mcp, DAY, r.t);
   const asksToday = r.actions.filter(
     (a) => a.kind === "ask" && r.t - Date.parse(a.at) < DAY
@@ -632,27 +631,6 @@ function captureCards(r: Reads): Card[] {
       ...(isOn("connector")
         ? { tone: "ok", word: "serving" }
         : { tone: "idle", word: "off" }),
-    },
-    {
-      ...(tunnel?.running
-        ? { tone: "ok", word: "up" }
-        : {
-            ask: ASK("that cloudflared is not running"),
-            tone: "bad",
-            word: "down",
-          }),
-      facts: [
-        {
-          label: "cloudflared",
-          value: tunnel?.running ? "running" : (tunnel?.status ?? "?"),
-        },
-        // cloudflared's start is its last restart or reboot (tunnel.ts no longer fires: #133).
-        { at: tunnel?.since, label: "Up since" },
-      ],
-      group: "capture",
-      headline: tunnel?.running ? "connected" : "down",
-      id: "tunnel",
-      name: "Tunnel",
     },
   ];
 }
@@ -1029,6 +1007,9 @@ function outputCards(r: Reads): Card[] {
       r.t - Date.parse(a.at) < DAY
   );
   const failed = acts.filter((a) => a.result === "failed").length;
+  const mailFailed = r.errorsToday.filter((e) =>
+    String(e.step).startsWith(EMAIL_STEP)
+  ).length;
   const mails = since(r.sent, DAY, r.t);
   const portraitOn = !!process.env.LIFE_PORTRAIT_PASSWORD;
   return [
@@ -1085,6 +1066,11 @@ function outputCards(r: Reads): Card[] {
       name: OUTPUTS.todo_list.label,
     },
     {
+      ...firstOf(
+        [mailFailed > 0, { tone: "warn", word: `${mailFailed} failed` }],
+        [!mailedTo(), { tone: "idle", word: "kept on the Mac" }],
+        [true, { tone: "ok", word: "sending" }]
+      ),
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),
       facts: [
         { label: "Sent today", value: String(mails.length) },
@@ -1101,8 +1087,6 @@ function outputCards(r: Reads): Card[] {
       headline: `${mails.length} sent today`,
       id: "email",
       name: "Email",
-      tone: "ok",
-      word: "sending",
     },
     {
       facts: [{ label: "Left to rate", value: String(r.mem.left) }],
@@ -1130,17 +1114,8 @@ function outputCards(r: Reads): Card[] {
   ];
 }
 
-const serviceState = (sv: Reads["mac"]["services"][number]) => {
-  if (sv.running) {
-    return { headline: "running", state: "running" };
-  }
-  return sv.ok
-    ? { headline: "between ticks", state: "between ticks (every 30 min)" }
-    : { headline: "down", state: `not running (${sv.status})` };
-};
-
 function macCards(r: Reads): Card[] {
-  const down = r.mac.services.filter((s) => !s.ok);
+  const down = r.mac.services.filter((s) => !s.running);
   return [
     {
       ...(down.length
@@ -1162,31 +1137,6 @@ function macCards(r: Reads): Card[] {
       id: "mac",
       name: "MacBook",
     },
-    ...r.mac.services.map((sv): Card => {
-      const { headline, state } = serviceState(sv);
-      return {
-        ...firstOf(
-          [
-            !sv.ok,
-            {
-              ask: ASK(`that the ${sv.name} service is not running on the Mac`),
-              tone: "bad",
-              word: "down",
-            },
-          ],
-          [sv.running, { tone: "ok", word: "running" }],
-          [true, { tone: "idle", word: "waiting" }]
-        ),
-        facts: [
-          { label: "state", value: state },
-          { at: sv.since, label: "Up since" },
-        ],
-        group: "mac",
-        headline,
-        id: `service-${sv.name.replaceAll(" ", "-")}`,
-        name: sv.name,
-      };
-    }),
   ];
 }
 

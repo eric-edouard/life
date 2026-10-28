@@ -64,7 +64,7 @@ tags for what the unit is about, such as `philosophy`, `ai`, `construction` (cod
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
-the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` since 20 Oct, which weighs what goes on between the owner and the people close to them) is unchanged; a day is read again when one of its units has no current verdict by that prompt. The chat's own project decides an `areaHint`
+the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` since 20 Oct, which weighs what goes on between the owner and the people close to them) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
 not judged yet; a dropped unit's lines are ignored.
 
@@ -213,7 +213,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
-| `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
+| `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's moments are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)
