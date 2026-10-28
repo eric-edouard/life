@@ -1162,19 +1162,3 @@ export function aliasesOf(name: string, aliases: string[]) {
     return [alias];
   });
 }
-
-// Learns `alias` for a person unless it already is one of their names.
-export function addAlias(db: Db, personId: string, alias: string) {
-  const person = db.select().from(people).where(eq(people.id, personId)).get();
-  if (!person || isCalled(person, alias)) {
-    return false;
-  }
-  db.transaction((tx) => {
-    tx.update(people)
-      .set({ aliases: aliasesOf(person.name, [...person.aliases, alias]) })
-      .where(eq(people.id, personId))
-      .run();
-    logChange(tx, "person", personId);
-  });
-  return true;
-}

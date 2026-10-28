@@ -30,7 +30,6 @@ import { NAMING, ownerClock, RECOGNITION } from "./config";
 import { textOf } from "./elevenlabs";
 import { record, recordedOn } from "./events";
 import {
-  addAlias,
   assign,
   isCalled,
   sampleRanker,
@@ -427,20 +426,6 @@ function existingPerson(db: Db, action: CardAnswer) {
   return everyone.find((p) => isCalled(p, action.name))?.id ?? null;
 }
 
-// The name the summaries heard becomes one of the person's names when the owner's answer didn't
-// contradict the card: heard "Jojo", answered Marie-Jo. "No, it's X" against the card's own person
-// teaches nothing; a name already theirs is skipped.
-const learnHeardName = (
-  db: Db,
-  personId: string | null,
-  card?: Pick<Suggestion, "name" | "personId">
-) =>
-  personId &&
-  card?.name &&
-  (card.personId === null || card.personId === personId)
-    ? addAlias(db, personId, card.name)
-    : false;
-
 // "Several people": who, named passage by passage in place, and the one besides the owner to
 // fall back on in a closed set (owner, Oct 15).
 function severalTarget(
@@ -464,8 +449,7 @@ function severalTarget(
 export function answerVoices(
   db: Db,
   voices: Pick<Suggestion["voices"][number], "jobId" | "speakerLabel">[],
-  action: CardAnswer,
-  card?: Pick<Suggestion, "name" | "personId">
+  action: CardAnswer
 ) {
   const several = action.kind === "several" ? severalTarget(db, action) : null;
   let personId = existingPerson(db, action);
@@ -498,10 +482,8 @@ export function answerVoices(
         )?.personId ?? null;
     }
   }
-  const learned = learnHeardName(db, answered > 0 ? personId : null, card);
   record(db, "voices.answered", {
     action: action.kind,
-    learned,
     voices: answered,
   });
   return answered > 0 ? { personId } : null;
