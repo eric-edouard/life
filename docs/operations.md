@@ -248,6 +248,10 @@ when that folder exists:
 - code stages: a `bun test` with made-up data that fails before the fix and passes after, living in `apps/server/src/` and naming
   the case;
 - model stages: facts graded by `bun scripts/eval.ts`, rerun when a prompt changes (a flaky case passes 2 runs of 3);
+- the judge itself: judge cases (`docs/evals/judge-cases-*.json`, `bun scripts/eval.ts --judge-cases <file>`), the grades
+  the owner settled for facts a judge got wrong; a judge prompt or model changes only when it agrees with at least 9
+  of 10. A fact with a `date` (every rated statement has one) is judged as of that day, against the claims said by then:
+  true then is never wrong because it changed later;
 - the agent's stages: a scenario re-read against `docs/agent.md` whenever it changes.
 
 Cases only accumulate. The stage letters: capture (C), hearing and routing (H), extraction (E), ownership (O), task

@@ -341,9 +341,10 @@ moment it changes nothing. A skipped statement is not asked again.
 ## scores.jsonl
 
 How the memory scored against the owner's ratings, one line per run of `bun scripts/eval.ts --ratings` with something to judge,
-append-only: `{schemaVersion: 1, run, at, rated, trues, held, missed, contradicted, restated, ungraded, outdated, gone}`: of `rated`
-statements judged (`trues` of them true), `held` true ones the memory still states, `missed` true ones it no longer states, `contradicted` true ones it
-contradicts, `restated` false ones it says again, `ungraded` ones the judge left out; `outdated` ones (counted true and held, not judged: closures Life
+append-only: `{schemaVersion: 1, run, at, rated, trues, held, missed, contradicted, restated, both, ungraded, outdated, gone}`: of `rated`
+statements judged (`trues` of them true), each as of its own day (against the claims said by then), `held` true ones the memory still states, `missed` true ones it no longer states, `contradicted` true ones it
+contradicts, `restated` false ones it says again, `both` ones it states and contradicts (kept both: counted apart since 28 Oct 2026, before in
+`contradicted` or `restated`; absent then), `ungraded` ones the judge left out; `outdated` ones (counted true and held, not judged: closures Life
 missed; absent before 19 Oct); `gone` rated statements were not
 judged because none of their units is live any more (a regrouped conversation, or a unit a code rule now drops).
 
