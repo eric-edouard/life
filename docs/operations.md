@@ -149,9 +149,9 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
 ## Model engines
 
 - Calls go through `apps/server/src/models/llm.ts`: `claude -p` or the pinned `codex` on the owner's subscription, or
-  an API key (engine `anthropic`, `openai` or `allmodels`), chosen with `bun life engine <engine>` or the app. Each
-  provider is one entry in `PROVIDERS` there: its models by tier, effort, call, key, whether it may run tools, and its
-  quota. OpenAI and allmodels share one OpenAI-shaped call (`askChat`).
+  allmodels with his API key (since 28 Oct 2026 the only API engine: Anthropic's and OpenAI's went), chosen with
+  `bun life engine <engine>` or the app. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
+  call, key, whether it may run tools, and its quota.
 - allmodels (`ALLMODELS_API_KEY`) pins each tier's model to one host (`author/model@host`, fp8), with no fallback; a
   reply from another host is refused. The fast tier's host takes images (the files step sends them).
 - Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'

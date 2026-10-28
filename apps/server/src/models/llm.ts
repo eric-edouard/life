@@ -1,10 +1,9 @@
 // What every model step shares: run one headless call, getting back its JSON reply, with no tools: on the owner's
-// engine (`claude -p`, `codex exec`, or an API: Anthropic's, OpenAI's, allmodels'); and how full his Codex quota is. The
+// engine (`claude -p` or `codex exec` on his subscriptions, or allmodels' API); and how full his Codex quota is. The
 // one call with tools is the agent bench's (scripts/bench-agent.ts): Life's own connector, frozen, and nothing else.
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { MIN } from "../core/clock";
 import { log } from "../core/log";
@@ -53,7 +52,7 @@ const CLAUDE_MODELS: Record<Tier, string> = {
   fast: "haiku",
   main: "sonnet",
 };
-// Same model as lifelog, through Codex or OpenAI's API alike. Older codex clients reject it, and this Mac has several (an
+// Same model as lifelog. Older codex clients reject it, and this Mac has several (an
 // nvm global, a broken /usr/local one, the app's bundled one), so Life runs the version pinned in package.json, natively
 // (launchd has no node).
 const SOL: Record<Tier, string> = {
@@ -117,13 +116,6 @@ export const llmSpec = (l: Llm) =>
   [l.engine, l.model, l.effort].filter(Boolean).join("/");
 
 const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
-
-/** The API's models by tier, as the CLI's: Opus deep, Sonnet main, Haiku fast. */
-const ANTHROPIC_MODELS: Record<Tier, string> = {
-  deep: "claude-opus-5-5",
-  fast: "claude-haiku-5-5",
-  main: "claude-sonnet-5-5",
-};
 
 /**
  * allmodels' models by tier, each pinned to one host in fp8 (`model@host`, 28 Oct 2026). GLM-5.3 reads the moments,
@@ -241,7 +233,7 @@ const ChatReply = z.object({
       })
     )
     .min(1),
-  // allmodels names the host that served it; OpenAI sends none.
+  // The host that served it, checked against the pinned one.
   provider: z.string().optional(),
   usage: z
     .object({
@@ -480,82 +472,79 @@ export async function quota(engine?: Engine) {
   return q;
 }
 
-/**
- * One call through an OpenAI-shaped API at `url` with his key (the engine's `key`), at the tier's reasoning effort, no
- * idle cut. A `pinned` API's model goes to the host after `@` alone (no fallback) and is refused when another host
- * served it; `maxTokens` leaves room for a day's moments and their reasoning. Its answer is kept in the call's folder;
- * a refusal unless it stopped with some text.
- */
-const askChat =
-  (name: Engine, url: string, o: { maxTokens?: number; pinned: boolean }) =>
-  async ({ dir, images, input, llm, system }: Call): Promise<Answer> => {
-    const keyName = PROVIDERS[name].key ?? "";
-    const key = process.env[keyName];
-    const [model, host] = llm.model.split("@");
-    if (!key) {
-      throw new Error(`${name} needs ${keyName}`);
-    }
-    if (o.pinned && !host) {
-      throw new Error(
-        `${name} needs a model as author/model@host, not ${llm.model}`
-      );
-    }
-    const pictures = await Promise.all(
-      images.map(async (path) => {
-        const { source } = await imageBlock(path);
-        return {
-          image_url: { url: `data:${source.media_type};base64,${source.data}` },
-          type: "image_url",
-        };
-      })
-    );
-    const res = await fetch(url, {
-      body: JSON.stringify({
-        max_tokens: o.maxTokens,
-        messages: [
-          { content: system, role: "system" },
-          {
-            content: [
-              { text: JSON.stringify(input), type: "text" },
-              ...pictures,
-            ],
-            role: "user",
-          },
-        ],
-        model,
-        reasoning_effort: llm.effort,
-        ...(host ? { provider: { allow_fallbacks: false, only: [host] } } : {}),
-      }),
-      headers: {
-        authorization: `Bearer ${key}`,
-        "content-type": "application/json",
-      },
-      method: "POST",
-      signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-      // Bun's 5-minute idle timer would cut a long call that sends nothing until it is done.
-      timeout: false,
-    });
-    const text = await res.text();
-    await Bun.write(join(dir, `${name}.json`), text);
-    if (!res.ok) {
-      throw new Error(`${name} ${res.status}: ${text.slice(-300)}`);
-    }
-    return answerOf(name, host, ChatReply.parse(JSON.parse(text)));
-  };
+const ALLMODELS_URL = "https://api.allmodels.io/oai/chat/completions";
+const ALLMODELS_KEY = "ALLMODELS_API_KEY";
+/** Room for a day's moments and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
+const ALLMODELS_MAX_TOKENS = 131_072;
 
-/** A chat reply as a runner's answer: refused when another host than `host` served it, or it stopped without text. */
-function answerOf(
-  name: Engine,
-  host: string | undefined,
-  reply: z.infer<typeof ChatReply>
-): Answer {
+/**
+ * One call through allmodels' OpenAI-shaped API with his key, at the tier's reasoning effort, no idle cut: the model
+ * goes to the host after `@` alone (no fallback) and is refused when another host served it. Its answer is kept in the
+ * call's folder; a refusal unless it stopped with some text.
+ */
+async function askAllModels({
+  dir,
+  images,
+  input,
+  llm,
+  system,
+}: Call): Promise<Answer> {
+  const key = process.env[ALLMODELS_KEY];
+  const [model, host] = llm.model.split("@");
+  if (!(key && host)) {
+    throw new Error(
+      `allmodels needs ${ALLMODELS_KEY} and a model as author/model@host, not ${llm.model}`
+    );
+  }
+  const pictures = await Promise.all(
+    images.map(async (path) => {
+      const { source } = await imageBlock(path);
+      return {
+        image_url: { url: `data:${source.media_type};base64,${source.data}` },
+        type: "image_url",
+      };
+    })
+  );
+  const res = await fetch(ALLMODELS_URL, {
+    body: JSON.stringify({
+      max_tokens: ALLMODELS_MAX_TOKENS,
+      messages: [
+        { content: system, role: "system" },
+        {
+          content: [{ text: JSON.stringify(input), type: "text" }, ...pictures],
+          role: "user",
+        },
+      ],
+      model,
+      provider: { allow_fallbacks: false, only: [host] },
+      reasoning_effort: llm.effort,
+    }),
+    headers: {
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+    // Bun's 5-minute idle timer would cut a long call that sends nothing until it is done.
+    timeout: false,
+  });
+  const text = await res.text();
+  await Bun.write(join(dir, "allmodels.json"), text);
+  if (!res.ok) {
+    throw new Error(`allmodels ${res.status}: ${text.slice(-300)}`);
+  }
+  return answerOf(host, ChatReply.parse(JSON.parse(text)));
+}
+
+/** allmodels' reply as a runner's answer: refused when another host than `host` served it, or it stopped without text. */
+function answerOf(host: string, reply: z.infer<typeof ChatReply>): Answer {
   const [choice] = reply.choices;
   const u = reply.usage;
-  const served = reply.provider;
+  const served = reply.provider ?? "";
   const stopped =
     choice?.finish_reason === "stop" && choice.message.content
       ? undefined
-      : `${name}: stopped (${choice?.finish_reason})`;
+      : `allmodels: stopped (${choice?.finish_reason})`;
   return {
     fields: {
       host: served,
@@ -566,65 +555,10 @@ function answerOf(
       },
     },
     refusal:
-      host && slug(served ?? "") !== slug(host)
-        ? `${name}: served by ${served}, not ${host}`
-        : stopped,
+      slug(served) === slug(host)
+        ? stopped
+        : `allmodels: served by ${served || "an unnamed host"}, not ${host}`,
     text: choice?.message.content ?? "",
-  };
-}
-
-/** The models Anthropic re-runs on another when a safety check declines (`fallbacks`): not Haiku. */
-const FALLS_BACK = /^claude-(opus|sonnet)-/;
-
-/**
- * One call through Anthropic's API with his key: streamed (a day's moments can take long), adaptive thinking at the
- * tier's effort, the system prompt cached (it is the same for every call of a run), and the server's default fallback
- * model when a safety check declines, where the model has one.
- */
-async function askAnthropic({ dir, images, input, llm, system }: Call) {
-  const images_ = (await Promise.all(
-    images.map(imageBlock)
-  )) as Anthropic.Beta.BetaImageBlockParam[];
-  const reply = await new Anthropic().beta.messages
-    .stream({
-      ...(FALLS_BACK.test(llm.model)
-        ? {
-            betas: ["server-side-fallback-2026-07-01"],
-            fallbacks: "default" as const,
-          }
-        : {}),
-      max_tokens: 64_000,
-      messages: [
-        {
-          content: [{ text: JSON.stringify(input), type: "text" }, ...images_],
-          role: "user",
-        },
-      ],
-      model: llm.model,
-      output_config: {
-        effort: llm.effort as "low" | "medium" | "high" | undefined,
-      },
-      system: [
-        { cache_control: { type: "ephemeral" }, text: system, type: "text" },
-      ],
-      thinking: { type: "adaptive" },
-    })
-    .finalMessage();
-  await Bun.write(join(dir, "anthropic.json"), JSON.stringify(reply));
-  const text = reply.content
-    .flatMap((b) => (b.type === "text" ? [b.text] : []))
-    .join("");
-  return {
-    fields: {
-      model: reply.model,
-      tokens: claudeTokens(reply.usage as unknown as Record<string, unknown>),
-      usage: reply.usage,
-    },
-    refusal:
-      reply.stop_reason === "end_turn"
-        ? undefined
-        : `anthropic: stopped (${reply.stop_reason})`,
-    text,
   };
 }
 
@@ -653,21 +587,10 @@ interface Provider {
 }
 const PROVIDERS: Record<Engine, Provider> = {
   allmodels: {
-    ask: askChat("allmodels", "https://api.allmodels.io/oai/chat/completions", {
-      // Every host of its tier models allows at least this much (28 Oct 2026).
-      maxTokens: 131_072,
-      pinned: true,
-    }),
+    ask: askAllModels,
     effort: EFFORT,
-    key: "ALLMODELS_API_KEY",
+    key: ALLMODELS_KEY,
     models: ALLMODELS_MODELS,
-    tools: false,
-  },
-  anthropic: {
-    ask: askAnthropic,
-    effort: EFFORT,
-    key: "ANTHROPIC_API_KEY",
-    models: ANTHROPIC_MODELS,
     tools: false,
   },
   claude: { ask: askClaude, models: CLAUDE_MODELS, tools: true },
@@ -677,15 +600,6 @@ const PROVIDERS: Record<Engine, Provider> = {
     models: SOL,
     quota: codexQuota,
     tools: true,
-  },
-  openai: {
-    ask: askChat("openai", "https://api.openai.com/v1/chat/completions", {
-      pinned: false,
-    }),
-    effort: EFFORT,
-    key: "OPENAI_API_KEY",
-    models: SOL,
-    tools: false,
   },
 };
 

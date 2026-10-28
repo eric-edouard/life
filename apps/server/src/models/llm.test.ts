@@ -57,7 +57,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("allmodels: pinned to its host, no fallback, tokens logged; another host, a cut reply or an error is refused; openai pins nothing", async () => {
+test("allmodels: pinned to its host, no fallback, tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
   const asked: { body: Record<string, unknown>; url: string }[] = [];
   let reply: { finish: string; provider?: string; status: number } = {
     finish: "stop",
@@ -90,16 +90,11 @@ test("allmodels: pinned to its host, no fallback, tokens logged; another host, a
     );
   }) as unknown as typeof fetch);
   process.env.ALLMODELS_API_KEY = "test-key";
-  process.env.OPENAI_API_KEY = "test-key";
-  const ask = (engine: "allmodels" | "openai" = "allmodels") =>
+  const ask = () =>
     askOnce({
       dir: mkdtempSync(join(tmpdir(), "life-chat-")),
       input: { a: 1 },
-      llm: {
-        effort: "high",
-        engine,
-        model: engine === "allmodels" ? "x/y@hopper" : "m",
-      },
+      llm: { effort: "high", engine: "allmodels", model: "x/y@hopper" },
       prompt: "eval-judge.v1",
       run: "r",
     });
@@ -133,13 +128,10 @@ test("allmodels: pinned to its host, no fallback, tokens logged; another host, a
     reply = { ...reply, status: 429 };
     await expect(ask()).rejects.toThrow("allmodels 429");
     reply = { finish: "stop", status: 200 };
-    expect(await ask("openai")).toEqual({ ok: true });
-    expect(asked.at(-1)?.url).toContain("api.openai.com");
-    expect(asked.at(-1)?.body.provider).toBeUndefined();
+    await expect(ask()).rejects.toThrow("served by an unnamed host");
   } finally {
     fetched.mockRestore();
     delete process.env.ALLMODELS_API_KEY;
-    delete process.env.OPENAI_API_KEY;
   }
 });
 
@@ -182,12 +174,7 @@ async function spawnBoth(tools?: Tools) {
   const files = spyOn(Bun, "file").mockImplementation(((p: string) =>
     file(p.endsWith("auth.json") ? import.meta.path : p)) as typeof Bun.file);
   const env = { ...process.env };
-  for (const k of [
-    "ALLMODELS_API_KEY",
-    "ANTHROPIC_API_KEY",
-    "OPENAI_API_KEY",
-    "LIFELOG_TOKEN",
-  ]) {
+  for (const k of ["ALLMODELS_API_KEY", "LIFELOG_TOKEN"]) {
     process.env[k] = "secret";
   }
   try {
@@ -374,22 +361,21 @@ test("claude's tokens: input counts its cache reads and writes, as codex's does"
 });
 
 test("each provider's model and effort by tier; tools only on his subscriptions", async () => {
-  expect(llmFor("deep", "anthropic")).toEqual({
+  expect(llmFor("deep", "allmodels")).toEqual({
     effort: "high",
-    engine: "anthropic",
-    model: "claude-opus-5-5",
+    engine: "allmodels",
+    model: "z-ai/glm-5.3-abliterated@experiential",
   });
   expect(llmFor("fast", "claude")).toEqual({
     effort: undefined,
     engine: "claude",
     model: "haiku",
   });
-  expect(llmFor("main", "openai").model).toBe(llmFor("main", "codex").model);
   await expect(
     askOnce({
       dir: mkdtempSync(join(tmpdir(), "life-llm-")),
       input: {},
-      llm: llmFor("main", "openai"),
+      llm: llmFor("main", "allmodels"),
       prompt: "files.v1",
       run: "test",
       tools: { command: [], env: {} },
@@ -399,7 +385,6 @@ test("each provider's model and effort by tier; tools only on his subscriptions"
 
 test("only a provider with a quota reads one: a Claude run reads none, whatever his setting", async () => {
   expect(await quota("claude")).toBeUndefined();
-  expect(await quota("anthropic")).toBeUndefined();
   expect(await quota("allmodels")).toBeUndefined();
   expect(hasQuota("codex")).toBe(true);
   expect(hasQuota("allmodels")).toBe(false);

@@ -29,7 +29,7 @@ and what it does not.
   to its code. The one exception is the owner's spoken "hey Life" marker, which only keeps a conversation read; it never
   acts. Models return JSON validated by schemas, and every quote is checked against its source.
 - The text Life reads is sent to the model provider the owner chooses (Anthropic or OpenAI, through the owner's own
-  subscription's CLI or an API key the owner provides; or allmodels.io, with his key). That provider's terms apply to
+  subscription's CLI; or allmodels.io, with an API key the owner provides). That provider's terms apply to
   it. allmodels says it stores no request content; the hosts it routes to, one pinned per model with no fallback, make
   no zero-retention promise.
 
@@ -52,7 +52,7 @@ and what it does not.
 This is the one list of what Life sends; nothing else leaves. lifelog (`apps/lifelog`), which runs as its own service,
 keeps its own list in [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
-- To the model provider the owner chose (Anthropic, OpenAI, or allmodels.io): the text Life reads, as described under
+- To the model provider the owner chose (Anthropic or OpenAI by his subscription, or allmodels.io): the text Life reads, as described under
   Models.
 - To an assistant the owner connected: what it reads through the connector, when it asks.
 - The nightly report and the alerts, by email to the owner through Resend, when the `mail` setting is set (otherwise a

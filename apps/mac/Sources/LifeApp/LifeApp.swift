@@ -125,8 +125,6 @@ struct SettingsView: View {
           Picker("Engine", selection: $engine) {
             Text("Claude (your subscription)").tag("claude")
             Text("ChatGPT (your subscription, Codex)").tag("codex")
-            Text("Anthropic API key").tag("anthropic")
-            Text("OpenAI API key").tag("openai")
             Text("allmodels.io API key").tag("allmodels")
           }
           // Each key under its own name: a switch shows the new engine's, never carries the old one over.

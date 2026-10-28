@@ -4,16 +4,10 @@ import { z } from "zod";
 
 /**
  * The model engine he chooses for every step (apps/server/src/models/llm.ts, `bun life engine`); the bench names one
- * per run (`LIFE_LLM`). claude and codex: the owner's subscriptions, through their CLIs; anthropic, openai and
- * allmodels: an API key (each provider's `key` in `PROVIDERS`).
+ * per run (`LIFE_LLM`). claude and codex: the owner's subscriptions, through their CLIs; allmodels: his API key
+ * (`ALLMODELS_API_KEY`).
  */
-export const Engine = z.enum([
-  "claude",
-  "codex",
-  "anthropic",
-  "openai",
-  "allmodels",
-]);
+export const Engine = z.enum(["claude", "codex", "allmodels"]);
 
 export type Engine = z.infer<typeof Engine>;
 

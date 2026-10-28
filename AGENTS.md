@@ -117,7 +117,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   `outdated` correction).
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.
-- **Model calls go through the provider the owner chose**: his subscriptions, an API key, or allmodels.io (his decision
+- **Model calls go through the provider the owner chose**: his subscriptions or allmodels.io with his key (his decision
   of 28 Oct 2026); never another provider. The bench uses the same providers, on a copy of the data
   (`docs/operations.md`, "Model engines").
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list ←
