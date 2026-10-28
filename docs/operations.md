@@ -166,7 +166,7 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
   is the agent bench's agent, whose only tools are Life's connector, frozen and dry: Codex still read-only, with no
   shell but code mode's `exec` (its only way to MCP) and its nested real-time clock, which the bench's prompt says not
   to read.
-- The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, allmodels' as `model@host`), only
+- The model bench names its candidates through `LIFE_LLM` (`engine/model[/effort]`, allmodels' as `model@host[,host]`), only
   on a copy of the data; `LIFE_LLM` is refused on the live data.
 
 ## Backups and exports

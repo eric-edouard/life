@@ -40,7 +40,7 @@ export function extractJson(text: string): unknown {
 /** What a step needs: repos and files fast, pages main, moments and extract deep (~/Life/docs/evals/events-2026-10-18.md). */
 export type Tier = "fast" | "main" | "deep";
 
-/** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an allmodels model is `author/model@host`). */
+/** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an allmodels model is `author/model@host[,host]`). */
 export interface Llm {
   effort?: string;
   engine: Engine;
@@ -235,7 +235,7 @@ const ChatReply = z.object({
       })
     )
     .min(1),
-  // The host that served it, checked against the pinned one.
+  // The host that served it, checked against his hosts.
   provider: z.string().optional(),
   usage: z
     .object({

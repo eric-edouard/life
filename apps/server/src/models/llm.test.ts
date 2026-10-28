@@ -137,6 +137,15 @@ test("allmodels: only his hosts, in his order, falling back between them; tokens
     await expect(ask()).rejects.toThrow("allmodels 429");
     reply = { finish: "stop", status: 200 };
     await expect(ask()).rejects.toThrow("served by an unnamed host");
+    await expect(
+      askOnce({
+        dir: mkdtempSync(join(tmpdir(), "life-chat-")),
+        input: {},
+        llm: { engine: "allmodels", model: "x/y@" },
+        prompt: "eval-judge.v1",
+        run: "r",
+      })
+    ).rejects.toThrow("author/model@host[,host]");
   } finally {
     fetched.mockRestore();
     delete process.env.ALLMODELS_API_KEY;
