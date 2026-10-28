@@ -16,7 +16,7 @@ import {
   phases,
   type RunRecord,
 } from "../memory/run";
-import { type Run, runs, STEPS, SWEEPS, useText } from "../memory/run-log";
+import { type Run, runs, SPENDING, spendLines } from "../memory/run-log";
 import {
   afterWeek,
   backfillWeek,
@@ -363,9 +363,6 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   };
 }
 
-/** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval, the agent bench. */
-const SPENDING = [...SWEEPS, ...STEPS, "memory.import", "eval", "bench.agent"];
-
 /**
  * What the model calls of the last 24 h spent, oldest first: a line per run, a sweep's steps each under it (every row,
  * no cap); this night's quota to `now`, the reading just made for the email.
@@ -380,20 +377,10 @@ async function spent(rec: Metered, now: Quota | undefined) {
     recent.push(...page.items);
     ({ cursor } = page);
   } while (cursor && (recent.at(-1)?.startedAt ?? "") >= since);
-  const used = recent
-    .filter((r) => (r.startedAt ?? "") >= since && r.use)
-    .reverse();
-  const name = (r: Run) => r.step.replace("memory.", "");
-  return used
-    .filter((r) => !r.sweep)
-    .flatMap((r) => [
-      r.id === `memory.nightly/${rec.run}` && r.use
-        ? `Model use, this night: ${useText({ ...r.use, quota: r.use.quota && { after: now ?? null, before: r.use.quota.before } })}`
-        : `Model use, ${name(r)} of ${localTime(r.startedAt ?? "")}: ${useText(r.use ?? null)}`,
-      ...used
-        .filter((c) => c.sweep === r.id)
-        .map((c) => `  ${name(c)}: ${useText(c.use ?? null)}`),
-    ]);
+  return spendLines(recent, since, {
+    id: `memory.nightly/${rec.run}`,
+    quota: now,
+  });
 }
 
 async function runNight(days: number, now: Date, day: string, force: boolean) {

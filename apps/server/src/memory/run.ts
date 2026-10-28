@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { z } from "zod";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
+import type { Engine } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
 import {
@@ -58,9 +59,13 @@ export type RunRecord = ReturnType<typeof record>;
  * (`hasQuota`): the quota read as it starts and as it ends, logged on its `run.start` and `run.end` (what it spent is
  * derived from them: `useOf`, run-log.ts). Its tokens are counted either way, from its calls.
  */
-export async function metered(step: string, fields: Record<string, unknown>) {
+export async function metered(
+  step: string,
+  fields: Record<string, unknown>,
+  engine?: Engine
+) {
   const read = async () =>
-    hasQuota() ? { quota: (await quota()) ?? null } : {};
+    hasQuota(engine) ? { quota: (await quota(engine)) ?? null } : {};
   const rec = record(step, { ...fields, ...(await read()) });
   return {
     ...rec,

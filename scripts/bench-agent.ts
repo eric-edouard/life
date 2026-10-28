@@ -314,7 +314,11 @@ async function bench(file: string, only: string[], engine: Engine) {
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-agent-"));
   const code = join(tmp, "code");
   // A metered run: what the agent's calls spent of his Codex plan is in its `use`.
-  const rec = await metered("bench.agent", { cases: cases.length, engine });
+  const rec = await metered(
+    "bench.agent",
+    { cases: cases.length, engine },
+    engine
+  );
   const { run } = rec;
   const lines = linesOf(LEDGER);
   try {

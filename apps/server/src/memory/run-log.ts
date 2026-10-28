@@ -5,7 +5,7 @@ import { add, NONE, type Quota, type Tokens } from "../models/llm";
 import { decode, encode, PAGE } from "./changes";
 import { runAt } from "./ledger";
 import { lockedSince } from "./memory-lock";
-import { daysBefore, lastDays } from "./units";
+import { daysBefore, lastDays, localTime } from "./units";
 import { localDate } from "./zones";
 
 // Life's processing as recorded, as JSON for the status reads: `read_processing_runs` (the history in derived/log: sweeps, their steps,
@@ -27,6 +27,14 @@ export const STEPS = [
   "memory.extract",
   "memory.closeness",
   "memory.pages",
+];
+/** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval, the agent bench. */
+export const SPENDING = [
+  ...SWEEPS,
+  ...STEPS,
+  "memory.import",
+  "eval",
+  "bench.agent",
 ];
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
@@ -101,6 +109,31 @@ export function useText(u: Use | null) {
   }
   const read = u?.quota?.before && u.quota.after;
   return `${read ? "the quota reset during it" : "quota not read"}, ${tokens}`;
+}
+
+/**
+ * What the runs started since `since` spent, oldest first, in words: a line per run, a sweep's steps each under it
+ * (every row, no cap). `night` is the run whose quota ends at the reading just made for the email.
+ */
+export function spendLines(
+  recent: Run[],
+  since: string,
+  night: { id: string; quota: Quota | undefined }
+) {
+  const used = recent
+    .filter((r) => (r.startedAt ?? "") >= since && r.use)
+    .toSorted((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? ""));
+  const name = (r: Run) => r.step.replace("memory.", "");
+  return used
+    .filter((r) => !r.sweep)
+    .flatMap((r) => [
+      r.id === night.id && r.use
+        ? `Model use, this night: ${useText({ ...r.use, quota: r.use.quota && { after: night.quota ?? null, before: r.use.quota.before } })}`
+        : `Model use, ${name(r)} of ${localTime(r.startedAt ?? "")}: ${useText(r.use ?? null)}`,
+      ...used
+        .filter((c) => c.sweep === r.id)
+        .map((c) => `  ${name(c)}: ${useText(c.use ?? null)}`),
+    ]);
 }
 
 /**

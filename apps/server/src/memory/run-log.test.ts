@@ -2,7 +2,14 @@ import { expect, test } from "bun:test";
 import { appendFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assembleRuns, percentOf, runs, useText } from "./run-log";
+import {
+  assembleRuns,
+  percentOf,
+  type Run,
+  runs,
+  spendLines,
+  useText,
+} from "./run-log";
 
 const ev = (
   kind: string,
@@ -227,4 +234,52 @@ test("a sweep's run holds its phases in the order it entered them", () => {
     null
   );
   expect(list[0]?.phases).toEqual(["repos", "gather", "index"]);
+});
+
+const IMPORT_LINE = /^Model use, import of .*: 3k tokens \(0k cached\)$/;
+
+test("spend lines: every run of the window that called a model, oldest first, a sweep's steps under it", () => {
+  const t = (input: number) => ({
+    quota: null,
+    tokens: { cached: 0, input, output: 0 },
+  });
+  const runOf = (
+    ref: string,
+    startedAt: string,
+    more: Partial<Run> = {}
+  ): Run => ({
+    endedAt: null,
+    errors: [],
+    id: ref,
+    input: null,
+    outcome: "ok",
+    result: null,
+    startedAt,
+    step: ref.split("/")[0] ?? "",
+    use: t(1000),
+    ...more,
+  });
+  const lines = spendLines(
+    [
+      runOf("memory.import/c", "2026-10-28T09:00:00.000Z", { use: t(3000) }),
+      runOf("memory.pages/s2", "2026-10-28T01:20:00.000Z", {
+        sweep: "memory.nightly/n",
+        use: t(2000),
+      }),
+      runOf("memory.moments/s1", "2026-10-28T01:10:00.000Z", {
+        sweep: "memory.nightly/n",
+      }),
+      runOf("memory.nightly/n", "2026-10-28T01:00:00.000Z", { use: t(3000) }),
+      runOf("memory.files/q", "2026-10-28T02:00:00.000Z", { use: null }),
+      runOf("memory.midday/old", "2026-10-26T13:00:00.000Z"),
+    ],
+    "2026-10-27T09:30:00.000Z",
+    { id: "memory.nightly/n", quota: undefined }
+  );
+  expect(lines).toEqual([
+    "Model use, this night: 3k tokens (0k cached)",
+    "  moments: 1k tokens (0k cached)",
+    "  pages: 2k tokens (0k cached)",
+    expect.stringMatching(IMPORT_LINE),
+  ]);
 });

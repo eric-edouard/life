@@ -26,7 +26,13 @@ import { claimsNow } from "@life/server/src/memory/statements";
 import type { tally } from "@life/server/src/memory/tally";
 import { gather } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
-import { llmFor, llmSpec } from "@life/server/src/models/llm";
+import {
+  add,
+  llmFor,
+  llmSpec,
+  NONE,
+  type Tokens,
+} from "@life/server/src/models/llm";
 
 const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(OWNER_DATA_DIR, "docs/evals/events-2026-10-16.json");
@@ -75,17 +81,21 @@ async function readWeek() {
         .map((c) => JSON.stringify({ date: c.date, id: c.ref, text: c.text }))
         .join("\n")
     );
-    // This worktree's log holds this run alone so far: its calls' cost (codex reports none).
-    const costs = (await logDays(LOG_DIR))
-      .flatMap((n) => logEvents<{ costUsd?: number }>(n, "model.run"))
-      .flatMap((l) => (typeof l.costUsd === "number" ? [l.costUsd] : []));
+    // This worktree's log holds this run alone so far: its calls' cost (claude's alone report one), else their tokens.
+    const calls = (await logDays(LOG_DIR)).flatMap((n) =>
+      logEvents<{ costUsd?: number; tokens?: Tokens }>(n, "model.run")
+    );
+    const costs = calls.flatMap((l) =>
+      typeof l.costUsd === "number" ? [l.costUsd] : []
+    );
+    const tokens = calls.reduce((t, l) => add(t, l.tokens ?? NONE), NONE);
     return {
       calls: m.calls + e.calls,
       claims: claims.length,
       cost:
         costs.length > 0
           ? `$${costs.reduce((a, b) => a + b, 0).toFixed(2)}`
-          : "subscription",
+          : `${Math.round((tokens.input + tokens.output) / 1e3)}k tokens`,
       failed: m.failed + e.failed,
       model: llmSpec(llmFor("deep")),
     };

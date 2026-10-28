@@ -126,13 +126,15 @@ const ANTHROPIC_MODELS: Record<Tier, string> = {
 };
 
 /**
- * allmodels' models by tier, each pinned to one host in fp8 (`model@host`, 28 Oct 2026): the fast tier's host takes
- * images (the files step sends them). ponytail: one model for every tier until the bench picks main and deep.
+ * allmodels' models by tier, each pinned to one host in fp8 (`model@host`, 28 Oct 2026). GLM-5.3 reads the moments,
+ * the facts and the pages: of the 20 Oct bench's candidates it kept the most of his week and stated the fewest wrong
+ * facts (~/Life/docs/evals/bench-2026-10-20.md); its hosts take no images. DeepSeek V4.1 Flash, on a host that takes
+ * them, reads the files. The bench re-checks these on allmodels' own hosts.
  */
 const ALLMODELS_MODELS: Record<Tier, string> = {
-  deep: "deepseek/deepseek-v4.1-flash-abliterated@hopper",
+  deep: "z-ai/glm-5.3-abliterated@experiential",
   fast: "deepseek/deepseek-v4.1-flash-abliterated@hopper",
-  main: "deepseek/deepseek-v4.1-flash-abliterated@hopper",
+  main: "z-ai/glm-5.3-abliterated@experiential",
 };
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
@@ -230,7 +232,7 @@ const imageBlock = async (path: string) => ({
   type: "image",
 });
 
-const Choices = z.object({
+const ChatReply = z.object({
   choices: z
     .array(
       z.object({
@@ -239,8 +241,6 @@ const Choices = z.object({
       })
     )
     .min(1),
-});
-const ChatReply = Choices.extend({
   // allmodels names the host that served it; OpenAI sends none.
   provider: z.string().optional(),
   usage: z
@@ -467,10 +467,12 @@ export function quotaOf(reply = ""): Quota | undefined {
  * engine setting is corrupt (the night's own calls fail on it, loudly). Never throws.
  */
 export async function quota(engine?: Engine) {
+  if (!hasQuota(engine)) {
+    return;
+  }
   let q: Quota | undefined;
   try {
-    q =
-      await PROVIDERS[llmFor("main", engine ?? readEngine()).engine].quota?.();
+    q = await PROVIDERS[llmFor("main", engine).engine].quota?.();
   } catch {
     // Unread.
   }
@@ -478,42 +480,24 @@ export async function quota(engine?: Engine) {
   return q;
 }
 
-/** An OpenAI-shaped chat-completions API: its address, its key's name, and whether its models name a host (`model@host`). */
-interface ChatApi {
-  key: string;
-  name: Engine;
-  pinned: boolean;
-  url: string;
-}
-const OPENAI_API: ChatApi = {
-  key: "OPENAI_API_KEY",
-  name: "openai",
-  pinned: false,
-  url: "https://api.openai.com/v1/chat/completions",
-};
-const ALLMODELS_API: ChatApi = {
-  key: "ALLMODELS_API_KEY",
-  name: "allmodels",
-  pinned: true,
-  url: "https://api.allmodels.io/oai/chat/completions",
-};
-
 /**
- * One call through an OpenAI-shaped API with his key, at the tier's reasoning effort, no idle cut. A pinned model goes
- * to the host after `@` alone (no fallback) and is refused when another host served it. Its answer is kept in the
- * call's folder; a refusal unless it stopped with some text.
+ * One call through an OpenAI-shaped API at `url` with his key (the engine's `key`), at the tier's reasoning effort, no
+ * idle cut. A `pinned` API's model goes to the host after `@` alone (no fallback) and is refused when another host
+ * served it; `maxTokens` leaves room for a day's moments and their reasoning. Its answer is kept in the call's folder;
+ * a refusal unless it stopped with some text.
  */
 const askChat =
-  (api: ChatApi) =>
+  (name: Engine, url: string, o: { maxTokens?: number; pinned: boolean }) =>
   async ({ dir, images, input, llm, system }: Call): Promise<Answer> => {
-    const key = process.env[api.key];
+    const keyName = PROVIDERS[name].key ?? "";
+    const key = process.env[keyName];
     const [model, host] = llm.model.split("@");
     if (!key) {
-      throw new Error(`${api.name} needs ${api.key}`);
+      throw new Error(`${name} needs ${keyName}`);
     }
-    if (api.pinned && !host) {
+    if (o.pinned && !host) {
       throw new Error(
-        `${api.name} needs a model as author/model@host, not ${llm.model}`
+        `${name} needs a model as author/model@host, not ${llm.model}`
       );
     }
     const pictures = await Promise.all(
@@ -525,8 +509,9 @@ const askChat =
         };
       })
     );
-    const res = await fetch(api.url, {
+    const res = await fetch(url, {
       body: JSON.stringify({
+        max_tokens: o.maxTokens,
         messages: [
           { content: system, role: "system" },
           {
@@ -551,11 +536,11 @@ const askChat =
       timeout: false,
     });
     const text = await res.text();
-    await Bun.write(join(dir, `${api.name}.json`), text);
+    await Bun.write(join(dir, `${name}.json`), text);
     if (!res.ok) {
-      throw new Error(`${api.name} ${res.status}: ${text.slice(-300)}`);
+      throw new Error(`${name} ${res.status}: ${text.slice(-300)}`);
     }
-    return answerOf(api.name, host, ChatReply.parse(JSON.parse(text)));
+    return answerOf(name, host, ChatReply.parse(JSON.parse(text)));
   };
 
 /** A chat reply as a runner's answer: refused when another host than `host` served it, or it stopped without text. */
@@ -668,9 +653,13 @@ interface Provider {
 }
 const PROVIDERS: Record<Engine, Provider> = {
   allmodels: {
-    ask: askChat(ALLMODELS_API),
+    ask: askChat("allmodels", "https://api.allmodels.io/oai/chat/completions", {
+      // Every host of its tier models allows at least this much (28 Oct 2026).
+      maxTokens: 131_072,
+      pinned: true,
+    }),
     effort: EFFORT,
-    key: ALLMODELS_API.key,
+    key: "ALLMODELS_API_KEY",
     models: ALLMODELS_MODELS,
     tools: false,
   },
@@ -690,9 +679,11 @@ const PROVIDERS: Record<Engine, Provider> = {
     tools: true,
   },
   openai: {
-    ask: askChat(OPENAI_API),
+    ask: askChat("openai", "https://api.openai.com/v1/chat/completions", {
+      pinned: false,
+    }),
     effort: EFFORT,
-    key: OPENAI_API.key,
+    key: "OPENAI_API_KEY",
     models: SOL,
     tools: false,
   },
@@ -704,9 +695,12 @@ export const engineKeys = () =>
     Object.entries(PROVIDERS).flatMap(([e, p]) => (p.key ? [[e, p.key]] : []))
   );
 
-/** Whether the engine has a quota to read (his Codex plan); the others count only tokens. */
-export const hasQuota = (engine = readEngine()) =>
-  PROVIDERS[engine].quota !== undefined;
+/**
+ * Whether this process's calls (on `engine`, his setting unless a bench says) go to an engine with a quota to read (his
+ * Codex plan), as `quota` decides it; the others count only tokens.
+ */
+export const hasQuota = (engine?: Engine) =>
+  PROVIDERS[llmFor("main", engine).engine].quota !== undefined;
 
 /**
  * One shot with no tools (but the bench's `tools`), no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and

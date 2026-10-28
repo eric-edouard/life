@@ -53,8 +53,7 @@ This is the one list of what Life sends; nothing else leaves. lifelog (`apps/lif
 keeps its own list in [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
 - To the model provider the owner chose (Anthropic, OpenAI, or allmodels.io): the text Life reads, as described under
-  Models. allmodels says it stores no request content; the hosts it routes to (pinned per model, no fallback) make no
-  zero-retention promise.
+  Models.
 - To an assistant the owner connected: what it reads through the connector, when it asks.
 - The nightly report and the alerts, by email to the owner through Resend, when the `mail` setting is set (otherwise a
   macOS notification, which stays on the Mac).
