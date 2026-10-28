@@ -14,6 +14,7 @@ import {
 } from "@lifelog/db/schema";
 import { eq as is } from "drizzle-orm";
 import type { PushRequest } from "./apns";
+import { createApp } from "./app";
 import { setOwnerTimeZone } from "./config";
 import {
   answerVoices,
@@ -23,8 +24,16 @@ import {
   queueCache,
 } from "./naming-queue";
 import { assign, sweep } from "./people";
+import { services } from "./services";
 import { PROMPT_VERSION } from "./summary-calls";
-import { mapJob, seedTranscript, storedResult, testDb } from "./testing";
+import {
+  mapJob,
+  OWNER_TOKEN,
+  seedTranscript,
+  storedResult,
+  testConfig,
+  testDb,
+} from "./testing";
 
 let env: Awaited<ReturnType<typeof testDb>>;
 beforeAll(() => {
@@ -297,47 +306,42 @@ test("answers are the owner's corrections, once each", () => {
   ).toBeNull();
 });
 
-test("a heard name answered with an existing person becomes their alias, once", () => {
+// A heard name may be someone else at the table: answering a card heard as "Nina" with Lea once
+// made Nina Lea's alias, and every later "Nina" read as Lea. Names come from the owner only.
+test("an answer teaches no name, and a typed nickname is the person", async () => {
   const me = owner();
-  const [marie, herve] = env.db
+  const [marie] = env.db
     .insert(people)
-    .values([{ name: "Marie-Jo" }, { name: "Hervé" }])
+    .values({ aliases: ["Jojo"], name: "Marie-Jo" })
     .returning()
     .all();
-  const marieId = marie?.id ?? "";
-  const herveId = herve?.id ?? "";
-  const voiceOf = () => {
-    const { jobId } = conversation(me, talk(4));
-    return [{ jobId, speakerLabel: "speaker_1" }];
-  };
-  const aliases = (id: string) =>
+  conversation(me, talk(8), [identity({ name: "Nina" })]);
+  const card = queued().find((c) => c.name === "Nina");
+  const app = createApp(services(testConfig("http://localhost:1"), env.db));
+  const res = await app.request("/naming-queue/answer", {
+    body: JSON.stringify({
+      answer: { kind: "confirm", name: "Lea" },
+      voices: card?.voices ?? [],
+    }),
+    headers: {
+      Authorization: `Bearer ${OWNER_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  expect(res.status).toBe(200);
+  expect(
     env.db.query.people
-      .findFirst({
-        where: (p, { eq }) => eq(p.id, id),
-      })
-      .sync()?.aliases;
-
-  // Heard "Jojo", no person on the card: the owner says Marie-Jo.
-  const jojo = { name: "Jojo", personId: null };
-  const assignMarie = { kind: "assign", personId: marieId } as const;
-  answerVoices(env.db, voiceOf(), assignMarie, jojo);
-  answerVoices(env.db, voiceOf(), assignMarie, jojo);
-  expect(aliases(marieId)).toEqual(["Jojo"]);
-  // "No, it's Hervé" against the card's own Marie-Jo teaches nothing.
-  answerVoices(
-    env.db,
-    voiceOf(),
-    { kind: "assign", personId: herveId },
-    { name: "Sam", personId: marieId }
-  );
-  expect(aliases(herveId)).toEqual([]);
-  // A typed nickname is the person, never a new one.
-  const typed = answerVoices(env.db, voiceOf(), {
+      .findMany()
+      .sync()
+      .map((p) => [p.name, p.aliases])
+  ).toContainEqual(["Lea", []]);
+  const { jobId } = conversation(me, talk(4));
+  const typed = answerVoices(env.db, [{ jobId, speakerLabel: "speaker_1" }], {
     kind: "confirm",
     name: "jojo",
   });
-  expect(typed).toEqual({ personId: marieId });
-  expect(env.db.query.people.findMany().sync()).toHaveLength(3);
+  expect(typed).toEqual({ personId: marie?.id ?? "" });
 });
 
 test("a card about a known person carries no name that is already theirs", () => {
