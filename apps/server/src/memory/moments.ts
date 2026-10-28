@@ -310,14 +310,14 @@ const judged = (u: Unit, verdicts: Verdicts, rereads: Map<string, string>) => {
   );
 };
 
-/** Whether a day must be read: one of its units has no verdict on its current content by this prompt. */
+/** Whether a day must be read: one of its units has no verdict on its current content by this prompt, or was reread since. */
 export const unread = (
   units: Built[],
   verdicts: Verdicts,
   rereads = new Map<string, string>()
 ) => units.some((b) => !judged(b.unit, verdicts, rereads));
 
-/** The verdicts of a reading of the day worth keeping: for the units not judged yet on their content (the cache). */
+/** The verdicts of a reading of the day worth keeping: for the units not judged yet on their content, or reread since (the cache). */
 export const fresh = (
   said: Verdict[],
   units: Built[],
