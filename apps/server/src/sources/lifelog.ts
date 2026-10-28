@@ -8,6 +8,7 @@ import { digest } from "../core/hash";
 import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { settings } from "../core/settings";
+import { openReadOnly } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
@@ -237,7 +238,7 @@ export async function withStore<T>(
 /** The store opened read-only, for a reader that must not create or change it (the status snapshot). */
 export const readStore = (dir = WATCH): Store => ({
   cursor: storeFiles(dir).cursor,
-  db: new Database(storeFiles(dir).file, { readonly: true }),
+  db: openReadOnly(storeFiles(dir).file),
 });
 
 /** The newest speech turn the watcher folded in (null with no store yet): lifelog sends turns once transcribed, minutes after they were spoken. */

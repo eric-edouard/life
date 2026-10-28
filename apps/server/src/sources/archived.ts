@@ -2,6 +2,7 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
+import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { Newest } from "./contract";
 
@@ -24,7 +25,7 @@ export function newestArchived(
   sql: string,
   dir = ARCHIVE
 ): Newest {
-  const db = new Database(archiveDb(name, dir), { readonly: true });
+  const db = openReadOnly(archiveDb(name, dir));
   try {
     const rows = db
       .query<{ at: string; label?: string; words: string }, []>(sql)
@@ -49,7 +50,7 @@ export function phoneMap(path: string, sql: string) {
   if (!existsSync(path)) {
     return phones;
   }
-  const db = new Database(path, { readonly: true });
+  const db = openReadOnly(path);
   try {
     for (const r of db.query<{ key: string; phone: string }, []>(sql).all()) {
       phones.set(r.key, `+${r.phone.replace(/\D/g, "")}`);
@@ -83,9 +84,7 @@ export function readArchived<R extends Row>(
   sender: (raw: string) => string,
   more: (r: R) => { files: SourceFile[]; text?: string }
 ): SourceEvent[] {
-  const db = new Database(archiveDb(source, archive), {
-    readonly: true,
-  });
+  const db = openReadOnly(archiveDb(source, archive));
   try {
     return db
       .query<R, [string]>(sql)

@@ -1,4 +1,4 @@
-// `bun bench [--models opus,…] [--runs n] [--judge engine/model/effort]`: how well candidate models do Life's deep steps (moments, then extract)
+// `bun bench [--models opus --models …] [--runs n] [--judge engine/model/effort]`: how well candidate models do Life's deep steps (moments, then extract)
 // on one fixed week, against what Life runs (his engine's deep tier). Each run is the real pipeline on its own
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
 // throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier (or `--judge`, to
@@ -70,6 +70,10 @@ async function readWeek() {
       { from: WEEK.from, to: WEEK.to },
       await readPeople()
     );
+    // A store not read (one locked by another run) leaves the copy with facts but no units: a failed run, not a score.
+    if (week.failed.length > 0) {
+      throw new Error(`could not read ${week.failed.join(", ")}`);
+    }
     const m = await moments(week);
     const e = await extract(week);
     const claims = (await claimsNow()).filter(
@@ -278,7 +282,7 @@ export function factTable(
     if (!(r.held && r.stated)) {
       return `| ${r.label} | ${r.llm ?? "his engine"} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} |||||||`;
     }
-    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed: invalid)` : ""} | ${r.minutes} min | ${r.cost} |`;
+    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed)` : ""} | ${r.minutes} min | ${r.cost} |`;
   };
   return [
     `# Bench ${WEEK.from} to ${WEEK.to} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
@@ -296,7 +300,8 @@ if (import.meta.main) {
     args: process.argv.slice(2),
     options: {
       judge: { type: "string" },
-      models: { type: "string" },
+      // One model per value: an allmodels host list has commas of its own (`model@refuseless,hopper`).
+      models: { multiple: true, type: "string" },
       "read-week": { type: "boolean" },
       runs: { type: "string" },
     },
@@ -306,7 +311,7 @@ if (import.meta.main) {
   } else {
     await spareQuota();
     await bench(
-      (values.models ?? Object.keys(MODELS).join(",")).split(","),
+      values.models ?? Object.keys(MODELS),
       Number(values.runs ?? 1),
       values.judge
     );

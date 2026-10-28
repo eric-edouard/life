@@ -1,4 +1,3 @@
-import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
@@ -6,6 +5,7 @@ import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt, exec } from "../core/proc";
+import { openReadOnly } from "../core/sqlite";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 
@@ -21,7 +21,7 @@ export function lastCopied({ name, store }: Archived, dir = ARCHIVE) {
   if (!existsSync(path)) {
     return null;
   }
-  const db = new Database(path, { readonly: true });
+  const db = openReadOnly(path);
   try {
     return (
       db
@@ -79,7 +79,7 @@ function deletedIn(name: string, media: string, since: string) {
   if (!existsSync(path)) {
     return [];
   }
-  const db = new Database(path, { readonly: true });
+  const db = openReadOnly(path);
   try {
     return db
       .query<
