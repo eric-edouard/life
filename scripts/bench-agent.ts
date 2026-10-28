@@ -23,6 +23,7 @@ import {
   OWNER_DATA_DIR,
 } from "@life/server/src/core/paths";
 import { exec, git, gitOut } from "@life/server/src/core/proc";
+import { openReadOnly } from "@life/server/src/core/sqlite";
 import { nextEvent } from "@life/server/src/host/events";
 import { buildServer } from "@life/server/src/host/http/mcp";
 import { LEDGER, OUT, parseLedgerEntry } from "@life/server/src/memory/ledger";
@@ -166,9 +167,7 @@ async function freeze(c: Case, lines: string[], code: string, data: string) {
     await mkdir(join(code, "derived", d), { recursive: true });
   }
   const store = join(code, "derived/watch/lifelog.sqlite");
-  const live = new Database(join(LIFE_STATE_DIR, "watch/lifelog.sqlite"), {
-    readonly: true,
-  });
+  const live = openReadOnly(join(LIFE_STATE_DIR, "watch/lifelog.sqlite"));
   live.run("vacuum into ?", [store]);
   live.close();
   const cut = new Database(store);

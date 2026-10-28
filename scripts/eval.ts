@@ -1,8 +1,9 @@
-// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings [--json]`: grades what Life's memory holds about a few days against facts
+// `bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings | --judge-cases <cases.json> [--json]`: grades what Life's memory holds about a few days against facts
 // checked by hand (~/Life/docs/evals/). Claims default to what the memory holds today of the facts' window (`claimsNow`, the words the owner rates);
 // a candidate pipeline passes its own as JSON lines `{id, date, text}`. `--ratings` grades the statements the owner rated
 // (memory/ratings.jsonl) and records the score (memory/scores.jsonl). A judge model (main tier) grades each fact.
-// `--json` prints the counts alone, for the bench (scripts/bench.ts).
+// `--json` prints the counts alone, for the bench (scripts/bench.ts). `--judge-cases` measures the judge itself: cases
+// whose grade the owner settled (~/Life/docs/evals/judge-cases-*.json), each judged alone, and how many it gets right.
 
 import { join } from "node:path";
 import { clock } from "@life/server/src/core/clock";
@@ -18,22 +19,42 @@ import { locked } from "@life/server/src/memory/memory-lock";
 import { chunks, ended, inBatches, metered } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { type Claim, claimsNow } from "@life/server/src/memory/statements";
-import { type Grade, judge, tally } from "@life/server/src/memory/tally";
+import {
+  ClaimLine,
+  GRADES,
+  type Grade,
+  judge,
+  tally,
+} from "@life/server/src/memory/tally";
 import { llmFor, llmSpec } from "@life/server/src/models/llm";
 import { EvalScore } from "@life/server/src/records/statement";
 import { z } from "zod";
 
 const Facts = z.object({
   facts: z.array(
-    z.object({ fact: z.string(), id: z.string(), true: z.boolean() })
+    z.object({
+      // The day the fact is judged as of (a state true then), when it has one.
+      date: z.iso.date().optional(),
+      fact: z.string(),
+      id: z.string(),
+      true: z.boolean(),
+    })
   ),
   from: z.iso.date(),
   to: z.iso.date(),
 });
-const ClaimLine = z.object({
-  date: z.string(),
-  id: z.string(),
-  text: z.string(),
+/** Cases whose grade the owner settled: the judge must give `expect` for `fact` against these `claims`. */
+const JudgeCases = z.object({
+  cases: z.array(
+    z.object({
+      claims: z.array(ClaimLine),
+      date: z.iso.date().optional(),
+      expect: z.enum(GRADES),
+      fact: z.string(),
+      id: z.string(),
+      why: z.string(),
+    })
+  ),
 });
 /** The claims `keep` keeps, as the judge reads them. */
 const lines = (claims: Claim[], keep: (c: Claim) => boolean) =>
@@ -59,7 +80,10 @@ async function ratedRun() {
     f.units.some((u) => live.has(u)) ? "judged" : "gone"
   );
   const grades: Grade[] = [];
-  const asked = judged.filter((f) => !f.outdated);
+  // By date, so a batch of 30 holds few dates: the judge makes one call per date.
+  const asked = judged
+    .filter((f) => !f.outdated)
+    .toSorted((a, b) => a.date.localeCompare(b.date));
   await inBatches(chunks(asked, PER_CALL), DIR, async (part, dir) => {
     const near = new Set(part.flatMap((f) => f.units));
     const seen = lines(claims, (c) => c.units.some((u) => near.has(u)));
@@ -86,6 +110,32 @@ async function ratedRun() {
   };
 }
 
+/** `--judge-cases <file>`: each case judged alone against its own claims, and whether the judge gave its grade. */
+async function judgeCasesRun(path: string) {
+  const { cases } = JudgeCases.parse(await Bun.file(path).json());
+  const got = new Map<string, Grade>();
+  await inBatches(cases, DIR, async (c, dir) => {
+    const [g] = await judge([c], c.claims, { dir, run });
+    if (g) {
+      got.set(c.id, g);
+    }
+  });
+  const agreed = cases.filter((c) => got.get(c.id)?.grade === c.expect).length;
+  console.log(
+    [
+      `Judge ${llmSpec(llmFor("main"))}: ${agreed}/${cases.length} cases graded as the owner settled.`,
+      "",
+      "| case | expected | judge | why it should | judge's why |",
+      "|---|---|---|---|---|",
+      ...cases.map(
+        (c) =>
+          `| ${c.id} | ${c.expect} | ${got.get(c.id)?.grade ?? "-"} | ${c.why} | ${got.get(c.id)?.why ?? ""} |`
+      ),
+    ].join("\n")
+  );
+  return { agreed, cases: cases.length };
+}
+
 /** `<facts.json> [claims.jsonl]`: hand-checked facts against the window's claims, or a candidate pipeline's. */
 async function factsRun(factsPath: string, claimsPath?: string) {
   const { facts, from, to } = Facts.parse(await Bun.file(factsPath).json());
@@ -108,7 +158,7 @@ const asJson = args.includes("--json");
 const [mode, claimsFile] = args.filter((a) => a !== "--json");
 if (!mode) {
   throw new Error(
-    "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings"
+    "usage: bun scripts/eval.ts <facts.json> [claims.jsonl] | --ratings | --judge-cases <cases.json>"
   );
 }
 // The bench (`--json`) checked before it started: its grading is the cheap end of a run already paid for.
@@ -120,6 +170,12 @@ const rec = await metered("eval", { args });
 const { run } = rec;
 const DIR = join(OUT, "evals", run);
 await ended(rec, async () => {
+  if (mode === "--judge-cases") {
+    if (!claimsFile) {
+      throw new Error("usage: bun scripts/eval.ts --judge-cases <cases.json>");
+    }
+    return await judgeCasesRun(claimsFile);
+  }
   const result =
     mode === "--ratings"
       ? await locked(ratedRun)
@@ -136,7 +192,7 @@ await ended(rec, async () => {
     asJson
       ? JSON.stringify({ ...t.counts, judge: llmSpec(llmFor("main")) })
       : [
-          `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
+          `${result.title}: ${t.counts.held}/${t.counts.trues} true facts held, ${t.counts.missed} missed, ${t.counts.contradicted} contradicted, ${t.counts.restated} false ones restated, ${t.counts.both} kept both (stated and contradicted), ${t.counts.ungraded} ungraded, ${t.counts.outdated} outdated (held, but Life never closed them).`,
           ...result.note,
           "",
           "| fact | is | memory | result | claims | why |",

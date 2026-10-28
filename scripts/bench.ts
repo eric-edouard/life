@@ -1,8 +1,9 @@
-// `bun bench [--models opus,…] [--runs n]`: how well candidate models do Life's deep steps (moments, then extract)
+// `bun bench [--models opus --models …] [--runs n] [--judge engine/model/effort]`: how well candidate models do Life's deep steps (moments, then extract)
 // on one fixed week, against what Life runs (his engine's deep tier). Each run is the real pipeline on its own
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
-// throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier then grades its claims against the week's
-// hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
+// throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier (or `--judge`, to
+// keep one judge across benches when his engine changes) then grades its claims against the week's hand-checked facts
+// and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
 
 import { cpSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
@@ -69,6 +70,10 @@ async function readWeek() {
       { from: WEEK.from, to: WEEK.to },
       await readPeople()
     );
+    // A store not read (one locked by another run) leaves the copy with facts but no units: a failed run, not a score.
+    if (week.failed.length > 0) {
+      throw new Error(`could not read ${week.failed.join(", ")}`);
+    }
     const m = await moments(week);
     const e = await extract(week);
     const claims = (await claimsNow()).filter(
@@ -161,7 +166,7 @@ export async function checkout(dir: string, state: string[]) {
   }
 }
 
-async function bench(models: string[], runs: number) {
+async function bench(models: string[], runs: number, judge?: string) {
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
   const base = join(tmp, "base");
   const worktrees: string[] = [];
@@ -173,7 +178,7 @@ async function bench(models: string[], runs: number) {
     }
     const rated = ratedFacts()
       .filter((f) => f.date >= WEEK.from && f.date <= WEEK.to)
-      .map((f) => ({ fact: f.fact, id: f.id, true: f.true }));
+      .map((f) => ({ date: f.date, fact: f.fact, id: f.id, true: f.true }));
     const ratedFile = join(tmp, "rated.json");
     await Bun.write(ratedFile, JSON.stringify({ ...WEEK, facts: rated }));
     const facts = (await Bun.file(FACTS).json()).facts.length as number;
@@ -204,7 +209,7 @@ async function bench(models: string[], runs: number) {
           const minutes = Math.round((performance.now() - started) / MIN);
           const claims = join(data, "claims.jsonl");
           const graded = (file: string) =>
-            run(code, data, undefined, [
+            run(code, data, judge, [
               "scripts/eval.ts",
               file,
               claims,
@@ -275,17 +280,17 @@ export function factTable(
   };
   const line = (r: Row) => {
     if (!(r.held && r.stated)) {
-      return `| ${r.label} | ${r.llm ?? "his engine"} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} |||||||`;
+      return `| ${r.label} | ${r.llm ?? "his engine"} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} ||||||||`;
     }
-    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed: invalid)` : ""} | ${r.minutes} min | ${r.cost} |`;
+    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${r.held.both} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong, ${r.stated.both} kept both | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed)` : ""} | ${r.minutes} min | ${r.cost} |`;
   };
   return [
     `# Bench ${WEEK.from} to ${WEEK.to} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
+    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Each fact is judged as of its day (a rated statement's), against the claims said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored.`,
     "",
-    `| run | model | true facts held | wrong (of ${about.facts}) | vs baseline | rated statements | claims | calls | time | cost |`,
-    "|---|---|---|---|---|---|---|---|---|---|",
+    `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | rated statements | claims | calls | time | cost |`,
+    "|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows.map(line),
   ].join("\n");
 }
@@ -294,7 +299,9 @@ if (import.meta.main) {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      models: { type: "string" },
+      judge: { type: "string" },
+      // One model per value: an allmodels host list has commas of its own (`model@refuseless,hopper`).
+      models: { multiple: true, type: "string" },
       "read-week": { type: "boolean" },
       runs: { type: "string" },
     },
@@ -304,8 +311,9 @@ if (import.meta.main) {
   } else {
     await spareQuota();
     await bench(
-      (values.models ?? Object.keys(MODELS).join(",")).split(","),
-      Number(values.runs ?? 1)
+      values.models ?? Object.keys(MODELS),
+      Number(values.runs ?? 1),
+      values.judge
     );
   }
 }

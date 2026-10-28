@@ -1,9 +1,10 @@
-import { Database, type SQLQueryBindings } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { unzipSync } from "node:zlib";
 import { clock } from "../core/clock";
 import { HOME } from "../core/platform";
+import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
@@ -358,7 +359,7 @@ export function copyNotes(
     return 0;
   }
   const archive = openNotes(dir);
-  const store = new Database(path, { readonly: true });
+  const store = openReadOnly(path);
   try {
     const latest = new Map(
       archive

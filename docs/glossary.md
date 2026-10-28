@@ -59,6 +59,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | unit | The smallest piece Life reads: a conversation-day (or a stored chapter), a chat's day, a mail thread's day, a note's day, a repo's day. Id `unit_…`. | |
 | verdict | A unit's judgement: its type, importance and area, with the reason. Only that. | |
 | moment | A stretch of the owner's day, read from the day's units together. Id `mom_…`. | |
+| kept both | A fact the memory both states and contradicts: a contradiction stored, counted apart from wrong by the eval and the bench. | |
+| judge case | A fact with the claims a judge saw and the grade the owner settled for it (`docs/evals/judge-cases-*.json`): how a judge is measured before use. | |
 | observation | One small dated reading of a moment, with a quote checked against its source: a model's reading, not a verified fact. Id `obs_…`. | |
 | type | What an observation is: `to_do`, `promise`, `waiting_on_someone`, `decision`, `about_a_person`, `preference`, `idea`, `news`, `nothing` (SCHEMA.md, "Words used below"). | |
 | modality | How an observation holds: `fact`, `plan`, `reported`, `conditional`. | |

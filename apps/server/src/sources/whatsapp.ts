@@ -1,8 +1,8 @@
-import { Database } from "bun:sqlite";
 import { constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clock } from "../core/clock";
 import { HOME } from "../core/platform";
+import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
@@ -143,9 +143,7 @@ export function copyWhatsapp(
   now = clock().getTime()
 ): number {
   const archive = open(dir);
-  const whatsapp = new Database(join(source, "ChatStorage.sqlite"), {
-    readonly: true,
-  });
+  const whatsapp = openReadOnly(join(source, "ChatStorage.sqlite"));
   try {
     const empty = !archive.query("select 1 from messages limit 1").get();
     // The first run copies all history; later runs only the last week, where anything can still change.

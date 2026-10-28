@@ -1,4 +1,3 @@
-import { Database } from "bun:sqlite";
 import {
   cpSync,
   existsSync,
@@ -17,6 +16,7 @@ import { LIFE_CODE_DIR, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { slashed } from "../core/platform";
 import { execOk } from "../core/proc";
 import { SECRETS } from "../core/secret";
+import { openReadOnly } from "../core/sqlite";
 import { LOCK, locked } from "../memory/memory-lock";
 import { INDEX } from "../memory/search";
 import { ARCHIVED } from "../memory/sources";
@@ -54,7 +54,7 @@ export const filesUnder = (dir: string) =>
  * file of its own (a rollback journal, no WAL beside it): it opens anywhere, read-only too, and restores as one file.
  */
 function copyDb(from: string, to: string) {
-  const source = new Database(from, { readonly: true });
+  const source = openReadOnly(from);
   try {
     source.run("VACUUM INTO ?", [to]);
   } finally {
@@ -75,7 +75,7 @@ export const linesIn = (data: string) =>
 
 /** Rows per table of one SQLite file. */
 export function rowsIn(path: string) {
-  const db = new Database(path, { readonly: true });
+  const db = openReadOnly(path);
   try {
     return Object.fromEntries(
       db

@@ -1,8 +1,8 @@
-import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { APP_DATA } from "../core/platform";
+import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
@@ -162,7 +162,7 @@ export function copyBeeper(
     return 0;
   }
   const archive = openBeeper(dir);
-  const beeper = new Database(path, { readonly: true });
+  const beeper = openReadOnly(path);
   try {
     // The whole table every time, which also backfills the first run: a few thousand rows, and Beeper backfills old
     // chats into it at any time. Rows already archived are ignored.

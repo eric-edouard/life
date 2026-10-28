@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { HOME } from "../core/platform";
+import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
 import type { Newest } from "./contract";
@@ -67,7 +67,7 @@ export function readImessage(
   path = DB,
   names: Map<string, string> = readContacts()
 ): SourceEvent[] {
-  const db = new Database(path, { readonly: true });
+  const db = openReadOnly(path);
   try {
     const rows = db
       .query<Row, [bigint]>(
@@ -114,7 +114,7 @@ export function readImessage(
 
 /** The newest message in Messages (the status snapshot). */
 export function newestImessage(): Newest {
-  const db = new Database(DB, { readonly: true });
+  const db = openReadOnly(DB);
   try {
     const r = db
       .query<

@@ -200,8 +200,10 @@ step: [Back up and restore](use/backup.md).
   the data repo's `docs/evals/`). Run it after a change to moments or extraction.
 - **Truth benchmark:** `bun scripts/eval.ts --ratings` scores the memory against the owner's ratings (`memory/scores.jsonl`).
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
-- **Model choice:** `bun bench [--models …] [--runs n]` runs the real moments and extract over a fixed week, once per
-  candidate, on an empty copy of the data, and judges each run (about 40 minutes; writes nothing of the owner's).
+- **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real moments and
+  extract over a fixed week, once per candidate, on an empty copy of the data, and judges each run (about 40 minutes;
+  writes nothing of the owner's). `--models` takes one model per flag (an allmodels host list has commas of its own);
+  `--judge` keeps one judge across benches when his engine changes; a store a run could not read fails that run.
 - **The agent end to end:** `bun scripts/bench-agent.ts` replays past asks frozen (`LIFE_NOW`, on a copy, in a
   worktree of its own; a frozen run acts on and sends nothing).
 - To trace a wrong claim to its step: `bun life memory claim <obs_id>`, and `day` for a moment.
@@ -246,6 +248,10 @@ when that folder exists:
 - code stages: a `bun test` with made-up data that fails before the fix and passes after, living in `apps/server/src/` and naming
   the case;
 - model stages: facts graded by `bun scripts/eval.ts`, rerun when a prompt changes (a flaky case passes 2 runs of 3);
+- the judge itself: judge cases (`docs/evals/judge-cases-*.json`, `bun scripts/eval.ts --judge-cases <file>`), the grades
+  the owner settled for facts a judge got wrong; a judge prompt or model changes only when it agrees with at least 9
+  of 10. A fact with a `date` (every rated statement has one) is judged as of that day, against the claims said by then:
+  true then is never wrong because it changed later;
 - the agent's stages: a scenario re-read against `docs/agent.md` whenever it changes.
 
 Cases only accumulate. The stage letters: capture (C), hearing and routing (H), extraction (E), ownership (O), task

@@ -17,6 +17,7 @@ import {
 } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
 import { sha256Of } from "@life/server/src/core/hash";
+import { openReadOnly } from "@life/server/src/core/sqlite";
 import { connect, type Db, holdArchive, migrateDb } from "@lifelog/db";
 import { sql } from "drizzle-orm";
 import { keyPath } from "./audio-store";
@@ -61,7 +62,7 @@ async function copyKept(from: string, to: string) {
 }
 
 function rowsIn(file: string) {
-  const db = new Database(file, { readonly: true });
+  const db = openReadOnly(file);
   try {
     const tables = db
       .query<{ name: string }, []>(
