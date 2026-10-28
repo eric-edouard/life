@@ -13,6 +13,7 @@ import type { LifelogConversation } from "../sources/lifelog";
 import { closeNow } from "./closeness";
 import {
   EXTRACTED,
+  isRereadSince,
   latestBy,
   momentsNow,
   OBSERVATIONS,
@@ -208,8 +209,7 @@ export function toExtract(
   );
   const readAs = ({ unit }: Built) => {
     const e = done.get(`${unit.id}|${unit.hash}`);
-    const since = rereads.get(unit.id);
-    return !!e && !(since && Date.parse(since) > Date.parse(e.at));
+    return !!e && !isRereadSince(rereads, unit.id, e.at);
   };
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
