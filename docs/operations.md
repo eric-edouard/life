@@ -33,13 +33,13 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 ## Settings
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
-the connector's origin and tunnel, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
+the connector's origin, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
 sources, the agent, the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.
 - It is strict and read once per process, some of it when modules load (units, tasks, email, git). So a new key lands
   in code first; a bad file stops the watcher and the nightly, like a bad `truth/`; an edit takes effect when each
-  service starts again (the app restarts them; a checkout's LaunchAgents need a `kickstart`).
+  service starts again (the app restarts them).
 - `bun life settings` prints it; `bun life settings set '<json>'` replaces parts of it, checked whole before anything is
   written. The app reads and writes settings only through this.
 - Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout.
@@ -62,16 +62,12 @@ would deliver every ask twice. On the owner's data a nightly tick runs only for 
 lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status snapshot reads
 those locks (`holder`, `core/lock.ts`). `bun run check` holds a `check` lock there too: one gate per Mac, since its timed tests fail when two run at once.
 
-### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
+### A checkout (development)
 
-- `bun scripts/install.ts <archive|watch|memory-nightly>` installs the same three jobs as LaunchAgents running the
-  checkout (safe to repeat; run it from the checkout that should run them). Logs: `~/Library/Logs/life-*.log`.
-- When a commit changes `apps/server/src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears again the
-  turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title once),
-  the archive after its pass, and launchd restarts each on the new code.
-- remctl is not on launchd's PATH: it is called by absolute path (below).
-- launchd's PATH may hold an old `node`, so `scripts/check.ts` runs its npm tools with `bun x --bun`.
-- Its secrets are in `.env`, while Life.app's are in the Keychain: two copies until [#136](https://github.com/eric-edouard/life/issues/136).
+A checkout runs no service on its own: run `bun life <command>` by hand, on a copy of the data (Gotchas in
+`AGENTS.md`). In the app, when a commit changes `apps/server/src/`, `prompts/` or `assets/` (`codeAt`), the watcher
+exits (at start it hears again the turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask`
+records a ref and title once), the archive after its pass, and the app restarts each on the new code.
 
 ## The check
 
@@ -132,11 +128,6 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 week (`RECENT_MS`; skipped turns are logged) and delivery waits for a good poll, so nothing alerts on an outage.
 Reachability rests on the Mac being kept awake. Reconsider a server only on a measured loss (an ask lost, or acted on
 late with harm), or spoken asks above about one a day for a month.
-
-**The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once the connector moves off the edge Worker onto Funnel: [#137](https://github.com/eric-edouard/life/issues/137)). The
-watcher's heal (`apps/server/src/host/http/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
-loop once ran 35,000 times). Behind the edge Worker (`docs/architecture.md`) the connector's address never answers 530,
-so the heal no longer fires; deleting it is [#133](https://github.com/eric-edouard/life/issues/133).
 
 ## remctl and Reminders quirks
 

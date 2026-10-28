@@ -195,8 +195,7 @@ grant, and logs the agent's replies.
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid
   arguments (`tool()` validates them itself) are logged as `mcp.call` with `error`. Nothing reads a response back.
 - **Origin:** the Mac's tailnet name (`bun life connect`; `--public` through Tailscale Funnel for ChatGPT and
-  Claude.ai, `apps/server/src/host/http/tailscale.ts`), or the owner's own Cloudflare tunnel (`tunnel: cloudflare`, the only one
-  `apps/server/src/host/http/tunnel.ts` heals), or the owner's edge Worker until #137 (`docs/architecture.md`). Docs write it as
+  Claude.ai, `apps/server/src/host/http/tailscale.ts`), or the owner's edge Worker until #137 (`docs/architecture.md`). Docs write it as
   `<your connector origin>`.
 
 ## The only sends

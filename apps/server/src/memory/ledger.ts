@@ -249,6 +249,16 @@ export const rereadAt = (corrections: Correction[]) =>
     ].map(([unit, r]) => [unit, r.at])
   );
 
+/** Whether the owner said `unit` was read wrong after a reading of it at `at` (`rereadAt`): moments and extraction alike. */
+export const isRereadSince = (
+  rereads: Map<string, string>,
+  unit: string,
+  at: string
+) => {
+  const since = rereads.get(unit);
+  return !!since && Date.parse(since) > Date.parse(at);
+};
+
 /** A correction that hides observations (`wrong`, `not-important`): everywhere, or on its `page` only. */
 export const hides = (c: Correction) =>
   c.kind === "wrong" || c.kind === "not-important" ? c : null;
