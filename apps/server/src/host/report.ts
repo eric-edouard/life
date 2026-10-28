@@ -358,6 +358,12 @@ export async function unsent(keys: string[]) {
   return keys.filter((k) => !sent?.has(k));
 }
 
+/** A failed delivery is logged as a run error of step `email.<kind>` (`sendReport`). */
+export const EMAIL_STEP = "email.";
+
+/** Where reports are mailed (the `mail` setting); none: they are kept on the Mac. */
+export const mailedTo = () => settings().mail?.to;
+
 /** The nightly report's key for the night run `run` (`sendReport`): the status snapshot knows the report went by it. */
 export const reportKey = (run: string) => `nightly/${run}`;
 
@@ -374,7 +380,7 @@ export async function sendReport(id: string | string[], mail: Mail) {
     return null;
   }
   try {
-    const to = settings().mail?.to;
+    const to = mailedTo();
     const sentAs = await (to ? byMail(keys, mail, to) : onMac(keys, mail));
     for (const k of keys) {
       log("email.sent", { id: sentAs, key: k, subject: mail.subject });
@@ -384,7 +390,7 @@ export async function sendReport(id: string | string[], mail: Mail) {
   } catch (e) {
     log("run.error", {
       error: (e as Error).message,
-      step: `email.${keys[0]?.split("/")[0]}`,
+      step: `${EMAIL_STEP}${keys[0]?.split("/")[0]}`,
     });
     return null;
   }

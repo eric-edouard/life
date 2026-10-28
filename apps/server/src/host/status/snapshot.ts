@@ -36,7 +36,7 @@ import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
-import { reportKey } from "../report";
+import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
@@ -1029,9 +1029,8 @@ function outputCards(r: Reads): Card[] {
       r.t - Date.parse(a.at) < DAY
   );
   const failed = acts.filter((a) => a.result === "failed").length;
-  // `sendReport` logs a failed delivery as a run error of step `email.<kind>`.
   const mailFailed = r.errorsToday.filter((e) =>
-    String(e.step).startsWith("email.")
+    String(e.step).startsWith(EMAIL_STEP)
   ).length;
   const mails = since(r.sent, DAY, r.t);
   const portraitOn = !!process.env.LIFE_PORTRAIT_PASSWORD;
@@ -1091,7 +1090,7 @@ function outputCards(r: Reads): Card[] {
     {
       ...firstOf(
         [mailFailed > 0, { tone: "warn", word: `${mailFailed} failed` }],
-        [!settings().mail, { tone: "idle", word: "kept on the Mac" }],
+        [!mailedTo(), { tone: "idle", word: "kept on the Mac" }],
         [true, { tone: "ok", word: "sending" }]
       ),
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),
