@@ -25,7 +25,7 @@ import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip, daysBefore } from "../../memory/units";
 import { dayStart, wall } from "../../memory/zones";
-import { hasQuota, readEngine } from "../../models/llm";
+import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
 import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
@@ -805,6 +805,13 @@ function backupCard(r: Reads): Card {
   };
 }
 
+/** The steps each model tier serves (each step's `begin`, memory/): the engine card names them. */
+const TIER_STEPS = [
+  ["deep", "Moments and facts"],
+  ["main", "Pages"],
+  ["fast", "Files, repos, people, imports"],
+] as const;
+
 function engineCard(r: Reads): Card {
   const metered = hasQuota();
   // An older engine's reading never shows on one with no quota.
@@ -823,7 +830,8 @@ function engineCard(r: Reads): Card {
   const thinking =
     (r.status.processing as Processing).state === "running" ||
     since(r.models, 2 * MIN, r.t).length > 0;
-  let headline = `${Math.round(tokens / 1e3)}k tokens this week`;
+  // The model as he would name it: the deep tier's, without its author and hosts.
+  let headline = llmFor("deep").model.split("@")[0]?.split("/").at(-1) ?? "";
   if (metered) {
     headline = q ? `${q.used}% of the week` : "quota not read";
   }
@@ -835,6 +843,11 @@ function engineCard(r: Reads): Card {
       [true, { tone: "ok", word: metered ? "spare" : "ready" }]
     ),
     facts: [
+      // What each tier runs (engine/model@hosts/effort): the steps it serves, by tier.
+      ...TIER_STEPS.map(([tier, label]) => ({
+        label,
+        value: llmSpec(llmFor(tier)),
+      })),
       ...(metered
         ? [
             { label: "Quota used", value: q ? `${q.used}%` : "not read" },

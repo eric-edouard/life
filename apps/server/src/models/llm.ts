@@ -130,6 +130,16 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
   fast: DEEPSEEK_FLASH,
   main: DEEPSEEK_FLASH,
 };
+/**
+ * allmodels' effort by tier: both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
+ * (checked 28 Oct 2026), so the pages think at high. Hopper thinks more at high than at low; Refuseless a little more,
+ * and it thinks even at none.
+ */
+const ALLMODELS_EFFORT: Record<Tier, string> = {
+  deep: "high",
+  fast: "low",
+  main: "high",
+};
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
 export function llmFor(tier: Tier, engine = readEngine()): Llm {
@@ -592,7 +602,7 @@ interface Provider {
 const PROVIDERS: Record<Engine, Provider> = {
   allmodels: {
     ask: askAllModels,
-    effort: EFFORT,
+    effort: ALLMODELS_EFFORT,
     key: ALLMODELS_KEY,
     models: ALLMODELS_MODELS,
     tools: false,
