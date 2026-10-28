@@ -1,8 +1,9 @@
-// `bun bench [--models opus,…] [--runs n]`: how well candidate models do Life's deep steps (moments, then extract)
+// `bun bench [--models opus,…] [--runs n] [--judge engine/model/effort]`: how well candidate models do Life's deep steps (moments, then extract)
 // on one fixed week, against what Life runs (his engine's deep tier). Each run is the real pipeline on its own
 // throwaway copy of the data (empty memory, today's truth/), read with his engine or one model through `LIFE_LLM`, in its own
-// throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier then grades its claims against the week's
-// hand-checked facts and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
+// throwaway worktree of this code (its log and run folders apart, nothing in his runs); Life's main tier (or `--judge`, to
+// keep one judge across benches when his engine changes) then grades its claims against the week's hand-checked facts
+// and his rated statements (scripts/eval.ts). It prints the table and writes nothing of his.
 
 import { cpSync } from "node:fs";
 import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
@@ -161,7 +162,7 @@ export async function checkout(dir: string, state: string[]) {
   }
 }
 
-async function bench(models: string[], runs: number) {
+async function bench(models: string[], runs: number, judge?: string) {
   const tmp = await mkdtemp(join(tmpdir(), "life-bench-"));
   const base = join(tmp, "base");
   const worktrees: string[] = [];
@@ -204,7 +205,7 @@ async function bench(models: string[], runs: number) {
           const minutes = Math.round((performance.now() - started) / MIN);
           const claims = join(data, "claims.jsonl");
           const graded = (file: string) =>
-            run(code, data, undefined, [
+            run(code, data, judge, [
               "scripts/eval.ts",
               file,
               claims,
@@ -294,6 +295,7 @@ if (import.meta.main) {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {
+      judge: { type: "string" },
       models: { type: "string" },
       "read-week": { type: "boolean" },
       runs: { type: "string" },
@@ -305,7 +307,8 @@ if (import.meta.main) {
     await spareQuota();
     await bench(
       (values.models ?? Object.keys(MODELS).join(",")).split(","),
-      Number(values.runs ?? 1)
+      Number(values.runs ?? 1),
+      values.judge
     );
   }
 }
