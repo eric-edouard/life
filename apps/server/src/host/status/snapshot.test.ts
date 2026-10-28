@@ -170,3 +170,27 @@ test(
   },
   MIN
 );
+
+test(
+  "143-email-card: the Email card follows the mail setting: sending with an address, kept on the Mac without",
+  async () => {
+    const { setSettings, settings } = await import("../../core/settings");
+    const { mail } = settings();
+    const email = async () =>
+      (await snapshot()).cards.find((c) => c.id === "email");
+    try {
+      setSettings({
+        mail: { from: "life@example.com", to: "owner@example.com" },
+      });
+      expect(await email()).toMatchObject({ tone: "ok", word: "sending" });
+      setSettings({ mail: undefined });
+      expect(await email()).toMatchObject({
+        tone: "idle",
+        word: "kept on the Mac",
+      });
+    } finally {
+      setSettings({ mail });
+    }
+  },
+  MIN
+);

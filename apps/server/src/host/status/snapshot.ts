@@ -36,7 +36,7 @@ import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
-import { reportKey } from "../report";
+import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
@@ -1029,6 +1029,9 @@ function outputCards(r: Reads): Card[] {
       r.t - Date.parse(a.at) < DAY
   );
   const failed = acts.filter((a) => a.result === "failed").length;
+  const mailFailed = r.errorsToday.filter((e) =>
+    String(e.step).startsWith(EMAIL_STEP)
+  ).length;
   const mails = since(r.sent, DAY, r.t);
   const portraitOn = !!process.env.LIFE_PORTRAIT_PASSWORD;
   return [
@@ -1085,6 +1088,11 @@ function outputCards(r: Reads): Card[] {
       name: OUTPUTS.todo_list.label,
     },
     {
+      ...firstOf(
+        [mailFailed > 0, { tone: "warn", word: `${mailFailed} failed` }],
+        [!mailedTo(), { tone: "idle", word: "kept on the Mac" }],
+        [true, { tone: "ok", word: "sending" }]
+      ),
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),
       facts: [
         { label: "Sent today", value: String(mails.length) },
@@ -1101,8 +1109,6 @@ function outputCards(r: Reads): Card[] {
       headline: `${mails.length} sent today`,
       id: "email",
       name: "Email",
-      tone: "ok",
-      word: "sending",
     },
     {
       facts: [{ label: "Left to rate", value: String(r.mem.left) }],
