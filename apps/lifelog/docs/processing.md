@@ -236,9 +236,9 @@ them):
   back in "Who's this?", each on its own card (kind `several`, past the stranger and media checks) that opens with
   each clip to name; recognition leaves them as they are until then, and the column goes once none is left.
 - A person can have other names (Mamie for a grandmother, Jojo for Marie-Jo). Summaries, the assistant's `person` and
-  `assign_speaker` tools and "Who's this?" find people by them, so a nickname never creates a duplicate. They are set
-  on the person's page, and learned when the owner answers a voice the summaries heard as "Jojo" with Marie-Jo. A
-  merged person's name becomes an alias.
+  `assign_speaker` tools and "Who's this?" find people by them, so a nickname never creates a duplicate. Only the
+  owner sets them, on the person's page, and a merged person's name becomes an alias. An answer never learns the name
+  the summaries heard: at a table it is often someone else's (a sister's name became another sister's alias, 18 Oct).
 - Unnamed voices are grouped across conversations by how alike they sound (0.6, average linkage), each night and a
   minute after the owner's answers (`regroup`, with the sweep); a new voice is its own card until then. The queue asks
   about each group once. A queue card's clips come from the voice's samples, best first, else from its turns with the
