@@ -223,6 +223,23 @@ test("a day is read again when one of its units has no verdict by this prompt on
   expect(fresh(said, [b, c], known).map((v) => v.unit)).toEqual([U2]);
 });
 
+test("a unit he said was read wrong after its verdict reads its day again, and takes the new verdict", () => {
+  const b = built(U1);
+  const v2 = {
+    ...madeBy,
+    prompt: "memory-moments.v4",
+    run: "2026-10-16T10-00-00.000Z",
+  };
+  const known = ledger([verdict(b.unit, { madeBy: v2 })]);
+  const later = new Map([[U1, "2026-10-28T10:00:00.000Z"]]);
+  const earlier = new Map([[U1, "2026-10-15T10:00:00.000Z"]]);
+  expect(unread([b], known, earlier)).toBe(false);
+  expect(unread([b], known, later)).toBe(true);
+  expect(
+    fresh([verdict(b.unit, { madeBy: v2 })], [b], known, later)
+  ).toHaveLength(1);
+});
+
 const HASH = "0000000000000000";
 const AREA = "shop";
 const unitOf = (id: string, drop?: string) =>
