@@ -697,7 +697,7 @@ export const engineKeys = () =>
 
 /**
  * Whether this process's calls (on `engine`, his setting unless a bench says) go to an engine with a quota to read (his
- * Codex plan), as `quota` decides it; the others count only tokens.
+ * Codex plan); `quota` and `metered` read one only then. The others count only tokens.
  */
 export const hasQuota = (engine?: Engine) =>
   PROVIDERS[llmFor("main", engine).engine].quota !== undefined;
