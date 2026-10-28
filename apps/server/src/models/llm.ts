@@ -214,7 +214,7 @@ const modelEnv = (extra: Record<string, string> = {}) => ({
   ...extra,
 });
 
-/** An image as claude's stream-json input takes it. */
+/** An image as claude's stream-json input takes it (allmodels' call builds its data URL from it). */
 const imageBlock = async (path: string) => ({
   source: {
     data: Buffer.from(await Bun.file(path).bytes()).toString("base64"),

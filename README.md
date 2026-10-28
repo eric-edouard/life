@@ -50,7 +50,7 @@ Required:
 
 - A Mac with Apple silicon on macOS 14 or later, which stays on and awake at night. Life runs there and nowhere else.
 - A model to read with: a Claude or ChatGPT subscription (Life uses the `claude` or `codex` command line), or an
-  Anthropic or OpenAI API key.
+  allmodels.io API key.
 - [Tailscale](https://tailscale.com), signed in on the Mac. It is how Claude and ChatGPT reach Life; without it you can
   only ask from a terminal on the Mac.
 - To build the app, as there is no prebuilt release yet: [Bun](https://bun.sh) 1.4, Xcode's command line tools and
