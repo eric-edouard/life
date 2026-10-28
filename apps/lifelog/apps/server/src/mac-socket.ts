@@ -335,6 +335,19 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     }
     call.reject(new Error(`the Mac's model call failed: ${reply.reason}`));
   };
+  // An answer to a pending call in a shape this server can't read fails that call at once, so its
+  // run fails and backs off instead of waiting out the timeout and running again (#223).
+  const unreadable = (id: string, detail: string) => {
+    const call = pending.get(id);
+    if (!call) {
+      return;
+    }
+    pending.delete(id);
+    clearTimeout(call.timer);
+    pump();
+    record(db, "mac.llm_error", { detail, id, reason: "unreadable" });
+    call.reject(new Error(`the Mac's answer could not be read: ${detail}`));
+  };
   // The Mac said an engine can't run (signed out, or at its limit): for UNABLE_MS.
   const markUnable = (engine: MacEngine, reason: Unable) => {
     unable.set(engine, { reason, until: Date.now() + UNABLE_MS });
@@ -475,7 +488,16 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
         event(ws, body);
         return null;
       }
-      return FromMac.parse(body);
+      const message = FromMac.safeParse(body);
+      if (message.success) {
+        return message.data;
+      }
+      record(db, "mac.ignored", { bytes: String(raw).length });
+      const id = (body as { id?: unknown } | null)?.id;
+      if (typeof id === "string") {
+        unreadable(id, message.error.issues[0]?.message ?? "bad shape");
+      }
+      return null;
     } catch {
       record(db, "mac.ignored", { bytes: String(raw).length });
       return null;
