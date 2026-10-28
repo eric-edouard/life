@@ -74,6 +74,6 @@ test("a fact with a day is judged against the claims said by then: a later chang
     ])
   ).toEqual([
     ["2026-10-14", ["waiting"], ["c14"]],
-    ["", ["has"], ["c14", "c15"]],
+    [undefined, ["has"], ["c14", "c15"]],
   ]);
 });

@@ -20,6 +20,7 @@ import { chunks, ended, inBatches, metered } from "@life/server/src/memory/run";
 import { spareQuota } from "@life/server/src/memory/schedule";
 import { type Claim, claimsNow } from "@life/server/src/memory/statements";
 import {
+  ClaimLine,
   GRADES,
   type Grade,
   judge,
@@ -29,19 +30,13 @@ import { llmFor, llmSpec } from "@life/server/src/models/llm";
 import { EvalScore } from "@life/server/src/records/statement";
 import { z } from "zod";
 
-const ClaimLine = z.object({
-  date: z.string(),
-  id: z.string(),
-  text: z.string(),
-});
 const Facts = z.object({
   facts: z.array(
     z.object({
-      // The day the fact is judged as of (a state true then), when it has one; `source` says where its truth comes from.
+      // The day the fact is judged as of (a state true then), when it has one.
       date: z.iso.date().optional(),
       fact: z.string(),
       id: z.string(),
-      source: z.string().optional(),
       true: z.boolean(),
     })
   ),
@@ -118,13 +113,14 @@ async function ratedRun() {
 /** `--judge-cases <file>`: each case judged alone against its own claims, and whether the judge gave its grade. */
 async function judgeCasesRun(path: string) {
   const { cases } = JudgeCases.parse(await Bun.file(path).json());
-  const got = await Promise.all(
-    cases.map(
-      async (c) =>
-        (await judge([c], c.claims, { dir: join(DIR, c.id), run }))[0]
-    )
-  );
-  const agreed = cases.filter((c, i) => got[i]?.grade === c.expect).length;
+  const got = new Map<string, Grade>();
+  await inBatches(cases, DIR, async (c, dir) => {
+    const [g] = await judge([c], c.claims, { dir, run });
+    if (g) {
+      got.set(c.id, g);
+    }
+  });
+  const agreed = cases.filter((c) => got.get(c.id)?.grade === c.expect).length;
   console.log(
     [
       `Judge ${llmSpec(llmFor("main"))}: ${agreed}/${cases.length} cases graded as the owner settled.`,
@@ -132,8 +128,8 @@ async function judgeCasesRun(path: string) {
       "| case | expected | judge | why it should | judge's why |",
       "|---|---|---|---|---|",
       ...cases.map(
-        (c, i) =>
-          `| ${c.id} | ${c.expect} | ${got[i]?.grade ?? "-"} | ${c.why} | ${got[i]?.why ?? ""} |`
+        (c) =>
+          `| ${c.id} | ${c.expect} | ${got.get(c.id)?.grade ?? "-"} | ${c.why} | ${got.get(c.id)?.why ?? ""} |`
       ),
     ].join("\n")
   );

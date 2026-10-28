@@ -25,17 +25,18 @@ interface JudgedFact {
   fact: string;
   id: string;
 }
-/** A claim as the judge reads it: what was said, and the day. */
-interface ClaimLine {
-  date: string;
-  id: string;
-  text: string;
-}
+/** A claim as the judge reads it: what was said, and the day it was said. */
+export const ClaimLine = z.object({
+  date: z.string(),
+  id: z.string(),
+  text: z.string(),
+});
+type ClaimLine = z.infer<typeof ClaimLine>;
 
 /** The judge's calls: the facts of each day with the claims said by then; facts with no day with every claim. */
 export const asOf = (facts: JudgedFact[], claims: ClaimLine[]) =>
-  [...Map.groupBy(facts, (f) => f.date ?? "")].map(([date, group]) => ({
-    claims: date ? claims.filter((c) => c.date <= date) : claims,
+  [...Map.groupBy(facts, (f) => f.date)].map(([date, group]) => ({
+    claims: date === undefined ? claims : claims.filter((c) => c.date <= date),
     date,
     facts: group,
   }));
@@ -44,6 +45,7 @@ export const asOf = (facts: JudgedFact[], claims: ClaimLine[]) =>
  * A judge's grades (his engine's main tier) of `facts` against `claims` (`text` is what was said, `id` names it, `date`
  * the day it was said). A fact with a `date` is judged as of that day, against the claims said on or before it, so a
  * later change never contradicts a state true then; one call per date (`asOf`), facts without one against every claim.
+ * The calls run together: a caller sorting its facts by date keeps them few (`--ratings`, scripts/eval.ts).
  * Inputs and replies kept in `dir`. Facts go without their truth: the judge isn't told which should hold.
  */
 export async function judge(
@@ -56,7 +58,7 @@ export async function judge(
       async (call) =>
         Grades.parse(
           await askOnce({
-            dir: call.date ? join(o.dir, call.date) : o.dir,
+            dir: call.date === undefined ? o.dir : join(o.dir, call.date),
             input: {
               claims: call.claims,
               facts: call.facts.map(({ fact, id }) => ({ fact, id })),
