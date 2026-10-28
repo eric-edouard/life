@@ -378,6 +378,12 @@ test("claude's tokens: input counts its cache reads and writes, as codex's does"
 });
 
 test("each provider's model and effort by tier; tools only on his subscriptions", async () => {
+  // Regression (28 Oct 2026): allmodels' hosts refuse "medium", which the pages tier used to send.
+  for (const tier of ["deep", "main", "fast"] as const) {
+    expect(["none", "low", "high", "max"]).toContain(
+      llmFor(tier, "allmodels").effort ?? ""
+    );
+  }
   expect(llmFor("deep", "allmodels")).toEqual({
     effort: "high",
     engine: "allmodels",

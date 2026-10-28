@@ -37,7 +37,10 @@ export function extractJson(text: string): unknown {
   }
 }
 
-/** What a step needs: repos and files fast, pages main, moments and extract deep (~/Life/docs/evals/events-2026-10-18.md). */
+/**
+ * What a step needs (each step names its tier in `begin`): files, repos, closeness and imports fast, pages main, moments
+ * and extract deep (~/Life/docs/evals/events-2026-10-18.md).
+ */
 export type Tier = "fast" | "main" | "deep";
 
 /** The engine, model and reasoning effort one run uses (claude takes one only from `LIFE_LLM`; an allmodels model is `author/model@host[,host]`). */
@@ -66,8 +69,8 @@ const CODEX_BIN = join(LIFE_CODE_DIR, CODEX);
 // kept out by running in an empty temp folder and `project_doc_max_bytes=0`; `skills.include_instructions=false` drops
 // the skills catalog.
 const CODEX_HOME = join(MACHINE_DIR, "codex");
-/** The reasoning effort by tier, for every provider that takes one. */
-const EFFORT: Record<Tier, string> = {
+/** Codex's reasoning effort by tier. */
+const CODEX_EFFORT: Record<Tier, string> = {
   deep: "high",
   fast: "low",
   main: "medium",
@@ -129,6 +132,16 @@ const ALLMODELS_MODELS: Record<Tier, string> = {
   deep: DEEPSEEK_FLASH,
   fast: DEEPSEEK_FLASH,
   main: DEEPSEEK_FLASH,
+};
+/**
+ * allmodels' effort by tier: both hosts take only none, low, high and max (Hopper xhigh too) and refuse "medium"
+ * (checked 28 Oct 2026), so the pages think at high. Hopper thinks more at high than at low; Refuseless a little more,
+ * and it thinks even at none.
+ */
+const ALLMODELS_EFFORT: Record<Tier, string> = {
+  deep: "high",
+  fast: "low",
+  main: "high",
 };
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
@@ -592,7 +605,7 @@ interface Provider {
 const PROVIDERS: Record<Engine, Provider> = {
   allmodels: {
     ask: askAllModels,
-    effort: EFFORT,
+    effort: ALLMODELS_EFFORT,
     key: ALLMODELS_KEY,
     models: ALLMODELS_MODELS,
     tools: false,
@@ -600,7 +613,7 @@ const PROVIDERS: Record<Engine, Provider> = {
   claude: { ask: askClaude, models: CLAUDE_MODELS, tools: true },
   codex: {
     ask: askCodex,
-    effort: EFFORT,
+    effort: CODEX_EFFORT,
     models: SOL,
     quota: codexQuota,
     tools: true,

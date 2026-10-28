@@ -122,6 +122,24 @@ test(
 );
 
 test(
+  "the engine card names the model and what each tier runs (the made-up settings: claude, no quota)",
+  async () => {
+    const card = (await snapshot()).cards.find((c) => c.id === "engine");
+    expect(card?.name).toBe("Engine · claude");
+    expect(card?.headline).toBe("opus");
+    expect(card?.facts).toContainEqual({
+      label: "Model (deep)",
+      value: "claude/opus",
+    });
+    expect(card?.facts).toContainEqual({
+      label: "Model (fast)",
+      value: "claude/haiku",
+    });
+  },
+  MIN
+);
+
+test(
   "an output's card says off when its switch is off, on when it is on",
   async () => {
     const cards = new Map((await snapshot()).cards.map((c) => [c.id, c]));
