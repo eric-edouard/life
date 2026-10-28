@@ -43,7 +43,6 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   pendant: read("lifelog"),
   reminders: (e) => e.kind === "board.write" || e.kind === "sync.pull",
   tasks: (e) => e.kind === "board.write" || e.kind === "event.sent",
-  tunnel: (e) => e.step === "tunnel",
   watcher: (e) => e.step === "watch",
 };
 

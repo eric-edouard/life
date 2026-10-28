@@ -99,7 +99,7 @@ final class ConversationStore {
             let edits = edges.isEmpty ? [] : try await library.edits(edges)
             let edge = edges.lazy.compactMap { id in edits.first { $0.id == id } }
                 .first { $0.undoneAt == nil && !undoing.contains($0.id) }
-            self.people = try await library.people()
+            let people = try await library.people()
             let waitingSplits = shown.grouping.compactMap { intent -> Date? in
                 guard case .split(let at) = intent, conversation.range.contains(CaptureInstant(at)) else { return nil }
                 return at
@@ -112,6 +112,9 @@ final class ConversationStore {
                     Set((conversation.splitSuggestions ?? []).map(\.at).filter { !dismissed.contains($0) })
                         .union(waitingSplits)
                 ).sorted()
+            // A newer load started (the view's `.task(id:)` cancelled this one): it writes the page, not this one.
+            guard !Task.isCancelled else { return }
+            self.people = people
             self.waitingSplits = Set(waitingSplits)
             // A reload that changed nothing leaves the page alone: rebuilding it re-lays out every line.
             if conversation != self.conversation || lines != self.lines || chapters != self.chapters
@@ -125,7 +128,7 @@ final class ConversationStore {
             // Asks for Photos access the first time a page has turns to place photos beside.
             if !lines.isEmpty {
                 let photos = await PhotoLibrary.photos(in: conversation.range)
-                if photos != self.photos {
+                if !Task.isCancelled, photos != self.photos {
                     self.photos = photos
                     fold()
                 }

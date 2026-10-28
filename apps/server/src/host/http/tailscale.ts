@@ -40,7 +40,7 @@ export async function tailnetName() {
 
 /**
  * Serves Life on this Mac's tailnet name (port 443): on his tailnet only, or `public` through Funnel for ChatGPT and
- * Claude.ai. Its origin becomes the connector's, and the Cloudflare tunnel's healer stops (`tunnel: tailscale`).
+ * Claude.ai. Its origin becomes the connector's.
  */
 export async function connect(publicToo: boolean) {
   const name = await tailnetName();
@@ -52,7 +52,7 @@ export async function connect(publicToo: boolean) {
   ]);
   const origin = `https://${name}`;
   setSettings({
-    connector: { ...settings().connector, origin, tunnel: "tailscale" },
+    connector: { ...settings().connector, origin },
   });
   return origin;
 }
