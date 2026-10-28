@@ -738,3 +738,42 @@ test("the index is rebuilt from observations: search ignores accents, links answ
   ).toBe(1);
   db.close();
 });
+
+test("a unit read before and no longer kept (a re-read judged it lower) is dropped once: its facts are replaced by none", () => {
+  const lou = unit({ id: "unit_00000000002b", people: ["person:lou"] });
+  const low = ledger([verdict(lou, { importance: 1 })]);
+  const line = (observations: number, at: string) => ({
+    at,
+    observations,
+    prompt: "memory-extract.v1",
+    run: at,
+    schemaVersion: 1 as const,
+    unit: lou.id,
+    unitHash: lou.hash,
+  });
+  const dropped = (
+    lines: ReturnType<typeof line>[],
+    rereads: [string, string][] = []
+  ) =>
+    toExtract([built(lou)], low, lines, "memory-extract.v1", new Map(rereads))
+      .dropped.length;
+  // Never read: nothing to replace.
+  expect(dropped([])).toBe(0);
+  // Read before, then re-read and judged lower: dropped.
+  expect(
+    dropped(
+      [line(3, "2026-10-10T02:00:00.000Z")],
+      [[lou.id, "2026-10-21T00:00:00.000Z"]]
+    )
+  ).toBe(1);
+  // Its empty line written: settled, not dropped again.
+  expect(
+    dropped(
+      [
+        line(3, "2026-10-10T02:00:00.000Z"),
+        line(0, "2026-10-22T02:00:00.000Z"),
+      ],
+      [[lou.id, "2026-10-21T00:00:00.000Z"]]
+    )
+  ).toBe(0);
+});

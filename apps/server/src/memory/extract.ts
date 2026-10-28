@@ -193,7 +193,9 @@ export function byDays<T extends Group & { sources: Source[] }>(
  * The units to read: kept (importance >= KEEP_AT) on their current content, and not yet extracted by this prompt
  * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl), unless the
  * owner said a unit was read wrong after it was (`rereads`, his `reread` corrections). Who someone is needs no new
- * reading: the readers resolve a fact's author and entities as of today (`aboutNow`).
+ * reading: the readers resolve a fact's author and entities as of today (`aboutNow`). `dropped`: units read before
+ * that are no longer kept on their current reading (content changed, or a re-read judged them lower): their facts
+ * are replaced by none, so none stays shown.
  */
 export function toExtract(
   built: Built[],
@@ -211,8 +213,10 @@ export function toExtract(
     const e = done.get(`${unit.id}|${unit.hash}`);
     return !!e && !isRereadSince(rereads, unit.id, e.at);
   };
+  const readBefore = new Set(ledger.map((e) => e.unit));
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
+  const dropped: Built[] = [];
   for (const b of built) {
     // A unit a code rule drops today stays dropped, whatever an older verdict said.
     if (b.unit.drop) {
@@ -223,10 +227,12 @@ export function toExtract(
       stale += 1;
     } else if (v.importance >= KEEP_AT) {
       kept.push({ b, reason: v.reason });
+    } else if (readBefore.has(b.unit.id) && !readAs(b)) {
+      dropped.push(b);
     }
   }
   const pending = kept.filter(({ b }) => !readAs(b));
-  return { kept, pending, stale };
+  return { dropped, kept, pending, stale };
 }
 
 async function appendObservations(list: Observation[]) {
@@ -360,7 +366,7 @@ export async function extract(evidence: Evidence) {
     readMoments(),
     observationsNow(people),
   ]);
-  const { kept, pending, stale } = toExtract(
+  const { dropped, kept, pending, stale } = toExtract(
     inWindow,
     verdicts,
     rowsOf(EXTRACTED, Extracted),
@@ -548,7 +554,8 @@ export async function extract(evidence: Evidence) {
   await appendJsonl(
     EXTRACTED,
     Extracted,
-    [...finished, ...copies].map(({ unit }) => ({
+    // A dropped unit's line has no facts: its earlier ones are replaced (`isCurrent`, ledger.ts).
+    [...finished, ...copies, ...dropped].map(({ unit }) => ({
       at,
       observations: perUnit.get(unit.id) ?? 0,
       prompt: EXTRACT_PROMPT,
@@ -566,6 +573,7 @@ export async function extract(evidence: Evidence) {
   return step.end({
     added: observations.length,
     cached: kept.length - pending.length,
+    dropped: dropped.length,
     kept: kept.length,
     moments: groups.filter((g) => g.moment).length,
     read: finished.length,
