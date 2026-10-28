@@ -2,12 +2,15 @@
 // knows Thai while the rest stay with a faster English and French one. A segment is a speaker turn
 // (a diarizer's); Scribe's words say whether it holds Thai (written in Thai script).
 import type { Word } from "@lifelog/db/schema";
-import { routeTurns, toScribe } from "@lifelog/server/src/route-turns";
+import {
+  MIN_ROUTED_SECONDS,
+  routeTurns,
+  toScribe,
+} from "@lifelog/server/src/route-turns";
 import { THAI, type Turn } from "./score";
 
 // Turns of one speaker this close make one segment; shorter ones say too little to judge.
 const JOIN_GAP = 0.5;
-const MIN_SECONDS = 1;
 // A segment holds Thai when at least this share of its words is in Thai script.
 export const THAI_SHARE = 0.3;
 
@@ -29,7 +32,7 @@ export function segments(turns: Turn[], words: Word[]): Segment[] {
     }
   }
   return joined
-    .filter((t) => t.end - t.start >= MIN_SECONDS)
+    .filter((t) => t.end - t.start >= MIN_ROUTED_SECONDS)
     .map(({ end, start }) => {
       const inside = words.filter((w) => {
         const middle = (w.start + w.end) / 2;

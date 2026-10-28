@@ -25,7 +25,7 @@ const OURS = new Map([
 // The languages Scribe transcribes; the speech service keeps every other one.
 const SCRIBE = new Set(["th"]);
 const WHOLE_BLOCK = 0.7;
-const MIN_ROUTED_SECONDS = 1;
+export const MIN_ROUTED_SECONDS = 1;
 // A routed turn's audio reaches Scribe with this much around it, so a word Nemotron's boundary
 // clips is still heard whole; only the words inside the turn are kept.
 const PAD_SECONDS = 0.25;
