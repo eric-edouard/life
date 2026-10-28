@@ -372,17 +372,7 @@ export function speakerRoutes({
       }),
       (c) => {
         const { answer, voices: answered } = c.req.valid("json");
-        // The card answered: what the summaries heard it called, and who it seemed to be.
-        const card = queue
-          .items()
-          .find((item) =>
-            item.voices.some((v) =>
-              answered.some(
-                (a) => a.jobId === v.jobId && a.speakerLabel === v.speakerLabel
-              )
-            )
-          );
-        const result = answerVoices(db, answered, answer, card);
+        const result = answerVoices(db, answered, answer);
         queue.invalidate();
         voices.soon();
         return result
