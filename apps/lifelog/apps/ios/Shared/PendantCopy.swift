@@ -1,24 +1,22 @@
 import Foundation
+import Glance
 import Incidents
 
 /// Words shared by Shortcuts, widgets and the control. Each says only what the evidence supports, with the glance's
 /// marks (`RecordingGlance.Reading`): an old or unlinked report is "last known" with a question mark.
 nonisolated extension PendantSnapshot {
+    /// The glance the Watch gets (`RecordingGlance`), so the widgets' headline, symbol and dot are decided once
+    /// (`GlanceCopy`). Battery and sound play no part in those three.
+    private func glance(now: Date) -> RecordingGlance {
+        RecordingGlance(self, sound: nil, lowBatteryPercent: 0, now: now)
+    }
+
     /// What leads: "Recording.", "Pausing…", "Last known: recording", "Unknown."
-    func headline(now: Date) -> String {
-        if let pending = pendingRequest(now: now) { return pending == .pause ? "Pausing…" : "Resuming…" }
-        return recording(now: now).headline
-    }
+    func headline(now: Date) -> String { glance(now: now).headline(now: now) }
 
-    func symbol(now: Date) -> String {
-        if pendingRequest(now: now) != nil { return "hourglass" }
-        return recording(now: now).symbol
-    }
+    func symbol(now: Date) -> String { glance(now: now).symbol(now: now) }
 
-    func dot(now: Date) -> StatusDot.State {
-        if pendingRequest(now: now) != nil { return .waiting }
-        return recording(now: now).dot
-    }
+    func dot(now: Date) -> StatusDot.State { glance(now: now).dot(now: now) }
 
     /// One sentence for Siri and Shortcuts: "Recording — confirmed 4 seconds ago · battery 82%".
     func sentence(now: Date) -> String {
