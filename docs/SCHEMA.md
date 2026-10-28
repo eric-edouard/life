@@ -139,12 +139,14 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 
 ## extracted.jsonl
 
-Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, at}`, one
+Which units an extractor version has read: `{schemaVersion: 1, unit, unitHash, prompt, run, observations, at, unkept?}`, one
 line per unit and run, `observations` being how many it kept (often 0); lines of 21 Oct 2026 also carry `people`, ignored. A unit is read again when its `unitHash` or
 the prompt version changes, or when a `reread` correction names it after its last reading (the night reads the last
 7 days, `backfill` older ones). Who someone is needs no new reading: readers resolve a fact's author and entities as of
-today. Only the latest extraction of a unit counts: observations from an older one are ignored
-(`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a conversation
+today. A unit read before that its latest verdict no longer keeps (its content changed, or a `reread` judged it below
+`KEEP_AT`) gets a line with `unkept: true` and `observations` 0, nothing read, so its earlier facts stop showing (and
+what they retired shows again, as after any re-read); kept again, it is read again (an `unkept` line is no reading). Only the latest
+extraction of a unit counts: observations from an older one are ignored (`replaced`), and so are all of a unit that no longer exists or that a code rule now drops (`gone`: a conversation
 regrouped, Life's own mail).
 
 ## unresolved.jsonl
