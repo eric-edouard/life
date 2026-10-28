@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Runner } from "../core/names";
+import { Engine } from "../core/names";
 
 // The field shapes the records share: slugs, dates, ids, importance.
 
@@ -30,7 +30,7 @@ export const PersonRef = z.string().regex(/^person:(?:inf_)?[a-z0-9-]+$/);
 /** Who made a model's output: engine and model (switching engines re-runs nothing), the prompt version, the run. */
 export const MadeBy = z
   .object({
-    engine: Runner.default("claude"),
+    engine: Engine.default("claude"),
     model: z.string(),
     prompt: z.string(),
     run: z.string(),

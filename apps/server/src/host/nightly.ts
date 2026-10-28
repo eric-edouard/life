@@ -16,7 +16,7 @@ import {
   phases,
   type RunRecord,
 } from "../memory/run";
-import { runs, useText } from "../memory/run-log";
+import { type Run, runs, STEPS, SWEEPS, useText } from "../memory/run-log";
 import {
   afterWeek,
   backfillWeek,
@@ -51,7 +51,7 @@ import {
   noteZone,
   readZoneHere,
 } from "../memory/zones";
-import { type Quota, quota } from "../models/llm";
+import { hasQuota, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import { checks } from "../todo-list/backend";
@@ -363,24 +363,37 @@ async function whatIsNew(since: string, from: string, built: Built[]) {
   };
 }
 
+/** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval, the agent bench. */
+const SPENDING = [...SWEEPS, ...STEPS, "memory.import", "eval", "bench.agent"];
+
 /**
- * What the sweeps of the last 24 h spent of his Codex plan, a line each, oldest first; this night's to `now`, the
- * quota just read for the email.
+ * What the model calls of the last 24 h spent, oldest first: a line per run, a sweep's steps each under it (every row,
+ * no cap); this night's quota to `now`, the reading just made for the email.
  */
 async function spent(rec: Metered, now: Quota | undefined) {
   const since = new Date(rec.now.getTime() - DAY).toISOString();
-  const { items } = await runs({
-    limit: 20,
-    steps: ["memory.nightly", "memory.midday", "memory.backfill"],
-  });
-  return items
+  const recent: Run[] = [];
+  let cursor: string | null = null;
+  do {
+    // biome-ignore lint/performance/noAwaitInLoops: each page starts where the last ended
+    const page = await runs({ cursor: cursor ?? undefined, steps: SPENDING });
+    recent.push(...page.items);
+    ({ cursor } = page);
+  } while (cursor && (recent.at(-1)?.startedAt ?? "") >= since);
+  const used = recent
     .filter((r) => (r.startedAt ?? "") >= since && r.use)
-    .reverse()
-    .map((r) =>
+    .reverse();
+  const name = (r: Run) => r.step.replace("memory.", "");
+  return used
+    .filter((r) => !r.sweep)
+    .flatMap((r) => [
       r.id === `memory.nightly/${rec.run}` && r.use
-        ? `Codex use, this night: ${useText({ ...r.use, quota: { after: now ?? null, before: r.use.quota?.before ?? null } })}`
-        : `Codex use, ${r.step.replace("memory.", "")} of ${localTime(r.startedAt ?? "")}: ${useText(r.use ?? null)}`
-    );
+        ? `Model use, this night: ${useText({ ...r.use, quota: r.use.quota && { after: now ?? null, before: r.use.quota.before } })}`
+        : `Model use, ${name(r)} of ${localTime(r.startedAt ?? "")}: ${useText(r.use ?? null)}`,
+      ...used
+        .filter((c) => c.sweep === r.id)
+        .map((c) => `  ${name(c)}: ${useText(c.use ?? null)}`),
+    ]);
 }
 
 async function runNight(days: number, now: Date, day: string, force: boolean) {
@@ -434,7 +447,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       moments: found,
       observed,
       paged,
-      quota: quotaLine(q),
+      quota: hasQuota() ? quotaLine(q) : undefined,
       repos,
       retired,
       spent: await spent(rec, q),

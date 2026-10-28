@@ -33,7 +33,7 @@ test("a source is red only when Life can't read it; silence is quiet, then amber
   expect(toneOf(null, DAY, now)).toEqual({ tone: "idle", word: "nothing yet" });
 });
 
-test("audit-6: a source with parts goes amber when one part is silent, even while another is receiving", () => {
+test("audit-6-line-account-id: a source with parts goes amber when one part is silent, even while another is receiving", () => {
   const parts = [
     { at: ago(10 * MIN), label: "telegram" },
     { at: ago(4 * DAY), label: "line" },

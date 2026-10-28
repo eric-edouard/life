@@ -25,6 +25,7 @@ import { runs, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip, daysBefore } from "../../memory/units";
 import { dayStart, wall } from "../../memory/zones";
+import { hasQuota, readEngine } from "../../models/llm";
 import { isBookkeeping, REMINDER_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
@@ -825,16 +826,25 @@ function engineCard(r: Reads): Card {
   const thinking =
     (r.status.processing as Processing).state === "running" ||
     since(r.models, 2 * MIN, r.t).length > 0;
+  const metered = hasQuota();
+  let headline = `${Math.round(tokens / 1e3)}k tokens this week`;
+  if (metered) {
+    headline = q ? `${q.used}% of the week` : "quota not read";
+  }
   return {
     ...firstOf(
-      [!q, { tone: "idle", word: "unread" }],
+      [metered && !q, { tone: "idle", word: "unread" }],
       [(q?.used ?? 0) > 75, { tone: "warn", word: "over reserve" }],
       [thinking, { tone: "busy", word: "thinking" }],
-      [true, { tone: "ok", word: "spare" }]
+      [true, { tone: "ok", word: metered ? "spare" : "ready" }]
     ),
     facts: [
-      { label: "Quota used", value: q ? `${q.used}%` : "not read" },
-      { at: q?.resetsAt, label: "Resets" },
+      ...(metered
+        ? [
+            { label: "Quota used", value: q ? `${q.used}%` : "not read" },
+            { at: q?.resetsAt, label: "Resets" },
+          ]
+        : []),
       {
         label: "Tokens this week (recorded runs)",
         value: `${Math.round(tokens / 1e3)}k`,
@@ -845,9 +855,9 @@ function engineCard(r: Reads): Card {
       })),
     ],
     group: "pipeline",
-    headline: q ? `${q.used}% of the week` : "quota not read",
+    headline,
     id: "engine",
-    name: "Engine · Codex",
+    name: `Engine · ${readEngine()}`,
   };
 }
 

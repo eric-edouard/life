@@ -125,8 +125,8 @@ const night = (facts: number) =>
     repos: { suggestions: [] },
     retired: 1,
     spent: [
-      "Codex use, midday of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
-      "Codex use, this night: +3% of the quota, 2.1M tokens (1.4M cached)",
+      "Model use, midday of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
+      "Model use, this night: +3% of the quota, 2.1M tokens (1.4M cached)",
     ],
     watcher: { lastOkAt: new Date().toISOString() },
   }) as unknown as Night;
@@ -153,7 +153,7 @@ test("the success email includes every fact, counts pages and lists models once"
   expect(text).toContain("75%");
   expect(text).toContain("Codex quota: 40% used");
   expect(text).toContain(
-    "Codex use, this night: +3% of the quota, 2.1M tokens (1.4M cached)"
+    "Model use, this night: +3% of the quota, 2.1M tokens (1.4M cached)"
   );
   expect(text).toContain("Last backup: 2026-10-15 05:00, 5.5 GB");
   expect(text).toContain("Archive: no failure");

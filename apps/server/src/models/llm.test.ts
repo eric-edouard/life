@@ -11,6 +11,7 @@ import {
   claudeTokens,
   codexTokens,
   extractJson,
+  hasQuota,
   llmFor,
   llmOverride,
   quota,
@@ -38,15 +39,15 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
     model: "opus",
   });
   expect(
-    llmOverride("openrouter/xiaomi/mimo-v2.6-pro@deepinfra/high", copy)
+    llmOverride("allmodels/z-ai/glm-5.3-abliterated@abliteration/high", copy)
   ).toEqual({
     effort: "high",
-    engine: "openrouter",
-    model: "xiaomi/mimo-v2.6-pro@deepinfra",
+    engine: "allmodels",
+    model: "z-ai/glm-5.3-abliterated@abliteration",
   });
-  expect(llmOverride("openrouter/x/y", copy)).toEqual({
+  expect(llmOverride("allmodels/x/y", copy)).toEqual({
     effort: undefined,
-    engine: "openrouter",
+    engine: "allmodels",
     model: "x/y",
   });
   expect(() => llmOverride("opus", copy)).toThrow();
@@ -56,18 +57,18 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("openrouter: pinned, zero retention, no fallback; another host, a cut reply or an error is refused", async () => {
-  const asked: Record<string, unknown>[] = [];
-  let reply: { finish: string; provider: string; status: number } = {
+test("allmodels: pinned to its host, no fallback, tokens logged; another host, a cut reply or an error is refused; openai pins nothing", async () => {
+  const asked: { body: Record<string, unknown>; url: string }[] = [];
+  let reply: { finish: string; provider?: string; status: number } = {
     finish: "stop",
-    provider: "DeepInfra",
+    provider: "Hopper",
     status: 200,
   };
   const fetched = spyOn(globalThis, "fetch").mockImplementation(((
-    _url: string,
+    url: string,
     init: RequestInit
   ) => {
-    asked.push(JSON.parse(String(init.body)));
+    asked.push({ body: JSON.parse(String(init.body)), url });
     return Promise.resolve(
       Response.json(
         {
@@ -78,49 +79,67 @@ test("openrouter: pinned, zero retention, no fallback; another host, a cut reply
             },
           ],
           provider: reply.provider,
-          usage: { cost: 0.01 },
+          usage: {
+            completion_tokens: 7,
+            prompt_tokens: 30,
+            prompt_tokens_details: { cached_tokens: 20 },
+          },
         },
         { status: reply.status }
       )
     );
   }) as unknown as typeof fetch);
-  process.env.OPENROUTER_API_KEY = "test-key";
-  const ask = () =>
+  process.env.ALLMODELS_API_KEY = "test-key";
+  process.env.OPENAI_API_KEY = "test-key";
+  const ask = (engine: "allmodels" | "openai" = "allmodels") =>
     askOnce({
-      dir: mkdtempSync(join(tmpdir(), "life-or-")),
+      dir: mkdtempSync(join(tmpdir(), "life-chat-")),
       input: { a: 1 },
-      llm: { effort: "high", engine: "openrouter", model: "x/y@deepinfra" },
+      llm: {
+        effort: "high",
+        engine,
+        model: engine === "allmodels" ? "x/y@hopper" : "m",
+      },
       prompt: "eval-judge.v1",
       run: "r",
     });
+  const lastLine = () =>
+    readFileSync(
+      join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.jsonl`),
+      "utf8"
+    )
+      .trim()
+      .split("\n")
+      .at(-1);
   try {
     expect(await ask()).toEqual({ ok: true });
-    expect(asked[0]?.model).toBe("x/y");
-    expect(asked[0]?.provider).toEqual({
+    expect(asked[0]?.url).toContain("api.allmodels.io");
+    expect(asked[0]?.body.model).toBe("x/y");
+    expect(asked[0]?.body.reasoning_effort).toBe("high");
+    expect(asked[0]?.body.provider).toEqual({
       allow_fallbacks: false,
-      data_collection: "deny",
-      only: ["deepinfra"],
-      quantizations: ["fp8"],
-      require_parameters: true,
-      zdr: true,
+      only: ["hopper"],
     });
-    reply = { ...reply, provider: "Novita" };
-    await expect(ask()).rejects.toThrow("served by Novita");
-    // Refused, yet billed: its cost is in the log.
-    const today = join(
-      LOG_DIR,
-      `${new Date().toISOString().slice(0, 10)}.jsonl`
+    expect(lastLine()).toContain(
+      '"tokens":{"cached":20,"input":30,"output":7}'
     );
-    const last = readFileSync(today, "utf8").trim().split("\n").at(-1);
-    expect(last).toContain("served by Novita");
-    expect(last).toContain('"costUsd":0.01');
-    reply = { ...reply, finish: "length", provider: "DeepInfra" };
+    reply = { ...reply, provider: "Refuseless" };
+    await expect(ask()).rejects.toThrow("served by Refuseless");
+    // Refused, yet spent: its tokens are in the log.
+    expect(lastLine()).toContain("served by Refuseless");
+    expect(lastLine()).toContain('"input":30');
+    reply = { ...reply, finish: "length", provider: "Hopper" };
     await expect(ask()).rejects.toThrow("stopped (length)");
     reply = { ...reply, status: 429 };
-    await expect(ask()).rejects.toThrow("openrouter 429");
+    await expect(ask()).rejects.toThrow("allmodels 429");
+    reply = { finish: "stop", status: 200 };
+    expect(await ask("openai")).toEqual({ ok: true });
+    expect(asked.at(-1)?.url).toContain("api.openai.com");
+    expect(asked.at(-1)?.body.provider).toBeUndefined();
   } finally {
     fetched.mockRestore();
-    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.ALLMODELS_API_KEY;
+    delete process.env.OPENAI_API_KEY;
   }
 });
 
@@ -163,7 +182,12 @@ async function spawnBoth(tools?: Tools) {
   const files = spyOn(Bun, "file").mockImplementation(((p: string) =>
     file(p.endsWith("auth.json") ? import.meta.path : p)) as typeof Bun.file);
   const env = { ...process.env };
-  for (const k of ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "LIFELOG_TOKEN"]) {
+  for (const k of [
+    "ALLMODELS_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "LIFELOG_TOKEN",
+  ]) {
     process.env[k] = "secret";
   }
   try {
@@ -376,4 +400,7 @@ test("each provider's model and effort by tier; tools only on his subscriptions"
 test("only a provider with a quota reads one: a Claude run reads none, whatever his setting", async () => {
   expect(await quota("claude")).toBeUndefined();
   expect(await quota("anthropic")).toBeUndefined();
+  expect(await quota("allmodels")).toBeUndefined();
+  expect(hasQuota("codex")).toBe(true);
+  expect(hasQuota("allmodels")).toBe(false);
 });

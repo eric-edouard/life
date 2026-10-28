@@ -6,7 +6,14 @@ import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git } from "../core/proc";
-import { askOnce, llmFor, llmSpec, quota, type Tier } from "../models/llm";
+import {
+  askOnce,
+  hasQuota,
+  llmFor,
+  llmSpec,
+  quota,
+  type Tier,
+} from "../models/llm";
 import { INFERRED_USE_AT, type InferredPerson } from "../records/observation";
 import { OUT, runId } from "./ledger";
 import type { Truth } from "./read-truth";
@@ -47,16 +54,18 @@ export function record(step: string, fields: Record<string, unknown>) {
 export type RunRecord = ReturnType<typeof record>;
 
 /**
- * A run whose share of his Codex plan is measured (the sweeps, the eval, the agent bench): the quota read as it starts
- * and as it ends, logged on its `run.start` and `run.end` (what it spent is derived from them: `useOf`, run-log.ts).
+ * A run whose share of his engine's quota is measured (the sweeps, the eval, the agent bench), when the engine has one
+ * (`hasQuota`): the quota read as it starts and as it ends, logged on its `run.start` and `run.end` (what it spent is
+ * derived from them: `useOf`, run-log.ts). Its tokens are counted either way, from its calls.
  */
 export async function metered(step: string, fields: Record<string, unknown>) {
-  const before = (await quota()) ?? null;
-  const rec = record(step, { ...fields, quota: before });
+  const read = async () =>
+    hasQuota() ? { quota: (await quota()) ?? null } : {};
+  const rec = record(step, { ...fields, ...(await read()) });
   return {
     ...rec,
     end: async <C extends Record<string, unknown>>(result: C) =>
-      rec.end({ ...result, quota: (await quota()) ?? null }),
+      rec.end({ ...result, ...(await read()) }),
   };
 }
 

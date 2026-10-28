@@ -13,7 +13,7 @@ import { dryRun, importExport } from "../memory/imports";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { FULL_DISK, SOURCES } from "../memory/sources";
 import { dayRange } from "../memory/units";
-import { readEngine } from "../models/llm";
+import { engineKeys, readEngine } from "../models/llm";
 import { checks } from "../todo-list/backend";
 import { entryLine } from "../todo-list/items";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
@@ -84,6 +84,7 @@ const commands: Record<string, () => Promise<number>> = {
       : [];
     console.log(
       JSON.stringify({
+        engineKeys: engineKeys(),
         lastReport: reports[0] ?? null,
         reminders: await (async () => {
           const installed = await remctlVersion();
@@ -168,7 +169,7 @@ const commands: Record<string, () => Promise<number>> = {
     console.log(`Life: ${origin}/mcp`);
     return 0;
   },
-  /** Which engine runs the model steps: `engine [claude|codex]`; with no argument, prints the current one. */
+  /** Which engine runs the model steps: `engine [<engine>]`; with no argument, prints the current one. */
   engine() {
     const [, , , arg] = process.argv;
     if (arg === undefined) {

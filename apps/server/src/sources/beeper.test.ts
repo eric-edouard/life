@@ -46,7 +46,7 @@ test("the archive keeps the text of Beeper messages deleted or edited later, wit
   expect(deleted).toEqual([{ text: "pay the carpenter" }]);
 });
 
-test("audit-6: every form of a network's account id is copied under the network's name; WhatsApp is left to its own source", () => {
+test("audit-6-line-account-id: every form of a network's account id is copied under the network's name; WhatsApp is left to its own source", () => {
   const { add, dir, now, source } = beeperFixture();
   add(1, "!ln", "TEXT", "the bank details");
   add(2, "!ig", "TEXT", "see you there");

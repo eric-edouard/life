@@ -45,7 +45,7 @@ const omit = (e: LogEvent | undefined) => {
   return rest;
 };
 
-/** What a run spent of his Codex plan: its tokens, and for a metered run the quota read around it (`useOf`). */
+/** What a run spent: its tokens, and for a metered run on an engine with a quota the quota read around it (`useOf`). */
 export interface Use {
   quota: { after: Quota | null; before: Quota | null } | null;
   tokens: Tokens;
@@ -67,7 +67,7 @@ export interface Run {
   step: string;
   /** The sweep it ran in, if any. */
   sweep?: string;
-  /** What it spent of his Codex plan; null when it made no model call and reads no quota. */
+  /** What it spent; null when it made no model call and read no quota. */
   use?: Use | null;
   /** The local days its sources were read for. */
   window?: { from: string; to: string };
@@ -85,11 +85,17 @@ export const percentOf = (u: Use) =>
 const tokensText = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1e3)}k`;
 
-/** A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached)"; under 1% when the whole percent didn't move. */
+/**
+ * A run's use in words: "+1% of the quota, 2.1M tokens (1.4M cached)"; under 1% when the whole percent didn't move;
+ * its tokens alone when it read no quota (a step, or an engine without one).
+ */
 export function useText(u: Use | null) {
   const t = u?.tokens ?? NONE;
   const tokens = `${tokensText(t.input + t.output)} tokens (${tokensText(t.cached)} cached)`;
-  const p = u ? percentOf(u) : null;
+  if (!u?.quota) {
+    return tokens;
+  }
+  const p = percentOf(u);
   if (p !== null) {
     return `${p < 1 ? "under 1%" : `+${p}%`} of the quota, ${tokens}`;
   }

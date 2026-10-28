@@ -203,6 +203,10 @@ test("a run's use: its calls' tokens and its steps', and for a metered run the q
   expect(
     useText({ quota: { after: reset, before: q(90) }, tokens: tokens(0) })
   ).toBe("the quota reset during it, 0k tokens (0k cached)");
+  // A step, or a run on an engine with no quota (allmodels): its tokens alone, no "quota not read".
+  expect(useText(by("memory.moments")?.use ?? null)).toBe(
+    "4k tokens (2k cached)"
+  );
 });
 
 test("a sweep's run holds its phases in the order it entered them", () => {
