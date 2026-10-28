@@ -213,7 +213,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
 | `same-person` | `from`, `to` (`person:<id>`) | Two person refs are one: `from` folds into `to` (an inferred person into a truth one) |
-| `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): each is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
+| `reread` | `units: [unit_…]` | Those units were read wrong (the model misjudged them; a wrong author needs none, see `speakerFrom`): its day's moments are read again and it is extracted again, its observations replaced, when its day is next read (the night: the last 7 days; older: `backfill`). A moment filed under the wrong person needs `wrong` on its `mom_` too |
 | `closeness` | `person`, `personal` and/or `work` (a level) | The owner's word on how close someone is: wins over the judged level (`closeness.jsonl`) |
 
 ## pages/people/<id>.md and pages/areas/<slug>.md (layer L3)

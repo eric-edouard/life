@@ -14,6 +14,7 @@ import {
   appendVerdicts,
   daysOf,
   INFERRED,
+  isRereadSince,
   MOMENTS,
   momentsNow,
   readLabels,
@@ -21,6 +22,8 @@ import {
   readUnits,
   readUnitsOf,
   readVerdicts,
+  rereadAt,
+  runAt,
   type Verdicts,
   verdictKey,
   verdictOf,
@@ -298,20 +301,33 @@ export function agreement(
   };
 }
 
-/** Whether a unit has a verdict on its current content by this prompt: the cache. */
-const judged = (u: Unit, verdicts: Verdicts) =>
-  verdictOf(verdicts, u)?.madeBy.prompt === MOMENTS_PROMPT;
+/** Whether a unit has a verdict on its current content by this prompt, not older than his `reread` of it: the cache. */
+const judged = (u: Unit, verdicts: Verdicts, rereads: Map<string, string>) => {
+  const v = verdictOf(verdicts, u);
+  return (
+    v?.madeBy.prompt === MOMENTS_PROMPT &&
+    !isRereadSince(rereads, u.id, runAt(v.madeBy.run))
+  );
+};
 
 /** Whether a day must be read: one of its units has no verdict on its current content by this prompt. */
-export const unread = (units: Built[], verdicts: Verdicts) =>
-  units.some((b) => !judged(b.unit, verdicts));
+export const unread = (
+  units: Built[],
+  verdicts: Verdicts,
+  rereads = new Map<string, string>()
+) => units.some((b) => !judged(b.unit, verdicts, rereads));
 
 /** The verdicts of a reading of the day worth keeping: for the units not judged yet on their content (the cache). */
-export const fresh = (said: Verdict[], units: Built[], verdicts: Verdicts) => {
+export const fresh = (
+  said: Verdict[],
+  units: Built[],
+  verdicts: Verdicts,
+  rereads = new Map<string, string>()
+) => {
   const byId = new Map(units.map((b) => [b.unit.id, b.unit]));
   return said.filter((v) => {
     const u = byId.get(v.unit);
-    return u !== undefined && !judged(u, verdicts);
+    return u !== undefined && !judged(u, verdicts, rereads);
   });
 };
 
@@ -357,6 +373,7 @@ export async function moments(evidence: Evidence) {
   const named: InferredPerson[] = [];
   const areas = areaLookup(truth.areas);
   const madeBy = stamp(step.llm, MOMENTS_PROMPT, step.run);
+  const rereads = rereadAt(corrections);
   let lines = await readMoments();
   let read = 0;
   let found = 0;
@@ -372,7 +389,7 @@ export async function moments(evidence: Evidence) {
   // Oldest day first: a day sees what the days before it planned.
   for (const day of days) {
     const units = all.filter((b) => b.unit.date === day && !b.unit.drop);
-    if (held.has(day) || !unread(units, verdicts)) {
+    if (held.has(day) || !unread(units, verdicts, rereads)) {
       continue;
     }
     const earlier = earlierFor(day, lines, corrections);
@@ -441,7 +458,7 @@ export async function moments(evidence: Evidence) {
       // The moments first: the verdicts mark the day as read. A unit judged on this content by this prompt keeps its
       // verdict (the cache), whatever the new reading of its day says.
       await writeDay(day, got.moments);
-      const kept = fresh(got.verdicts, units, verdicts);
+      const kept = fresh(got.verdicts, units, verdicts, rereads);
       await appendVerdicts(kept);
       // Who the day's unknown people are, used by the resolver from the next run on.
       await appendJsonl(INFERRED, InferredPerson, got.who);
