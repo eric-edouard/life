@@ -20,7 +20,7 @@ import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 //
 // The README's screenshots were made by hand, with no script kept: `snapshot()` (apps/server/src/host/status/snapshot.ts), run with the same
 // LIFE_OWNER_DATA_DIR and LIFE_STATE_DIR, printed the status snapshot as JSON; the cards about the Mac's own services were deleted from it
-// (the tunnel, cloudflared, the nightly tick, /me and the whole Mac row), and Life.app's StatusWindow was drawn from
+// (/me and the whole Mac row), and Life.app's StatusWindow was drawn from
 // what was left, offscreen. The other cards still show what the Mac that drew them reported about itself, such as
 // Contacts readable and the archive copying, but none of its data.
 

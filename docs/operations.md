@@ -33,13 +33,13 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 ## Settings
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
-the connector's origin and tunnel, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
+the connector's origin, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
 sources, the agent, the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.
 - It is strict and read once per process, some of it when modules load (units, tasks, email, git). So a new key lands
   in code first; a bad file stops the watcher and the nightly, like a bad `truth/`; an edit takes effect when each
-  service starts again (the app restarts them; a checkout's LaunchAgents need a `kickstart`).
+  service starts again (the app restarts them).
 - `bun life settings` prints it; `bun life settings set '<json>'` replaces parts of it, checked whole before anything is
   written. The app reads and writes settings only through this.
 - Secrets stay out of it: the Keychain (service "Life") for Life.app, `.env` for a checkout.
@@ -62,81 +62,17 @@ would deliver every ask twice. On the owner's data a nightly tick runs only for 
 lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status snapshot reads
 those locks (`holder`, `core/lock.ts`). `bun run check` holds a `check` lock there too: one gate per Mac, since its timed tests fail when two run at once.
 
-### A checkout (legacy, for development; to be deleted: [#136](https://github.com/eric-edouard/life/issues/136))
+### A checkout (development)
 
-- `bun scripts/install.ts <archive|watch|memory-nightly>` installs the same three jobs as LaunchAgents running the
-  checkout (safe to repeat; run it from the checkout that should run them). Logs: `~/Library/Logs/life-*.log`.
-- When a commit changes `apps/server/src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears again the
-  turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title once),
-  the archive after its pass, and launchd restarts each on the new code.
-- remctl is not on launchd's PATH: it is called by absolute path (below).
-- launchd's PATH may hold an old `node`, so `scripts/check.ts` runs its npm tools with `bun x --bun`.
-- Its secrets are in `.env`, while Life.app's are in the Keychain: two copies until [#136](https://github.com/eric-edouard/life/issues/136).
-
-## The check
-
-No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the owner's PC over SSH (pending:
-`docs/plans/2026-10-22-platforms.md`, "Verification").
-
-## The schedule
-
-`turnOf` (`apps/server/src/memory/schedule.ts`, tested) decides what a tick runs:
-
-- **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
-  the repos, then moments, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
-- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
-  closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs.
-  The nightly commits and its report counts what the midday runs found.
-- **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
-- Everything looks back 7 days.
-- **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
-  `LIFE_STATE_DIR/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
-  oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
-  the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
-  subscription. Three failures of a week stop it. Record the owner's zones
-  for the range first (`memory/zones.jsonl`): a past zone may be added only before the first day memory has units of,
-  and a backfill moves that day back. Pages follow at the next night. Only the last 7 days' messages get their files
-  described; older ones stay tags.
-- **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no midday and no backfill week, and
-  `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
-  night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
-  each sweep, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
-  is derived when read: `useOf` in `run-log.ts`.
-- **Failures:** a failed model call or a source that throws fails the whole night: non-zero exit, nothing committed, a
-  failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
-  logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' moments
-  wait for it, shown as "can't read". The report's Actions section and the files step (`describeFiles`: a failed call
-  leaves its files as tags until the next run) never fail the night.
-
-## The watcher
-
-- Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
-  conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
-  retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only
-  the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (the "hey Life"
-  spans, refs only) is the one thing there not rebuilt from the feed.
-- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by lifelog's own signals (its
-  voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation lifelog settled
-  (`closed`); never a timing rule of Life's. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
-  40 s) for lifelog to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
-  becomes an ask only once lifelog names the owner.
-- The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both
-  ways (the read takes about 10 s, `sync.pull` in the log).
-- `deliver` (`LIFE_STATE_DIR/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
-  good poll. A failed delivery retries for about 2 hours, then is emailed like a failed action and passed over. With
-  no live subscription, asks wait unsent until the agent subscribes again with its cursor. The report's Actions
-  section lists every ask either way.
-- Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
+A checkout runs nothing on its own: run `bun life <command>` by hand, on a copy of the data (Gotchas in `AGENTS.md`).
+When a commit changes `apps/server/src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears
+again the turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title
+once), the archive after its pass, and its supervisor restarts each on the new code.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a
 week (`RECENT_MS`; skipped turns are logged) and delivery waits for a good poll, so nothing alerts on an outage.
 Reachability rests on the Mac being kept awake. Reconsider a server only on a measured loss (an ask lost, or acted on
 late with harm), or spoken asks above about one a day for a month.
-
-**The Cloudflare tunnel** (only with `tunnel: cloudflare`; legacy, to be deleted once the connector moves off the edge Worker onto Funnel: [#137](https://github.com/eric-edouard/life/issues/137)). The
-watcher's heal (`apps/server/src/host/http/tunnel.ts`) restarts `cloudflared` only on a 530, never on no answer or an app's 5xx (a restart
-loop once ran 35,000 times). Behind the edge Worker (`docs/architecture.md`) the connector's address never answers 530,
-so the heal no longer fires; deleting it is [#133](https://github.com/eric-edouard/life/issues/133).
 
 ## remctl and Reminders quirks
 

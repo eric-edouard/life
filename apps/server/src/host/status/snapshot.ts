@@ -545,7 +545,6 @@ function sourceCards(r: Reads): Card[] {
 function captureCards(r: Reads): Card[] {
   const archiveUp = serviceOf(r, "archive")?.running;
   const watching = serviceOf(r, "watch")?.running;
-  const tunnel = serviceOf(r, "cloudflared");
   const calls = since(r.mcp, DAY, r.t);
   const asksToday = r.actions.filter(
     (a) => a.kind === "ask" && r.t - Date.parse(a.at) < DAY
@@ -632,27 +631,6 @@ function captureCards(r: Reads): Card[] {
       ...(isOn("connector")
         ? { tone: "ok", word: "serving" }
         : { tone: "idle", word: "off" }),
-    },
-    {
-      ...(tunnel?.running
-        ? { tone: "ok", word: "up" }
-        : {
-            ask: ASK("that cloudflared is not running"),
-            tone: "bad",
-            word: "down",
-          }),
-      facts: [
-        {
-          label: "cloudflared",
-          value: tunnel?.running ? "running" : (tunnel?.status ?? "?"),
-        },
-        // cloudflared's start is its last restart or reboot (tunnel.ts no longer fires: #133).
-        { at: tunnel?.since, label: "Up since" },
-      ],
-      group: "capture",
-      headline: tunnel?.running ? "connected" : "down",
-      id: "tunnel",
-      name: "Tunnel",
     },
   ];
 }
@@ -1130,17 +1108,8 @@ function outputCards(r: Reads): Card[] {
   ];
 }
 
-const serviceState = (sv: Reads["mac"]["services"][number]) => {
-  if (sv.running) {
-    return { headline: "running", state: "running" };
-  }
-  return sv.ok
-    ? { headline: "between ticks", state: "between ticks (every 30 min)" }
-    : { headline: "down", state: `not running (${sv.status})` };
-};
-
 function macCards(r: Reads): Card[] {
-  const down = r.mac.services.filter((s) => !s.ok);
+  const down = r.mac.services.filter((s) => !s.running);
   return [
     {
       ...(down.length
@@ -1162,31 +1131,25 @@ function macCards(r: Reads): Card[] {
       id: "mac",
       name: "MacBook",
     },
-    ...r.mac.services.map((sv): Card => {
-      const { headline, state } = serviceState(sv);
-      return {
-        ...firstOf(
-          [
-            !sv.ok,
-            {
+    ...r.mac.services.map(
+      (sv): Card => ({
+        ...(sv.running
+          ? { tone: "ok", word: "running" }
+          : {
               ask: ASK(`that the ${sv.name} service is not running on the Mac`),
               tone: "bad",
               word: "down",
-            },
-          ],
-          [sv.running, { tone: "ok", word: "running" }],
-          [true, { tone: "idle", word: "waiting" }]
-        ),
+            }),
         facts: [
-          { label: "state", value: state },
+          { label: "state", value: sv.status },
           { at: sv.since, label: "Up since" },
         ],
         group: "mac",
-        headline,
-        id: `service-${sv.name.replaceAll(" ", "-")}`,
+        headline: sv.running ? "running" : "down",
+        id: `service-${sv.name}`,
         name: sv.name,
-      };
-    }),
+      })
+    ),
   ];
 }
 

@@ -19,7 +19,6 @@ import { deliver } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
-import { healTunnel, TUNNEL_EVERY_MS } from "./http/tunnel";
 import { inbound } from "./inbound";
 
 // `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
@@ -29,7 +28,6 @@ import { inbound } from "./inbound";
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
 // mirrors them on his board (apps/server/src/todo-list); `deliver` pushes the asks not yet delivered to the agent (apps/server/src/host/events.ts).
-// Every 2 minutes it probes the Mac's Cloudflare tunnel (apps/server/src/host/http/tunnel.ts), which no longer fires behind the edge Worker (#133).
 
 let last = 0;
 let ticking = false;
@@ -220,14 +218,6 @@ export async function watch(): Promise<number> {
     console.error("Life's server is off:", (e as Error).message);
   }
   sayActions();
-  // Beside the loop, so a slow probe never holds up hearing; the process exits on new code all the same.
-  setInterval(
-    () =>
-      healTunnel().catch((e: Error) =>
-        log("run.error", { error: e.message, step: "watch.tunnel" })
-      ),
-    TUNNEL_EVERY_MS
-  );
   if (!listening()) {
     return quiet(running);
   }
