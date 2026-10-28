@@ -6,6 +6,7 @@ import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { agentName } from "../core/settings";
+import { openReadOnly } from "../core/sqlite";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Moment } from "../records/moment";
 import {
@@ -251,9 +252,8 @@ export function readIndex<T>(
   if (!existsSync(INDEX)) {
     return null;
   }
-  const db = new Database(INDEX, { readonly: true });
+  const db = openReadOnly(INDEX);
   try {
-    db.run("pragma busy_timeout = 5000");
     return read(db);
   } finally {
     db.close();

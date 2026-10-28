@@ -1,8 +1,8 @@
-import { Database } from "bun:sqlite";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "../core/log";
 import { APP_DATA } from "../core/platform";
+import { openReadOnly } from "../core/sqlite";
 
 // His Contacts: the Mac's AddressBook databases, opened read-only, never written. They name the people behind the
 // phone numbers and emails a source carries alone (iMessage), so a chat reads "Claire Dupont" rather than a number.
@@ -41,7 +41,7 @@ function databases(dir: string) {
 
 /** The names one database gives, by handle key, into `names` (the first name a handle has wins). */
 function readInto(file: string, names: Map<string, string>) {
-  const db = new Database(file, { readonly: true });
+  const db = openReadOnly(file);
   try {
     const rows = db
       .query<Row, []>(

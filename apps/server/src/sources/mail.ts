@@ -1,7 +1,7 @@
-import { Database } from "bun:sqlite";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { HOME } from "../core/platform";
+import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { Newest } from "./contract";
 import { sourceFile } from "./contract";
@@ -37,7 +37,7 @@ export function mailRoot(base = MAIL): string {
 }
 
 const openIndex = (root: string) =>
-  new Database(join(root, "MailData", "Envelope Index"), { readonly: true });
+  openReadOnly(join(root, "MailData", "Envelope Index"));
 
 /** The newest message in Mail's store, its sender and subject (the status snapshot). */
 export function newestMail(): Newest {
@@ -133,7 +133,7 @@ function accountNames(path: string) {
   if (!existsSync(path)) {
     return names;
   }
-  const db = new Database(path, { readonly: true });
+  const db = openReadOnly(path);
   try {
     const rows = db
       .query<{ id: string; name: string | null; username: string | null }, []>(
