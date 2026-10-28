@@ -38,11 +38,10 @@ const WEEK = { from: "2026-10-12", to: "2026-10-18" };
 const FACTS = join(OWNER_DATA_DIR, "docs/evals/events-2026-10-16.json");
 /** Short names for `--models` (an `engine/model/effort` works too). */
 // Benched 20 Oct and dropped: MiMo V2.6 Pro (at high it spends the whole token budget reasoning, at medium its host
-// errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). Through allmodels since 28 Oct,
-// each on an fp8 host.
+// errors) and DeepSeek V4 Pro 0813 (below every Sol run, slower and dearer than Flash). Through allmodels since 28 Oct:
+// DeepSeek Flash as Life runs it (his hosts, his order), GLM-5.3 on an fp8 host.
 const MODELS: Record<string, string> = {
-  "deepseek-flash":
-    "allmodels/deepseek/deepseek-v4.1-flash-abliterated@hopper/high",
+  "deepseek-flash": llmSpec(llmFor("deep", "allmodels")),
   glm: "allmodels/z-ai/glm-5.3-abliterated@abliteration/high",
   opus: "claude/opus/medium",
 };

@@ -57,11 +57,11 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("allmodels: pinned to its host, no fallback, tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
+test("allmodels: only his hosts, in his order, falling back between them; tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
   const asked: { body: Record<string, unknown>; url: string }[] = [];
   let reply: { finish: string; provider?: string; status: number } = {
     finish: "stop",
-    provider: "Hopper",
+    provider: "Refuseless",
     status: 200,
   };
   const fetched = spyOn(globalThis, "fetch").mockImplementation(((
@@ -94,7 +94,11 @@ test("allmodels: pinned to its host, no fallback, tokens logged; another host, a
     askOnce({
       dir: mkdtempSync(join(tmpdir(), "life-chat-")),
       input: { a: 1 },
-      llm: { effort: "high", engine: "allmodels", model: "x/y@hopper" },
+      llm: {
+        effort: "high",
+        engine: "allmodels",
+        model: "x/y@refuseless,hopper",
+      },
       prompt: "eval-judge.v1",
       run: "r",
     });
@@ -112,16 +116,20 @@ test("allmodels: pinned to its host, no fallback, tokens logged; another host, a
     expect(asked[0]?.body.model).toBe("x/y");
     expect(asked[0]?.body.reasoning_effort).toBe("high");
     expect(asked[0]?.body.provider).toEqual({
-      allow_fallbacks: false,
-      only: ["hopper"],
+      allow_fallbacks: true,
+      only: ["refuseless", "hopper"],
+      order: ["refuseless", "hopper"],
     });
     expect(lastLine()).toContain(
       '"tokens":{"cached":20,"input":30,"output":7}'
     );
-    reply = { ...reply, provider: "Refuseless" };
-    await expect(ask()).rejects.toThrow("served by Refuseless");
+    // The fallback host is his too.
+    reply = { ...reply, provider: "Hopper" };
+    expect(await ask()).toEqual({ ok: true });
+    reply = { ...reply, provider: "Experiential Labs" };
+    await expect(ask()).rejects.toThrow("served by Experiential Labs");
     // Refused, yet spent: its tokens are in the log.
-    expect(lastLine()).toContain("served by Refuseless");
+    expect(lastLine()).toContain("served by Experiential Labs");
     expect(lastLine()).toContain('"input":30');
     reply = { ...reply, finish: "length", provider: "Hopper" };
     await expect(ask()).rejects.toThrow("stopped (length)");
@@ -129,6 +137,15 @@ test("allmodels: pinned to its host, no fallback, tokens logged; another host, a
     await expect(ask()).rejects.toThrow("allmodels 429");
     reply = { finish: "stop", status: 200 };
     await expect(ask()).rejects.toThrow("served by an unnamed host");
+    await expect(
+      askOnce({
+        dir: mkdtempSync(join(tmpdir(), "life-chat-")),
+        input: {},
+        llm: { engine: "allmodels", model: "x/y@" },
+        prompt: "eval-judge.v1",
+        run: "r",
+      })
+    ).rejects.toThrow("author/model@host[,host]");
   } finally {
     fetched.mockRestore();
     delete process.env.ALLMODELS_API_KEY;
@@ -364,7 +381,7 @@ test("each provider's model and effort by tier; tools only on his subscriptions"
   expect(llmFor("deep", "allmodels")).toEqual({
     effort: "high",
     engine: "allmodels",
-    model: "z-ai/glm-5.3-abliterated@experiential",
+    model: "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper",
   });
   expect(llmFor("fast", "claude")).toEqual({
     effort: undefined,

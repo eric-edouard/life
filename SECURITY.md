@@ -30,8 +30,9 @@ and what it does not.
   acts. Models return JSON validated by schemas, and every quote is checked against its source.
 - The text Life reads is sent to the model provider the owner chooses (Anthropic or OpenAI, through the owner's own
   subscription's CLI; or allmodels.io, with an API key the owner provides). That provider's terms apply to
-  it. allmodels says it stores no request content; the hosts it routes to, one pinned per model with no fallback, make
-  no zero-retention promise.
+  it. allmodels says it stores no request content. Its zero-retention flag has no effect, so Life sends to the hosts
+  the owner chose and no other (Refuseless, then Hopper when it fails); each says it keeps no prompts or outputs by
+  default. A host that records them by default (Experiential Labs, 30 days) is never used.
 
 ### Network surface
 
