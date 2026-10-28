@@ -118,15 +118,17 @@ export const llmSpec = (l: Llm) =>
 const EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 /**
- * allmodels' models by tier, each pinned to one host in fp8 (`model@host`, 28 Oct 2026). GLM-5.3 reads the moments,
- * the facts and the pages: of the 20 Oct bench's candidates it kept the most of his week and stated the fewest wrong
- * facts (~/Life/docs/evals/bench-2026-10-20.md); its hosts take no images. DeepSeek V4.1 Flash, on a host that takes
- * them, reads the files. The bench re-checks these on allmodels' own hosts.
+ * allmodels' model for every tier, his choice of 28 Oct 2026: DeepSeek V4.1 Flash 1017 abliterated, on the hosts after
+ * `@` in his order (`model@host,host`), Refuseless first, Hopper when it fails. Both say they keep no prompts or
+ * outputs and both take images (the files step sends them). Experiential Labs, also on allmodels, is left out: it
+ * records prompts and responses for 30 days by default (its privacy policy, 16 Sep 2026).
  */
+const DEEPSEEK_FLASH =
+  "deepseek/deepseek-v4.1-flash-abliterated@refuseless,hopper";
 const ALLMODELS_MODELS: Record<Tier, string> = {
-  deep: "z-ai/glm-5.3-abliterated@experiential",
-  fast: "deepseek/deepseek-v4.1-flash-abliterated@hopper",
-  main: "z-ai/glm-5.3-abliterated@experiential",
+  deep: DEEPSEEK_FLASH,
+  fast: DEEPSEEK_FLASH,
+  main: DEEPSEEK_FLASH,
 };
 
 /** Read once at the start of a run, so the engine cannot change halfway through it. */
@@ -479,8 +481,9 @@ const ALLMODELS_MAX_TOKENS = 131_072;
 
 /**
  * One call through allmodels' OpenAI-shaped API with his key, at the tier's reasoning effort, no idle cut: the model
- * goes to the host after `@` alone (no fallback) and is refused when another host served it. Its answer is kept in the
- * call's folder; a refusal unless it stopped with some text.
+ * goes only to the hosts after `@`, tried in that order (allmodels moves to the next before output begins when one
+ * fails), and is refused when any other host served it. Its answer is kept in the call's folder; a refusal unless it
+ * stopped with some text.
  */
 async function askAllModels({
   dir,
@@ -490,10 +493,11 @@ async function askAllModels({
   system,
 }: Call): Promise<Answer> {
   const key = process.env[ALLMODELS_KEY];
-  const [model, host] = llm.model.split("@");
-  if (!(key && host)) {
+  const [model, list = ""] = llm.model.split("@");
+  const hosts = list.split(",").filter(Boolean);
+  if (!(key && hosts.length)) {
     throw new Error(
-      `allmodels needs ${ALLMODELS_KEY} and a model as author/model@host, not ${llm.model}`
+      `allmodels needs ${ALLMODELS_KEY} and a model as author/model@host[,host], not ${llm.model}`
     );
   }
   const pictures = await Promise.all(
@@ -516,7 +520,7 @@ async function askAllModels({
         },
       ],
       model,
-      provider: { allow_fallbacks: false, only: [host] },
+      provider: { allow_fallbacks: true, only: hosts, order: hosts },
       reasoning_effort: llm.effort,
     }),
     headers: {
@@ -533,11 +537,11 @@ async function askAllModels({
   if (!res.ok) {
     throw new Error(`allmodels ${res.status}: ${text.slice(-300)}`);
   }
-  return answerOf(host, ChatReply.parse(JSON.parse(text)));
+  return answerOf(hosts, ChatReply.parse(JSON.parse(text)));
 }
 
-/** allmodels' reply as a runner's answer: refused when another host than `host` served it, or it stopped without text. */
-function answerOf(host: string, reply: z.infer<typeof ChatReply>): Answer {
+/** allmodels' reply as a runner's answer: refused when a host not in `hosts` served it, or it stopped without text. */
+function answerOf(hosts: string[], reply: z.infer<typeof ChatReply>): Answer {
   const [choice] = reply.choices;
   const u = reply.usage;
   const served = reply.provider ?? "";
@@ -555,9 +559,9 @@ function answerOf(host: string, reply: z.infer<typeof ChatReply>): Answer {
       },
     },
     refusal:
-      slug(served) === slug(host)
+      served && hosts.some((h) => slug(h) === slug(served))
         ? stopped
-        : `allmodels: served by ${served || "an unnamed host"}, not ${host}`,
+        : `allmodels: served by ${served || "an unnamed host"}, not ${hosts.join(" or ")}`,
     text: choice?.message.content ?? "",
   };
 }

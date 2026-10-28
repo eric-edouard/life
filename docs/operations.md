@@ -152,8 +152,10 @@ so the heal no longer fires; deleting it is [#133](https://github.com/eric-edoua
   allmodels with his API key (since 28 Oct 2026 the only API engine: Anthropic's and OpenAI's went), chosen with
   `bun life engine <engine>` or the app. Each provider is one entry in `PROVIDERS` there: its models by tier, effort,
   call, key, whether it may run tools, and its quota.
-- allmodels (`ALLMODELS_API_KEY`) pins each tier's model to one host (`author/model@host`, fp8), with no fallback; a
-  reply from another host is refused. The fast tier's host takes images (the files step sends them).
+- allmodels (`ALLMODELS_API_KEY`) runs DeepSeek V4.1 Flash 1017 abliterated on every tier, sent only to the hosts
+  after `@`, in that order (`author/model@refuseless,hopper`): allmodels falls back to the next before output begins,
+  and a reply from any other host is refused. Both hosts take images (the files step sends them) and say they keep
+  nothing; allmodels ignores `zdr`, so the host list is the guarantee.
 - Every call logs its tokens on its `model.run` line, with its run; a run's use is the sum of its calls and its steps'
   (`useOf`, run-log.ts). The nightly email lists every run of the last 24 h that called a model, a sweep's steps under
   it; the quota lines appear only for an engine that has one (`hasQuota`).
