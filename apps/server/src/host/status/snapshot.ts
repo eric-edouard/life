@@ -1131,25 +1131,6 @@ function macCards(r: Reads): Card[] {
       id: "mac",
       name: "MacBook",
     },
-    ...r.mac.services.map(
-      (sv): Card => ({
-        ...(sv.running
-          ? { tone: "ok", word: "running" }
-          : {
-              ask: ASK(`that the ${sv.name} service is not running on the Mac`),
-              tone: "bad",
-              word: "down",
-            }),
-        facts: [
-          { label: "state", value: sv.status },
-          { at: sv.since, label: "Up since" },
-        ],
-        group: "mac",
-        headline: sv.running ? "running" : "down",
-        id: `service-${sv.name}`,
-        name: sv.name,
-      })
-    ),
   ];
 }
 

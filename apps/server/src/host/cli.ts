@@ -310,7 +310,7 @@ const commands: Record<string, () => Promise<number>> = {
     }
     return issues.length === 0 ? 0 : 1;
   },
-  /** Follows lifelog's change feed and keeps the lifelog units current; never returns (the LaunchAgent). */
+  /** Follows lifelog's change feed and keeps the lifelog units current; never returns (kept running by the app). */
   watch,
 };
 

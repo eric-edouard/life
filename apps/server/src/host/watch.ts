@@ -21,7 +21,7 @@ import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
 import { inbound } from "./inbound";
 
-// `bun life watch` (a KeepAlive LaunchAgent): long-polls lifelog's change feed into the store and, when a page changed
+// `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
 // anything, rebuilds the lifelog units and the index (not while the nightly holds the lock). Health is in
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
@@ -230,7 +230,7 @@ export async function watch(): Promise<number> {
   let dirty = true;
   // The first poll answers at once, so health and units are fresh at start; later ones hold for news.
   let more = true;
-  // A commit changed apps/server/src/ or prompts/: exit, launchd starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
+  // A commit changed apps/server/src/ or prompts/: exit, the app starts the new code (old code lost a request on 15 Oct by reading a renamed prompt).
   while (codeAt(LIFE_CODE_DIR) === running) {
     let result: { cursor: string } | { error: string };
     try {

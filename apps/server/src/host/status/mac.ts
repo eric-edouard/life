@@ -29,15 +29,10 @@ export async function macState() {
   const free =
     Number(disk.stdout.trim().split("\n").at(-1)?.split(SPACES)[3] ?? 0) * 1024;
   // The archive and the watcher, whoever runs them: who holds each one's lock (`hold`, lock.ts).
-  const services = (["archive", "watch"] as const).map((name) => {
-    const h = holder(name);
-    return {
-      name,
-      running: !!h,
-      since: h?.since.toISOString() ?? null,
-      status: h ? "running" : "nothing holds its lock",
-    };
-  });
+  const services = (["archive", "watch"] as const).map((name) => ({
+    name,
+    running: !!holder(name),
+  }));
   return {
     awakeSince: sec ? new Date(sec * 1000).toISOString() : null,
     battery: batt.stdout.match(BATTERY)?.slice(1, 3).join(", ") ?? "?",

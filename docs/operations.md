@@ -64,10 +64,65 @@ those locks (`holder`, `core/lock.ts`). `bun run check` holds a `check` lock the
 
 ### A checkout (development)
 
-A checkout runs nothing on its own: run `bun life <command>` by hand, on a copy of the data (Gotchas in `AGENTS.md`).
-When a commit changes `apps/server/src/`, `prompts/` or `assets/` (`codeAt`), the watcher exits (at start it hears
-again the turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask` records a ref and title
-once), the archive after its pass, and its supervisor restarts each on the new code.
+A checkout runs no service on its own: run `bun life <command>` by hand, on a copy of the data (Gotchas in
+`AGENTS.md`). In the app, when a commit changes `apps/server/src/`, `prompts/` or `assets/` (`codeAt`), the watcher
+exits (at start it hears again the turns first seen in the 10 minutes before the newest, `resumed`: harmless, as `ask`
+records a ref and title once), the archive after its pass, and the app restarts each on the new code.
+
+## The check
+
+No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the owner's PC over SSH (pending:
+`docs/plans/2026-10-22-platforms.md`, "Verification").
+
+## The schedule
+
+`turnOf` (`apps/server/src/memory/schedule.ts`, tested) decides what a tick runs:
+
+- **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
+  the repos, then moments, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
+- **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
+  closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs.
+  The nightly commits and its report counts what the midday runs found.
+- **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
+- Everything looks back 7 days.
+- **Backfill:** `bun life memory backfill --from d --to d` (both included) sets its range in
+  `LIFE_STATE_DIR/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
+  oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
+  the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
+  subscription. Three failures of a week stop it. Record the owner's zones
+  for the range first (`memory/zones.jsonl`): a past zone may be added only before the first day memory has units of,
+  and a backfill moves that day back. Pages follow at the next night. Only the last 7 days' messages get their files
+  described; older ones stay tags.
+- **Quota:** over 75% of the Codex quota (`reserved`) a tick runs no midday and no backfill week, and
+  `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
+  night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
+  each sweep, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
+  is derived when read: `useOf` in `run-log.ts`.
+- **Failures:** a failed model call or a source that throws fails the whole night: non-zero exit, nothing committed, a
+  failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
+  logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' moments
+  wait for it, shown as "can't read". The report's Actions section and the files step (`describeFiles`: a failed call
+  leaves its files as tags until the next run) never fail the night.
+
+## The watcher
+
+- Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
+  conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
+  retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only
+  the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (the "hey Life"
+  spans, refs only) is the one thing there not rebuilt from the feed.
+- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by lifelog's own signals (its
+  voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation lifelog settled
+  (`closed`); never a timing rule of Life's. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
+  40 s) for lifelog to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
+  becomes an ask only once lifelog names the owner.
+- The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both
+  ways (the read takes about 10 s, `sync.pull` in the log).
+- `deliver` (`LIFE_STATE_DIR/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
+  good poll. A failed delivery retries for about 2 hours, then is emailed like a failed action and passed over. With
+  no live subscription, asks wait unsent until the agent subscribes again with its cursor. The report's Actions
+  section lists every ask either way.
+- Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a
 week (`RECENT_MS`; skipped turns are logged) and delivery waits for a good poll, so nothing alerts on an outage.

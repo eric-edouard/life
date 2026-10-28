@@ -145,7 +145,7 @@ export async function archiveFailing(ms = 0, now = clock().getTime()) {
 }
 
 /**
- * `archive` runs until a commit changes the code (the LaunchAgent starts it again), `archive --once` once,
+ * `archive` runs until a commit changes the code (the app starts it again), `archive --once` once,
  * `archive deleted [days]` prints deleted messages.
  */
 export async function archiveCommand(args: string[]): Promise<number> {
