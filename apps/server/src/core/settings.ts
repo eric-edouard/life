@@ -35,8 +35,6 @@ export const Settings = z
       .object({
         /** Its public address, where clients reach /mcp. */
         origin: z.url(),
-        /** What carries the origin to this Mac: Tailscale (`bun life connect`), or his own Cloudflare tunnel. */
-        tunnel: z.enum(["tailscale", "cloudflare"]).default("tailscale"),
       })
       .strict()
       .optional(),
@@ -142,7 +140,7 @@ export function connector() {
   }
   return {
     ...c,
-    /** The resource's OAuth metadata; also the tunnel's health probe (apps/server/src/host/http/tunnel.ts). */
+    /** The resource's OAuth metadata. */
     metadata: `${c.origin}/.well-known/oauth-protected-resource/mcp`,
     resource: `${c.origin}/mcp`,
   };
