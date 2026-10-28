@@ -805,13 +805,6 @@ function backupCard(r: Reads): Card {
   };
 }
 
-/** The steps each model tier serves (each step's `begin`, memory/): the engine card names them. */
-const TIER_STEPS = [
-  ["deep", "Moments and facts"],
-  ["main", "Pages"],
-  ["fast", "Files, repos, people, imports"],
-] as const;
-
 function engineCard(r: Reads): Card {
   const metered = hasQuota();
   // An older engine's reading never shows on one with no quota.
@@ -830,11 +823,11 @@ function engineCard(r: Reads): Card {
   const thinking =
     (r.status.processing as Processing).state === "running" ||
     since(r.models, 2 * MIN, r.t).length > 0;
-  // The model as he would name it: the deep tier's, without its author and hosts.
-  let headline = llmFor("deep").model.split("@")[0]?.split("/").at(-1) ?? "";
-  if (metered) {
-    headline = q ? `${q.used}% of the week` : "quota not read";
-  }
+  // With a quota, how full it is; else the model as he would name it, the deep tier's without its author and hosts.
+  const quotaText = q ? `${q.used}% of the week` : "quota not read";
+  const headline = metered
+    ? quotaText
+    : (llmFor("deep").model.split("@")[0]?.split("/").at(-1) ?? "");
   return {
     ...firstOf(
       [metered && !q, { tone: "idle", word: "unread" }],
@@ -843,9 +836,9 @@ function engineCard(r: Reads): Card {
       [true, { tone: "ok", word: metered ? "spare" : "ready" }]
     ),
     facts: [
-      // What each tier runs (engine/model@hosts/effort): the steps it serves, by tier.
-      ...TIER_STEPS.map(([tier, label]) => ({
-        label,
+      // What each tier runs, engine/model@hosts/effort (which steps use which tier: `Tier`, llm.ts).
+      ...(["deep", "main", "fast"] as const).map((tier) => ({
+        label: `Model (${tier})`,
         value: llmSpec(llmFor(tier)),
       })),
       ...(metered
