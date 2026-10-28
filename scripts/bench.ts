@@ -178,7 +178,7 @@ async function bench(models: string[], runs: number, judge?: string) {
     }
     const rated = ratedFacts()
       .filter((f) => f.date >= WEEK.from && f.date <= WEEK.to)
-      .map((f) => ({ fact: f.fact, id: f.id, true: f.true }));
+      .map((f) => ({ date: f.date, fact: f.fact, id: f.id, true: f.true }));
     const ratedFile = join(tmp, "rated.json");
     await Bun.write(ratedFile, JSON.stringify({ ...WEEK, facts: rated }));
     const facts = (await Bun.file(FACTS).json()).facts.length as number;
@@ -280,17 +280,17 @@ export function factTable(
   };
   const line = (r: Row) => {
     if (!(r.held && r.stated)) {
-      return `| ${r.label} | ${r.llm ?? "his engine"} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} |||||||`;
+      return `| ${r.label} | ${r.llm ?? "his engine"} | failed: ${r.error?.replaceAll("|", "/").slice(0, 200)} ||||||||`;
     }
-    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed)` : ""} | ${r.minutes} min | ${r.cost} |`;
+    return `| ${r.label} | ${r.llm ?? "his engine"} | ${r.held.held}/${r.held.trues} | ${wrong(r.held)} | ${r.held.both} | ${versus(r, r.held.held)} | ${r.stated.held}/${r.stated.trues}, ${wrong(r.stated)} wrong, ${r.stated.both} kept both | ${r.claims} | ${r.calls}${r.failed ? ` (${r.failed} failed)` : ""} | ${r.minutes} min | ${r.cost} |`;
   };
   return [
     `# Bench ${WEEK.from} to ${WEEK.to} (${clock().toISOString().slice(0, 16)}Z, code ${git(LIFE_CODE_DIR, ["rev-parse", "--short", "HEAD"]).stdout.toString().trim()})`,
     "",
-    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Wrong = a false one stated or a true one contradicted.`,
+    `Each run: moments then extract over the week on an empty copy (today's truth/), one model; judge ${rows.find((r) => r.held)?.held?.judge ?? "his engine's main tier"}. Facts: the ${about.facts} hand-checked facts of events-2026-10-16.json; rated: his ${about.rated} rated statements of the week as facts. Each fact is judged as of its day (a rated statement's), against the claims said by then. Wrong = a false one stated or a true one contradicted; kept both = stated and contradicted, a contradiction stored.`,
     "",
-    `| run | model | true facts held | wrong (of ${about.facts}) | vs baseline | rated statements | claims | calls | time | cost |`,
-    "|---|---|---|---|---|---|---|---|---|---|",
+    `| run | model | true facts held | wrong (of ${about.facts}) | kept both | vs baseline | rated statements | claims | calls | time | cost |`,
+    "|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows.map(line),
   ].join("\n");
 }

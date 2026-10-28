@@ -99,7 +99,7 @@ test("allmodels: only his hosts, in his order, falling back between them; tokens
         engine: "allmodels",
         model: "x/y@refuseless,hopper",
       },
-      prompt: "eval-judge.v1",
+      prompt: "eval-judge.v2",
       run: "r",
     });
   const lastLine = () =>
@@ -142,7 +142,7 @@ test("allmodels: only his hosts, in his order, falling back between them; tokens
         dir: mkdtempSync(join(tmpdir(), "life-chat-")),
         input: {},
         llm: { engine: "allmodels", model: "x/y@" },
-        prompt: "eval-judge.v1",
+        prompt: "eval-judge.v2",
         run: "r",
       })
     ).rejects.toThrow("author/model@host[,host]");
@@ -201,7 +201,7 @@ async function spawnBoth(tools?: Tools) {
         dir: mkdtempSync(join(tmpdir(), "life-flags-")),
         input: { a: 1 },
         llm: { engine, model: "m" },
-        prompt: "eval-judge.v1",
+        prompt: "eval-judge.v2",
         run: "r",
         tools,
       });

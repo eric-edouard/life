@@ -7,6 +7,7 @@ import { git } from "@life/server/src/core/proc";
 import { checkout, factTable } from "./bench";
 
 const counts = (held: number) => ({
+  both: 1,
   contradicted: 1,
   held,
   missed: 0,
@@ -43,9 +44,10 @@ test("bench table: within the baseline's spread (or 3) is a tie; no baseline is 
     ],
     about
   );
-  expect(t).toContain("| life1 | life | 14/21 | 2 | baseline |");
-  expect(t).toContain("| opus1 | opus | 17/21 | 2 | tie |");
-  expect(t).toContain("| mimo1 | mimo | 9/21 | 2 | -6.0 |");
+  expect(t).toContain("| life1 | life | 14/21 | 2 | 1 | baseline |");
+  expect(t).toContain("| opus1 | opus | 17/21 | 2 | 1 | tie |");
+  expect(t).toContain("| mimo1 | mimo | 9/21 | 2 | 1 | -6.0 |");
+  expect(t).toContain("90/21, 2 wrong, 1 kept both");
   expect(t).toContain("wrong (of 38)");
   const alone = factTable(
     [row("life1", "life"), row("opus1", "opus", 17)],

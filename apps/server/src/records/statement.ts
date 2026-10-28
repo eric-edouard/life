@@ -38,6 +38,8 @@ export type Rating = z.infer<typeof Rating>;
 export const EvalScore = z
   .object({
     at: isoDateTime,
+    // Kept both (stated and contradicted), counted apart since 28 Oct 2026; older lines counted it in contradicted or restated.
+    both: z.int().min(0).default(0),
     contradicted: z.int().min(0),
     gone: z.int().min(0),
     held: z.int().min(0),
