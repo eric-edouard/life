@@ -23,22 +23,18 @@ struct ConversationView: View {
     var body: some View {
         ConversationContent(store: store, at: at)
             .id(store.id)
-            .task {
+            // Loads again when the player moves to another conversation, or the driver applied the feed or an edit
+            // went out (words, speakers, a summary, a title); SwiftUI cancels the older load, so it never lands last.
+            .task(id: [store.id.uuidString, "\(sync?.generation ?? 0)"]) {
                 store.sync = sync
                 store.library = library
                 await store.load()
             }
-            // The driver applied the feed or an edit went out: words, speakers, a summary, a title.
-            .onChange(of: sync?.generation) { Task { await store.load() } }
             .timesFirstRender("conversation", ready: store.phase == .loaded, rows: store.lines.count)
             // The player moved on from this conversation (previous/next, the lock screen): the page follows.
             .onChange(of: playback.item?.id) { old, new in
                 guard old == store.id, let new, new != store.id else { return }
-                let next = ConversationStore(id: new)
-                next.sync = sync
-                next.library = library
-                store = next
-                Task { await next.load() }
+                store = ConversationStore(id: new)
             }
     }
 }

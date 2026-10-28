@@ -42,6 +42,7 @@
       "name": "@lifelog/stt-bench",
       "dependencies": {
         "@lifelog/db": "workspace:*",
+        "@lifelog/server": "workspace:*",
         "drizzle-orm": "catalog:",
       },
       "devDependencies": {
