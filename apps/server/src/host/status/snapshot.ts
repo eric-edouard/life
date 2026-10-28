@@ -1029,6 +1029,10 @@ function outputCards(r: Reads): Card[] {
       r.t - Date.parse(a.at) < DAY
   );
   const failed = acts.filter((a) => a.result === "failed").length;
+  // `sendReport` logs a failed delivery as a run error of step `email.<kind>`.
+  const mailFailed = r.errorsToday.filter((e) =>
+    String(e.step).startsWith("email.")
+  ).length;
   const mails = since(r.sent, DAY, r.t);
   const portraitOn = !!process.env.LIFE_PORTRAIT_PASSWORD;
   return [
@@ -1085,6 +1089,11 @@ function outputCards(r: Reads): Card[] {
       name: OUTPUTS.todo_list.label,
     },
     {
+      ...firstOf(
+        [mailFailed > 0, { tone: "warn", word: `${mailFailed} failed` }],
+        [!settings().mail, { tone: "idle", word: "kept on the Mac" }],
+        [true, { tone: "ok", word: "sending" }]
+      ),
       content: mails.map((m) => String(m.subject ?? m.key ?? "")),
       facts: [
         { label: "Sent today", value: String(mails.length) },
@@ -1101,8 +1110,6 @@ function outputCards(r: Reads): Card[] {
       headline: `${mails.length} sent today`,
       id: "email",
       name: "Email",
-      tone: "ok",
-      word: "sending",
     },
     {
       facts: [{ label: "Left to rate", value: String(r.mem.left) }],
