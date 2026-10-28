@@ -475,7 +475,27 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
         event(ws, body);
         return null;
       }
-      return FromMac.parse(body);
+      const message = FromMac.safeParse(body);
+      if (message.success) {
+        return message.data;
+      }
+      // An answer this server can't read fails its call as one the Mac couldn't run, at once: waiting out the
+      // timeout as MacGone would put the run back to waiting and ask again forever (#223). Other frames carrying
+      // an id (a newer helper's) are ignored, as any unknown message is.
+      const { id } = body as { id?: unknown };
+      if (
+        (type === "llm.output" || type === "llm.unrun") &&
+        typeof id === "string"
+      ) {
+        return {
+          id,
+          signedOut: false,
+          type: "llm.unrun",
+          unrun: `its answer could not be read: ${message.error.issues[0]?.message ?? "bad shape"}`,
+        } as const;
+      }
+      record(db, "mac.ignored", { bytes: String(raw).length });
+      return null;
     } catch {
       record(db, "mac.ignored", { bytes: String(raw).length });
       return null;
