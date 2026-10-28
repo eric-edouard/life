@@ -386,7 +386,7 @@ test("summaries never reach a paid API: what waits is counted, and only the Mac 
 });
 
 test("223-unreadable-answer: an answer in a shape the server can't read fails its call at once, never by the timeout", async () => {
-  const ws = await fakeMac((call) => ({ id: call.id, type: "llm.result" }));
+  const ws = await fakeMac((call) => ({ id: call.id, type: "llm.output" }));
   await until(mac.able, Boolean);
   const id = conversation();
   expect((await summarize(id)).status).toBe(202);
@@ -398,11 +398,23 @@ test("223-unreadable-answer: an answer in a shape the server can't read fails it
   );
   expect(failed?.fields).toMatchObject({
     id: calls[0]?.id,
-    reason: "unreadable",
+    reason: "failed",
   });
   // A failed call, not a lost Mac: the run doesn't go back to waiting.
   expect(runsOf(id)[0]?.state).not.toBe("waiting");
   expect(named("mac.llm_timeout")).toHaveLength(0);
+  await away(ws);
+});
+
+test("a newer helper's frame carrying a call's id leaves that call alone", async () => {
+  const ws = await fakeMac((call, socket) => {
+    socket.send(JSON.stringify({ id: call.id, type: "llm.progress" }));
+    return answerWell(call, socket);
+  });
+  await until(mac.able, Boolean);
+  const id = conversation();
+  expect((await summarize(id)).status).toBe(202);
+  expect((await settledRun(id)).state).toBe("valid");
   await away(ws);
 });
 

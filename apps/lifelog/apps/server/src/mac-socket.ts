@@ -335,19 +335,6 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
     }
     call.reject(new Error(`the Mac's model call failed: ${reply.reason}`));
   };
-  // An answer to a pending call in a shape this server can't read fails that call at once, so its
-  // run fails and backs off instead of waiting out the timeout and running again (#223).
-  const unreadable = (id: string, detail: string) => {
-    const call = pending.get(id);
-    if (!call) {
-      return;
-    }
-    pending.delete(id);
-    clearTimeout(call.timer);
-    pump();
-    record(db, "mac.llm_error", { detail, id, reason: "unreadable" });
-    call.reject(new Error(`the Mac's answer could not be read: ${detail}`));
-  };
   // The Mac said an engine can't run (signed out, or at its limit): for UNABLE_MS.
   const markUnable = (engine: MacEngine, reason: Unable) => {
     unable.set(engine, { reason, until: Date.now() + UNABLE_MS });
@@ -492,12 +479,22 @@ export function macSocket(db: Db, { timeoutMs = LLM_TIMEOUT_MS } = {}) {
       if (message.success) {
         return message.data;
       }
-      record(db, "mac.ignored", { bytes: String(raw).length });
-      const id = (body as { id?: unknown } | null)?.id;
-      if (typeof id === "string") {
-        unreadable(id, message.error.issues[0]?.message ?? "bad shape");
+      // An answer this server can't read fails its call as one the Mac couldn't run, at once: waiting out the
+      // timeout as MacGone would put the run back to waiting and ask again forever (#223). Other frames carrying
+      // an id (a newer helper's) are ignored, as any unknown message is.
+      const { id } = body as { id?: unknown };
+      if (
+        (type === "llm.output" || type === "llm.unrun") &&
+        typeof id === "string"
+      ) {
+        return {
+          id,
+          signedOut: false,
+          type: "llm.unrun",
+          unrun: `its answer could not be read: ${message.error.issues[0]?.message}`,
+        } as const;
       }
-      return null;
+      throw message.error;
     } catch {
       record(db, "mac.ignored", { bytes: String(raw).length });
       return null;
