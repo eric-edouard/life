@@ -333,8 +333,8 @@ export const assignmentSources = ["recognized", "owner"] as const;
 
 // Named by the owner only.
 export const people = sqliteTable("people", {
-  // Other names the owner uses for them ("Mamie", "Jojo"): set on their page, or learned when
-  // he answers a voice the summaries heard by that name (naming-queue.ts `answerVoices`).
+  // Other names the owner uses for them ("Mamie", "Jojo"): set on their page or by a merge, never
+  // learned from what the summaries heard.
   aliases: json<string[]>("aliases")
     .notNull()
     .$defaultFn(() => []),
