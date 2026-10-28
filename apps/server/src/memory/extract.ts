@@ -193,9 +193,9 @@ export function byDays<T extends Group & { sources: Source[] }>(
  * The units to read: kept (importance >= KEEP_AT) on their current content, and not yet extracted by this prompt
  * from that same content (the cache: unit content hash + prompt version, from memory/extracted.jsonl), unless the
  * owner said a unit was read wrong after it was (`rereads`, his `reread` corrections). Who someone is needs no new
- * reading: the readers resolve a fact's author and entities as of today (`aboutNow`). `dropped`: units read before
- * that are no longer kept on their current reading (content changed, or a re-read judged them lower): their facts
- * are replaced by none, so none stays shown.
+ * reading: the readers resolve a fact's author and entities as of today (`aboutNow`). `unkept`: units read before
+ * that their latest verdict no longer keeps (content changed, or a re-read judged them lower): their facts are
+ * replaced by none, so none stays shown; one kept again is read again (its `unkept` line is no reading).
  */
 export function toExtract(
   built: Built[],
@@ -209,14 +209,16 @@ export function toExtract(
     ledger.filter((e) => e.prompt === prompt),
     (e) => `${e.unit}|${e.unitHash}`
   );
-  const readAs = ({ unit }: Built) => {
+  // Settled: the latest line for this content is after his last re-read; read: and it is a reading, not `unkept`.
+  const settled = ({ unit }: Built) => {
     const e = done.get(`${unit.id}|${unit.hash}`);
-    return !!e && !isRereadSince(rereads, unit.id, e.at);
+    return e && !isRereadSince(rereads, unit.id, e.at) ? e : undefined;
   };
+  const readAs = (b: Built) => !!settled(b) && !settled(b)?.unkept;
   const readBefore = new Set(ledger.map((e) => e.unit));
   let stale = 0;
   const kept: { b: Built; reason: string }[] = [];
-  const dropped: Built[] = [];
+  const unkept: Built[] = [];
   for (const b of built) {
     // A unit a code rule drops today stays dropped, whatever an older verdict said.
     if (b.unit.drop) {
@@ -227,12 +229,12 @@ export function toExtract(
       stale += 1;
     } else if (v.importance >= KEEP_AT) {
       kept.push({ b, reason: v.reason });
-    } else if (readBefore.has(b.unit.id) && !readAs(b)) {
-      dropped.push(b);
+    } else if (readBefore.has(b.unit.id) && !settled(b)) {
+      unkept.push(b);
     }
   }
   const pending = kept.filter(({ b }) => !readAs(b));
-  return { dropped, kept, pending, stale };
+  return { kept, pending, stale, unkept };
 }
 
 async function appendObservations(list: Observation[]) {
@@ -366,7 +368,7 @@ export async function extract(evidence: Evidence) {
     readMoments(),
     observationsNow(people),
   ]);
-  const { dropped, kept, pending, stale } = toExtract(
+  const { kept, pending, stale, unkept } = toExtract(
     inWindow,
     verdicts,
     rowsOf(EXTRACTED, Extracted),
@@ -547,24 +549,26 @@ export async function extract(evidence: Evidence) {
 
   await appendObservations(observations);
   await appendJsonl(SUPERSESSIONS, Supersession, retired);
+  const line = (unit: Built["unit"], found: number) => ({
+    at,
+    observations: found,
+    prompt: EXTRACT_PROMPT,
+    run: step.run,
+    schemaVersion: 1 as const,
+    unit: unit.id,
+    unitHash: unit.hash,
+  });
   const perUnit = new Map<string, number>();
   for (const o of observations) {
     perUnit.set(o.unit, (perUnit.get(o.unit) ?? 0) + 1);
   }
-  await appendJsonl(
-    EXTRACTED,
-    Extracted,
-    // A dropped unit's line has no facts: its earlier ones are replaced (`isCurrent`, ledger.ts).
-    [...finished, ...copies, ...dropped].map(({ unit }) => ({
-      at,
-      observations: perUnit.get(unit.id) ?? 0,
-      prompt: EXTRACT_PROMPT,
-      run: step.run,
-      schemaVersion: 1 as const,
-      unit: unit.id,
-      unitHash: unit.hash,
-    }))
-  );
+  await appendJsonl(EXTRACTED, Extracted, [
+    ...[...finished, ...copies].map(({ unit }) =>
+      line(unit, perUnit.get(unit.id) ?? 0)
+    ),
+    // An unkept unit's line has no facts: its earlier ones are replaced (`isCurrent`, ledger.ts).
+    ...unkept.map(({ unit }) => ({ ...line(unit, 0), unkept: true as const })),
+  ]);
   await appendJsonl(UNRESOLVED, Unresolved, unresolved);
   await Bun.write(
     join(step.dir, "rejects.jsonl"),
@@ -573,7 +577,6 @@ export async function extract(evidence: Evidence) {
   return step.end({
     added: observations.length,
     cached: kept.length - pending.length,
-    dropped: dropped.length,
     kept: kept.length,
     moments: groups.filter((g) => g.moment).length,
     read: finished.length,
@@ -581,5 +584,6 @@ export async function extract(evidence: Evidence) {
     retired: retired.length,
     stale,
     truncated,
+    unkept: unkept.length,
   });
 }

@@ -92,6 +92,8 @@ export const Extracted = z
     schemaVersion: z.literal(1),
     unit: z.string(),
     unitHash: z.string(),
+    /** Not read: a unit read before that its latest verdict no longer keeps; its facts are replaced by none. */
+    unkept: z.literal(true).optional(),
   })
   .strict();
 

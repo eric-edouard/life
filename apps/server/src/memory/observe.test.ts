@@ -13,6 +13,7 @@ import {
 import { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { toExtract } from "./extract";
+import { isCurrent, latestExtractions } from "./ledger";
 import { locate, parseObservations, type Source } from "./observe";
 import { ledger, unit, verdict } from "./record-fixtures";
 import { buildIndex } from "./search";
@@ -739,10 +740,9 @@ test("the index is rebuilt from observations: search ignores accents, links answ
   db.close();
 });
 
-test("a unit read before and no longer kept (a re-read judged it lower) is dropped once: its facts are replaced by none", () => {
+test("a unit read before and no longer kept is unkept once (its facts replaced by none), and read again when kept again", () => {
   const lou = unit({ id: "unit_00000000002b", people: ["person:lou"] });
-  const low = ledger([verdict(lou, { importance: 1 })]);
-  const line = (observations: number, at: string) => ({
+  const line = (observations: number, at: string, unkept?: true) => ({
     at,
     observations,
     prompt: "memory-extract.v1",
@@ -750,30 +750,37 @@ test("a unit read before and no longer kept (a re-read judged it lower) is dropp
     schemaVersion: 1 as const,
     unit: lou.id,
     unitHash: lou.hash,
+    ...(unkept ? { unkept } : {}),
   });
-  const dropped = (
+  const run = (
+    importance: number,
     lines: ReturnType<typeof line>[],
     rereads: [string, string][] = []
   ) =>
-    toExtract([built(lou)], low, lines, "memory-extract.v1", new Map(rereads))
-      .dropped.length;
+    toExtract(
+      [built(lou)],
+      ledger([verdict(lou, { importance })]),
+      lines,
+      "memory-extract.v1",
+      new Map(rereads)
+    );
+  const read = line(3, "2026-10-10T02:00:00.000Z");
+  const reread: [string, string][] = [[lou.id, "2026-10-21T00:00:00.000Z"]];
+  const emptied = line(0, "2026-10-22T02:00:00.000Z", true);
   // Never read: nothing to replace.
-  expect(dropped([])).toBe(0);
-  // Read before, then re-read and judged lower: dropped.
-  expect(
-    dropped(
-      [line(3, "2026-10-10T02:00:00.000Z")],
-      [[lou.id, "2026-10-21T00:00:00.000Z"]]
-    )
-  ).toBe(1);
-  // Its empty line written: settled, not dropped again.
-  expect(
-    dropped(
-      [
-        line(3, "2026-10-10T02:00:00.000Z"),
-        line(0, "2026-10-22T02:00:00.000Z"),
-      ],
-      [[lou.id, "2026-10-21T00:00:00.000Z"]]
-    )
-  ).toBe(0);
+  expect(run(1, []).unkept).toHaveLength(0);
+  // Read, then re-read and judged lower: unkept.
+  expect(run(1, [read], reread).unkept).toHaveLength(1);
+  // Its unkept line written: settled.
+  expect(run(1, [read, emptied], reread).unkept).toHaveLength(0);
+  // Kept again on the same content: read again, its unkept line being no reading.
+  expect(run(3, [read, emptied], reread).pending).toHaveLength(1);
+  // A fact of the earlier reading is no longer current once the unkept line is the latest.
+  const fact = { madeBy: { run: read.run, unitHash: lou.hash }, unit: lou.id };
+  const standing = (lines: ReturnType<typeof line>[]) => ({
+    latest: latestExtractions(lines),
+    live: new Set([lou.id]),
+  });
+  expect(isCurrent(standing([read]), fact as Observation)).toBe(true);
+  expect(isCurrent(standing([read, emptied]), fact as Observation)).toBe(false);
 });
