@@ -81,7 +81,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then moments, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
 - **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
-  closed lifelog conversations, the index, the pages with new observations. No commit; a failure emails him (`failureReport`).
+  closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs (the next slot and the night read the day again).
   The nightly commits and its report counts what the midday runs found.
 - **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - Everything looks back 7 days.

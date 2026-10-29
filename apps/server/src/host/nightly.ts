@@ -153,7 +153,7 @@ export async function archiveLine(since: string) {
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
- * only the 3rd failure of a day sends the failure email (a midday's or a backfill's last one too: `sweep`). What a tick runs is `turnOf`'s: the night, else the midday
+ * a failure email goes once no try is left (`isOutOfTries`: the night's 3rd of a day, a backfill week's 3rd: `sweep`). What a tick runs is `turnOf`'s: the night, else the midday
  * pass (moments, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
  * (`reserved`), read each tick. Then the daily backup, when it is due
  * (`backupDue`: the night is done, on this tick or before).
@@ -230,9 +230,9 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
 
 /**
  * A midday run (about 13:00 and 19:00, same 30-minute tick): moments and extract of today, so the day's speech is read
- * while it is fresh, then the index, then the pages that have new observations. No commit or report: the nightly
+ * while it is fresh, then the index, then the pages that have new observations. No commit, no email: the nightly
  * commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
- * never the lock. A failure spends the slot, so it is its last try and emails him.
+ * never the lock. A failure is only logged, and the slot is spent: the next slot and the night read the day again.
  */
 export async function midday(now = clock(), force = false) {
   if (!(force || middayDue(now, readMidday()))) {
@@ -242,7 +242,6 @@ export async function midday(now = clock(), force = false) {
   const code = await locked(() => {
     recordMidday();
     return sweep("memory.midday", lastDays(now, 1), {
-      isLast: true,
       pages: () => pages({ rebuild: false }),
     });
   });
@@ -279,7 +278,7 @@ async function backfilled(day: string) {
 async function sweep(
   name: string,
   window: Window,
-  o: { isLast: boolean; pages?: () => Promise<{ failed: number }> }
+  o: { isLast?: boolean; pages?: () => Promise<{ failed: number }> }
 ) {
   const rec = await metered(name, { ...window });
   const phase = phases(rec);
@@ -304,7 +303,7 @@ async function sweep(
       await sendReport(
         reportKey(rec.run),
         failureReport(
-          localDate(clock().toISOString()),
+          clock().toISOString(),
           rec.ms(),
           `${name} ${failure.failedAt}`,
           failure.error
@@ -458,7 +457,12 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     listed = facts.map((f) => f.id);
   } catch (e) {
     failure = phase.failed(e);
-    mail = failureReport(day, rec.ms(), failure.failedAt, failure.error);
+    mail = failureReport(
+      clock().toISOString(),
+      rec.ms(),
+      failure.failedAt,
+      failure.error
+    );
   }
   const { attempts } = recordState(day, !failure);
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
