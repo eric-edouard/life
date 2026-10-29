@@ -9,33 +9,35 @@ A private memory. Calm by nature, personal by design. Everything Life shows foll
 
 ## The values
 
-One source: [`assets/brand/tokens.css`](../assets/brand/tokens.css). Pages link it or inline it; the two surfaces that
-can't read CSS variables copy its values, and `scripts/brand.test.ts` fails when a copy drifts:
+One source: [`assets/brand/tokens.css`](../assets/brand/tokens.css), its fonts' `@import` included, so a page that
+inlines or links it first gets them. Pages inline it or link it (first, before any rule of their own); the two surfaces
+that can't read CSS variables copy its values, and `scripts/brand.test.ts` fails when a copy drifts:
 
 | Surface | How it takes the tokens |
 | --- | --- |
-| `/me` password page, pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`apps/server/src/host/http/portrait.ts`, `apps/server/src/host/http/oauth.ts`) |
+| `/me` password page, pairing page, decisions page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`portrait.ts`, `oauth.ts`, `assets/decisions/index.html`) |
 | What the agent makes for the owner | `<origin>/docs/brand.md` and `<origin>/assets/brand/tokens.css`, served open (`apps/server/src/host/http/server.ts`) |
-| Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
-| The app | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`, copied, light and dark |
+| Every email (the nightly, the reports, the alerts) | `C`, `RADIUS`, `SERIF`, `SANS` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
+| The Mac app (parked) | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`: its colours copied; its fonts are still the old ones |
 
 No other file writes a colour: the test also fails on a hex colour anywhere else in `apps/server/src`, `assets` or `apps/mac/Sources`.
 
-- **Colour.** Monochrome: ink `#181818`, white `#FFFFFF`, surface `#F3F3F3`, rule `#E4E4E4`, muted `#707070`.
-  Status colours are for dots, short stripes and small marks, always beside a word, never as text: synced
-  `#22C55E`, open `#F59E0B`, error `#EF4444`, in progress `#3B82F6`, awaiting confirmation `#14B8A6`, unknown
-  `#8B8F97`. Muted text goes on white, never on surface (4.46:1 there in light, under AA).
-- **Dark.** The guide is light only. Dark is derived, its calm inverse: ink `#181818` as the ground, white text, surface
-  `#242424`, rule `#333333`, muted `#A3A3A3`; status colours unchanged. The app and the pages follow the system; the
-  email stays light.
-- **Type.** Source Serif 4 (400, 600) for headings, reading, labels and controls; IBM Plex Mono (400, 500) for numbers,
-  times, ids and status words. Page title 36/600/1.1, section heading 21/600/1.2, body 16/400/1.55, label 13/400/1.5,
-  status 11.5/500/1.5. Nothing is italic but the L.
-- **Shape.** Controls 12 px radius, panels 18 px, icon strokes 1.5 px, spacing 8, 16, 24, 48. Round the controls, leave
-  the page open, fine rules only where content needs a boundary; no paper texture, gradients or decorative shadows.
-  One primary action (an ink button); everything else stays light.
-- **Kept on purpose.** The app's group and section labels are small mono capitals (a label is a status-like id there,
-  not a heading).
+- **Colour.** Grey does the work: ink `#1F1F1F` (titles, the one primary button), text `#4A4A4A`, muted `#6B6B6B`
+  (labels; passes on white and on surface), rule `#E3E3E3`, surface `#F6F6F6`, white. Two status colours, each always
+  beside a word, never as text: green `#15803D` only for done (a check), red `#B42318` only for a problem (a dot).
+  The other status tokens mark only the parked Mac app's dots.
+- **Dark.** Derived, the calm inverse: ground `#1F1F1F`, ink `#F2F2F2`, text `#C9C9C9`, muted `#A3A3A3`, surface
+  `#2A2A2A`, rule `#3A3A3A`; green `#4ADE80` and red `#F97066`, lightened to read on the dark ground. Pages follow the
+  system; the email stays light.
+- **Type.** Literata (500, 600) for titles and the questions he answers; Atkinson Hyperlegible Next (400, 500, 700),
+  drawn so no two letters are mistaken, for everything he reads and taps; Atkinson Hyperlegible Mono for times, money
+  and ids. Mail loads no web font: titles show in Georgia, text in the system sans.
+- **Hierarchy.** Size and weight carry it, not colour: one question at a time, large; one dark button for the
+  recommended answer, the others outlined; labels small and muted.
+- **Shape.** Controls 12 px radius, panels 18 px, icon strokes 1.5 px, spacing 8, 16, 24, 48. No paper texture,
+  gradients or decorative shadows.
+- **Parked (30 Oct 2026).** The Mac app's UI and lifelog's apps (iOS, Android) keep the old look until they are
+  stripped; Android's `Brand.kt` and lifelog's `docs/design.md` describe that old look.
 
 ## The mark
 
@@ -51,5 +53,5 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
 
 Give the words room. Keep the source close: show where a memory came from. Make colour useful: status only.
 
-Fonts are under the SIL Open Font License; their licences ship beside them in `apps/mac/Fonts`. Web pages load Source Serif
-4 and IBM Plex Mono from Google Fonts.
+Fonts are under the SIL Open Font License. Web pages load Literata and Atkinson Hyperlegible from Google Fonts, through
+`tokens.css`; the parked Mac app still bundles its old fonts in `apps/mac/Fonts`.

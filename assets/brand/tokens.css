@@ -1,31 +1,40 @@
-/* Life's brand (docs/brand.md): the one source of its values. Pages link this file; the email (apps/server/src/memory/email.ts)
-   and the app (apps/mac/Sources/LifeApp/Brand.swift) copy them, and brand.test.ts fails when a copy drifts. */
+/* Life's brand (docs/brand.md): the one source of its values. Pages inline or link this file first (its @import must
+   come before any rule); the email (apps/server/src/memory/email.ts) and the app (apps/mac/Sources/LifeApp/Brand.swift)
+   copy its values, and brand.test.ts fails when a copy drifts. */
+@import url("https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Atkinson+Hyperlegible+Next:wght@400;500;700&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap");
 :root {
-  --ink: #181818;
+  --ink: #1f1f1f;
+  --text: #4a4a4a;
+  --muted: #6b6b6b;
+  --rule: #e3e3e3;
+  --surface: #f6f6f6;
   --white: #ffffff;
-  --surface: #f3f3f3;
-  --rule: #e4e4e4;
-  --muted: #707070;
-  /* Status: dots, short stripes and small marks only, always beside a word, never as text. */
-  --synced: #22c55e;
+  /* Status: done and a problem, always beside a word; the others mark the parked Mac app's dots. */
+  --synced: #15803d;
+  --error: #b42318;
   --open: #f59e0b;
-  --error: #ef4444;
   --progress: #3b82f6;
   --confirmation: #14b8a6;
   --unknown: #8b8f97;
-  --serif: "Source Serif 4", Georgia, serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --serif: "Literata", Georgia, serif;
+  --sans:
+    "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, Menlo, monospace;
   --control-radius: 12px;
   --panel-radius: 18px;
   color-scheme: light dark;
 }
-/* Dark, derived (the guide is light only): its calm inverse, white on ink; status colours unchanged. */
+/* Dark, derived: the calm inverse; green and red lightened so they still read on the dark ground. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink: #ffffff;
-    --white: #181818;
-    --surface: #242424;
-    --rule: #333333;
+    --ink: #f2f2f2;
+    --text: #c9c9c9;
     --muted: #a3a3a3;
+    --rule: #3a3a3a;
+    --surface: #2a2a2a;
+    --white: #1f1f1f;
+    --synced: #4ade80;
+    --error: #f97066;
   }
 }

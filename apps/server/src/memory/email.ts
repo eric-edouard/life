@@ -46,18 +46,22 @@ export interface Digest {
 }
 
 // Copied from assets/brand/tokens.css (email takes no CSS variables; brand.test.ts checks them): the font stacks (single
-// quotes, inside a style attribute), the radii and the colours. Status colours only mark (a dot), the words beside
-// them stay ink.
-export const SERIF = "'Source Serif 4',Georgia,serif";
-export const MONO = "'IBM Plex Mono',ui-monospace,Menlo,monospace";
+// quotes, inside a style attribute), the radii and the colours, light only. Mail loads no web font: most clients drop
+// it, so a title shows in Georgia and the text in the system sans. The serif is for titles, the sans for all text.
+// Status colours only mark (a dot), the words beside them stay ink.
+export const SERIF = "'Literata',Georgia,serif";
+export const SANS =
+  "'Atkinson Hyperlegible Next',system-ui,-apple-system,'Segoe UI',sans-serif";
+export const MONO = "'Atkinson Hyperlegible Mono',ui-monospace,Menlo,monospace";
 export const RADIUS = { control: 12, panel: 18 };
 export const C = {
-  error: "#ef4444",
-  ink: "#181818",
-  muted: "#707070",
-  rule: "#e4e4e4",
-  surface: "#f3f3f3",
-  synced: "#22c55e",
+  error: "#b42318",
+  ink: "#1f1f1f",
+  muted: "#6b6b6b",
+  rule: "#e3e3e3",
+  surface: "#f6f6f6",
+  synced: "#15803d",
+  text: "#4a4a4a",
   white: "#ffffff",
 };
 
@@ -74,7 +78,7 @@ const TABLE = `role="presentation" width="100%" cellpadding="0" cellspacing="0" 
 const row = (style: string, inner: string) =>
   `<tr><td style="${style}">${inner}</td></tr>`;
 /** A hairline-ruled line of the card. */
-const ruled = (inner: string, font = `15px/1.5 ${SERIF}`) =>
+const ruled = (inner: string, font = `15px/1.5 ${SANS}`) =>
   `<div style="padding:9px 0;border-top:1px solid ${C.rule};font:${font};color:${C.ink}">${inner}</div>`;
 
 /** A titled block of the card: a ruled serif title with its count in mono, then the body. */
@@ -90,7 +94,7 @@ const facts = (all: Fact[]) =>
   [...Map.groupBy(all, (f) => f.page)]
     .map(
       ([page, items]) =>
-        `<div style="padding:12px 0 2px;font:600 13px/1.3 ${SERIF};color:${C.muted}">${esc(page)}</div>${items
+        `<div style="padding:12px 0 2px;font:600 13px/1.3 ${SANS};color:${C.muted}">${esc(page)}</div>${items
           .map((f) => ruled(esc(f.text)))
           .join("")}`
     )
@@ -110,11 +114,11 @@ const delta = (sign: string, n: number) =>
   `<span style="color:${n > 0 ? C.ink : C.muted}">${sign}${n}</span>`;
 
 const changes = (items: Change[]) =>
-  `<div style="padding-bottom:6px;font:13px/1.4 ${SERIF};color:${C.muted}">+ added&nbsp;&nbsp;→ moved to History&nbsp;&nbsp;− removed</div>${items
+  `<div style="padding-bottom:6px;font:13px/1.4 ${SANS};color:${C.muted}">+ added&nbsp;&nbsp;→ moved to History&nbsp;&nbsp;− removed</div>${items
     .map(
       (c) =>
         `<table ${TABLE}><tr>
-<td style="padding:9px 0;border-top:1px solid ${C.rule};font:15px/1.4 ${SERIF};color:${C.ink}">${esc(c.page)}</td>
+<td style="padding:9px 0;border-top:1px solid ${C.rule};font:15px/1.4 ${SANS};color:${C.ink}">${esc(c.page)}</td>
 <td align="right" style="padding:9px 0;border-top:1px solid ${C.rule};font:500 13px/1.4 ${MONO};white-space:nowrap">${delta("+", c.added)}&nbsp;&nbsp;${delta("→", c.moved)}&nbsp;&nbsp;${delta("−", c.removed)}</td></tr></table>`
     )
     .join("")}`;
@@ -136,7 +140,7 @@ const stats = (d: Digest) => {
   const cell = (s?: { label: string; value: string }) =>
     `<td width="33%" valign="top" style="padding:0 8px 16px">${
       s
-        ? `<div style="padding-top:8px;border-top:1px solid ${C.rule};font:500 24px/1.1 ${MONO};color:${C.ink}">${esc(s.value)}</div><div style="margin-top:3px;font:13px/1.3 ${SERIF};color:${C.muted}">${esc(s.label)}</div>`
+        ? `<div style="padding-top:8px;border-top:1px solid ${C.rule};font:500 24px/1.1 ${MONO};color:${C.ink}">${esc(s.value)}</div><div style="margin-top:3px;font:13px/1.3 ${SANS};color:${C.muted}">${esc(s.label)}</div>`
         : ""
     }</td>`;
   const rows: string[] = [];
@@ -173,7 +177,7 @@ export function renderHtml(d: Digest) {
       d.notes
         .map(
           (n) =>
-            `<div style="margin-top:4px;font:13px/1.55 ${SERIF};color:${C.muted}">${esc(n)}</div>`
+            `<div style="margin-top:4px;font:13px/1.55 ${SANS};color:${C.muted}">${esc(n)}</div>`
         )
         .join("")
     ),
@@ -187,7 +191,7 @@ export function renderHtml(d: Digest) {
 <table ${TABLE} style="background:${C.white}"><tr><td align="center" style="padding:28px 12px 32px">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
 <tr><td style="padding:0 4px 20px">
-<div style="font:13px/1.3 ${SERIF};color:${C.muted}">${esc(d.weekday)} · ${esc(d.label ?? "Life nightly")}</div>
+<div style="font:13px/1.3 ${SANS};color:${C.muted}">${esc(d.weekday)} · ${esc(d.label ?? "Life nightly")}</div>
 <div style="margin-top:6px;font:600 36px/1.1 ${SERIF};letter-spacing:-.01em;color:${C.ink}">${esc(d.date)}</div>
 <div style="margin-top:12px"><span style="display:inline-block;padding:6px 10px;border-radius:${RADIUS.control}px;background:${C.surface};font:500 11.5px/1 ${MONO};color:${C.ink}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
 </td></tr>

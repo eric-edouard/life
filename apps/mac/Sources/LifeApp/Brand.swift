@@ -5,11 +5,11 @@ import SwiftUI
 /// copied from `assets/brand/tokens.css`, light and dark (brand.test.ts checks them); the app follows the Mac's
 /// appearance.
 enum Brand {
-  static let page = Color(light: 0xffffff, dark: 0x181818)
-  static let surface = Color(light: 0xf3f3f3, dark: 0x242424)
-  static let rule = Color(light: 0xe4e4e4, dark: 0x333333)
-  static let ink = Color(light: 0x181818, dark: 0xffffff)
-  static let muted = Color(light: 0x707070, dark: 0xa3a3a3)
+  static let page = Color(light: 0xffffff, dark: 0x1f1f1f)
+  static let surface = Color(light: 0xf6f6f6, dark: 0x2a2a2a)
+  static let rule = Color(light: 0xe3e3e3, dark: 0x3a3a3a)
+  static let ink = Color(light: 0x1f1f1f, dark: 0xf2f2f2)
+  static let muted = Color(light: 0x6b6b6b, dark: 0xa3a3a3)
   static let control: CGFloat = 12
   static let panel: CGFloat = 18
 
@@ -54,9 +54,9 @@ extension Text {
 extension Tone {
   var color: Color {
     switch self {
-    case .ok: Color(0x22c55e)
+    case .ok: Color(0x15803d)
     case .warn: Color(0xf59e0b)
-    case .bad: Color(0xef4444)
+    case .bad: Color(0xb42318)
     case .busy: Color(0x3b82f6)
     case .teal: Color(0x14b8a6)
     case .idle: Color(0x8b8f97)

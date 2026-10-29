@@ -183,7 +183,7 @@ const Authorize = z.object({
 
 /** The approval page's look, in Life's brand (its CSP takes no inline style). */
 const CSS = `${TOKENS}
-body{font:16px/1.55 var(--serif);max-width:30rem;margin:4rem auto;padding:0 16px;background:var(--white);color:var(--ink)}h1{font-size:36px;line-height:1.1;font-weight:600;margin:0 0 .5rem}input[name=pairing]{font:1.4rem var(--mono);letter-spacing:.2em;width:8em;padding:8px 12px;color:inherit;background:var(--surface);border:1px solid var(--rule);border-radius:var(--control-radius)}button{font:600 15px var(--serif);padding:11px 22px;border-radius:var(--control-radius);border:1px solid var(--ink);background:var(--ink);color:var(--white)}.bad::before{content:"● ";color:var(--error)}code,.host{font-family:var(--mono);font-size:.86em}`;
+body{font:17px/1.55 var(--sans);max-width:30rem;margin:4rem auto;padding:0 16px;background:var(--white);color:var(--ink)}h1{font:600 36px/1.1 var(--serif);margin:0 0 .5rem}input[name=pairing]{font:1.4rem var(--mono);letter-spacing:.2em;width:8em;padding:8px 12px;color:inherit;background:var(--surface);border:1px solid var(--rule);border-radius:var(--control-radius)}button{font:700 16px var(--sans);padding:11px 22px;border-radius:var(--control-radius);border:1px solid var(--ink);background:var(--ink);color:var(--white)}.bad::before{content:"● ";color:var(--error)}code,.host{font-family:var(--mono);font-size:.86em}`;
 const page = (body: string) =>
   new Response(
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Life</title><link rel="stylesheet" href="/auth/page.css"><body>${body}</body>`,
