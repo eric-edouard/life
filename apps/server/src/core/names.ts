@@ -23,6 +23,7 @@ export const SourceName = z.enum([
   "beeper",
   "line",
   "instagram",
+  "linkedin",
   "whatsapp",
   "imessage",
   "mail",

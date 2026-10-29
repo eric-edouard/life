@@ -26,6 +26,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "beeper",
     "line",
     "instagram",
+    "linkedin",
     "mail",
     "notes",
     "claude",
@@ -50,6 +51,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "beeper",
     "line",
     "instagram",
+    "linkedin",
     "radio",
   ]);
   expect(Object.keys(t.SEARCHED)).toContain("radio");
@@ -59,6 +61,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "beeper",
     "line",
     "instagram",
+    "linkedin",
     "mail",
     "radio",
   ]);
@@ -69,6 +72,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "beeper",
     "line",
     "instagram",
+    "linkedin",
     "notes",
     "claude",
     "chatgpt",

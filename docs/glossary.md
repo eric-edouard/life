@@ -29,7 +29,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | reply | What the agent tells the owner, logged before it sends it. | |
 | send | Life's one send into a chat: the draft of the option he answered in a decision, into the chat its `ref` names (`<source>:<chat>`), once (`host/send.ts`, the ledger's `sent`). Not a reply (the agent to him). | |
 | Sends | The output (`sends` setting) and its status card: whether Life can send the replies he chooses; a source whose `send.blocked()` says why not is shown there, never on its reading card. | |
-| bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can send through it (`docs/use/bridges.md`). | |
+| bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can send through it and, for LINE, Instagram and LinkedIn, read it (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). Not the connector (the MCP server). | |
 | board | The agent's own list in the owner's to-do list, one item per open task. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
 | grant (a loop's) | A decision of `kind: "grant"`: a standing yes he gives one loop (its `ref`: autonomy, budget, publish, ads, mail); it stands while it is the newest done one of its loop and ref, with a scope, not revoked (`active`). | |

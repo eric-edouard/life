@@ -188,6 +188,7 @@ Before adding a helper, use the one that exists:
 | Running another program | `apps/server/src/core/proc.ts` |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
+| A messaging network on a bridge | its entry in `NETWORKS` (`sources/bridged.ts`); set up, linked and removed only by `bun life bridge` (`host/bridges.ts`): a bridge is added when its folder holds its config; each bridge and the homeserver run under launchd, one job each, outside Life.app (the homeserver holds deleted messages until the archive copies them) |
 | A Matrix-shaped chat archive (Beeper's, a bridge's) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
 | Sending into a chat | `send` (`host/send.ts`), through the source's `send.deliver`; a bridge's from `bridgeSend` (`sources/matrix.ts`) |
 | Whether a source is healthy, whether it can send | its `missing()` then its `newest()` (the snapshot's source card); its `send.blocked()` (the Sends card), never a second check |

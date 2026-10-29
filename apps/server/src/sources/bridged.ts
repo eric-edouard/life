@@ -16,7 +16,7 @@ import {
   readArchived,
 } from "./archived";
 import { type Descriptor, sourceFile } from "./contract";
-import { BRIDGES, bridgeSend, configOf, OWNER } from "./matrix";
+import { BRIDGES, bridgeSend, configOf, OWNER, userOn } from "./matrix";
 
 // A network bridged on his local homeserver (LINE, Instagram: docs/use/bridges.md), read from Life's own archive. The
 // homeserver keeps every event, a deleted message's text included (`redaction_retention_period: null`): the buffer the
@@ -91,8 +91,8 @@ function hisIds(bridge: string, template: string) {
       .all();
     return new Set([
       OWNER,
-      ...logins.map(
-        (l) => `@${template.replace("{{.}}", localpartOf(l.id))}:life.local`
+      ...logins.map((l) =>
+        userOn(template.replace("{{.}}", localpartOf(l.id)))
       ),
     ]);
   } finally {
@@ -195,7 +195,7 @@ export function copyBridged(
     return 0;
   }
   const { appservice } = configOf(bridge);
-  const bot = `@${appservice?.bot?.username}:life.local`;
+  const bot = userOn(`${appservice?.bot?.username}`);
   const template = appservice?.username_template ?? `${bridge}_{{.}}`;
   const prefix = `@${template.replace("{{.}}", "")}`;
   const mine = hisIds(bridge, template);
@@ -340,11 +340,46 @@ const mediaOf = (url: string) => {
     : undefined;
 };
 
-/** Every network Life bridges itself, and what he calls it: one source each (`memory/sources.ts`). */
-export const BRIDGED = [
-  { label: "LINE", name: "line" },
-  { label: "Instagram", name: "instagram" },
+/**
+ * Every network on a bridge (`bun life bridge`, docs/use/bridges.md): what he calls it, the bridge's repository and
+ * command to build, and whether Life reads it from the bridge (a source of its own) or only sends through it (WhatsApp,
+ * read from the Mac app). The one list.
+ */
+export const NETWORKS = [
+  {
+    cmd: "cmd/mautrix-whatsapp",
+    label: "WhatsApp",
+    name: "whatsapp",
+    reads: false,
+    repo: "mautrix/whatsapp",
+  },
+  {
+    cmd: "cmd/matrix-line",
+    label: "LINE",
+    name: "line",
+    reads: true,
+    repo: "beeper/line",
+  },
+  {
+    cmd: "cmd/mautrix-instagram",
+    label: "Instagram",
+    name: "instagram",
+    reads: true,
+    repo: "mautrix/meta",
+  },
+  {
+    cmd: "cmd/mautrix-linkedin",
+    label: "LinkedIn",
+    name: "linkedin",
+    reads: true,
+    repo: "mautrix/linkedin",
+  },
 ] as const;
+export type Network = (typeof NETWORKS)[number];
+/** The networks Life reads from their bridge: one source each (`memory/sources.ts`). */
+export const BRIDGED = NETWORKS.filter(
+  (n): n is Extract<Network, { reads: true }> => n.reads
+);
 type Bridged = (typeof BRIDGED)[number]["name"];
 
 /**
