@@ -29,6 +29,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | reply | What the agent tells the owner, logged before it sends it. | |
 | board | The agent's own list in the owner's to-do list, one item per open task. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
+| grant (a loop's) | A decision of `kind: "grant"`: a standing yes he gives one loop (its `ref`: autonomy, budget, merge-map, publish, ads, mail); it stands while it is the newest done one of its loop and ref, with a scope, not revoked (`active`). | |
 
 ## The ledger and the to-do list
 
@@ -74,7 +75,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
 | decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/me/decisions`): never Life's own act; the loop that asked acts on it. The observation type of the same name becomes `choice` in the next migration (his OK, 29 Oct). | card |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
-| fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on his fact-check loop's cards: `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
+| fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on his fact-check loop's decisions: `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
 | doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `unsure-moment`, `low-confidence`. | |
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`), `repos-inferred.jsonl` (`InferredRepo`). | |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
@@ -86,6 +87,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Past calendar | The calendar Life writes every moment that happened to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
+| run (a loop's) | One headless run of one of his loops, by life-loops' run id; a decision line's `run` names the one that wrote it. | session |
 | watcher | The always-on service: every minute it folds in lifelog, hears asks, delivers them and syncs the board. | |
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |

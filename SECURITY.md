@@ -23,8 +23,8 @@ allmodels.io with his key, through the hosts he chose).
 
 Life starts his agents: the asks loop on each ask, the loops on their schedule and on the events they wait on (a
 message from someone, his words). An agent run is outside Life's boundary: it has the Mac's access (his files, his
-accounts) and none of Life's secrets in its environment. What it may do is set by his grants and his taps on cards
-(life-loops' protocol), and a send needs his yes on the exact text. That is policy, not enforcement: the risk is his,
+accounts) and none of Life's secrets in its environment. What it may do is set by his grants and his answers to
+his decisions (life-loops' protocol), and a send needs his yes on the exact text. That is policy, not enforcement: the risk is his,
 accepted.
 
 ## Network

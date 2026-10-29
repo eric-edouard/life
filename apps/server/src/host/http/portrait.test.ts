@@ -168,7 +168,9 @@ test("his decisions: nothing before the password; his tap lands; another site's 
     'type="password"'
   );
   const cookie = session(await login("open sesame"));
-  const page = await (await get(cookie, "/me/decisions")).text();
+  const served = await get(cookie, "/me/decisions");
+  expect(served.headers.get("content-type")).toContain("text/html");
+  const page = await served.text();
   expect(page).toContain("--ink:");
   expect(page).not.toContain("/*TOKENS*/");
   expect(
@@ -205,14 +207,19 @@ test("his decisions: nothing before the password; his tap lands; another site's 
   expect(
     (
       await post(cookie, {
-        note: "the plumber card was wrong",
-        ref: id,
-        step: "wrong",
+        data: { loop: "asks", note: "the plumber reply was wrong", ref: id },
+        step: "asked",
       })
     ).status
   ).toBe(200);
   expect(
-    [...decisionsNow().values()].find((d) => d.loop === "audit")
-  ).toMatchObject({ answer: "note", status: "answered" });
+    [...decisionsNow().values()].find((d) => d.kind === "audit")
+  ).toMatchObject({
+    context: "the plumber reply was wrong",
+    options: [],
+    ref: id,
+    status: "open",
+  });
+  expect((await post(cookie, { decision: id, step: "done" })).status).toBe(400);
   await rm(DECISIONS, { force: true });
 });

@@ -72,7 +72,19 @@ test("a decision goes open, answered, taken, done; each step only from the state
 test("an answer is one of its options, a note or nothing; clearing it reopens; a loop may reopen or withdraw", () => {
   rmSync(DECISIONS, { force: true });
   try {
-    writeDecision([{ data: ask, decision: id, step: "asked" }], NOW);
+    writeDecision(
+      [
+        {
+          data: { ...ask, deadline: "2026-10-30T10:00:00.000Z" },
+          decision: id,
+          step: "asked",
+        },
+        { data: ask, decision: id, step: "revised" },
+      ],
+      NOW
+    );
+    // A revision is the whole decision again: the deadline it dropped is gone.
+    expect(decisionsNow().get(id)?.deadline).toBeUndefined();
     expect(() =>
       writeDecision(
         [{ data: { answer: "maybe" }, decision: id, step: "answered" }],
@@ -163,7 +175,9 @@ test("only a done grant is revoked, a request is taken unanswered, and a malform
       ],
       NOW
     );
+    expect(decisionsNow().get(grant)?.active).toBe(true);
     writeDecision([{ decision: grant, step: "revoked" }], NOW);
+    expect(decisionsNow().get(grant)?.active).toBe(false);
     // A request has no options: nothing for him to answer, so its loop takes it open.
     const request = "audit-20261029100000000-1";
     writeDecision(

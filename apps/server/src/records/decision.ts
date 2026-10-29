@@ -6,20 +6,7 @@ import { isoDateTime } from "./fields";
 // apps/server/src/memory/decisions.ts). Written by his loops (the connector's `update_decision`) and by him (the page,
 // /me/decisions). Life never acts on one: the loop that asked does, on its next run.
 
-/** A step of a decision: a loop's (asked, revised, taken, done, reopened, withdrawn, expired) or his (answered, wrong, context, revoked). */
-export const DECISION_STEPS = [
-  "asked",
-  "revised",
-  "taken",
-  "done",
-  "reopened",
-  "withdrawn",
-  "expired",
-  "answered",
-  "context",
-  "revoked",
-] as const;
-/** The steps a loop takes (the connector's `update_decision`); the rest are his, on the page. */
+/** The steps a loop takes (the connector's `update_decision`). */
 export const LOOP_STEPS = [
   "asked",
   "revised",
@@ -29,8 +16,25 @@ export const LOOP_STEPS = [
   "withdrawn",
   "expired",
 ] as const;
+/** His steps, on the page: an answer, opening the context, revoking a grant, and asking (a request: "Something's wrong"). */
+export const OWNER_STEPS = ["answered", "context", "revoked", "asked"] as const;
+export const DECISION_STEPS = [
+  ...LOOP_STEPS,
+  "answered",
+  "context",
+  "revoked",
+] as const;
+/** Where a decision stands; done, withdrawn and expired are closed (`closedAt`). */
+export const STATUSES = [
+  "open",
+  "answered",
+  "taken",
+  "done",
+  "withdrawn",
+  "expired",
+] as const;
 
-export const DecisionOption = z
+const DecisionOption = z
   .object({
     consequence: z.string().max(200).optional(),
     draft: z.string().max(4000).optional(),
@@ -39,7 +43,7 @@ export const DecisionOption = z
   })
   .strict();
 
-/** What a loop asks (asked, revised): the question and its answers, as the page shows them. */
+/** What is asked (asked, revised): the question and its answers, as the page shows them; none makes it a request (an audit). */
 export const DecisionAsk = z
   .object({
     context: z.string().max(4000).optional(),
@@ -63,7 +67,7 @@ export const DecisionLine = z
     /** asked, revised: the ask; answered: answer and note; done: result (and scope, a grant's); reopened, withdrawn, expired: result. */
     data: z.record(z.string(), z.unknown()),
     decision: z.string().regex(/^[a-z0-9-]+-(\d{8}|\d{14,17})-\d+$/),
-    /** The run that wrote it (a loop's), none for his. */
+    /** The loop run that wrote it (life-loops' run id), none for his. */
     run: z.string().max(80).optional(),
     schemaVersion: z.literal(1),
     step: z.enum(DECISION_STEPS),

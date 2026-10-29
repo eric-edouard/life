@@ -1,5 +1,5 @@
 // His decisions, read from and answered through /me/decisions.json (Life, memory/decisions.jsonl). One tab per loop;
-// open and answered ones first by deadline, closed ones as history. Every write is his step; Life refuses one on a
+// the ones not closed first by deadline, closed ones as history. Every write is his step; Life refuses one on a
 // decision a loop has already taken, and the page says so.
 const $ = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -18,7 +18,6 @@ const $ = (tag, attrs = {}, ...kids) => {
 };
 const fr = (d) => d.lang === "fr";
 const T = (d, f, e) => (fr(d) ? f : e);
-const LIVE = ["open", "answered", "taken"];
 let all = [];
 let tab = location.hash.slice(1);
 
@@ -44,7 +43,7 @@ async function step(body) {
   return r.ok;
 }
 
-function wrong(ref, d) {
+function wrong(loop, ref, d) {
   const ta = $("textarea", {
     hidden: "",
     placeholder: T(d, "Ce qui ne va pas…", "What's wrong…"),
@@ -57,7 +56,10 @@ function wrong(ref, d) {
       hidden: "",
       onclick: async () =>
         ta.value.trim() &&
-        (await step({ note: ta.value.trim(), ref, step: "wrong" })) &&
+        (await step({
+          data: { loop, note: ta.value.trim(), ref },
+          step: "asked",
+        })) &&
         flash(T(d, "Envoyé à l'audit.", "Sent to the audit.")),
       type: "button",
     },
@@ -98,6 +100,15 @@ function tapAnswer(d, option, note) {
 }
 
 function card(d) {
+  // His own request ("Something's wrong"): nothing to answer.
+  if (!d.options?.length) {
+    return $(
+      "p",
+      { class: "past" },
+      T(d, "Envoyé à l'audit : ", "Sent to the audit: "),
+      d.question
+    );
+  }
   const taken = d.status === "taken";
   const note = $("textarea", {
     disabled: taken ? "" : null,
@@ -175,24 +186,22 @@ function card(d) {
         )
       : null,
     ctx,
-    wrong(d.id, d)
+    wrong(d.loop, d.id, d)
   );
 }
 
 function render() {
-  // The asks tab first (his own words' answers), then the loops by name.
+  // The loops with the most open decisions first, then by name.
+  const open = (l) =>
+    all.filter((d) => d.loop === l && d.status === "open").length;
   const loops = [...new Set(all.map((d) => d.loop))].sort(
-    (a, b) => Number(b === "asks") - Number(a === "asks") || a.localeCompare(b)
+    (a, b) => open(b) - open(a) || a.localeCompare(b)
   );
-  tab = loops.includes(tab)
-    ? tab
-    : (loops.find((l) =>
-        all.some((d) => d.loop === l && d.status === "open")
-      ) ?? loops[0]);
+  tab = loops.includes(tab) ? tab : loops[0];
   const tabs = document.getElementById("tabs");
   tabs.replaceChildren(
     ...loops.map((l) => {
-      const n = all.filter((d) => d.loop === l && d.status === "open").length;
+      const n = open(l);
       return $(
         "button",
         {
@@ -211,14 +220,12 @@ function render() {
   );
   const mine = all.filter((d) => d.loop === tab);
   const live = mine
-    .filter((d) => LIVE.includes(d.status))
+    .filter((d) => !d.closedAt)
     .sort((a, b) => (a.deadline ?? "9").localeCompare(b.deadline ?? "9"));
   const past = mine
-    .filter((d) => !LIVE.includes(d.status))
+    .filter((d) => d.closedAt)
     .sort((a, b) => (b.closedAt ?? "").localeCompare(a.closedAt ?? ""));
-  const grants = mine.filter(
-    (d) => d.kind === "grant" && d.status === "done" && d.scope && !d.revokedAt
-  );
+  const grants = mine.filter((d) => d.active);
   const first = mine[0] ?? {};
   document.getElementById("main").replaceChildren(
     ...grants.map((g) =>
@@ -264,7 +271,7 @@ function render() {
         d.result ? ` · ${d.result}` : ""
       )
     ),
-    wrong(tab ? `loops/${tab}` : "the loops", first)
+    tab ? wrong(tab, tab, first) : null
   );
 }
 

@@ -17,7 +17,7 @@ import { area, day, person, search } from "../../memory/search";
 import { closed, titleOf, Update } from "../../memory/tasks";
 import { clip } from "../../memory/units";
 import { chatsOf, fetchOf } from "../../memory/words";
-import { LOOP_STEPS } from "../../records/decision";
+import { LOOP_STEPS, STATUSES } from "../../records/decision";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
 import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
@@ -470,26 +470,26 @@ export function buildServer() {
   tool(
     server,
     "read_decisions",
-    "His decisions (JSON): what his loops asked him and how each stands (open, answered, taken, done, withdrawn, expired), with his answer and note. `loop` narrows to one loop; `status` to some states (default: open, answered and taken).",
+    "His decisions (JSON): what his loops asked him and how each stands (open, answered, taken, done, withdrawn, expired), with his answer and note; a grant that stands has `active: true`. `loop`, `kind` and `status` narrow them (default: the ones not closed).",
     z.object({
+      kind: z.enum(["grant", "change", "audit"]).optional(),
       loop: z.string().optional(),
-      status: z
-        .array(
-          z.enum(["open", "answered", "taken", "done", "withdrawn", "expired"])
-        )
-        .optional(),
+      status: z.array(z.enum(STATUSES)).optional(),
     }),
-    async ({ loop, status = ["open", "answered", "taken"] }) =>
+    async ({ kind, loop, status }) =>
       JSON.stringify(
         [...decisionsNow().values()].filter(
-          (d) => (!loop || d.loop === loop) && status.includes(d.status)
+          (d) =>
+            (!loop || d.loop === loop) &&
+            (!kind || d.kind === kind) &&
+            (status ? status.includes(d.status) : !d.closedAt)
         )
       )
   );
   tool(
     server,
     "update_decision",
-    "A loop's step on a decision: `asked` (a new one: `data` the question, 2–4 options, its loop; id `<loop>-<YYYYMMDDHHmmss>-<n>`), `revised` (an open one, the whole decision again), `taken` (an answered one, before acting on it), `done` (taken, `data.result`, a grant's `data.scope`), `reopened` (taken or answered, `data.result` why), `withdrawn` (open, settled meanwhile, `data.result`), `expired` (open, past its deadline, `data.result`). `run`: your run id. Refused when the rules say no.",
+    "A loop's step on a decision: `asked` (a new one: `data` the question, up to 4 options (none: a request), its loop; id `<loop>-<YYYYMMDDHHmmss>-<n>`), `revised` (an open one, the whole decision again), `taken` (an answered one or a request, before acting on it), `done` (taken, `data.result`, a grant's `data.scope`), `reopened` (taken or answered, `data.result` why), `withdrawn` (open, settled meanwhile, `data.result`), `expired` (open, past its deadline, `data.result`). `run`: your run id. Refused when the rules say no.",
     z.object({
       data: z.record(z.string(), z.unknown()).optional(),
       decision: z.string(),

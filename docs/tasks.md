@@ -190,7 +190,8 @@ grant, and logs the agent's replies.
   `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads); `correct_memory` (lifelog
   writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `change_todo_item` (through `act`, with the owner's words
   in `said`, or an `obs` for the grant); `update_agent_task` (the agent's updates, through `update`); `log_reply_to_owner` (one `ledger.jsonl`
-  line, appended only: it sends nothing).
+  line, appended only: it sends nothing); `read_decisions` and `update_decision` (his loops' decisions,
+  `decisions.jsonl`, through `writeDecision`: they send nothing).
 - `correct_memory` is annotated destructive so clients ask first. `change_todo_item`, `update_agent_task` and `log_reply_to_owner` are not (a remove goes to
   Recently Deleted, nothing is lost), so the agent uses them unattended.
 - Replies are the agent's output, never the owner's words: they enter memory only through the agent's source (`AGENT_WORD`), as

@@ -6,6 +6,7 @@ import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../../core/paths";
 import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
 import { decisionsNow, writeDecision } from "../../memory/decisions";
+import { OWNER_STEPS } from "../../records/decision";
 import { cookie, cookieOf, HEADERS, redirect, TOKENS, text } from "./http";
 
 // The portrait (/me): pages about him and his people, written from his memory into OWNER_DATA_DIR/docs/portrait/ (his data,
@@ -37,8 +38,8 @@ const PAGE_HEADERS = {
   "x-robots-tag": "noindex",
 };
 
-// Bun types each file from its extension; only the sign-in form, a string, says it is HTML.
-const FORM_HEADERS = {
+// Bun types each file from its extension; the pages Life writes as strings (the sign-in form, the decisions page) say they are HTML.
+const HTML_HEADERS = {
   ...PAGE_HEADERS,
   "content-type": "text/html; charset=utf-8",
 };
@@ -116,12 +117,12 @@ export function createPortrait(
       return text(
         form(pathname, "Too many tries, wait a minute."),
         429,
-        FORM_HEADERS
+        HTML_HEADERS
       );
     }
     if (!same(sign(given), sign(key))) {
       fails.push(now());
-      return text(form(pathname, "Wrong password."), 401, FORM_HEADERS);
+      return text(form(pathname, "Wrong password."), 401, HTML_HEADERS);
     }
     const exp = String(Math.floor(now() / 1000) + SESSION_S);
     return redirect(pathname, [
@@ -129,7 +130,7 @@ export function createPortrait(
     ]);
   }
 
-  /** His decisions as they stand (GET), or his step on one (POST: answered, context, revoked, or wrong, a new audit request). */
+  /** His decisions as they stand (GET), or his step on one (POST: answered, context, revoked, or asked, his request). */
   async function decisions(req: Request) {
     if (!signedIn(req)) {
       return text("sign in at /me", 401);
@@ -146,43 +147,47 @@ export function createPortrait(
     const b = (await req.json().catch(() => ({}))) as {
       data?: Record<string, unknown>;
       decision?: string;
-      note?: string;
-      ref?: string;
       step?: string;
     };
+    if (!OWNER_STEPS.includes(b.step as (typeof OWNER_STEPS)[number])) {
+      return text("unknown step", 400);
+    }
     try {
-      if (b.step === "wrong") {
-        const at = new Date(now()).toISOString();
-        const id = `audit-${at.replace(/\D/g, "").slice(0, 17)}-1`;
+      if (b.step === "asked") {
+        // His "Something's wrong": a request (no options) about one loop, for the audit; Life makes its id.
+        const { loop, note, ref } = (b.data ?? {}) as Partial<
+          Record<string, string>
+        >;
+        const at = new Date(now()).toISOString().replace(/\D/g, "");
         const ask = {
+          context: note,
           kind: "audit",
-          loop: "audit",
+          loop,
           options: [],
-          question: `Something's wrong: ${b.ref ?? "the loops"}`,
-          ref: b.ref,
+          question: `${note ?? ""}`.slice(0, 200),
+          ref,
         };
         writeDecision(
           [
-            { data: ask, decision: id, step: "asked" },
             {
-              data: { answer: "note", note: `${b.note ?? ""}` },
-              decision: id,
-              step: "answered",
+              data: ask,
+              decision: `${loop}-${at.slice(0, 17)}-1`,
+              step: "asked",
             },
           ],
           now()
         );
-      } else if (
-        b.step === "answered" ||
-        b.step === "context" ||
-        b.step === "revoked"
-      ) {
+      } else {
         writeDecision(
-          [{ data: b.data, decision: `${b.decision}`, step: b.step }],
+          [
+            {
+              data: b.data,
+              decision: `${b.decision}`,
+              step: b.step as "answered",
+            },
+          ],
           now()
         );
-      } else {
-        return text("unknown step", 400);
       }
       return text("ok", 200);
     } catch (e) {
@@ -206,7 +211,7 @@ export function createPortrait(
     }
     if (!signedIn(req)) {
       return page
-        ? text(form(pathname), 200, FORM_HEADERS)
+        ? text(form(pathname), 200, HTML_HEADERS)
         : text("sign in at /me", 401);
     }
     const file = Bun.file(path);
@@ -215,7 +220,7 @@ export function createPortrait(
       return text(
         (await file.text()).replace("/*TOKENS*/", TOKENS),
         200,
-        PAGE_HEADERS
+        HTML_HEADERS
       );
     }
     return (await file.exists())

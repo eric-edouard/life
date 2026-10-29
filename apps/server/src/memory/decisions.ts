@@ -1,21 +1,17 @@
 import { clock, iso } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
-import { DecisionAsk, DecisionLine } from "../records/decision";
+import { DecisionAsk, DecisionLine, type STATUSES } from "../records/decision";
 import { DECISIONS } from "./ledger";
 
 // His decisions as they stand: the fold of memory/decisions.jsonl (records/decision.ts), never stored. Every write
 // goes through `writeDecision`, synchronous from reading the file to appending, so his tap and a loop taking the
 // same decision can't both land (one connector and one page, in the same server).
 
-export type Status =
-  | "open"
-  | "answered"
-  | "taken"
-  | "done"
-  | "withdrawn"
-  | "expired";
+type Status = (typeof STATUSES)[number];
 
-export interface Decision extends DecisionAsk {
+interface Decision extends DecisionAsk {
+  /** A grant that stands: the newest done one of its loop and ref, with a scope, not revoked (`markActive`). */
+  active?: boolean;
   answer?: string | null;
   answeredAt?: string;
   closedAt?: string;
@@ -45,7 +41,14 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
   }
   switch (l.step) {
     case "revised":
-      return { ...d, ...(s as unknown as DecisionAsk), status: "open" };
+      // The whole decision again: nothing of the old ask stays.
+      return {
+        ...(s as unknown as DecisionAsk),
+        createdAt: d.createdAt,
+        id: d.id,
+        result: d.result,
+        status: "open",
+      };
     case "answered": {
       const answer = (s.answer as string | null) ?? null;
       return {
@@ -86,6 +89,24 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
   }
 }
 
+/** Marks the grants that stand: per loop and ref only the newest done one counts, and a "no" (no scope) or a revoke turns it off. */
+function markActive(all: Map<string, Decision>) {
+  const newest = new Map<string, Decision>();
+  for (const d of all.values()) {
+    const key = `${d.loop} ${d.ref}`;
+    if (
+      d.kind === "grant" &&
+      d.status === "done" &&
+      (newest.get(key)?.createdAt ?? "") <= d.createdAt
+    ) {
+      newest.set(key, d);
+    }
+  }
+  for (const d of newest.values()) {
+    d.active = Boolean(d.scope && !d.revokedAt);
+  }
+}
+
 /** Every decision as it stands now, by id. */
 export function decisionsNow(
   lines: DecisionLine[] = rowsOf(DECISIONS, DecisionLine)
@@ -97,10 +118,11 @@ export function decisionsNow(
       all.set(l.decision, d);
     }
   }
+  markActive(all);
   return all;
 }
 
-/** From which states each step may go. */
+/** From which states each step may go; a request (no options) is also taken open: there is nothing to answer. */
 const ALLOWED: Record<string, Status[]> = {
   answered: ["open", "answered"],
   context: ["open", "answered", "taken"],
@@ -148,7 +170,7 @@ function stepRefusal(
 }
 
 /** Why a step is refused on a decision as it stands, or null: the rules every writer meets. */
-export function refusalOf(
+function refusalOf(
   d: Decision | undefined,
   step: DecisionLine["step"],
   data: Record<string, unknown>,
@@ -164,7 +186,6 @@ export function refusalOf(
   if (!d) {
     return "no such decision";
   }
-  // A request (no options: an audit he asked for by voice) has nothing to answer, so its loop takes it open.
   const isRequest = step === "taken" && d.options.length === 0;
   return ALLOWED[step]?.includes(d.status) || isRequest
     ? stepRefusal(d, step, data, now)
