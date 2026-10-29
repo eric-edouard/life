@@ -284,6 +284,9 @@ export const transcripts = sqliteTable("transcripts", {
   // Bump when parseTranscript changes so stored rows can be re-parsed from raw.
   parserVersion: integer("parser_version").notNull(),
   raw: json("raw").notNull(),
+  // When Scribe's words of the whole block replaced the speech service's, turn by turn (jobs.ts
+  // `scribeWords`): set before the send, so a block is sent this way once; null otherwise.
+  scribeWordsAt: instant("scribe_words_at"),
 });
 
 // A transcript turn in capture time, rebuilt from `transcripts.parsed` and the job's map

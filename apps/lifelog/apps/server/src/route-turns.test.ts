@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import type { Word } from "@lifelog/db/schema";
-import { parseTranscript, textOf } from "./elevenlabs";
+import { parseTranscript, rawOf, textOf } from "./elevenlabs";
 import {
   BARS,
   type Judged,
   routeTurns,
   scribeRanges,
+  scribeWordsOf,
   thaiChanceOf,
   transcriptOf,
   uncut,
@@ -176,4 +177,50 @@ test("the transcript: the service's words outside routed turns, Scribe's inside,
   expect(
     transcriptOf(heard([turn(0, 5, "0", null)], []), [], null).language_code
   ).toBe("und");
+});
+
+test("Scribe's words of a whole block go to the stored turns they fall in, labels and count kept", () => {
+  const w = (start: number, text: string, speakerId: string | null) => ({
+    end: start + 0.4,
+    logprob: null,
+    spacing: " ",
+    speakerId,
+    start,
+    text,
+  });
+  const stored = {
+    languageCode: "eng",
+    languageProbability: 1,
+    turns: [
+      { end: 2.4, speakerId: "speaker_1", start: 1, text: "hi there" },
+      { end: 6.4, speakerId: "speaker_0", start: 6, text: "noise" },
+      { end: 9.4, speakerId: "speaker_1", start: 9, text: "ok" },
+    ],
+    words: [
+      w(1, "hi", "speaker_1"),
+      w(2, "there", "speaker_1"),
+      w(6, "noise", "speaker_0"),
+      w(9, "ok", "speaker_1"),
+    ],
+  };
+  // The word at 3.5 falls between turns: it goes to the nearest. The middle turn gets none.
+  const next = scribeWordsOf(stored, {
+    languageCode: "tha",
+    words: [w(1, "hello", null), w(3.5, "friend", null), w(9, "okay", null)],
+  });
+  expect(next.turns).toEqual([
+    { end: 3.9, speakerId: "speaker_1", start: 1, text: "hello friend" },
+    { end: 6.4, speakerId: "speaker_0", start: 6, text: "noise" },
+    { end: 9.4, speakerId: "speaker_1", start: 9, text: "okay" },
+  ]);
+  expect(next.words.map((x) => x.speakerId)).toEqual([
+    "speaker_1",
+    "speaker_1",
+    "speaker_0",
+    "speaker_1",
+  ]);
+  // Stored back in Scribe's shape, a parser bump reads the same words.
+  expect(
+    parseTranscript(rawOf(next)).transcript.words.map((x) => x.text)
+  ).toEqual(next.words.map((x) => x.text));
 });
