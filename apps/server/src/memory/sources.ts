@@ -16,6 +16,7 @@ import { newestCommit, readGit } from "../sources/git";
 import {
   DB,
   handleOf,
+  imessageSend,
   isImessageGroup,
   newestImessage,
   readImessage,
@@ -70,6 +71,7 @@ const LISTED: Descriptor[] = [
     newest: newestImessage,
     read: readImessage,
     searchDays: 90,
+    send: imessageSend,
     silentAfter: 24 * HOUR,
   },
   {

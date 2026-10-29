@@ -7,11 +7,14 @@ import { HOUR, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { WINDOWS } from "../core/platform";
 import { ARCHIVED, keptStores } from "../memory/sources";
+import type { SourceEvent } from "../records/source";
+import type { Descriptor } from "../sources/contract";
 import { toAppleS } from "../sources/imessage";
 import { copyWhatsapp } from "../sources/whatsapp";
 import {
   appsToOpen,
   archiveFailing,
+  heardRead,
   messagesIn,
   openIncidents,
   toStart,
@@ -147,4 +150,18 @@ test("a chat starts the agent once a minute at most", () => {
   expect(toStart(ana, starts, HOUR + 5000)).toEqual([]);
   expect(toStart([], starts, HOUR + MIN)).toEqual(ana);
   expect(toStart([], starts, HOUR + 2 * MIN)).toEqual([]);
+});
+
+test("a chat source read straight from its app tells of someone else's message; archived ones and his own don't", () => {
+  const event = (chat: string, fromMe: boolean) =>
+    ({ chat, fromMe }) as unknown as SourceEvent;
+  const imessage = {
+    kind: "chat",
+    name: "imessage",
+    read: () => [event("+15550100", false), event("+15550101", true)],
+  } as unknown as Descriptor;
+  const archived = { ...imessage, name: "whatsapp", store: {} } as Descriptor;
+  expect(heardRead(new Date(0), [imessage, archived])).toEqual([
+    { chat: "+15550100", source: "imessage" },
+  ]);
 });

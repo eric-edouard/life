@@ -1,7 +1,8 @@
 # Send replies from Life
 
 Life can send the reply you chose on a decision card, as you, into the chat it answers. It sends only the text you
-tapped, once, and never if they wrote again after the card was made. WhatsApp goes through a bridge: a small program
+tapped, once, and never if they wrote again after the card was made. iMessage goes through `imsg` (installed, nothing
+to link; the first send may ask to let it control Messages). WhatsApp goes through a bridge: a small program
 linked to your WhatsApp as one more device, like WhatsApp Web.
 
 The bridge and its local Matrix server run on your Mac and talk to nothing else. Linking a bridge is against

@@ -6,7 +6,12 @@ import { type LogEvent, log, recentEvents } from "../core/log";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt, exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
-import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
+import {
+  ARCHIVED,
+  type Archived,
+  enabledSources,
+  keptStores,
+} from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import { startAgent } from "./events";
 
@@ -192,6 +197,27 @@ export function toStart(heard: Heard, starts: Starts, now: number) {
   return due;
 }
 
+/**
+ * The chats someone else wrote in since `since` in the chat sources read straight from their app's store (iMessage):
+ * no archive copy tells of them, so they are read (about 60 ms). One that fails is skipped this pass.
+ */
+export function heardRead(since: Date, sources = enabledSources()): Heard {
+  return sources.flatMap((s) => {
+    if (s.kind !== "chat" || s.store || s.missing?.()) {
+      return [];
+    }
+    try {
+      return s
+        .read(since)
+        .filter((e) => !e.fromMe)
+        .map((e) => ({ chat: e.chat, source: s.name }));
+    } catch (error) {
+      console.error(clock().toISOString(), s.name, error);
+      return [];
+    }
+  });
+}
+
 /** One pass: each kept store copied, its failures opened and closed as incidents; the chats someone else wrote in. */
 function copyAll(failing: Set<string>) {
   const pass = clock().toISOString();
@@ -237,6 +263,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
   // The first pass starts nothing: a fresh archive copies every chat at once, and the minute's tick follows anyway.
   const starts: Starts = new Map();
   copyAll(failing);
+  let since = clock();
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;
@@ -244,7 +271,13 @@ export async function archiveCommand(args: string[]): Promise<number> {
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
-    const chats = toStart(copyAll(failing), starts, clock().getTime());
+    const pass = clock();
+    const chats = toStart(
+      [...copyAll(failing), ...heardRead(since)],
+      starts,
+      pass.getTime()
+    );
+    since = pass;
     if (chats.length > 0) {
       startAgent({ chats, kind: "message" });
     }

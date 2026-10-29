@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { HOME } from "../core/platform";
+import { exec, execOk } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
@@ -138,3 +139,30 @@ export function newestImessage(): Newest {
     db.close();
   }
 }
+
+/**
+ * iMessage's `send` (sources/contract.ts), through `imsg`: a 1:1 chat to its handle, a group by its identifier. Messages
+ * has no transaction id: sending once is the ledger's `intent` line's job (`host/send.ts`).
+ */
+export const imessageSend = {
+  async blocked() {
+    const r = await exec(["imsg", "--version"], { timeout: 3000 });
+    return r.code === 0
+      ? undefined
+      : `imsg not answering: ${(r.stderr || r.stdout).trim() || `exit ${r.code}`}`;
+  },
+  async deliver(chat: string, text: string) {
+    await execOk(
+      [
+        "imsg",
+        "send",
+        ...(isImessageGroup(chat)
+          ? ["--chat-identifier", chat]
+          : ["--to", chat]),
+        "--text",
+        text,
+      ],
+      { timeout: 30_000 }
+    );
+  },
+};
