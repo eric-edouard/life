@@ -80,10 +80,6 @@ function provision(bridge: string, path: string, init: RequestInit = {}) {
   );
 }
 
-/**
- * Why the bridge can't send now, as the bridge itself says (its logins and their state): not running, never linked,
- * or a login that isn't connected. None when it can.
- */
 // The bridge states it comes back from by itself: not a block.
 const PASSING = [
   "CONNECTED",
@@ -108,6 +104,10 @@ export function blockOf(
     : undefined;
 }
 
+/**
+ * Why the bridge can't send now, as the bridge itself says (its logins and their state): not running, never linked,
+ * or a login that isn't connected. None when it can.
+ */
 async function readBlock(bridge: string) {
   try {
     // 3 s: the status snapshot waits for it.
