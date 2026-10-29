@@ -56,7 +56,8 @@ export function sendRefusal(
   if (!d) {
     return "no such decision";
   }
-  if (d.status !== "answered") {
+  // Taken: the loop that asked took it first, as it takes every decision it acts on.
+  if (!(d.status === "answered" || d.status === "taken")) {
     return `${d.id} is ${d.status}, not answered`;
   }
   if (!d.options.find((o) => o.id === d.answer)?.draft) {
@@ -127,7 +128,9 @@ export async function send(decision: string) {
   );
   if (done.result === "ok") {
     writeDecision([
-      { decision, step: "taken" },
+      ...(d.status === "answered"
+        ? [{ decision, step: "taken" as const }]
+        : []),
       { data: { result: "sent" }, decision, step: "done" },
     ]);
   }
