@@ -74,8 +74,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **lifelog's chapter units are the only copy of the voice history before conversation-days.** The store no longer
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
-  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts`: today
-  `observation-choice-2026-10-29`; once it has run on his data it goes, as `stored-names-2026-10-22` did), with the owner's OK on the list of renames: the app runs it at its
+  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts`, written fresh:
+  the last one, `observation-choice-2026-10-29`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
