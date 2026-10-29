@@ -33,6 +33,10 @@ export const configOf = (bridge: string) =>
 export const HOMESERVER_URL = "http://127.0.0.1:8008";
 const HOMESERVER = `${HOMESERVER_URL}/_matrix/client/v3`;
 
+/** Whether a network's bridge is added: its folder holds its config (`bun life bridge add`). */
+export const isBridgeAdded = (network: string) =>
+  existsSync(join(BRIDGES, network, "config.yaml"));
+
 /** His account on the homeserver, written when the bridges were set up (docs/use/bridges.md). */
 const owner = () =>
   JSON.parse(readFileSync(SECRETS.matrix, "utf8")) as { token: string };

@@ -9,12 +9,7 @@ import { join } from "node:path";
 import { WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
 import { SECRETS, writeSecret } from "../core/secret";
-import {
-  isRunning,
-  keepRunning,
-  restartRunning,
-  stopRunning,
-} from "../core/service";
+import { keepRunning, restartRunning, stopRunning } from "../core/service";
 import { setSettings, settings } from "../core/settings";
 import { NETWORKS, type Network } from "../sources/bridged";
 import {
@@ -23,6 +18,7 @@ import {
   type CookieStep,
   cookieValues,
   HOMESERVER_URL,
+  isBridgeAdded,
   type LoginStep,
   linkBridge,
   loginFlows,
@@ -31,9 +27,10 @@ import {
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
+import { messagingStatus } from "./messaging-status";
 import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
-// `bun life bridge list|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
+// `bun life bridge [status]|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
 // bridge. A network is added when its folder holds its config (`MACHINE_DIR/bridges/<network>`). The homeserver and each
 // bridge are kept running by the Mac (`core/service.ts`), outside Life.app: the homeserver holds deleted messages until
 // the archive copies them, so it keeps running when Life is closed.
@@ -50,7 +47,7 @@ const writeYaml = (path: string, value: unknown) =>
   writeFileSync(path, Bun.YAML.stringify(value, null, 2));
 
 const configPath = (n: Network) => join(BRIDGES, n.name, "config.yaml");
-const isAdded = (n: Network) => existsSync(configPath(n));
+const isAdded = (n: Network) => isBridgeAdded(n.name);
 
 /** Waits for `url` to answer at all (any status: a bridge asks for its secret), up to 30 s. */
 const answering = (url: string, what: string) =>
@@ -425,43 +422,20 @@ async function remove(n: Network) {
   console.log(`${n.label} removed; what Life archived of it stays.`);
 }
 
-const sourceState = (n: Network) => {
-  if (!n.reads) {
-    return "sends only";
-  }
-  return settings().sources.includes(n.name) ? "source on" : "source off";
-};
-
-/** Each network: added, running, linked (its bridge's own word), its source on. */
-async function list() {
-  for (const n of NETWORKS) {
-    const state = isAdded(n)
-      ? [
-          // biome-ignore lint/performance/noAwaitInLoops: one line per network, in order
-          (await isRunning(`bridge-${n.name}`)) ? "running" : "stopped",
-          (await bridgeSend(n.name).blocked()) ?? "linked",
-          sourceState(n),
-        ].join(", ")
-      : "not added";
-    console.log(`${n.label.padEnd(10)} ${state}`);
-  }
-}
-
-/** `bridge list | add <network> | link <network> [flow] | remove <network>`. */
+/** `bridge [status] | add <network> | link <network> [flow] | remove <network>`. */
 export async function bridgeCommand(args: string[]) {
   if (WINDOWS) {
     console.error("the bridges run on macOS only");
     return 2;
   }
   const [verb, name, flow] = args;
-  if (verb === "list" || !verb) {
-    await list();
-    return 0;
+  if (verb === "status" || !verb) {
+    return messagingStatus();
   }
   const n = NETWORKS.find((x) => x.name === name);
   if (!(n && ["add", "link", "remove"].includes(verb))) {
     console.error(
-      `usage: bun life bridge list | add|link|remove <${NETWORKS.map((x) => x.name).join("|")}> [flow]`
+      `usage: bun life bridge [status] | add|link|remove <${NETWORKS.map((x) => x.name).join("|")}> [flow]`
     );
     return 2;
   }
