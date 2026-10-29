@@ -8,6 +8,7 @@ import { codeAt, exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
+import { startAgent } from "./events";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message Beeper Desktop
 // holds, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
@@ -71,6 +72,29 @@ async function keepAppsOpen() {
       );
     })
   );
+}
+
+/** The chats a chat source's archive took a message from someone else into since `since` (a copy's `seenAt`). */
+export function messagesIn(
+  { kind, name, store }: Archived,
+  since: string,
+  dir = ARCHIVE
+) {
+  const path = archiveDb(name, dir);
+  if (kind !== "chat" || !existsSync(path)) {
+    return [];
+  }
+  const db = openReadOnly(path);
+  try {
+    return db
+      .query<{ chat: string }, [string]>(
+        `select distinct chat from ${store.copies} where seenAt >= ? and not fromMe and chat is not null`
+      )
+      .all(since)
+      .map(({ chat }) => ({ chat, source: name }));
+  } finally {
+    db.close();
+  }
 }
 
 /** The deleted messages one store kept since `since`, opened read-only: the archive is their only copy. */
@@ -144,6 +168,35 @@ export async function archiveFailing(ms = 0, now = clock().getTime()) {
   );
 }
 
+/** One pass: each kept store copied, its failures opened and closed as incidents; the chats someone else wrote in. */
+function copyAll(failing: Set<string>) {
+  const pass = clock().toISOString();
+  const heard: ReturnType<typeof messagesIn> = [];
+  for (const s of keptStores()) {
+    const { name, store } = s;
+    try {
+      const added = store.copy();
+      if (failing.delete(name)) {
+        log("run.end", { step: `archive.${name}` });
+      }
+      if (added > 0) {
+        console.log(`${clock().toISOString()} archived ${added} ${name}`);
+        heard.push(...messagesIn(s, pass));
+      }
+    } catch (error) {
+      console.error(clock().toISOString(), name, error);
+      if (!failing.has(name)) {
+        failing.add(name);
+        log("run.error", {
+          error: (error as Error).message,
+          step: `archive.${name}`,
+        });
+      }
+    }
+  }
+  return heard;
+}
+
 /**
  * `archive` runs until a commit changes the code (the app starts it again), `archive --once` once,
  * `archive deleted [days]` prints deleted messages.
@@ -158,25 +211,10 @@ export async function archiveCommand(args: string[]): Promise<number> {
   await hold("archive");
   const failing = new Set((await archiveFailing()).map(([name]) => name));
   while (codeAt(LIFE_CODE_DIR) === running) {
-    for (const { name, store } of keptStores()) {
-      try {
-        const added = store.copy();
-        if (failing.delete(name)) {
-          log("run.end", { step: `archive.${name}` });
-        }
-        if (added > 0) {
-          console.log(`${clock().toISOString()} archived ${added} ${name}`);
-        }
-      } catch (error) {
-        console.error(clock().toISOString(), name, error);
-        if (!failing.has(name)) {
-          failing.add(name);
-          log("run.error", {
-            error: (error as Error).message,
-            step: `archive.${name}`,
-          });
-        }
-      }
+    const heard = copyAll(failing);
+    // ponytail: one start per pass with every chat heard; a busy group starts the agent each 5 s it speaks.
+    if (heard.length > 0) {
+      startAgent({ chats: heard, kind: "message" });
     }
     if (args.includes("--once")) {
       return 0;

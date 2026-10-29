@@ -44,6 +44,8 @@ export const LedgerEntry = z
       // A reminder Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/host/inbound.ts).
       "import",
       "instinct",
+      // His answered decision's reply, sent into its chat (apps/server/src/host/send.ts); `target` the decision.
+      "sent",
       ...TASK_LINES,
     ]),
     // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).

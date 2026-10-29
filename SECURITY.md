@@ -24,8 +24,10 @@ allmodels.io with his key, through the hosts he chose).
 Life starts his agents: the asks loop on each ask, the loops on their schedule and on the events they wait on (a
 message from someone, his words). An agent run is outside Life's boundary: it has the Mac's access (his files, his
 accounts) and none of Life's secrets in its environment. What it may do is set by his grants and his answers to
-his decisions (life-loops' protocol), and a send needs his yes on the exact text. That is policy, not enforcement: the risk is his,
-accepted.
+his decisions (life-loops' protocol), and a send needs his yes on the exact text. Life's own send (`bun life send`,
+`host/send.ts`) enforces that in code: only the draft of the option he answered, once, and never after a newer message
+from them. An agent with the Mac's access can still send another way: that is policy, not enforcement, and the risk
+is his, accepted.
 
 ## Network
 
@@ -45,6 +47,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - To Google, when he set it: the Past calendar, and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings.
+- To a chat, when `sends` is set: the reply he chose in a decision, as him, through that network (a bridge on his
+  local Matrix homeserver for WhatsApp; `docs/use/bridges.md`).
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 
