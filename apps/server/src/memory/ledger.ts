@@ -155,34 +155,42 @@ export const retiredBy = (list: Retirement[], current: Set<string>) => {
   return out;
 };
 
-/** The owner's answers on the check page: the latest for each claim (null: taken back). */
+/** The owner's answers to the fact checks: the latest for each claim (null: taken back). */
 export const latestRatings = (list: Rating[]) => latestBy(list, (r) => r.ref);
 
 export const readRatings = () => latestRatings(rowsOf(RATINGS, Rating));
 
-/** The claims his latest answer calls false, as `wrong` corrections: an undo or a later answer lifts one. */
-export const ratedFalse = (latest: Map<string, Rating>): Correction[] =>
-  [...latest.values()]
-    .filter((r) => r.answer === "false")
-    .map(({ at, ref }) => ({
-      at,
-      kind: "wrong",
-      note: "rated false",
-      observations: [ref],
-      schemaVersion: 1,
-    }));
+/**
+ * What each answer means, decided here only: the correction it reads as (false and partly hide the claim as wrong,
+ * outdated retires it as history), and what it says to the eval (`fact`: true, false, or null to leave it out).
+ */
+const ANSWERS: Record<
+  NonNullable<Rating["answer"]>,
+  { correction: "wrong" | "outdated" | null; fact: boolean | null }
+> = {
+  false: { correction: "wrong", fact: false },
+  outdated: { correction: "outdated", fact: true },
+  partly: { correction: "wrong", fact: null },
+  skip: { correction: null, fact: null },
+  true: { correction: null, fact: true },
+};
 
-/** The claims his latest answer calls outdated, as `outdated` corrections: an undo or a later answer lifts one. */
-export const ratedOutdated = (latest: Map<string, Rating>): Correction[] =>
-  [...latest.values()]
-    .filter((r) => r.answer === "outdated")
-    .map(({ at, ref }) => ({
-      at,
-      kind: "outdated",
-      note: "rated outdated",
-      observations: [ref],
-      schemaVersion: 1,
-    }));
+/** His latest answers as the corrections they read as (`ANSWERS`), his note with them: an undo or a later answer lifts one. */
+export const ratedCorrections = (latest: Map<string, Rating>): Correction[] =>
+  [...latest.values()].flatMap(({ answer, at, note, ref }) => {
+    const kind = answer && ANSWERS[answer].correction;
+    return kind
+      ? [
+          {
+            at,
+            kind,
+            note: `rated ${answer}${note ? `: ${note}` : ""}`,
+            observations: [ref],
+            schemaVersion: 1,
+          } as Correction,
+        ]
+      : [];
+  });
 
 /**
  * What his `outdated` corrections retire (true then, not anymore), as extraction retires a fact later evidence closed:
@@ -202,15 +210,11 @@ export const outdatedBy = (corrections: Correction[]): Retirement[] =>
       : []
   );
 
-/** What the owner said: memory/corrections.jsonl, then his answers on the check page (`ratedFalse`, `ratedOutdated`). */
-export function readCorrections(): Correction[] {
-  const ratings = readRatings();
-  return [
-    ...rowsOf(CORRECTIONS, Correction),
-    ...ratedFalse(ratings),
-    ...ratedOutdated(ratings),
-  ];
-}
+/** What the owner said: memory/corrections.jsonl, then his answers to the fact checks (`ratedCorrections`). */
+export const readCorrections = (): Correction[] => [
+  ...rowsOf(CORRECTIONS, Correction),
+  ...ratedCorrections(readRatings()),
+];
 
 /** The ledgers that decide where an observation stands: the owner's corrections, each unit's latest extraction, the supersessions. */
 export interface Standing {
@@ -339,22 +343,23 @@ export async function recordCorrection(said: unknown) {
   return correction;
 }
 
-/** The truth benchmark: every statement, in the order it was drawn. */
+/** The fact checks he was shown: every statement, in the order it was drawn. */
 export const readStatements = () => rowsOf(STATEMENTS, Statement);
 
-/** His rated statements (skips aside) as facts: a false one false, a true or outdated one (true then) true. */
+/** His rated statements as facts, true or false as `ANSWERS` says (skip and partly left out). */
 export function ratedFacts() {
   const ratings = readRatings();
   return readStatements().flatMap((s) => {
     const answer = ratings.get(s.ref)?.answer;
-    return answer && answer !== "skip"
+    const fact = answer ? ANSWERS[answer].fact : null;
+    return answer && fact !== null
       ? [
           {
             date: s.date,
             fact: s.text,
             id: s.ref,
             outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
-            true: answer !== "false",
+            true: fact,
             units: s.units,
           },
         ]
@@ -362,11 +367,25 @@ export function ratedFacts() {
   });
 }
 
-/** Appends the owner's answer to one statement's claim (the check page); null takes his last one back. */
-export const recordRating = (ref: string, answer: Rating["answer"]) =>
-  appendJsonl(RATINGS, Rating, [
-    { answer, at: clock().toISOString(), ref, schemaVersion: 1 },
+/** Appends the owner's answer to a fact check he was shown (`rate`), with his why; null takes his last one back. */
+export function recordRating(
+  ref: string,
+  answer: Rating["answer"],
+  note?: string
+) {
+  if (!readStatements().some((s) => s.ref === ref)) {
+    throw new Error(`no fact check ${ref} in memory/statements.jsonl`);
+  }
+  return appendJsonl(RATINGS, Rating, [
+    {
+      answer,
+      at: clock().toISOString(),
+      ...(note ? { note } : {}),
+      ref,
+      schemaVersion: 1,
+    },
   ]);
+}
 
 export const readUnresolved = () => rowsOf(UNRESOLVED, Unresolved);
 

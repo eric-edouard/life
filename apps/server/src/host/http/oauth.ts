@@ -20,8 +20,7 @@ import { HEADERS, TOKENS, text } from "./http";
 // whoever holds the Mac approves. PKCE is required, an authorization code serves once, a refresh token is replaced each
 // time it is used, and every token is for this one resource and owner.
 
-/** Life's own pages' client (/check), and the one subject the issuer signs for. */
-export const PAGES_CLIENT = "life";
+/** The one subject the issuer signs for. */
 const SUB = "owner";
 
 const ACCESS_S = 3600;
@@ -135,20 +134,16 @@ const parsed = (raw: string): unknown => {
 const DOC_BYTES = 64 * 1024;
 
 /**
- * A client: Life's own pages, one paired before, one registered and not paired yet (`pending`, in memory only), or
+ * A client: one paired before, one registered and not paired yet (`pending`, in memory only), or
  * one that names itself by a metadata document on ChatGPT's or Claude's hosts (fetched with no redirect followed).
  */
 async function clientOf(
   id: string,
   {
     fetchDoc,
-    origin,
     pending,
-  }: { fetchDoc: typeof fetch; origin: string; pending: Map<string, Client> }
+  }: { fetchDoc: typeof fetch; pending: Map<string, Client> }
 ): Promise<Client | null> {
-  if (id === PAGES_CLIENT) {
-    return { name: "Life", redirects: [`${origin}/check/callback`] };
-  }
   const known = read().clients[id] ?? pending.get(id);
   if (known) {
     return known;
@@ -275,11 +270,7 @@ export function createIssuer(
     if (!a.success || a.data.resource !== resource) {
       return text("This sign-in request is not one Life can answer.", 400);
     }
-    const client = await clientOf(a.data.client_id, {
-      fetchDoc,
-      origin,
-      pending,
-    });
+    const client = await clientOf(a.data.client_id, { fetchDoc, pending });
     if (!client?.redirects.includes(a.data.redirect_uri)) {
       return text("Unknown app or return address.", 400);
     }

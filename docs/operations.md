@@ -189,7 +189,7 @@ step: [Back up and restore](use/backup.md).
 
 - **Events eval:** `bun scripts/eval.ts <facts.json>` grades a week of extraction against hand-checked facts (kept in
   the data repo's `docs/evals/`). Run it after a change to moments or extraction.
-- **Truth benchmark:** `bun scripts/eval.ts --ratings` scores the memory against the owner's ratings (`memory/scores.jsonl`).
+- **Fact checks:** `bun scripts/eval.ts --ratings` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 02:00, 13:00 or 19:00.
 - **Model choice:** `bun bench [--models <model>]… [--runs n] [--judge engine/model/effort]` runs the real moments and
   extract over a fixed week, once per candidate, on an empty copy of the data, and judges each run (about 40 minutes;

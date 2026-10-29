@@ -3,7 +3,7 @@ import { clock } from "../core/clock";
 import { changeFeed, claim } from "../memory/changes";
 import { closeness } from "../memory/closeness";
 import { extract } from "../memory/extract";
-import { recordCorrection } from "../memory/ledger";
+import { recordCorrection, recordRating } from "../memory/ledger";
 import { locked } from "../memory/memory-lock";
 import { moments } from "../memory/moments";
 import { pages } from "../memory/pages";
@@ -20,11 +20,12 @@ import {
   topicsOf,
   unresolved,
 } from "../memory/search";
-import { addStatements } from "../memory/statements";
+import { drawDoubtful } from "../memory/statements";
 import { DAYS, gather, isDay, lastDays } from "../memory/units";
 import { readPeople } from "../memory/who";
 import { chatsOf, fetchOf } from "../memory/words";
 import { firstZoneDay } from "../memory/zones";
+import { Rating } from "../records/statement";
 import { midday, nightly } from "./nightly";
 import { lifeStatus } from "./status/life";
 
@@ -154,6 +155,13 @@ const HANDLERS: Record<string, Handler> = {
     }
   },
   day: (_values, [date = ""]) => printed(isDay(date) ? day(date) : null),
+  /** `doubtful <n>`: draws the n claims he should check first into memory/statements.jsonl and prints them with their doubts. */
+  doubtful: (_values, [n = ""]) =>
+    Number(n) > 0
+      ? locked(() => drawDoubtful(Number(n))).then((drawn) =>
+          drawn ? json(Promise.resolve(drawn)) : 1
+        )
+      : usage(),
   extract: step(async (v) => extract(await gathered(v))),
   fetch: (values, [id]) =>
     printed(
@@ -177,6 +185,21 @@ const HANDLERS: Record<string, Handler> = {
         radiusM: count(v.radius),
       })
     ),
+  /** `rate <ref> <answer> [note]`: appends his answer to a fact check, with his why (memory/ratings.jsonl). */
+  async rate(_values, [ref = "", answer = "", ...note]) {
+    const said = Rating.shape.answer.safeParse(answer);
+    if (!(ref && said.success && said.data)) {
+      return usage();
+    }
+    try {
+      await recordRating(ref, said.data, words(note) || undefined);
+      console.log(`recorded ${said.data} for ${ref} in memory/ratings.jsonl`);
+      return 0;
+    } catch (e) {
+      console.error((e as Error).message);
+      return 1;
+    }
+  },
   repos: (values, rest) =>
     values.scan
       ? scan(values, rest)
@@ -187,9 +210,6 @@ const HANDLERS: Record<string, Handler> = {
     ),
   search: (values, rest) =>
     printed(rest.length > 0 ? search(words(rest), values) : null),
-  /** `statements <n>`: draws n more statements for the truth benchmark (memory/statements.jsonl). */
-  statements: (values, [n = ""]) =>
-    Number(n) > 0 ? step(() => addStatements(Number(n)))(values, []) : usage(),
   status: () => json(lifeStatus()),
   topics: (values, rest) =>
     printed(topicsOf(words(rest) || undefined, values.person)),
@@ -201,7 +221,7 @@ const HANDLERS: Record<string, Handler> = {
 
 function usage() {
   console.error(
-    "usage: bun life memory moments [--days 7] | extract [--days 7] | backfill --from d --to d | closeness | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | statements <n> | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
+    "usage: bun life memory moments [--days 7] | extract [--days 7] | backfill --from d --to d | closeness | pages [--only <id>] [--rebuild] | nightly [--force] | midday [--force] | repos [project|area|repo] [--scan] | index | correct '<json>' | doubtful <n> | rate <obs_ or mom_ id> true|false|partly|outdated|skip [why] | search <words> [--from d] [--to d] | fetch <id> [--from-turn n] [--limit n] | day <YYYY-MM-DD> | person [name] [--before d] | places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d] [--to d] | area <id> | chats --who <name|handle> | --chat <id> [--from d] [--to d] [--before instant] | topics [tag] [--person <id>] | unresolved | status | runs [--steps a,b] [--cursor c] [--limit n] | changes [--types a,b] [--about ref] [--run r] [--since iso] [--cursor c] [--limit n] | claim <obs_id>"
   );
   return Promise.resolve(2);
 }

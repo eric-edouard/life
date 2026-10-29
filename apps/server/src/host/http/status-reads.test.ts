@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { keyRefusal, localKey } from "./signin";
+import { keyRefusal, localKey } from "./local-key";
 import { createStatusReads } from "./status-reads";
 
 // The app's status reads answer only with the local key, as a bearer.

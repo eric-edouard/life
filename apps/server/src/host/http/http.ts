@@ -1,4 +1,4 @@
-// How Life's server answers (`mcp.ts`, `check-page.ts`, `portrait.ts`), the one place for it: never cached, never framed,
+// How Life's server answers (`mcp.ts`, `portrait.ts`), the one place for it: never cached, never framed,
 // no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,9 +18,6 @@ export const HEADERS = {
   "x-content-type-options": "nosniff",
 };
 
-/** The owner's session cookie, set by the sign-in (`signin.ts`). */
-export const SESSION = "__Host-life";
-
 /** An HttpOnly, Secure, SameSite=Lax cookie for the whole site, as a Set-Cookie value. */
 export const cookie = (name: string, value: string, maxAge: number) =>
   new Bun.Cookie(name, value, {
@@ -31,13 +28,13 @@ export const cookie = (name: string, value: string, maxAge: number) =>
     secure: true,
   }).serialize();
 
-/** A redirect with cookies: 302, or 307 to send a request again as it was (a POST stays a POST). */
-export const redirect = (to: string, cookies: string[] = [], status = 302) => {
+/** A 302 redirect with cookies. */
+export const redirect = (to: string, cookies: string[] = []) => {
   const headers = new Headers({ ...HEADERS, location: to });
   for (const c of cookies) {
     headers.append("set-cookie", c);
   }
-  return new Response(null, { headers, status });
+  return new Response(null, { headers, status: 302 });
 };
 
 export const cookieOf = (req: Request, name: string) =>
@@ -49,7 +46,7 @@ export const text = (
   headers: Record<string, string> = {}
 ) => new Response(body, { headers: { ...HEADERS, ...headers }, status });
 
-/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /check, /me). */
+/** Life's server on loopback: the port a tunnel forwards the connector's origin to (/mcp, /me). */
 export const PUBLIC_PORT = 46_200;
 /** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = 46_201;

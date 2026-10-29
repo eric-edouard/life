@@ -128,7 +128,7 @@ test("off without a password, and other paths are not its own", async () => {
   expect(
     (await createPortrait("", dir).request(new Request(`${ORIGIN}/me`))).status
   ).toBe(404);
-  expect((await portrait.request(new Request(`${ORIGIN}/check/`))).status).toBe(
-    404
-  );
+  expect(
+    (await portrait.request(new Request(`${ORIGIN}/elsewhere`))).status
+  ).toBe(404);
 });

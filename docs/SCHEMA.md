@@ -201,7 +201,7 @@ move or the prompt changes. The latest record per person wins (a person folded i
 ## corrections.jsonl
 
 What the owner told Life, append-only, and the one place the owner's word is kept (with the owner's ratings: a claim the owner rated false
-reads as a `wrong` here, `ratings.jsonl`). A Claude session appends it when the owner says
+or partly reads as a `wrong` here, `ratings.jsonl`). A Claude session appends it when the owner says
 something in conversation (`bun life memory correct '<json>'`, which checks and stamps it), and the pages step adds
 `keep-mine` and `not-important` when it finds the owner editing a page file. Every rebuild respects it. Each line has
 `schemaVersion: 1`, `at`, an optional `note` and:
@@ -210,7 +210,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 |---|---|---|
 | `wrong` | `observations: [obs_…, mom_…]`, optional `page` | Never shown (pages, search; a moment: every read, and the next days' reading), or off that page only |
 | `not-important` | `observations`, optional `page` | Same; a true fact the owner does not want |
-| `outdated` | `observations: [obs_…]` | Retired by itself, as history (true then, not anymore: a promise kept, a to-do done); `note` holds his words. His check-page `outdated` answers read as these |
+| `outdated` | `observations: [obs_…]` | Retired by itself, as history (true then, not anymore: a promise kept, a to-do done); `note` holds his words. His fact-check `outdated` answers read as these |
 | `keep-mine` | `page`, `section` (`now`, `history`; on the owner's own page also `views`, `health`; on a close person's `bond`), `text` | The line stays on the page as written |
 | `this-is` | `surface`, `person: person:<id>` | A handle or name is that person (beats `truth/`) |
 | `not-this-person` | `surface`, `person` | Never resolve that handle or name to that person |
@@ -319,23 +319,29 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 ## statements.jsonl
 
-The truth benchmark: short statements for the owner to rate true or false, one per claim, append-only, written by
-`bun life memory statements <n>` (about 300 to start):
-`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or moment's id). Code draws them (`apps/server/src/memory/statements.ts`),
+The fact checks: the claims the owner is asked about, one per claim, append-only, written by
+`bun life memory doubtful <n>` (his fact-check loop runs it, a few a day):
+`{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or moment's id). Code draws them (`doubtful`, `apps/server/src/memory/statements.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment that happened,
 is planned or was cancelled as `Happened: <title>, <when>, at <place>; with <people>.` `group` is where the owner is asked
 about it: that home page (`homeOf`), or for a moment the one person with a page it was with, else `events`. The record is frozen (what the owner was shown, and where), so it copies what it needs:
 `kind` (`fact`, `plan`, `reported`: the observation's `modality`, none before `memory-extract.v3` read as `fact`; or
 `moment`), `source` (its channel; null for a moment), `date` (the claim's day) and `units` (what it was read from:
-where a later run's claims about the same thing are). The draw is spread over groups, kinds, channels and months.
+where a later run's claims about the same thing are). Only doubtful claims are drawn (`doubtsOf`: who it is about is
+only inferred, `guessed-person`; read from an unsure moment, `unsure-moment`; and `low-confidence`, under `SURE_AT`,
+only beside one of those), importance 3 before 2 (never 1), then the most doubts, then the newest. Statements drawn
+before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl
 
-The owner's answers to the statements, append-only, from the check page (`<your connector origin>/check`,
-`apps/server/src/host/http/check-page.ts`): `{schemaVersion: 1, ref, answer, at}`, `answer` `true`, `false`, `outdated` (true when Life
-recorded it, not anymore), `skip` or null (the owner took their last answer back). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
-(`readCorrections` adds it, note `rated false`), so an undo or a later `true` lifts it; a `true` confirms it, but never
+The owner's answers to the fact checks, append-only, written by `bun life memory rate <ref> <answer> [why]` (his
+fact-check loop runs it with his tap and note; before 29 Oct 2026, the check page): `{schemaVersion: 1, ref, answer,
+at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
+`skip` or null (the owner took their last answer back); `note` his why, in his words. Only a statement he was shown can be
+rated. What each answer means is one table (`ANSWERS`, `ledger.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would
+(`readCorrections` adds it, note `rated false` and his why), so an undo or a later `true` lifts it; a `partly` does the
+same (note `rated partly: <his why>`) and the eval leaves it out, like a `skip`; a `true` confirms it, but never
 lifts a `wrong` the owner said in conversation (`corrections.jsonl`). An `outdated` reads as an `outdated` correction
 (`readCorrections` adds it, note `rated outdated`), which retires the claim by itself (`outdatedBy`, `validTo` the answer's UTC day), after extraction's own; on a
 moment it changes nothing. A skipped statement is not asked again.

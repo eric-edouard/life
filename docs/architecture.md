@@ -57,7 +57,7 @@ flowchart LR
   words, fetched only for the day being read (`voiceText`).
 - **Observations** (`extract.ts`): extraction reads a moment's units together, with earlier facts shown as a reading to
   correct, never as evidence. Every quote is checked against its source (`observe.ts`). Extraction is the only step
-  that retires an observation, besides the owner's word that one is outdated (a check-page answer or an `outdated`
+  that retires an observation, besides the owner's word that one is outdated (a fact-check answer or an `outdated`
   correction).
 - **Pages** (`page-format.ts` pure, `pages.ts` orchestration): the people and area pages, every line cited, no churn, 800
   words at most (the owner's own page 2,000).
@@ -164,7 +164,7 @@ archive and the watcher kept running, the nightly tick every 30 minutes, data an
 Support/Life`, secrets from the Keychain. The app never reads Life's files: it asks the helper (`app`, `settings`,
 `init`, `pair`, `connect`), so their shape lives in one place. It starts Life at launch. Updates come through Sparkle.
 Its menu-bar panel and status window are native SwiftUI, reading the status snapshot from the watcher's local status reads
-(`apps/server/src/host/http/status-reads.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `signin.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
+(`apps/server/src/host/http/status-reads.ts` on `LOCAL_PORT` (`http.ts`), behind its local key (`keyRefusal`, `local-key.ts`; `LIFE_STATE_DIR/local.key`, mode 600); no tunnel ever points
 there): `docs/status-reads.md`.
 
 ## Pages
@@ -172,12 +172,6 @@ there): `docs/status-reads.md`.
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check. Every route is a
 Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
 
-- **The check page** (`apps/server/src/host/http/check-page.ts`, `/check`) shows the truth benchmark (statements the owner rates true or false when
-  the owner likes, never a queue Life waits on) and appends the owner's answers to `memory/ratings.jsonl`, nothing else.
-  Same OAuth sign-in (PKCE, token in an HttpOnly cookie, checked by `ownerTokens` on every request). A `false` is a
-  `wrong` correction, an `outdated` a retirement (closed as history, never wrong), so an undo lifts either. An answer is
-  appended without the lock. Its swipe deck (`deck` in `assets/check/check.js`) stays generic: items and verdicts in,
-  verdicts out.
 - **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
   `OWNER_DATA_DIR/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
   `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player

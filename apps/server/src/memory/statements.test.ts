@@ -1,74 +1,70 @@
 import { expect, test } from "bun:test";
 import type { Moment } from "../records/moment";
-import type { Statement } from "../records/statement";
-import { momentGroup, momentText, spread } from "./statements";
+import {
+  type Claim,
+  doubtful,
+  doubtsOf,
+  momentGroup,
+  momentText,
+} from "./statements";
 
-const draft = (
-  claim: string,
-  group: string,
-  kind: Statement["kind"] = "fact"
-) => ({
+const claim = (ref: string, over: Partial<Claim> = {}): Claim => ({
   date: "2026-10-01",
-  group,
-  kind,
-  ref: claim,
-  source: "whatsapp" as const,
-  text: claim,
+  doubts: ["guessed-person"],
+  group: "area:shop",
+  importance: 3,
+  kind: "fact",
+  ref,
+  source: "whatsapp",
+  text: ref,
   units: ["unit_000000000000"],
+  ...over,
 });
 /** This year: dates in it are said without the year. */
 const YEAR = new Date().getFullYear();
-const ids = (n: number) =>
-  Array.from(
-    { length: n },
-    (_, i) => `obs_${i.toString(16).padStart(12, "0")}`
-  );
 
-test("a draw takes one of each group first, then a second of each, never more than asked, the same every time", () => {
-  const pool = [
-    ...ids(100).map((id) => draft(id, "area:shop")),
-    ...ids(4).map((id) => draft(id.replace("obs_0", "obs_1"), "person:dad")),
-  ];
-  const drawn = spread(pool, 24);
-  const count = (g: string) => drawn.filter((d) => d.group === g).length;
-  expect(drawn).toHaveLength(24);
-  expect(count("area:shop")).toBe(20);
-  expect(count("person:dad")).toBe(4);
-  expect(spread(pool.toReversed(), 24)).toEqual(drawn);
-  expect(spread(pool.slice(0, 3), 10)).toHaveLength(3);
-});
-
-test("a small draw takes one of each group first, however many kinds and months a big group has", () => {
-  const big = (["fact", "plan", "reported"] as const).flatMap((kind, k) =>
-    ["2026-07-01", "2026-08-01", "2026-09-01"].map((date, m) => ({
-      ...draft(`obs_a${k}${m}000000000`, "area:shop", kind),
-      date,
-    }))
-  );
-  const small = ["b", "c", "d", "e", "f"].map((g) =>
-    draft(`obs_${g}00000000000`, `person:${g}`)
-  );
-  const drawn = spread([...big, ...small], 6);
-  expect(new Set(drawn.map((d) => d.group)).size).toBe(6);
-});
-
-test("within a group the draw goes round its kinds, then a kind's channels, however many channels and months one kind has", () => {
-  const facts = (["whatsapp", "imessage", "mail"] as const).flatMap(
-    (source, s) =>
-      ["2026-07-01", "2026-08-01", "2026-09-01"].map((date, m) => ({
-        ...draft(`obs_a${s}${m}000000000`, "area:shop"),
-        date,
-        source,
-      }))
-  );
-  const plans = ids(3).map((id) =>
-    draft(id.replace("obs_0", "obs_1"), "area:shop", "plan")
-  );
-  const drawn = spread([...facts, ...plans], 6);
-  expect(drawn.filter((d) => d.kind === "plan")).toHaveLength(3);
+test("a fact is doubtful when who it's about is only inferred or its moment is unsure; low confidence only counts beside one", () => {
+  const refOf = (r: string) => (r === "person:sam" ? "person:inf_sam" : r);
+  const o = (over = {}) => ({
+    about: undefined,
+    confidence: 0.9,
+    entities: ["person:zoe"],
+    unit: "unit_a",
+    ...over,
+  });
+  const unsure = new Set(["unit_b"]);
+  expect(doubtsOf(o(), unsure, refOf)).toEqual([]);
+  expect(doubtsOf(o({ confidence: 0.2 }), unsure, refOf)).toEqual([]);
+  expect(doubtsOf(o({ about: "person:inf_kit" }), unsure, refOf)).toEqual([
+    "guessed-person",
+  ]);
+  // An inferred person he since named is not a guess; one a ref folds into still is.
+  expect(doubtsOf(o({ entities: ["person:sam"] }), unsure, refOf)).toEqual([
+    "guessed-person",
+  ]);
   expect(
-    new Set(drawn.filter((d) => d.kind === "fact").map((d) => d.source)).size
-  ).toBe(3);
+    doubtsOf(o({ confidence: 0.2, unit: "unit_b" }), unsure, refOf)
+  ).toEqual(["unsure-moment", "low-confidence"]);
+});
+
+test("the fact checks he sees first: the most important, then the most doubtful, then the newest; never a sure, minor, stated or homeless claim", () => {
+  const claims = [
+    claim("obs_minor", { importance: 1 }),
+    claim("obs_sure", { doubts: [] }),
+    claim("obs_stated"),
+    claim("obs_homeless", { group: null }),
+    claim("obs_two", { importance: 2 }),
+    claim("obs_old", { date: "2026-09-01" }),
+    claim("obs_new"),
+    claim("obs_both", {
+      date: "2026-08-01",
+      doubts: ["guessed-person", "low-confidence"],
+    }),
+  ];
+  expect(
+    doubtful(claims, new Set(["obs_stated"]), 10).map((c) => c.ref)
+  ).toEqual(["obs_both", "obs_new", "obs_old", "obs_two"]);
+  expect(doubtful(claims, new Set(), 2)).toHaveLength(2);
 });
 
 test("a moment is said as its status, time (a same-day end as a time only), place and the people it was with", () => {

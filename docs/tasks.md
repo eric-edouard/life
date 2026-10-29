@@ -151,7 +151,7 @@ takes authority away.
   importance-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
   by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
-- Its authority is the observation alone: never the board, a `/check` tap or a chat `said`. It binds the connector, not
+- Its authority is the observation alone: never the board, a fact-check answer or a chat `said`. It binds the connector, not
   the agent's terminal.
 
 ## The Past calendar
@@ -189,7 +189,7 @@ grant, and logs the agent's replies.
 - One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `apps/server/src/host/events.ts`), behind the same auth. Callbacks go to
   OpenAI's hosts only, verified before anything is sent.
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
-  (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app, `/check` included, is approved with a pairing code
+  (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code
   from Life's panel, "Pair an app"; PKCE, one-use codes, refresh tokens replaced on use and kept 90 days, its key in
   `LIFE_STATE_DIR/oauth`), checked by `ownerTokens` (`apps/server/src/host/http/auth.ts`).
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid

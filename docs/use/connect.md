@@ -42,9 +42,7 @@ Run `/mcp` in Claude Code, pick life and authenticate: the approval page opens i
 
 ## Check it works
 
-Ask about something from the last week. The same address without `/mcp`, followed by `/check`, opens a page of
-statements Life believes about you, to mark true, false or outdated when you have a minute; your answers correct the
-memory. It signs you in the same way.
+Ask about something from the last week.
 
 ## From a checkout
 

@@ -16,8 +16,7 @@ import {
   latestRatings,
   newSince,
   outdatedBy,
-  ratedFalse,
-  ratedOutdated,
+  ratedCorrections,
   retiredBy,
   type Standing,
   shownOf,
@@ -134,7 +133,7 @@ const fixture = {
   ).set(
     "O",
     outdatedBy(
-      ratedOutdated(
+      ratedCorrections(
         latestRatings([
           { answer: "outdated", at: "2026-10-19T08:00:00Z", ref: "O" },
         ] as Rating[])
@@ -276,11 +275,11 @@ test("a retirement stands only while its replacement is current; the first one r
   expect([...retired].map(([id, x]) => [id, x.by])).toEqual([["A", "B"]]);
 });
 
-test("a claim he rated false is hidden as wrong until an undo or a later answer takes it back", () => {
+test("a claim he rated false or partly is hidden as wrong, with his why, until an undo or a later answer takes it back", () => {
   const at = "2026-10-19T08:00:00Z";
-  const rate = (claim: string, answer: Rating["answer"]) =>
-    ({ answer, at, ref: claim, schemaVersion: 1 }) as Rating;
-  const wrong = ratedFalse(
+  const rate = (claim: string, answer: Rating["answer"], note?: string) =>
+    ({ answer, at, note, ref: claim, schemaVersion: 1 }) as Rating;
+  const wrong = ratedCorrections(
     latestRatings([
       rate("obs_a", "false"),
       rate("obs_b", "false"),
@@ -289,11 +288,17 @@ test("a claim he rated false is hidden as wrong until an undo or a later answer 
       rate("obs_c", "true"),
       rate("mom_d", "skip"),
       rate("mom_e", "false"),
+      rate("obs_f", "partly", "it was Tuesday, not Monday"),
     ])
   );
   expect(
     wrong.flatMap((c) => (c.kind === "wrong" ? c.observations : []))
-  ).toEqual(["obs_a", "mom_e"]);
+  ).toEqual(["obs_a", "mom_e", "obs_f"]);
+  expect(wrong.map((c) => c.note)).toEqual([
+    "rated false",
+    "rated false",
+    "rated partly: it was Tuesday, not Monday",
+  ]);
 });
 
 test("audit-7-close-kept-promise: a promise he says he kept is retired by itself with his words, as history, not wrong or hidden", () => {
@@ -336,7 +341,7 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
       latest: new Map(),
       live: new Set(["unit_1"]),
       retired: retiredBy(
-        [...first, ...outdatedBy(ratedOutdated(latestRatings(ratings)))],
+        [...first, ...outdatedBy(ratedCorrections(latestRatings(ratings)))],
         new Set(["obs_a", "obs_b"])
       ),
     }) as Standing;
@@ -350,7 +355,11 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
     validTo: "2026-10-19",
     why: "rated outdated",
   });
-  expect(ratedFalse(latestRatings([rate("obs_a", "outdated")]))).toEqual([]);
+  expect(
+    ratedCorrections(latestRatings([rate("obs_a", "outdated")])).map(
+      (c) => c.kind
+    )
+  ).toEqual(["outdated"]);
   expect(
     stateOf(x, standing([rate("obs_a", "outdated"), rate("obs_a", null)])).state
   ).toBe("active");
