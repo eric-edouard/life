@@ -131,6 +131,27 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
       .moments[0]?.id
   ).toBe(first?.id);
   expect(() => parseDay({ moments: 3 }, ctx)).toThrow();
+  // 29 Oct: the model put the recording kind in `type` for 198 of a day's 370 units; each is kept, read as nothing.
+  const kindAsType = parseDay(
+    {
+      verdicts: [
+        {
+          ...v,
+          id: U1,
+          importance: 2,
+          kind: "conversation",
+          type: "conversation",
+        },
+      ],
+    },
+    ctx
+  );
+  expect(kindAsType.invalid).toBe(0);
+  expect(kindAsType.verdicts[0]).toMatchObject({
+    importance: 2,
+    kind: "conversation",
+    type: "nothing",
+  });
 });
 
 test("the next days see a moment until the day after it ends, or after its date for a plan; the latest day's line is current", () => {
