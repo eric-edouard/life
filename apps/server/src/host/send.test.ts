@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Decision } from "../memory/decisions";
 import type { LedgerEntry } from "../records/ledger-entry";
-import { sendRefusal } from "./send";
+import { isNewerFrom, sendRefusal } from "./send";
 
 const answered: Decision = {
   answer: "yes",
@@ -55,7 +55,7 @@ test("a send is refused when what he approved no longer stands", () => {
   expect(sendRefusal({ ...answered, ref: "notes:abc" }, [], quiet)).toContain(
     "not <source>:<chat>"
   );
-  expect(sendRefusal(answered, [], () => true)).toContain("came after");
+  expect(sendRefusal(answered, [], () => true)).toContain("came since");
 });
 
 test("a send goes once: never again after it went, nor after a try that never ended", () => {
@@ -65,4 +65,18 @@ test("a send goes once: never again after it went, nor after a try that never en
   expect(sendRefusal(answered, [tried("intent")], quiet)).toContain(
     "never ended"
   );
+});
+
+test("only someone else's message in that chat counts as newer", () => {
+  const e = (chat: string, fromMe: boolean) =>
+    ({ chat, fromMe }) as unknown as Parameters<typeof isNewerFrom>[0][number];
+  expect(
+    isNewerFrom(
+      [e("66@s.whatsapp.net", true), e("44@s.whatsapp.net", false)],
+      "66@s.whatsapp.net"
+    )
+  ).toBe(false);
+  expect(
+    isNewerFrom([e("66@s.whatsapp.net", false)], "66@s.whatsapp.net")
+  ).toBe(true);
 });

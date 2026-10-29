@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock, DAY } from "../core/clock";
+import { clock, DAY, MIN } from "../core/clock";
 import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { LIFE_CODE_DIR } from "../core/paths";
@@ -168,10 +168,30 @@ export async function archiveFailing(ms = 0, now = clock().getTime()) {
   );
 }
 
+type Heard = ReturnType<typeof messagesIn>;
+
+/**
+ * The chats of `heard` the agent wasn't started for in the last minute, now marked started (`started`, by chat): a busy
+ * group starts it once a minute at most, not each 5 s pass.
+ */
+export function toStart(
+  heard: Heard,
+  started: Map<string, number>,
+  now: number
+) {
+  const fresh = heard.filter(
+    (h) => now - (started.get(`${h.source}:${h.chat}`) ?? 0) >= MIN
+  );
+  for (const h of fresh) {
+    started.set(`${h.source}:${h.chat}`, now);
+  }
+  return fresh;
+}
+
 /** One pass: each kept store copied, its failures opened and closed as incidents; the chats someone else wrote in. */
 function copyAll(failing: Set<string>) {
   const pass = clock().toISOString();
-  const heard: ReturnType<typeof messagesIn> = [];
+  const heard: Heard = [];
   for (const s of keptStores()) {
     const { name, store } = s;
     try {
@@ -210,18 +230,20 @@ export async function archiveCommand(args: string[]): Promise<number> {
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
   const failing = new Set((await archiveFailing()).map(([name]) => name));
+  // The first pass marks what it heard without starting the agent: a fresh archive copies every chat at once.
+  const started = new Map<string, number>();
+  toStart(copyAll(failing), started, clock().getTime());
   while (codeAt(LIFE_CODE_DIR) === running) {
-    const heard = copyAll(failing);
-    // ponytail: one start per pass with every chat heard; a busy group starts the agent each 5 s it speaks.
-    if (heard.length > 0) {
-      startAgent({ chats: heard, kind: "message" });
-    }
     if (args.includes("--once")) {
       return 0;
     }
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
+    const chats = toStart(copyAll(failing), started, clock().getTime());
+    if (chats.length > 0) {
+      startAgent({ chats, kind: "message" });
+    }
   }
   console.log(`${clock().toISOString()} new code: restarting`);
   return 0;

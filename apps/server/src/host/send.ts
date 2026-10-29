@@ -1,5 +1,4 @@
-import { clock, unfrozen } from "../core/clock";
-import { appendJsonl } from "../core/files";
+import { clock, DAY, unfrozen } from "../core/clock";
 import { SourceName } from "../core/names";
 import { off } from "../core/outputs";
 import {
@@ -7,24 +6,46 @@ import {
   decisionsNow,
   writeDecision,
 } from "../memory/decisions";
-import { LEDGER, readLedger } from "../memory/ledger";
+import { readLedger } from "../memory/ledger";
 import { sourceOf } from "../memory/sources";
-import { LedgerEntry } from "../records/ledger-entry";
-import { entryId } from "./act";
+import { type LedgerEntry, stands } from "../records/ledger-entry";
+import type { SourceEvent } from "../records/source";
+import { attempt, entryId } from "./act";
 
-// Life's one send (docs/tasks.md, "Sends"): the exact text of the option he answered in a decision, into the chat its
-// `ref` names (`<source>:<chat>`), through that source's `send`. Every check is here, so no caller decides it again.
+// Life's one send (docs/tasks.md, "The only sends"): the exact text of the option he answered in a decision, into the
+// chat its `ref` names (`<source>:<chat>`), through that source's `send`. Every check is here, so no caller decides it
+// again.
 
-/** Where a decision's reply goes: `ref` is `<source>:<chat>`, a source that can send. */
-function chatOf(ref: string | undefined) {
+/** Where a decision's reply goes: `ref` is `<source>:<chat>` of a source that can send. */
+export function chatOf(ref: string | undefined) {
   const at = ref?.indexOf(":") ?? -1;
-  const source = SourceName.safeParse(ref?.slice(0, at));
-  if (!(ref && source.success && at > 0)) {
+  const name = SourceName.safeParse(ref?.slice(0, at));
+  const s = name.success ? sourceOf(name.data) : undefined;
+  return ref && at > 0 && s?.send
+    ? { chat: ref.slice(at + 1), s, send: s.send }
+    : undefined;
+}
+
+/**
+ * Who a decision's reply would go to, as his card shows it (the source and the chat's name in its last week), so his
+ * tap approves the recipient too; none when its `ref` names no chat a source can send to.
+ */
+export function recipientOf(ref: string | undefined) {
+  const to = chatOf(ref);
+  if (!to) {
     return;
   }
-  const s = sourceOf(source.data);
-  return s.send ? { chat: ref.slice(at + 1), s } : undefined;
+  const since = new Date(clock().getTime() - (to.s.chatDays ?? 7) * DAY);
+  const name =
+    to.s.kind === "chat"
+      ? to.s.read(since).findLast((e) => e.chat === to.chat)?.chatName
+      : undefined;
+  return `${to.s.label} · ${name ?? to.chat}`;
 }
+
+/** Whether someone else wrote in `chat` among `events`. */
+export const isNewerFrom = (events: SourceEvent[], chat: string) =>
+  events.some((e) => e.chat === chat && !e.fromMe);
 
 /** Why this decision's reply may not go now, or null. `lines` are the send's own ledger lines, oldest first. */
 export function sendRefusal(
@@ -38,8 +59,7 @@ export function sendRefusal(
   if (d.status !== "answered") {
     return `${d.id} is ${d.status}, not answered`;
   }
-  const draft = d.options.find((o) => o.id === d.answer)?.draft;
-  if (!draft) {
+  if (!d.options.find((o) => o.id === d.answer)?.draft) {
     return "his answer carries no draft: nothing to send";
   }
   if (d.note) {
@@ -51,12 +71,12 @@ export function sendRefusal(
   // Only a failed try may go again: one that never ended may have gone.
   const last = lines.at(-1);
   if (last && last.result !== "failed") {
-    return last.result === "intent"
-      ? "a send of it started and never ended: check the chat by hand"
-      : "already sent";
+    return stands(last)
+      ? "already sent"
+      : "a send of it started and never ended: check the chat by hand";
   }
   return newer()
-    ? "a message from them came after he answered: ask again"
+    ? "a message from them came since it was asked: ask again"
     : null;
 }
 
@@ -69,51 +89,42 @@ export async function send(decision: string) {
   }
   const d = decisionsNow().get(decision);
   const id = entryId(`decision:${decision}`, "sent", "");
-  const lines = readLedger().filter((l) => l.id === id);
   const to = chatOf(d?.ref);
-  const why = sendRefusal(d, lines, () =>
-    // Anything of theirs in that chat since he was asked; read through the source itself, as every reader does.
-    Boolean(
-      d &&
-        to?.s.kind === "chat" &&
-        to.s
-          .read(new Date(d.createdAt))
-          .some((e) => e.chat === to.chat && !e.fromMe)
-    )
+  const why = sendRefusal(
+    d,
+    readLedger().filter((l) => l.id === id),
+    // Read through the source itself, as every reader does: the archive's copy is at most one pass (5 s) behind.
+    () =>
+      Boolean(
+        d &&
+          to?.s.kind === "chat" &&
+          isNewerFrom(to.s.read(new Date(d.createdAt)), to.chat)
+      )
   );
-  if (why || !(d && to)) {
+  const option = d?.options.find((o) => o.id === d.answer);
+  if (why || !(d && to && option?.draft && d.answeredAt)) {
     throw new Error(why ?? "no such decision");
   }
-  const text = d.options.find((o) => o.id === d.answer)?.draft as string;
-  const line = (
-    result: LedgerEntry["result"],
-    error?: string
-  ): LedgerEntry => ({
-    after: { chat: to.chat, source: to.s.name },
-    at: clock().toISOString(),
-    id,
-    instruction: {
-      at: d.answeredAt as string,
-      quote: `${d.question} → ${d.options.find((o) => o.id === d.answer)?.label}`,
-      ref: `decision:${decision}`,
+  const { draft } = option;
+  const done = await attempt(
+    {
+      after: { chat: to.chat, source: to.s.name },
+      at: clock().toISOString(),
+      id,
+      instruction: {
+        at: d.answeredAt,
+        quote: `${d.question} → ${option.label}`,
+        ref: `decision:${decision}`,
+      },
+      kind: "sent",
+      result: "intent",
+      schemaVersion: 1,
+      target: decision,
+      via: "session",
+      why: "the reply he chose",
     },
-    kind: "sent",
-    result,
-    schemaVersion: 1,
-    target: decision,
-    via: "session",
-    why: "the reply he chose",
-    ...(error ? { error } : {}),
-  });
-  appendJsonl(LEDGER, LedgerEntry, [line("intent")]);
-  let done: LedgerEntry;
-  try {
-    await to.s.send?.(to.chat, text, id);
-    done = line("ok");
-  } catch (e) {
-    done = line("failed", (e as Error).message);
-  }
-  appendJsonl(LEDGER, LedgerEntry, [done]);
+    () => to.send(to.chat, draft, id).then(() => undefined)
+  );
   if (done.result === "ok") {
     writeDecision([
       { decision, step: "taken" },

@@ -76,6 +76,13 @@ Shape:
 - [ ] Uninstall Beeper Desktop, on his yes
 - [ ] Telegram parked: mautrix-telegram later is one container and a settings line; until then Telegram goes unread
 
+## Milestone 6: bridges for his friends (packaging)
+
+- [ ] Life.app sets up the bridges itself: Synapse and each bridge installed under `MACHINE_DIR/bridges`, their
+  configs written, kept running by the Supervisor (not hand-made LaunchAgents), `matrix.json` written with `writeSecret`
+- [ ] Settings → Messaging: one row per bridge (on, off, link by QR, unlink); a network is one more row, no code
+- [ ] Replaces the hand steps in `docs/use/bridges.md`
+
 ## Decisions for the owner
 
 1. **WhatsApp's terms**: the bridge links as a second device, which they forbid; bans are rare for one personal account.

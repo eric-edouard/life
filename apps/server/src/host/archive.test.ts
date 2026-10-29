@@ -14,6 +14,7 @@ import {
   archiveFailing,
   messagesIn,
   openIncidents,
+  toStart,
 } from "./archive";
 import { archiveLine } from "./nightly";
 
@@ -136,4 +137,12 @@ test("a pass starts the agent for the chats someone else wrote in, never for his
   // Notes are his own writing: never a message event.
   const notes = ARCHIVED.find((s) => s.kind !== "chat");
   expect(notes && messagesIn(notes, "2026-10-29T10:00:00Z", dir)).toEqual([]);
+});
+
+test("a chat starts the agent once a minute at most", () => {
+  const started = new Map<string, number>();
+  const ana = [{ chat: "66@s.whatsapp.net", source: "whatsapp" as const }];
+  expect(toStart(ana, started, HOUR)).toEqual(ana);
+  expect(toStart(ana, started, HOUR + 5000)).toEqual([]);
+  expect(toStart(ana, started, HOUR + MIN)).toEqual(ana);
 });

@@ -8,24 +8,28 @@ import { openReadOnly } from "../core/sqlite";
 // bridge's room for the chat, and the bridge passes it to the network as him. Nothing here reads messages.
 
 /** Each bridge's folder: its config (the provisioning secret), its database (its rooms). */
-export const BRIDGES = join(MACHINE_DIR, "bridges");
+const BRIDGES = join(MACHINE_DIR, "bridges");
 const HOMESERVER = "http://127.0.0.1:8008/_matrix/client/v3";
-const OWNER = "@owner:life.local";
-const SECRET = /^\s+shared_secret:\s*(\S+)/m;
-const PORT = /^\s+port:\s*(\d+)/m;
 
-const token = () =>
-  (JSON.parse(readFileSync(SECRETS.matrix, "utf8")) as { token: string }).token;
+/** His account on the homeserver, written when the bridges were set up (docs/use/bridges.md). */
+const owner = () =>
+  JSON.parse(readFileSync(SECRETS.matrix, "utf8")) as {
+    token: string;
+    user: string;
+  };
 
 /** The bridge's own provisioning secret and address, read from its config: never copied. */
 function provisioning(bridge: string) {
-  const config = readFileSync(join(BRIDGES, bridge, "config.yaml"), "utf8");
-  const secret = SECRET.exec(config)?.[1];
-  const port = PORT.exec(config)?.[1];
-  if (!(secret && port)) {
+  const { appservice, provisioning: p } = Bun.YAML.parse(
+    readFileSync(join(BRIDGES, bridge, "config.yaml"), "utf8")
+  ) as {
+    appservice?: { port?: number };
+    provisioning?: { shared_secret?: string };
+  };
+  if (!(p?.shared_secret && appservice?.port)) {
     throw new Error(`${bridge}: no provisioning secret or port in its config`);
   }
-  return { port, secret };
+  return { port: appservice.port, secret: p.shared_secret };
 }
 
 async function call(url: string, auth: string, init: RequestInit = {}) {
@@ -71,7 +75,7 @@ async function roomOf(bridge: string, chat: string) {
   }
   const { port, secret } = provisioning(bridge);
   const made = await call(
-    `http://127.0.0.1:${port}/_matrix/provision/v3/create_dm/${encodeURIComponent(chat)}?user_id=${encodeURIComponent(OWNER)}`,
+    `http://127.0.0.1:${port}/_matrix/provision/v3/create_dm/${encodeURIComponent(chat)}?user_id=${encodeURIComponent(owner().user)}`,
     secret,
     { method: "POST" }
   );
@@ -92,7 +96,7 @@ export async function sendMatrix(
   txn: string
 ) {
   const room = encodeURIComponent(await roomOf(bridge, chat));
-  const auth = token();
+  const auth = owner().token;
   await call(`${HOMESERVER}/rooms/${room}/join`, auth, { method: "POST" });
   await call(
     `${HOMESERVER}/rooms/${room}/send/m.room.message/${encodeURIComponent(txn)}`,
