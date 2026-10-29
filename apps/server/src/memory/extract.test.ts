@@ -293,7 +293,7 @@ test("earlier facts also hold the moment's own units at any age, in their own sl
       entities: ["person:bastien"],
       id,
       madeBy: { ...madeBy, unitHash: "h" },
-      type: "decision",
+      type: "choice",
       unit: U3,
       ...over,
     }) as Observation;

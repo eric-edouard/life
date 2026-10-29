@@ -16,7 +16,7 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 ## Words used below
 
 - **Type**, what a unit or observation is. One of: `to_do` (To-do), `promise` (Promise: the owner
-  promised someone to do it), `waiting_on_someone` (Waiting on: someone owes the owner something), `decision` (Decision), `about_a_person` (About someone: who they
+  promised someone to do it), `waiting_on_someone` (Waiting on: someone owes the owner something), `choice` (Choice), `about_a_person` (About someone: who they
   are, how they're doing, gift ideas), `preference` (Preference: what someone likes or dislikes, the owner included),
   `idea` (Idea), `news` (News: something changed in an area: status, problem, progress), `nothing` (Nothing).
 - **When**, a date or deadline (`YYYY-MM-DD`) any type can carry, or null.
@@ -411,7 +411,9 @@ at}`. `stored-names-2026-10-22` (`apps/server/src/host/migrate.ts`, since remove
 the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledger was `actions.jsonl`, ids were `u_`,
 `act_` and `inf-`, the types `todo`, `waiting` and `person`, `importance` was `salience`, a ledger entry's `via` was
 `madeBy`, a statement's and a rating's `ref` was `claim`, a task update's `taken` was `claim`, `waiting-owner` was
-`waiting-eric`, and the agent's word was `atlas`. The data repo's commits
+`waiting-eric`, and the agent's word was `atlas`. `observation-choice-2026-10-29` (`apps/server/src/host/migrate.ts`): the
+observation type `decision` is `choice` (his OK, 29 Oct 2026: "decision" is his loops' questions now), each such
+observation's id minted again and every citation of it rewritten. The data repo's commits
 "Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides. The renamed memory is built
 beside it (`memory.renamed/`) and swapped in; `memory.old/` (and `memory.stray/`) exist only until it is settled.
 

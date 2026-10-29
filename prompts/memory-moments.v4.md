@@ -47,7 +47,7 @@ Give one verdict per unit of `units`, same ids, in `verdicts`:
 | to_do | a task the owner has to do (pay, fix, call, check, book) | 3 |
 | promise | The owner told someone he would do something | 3 |
 | waiting_on_someone | someone owes the owner something (an answer, a document, a payment, a delivery) | 2 |
-| decision | something the owner or his people settled | 2 |
+| choice | something the owner or his people settled | 2 |
 | about_a_person | about someone in his life: who they are, how they're doing, their plans, gift ideas | 2 |
 | preference | what someone likes or dislikes, the owner included | 2 |
 | idea | an idea the owner had or was given (for his apps, his shop, his life) | 1 |
@@ -111,7 +111,7 @@ Give 2 or 3 only when the unit carries one of: something the owner must do or pr
 money that moved or is owed, health, legal or official matters, a booking, ticket or reservation (a repeat
 confirmation too: it holds the dates), news about a person or project he cares about, or the owner himself saying what he
 believes, values, aims for or how he wants to live. Two or more people weighing
-an approach for one of the owner's own projects (Life, lifelog, his apps) and agreeing on something is a decision at 2; the owner
+an approach for one of the owner's own projects (Life, lifelog, his apps) and agreeing on something is a choice at 2; the owner
 thinking aloud alone is an idea at 1. When in doubt between 1 and 2, ask whether a line about it would still be useful
 to the owner in a month.
 
@@ -128,9 +128,9 @@ What he marked (type, area, and whether it matters to him):
 - "0100000000 called you" notification: nothing, no area, doesn't matter (0).
 - The owner asks the building office to add someone back to the face-scan entry: waiting_on_someone, work, matters (2).
 - Recording: where Anne-Sophie sleeps each night of her Nantes stay: about_a_person, relationships, matters (2).
-- Recording: the owner explains the ceiling-height dispute with the builder to his father: decision, construction,
+- Recording: the owner explains the ceiling-height dispute with the builder to his father: choice, construction,
   matters (3).
-- Flight booked Lisbon to Nantes on 4 Mar: decision, france-trip, matters (2).
+- Flight booked Lisbon to Nantes on 4 Mar: choice, france-trip, matters (2).
 - Recording: Anne-Sophie says her knee still hurts after five months: about_a_person, relationships, matters (2).
 - The builder's team asks what the requested 6 inches on the bedside tables means: waiting_on_someone, construction,
   matters (2).

@@ -54,7 +54,7 @@ Only what the owner would want to find again, one claim per observation, of one 
 | to_do | a task the owner has to do (pay, fix, call, check, book) |
 | promise | The owner told someone he would do something |
 | waiting_on_someone | someone owes the owner something (an answer, a document, a payment, a delivery) |
-| decision | something the owner or his people settled |
+| choice | something the owner or his people settled |
 | about_a_person | about someone in his life: who they are, how they're doing, their plans, gift ideas; or between him and them: how things are, what they agreed, a boundary, a turning point |
 | preference | what someone likes or dislikes, the owner included |
 | idea | an idea the owner had or was given (for his apps, his shop, his life) |
@@ -68,8 +68,8 @@ state ("avoidant", "insecure", "because she is jealous"). Everyday logistics wit
 lines show a newer state, list the older one from `prior` in `replaces`.
 
 How the owner himself types things (from his labels): a supplier out of stock until the printer delivers is waiting_on_someone
-(Shop); a broken shop window to replace is to_do (Shop); the owner explaining the builder dispute to his father is decision
-(Construction); a flight booked for his trip is decision (France trip); where Anne-Sophie sleeps during her stay, or her
+(Shop); a broken shop window to replace is to_do (Shop); the owner explaining the builder dispute to his father is choice
+(Construction); a flight booked for his trip is choice (France trip); where Anne-Sophie sleeps during her stay, or her
 health, is about_a_person (Relationships); the builder's team asking him a question he must answer is waiting_on_someone
 (Construction); paid-bill receipts, missed calls and newsletters are not observations at all.
 
