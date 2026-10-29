@@ -14,7 +14,7 @@ Chrome-extension session: linking its bridge logs LINE's Chrome extension out.
 ## One command
 
 ```sh
-bun life bridge list                    # each network: added, running, linked, its source on
+bun life bridge                         # every messaging connector checked at once: ✓ or ✗, and why
 bun life bridge add <network>           # whatsapp, line, instagram or linkedin: builds it, then links it
 bun life bridge link <network> [flow]   # links it again (another way to log in: its flow id, listed when linking)
 bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays
