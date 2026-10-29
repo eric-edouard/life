@@ -358,7 +358,9 @@ export function ratedFacts() {
             date: s.date,
             fact: s.text,
             id: s.ref,
-            outdated: answer === "outdated" && s.kind !== "moment", // a moment has no closed state
+            // A moment has no closed state.
+            outdated:
+              ANSWERS[answer].correction === "outdated" && s.kind !== "moment",
             true: fact,
             units: s.units,
           },
@@ -367,10 +369,10 @@ export function ratedFacts() {
   });
 }
 
-/** Appends the owner's answer to a fact check he was shown (`rate`), with his why; null takes his last one back. */
+/** Appends the owner's answer to a fact check he was shown (`rate`), with his why; a later answer replaces it. */
 export function recordRating(
   ref: string,
-  answer: Rating["answer"],
+  answer: NonNullable<Rating["answer"]>,
   note?: string
 ) {
   if (!readStatements().some((s) => s.ref === ref)) {

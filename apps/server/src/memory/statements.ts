@@ -97,8 +97,11 @@ export const doubtful = (
 ) =>
   claims
     .filter(
-      (c) =>
-        c.group && c.importance > 1 && c.doubts.length > 0 && !stated.has(c.ref)
+      (c): c is Claim & { group: Draft["group"] } =>
+        c.group !== null &&
+        c.importance > 1 &&
+        c.doubts.length > 0 &&
+        !stated.has(c.ref)
     )
     .toSorted(
       (a, b) =>
@@ -174,7 +177,7 @@ export async function drawDoubtful(n: number) {
       statement: {
         ...c,
         at: rec.now.toISOString(),
-        group: group as Draft["group"],
+        group,
         schemaVersion: 1 as const,
       },
     })

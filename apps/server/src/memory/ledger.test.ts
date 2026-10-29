@@ -3,13 +3,14 @@ import { expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { appendJsonl } from "../core/files";
 import type {
   Correction,
   Extracted,
   Observation,
   Supersession,
 } from "../records/observation";
-import type { Rating } from "../records/statement";
+import { type Rating, Statement } from "../records/statement";
 import {
   isCurrent,
   latestExtractions,
@@ -17,7 +18,11 @@ import {
   newSince,
   outdatedBy,
   ratedCorrections,
+  ratedFacts,
+  readRatings,
+  recordRating,
   retiredBy,
+  STATEMENTS,
   type Standing,
   shownOf,
   stateOf,
@@ -367,4 +372,46 @@ test("a claim he rated outdated is retired by itself, as history, not wrong; an 
   expect(
     stateOf(x, standing([rate("obs_a", "outdated")], [closed]))
   ).toMatchObject({ by: "obs_b", state: "retired" });
+});
+
+test("a fact check is rated only once he was shown it, with his why; the eval reads partly and skip as nothing, outdated as true", async () => {
+  const shown = (ref: string) => ({
+    at: "2026-10-29T21:00:00Z",
+    date: "2026-10-28",
+    group: "events" as const,
+    kind: "fact" as const,
+    ref,
+    schemaVersion: 1 as const,
+    source: null,
+    text: `fact ${ref}`,
+    units: ["unit_000000000000"],
+  });
+  const [right, half, old, passed] = [
+    "obs_fac700000001",
+    "obs_fac700000002",
+    "obs_fac700000003",
+    "obs_fac700000004",
+  ] as const;
+  await appendJsonl(STATEMENTS, Statement, [
+    shown(right),
+    shown(half),
+    shown(old),
+    shown(passed),
+  ]);
+  expect(() => recordRating("obs_fac700000009", "true")).toThrow(
+    "no fact check"
+  );
+  await recordRating(right, "true");
+  await recordRating(half, "partly", "it was Tuesday");
+  await recordRating(old, "outdated");
+  await recordRating(passed, "skip");
+  expect(readRatings().get(half)?.note).toBe("it was Tuesday");
+  const facts = new Map(ratedFacts().map((f) => [f.id, f]));
+  expect([right, half, old, passed].map((r) => facts.get(r)?.true)).toEqual([
+    true,
+    undefined,
+    true,
+    undefined,
+  ]);
+  expect(facts.get(old)?.outdated).toBe(true);
 });
