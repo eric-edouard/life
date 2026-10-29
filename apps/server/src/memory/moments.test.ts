@@ -139,8 +139,13 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
   const minted = parseDay({ moments: [readAgain] }, ctx).moments[0]
     ?.id as string;
   const hidden = { ...ctx, hidden: new Set([minted]) };
-  expect(parseDay({ moments: [readAgain] }, hidden).moments[0]?.id).not.toBe(
-    minted
+  const titled = parseDay({ moments: [readAgain] }, hidden).moments[0]
+    ?.id as string;
+  expect(titled).not.toBe(minted);
+  // Nor when its title's id is hidden too.
+  const both = { ...ctx, hidden: new Set([minted, titled]) };
+  expect([minted, titled]).not.toContain(
+    parseDay({ moments: [readAgain] }, both).moments[0]?.id
   );
   expect(
     parseDay({ moments: [{ ...readAgain, id: "mom_00000000000f" }] }, ctx)

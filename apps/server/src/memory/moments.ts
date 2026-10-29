@@ -264,13 +264,12 @@ export function parseDay(
     });
     const key = [ctx.day, m.start ?? "", ...units.toSorted()];
     const isReused = ctx.earlier.has(m.id);
+    // Taken: by a moment of this reply, or, unless the model reused it, by one he hid (read again, it stands on the same units).
+    const isTaken = (x: string) =>
+      found.has(x) || (!isReused && ctx.hidden.has(x));
     let id = isReused ? m.id : momentId(key);
-    // A moment read again after he hid it stands on the same units: it must not take the hidden one's id.
-    if (!isReused && ctx.hidden.has(id)) {
-      id = momentId([...key, m.title, "again"]);
-    }
-    if (found.has(id)) {
-      id = momentId([...key, m.title]);
+    for (let salt = [m.title]; isTaken(id); salt = [...salt, "again"]) {
+      id = momentId([...key, ...salt]);
     }
     found.set(id, {
       copies: m.copies.filter((u) => units.includes(u)),
