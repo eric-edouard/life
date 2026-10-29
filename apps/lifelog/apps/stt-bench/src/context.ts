@@ -1,6 +1,6 @@
 // The router on real blocks (`bench context`): blocks Scribe transcribed whole, heard again by the
 // running speech service, each turn labelled Thai or not by Scribe's words, then routed by
-// `routeTurns` with the zone the owner was in. `bench context fit` fits the router's weights.
+// `routeTurns` at the bar of the zone the owner was in. `bench context fit` fits the router's weights.
 // Everything it writes holds the owner's voice or words: in DIR/context, out of the repo.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -242,8 +242,7 @@ export function fitLogistic(xs: number[][], ys: boolean[], steps = 3000) {
     const grad = new Array<number>(n).fill(0);
     let gb = 0;
     for (const [i, x] of z.entries()) {
-      const p =
-        1 / (1 + Math.exp(-x.reduce((s, v, k) => s + v * (w[k] ?? 0), b)));
+      const p = chanceOf(x, w, b);
       const e = (p - (ys[i] ? 1 : 0)) * weightOf(ys[i] ?? false);
       x.forEach((v, k) => {
         grad[k] = (grad[k] ?? 0) + e * v;
