@@ -252,7 +252,7 @@ export async function watch(): Promise<number> {
         // biome-ignore lint/performance/noAwaitInLoops: one conversation at a time
         const again = await hear(store, h.conversation, h.from).then(
           ({ heard, marked }) => {
-            // Its "hey Life" marks changed: the units on disk carry them at the next sync.
+            // Its marks (its asks' spans) changed: the units on disk carry them at the next sync.
             dirty ||= marked;
             return heard ? null : h.tries;
           },

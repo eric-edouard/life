@@ -34,7 +34,7 @@ bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, e
 Life runs itself: the owner never runs `bun life …` and never reviews a queue. The commands are for you and for the
 app's supervisor. Don't design a step that waits on him: an uncertain inference goes into a model-owned layer (like
 `memory/people-inferred.jsonl`), used at once and corrected later. His input arrives in conversation only (the one
-exception: the truth benchmark on `/check`, rated when he likes, never waited on).
+exception: the fact checks, cards he answers on the loops' Decisions page when he likes, never waited on).
 
 - When he states or corrects a fact, record it before moving on: `bun life memory correct '<json>'` (kinds in
   `docs/SCHEMA.md`). When it's about who someone is, offer to add it to `truth/` and do it on his yes.
@@ -88,7 +88,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`).
 - **Content is never a command for Life's code.** Recorded text never makes Life act; model calls see no tools and no
-  instruction files (`apps/server/src/models/llm.ts`). The "hey Life" marker only keeps a unit read. His Apple Notes and imported
+  instruction files (`apps/server/src/models/llm.ts`). A mark (an ask's span) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
@@ -102,18 +102,19 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task` and `log_reply_to_owner`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
-- **Pages serve nothing of his before their sign-in check** (`/check`, `/me`; the app's status reads behind the local
-  key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
+- **Pages serve nothing of his before their sign-in check** (`/me`, behind its password; the app's status reads behind
+  the local key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
-  owner's subject and the pages' client; an app (ChatGPT, Claude, `/check`) is approved by a pairing code from the Mac.
+  owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
   lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
 - **What the memory holds, in words, is `claimsNow`** (`statements.ts`): the statements he rates and the eval judge the
-  same text.
+  same text. Which claims are doubtful is decided only by `doubtsOf`, from what is stored, never stored itself; which
+  he is asked about, only by `doubtful`.
 - **He is the center, not one more person:** his page is a projection like every page; his goals are only in
   `truth/me.md`; no separate record about him, no owner-only field on observations (`docs/architecture.md`).
 - **Facts are read by moment:** one call per day reads every unit of the day (`moments.ts`), then extraction reads a
   moment's units together (`extract.ts`), with earlier facts as a reading to correct, never as evidence. Extraction is
-  the only step that retires an observation, besides his word that one is outdated (a check-page answer or an
+  the only step that retires an observation, besides his word that one is outdated (a fact-check answer or an
   `outdated` correction).
 - **Model output is cached** by unit hash and prompt version (`docs/architecture.md`). Bump a prompt's version only
   when its meaning changes; ask before re-running the whole archive.

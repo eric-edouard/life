@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { clock } from "./clock";
 import { filesIn, linesOf } from "./files";
 import { LIFE_STATE_DIR } from "./paths";
-import { settings } from "./settings";
+import { pulls, settings } from "./settings";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
@@ -86,12 +86,15 @@ export const recentEvents = async <T = LogEvent>(
     .reverse()
     .flatMap((n) => logEvents<T>(n, kind, dir));
 
+/** The log file an instant's lines go to: one per UTC day. */
+export const logFileOf = (at: string) => `${at.slice(0, 10)}.jsonl`;
+
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   const at = clock().toISOString();
   const line = JSON.stringify({ at, kind, ...fields });
   try {
     mkdirSync(LOG_DIR, { recursive: true });
-    appendFileSync(join(LOG_DIR, `${at.slice(0, 10)}.jsonl`), `${line}\n`);
+    appendFileSync(join(LOG_DIR, logFileOf(at)), `${line}\n`);
   } catch {
     // Logging must never take the system down; stderr still has it.
     console.error(line);
@@ -100,8 +103,7 @@ export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
 /** Whether a connector call came from his agent: its user agent starts with the `agent` setting's `client`. */
 export const isAgent = (agent: unknown) => {
   const a = settings().agent;
-  const client =
-    a && (a.client ?? (a.transport === "pull" ? "Claude" : "openai-mcp"));
+  const client = a && (a.client ?? (pulls() ? "Claude" : "openai-mcp"));
   return !!client && String(agent ?? "").startsWith(client);
 };
 /** A call of his agent's daily review: `read_day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */

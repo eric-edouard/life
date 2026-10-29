@@ -247,7 +247,7 @@ test("a conversation across midnight is two units; a conversation with a stored 
   expect(isFrozen({ source: "git", summary: "Change 1" })).toBe(false);
 });
 
-test('a turn he marked "hey Life" moves its unit\'s hash and its refs are kept; a turn added moves it too, a name given does not', () => {
+test("a turn of one of his asks moves its unit's hash and its refs are kept; a turn added moves it too, a name given does not", () => {
   const [plain] = lifelogUnits([conversation], none);
   const [marked] = lifelogUnits(
     [

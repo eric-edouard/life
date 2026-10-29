@@ -89,7 +89,7 @@ export interface LifelogTurn {
   turnIndex: number;
 }
 
-/** A recorded conversation with its turns, each with the "hey Life" span that starts at it (the hearing's marks). */
+/** A recorded conversation with its turns, each with the span of the ask that starts at it (the hearing's marks). */
 export interface LifelogConversation {
   /** lifelog has settled it (the contract's `closed`): grouping adds nothing more to it. */
   closed: boolean;
@@ -441,7 +441,7 @@ export function readConversations(
       .all(from),
     (t) => t.conversation_id
   );
-  // His "hey Life" spans by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
+  // His asks' spans by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
   const marks = new Map(
     db
       .query<{ job_id: string; refs: string; turn_index: number }, []>(
@@ -674,7 +674,7 @@ export async function visits(q: Record<string, string | number | undefined>) {
 }
 
 /**
- * Replaces the "hey Life" spans the hearing found in a conversation from `from` on (a span grows as he goes on): each
+ * Replaces the asks' spans the hearing found in a conversation from `from` on (a span grows as he goes on): each
  * the refs of its turns, its wake first. Only refs are kept: where and whose a wake is stays the turn's row.
  */
 export function writeMarks(

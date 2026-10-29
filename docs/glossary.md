@@ -13,6 +13,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". A task waiting on him is `waiting-owner`. | |
 | agent | The owner's assistant that takes his asks (a ChatGPT or Claude agent). Its display name is the `agent` setting (`agentName`); the word stored for it is `AGENT_WORD`, `agent`. | |
+| agent start | For an agent that pulls its asks: the command Life starts when a new ask lands (`agent.start`, `startAgent`), so it reads the ask at once. Never waited on. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
 
@@ -21,6 +22,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, a Claude session, the agent's own split, or his daily ask. A ledger entry of kind `ask`. | |
+| mark | An ask's span in a recording, recorded by the hearing so its unit is read again at importance 3 (`marked` on the unit). Not a separate wake: "hey Life" is one of the agent's wake words. | |
 | daily ask | An ask Life makes once a day from the owner's own text (the `daily_ask` setting), at the time he picked, in his time zone; its `ref` is `daily:<day>`. | |
 | task | The agent's work on one ask: the ask and the updates and replies that follow, open until the agent closes it done or dropped. | |
 | update | The agent's report on a task: its state, steps, outcome; `taken: true` when it takes the task. | |
@@ -71,7 +73,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
-| the check | The page where the owner rates statements true or false (`/check`): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). | |
+| fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on his fact-check loop's cards: `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
+| doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `unsure-moment`, `low-confidence`. | |
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`), `repos-inferred.jsonl` (`InferredRepo`). | |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
 

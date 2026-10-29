@@ -1,16 +1,27 @@
 import { expect, test } from "bun:test";
-import { HOUR } from "../core/clock";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { clock, HOUR } from "../core/clock";
+import { appendJsonl, linesOf } from "../core/files";
 import { AGENT_WORD } from "../core/names";
+import { LIFE_STATE_DIR } from "../core/paths";
+import { HOME } from "../core/platform";
+import { SECRETS, writeSecret } from "../core/secret";
 import { readSettings, type Settings, setSettings } from "../core/settings";
+import { LEDGER } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
+import { LedgerEntry } from "../records/ledger-entry";
 import {
   agentLive,
+  deliver,
+  deliveryState,
   nextEvent,
   resumeAt,
   type State,
   Subscribe,
   settleDelivery,
   sign,
+  subscribe as subscribeTo,
 } from "./events";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
@@ -177,5 +188,96 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
     ).toBe(false);
   } finally {
     setSettings({ agent: before });
+  }
+});
+
+test("an agent that pulls its asks gets nothing pushed: its old subscription goes, the cursor stays at the end, a subscribe is refused", async () => {
+  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const now = clock().getTime();
+  appendJsonl(LEDGER, LedgerEntry, [
+    action({ kind: "ask", target: AGENT_WORD }),
+  ]);
+  writeSecret(
+    "events",
+    JSON.stringify({
+      attempts: 0,
+      delivered: 0,
+      subscription: {
+        id: "sub_1",
+        refreshBefore: new Date(now + HOUR).toISOString(),
+        secret: SECRET,
+        url: "https://chatgpt.com/cb",
+        verifiedAt: new Date(now).toISOString(),
+      },
+    })
+  );
+  try {
+    setSettings({ agent: { ...before, transport: "pull" } });
+    await deliver();
+    expect(deliveryState()).toEqual({
+      attempts: 0,
+      delivered: linesOf(LEDGER).length,
+    });
+    await expect(
+      subscribeTo({
+        arguments: {},
+        delivery: {
+          mode: "webhook",
+          secret: SECRET,
+          url: "https://chatgpt.com/cb",
+        },
+        name: "ask",
+      })
+    ).rejects.toThrow("pulls its asks");
+  } finally {
+    setSettings({ agent: before });
+    rmSync(LEDGER, { force: true });
+    rmSync(SECRETS.events, { force: true });
+  }
+});
+
+test("a new heard ask starts a pulling agent's command once, never one made from a chat, and the cursor moves to the end", async () => {
+  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const marker = join(LIFE_STATE_DIR, "started");
+  const cmd = [
+    process.execPath,
+    "-e",
+    `require("fs").appendFileSync(${JSON.stringify(marker)}, "x")`,
+  ];
+  // The command runs on its own: wait up to `ms` for it to write `want` times (a loaded machine starts it late).
+  const started = async (want: number, ms = 5000) => {
+    const count = () =>
+      existsSync(marker) ? readFileSync(marker, "utf8").length : 0;
+    for (let waited = 0; count() < want && waited < ms; waited += 50) {
+      // biome-ignore lint/performance/noAwaitInLoops: polling a file the child writes
+      await Bun.sleep(50);
+    }
+    // Then a little longer, so a second start would show.
+    await Bun.sleep(300);
+    return count();
+  };
+  rmSync(SECRETS.events, { force: true });
+  rmSync(marker, { force: true });
+  mkdirSync(HOME, { recursive: true });
+  writeSecret("events", JSON.stringify({ attempts: 0, delivered: 0 }));
+  try {
+    setSettings({ agent: { ...before, start: cmd, transport: "pull" } });
+    appendJsonl(LEDGER, LedgerEntry, [
+      action({ kind: "ask", target: AGENT_WORD, via: "connector" }),
+    ]);
+    await deliver();
+    expect(await started(1, 500)).toBe(0);
+    appendJsonl(LEDGER, LedgerEntry, [
+      action({ kind: "ask", target: AGENT_WORD }),
+    ]);
+    await deliver();
+    await deliver();
+    expect(await started(1)).toBe(1);
+    expect(deliveryState().delivered).toBe(linesOf(LEDGER).length);
+  } finally {
+    setSettings({ agent: before });
+    rmSync(LEDGER, { force: true });
+    rmSync(SECRETS.events, { force: true });
+    rmSync(marker, { force: true });
   }
 });

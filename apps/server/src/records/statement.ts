@@ -5,7 +5,7 @@ import { ObservationId } from "./observation";
 
 // The statements the owner rates, their ratings and the eval's scores (docs/SCHEMA.md).
 
-/** memory/statements.jsonl: the truth benchmark, one statement per claim, frozen as he was shown it (docs/SCHEMA.md). */
+/** memory/statements.jsonl: the fact checks, one statement per claim, frozen as he was shown it (docs/SCHEMA.md). */
 export const Statement = z
   .object({
     at: isoDateTime,
@@ -22,11 +22,13 @@ export const Statement = z
 
 export type Statement = z.infer<typeof Statement>;
 
-/** memory/ratings.jsonl: his answers on the check page, the latest per claim counting; null is an undo (docs/SCHEMA.md). */
+/** memory/ratings.jsonl: his answers to the fact checks, the latest per claim counting; null is an undo (docs/SCHEMA.md). */
 export const Rating = z
   .object({
-    answer: z.enum(["true", "false", "outdated", "skip"]).nullable(),
+    answer: z.enum(["true", "false", "partly", "outdated", "skip"]).nullable(),
     at: isoDateTime,
+    /** His why, in his words (from 29 Oct 2026). */
+    note: z.string().min(1).optional(),
     ref: z.union([ObservationId, MomentId]),
     schemaVersion: z.literal(1),
   })

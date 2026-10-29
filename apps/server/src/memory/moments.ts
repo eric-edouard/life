@@ -123,7 +123,8 @@ const Judged = z.object({
   kind: RecordingKind.nullish().transform((k) => k ?? undefined),
   reason: z.string().min(1).max(300),
   topics: z.array(z.string()).nullish(),
-  type: MemoryType,
+  // A label only (importance decides what is read): a type the model made up, like a recording kind, reads as nothing.
+  type: MemoryType.catch("nothing"),
   when: z.iso.date().nullable().default(null),
 });
 const Said = Moment.pick({
@@ -147,7 +148,7 @@ export const momentId = (key: string[]) =>
   `mom_${digest("sha1", key.join("|"), 12)}`;
 
 /**
- * Code's last word on a verdict's importance: commits 1 at most (never extracted), a unit he marked "hey Life" 3, an
+ * Code's last word on a verdict's importance: commits 1 at most (never extracted), a unit holding one of his asks 3, an
  * agent's report at least KEEP_AT (always read, for what it may close).
  */
 export function importanceOf(u: Unit, importance: number) {

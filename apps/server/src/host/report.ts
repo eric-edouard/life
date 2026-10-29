@@ -1,11 +1,11 @@
 import { join } from "node:path";
 import { MIN, unfrozen } from "../core/clock";
 import { digest } from "../core/hash";
-import { log, recentEvents } from "../core/log";
+import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
-import { agentName, settings } from "../core/settings";
+import { agentName, pulls, settings } from "../core/settings";
 import {
   type Digest,
   LIFE_MAIL,
@@ -55,7 +55,7 @@ export interface Night {
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
-  /** Each unit he marked "hey Life", read since the last night, and what the memory holds of it (`whatIsNew`). */
+  /** Each unit holding one of his asks, read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
   /** The days whose moments were read again, and how many moments they hold. */
   moments: Result<typeof moments>;
@@ -191,7 +191,7 @@ export function successReport(day: string, ms: number, n: Night) {
           ],
           title: "Code yesterday",
         },
-        { kind: "pairs", list: n.marked, title: "Hey Life" },
+        { kind: "pairs", list: n.marked, title: "Asks remembered" },
         { kind: "facts", list: n.facts, title: "What it found" },
         { kind: "pairs", list: n.moments.people, title: "New people" },
         { kind: "changes", list: changes, title: "What changed" },
@@ -220,21 +220,18 @@ export function successReport(day: string, ms: number, n: Night) {
   };
 }
 
-/** The email of a night that stopped at `step`. */
+/** The email of a run (a night, a backfill) that stopped at `step`, at `at`, and will not try again. */
 export function failureReport(
-  day: string,
+  at: string,
   ms: number,
   step: string,
   error: string
 ) {
-  const { date, weekday } = when(day);
+  const { date, weekday } = when(localDate(at));
   return compose(`${date} · failed at ${step}`, {
     date,
     failure: { error, step },
-    notes: [
-      "Nothing was committed; the next run resumes where this one stopped.",
-      `Details: derived/log/${day}.jsonl`,
-    ],
+    notes: ["Nothing was committed.", `Details: derived/log/${logFileOf(at)}`],
     preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`,
     stats: [
       { label: "stopped at", value: step },
@@ -300,10 +297,9 @@ export function taskReport(
 export const lapseReport = (open: number, now: number) =>
   alert(new Date(now).toISOString(), agentName(), {
     failure: {
-      error:
-        settings().agent?.transport === "pull"
-          ? "no tasks call from it in a day"
-          : "no live subscription to `ask`",
+      error: pulls()
+        ? "no tasks call from it in a day"
+        : "no live subscription to `ask`",
       step: "delivery",
     },
     notes: [

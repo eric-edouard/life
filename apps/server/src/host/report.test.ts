@@ -268,7 +268,7 @@ test("the HTML email escapes everything that comes from data", () => {
 
 test("the failure email names the step, plainly, and shows the error", () => {
   const { subject, text, html } = failureReport(
-    "2026-10-15",
+    "2026-10-15T10:00:00.000Z",
     1000,
     "extract",
     "2 <failed>"
@@ -338,7 +338,7 @@ test("a send goes out once per id: a second one with the same id never reaches R
   }
 });
 
-test('each "hey Life" is listed with what the memory holds of it', () => {
+test("each ask is listed with what the memory holds of it", () => {
   const n = {
     ...night(0),
     marked: [
@@ -349,7 +349,7 @@ test('each "hey Life" is listed with what the memory holds of it', () => {
     ],
   } as Night;
   const { text } = successReport("2026-10-15", 1000, n);
-  expect(text).toContain("Hey Life (1)");
+  expect(text).toContain("Asks remembered (1)");
   expect(text).toContain("nothing held");
 });
 

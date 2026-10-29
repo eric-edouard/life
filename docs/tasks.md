@@ -11,6 +11,11 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - The agent is the `agent` setting: name, wake words, misheard forms, client prefix, transport. Wherever Life names
   the agent, it writes that name; the word stored for it (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
+- **How asks reach it** (`transport`): pushed as the MCP event `ask` to a ChatGPT agent, or pulled by a Claude agent with
+  `read_open_agent_tasks`. A pulling agent can be started: with `start` set, the watcher starts that command once, in
+  his home and with `cliEnv` only, when a new ask lands (`startAgent`, `events.ts`), so the agent reads it within
+  seconds; it is never waited on, and its own runs claim the asks (`taken`), so two runs never do one. A start that
+  fails is logged (`run.error`); the ask waits on the board and Life emails him at 30 min.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (see `SECURITY.md`): an unattended run reads others' text with full
   access. Revisit it before any send goes out without the owner's yes on that send.
@@ -19,7 +24,9 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
   `playbook.md` in the owner data dir. `read_open_agent_tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
   hash of the text and a 6-hour window); `update_agent_task` refuses a write without the current seal and answers with the text.
-  The text between `<!-- reminders -->` markers is cut while the Reminders plugin is off: keep the markers.
+  Its parts are cut by `protocol` (`agent.ts`): the text between `<!-- reminders -->` markers while the to-do list is off,
+  `<!-- push -->` (subscribing, events, the daily message) for an agent that pulls, `<!-- pull -->` for one asks are
+  pushed to. Keep the markers.
 - What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
   The connector's instructions (512 characters at most) open with that line. Events carry data only.
 - The playbook makes the agent confirm a low-confidence ask with the owner first, send as the owner only under its
@@ -151,7 +158,7 @@ takes authority away.
   importance-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
   by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
-- Its authority is the observation alone: never the board, a `/check` tap or a chat `said`. It binds the connector, not
+- Its authority is the observation alone: never the board, a fact-check answer or a chat `said`. It binds the connector, not
   the agent's terminal.
 
 ## The Past calendar
@@ -162,14 +169,14 @@ properties `lifeMoment` and `lifeHash`. A changed moment is written again, a gon
 `lifeMoment` are never touched. It reads nothing back and never alerts. If that calendar ever becomes a source, its
 events with `lifeMoment` are Life's output and must be dropped.
 
-## "hey Life"
+## Marks
 
-The owner's marker, for memory only. The owner's turn holding it (an unattributed one too) and the owner's turns right after
-(`marksIn`, `apps/server/src/host/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
-watcher's store (`writeMarks`, refs only). Their unit carries them (`marked`, `readConversations`) and says
+What he asks is worth remembering: each ask's span (`asksIn`, `apps/server/src/host/hear.ts`) is also recorded by the
+hearing in the watcher's store as a mark (`writeMarks`, refs only). There is no other marker: "hey Life" is one of the
+agent's wake words in his settings, like its name. The unit carries its marks (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
 importance 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
-observations citing it. It never acts, asks or sends.
+observations citing it ("Asks remembered"). A mark never acts, asks or sends: the ask does, through the agent.
 
 ## The connector
 
@@ -189,7 +196,7 @@ grant, and logs the agent's replies.
 - One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `apps/server/src/host/events.ts`), behind the same auth. Callbacks go to
   OpenAI's hosts only, verified before anything is sent.
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
-  (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app, `/check` included, is approved with a pairing code
+  (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code
   from Life's panel, "Pair an app"; PKCE, one-use codes, refresh tokens replaced on use and kept 90 days, its key in
   `LIFE_STATE_DIR/oauth`), checked by `ownerTokens` (`apps/server/src/host/http/auth.ts`).
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid

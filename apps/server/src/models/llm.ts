@@ -9,12 +9,12 @@ import { MIN } from "../core/clock";
 import { log } from "../core/log";
 import { Engine } from "../core/names";
 import { isHis, LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { CODEX, MACHINE_DIR, MODEL_ENV } from "../core/platform";
+import { CODEX, cliEnv, MACHINE_DIR } from "../core/platform";
 import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
-const MODEL_TIMEOUT_MS = 20 * MIN;
+const MODEL_TIMEOUT_MS = 60 * MIN;
 
 /**
  * The model's reply is meant to be bare JSON; tolerate a fence or a stray line around it, and a reply that corrects
@@ -223,9 +223,7 @@ const promptText = (prompt: string) =>
 
 /** Only what a CLI needs to run: no API key (bill the subscriptions) and none of Life's .env secrets. */
 const modelEnv = (extra: Record<string, string> = {}) => ({
-  ...Object.fromEntries(
-    MODEL_ENV.flatMap((k) => (process.env[k] ? [[k, process.env[k]]] : []))
-  ),
+  ...cliEnv(),
   ...extra,
 });
 

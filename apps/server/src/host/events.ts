@@ -6,8 +6,10 @@ import { clock, DAY, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
+import { HOME } from "../core/platform";
+import { start } from "../core/proc";
 import { SECRETS, same, writeSecret } from "../core/secret";
-import { agentName, settings } from "../core/settings";
+import { agentName, pulls, settings } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { actFailedReport, sendReport } from "./report";
 
@@ -24,6 +26,8 @@ const VERIFIED_MS = DAY;
 const ATTEMPTS = 8;
 const BACKOFF_MS = 30_000;
 const CALLBACK_ERROR = -32_015;
+/** JSON-RPC's invalid request: a subscribe when his agent pulls its asks. */
+const INVALID_REQUEST = -32_600;
 
 const AskData = z.object({
   at: z.string().describe("When he spoke (or asked), ISO"),
@@ -176,6 +180,12 @@ export const resumeAt = (
  * subscription starts now. History is never truncated: the ledger is append-only.
  */
 export async function subscribe(p: z.infer<typeof Subscribe>) {
+  if (pulls()) {
+    throw new ProtocolError(
+      INVALID_REQUEST as never,
+      "This agent pulls its asks with read_open_agent_tasks: there is no ask event to subscribe to"
+    );
+  }
   const now = clock().getTime();
   const id = `sub_${digest("sha256", JSON.stringify([p.delivery.url, p.name, p.arguments]), 24)}`;
   const cached = deliveryState().subscription;
@@ -273,7 +283,7 @@ export async function agentLive(
   now: number,
   calls = () => recentEvents<Call>(2, "mcp.call")
 ) {
-  if (settings().agent?.transport !== "pull") {
+  if (!pulls()) {
     return subscribed(now);
   }
   return (await calls()).some(
@@ -320,6 +330,27 @@ export function settleDelivery(
 }
 
 /**
+ * For an agent that pulls its asks (it reads them itself, nothing is pushed): a new ask past the cursor starts its
+ * `start` command once, in his home; any old subscription goes and the cursor moves to the end, so switching back to
+ * push starts from now instead of replaying asks it already took. A start that fails is logged; the ask still shows on
+ * `read_open_agent_tasks`, and Life emails him when it isn't taken in 30 min.
+ */
+function startAgent(lines: string[]) {
+  const state = deliveryState();
+  const cmd = settings().agent?.start;
+  if (cmd && nextEvent(lines, state.delivered)) {
+    unfrozen("start the agent");
+    const error = start(cmd, HOME);
+    if (error) {
+      log("run.error", { error, step: "events.start" });
+    }
+  }
+  if (state.subscription || state.delivered < lines.length) {
+    writeState({ attempts: 0, delivered: lines.length });
+  }
+}
+
+/**
  * Delivers the asks past the cursor, one POST each, in order (the watcher calls it every loop), as `settleDelivery` says; an
  * ask passed over is emailed to him like a failed action. Nothing is sent before a subscription, after it expired, or
  * while a retry waits. A subscribe during a POST wins: the state is read again before each write.
@@ -327,6 +358,10 @@ export function settleDelivery(
 export async function deliver() {
   const now = clock().getTime();
   const lines = linesOf(LEDGER);
+  if (pulls()) {
+    startAgent(lines);
+    return;
+  }
   for (;;) {
     const state = deliveryState();
     const next = nextEvent(lines, state.delivered);

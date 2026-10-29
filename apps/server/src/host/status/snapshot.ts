@@ -8,7 +8,7 @@ import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
-import { agentName, settings } from "../../core/settings";
+import { agentName, pulls } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
 import {
   CORRECTIONS,
@@ -161,7 +161,7 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-/** The truth benchmark: statements he rated, and those left. */
+/** The fact checks: statements he answered, and those left. */
 async function rated() {
   const [statements, ratings] = await Promise.all([
     readStatements(),
@@ -930,7 +930,7 @@ function agentCards(r: Reads): Card[] {
   const events = deliveryState();
   const lines = linesOf(LEDGER).length;
   const live = r.agentLive;
-  const pulls = settings().agent?.transport === "pull";
+  const pulling = pulls();
   const calls = since(r.mcp, DAY, r.t).filter((c) => isAgent(c.agent));
   const tasks = taskList(r.t);
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
@@ -947,7 +947,7 @@ function agentCards(r: Reads): Card[] {
           {
             headline: "receiving asks",
             tone: "ok",
-            word: pulls ? "checking in" : "subscribed",
+            word: pulling ? "checking in" : "subscribed",
           },
         ],
         [
@@ -955,7 +955,7 @@ function agentCards(r: Reads): Card[] {
           {
             ask: ASK(`that ${agentName()} isn't receiving asks`),
             tone: "bad",
-            word: pulls ? "not checking in" : "no subscription",
+            word: pulling ? "not checking in" : "no subscription",
           },
         ]
       ),
@@ -1089,13 +1089,13 @@ function outputCards(r: Reads): Card[] {
       name: "Email",
     },
     {
-      facts: [{ label: "Left to rate", value: String(r.mem.left) }],
+      facts: [{ label: "Left to answer", value: String(r.mem.left) }],
       group: "outputs",
-      headline: `${r.mem.left} to rate`,
+      headline: `${r.mem.left} to answer`,
       id: "check",
-      name: "/check",
+      name: "Fact checks",
       tone: "ok",
-      word: "serving",
+      word: r.mem.left > 0 ? "waiting" : "all answered",
     },
     {
       facts: [
