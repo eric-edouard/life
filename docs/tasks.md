@@ -12,9 +12,10 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   the agent, it writes that name; the word stored for it (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
 - **How asks reach it** (`transport`): pushed as the MCP event `ask` to a ChatGPT agent, or pulled by a Claude agent with
-  `read_open_agent_tasks`. A pulling agent can be started: with `start` set, the watcher starts that command once, in
-  his home and with `cliEnv` only, when a new ask lands (`startAgent`, `events.ts`), so the agent reads it within
-  seconds; it is never waited on, and its own runs claim the asks (`taken`), so two runs never do one. A start that
+  `read_open_agent_tasks`. A pulling agent can be started: with `start` set, the watcher starts that command, in his
+  home and with `cliEnv` only, with an event's JSON appended: `{kind:"ask"}` once when a new ask lands, so the agent
+  reads it within seconds, and `{kind:"tick", at, zone}` each minute (`startAgent`, `events.ts`); the command decides
+  what each event starts (the owner's is life-loops' runner, which schedules his loops). It is never waited on, and its own runs claim the asks (`taken`), so two runs never do one. A start that
   fails is logged (`run.error`); the ask waits on the board and Life emails him at 30 min.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (see `SECURITY.md`): an unattended run reads others' text with full
