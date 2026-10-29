@@ -116,15 +116,19 @@ function sourceValue(s: Source, seen: Seen) {
     const value =
       s.type === "request_header"
         ? r.headers.get(s.name.toLowerCase())
-        : (
-            JSON.parse(r.body?.startsWith("{") ? r.body : "{}") as Record<
-              string,
-              string
-            >
-          )[s.name];
+        : bodyOf(r)[s.name];
     if (value) {
       return value;
     }
+  }
+}
+
+/** A request's JSON body, or nothing (none, not JSON, cut short). */
+function bodyOf(r: Request): Record<string, string> {
+  try {
+    return JSON.parse(r.body?.startsWith("{") ? r.body : "{}");
+  } catch {
+    return {};
   }
 }
 
@@ -150,21 +154,19 @@ export async function signInWithChrome(
       stdout: "ignore",
     }
   );
-  const cleanUp = () => {
+  // Chrome stopped first, then its profile deleted: a Chrome still closing writes its cookies back.
+  const cleanUp = async () => {
     chrome.kill();
+    await chrome.exited;
     rmSync(profile, { force: true, recursive: true });
   };
-  const abort = () => {
-    cleanUp();
-    process.exit(130);
-  };
+  const abort = () => cleanUp().finally(() => process.exit(130));
   process.once("SIGINT", abort);
   try {
     return await collect(step, profile, () => chrome.exitCode !== null);
   } finally {
     process.off("SIGINT", abort);
-    cleanUp();
-    await chrome.exited;
+    await cleanUp();
   }
 }
 
@@ -174,7 +176,9 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
   const port = await untilAnswers(
     // async: a file not there yet is a try that failed, not a throw.
     async () =>
-      readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0],
+      readFileSync(join(profile, "DevToolsActivePort"), "utf8").split(
+        "\n"
+      )[0] || undefined,
     "Chrome"
   );
   const page = await untilAnswers(
@@ -198,7 +202,6 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
   });
   const requests = new Map<string, Request>();
   const extracted: Record<string, string> = {};
-  let url = "";
   const send = devtools(ws, (method, p) => {
     const id = String(p.requestId ?? "");
     if (method === "Network.requestWillBeSent") {
@@ -207,9 +210,11 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
         postData?: string;
         url: string;
       };
+      // Its extra info (the headers really sent) may have come first: kept, over these.
+      const known = requests.get(id)?.headers ?? new Map();
       requests.set(id, {
         body: r.postData,
-        headers: lower(r.headers),
+        headers: new Map([...lower(r.headers), ...known]),
         url: r.url,
       });
     } else if (method === "Network.requestWillBeSentExtraInfo") {
@@ -219,9 +224,6 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
         ...r,
         headers: new Map([...r.headers, ...lower(p.headers)]),
       });
-    } else if (method === "Page.frameNavigated") {
-      const frame = p.frame as { parentId?: string; url: string };
-      url = frame.parentId ? url : frame.url;
     }
   });
   await send("Network.enable");
@@ -255,17 +257,21 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
     const { cookies = [] } = (await send("Network.getAllCookies")) as {
       cookies?: Seen["cookies"];
     };
-    const storage = await send("Runtime.evaluate", {
-      expression: "JSON.stringify(Object.assign({}, localStorage))",
+    // The page's address (a single-page site moves without navigating) and its local storage, read in it.
+    const here = await send("Runtime.evaluate", {
+      expression:
+        "JSON.stringify({ storage: Object.assign({}, localStorage), url: location.href })",
       returnByValue: true,
     })
       .then(
         (r) =>
           JSON.parse(
             String((r.result as { value?: string } | undefined)?.value ?? "{}")
-          ) as Record<string, string>
+          ) as { storage?: Record<string, string>; url?: string }
       )
-      .catch(() => ({}));
+      .catch(() => ({}) as { storage?: Record<string, string>; url?: string });
+    const storage = here.storage ?? {};
+    const url = here.url ?? "";
     const seen = {
       cookies,
       extracted,
