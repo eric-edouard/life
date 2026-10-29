@@ -18,7 +18,7 @@ export const MemoryType = z.enum([
   "to_do",
   "promise",
   "waiting_on_someone",
-  "decision",
+  "choice",
   "about_a_person",
   "preference",
   "idea",
