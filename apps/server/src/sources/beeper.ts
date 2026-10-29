@@ -16,6 +16,7 @@ import {
   type Row,
   readArchived,
 } from "./archived";
+import { BRIDGED, cutoverOf } from "./bridged";
 import { sourceFile } from "./contract";
 
 // Beeper Desktop's own store, opened read-only by its copy into the archive.
@@ -85,21 +86,9 @@ export function readBeeper(
 function bridgedFrom(archive: string) {
   const from = new Map<string, string>();
   const beeper = archiveDb("beeper", archive);
-  for (const network of ["line", "instagram"]) {
-    const own = archiveDb(network, archive);
-    if (!(existsSync(own) && existsSync(beeper))) {
-      continue;
-    }
-    const first = withDb(
-      own,
-      (db) =>
-        db
-          .query<{ at: string | null }, []>(
-            "select min(at) as at from messages"
-          )
-          .get()?.at
-    );
-    if (!first) {
+  for (const { name } of BRIDGED) {
+    const cutover = cutoverOf(name, archive);
+    if (!(cutover && existsSync(beeper))) {
       continue;
     }
     for (const { chat } of withDb(beeper, (db) =>
@@ -107,9 +96,9 @@ function bridgedFrom(archive: string) {
         .query<{ chat: string }, [string]>(
           "select distinct chat from messages where network = ?"
         )
-        .all(network)
+        .all(name)
     )) {
-      from.set(chat, first);
+      from.set(chat, cutover);
     }
   }
   return from;

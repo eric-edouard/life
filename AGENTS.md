@@ -89,7 +89,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
-  before the archive's copy: its `redaction_retention_period` stays null and its rooms are never purged (his OK of the
+  before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
+  never made again (the copy counts its event numbers) (his OK of the
   new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026).
 - **Content never runs Life's code; it may wake his agents.** Recorded text never makes Life's own code act; model calls
   see no tools and no instruction files (`apps/server/src/models/llm.ts`). Life may start one of his agents because of

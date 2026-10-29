@@ -30,7 +30,7 @@ function stores() {
   );
   const hs = new Database(synapse);
   hs.run(`create table events (stream_ordering integer primary key, event_id text, room_id text, type text,
-    sender text, origin_server_ts integer)`);
+    sender text, origin_server_ts integer, rejection_reason text, outlier integer default 0)`);
   hs.run("create table event_json (event_id text, json text)");
   hs.run(`create table room_memberships (room_id text, user_id text, membership text, display_name text,
     event_stream_ordering integer)`);
@@ -57,7 +57,7 @@ function stores() {
   ) => {
     n += 1;
     const id = `$e${n}`;
-    hs.run("insert into events values (?, ?, ?, ?, ?, ?)", [
+    hs.run("insert into events values (?, ?, ?, ?, ?, ?, null, 0)", [
       n,
       id,
       ROOM,
@@ -102,6 +102,9 @@ test("a bridged chat keeps every version: the message, its edit, its deletion wi
 
   expect(copyBridged("line", archive, Date.now(), synapse)).toBeGreaterThan(0);
   expect(copyBridged("line", archive, Date.now(), synapse)).toBe(0);
+  // A new message later: only it is copied.
+  event("m.room.message", ANA, { body: "here", msgtype: "m.text" });
+  expect(copyBridged("line", archive, Date.now(), synapse)).toBe(1);
 
   const read = readBridged("line", new Date(0), archive);
   expect(
@@ -110,6 +113,7 @@ test("a bridged chat keeps every version: the message, its edit, its deletion wi
     ["see you at 9", false, "u1", false],
     ["ok", true, "me", false],
     ["a.jpg", false, "u1", true],
+    ["here", false, "u1", false],
   ]);
   expect(read[0]?.chatName).toBe("Ana");
   expect(read[2]?.files?.[0]?.mime).toBe("image/jpeg");

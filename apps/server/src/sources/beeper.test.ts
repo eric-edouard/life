@@ -93,7 +93,7 @@ test("each network's newest message is that row whole, never another row's words
   rmSync(dir, { force: true, recursive: true });
 });
 
-test("from a network's first bridged message on, Beeper's chats of that network step aside; others stay", () => {
+test("from when Life started copying a network itself, Beeper's chats of it step aside; a backfilled older message moves nothing", () => {
   const dir = mkdtempSync(join(tmpdir(), "archive-"));
   const beeper = new Database(join(dir, "beeper.sqlite"));
   beeper.run(matrixArchive("network text not null,"));
@@ -111,7 +111,7 @@ test("from a network's first bridged message on, Beeper's chats of that network 
   line.run(matrixArchive(""));
   line.run(
     `insert into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
-     values (1, '$b1', '!r1', 'Ana', 'u1', 'Ana', 0, '2026-10-29T09:00:00.000Z', 'm.text', 'hi', 0, '2026-10-29T09:00:00.000Z')`
+     values (1, '$b1', '!r1', 'Ana', 'u1', 'Ana', 0, '2026-10-29T07:00:00.000Z', 'm.text', 'hi', 0, '2026-10-29T09:00:00.000Z')`
   );
   line.close();
   expect(readBeeper(new Date(0), dir, dir).map((e) => e.text)).toEqual([

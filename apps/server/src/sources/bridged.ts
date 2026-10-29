@@ -1,10 +1,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { clock, HOUR } from "../core/clock";
+import { log } from "../core/log";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
+  archiveDb,
   insertAll,
   LATEST_VERSIONS,
   matrixArchive,
@@ -135,6 +137,7 @@ function archivedVersion(
   e: Event,
   ctx: {
     bot: string;
+    isChat: (room: string) => boolean;
     find: (id: string) => Event | null;
     mine: Set<string>;
     nameOf: (room: string) => string | null;
@@ -144,7 +147,12 @@ function archivedVersion(
   }
 ) {
   const version = versionOf(e, ctx.find);
-  if (!version || version.original.sender === ctx.bot) {
+  // The bridge's own room with him (its commands, its notices) is no conversation.
+  if (
+    !version ||
+    version.original.sender === ctx.bot ||
+    !ctx.isChat(version.original.room)
+  ) {
     return;
   }
   const { original: o, content: c, deleted } = version;
@@ -198,10 +206,22 @@ export function copyBridged(
       archive
         .query<{ n: number | null }, []>("select max(stream) as n from copied")
         .get()?.n ?? 0;
+    const newest =
+      hs
+        .query<{ n: number | null }, []>(
+          "select max(stream_ordering) as n from events"
+        )
+        .get()?.n ?? 0;
+    if (after > newest) {
+      throw new Error(
+        `${bridge}: copied past the homeserver's newest event (${after} > ${newest}): was its database made again?`
+      );
+    }
     // ponytail: 5000 events a pass (a first backfill catches up a few passes in); paging by event number keeps it cheap.
     const events = hs
       .query<Event, [number, string]>(
         `${EVENTS} where e.stream_ordering > ? and e.type in ('m.room.message', 'm.room.redaction')
+           and e.rejection_reason is null and not e.outlier
            and e.room_id in (select room_id from room_memberships where user_id = ? and membership = 'join')
          order by e.stream_ordering limit 5000`
       )
@@ -215,9 +235,13 @@ export function copyBridged(
     const seenAt = new Date(now).toISOString();
     const rows: (string | number | null)[][] = [];
     const files: string[][] = [];
+    const others = hs.query<{ n: number }, [string, string, string]>(
+      "select count(*) as n from room_memberships where room_id = ? and user_id <> ? and user_id <> ?"
+    );
     const ctx = {
       bot,
       find: (id: string) => byId.get(id),
+      isChat: (room: string) => (others.get(room, bot, OWNER)?.n ?? 0) > 0,
       mine,
       nameOf,
       prefix,
@@ -233,26 +257,34 @@ export function copyBridged(
           files.push(...v.files);
         }
       } catch (error) {
-        console.error(seenAt, bridge, e.id, error);
+        // Skipped for good: the cursor moves past it, so one event that never parses can't stop the copy.
+        log("run.error", {
+          error: `${e.id}: ${(error as Error).message}`,
+          step: `archive.${bridge}.event`,
+        });
       }
     }
-    const added =
-      insertAll(
-        archive,
-        "insert or ignore into files (chat, eventId, files) values (?, ?, ?)",
-        files
-      ) +
-      insertAll(
-        archive,
-        `insert or ignore into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        rows
-      );
     const last = events.at(-1)?.stream;
-    if (last) {
-      archive.run("delete from copied");
-      archive.run("insert into copied values (?)", [last]);
-    }
+    // One transaction: the versions and how far they were copied land together.
+    const added = archive.transaction(() => {
+      const n =
+        insertAll(
+          archive,
+          "insert or ignore into files (chat, eventId, files) values (?, ?, ?)",
+          files
+        ) +
+        insertAll(
+          archive,
+          `insert or ignore into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          rows
+        );
+      if (last) {
+        archive.run("delete from copied");
+        archive.run("insert into copied values (?)", [last]);
+      }
+      return n;
+    })();
     return added;
   } finally {
     hs.close();
@@ -310,14 +342,44 @@ const mediaOf = (url: string) => {
 };
 
 /** The bridge's messages since `since`, from the archive, oldest first. */
-type Bridged = "instagram" | "line";
+/** Every network Life bridges itself, and what he calls it: one source each (`memory/sources.ts`). */
+export const BRIDGED = [
+  { label: "LINE", name: "line" },
+  { label: "Instagram", name: "instagram" },
+] as const;
+type Bridged = (typeof BRIDGED)[number]["name"];
+
+/**
+ * When Life started copying a network itself: its archive's first copy. Before it, Beeper's copy of that network
+ * counts; from it on, the bridge's (`readBridged`, `readBeeper`): one moment for both, so a bridge's backfill of older
+ * history never hides Beeper's, nothing is read twice, and stored ids stay. None while it has copied nothing.
+ */
+export function cutoverOf(network: string, archive = ARCHIVE) {
+  const path = archiveDb(network, archive);
+  if (!existsSync(path)) {
+    return;
+  }
+  const db = openReadOnly(path);
+  try {
+    return (
+      db
+        .query<{ at: string | null }, []>(
+          "select min(seenAt) as at from messages"
+        )
+        .get()?.at ?? undefined
+    );
+  } finally {
+    db.close();
+  }
+}
 
 export const readBridged = (
   bridge: Bridged,
   since: Date,
   archive = ARCHIVE
-): SourceEvent[] =>
-  readArchived<Row & { files: string | null }>(
+): SourceEvent[] => {
+  const from = cutoverOf(bridge, archive) ?? "";
+  return readArchived<Row & { files: string | null }>(
     bridge,
     LATEST_VERSIONS,
     since,
@@ -339,7 +401,8 @@ export const readBridged = (
         })
       ),
     })
-  );
+  ).filter((e) => e.at >= from);
+};
 
 /** A bridged network as a source: its archive's copy, its reading and newest, its send (`bridgeSend`). */
 export const bridgedSource = (name: Bridged, label: string): Descriptor => ({
