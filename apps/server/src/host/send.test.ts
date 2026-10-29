@@ -24,6 +24,8 @@ const quiet = () => false;
 
 test("his answered option's draft goes, into the chat its ref names", () => {
   expect(sendRefusal(answered, [], quiet)).toBeNull();
+  // The loop takes a decision before it acts on it: a taken one still goes.
+  expect(sendRefusal({ ...answered, status: "taken" }, [], quiet)).toBeNull();
   // A try that failed may go again.
   expect(
     sendRefusal(answered, [tried("intent"), tried("failed")], quiet)
