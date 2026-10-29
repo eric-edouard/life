@@ -184,10 +184,26 @@ export const bridgeSend = (bridge: string) => ({
     sendMatrix(bridge, chat, text, txn),
 });
 
-/** One step of a bridge's login, as its provisioning API gives it. */
+/** One step of a bridge's login, as its provisioning API gives it (mautrix's bridgev2 `LoginStep`). */
 export interface LoginStep {
   complete?: { user_login_id?: string };
-  cookies?: { fields?: { id: string; required?: boolean }[]; url?: string };
+  cookies?: {
+    /** A script the sign-in page runs: it resolves to some of the fields' values (a `special` source names one). */
+    extract_js?: string;
+    fields?: {
+      id: string;
+      required?: boolean;
+      sources?: {
+        cookie_domain?: string;
+        name: string;
+        request_url_regex?: string;
+        type: string;
+      }[];
+    }[];
+    url?: string;
+    /** The page to have reached before the window closes (past 2FA). */
+    wait_for_url_pattern?: string;
+  };
   display_and_wait?: { data?: string; type?: string };
   instructions?: string;
   login_id: string;
@@ -203,10 +219,100 @@ export interface LoginStep {
   };
 }
 
-/** What a login asks of him: to look at something (a QR code, a code), and to give a value (a field, a cookie). */
+/**
+ * What a login asks of him: to look at something (a QR code, a code), a site's cookies (all at once), and one value (a
+ * field, a cookie that didn't come with the rest).
+ */
 export interface LoginAsk {
+  /** A cookie step's values by field, as he gives them: a browser he signs in to, or a request he pastes. */
+  cookies: (step: CookieStep) => Promise<Map<string, string>>;
   show: (step: LoginStep) => void;
   value: (field: { hidden: boolean; id: string; name: string }) => string;
+}
+
+export type CookieStep = NonNullable<LoginStep["cookies"]>;
+
+// A curl argument as Chrome and Safari copy it: '…', "…", or $'…' (bash's escapes, when a value holds ! ' or a control).
+const ARGUMENT = String.raw`(\$?)(['"])((?:\\.|(?!\2).)*)\2`;
+const HEADER = new RegExp(String.raw`(?:-H|--header)\s+${ARGUMENT}`, "g");
+const COOKIE_FLAG = new RegExp(String.raw`(?:-b|--cookie)\s+${ARGUMENT}`, "g");
+const ESCAPE = /\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)/g;
+
+/** An argument's text: a $'…' one with its escapes undone (\', \\, \n, \xHH, \uHHHH). */
+const unquote = (ansi: string, body: string) =>
+  ansi
+    ? body.replace(ESCAPE, (_, e: string) => {
+        if (e.length > 1) {
+          return String.fromCharCode(Number.parseInt(e.slice(1), 16));
+        }
+        return e === "n" ? "\n" : e;
+      })
+    : body;
+
+/**
+ * A request he pasted, as its cookies and headers by name: a "Copy as cURL" (its `Cookie` header or `-b`), or a JSON
+ * object of names and values. Nothing for anything else.
+ */
+export function pastedValues(pasted: string) {
+  const text = pasted.trim();
+  if (text.startsWith("{")) {
+    try {
+      const json = JSON.parse(text) as Record<string, unknown>;
+      return {
+        cookies: new Map(Object.entries(json).map(([k, v]) => [k, String(v)])),
+        headers: new Map<string, string>(),
+      };
+    } catch {
+      // Not JSON after all: read it as a request.
+    }
+  }
+  const headers = new Map(
+    [...text.matchAll(HEADER)].flatMap((m) => {
+      const header = unquote(`${m[1]}`, `${m[3]}`);
+      const at = header.indexOf(":");
+      return at > 0
+        ? [
+            [
+              header.slice(0, at).trim().toLowerCase(),
+              header.slice(at + 1).trim(),
+            ] as const,
+          ]
+        : [];
+    })
+  );
+  const jar = [
+    headers.get("cookie") ?? "",
+    ...[...text.matchAll(COOKIE_FLAG)].map((m) =>
+      unquote(`${m[1]}`, `${m[3]}`)
+    ),
+  ]
+    .join(";")
+    .split(";")
+    .map((c) => c.trim().split("="))
+    .filter(([name]) => name);
+  const cookies = new Map(
+    jar.map(([name, ...value]) => [`${name}`, value.join("=")])
+  );
+  return { cookies, headers };
+}
+
+/** Each cookie field's value from what he pasted: by its sources (a cookie, a request header). */
+export function cookieValues(
+  fields: NonNullable<CookieStep["fields"]>,
+  pasted: ReturnType<typeof pastedValues>
+) {
+  return new Map(
+    fields.flatMap((f) => {
+      const value = [...(f.sources ?? []), { name: f.id, type: "cookie" }]
+        .map((s) =>
+          s.type === "request_header"
+            ? pasted.headers.get(s.name.toLowerCase())
+            : pasted.cookies.get(s.name)
+        )
+        .find(Boolean);
+      return value ? [[f.id, value] as const] : [];
+    })
+  );
 }
 
 /** The ways a bridge offers to link it (QR, email and password, cookies). */
@@ -217,7 +323,7 @@ export const loginFlows = async (bridge: string) =>
     name: string;
   }[];
 
-/** What a step asks him to give: its fields (a password hidden), or its cookies (each hidden); none for one he looks at. */
+/** What a step asks him to give: its fields, a password hidden; none for one he looks at. */
 function fieldsOf(step: LoginStep) {
   if (step.type === "user_input") {
     return (step.user_input?.fields ?? []).map((f) => ({
@@ -226,13 +332,24 @@ function fieldsOf(step: LoginStep) {
       name: f.name ?? f.id,
     }));
   }
-  return step.type === "cookies"
-    ? (step.cookies?.fields ?? []).map((f) => ({
-        hidden: true,
-        id: f.id,
-        name: f.id,
-      }))
-    : [];
+  return [];
+}
+
+/**
+ * What one step sends back: his answers to its fields, or its cookies, all at once first (`ask.cookies`), then one by
+ * one for a required one that didn't come (an optional one is left out).
+ */
+async function answersOf(step: LoginStep, ask: LoginAsk) {
+  if (step.type !== "cookies") {
+    return Object.fromEntries(fieldsOf(step).map((f) => [f.id, ask.value(f)]));
+  }
+  const found = await ask.cookies(step.cookies ?? {});
+  for (const f of (step.cookies?.fields ?? []).filter(
+    (x) => x.required && !found.has(x.id)
+  )) {
+    found.set(f.id, ask.value({ hidden: true, id: f.id, name: f.id }));
+  }
+  return Object.fromEntries(found);
 }
 
 /**
@@ -248,9 +365,8 @@ export async function linkBridge(bridge: string, flow: string, ask: LoginAsk) {
   })) as unknown as LoginStep;
   while (step.type !== "complete") {
     ask.show(step);
-    const fields = fieldsOf(step);
-    const body = Object.fromEntries(fields.map((f) => [f.id, ask.value(f)]));
     // biome-ignore lint/performance/noAwaitInLoops: each step follows the last
+    const body = await answersOf(step, ask);
     step = (await provision(
       bridge,
       `login/step/${step.login_id}/${step.step_id}/${step.type}`,

@@ -85,3 +85,8 @@ export const notifyArgs = (title: string, body: string) =>
         title,
         body,
       ];
+
+/** Google Chrome, for a bridge's sign-in window (`host/sign-in-browser.ts`): the Mac's; none elsewhere. */
+export const CHROME = WINDOWS
+  ? undefined
+  : "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
