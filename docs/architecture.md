@@ -12,9 +12,9 @@ Life works beside lifelog, a companion project that captures voice. Each has one
 
 | | lifelog | Life |
 |---|---|---|
-| Job | Voice capture: audio, transcripts, speakers, conversations, search | Memory across sources: voice (through lifelog), WhatsApp, Beeper, iMessage, mail, Apple Notes, git, imported assistant chats |
+| Job | Voice capture: audio, transcripts, speakers, conversations, search | Memory across sources: voice (through lifelog), WhatsApp, LINE, Instagram, LinkedIn, Telegram, iMessage, mail, Apple Notes, git, imported assistant chats |
 | Owns | The raw spoken archive | The people across channels, observations, people and project pages |
-| Runs | Its own host and the phone | The Mac (Beeper, Messages and Mail are Mac-only, and chats stay on the Mac) |
+| Runs | Its own host and the phone | The Mac (WhatsApp, Messages and Mail are Mac-only, and chats stay on the Mac) |
 | Acts? | Never | Only on the owner's clear request (`docs/tasks.md`) |
 
 - Life reads lifelog through its REST API with a device token (`apps/server/src/sources/lifelog.ts`): the change feed

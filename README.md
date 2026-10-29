@@ -60,7 +60,8 @@ Life reads iMessage, Mail, Apple Notes and your contacts with nothing else insta
 Access. Each of these adds something if you have it:
 
 - WhatsApp's Mac app: your WhatsApp chats, including messages later deleted for everyone.
-- Beeper Desktop: LINE, Telegram and Instagram chats.
+- Messaging bridges: your LINE, Instagram, LinkedIn and Telegram chats, read through Life's own bridges
+  ([set up bridges](docs/use/bridges.md)).
 - lifelog, Life's companion in this repo ([apps/lifelog](apps/lifelog/README.md)): an iPhone app and a server on your
   Mac that record and transcribe your conversations: voice, where you were, and "hey <agent>" requests.
   [Set up voice](docs/use/voice.md).
@@ -88,7 +89,7 @@ menu bar from then on; turn on **Open Life at login** so it starts with the Mac.
 
 ## What happens next
 
-The archive starts at once: every 5 seconds it copies new WhatsApp, Beeper and Notes changes, so a message deleted
+The archive starts at once: every 5 seconds it copies new WhatsApp, bridged-network and Notes changes, so a message deleted
 later, or an old version of a note, is kept. Nothing is ready to ask yet.
 
 Tonight, on the first check after 2:00, Life reads the last 7 days from every source you turned on. It writes what

@@ -43,13 +43,13 @@ test.if(FROZEN !== undefined)(
       fromMe: false,
       id: `m${minutes}`,
       sender: "Ana",
-      source: "beeper" as const,
+      source: "line" as const,
       text,
     });
     const chats =
       (await chatsOf(
         { chat: "!c" },
-        { beeper: () => [message(-5, "before now"), message(5, "after now")] }
+        { line: () => [message(-5, "before now"), message(5, "after now")] }
       )) ?? "";
     expect(chats).toContain("before now");
     expect(chats).not.toContain("after now");

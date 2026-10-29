@@ -48,7 +48,7 @@ exception: his decisions, which his loops ask and he answers on `/me/decisions` 
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
   `bun life memory unresolved` before asking him anything. His word beats the memory.
-- A send through any messaging app (Beeper, WhatsApp, iMessage, mail) needs the owner's OK on the exact text. Life's
+- A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, LinkedIn, mail) needs the owner's OK on the exact text. Life's
   own send is `bun life send <decision>`: the option he answered, its draft, into the chat its `ref` names.
 - When the owner says something didn't work, it is audited (docs/operations.md#audits), and its fix carries a
   regression case.
@@ -189,7 +189,7 @@ Before adding a helper, use the one that exists:
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | A messaging network on a bridge | its entry in `NETWORKS` (`sources/bridged.ts`); set up, linked and removed only by `bun life bridge` (`host/bridges.ts`): a bridge is added when its folder holds its config; each bridge and the homeserver run under launchd, one job each, outside Life.app (the homeserver holds deleted messages until the archive copies them) |
-| A Matrix-shaped chat archive (Beeper's, a bridge's) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
+| A Matrix-shaped chat archive (a bridged network's: `line.sqlite`, `instagram.sqlite`, `linkedin.sqlite`, `telegram.sqlite`) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
 | Sending into a chat | `send` (`host/send.ts`), through the source's `send.deliver`; a bridge's from `bridgeSend` (`sources/matrix.ts`) |
 | Whether a source is healthy, whether it can send | its `missing()` then its `newest()` (the snapshot's source card); its `send.blocked()` (the Sends card), never a second check |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |

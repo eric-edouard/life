@@ -18,7 +18,7 @@ The `<context>` at the end is one JSON object: `me` (who the owner is), `people`
 The user message is one JSON object:
 
 - `day`: the local day (`YYYY-MM-DD`, the owner's time zone) the units belong to.
-- `units`: every unit of that day, in time order. Each has `id`, `source` (lifelog, whatsapp, beeper, imessage, mail,
+- `units`: every unit of that day, in time order. Each has `id`, `source` (lifelog, whatsapp, line, instagram, telegram, imessage, mail,
   git), `start` and `end` (local `YYYY-MM-DD HH:MM`), `title`, `people` (who is in it, when known), sometimes
   `areaHint`, and `text`: for a recording, its title and then its turns as `HH:MM who: words`, its start and end when long, or
   on older days a chapter's title and summary (speakers
@@ -26,7 +26,7 @@ The user message is one JSON object:
   usually the owner; the recorder also picks up TV, videos, customers and strangers); for chats and mail, its messages as
   `HH:MM who: text` (`who` is `me` for the owner, a person ref, or a label such as a phone number for someone not
   identified; a message its sender deleted afterwards is still shown), clipped when long; for git, his commits.
-- `unknown`: the handles (a phone number, a WhatsApp or Beeper id) and names in today's units that are not on his map,
+- `unknown`: the handles (a phone number, a WhatsApp, LINE, Instagram or Telegram id) and names in today's units that are not on his map,
   each with the ids of the units it appears in. In the units' lines such a sender shows as its handle.
 - `earlier`: moments Life found on the days before, that still matter today (planned ones, ones that may continue),
   and this day's own moments from an earlier reading of it.

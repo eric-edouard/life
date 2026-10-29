@@ -6,7 +6,7 @@ import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { Newest } from "./contract";
 
-// Life's archive (apps/server/src/host/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and Beeper's
+// Life's archive (apps/server/src/host/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and the bridges'
 // chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
 // of a note as what it changed.
 
@@ -135,7 +135,7 @@ export function insertAll(
 }
 
 /**
- * A Matrix-shaped chat archive (Beeper's, and each bridge's, `sources/bridged.ts`): one row per version a message was
+ * A Matrix-shaped chat archive (each bridge's, `sources/bridged.ts`): one row per version a message was
  * seen in (the original, each edit, the deleted state with its text wiped), the same for its files, which a delete
  * wipes too, and the `deleted` view. `extra` is the store's own columns, after `chatName`.
  */

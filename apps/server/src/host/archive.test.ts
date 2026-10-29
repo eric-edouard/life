@@ -24,39 +24,33 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
   const now = Date.now();
   expect(appsToOpen(["Notes", "Finder"], now, new Map(), ARCHIVED)).toEqual([
     "WhatsApp",
-    "Beeper Desktop",
   ]);
   const opened = new Map([["WhatsApp", now - MIN]]);
-  expect(appsToOpen([], now, opened, ARCHIVED)).toEqual([
-    "Beeper Desktop",
-    "Notes",
-  ]);
+  expect(appsToOpen([], now, opened, ARCHIVED)).toEqual(["Notes"]);
   expect(appsToOpen([], now + 540_000, opened, ARCHIVED)).toEqual([
     "WhatsApp",
-    "Beeper Desktop",
     "Notes",
   ]);
 });
 
-const LINE =
-  /^Archive: FAILED: beeper from [\d-]+ [\d:]+, still failing: no db$/;
+const LINE = /^Archive: FAILED: line from [\d-]+ [\d:]+, still failing: no db$/;
 
 test("an archive incident lives in the log: open until its run.end, listed by the night and due for an email an hour in", async () => {
-  const step = "archive.beeper";
+  const step = "archive.line";
   log("run.error", { error: "no db", step });
   log("run.error", { error: "other", step: "memory.nightly" });
   await Bun.sleep(2);
   // The night after it started: still listed, as still failing.
   const since = new Date().toISOString();
   expect(await archiveLine(since)).toMatch(LINE);
-  expect((await archiveFailing()).map(([name]) => name)).toEqual(["beeper"]);
+  expect((await archiveFailing()).map(([name]) => name)).toEqual(["line"]);
   expect(await archiveFailing(HOUR)).toEqual([]);
   expect((await archiveFailing(HOUR, Date.now() + HOUR)).length).toBe(1);
   log("run.end", { step });
   expect(await archiveLine(since)).toBe("Archive: no failure");
   expect(await archiveFailing()).toEqual([]);
   const start = { at: "2026-10-18T10:00:00.000Z", kind: "run.error", step };
-  expect(openIncidents([start]).get("beeper")).toBe(start);
+  expect(openIncidents([start]).get("line")).toBe(start);
 });
 
 test("a message deleted for everyone keeps its text and media in the archive", () => {
@@ -111,13 +105,12 @@ test("only the stores of the sources he turned on are copied and kept open", () 
     WINDOWS ? [] : ["notes"]
   );
   // A Mac-only app is never opened elsewhere; the others are.
-  expect(keptStores(["beeper", "notes"]).map((s) => s.name)).toEqual(
-    WINDOWS ? ["beeper"] : ["beeper", "notes"]
+  expect(keptStores(["line", "notes"]).map((s) => s.name)).toEqual(
+    WINDOWS ? ["line"] : ["line", "notes"]
   );
   expect(keptStores([])).toEqual([]);
-  expect(appsToOpen([], 1e12, new Map(), keptStores(["beeper"]))).toEqual([
-    "Beeper Desktop",
-  ]);
+  // A bridged network has no app to open.
+  expect(appsToOpen([], 1e12, new Map(), keptStores(["line"]))).toEqual([]);
 });
 
 test("a pass starts the agent for the chats someone else wrote in, never for his own messages or older copies", () => {

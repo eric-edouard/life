@@ -107,7 +107,7 @@ export function toneOf(
     : { tone: "warn", word: "silent" };
 }
 
-/** When a source last heard anything, or for one with parts (Beeper's networks) its quietest part: one quiet network shows. */
+/** When a source last heard anything, or for one with parts (the bridged networks) its quietest part: one quiet network shows. */
 export const quietestAt = (n: Newest) =>
   n.parts?.length
     ? n.parts.map((p) => p.at).reduce((a, b) => (a < b ? a : b))

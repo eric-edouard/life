@@ -1,5 +1,7 @@
 # Platforms and modules plan: Life (22 Oct 2026)
 
+Note: Beeper was removed on 30 Oct 2026 ([no more Beeper](2026-10-29-no-beeper.md)); where this plan reads from Beeper, Life now reads through its own connectors.
+
 The modules rework (phase 0, done), the move to Better-T-Stack (phase 1), and Windows, parked on 22 Oct ("scope out
 Windows for now"): what exists for it and what a restart would need are at the end. Life only:
 lifelog is one of Life's inputs and has its own report (its phone apps, the Android MVP, its desktop host, and

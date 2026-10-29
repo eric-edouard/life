@@ -29,10 +29,14 @@ import { localKey } from "./http/local-key";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
+import { migrateStored } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
 import { send } from "./send";
 import { status, watch } from "./watch";
+
+// Beeper's names become their networks' once, before any command reads or writes the memory (AGENTS.md, "A rename backfills").
+await migrateStored();
 
 /** `act` and the grant need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {

@@ -106,56 +106,6 @@ export function whatsappFixture() {
   return { add, dir, now, source, wa };
 }
 
-/** Beeper's index.db (a Telegram chat `!tg` with Ana, a WhatsApp one) with the Telegram bridge, and the archive folder. */
-export function beeperFixture() {
-  const source = tmp("beeper-");
-  const dir = tmp("archive-");
-  const index = new Database(join(source, "index.db"));
-  index.run(`create table mx_room_messages (id integer primary key, roomID text, eventID text, senderContactID text,
-    timestamp integer, isDeleted integer, isSentByMe integer, type text, message text)`);
-  index.run(
-    "create table threads (threadID text, accountID text, thread text)"
-  );
-  index.run(
-    "create table participants (room_id text, id text, full_name text, is_self integer)"
-  );
-  index.run(
-    "insert into threads values ('!tg', 'local-telegram_x', '{}'), ('!wa', 'whatsapp.33600000000', '{}'), ('!ln', 'line.Uabc', '{}'), ('!ig', 'local-instagram_ba_y', '{}'), ('!no', 'linexyz', '{}')"
-  );
-  index.run("insert into participants values ('!tg', '@ana:tg', 'Ana', 0)");
-  const bridge = join(source, "local-telegram");
-  mkdirSync(bridge);
-  const ghosts = new Database(join(bridge, "megabridge.db"));
-  ghosts.run("create table ghost (bridge_id text, id text, identifiers text)");
-  ghosts.run(
-    "create table message (bridge_id text, sender_id text, sender_mxid text)"
-  );
-  ghosts.run(
-    "insert into ghost values ('b', '7', '[\"tel:+66 60 000 0001\"]')"
-  );
-  ghosts.run("insert into message values ('b', '7', '@ana:tg')");
-  const now = clock().getTime();
-  const add = (
-    id: number,
-    room: string,
-    type: string,
-    text: string,
-    attachments: unknown[] = []
-  ) =>
-    index.run(
-      "insert into mx_room_messages values (?, ?, ?, '@ana:tg', ?, 0, 0, ?, ?)",
-      [
-        id,
-        room,
-        `$e${id}`,
-        now - MIN,
-        type,
-        JSON.stringify({ attachments, text }),
-      ]
-    );
-  return { add, dir, index, now, source };
-}
-
 const varint = (n: number): number[] =>
   n < 128 ? [n] : [(n % 128) + 128, ...varint(Math.floor(n / 128))];
 

@@ -6,7 +6,6 @@ import { APP_DATA, HOME, MACHINE_DIR, WINDOWS } from "../core/platform";
 import { expand } from "../core/settings";
 import { Unit } from "../records/unit";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { BEEPER } from "../sources/beeper";
 import type { Descriptor } from "../sources/contract";
 import { DB } from "../sources/imessage";
 import { NOTES } from "../sources/notes";
@@ -17,15 +16,18 @@ import { tablesOf } from "./units";
 
 test("every stored source name has one descriptor, in the cut order", () => {
   const names = SOURCES.map((s) => s.name);
-  expect(names.toSorted()).toEqual(Unit.shape.source.options.toSorted());
+  // `beeper` stays a stored name until the migration beeper-to-networks-2026-10-30 has run on his data; then it goes.
+  expect(names.toSorted()).toEqual(
+    Unit.shape.source.options.filter((n) => n !== "beeper").toSorted()
+  );
   // Of two units with the same content the first cut stays: moving a source changes which.
   expect(names).toEqual([
     "lifelog",
     "imessage",
     "whatsapp",
-    "beeper",
     "line",
     "instagram",
+    "telegram",
     "linkedin",
     "mail",
     "notes",
@@ -48,9 +50,9 @@ test("a new source is one descriptor: every table picks it up", () => {
   expect(Object.keys(t.CHATS)).toEqual([
     "imessage",
     "whatsapp",
-    "beeper",
     "line",
     "instagram",
+    "telegram",
     "linkedin",
     "radio",
   ]);
@@ -58,9 +60,9 @@ test("a new source is one descriptor: every table picks it up", () => {
   expect(Object.keys(t.WITH_PEOPLE)).toEqual([
     "imessage",
     "whatsapp",
-    "beeper",
     "line",
     "instagram",
+    "telegram",
     "linkedin",
     "mail",
     "radio",
@@ -69,9 +71,9 @@ test("a new source is one descriptor: every table picks it up", () => {
   expect(Object.keys(tablesOf(SOURCES).SEARCHED)).toEqual([
     "imessage",
     "whatsapp",
-    "beeper",
     "line",
     "instagram",
+    "telegram",
     "linkedin",
     "notes",
     "claude",
@@ -127,8 +129,8 @@ test("only the sources he turned on are read, and one not set up yet is left out
 });
 
 test("an archived source can't be read until the archive copied its store; others keep their own reason", () => {
-  expect(existsSync(archiveDb("beeper"))).toBe(false);
-  expect(sourceOf("beeper").missing?.()).toBe("Beeper not archived yet");
+  expect(existsSync(archiveDb("line"))).toBe(false);
+  expect(sourceOf("line").missing?.()).toBe("LINE not archived yet");
   expect(sourceOf("mail").missing?.()).not.toBe("Mail not archived yet");
   // A Mac-only app's archived copy is read on any system; one with no copy says it is the Mac's.
   expect(sourceOf("notes").missing?.()).toBe("Notes not archived yet");
@@ -138,16 +140,7 @@ test("an archived source can't be read until the archive copied its store; other
 });
 
 test("a test run reads nothing of this computer: every store path is under its own state", () => {
-  const paths = [
-    HOME,
-    APP_DATA,
-    MACHINE_DIR,
-    ARCHIVE,
-    DB,
-    NOTES,
-    WHATSAPP,
-    BEEPER,
-  ];
+  const paths = [HOME, APP_DATA, MACHINE_DIR, ARCHIVE, DB, NOTES, WHATSAPP];
   for (const p of [...paths, expand("~/Work")]) {
     expect(p.startsWith(LIFE_STATE_DIR)).toBe(true);
   }

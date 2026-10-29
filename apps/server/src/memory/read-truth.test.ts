@@ -33,7 +33,7 @@ const person = (id: string, whatsapp: string[] = []): Person => ({
 });
 
 const chat = (over: Partial<Chat>): Chat => ({
-  id: "!a:beeper.local",
+  id: "!a:matrix.local",
   name: "A",
   ...over,
 });
@@ -67,7 +67,7 @@ describe("integrity", () => {
 
   test("a chat listed twice is refused", () => {
     expect(integrity(truth({ chats: [chat({}), chat({})] }))).toContain(
-      "chat !a:beeper.local is listed twice"
+      "chat !a:matrix.local is listed twice"
     );
   });
 
@@ -101,12 +101,12 @@ describe("integrity", () => {
   test("a project in an area that is not listed, or with a chat that is not, is refused", () => {
     const issues = integrity(
       truth({
-        projects: [project("lifelog", { chats: ["!ghost:beeper.local"] })],
+        projects: [project("lifelog", { chats: ["!ghost:matrix.local"] })],
       })
     );
     expect(issues).toContain("project lifelog names unknown area work");
     expect(issues).toContain(
-      "project lifelog names unknown chat !ghost:beeper.local"
+      "project lifelog names unknown chat !ghost:matrix.local"
     );
   });
 

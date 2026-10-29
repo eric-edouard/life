@@ -52,7 +52,7 @@ every Keychain secret in its environment:
 
 | Service | What it does |
 |---|---|
-| `archive` (kept running) | Every 5 s copies WhatsApp, Beeper's LINE, Telegram and Instagram, the bridged LINE and Instagram (from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
+| `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
 | `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
@@ -271,11 +271,11 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 - `area <name>`, `topics [tag]`, `unresolved` (what Life inferred, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where
   the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
-- `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, Beeper and iMessage,
+- `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, the bridged networks and iMessage,
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the map is
   `Project.repos` in `truth/`, the repos Life inferred, marked so.
 - `status`, `runs`, `changes`, `claim`: the status reads (`docs/status-reads.md`).
 
-Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `beeper.sqlite`,
-`notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only.
+Read a source directly only if the CLI is unavailable: `MACHINE_DIR/archive/` (`whatsapp.sqlite`, `line.sqlite`, `instagram.sqlite`,
+`linkedin.sqlite`, `telegram.sqlite`, `notes.sqlite`, each with a `deleted` view) and `~/Library/Messages/chat.db`, read-only.
