@@ -409,7 +409,7 @@ new units only, every stored id kept (conversation-days beside the stored chapte
 ## migrations.jsonl
 
 The renames of stored names Life has written into this data, one line each, append-only: `{schemaVersion: 1, name,
-at}`. `stored-names-2026-10-22` (`apps/server/src/host/migrate.ts`, written fresh for each and removed once run: see git history): the names of docs/glossary.md, written once by
+at}`. `stored-names-2026-10-22` (`apps/server/src/host/migrate.ts`, since removed: see git history): the names of docs/glossary.md, written once by
 the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledger was `actions.jsonl`, ids were `u_`,
 `act_` and `inf-`, the types `todo`, `waiting` and `person`, `importance` was `salience`, a ledger entry's `via` was
 `madeBy`, a statement's and a rating's `ref` was `claim`, a task update's `taken` was `claim`, `waiting-owner` was
@@ -417,8 +417,7 @@ the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledg
 observation type `decision` is `choice` (his OK, 29 Oct 2026: "decision" is his loops' questions now), each such
 observation's id minted again and every citation of it rewritten. The data repo's commits
 "Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides of the first, "Memory:
-before the observation type's rename" and "Memory: the observation type decision is choice" of the second. The renamed memory is built
-beside it (`memory.renamed/`) and swapped in; `memory.old/` (and `memory.stray/`) exist only until it is settled.
+before the observation type's rename" and "Memory: the observation type decision is choice" of the second.
 
 ## The search index (not in memory/)
 

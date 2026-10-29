@@ -22,7 +22,6 @@ type LogKind =
   | "file.read"
   | "lifelog.write"
   | "mcp.call"
-  | "memory.renamed"
   | "model.run"
   | "quota.read"
   | "run.start"
