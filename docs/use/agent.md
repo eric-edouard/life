@@ -26,9 +26,4 @@ The rest of the agent's instructions come from Life on every call, so they stay 
 own (how it should write to people, what it may send without asking), write them in `playbook.md` at the top of your
 Life data folder (`~/Library/Application Support/Life/data`); Life appends them to its own.
 
-An agent forgets what you told it once. To repeat something every day (how to email you, a habit you want it to
-keep), turn on **Daily ask** in Life's settings, pick a time and write it in your words. Each day at that time, in the
-time zone you are in, Life hands it to the agent as an ask. If the agent doesn't take it within 30 minutes, Life tells
-you, as for any ask.
-
 Next: open the status window. The agent's card says whether it is receiving your asks.

@@ -7,17 +7,15 @@ import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { LIFE_CODE_DIR } from "../core/paths";
-import { LEDGER, type Task, tasksOf, ZONES } from "../memory/ledger";
+import { LEDGER, type Task, tasksOf } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
 import { standing, type Update } from "../memory/tasks";
-import { cutAt, localDate, zoneAt } from "../memory/zones";
 import { LedgerEntry } from "../records/ledger-entry";
 import { planOf } from "../todo-list/board";
 import type { TodoItem } from "../todo-list/contract";
 import {
   alerts,
   chase,
-  dailyAsk,
   escalation,
   protocol,
   receipts,
@@ -494,83 +492,6 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
       target: "chat",
       via: "connector",
     });
-  } finally {
-    rmSync(LEDGER, { force: true });
-  }
-});
-
-test("his daily ask follows him the moment a move is noticed, though the days of what was recorded keep the old zone", () => {
-  const daily = { on: true, text: "Plan my day.", time: "09:00" };
-  const was = readFileSync(ZONES, "utf8");
-  // Noticed at 21:00Z on 21 Oct: 22:00 in Lagos, 04:00 on the 22nd in Jakarta, so memory moves at Jakarta's next midnight.
-  const noticed = new Date("2026-10-21T21:00:00.000Z");
-  const from = cutAt(noticed, "Africa/Lagos", "Asia/Jakarta").toISOString();
-  writeFileSync(
-    ZONES,
-    `${was}${JSON.stringify({ from, schemaVersion: 1, tz: "Asia/Jakarta" })}\n`
-  );
-  try {
-    expect(localDate("2026-10-22T02:00:00.000Z")).toBe("2026-10-22");
-    expect(zoneAt("2026-10-22T02:00:00.000Z")).toBe("Africa/Lagos");
-    // 09:00 in Jakarta is 02:00Z, not Lagos's 09:00 (15:00 where he is).
-    dailyAsk(Date.parse("2026-10-22T01:59:00.000Z"), daily);
-    expect(tasksOf()).toEqual([]);
-    dailyAsk(Date.parse("2026-10-22T02:00:00.000Z"), daily);
-    expect(tasksOf().map((t) => t.ask.instruction?.ref)).toEqual([
-      "daily:2026-10-22",
-    ]);
-    // Back west the same day (noticed at 03:00Z: 04:00 in Lagos, 10:00 in Jakarta): Lagos's 09:00 is that day again,
-    // asked already, so no second ask.
-    const back = cutAt(
-      new Date("2026-10-22T03:00:00.000Z"),
-      "Asia/Jakarta",
-      "Africa/Lagos"
-    ).toISOString();
-    writeFileSync(
-      ZONES,
-      `${readFileSync(ZONES, "utf8")}${JSON.stringify({ from: back, schemaVersion: 1, tz: "Africa/Lagos" })}\n`
-    );
-    dailyAsk(Date.parse("2026-10-22T08:00:00.000Z"), daily);
-    expect(tasksOf()).toHaveLength(1);
-  } finally {
-    writeFileSync(ZONES, was);
-    rmSync(LEDGER, { force: true });
-  }
-});
-
-test("his daily ask: one a day once his local time passes its time, his text whole, no reply expected; off, none", () => {
-  const daily = {
-    on: true,
-    text: "React to each message with an emoji.",
-    time: "09:00",
-  };
-  // He is in Lagos (UTC+1) from 19 Oct: 09:00 there is 08:00Z.
-  const nine = Date.parse("2026-10-20T08:00:00.000Z");
-  try {
-    dailyAsk(nine - MIN, daily);
-    expect(tasksOf()).toEqual([]);
-    dailyAsk(nine, daily);
-    dailyAsk(nine + 3 * 60 * MIN, daily);
-    dailyAsk(nine + 24 * 60 * MIN, { ...daily, on: false });
-    dailyAsk(nine + 24 * 60 * MIN, undefined);
-    dailyAsk(nine + 25 * 60 * MIN, daily);
-    const asks = tasksOf().map((t) => t.ask);
-    expect(
-      asks.map((a) => [
-        a.instruction?.ref,
-        a.instruction?.at,
-        a.instruction?.quote,
-      ])
-    ).toEqual([
-      ["daily:2026-10-20", "2026-10-20T08:00:00.000Z", daily.text],
-      ["daily:2026-10-21", "2026-10-21T08:00:00.000Z", daily.text],
-    ]);
-    expect(asks[0]).toMatchObject({
-      after: { confidence: "high" },
-      kind: "ask",
-      via: "watch",
-    });
-    expect(unanswered(nine, tasksOf())).toBe(0);
   } finally {
     rmSync(LEDGER, { force: true });
   }

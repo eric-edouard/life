@@ -46,9 +46,7 @@ const AskData = z.object({
   quote: z.string().describe("His words, from the wake turn on"),
   ref: z
     .string()
-    .describe(
-      "Where the words are: a turn (`fetch` it), session:<at>, or daily:<day> (his daily ask, from his settings)"
-    ),
+    .describe("Where the words are: a turn (`fetch` it), or session:<at>"),
   title: z.string().optional().describe("The part of his words it is"),
 });
 
@@ -63,7 +61,7 @@ export function clientName(agent: unknown) {
 
 export const ASK_EVENT = {
   delivery: ["webhook"],
-  description: `The owner asked ${agentName()} for something: he said “hey ${agentName()}, …” (heard in his recordings), asked in a Claude session, or it is his daily ask.`,
+  description: `The owner asked ${agentName()} for something: he said “hey ${agentName()}, …” (heard in his recordings) or asked in a Claude session.`,
   inputSchema: { additionalProperties: false, properties: {}, type: "object" },
   name: "ask",
   payloadSchema: z.toJSONSchema(AskData),
