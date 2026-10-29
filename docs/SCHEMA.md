@@ -86,7 +86,7 @@ ID cards, invoices, plans.
 What happened, or is planned, in the owner's life: one line per moment (a trip, a dinner, a flight, a coffee), written by
 `bun life memory moments` (prompt `memory-moments.v4`) from one day of units read together across every channel, in
 time order, with the moments of the days before that may continue into it (the same call writes the day's verdicts).
-A day's file is rewritten when the day is read again; git keeps the old ones. A moment a later day sees again keeps its id there, and the latest
+A day's file is rewritten when the day is read again; git keeps the old ones. A moment the owner hid (`wrong`, `not-important`) stays in it, and each reading of its day is shown it with his note, so it is not made again; a `wrong` one has its day read again. A moment a later day sees again keeps its id there, and the latest
 day's line is its current state (a plan that happened, or was cancelled), and its units are those of all its days'
 lines. Model-owned, like `people-inferred.jsonl`.
 
@@ -208,7 +208,7 @@ something in conversation (`bun life memory correct '<json>'`, which checks and 
 
 | `kind` | Fields | Effect |
 |---|---|---|
-| `wrong` | `observations: [obs_…, mom_…]`, optional `page` | Never shown (pages, search; a moment: every read, and the next days' reading), or off that page only |
+| `wrong` | `observations: [obs_…, mom_…]`, optional `page` | Never shown (pages, search; a moment: every read, and the next days' reading; its day is read again, shown it with `note`), or off that page only |
 | `not-important` | `observations`, optional `page` | Same; a true fact the owner does not want |
 | `outdated` | `observations: [obs_…]` | Retired by itself, as history (true then, not anymore: a promise kept, a to-do done); `note` holds his words. His fact-check `outdated` answers read as these |
 | `keep-mine` | `page`, `section` (`now`, `history`; on the owner's own page also `views`, `health`; on a close person's `bond`), `text` | The line stays on the page as written |

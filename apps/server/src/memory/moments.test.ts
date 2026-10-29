@@ -2,10 +2,11 @@ import { expect, test } from "bun:test";
 import type { Moment } from "../records/moment";
 import type { Correction } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
-import { daysOf, momentsNow } from "./ledger";
+import { daysOf, isRereadSince, momentsNow, rereadAt } from "./ledger";
 import {
   agreement,
   chatAreas,
+  dayFileOf,
   earlierFor,
   fresh,
   parseDay,
@@ -48,7 +49,8 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
   const ctx = {
     areas: areaLookup([{ id: "shop", name: "Shop" }]),
     day: "2026-10-15",
-    earlier: new Set(["mom_00000000000e"]),
+    earlier: new Set(["mom_00000000000e", "mom_00000000000f"]),
+    hidden: new Set(["mom_00000000000f"]),
     madeBy,
     people: new Set(["person:bastien"]),
     resolve: (s: string) => (s === "Bast" ? "person:bastien" : null),
@@ -131,6 +133,24 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
       .moments[0]?.id
   ).toBe(first?.id);
   expect(() => parseDay({ moments: 3 }, ctx)).toThrow();
+  // A moment read again after he hid it stands on the same day, start and units: it never takes the hidden one's id,
+  // unless the model reuses that id on purpose (a not-important one stays hidden).
+  const readAgain = { ...said, id: "new", units: [U1] };
+  const minted = parseDay({ moments: [readAgain] }, ctx).moments[0]
+    ?.id as string;
+  const hidden = { ...ctx, hidden: new Set([minted]) };
+  const titled = parseDay({ moments: [readAgain] }, hidden).moments[0]
+    ?.id as string;
+  expect(titled).not.toBe(minted);
+  // Nor when its title's id is hidden too.
+  const both = { ...ctx, hidden: new Set([minted, titled]) };
+  expect([minted, titled]).not.toContain(
+    parseDay({ moments: [readAgain] }, both).moments[0]?.id
+  );
+  expect(
+    parseDay({ moments: [{ ...readAgain, id: "mom_00000000000f" }] }, ctx)
+      .moments[0]?.id
+  ).toBe("mom_00000000000f");
   // 29 Oct: the model put the recording kind in `type` for 198 of a day's 370 units; each is kept, read as nothing.
   const kindAsType = parseDay(
     {
@@ -219,6 +239,43 @@ test("the next days see a moment until the day after it ends, or after its date 
     "2026-10-15",
     "2026-10-15",
   ]);
+});
+
+test("a moment he says is wrong rereads its units, and every later reading of its day sees it with his words and keeps it (29 Oct 2026: a trip came back with the same mistake)", () => {
+  const trip = moment({ id: "mom_00000000000a", units: [U1, U2] });
+  const other = moment({ id: "mom_00000000000b", units: [U3] });
+  const wrong: Correction = {
+    at: "2026-10-29T09:00:00.000Z",
+    kind: "wrong",
+    note: "Nadia is not coming; Rose and Lou are",
+    observations: [trip.id],
+    schemaVersion: 1,
+  };
+  const rereads = rereadAt([wrong], [trip, other]);
+  expect(isRereadSince(rereads, U1, "2026-10-29T08:00:00.000Z")).toBe(true);
+  expect(isRereadSince(rereads, U2, "2026-10-29T10:00:00.000Z")).toBe(false);
+  expect(rereads.has(U3)).toBe(false);
+  // Not important hides it, and reads nothing again.
+  expect(rereadAt([{ ...wrong, kind: "not-important" }], [trip]).size).toBe(0);
+  const seen = earlierFor(trip.day, [trip, other], [wrong]);
+  expect(seen.find((m) => m.id === trip.id)?.hidden).toEqual({
+    kind: "wrong",
+    note: "Nadia is not coming; Rose and Lou are",
+  });
+  expect(seen.find((m) => m.id === other.id)?.hidden).toBeUndefined();
+  // The reading gives a new moment; the hidden one stays in the day's file, so the next reading sees his words again.
+  const fixed = moment({
+    id: "mom_00000000000c",
+    title: "Trip with Rose and Lou",
+  });
+  const written = dayFileOf(trip.day, [fixed], [trip, other], [wrong]);
+  expect(written.map((m) => m.id)).toEqual([fixed.id, trip.id]);
+  expect(
+    earlierFor(trip.day, written, [wrong]).find((m) => m.id === trip.id)?.hidden
+      ?.note
+  ).toBe("Nadia is not coming; Rose and Lou are");
+  // Given again under its id, it is the reading's line, once.
+  expect(dayFileOf(trip.day, [trip], [trip], [wrong])).toEqual([trip]);
 });
 
 test("a day is read again when one of its units has no verdict by this prompt on its current content", () => {

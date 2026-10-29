@@ -5,6 +5,7 @@ import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
 import {
+  authorOf,
   type LifelogTurn,
   openStore,
   parseTurnRef,
@@ -176,9 +177,9 @@ export function chatLines(b: Built, resolve: Resolve): SourceLine[] {
   });
 }
 
-/** Where a voice's author came from: lifelog's id when it has one (the map may move it later), else its name; not the owner. */
+/** Where a voice's author came from (`authorOf`); not the owner. */
 const fromOf = (t: LifelogTurn) => {
-  const from = t.owner ? null : (t.personId ?? t.name);
+  const from = authorOf(t);
   return from ? { from } : {};
 };
 

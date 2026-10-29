@@ -373,7 +373,7 @@ export async function extract(evidence: Evidence) {
     verdicts,
     rowsOf(EXTRACTED, Extracted),
     EXTRACT_PROMPT,
-    rereadAt(corrections)
+    rereadAt(corrections, written)
   );
   const unitOf = new Map(known.map((o) => [o.id, o.unit]));
   const shown = known.flatMap((o) => {
