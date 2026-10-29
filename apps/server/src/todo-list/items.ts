@@ -35,20 +35,21 @@ export const norm = (v: unknown) =>
   v === undefined || v === null || v === false || v === "" || v === "none"
     ? null
     : v;
-const pickOf =
-  (fields: readonly (typeof KEPT)[number][]) =>
-  (o: Record<string, unknown>): Fields =>
-    Object.fromEntries(
-      fields.flatMap((f) =>
-        f in o
-          ? [[f, f === "recurrence" && o[f] === "clear" ? null : norm(o[f])]]
-          : []
-      )
-    );
-/** A line's fields as the fold keeps them ("clear" on a recurrence stops it: none). */
-export const pick = pickOf(KEPT);
+/** These of a line's fields, normalised ("clear" on a recurrence stops it: none). */
+const pickFrom = (
+  fields: readonly (typeof KEPT)[number][],
+  o: Record<string, unknown>
+): Fields =>
+  Object.fromEntries(
+    fields.flatMap((f) =>
+      f in o
+        ? [[f, f === "recurrence" && o[f] === "clear" ? null : norm(o[f])]]
+        : []
+    )
+  );
 /** A backend item's fields as `inbound` compares them. */
-export const pickCompared = pickOf(COMPARED);
+export const pickCompared = (o: Record<string, unknown>) =>
+  pickFrom(COMPARED, o);
 
 export type Field = (typeof COMPARED)[number];
 
@@ -68,7 +69,7 @@ export interface Linked {
 
 /** One line's mark on a linked reminder: a try or a partial leaves its fields unsettled (`tried`: the next pass imports what Reminders shows); anything else settles them. */
 function apply(it: Linked, a: LedgerEntry) {
-  const after = pick(a.after);
+  const after = pickFrom(KEPT, a.after);
   const tried = !stands(a);
   const unsure = tried || Boolean(a.error?.startsWith("partial"));
   it.wrote = a.via === "reminders" ? it.wrote : a.at;

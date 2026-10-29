@@ -29,7 +29,7 @@ const his = (
   kind: LedgerEntry["kind"],
   id: string,
   at: string,
-  after: Fields & { created?: string; link?: string },
+  after: Partial<Record<Field, unknown>> & { created?: string; link?: string },
   before?: Record<string, unknown>
 ): LedgerEntry => ({
   after,
