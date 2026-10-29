@@ -53,6 +53,8 @@ export const DecisionAsk = z
     options: z.array(DecisionOption).max(4),
     pick: z.string().max(40).optional(),
     question: z.string().min(1).max(200),
+    /** The asking loop's goal rank when it asked (his goals' order, lower first; 0 for the daily and asks): the page's order. */
+    rank: z.number().int().min(0).max(99).optional(),
     ref: z.string().max(500).optional(),
   })
   .strict();
