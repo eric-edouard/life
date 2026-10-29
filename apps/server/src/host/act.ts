@@ -111,20 +111,35 @@ export async function act(a: Act): Promise<LedgerEntry> {
   let action: LedgerEntry;
   if (same) {
     action = line({ after: { title: c.title }, target: same }, "duplicate");
+    appendJsonl(LEDGER, LedgerEntry, [action]);
   } else {
     // Recorded before the write: whatever happens next, Reminders showing this value is Life's doing, never his (#69).
-    await appendJsonl(LEDGER, LedgerEntry, [line(tried, "intent")]);
-    try {
-      action = line(await write(c), "ok");
-    } catch (e) {
-      action = line({ ...tried, error: (e as Error).message }, "failed");
-    }
+    action = await attempt(line(tried, "intent"), () => write(c));
   }
-  await appendJsonl(LEDGER, LedgerEntry, [action]);
   if (action.result === "failed") {
     await sendReport(`action/${id}`, actFailedReport(action));
   }
   return action;
+}
+
+/**
+ * One write outside Life as its ledger lines: the intent first, so a try that never ended is never taken for one that
+ * didn't happen, then its outcome (`run`'s own fields over the intent's, or its error). Every such write goes here.
+ */
+export async function attempt(
+  intent: LedgerEntry,
+  run: () => Promise<Partial<LedgerEntry> | undefined>
+): Promise<LedgerEntry> {
+  appendJsonl(LEDGER, LedgerEntry, [intent]);
+  let done: LedgerEntry;
+  try {
+    done = { ...intent, ...(await run()), result: "ok" };
+  } catch (e) {
+    done = { ...intent, error: (e as Error).message, result: "failed" };
+  }
+  done.at = clock().toISOString();
+  appendJsonl(LEDGER, LedgerEntry, [done]);
+  return done;
 }
 
 /** The instruction of a request a client makes, not his recorded speech: his words, the time now, and a ref of its own, so each request acts. */

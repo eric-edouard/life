@@ -18,6 +18,8 @@ export const OUTPUTS = {
       return Boolean(past && (past.account || process.env.LIFE_EVENTKIT));
     },
   },
+  /** The replies he chose in his decisions, sent as him into their chats (`host/send.ts`). */
+  sends: { label: "Sends", on: () => Boolean(settings().sends) },
   /** His to-do list, one backend (Reminders or Google Tasks), acted on at his request (`apps/server/src/todo-list/`): off, nothing touches it. */
   todo_list: { label: "To-do list", on: () => Boolean(settings().todo_list) },
 } satisfies Record<string, { label: string; on: () => boolean }>;

@@ -330,6 +330,7 @@ export function entryLine(a: LedgerEntry) {
     instinct: `to Instinct: “${a.after.subject}”`,
     remove: `removed “${was}”`,
     restore: `restored ${a.target}`,
+    sent: `a reply to ${a.after.source}:${a.after.chat}`,
     undone: `reopened “${was}”`,
   };
   const what = kinds[a.kind] ?? a.kind;
