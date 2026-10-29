@@ -72,6 +72,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
+| decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/me/decisions`): never Life's own act; the loop that asked acts on it. The observation type of the same name becomes `choice` in the next migration (his OK, 29 Oct). | card |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
 | fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on his fact-check loop's cards: `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
 | doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `unsure-moment`, `low-confidence`. | |

@@ -198,6 +198,18 @@ counts, the prompt's rule). `counts` is what it judged, rounded, so a person is 
 move or the prompt changes. The latest record per person wins (a person folded into another: the kept one's); the owner's
 `closeness` correction wins over it. No model output feeds the counts. Model-owned: who has a page follows it at once.
 
+## decisions.jsonl
+
+His decisions: the questions his loops put to him and what he answered (`records/decision.ts`). Append-only, one line
+per step (`{at, decision, step, data, run?, schemaVersion}`); a decision now is the fold of its lines
+(`decisionsNow`, `memory/decisions.ts`), never rewritten. A loop's steps, through the connector's `update_decision`:
+`asked` (the question, 2–4 options, its loop, deadline, what happens with no answer; a grant, a change proposal or an
+audit request by `kind`), `revised`, `taken` (before acting on his answer), `done` (its `result`; a grant's `scope`),
+`reopened`, `withdrawn`, `expired`. His, on `/me/decisions`: `answered` (an option's id, `note` for his words alone, or
+null to clear), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", an audit
+request (`asked` and `answered` in the `audit` loop). One synchronous read-and-append per write (`writeDecision`), so
+his tap and a loop taking the same decision can't both land: once taken, his answer is refused.
+
 ## corrections.jsonl
 
 What the owner told Life, append-only, and the one place the owner's word is kept (with the owner's ratings: a claim the owner rated false

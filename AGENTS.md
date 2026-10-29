@@ -34,7 +34,7 @@ bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, e
 Life runs itself: the owner never runs `bun life …` and never reviews a queue. The commands are for you and for the
 app's supervisor. Don't design a step that waits on him: an uncertain inference goes into a model-owned layer (like
 `memory/people-inferred.jsonl`), used at once and corrected later. His input arrives in conversation only (the one
-exception: the fact checks, cards he answers on the loops' Decisions page when he likes, never waited on).
+exception: his decisions, which his loops ask and he answers on `/me/decisions` when he likes, never waited on).
 
 - When he states or corrects a fact, record it before moving on: `bun life memory correct '<json>'` (kinds in
   `docs/SCHEMA.md`). When it's about who someone is, offer to add it to `truth/` and do it on his yes.
@@ -82,7 +82,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
   A new recipe for new units only, every stored id kept, is not a rename.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, a rating) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
+  correction, a rating), `decisions.jsonl` (his loops' `update_decision` and his answers on `/me/decisions`, each one
+  synchronous append: `writeDecision`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
@@ -104,10 +105,11 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task` and `log_reply_to_owner`.** Never add a
+- **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task`,
+  `update_decision` and `log_reply_to_owner`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
-- **Pages serve nothing of his before their sign-in check** (`/me`, behind its password; the app's status reads behind
+- **Pages serve nothing of his before their sign-in check** (`/me` and `/me/decisions`, behind its password; the app's status reads behind
   the local key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
   owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
