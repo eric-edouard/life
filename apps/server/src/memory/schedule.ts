@@ -11,8 +11,8 @@ import { daysBefore, localTime, type Window } from "./units";
 
 const FIRST_HOUR = 2;
 export const MAX_ATTEMPTS = 3;
-/** Whether `failures` leave no try: the night's and a backfill week's one rule. */
-export const isOutOfTries = (failures: number) => failures >= MAX_ATTEMPTS;
+/** Whether `used` failed tries leave none: the night's and a backfill week's one rule. */
+export const isOutOfTries = (used: number) => used >= MAX_ATTEMPTS;
 export interface NightState {
   attempts: number;
   date: string;

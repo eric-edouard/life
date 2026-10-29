@@ -153,7 +153,7 @@ export async function archiveLine(since: string) {
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
- * a failure email goes once no try is left (`isOutOfTries`: the night's 3rd of a day, a backfill week's 3rd: `sweep`). What a tick runs is `turnOf`'s: the night, else the midday
+ * a failure email goes once no try is left (`isOutOfTries`; a backfill week's too). What a tick runs is `turnOf`'s: the night, else the midday
  * pass (moments, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
  * (`reserved`), read each tick. Then the daily backup, when it is due
  * (`backupDue`: the night is done, on this tick or before).
@@ -243,7 +243,7 @@ export async function midday(now = clock(), force = false) {
     recordMidday();
     return sweep("memory.midday", lastDays(now, 1), {
       pages: () => pages({ rebuild: false }),
-    });
+    }).then((failure) => (failure ? 1 : 0));
   });
   return code ?? Number(force);
 }
@@ -261,24 +261,35 @@ async function backfilled(day: string) {
     if (!(b && week)) {
       return 0;
     }
-    const done = await sweep("memory.backfill", week, {
-      isLast: isOutOfTries(b.failures + 1),
-    });
-    recordBackfill(afterWeek(b, week, done === 0, day));
-    return done;
+    const failure = await sweep("memory.backfill", week);
+    const next = afterWeek(b, week, !failure, day);
+    recordBackfill(next);
+    // Its last try failed: the backfill stops, so he hears it, as of a night's last failure.
+    if (failure && isOutOfTries(next.failures)) {
+      await sendReport(
+        `backfill/${failure.run}`,
+        failureReport(
+          clock().toISOString(),
+          failure.ms,
+          `memory.backfill ${week.from} to ${week.to}, ${failure.failedAt}`,
+          failure.error
+        )
+      );
+    }
+    return failure ? 1 : 0;
   });
   return code ?? 0;
 }
 
 /**
- * One sweep without commit: the evidence of `window`, read once for moments and extract, then `pages` (the midday's
- * pages), then the index; recorded as `name`, every step's failure caught and logged, and emailed when `isLast` (no try
- * comes after it), as a night's last failure is. The caller holds the lock.
+ * One sweep without commit or email: the evidence of `window`, read once for moments and extract, then `pages` (the
+ * midday's pages), then the index; recorded as `name`, every step's failure caught and logged, and returned (null when
+ * it went through). The caller holds the lock.
  */
 async function sweep(
   name: string,
   window: Window,
-  o: { isLast?: boolean; pages?: () => Promise<{ failed: number }> }
+  o: { pages?: () => Promise<{ failed: number }> } = {}
 ) {
   const rec = await metered(name, { ...window });
   const phase = phases(rec);
@@ -295,22 +306,11 @@ async function sweep(
     phase.at = "index";
     await reindex();
     await rec.end({ outcome: "ok" });
-    return 0;
+    return null;
   } catch (e) {
     const failure = phase.failed(e);
     await rec.end(failure);
-    if (o.isLast) {
-      await sendReport(
-        reportKey(rec.run),
-        failureReport(
-          clock().toISOString(),
-          rec.ms(),
-          `${name} ${failure.failedAt}`,
-          failure.error
-        )
-      );
-    }
-    return 1;
+    return { ...failure, ms: rec.ms(), run: rec.run };
   }
 }
 
