@@ -32,7 +32,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can send through it (`docs/use/bridges.md`). | |
 | board | The agent's own list in the owner's to-do list, one item per open task. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
-| grant (a loop's) | A decision of `kind: "grant"`: a standing yes he gives one loop (its `ref`: autonomy, budget, merge-map, publish, ads, mail); it stands while it is the newest done one of its loop and ref, with a scope, not revoked (`active`). | |
+| grant (a loop's) | A decision of `kind: "grant"`: a standing yes he gives one loop (its `ref`: autonomy, budget, publish, ads, mail); it stands while it is the newest done one of its loop and ref, with a scope, not revoked (`active`). | |
 
 ## The ledger and the to-do list
 

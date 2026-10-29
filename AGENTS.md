@@ -230,15 +230,15 @@ removing a regression case; anything that spends the owner's model quota heavily
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
 data repo; add a send beyond `send`, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
-`golden-rule-verdict` passes on the PR's current head.
+`golden-rule-verdict` passes on the PR's current head (once it passes, any agent merges, without asking him: his
+ruling of 29 Oct).
 
 ## Workflow
 
 - A branch and a PR per change, small commits. Prefer deleting code to adding it; one way to do each thing; docs stay
   short and written for humans.
 - Every PR passes the golden rule (the `golden-rule` skills where available): a plan checked before code, and
-  `golden-rule-verdict` before merge: did it add or reduce debt? A passing verdict is the merge: any agent merges then,
-  without asking the owner (his ruling of 29 Oct).
+  `golden-rule-verdict` before merge: did it add or reduce debt?
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
 - A PR that changes `prompts/`, `docs/agent.md` or the owner's `playbook.md` says which cases of those stages it
