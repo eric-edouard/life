@@ -330,20 +330,32 @@ export function settleDelivery(
 }
 
 /**
- * For an agent that pulls its asks (it reads them itself, nothing is pushed): a new ask past the cursor starts its
- * `start` command once, in his home; any old subscription goes and the cursor moves to the end, so switching back to
- * push starts from now instead of replaying asks it already took. A start that fails is logged; the ask still shows on
- * `read_open_agent_tasks`, and Life emails him when it isn't taken in 30 min.
+ * The one way Life starts an agent that pulls: its `start` command, once, in his home, with the event's JSON appended
+ * (`{kind:"ask"}` on a new ask, `{kind:"tick", at, zone}` each minute from the watcher). The command decides what the
+ * event starts; Life never waits on it. A start that fails is logged.
  */
-function startAgent(lines: string[]) {
-  const state = deliveryState();
+export function startAgent(event: { kind: string } & Record<string, unknown>) {
   const cmd = settings().agent?.start;
-  if (cmd && nextEvent(lines, state.delivered)) {
-    unfrozen("start the agent");
-    const error = start(cmd, HOME);
-    if (error) {
-      log("run.error", { error, step: "events.start" });
-    }
+  if (!cmd) {
+    return;
+  }
+  unfrozen("start the agent");
+  const error = start([...cmd, JSON.stringify(event)], HOME);
+  if (error) {
+    log("run.error", { error, step: "events.start" });
+  }
+}
+
+/**
+ * For an agent that pulls its asks (it reads them itself, nothing is pushed): a new ask past the cursor starts it with
+ * `{kind:"ask"}`; any old subscription goes and the cursor moves to the end, so switching back to push starts from now
+ * instead of replaying asks it already took. The ask still shows on `read_open_agent_tasks`, and Life emails him when
+ * it isn't taken in 30 min.
+ */
+function startOnAsk(lines: string[]) {
+  const state = deliveryState();
+  if (nextEvent(lines, state.delivered)) {
+    startAgent({ kind: "ask" });
   }
   if (state.subscription || state.delivered < lines.length) {
     writeState({ attempts: 0, delivered: lines.length });
@@ -359,7 +371,7 @@ export async function deliver() {
   const now = clock().getTime();
   const lines = linesOf(LEDGER);
   if (pulls()) {
-    startAgent(lines);
+    startOnAsk(lines);
     return;
   }
   for (;;) {

@@ -21,6 +21,7 @@ import {
   Subscribe,
   settleDelivery,
   sign,
+  startAgent,
   subscribe as subscribeTo,
 } from "./events";
 
@@ -236,18 +237,17 @@ test("an agent that pulls its asks gets nothing pushed: its old subscription goe
   }
 });
 
-test("a new heard ask starts a pulling agent's command once, never one made from a chat, and the cursor moves to the end", async () => {
+test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, never one made from a chat, and a tick passes its own event; the cursor moves to the end', async () => {
   const before = readSettings().agent as NonNullable<Settings["agent"]>;
   const marker = join(LIFE_STATE_DIR, "started");
   const cmd = [
     process.execPath,
     "-e",
-    `require("fs").appendFileSync(${JSON.stringify(marker)}, "x")`,
+    `require("fs").appendFileSync(${JSON.stringify(marker)}, process.argv.at(-1) + "\\n")`,
   ];
   // The command runs on its own: wait up to `ms` for it to write `want` times (a loaded machine starts it late).
   const started = async (want: number, ms = 5000) => {
-    const count = () =>
-      existsSync(marker) ? readFileSync(marker, "utf8").length : 0;
+    const count = () => events().length;
     for (let waited = 0; count() < want && waited < ms; waited += 50) {
       // biome-ignore lint/performance/noAwaitInLoops: polling a file the child writes
       await Bun.sleep(50);
@@ -256,6 +256,10 @@ test("a new heard ask starts a pulling agent's command once, never one made from
     await Bun.sleep(300);
     return count();
   };
+  const events = () =>
+    existsSync(marker)
+      ? readFileSync(marker, "utf8").split("\n").filter(Boolean)
+      : [];
   rmSync(SECRETS.events, { force: true });
   rmSync(marker, { force: true });
   mkdirSync(HOME, { recursive: true });
@@ -273,7 +277,19 @@ test("a new heard ask starts a pulling agent's command once, never one made from
     await deliver();
     await deliver();
     expect(await started(1)).toBe(1);
+    expect(events()).toEqual(['{"kind":"ask"}']);
     expect(deliveryState().delivered).toBe(linesOf(LEDGER).length);
+    startAgent({
+      at: "2026-10-29T00:00:00.000Z",
+      kind: "tick",
+      zone: "Asia/Bangkok",
+    });
+    expect(await started(2)).toBe(2);
+    expect(JSON.parse(events()[1] ?? "null")).toEqual({
+      at: "2026-10-29T00:00:00.000Z",
+      kind: "tick",
+      zone: "Asia/Bangkok",
+    });
   } finally {
     setSettings({ agent: before });
     rmSync(LEDGER, { force: true });

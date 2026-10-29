@@ -10,12 +10,13 @@ import { isLocked, locked } from "../memory/memory-lock";
 import { reindex } from "../memory/search";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
+import { zoneNow } from "../memory/zones";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
 import { marks, push } from "../todo-list/board";
 import { chase, closings, dailyAsk, receipts } from "./agent";
-import { deliver } from "./events";
+import { deliver, startAgent } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -44,6 +45,11 @@ async function tick(now = clock().getTime()) {
 }
 
 async function pass(now: number) {
+  startAgent({
+    at: new Date(now).toISOString(),
+    kind: "tick",
+    zone: zoneNow(),
+  });
   dailyAsk(now);
   await chase(tasksOf(), now);
   if (!isOn("todo_list")) {
