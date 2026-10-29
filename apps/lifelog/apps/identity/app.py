@@ -75,6 +75,8 @@ JOIN_GAP_SECONDS = 0.5
 LANGUAGE_MIN_SECONDS = 1.0
 # onnx-asr gives a token's start only: it ends at the next one, or this long after it.
 TOKEN_MAX_SECONDS = 0.5
+# MLX decodes a longer block in overlapping pieces of this many seconds: whole, 29 minutes ran out of GPU memory.
+PARAKEET_CHUNK_SECONDS = 600
 QUEUE_SIZE = int(os.environ.get("QUEUE_SIZE", "8"))
 RETRY_AFTER = "5"
 WAIT_SECONDS = 120
@@ -151,8 +153,7 @@ class MlxParakeet:
     def tokens(self, samples) -> list[tuple[str, float, float]]:
         import mlx.core as mx
 
-        # A block over 10 minutes is decoded in overlapping pieces: whole, 29 minutes ran out of GPU memory.
-        heard = self.model.generate(mx.array(samples), chunk_duration=600)
+        heard = self.model.generate(mx.array(samples), chunk_duration=PARAKEET_CHUNK_SECONDS)
         # MLX keeps the GPU buffers a block used for the next one: 17 GB after a backlog on a 32 GB Mac.
         mx.clear_cache()
         return [(t.text, t.start, t.end) for s in heard.sentences for t in s.tokens]

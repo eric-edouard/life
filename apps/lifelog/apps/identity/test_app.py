@@ -62,6 +62,20 @@ class Transcribe(unittest.TestCase):
             self.assertIn(said, french)
 
 
+    @unittest.skipUnless(app.RUNTIME == "mlx", "only MLX decodes in pieces")
+    def test_a_block_decoded_in_pieces_keeps_its_words_in_order_and_in_time(self):
+        samples = app.read_audio(TWO_VOICES)
+        whole = app.words_of(models.parakeet.tokens(samples))
+        self.addCleanup(setattr, app, "PARAKEET_CHUNK_SECONDS", app.PARAKEET_CHUNK_SECONDS)
+        app.PARAKEET_CHUNK_SECONDS = 6
+        pieces = app.words_of(models.parakeet.tokens(samples))
+        starts = [w["start"] for w in pieces]
+        self.assertEqual(starts, sorted(starts))
+        self.assertLessEqual(pieces[-1]["end"], samples.size / app.SAMPLE_RATE + 0.1)
+        said = {w["text"].strip(".,").lower() for w in pieces}
+        self.assertGreaterEqual(len(said & {w["text"].strip(".,").lower() for w in whole}), 0.8 * len(whole))
+
+
 class Http(unittest.TestCase):
     def test_both_routes_answer(self):
         app.Handler.secret = b"s" * 16
