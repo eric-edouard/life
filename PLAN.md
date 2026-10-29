@@ -47,6 +47,15 @@ Shape:
   sent; an intent with no outcome refused (never sent twice); one event per pass listing the chats with an incoming
   message, none for his own or for Notes
 
+## Milestone 1b: a real health check, the same for every connector (his ask, 29 Oct)
+
+- [ ] One `health()` per source, derived the same way for all: `missing()` first, then a small real read (`read` over
+  the last hour, or `newest`), and for a source that sends, its link (a bridge's `/v3/logins` on the provisioning API).
+  Reports `ok`, or what failed and when, never a guess
+- [ ] The status snapshot and the app's cards read only `health()`; `missing()` stays its first step, not a second
+  check
+- [ ] Its own PR, after milestone 1 merges
+
 ## Milestone 2: LINE
 
 - [ ] beeper/line in the compose (it only runs on Intel: Rosetta on the Mac)

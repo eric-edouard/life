@@ -140,9 +140,11 @@ test("a pass starts the agent for the chats someone else wrote in, never for his
 });
 
 test("a chat starts the agent once a minute at most", () => {
-  const started = new Map<string, number>();
+  const starts = new Map();
   const ana = [{ chat: "66@s.whatsapp.net", source: "whatsapp" as const }];
-  expect(toStart(ana, started, HOUR)).toEqual(ana);
-  expect(toStart(ana, started, HOUR + 5000)).toEqual([]);
-  expect(toStart(ana, started, HOUR + MIN)).toEqual(ana);
+  expect(toStart(ana, starts, HOUR)).toEqual(ana);
+  // Heard again 5 s later: it waits for its minute, then starts with nothing new heard.
+  expect(toStart(ana, starts, HOUR + 5000)).toEqual([]);
+  expect(toStart([], starts, HOUR + MIN)).toEqual(ana);
+  expect(toStart([], starts, HOUR + 2 * MIN)).toEqual([]);
 });

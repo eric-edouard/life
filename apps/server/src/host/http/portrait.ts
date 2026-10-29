@@ -139,7 +139,8 @@ export function createPortrait(
     if (req.method !== "POST") {
       const all = [...decisionsNow().values()].map((d) => ({
         ...d,
-        to: recipientOf(d.ref),
+        // Only an open card asks his tap: the others need no recipient read.
+        to: d.status === "open" ? recipientOf(d.ref) : undefined,
       }));
       return text(JSON.stringify(all), 200, {
         ...HEADERS,

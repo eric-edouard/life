@@ -103,7 +103,7 @@ export async function send(decision: string) {
   );
   const option = d?.options.find((o) => o.id === d.answer);
   if (why || !(d && to && option?.draft && d.answeredAt)) {
-    throw new Error(why ?? "no such decision");
+    throw new Error(why ?? `${decision} is not answered`);
   }
   const { draft } = option;
   const done = await attempt(

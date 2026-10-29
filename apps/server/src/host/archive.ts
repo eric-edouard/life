@@ -170,22 +170,26 @@ export async function archiveFailing(ms = 0, now = clock().getTime()) {
 
 type Heard = ReturnType<typeof messagesIn>;
 
+/** Each chat heard, by `<source>:<chat>`: when the agent was last started for it, and whether a message waits. */
+type Starts = Map<string, { at: number; waiting?: Heard[number] }>;
+
 /**
- * The chats of `heard` the agent wasn't started for in the last minute, now marked started (`started`, by chat): a busy
- * group starts it once a minute at most, not each 5 s pass.
+ * The chats to start the agent for now: those heard, and those waiting, that weren't started for in the last minute. A
+ * chat heard sooner waits for its minute (never dropped), so a busy group starts the agent once a minute at most.
  */
-export function toStart(
-  heard: Heard,
-  started: Map<string, number>,
-  now: number
-) {
-  const fresh = heard.filter(
-    (h) => now - (started.get(`${h.source}:${h.chat}`) ?? 0) >= MIN
-  );
-  for (const h of fresh) {
-    started.set(`${h.source}:${h.chat}`, now);
+export function toStart(heard: Heard, starts: Starts, now: number) {
+  for (const h of heard) {
+    const key = `${h.source}:${h.chat}`;
+    starts.set(key, { at: starts.get(key)?.at ?? 0, waiting: h });
   }
-  return fresh;
+  const due: Heard = [];
+  for (const [key, s] of starts) {
+    if (s.waiting && now - s.at >= MIN) {
+      due.push(s.waiting);
+      starts.set(key, { at: now });
+    }
+  }
+  return due;
 }
 
 /** One pass: each kept store copied, its failures opened and closed as incidents; the chats someone else wrote in. */
@@ -230,9 +234,9 @@ export async function archiveCommand(args: string[]): Promise<number> {
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
   const failing = new Set((await archiveFailing()).map(([name]) => name));
-  // The first pass marks what it heard without starting the agent: a fresh archive copies every chat at once.
-  const started = new Map<string, number>();
-  toStart(copyAll(failing), started, clock().getTime());
+  // The first pass starts nothing: a fresh archive copies every chat at once, and the minute's tick follows anyway.
+  const starts: Starts = new Map();
+  copyAll(failing);
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;
@@ -240,7 +244,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
-    const chats = toStart(copyAll(failing), started, clock().getTime());
+    const chats = toStart(copyAll(failing), starts, clock().getTime());
     if (chats.length > 0) {
       startAgent({ chats, kind: "message" });
     }
