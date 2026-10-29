@@ -198,21 +198,27 @@ export function toStart(heard: Heard, starts: Starts, now: number) {
 }
 
 /**
- * The chats someone else wrote in since `since` in the chat sources read straight from their app's store (iMessage):
- * no archive copy tells of them, so they are read (about 60 ms). One that fails is skipped this pass.
+ * The chats someone else wrote in since the last pass, in the chat sources with no archive copy (iMessage), from each
+ * one's `incoming` and its cursor (`cursors`, by source). A source that fails keeps its cursor and is logged, so its
+ * messages wait for the next pass.
  */
-export function heardRead(since: Date, sources = enabledSources()): Heard {
+export function heardIncoming(
+  cursors: Map<string, number>,
+  sources = enabledSources()
+): Heard {
   return sources.flatMap((s) => {
-    if (s.kind !== "chat" || s.store || s.missing?.()) {
+    if (!s.incoming || s.missing?.()) {
       return [];
     }
     try {
-      return s
-        .read(since)
-        .filter((e) => !e.fromMe)
-        .map((e) => ({ chat: e.chat, source: s.name }));
+      const { chats, last } = s.incoming(cursors.get(s.name));
+      cursors.set(s.name, last);
+      return chats.map((chat) => ({ chat, source: s.name }));
     } catch (error) {
-      console.error(clock().toISOString(), s.name, error);
+      log("run.error", {
+        error: (error as Error).message,
+        step: `heard.${s.name}`,
+      });
       return [];
     }
   });
@@ -262,8 +268,9 @@ export async function archiveCommand(args: string[]): Promise<number> {
   const failing = new Set((await archiveFailing()).map(([name]) => name));
   // The first pass starts nothing: a fresh archive copies every chat at once, and the minute's tick follows anyway.
   const starts: Starts = new Map();
+  const cursors = new Map<string, number>();
   copyAll(failing);
-  let since = clock();
+  heardIncoming(cursors);
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;
@@ -271,13 +278,11 @@ export async function archiveCommand(args: string[]): Promise<number> {
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
-    const pass = clock();
     const chats = toStart(
-      [...copyAll(failing), ...heardRead(since)],
+      [...copyAll(failing), ...heardIncoming(cursors)],
       starts,
-      pass.getTime()
+      clock().getTime()
     );
-    since = pass;
     if (chats.length > 0) {
       startAgent({ chats, kind: "message" });
     }
