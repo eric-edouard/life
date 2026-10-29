@@ -159,6 +159,7 @@ export function createPortrait(
       return text("unknown step", 400);
     }
     try {
+      let asker: string | undefined;
       if (b.step === "asked") {
         // His "Something's wrong": a request (no options) about one loop, for the audit; Life makes its id.
         const { loop, note, ref } = (b.data ?? {}) as Partial<
@@ -194,10 +195,11 @@ export function createPortrait(
           ],
           now()
         );
-        const wake = wakeOf(`${b.step}`, d?.loop);
-        if (wake) {
-          startAgent(wake);
-        }
+        asker = d?.loop;
+      }
+      const wake = wakeOf(`${b.step}`, asker);
+      if (wake) {
+        startAgent(wake);
       }
       return text("ok", 200);
     } catch (e) {

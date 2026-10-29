@@ -333,20 +333,30 @@ export function settleDelivery(
   return { ...s, attempts: 0, delivered: cursor, retryAt: undefined };
 }
 
-/** What his own step on his page wakes: his answer wakes the loop that asked; opening the context or revoking wakes none. */
-export const wakeOf = (step: string, loop: string | undefined) =>
-  step === "answered" && loop ? { kind: "decision" as const, loop } : undefined;
+/**
+ * What his own step on his page wakes: his answer wakes the loop that asked; his "Something's wrong" (a request,
+ * `asked`) starts the audit; opening the context or revoking wakes none.
+ */
+export function wakeOf(step: string, loop: string | undefined) {
+  if (step === "asked") {
+    return { kind: "audit" as const };
+  }
+  return step === "answered" && loop
+    ? { kind: "decision" as const, loop }
+    : undefined;
+}
 
 /**
  * The one way Life starts an agent that pulls: its `start` command, once, in his home, with the event's JSON appended,
  * his zone added (`{kind:"ask"}` on a new ask, `{kind:"tick", at}` each minute from the watcher, `{kind:"message", chats}`
  * when the archive copied messages from someone else, `messagesIn`; `{kind:"decision", loop}` when he answers one of a
- * loop's decisions on his page, `wakeOf`). The command decides
+ * loop's decisions on his page, `{kind:"audit"}` when he files a "Something's wrong" there, `wakeOf`). The command decides
  * what the event starts; Life never waits on it. A start that fails is logged.
  */
 export function startAgent(
   event:
     | { kind: "ask" }
+    | { kind: "audit" }
     | { kind: "tick"; at: string }
     | { chats: { chat: string; source: string }[]; kind: "message" }
     | { kind: "decision"; loop: string }
