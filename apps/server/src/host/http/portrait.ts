@@ -79,10 +79,9 @@ const form = (
   note = ""
 ) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Life</title>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>${TOKENS}
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--white);color:var(--ink);font:16px/1.55 var(--serif)}
-form{display:grid;gap:12px;width:min(320px,calc(100vw - 32px))}h1{font-size:36px;line-height:1.1;margin:0 0 12px}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--white);color:var(--ink);font:17px/1.55 var(--sans)}
+form{display:grid;gap:12px;width:min(320px,calc(100vw - 32px))}h1{font:600 36px/1.1 var(--serif);margin:0 0 12px}
 input,button{font:inherit;color:inherit;padding:11px 16px;border-radius:var(--control-radius);border:1px solid var(--rule);background:var(--surface)}
 button{background:var(--ink);color:var(--white);border-color:var(--ink);font-weight:600;cursor:pointer}p{margin:0;font:500 11.5px/1.5 var(--mono)}p::before{content:"● ";color:var(--error)}</style>
 <form method="post" action="${action}"><h1>Life</h1><input type="password" name="password" placeholder="Password" autocomplete="current-password" autofocus required><button>Open</button>${note ? `<p>${note}</p>` : ""}</form>`;

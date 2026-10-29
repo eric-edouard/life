@@ -1,158 +1,337 @@
 <!doctype html>
 <meta charset="utf-8">
-<meta content="width=device-width, initial-scale=1" name="viewport">
+<meta
+  content="width=device-width, initial-scale=1, viewport-fit=cover"
+  name="viewport"
+>
 <meta content="noindex" name="robots">
 <title>Decisions · Life</title>
-<link
-  href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap"
-  rel="stylesheet"
->
 <style>
 /*TOKENS*/
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  display: none !important;
+}
+html,
 body {
+  height: 100%;
   margin: 0;
-  font: 16px / 1.5 var(--serif);
+}
+body {
+  display: flex;
+  font: 17px / 1.55 var(--sans);
   color: var(--ink);
   background: var(--white);
 }
-header {
+button {
+  font: inherit;
+  color: inherit;
+}
+:root :focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+/* Read aloud, not shown. */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+/* The overview: a sidebar from 900 px, a sheet from the top below that. */
+#list {
+  flex: 0 0 360px;
+  height: 100%;
+  padding: 32px 20px;
+  overflow-y: auto;
+  background: var(--surface);
+}
+#list header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 12px 16px;
+}
+#list h1 {
+  margin: 0;
+  font: 600 22px / 1.2 var(--serif);
+}
+.count {
+  font-size: 15px;
+  color: var(--muted);
+}
+.group {
+  padding-bottom: 16px;
+}
+.group h2 {
+  padding: 4px 12px 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.row {
+  all: unset;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.row[aria-current="true"] {
+  font-weight: 700;
+  background: var(--white);
+}
+.row.done {
+  color: var(--muted);
+}
+.mark {
+  flex: 0 0 18px;
+  height: 18px;
+  border: 2px solid var(--muted);
+  border-radius: 9px;
+}
+.row[aria-current="true"] .mark {
+  border-color: var(--ink);
+}
+.row.done .mark {
+  position: relative;
+  background: var(--synced);
+  border: 0;
+}
+.row.done .mark::after {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  width: 4px;
+  height: 8px;
+  content: "";
+  border: solid var(--white);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.side {
+  padding: 4px 12px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.link {
+  all: unset;
+  font-size: 15px;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+/* One decision a screen, snapping; tall ones scroll inside. */
+#main {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y proximity;
+}
+#bar {
   position: sticky;
   top: 0;
-  padding: 12px 16px 0;
+  z-index: 2;
+  display: none;
+  width: 100%;
+  padding: max(14px, env(safe-area-inset-top)) 24px 10px;
+  cursor: pointer;
   background: var(--white);
-  border-bottom: 1px solid var(--rule);
+  border: 0;
 }
-h1 {
-  margin: 0 0 8px;
-  font-size: 28px;
-}
-nav {
+#bar .seg {
   display: flex;
   gap: 4px;
-  overflow-x: auto;
 }
-nav button {
-  all: unset;
-  padding: 8px 10px 10px;
-  font: 500 13px / 1 var(--mono);
+#bar .seg span {
+  flex: 1;
+  height: 4px;
+  background: var(--rule);
+  border-radius: 2px;
+}
+#bar .seg .on {
+  background: var(--synced);
+}
+#bar .seg .here {
+  background: var(--ink);
+}
+#bar .hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
   color: var(--muted);
-  white-space: nowrap;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
+  text-align: center;
 }
-nav button[aria-selected="true"] {
-  color: var(--ink);
-  border-bottom-color: var(--ink);
-}
-nav .n {
-  margin-left: 6px;
-  color: var(--ink);
-}
-main {
-  display: grid;
-  gap: 14px;
-  max-width: 640px;
-  padding: 16px;
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  justify-content: center;
+  max-width: 720px;
+  min-height: 100%;
+  padding: 48px 72px;
   margin: 0 auto;
+  scroll-snap-align: start;
 }
-article {
-  display: grid;
-  gap: 12px;
-  padding: 18px;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: var(--panel-radius);
+.where {
+  font-size: 15px;
+  color: var(--muted);
 }
-h2 {
+.q {
   margin: 0;
-  font-size: 19px;
-  line-height: 1.3;
+  font: 600 40px / 1.15 var(--serif);
+  letter-spacing: -0.01em;
 }
 .draft {
-  padding: 6px 10px;
-  font-size: 15px;
+  padding: 18px 22px;
   white-space: pre-wrap;
-  border-left: 3px solid var(--rule);
+  background: var(--surface);
+  border-radius: 14px;
+}
+.to,
+.res,
+.ctx {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text);
 }
 .opts {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 .opt {
   all: unset;
-  box-sizing: border-box;
   display: grid;
-  gap: 2px;
-  padding: 12px 14px;
+  gap: 4px;
+  padding: 17px 22px;
+  font-size: 19px;
   cursor: pointer;
-  border: 1.5px solid var(--rule);
+  border: 1px solid var(--rule);
   border-radius: var(--control-radius);
 }
-.opt[aria-checked="true"] {
+.opt.pick {
+  font-weight: 700;
   color: var(--white);
   background: var(--ink);
   border-color: var(--ink);
 }
-.opt .c {
-  font-size: 13.5px;
-  opacity: 0.75;
+.opt[aria-checked="true"] {
+  font-weight: 700;
+  color: var(--white);
+  background: var(--synced);
+  border-color: var(--synced);
+}
+.opt[disabled] {
+  cursor: default;
+  opacity: 0.6;
+}
+.opt .c,
+.opt .d {
+  font-size: 15px;
+  font-weight: 400;
+  opacity: 0.85;
 }
 .opt .d {
-  padding-top: 6px;
-  font-size: 14px;
   white-space: pre-wrap;
 }
-.opt .pick::after {
-  content: " ●";
-}
 textarea {
-  box-sizing: border-box;
   width: 100%;
-  padding: 8px 10px;
-  font: 15px / 1.4 var(--serif);
+  padding: 12px 14px;
+  font: 17px / 1.45 var(--sans);
   color: inherit;
   resize: vertical;
   background: transparent;
-  border: 1px dashed var(--rule);
+  border: 1px solid var(--rule);
   border-radius: var(--control-radius);
 }
-.more {
-  all: unset;
-  font: 500 12px / 1.4 var(--mono);
-  color: var(--muted);
-  text-decoration: underline;
-  cursor: pointer;
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--text);
 }
-.ctx,
-.res {
-  font-size: 14px;
-  color: var(--muted);
-}
-.past {
-  padding-top: 10px;
-  font-size: 14px;
-  color: var(--muted);
-  border-top: 1px solid var(--rule);
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
 }
 .quiet {
   color: var(--muted);
 }
 #flash {
   position: fixed;
-  bottom: 16px;
+  bottom: 24px;
   left: 50%;
-  padding: 8px 14px;
-  font: 500 13px var(--mono);
+  z-index: 5;
+  padding: 10px 16px;
+  font-size: 15px;
   color: var(--white);
   background: var(--ink);
   border-radius: var(--control-radius);
   transform: translateX(-50%);
 }
+@media (max-width: 899px) {
+  #list {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 4;
+    visibility: hidden;
+    height: auto;
+    max-height: 88%;
+    padding-top: max(24px, env(safe-area-inset-top));
+    background: var(--white);
+    border-radius: 0 0 24px 24px;
+    box-shadow: 0 1px 0 var(--rule);
+    transform: translateY(-105%);
+    transition:
+      transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s 280ms;
+  }
+  body.sheet #list {
+    visibility: visible;
+    transform: none;
+    transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  #bar {
+    display: block;
+  }
+  section {
+    /* Below the sticky bar, so a decision's first line is never under it. */
+    gap: 22px;
+    justify-content: flex-end;
+    min-height: calc(100% - 64px);
+    padding: 24px;
+    /* Below the sticky bar, so a decision's first line is never under it. */
+    scroll-margin-top: 64px;
+  }
+  .q {
+    font-size: 32px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #list {
+    transition: none;
+  }
+}
 </style>
-<header>
-  <h1>Decisions</h1>
-  <nav id="tabs"></nav>
-</header>
-<main id="main"><p class="quiet">Loading…</p></main>
-<div hidden id="flash"></div>
-<script defer src="decisions.js"></script>
+<aside aria-label="All decisions" id="list"></aside>
+<main id="main">
+  <button
+    aria-expanded="false"
+    aria-label="Show all decisions"
+    id="bar"
+    type="button"
+  ></button>
+  <div id="cards">
+    <section><p class="quiet">Loading…</p></section>
+  </div>
+</main>
+<div hidden id="flash" role="status"></div>
+<script src="decisions.js" type="module"></script>
