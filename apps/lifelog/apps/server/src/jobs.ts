@@ -32,6 +32,7 @@ import type { AudioStore } from "./audio-store";
 import { logChange } from "./change-log";
 import { billableSeconds, type Config, singleFlight } from "./config";
 import { cut, touchesQuiet, withdrawRows } from "./cutter";
+import { ownerZoneAt } from "./diagnostics";
 import {
   credits,
   failureReason,
@@ -593,8 +594,8 @@ export function jobWorker(
   }
 
   // A block through the speech service: its words, and Scribe's for the turns it routes, cut from
-  // the block's own audio and sent once, without a webhook; a block 10% Thai goes to Scribe
-  // whole, as a Scribe job. The service busy: queued again. Down or failing: an attempt, and a block
+  // the block's own audio and sent once, without a webhook; a block mostly Thai goes to Scribe
+  // whole, as a Scribe job. Routed by the zone the owner was in when it was recorded. The service busy: queued again. Down or failing: an attempt, and a block
   // it fails the last time goes to Scribe whole too, so a failure that repeats never loops.
   async function hear(job: Job, bytes: Uint8Array) {
     const started = Date.now();
@@ -602,13 +603,17 @@ export function jobWorker(
     if (putBack(job, said)) {
       return;
     }
+    const zone = ownerZoneAt(db, job.captureStart ?? undefined);
     const route =
-      "heard" in said ? routeTurns(said.heard) : { kind: "whole" as const };
+      "heard" in said
+        ? routeTurns(said.heard, zone)
+        : { kind: "whole" as const };
     record(db, "speech.heard", {
       job: job.id,
       ms: Date.now() - started,
       route: route.kind,
       routed: route.kind === "turns" ? route.routed.length : null,
+      zone,
     });
     if (waitForCredits(job, route)) {
       return;

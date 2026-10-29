@@ -6,12 +6,12 @@ POST /embed-ranges  body: Ogg Opus (any rate or channels, up to 16 MB). Headers 
                   per range (null when it lies outside the file or holds under 0.5 s; one over
                   30 s is cut to its first 30 s), modelId, modelRevision}
 POST /transcribe    body: one block's audio, as above. Header X-Identity-Secret.
-              -> {durationSeconds, turns: [{start, end, speaker, language}], words: [{start, end,
+              -> {durationSeconds, turns: [{start, end, speaker, language, scores}], words: [{start, end,
                   text}], models: {name: "id@revision"}}
                   turns: Nemotron 3's speaker turns in time order, one speaker's joined across a
                   gap under 0.5 s, made exclusive (a turn ends where the next starts); speaker
-                  "0", "1"…; language VoxLingua107's code ("en", "th"…) for a turn of a second or
-                  more, else null.
+                  "0", "1"…; language VoxLingua107's top code ("en", "th"…) and scores its
+                  probabilities of en, fr and th, for a turn of a second or more, else null.
                   words: Parakeet Ultra's over the whole block. Routing them is the caller's.
 GET  /health  -> {ok: true}
 
@@ -200,12 +200,20 @@ def embed(models: Models, samples) -> list[float]:
     return (vector / norm).tolist()
 
 
-def language(models: Models, samples) -> str:
+# The languages whose probabilities a turn carries: what the server's router reads (route-turns.ts).
+SCORED = ("en", "fr", "th")
+
+
+def language(models: Models, samples) -> tuple[str, dict[str, float]]:
+    """VoxLingua107's top code, and its probabilities of the SCORED languages."""
     import torch
 
     with torch.inference_mode():
-        scores = models.voxlingua.classify_batch(torch.from_numpy(samples)[None])[0][0]
-    return models.voxlingua.hparams.label_encoder.ind2lab[int(scores.argmax())].split(":")[0]
+        log_probs = models.voxlingua.classify_batch(torch.from_numpy(samples)[None])[0][0]
+    labels = models.voxlingua.hparams.label_encoder.ind2lab
+    codes = [labels[i].split(":")[0] for i in range(len(labels))]
+    probs = log_probs.exp().tolist()
+    return codes[int(log_probs.argmax())], {c: probs[codes.index(c)] for c in SCORED}
 
 
 def transcribe(models: Models, samples) -> dict:
@@ -218,7 +226,8 @@ def transcribe(models: Models, samples) -> dict:
     turns = exclusive([{"end": s["End"], "speaker": str(s["Speaker"]), "start": s["Start"]} for s in found])
     for turn in turns:
         piece = samples[int(turn["start"] * SAMPLE_RATE) : int(turn["end"] * SAMPLE_RATE)]
-        turn["language"] = language(models, piece) if piece.size >= LANGUAGE_MIN_SECONDS * SAMPLE_RATE else None
+        judged = piece.size >= LANGUAGE_MIN_SECONDS * SAMPLE_RATE
+        turn["language"], turn["scores"] = language(models, piece) if judged else (None, None)
     return {
         "durationSeconds": samples.size / SAMPLE_RATE,
         "models": {name: provenance(name) for name in ("nemotron", "voxlingua", "parakeet")},

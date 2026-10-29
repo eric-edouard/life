@@ -7,10 +7,10 @@ clip is already stored and is the reference. What it found: `docs/research/trans
 ## How to run it
 
 `bun run --cwd apps/lifelog/apps/stt-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
-`score`, then `route [diarizer]` (finding Thai on that diarizer's turns, pyannote's by
-default; needs its run and Parakeet Ultra's; caches and report in `routing/<diarizer>/`) and
-`pipeline [thai model]` (the proposed pipeline on pyannote's turns, scored like a model). Each step skips what it already
-wrote, so a step can be stopped and run again.
+`score`. Apart from those, `context` measures the server's router (`route-turns.ts`) on real blocks Scribe heard
+whole, heard again by a speech service (`IDENTITY_URL`, `IDENTITY_SECRET`; run one of your own, not the owner's
+production one), and `context fit` fits its weights. Each step skips what it already wrote, so a step can be
+stopped and run again.
 
 - `jobs` and `clips` read the archive read-only through `@lifelog/db` (`src/export.ts`):
   `DATABASE_PATH` and `AUDIO_DIR` as Lifelog Host's `server.env` sets them.
@@ -33,9 +33,9 @@ wrote, so a step can be stopped and run again.
   that fixes Scribe's mistakes scores worse for it.
 - Speakers are scored by time: each Scribe word goes to the speaker turn holding its middle, labels
   paired one to one. Any model that returns timed speaker turns is scored the same way.
-- Routing (`src/routing.ts`) is judged per speaker turn, in seconds: Thai left with the English and
-  French model (missed) against English or French sent away (false alarms). A turn is routed when
-  VoxLingua107 hears Thai (since 24 Oct 2026; before, any language but English and French, or a turn
-  Parakeet Ultra wrote nothing for: the report measures both).
+- Routing (`src/context.ts`) is judged per speaker turn, in seconds: Thai left with Parakeet (missed) against
+  English or French sent to Scribe, by the kind of place the owner was in, and Thai-zone blocks as if elsewhere (Thai
+  he speaks abroad). A turn is Thai when 30% of Scribe's words in it are in Thai script. The fit is scored on each
+  day by a fit without that day; paste its weights into `route-turns.ts` with the date and numbers.
 - Before adding models, sweep what was released lately (Hugging Face's API by date): the first runs
   were picked from memory and missed Parakeet Ultra, the eventual leader.

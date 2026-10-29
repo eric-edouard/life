@@ -73,7 +73,7 @@ rated by ear).
 
 No open model does English, French and Thai well, so the Thai has to be found and sent elsewhere. Each speaker turn
 of a second or more is judged; seconds of Thai missed and seconds of English or French sent away, on each
-diarizer's turns (`bench route [diarizer]`):
+diarizer's turns (`bench route [diarizer]`, a step since replaced by `bench context`):
 
 | detector | missed, pyannote's turns | false alarms | missed, Nemotron 3's turns | false alarms |
 |---|---|---|---|---|

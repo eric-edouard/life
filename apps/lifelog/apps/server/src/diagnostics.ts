@@ -12,8 +12,8 @@ import {
   heartbeatReasons,
   heartbeats,
 } from "@lifelog/db/schema";
-import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
-import { setOwnerTimeZone } from "./config";
+import { and, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
+import { DEFAULT_TIME_ZONE, setOwnerTimeZone } from "./config";
 
 const RETENTION_DAYS = 90;
 // Request bodies past these are refused before parsing. A crash with every thread's stack is
@@ -451,18 +451,30 @@ export function storeHeartbeat(db: Db, h: z.infer<typeof HeartbeatUpload>) {
   return stored.length > 0;
 }
 
-// The zone of the newest heartbeat that names one, by observation time: a late delivery of an
-// older heartbeat doesn't move it back. At startup and after each heartbeat.
-export function refreshOwnerTimeZone(db: Db) {
+// The zone the owner was in at `at`: that of the newest heartbeat observed by then that names one,
+// else of the newest at all (a late delivery of an older heartbeat doesn't move it back).
+export function ownerZoneAt(db: Db, at?: Date) {
   const zone = sql<string>`${heartbeats.body} ->> 'timeZone'`;
-  const row = db
-    .select({ zone })
-    .from(heartbeats)
-    .where(isNotNull(zone))
-    .orderBy(desc(heartbeats.observedAt))
-    .limit(1)
-    .get();
-  setOwnerTimeZone(row?.zone);
+  const newest = (until?: Date) =>
+    db
+      .select({ zone })
+      .from(heartbeats)
+      .where(
+        and(
+          isNotNull(zone),
+          until ? lte(heartbeats.observedAt, until) : undefined
+        )
+      )
+      .orderBy(desc(heartbeats.observedAt))
+      .limit(1)
+      .get()?.zone;
+  const found = (at && newest(at)) ?? newest();
+  return found && isTimeZone(found) ? found : DEFAULT_TIME_ZONE;
+}
+
+// The owner's zone now. At startup and after each heartbeat.
+export function refreshOwnerTimeZone(db: Db) {
+  setOwnerTimeZone(ownerZoneAt(db));
 }
 
 export function listDiagnostics(

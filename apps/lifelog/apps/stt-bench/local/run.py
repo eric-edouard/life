@@ -6,9 +6,6 @@ The optional JSON holds arguments for the model's `generate` (Voxtral's language
 `groups`: only the clips of those groups (its <clip>.json `group`), for a model that covers some
 languages only. Any value "given" is the clip's group (en, fr), for a model that cannot detect.
 `processor` names the original repo of a Whisper build that ships without its tokenizer files.
-`turns` names a JSON file of {clip: [[start, end], …]}: only those stretches of those clips are
-transcribed, each capped at 40 + 25 tokens a second (a guard against looping), and the clip's
-<clip>.json holds them as `segments`.
 `load` holds arguments for loading it (`model_type` where its folder's name does not say).
 `chunk` (seconds) feeds a model that stops early on long audio its clip in pieces of that length,
 cut at fixed points, and joins the texts.
@@ -35,7 +32,6 @@ groups = kwargs.pop("groups", None)
 processor = kwargs.pop("processor", None)
 chunk = kwargs.pop("chunk", None)
 load = kwargs.pop("load", {})
-turns = json.loads(Path(kwargs.pop("turns")).read_text()) if "turns" in kwargs else None
 out.mkdir(parents=True, exist_ok=True)
 
 
@@ -65,27 +61,8 @@ for clip in sorted(clips.glob("*.wav")):
     if groups and group not in groups:
         continue
     args = {k: group if v == "given" else v for k, v in kwargs.items()}
-    if turns is not None and clip.stem not in turns:
-        continue
     began = time.perf_counter()
-    if turns is not None:
-        import mlx.core as mx
-        import soundfile
-
-        samples, rate = soundfile.read(clip, dtype="float32")
-        heard = [
-            {
-                "end": end,
-                "start": start,
-                "text": model.generate(
-                    mx.array(samples[int(start * rate) : int(end * rate)]),
-                    **{**args, "max_tokens": int(40 + 25 * (end - start))},
-                ).text.strip(),
-            }
-            for start, end in turns[clip.stem]
-        ]
-        result = type("Turns", (), {"segments": heard, "text": " ".join(h["text"] for h in heard)})()
-    elif chunk:
+    if chunk:
         import mlx.core as mx
         import soundfile
 

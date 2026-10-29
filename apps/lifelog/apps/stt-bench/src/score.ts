@@ -235,7 +235,7 @@ export interface Output {
 }
 
 // Who spoke when, from a model that says: a diarizer's `speaker`, VibeVoice's `speaker_id`.
-export function turnsOf(out: Output): Turn[] | null {
+function turnsOf(out: Output): Turn[] | null {
   const turns = (out.segments ?? []).flatMap((s) => {
     const speaker = s.speaker ?? s.speaker_id;
     return speaker === undefined ||

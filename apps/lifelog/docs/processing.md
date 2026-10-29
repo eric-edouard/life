@@ -166,13 +166,15 @@ and the feed show it with the switches):
 
 - `scribe` (the default): each block goes to ElevenLabs Scribe whole, as above.
 - `speech`: each block goes to the speech service (`apps/identity`, `POST /transcribe`), which answers Nemotron 3's
-  speaker turns, VoxLingua107's language per turn and Parakeet Ultra's words (`route-turns.ts`). Only Thai goes to
-  Scribe (the owner's rule, 24 Oct 2026): a turn of a second or more VoxLingua hears as Thai; a block 10% Thai goes to
-  Scribe whole, as a `scribe` job (why: `docs/decisions.md`). Every other language, and a turn the service wrote nothing in, stays the service's
-  (VoxLingua tags short noisy French as Breton, Portuguese or Malagasy). The routed turns are cut from the block's own Ogg Opus (packets moved, a
+  speaker turns, VoxLingua107's scores per turn and Parakeet Ultra's words (`route-turns.ts`). Only Thai goes to
+  Scribe (the owner's rule, 24 Oct 2026). Each turn of a second or more gets a chance of being Thai, from VoxLingua's
+  scores, whether Parakeet wrote anything in it, its length and how Thai the rest of the block sounds. It is routed
+  when that chance clears the bar of the zone the owner was in when the block was recorded (`ownerZoneAt`): lower
+  where Thai is spoken. A block mostly routed goes to Scribe whole, as a `scribe` job (why: `docs/decisions.md`).
+  The routed turns are cut from the block's own Ogg Opus (packets moved, a
   quarter second around each) and sent to Scribe once, without a webhook; their words come back into the turns'
   seconds with the service's speakers. The transcript has Scribe's shape, so turns, conversations, speakers, the
-  feed and Life read it the same. Why these models: `docs/research/transcription-bench.md` (its routing numbers are the earlier rule's).
+  feed and Life read it the same. Why these models: `docs/research/transcription-bench.md`; the router's numbers: `bench context` (`apps/stt-bench`).
 
 A job keeps the transcriber it was sent with (`transcription_jobs.transcriber`). The service busy, the block is
 queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, so nothing

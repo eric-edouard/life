@@ -56,12 +56,16 @@ reverse it, change its entry here in the same commit.
   never the whole archive.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
-  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe v2, a block 10% Thai whole. The
-  10% is the owner's choice of 29 Oct 2026, against 70% before: VoxLingua rarely hears a short Thai turn as Thai,
-  rather as Lao, Javanese, English and dozens more, and Parakeet writes it as made-up words, so a block with some Thai
-  holds more. It sends about half of a Thai-speaking place's audio to Scribe, against a fifth at 70%. Until 24 Oct
-  2026, every turn neither English nor French or with no words went: VoxLingua tags short noisy French as other
-  languages, and with credits out a whole morning waited. `scribe`
+  Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe v2. The owner's goal (29 Oct 2026) is
+  the best transcription in every language wherever he is. VoxLingua's top guess misses most short Thai (it hears Lao,
+  Javanese, English and dozens more, and Parakeet writes made-up words), so a turn is routed by a small logistic model
+  over VoxLingua's scores and the rest of the block, its weights fitted by `bench context fit` on blocks Scribe heard
+  whole (seven numbers; no figure of a day or a block is committed). Where the owner is sets the bar, never the model:
+  learned as a feature, place made Thai spoken elsewhere count as not Thai. On 310 blocks, scored on days the fit left
+  out, it missed about 2% of Thai where Thai is spoken (11% for the 10% rule before it, 63% for the 70% rule before
+  that), sending about half that speech to Scribe, and about a tenth of Thai elsewhere. Until 24 Oct 2026, every turn
+  neither English nor French or with no words went: VoxLingua tags short noisy French as other languages, and with
+  credits out a whole morning waited. `scribe`
   (the default) sends every block to Scribe whole, as before. Parakeet Ultra was as close to Scribe on English and
   French as anything measured, and Nemotron closer on speakers than pyannote; no open model is good enough on Thai
   (`docs/research/transcription-bench.md`). Apple's and Whisper's transcription were rejected earlier for Thai and

@@ -1,9 +1,22 @@
 import { expect, test } from "bun:test";
 import type { Word } from "@lifelog/db/schema";
 import { parseTranscript, textOf } from "./elevenlabs";
-import { routeTurns, scribeRanges, transcriptOf, uncut } from "./route-turns";
+import {
+  type Judged,
+  routeTurns,
+  scribeRanges,
+  thaiChanceOf,
+  transcriptOf,
+  uncut,
+} from "./route-turns";
 import type { Heard } from "./speech-service";
 
+// VoxLingua's scores for a turn heard in `language`, roughly as it gives them; null when unjudged.
+const SCORES: Record<string, { en: number; fr: number; th: number }> = {
+  en: { en: 0.95, fr: 0.02, th: 0.001 },
+  fr: { en: 0.02, fr: 0.95, th: 0.001 },
+  th: { en: 0.02, fr: 0.01, th: 0.9 },
+};
 const turn = (
   start: number,
   end: number,
@@ -12,6 +25,7 @@ const turn = (
 ) => ({
   end,
   language,
+  scores: language ? (SCORES[language] ?? null) : null,
   speaker,
   start,
 });
@@ -26,64 +40,52 @@ const heard = (turns: Heard["turns"], words: Heard["words"]): Heard => ({
   turns,
   words,
 });
+const HOME = "Asia/Bangkok";
+const AWAY = "Europe/Paris";
 
-test("only a turn of a second or more VoxLingua hears as Thai is routed: other languages and wordless turns stay local", () => {
-  const thai = turn(10, 20, "1", "th");
-  const silent = turn(20, 24, "0", "en");
+test("a block of Thai goes to Scribe whole, wherever the owner is", () => {
+  const thai = heard(
+    [turn(0, 8, "0", "th"), turn(8, 20, "1", "th"), turn(20, 23, "0", "en")],
+    [word(1, "sawasdee"), word(9, "khrap"), word(21, "ok")]
+  );
+  expect(routeTurns(thai, HOME)).toEqual({ kind: "whole" });
+  expect(routeTurns(thai, AWAY)).toEqual({ kind: "whole" });
+});
+
+test("English and French stay local, and so do turns under a second or with no scores", () => {
   const block = heard(
     [
       turn(0, 10, "0", "en"),
-      thai,
-      silent,
-      turn(24, 24.6, "1", null),
-      turn(25, 25.8, "1", "th"),
-      turn(30, 130, "0", "fr"),
-      // Noisy French a café blurs, heard as Breton and Portuguese (24 Oct): it stays local.
-      turn(130, 132, "0", "br"),
-      turn(132, 135, "0", "pt"),
+      turn(10, 10.6, "1", "th"),
+      turn(11, 15, "1", null),
+      turn(15, 60, "0", "fr"),
     ],
-    // "ok" starts in the silent turn but its middle is past it.
-    [
-      word(1, "hello"),
-      word(12, "sawasdee"),
-      word(23.9, "ok"),
-      word(31, "salut"),
-    ]
+    [word(1, "hello"), word(12, "hm"), word(16, "salut")]
   );
-  expect(routeTurns(block)).toEqual({ kind: "turns", routed: [thai] });
-});
-
-test("a block 10% Thai goes to Scribe whole; silent turns don't count toward it", () => {
-  const thai = heard(
-    [turn(0, 3, "0", "en"), turn(3, 10, "1", "th")],
-    [word(1, "hi")]
-  );
-  expect(routeTurns(thai)).toEqual({ kind: "whole" });
-  // One Thai turn, and the rest of the Thai heard as Lao, Javanese or English, with Parakeet's
-  // made-up words in it: it goes whole.
-  const mixed = heard(
-    [
-      turn(0, 2, "1", "th"),
-      turn(2, 6, "1", "lo"),
-      turn(6, 10, "1", "jw"),
-      turn(10, 18, "1", "en"),
-    ],
-    [word(3, "baman"), word(11, "elik"), word(12, "chandai")]
-  );
-  expect(routeTurns(mixed)).toEqual({ kind: "whole" });
-  const thaiSecondIn = (seconds: number) =>
-    routeTurns(heard([turn(0, 1, "1", "th"), turn(1, seconds, "0", "en")], []));
-  expect(thaiSecondIn(10.5).kind).toBe("turns");
-  expect(thaiSecondIn(10).kind).toBe("whole");
-  const quiet = heard(
-    [turn(0, 3, "0", "en"), turn(3, 10, "1", "en")],
-    [word(1, "hi")]
-  );
-  expect(routeTurns(quiet)).toMatchObject({ kind: "turns" });
-  expect(routeTurns(heard([], [word(1, "hi")]))).toEqual({
+  expect(routeTurns(block, HOME)).toEqual({ kind: "turns", routed: [] });
+  expect(routeTurns(block, AWAY)).toEqual({ kind: "turns", routed: [] });
+  expect(routeTurns(heard([], [word(1, "hi")]), HOME)).toEqual({
     kind: "turns",
     routed: [],
   });
+});
+
+test("a turn that is only maybe Thai goes to Scribe where Thai is spoken, not elsewhere", () => {
+  // Heard as Thai, but alone in an English and French block and with no words from Parakeet.
+  const maybe = turn(10, 14, "1", "th");
+  const block = heard(
+    [turn(0, 10, "0", "en"), maybe, turn(14, 60, "0", "fr")],
+    [word(1, "hello"), word(15, "salut")]
+  );
+  const chance = thaiChanceOf(
+    maybe as Judged,
+    block.turns as Judged[],
+    block.words
+  );
+  expect(chance).toBeGreaterThan(0.3);
+  expect(chance).toBeLessThan(0.7);
+  expect(routeTurns(block, HOME)).toEqual({ kind: "turns", routed: [maybe] });
+  expect(routeTurns(block, AWAY)).toEqual({ kind: "turns", routed: [] });
 });
 
 test("Scribe hears each routed turn with a quarter second around it, overlaps joined", () => {

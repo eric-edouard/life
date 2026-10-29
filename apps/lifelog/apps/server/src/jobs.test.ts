@@ -1174,12 +1174,36 @@ function speechAudio(seconds: number, mark = 0) {
   const data = pendantOggOpus(packets, seconds * 1000);
   return { data, seconds, sha: sha256Hex(data) };
 }
+// VoxLingua's scores as it gives them for a clear turn of English, French or Thai.
+const SCORES: Record<string, { en: number; fr: number; th: number }> = {
+  en: { en: 0.95, fr: 0.02, th: 0.001 },
+  fr: { en: 0.02, fr: 0.95, th: 0.001 },
+  th: { en: 0.02, fr: 0.01, th: 0.9 },
+};
 const turn = (
   start: number,
   end: number,
   speaker: string,
   language: string | null
-) => ({ end, language, speaker, start });
+) => ({
+  end,
+  language,
+  scores: language ? (SCORES[language] ?? null) : null,
+  speaker,
+  start,
+});
+// The phone named a zone where Thai is spoken, before any block: the router's bar there.
+const inThaiZone = () =>
+  env.db
+    .insert(heartbeats)
+    .values({
+      body: { timeZone: "Asia/Bangkok" },
+      id: randomUUID(),
+      observedAt: new Date(0),
+      reason: "periodic",
+      receivedAt: new Date(0),
+    })
+    .run();
 const said = (start: number, text: string) => ({
   end: start + 0.3,
   start,
@@ -1203,7 +1227,8 @@ const thaiAnswer = () =>
 test("the speech service: English and French stay with it, other turns go to Scribe cut from the block, once", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
-  // Thai under a tenth of the speech: its turn goes alone, not the block.
+  inThaiZone();
+  // One Thai turn in English and French, Parakeet writing nothing in it: it goes alone, not the block.
   speech.heard = {
     durationSeconds: 60,
     models: {},
@@ -1212,7 +1237,7 @@ test("the speech service: English and French stay with it, other turns go to Scr
       turn(10, 14, "1", "th"),
       turn(14, 60, "0", "fr"),
     ],
-    words: [said(1, "Hello"), said(11, "noise"), said(15, "Salut")],
+    words: [said(1, "Hello"), said(15, "Salut")],
   };
   fake.respond = thaiAnswer;
   const jobId = await admitFragment(app, speechAudio(60), 1);
@@ -1274,6 +1299,7 @@ test("the speech service, credits used up: English and French still complete on 
 test("the speech service, credits used up: a block with Thai turns waits for them, and goes when they are back", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
   let used = 1000;
   fake.respond = (call) =>
     call.path.endsWith("/v1/user/subscription")
@@ -1354,6 +1380,7 @@ test("credits used up, the 24 Oct migration makes the blocks waiting for them du
 test("the speech service: a block with enough Thai goes to Scribe whole, as a Scribe job; busy, it waits", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
   speech.busy = true;
   const jobId = await admitFragment(app, speechAudio(10), 1);
   await app.s.worker.work();
@@ -1410,6 +1437,7 @@ test("the speech service: one cut off by a restart goes again, unless Scribe may
 test("the speech service: a block it keeps failing goes to Scribe whole after its attempts; a moved job is never sent", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
   speech.failing = true;
   const jobId = await admitFragment(app, speechAudio(10), 1);
   for (const attempt of [1, 2]) {

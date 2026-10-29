@@ -1,9 +1,8 @@
 // What a block's words come from when the speech service transcribes it (docs/processing.md,
 // "Who transcribes"): its own words, and Scribe's only for Thai (the owner's rule, 24 Oct 2026). A
-// turn of a second or more is routed when VoxLingua107 hears Thai in it; a block 10% Thai goes to
-// Scribe whole (why: docs/decisions.md). Every other language, and a turn Parakeet Ultra wrote
-// nothing for, stays local: VoxLingua tags short noisy French as Breton, Portuguese or Malagasy, and
-// those turns held Parakeet's words.
+// turn of a second or more is routed when its chance of being Thai, read from VoxLingua107's scores
+// and the rest of the block, clears the bar of the place the owner was in; a block mostly routed
+// goes to Scribe whole (why: docs/decisions.md).
 //
 // The result is a transcript in Scribe's own shape, so it is stored, parsed and turned into turns
 // exactly like one of Scribe's (jobs.ts `complete`). The transcription bench routes by the same
@@ -19,10 +18,16 @@ const OURS = new Map([
   ["en", "eng"],
   ["fr", "fra"],
 ]);
-// The languages Scribe transcribes; the speech service keeps every other one.
-const SCRIBE = new Set(["th"]);
-const WHOLE_BLOCK = 0.1;
-export const MIN_ROUTED_SECONDS = 1;
+// A turn's chance of being Thai is a logistic over these features (`featuresOf`), fitted by the
+// transcription bench on 29 Oct 2026: 4,897 turns over 20 days, scored on days it didn't train on.
+const WEIGHTS = [0.3866, -0.0804, 0.1439, 1.1549, -0.3182, 5.3071, 4.4407];
+const BIAS = -0.6942;
+// Where Thai is spoken a weaker chance is routed. The place is the bar, never a feature: learned, it
+// made Thai spoken elsewhere count as not Thai.
+const THAI_ZONES = new Set(["Asia/Bangkok"]);
+const barOf = (zone: string) => (THAI_ZONES.has(zone) ? 0.3 : 0.7);
+const WHOLE_BLOCK = 0.5;
+const MIN_ROUTED_SECONDS = 1;
 // A routed turn's audio reaches Scribe with this much around it, so a word Nemotron's boundary
 // clips is still heard whole; only the words inside the turn are kept.
 const PAD_SECONDS = 0.25;
@@ -34,13 +39,63 @@ const inside = (turn: HeardTurn, at: number) =>
 
 export type Route = { kind: "whole" } | { kind: "turns"; routed: HeardTurn[] };
 
-/** Whether Scribe transcribes a turn VoxLingua heard in `language`. */
-export const toScribe = (language: string | null) =>
-  language !== null && SCRIBE.has(language);
+export type Judged = HeardTurn & { scores: NonNullable<HeardTurn["scores"]> };
+const log = (p: number) => Math.log(Math.max(p, 1e-6));
 
-export function routeTurns({ turns }: Pick<Heard, "turns">): Route {
-  const judged = turns.filter((t) => t.end - t.start >= MIN_ROUTED_SECONDS);
-  const thai = judged.filter((t) => toScribe(t.language));
+// VoxLingua's view of the turn, whether Parakeet wrote anything in it, its length, and how Thai the
+// rest of the block sounds (each turn weighted by its seconds).
+export function featuresOf(
+  turn: Judged,
+  judged: Judged[],
+  words: Heard["words"]
+) {
+  const { en, fr, th } = turn.scores;
+  const rest = judged.filter((t) => t !== turn);
+  const weight = seconds(rest) || 1;
+  const mean = (f: (t: Judged) => number) =>
+    rest.reduce((sum, t) => sum + f(t) * (t.end - t.start), 0) / weight;
+  const wordless = !words.some(
+    (w) => inside(turn, w.start) && w.text.trim() !== ""
+  );
+  return [
+    log(th),
+    log(en + fr),
+    log(1 - th - en - fr),
+    wordless ? 1 : 0,
+    Math.log(turn.end - turn.start),
+    mean((t) => t.scores.th),
+    mean((t) => 1 - t.scores.en - t.scores.fr),
+  ];
+}
+
+/** A turn's chance of being Thai. */
+export function thaiChanceOf(
+  turn: Judged,
+  judged: Judged[],
+  words: Heard["words"]
+) {
+  const z = featuresOf(turn, judged, words).reduce(
+    (sum, x, i) => sum + x * (WEIGHTS[i] ?? 0),
+    BIAS
+  );
+  return 1 / (1 + Math.exp(-z));
+}
+
+/** A block's turns the router judges: a second or more, with VoxLingua's scores. */
+export const judgedOf = (turns: HeardTurn[]) =>
+  turns.filter(
+    (t): t is Judged =>
+      t.end - t.start >= MIN_ROUTED_SECONDS && t.scores !== null
+  );
+
+export function routeTurns(
+  { turns, words }: Pick<Heard, "turns" | "words">,
+  zone: string
+): Route {
+  const judged = judgedOf(turns);
+  const thai = judged.filter(
+    (t) => thaiChanceOf(t, judged, words) >= barOf(zone)
+  );
   if (judged.length > 0 && seconds(thai) >= WHOLE_BLOCK * seconds(judged)) {
     return { kind: "whole" };
   }
