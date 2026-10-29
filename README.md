@@ -128,7 +128,7 @@ cites its source, so check it before you act on it, and tell your assistant when
 kept and wins over the memory.
 
 If you set up an agent (an assistant that acts on "hey <agent>" requests), it runs outside Life's boundary, with
-whatever access its own app gives it. [SECURITY.md](SECURITY.md) has the threat model and how to report a
+whatever access its own app gives it. [SECURITY.md](SECURITY.md) says what Life protects, what leaves the Mac and how to report a
 vulnerability.
 
 ## Docs
