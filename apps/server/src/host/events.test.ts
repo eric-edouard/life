@@ -1,8 +1,9 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { clock, HOUR } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
+import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { HOME } from "../core/platform";
@@ -298,5 +299,47 @@ test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, 
     rmSync(LEDGER, { force: true });
     rmSync(SECRETS.events, { force: true });
     rmSync(marker, { force: true });
+  }
+});
+
+test("what the agent's starter says as it exits non-zero is mailed, each line once however often it says it", async () => {
+  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const said = "2026-10-29: a loop missed its run due at 02:30.";
+  const cmd = [
+    process.execPath,
+    "-e",
+    `console.error(${JSON.stringify(said)}); process.exit(2)`,
+  ];
+  mkdirSync(HOME, { recursive: true });
+  const subjects: string[] = [];
+  const post = spyOn(globalThis, "fetch").mockImplementation(((
+    _url: string,
+    init: RequestInit
+  ) => {
+    subjects.push(JSON.parse(String(init.body)).subject);
+    return Promise.resolve(Response.json({ id: `email_${subjects.length}` }));
+  }) as unknown as typeof fetch);
+  process.env.RESEND_PERSONAL_API_KEY = "test";
+  const mailed = async () =>
+    (await recentEvents<{ key: string }>(1, "email.sent")).filter((e) =>
+      e.key.startsWith("agent-start/")
+    );
+  try {
+    setSettings({ agent: { ...before, start: cmd, transport: "pull" } });
+    startAgent({ at: "2026-10-29T09:00:00.000Z", kind: "tick" });
+    startAgent({ at: "2026-10-29T09:01:00.000Z", kind: "tick" });
+    // The child runs on its own: wait for its mail (a loaded machine is slow).
+    for (let waited = 0; subjects.length === 0 && waited < 5000; waited += 50) {
+      // biome-ignore lint/performance/noAwaitInLoops: polling for the child's mail
+      await Bun.sleep(50);
+    }
+    await Bun.sleep(500);
+    expect(await mailed()).toHaveLength(1);
+    expect(subjects).toHaveLength(1);
+    expect(subjects[0]).toContain("missed its run");
+  } finally {
+    post.mockRestore();
+    delete process.env.RESEND_PERSONAL_API_KEY;
+    setSettings({ agent: before });
   }
 });
