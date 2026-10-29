@@ -7,7 +7,7 @@ import {
   writeDecision,
 } from "../memory/decisions";
 import { readLedger } from "../memory/ledger";
-import { sourceOf } from "../memory/sources";
+import { enabledSources, sourceOf } from "../memory/sources";
 import { type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 import { attempt, entryId } from "./act";
@@ -42,6 +42,14 @@ export function recipientOf(ref: string | undefined) {
       : undefined;
   return `${to.s.label} · ${name ?? to.chat}`;
 }
+
+/** Why each source he turned on that sends can't send now, from the network itself (the Sends card). */
+export const readSendBlocks = () =>
+  Promise.all(
+    enabledSources().flatMap((s) =>
+      s.send ? [s.send.blocked().then((why) => ({ label: s.label, why }))] : []
+    )
+  );
 
 /** Whether someone else wrote in `chat` among `events`. */
 export const isNewerFrom = (events: SourceEvent[], chat: string) =>
@@ -124,7 +132,7 @@ export async function send(decision: string) {
       via: "session",
       why: "the reply he chose",
     },
-    () => to.send(to.chat, draft, id).then(() => undefined)
+    () => to.send.deliver(to.chat, draft, id).then(() => undefined)
   );
   if (done.result === "ok") {
     writeDecision([

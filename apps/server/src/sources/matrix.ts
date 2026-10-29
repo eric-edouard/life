@@ -34,6 +34,8 @@ function provisioning(bridge: string) {
 
 async function call(url: string, auth: string, init: RequestInit = {}) {
   const res = await fetch(url, {
+    // A hung bridge never holds up a send or the status snapshot.
+    signal: AbortSignal.timeout(10_000),
     ...init,
     headers: {
       Authorization: `Bearer ${auth}`,
@@ -67,17 +69,51 @@ function knownRoom(bridge: string, chat: string) {
   }
 }
 
+/** A call to the bridge's provisioning API, as him. */
+function provision(bridge: string, path: string, init: RequestInit = {}) {
+  const { port, secret } = provisioning(bridge);
+  return call(
+    `http://127.0.0.1:${port}/_matrix/provision/v3/${path}?user_id=${encodeURIComponent(owner().user)}`,
+    secret,
+    init
+  );
+}
+
+/**
+ * Why the bridge can't send now, as the bridge itself says (its logins and their state): not running, never linked,
+ * or a login that isn't connected. None when it can.
+ */
+async function readBlock(bridge: string) {
+  let who: Record<string, unknown>;
+  try {
+    who = await provision(bridge, "whoami");
+  } catch (e) {
+    return `${bridge} bridge not answering: ${(e as Error).message}`;
+  }
+  const logins = (who.logins ?? []) as {
+    state?: { message?: string; state_event?: string };
+  }[];
+  if (logins.length === 0) {
+    return `${bridge} bridge not linked: link it once (docs/use/bridges.md)`;
+  }
+  const down = logins.find((l) => l.state?.state_event !== "CONNECTED");
+  return down
+    ? `${bridge} bridge ${down.state?.state_event ?? "unknown"}${down.state?.message ? `: ${down.state.message}` : ""}`
+    : undefined;
+}
+
 /** The bridge's room for a chat: the one it has, else a direct chat it opens with that person (idempotent). */
 async function roomOf(bridge: string, chat: string) {
   const known = knownRoom(bridge, chat);
   if (known) {
     return known;
   }
-  const { port, secret } = provisioning(bridge);
-  const made = await call(
-    `http://127.0.0.1:${port}/_matrix/provision/v3/create_dm/${encodeURIComponent(chat)}?user_id=${encodeURIComponent(owner().user)}`,
-    secret,
-    { method: "POST" }
+  const made = await provision(
+    bridge,
+    `create_dm/${encodeURIComponent(chat)}`,
+    {
+      method: "POST",
+    }
   );
   if (typeof made.dm_room_mxid !== "string") {
     throw new Error(`${bridge}: no room for ${chat}`);
@@ -89,7 +125,7 @@ async function roomOf(bridge: string, chat: string) {
  * Sends `text` as him into the bridge's room for `chat`. `txn` makes it once: the homeserver drops a second send with
  * the same transaction id from the same account.
  */
-export async function sendMatrix(
+async function sendMatrix(
   bridge: string,
   chat: string,
   text: string,
@@ -104,3 +140,10 @@ export async function sendMatrix(
     { body: JSON.stringify({ body: text, msgtype: "m.text" }), method: "PUT" }
   );
 }
+
+/** A bridged network's `send` (sources/contract.ts): its messages and its block, both through the one bridge. */
+export const bridgeSend = (bridge: string) => ({
+  blocked: () => readBlock(bridge),
+  deliver: (chat: string, text: string, txn: string) =>
+    sendMatrix(bridge, chat, text, txn),
+});

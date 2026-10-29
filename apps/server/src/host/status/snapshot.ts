@@ -37,6 +37,7 @@ import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
+import { readSendBlocks } from "../send";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
@@ -314,6 +315,7 @@ async function reads(now: Date) {
     actions,
     actionChecks,
     newest,
+    sendBlocks,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
     cached("log", 5000, () => recentEvents<LogLine>(8, "")),
@@ -334,6 +336,10 @@ async function reads(now: Date) {
     cached("actions", 15_000, readLedger),
     cached("actionChecks", MIN, checks),
     newestOf(),
+    // Only while sends are on: off, nothing is asked of the bridges.
+    isOn("sends")
+      ? cached("sends", 15_000, () => safe(readSendBlocks))
+      : undefined,
   ]);
   const of = (kind: string, days: number) =>
     since(
@@ -359,6 +365,7 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
+    sendBlocks,
     sent: of("email.sent", 2),
     sleepList,
     status,
@@ -783,6 +790,34 @@ function backupCard(r: Reads): Card {
   };
 }
 
+/** Whether Life can send the replies he chooses: each sending source's own word on its link (`send.blocked`). */
+function sendsCard(r: Reads): Card {
+  const blocks = r.sendBlocks?.ok
+    ? r.sendBlocks.value.filter((b) => b.why)
+    : [];
+  const error =
+    r.sendBlocks && !r.sendBlocks.ok ? r.sendBlocks.error : undefined;
+  return {
+    ...firstOf(
+      [!r.sendBlocks, { tone: "idle", word: "off" }],
+      [
+        Boolean(error) || blocks.length > 0,
+        { ask: ASK("that Life cannot send"), tone: "bad", word: "blocked" },
+      ],
+      [true, { tone: "ok", word: "ok" }]
+    ),
+    content: [
+      ...blocks.map((b) => `${b.label}: ${b.why}`),
+      ...(error ? [`Error: ${error}`] : []),
+    ],
+    facts: [],
+    group: "pipeline",
+    headline: blocks.length ? "can't send" : "can send",
+    id: "sends",
+    name: OUTPUTS.sends.label,
+  };
+}
+
 function engineCard(r: Reads): Card {
   const metered = hasQuota();
   // An older engine's reading never shows on one with no quota.
@@ -848,6 +883,7 @@ function pipelineCards(r: Reads): Card[] {
     sweepCard(r, "midday", "Midday", r.status.midday, r.status.midday.next),
     sweepCard(r, "backfill", "Backfill", r.status.backfill),
     backupCard(r),
+    sendsCard(r),
     engineCard(r),
     {
       facts: [
