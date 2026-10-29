@@ -26,8 +26,8 @@ and what it does not.
 - Model calls run in an empty temporary folder, with no tools and no instruction files (Codex gets its own home), so
   recorded content reaches the model with nothing but the prompt.
 - Content is never a command. What Life reads (messages, mail, notes, transcripts, files) is never an instruction
-  to its code. The one exception is the owner's spoken "hey Life" marker, which only keeps a conversation read; it never
-  acts. Models return JSON validated by schemas, and every quote is checked against its source.
+  to its code. The one exception is the owner's spoken ask ("hey" and his agent's wake word), handed to his
+  agent as his words and marked so its conversation is read again; Life's code never acts on it. Models return JSON validated by schemas, and every quote is checked against its source.
 - The text Life reads is sent to the model provider the owner chooses (Anthropic or OpenAI, through the owner's own
   subscription's CLI; or allmodels.io, with an API key the owner provides). That provider's terms apply to
   it. allmodels says it stores no request content. Its zero-retention flag has no effect, so Life sends to the hosts

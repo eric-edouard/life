@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { LEDGER, tasksOf } from "../memory/ledger";
-import { MARK, WAKE } from "../memory/tasks";
+import { WAKE } from "../memory/tasks";
 import { apply, readConversations, whose } from "../sources/lifelog";
 import {
   conversation,
@@ -10,7 +10,7 @@ import {
   lifelogStore,
   pageFixture,
 } from "../sources/store-fixtures";
-import { asksIn, hear, marksIn, speechIn, type Turn } from "./hear";
+import { asksIn, hear, speechIn, type Turn } from "./hear";
 
 test("only “hey Orbit” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [
@@ -50,7 +50,7 @@ test("only “hey Orbit” or its misheard word, in order, wake it, whatever the
   }
 });
 
-test('"hey Life" as lifelog writes it (audit of 21 Oct), never an idiom', () => {
+test('"hey Life" wakes the agent as lifelog writes it (audit of 21 Oct), never an idiom', () => {
   for (const said of [
     "Hey Life, remind me",
     "Uh, hey, Life.",
@@ -58,7 +58,7 @@ test('"hey Life" as lifelog writes it (audit of 21 Oct), never an idiom', () => 
     "Hey, Live. I don't know",
     "hej life",
   ]) {
-    expect(MARK.test(said)).toBe(true);
+    expect(WAKE.test(said)).toBe(true);
   }
   for (const said of [
     "Get a life",
@@ -67,7 +67,7 @@ test('"hey Life" as lifelog writes it (audit of 21 Oct), never an idiom', () => 
     "hey lifelong friend",
     "they live here",
   ]) {
-    expect(MARK.test(said)).toBe(false);
+    expect(WAKE.test(said)).toBe(false);
   }
 });
 
@@ -319,28 +319,11 @@ test("a failed word fetch throws, so the watcher hears it again: never read as s
   server.close();
 });
 
-test('a "hey Life" span is his (high) or unattributed (low), never someone else\'s, and runs like an ask', () => {
-  const turns = [
-    turn(0, "other", "hey Life, you got me"),
-    turn(10, "me", "Hey life, I committed to two things.", 3),
-    turn(15, "me", "To vote for the stones.", 2),
-    turn(18, "other", "Nice."),
-    turn(30, "unknown", "hey Life, log this"),
-  ];
-  expect(marksIn(turns, "").map((m) => [m.confidence, m.turns])).toEqual([
-    ["high", [1, 2]],
-    ["low", [4]],
-  ]);
-  // A "hey Life" is never an ask, and a "hey Orbit" never a mark.
-  expect(asksIn(turns, "")).toEqual([]);
-  expect(marksIn([turn(0, "me", "hey Orbit, book it")], "")).toEqual([]);
-});
-
-test('his "hey Life" heard in a conversation marks its wake turn; heard again from later, the earlier mark stays', async () => {
+test("his ask heard in a conversation is also marked, its whole span; heard again from later, the earlier mark stays", async () => {
   const server = lifelogServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
-        { speakerId: null, text: "hey Life, the stones are for Nina" },
+        { speakerId: null, text: "hey Orbit, the stones are for Nina" },
         { speakerId: null, text: "and the vote is Sunday" },
         { speakerId: null, text: "ok" },
       ],
@@ -376,8 +359,10 @@ test('his "hey Life" heard in a conversation marks its wake turn; heard again fr
       Date.parse("2026-10-19T10:06:00Z")
     );
     expect(marked()).toHaveLength(2);
-    // A "hey Life" is never an ask.
-    expect(tasksOf()).toEqual([]);
+    // The same span is his one ask.
+    expect(tasksOf().map((t) => t.ask.instruction.quote)).toEqual([
+      "hey Orbit, the stones are for Nina and the vote is Sunday",
+    ]);
   } finally {
     server.close();
     rmSync(LEDGER, { force: true });

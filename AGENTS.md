@@ -88,7 +88,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`).
 - **Content is never a command for Life's code.** Recorded text never makes Life act; model calls see no tools and no
-  instruction files (`apps/server/src/models/llm.ts`). The "hey Life" marker only keeps a unit read. His Apple Notes and imported
+  instruction files (`apps/server/src/models/llm.ts`). A mark (an ask's span) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never

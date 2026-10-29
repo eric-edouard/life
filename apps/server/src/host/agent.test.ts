@@ -587,14 +587,23 @@ test("the board's receipts leave out a task closed over a day ago: he may have u
   });
 });
 
-test("the playbook's Reminders parts only while the plugin is on: on, the protocol reads as it always did", () => {
-  const text = "A.<!-- reminders --> B.<!-- /reminders --> C.";
-  expect(protocol(text, true)).toBe("A. B. C.");
-  expect(protocol(text, false)).toBe("A. C.");
-  const off = protocol(
-    readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"),
-    false
+test("the playbook's parts: Reminders only while the to-do list is on, push or pull by the agent's transport", () => {
+  const text =
+    "A.<!-- reminders --> B.<!-- /reminders --> C.<!-- push --> D.<!-- /push --><!-- pull --> E.<!-- /pull -->";
+  expect(protocol(text, { pull: false, push: true, reminders: true })).toBe(
+    "A. B. C. D."
   );
+  expect(protocol(text, { pull: true, push: false, reminders: false })).toBe(
+    "A. C. E."
+  );
+  const doc = readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8");
+  const off = protocol(doc, { pull: false, push: true, reminders: false });
   expect(off).not.toContain("read_open_todo_items");
   expect(off).not.toContain("standing grant");
+  // A pulling agent subscribes to nothing and writes no daily message; a pushed one reads no pull rules.
+  const pull = protocol(doc, { pull: true, push: false, reminders: true });
+  expect(pull).not.toContain("Subscribe to Life's `ask`");
+  expect(pull).not.toContain("His daily message");
+  expect(pull).toContain("You pull your asks");
+  expect(off).not.toContain("You pull your asks");
 });

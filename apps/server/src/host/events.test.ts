@@ -1,16 +1,24 @@
 import { expect, test } from "bun:test";
-import { HOUR } from "../core/clock";
+import { rmSync } from "node:fs";
+import { clock, HOUR } from "../core/clock";
+import { appendJsonl, linesOf } from "../core/files";
 import { AGENT_WORD } from "../core/names";
+import { SECRETS, writeSecret } from "../core/secret";
 import { readSettings, type Settings, setSettings } from "../core/settings";
+import { LEDGER } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
+import { LedgerEntry } from "../records/ledger-entry";
 import {
   agentLive,
+  deliver,
+  deliveryState,
   nextEvent,
   resumeAt,
   type State,
   Subscribe,
   settleDelivery,
   sign,
+  subscribe as subscribeTo,
 } from "./events";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
@@ -177,5 +185,50 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
     ).toBe(false);
   } finally {
     setSettings({ agent: before });
+  }
+});
+
+test("an agent that pulls its asks gets nothing pushed: its old subscription goes, the cursor stays at the end, a subscribe is refused", async () => {
+  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const now = clock().getTime();
+  appendJsonl(LEDGER, LedgerEntry, [
+    action({ kind: "ask", target: AGENT_WORD }),
+  ]);
+  writeSecret(
+    "events",
+    JSON.stringify({
+      attempts: 0,
+      delivered: 0,
+      subscription: {
+        id: "sub_1",
+        refreshBefore: new Date(now + HOUR).toISOString(),
+        secret: SECRET,
+        url: "https://chatgpt.com/cb",
+        verifiedAt: new Date(now).toISOString(),
+      },
+    })
+  );
+  try {
+    setSettings({ agent: { ...before, transport: "pull" } });
+    await deliver();
+    expect(deliveryState()).toEqual({
+      attempts: 0,
+      delivered: linesOf(LEDGER).length,
+    });
+    await expect(
+      subscribeTo({
+        arguments: {},
+        delivery: {
+          mode: "webhook",
+          secret: SECRET,
+          url: "https://chatgpt.com/cb",
+        },
+        name: "ask",
+      })
+    ).rejects.toThrow("pulls its asks");
+  } finally {
+    setSettings({ agent: before });
+    rmSync(LEDGER, { force: true });
+    rmSync(SECRETS.events, { force: true });
   }
 });
