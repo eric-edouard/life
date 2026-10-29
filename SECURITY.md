@@ -35,8 +35,13 @@ optionally a tunnel he controls.
 
 ## What leaves the Mac
 
-- To the model provider he chose: the text Life reads.
-- To an assistant he connected, and to his agents: what they read through the connector or on the Mac.
+The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, keeps its own in
+[apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
+
+- To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
+  prompts (`docs/operations.md`, "Model engines").
+- To an assistant he connected, and to his agents: what they read through the connector or on the Mac; to a pushed
+  agent, one MCP event per ask with its words (callbacks on OpenAI's hosts only, verified first).
 - To his Decisions page on claude.ai: the cards his loops write (fact checks included).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - To Google, when he set it: the Past calendar, and the to-do items with Google Tasks as the backend.
