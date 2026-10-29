@@ -58,7 +58,6 @@ import { checks } from "../todo-list/backend";
 import { taskList, unanswered } from "./agent";
 import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
-import { readHealth } from "./health";
 import { syncPast } from "./past-calendar";
 import {
   archiveFailedReport,
@@ -414,7 +413,6 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
     const repos = await phase.step("repos", () => mapRepos());
     // Every source is read once and handed to each step.
     phase.at = "gather";
-    const watcher = readHealth();
     const evidence = await gather(window, await readPeople());
     const found = await phase.step("moments", () => moments(evidence));
     const extracted = await phase.step("extract", () => extract(evidence));
@@ -452,7 +450,6 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       repos,
       retired,
       spent: await spent(rec, q),
-      watcher,
     });
     listed = facts.map((f) => f.id);
   } catch (e) {
