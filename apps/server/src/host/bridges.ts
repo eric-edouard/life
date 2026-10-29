@@ -134,24 +134,33 @@ async function addHomeserver() {
     HOMESERVER_YAML,
   ]);
   await restartHomeserver();
-  if (existsSync(SECRETS.matrix)) {
+  // The password is kept before his account is made, so a try that stops halfway logs in next time.
+  const saved = (
+    existsSync(SECRETS.matrix)
+      ? JSON.parse(readFileSync(SECRETS.matrix, "utf8"))
+      : {}
+  ) as { password?: string; token?: string };
+  if (saved.token) {
     return;
   }
-  const password = crypto.randomUUID();
-  await execOk(
-    [
-      join(VENV, "register_new_matrix_user"),
-      "-c",
-      HOMESERVER_YAML,
-      "-u",
-      "owner",
-      "-p",
-      password,
-      "-a",
-      HOMESERVER_URL,
-    ],
-    { cwd: SYNAPSE_DIR }
-  );
+  const password = saved.password ?? crypto.randomUUID();
+  if (!saved.password) {
+    writeSecret("matrix", JSON.stringify({ password }));
+    await execOk(
+      [
+        join(VENV, "register_new_matrix_user"),
+        "-c",
+        HOMESERVER_YAML,
+        "-u",
+        "owner",
+        "-p",
+        password,
+        "-a",
+        HOMESERVER_URL,
+      ],
+      { cwd: SYNAPSE_DIR }
+    );
+  }
   const res = await fetch(`${HOMESERVER_URL}/_matrix/client/v3/login`, {
     body: JSON.stringify({
       identifier: { type: "m.id.user", user: "owner" },
@@ -324,14 +333,19 @@ function ask(name: string, hidden: boolean) {
     return prompt(`${name}:`) ?? "";
   }
   const restore = () => echo(true);
-  process.once("SIGINT", restore);
+  // Ctrl-C still ends the CLI, its echo given back first.
+  const abort = () => {
+    restore();
+    process.exit(130);
+  };
+  process.once("SIGINT", abort);
   echo(false);
   try {
     // biome-ignore lint/suspicious/noAlert: the CLI asks him in his terminal
     return prompt(`${name}:`) ?? "";
   } finally {
     restore();
-    process.off("SIGINT", restore);
+    process.off("SIGINT", abort);
     console.log("");
   }
 }
