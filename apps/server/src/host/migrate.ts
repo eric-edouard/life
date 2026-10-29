@@ -213,7 +213,7 @@ const done = (dir: string) =>
 
 /** Is there anything for the rename to do: memory not renamed yet, or a run to finish? */
 export const needsRename = (dir = OWNER_DATA_DIR) =>
-  [STAGED, OLD_MEMORY, STRAY].some((d) => existsSync(join(dir, d))) ||
+  [STAGED, OLD_MEMORY, STRAY, GONE].some((d) => existsSync(join(dir, d))) ||
   (existsSync(join(dir, "memory")) && !done(dir));
 
 /** Every file under `folder`, by its path relative to `dir`. */
@@ -268,7 +268,6 @@ function renameIn(dir: string) {
     }
     renameSync(at(STAGED), at("memory"));
   }
-  rmSync(at(GONE), { force: true, recursive: true });
   if (existsSync(at(OLD_MEMORY)) || existsSync(at(STRAY))) {
     return settle(dir);
   }
@@ -397,6 +396,8 @@ export async function migrateStored(dir = OWNER_DATA_DIR) {
     }
     // biome-ignore lint/performance/noAwaitInLoops: waits for the process that holds the lock to finish the rename
     const ran = await locked(async () => {
+      // A copy a crash left on its way out: everything in it was carried over already.
+      rmSync(join(dir, GONE), { force: true, recursive: true });
       if (!needsRename(dir)) {
         return true;
       }
