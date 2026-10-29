@@ -100,7 +100,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words or a request.
 - **Life decides when his loops run, life-loops decides what.** Life's only start of anything outside it is
   `startAgent` (`events.ts`): `agent.start` with an event appended (a new ask, a tick each minute, the chats a pass
-  of the archive heard someone in), his zone in it;
+  of the archive heard someone in), his zone in it (what it says as it exits non-zero is mailed to him, each line once);
   no loop's name or schedule lives in Life.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
   setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
