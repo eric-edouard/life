@@ -151,7 +151,8 @@ class MlxParakeet:
     def tokens(self, samples) -> list[tuple[str, float, float]]:
         import mlx.core as mx
 
-        heard = self.model.generate(mx.array(samples))
+        # A block over 10 minutes is decoded in overlapping pieces: whole, 29 minutes ran out of GPU memory.
+        heard = self.model.generate(mx.array(samples), chunk_duration=600)
         # MLX keeps the GPU buffers a block used for the next one: 17 GB after a backlog on a 32 GB Mac.
         mx.clear_cache()
         return [(t.text, t.start, t.end) for s in heard.sentences for t in s.tokens]
