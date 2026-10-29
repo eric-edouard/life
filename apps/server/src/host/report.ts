@@ -55,7 +55,7 @@ export interface Night {
   files: Result<typeof describeFiles>;
   /** The first day of the window the night read, to its own day. */
   from: string;
-  /** Each unit he marked "hey Life", read since the last night, and what the memory holds of it (`whatIsNew`). */
+  /** Each unit holding one of his asks, read since the last night, and what the memory holds of it (`whatIsNew`). */
   marked: { name: string; relation: string }[];
   /** The days whose moments were read again, and how many moments they hold. */
   moments: Result<typeof moments>;
@@ -191,7 +191,7 @@ export function successReport(day: string, ms: number, n: Night) {
           ],
           title: "Code yesterday",
         },
-        { kind: "pairs", list: n.marked, title: "Hey Life" },
+        { kind: "pairs", list: n.marked, title: "Asks remembered" },
         { kind: "facts", list: n.facts, title: "What it found" },
         { kind: "pairs", list: n.moments.people, title: "New people" },
         { kind: "changes", list: changes, title: "What changed" },

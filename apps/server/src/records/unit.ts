@@ -102,7 +102,7 @@ export const Unit = z
     id: UnitId,
     // The conversation, chat or mail thread the unit belongs to.
     key: z.string(),
-    // lifelog: the refs of the turns of his "hey Life" spans in it (the hearing's marks); absent when none.
+    // lifelog: the refs of the turns of his asks in it (the hearing's marks); absent when none.
     marked: z.array(z.string()).optional(),
     // As the source names them, unresolved (unknown:<name or sender>, person:me): readers map them (`unitNow`, who.ts).
     people: z.array(z.string()),

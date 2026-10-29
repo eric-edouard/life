@@ -5,6 +5,7 @@ import { readSettings, type Settings, setSettings } from "../core/settings";
 import { action } from "../memory/record-fixtures";
 import {
   agentLive,
+  live,
   nextEvent,
   resumeAt,
   type State,
@@ -175,6 +176,30 @@ test("an agent that pulls its asks is live while it reads tasks: a day without a
         call("read_open_agent_tasks", 2, "curl/8"),
       ])
     ).toBe(false);
+  } finally {
+    setSettings({ agent: before });
+  }
+});
+
+test("nothing is delivered to an agent that pulls its asks, even with a live subscription", () => {
+  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const now = Date.parse("2026-10-22T10:00:00Z");
+  const s: State = {
+    attempts: 0,
+    delivered: 0,
+    subscription: {
+      id: "sub_1",
+      refreshBefore: new Date(now + HOUR).toISOString(),
+      secret: SECRET,
+      url: "https://chatgpt.com/cb",
+      verifiedAt: new Date(now).toISOString(),
+    },
+  };
+  try {
+    setSettings({ agent: { ...before, transport: "mcp-event" } });
+    expect(live(s, now)).toBe(true);
+    setSettings({ agent: { ...before, transport: "pull" } });
+    expect(live(s, now)).toBe(false);
   } finally {
     setSettings({ agent: before });
   }

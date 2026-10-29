@@ -290,12 +290,15 @@ const current = (s: State, now: number) =>
   Date.parse(s.subscription?.refreshBefore ?? "") >= now;
 export const subscribed = (now: number) => current(deliveryState(), now);
 
-/** Nothing goes out without a live subscription or while a retry waits. */
-const live = (
+/** Nothing goes out to an agent that pulls its asks, without a live subscription, or while a retry waits. */
+export const live = (
   s: State,
   now: number
 ): s is State & { subscription: Subscription } =>
-  current(s, now) && !!s.subscription && !(Date.parse(s.retryAt ?? "") > now);
+  settings().agent?.transport !== "pull" &&
+  current(s, now) &&
+  !!s.subscription &&
+  !(Date.parse(s.retryAt ?? "") > now);
 
 /**
  * What one delivery's HTTP status (0: unreachable) does: a 2xx or a 413 (never retried) moves past the event, a 410
@@ -321,7 +324,7 @@ export function settleDelivery(
 
 /**
  * Delivers the asks past the cursor, one POST each, in order (the watcher calls it every loop), as `settleDelivery` says; an
- * ask passed over is emailed to him like a failed action. Nothing is sent before a subscription, after it expired, or
+ * ask passed over is emailed to him like a failed action. Nothing is sent to an agent that pulls, before a subscription, after it expired, or
  * while a retry waits. A subscribe during a POST wins: the state is read again before each write.
  */
 export async function deliver() {

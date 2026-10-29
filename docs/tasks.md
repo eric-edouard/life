@@ -19,7 +19,9 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
   `playbook.md` in the owner data dir. `read_open_agent_tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
   hash of the text and a 6-hour window); `update_agent_task` refuses a write without the current seal and answers with the text.
-  The text between `<!-- reminders -->` markers is cut while the Reminders plugin is off: keep the markers.
+  Its parts are cut by `protocol` (`agent.ts`): the text between `<!-- reminders -->` markers while the to-do list is off,
+  `<!-- push -->` (subscribing, events, the daily message) for an agent that pulls, `<!-- pull -->` for one asks are
+  pushed to. Keep the markers.
 - What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
   The connector's instructions (512 characters at most) open with that line. Events carry data only.
 - The playbook makes the agent confirm a low-confidence ask with the owner first, send as the owner only under its
@@ -162,14 +164,14 @@ properties `lifeMoment` and `lifeHash`. A changed moment is written again, a gon
 `lifeMoment` are never touched. It reads nothing back and never alerts. If that calendar ever becomes a source, its
 events with `lifeMoment` are Life's output and must be dropped.
 
-## "hey Life"
+## Marks
 
-The owner's marker, for memory only. The owner's turn holding it (an unattributed one too) and the owner's turns right after
-(`marksIn`, `apps/server/src/host/hear.ts`: the same greeting and span as `hey <agent>`, no model call) are recorded by the hearing in the
-watcher's store (`writeMarks`, refs only). Their unit carries them (`marked`, `readConversations`) and says
+What he asks is worth remembering: each ask's span (`asksIn`, `apps/server/src/host/hear.ts`) is also recorded by the
+hearing in the watcher's store as a mark (`writeMarks`, refs only). There is no other marker: "hey Life" is one of the
+agent's wake words in his settings, like its name. The unit carries its marks (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
 importance 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
-observations citing it. It never acts, asks or sends.
+observations citing it ("Asks remembered"). A mark never acts, asks or sends: the ask does, through the agent.
 
 ## The connector
 

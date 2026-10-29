@@ -29,12 +29,24 @@ import { lapseReport, sendReport, taskReport, unsent } from "./report";
 // The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `update_agent_task` from his chat words or a split) is a task in memory/ledger.jsonl until the agent closes it
 // done or dropped. Its own lines: the agent's updates (the connector's `update_agent_task`) and replies to him (`log_reply_to_owner`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
-/** The protocol's Reminders parts (`<!-- reminders -->…<!-- /reminders -->`): the markers always go, the parts too while the plugin is off. */
-const REMINDERS_PART = /<!-- reminders -->([\s\S]*?)<!-- \/reminders -->/g;
-export const protocol = (text: string, reminders = isOn("todo_list")) =>
-  text
-    .replace(REMINDERS_PART, (_, part: string) => (reminders ? part : ""))
-    .replaceAll("{agent}", agentName());
+/**
+ * The protocol's parts (`<!-- <name> -->…<!-- /<name> -->`): `reminders` while the to-do list is on, `push` for an agent
+ * its asks are pushed to, `pull` for one that pulls them. The markers always go, a part too when it is off.
+ */
+const PART = /<!-- (reminders|push|pull) -->([\s\S]*?)<!-- \/\1 -->/g;
+const partsOn = () => ({
+  pull: settings().agent?.transport === "pull",
+  push: settings().agent?.transport !== "pull",
+  reminders: isOn("todo_list"),
+});
+export function protocol(text: string, on = partsOn()) {
+  // A part may hold another (the standing grant, a Reminders part, is in the push-only daily message).
+  const cut = (t: string): string =>
+    t.replace(PART, (_, name: keyof typeof on, part: string) =>
+      on[name] ? cut(part) : ""
+    );
+  return cut(text).replaceAll("{agent}", agentName());
+}
 
 /** The agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `read_open_agent_tasks` returns it, `update_agent_task` refuses a write without its seal. */
 const playbook = () => {

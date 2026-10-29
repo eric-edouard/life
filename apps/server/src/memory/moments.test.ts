@@ -106,7 +106,7 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
     // Commits are never read in full, whatever the model said.
     expect.objectContaining({ importance: 1, unit: U2 }),
   ]);
-  // A unit he marked "hey Life" is read whatever the model said.
+  // A unit holding one of his asks is read whatever the model said.
   const marked = unit({ id: U3, marked: ["j:1@a"] });
   expect(
     parseDay(
