@@ -10,6 +10,7 @@ import { readLedger } from "../memory/ledger";
 import { enabledSources, sourceOf } from "../memory/sources";
 import { type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
+import type { Descriptor } from "../sources/contract";
 import { attempt, entryId } from "./act";
 
 // Life's one send (docs/tasks.md, "The only sends"): the exact text of the option he answered in a decision, into the
@@ -47,9 +48,19 @@ export function recipientOf(ref: string | undefined) {
 export const readSendBlocks = () =>
   Promise.all(
     enabledSources().flatMap((s) =>
-      s.send ? [s.send.blocked().then((why) => ({ label: s.label, why }))] : []
+      s.send ? [sendBlockOf(s).then((why) => ({ label: s.label, why }))] : []
     )
   );
+
+/** Why a source can't send now, from the network itself (a status read waits 10 s at most); none when it can. */
+export const sendBlockOf = (s: Descriptor) =>
+  s.send
+    ? withTimeout(s.send.blocked(), 10_000, "not answering in 10 s")
+    : Promise.resolve("it doesn't send");
+
+/** `p`, or `why` once `ms` pass. */
+export const withTimeout = <T, W>(p: Promise<T>, ms: number, why: W) =>
+  Promise.race<T | W>([p, Bun.sleep(ms).then(() => why)]);
 
 /** Whether someone else wrote in `chat` among `events`. */
 export const isNewerFrom = (events: SourceEvent[], chat: string) =>

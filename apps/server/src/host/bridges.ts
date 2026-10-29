@@ -6,18 +6,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { clock } from "../core/clock";
 import { WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
 import { SECRETS, writeSecret } from "../core/secret";
-import {
-  isRunning,
-  keepRunning,
-  restartRunning,
-  stopRunning,
-} from "../core/service";
+import { keepRunning, restartRunning, stopRunning } from "../core/service";
 import { setSettings, settings } from "../core/settings";
-import { enabledSources, SOURCES } from "../memory/sources";
 import { NETWORKS, type Network } from "../sources/bridged";
 import {
   BRIDGES,
@@ -25,6 +18,7 @@ import {
   type CookieStep,
   cookieValues,
   HOMESERVER_URL,
+  isBridgeAdded,
   type LoginStep,
   linkBridge,
   loginFlows,
@@ -33,6 +27,7 @@ import {
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
+import { messagingStatus } from "./messaging-status";
 import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
 // `bun life bridge list|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
@@ -52,7 +47,7 @@ const writeYaml = (path: string, value: unknown) =>
   writeFileSync(path, Bun.YAML.stringify(value, null, 2));
 
 const configPath = (n: Network) => join(BRIDGES, n.name, "config.yaml");
-const isAdded = (n: Network) => existsSync(configPath(n));
+const isAdded = (n: Network) => isBridgeAdded(n.name);
 
 /** Waits for `url` to answer at all (any status: a bridge asks for its secret), up to 30 s. */
 const answering = (url: string, what: string) =>
@@ -427,163 +422,6 @@ async function remove(n: Network) {
   console.log(`${n.label} removed; what Life archived of it stays.`);
 }
 
-/** One messaging connector's state now: ✓ or ✗, and what was checked. */
-interface Health {
-  detail: string;
-  ok: boolean;
-}
-
-/**
- * Every messaging connector he has (a chat source he turned on, or a network on a bridge), checked live: can Life read
- * it (`missing()`, then its newest message), is its bridge running, can it send (`send.blocked()`, the network's own
- * word). Never a stored state.
- */
-async function healthOf(name: string): Promise<Health> {
-  const source = SOURCES.find((x) => x.name === name);
-  const n = NETWORKS.find((x) => x.name === name);
-  const parts = await Promise.all([
-    n ? bridgePart(n) : undefined,
-    source ? readPart(source, n) : undefined,
-    source?.send && (!n || isAdded(n)) ? sendPart(source.send) : undefined,
-  ]);
-  const found = parts.filter((p): p is Part => Boolean(p));
-  return {
-    detail: [...found.filter((p) => !p.ok), ...found.filter((p) => p.ok)]
-      .map((p) => p.text)
-      .join(", "),
-    ok: found.every((p) => p.ok),
-  };
-}
-
-/** One thing checked, and what it found. */
-interface Part {
-  ok: boolean;
-  text: string;
-}
-
-async function bridgePart(n: Network): Promise<Part> {
-  if (!isAdded(n)) {
-    return { ok: false, text: `no bridge: bun life bridge add ${n.name}` };
-  }
-  return (await isRunning(`bridge-${n.name}`))
-    ? { ok: true, text: "bridge running" }
-    : { ok: false, text: "bridge stopped" };
-}
-
-/** Can Life read it: on, set up (`missing()`), and its newest message read now. */
-async function readPart(
-  source: (typeof SOURCES)[number],
-  n: Network | undefined
-) {
-  if (!(settings().sources as string[]).includes(source.name)) {
-    return n?.reads
-      ? { ok: false, text: `not read: turn on ${source.name}` }
-      : undefined;
-  }
-  const why = source.missing?.();
-  if (why) {
-    return { ok: false, text: `can't read: ${why}` };
-  }
-  try {
-    const newest = await source.newest?.();
-    return {
-      ok: true,
-      text: newest?.at ? `read, newest ${ago(newest.at)}` : "read, nothing yet",
-    };
-  } catch (e) {
-    return { ok: false, text: `read failed: ${(e as Error).message}` };
-  }
-}
-
-async function sendPart(
-  send: NonNullable<(typeof SOURCES)[number]["send"]>
-): Promise<Part> {
-  const blocked = await send.blocked();
-  if (blocked) {
-    return { ok: false, text: blocked };
-  }
-  return {
-    ok: true,
-    text: settings().sends ? "sends" : "can send (sends off)",
-  };
-}
-
-const ago = (at: string) => {
-  const min = Math.round((clock().getTime() - Date.parse(at)) / 60_000);
-  if (min < 60) {
-    return `${min} min ago`;
-  }
-  return min < 48 * 60
-    ? `${Math.round(min / 60)} h ago`
-    : `${Math.round(min / 1440)} d ago`;
-};
-
-const markOf = (h: Health) => (h.ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m");
-
-const FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
-
-/**
- * Every messaging connector checked in parallel, one line each: a spinner while it is checked, then ✓ or ✗ with what
- * was found. Exits 1 when one is ✗.
- */
-async function status() {
-  const names = [
-    ...new Set([
-      ...enabledSources()
-        .filter((x) => x.kind === "chat")
-        .map((x) => x.name as string),
-      ...NETWORKS.filter(isAdded).map((x) => x.name as string),
-    ]),
-  ];
-  const label = (name: string) =>
-    (SOURCES.find((x) => x.name === name)?.label ?? name).padEnd(10);
-  const done = new Map<string, Health>();
-  const tty = process.stdout.isTTY;
-  let frame = 0;
-  const draw = (first: boolean) => {
-    if (!first) {
-      process.stdout.write(`\x1b[${names.length}A`);
-    }
-    for (const name of names) {
-      const h = done.get(name);
-      const mark = h ? markOf(h) : FRAMES[frame % FRAMES.length];
-      process.stdout.write(
-        `\x1b[2K${mark} ${label(name)} ${h?.detail ?? "checking…"}\n`
-      );
-    }
-  };
-  if (tty) {
-    draw(true);
-  }
-  const spin = tty
-    ? setInterval(() => {
-        frame += 1;
-        draw(false);
-      }, 80)
-    : undefined;
-  await Promise.all(
-    names.map(async (name) => {
-      done.set(
-        name,
-        await healthOf(name).catch((e: Error) => ({
-          detail: e.message,
-          ok: false,
-        }))
-      );
-    })
-  );
-  clearInterval(spin);
-  if (tty) {
-    draw(false);
-  } else {
-    for (const name of names) {
-      const h = done.get(name) as Health;
-      console.log(`${h.ok ? "✓" : "✗"} ${label(name)} ${h.detail}`);
-    }
-  }
-  return [...done.values()].every((h) => h.ok) ? 0 : 1;
-}
-
 /** `bridge [status] | add <network> | link <network> [flow] | remove <network>`. */
 export async function bridgeCommand(args: string[]) {
   if (WINDOWS) {
@@ -591,8 +429,8 @@ export async function bridgeCommand(args: string[]) {
     return 2;
   }
   const [verb, name, flow] = args;
-  if (verb === "status" || verb === "list" || !verb) {
-    return status();
+  if (verb === "status" || !verb) {
+    return messagingStatus();
   }
   const n = NETWORKS.find((x) => x.name === name);
   if (!(n && ["add", "link", "remove"].includes(verb))) {
