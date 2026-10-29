@@ -9,7 +9,13 @@ import { WINDOWS } from "../core/platform";
 import { ARCHIVED, keptStores } from "../memory/sources";
 import { toAppleS } from "../sources/imessage";
 import { copyWhatsapp } from "../sources/whatsapp";
-import { appsToOpen, archiveFailing, openIncidents } from "./archive";
+import {
+  appsToOpen,
+  archiveFailing,
+  messagesIn,
+  openIncidents,
+  toStart,
+} from "./archive";
 import { archiveLine } from "./nightly";
 
 test("the archive opens each closed app, but not again within 10 minutes", () => {
@@ -110,4 +116,35 @@ test("only the stores of the sources he turned on are copied and kept open", () 
   expect(appsToOpen([], 1e12, new Map(), keptStores(["beeper"]))).toEqual([
     "Beeper Desktop",
   ]);
+});
+
+test("a pass starts the agent for the chats someone else wrote in, never for his own messages or older copies", () => {
+  const dir = mkdtempSync(join(tmpdir(), "archive-"));
+  const db = new Database(join(dir, "whatsapp.sqlite"));
+  db.run("create table messages (chat text, fromMe integer, seenAt text)");
+  db.run(
+    `insert into messages values ('66@s.whatsapp.net', 0, '2026-10-29T10:00:05Z'),
+      ('66@s.whatsapp.net', 0, '2026-10-29T10:00:06Z'), ('33@s.whatsapp.net', 1, '2026-10-29T10:00:05Z'),
+      ('44@s.whatsapp.net', 0, '2026-10-29T09:59:00Z')`
+  );
+  const whatsapp = ARCHIVED.find((s) => s.name === "whatsapp");
+  if (!whatsapp) {
+    throw new Error("no whatsapp descriptor");
+  }
+  expect(messagesIn(whatsapp, "2026-10-29T10:00:00Z", dir)).toEqual([
+    { chat: "66@s.whatsapp.net", source: "whatsapp" },
+  ]);
+  // Notes are his own writing: never a message event.
+  const notes = ARCHIVED.find((s) => s.kind !== "chat");
+  expect(notes && messagesIn(notes, "2026-10-29T10:00:00Z", dir)).toEqual([]);
+});
+
+test("a chat starts the agent once a minute at most", () => {
+  const starts = new Map();
+  const ana = [{ chat: "66@s.whatsapp.net", source: "whatsapp" as const }];
+  expect(toStart(ana, starts, HOUR)).toEqual(ana);
+  // Heard again 5 s later: it waits for its minute, then starts with nothing new heard.
+  expect(toStart(ana, starts, HOUR + 5000)).toEqual([]);
+  expect(toStart([], starts, HOUR + MIN)).toEqual(ana);
+  expect(toStart([], starts, HOUR + 2 * MIN)).toEqual([]);
 });

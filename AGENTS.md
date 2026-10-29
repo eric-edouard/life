@@ -48,7 +48,8 @@ exception: his decisions, which his loops ask and he answers on `/me/decisions` 
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
   `bun life memory unresolved` before asking him anything. His word beats the memory.
-- A send through any messaging app (Beeper, WhatsApp, iMessage, mail) needs the owner's OK on the exact text.
+- A send through any messaging app (Beeper, WhatsApp, iMessage, mail) needs the owner's OK on the exact text. Life's
+  own send is `bun life send <decision>`: the option he answered, its draft, into the chat its `ref` names.
 - When the owner says something didn't work, it is audited (docs/operations.md#audits), and its fix carries a
   regression case.
 - Rules for editing `truth/` are in the data repo's own `AGENTS.md`.
@@ -98,13 +99,17 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
 - **Life decides when his loops run, life-loops decides what.** Life's only start of anything outside it is
-  `startAgent` (`events.ts`): `agent.start` with an event appended (a new ask, a tick each minute), his zone in it (what
-  it says as it exits non-zero is mailed to him, each line once);
+  `startAgent` (`events.ts`): `agent.start` with an event appended (a new ask, a tick each minute, the chats a pass
+  of the archive heard someone in), his zone in it (what it says as it exits non-zero is mailed to him, each line once);
   no loop's name or schedule lives in Life.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
   setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
+- **Life sends in one place: `send`** (`host/send.ts`, the `sends` setting): only the draft of the option he answered
+  in a decision, with no note, nothing new from them since it was asked, once (an `intent` ledger line first), into
+  the chat its `ref` names (`<source>:<chat>`), through that source's `send` capability. Nothing else in Life sends
+  into a chat; recorded content never chooses what is sent.
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
 - **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task`,
   `update_decision` and `log_reply_to_owner`.** Never add a
@@ -180,6 +185,7 @@ Before adding a helper, use the one that exists:
 | Running another program | `apps/server/src/core/proc.ts` |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
+| Sending into a chat | `send` (`host/send.ts`), through the source's `send`; a bridge's through `sendMatrix` (`sources/matrix.ts`) |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
@@ -222,7 +228,7 @@ removing a regression case; anything that spends the owner's model quota heavily
 `docs/agent.md` (it changes the agent's behaviour and its seal).
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
-data repo; add a send, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge without the
+data repo; add a send beyond `send`, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge without the
 owner's OK.
 
 ## Workflow

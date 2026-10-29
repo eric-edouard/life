@@ -337,11 +337,15 @@ export function settleDelivery(
 
 /**
  * The one way Life starts an agent that pulls: its `start` command, once, in his home, with the event's JSON appended,
- * his zone added (`{kind:"ask"}` on a new ask, `{kind:"tick", at}` each minute from the watcher). The command decides
+ * his zone added (`{kind:"ask"}` on a new ask, `{kind:"tick", at}` each minute from the watcher, `{kind:"message", chats}`
+ * when the archive copied messages from someone else, `messagesIn`). The command decides
  * what the event starts; Life never waits on it. A start that fails is logged.
  */
 export function startAgent(
-  event: { kind: "ask" } | { kind: "tick"; at: string }
+  event:
+    | { kind: "ask" }
+    | { kind: "tick"; at: string }
+    | { chats: { chat: string; source: string }[]; kind: "message" }
 ) {
   const cmd = settings().agent?.start;
   if (!cmd) {

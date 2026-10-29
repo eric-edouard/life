@@ -22,6 +22,7 @@ import {
 } from "../sources/imessage";
 import { lifelogMissing } from "../sources/lifelog";
 import { mailRoot, newestMail, readMail } from "../sources/mail";
+import { sendMatrix } from "../sources/matrix";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import {
   copyWhatsapp,
@@ -82,6 +83,7 @@ const LISTED: Descriptor[] = [
     newest: newestWhatsapp,
     read: readWhatsapp,
     searchDays: 90,
+    send: (chat, text, txn) => sendMatrix("whatsapp", chat, text, txn),
     silentAfter: 24 * HOUR,
     store: {
       app: "WhatsApp",

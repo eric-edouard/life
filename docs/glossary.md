@@ -27,6 +27,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | task | The agent's work on one ask: the ask and the updates and replies that follow, open until the agent closes it done or dropped. | |
 | update | The agent's report on a task: its state, steps, outcome; `taken: true` when it takes the task. | |
 | reply | What the agent tells the owner, logged before it sends it. | |
+| send | Life's one send into a chat: the draft of the option he answered in a decision, into the chat its `ref` names (`<source>:<chat>`), once (`host/send.ts`, the ledger's `sent`). Not a reply (the agent to him). | |
+| bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can send through it (`docs/use/bridges.md`). | |
 | board | The agent's own list in the owner's to-do list, one item per open task. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
 | grant (a loop's) | A decision of `kind: "grant"`: a standing yes he gives one loop (its `ref`: autonomy, budget, merge-map, publish, ads, mail); it stands while it is the newest done one of its loop and ref, with a scope, not revoked (`active`). | |
@@ -73,7 +75,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
-| decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/me/decisions`): never Life's own act; the loop that asked acts on it. The observation type of the same name becomes `choice` in the next migration (his OK, 29 Oct). | card |
+| decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/me/decisions`): Life acts on one only to send the reply he chose (`send`); the loop that asked acts on the rest. The observation type of the same name becomes `choice` in the next migration (his OK, 29 Oct). | card |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
 | fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on his fact-check loop's decisions: `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
 | doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `unsure-moment`, `low-confidence`. | |

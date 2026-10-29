@@ -7,6 +7,7 @@ import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
 import { decisionsNow, writeDecision } from "../../memory/decisions";
 import { OWNER_STEPS } from "../../records/decision";
+import { recipientOf } from "../send";
 import { cookie, cookieOf, HEADERS, redirect, TOKENS, text } from "./http";
 
 // The portrait (/me): pages about him and his people, written from his memory into OWNER_DATA_DIR/docs/portrait/ (his data,
@@ -136,7 +137,12 @@ export function createPortrait(
       return text("sign in at /me", 401);
     }
     if (req.method !== "POST") {
-      return text(JSON.stringify([...decisionsNow().values()]), 200, {
+      const all = [...decisionsNow().values()].map((d) => ({
+        ...d,
+        // Only an open card asks his tap: the others need no recipient read.
+        to: d.status === "open" ? recipientOf(d.ref) : undefined,
+      }));
+      return text(JSON.stringify(all), 200, {
         ...HEADERS,
         "content-type": "application/json",
       });

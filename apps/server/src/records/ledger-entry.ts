@@ -44,9 +44,11 @@ export const LedgerEntry = z
       // A reminder Life links without a change: the first sync's baseline, or fields it learns (apps/server/src/host/inbound.ts).
       "import",
       "instinct",
+      // His answered decision's reply, sent into its chat (apps/server/src/host/send.ts); `target` the decision.
+      "sent",
       ...TASK_LINES,
     ]),
-    // "intent": a write `act` is about to make, recorded before it (its outcome is a later line with the same id).
+    // "intent": a write outside Life is about to make (`attempt`, act.ts), recorded before it (its outcome is a later line with the same id).
     result: z.enum(["ok", "failed", "duplicate", "intent"]),
     schemaVersion: z.literal(1),
     // "<prefix>:<id>" (an item of the actions backend: "reminder:<numericId>", "gtask:<list>/<task>"), "<prefix>:new" (a failed add), `AGENT_WORD` (an ask), a task's id (its lines), "chat" (a reply on no task) or "mailto:<address>" (Instinct, until 19 Oct).

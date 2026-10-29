@@ -30,6 +30,7 @@ import { connect } from "./http/tailscale";
 import { init, started } from "./init";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
+import { send } from "./send";
 import { status, watch } from "./watch";
 
 /** `act` and the grant need the actions output: off, they say so and do nothing. */
@@ -284,6 +285,19 @@ const commands: Record<string, () => Promise<number>> = {
   pair() {
     console.log(pair());
     return Promise.resolve(0);
+  },
+  /** Sends the reply he chose in a decision (`send <decision>`, host/send.ts), or says why not. */
+  async send() {
+    const [, , , decision] = process.argv;
+    if (!decision) {
+      console.error("usage: bun life send <decision>");
+      return 2;
+    }
+    const done = await send(decision);
+    console.log(
+      `${done.id}: ${done.result}${done.error ? `, ${done.error}` : ""}`
+    );
+    return done.result === "ok" ? 0 : 1;
   },
   /**
    * The settings as JSON (`settings`), or some parts of them replaced (`settings set '<json>'`, checked whole before

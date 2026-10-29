@@ -131,6 +131,7 @@ function card(d) {
     "article",
     {},
     $("h2", {}, d.question),
+    d.to ? $("p", { class: "to" }, `To ${d.to}`) : null,
     d.draft ? $("p", { class: "draft" }, d.draft) : null,
     d.status === "open" && d.result ? $("p", { class: "res" }, d.result) : null,
     $(

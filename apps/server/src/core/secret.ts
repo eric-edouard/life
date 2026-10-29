@@ -20,6 +20,8 @@ import { LIFE_STATE_DIR } from "./paths";
 export const SECRETS = {
   events: join(LIFE_STATE_DIR, "events.json"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
+  /** His account on the bridges' homeserver (`sources/matrix.ts`): `{user, token}`, written once when it is set up. */
+  matrix: join(LIFE_STATE_DIR, "matrix.json"),
   /** Life's own sign-in: its key, the apps and their tokens. */
   oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
 };
