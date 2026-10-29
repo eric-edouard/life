@@ -10,7 +10,6 @@ import { isLocked, locked } from "../memory/memory-lock";
 import { reindex } from "../memory/search";
 import { listening } from "../memory/sources";
 import { syncLifelogUnits } from "../memory/units";
-import { zoneNow } from "../memory/zones";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
@@ -48,7 +47,6 @@ async function pass(now: number) {
   startAgent({
     at: new Date(now).toISOString(),
     kind: "tick",
-    zone: zoneNow(),
   });
   dailyAsk(now);
   await chase(tasksOf(), now);

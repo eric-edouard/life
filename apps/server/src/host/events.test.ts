@@ -10,6 +10,7 @@ import { SECRETS, writeSecret } from "../core/secret";
 import { readSettings, type Settings, setSettings } from "../core/settings";
 import { LEDGER } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
+import { zoneNow } from "../memory/zones";
 import { LedgerEntry } from "../records/ledger-entry";
 import {
   agentLive,
@@ -277,18 +278,20 @@ test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, 
     await deliver();
     await deliver();
     expect(await started(1)).toBe(1);
-    expect(events()).toEqual(['{"kind":"ask"}']);
+    expect(JSON.parse(events()[0] ?? "null")).toEqual({
+      kind: "ask",
+      zone: zoneNow(),
+    });
     expect(deliveryState().delivered).toBe(linesOf(LEDGER).length);
     startAgent({
       at: "2026-10-29T00:00:00.000Z",
       kind: "tick",
-      zone: "Asia/Bangkok",
     });
     expect(await started(2)).toBe(2);
     expect(JSON.parse(events()[1] ?? "null")).toEqual({
       at: "2026-10-29T00:00:00.000Z",
       kind: "tick",
-      zone: "Asia/Bangkok",
+      zone: zoneNow(),
     });
   } finally {
     setSettings({ agent: before });

@@ -11,6 +11,7 @@ import { start } from "../core/proc";
 import { SECRETS, same, writeSecret } from "../core/secret";
 import { agentName, pulls, settings } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
+import { zoneNow } from "../memory/zones";
 import { actFailedReport, sendReport } from "./report";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
@@ -330,17 +331,22 @@ export function settleDelivery(
 }
 
 /**
- * The one way Life starts an agent that pulls: its `start` command, once, in his home, with the event's JSON appended
- * (`{kind:"ask"}` on a new ask, `{kind:"tick", at, zone}` each minute from the watcher). The command decides what the
- * event starts; Life never waits on it. A start that fails is logged.
+ * The one way Life starts an agent that pulls: its `start` command, once, in his home, with the event's JSON appended,
+ * his zone added (`{kind:"ask"}` on a new ask, `{kind:"tick", at}` each minute from the watcher). The command decides
+ * what the event starts; Life never waits on it. A start that fails is logged.
  */
-export function startAgent(event: { kind: string } & Record<string, unknown>) {
+export function startAgent(
+  event: { kind: "ask" } | { kind: "tick"; at: string }
+) {
   const cmd = settings().agent?.start;
   if (!cmd) {
     return;
   }
   unfrozen("start the agent");
-  const error = start([...cmd, JSON.stringify(event)], HOME);
+  const error = start(
+    [...cmd, JSON.stringify({ ...event, zone: zoneNow() })],
+    HOME
+  );
   if (error) {
     log("run.error", { error, step: "events.start" });
   }
