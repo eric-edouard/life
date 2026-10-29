@@ -77,7 +77,8 @@ keeps its own list in [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 - The agent is outside the boundary. The owner's agent (for example ChatGPT with a terminal on the Mac) can read
   `.env`, the archive and `chat.db`, and send from the owner's accounts. Life's playbook asks it to send only on the
   owner's yes to the exact text, but that is policy, not enforcement. An unattended agent run reads other people's
-  text with full access.
+  text with full access. With the agent's `start` setting, Life itself starts such a run, unattended, each time an ask
+  lands; the run gets no secret of Life's in its environment (`cliEnv`), but it has the Mac's access.
 - Full Disk Access: Life needs it to read Messages, Mail and Notes, so the app is a high-value target on the Mac.
 - Models may misread; observations are a model's reading with a checked quote, not verified facts.
 

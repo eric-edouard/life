@@ -55,6 +55,11 @@ export const MODEL_ENV = [
   ..."HOME LANG LC_ALL LOGNAME PATH SHELL TERM TMPDIR USER".split(" "),
   ..."APPDATA LOCALAPPDATA PATHEXT SystemRoot TEMP TMP USERPROFILE".split(" "),
 ];
+/** This process's `MODEL_ENV` variables: what a CLI Life starts gets, and nothing else. */
+export const cliEnv = () =>
+  Object.fromEntries(
+    MODEL_ENV.flatMap((k) => (process.env[k] ? [[k, process.env[k]]] : []))
+  );
 
 /** The system's own time zone: on the Mac whatever TZ the process runs with; on Windows `Intl`'s, which follows TZ when set. */
 export const systemZone = (): string | undefined =>

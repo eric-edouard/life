@@ -13,6 +13,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". A task waiting on him is `waiting-owner`. | |
 | agent | The owner's assistant that takes his asks (a ChatGPT or Claude agent). Its display name is the `agent` setting (`agentName`); the word stored for it is `AGENT_WORD`, `agent`. | |
+| agent start | For an agent that pulls its asks: the command Life starts when a new ask lands (`agent.start`, `startAgent`), so it reads the ask at once. Never waited on. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
 

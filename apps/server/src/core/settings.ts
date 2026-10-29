@@ -19,11 +19,16 @@ export const Settings = z
         client: z.string().optional(),
         misheard: z.array(z.string()).default([]),
         name: z.string(),
+        /** For an agent that pulls: the command Life starts (in his home) when a new ask is recorded, so it reads its asks at once. */
+        start: z.array(z.string()).min(1).optional(),
         /** How asks reach it: pushed as the MCP event `ask` (ChatGPT), or pulled by its own `read_open_agent_tasks` calls (Claude). */
         transport: z.enum(["mcp-event", "pull"]).default("mcp-event"),
         wake: z.array(z.string()).min(1),
       })
       .strict()
+      .refine((a) => !a.start || a.transport === "pull", {
+        message: "`start` is for an agent that pulls its asks",
+      })
       .optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
