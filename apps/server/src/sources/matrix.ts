@@ -34,7 +34,8 @@ function provisioning(bridge: string) {
 
 async function call(url: string, auth: string, init: RequestInit = {}) {
   const res = await fetch(url, {
-    // A hung bridge never holds up a send or the status snapshot.
+    // A hung bridge fails the call after 10 s. A send that timed out after the homeserver took it is safe to try again:
+    // its `txn` makes the second one a no-op.
     signal: AbortSignal.timeout(10_000),
     ...init,
     headers: {
@@ -83,23 +84,40 @@ function provision(bridge: string, path: string, init: RequestInit = {}) {
  * Why the bridge can't send now, as the bridge itself says (its logins and their state): not running, never linked,
  * or a login that isn't connected. None when it can.
  */
-async function readBlock(bridge: string) {
-  let who: Record<string, unknown>;
-  try {
-    who = await provision(bridge, "whoami");
-  } catch (e) {
-    return `${bridge} bridge not answering: ${(e as Error).message}`;
-  }
-  const logins = (who.logins ?? []) as {
-    state?: { message?: string; state_event?: string };
-  }[];
+// The bridge states it comes back from by itself: not a block.
+const PASSING = [
+  "CONNECTED",
+  "CONNECTING",
+  "BACKFILLING",
+  "TRANSIENT_DISCONNECT",
+];
+
+/** Why a bridge with these logins can't send: never linked, or a login in a state it won't leave by itself. */
+export function blockOf(
+  bridge: string,
+  logins: { state?: { message?: string; state_event?: string } }[]
+) {
   if (logins.length === 0) {
     return `${bridge} bridge not linked: link it once (docs/use/bridges.md)`;
   }
-  const down = logins.find((l) => l.state?.state_event !== "CONNECTED");
+  const down = logins.find(
+    (l) => !PASSING.includes(l.state?.state_event ?? "")
+  );
   return down
     ? `${bridge} bridge ${down.state?.state_event ?? "unknown"}${down.state?.message ? `: ${down.state.message}` : ""}`
     : undefined;
+}
+
+async function readBlock(bridge: string) {
+  try {
+    // 3 s: the status snapshot waits for it.
+    const who = await provision(bridge, "whoami", {
+      signal: AbortSignal.timeout(3000),
+    });
+    return blockOf(bridge, (who.logins ?? []) as Parameters<typeof blockOf>[1]);
+  } catch (e) {
+    return `${bridge} bridge not answering: ${(e as Error).message}`;
+  }
 }
 
 /** The bridge's room for a chat: the one it has, else a direct chat it opens with that person (idempotent). */

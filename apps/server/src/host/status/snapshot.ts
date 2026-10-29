@@ -792,19 +792,33 @@ function backupCard(r: Reads): Card {
 
 /** Whether Life can send the replies he chooses: each sending source's own word on its link (`send.blocked`). */
 function sendsCard(r: Reads): Card {
-  const blocks = r.sendBlocks?.ok
-    ? r.sendBlocks.value.filter((b) => b.why)
-    : [];
+  const all = r.sendBlocks?.ok ? r.sendBlocks.value : [];
+  const blocks = all.filter((b) => b.why);
   const error =
     r.sendBlocks && !r.sendBlocks.ok ? r.sendBlocks.error : undefined;
   return {
+    headline: "can send",
+    // Each rule carries its headline (`firstOf`).
     ...firstOf(
-      [!r.sendBlocks, { tone: "idle", word: "off" }],
+      [!r.sendBlocks, { headline: "sends off", tone: "idle", word: "off" }],
       [
         Boolean(error) || blocks.length > 0,
-        { ask: ASK("that Life cannot send"), tone: "bad", word: "blocked" },
+        {
+          ask: ASK("that Life cannot send"),
+          headline: "can't send",
+          tone: "bad",
+          word: "blocked",
+        },
       ],
-      [true, { tone: "ok", word: "ok" }]
+      [
+        all.length === 0,
+        {
+          headline: "no source he turned on sends",
+          tone: "idle",
+          word: "none",
+        },
+      ],
+      [true, { headline: "can send", tone: "ok", word: "ok" }]
     ),
     content: [
       ...blocks.map((b) => `${b.label}: ${b.why}`),
@@ -812,7 +826,6 @@ function sendsCard(r: Reads): Card {
     ],
     facts: [],
     group: "pipeline",
-    headline: blocks.length ? "can't send" : "can send",
     id: "sends",
     name: OUTPUTS.sends.label,
   };
