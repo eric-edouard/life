@@ -213,3 +213,24 @@ test("only a done grant is revoked, a request is taken unanswered, and a malform
     rmSync(DECISIONS, { force: true });
   }
 });
+
+test("a decision carries its loop's goal rank, the page's order", () => {
+  rmSync(DECISIONS, { force: true });
+  const [d] = writeDecision(
+    [{ data: { ...ask, rank: 2 }, decision: id, step: "asked" }],
+    NOW
+  );
+  expect(d?.rank).toBe(2);
+  expect(() =>
+    writeDecision(
+      [
+        {
+          data: { ...ask, rank: -1 },
+          decision: "asks-20261029100000-2",
+          step: "asked",
+        },
+      ],
+      NOW
+    )
+  ).toThrow();
+});

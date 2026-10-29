@@ -343,3 +343,14 @@ test("what the agent's starter says as it exits non-zero is mailed, each line on
     setSettings({ agent: before });
   }
 });
+
+test("his answer on his page wakes the loop that asked; opening the context or revoking wakes none", async () => {
+  const { wakeOf } = await import("./events");
+  expect(wakeOf("answered", "lynx-store")).toEqual({
+    kind: "decision",
+    loop: "lynx-store",
+  });
+  expect(wakeOf("context", "lynx-store")).toBeUndefined();
+  expect(wakeOf("revoked", "lynx-store")).toBeUndefined();
+  expect(wakeOf("answered", undefined)).toBeUndefined();
+});
