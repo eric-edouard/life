@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { clock } from "../core/clock";
+import { clock, MIN } from "../core/clock";
 import { writeJson } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
@@ -319,6 +319,10 @@ test("the success email says the window it read and counts the new observations"
     health(clock().toISOString());
     expect(successReport("2026-10-18", 1000, n).text).toContain(
       "Lifelog: the watcher is polling"
+    );
+    health(new Date(clock().getTime() - 20 * MIN).toISOString());
+    expect(successReport("2026-10-18", 1000, n).text).toContain(
+      "the watcher is NOT POLLING (last good poll "
     );
     health(null);
     expect(successReport("2026-10-18", 1000, n).text).toContain(

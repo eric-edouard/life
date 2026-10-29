@@ -120,10 +120,11 @@ const compose = (subject: string, d: Digest) => ({
  * What the night says of the watcher: off with no voice source, else polling or not, read as the report is written
  * (29 Oct: read when the night began, it was judged 20 minutes later, past `polling`'s 15).
  */
-function watcherLine(h = readHealth()) {
+function watcherLine() {
   if (!listening()) {
     return "no voice source";
   }
+  const h = readHealth();
   if (h && polling(h)) {
     return "the watcher is polling";
   }
