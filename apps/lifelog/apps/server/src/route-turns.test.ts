@@ -71,12 +71,10 @@ test("a block 10% Thai goes to Scribe whole; silent turns don't count toward it"
     [word(3, "baman"), word(11, "elik"), word(12, "chandai")]
   );
   expect(routeTurns(mixed)).toEqual({ kind: "whole" });
-  const tenth = (seconds: number) =>
-    routeTurns(
-      heard([turn(0, seconds, "1", "th"), turn(seconds, 10, "0", "en")], [])
-    );
-  expect(tenth(0.9).kind).toBe("turns");
-  expect(tenth(1).kind).toBe("whole");
+  const thaiSecondIn = (seconds: number) =>
+    routeTurns(heard([turn(0, 1, "1", "th"), turn(1, seconds, "0", "en")], []));
+  expect(thaiSecondIn(10.5).kind).toBe("turns");
+  expect(thaiSecondIn(10).kind).toBe("whole");
   const quiet = heard(
     [turn(0, 3, "0", "en"), turn(3, 10, "1", "en")],
     [word(1, "hi")]
