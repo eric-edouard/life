@@ -35,7 +35,7 @@ export const DecisionOption = z
     consequence: z.string().max(200).optional(),
     draft: z.string().max(4000).optional(),
     id: z.string().min(1).max(40),
-    label: z.string().min(1).max(60),
+    label: z.string().min(1).max(200),
   })
   .strict();
 
@@ -62,7 +62,7 @@ export const DecisionLine = z
     at: isoDateTime,
     /** asked, revised: the ask; answered: answer and note; done: result (and scope, a grant's); reopened, withdrawn, expired: result. */
     data: z.record(z.string(), z.unknown()),
-    decision: z.string().regex(/^[a-z0-9-]+-\d{14,17}-\d+$/),
+    decision: z.string().regex(/^[a-z0-9-]+-(\d{8}|\d{14,17})-\d+$/),
     /** The run that wrote it (a loop's), none for his. */
     run: z.string().max(80).optional(),
     schemaVersion: z.literal(1),
