@@ -311,16 +311,17 @@ export const lapseReport = (open: number, now: number) =>
     verdict: "NEEDS YOU",
   });
 
-/** The alert for what his agent's starter said when it exited non-zero (`agent.start`, events.ts): one line of its own. */
-export const agentStartReport = (line: string, now: number) =>
+/** The alert for what his agent's starter said when it exited non-zero (`agent.start`, events.ts): its new lines. */
+export const agentStartReport = (lines: string[], now: number) =>
   alert(new Date(now).toISOString(), agentName(), {
-    failure: { error: line, step: "agent.start" },
+    failure: { error: lines.join(" · "), step: "agent.start" },
     notes: [
-      "Its starter (the agent.start setting) said this as it exited; each new line is mailed once. Details: derived/log",
+      ...lines,
+      "Its starter (the agent.start setting) said this as it exited; each line is mailed once.",
     ],
-    preheader: line,
-    stats: [{ label: "at", value: time(new Date(now).toISOString()) }],
-    subject: `${agentName()}: ${line.slice(0, 90)}`,
+    preheader: lines[0] ?? "",
+    stats: [{ label: "new", value: String(lines.length) }],
+    subject: `${agentName()}: ${lines.length > 1 ? `${lines.length} things wrong, first ` : ""}${(lines[0] ?? "").slice(0, 90)}`,
     verdict: "FAILING",
   });
 

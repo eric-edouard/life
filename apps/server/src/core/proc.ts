@@ -59,7 +59,13 @@ export function start(
     const said = new Response(p.stderr).text();
     p.exited.then(async (code) => {
       if (code !== 0) {
-        onFail((await said).trim().slice(-2000) || `exited ${code}`);
+        // The end of what it said, from a line's start (a cut line would read as a new one each time).
+        const text = (await said).trim();
+        const end =
+          text.length > 2000
+            ? text.slice(text.indexOf("\n", text.length - 2000) + 1)
+            : text;
+        onFail(end || `exited ${code}`);
       }
     });
     p.unref();
