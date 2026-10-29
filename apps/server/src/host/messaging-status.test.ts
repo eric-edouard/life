@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Descriptor } from "../sources/contract";
-import { healthOf } from "./messaging-status";
+import { failingParts, healthOf } from "./messaging-status";
 
 const never = new Promise<string | undefined>(() => undefined);
 
@@ -31,4 +31,24 @@ test("a connector whose send answers is ✓", async () => {
     },
   } as unknown as Descriptor;
   expect((await healthOf({ label: "Made-up", source })).ok).toBe(true);
+});
+
+test("a card shows a stopped bridge, and a send it can't make only while sends are on; never its reading", () => {
+  const health = {
+    detail: "",
+    ok: false,
+    parts: [
+      { kind: "bridge" as const, ok: false, text: "bridge stopped" },
+      { kind: "read" as const, ok: false, text: "read failed" },
+      { kind: "send" as const, ok: false, text: "not linked" },
+    ],
+  };
+  expect(failingParts(health, true).map((p) => p.text)).toEqual([
+    "bridge stopped",
+    "not linked",
+  ]);
+  expect(failingParts(health, false).map((p) => p.text)).toEqual([
+    "bridge stopped",
+  ]);
+  expect(failingParts(undefined, true)).toEqual([]);
 });

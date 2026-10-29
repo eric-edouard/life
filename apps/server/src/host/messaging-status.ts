@@ -20,8 +20,11 @@ export interface Connector {
 }
 
 /** One thing checked (its bridge, reading it, sending), and what it found. */
+const KINDS = ["bridge", "read", "send"] as const;
+type Kind = (typeof KINDS)[number];
+
 export interface Part {
-  kind: "bridge" | "read" | "send";
+  kind: Kind;
   ok: boolean;
   text: string;
 }
@@ -133,31 +136,44 @@ async function sendPart(c: Connector): Promise<Part | undefined> {
 }
 
 /** Every connector he has, checked at once (the CLI's lines, the app's connector cards). */
-export const connectorHealths = () =>
+export const connectorHealths = (kinds: readonly Kind[] = KINDS) =>
   Promise.all(
     connectors().map(async (c) => ({
-      health: await healthOf(c).catch(
-        (e: Error): ConnectorHealth => ({
-          detail: e.message,
-          ok: false,
-          parts: [],
-        })
-      ),
+      health: await healthOrFailed(c, kinds),
       label: c.label,
       name: c.source?.name ?? c.network?.name ?? c.label,
     }))
   );
 
+/** A check that threw is a ✗ with its error. */
+const healthOrFailed = (c: Connector, kinds: readonly Kind[] = KINDS) =>
+  healthOf(c, isRunning, kinds).catch(
+    (e: Error): ConnectorHealth => ({ detail: e.message, ok: false, parts: [] })
+  );
+
+/** What a connector's failing parts say, but its reading (the app's card judges that over time), and a send only
+ * while sends are on. */
+export const failingParts = (
+  health: ConnectorHealth | undefined,
+  sendsOn: boolean
+) =>
+  health?.parts.filter(
+    (p) => !p.ok && p.kind !== "read" && (sendsOn || p.kind !== "send")
+  ) ?? [];
+
 /** One connector checked: its parts at once, the failures first. */
 export async function healthOf(
   c: Connector,
-  running = isRunning
+  running = isRunning,
+  kinds: readonly Kind[] = KINDS
 ): Promise<ConnectorHealth> {
   const parts = (
     await Promise.all([
-      c.network ? bridgePart(c.network, running) : undefined,
-      readPart(c),
-      sendPart(c),
+      c.network && kinds.includes("bridge")
+        ? bridgePart(c.network, running)
+        : undefined,
+      kinds.includes("read") ? readPart(c) : undefined,
+      kinds.includes("send") ? sendPart(c) : undefined,
     ])
   ).filter((p): p is Part => Boolean(p));
   return {
@@ -216,13 +232,7 @@ export async function messagingStatus() {
   }
   await Promise.all(
     all.map(async (c, i) => {
-      done[i] = await healthOf(c).catch(
-        (e: Error): ConnectorHealth => ({
-          detail: e.message,
-          ok: false,
-          parts: [],
-        })
-      );
+      done[i] = await healthOrFailed(c);
     })
   );
   if (tty) {

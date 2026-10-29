@@ -36,7 +36,7 @@ import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
-import { connectorHealths, type Part } from "../messaging-status";
+import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
@@ -336,8 +336,8 @@ async function reads(now: Date) {
     cached("actions", 15_000, readLedger),
     cached("actionChecks", MIN, checks),
     newestOf(),
-    // Every messaging connector's live check (`bun life bridge`'s): its bridge, reading it, sending.
-    cached("connectors", 15_000, () => safe(connectorHealths)),
+    // Every messaging connector's live check (`bun life bridge`'s): its bridge and its sends, as last found.
+    latestHealths(),
   ]);
   const of = (kind: string, days: number) =>
     since(
@@ -469,13 +469,38 @@ function lifelogCard(r: Reads): Card {
   };
 }
 
-/** A source read from its own store (`Descriptor.newest`): its newest item, its last copy, its failure. */
-/** A connector's failing bridge and send checks (`connectorHealths`): its reading is judged by the card itself. */
-const connectorFailures = (r: Reads, name: string): Part[] =>
-  (r.connectors.ok ? r.connectors.value : [])
-    .find((c) => c.name === name)
-    ?.health.parts.filter((p) => !p.ok && p.kind !== "read") ?? [];
+/** A connector's failing bridge and send checks (`failingParts`): its reading the card judges itself. */
+const connectorFailures = (r: Reads, name: string) =>
+  failingParts(
+    r.connectors.find((c) => c.name === name)?.health,
+    isOn("sends")
+  );
 
+type Healths = Awaited<ReturnType<typeof connectorHealths>>;
+let healths: Healths = [];
+let checkedAt = Number.NEGATIVE_INFINITY;
+let checking = false;
+/**
+ * Every connector's bridge and send checks as last found, never awaited: the status window reads every 3 s and a
+ * check may take 10 s, so a stale one starts a fresh one in the background (every 15 s at most).
+ */
+function latestHealths(): Healths {
+  if (!checking && performance.now() - checkedAt > 15_000) {
+    checking = true;
+    connectorHealths(["bridge", "send"])
+      .then((h) => {
+        healths = h;
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        checking = false;
+        checkedAt = performance.now();
+      });
+  }
+  return healths;
+}
+
+/** A source read from its own store (`Descriptor.newest`): its newest item, its last copy, its failure. */
 function sourceCard(r: Reads, d: Descriptor): Card {
   const read = r.newest.get(d.name) ?? {
     error: "not read",
@@ -817,20 +842,19 @@ function backupCard(r: Reads): Card {
 /** Whether Life can send the replies he chooses: each sending source's own word on its link (`send.blocked`). */
 function sendsCard(r: Reads): Card {
   // The send checks of every connector that sends (the same as each connector's card).
-  const all = (r.connectors.ok ? r.connectors.value : []).flatMap((c) =>
+  const all = r.connectors.flatMap((c) =>
     c.health.parts
       .filter((p) => p.kind === "send")
       .map((p) => ({ label: c.label, part: p }))
   );
   const blocks = all.filter((b) => !b.part.ok);
-  const error = r.connectors.ok ? undefined : r.connectors.error;
   return {
     headline: "can send",
     // Each rule carries its headline (`firstOf`).
     ...firstOf(
       [!isOn("sends"), { headline: "sends off", tone: "idle", word: "off" }],
       [
-        Boolean(error) || blocks.length > 0,
+        blocks.length > 0,
         {
           ask: ASK("that Life cannot send"),
           headline: "can't send",
@@ -848,10 +872,7 @@ function sendsCard(r: Reads): Card {
       ],
       [true, { headline: "can send", tone: "ok", word: "ok" }]
     ),
-    content: [
-      ...blocks.map((b) => `${b.label}: ${b.part.text}`),
-      ...(error ? [`Error: ${error}`] : []),
-    ],
+    content: [...blocks.map((b) => `${b.label}: ${b.part.text}`)],
     facts: [],
     group: "pipeline",
     id: "sends",
