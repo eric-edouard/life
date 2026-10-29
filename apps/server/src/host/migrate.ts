@@ -53,12 +53,11 @@ const GONE = "memory.gone";
 
 /** Does this code run from a repo (a checkout or a worktree) rather than from Life.app's resources? */
 const runsFromRepo = () => existsSync(join(LIFE_CODE_DIR, ".git"));
-/**
- * Only the running app migrates his own data: a checkout or worktree may migrate a copy, never his live data, and a
- * copy means both his memory and the archive (`archive` elsewhere than `ARCHIVE`).
- */
-const mayMigrate = (data: string, archive: string) =>
-  !(runsFromRepo() && (isHis(data) || resolve(archive) === resolve(ARCHIVE)));
+/** Only the running app migrates his own data: a checkout or worktree may migrate a copy, never his live data. */
+const mayMigrate = (data: string) => !(runsFromRepo() && isHis(data));
+/** The live archive is written only for his own data: a run on a copy imports into a copied archive, or not at all. */
+const mayImport = (data: string, archive: string) =>
+  isHis(data) || resolve(archive) !== resolve(ARCHIVE);
 
 const IDS = /\b(?:unit|obs)_[0-9a-f]{12}\b/g;
 /** A `beeper:` ref: a chat's message (`beeper:!<room>/<message>`) or a file (`beeper:<mxc url>`, `beeper:localmxc://…`). */
@@ -384,7 +383,9 @@ function renameIn(dir: string, archive: string) {
     commitMemory(PATHS, "Memory: before Beeper's names become their networks'");
   }
   // The archive first: memory's new refs point at rows that are there already.
-  importBeeper(archive);
+  if (mayImport(dir, archive)) {
+    importBeeper(archive);
+  }
   // His settings only for his own data: a copy's run leaves them alone.
   if (dir === OWNER_DATA_DIR) {
     dropBeeperSource();
@@ -510,7 +511,7 @@ export async function migrateStored(dir = OWNER_DATA_DIR, archive = ARCHIVE) {
   const live = !runsFromRepo();
   let said = false;
   while (needsRename(dir)) {
-    if (!mayMigrate(dir, archive)) {
+    if (!mayMigrate(dir)) {
       throw new Error(
         'his memory still names Beeper: only the new Life.app renames it (AGENTS.md, "A rename backfills")'
       );

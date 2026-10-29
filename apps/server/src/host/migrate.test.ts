@@ -1,11 +1,11 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { observationId } from "../memory/observe";
 import { unitId } from "../memory/units";
-import { matrixArchive } from "../sources/archived";
+import { ARCHIVE, matrixArchive } from "../sources/archived";
 import { openBridged, readBridged } from "../sources/bridged";
 import { beeperNetworks, importBeeper } from "./beeper-import";
 import { migrateStored, renameStored } from "./migrate";
@@ -193,11 +193,20 @@ test("Beeper's index names each chat's network by its account, in any of Beeper'
   });
 });
 
-test("a checkout migrates a copy only: never his live archive, even with his memory copied", async () => {
+test("a run on a copy of his memory never writes the live archive", async () => {
   const data = mkdtempSync(join(tmpdir(), "data-"));
   mkdirSync(join(data, "memory"));
   writeFileSync(join(data, "memory", "units.jsonl"), "");
-  await expect(migrateStored(data)).rejects.toThrow("only the new Life.app");
+  mkdirSync(ARCHIVE, { recursive: true });
+  const beeper = new Database(join(ARCHIVE, "beeper.sqlite"));
+  beeper.run(matrixArchive("network text not null,"));
+  beeper.run(
+    `insert into messages (id, eventId, chat, chatName, network, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+     values (1, '$e1', '!a', 'Ana', 'line', 'ana', 'Ana', 0, '2026-10-20T08:00:00.000Z', 'TEXT', 'm1', 0, '2026-10-20T08:00:05.000Z')`
+  );
+  beeper.close();
+  await migrateStored(data);
+  expect(existsSync(join(ARCHIVE, "line.sqlite"))).toBe(false);
 });
 
 test("a network's reader hides what its bridge backfilled from before its cutover, never the history imported there", () => {
