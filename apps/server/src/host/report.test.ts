@@ -1,9 +1,12 @@
 import { expect, spyOn, test } from "bun:test";
+import { clock } from "../core/clock";
+import { writeJson } from "../core/files";
 import { AGENT_WORD } from "../core/names";
 import { notifyArgs, WINDOWS } from "../core/platform";
 import { action, madeBy } from "../memory/record-fixtures";
 import { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../todo-list/items";
+import { HEALTH } from "./health";
 import {
   actFailedReport,
   failureReport,
@@ -128,7 +131,6 @@ const night = (facts: number) =>
       "Model use, midday of 2026-10-16 13:00: under 1% of the quota, 812k tokens (600k cached)",
       "Model use, this night: +3% of the quota, 2.1M tokens (1.4M cached)",
     ],
-    watcher: { lastOkAt: new Date().toISOString() },
   }) as unknown as Night;
 
 test("the success email includes every fact, counts pages and lists models once", () => {
@@ -306,9 +308,19 @@ test("the success email says the window it read and counts the new observations"
     expect(text).toContain(
       "Files: 4 described, 2 read by code, 1 copied; 1 call failed (a file still not described stays a tag until the next night); not on PATH: pdftotext"
     );
-    // The night reads lifelog from the watcher's store as it stands: a stopped watcher is said here.
-    expect(text).toContain("Lifelog: the watcher is polling");
-    (n as { watcher: null }).watcher = null;
+    // The night reads lifelog from the watcher's store as it stands: a stopped watcher is said here, judged as the
+    // report is written, however long the night took (29 Oct: a 20-minute night said a polling watcher was not).
+    const health = (lastOkAt: string | null) =>
+      writeJson(HEALTH, {
+        ...{ consecutiveErrors: 0, cursor: "1", lagSec: 0, lastError: null },
+        lastOkAt,
+        lastPollAt: clock().toISOString(),
+      });
+    health(clock().toISOString());
+    expect(successReport("2026-10-18", 1000, n).text).toContain(
+      "Lifelog: the watcher is polling"
+    );
+    health(null);
     expect(successReport("2026-10-18", 1000, n).text).toContain(
       "the watcher is NOT POLLING (last good poll never)"
     );
