@@ -64,7 +64,7 @@ reverse it, change its entry here in the same commit.
   learned as a feature, place made Thai spoken elsewhere count as not Thai. On 310 blocks, scored on days the fit left
   out, it missed about 2% of Thai where Thai is spoken (11% for the 10% rule before it, 63% for the 70% rule before
   that), sending about half that speech to Scribe, and about a tenth of Thai elsewhere. A block goes to Scribe whole
-  once half its judged seconds are routed: at a tenth, as the rule before it, it missed 0.1% of Thai but sent 40% of
+  once half its judged seconds are routed (the owner's choice, 29 Oct 2026): at a tenth, as the rule before it, it missed 0.1% of Thai but sent 40% of
   English and French against 18%. The zone at the block's recording comes from lifelog's own heartbeats (kept 90
   days, `ownerZoneAt`), its one use of where the owner was. Until 24 Oct 2026, every turn
   neither English nor French or with no words went: VoxLingua tags short noisy French as other languages, and with
