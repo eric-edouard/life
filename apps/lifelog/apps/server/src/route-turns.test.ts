@@ -59,8 +59,8 @@ test("a block 10% Thai goes to Scribe whole; silent turns don't count toward it"
     [word(1, "hi")]
   );
   expect(routeTurns(thai)).toEqual({ kind: "whole" });
-  // A Bangkok block (29 Oct): one Thai turn, and the rest of the Thai heard as Lao, Javanese or
-  // English, with Parakeet's made-up words in it. It goes whole.
+  // One Thai turn, and the rest of the Thai heard as Lao, Javanese or English, with Parakeet's
+  // made-up words in it: it goes whole.
   const mixed = heard(
     [
       turn(0, 2, "1", "th"),
@@ -71,6 +71,12 @@ test("a block 10% Thai goes to Scribe whole; silent turns don't count toward it"
     [word(3, "baman"), word(11, "elik"), word(12, "chandai")]
   );
   expect(routeTurns(mixed)).toEqual({ kind: "whole" });
+  const tenth = (seconds: number) =>
+    routeTurns(
+      heard([turn(0, seconds, "1", "th"), turn(seconds, 10, "0", "en")], [])
+    );
+  expect(tenth(0.9).kind).toBe("turns");
+  expect(tenth(1).kind).toBe("whole");
   const quiet = heard(
     [turn(0, 3, "0", "en"), turn(3, 10, "1", "en")],
     [word(1, "hi")]

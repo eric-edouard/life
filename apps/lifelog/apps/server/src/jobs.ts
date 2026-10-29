@@ -593,7 +593,7 @@ export function jobWorker(
   }
 
   // A block through the speech service: its words, and Scribe's for the turns it routes, cut from
-  // the block's own audio and sent once, without a webhook; a block mostly Thai goes to Scribe
+  // the block's own audio and sent once, without a webhook; a block 10% Thai goes to Scribe
   // whole, as a Scribe job. The service busy: queued again. Down or failing: an attempt, and a block
   // it fails the last time goes to Scribe whole too, so a failure that repeats never loops.
   async function hear(job: Job, bytes: Uint8Array) {

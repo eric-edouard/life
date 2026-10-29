@@ -1351,7 +1351,7 @@ test("credits used up, the 24 Oct migration makes the blocks waiting for them du
   });
 });
 
-test("the speech service: a block 10% routed goes to Scribe whole, as a Scribe job; busy, it waits", async () => {
+test("the speech service: a block with enough Thai goes to Scribe whole, as a Scribe job; busy, it waits", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
   speech.busy = true;

@@ -457,11 +457,11 @@ async function route(diarizer = DIARIZER) {
   console.log(report);
 }
 
-// The proposed pipeline, scored like any model (out/pipeline). A block whose speech is mostly Thai
-// goes whole to the Thai model, which needs the context (Qwen3: Thai 26% from
+// The proposed pipeline, scored like any model (out/pipeline). A block whose speech is 10% Thai or
+// more (route-turns.ts) goes whole to the Thai model, which needs the context (Qwen3: Thai 26% from
 // Scribe, against 40% turn by turn); any other block is Parakeet Ultra's words, except in the turns
 // the router sends away, where the Thai model run on those turns alone takes over (Qwen3: Thai with
-// English 29%). Chosen on 16 Thai clips: the 70% is a first cut, not a tuned value. The Thai model is
+// English 29%). The Thai model is
 // Qwen3 unless named (`bench pipeline typhoon`: out/pipeline-typhoon); it gets every routed turn,
 // English and French ones sent by mistake included, whatever groups it is otherwise run on. Its
 // turns are DIARIZER's, as scored.

@@ -168,8 +168,7 @@ and the feed show it with the switches):
 - `speech`: each block goes to the speech service (`apps/identity`, `POST /transcribe`), which answers Nemotron 3's
   speaker turns, VoxLingua107's language per turn and Parakeet Ultra's words (`route-turns.ts`). Only Thai goes to
   Scribe (the owner's rule, 24 Oct 2026): a turn of a second or more VoxLingua hears as Thai; a block 10% Thai goes to
-  Scribe whole, as a `scribe` job (29 Oct 2026: VoxLingua hears short Thai as Lao, Javanese, English and dozens more,
-  and Parakeet writes it as made-up words, so a third of the local talk in mixed Bangkok blocks was garbled). Every other language, and a turn the service wrote nothing in, stays the service's
+  Scribe whole, as a `scribe` job (why: `docs/decisions.md`). Every other language, and a turn the service wrote nothing in, stays the service's
   (VoxLingua tags short noisy French as Breton, Portuguese or Malagasy). The routed turns are cut from the block's own Ogg Opus (packets moved, a
   quarter second around each) and sent to Scribe once, without a webhook; their words come back into the turns'
   seconds with the service's speakers. The transcript has Scribe's shape, so turns, conversations, speakers, the
