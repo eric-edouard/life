@@ -1,5 +1,5 @@
 import { clock } from "../core/clock";
-import { isName, MARK, WAKE } from "../memory/tasks";
+import { isName, WAKE } from "../memory/tasks";
 import {
   endedOnSilence,
   isConversationClosed,
@@ -13,8 +13,8 @@ import {
 import { ask } from "./agent";
 
 // Hears "hey <agent>" in his recorded speech and records each ask for the agent (`ask`, delivered by the watcher as an MCP
-// event). No model call: the two words wake it, his turns that follow are the ask, and the agent judges the rest. It
-// also records his "hey Life" spans in the store (`writeMarks`), for memory only: they never act.
+// event). No model call: the two words wake it, his turns that follow are the ask, and the agent judges the rest. Each
+// ask's span is also recorded in the store as a mark (`writeMarks`): what he asks is worth remembering.
 
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */
 const GAP_MS = 15_000;
@@ -49,31 +49,12 @@ export interface Turn {
 
 /**
  * The asks in a conversation's turns (all of them, in order, so the indexes are `fetch --from-turn`'s), woken at or
- * after `from`. Its confidence is `wakeOf`'s.
+ * after `from`: a wake turn, then the following turns of the same speaker until another speaker, a 15 s pause or a new
+ * wake. Its confidence is `wakeOf`'s.
  */
-export const asksIn = (turns: Turn[], from: string) =>
-  spansIn(turns, from, wakeOf);
-
-/** His "hey Life" spans in a recording's turns: his own high, an unattributed one low, never someone else's. */
-export const marksIn = (turns: Turn[], from: string) =>
-  spansIn(turns, from, (t): Confidence | undefined => {
-    if (t.who === "other" || !MARK.test(t.text)) {
-      return;
-    }
-    return t.who === "me" ? "high" : "low";
-  });
-
-/**
- * The spans `wake` opens in turns, at or after `from`: a wake turn, then the following turns of the same speaker until
- * another speaker, a 15 s pause or a new wake.
- */
-function spansIn(
-  turns: Turn[],
-  from: string,
-  wake: (t: Turn) => Confidence | undefined
-) {
+export function asksIn(turns: Turn[], from: string) {
   return turns.flatMap((t, i) => {
-    const confidence = wake(t);
+    const confidence = wakeOf(t);
     if (t.at < from || !confidence) {
       return [];
     }
@@ -81,7 +62,7 @@ function spansIn(
     const cut = rest.findIndex(
       (n, k) =>
         n.who !== t.who ||
-        wake(n) ||
+        wakeOf(n) ||
         Date.parse(n.at) - Date.parse((rest[k - 1] ?? t).end) > GAP_MS
     );
     const span = turns.slice(i, cut < 0 ? turns.length : i + 1 + cut);
@@ -119,8 +100,8 @@ export function speechIn(store: Store, conversation: string, from: string) {
 
 /**
  * Hears one conversation from `from` on and records its asks, except a wake with no speaker younger than NAMING_MS
- * (lifelog may still name him: a `low` ask stays low): `heard` false while one is held; `marked` when its "hey Life"
- * marks changed. The words are fetched from lifelog; a
+ * (lifelog may still name him: a `low` ask stays low): `heard` false while one is held; `marked` when its marks
+ * (its asks' spans) changed. The words are fetched from lifelog; a
  * failed fetch throws (the watcher hears the conversation again), never reads as silence.
  */
 export async function hear(
@@ -163,12 +144,12 @@ export async function hear(
       a.timing
     );
   }
-  // His "hey Life" spans, for memory only: their unit carries them, read again at importance 3 (units.ts, moments.ts).
+  // Each ask's span, held ones too, is a mark: its unit carries it, read again at importance 3 (units.ts, moments.ts).
   const marked = writeMarks(
     store,
     conversation,
     from,
-    marksIn(turns, from).map((m) => m.turns.flatMap((i) => turns[i]?.ref ?? []))
+    asks.map((a) => a.turns.flatMap((i) => turns[i]?.ref ?? []))
   );
   // His misheard wake is an ask only once lifelog names him: a turn with no speaker yet waits too.
   const misheard = turns.some(

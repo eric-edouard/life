@@ -12,8 +12,8 @@ With voice on, Life also gets:
 
 - what was said in conversations, searchable word for word;
 - where you were, from the places lifelog saw you stay;
-- "hey Life", which marks a moment in a conversation as one to remember;
-- "hey" and your agent's name, which hands what you say next to [your agent](agent.md).
+- "hey" and your agent's name, which hands what you say next to [your agent](agent.md) and marks it as one to
+  remember.
 
 ## In the app
 

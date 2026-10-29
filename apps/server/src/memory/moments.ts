@@ -147,7 +147,7 @@ export const momentId = (key: string[]) =>
   `mom_${digest("sha1", key.join("|"), 12)}`;
 
 /**
- * Code's last word on a verdict's importance: commits 1 at most (never extracted), a unit he marked "hey Life" 3, an
+ * Code's last word on a verdict's importance: commits 1 at most (never extracted), a unit holding one of his asks 3, an
  * agent's report at least KEEP_AT (always read, for what it may close).
  */
 export function importanceOf(u: Unit, importance: number) {

@@ -301,7 +301,7 @@ async function sweep(
 }
 
 /**
- * Each unit he marked "hey Life" that an extract run read since `since` (midday ones too), with the observations citing its
+ * Each unit holding one of his asks (its marks) that an extract run read since `since` (midday ones too), with the observations citing its
  * lines, or "nothing held": a miss shows the next morning. ponytail: a mark whose unit is never read (said in a note
  * recording, or a unit a code rule drops) is not listed; list marks with no read unit if one goes missing.
  */

@@ -220,9 +220,9 @@ export const head = (text: string) =>
     ? text
     : `${text.slice(0, TEXT_MAX / 2)}\n…\n${text.slice(-TEXT_MAX / 2)}`;
 
-/** What a unit he marked with "hey Life" adds to its text (`voiceText`, words.ts). */
+/** What a unit holding one of his asks (its marks) adds to its text (`voiceText`, words.ts). */
 export const MARKED =
-  '[He said "hey Life" here: he asked Life to remember what he says after it.]';
+  "[He spoke to his agent here: what he says after it is his to remember.]";
 
 /**
  * A stored voice unit that is one of lifelog's chapters (it carries lifelog's summary): kept as stored while its

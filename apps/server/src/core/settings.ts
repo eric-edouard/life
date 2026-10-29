@@ -152,3 +152,5 @@ export const expand = (path: string) => path.replace(TILDE, HOME);
 
 /** What Life calls his agent in what it writes (reports, the board, the connector's words). */
 export const agentName = () => settings().agent?.name ?? "the agent";
+/** Whether his agent pulls its asks (`read_open_agent_tasks`) rather than having them pushed as the MCP event `ask`. */
+export const pulls = () => settings().agent?.transport === "pull";

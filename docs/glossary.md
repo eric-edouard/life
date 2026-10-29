@@ -21,6 +21,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, a Claude session, the agent's own split, or his daily ask. A ledger entry of kind `ask`. | |
+| mark | An ask's span in a recording, recorded by the hearing so its unit is read again at importance 3 (`marked` on the unit). Not a separate wake: "hey Life" is one of the agent's wake words. | |
 | daily ask | An ask Life makes once a day from the owner's own text (the `daily_ask` setting), at the time he picked, in his time zone; its `ref` is `daily:<day>`. | |
 | task | The agent's work on one ask: the ask and the updates and replies that follow, open until the agent closes it done or dropped. | |
 | update | The agent's report on a task: its state, steps, outcome; `taken: true` when it takes the task. | |

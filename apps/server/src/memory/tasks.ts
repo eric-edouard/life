@@ -36,8 +36,6 @@ export const WAKE = new RegExp(
   WAKES.length > 0 ? String.raw`${GREETING}(${WAKES.join("|")})\b` : "(?!)",
   "i"
 );
-/** "hey Life": his marker that what follows is worth remembering, for memory only (`marksIn`, hear.ts); "Live" is lifelog's misspelling. */
-export const MARK = new RegExp(String.raw`${GREETING}li[fv]e\b`, "i");
 /** Everything up to "hey <agent>" and the spaces and punctuation after it: the title is his words from there. */
 const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
 /** A task's name: its title, else his words from "hey <agent>" on. */
