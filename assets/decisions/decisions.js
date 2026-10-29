@@ -427,13 +427,15 @@ function renderList() {
       : null,
     $(
       "p",
-      { class: "theme" },
-      T(first, "Thème", "Theme"),
+      { "aria-labelledby": "theme", class: "theme", role: "group" },
+      $("span", { id: "theme" }, T(first, "Thème", "Theme")),
       THEMES.map(([id, fr, en]) =>
         $(
           "button",
           {
-            "aria-pressed": String(readTheme() === id),
+            "aria-pressed": String(
+              (document.documentElement.dataset.theme ?? "auto") === id
+            ),
             class: "link",
             onclick: () => {
               setTheme(id);

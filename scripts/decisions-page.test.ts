@@ -43,3 +43,12 @@ test("his decisions page: loops in his goals' order (one with nothing left open 
   expect(nextOpen([live[3]], "a1")).toBeUndefined();
   expect(tapAnswer({ answer: "a" }, "a", "")).toBeNull(); // tapping the chosen one takes it back
 });
+
+test("only the phone snaps: desktop scrolls freely (30 Oct: a short scroll on desktop was pulled back to the top)", async () => {
+  const css = await Bun.file(
+    new URL("../assets/decisions/index.html", import.meta.url)
+  ).text();
+  const phone = css.indexOf("@media (max-width: 899px)");
+  expect(phone).toBeGreaterThan(0);
+  expect(css.slice(0, phone)).not.toContain("scroll-snap");
+});
