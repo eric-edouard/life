@@ -40,13 +40,23 @@ Everything lives in `~/Library/Application Support/Life/bridges/`.
    .venv/bin/register_new_matrix_user -c homeserver.yaml -u owner -a http://127.0.0.1:8008
    ```
 
-   Log in once (`POST /_matrix/client/v3/login`) and save `{"user":"@owner:life.local","token":"<access token>"}`.
+   Log in once (`POST /_matrix/client/v3/login`) and save `{"token":"<access token>"}`.
 
 4. Link WhatsApp: start the bridge, then the provisioning API's QR login (`/_matrix/provision/v3/login/start/qr` on
    port 29318, with the bridge's `provisioning.shared_secret` and `?user_id=@owner:life.local`), and scan the code from
    WhatsApp → Settings → Linked devices → Link a device.
 
 5. Keep both running (a LaunchAgent each), and turn sends on: `bun life settings set '{"sends":true}'`.
+
+## LINE and Instagram
+
+The same way, each in its own folder: LINE's bridge (`beeper/line`, built with `go build -tags goolm ./cmd/matrix-line`,
+port 29322) and Instagram's (`mautrix/meta`, its `cmd/mautrix-instagram`, port 29330), each registered in Synapse's
+`app_service_config_files`, each a LaunchAgent. Link them through their provisioning API: LINE with your email and
+password (it logs out LINE's Chrome extension), Instagram with your username and password or instagram.com's cookies.
+
+Then turn on their sources (`line`, `instagram` in `sources`): Life copies their messages into its archive
+(`line.sqlite`, `instagram.sqlite`) every 5 s, and they send like WhatsApp.
 
 ## Check it
 

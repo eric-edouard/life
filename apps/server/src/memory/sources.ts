@@ -11,6 +11,7 @@ import {
   readAssistant,
 } from "../sources/assistants";
 import { copyBeeper, newestBeeper, readBeeper } from "../sources/beeper";
+import { bridgedSource } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { newestCommit, readGit } from "../sources/git";
 import {
@@ -108,6 +109,8 @@ const LISTED: Descriptor[] = [
       media: "''",
     },
   },
+  bridgedSource("line", "LINE"),
+  bridgedSource("instagram", "Instagram"),
   {
     kind: "mail",
     label: "Mail",

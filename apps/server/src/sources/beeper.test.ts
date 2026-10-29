@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "../core/clock";
+import { matrixArchive } from "./archived";
 import { copyBeeper, newestBeeper, readBeeper } from "./beeper";
 import { beeperFixture } from "./store-fixtures";
 
@@ -90,4 +91,31 @@ test("each network's newest message is that row whole, never another row's words
     words: ["telegram: Di: newest overall", "line: Bo: newest on line"],
   });
   rmSync(dir, { force: true, recursive: true });
+});
+
+test("from a network's first bridged message on, Beeper's chats of that network step aside; others stay", () => {
+  const dir = mkdtempSync(join(tmpdir(), "archive-"));
+  const beeper = new Database(join(dir, "beeper.sqlite"));
+  beeper.run(matrixArchive("network text not null,"));
+  const row = (id: number, chat: string, network: string, at: string) =>
+    beeper.run(
+      `insert into messages (id, eventId, chat, chatName, network, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+       values (?, ?, ?, 'Ana', ?, 'ana', 'Ana', 0, ?, 'TEXT', ?, 0, ?)`,
+      [id, `$e${id}`, chat, network, at, `m${id}`, at]
+    );
+  row(1, "!line-ana", "line", "2026-10-29T08:00:00.000Z");
+  row(2, "!line-ana", "line", "2026-10-29T10:00:00.000Z");
+  row(3, "!tg-ana", "telegram", "2026-10-29T10:00:00.000Z");
+  beeper.close();
+  const line = new Database(join(dir, "line.sqlite"));
+  line.run(matrixArchive(""));
+  line.run(
+    `insert into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+     values (1, '$b1', '!r1', 'Ana', 'u1', 'Ana', 0, '2026-10-29T09:00:00.000Z', 'm.text', 'hi', 0, '2026-10-29T09:00:00.000Z')`
+  );
+  line.close();
+  expect(readBeeper(new Date(0), dir, dir).map((e) => e.text)).toEqual([
+    "m1",
+    "m3",
+  ]);
 });
