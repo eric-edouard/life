@@ -177,7 +177,10 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
   key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.
 - **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, Beeper and
-  Git 3 d, Notes 7 d). A card in trouble offers a sentence to paste into a Claude session.
+  Git 3 d, Notes 7 d). A source's state is its real read: `missing()` (set up?), then its `newest()` (its own store
+  read now); a failed read is red with its error. Sending is its own card, **Sends**: while `sends` is on, each sending
+  source's `send.blocked()` asks the network itself (a bridge's logins and their state), red with its words when one
+  can't send; it never colours the source's reading card. A card in trouble offers a sentence to paste into a Claude session.
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
 - **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `apps/mac/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
   left to right as data does, a card opening in place over the status snapshot.
