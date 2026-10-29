@@ -79,8 +79,7 @@ test("a login goes step by step: his answers to each field, a code shown, until 
   const shown: string[] = [];
   try {
     const id = await linkBridge("testnet", "password", {
-      cookies: () =>
-        Promise.resolve({ cookies: new Map(), headers: new Map() }),
+      cookies: () => Promise.resolve(new Map()),
       show: (s) => shown.push(s.display_and_wait?.data ?? s.type),
       value: (f) => (f.hidden ? `secret-${f.id}` : `given-${f.id}`),
     });
@@ -116,6 +115,13 @@ test("one pasted request fills every cookie: from its Cookie header, -b, or a he
     { id: "shbid" },
   ];
   const curl = `curl 'https://www.linkedin.com/feed/' -H 'Cookie: li_at=AQE=x; JSESSIONID="ajax:1"' -H 'csrf-token: ajax:1'`;
+  // LinkedIn's bridge wants the whole Cookie header, from a request to it.
+  expect(
+    cookieValues(
+      [{ id: "h", sources: [{ name: "Cookie", type: "request_header" }] }],
+      pastedValues(curl)
+    ).get("h")
+  ).toBe('li_at=AQE=x; JSESSIONID="ajax:1"');
   expect(Object.fromEntries(cookieValues(fields, pastedValues(curl)))).toEqual({
     csrf: "ajax:1",
     JSESSIONID: '"ajax:1"',
@@ -129,4 +135,16 @@ test("one pasted request fills every cookie: from its Cookie header, -b, or a he
   expect(
     Object.fromEntries(cookieValues(fields, pastedValues('{"li_at":"a"}')))
   ).toEqual({ li_at: "a" });
+});
+
+test("a request copied as cURL over several lines, with $'…' quoting, still gives its cookies and headers", () => {
+  const copied = String.raw`curl 'https://www.linkedin.com/voyager/api/me' \
+  -H 'accept: application/json' \
+  -b $'li_at=AQ\u0021x; JSESSIONID="ajax:1"; it\'s=ok' \
+  -H $'x-li-track: {"clientVersion":"1.2"}'`;
+  const p = pastedValues(copied);
+  expect(p.cookies.get("li_at")).toBe("AQ!x");
+  expect(p.cookies.get("it's")).toBe("ok");
+  expect(p.headers.get("x-li-track")).toBe('{"clientVersion":"1.2"}');
+  expect(p.headers.get("accept")).toBe("application/json");
 });

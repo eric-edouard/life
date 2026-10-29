@@ -175,3 +175,20 @@ export const codeAt = (root: string) =>
     "HEAD:prompts",
     "HEAD:assets",
   ]).stdout.toString();
+
+/** What `probe` gives once it gives anything, tried once a second, `tries` times at most; else throws `what` isn't answering. */
+export async function untilAnswers<T>(
+  probe: () => Promise<T | undefined>,
+  what: string,
+  tries = 30
+): Promise<T> {
+  for (const _ of Array.from({ length: tries })) {
+    // biome-ignore lint/performance/noAwaitInLoops: once a second, until it answers
+    const answer = await probe().catch(() => undefined);
+    if (answer !== undefined) {
+      return answer;
+    }
+    await Bun.sleep(1000);
+  }
+  throw new Error(`${what} isn't answering`);
+}

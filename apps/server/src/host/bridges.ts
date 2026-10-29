@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { WINDOWS } from "../core/platform";
-import { execOk } from "../core/proc";
+import { execOk, untilAnswers } from "../core/proc";
 import { SECRETS, writeSecret } from "../core/secret";
 import {
   isRunning,
@@ -20,6 +20,8 @@ import { NETWORKS, type Network } from "../sources/bridged";
 import {
   BRIDGES,
   bridgeSend,
+  type CookieStep,
+  cookieValues,
   HOMESERVER_URL,
   type LoginStep,
   linkBridge,
@@ -29,7 +31,7 @@ import {
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
-import { cookiesFromChrome, hasChrome } from "./browser-cookies";
+import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
 // `bun life bridge list|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
 // bridge. A network is added when its folder holds its config (`MACHINE_DIR/bridges/<network>`). The homeserver and each
@@ -51,16 +53,8 @@ const configPath = (n: Network) => join(BRIDGES, n.name, "config.yaml");
 const isAdded = (n: Network) => existsSync(configPath(n));
 
 /** Waits for `url` to answer at all (any status: a bridge asks for its secret), up to 30 s. */
-async function answering(url: string, what: string) {
-  for (const _ of Array.from({ length: 30 })) {
-    // biome-ignore lint/performance/noAwaitInLoops: once a second, until it answers
-    if (await fetch(url).catch(() => undefined)) {
-      return;
-    }
-    await Bun.sleep(1000);
-  }
-  throw new Error(`${what} isn't answering`);
-}
+const answering = (url: string, what: string) =>
+  untilAnswers(() => fetch(url).then(() => true), what);
 
 async function restartHomeserver() {
   await restartRunning("synapse");
@@ -365,23 +359,25 @@ function show(step: LoginStep) {
 }
 
 /**
- * A site's cookies for a bridge: a Chrome window he signs in to (read by `cookiesFromChrome`), else one request he
- * pastes ("Copy as cURL" from the browser's developer tools).
+ * A cookie step's values: a Chrome window he signs in to (`signInWithChrome`), else one request he pastes ("Copy as
+ * cURL" from the browser's developer tools).
  */
-async function signIn(url: string, needed: string[]) {
+async function signIn(step: CookieStep) {
   if (hasChrome()) {
     console.log(
-      `Sign in to ${url} in the Chrome window that opens; it closes by itself once you're in.`
+      `Sign in to ${step.url} in the Chrome window that opens; it closes by itself once you're in.`
     );
-    return {
-      cookies: await cookiesFromChrome(url, needed),
-      headers: new Map<string, string>(),
-    };
+    return await signInWithChrome(step);
   }
-  console.log(
-    `Signed in at ${url}: open the browser's developer tools → Network, reload, right-click a request to it → Copy as cURL, and paste it here.`
+  // Read from the clipboard: a copied request is several lines, longer than a terminal line can hold.
+  // biome-ignore lint/suspicious/noAlert: the CLI asks him in his terminal
+  prompt(
+    `Signed in at ${step.url}: developer tools → Network, reload, right-click a request to it → Copy as cURL, then press Enter.`
   );
-  return pastedValues(ask("Request (cURL)", true));
+  return cookieValues(
+    step.fields ?? [],
+    pastedValues(await execOk(["pbpaste"]))
+  );
 }
 
 /** Links a network: its first way to log in unless `flow` names another; then its source on when Life reads it. */
