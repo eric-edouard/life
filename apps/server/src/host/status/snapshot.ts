@@ -161,7 +161,7 @@ async function safe<T>(read: () => Promise<T> | T) {
   }
 }
 
-/** The truth benchmark: statements he rated, and those left. */
+/** The fact checks: statements he answered, and those left. */
 async function rated() {
   const [statements, ratings] = await Promise.all([
     readStatements(),
@@ -1089,13 +1089,13 @@ function outputCards(r: Reads): Card[] {
       name: "Email",
     },
     {
-      facts: [{ label: "Left to rate", value: String(r.mem.left) }],
+      facts: [{ label: "Left to answer", value: String(r.mem.left) }],
       group: "outputs",
-      headline: `${r.mem.left} to rate`,
+      headline: `${r.mem.left} to answer`,
       id: "check",
-      name: "/check",
+      name: "Fact checks",
       tone: "ok",
-      word: "serving",
+      word: r.mem.left > 0 ? "waiting" : "all answered",
     },
     {
       facts: [

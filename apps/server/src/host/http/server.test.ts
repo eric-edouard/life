@@ -65,7 +65,6 @@ test("the public port refuses the owner's pages without a session, serves Life's
   const app = signedIn();
   const get = (path: string, init?: RequestInit) =>
     app.request(`https://life.example.test${path}`, init);
-  expect([200, 204]).not.toContain((await get("/check/statements")).status);
   expect((await get("/mcp")).status).toBe(401);
   expect((await get("/auth/oauth2/token")).status).toBe(404);
   expect((await get("/me/..%2Fetc")).status).toBe(404);

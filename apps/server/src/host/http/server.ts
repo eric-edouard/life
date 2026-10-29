@@ -4,20 +4,18 @@ import { off } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { connector } from "../../core/settings";
 import { ownerTokens } from "./auth";
-import { createCheck } from "./check-page";
 import { HEADERS, LOCAL_PORT, PUBLIC_PORT } from "./http";
+import { keyRefusal } from "./local-key";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
-import { createSignIn, keyRefusal } from "./signin";
 import { createStatusReads } from "./status-reads";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
 /**
  * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
- * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, the check
- * page (`check-page.ts`) and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
+ * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
  * public port. 404 for any other path.
  */
 export function serve() {
@@ -31,7 +29,7 @@ export function serve() {
   }
   const why = off("connector");
   if (why) {
-    console.log(`${why}: /mcp, /check and /me are off`);
+    console.log(`${why}: /mcp and /me are off`);
     return;
   }
   listen(PUBLIC_PORT, signedIn());
@@ -55,7 +53,7 @@ function listen(port: number, app: Hono) {
 
 /**
  * Life's brand, nothing of his, open to all at its paths in the repo (so the guide's links work): his agent styles what
- * it makes for him with it, and `/check` links its tokens.
+ * it makes for him with it.
  */
 const BRAND = [
   "docs/brand.md",
@@ -73,7 +71,7 @@ for (const file of BRAND) {
   );
 }
 
-/** The connector's parts, behind Life's own sign-in: its issuer, /mcp, /check and /me. */
+/** The connector's parts: its issuer, /mcp (behind Life's own tokens) and /me (behind its password). */
 export function signedIn() {
   const { origin, resource } = connector();
   const life = createIssuer(origin, resource);
@@ -86,7 +84,6 @@ export function signedIn() {
   return new Hono()
     .route("/", life.app)
     .route("/", createMcp(verify, life.issuer))
-    .route("/", createCheck(createSignIn(verify, life)))
     .route("/", createPortrait())
     .route("/", brand)
     .notFound(notFound);

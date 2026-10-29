@@ -5,7 +5,7 @@
 The image is a visual reference; the exact values are the brand guide's and `assets/brand/tokens.css`'s.
 
 A private memory. Calm by nature, personal by design. Everything Life shows follows this page: the nightly email,
-`/check`, `/me`, the pairing page, the app (menu-bar panel, status window, settings, first run) and the icons.
+`/me`, the pairing page, the app (menu-bar panel, status window, settings, first run) and the icons.
 
 ## The values
 
@@ -14,7 +14,6 @@ can't read CSS variables copy its values, and `scripts/brand.test.ts` fails when
 
 | Surface | How it takes the tokens |
 | --- | --- |
-| `/check` | `assets/check/index.html` links `/assets/brand/tokens.css` (served open, `apps/server/src/host/http/server.ts`) before `check.css` |
 | `/me` password page, pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`apps/server/src/host/http/portrait.ts`, `apps/server/src/host/http/oauth.ts`) |
 | What the agent makes for the owner | `<origin>/docs/brand.md` and `<origin>/assets/brand/tokens.css`, served open (`apps/server/src/host/http/server.ts`) |
 | Nightly email | `C`, `RADIUS`, `SERIF` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
@@ -36,7 +35,7 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   the page open, fine rules only where content needs a boundary; no paper texture, gradients or decorative shadows.
   One primary action (an ink button); everything else stays light.
 - **Kept on purpose.** The app's group and section labels are small mono capitals (a label is a status-like id there,
-  not a heading), and `/check`'s card takes a border in its verdict's colour while it is swiped (a mark, not text).
+  not a heading).
 
 ## The mark
 

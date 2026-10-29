@@ -1,6 +1,6 @@
 import { type JWTVerifyGetKey, jwtVerify } from "jose";
 
-// The owner's sign-in, for the connector (/mcp, a Bearer token) and the check page (a cookie): Life's own issuer
+// The owner's sign-in, for the connector (/mcp, a Bearer token): Life's own issuer
 // (`oauth.ts`) issues the tokens for Life's resource; this checks them.
 
 export const SCOPE = "life:read";
@@ -14,7 +14,7 @@ export type Refused = ReturnType<typeof refused>;
 /**
  * Whose a token is: the owner's OAuth client and scopes when the issuer signed it for Life (`life:read`) to the owner,
  * else a `refusal` and `why`: `forbidden` when it is valid but someone else's or another scope, `invalid` otherwise.
- * The one check behind /mcp and the check page.
+ * The one check behind /mcp.
  */
 export function ownerTokens({
   issuer,

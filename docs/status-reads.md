@@ -99,7 +99,7 @@ the owner's request; null for Life's own acts), `run` and `about`. By type:
 | `ledger.ok` / `ledger.failed` / `ledger.duplicate` | `ledger.jsonl` line: Life's act, or the owner's own change in Reminders (`record.via` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
 | `ledger.ask` | an ask for the agent in `ledger.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
 | `ledger.update` / `ledger.reply` (and until 20 Oct `ledger.nudge` / `ledger.steer`) | a task's line in `ledger.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
-| `rating.true` / `rating.false` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (the owner's answer on the check page; a false hides its claim, an outdated retires it) | |
+| `rating.true` / `rating.false` / `rating.partly` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (the owner's answer to a fact check; a false or partly hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
 Filters: `types` (types or prefixes: `observation`, `correction`, `ledger.failed`…), `about` (`person:<id>`,
