@@ -6,8 +6,10 @@ import { clock, DAY, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
+import { HOME } from "../core/platform";
+import { start } from "../core/proc";
 import { SECRETS, same, writeSecret } from "../core/secret";
-import { agentName, pulls } from "../core/settings";
+import { agentName, pulls, settings } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { actFailedReport, sendReport } from "./report";
 
@@ -328,13 +330,23 @@ export function settleDelivery(
 }
 
 /**
- * For an agent that pulls its asks (it reads them itself, nothing is pushed): any old subscription goes and the cursor
- * stays at the end, so switching back to push starts from now instead of replaying asks it already took.
+ * For an agent that pulls its asks (it reads them itself, nothing is pushed): a new ask past the cursor starts its
+ * `start` command once, in his home; any old subscription goes and the cursor moves to the end, so switching back to
+ * push starts from now instead of replaying asks it already took. A start that fails is logged; the ask still shows on
+ * `read_open_agent_tasks`, and Life emails him when it isn't taken in 30 min.
  */
-function passOver(length: number) {
+function startAgent(lines: string[]) {
   const state = deliveryState();
-  if (state.subscription || state.delivered < length) {
-    writeState({ attempts: 0, delivered: length });
+  const cmd = settings().agent?.start;
+  if (cmd && nextEvent(lines, state.delivered)) {
+    unfrozen("start the agent");
+    const error = start(cmd, HOME);
+    if (error) {
+      log("run.error", { error, step: "events.start" });
+    }
+  }
+  if (state.subscription || state.delivered < lines.length) {
+    writeState({ attempts: 0, delivered: lines.length });
   }
 }
 
@@ -347,7 +359,7 @@ export async function deliver() {
   const now = clock().getTime();
   const lines = linesOf(LEDGER);
   if (pulls()) {
-    passOver(lines.length);
+    startAgent(lines);
     return;
   }
   for (;;) {

@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
-import { rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { clock, HOUR } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { AGENT_WORD } from "../core/names";
+import { LIFE_STATE_DIR } from "../core/paths";
+import { HOME } from "../core/platform";
 import { SECRETS, writeSecret } from "../core/secret";
 import { readSettings, type Settings, setSettings } from "../core/settings";
 import { LEDGER } from "../memory/ledger";
@@ -230,5 +233,44 @@ test("an agent that pulls its asks gets nothing pushed: its old subscription goe
     setSettings({ agent: before });
     rmSync(LEDGER, { force: true });
     rmSync(SECRETS.events, { force: true });
+  }
+});
+
+test("a new heard ask starts a pulling agent's command once, never one made from a chat, and the cursor moves to the end", async () => {
+  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const marker = join(LIFE_STATE_DIR, "started");
+  const cmd = [
+    process.execPath,
+    "-e",
+    `require("fs").appendFileSync(${JSON.stringify(marker)}, "x")`,
+  ];
+  // The command runs on its own: half a second is long enough for it to write.
+  const started = async () => {
+    await Bun.sleep(500);
+    return existsSync(marker) ? readFileSync(marker, "utf8").length : 0;
+  };
+  rmSync(SECRETS.events, { force: true });
+  rmSync(marker, { force: true });
+  mkdirSync(HOME, { recursive: true });
+  writeSecret("events", JSON.stringify({ attempts: 0, delivered: 0 }));
+  try {
+    setSettings({ agent: { ...before, start: cmd, transport: "pull" } });
+    appendJsonl(LEDGER, LedgerEntry, [
+      action({ kind: "ask", target: AGENT_WORD, via: "connector" }),
+    ]);
+    await deliver();
+    expect(await started()).toBe(0);
+    appendJsonl(LEDGER, LedgerEntry, [
+      action({ kind: "ask", target: AGENT_WORD }),
+    ]);
+    await deliver();
+    await deliver();
+    expect(await started()).toBe(1);
+    expect(deliveryState().delivered).toBe(linesOf(LEDGER).length);
+  } finally {
+    setSettings({ agent: before });
+    rmSync(LEDGER, { force: true });
+    rmSync(SECRETS.events, { force: true });
+    rmSync(marker, { force: true });
   }
 });
