@@ -204,7 +204,11 @@ function complete(
         raw,
       })
       .run();
-    landed(tx, job);
+    if (job.sourceId && job.captureStart && job.captureEnd) {
+      markDirty(tx, [job.sourceId], [job.captureStart, job.captureEnd]);
+    }
+    rebuildTurnsIn(tx, job.id);
+    logChange(tx, "job", job.id);
     return "applied" as const;
   });
   if (outcome === "applied") {
@@ -217,16 +221,6 @@ function complete(
     );
   }
   return outcome;
-}
-
-// A job's new words landed, in the caller's transaction: its range is regrouped once committed
-// (`regroupAfterCommit`), its turns rebuilt, the job logged.
-function landed(tx: Parameters<Parameters<Db["transaction"]>[0]>[0], job: Job) {
-  if (job.sourceId && job.captureStart && job.captureEnd) {
-    markDirty(tx, [job.sourceId], [job.captureStart, job.captureEnd]);
-  }
-  rebuildTurnsIn(tx, job.id);
-  logChange(tx, "job", job.id);
 }
 
 // A callback without a usable transcript. A reported failure of the job's current send is an
@@ -722,11 +716,11 @@ export function jobWorker(
       new Blob([excerpt.audio.slice()]),
       job.settings.keyterms
     );
+    record(db, `elevenlabs.${heard.kind}`, { job: job.id, turns: true });
     const billed = billableSeconds(
       oggOpusSeconds(excerpt.audio) ?? 0,
       job.settings
     );
-    record(db, `elevenlabs.${heard.kind}`, { job: job.id, turns: true });
     if (heard.kind === "done") {
       const words = uncut(heard.transcript.words, excerpt.spans);
       return {
