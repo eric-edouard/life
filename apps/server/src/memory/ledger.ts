@@ -50,6 +50,8 @@ export const EXTRACTED = join(MEMORY, "extracted.jsonl");
 export const UNRESOLVED = join(MEMORY, "unresolved.jsonl");
 export const SUPERSESSIONS = join(MEMORY, "supersessions.jsonl");
 export const CORRECTIONS = join(MEMORY, "corrections.jsonl");
+/** His decisions: what his loops asked him and what he answered (records/decision.ts, memory/decisions.ts). */
+export const DECISIONS = join(MEMORY, "decisions.jsonl");
 export const ZONES = join(MEMORY, "zones.jsonl");
 export const INFERRED = join(MEMORY, "people-inferred.jsonl");
 export const CLOSENESS = join(MEMORY, "closeness.jsonl");

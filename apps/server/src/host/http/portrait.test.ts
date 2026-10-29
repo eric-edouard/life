@@ -132,3 +132,94 @@ test("off without a password, and other paths are not its own", async () => {
     (await portrait.request(new Request(`${ORIGIN}/elsewhere`))).status
   ).toBe(404);
 });
+
+test("his decisions: nothing before the password; his tap lands; another site's post and a tap on a taken one are refused", async () => {
+  const { writeDecision, decisionsNow } = await import(
+    "../../memory/decisions"
+  );
+  const { DECISIONS } = await import("../../memory/ledger");
+  await rm(DECISIONS, { force: true });
+  const id = "asks-20261029100000-1";
+  writeDecision([
+    {
+      data: {
+        loop: "asks",
+        options: [{ id: "send", label: "Send it" }],
+        question: "Send the reply?",
+      },
+      decision: id,
+      step: "asked",
+    },
+  ]);
+  const post = (signed: string, body: object, origin = ORIGIN) =>
+    portrait.request(
+      new Request(`${ORIGIN}/me/decisions.json`, {
+        body: JSON.stringify(body),
+        headers: {
+          "content-type": "application/json",
+          cookie: signed,
+          origin,
+        },
+        method: "POST",
+      })
+    ) as Promise<Response>;
+  expect((await get("", "/me/decisions.json")).status).toBe(401);
+  expect(await (await get("", "/me/decisions")).text()).toContain(
+    'type="password"'
+  );
+  const cookie = session(await login("open sesame"));
+  const served = await get(cookie, "/me/decisions");
+  expect(served.headers.get("content-type")).toContain("text/html");
+  const page = await served.text();
+  expect(page).toContain("--ink:");
+  expect(page).not.toContain("/*TOKENS*/");
+  expect(
+    JSON.parse(await (await get(cookie, "/me/decisions.json")).text())[0]
+  ).toMatchObject({ id, status: "open" });
+  expect(
+    (
+      await post(
+        cookie,
+        { data: { answer: "send", note: "" }, decision: id, step: "answered" },
+        "https://elsewhere.example"
+      )
+    ).status
+  ).toBe(403);
+  expect(
+    (
+      await post(cookie, {
+        data: { answer: "send", note: "" },
+        decision: id,
+        step: "answered",
+      })
+    ).status
+  ).toBe(200);
+  writeDecision([{ decision: id, step: "taken" }]);
+  expect(
+    (
+      await post(cookie, {
+        data: { answer: null, note: "" },
+        decision: id,
+        step: "answered",
+      })
+    ).status
+  ).toBe(409);
+  expect(
+    (
+      await post(cookie, {
+        data: { loop: "asks", note: "the plumber reply was wrong", ref: id },
+        step: "asked",
+      })
+    ).status
+  ).toBe(200);
+  expect(
+    [...decisionsNow().values()].find((d) => d.kind === "audit")
+  ).toMatchObject({
+    context: "the plumber reply was wrong",
+    options: [],
+    ref: id,
+    status: "open",
+  });
+  expect((await post(cookie, { decision: id, step: "done" })).status).toBe(400);
+  await rm(DECISIONS, { force: true });
+});

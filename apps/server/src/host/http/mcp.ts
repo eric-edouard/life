@@ -8,6 +8,7 @@ import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { agentName, connector, settings } from "../../core/settings";
 import { changeFeed, claim, MAX_PAGE } from "../../memory/changes";
+import { decisionsNow, writeDecision } from "../../memory/decisions";
 import { recordCorrection } from "../../memory/ledger";
 import { placesOf } from "../../memory/places";
 import { loadMe } from "../../memory/read-truth";
@@ -16,6 +17,7 @@ import { area, day, person, search } from "../../memory/search";
 import { closed, titleOf, Update } from "../../memory/tasks";
 import { clip } from "../../memory/units";
 import { chatsOf, fetchOf } from "../../memory/words";
+import { LOOP_STEPS, STATUSES } from "../../records/decision";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
 import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
@@ -467,6 +469,38 @@ export function buildServer() {
   );
   tool(
     server,
+    "read_decisions",
+    "His decisions (JSON): what his loops asked him and how each stands (open, answered, taken, done, withdrawn, expired), with his answer and note; a grant that stands has `active: true`. `loop`, `kind` and `status` narrow them (default: the ones not closed).",
+    z.object({
+      kind: z.enum(["grant", "change", "audit"]).optional(),
+      loop: z.string().optional(),
+      status: z.array(z.enum(STATUSES)).optional(),
+    }),
+    async ({ kind, loop, status }) =>
+      JSON.stringify(
+        [...decisionsNow().values()].filter(
+          (d) =>
+            (!loop || d.loop === loop) &&
+            (!kind || d.kind === kind) &&
+            (status ? status.includes(d.status) : !d.closedAt)
+        )
+      )
+  );
+  tool(
+    server,
+    "update_decision",
+    "A loop's step on a decision: `asked` (a new one: `data` the question, up to 4 options (none: a request), its loop; id `<loop>-<YYYYMMDDHHmmss>-<n>`), `revised` (an open one, the whole decision again), `taken` (an answered one or a request, before acting on it), `done` (taken, `data.result`, a grant's `data.scope`), `reopened` (taken or answered, `data.result` why), `withdrawn` (open, settled meanwhile, `data.result`), `expired` (open, past its deadline, `data.result`). `run`: your run id. Refused when the rules say no.",
+    z.object({
+      data: z.record(z.string(), z.unknown()).optional(),
+      decision: z.string(),
+      run: z.string().optional(),
+      step: z.enum(LOOP_STEPS),
+    }),
+    async (u) => decided(u),
+    REVERSIBLE
+  );
+  tool(
+    server,
     "log_reply_to_owner",
     "Log what you tell the owner, just before you send it: the text as sent, and the task it answers if any. Appends to Life's ledger only; sends nothing.",
     Reply,
@@ -491,6 +525,12 @@ export function buildServer() {
     sends(unsubscribe)
   );
   return server;
+}
+
+/** A loop's step on a decision, as the connector answers it: its id and status now. */
+function decided(u: Parameters<typeof writeDecision>[0][number]) {
+  const [d] = writeDecision([u]);
+  return `${d?.id}: ${d?.status}`;
 }
 
 /**

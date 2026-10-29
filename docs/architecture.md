@@ -175,7 +175,8 @@ Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
 - **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
   `OWNER_DATA_DIR/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
   `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player
-  (`assets/portrait/`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a
+  (`assets/portrait/`), `/me/decisions` his decisions (`assets/decisions/`, read and answered through
+  `/me/decisions.json`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a
   password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with
   the password, failed tries capped.
 

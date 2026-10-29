@@ -23,8 +23,8 @@ allmodels.io with his key, through the hosts he chose).
 
 Life starts his agents: the asks loop on each ask, the loops on their schedule and on the events they wait on (a
 message from someone, his words). An agent run is outside Life's boundary: it has the Mac's access (his files, his
-accounts) and none of Life's secrets in its environment. What it may do is set by his grants and his taps on cards
-(life-loops' protocol), and a send needs his yes on the exact text. That is policy, not enforcement: the risk is his,
+accounts) and none of Life's secrets in its environment. What it may do is set by his grants and his answers to
+his decisions (life-loops' protocol), and a send needs his yes on the exact text. That is policy, not enforcement: the risk is his,
 accepted.
 
 ## Network
@@ -42,7 +42,6 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   prompts (`docs/operations.md`, "Model engines").
 - To an assistant he connected, and to his agents: what they read through the connector or on the Mac; to a pushed
   agent, one MCP event per ask with its words (callbacks on OpenAI's hosts only, verified first).
-- To his Decisions page on claude.ai: the cards his loops write (fact checks included).
 - By email to him (Resend), when `mail` is set: the nightly report and the alerts.
 - To Google, when he set it: the Past calendar, and the to-do items with Google Tasks as the backend.
 - To his own lifelog server: his corrections about recordings.

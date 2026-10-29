@@ -5,6 +5,8 @@ import { MIN } from "../../core/clock";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../../core/paths";
 import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
+import { decisionsNow, writeDecision } from "../../memory/decisions";
+import { OWNER_STEPS } from "../../records/decision";
 import { cookie, cookieOf, HEADERS, redirect, TOKENS, text } from "./http";
 
 // The portrait (/me): pages about him and his people, written from his memory into OWNER_DATA_DIR/docs/portrait/ (his data,
@@ -20,6 +22,11 @@ const PAGE = /^\/me(?:\/[a-z0-9-]+)?$/;
 const CLIP = /^\/me\/[a-z0-9-]+\/clips\/[a-z0-9-]+\.(?:m4a|json)$/;
 // The clip player is code, so it ships in this repo; the pages and clips are his data.
 const PLAYER = "/me/player.js";
+// His decisions' page and its script are code too (assets/decisions/); what it shows is memory/decisions.jsonl, read
+// and answered through DECISIONS_JSON behind the same sign-in.
+const DECISIONS_PAGE = "/me/decisions";
+const DECISIONS_SCRIPT = "/me/decisions.js";
+const DECISIONS_JSON = "/me/decisions.json";
 // ponytail: one global window for failed passwords, per-IP limits if it ever faces more than him.
 const FAILS_ALLOWED = 5;
 const FAILS_WINDOW_MS = MIN;
@@ -31,8 +38,8 @@ const PAGE_HEADERS = {
   "x-robots-tag": "noindex",
 };
 
-// Bun types each file from its extension; only the sign-in form, a string, says it is HTML.
-const FORM_HEADERS = {
+// Bun types each file from its extension; the pages Life writes as strings (the sign-in form, the decisions page) say they are HTML.
+const HTML_HEADERS = {
   ...PAGE_HEADERS,
   "content-type": "text/html; charset=utf-8",
 };
@@ -40,6 +47,17 @@ const FORM_HEADERS = {
 /** What a path under /me serves (a page, one of its clips, the player), or null for a path that isn't the portrait's. */
 const fileOf = (pages: string, pathname: string) => {
   const name = pathname.slice("/me/".length);
+  if (pathname === DECISIONS_PAGE || pathname === DECISIONS_SCRIPT) {
+    return {
+      page: pathname === DECISIONS_PAGE,
+      path: join(
+        LIFE_CODE_DIR,
+        "assets",
+        "decisions",
+        pathname === DECISIONS_PAGE ? "index.html" : "decisions.js"
+      ),
+    };
+  }
   if (pathname === PLAYER) {
     return {
       page: false,
@@ -99,12 +117,12 @@ export function createPortrait(
       return text(
         form(pathname, "Too many tries, wait a minute."),
         429,
-        FORM_HEADERS
+        HTML_HEADERS
       );
     }
     if (!same(sign(given), sign(key))) {
       fails.push(now());
-      return text(form(pathname, "Wrong password."), 401, FORM_HEADERS);
+      return text(form(pathname, "Wrong password."), 401, HTML_HEADERS);
     }
     const exp = String(Math.floor(now() / 1000) + SESSION_S);
     return redirect(pathname, [
@@ -112,9 +130,77 @@ export function createPortrait(
     ]);
   }
 
+  /** His decisions as they stand (GET), or his step on one (POST: answered, context, revoked, or asked, his request). */
+  async function decisions(req: Request) {
+    if (!signedIn(req)) {
+      return text("sign in at /me", 401);
+    }
+    if (req.method !== "POST") {
+      return text(JSON.stringify([...decisionsNow().values()]), 200, {
+        ...HEADERS,
+        "content-type": "application/json",
+      });
+    }
+    if (req.headers.get("origin") !== connector().origin) {
+      return text("forbidden", 403);
+    }
+    const b = (await req.json().catch(() => ({}))) as {
+      data?: Record<string, unknown>;
+      decision?: string;
+      step?: string;
+    };
+    if (!OWNER_STEPS.includes(b.step as (typeof OWNER_STEPS)[number])) {
+      return text("unknown step", 400);
+    }
+    try {
+      if (b.step === "asked") {
+        // His "Something's wrong": a request (no options) about one loop, for the audit; Life makes its id.
+        const { loop, note, ref } = (b.data ?? {}) as Partial<
+          Record<string, string>
+        >;
+        const at = new Date(now()).toISOString().replace(/\D/g, "");
+        const ask = {
+          context: note,
+          kind: "audit",
+          loop,
+          options: [],
+          question: `${note ?? ""}`.slice(0, 200),
+          ref,
+        };
+        writeDecision(
+          [
+            {
+              data: ask,
+              decision: `${loop}-${at.slice(0, 17)}-1`,
+              step: "asked",
+            },
+          ],
+          now()
+        );
+      } else {
+        writeDecision(
+          [
+            {
+              data: b.data,
+              decision: `${b.decision}`,
+              step: b.step as "answered",
+            },
+          ],
+          now()
+        );
+      }
+      return text("ok", 200);
+    } catch (e) {
+      return text((e as Error).message, 409);
+    }
+  }
+
   async function serve(c: Context) {
     const req = c.req.raw;
     const { pathname } = new URL(req.url);
+    if (pathname === DECISIONS_JSON) {
+      return decisions(req);
+    }
     const served = fileOf(pages, pathname);
     if (!served) {
       return c.notFound();
@@ -125,10 +211,18 @@ export function createPortrait(
     }
     if (!signedIn(req)) {
       return page
-        ? text(form(pathname), 200, FORM_HEADERS)
+        ? text(form(pathname), 200, HTML_HEADERS)
         : text("sign in at /me", 401);
     }
     const file = Bun.file(path);
+    if (pathname === DECISIONS_PAGE) {
+      // Life's brand, its one source: the tokens go in as it is served.
+      return text(
+        (await file.text()).replace("/*TOKENS*/", TOKENS),
+        200,
+        HTML_HEADERS
+      );
+    }
     return (await file.exists())
       ? new Response(file, { headers: PAGE_HEADERS })
       : text("not found", 404);
