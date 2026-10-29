@@ -37,16 +37,13 @@ const PAD_SECONDS = 0.25;
 
 const seconds = (turns: HeardTurn[]) =>
   turns.reduce((sum, t) => sum + t.end - t.start, 0);
-interface Span {
-  end: number;
-  start: number;
-}
-const inside = (turn: Span, at: number) => at >= turn.start && at < turn.end;
+const inside = (turn: HeardTurn, at: number) =>
+  at >= turn.start && at < turn.end;
 // The turn a word at `at` belongs to: the one holding it, else the nearest.
-const turnAt = <T extends Span>(turns: T[], at: number) => {
-  const distance = (t: T) =>
+const turnAt = (turns: HeardTurn[], at: number) => {
+  const distance = (t: HeardTurn) =>
     inside(t, at) ? 0 : Math.min(Math.abs(t.start - at), Math.abs(t.end - at));
-  return turns.reduce<T | undefined>(
+  return turns.reduce<HeardTurn | undefined>(
     (best, t) => (!best || distance(t) < distance(best) ? t : best),
     undefined
   );

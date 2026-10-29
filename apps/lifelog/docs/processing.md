@@ -189,9 +189,6 @@ were heard again under it. The waiting reason `creditsOut` follows: every busy c
 service, a conversation with a block waiting for credits (`waitsForCredits`). The status counts them
 (`waiting.forCredits`) and Host's menu shows them. Dictation never reaches either: the worker's gate runs first.
 
-On 29 Oct 2026 the blocks the old routing left garbled were heard by Scribe whole once more, their words placed
-turn by turn (turns, labels and indexes kept); `transcripts.scribe_words_at` marks them (`docs/decisions.md`).
-
 ### No limits
 
 Nothing holds or caps transcription: every admitted job goes. Spending counts every job and the

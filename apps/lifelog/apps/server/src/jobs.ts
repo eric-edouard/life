@@ -717,7 +717,15 @@ export function jobWorker(
     if (!onSend(db, job, { maybeBilled: true })) {
       return null;
     }
-    const { billed, heard } = await hearNow(job, excerpt.audio);
+    const heard = await transcribeNow(
+      config,
+      new Blob([excerpt.audio.slice()]),
+      job.settings.keyterms
+    );
+    const billed = billableSeconds(
+      oggOpusSeconds(excerpt.audio) ?? 0,
+      job.settings
+    );
     record(db, `elevenlabs.${heard.kind}`, { job: job.id, turns: true });
     if (heard.kind === "done") {
       const words = uncut(heard.transcript.words, excerpt.spans);
@@ -738,19 +746,6 @@ export function jobWorker(
       error: `its Thai turns are missing: ${heard.error.slice(0, 200)}`,
       maybeBilled: heard.billed,
       scribe: null,
-    };
-  }
-
-  // Scribe hears `bytes` now, without a webhook; what it bills for them.
-  async function hearNow(job: Job, bytes: Uint8Array) {
-    const heard = await transcribeNow(
-      config,
-      new Blob([bytes.slice()]),
-      job.settings.keyterms
-    );
-    return {
-      billed: billableSeconds(oggOpusSeconds(bytes) ?? 0, job.settings),
-      heard,
     };
   }
 
