@@ -10,8 +10,8 @@ import type { SourceEvent } from "../records/source";
 // His items (reminders, Google tasks) as the ledger holds them: what Life wrote (`act`, its intents too) and what it read
 // back as his (`via: "reminders"`, apps/server/src/host/inbound.ts), walked in order. An item's target is `<prefix>:<id>`.
 
-/** What `inbound` compares. `lost`: neither in his lists nor in Recently Deleted. */
-export const FIELDS = [
+/** What `inbound` compares with the backend. `lost`: neither in his lists nor in Recently Deleted. */
+export const COMPARED = [
   "completed",
   "deleted",
   "due",
@@ -23,16 +23,34 @@ export const FIELDS = [
   "title",
   "urgent",
 ] as const;
-export type Fields = Partial<Record<(typeof FIELDS)[number], unknown>>;
+/**
+ * What the fold keeps of an item (life#242: Life's record is the one source): the compared fields, and what only Life
+ * writes, never compared (Life owns recurrence; Apple re-sorts sections; subtasks are write-only): step 2's reflector
+ * writes them all from here.
+ */
+export const KEPT = [...COMPARED, "recurrence", "section", "subtasks"] as const;
+export type Fields = Partial<Record<(typeof KEPT)[number], unknown>>;
 /** One value per meaning: undefined, null, false, "" and "none" all mean not set, kept as null (JSON keeps a null key). */
 export const norm = (v: unknown) =>
   v === undefined || v === null || v === false || v === "" || v === "none"
     ? null
     : v;
-export const pick = (o: Record<string, unknown>): Fields =>
-  Object.fromEntries(FIELDS.flatMap((f) => (f in o ? [[f, norm(o[f])]] : [])));
+const pickOf =
+  (fields: readonly (typeof KEPT)[number][]) =>
+  (o: Record<string, unknown>): Fields =>
+    Object.fromEntries(
+      fields.flatMap((f) =>
+        f in o
+          ? [[f, f === "recurrence" && o[f] === "clear" ? null : norm(o[f])]]
+          : []
+      )
+    );
+/** A line's fields as the fold keeps them ("clear" on a recurrence stops it: none). */
+export const pick = pickOf(KEPT);
+/** A backend item's fields as `inbound` compares them. */
+export const pickCompared = pickOf(COMPARED);
 
-export type Field = (typeof FIELDS)[number];
+export type Field = (typeof COMPARED)[number];
 
 /** An item Life links: `key`, Life's id for it (the line that opened it); its target now (`<prefix>:<id>`, one backend's); what Life left on it; when it was last removed and when Life last wrote to it. */
 export interface Linked {
@@ -58,7 +76,11 @@ function apply(it: Linked, a: LedgerEntry) {
     if (unsure) {
       it.tried.add(f);
     } else {
-      it.fields[f as Field] = v;
+      // remctl adds steps (`--subtask`), never replaces them: the fold keeps every step written.
+      it.fields[f as keyof Fields] =
+        f === "subtasks" && Array.isArray(v)
+          ? [...((it.fields.subtasks as unknown[] | undefined) ?? []), ...v]
+          : v;
       it.tried.delete(f);
     }
   }

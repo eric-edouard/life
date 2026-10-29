@@ -4,13 +4,13 @@ import { type LedgerEntry, stands } from "../records/ledger-entry";
 import { openOf, type Snapshot } from "../todo-list/backend";
 import type { TodoItem } from "../todo-list/contract";
 import {
-  FIELDS,
+  COMPARED,
   type Field,
   type Fields,
   type Linked,
   linked,
   norm,
-  pick,
+  pickCompared,
 } from "../todo-list/items";
 
 // His changes in the actions backend (Reminders, Google Tasks) come back as state, never authority (decision 15, 21 Oct): each linked reminder is compared
@@ -18,9 +18,9 @@ import {
 // They may close, reopen, reschedule, re-rank, rename, drop or add an item, never ask, send or grant. Section, order and
 // a repeating reminder's due are Apple's own, never compared; a shared list is never read.
 
-/** A live reminder's fields, as a change writes them (`pick` keeps the compared ones). */
+/** A live reminder's fields, as a change writes them: the compared ones (`pickCompared`). */
 const fieldsNow = (r: TodoItem) =>
-  pick({ ...r, deleted: false, due: openOf(r).due, lost: false });
+  pickCompared({ ...r, deleted: false, due: openOf(r).due, lost: false });
 const linkOf = (r: TodoItem) => r.deepLink?.split("/").at(-1);
 
 /** One line of his, read from Reminders: never his words (no `instruction`), so nothing can take it for a request. */
@@ -71,19 +71,19 @@ function linesOf(
   first: boolean,
   at: string
 ) {
-  const now = r ? fieldsNow(r) : pick({ deleted: gone, lost: !gone });
+  const now = r ? fieldsNow(r) : pickCompared({ deleted: gone, lost: !gone });
   // A field Life tried and could not confirm is learned as it is now (an import), never his change.
   const known = (f: Field) =>
     !(first || it.tried.has(f)) &&
     (f in it.fields || f === "deleted" || f === "lost");
-  const changed = FIELDS.filter(
+  const changed = COMPARED.filter(
     (f) =>
       f in now &&
       known(f) &&
       now[f] !== norm(it.fields[f]) &&
       !(f === "due" && r?.recurrence)
   );
-  const unknown = FIELDS.filter((f) => f in now && !known(f));
+  const unknown = COMPARED.filter((f) => f in now && !known(f));
   const id = r?.id ?? itemId(it);
   const rekey = id === itemId(it) ? undefined : { id: itemId(it) };
   // One line of his per pass, named by what matters most in it: a removal or restore, a tick, else an edit.
