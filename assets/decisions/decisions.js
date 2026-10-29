@@ -21,7 +21,8 @@ export function tapAnswer(d, option, note) {
 }
 
 /** Still his to answer: open, with no answer yet. */
-export const isOpen = (d) => d.status === "open" && !d.answer;
+export const isOpen = (d) =>
+  d.status === "open" && !d.answer && Boolean(d.options?.length);
 
 /**
  * The loops in his goals' order (the lowest rank among a loop's open decisions), then the most open, then by name;
@@ -80,7 +81,17 @@ const FIRST_LETTER = /^./;
 const name = (loop) =>
   loop.replaceAll("-", " ").replace(FIRST_LETTER, (c) => c.toUpperCase());
 let all = [];
-let current = decodeURIComponent(globalThis.location?.hash.slice(1) ?? "");
+let current = "";
+try {
+  current = decodeURIComponent(globalThis.location?.hash.slice(1) ?? "");
+} catch {
+  // A malformed link opens on the first open decision.
+}
+let advance;
+let shown = "";
+/** The current decision in the link, so a reload or a shared link opens on it. */
+const setHash = (id) =>
+  globalThis.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
 let showHistory = false;
 
 function flash(msg) {
@@ -146,10 +157,11 @@ function wrong(loop, ref, d) {
 }
 
 function go(id, smooth = true) {
+  clearTimeout(advance);
   current = id;
   showHistory = false;
   document.body.classList.remove("sheet");
-  globalThis.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
+  setHash(id);
   document
     .getElementById(`d-${id}`)
     ?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
@@ -197,13 +209,13 @@ function card(d, where) {
     "section",
     { id: `d-${d.id}` },
     $("span", { class: "where" }, where),
-    $("h2", { class: "q" }, d.question),
+    $("h2", { class: "q", id: `q-${d.id}` }, d.question),
     d.to ? $("p", { class: "to" }, T(d, `À ${d.to}`, `To ${d.to}`)) : null,
     d.draft ? $("p", { class: "draft" }, d.draft) : null,
     d.status === "open" && d.result ? $("p", { class: "res" }, d.result) : null,
     $(
       "div",
-      { class: "opts", role: "radiogroup" },
+      { "aria-labelledby": `q-${d.id}`, class: "opts", role: "radiogroup" },
       d.options.map((o) =>
         $(
           "button",
@@ -227,7 +239,7 @@ function card(d, where) {
                   d.id
                 );
               if (next) {
-                setTimeout(() => go(next.id), 400);
+                advance = setTimeout(() => go(next.id), 400);
               }
             },
             role: "radio",
@@ -321,7 +333,10 @@ function renderList() {
               type: "button",
             },
             $("span", { "aria-hidden": "true", class: "mark" }),
-            d.question
+            d.question,
+            isOpen(d)
+              ? null
+              : $("span", { class: "sr" }, T(d, " (fait)", " (done)"))
           )
         ),
         g.grants.map((gr) =>
@@ -432,9 +447,13 @@ function render() {
           )
     );
   renderList();
-  document
-    .getElementById(`d-${current}`)
-    ?.scrollIntoView({ behavior: "instant" });
+  // Scroll only when the decision on screen changed, never under his eyes on a reload.
+  if (current !== shown) {
+    shown = current;
+    document
+      .getElementById(`d-${current}`)
+      ?.scrollIntoView({ behavior: "instant" });
+  }
 }
 
 async function load() {
@@ -442,32 +461,39 @@ async function load() {
   if (r.status === 401) {
     return location.assign("/me");
   }
-  all = await r.json();
+  const text = await r.text();
+  // Nothing new: leave the page (and his focus) alone.
+  if (text === load.last) {
+    return;
+  }
+  load.last = text;
+  all = JSON.parse(text);
   if (!document.activeElement?.matches("textarea")) {
     render();
   }
 }
 
 if (globalThis.document) {
-  document.getElementById("bar").onclick = () =>
-    document.body.classList.toggle("sheet");
+  const bar = document.getElementById("bar");
+  const sheet = (open) => {
+    document.body.classList.toggle("sheet", open);
+    bar.setAttribute("aria-expanded", String(open));
+  };
+  bar.onclick = () => sheet(!document.body.classList.contains("sheet"));
+  document.onkeydown = (e) => e.key === "Escape" && sheet(false);
   // The decision on screen is the current one: its row in the overview, the bar's dark segment.
   const seen = new IntersectionObserver(
     (entries) => {
-      const shown = entries.find(
-        (e) => e.isIntersecting && e.intersectionRatio > 0.6
-      );
-      if (shown && shown.target.id.slice(2) !== current) {
-        current = shown.target.id.slice(2);
-        globalThis.history.replaceState(
-          null,
-          "",
-          `#${encodeURIComponent(current)}`
-        );
+      const centre = entries.find((e) => e.isIntersecting);
+      if (centre && centre.target.id.slice(2) !== current) {
+        current = centre.target.id.slice(2);
+        shown = current;
+        setHash(current);
         renderList();
       }
     },
-    { root: document.getElementById("main"), threshold: [0.6] }
+    // The decision across the screen's middle line is the one on screen, however tall.
+    { root: document.getElementById("main"), rootMargin: "-45% 0px -45% 0px" }
   );
   new MutationObserver(() => {
     for (const s of document.querySelectorAll("#cards section[id]")) {

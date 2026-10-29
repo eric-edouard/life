@@ -29,9 +29,17 @@ button {
   font: inherit;
   color: inherit;
 }
-:focus-visible {
+:root :focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: 3px;
+}
+/* Read aloud, not shown. */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 /* The overview: a sidebar from 900 px, a sheet from the top below that. */
 #list {
@@ -274,6 +282,7 @@ label {
     position: fixed;
     inset: 0 0 auto;
     z-index: 4;
+    visibility: hidden;
     height: auto;
     max-height: 88%;
     padding-top: max(24px, env(safe-area-inset-top));
@@ -281,26 +290,26 @@ label {
     border-radius: 0 0 24px 24px;
     box-shadow: 0 1px 0 var(--rule);
     transform: translateY(-105%);
-    transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition:
+      transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s 280ms;
   }
   body.sheet #list {
+    visibility: visible;
     transform: none;
+    transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   #bar {
     display: block;
   }
-  /* Below the sticky bar, so a decision's first line is never under it. */
-  #main {
-    scroll-padding-top: 64px;
-  }
   section {
-    scroll-margin-top: 64px;
-  }
-  section {
+    /* Below the sticky bar, so a decision's first line is never under it. */
     gap: 22px;
     justify-content: flex-end;
     min-height: calc(100% - 64px);
     padding: 24px;
+    /* Below the sticky bar, so a decision's first line is never under it. */
+    scroll-margin-top: 64px;
   }
   .q {
     font-size: 32px;
@@ -314,7 +323,12 @@ label {
 </style>
 <aside aria-label="All decisions" id="list"></aside>
 <main id="main">
-  <button aria-label="Show all decisions" id="bar" type="button"></button>
+  <button
+    aria-expanded="false"
+    aria-label="Show all decisions"
+    id="bar"
+    type="button"
+  ></button>
   <div id="cards">
     <section><p class="quiet">Loading…</p></section>
   </div>
