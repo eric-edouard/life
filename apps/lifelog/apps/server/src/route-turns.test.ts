@@ -1,18 +1,16 @@
 import { expect, test } from "bun:test";
 import type { Word } from "@lifelog/db/schema";
-import { parseTranscript, rawOf, textOf } from "./elevenlabs";
+import { parseTranscript, textOf } from "./elevenlabs";
 import {
   BARS,
   type Judged,
   routeTurns,
   scribeRanges,
-  scribeWordsOf,
   thaiChanceOf,
   transcriptOf,
   uncut,
 } from "./route-turns";
 import type { Heard } from "./speech-service";
-import { ownWords } from "./transcript";
 
 // VoxLingua's scores for a turn heard in `language`, roughly as it gives them; null when unjudged.
 const SCORES: Record<string, { en: number; fr: number; th: number }> = {
@@ -178,87 +176,4 @@ test("the transcript: the service's words outside routed turns, Scribe's inside,
   expect(
     transcriptOf(heard([turn(0, 5, "0", null)], []), [], null).language_code
   ).toBe("und");
-});
-
-test("Scribe's words of a whole block go to the stored turns they fall in, labels and count kept", () => {
-  const w = (start: number, text: string, speakerId: string | null) => ({
-    end: start + 0.4,
-    logprob: null,
-    spacing: " ",
-    speakerId,
-    start,
-    text,
-  });
-  const stored = {
-    languageCode: "eng",
-    languageProbability: 1,
-    turns: [
-      { end: 2.4, speakerId: "speaker_1", start: 1, text: "hi there" },
-      { end: 6.4, speakerId: "speaker_0", start: 6, text: "noise" },
-      { end: 9.4, speakerId: "speaker_1", start: 9, text: "ok" },
-    ],
-    words: [
-      w(1, "hi", "speaker_1"),
-      w(2, "there", "speaker_1"),
-      w(6, "noise", "speaker_0"),
-      w(9, "ok", "speaker_1"),
-    ],
-  };
-  // The word at 3.5 falls between turns: it goes to the nearest. The middle turn gets none.
-  const next = scribeWordsOf(stored, {
-    languageCode: "tha",
-    words: [w(1, "hello", null), w(3.5, "friend", null), w(9, "okay", null)],
-  });
-  expect(next.turns).toEqual([
-    { end: 3.9, speakerId: "speaker_1", start: 1, text: "hello friend" },
-    { end: 6.4, speakerId: "speaker_0", start: 6, text: "noise" },
-    { end: 9.4, speakerId: "speaker_1", start: 9, text: "okay" },
-  ]);
-  expect(next.words.map((x) => x.speakerId)).toEqual([
-    "speaker_1",
-    "speaker_1",
-    "speaker_0",
-    "speaker_1",
-  ]);
-  // Stored back in Scribe's shape, a parser bump reads the same words.
-  expect(
-    parseTranscript(rawOf(next)).transcript.words.map((x) => x.text)
-  ).toEqual(next.words.map((x) => x.text));
-});
-
-test("a stretched Scribe word is cut at the next turn, so no turn takes another's words", () => {
-  const w = (
-    start: number,
-    end: number,
-    text: string,
-    speakerId: string | null
-  ) => ({
-    end,
-    logprob: null,
-    spacing: " ",
-    speakerId,
-    start,
-    text,
-  });
-  const stored = {
-    languageCode: "eng",
-    languageProbability: 1,
-    turns: [
-      { end: 10, speakerId: "speaker_0", start: 0, text: "a" },
-      { end: 14, speakerId: "speaker_1", start: 10, text: "b" },
-      { end: 20, speakerId: "speaker_0", start: 14.5, text: "c" },
-    ],
-    words: [
-      w(0, 10, "a", "speaker_0"),
-      w(10, 14, "b", "speaker_1"),
-      w(14.5, 20, "c", "speaker_0"),
-    ],
-  };
-  const next = scribeWordsOf(stored, {
-    languageCode: "tha",
-    words: [w(1, 2, "x", null), w(9.8, 40, "stretched", null)],
-  });
-  expect(
-    next.turns.map((t) => ownWords(t, next.words).map((x) => x.text))
-  ).toEqual([["x", "stretched"], ["b"], ["c"]]);
 });
