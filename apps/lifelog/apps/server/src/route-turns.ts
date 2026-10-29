@@ -1,12 +1,9 @@
 // What a block's words come from when the speech service transcribes it (docs/processing.md,
 // "Who transcribes"): its own words, and Scribe's only for Thai (the owner's rule, 24 Oct 2026). A
-// turn of a second or more is routed when VoxLingua107 hears Thai in it; a block 70% Thai goes to
-// Scribe whole. Every other language, and a turn Parakeet Ultra wrote nothing for, stays local:
-// VoxLingua tags short noisy French as Breton, Portuguese or Malagasy, and those turns held
-// Parakeet's words. The bench's numbers, measured under the earlier rule:
-// docs/research/transcription-bench.md.
-// ponytail: VoxLingua hears some short Thai as Lao, Malay or Vietnamese; those turns stay local.
-// Add their codes to SCRIBE if Thai goes missing.
+// turn of a second or more is routed when VoxLingua107 hears Thai in it; a block 10% Thai goes to
+// Scribe whole (why: docs/decisions.md). Every other language, and a turn Parakeet Ultra wrote
+// nothing for, stays local: VoxLingua tags short noisy French as Breton, Portuguese or Malagasy, and
+// those turns held Parakeet's words.
 //
 // The result is a transcript in Scribe's own shape, so it is stored, parsed and turned into turns
 // exactly like one of Scribe's (jobs.ts `complete`). The transcription bench routes by the same
@@ -24,7 +21,7 @@ const OURS = new Map([
 ]);
 // The languages Scribe transcribes; the speech service keeps every other one.
 const SCRIBE = new Set(["th"]);
-const WHOLE_BLOCK = 0.7;
+const WHOLE_BLOCK = 0.1;
 export const MIN_ROUTED_SECONDS = 1;
 // A routed turn's audio reaches Scribe with this much around it, so a word Nemotron's boundary
 // clips is still heard whole; only the words inside the turn are kept.

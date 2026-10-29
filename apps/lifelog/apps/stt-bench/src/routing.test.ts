@@ -84,7 +84,7 @@ const ultra = [
   { end: 6, start: 5, text: "three" },
 ];
 
-test("a block mostly Thai is the Thai model's whole text", () => {
+test("a block 10% Thai or more is the Thai model's whole text", () => {
   const mine = [turn(0, 1, "en"), turn(1, 4, "th")];
   expect(
     compose({

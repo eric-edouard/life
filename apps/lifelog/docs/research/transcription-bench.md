@@ -93,7 +93,7 @@ the stronger model); a miss loses Thai.
 ## The pipeline
 
 Diarize (scored here with pyannote's turns), label each turn with the rule above, transcribe English and French with Parakeet Ultra and the
-routed turns with the Thai model; a block that is 70% routed goes whole to the Thai model. Distance from Scribe:
+routed turns with the Thai model; a block that is 70% routed goes whole to the Thai model (the rule when this was measured; production sends a block 10% Thai whole, `docs/decisions.md`). Distance from Scribe:
 
 | pipeline, Thai model | en | fr | fr+en | th | th+en | Thai sentences whose meaning was lost |
 |---|---|---|---|---|---|---|
