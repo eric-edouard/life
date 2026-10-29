@@ -68,7 +68,7 @@ async function bridgePart(
   if (!isBridgeAdded(n.name)) {
     return { ok: false, text: `no bridge: bun life bridge add ${n.name}` };
   }
-  return (await running(`bridge-${n.name}`))
+  return (await withTimeout(running(`bridge-${n.name}`), 10_000, false))
     ? { ok: true, text: "bridge running" }
     : { ok: false, text: "bridge stopped" };
 }
@@ -159,13 +159,15 @@ export async function messagingStatus() {
     const h = done[i];
     const text = `${all[i]?.label.padEnd(10)} ${h?.detail ?? "checking…"}`;
     // One terminal line each, so the redraw always moves back over exactly them.
-    const width = (process.stdout.columns ?? 120) - 3;
+    const width = tty
+      ? (process.stdout.columns ?? 120) - 3
+      : Number.POSITIVE_INFINITY;
     return `${h ? mark(h) : FRAMES[at % FRAMES.length]} ${text.length > width ? `${text.slice(0, width - 1)}…` : text}`;
   };
   let frame = 0;
   const draw = (first: boolean) => {
     process.stdout.write(
-      `${first ? "" : `\x1b[${all.length}A`}${all.map((_, i) => `\x1b[2K${line(i, frame)}\n`).join("")}`
+      `${first || all.length === 0 ? "" : `\x1b[${all.length}A`}${all.map((_, i) => `\x1b[2K${line(i, frame)}\n`).join("")}`
     );
   };
   const restore = () => process.stdout.write("\x1b[?25h");

@@ -30,7 +30,7 @@ import {
 import { messagingStatus } from "./messaging-status";
 import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
-// `bun life bridge list|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
+// `bun life bridge [status]|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
 // bridge. A network is added when its folder holds its config (`MACHINE_DIR/bridges/<network>`). The homeserver and each
 // bridge are kept running by the Mac (`core/service.ts`), outside Life.app: the homeserver holds deleted messages until
 // the archive copies them, so it keeps running when Life is closed.
