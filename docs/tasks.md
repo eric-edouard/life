@@ -18,8 +18,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   what each event starts (the owner's is life-loops' runner, which schedules his loops). It is never waited on, and its own runs claim the asks (`taken`), so two runs never do one. A start that
   fails is logged (`run.error`); the ask waits on the board and Life emails him at 30 min.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
-  from every account. This is a known, accepted risk (see `SECURITY.md`): an unattended run reads others' text with full
-  access. Revisit it before any send goes out without the owner's yes on that send.
+  from every account. This is a known, accepted risk (`SECURITY.md`, "Agents"): an unattended run reads others' text with full
+  access, within his grants.
 - Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent,
   `bun life ask`, and his daily ask (his own text in settings). Nothing else Life reads ever does.
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,

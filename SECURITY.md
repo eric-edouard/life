@@ -1,88 +1,55 @@
 # Security
 
-Life reads the most private data a person has: voice, messages, mail, notes. This page says what it protects, how,
-and what it does not.
+Life is the owner's memory and the start of his agents: it reads his most private data (voice, messages, mail, notes)
+and wakes the agents that act for him. This page says what it protects and what it does not.
 
-## Threat model
-
-### Where the data is
+## Where the data is
 
 - Everything Life derives lives on the owner's Mac: the data root (`truth/`, `memory/`) is a local git repository with
-  no remote. The nightly commits there and refuses to commit to a repository that has one, so nothing is pushed.
-- Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, lifelog); Life opens their stores read-only.
-  The one copy it keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone
-  and old note versions.
-- Backups are optional: restic snapshots, encrypted with a password kept in the Keychain, written to the folder the
-  owner sets (for example iCloud Drive).
+  no remote. The nightly refuses to commit to a repository that has one.
+- Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, lifelog), opened read-only. The one copy Life
+  keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone and old note
+  versions.
+- Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are
+  named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup.
 
-### Secrets
+## Models
 
-- Life.app keeps secrets in the macOS Keychain; a development checkout keeps them in `.env` (gitignored).
-- Secret files Life writes are named in one list (`SECRETS`, `apps/server/src/core/secret.ts`) and written mode 600; that list keeps
-  them out of every export and backup: the export's manifest names them only.
+Model calls that read his data run with no tools and no instruction files, and return JSON checked by schemas, with
+every quote checked against its source. The text goes to the provider the owner chose (his subscriptions, or
+allmodels.io with his key, through the hosts he chose).
 
-### Models
+## Agents
 
-- Model calls run in an empty temporary folder, with no tools and no instruction files (Codex gets its own home), so
-  recorded content reaches the model with nothing but the prompt.
-- Content is never a command. What Life reads (messages, mail, notes, transcripts, files) is never an instruction
-  to its code. The one exception is the owner's spoken ask ("hey" and his agent's wake word), handed to his
-  agent as his words and marked so its conversation is read again; Life's code never acts on it. Models return JSON validated by schemas, and every quote is checked against its source.
-- The text Life reads is sent to the model provider the owner chooses (Anthropic or OpenAI, through the owner's own
-  subscription's CLI; or allmodels.io, with an API key the owner provides). That provider's terms apply to
-  it. allmodels says it stores no request content. Its zero-retention flag has no effect, so Life sends to the hosts
-  the owner chose and no other (Refuseless, then Hopper when it fails); each says it keeps no prompts or outputs by
-  default. A host that records them by default (Experiential Labs, 30 days) is never used.
+Life starts his agents: the asks loop on each ask, the loops on their schedule and on the events they wait on (a
+message from someone, his words). An agent run is outside Life's boundary: it has the Mac's access (his files, his
+accounts) and none of Life's secrets in its environment. What it may do is set by his grants and his taps on cards
+(life-loops' protocol), and a send needs his yes on the exact text. That is policy, not enforcement: the risk is his,
+accepted.
 
-### Network surface
+## Network
 
-- The connector (`/mcp`) and the portrait are served by the Mac. Every request to the
-  connector needs a signed token for the owner (Life's own OAuth server with pairing codes and PKCE). The portrait checks its password before serving anything of its own; the
-  local port used by the app needs a local key and is never exposed.
-- Exposure is through the owner's tailnet (Tailscale Serve), optionally Tailscale Funnel or a Cloudflare tunnel the
-  owner controls, so cloud assistants can reach it. The owner's own install also has a Cloudflare Worker
-  (`apps/edge/`) on his public address that passes each request as is to Funnel, until #137.
-
-### Actions
-
-- Life's code acts in one place: its one actions backend (Apple Reminders or Google Tasks), on the owner's explicit request (or a standing grant the owner turns
-  on), every action logged. Nothing Life hears or reads makes it act by itself.
+The connector (`/mcp`) and the portrait are served by the Mac, behind Life's own OAuth (pairing codes, PKCE) and the
+portrait's password; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
+optionally a tunnel he controls.
 
 ## What leaves the Mac
 
-This is the one list of what Life sends; nothing else leaves. lifelog (`apps/lifelog`), which runs as its own service,
-keeps its own list in [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
-
-- To the model provider the owner chose (Anthropic or OpenAI by his subscription, or allmodels.io): the text Life reads, as described under
-  Models.
-- To an assistant the owner connected: what it reads through the connector, when it asks.
-- The fact checks: each claim Life asks the owner about (`bun life memory doubtful`), with its doubts and its quote, on
-  his private Decisions page on claude.ai, written by his fact-check loop (his OK of 29 Oct 2026).
-- The nightly report and the alerts, by email to the owner through Resend, when the `mail` setting is set (otherwise a
-  macOS notification, which stays on the Mac).
-- One MCP event per ask to the owner's agent, with the ask's words (callbacks on OpenAI's hosts only, verified first).
-- The Past calendar, one event per past moment, to the owner's Google calendar, when the `past` setting names a Google
-  account (without one it goes to an Apple calendar, which syncs as Calendar does).
-- The to-do items Life writes (his clear to-dos and the agent's board), to Google Tasks, when the actions backend is
-  Google (with Reminders they stay in his Apple account, which syncs as Reminders does).
-- The owner's corrections about recordings, to the owner's own lifelog server.
-- Life's brand, nothing of the owner's, to anyone at its paths in the repo: `docs/brand.md`, `docs/brand/reference.png`,
-  `assets/brand/tokens.css`, `assets/brand/life.svg` and `assets/icon/icon.svg` (`BRAND`, `server.ts`), so his agent
-  can style what it makes for him.
-- The encrypted backup, when the `backup` setting is set, to the folder the owner chose (which may sync, as iCloud
-  Drive does).
+- To the model provider he chose: the text Life reads.
+- To an assistant he connected, and to his agents: what they read through the connector or on the Mac.
+- To his Decisions page on claude.ai: the cards his loops write (fact checks included).
+- By email to him (Resend), when `mail` is set: the nightly report and the alerts.
+- To Google, when he set it: the Past calendar, and the to-do items with Google Tasks as the backend.
+- To his own lifelog server: his corrections about recordings.
+- The encrypted backup, when `backup` is set, to the folder he chose.
+- Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 
 ## Known risks
 
-- The agent is outside the boundary. The owner's agent (for example ChatGPT with a terminal on the Mac) can read
-  `.env`, the archive and `chat.db`, and send from the owner's accounts. Life's playbook asks it to send only on the
-  owner's yes to the exact text, but that is policy, not enforcement. An unattended agent run reads other people's
-  text with full access. With the agent's `start` setting, Life itself starts such a run, unattended, each time an ask
-  lands; the run gets no secret of Life's in its environment (`cliEnv`), but it has the Mac's access.
-- Full Disk Access: Life needs it to read Messages, Mail and Notes, so the app is a high-value target on the Mac.
-- Models may misread; observations are a model's reading with a checked quote, not verified facts.
+- Full Disk Access makes Life a high-value target on the Mac.
+- Models misread: an observation is a model's reading with a checked quote, not a fact.
+- His agents act with his access (above).
 
 ## Reporting a vulnerability
 
-Please report it privately through GitHub's "Report a vulnerability" (Security tab of this repository), not in a public
-issue. Include what you found, how to reproduce it and its impact.
+Report it privately through GitHub's "Report a vulnerability" (Security tab), not in a public issue.
