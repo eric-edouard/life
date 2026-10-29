@@ -13,7 +13,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". A task waiting on him is `waiting-owner`. | |
 | agent | The owner's assistant that takes his asks (a ChatGPT or Claude agent). Its display name is the `agent` setting (`agentName`); the word stored for it is `AGENT_WORD`, `agent`. | |
-| agent start | For an agent that pulls its asks: the command Life starts with an event's JSON appended, on a new ask (`{kind:"ask"}`), each minute (`{kind:"tick", at, zone}`), messages heard (`{kind:"message", chats}`) his answer to a decision (`{kind:"decision", loop}`) and his "Something's wrong" (`{kind:"audit"}`) (`agent.start`, `startAgent`); the command decides what each event starts. Never waited on; what it says on stderr as it exits non-zero is mailed to him, each line once (`agentSaid`). | |
+| agent start | For an agent that pulls its asks: the command Life starts with an event's JSON appended, on a new ask (`{kind:"ask"}`), each minute (`{kind:"tick", at, zone}`), messages heard (`{kind:"message", chats}`), his answer to a decision (`{kind:"decision", loop}`) and his "Something's wrong" (`{kind:"audit"}`) (`agent.start`, `startAgent`); the command decides what each event starts. Never waited on; what it says on stderr as it exits non-zero is mailed to him, each line once (`agentSaid`). | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
 
