@@ -233,8 +233,9 @@ removing a regression case; anything that spends the owner's model quota heavily
 `docs/agent.md` (it changes the agent's behaviour and its seal).
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
-data repo; add a send beyond `send`, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge without the
-owner's OK.
+data repo; add a send beyond `send`, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
+`golden-rule-verdict` passes on the PR's current head (once it passes, any agent merges, without asking him: his
+ruling of 29 Oct).
 
 ## Workflow
 
