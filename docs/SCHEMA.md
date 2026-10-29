@@ -330,7 +330,8 @@ about it: that home page (`homeOf`), or for a moment the one person with a page 
 `moment`), `source` (its channel; null for a moment), `date` (the claim's day) and `units` (what it was read from:
 where a later run's claims about the same thing are). Only doubtful claims are drawn (`doubtsOf`: who it is about is
 only inferred, `guessed-person`; read from an unsure moment, `unsure-moment`; and `low-confidence`, under `SURE_AT`,
-only beside one of those), importance 3 before 2 (never 1), then the most doubts, then the newest. Statements drawn
+only beside one of those), importance 3 before 2 (never 1), then the most doubts, then the newest. A moment is never
+drawn: none of these doubts is a moment's (an unsure one has no page), only the facts read from it. Statements drawn
 before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl

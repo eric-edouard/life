@@ -15,8 +15,8 @@ import { SECRETS, same, writeSecret } from "../../core/secret";
 import { SCOPE } from "./auth";
 import { HEADERS, TOKENS, text } from "./http";
 
-// Life's sign-in for one owner, the only issuer of its tokens: the endpoints ChatGPT, Claude and Life's own pages look
-// for, under `<origin>/auth`. An app is approved by a pairing code shown on the Mac (Life's panel, "Pair an app"):
+// Life's sign-in for one owner, the only issuer of its tokens: the endpoints ChatGPT and Claude look for, under
+// `<origin>/auth`. An app is approved by a pairing code shown on the Mac (Life's panel, "Pair an app"):
 // whoever holds the Mac approves. PKCE is required, an authorization code serves once, a refresh token is replaced each
 // time it is used, and every token is for this one resource and owner.
 

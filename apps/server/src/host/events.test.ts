@@ -246,11 +246,9 @@ test("a new heard ask starts a pulling agent's command once, never one made from
   ];
   const count = () =>
     existsSync(marker) ? readFileSync(marker, "utf8").length : 0;
-  // The command runs on its own: no start is checked after half a second; a start is waited for, up to 5 s under load.
+  // The command runs on its own: half a second for any start (and any second one) to show, then up to 5 s more under load.
   const started = async (expected: number) => {
-    if (expected === 0) {
-      await Bun.sleep(500);
-    }
+    await Bun.sleep(500);
     for (let ms = 0; ms < 5000 && count() < expected; ms += 50) {
       // biome-ignore lint/performance/noAwaitInLoops: a poll, one wait at a time
       await Bun.sleep(50);
