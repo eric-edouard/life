@@ -533,6 +533,10 @@ export function turnsBetween(
     .map((t) => lifelogTurn(t, byId));
 }
 
+/** Who spoke a turn, as lifelog names them: its person id (the map may move it later), else its name; null for him or nobody. */
+export const authorOf = (t: LifelogTurn) =>
+  t.owner ? null : (t.personId ?? t.name);
+
 /** Whose a turn is, as lifelog has it: his, someone lifelog named (by id or name), or nobody's. */
 export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
   if (t.owner) {

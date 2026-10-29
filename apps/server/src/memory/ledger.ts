@@ -240,18 +240,32 @@ export async function readStanding(
   return { corrections, ...c, retired: retiredBy(retirements, current) };
 }
 
-/** When the owner last said each unit was read wrong (`reread`): extraction reads it again if it read it before then. */
-export const rereadAt = (corrections: Correction[]) =>
-  new Map(
+/**
+ * When the owner last said each unit was read wrong: a `reread` of it, or a `wrong` on a moment of `moments` it stands
+ * on (its day is read again, with his note, `earlierFor`). Moments and extraction read it again if they read it before.
+ */
+export const rereadAt = (corrections: Correction[], moments: Moment[]) => {
+  const unitsOf = Map.groupBy(moments, (m) => m.id);
+  return new Map(
     [
       ...latestBy(
-        corrections.flatMap((c) =>
-          c.kind === "reread" ? c.units.map((unit) => ({ at: c.at, unit })) : []
-        ),
+        corrections.flatMap((c) => {
+          if (c.kind === "reread") {
+            return c.units.map((unit) => ({ at: c.at, unit }));
+          }
+          return c.kind === "wrong"
+            ? c.observations.flatMap((id) =>
+                (unitsOf.get(id) ?? []).flatMap((m) =>
+                  m.units.map((unit) => ({ at: c.at, unit }))
+                )
+              )
+            : [];
+        }),
         (r) => r.unit
       ),
     ].map(([unit, r]) => [unit, r.at])
   );
+};
 
 /** Whether the owner said `unit` was read wrong after a reading of it at `at` (`rereadAt`): moments and extraction alike. */
 export const isRereadSince = (

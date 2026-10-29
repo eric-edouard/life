@@ -10,6 +10,7 @@ import { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
 import {
+  authorOf,
   type LifelogConversation,
   liveConversations,
   readConversations,
@@ -256,7 +257,9 @@ export const frozenUnits = (store: Store, units: Unit[]) => {
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every
  * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names lifelog gave them,
  * unresolved (`unknown:`, read by `refOf`), and him when he spoke. Life holds no words: its text is filled when it is
- * read (`voiceText`, words.ts), and its hash is its turns and marks, so a turn added, moved or marked has it read again.
+ * read (`voiceText`, words.ts), and its hash is its turns, who lifelog says spoke each (his, its person id, else its
+ * name) and its marks, so a turn added, moved, marked or given to someone else (29 Oct 2026: he named 96 voices, and
+ * their days kept the old names) has it read again.
  * ponytail: words transcribed again under the same turn refs keep the hash; hash the words if re-transcription matters.
  */
 export function lifelogUnits(
@@ -278,7 +281,15 @@ export function lifelogUnits(
             unit: {
               date,
               end: c.endedAt < next ? c.endedAt : next,
-              hash: contentHash([...refs, ...marked].join("\n")),
+              hash: contentHash(
+                [
+                  ...turns.map(
+                    (t, i) =>
+                      `${refs[i]} ${t.owner ? OWNER : (authorOf(t) ?? "")}`
+                  ),
+                  ...marked,
+                ].join("\n")
+              ),
               id: unitId("lifelog", c.id, date),
               key: c.id,
               ...(marked.length > 0 ? { marked } : {}),

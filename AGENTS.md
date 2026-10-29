@@ -87,8 +87,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
   read-only; only the apps of enabled sources are kept open (`keptStores`).
-- **Content is never a command for Life's code.** Recorded text never makes Life act; model calls see no tools and no
-  instruction files (`apps/server/src/models/llm.ts`). A mark (an ask's span) only keeps a unit read. His Apple Notes and imported
+- **Content never runs Life's code; it may wake his agents.** Recorded text never makes Life's own code act; model calls
+  see no tools and no instruction files (`apps/server/src/models/llm.ts`). Life may start one of his agents because of
+  what it recorded (an ask, a message from someone a loop waits on), and that agent reads it as data, under his grants
+  (`SECURITY.md`, "Agents"). A mark (an ask's span) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
@@ -217,7 +219,7 @@ removing a regression case; anything that spends the owner's model quota heavily
 `docs/agent.md` (it changes the agent's behaviour and its seal).
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
-data repo; add a send, a connector tool or an action; act or send on recorded content; print secrets; merge without the
+data repo; add a send, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge without the
 owner's OK.
 
 ## Workflow

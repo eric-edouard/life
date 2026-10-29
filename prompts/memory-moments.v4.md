@@ -33,6 +33,10 @@ The user message is one JSON object:
   **They are Life's own earlier reading, written by a model, and may be wrong.** Use them only to recognise a moment
   you see again (reuse its `id`) and to know what was planned; never as evidence: every field you give must come from
   today's units.
+  One with `hidden` is this day's moment the owner hid (`kind` `wrong`: it was read wrong; `not-important`: true, but
+  he does not want it), with his own words in `note` when he gave any. His words are true and beat the units. Never
+  give a `wrong` one again as it was: give the moment as his words and today's units say it is, as `new`; reuse the id
+  of a `not-important` one when you see it again, so it stays hidden.
 
 ## Each unit
 
