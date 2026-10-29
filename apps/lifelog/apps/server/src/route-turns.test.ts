@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { Word } from "@lifelog/db/schema";
 import { parseTranscript, textOf } from "./elevenlabs";
 import {
+  BARS,
   type Judged,
   routeTurns,
   scribeRanges,
@@ -40,8 +41,7 @@ const heard = (turns: Heard["turns"], words: Heard["words"]): Heard => ({
   turns,
   words,
 });
-const HOME = "Asia/Bangkok";
-const AWAY = "Europe/Paris";
+const { elsewhere: AWAY, thai: HOME } = BARS;
 
 test("a block of Thai goes to Scribe whole, wherever the owner is", () => {
   const thai = heard(
@@ -86,6 +86,21 @@ test("a turn that is only maybe Thai goes to Scribe where Thai is spoken, not el
   expect(chance).toBeLessThan(0.7);
   expect(routeTurns(block, HOME)).toEqual({ kind: "turns", routed: [maybe] });
   expect(routeTurns(block, AWAY)).toEqual({ kind: "turns", routed: [] });
+});
+
+test("a block goes whole once its routed turns are half its judged seconds", () => {
+  // With these scores only the English turn clears the bar: the rest of the block weighs most (a
+  // lone Thai turn is the router's known weak spot, issue #241).
+  const block = (split: number) =>
+    heard(
+      [turn(0, split, "0", "th"), turn(split, 20, "1", "en")],
+      [word(1, "sawasdee"), word(15, "ok")]
+    );
+  expect(routeTurns(block(10), AWAY)).toEqual({ kind: "whole" });
+  expect(routeTurns(block(10.1), AWAY)).toEqual({
+    kind: "turns",
+    routed: [turn(10.1, 20, "1", "en")],
+  });
 });
 
 test("Scribe hears each routed turn with a quarter second around it, overlaps joined", () => {

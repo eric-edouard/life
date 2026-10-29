@@ -12,7 +12,7 @@ import {
   heartbeatReasons,
   heartbeats,
 } from "@lifelog/db/schema";
-import { and, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
 import { DEFAULT_TIME_ZONE, setOwnerTimeZone } from "./config";
 
 const RETENTION_DAYS = 90;
@@ -452,10 +452,11 @@ export function storeHeartbeat(db: Db, h: z.infer<typeof HeartbeatUpload>) {
 }
 
 // The zone the owner was in at `at`: that of the newest heartbeat observed by then that names one,
-// else of the newest at all (a late delivery of an older heartbeat doesn't move it back).
+// else, before them all, of the oldest (as Life's `zoneAt`). Without `at`, the newest (a late
+// delivery of an older heartbeat doesn't move it back). Zones are checked when a heartbeat is stored.
 export function ownerZoneAt(db: Db, at?: Date) {
   const zone = sql<string>`${heartbeats.body} ->> 'timeZone'`;
-  const newest = (until?: Date) =>
+  const first = (order: typeof desc, until?: Date) =>
     db
       .select({ zone })
       .from(heartbeats)
@@ -465,11 +466,11 @@ export function ownerZoneAt(db: Db, at?: Date) {
           until ? lte(heartbeats.observedAt, until) : undefined
         )
       )
-      .orderBy(desc(heartbeats.observedAt))
+      .orderBy(order(heartbeats.observedAt))
       .limit(1)
       .get()?.zone;
-  const found = (at && newest(at)) ?? newest();
-  return found && isTimeZone(found) ? found : DEFAULT_TIME_ZONE;
+  const found = at ? (first(desc, at) ?? first(asc)) : first(desc);
+  return found ?? DEFAULT_TIME_ZONE;
 }
 
 // The owner's zone now. At startup and after each heartbeat.

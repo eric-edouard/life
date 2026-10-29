@@ -51,6 +51,7 @@ import { record } from "./events";
 import { markDirty, regroupAfterCommit } from "./grouping";
 import { type MacSocket, macSocket } from "./mac-socket";
 import {
+  barOf,
   type Route,
   routeTurns,
   scribeRanges,
@@ -606,9 +607,10 @@ export function jobWorker(
     const zone = ownerZoneAt(db, job.captureStart ?? undefined);
     const route =
       "heard" in said
-        ? routeTurns(said.heard, zone)
+        ? routeTurns(said.heard, barOf(zone))
         : { kind: "whole" as const };
     record(db, "speech.heard", {
+      bar: barOf(zone),
       job: job.id,
       ms: Date.now() - started,
       route: route.kind,

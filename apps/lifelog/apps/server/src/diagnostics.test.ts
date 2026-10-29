@@ -146,7 +146,7 @@ test("the owner's zone is the newest heartbeat's that names a valid one", async 
       ownerZoneAt(env.db, new Date(`2026-10-08T${time}:00.000Z`));
     expect(at("04:30")).toBe("Asia/Tokyo");
     expect(at("06:30")).toBe("Europe/Berlin");
-    expect(at("03:00")).toBe("Europe/Berlin");
+    expect(at("03:00")).toBe("Asia/Tokyo");
   } finally {
     setOwnerTimeZone(null);
   }

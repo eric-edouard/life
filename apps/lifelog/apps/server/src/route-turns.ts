@@ -6,7 +6,7 @@
 //
 // The result is a transcript in Scribe's own shape, so it is stored, parsed and turned into turns
 // exactly like one of Scribe's (jobs.ts `complete`). The transcription bench routes by the same
-// rule (apps/stt-bench/src/routing.ts imports it).
+// rule (apps/stt-bench/src/context.ts imports it).
 
 import type { Word } from "@lifelog/db/schema";
 import type { CutSpan } from "./audio";
@@ -25,7 +25,10 @@ const BIAS = -0.6942;
 // Where Thai is spoken a weaker chance is routed. The place is the bar, never a feature: learned, it
 // made Thai spoken elsewhere count as not Thai.
 const THAI_ZONES = new Set(["Asia/Bangkok"]);
-const barOf = (zone: string) => (THAI_ZONES.has(zone) ? 0.3 : 0.7);
+export const isThaiZone = (zone: string) => THAI_ZONES.has(zone);
+export const BARS = { elsewhere: 0.7, thai: 0.3 };
+export const barOf = (zone: string) =>
+  isThaiZone(zone) ? BARS.thai : BARS.elsewhere;
 const WHOLE_BLOCK = 0.5;
 const MIN_ROUTED_SECONDS = 1;
 // A routed turn's audio reaches Scribe with this much around it, so a word Nemotron's boundary
@@ -68,18 +71,18 @@ export function featuresOf(
   ];
 }
 
+/** The logistic's chance for these features, with the router's weights unless others are given. */
+export function chanceOf(features: number[], weights = WEIGHTS, bias = BIAS) {
+  const z = features.reduce((sum, x, i) => sum + x * (weights[i] ?? 0), bias);
+  return 1 / (1 + Math.exp(-z));
+}
+
 /** A turn's chance of being Thai. */
-export function thaiChanceOf(
+export const thaiChanceOf = (
   turn: Judged,
   judged: Judged[],
   words: Heard["words"]
-) {
-  const z = featuresOf(turn, judged, words).reduce(
-    (sum, x, i) => sum + x * (WEIGHTS[i] ?? 0),
-    BIAS
-  );
-  return 1 / (1 + Math.exp(-z));
-}
+) => chanceOf(featuresOf(turn, judged, words));
 
 /** A block's turns the router judges: a second or more, with VoxLingua's scores. */
 export const judgedOf = (turns: HeardTurn[]) =>
@@ -88,14 +91,13 @@ export const judgedOf = (turns: HeardTurn[]) =>
       t.end - t.start >= MIN_ROUTED_SECONDS && t.scores !== null
   );
 
+/** Routes the turns whose chance clears `bar` (`barOf` the zone the owner was in). */
 export function routeTurns(
   { turns, words }: Pick<Heard, "turns" | "words">,
-  zone: string
+  bar: number
 ): Route {
   const judged = judgedOf(turns);
-  const thai = judged.filter(
-    (t) => thaiChanceOf(t, judged, words) >= barOf(zone)
-  );
+  const thai = judged.filter((t) => thaiChanceOf(t, judged, words) >= bar);
   if (judged.length > 0 && seconds(thai) >= WHOLE_BLOCK * seconds(judged)) {
     return { kind: "whole" };
   }

@@ -8,7 +8,11 @@ import { connect } from "@lifelog/db";
 import { transcriptionJobs, transcripts } from "@lifelog/db/schema";
 import { ownerZoneAt } from "@lifelog/server/src/diagnostics";
 import {
+  BARS,
+  barOf,
+  chanceOf,
   featuresOf,
+  isThaiZone,
   type Judged,
   judgedOf,
   routeTurns,
@@ -21,7 +25,6 @@ import { pct, THAI } from "./score";
 export const THAI_SHARE = 0.3;
 // Blocks drawn of each kind of place (where Thai is spoken, elsewhere).
 const PER_KIND = 175;
-const HOME = "Asia/Bangkok";
 
 function env(name: string) {
   const value = process.env[name];
@@ -89,7 +92,7 @@ function draw(dir: string) {
     const heard = (id: string) => (existsSync(join(dir, `${id}.json`)) ? 0 : 1);
     const kind = (home: boolean) =>
       all
-        .filter((j) => (j.zone === HOME) === home)
+        .filter((j) => isThaiZone(j.zone) === home)
         .sort((a, b) => heard(a.id) - heard(b.id))
         .slice(0, PER_KIND);
     return [...kind(true), ...kind(false)];
@@ -147,7 +150,7 @@ async function blocks(DIR: string): Promise<Block[]> {
       rows: judged.map((t) => ({
         day,
         features: featuresOf(t, judged, heard.words),
-        home: j.zone === HOME,
+        home: isThaiZone(j.zone),
         job: j.id,
         seconds: t.end - t.start,
         thai: thaiIn(t, j.words.words),
@@ -173,9 +176,9 @@ export function costs(rows: { row: Row; sent: boolean }[]) {
   };
 }
 
-// Each turn as the router sends it, in the zone he was in or as if elsewhere.
-function routed(b: Block, zone: string) {
-  const route = routeTurns(b.heard, zone);
+// Each turn as the router sends it, at the bar of the zone he was in or of elsewhere.
+function routed(b: Block, bar: number) {
+  const route = routeTurns(b.heard, bar);
   return b.rows.map((row, i) => ({
     row,
     sent: route.kind === "whole" || route.routed.some((t) => t === b.judged[i]),
@@ -184,7 +187,7 @@ function routed(b: Block, zone: string) {
 
 export async function context(DIR: string) {
   const all = await blocks(DIR);
-  const home = all.filter((b) => b.zone === HOME);
+  const home = all.filter((b) => isThaiZone(b.zone));
   const line = (name: string, rows: { row: Row; sent: boolean }[]) => {
     const c = costs(rows);
     return `| ${name} | ${c.missed} | ${c.sent} | ${c.toScribe} |`;
@@ -198,15 +201,17 @@ export async function context(DIR: string) {
     "|---|---|---|---|",
     line(
       "where Thai is spoken",
-      home.flatMap((b) => routed(b, b.zone))
+      home.flatMap((b) => routed(b, barOf(b.zone)))
     ),
     line(
       "elsewhere",
-      all.filter((b) => b.zone !== HOME).flatMap((b) => routed(b, b.zone))
+      all
+        .filter((b) => !isThaiZone(b.zone))
+        .flatMap((b) => routed(b, barOf(b.zone)))
     ),
     line(
       "Thai-zone blocks as if elsewhere",
-      home.flatMap((b) => routed(b, "UTC"))
+      home.flatMap((b) => routed(b, BARS.elsewhere))
     ),
   ].join("\n");
   await Bun.write(join(DIR, "context", "report.md"), `${report}\n`);
@@ -255,10 +260,6 @@ export function fitLogistic(xs: number[][], ys: boolean[], steps = 3000) {
   };
 }
 
-const chance = (f: { bias: number; weights: number[] }, x: number[]) =>
-  1 /
-  (1 + Math.exp(-x.reduce((s, v, k) => s + v * (f.weights[k] ?? 0), f.bias)));
-
 // Weights fitted on every labelled turn, scored on each day by a fit that left that day out.
 export async function fit(DIR: string) {
   const rows = (await blocks(DIR)).flatMap((b) => b.rows);
@@ -268,7 +269,7 @@ export async function fit(DIR: string) {
     const f = fitLogistic(...unzip(labelled.filter((r) => r.day !== day)));
     return labelled
       .filter((r) => r.day === day)
-      .map((row) => ({ p: chance(f, row.features), row }));
+      .map((row) => ({ p: chanceOf(row.features, f.weights, f.bias), row }));
   });
   const at = (bar: number, home: boolean) =>
     costs(
@@ -283,8 +284,8 @@ export async function fit(DIR: string) {
   console.log(
     [
       `${labelled.length} turns over ${days.length} days, each day scored by a fit without it (turn by turn, before the whole-block rule):`,
-      `where Thai is spoken, bar 0.3: ${JSON.stringify(at(0.3, true))}`,
-      `elsewhere, bar 0.7: ${JSON.stringify(at(0.7, false))}`,
+      `where Thai is spoken, bar ${BARS.thai}: ${JSON.stringify(at(BARS.thai, true))}`,
+      `elsewhere, bar ${BARS.elsewhere}: ${JSON.stringify(at(BARS.elsewhere, false))}`,
       `WEIGHTS = ${JSON.stringify(all.weights.map((w) => Number(w.toFixed(4))))}`,
       `BIAS = ${all.bias.toFixed(4)}`,
     ].join("\n")
