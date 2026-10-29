@@ -237,17 +237,18 @@ const imageBlock = async (path: string) => ({
   type: "image",
 });
 
-const ChatReply = z.object({
+/** One chunk of allmodels' streamed reply: the text so far comes in deltas; the host, finish and tokens on any chunk. */
+const ChatChunk = z.object({
   choices: z
     .array(
       z.object({
-        finish_reason: z.string().nullable().optional(),
-        message: z.object({ content: z.string().nullable() }),
+        delta: z.object({ content: z.string().nullish() }).nullish(),
+        finish_reason: z.string().nullish(),
       })
     )
-    .min(1),
+    .nullish(),
   // The host that served it, checked against his hosts.
-  provider: z.string().optional(),
+  provider: z.string().nullish(),
   usage: z
     .object({
       completion_tokens: z.number(),
@@ -256,6 +257,12 @@ const ChatReply = z.object({
     })
     .nullish(),
 });
+interface ChatReply {
+  finish?: string;
+  provider?: string;
+  text: string;
+  usage?: z.infer<typeof ChatChunk>["usage"];
+}
 const NOT_ALNUM = /[^a-z0-9]/g;
 const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
 
@@ -489,30 +496,27 @@ const ALLMODELS_URL = "https://api.allmodels.io/oai/chat/completions";
 const ALLMODELS_KEY = "ALLMODELS_API_KEY";
 /** Room for a day's moments and their reasoning: every host of its tier models allows at least this (28 Oct 2026). */
 const ALLMODELS_MAX_TOKENS = 131_072;
+/** A host that sends no chunk for this long has died mid-reply (allmodels' keepalives are not chunks). */
+const STALL_MS = 5 * MIN;
 
 /**
- * One call through allmodels' OpenAI-shaped API with his key, at the tier's reasoning effort, no idle cut: the model
- * goes only to the hosts after `@`, tried in that order (allmodels moves to the next before output begins when one
- * fails), and is refused when any other host served it. Its answer is kept in the call's folder; a refusal unless it
- * stopped with some text.
+ * One call through allmodels' OpenAI-shaped API with his key, at the tier's reasoning effort: the model goes only to
+ * the hosts after `@`, one at a time in that order, each streamed. A host that errs, stalls or ends without finishing
+ * gives way to the next: allmodels' own fallback acts only before output begins, and a host can die after (29 Oct
+ * 2026: refuseless opened 16 Oct's reply, then sent nothing for the hour). A reply from any other host is refused.
+ * The last host's reply is kept in the call's folder.
  */
-async function askAllModels({
-  dir,
-  images,
-  input,
-  llm,
-  system,
-}: Call): Promise<Answer> {
+async function askAllModels(call: Call): Promise<Answer> {
   const key = process.env[ALLMODELS_KEY];
-  const [model, list = ""] = llm.model.split("@");
+  const [model = "", list = ""] = call.llm.model.split("@");
   const hosts = list.split(",").filter(Boolean);
   if (!(key && hosts.length)) {
     throw new Error(
-      `allmodels needs ${ALLMODELS_KEY} and a model as author/model@host[,host], not ${llm.model}`
+      `allmodels needs ${ALLMODELS_KEY} and a model as author/model@host[,host], not ${call.llm.model}`
     );
   }
   const pictures = await Promise.all(
-    images.map(async (path) => {
+    call.images.map(async (path) => {
       const { source } = await imageBlock(path);
       return {
         image_url: { url: `data:${source.media_type};base64,${source.data}` },
@@ -520,46 +524,111 @@ async function askAllModels({
       };
     })
   );
-  const res = await fetch(ALLMODELS_URL, {
-    body: JSON.stringify({
-      max_tokens: ALLMODELS_MAX_TOKENS,
-      messages: [
-        { content: system, role: "system" },
-        {
-          content: [{ text: JSON.stringify(input), type: "text" }, ...pictures],
-          role: "user",
-        },
-      ],
-      model,
-      provider: { allow_fallbacks: true, only: hosts, order: hosts },
-      reasoning_effort: llm.effort,
-    }),
-    headers: {
-      authorization: `Bearer ${key}`,
-      "content-type": "application/json",
-    },
-    method: "POST",
-    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-    // Bun's 5-minute idle timer would cut a long call that sends nothing until it is done.
-    timeout: false,
-  });
-  const text = await res.text();
-  await Bun.write(join(dir, "allmodels.json"), text);
-  if (!res.ok) {
-    throw new Error(`allmodels ${res.status}: ${text.slice(-300)}`);
+  const body = {
+    max_tokens: ALLMODELS_MAX_TOKENS,
+    messages: [
+      { content: call.system, role: "system" },
+      {
+        content: [
+          { text: JSON.stringify(call.input), type: "text" },
+          ...pictures,
+        ],
+        role: "user",
+      },
+    ],
+    model,
+    reasoning_effort: call.llm.effort,
+    stream: true,
+    stream_options: { include_usage: true },
+  };
+  let answer: Answer = { text: "" };
+  for (const host of hosts) {
+    try {
+      // biome-ignore lint/performance/noAwaitInLoops: a host is asked only when the one before it failed
+      const reply = await askHost(host, body, key);
+      await Bun.write(join(call.dir, "allmodels.json"), JSON.stringify(reply));
+      answer = answerOf(hosts, reply);
+    } catch (e) {
+      answer = { refusal: (e as Error).message, text: "" };
+    }
+    if (!answer.refusal) {
+      break;
+    }
   }
-  return answerOf(hosts, ChatReply.parse(JSON.parse(text)));
+  return answer;
+}
+
+/** The data of a server-sent event stream, one event at a time (comments, like keepalives, and the end marker skipped). */
+async function* sseData(body: ReadableStream<Uint8Array>) {
+  const decoder = new TextDecoder();
+  let rest = "";
+  for await (const part of body) {
+    const lines = (rest + decoder.decode(part, { stream: true })).split("\n");
+    rest = lines.pop() ?? "";
+    for (const line of lines) {
+      const data = line.startsWith("data:") ? line.slice(5).trim() : "";
+      if (data && data !== "[DONE]") {
+        yield data;
+      }
+    }
+  }
+}
+
+/** One host's streamed reply, put together; throws on an error status, a stall or a stream cut before it finished. */
+async function askHost(host: string, body: object, key: string) {
+  const stalled = new AbortController();
+  const timer = setTimeout(() => stalled.abort(), STALL_MS);
+  try {
+    const res = await fetch(ALLMODELS_URL, {
+      body: JSON.stringify({
+        ...body,
+        provider: { allow_fallbacks: false, only: [host], order: [host] },
+      }),
+      headers: {
+        authorization: `Bearer ${key}`,
+        "content-type": "application/json",
+      },
+      method: "POST",
+      signal: AbortSignal.any([
+        stalled.signal,
+        AbortSignal.timeout(MODEL_TIMEOUT_MS),
+      ]),
+      // Bun's 5-minute idle timer is the stall's to decide, chunk by chunk.
+      timeout: false,
+    });
+    if (!(res.ok && res.body)) {
+      throw new Error(
+        `allmodels ${res.status}: ${(await res.text()).slice(-300)}`
+      );
+    }
+    const reply: ChatReply = { text: "" };
+    for await (const data of sseData(res.body)) {
+      timer.refresh();
+      const chunk = ChatChunk.parse(JSON.parse(data));
+      const [choice] = chunk.choices ?? [];
+      reply.text += choice?.delta?.content ?? "";
+      reply.finish = choice?.finish_reason ?? reply.finish;
+      reply.provider = chunk.provider ?? reply.provider;
+      reply.usage = chunk.usage ?? reply.usage;
+    }
+    return reply;
+  } catch (e) {
+    throw stalled.signal.aborted
+      ? new Error(`allmodels: ${host} sent nothing for ${STALL_MS / MIN} min`)
+      : e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** allmodels' reply as a runner's answer: refused when a host not in `hosts` served it, or it stopped without text. */
-function answerOf(hosts: string[], reply: z.infer<typeof ChatReply>): Answer {
-  const [choice] = reply.choices;
+function answerOf(hosts: string[], reply: ChatReply): Answer {
   const u = reply.usage;
   const served = reply.provider ?? "";
   const stopped =
-    choice?.finish_reason === "stop" && choice.message.content
+    reply.finish === "stop" && reply.text
       ? undefined
-      : `allmodels: stopped (${choice?.finish_reason})`;
+      : `allmodels: stopped (${reply.finish ?? "cut before it finished"})`;
   return {
     fields: {
       host: served,
@@ -573,7 +642,7 @@ function answerOf(hosts: string[], reply: z.infer<typeof ChatReply>): Answer {
       served && hosts.some((h) => slug(h) === slug(served))
         ? stopped
         : `allmodels: served by ${served || "an unnamed host"}, not ${hosts.join(" or ")}`,
-    text: choice?.message.content ?? "",
+    text: reply.text,
   };
 }
 

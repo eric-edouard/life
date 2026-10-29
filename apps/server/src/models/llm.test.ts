@@ -57,36 +57,56 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("allmodels: only his hosts, in his order, falling back between them; tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
+test("allmodels: only his hosts, one at a time in his order, streamed; tokens logged; a host cut mid-reply gives way to the next; another host, an unnamed one, a cut reply or an error is refused", async () => {
   const asked: { body: Record<string, unknown>; url: string }[] = [];
-  let reply: { finish: string; provider?: string; status: number } = {
-    finish: "stop",
-    provider: "Refuseless",
-    status: 200,
-  };
+  let reply: {
+    finish?: string;
+    provider?: string;
+    status: number;
+    /** The hosts whose stream ends before it finishes (29 Oct 2026: refuseless on 16 Oct). */
+    cut?: string[];
+  } = { finish: "stop", provider: "Refuseless", status: 200 };
+  const sse = (chunks: unknown[]) =>
+    `: keepalive\n${chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("")}data: [DONE]\n\n`;
   const fetched = spyOn(globalThis, "fetch").mockImplementation(((
     url: string,
     init: RequestInit
   ) => {
-    asked.push({ body: JSON.parse(String(init.body)), url });
-    return Promise.resolve(
-      Response.json(
-        {
-          choices: [
-            {
-              finish_reason: reply.finish,
-              message: { content: '{"ok": true}' },
-            },
-          ],
-          provider: reply.provider,
-          usage: {
-            completion_tokens: 7,
-            prompt_tokens: 30,
-            prompt_tokens_details: { cached_tokens: 20 },
+    const body = JSON.parse(String(init.body));
+    asked.push({ body, url });
+    const [host] = body.provider.only;
+    const opened = {
+      choices: [{ delta: { content: "", role: "assistant" } }],
+      provider: reply.provider,
+    };
+    const chunks = reply.cut?.includes(host)
+      ? [opened, { provider: reply.provider }]
+      : [
+          opened,
+          {
+            choices: [{ delta: { content: '{"ok":' } }],
+            provider: reply.provider,
           },
-        },
-        { status: reply.status }
-      )
+          {
+            choices: [
+              { delta: { content: " true}" }, finish_reason: reply.finish },
+            ],
+            provider: reply.provider,
+          },
+          {
+            choices: [],
+            provider: reply.provider,
+            usage: {
+              completion_tokens: 7,
+              prompt_tokens: 30,
+              prompt_tokens_details: { cached_tokens: 20 },
+            },
+          },
+        ];
+    return Promise.resolve(
+      new Response(reply.status === 200 ? sse(chunks) : "slow down", {
+        status: reply.status,
+      })
     );
   }) as unknown as typeof fetch);
   process.env.ALLMODELS_API_KEY = "test-key";
@@ -115,17 +135,26 @@ test("allmodels: only his hosts, in his order, falling back between them; tokens
     expect(asked[0]?.url).toContain("api.allmodels.io");
     expect(asked[0]?.body.model).toBe("x/y");
     expect(asked[0]?.body.reasoning_effort).toBe("high");
+    expect(asked[0]?.body.stream).toBe(true);
     expect(asked[0]?.body.provider).toEqual({
-      allow_fallbacks: true,
-      only: ["refuseless", "hopper"],
-      order: ["refuseless", "hopper"],
+      allow_fallbacks: false,
+      only: ["refuseless"],
+      order: ["refuseless"],
     });
+    expect(asked).toHaveLength(1);
     expect(lastLine()).toContain(
       '"tokens":{"cached":20,"input":30,"output":7}'
     );
-    // The fallback host is his too.
-    reply = { ...reply, provider: "Hopper" };
+    // The first host opens its reply, then its stream ends: the next host is asked.
+    asked.length = 0;
+    reply = { ...reply, cut: ["refuseless"], provider: "Hopper" };
     expect(await ask()).toEqual({ ok: true });
+    expect(
+      asked.map((a) => (a.body.provider as { only: string[] }).only)
+    ).toEqual([["refuseless"], ["hopper"]]);
+    reply = { ...reply, cut: ["refuseless", "hopper"] };
+    await expect(ask()).rejects.toThrow("stopped (cut before it finished)");
+    reply = { ...reply, cut: [] };
     reply = { ...reply, provider: "Experiential Labs" };
     await expect(ask()).rejects.toThrow("served by Experiential Labs");
     // Refused, yet spent: its tokens are in the log.
