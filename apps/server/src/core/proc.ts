@@ -38,6 +38,20 @@ export async function exec(
   return { code, killed: proc.signalCode, stderr, stdout };
 }
 
+/** Starts `cmd` and leaves it running on its own, its output discarded: false when it cannot start. */
+export function start(cmd: string[]) {
+  try {
+    Bun.spawn(cmd, {
+      stderr: "ignore",
+      stdin: "ignore",
+      stdout: "ignore",
+    }).unref();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** `exec` for a step that must work: its output, or an error with what it said, named by its first two words. */
 export async function execOk(
   cmd: string[],

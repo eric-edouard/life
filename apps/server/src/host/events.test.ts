@@ -19,6 +19,7 @@ import {
   settleDelivery,
   sign,
   subscribe as subscribeTo,
+  wake,
 } from "./events";
 
 test("signatures are Standard Webhooks', checked against its published vector", () => {
@@ -228,6 +229,24 @@ test("an agent that pulls its asks gets nothing pushed: its old subscription goe
     ).rejects.toThrow("pulls its asks");
   } finally {
     setSettings({ agent: before });
+    rmSync(LEDGER, { force: true });
+    rmSync(SECRETS.events, { force: true });
+  }
+});
+
+test("a new ask starts a pulling agent's command once; an ask already passed, or no command, starts nothing", () => {
+  rmSync(SECRETS.events, { force: true });
+  appendJsonl(LEDGER, LedgerEntry, [
+    action({ kind: "ask", target: AGENT_WORD }),
+  ]);
+  try {
+    const lines = linesOf(LEDGER);
+    writeSecret("events", JSON.stringify({ attempts: 0, delivered: 0 }));
+    expect(wake(lines, undefined)).toBe(false);
+    writeSecret("events", JSON.stringify({ attempts: 0, delivered: 0 }));
+    expect(wake(lines, ["true"])).toBe(true);
+    expect(wake(lines, ["true"])).toBe(false);
+  } finally {
     rmSync(LEDGER, { force: true });
     rmSync(SECRETS.events, { force: true });
   }

@@ -15,6 +15,7 @@ import { pulls, settings } from "./settings";
 export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 
 type LogKind =
+  | "agent.run"
   | "board.write"
   | "calendar.write"
   | "email.sent"

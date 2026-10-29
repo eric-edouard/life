@@ -6,8 +6,9 @@ import { clock, DAY, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
+import { start } from "../core/proc";
 import { SECRETS, same, writeSecret } from "../core/secret";
-import { agentName, pulls } from "../core/settings";
+import { agentName, pulls, settings } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { actFailedReport, sendReport } from "./report";
 
@@ -328,14 +329,21 @@ export function settleDelivery(
 }
 
 /**
- * For an agent that pulls its asks (it reads them itself, nothing is pushed): any old subscription goes and the cursor
- * stays at the end, so switching back to push starts from now instead of replaying asks it already took.
+ * For an agent that pulls its asks (it reads them itself, nothing is pushed): a new ask past the cursor starts its
+ * `run` command once (whether it did is the answer), so it reads them at once; any old subscription goes and the cursor moves to the end, so
+ * switching back to push starts from now instead of replaying asks it already took.
  */
-function passOver(length: number) {
+export function wake(lines: string[], run = settings().agent?.run) {
   const state = deliveryState();
-  if (state.subscription || state.delivered < length) {
-    writeState({ attempts: 0, delivered: length });
+  const woken = !!run && !!nextEvent(lines, state.delivered);
+  if (woken) {
+    unfrozen("start the agent");
+    log("agent.run", { started: start(run) });
   }
+  if (state.subscription || state.delivered < lines.length) {
+    writeState({ attempts: 0, delivered: lines.length });
+  }
+  return woken;
 }
 
 /**
@@ -347,7 +355,7 @@ export async function deliver() {
   const now = clock().getTime();
   const lines = linesOf(LEDGER);
   if (pulls()) {
-    passOver(lines.length);
+    wake(lines);
     return;
   }
   for (;;) {
