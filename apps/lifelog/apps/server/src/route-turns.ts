@@ -204,7 +204,8 @@ export function transcriptOf(
 }
 
 // Scribe's words of a whole block in place of a stored transcript's, turn by turn: each word goes to
-// the stored turn it belongs to (`turnAt`) and takes its label; a turn Scribe gave no word keeps its
+// the stored turn it belongs to (`turnAt`) and takes its label, cut at the next turn's start (a
+// stretched word would carry the next turn's words into it); a turn Scribe gave no word keeps its
 // own. Turns keep their order, count and labels, so every turn index (the owner's names, voice
 // samples) still points at the same voice.
 export function scribeWordsOf(
@@ -212,9 +213,11 @@ export function scribeWordsOf(
   scribe: Pick<ParsedTranscript, "languageCode" | "words">
 ): ParsedTranscript {
   const given = Map.groupBy(scribe.words, (w) => turnAt(stored.turns, w.start));
-  const turns = stored.turns.map((turn) => {
+  const turns = stored.turns.map((turn, i) => {
+    const until = stored.turns[i + 1]?.start ?? Number.POSITIVE_INFINITY;
     const theirs = (given.get(turn) ?? []).map((w) => ({
       ...w,
+      end: Math.min(w.end, until),
       speakerId: turn.speakerId,
     }));
     const words = theirs.length > 0 ? theirs : ownWords(turn, stored.words);

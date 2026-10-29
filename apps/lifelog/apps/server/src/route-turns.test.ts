@@ -12,6 +12,7 @@ import {
   uncut,
 } from "./route-turns";
 import type { Heard } from "./speech-service";
+import { ownWords } from "./transcript";
 
 // VoxLingua's scores for a turn heard in `language`, roughly as it gives them; null when unjudged.
 const SCORES: Record<string, { en: number; fr: number; th: number }> = {
@@ -223,4 +224,41 @@ test("Scribe's words of a whole block go to the stored turns they fall in, label
   expect(
     parseTranscript(rawOf(next)).transcript.words.map((x) => x.text)
   ).toEqual(next.words.map((x) => x.text));
+});
+
+test("a stretched Scribe word is cut at the next turn, so no turn takes another's words", () => {
+  const w = (
+    start: number,
+    end: number,
+    text: string,
+    speakerId: string | null
+  ) => ({
+    end,
+    logprob: null,
+    spacing: " ",
+    speakerId,
+    start,
+    text,
+  });
+  const stored = {
+    languageCode: "eng",
+    languageProbability: 1,
+    turns: [
+      { end: 10, speakerId: "speaker_0", start: 0, text: "a" },
+      { end: 14, speakerId: "speaker_1", start: 10, text: "b" },
+      { end: 20, speakerId: "speaker_0", start: 14.5, text: "c" },
+    ],
+    words: [
+      w(0, 10, "a", "speaker_0"),
+      w(10, 14, "b", "speaker_1"),
+      w(14.5, 20, "c", "speaker_0"),
+    ],
+  };
+  const next = scribeWordsOf(stored, {
+    languageCode: "tha",
+    words: [w(1, 2, "x", null), w(9.8, 40, "stretched", null)],
+  });
+  expect(
+    next.turns.map((t) => ownWords(t, next.words).map((x) => x.text))
+  ).toEqual([["x", "stretched"], ["b"], ["c"]]);
 });

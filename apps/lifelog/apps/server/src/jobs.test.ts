@@ -1303,6 +1303,10 @@ test("Scribe's words of a whole speech block replace the speech service's turn b
     "speaker_1",
     "speaker_0",
   ]);
+  // Refused by Scribe, nothing billed: the block may go again.
+  fake.respond = () => new Response("bad audio", { status: 400 });
+  expect((await app.s.worker.scribeWords(jobId)).outcome).toBe("failed");
+  expect(jobRow(jobId)?.billableSeconds).toBe(before);
   // Scribe hears the block whole, with no speakers: its words go to the turns they fall in.
   fake.respond = () =>
     Response.json({

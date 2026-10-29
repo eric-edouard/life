@@ -769,6 +769,7 @@ export function jobWorker(
           at: transcripts.scribeWordsAt,
           map: jobs.map,
           objectKey: jobs.objectKey,
+          parsed: transcripts.parsed,
           state: jobs.state,
           transcriber: jobs.transcriber,
         })
@@ -779,9 +780,10 @@ export function jobWorker(
       if (
         !(row?.map && row.objectKey) ||
         row.state !== "completed" ||
-        row.transcriber !== "speech"
+        row.transcriber !== "speech" ||
+        row.parsed.turns.length === 0
       ) {
-        return "not a completed speech block with its audio";
+        return "not a completed speech block with its audio and turns";
       }
       if (row.at) {
         return "already sent";
@@ -823,15 +825,13 @@ export function jobWorker(
       outcome: heard.kind,
     });
     if (heard.kind === "failed") {
-      if (heard.later) {
+      if (!heard.billed) {
         return unmark(heard.error.slice(0, 200));
       }
-      if (heard.billed) {
-        db.update(jobs)
-          .set({ billableSeconds: sql`${jobs.billableSeconds} + ${billed}` })
-          .where(eq(jobs.id, id))
-          .run();
-      }
+      db.update(jobs)
+        .set({ billableSeconds: sql`${jobs.billableSeconds} + ${billed}` })
+        .where(eq(jobs.id, id))
+        .run();
       return { outcome: "failed", reason: heard.error.slice(0, 200) };
     }
     db.transaction((tx) => {
