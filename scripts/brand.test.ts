@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { LIFE_CODE_DIR } from "@life/server/src/core/paths";
 import { repoFiles } from "@life/server/src/core/proc";
-import { C, MONO, RADIUS, SERIF } from "@life/server/src/memory/email";
+import { C, MONO, RADIUS, SANS, SERIF } from "@life/server/src/memory/email";
 
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.
@@ -80,8 +80,9 @@ test("the email's and the app's radii and the email's font stacks are tokens.css
     panel: px("panel-radius"),
   });
   const stack = (s: string) => s.replaceAll(/["'\s]/g, "");
-  expect([stack(SERIF), stack(MONO)]).toEqual([
+  expect([stack(SERIF), stack(SANS), stack(MONO)]).toEqual([
     stack(value("serif")),
+    stack(value("sans")),
     stack(value("mono")),
   ]);
   const swift = await asset("apps/mac/Sources/LifeApp/Brand.swift");
