@@ -556,7 +556,7 @@ async function askAllModels(call: Call): Promise<Answer> {
       isForAnother = reply.finish === undefined;
     } catch (e) {
       answer = { refusal: (e as Error).message, text: "" };
-      isForAnother = !(e as { isFinal?: boolean }).isFinal;
+      isForAnother = (e as { isForAnother?: boolean }).isForAnother === true;
     }
     const spent = answer.fields?.tokens as Tokens | undefined;
     tokens = spent ? add(tokens ?? NONE, spent) : tokens;
@@ -591,7 +591,14 @@ async function* sseData(body: ReadableStream<Uint8Array>) {
   }
 }
 
-/** One host's streamed reply, put together; throws on an error status (`isFinal` unless 429 or 5xx) or a stall. */
+/** An error another host may not have: a stall, a cut connection, a 429 or a 5xx. */
+const forAnother = (message: string) =>
+  Object.assign(new Error(message), { isForAnother: true });
+
+/**
+ * One host's streamed reply, put together. Throws `forAnother` on a stall, a network error, a 429 or a 5xx; any other
+ * failure (another status, a chunk that doesn't parse, the call's deadline) is thrown as final.
+ */
 async function askHost(
   host: string,
   body: object,
@@ -600,6 +607,21 @@ async function askHost(
 ) {
   const stalled = new AbortController();
   const timer = setTimeout(() => stalled.abort(), STALL_MS);
+  const failure = (e: unknown) => {
+    if (deadline.aborted) {
+      return new Error(
+        `allmodels: the call's ${MODEL_TIMEOUT_MS / MIN} min ran out on ${host}`
+      );
+    }
+    if (stalled.signal.aborted) {
+      return forAnother(
+        `allmodels: ${host} sent nothing for ${STALL_MS / MIN} min`
+      );
+    }
+    return e instanceof SyntaxError || e instanceof z.ZodError
+      ? e
+      : forAnother((e as Error).message);
+  };
   try {
     const res = await fetch(ALLMODELS_URL, {
       body: JSON.stringify({
@@ -614,28 +636,30 @@ async function askHost(
       signal: AbortSignal.any([stalled.signal, deadline]),
       // Bun's 5-minute idle timer is the stall's to decide, chunk by chunk.
       timeout: false,
+    }).catch((e) => {
+      throw failure(e);
     });
     if (!(res.ok && res.body)) {
-      throw Object.assign(
-        new Error(`allmodels ${res.status}: ${(await res.text()).slice(-300)}`),
-        { isFinal: res.status < 500 && res.status !== 429 }
-      );
+      const message = `allmodels ${res.status}: ${(await res.text()).slice(-300)}`;
+      throw res.status >= 500 || res.status === 429
+        ? forAnother(message)
+        : new Error(message);
     }
     const reply: ChatReply = { text: "" };
-    for await (const data of sseData(res.body)) {
-      timer.refresh();
-      const chunk = ChatChunk.parse(JSON.parse(data));
-      const [choice] = chunk.choices ?? [];
-      reply.text += choice?.delta?.content ?? "";
-      reply.finish = choice?.finish_reason ?? reply.finish;
-      reply.provider = chunk.provider ?? reply.provider;
-      reply.usage = chunk.usage ?? reply.usage;
+    try {
+      for await (const data of sseData(res.body)) {
+        timer.refresh();
+        const chunk = ChatChunk.parse(JSON.parse(data));
+        const [choice] = chunk.choices ?? [];
+        reply.text += choice?.delta?.content ?? "";
+        reply.finish = choice?.finish_reason ?? reply.finish;
+        reply.provider = chunk.provider ?? reply.provider;
+        reply.usage = chunk.usage ?? reply.usage;
+      }
+    } catch (e) {
+      throw failure(e);
     }
     return reply;
-  } catch (e) {
-    throw stalled.signal.aborted
-      ? new Error(`allmodels: ${host} sent nothing for ${STALL_MS / MIN} min`)
-      : e;
   } finally {
     clearTimeout(timer);
   }

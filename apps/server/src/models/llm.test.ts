@@ -65,6 +65,8 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     status: number;
     /** The hosts whose stream ends before it finishes (29 Oct 2026: refuseless on 16 Oct). */
     cut?: string[];
+    /** The connection stays open after [DONE]. */
+    open?: boolean;
   } = { finish: "stop", provider: "Refuseless", status: 200 };
   // Sent in small pieces with CRLF line ends, so an event is split across pieces.
   const sse = (chunks: unknown[]) => {
@@ -75,7 +77,9 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
         for (let i = 0; i < bytes.length; i += 7) {
           c.enqueue(bytes.slice(i, i + 7));
         }
-        c.close();
+        if (!reply.open) {
+          c.close();
+        }
       },
     });
   };
@@ -153,6 +157,10 @@ test("allmodels: only his hosts, one at a time in his order, streamed; a host cu
     expect(lastLine()).toContain(
       '"tokens":{"cached":20,"input":30,"output":7}'
     );
+    // Done is done, even when the connection stays open.
+    reply = { ...reply, open: true };
+    expect(await ask()).toEqual({ ok: true });
+    reply = { ...reply, open: false };
     const hostsAsked = () => {
       const list = asked.map(
         (a) => (a.body.provider as { only: string[] }).only[0]
