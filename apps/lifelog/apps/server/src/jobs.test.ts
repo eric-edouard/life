@@ -1273,6 +1273,71 @@ test("the speech service: English and French stay with it, other turns go to Scr
   expect(uploads()).toHaveLength(1);
 });
 
+test("Scribe's words of a whole speech block replace the speech service's turn by turn, once", async () => {
+  const app = appWith(withSpeech);
+  setSwitches(env.db, { transcriber: "speech" });
+  inThaiZone();
+  speech.heard = {
+    durationSeconds: 60,
+    models: {},
+    turns: [
+      turn(0, 10, "0", "en"),
+      turn(10, 14, "1", "th"),
+      turn(14, 60, "0", "fr"),
+    ],
+    words: [said(1, "Hello"), said(15, "Salut")],
+  };
+  fake.respond = thaiAnswer;
+  const jobId = await admitFragment(app, speechAudio(60), 1);
+  await app.s.worker.work();
+  const before = jobRow(jobId)?.billableSeconds ?? 0;
+  const turnsOf = () =>
+    env.db
+      .select({ label: turns.speakerLabel, text: turns.text })
+      .from(turns)
+      .where(eq(turns.jobId, jobId))
+      .orderBy(turns.turnIndex)
+      .all();
+  expect(turnsOf().map((t) => t.label)).toEqual([
+    "speaker_0",
+    "speaker_1",
+    "speaker_0",
+  ]);
+  // Refused by Scribe, nothing billed: the block may go again.
+  fake.respond = () => new Response("bad audio", { status: 400 });
+  expect((await app.s.worker.scribeWords(jobId)).outcome).toBe("failed");
+  expect(jobRow(jobId)?.billableSeconds).toBe(before);
+  // Scribe hears the block whole, with no speakers: its words go to the turns they fall in.
+  fake.respond = () =>
+    Response.json({
+      language_code: "tha",
+      language_probability: 0.9,
+      words: [
+        { end: 1.4, start: 1, text: "Hello,", type: "word" },
+        { text: " ", type: "spacing" },
+        { end: 1.9, start: 1.5, text: "friend.", type: "word" },
+        { text: " ", type: "spacing" },
+        { end: 11.5, start: 11, text: "ไป", type: "word" },
+        { end: 12, start: 11.5, text: "ไหน", type: "word" },
+      ],
+    });
+  expect(await app.s.worker.scribeWords(jobId)).toEqual({ outcome: "done" });
+  expect(uploads().at(-1)?.form?.get("webhook")).toBeNull();
+  // The French turn, given nothing, keeps its own words; labels, order and count hold.
+  expect(turnsOf()).toEqual([
+    { label: "speaker_0", text: "Hello, friend." },
+    { label: "speaker_1", text: "ไปไหน" },
+    { label: "speaker_0", text: "Salut" },
+  ]);
+  expect(jobRow(jobId)?.billableSeconds).toBeGreaterThan(before + 50);
+  const sends = uploads().length;
+  expect(await app.s.worker.scribeWords(jobId)).toEqual({
+    outcome: "refused",
+    reason: "already sent",
+  });
+  expect(uploads()).toHaveLength(sends);
+});
+
 test("the speech service, credits used up: English and French still complete on the Mac", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });

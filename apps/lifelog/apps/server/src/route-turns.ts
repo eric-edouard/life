@@ -8,9 +8,11 @@
 // exactly like one of Scribe's (jobs.ts `complete`). The transcription bench routes by the same
 // rule (apps/stt-bench/src/context.ts imports it).
 
-import type { Word } from "@lifelog/db/schema";
+import type { ParsedTranscript, Word } from "@lifelog/db/schema";
 import type { CutSpan } from "./audio";
+import { textOf } from "./elevenlabs";
 import type { Heard } from "./speech-service";
+import { ownWords } from "./transcript";
 
 type HeardTurn = Heard["turns"][number];
 
@@ -37,8 +39,20 @@ const PAD_SECONDS = 0.25;
 
 const seconds = (turns: HeardTurn[]) =>
   turns.reduce((sum, t) => sum + t.end - t.start, 0);
-const inside = (turn: HeardTurn, at: number) =>
-  turn.start <= at && at < turn.end;
+interface Span {
+  end: number;
+  start: number;
+}
+const inside = (turn: Span, at: number) => at >= turn.start && at < turn.end;
+// The turn a word at `at` belongs to: the one holding it, else the nearest.
+const turnAt = <T extends Span>(turns: T[], at: number) => {
+  const distance = (t: T) =>
+    inside(t, at) ? 0 : Math.min(Math.abs(t.start - at), Math.abs(t.end - at));
+  return turns.reduce<T | undefined>(
+    (best, t) => (!best || distance(t) < distance(best) ? t : best),
+    undefined
+  );
+};
 
 export type Route = { kind: "whole" } | { kind: "turns"; routed: HeardTurn[] };
 
@@ -141,13 +155,6 @@ export function transcriptOf(
   scribe: { languageCode: string; words: Word[] } | null
 ) {
   const isRouted = (at: number) => routed.some((t) => inside(t, at));
-  const distance = (t: HeardTurn, at: number) =>
-    inside(t, at) ? 0 : Math.min(Math.abs(t.start - at), Math.abs(t.end - at));
-  const turnAt = (at: number) =>
-    turns.reduce<HeardTurn | undefined>(
-      (best, t) => (!best || distance(t, at) < distance(best, at) ? t : best),
-      undefined
-    );
   const speakers = [...new Set(turns.map((t) => t.speaker))];
   const placed = [
     ...words
@@ -173,10 +180,12 @@ export function transcriptOf(
     language_probability: 1,
     words: placed.flatMap((w, i) => {
       const before = placed[i - 1];
-      const turn = turnAt(w.start);
+      const turn = turnAt(turns, w.start);
       // Scribe's spacing holds within one of its turns (Thai has none); anywhere else, a space.
       const spacing =
-        before?.fromScribe && w.fromScribe && turnAt(before.start) === turn
+        before?.fromScribe &&
+        w.fromScribe &&
+        turnAt(turns, before.start) === turn
           ? w.spacing
           : " ";
       return [
@@ -191,5 +200,38 @@ export function transcriptOf(
         },
       ];
     }),
+  };
+}
+
+// Scribe's words of a whole block in place of a stored transcript's, turn by turn: each word goes to
+// the stored turn it belongs to (`turnAt`) and takes its label, cut at the next turn's start (a
+// stretched word would carry the next turn's words into it); a turn Scribe gave no word keeps its
+// own. Turns keep their order, count and labels, so every turn index (the owner's names, voice
+// samples) still points at the same voice.
+export function scribeWordsOf(
+  stored: ParsedTranscript,
+  scribe: Pick<ParsedTranscript, "languageCode" | "words">
+): ParsedTranscript {
+  const given = Map.groupBy(scribe.words, (w) => turnAt(stored.turns, w.start));
+  const turns = stored.turns.map((turn, i) => {
+    const until = stored.turns[i + 1]?.start ?? Number.POSITIVE_INFINITY;
+    const theirs = (given.get(turn) ?? []).map((w) => ({
+      ...w,
+      end: Math.min(w.end, until),
+      speakerId: turn.speakerId,
+    }));
+    const words = theirs.length > 0 ? theirs : ownWords(turn, stored.words);
+    return { turn, words };
+  });
+  return {
+    languageCode: scribe.languageCode,
+    languageProbability: 1,
+    turns: turns.map(({ turn, words }) => ({
+      end: words.at(-1)?.end ?? turn.end,
+      speakerId: turn.speakerId,
+      start: words[0]?.start ?? turn.start,
+      text: textOf(words).trim(),
+    })),
+    words: turns.flatMap(({ words }) => words),
   };
 }

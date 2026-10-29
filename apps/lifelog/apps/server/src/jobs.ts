@@ -40,6 +40,8 @@ import {
   isTranscript,
   PARSER_VERSION,
   parseTranscript,
+  rawOf,
+  SEND_TIMEOUT_MS,
   type SubmitOutcome,
   safeJson,
   submit,
@@ -55,6 +57,7 @@ import {
   type Route,
   routeTurns,
   scribeRanges,
+  scribeWordsOf,
   transcriptOf,
   uncut,
 } from "./route-turns";
@@ -204,11 +207,7 @@ function complete(
         raw,
       })
       .run();
-    if (job.sourceId && job.captureStart && job.captureEnd) {
-      markDirty(tx, [job.sourceId], [job.captureStart, job.captureEnd]);
-    }
-    rebuildTurnsIn(tx, job.id);
-    logChange(tx, "job", job.id);
+    landed(tx, job);
     return "applied" as const;
   });
   if (outcome === "applied") {
@@ -221,6 +220,16 @@ function complete(
     );
   }
   return outcome;
+}
+
+// A job's new words landed, in the caller's transaction: its range is regrouped once committed
+// (`regroupAfterCommit`), its turns rebuilt, the job logged.
+function landed(tx: Parameters<Parameters<Db["transaction"]>[0]>[0], job: Job) {
+  if (job.sourceId && job.captureStart && job.captureEnd) {
+    markDirty(tx, [job.sourceId], [job.captureStart, job.captureEnd]);
+  }
+  rebuildTurnsIn(tx, job.id);
+  logChange(tx, "job", job.id);
 }
 
 // A callback without a usable transcript. A reported failure of the job's current send is an
@@ -711,16 +720,8 @@ export function jobWorker(
     if (!onSend(db, job, { maybeBilled: true })) {
       return null;
     }
-    const heard = await transcribeNow(
-      config,
-      new Blob([excerpt.audio.slice()]),
-      job.settings.keyterms
-    );
+    const { billed, heard } = await hearNow(job, excerpt.audio);
     record(db, `elevenlabs.${heard.kind}`, { job: job.id, turns: true });
-    const billed = billableSeconds(
-      oggOpusSeconds(excerpt.audio) ?? 0,
-      job.settings
-    );
     if (heard.kind === "done") {
       const words = uncut(heard.transcript.words, excerpt.spans);
       return {
@@ -741,6 +742,133 @@ export function jobWorker(
       maybeBilled: heard.billed,
       scribe: null,
     };
+  }
+
+  // Scribe hears `bytes` now, without a webhook; what it bills for them.
+  async function hearNow(job: Job, bytes: Uint8Array, timeoutMs?: number) {
+    const heard = await transcribeNow(
+      config,
+      new Blob([bytes.slice()]),
+      job.settings.keyterms,
+      timeoutMs
+    );
+    return {
+      billed: billableSeconds(oggOpusSeconds(bytes) ?? 0, job.settings),
+      heard,
+    };
+  }
+
+  // Scribe hears a completed speech block whole, once, and its words take the place of the speech
+  // service's, turn by turn (`scribeWordsOf`): the owner's one-off for blocks the old routing left
+  // garbled (docs/decisions.md). Marked before the send; unmarked only when nothing was sent or
+  // billed. Never a block touching a quiet range: dictation never leaves.
+  async function scribeWords(id: string): Promise<ScribeWords> {
+    const refusal = db.transaction((tx) => {
+      const row = tx
+        .select({
+          at: transcripts.scribeWordsAt,
+          map: jobs.map,
+          objectKey: jobs.objectKey,
+          parsed: transcripts.parsed,
+          state: jobs.state,
+          transcriber: jobs.transcriber,
+        })
+        .from(jobs)
+        .innerJoin(transcripts, eq(transcripts.jobId, jobs.id))
+        .where(eq(jobs.id, id))
+        .get();
+      if (
+        !(row?.map && row.objectKey) ||
+        row.state !== "completed" ||
+        row.transcriber !== "speech" ||
+        row.parsed.turns.length === 0
+      ) {
+        return "not a completed speech block with its audio and turns";
+      }
+      if (row.at) {
+        return "already sent";
+      }
+      if (touchesQuiet(tx, row.map)) {
+        return "touches a quiet range";
+      }
+      tx.update(transcripts)
+        .set({ scribeWordsAt: new Date() })
+        .where(eq(transcripts.jobId, id))
+        .run();
+      return null;
+    });
+    if (refusal) {
+      return { outcome: "refused", reason: refusal };
+    }
+    const unmark = (reason: string): ScribeWords => {
+      db.update(transcripts)
+        .set({ scribeWordsAt: null })
+        .where(eq(transcripts.jobId, id))
+        .run();
+      return { outcome: "failed", reason };
+    };
+    const job = getJob(db, id) as Job;
+    let bytes: Uint8Array | null;
+    try {
+      bytes = await audio.get(job.objectKey as string);
+    } catch (error) {
+      return unmark(`the bucket is unreachable: ${String(error)}`);
+    }
+    if (!bytes) {
+      return unmark("its audio is not in the bucket");
+    }
+    const started = Date.now();
+    const { billed, heard } = await hearNow(job, bytes, SEND_TIMEOUT_MS);
+    record(db, "speech.scribe_words", {
+      job: id,
+      ms: Date.now() - started,
+      outcome: heard.kind,
+    });
+    if (heard.kind === "failed") {
+      if (!heard.billed) {
+        return unmark(heard.error.slice(0, 200));
+      }
+      db.update(jobs)
+        .set({ billableSeconds: sql`${jobs.billableSeconds} + ${billed}` })
+        .where(eq(jobs.id, id))
+        .run();
+      return { outcome: "failed", reason: heard.error.slice(0, 200) };
+    }
+    db.transaction((tx) => {
+      const stored = tx
+        .select({ parsed: transcripts.parsed })
+        .from(transcripts)
+        .where(eq(transcripts.jobId, id))
+        .get();
+      if (!stored) {
+        return;
+      }
+      const parsed = scribeWordsOf(stored.parsed, heard.transcript);
+      tx.update(transcripts)
+        .set({
+          languageCode: parsed.languageCode,
+          parsed,
+          parserVersion: PARSER_VERSION,
+          raw: rawOf(parsed),
+        })
+        .where(eq(transcripts.jobId, id))
+        .run();
+      tx.update(jobs)
+        .set({
+          billableSeconds: sql`${jobs.billableSeconds} + ${billed}`,
+          error: null,
+        })
+        .where(eq(jobs.id, id))
+        .run();
+      landed(tx, job);
+    });
+    if (job.sourceId) {
+      regroupAfterCommit(db, [job.sourceId]);
+    }
+    await completed(job).catch((error: unknown) =>
+      console.error(`after ${id}: ${String(error)}`)
+    );
+    return { outcome: "done" };
   }
 
   // Credits used up, sends stop only while Scribe transcribes; the speech service still hears every
@@ -847,6 +975,7 @@ export function jobWorker(
       onCompleted = then;
     },
     poke,
+    scribeWords,
     // Every 5 minutes: the credits, what reconcile settles, then whatever can go.
     tick: async () => {
       await checkCredits();
@@ -866,6 +995,9 @@ export function jobWorker(
 }
 
 export type JobWorker = ReturnType<typeof jobWorker>;
+export type ScribeWords =
+  | { outcome: "done" }
+  | { outcome: "failed" | "refused"; reason: string };
 
 // The pages the server holds of a source: every job's, any state (a failed one's too: nothing buys
 // them again), old parts' once the handover gave them pages, and every fragment's in no job. The

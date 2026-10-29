@@ -1,0 +1,1 @@
+ALTER TABLE `transcripts` ADD `scribe_words_at` integer;

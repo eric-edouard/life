@@ -53,7 +53,10 @@ reverse it, change its entry here in the same commit.
   and nothing ran until someone answered. The helper and Host share `secrets.json`.
 - **Paid work happens once.** A page is in one fragment and one job that isn't failed; a send that may have been
   billed is never sent again; a new prompt version reaches new conversations, failed runs and the owner's Generate,
-  never the whole archive.
+  never the whole archive. One exception, the owner's (29 Oct 2026): the speech blocks recorded in Thailand before
+  the context router, where Thai was spotted but only parts went to Scribe (343, about 13 h), are heard by Scribe
+  whole once more (`POST /transcription-jobs/{id}/scribe-words`, removed after the run). Their words change turn by
+  turn, never their turns: the owner's speaker names and the voice samples point at turns by index and label.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
   Ultra's words, on MLX on the Mac), and only Thai turns go to ElevenLabs Scribe v2. The owner's goal (29 Oct 2026) is

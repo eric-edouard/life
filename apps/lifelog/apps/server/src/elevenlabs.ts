@@ -15,7 +15,7 @@ import { type Config, ownerTimeZone } from "./config";
 export const PARSER_VERSION = 3;
 const SIGNATURE_MAX_AGE_SECONDS = 30 * 60;
 // A send: the upload, and without a webhook the transcription too.
-const SEND_TIMEOUT_MS = 10 * 60 * 1000;
+export const SEND_TIMEOUT_MS = 10 * 60 * 1000;
 // A press waits for its words: 5 minutes of audio come back in seconds.
 const QUICK_TIMEOUT_MS = 60 * 1000;
 const UNIX_SECONDS = /^\d+$/;
@@ -80,7 +80,8 @@ export function submit(
 export async function transcribeNow(
   config: Config,
   audio: Blob,
-  keyterms: string[]
+  keyterms: string[],
+  timeoutMs = QUICK_TIMEOUT_MS
 ): Promise<
   | { kind: "done"; transcript: ParsedTranscript }
   | { billed: boolean; error: string; kind: "failed"; later: boolean }
@@ -90,7 +91,7 @@ export async function transcribeNow(
     audio,
     { diarize: "false" },
     keyterms,
-    QUICK_TIMEOUT_MS
+    timeoutMs
   );
   if (answer.kind === "completed" && isTranscript(answer.raw)) {
     return { kind: "done", transcript: parseTranscript(answer.raw).transcript };
@@ -412,6 +413,23 @@ export function parseTranscript(raw: unknown): {
     transcriptionId: transcript.transcription_id ?? null,
   };
 }
+
+// A parsed transcript back in Scribe's shape, so `parseTranscript` reads the same words from it.
+export const rawOf = (parsed: ParsedTranscript) => ({
+  language_code: parsed.languageCode,
+  language_probability: parsed.languageProbability,
+  words: parsed.words.flatMap((w, i) => [
+    ...(i > 0 && w.spacing ? [{ text: w.spacing, type: "spacing" }] : []),
+    {
+      end: w.end,
+      logprob: w.logprob,
+      speaker_id: w.speakerId,
+      start: w.start,
+      text: w.text,
+      type: "word",
+    },
+  ]),
+});
 
 // Words back into text with the provider's own spacing: never add a space Thai doesn't have.
 export const textOf = (words: Pick<Word, "spacing" | "text">[]) =>

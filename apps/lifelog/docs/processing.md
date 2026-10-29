@@ -189,6 +189,11 @@ were heard again under it. The waiting reason `creditsOut` follows: every busy c
 service, a conversation with a block waiting for credits (`waitsForCredits`). The status counts them
 (`waiting.forCredits`) and Host's menu shows them. Dictation never reaches either: the worker's gate runs first.
 
+`POST /transcription-jobs/{id}/scribe-words` (the device token) sends a completed speech block to Scribe whole,
+once (`transcripts.scribe_words_at`, set before the send), for the blocks the old routing left garbled
+(`docs/decisions.md`). Scribe's words go to the turns they fall in, each taking its turn's label; a turn given none
+keeps its own, so turns, labels and indexes hold. A block touching a quiet range is refused.
+
 ### No limits
 
 Nothing holds or caps transcription: every admitted job goes. Spending counts every job and the

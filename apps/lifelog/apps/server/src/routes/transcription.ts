@@ -161,6 +161,28 @@ export function transcriptionRoutes({
     .openapi(
       createRoute({
         description:
+          "Scribe hears a completed speech block whole, once, and its words replace the speech " +
+          "service's turn by turn (turns, labels and indexes kept). The owner's one-off for blocks " +
+          "the old routing left garbled; refused for a block already sent, or touching a quiet range.",
+        method: "post",
+        path: "/transcription-jobs/{id}/scribe-words",
+        request: { params: IdParam },
+        responses: {
+          200: json(
+            z.object({
+              outcome: z.enum(["done", "failed", "refused"]),
+              reason: z.string().optional(),
+            }),
+            "What happened"
+          ),
+        },
+      }),
+      async (c) =>
+        c.json(await worker.scribeWords(c.req.valid("param").id), 200)
+    )
+    .openapi(
+      createRoute({
+        description:
           "What was spent, from our own ledgers at list prices: today, the last 30 days and " +
           "this month (days in the owner's time zone), split by service.",
         method: "get",
