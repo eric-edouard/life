@@ -15,7 +15,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   `read_open_agent_tasks`. A pulling agent can be started: with `start` set, the watcher starts that command, in his
   home and with `cliEnv` only, with an event's JSON appended: `{kind:"ask"}` once when a new ask lands, so the agent
   reads it within seconds, `{kind:"tick", at, zone}` each minute, `{kind:"message", chats}` when messages are heard and
-  `{kind:"decision", loop}` when he answers one of a loop's decisions (`startAgent`, `wakeOf`, `events.ts`); the command decides
+  `{kind:"decision", loop}` when he answers one of a loop's decisions, `{kind:"audit"}` when he files a "Something's wrong" (`startAgent`, `wakeOf`, `events.ts`); the command decides
   what each event starts (the owner's is life-loops' runner, which schedules his loops). It is never waited on, and its own runs claim the asks (`taken`), so two runs never do one. A start that
   fails is logged (`run.error`); the ask waits on the board and Life emails him at 30 min.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
