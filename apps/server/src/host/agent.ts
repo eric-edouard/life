@@ -8,7 +8,7 @@ import { LOG_DIR, logDays, logEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { agentName, type Settings, settings } from "../core/settings";
+import { agentName, pulls, type Settings, settings } from "../core/settings";
 import { LEDGER, type Task, tasksOf } from "../memory/ledger";
 import {
   closed,
@@ -35,8 +35,8 @@ import { lapseReport, sendReport, taskReport, unsent } from "./report";
  */
 const PART = /<!-- (reminders|push|pull) -->([\s\S]*?)<!-- \/\1 -->/g;
 const partsOn = () => ({
-  pull: settings().agent?.transport === "pull",
-  push: settings().agent?.transport !== "pull",
+  pull: pulls(),
+  push: !pulls(),
   reminders: isOn("todo_list"),
 });
 export function protocol(text: string, on = partsOn()) {

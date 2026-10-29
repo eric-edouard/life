@@ -7,7 +7,7 @@ import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
 import { SECRETS, same, writeSecret } from "../core/secret";
-import { agentName, settings } from "../core/settings";
+import { agentName, pulls } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { actFailedReport, sendReport } from "./report";
 
@@ -24,6 +24,8 @@ const VERIFIED_MS = DAY;
 const ATTEMPTS = 8;
 const BACKOFF_MS = 30_000;
 const CALLBACK_ERROR = -32_015;
+/** JSON-RPC's invalid request: a subscribe when his agent pulls its asks. */
+const INVALID_REQUEST = -32_600;
 
 const AskData = z.object({
   at: z.string().describe("When he spoke (or asked), ISO"),
@@ -176,6 +178,12 @@ export const resumeAt = (
  * subscription starts now. History is never truncated: the ledger is append-only.
  */
 export async function subscribe(p: z.infer<typeof Subscribe>) {
+  if (pulls()) {
+    throw new ProtocolError(
+      INVALID_REQUEST as never,
+      "This agent pulls its asks with read_open_agent_tasks: there is no ask event to subscribe to"
+    );
+  }
   const now = clock().getTime();
   const id = `sub_${digest("sha256", JSON.stringify([p.delivery.url, p.name, p.arguments]), 24)}`;
   const cached = deliveryState().subscription;
@@ -273,7 +281,7 @@ export async function agentLive(
   now: number,
   calls = () => recentEvents<Call>(2, "mcp.call")
 ) {
-  if (settings().agent?.transport !== "pull") {
+  if (!pulls()) {
     return subscribed(now);
   }
   return (await calls()).some(
@@ -290,15 +298,12 @@ const current = (s: State, now: number) =>
   Date.parse(s.subscription?.refreshBefore ?? "") >= now;
 export const subscribed = (now: number) => current(deliveryState(), now);
 
-/** Nothing goes out to an agent that pulls its asks, without a live subscription, or while a retry waits. */
-export const live = (
+/** Nothing goes out without a live subscription or while a retry waits. */
+const live = (
   s: State,
   now: number
 ): s is State & { subscription: Subscription } =>
-  settings().agent?.transport !== "pull" &&
-  current(s, now) &&
-  !!s.subscription &&
-  !(Date.parse(s.retryAt ?? "") > now);
+  current(s, now) && !!s.subscription && !(Date.parse(s.retryAt ?? "") > now);
 
 /**
  * What one delivery's HTTP status (0: unreachable) does: a 2xx or a 413 (never retried) moves past the event, a 410
@@ -323,13 +328,28 @@ export function settleDelivery(
 }
 
 /**
+ * For an agent that pulls its asks (it reads them itself, nothing is pushed): any old subscription goes and the cursor
+ * stays at the end, so switching back to push starts from now instead of replaying asks it already took.
+ */
+function passOver(length: number) {
+  const state = deliveryState();
+  if (state.subscription || state.delivered < length) {
+    writeState({ attempts: 0, delivered: length });
+  }
+}
+
+/**
  * Delivers the asks past the cursor, one POST each, in order (the watcher calls it every loop), as `settleDelivery` says; an
- * ask passed over is emailed to him like a failed action. Nothing is sent to an agent that pulls, before a subscription, after it expired, or
+ * ask passed over is emailed to him like a failed action. Nothing is sent before a subscription, after it expired, or
  * while a retry waits. A subscribe during a POST wins: the state is read again before each write.
  */
 export async function deliver() {
   const now = clock().getTime();
   const lines = linesOf(LEDGER);
+  if (pulls()) {
+    passOver(lines.length);
+    return;
+  }
   for (;;) {
     const state = deliveryState();
     const next = nextEvent(lines, state.delivered);

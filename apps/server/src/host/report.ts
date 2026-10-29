@@ -5,7 +5,7 @@ import { log, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
-import { agentName, settings } from "../core/settings";
+import { agentName, pulls, settings } from "../core/settings";
 import {
   type Digest,
   LIFE_MAIL,
@@ -300,10 +300,9 @@ export function taskReport(
 export const lapseReport = (open: number, now: number) =>
   alert(new Date(now).toISOString(), agentName(), {
     failure: {
-      error:
-        settings().agent?.transport === "pull"
-          ? "no tasks call from it in a day"
-          : "no live subscription to `ask`",
+      error: pulls()
+        ? "no tasks call from it in a day"
+        : "no live subscription to `ask`",
       step: "delivery",
     },
     notes: [

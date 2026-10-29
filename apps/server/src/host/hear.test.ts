@@ -50,6 +50,27 @@ test("only “hey Orbit” or its misheard word, in order, wake it, whatever the
   }
 });
 
+test('"hey Life" wakes the agent as lifelog writes it (audit of 21 Oct), never an idiom', () => {
+  for (const said of [
+    "Hey Life, remind me",
+    "Uh, hey, Life.",
+    "Hey, life log, let's",
+    "Hey, Live. I don't know",
+    "hej life",
+  ]) {
+    expect(WAKE.test(said)).toBe(true);
+  }
+  for (const said of [
+    "Get a life",
+    "What a life",
+    "Life is long",
+    "hey lifelong friend",
+    "they live here",
+  ]) {
+    expect(WAKE.test(said)).toBe(false);
+  }
+});
+
 const AT = Date.parse("2026-10-19T10:00:00.000Z");
 const iso = (s: number) => new Date(AT + s * 1000).toISOString();
 /** A turn spoken at `s` s, lasting `long` s, brought by the feed 60 s after it started. */
