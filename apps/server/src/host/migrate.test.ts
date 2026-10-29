@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -114,4 +115,33 @@ test("on a copy: the rename swaps memory in whole, writes its line once and runs
   expect(done()).toHaveLength(1);
   await migrateStored(dir);
   expect(done()).toHaveLength(1);
+});
+
+test("a line written to the old memory during the swap is carried over once, renamed, and the old copy goes", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-migrate-"));
+  for (const [p, t] of files()) {
+    mkdirSync(join(dir, p, ".."), { recursive: true });
+    writeFileSync(join(dir, p), `${t}\n`);
+  }
+  const before = join(dir, "before");
+  cpSync(join(dir, "memory"), before, { recursive: true });
+  await migrateStored(dir);
+  // As if the app died after the swap: the old copy is back, with a rating written into it meanwhile.
+  cpSync(before, join(dir, "memory.old"), { recursive: true });
+  writeFileSync(
+    join(dir, "memory.old/ratings.jsonl"),
+    `${JSON.stringify({ ref: was, why: `about ${was}` })}\n${JSON.stringify({ ref: was, why: "late" })}\n`
+  );
+  const ratings = () =>
+    readFileSync(join(dir, "memory/ratings.jsonl"), "utf8")
+      .split("\n")
+      .filter(Boolean);
+  await migrateStored(dir);
+  expect(existsSync(join(dir, "memory.old"))).toBe(false);
+  expect(ratings()).toEqual([
+    JSON.stringify({ ref: now, why: `about ${now}` }),
+    JSON.stringify({ ref: now, why: "late" }),
+  ]);
+  await migrateStored(dir);
+  expect(ratings()).toHaveLength(2);
 });

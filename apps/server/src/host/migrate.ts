@@ -14,7 +14,7 @@ import { dirname, join, relative } from "node:path";
 import { clock } from "../core/clock";
 import { holder } from "../core/lock";
 import { log } from "../core/log";
-import { mayMigrate, OWNER_DATA_DIR, runsFromRepo } from "../core/paths";
+import { isHis, LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { locked } from "../memory/memory-lock";
 import { observationId } from "../memory/observe";
 import { lineHash } from "../memory/page-format";
@@ -38,11 +38,14 @@ const STAGED = "memory.renamed";
 const OLD_MEMORY = "memory.old";
 /** A memory/ made between the two renames of the swap (by a writer that never waited): settled like the old copy. */
 const STRAY = "memory.stray";
-const PATHS = [
-  "memory",
-  "docs/evals/cases",
-  "docs/evals/agent-bench-cases.json",
-];
+const PATHS = ["memory", "docs/evals"];
+/** An old copy on its way out, once everything in it was carried over: removed at the next start if a crash left it. */
+const GONE = "memory.gone";
+
+/** Does this code run from a repo (a checkout or a worktree) rather than from Life.app's resources? */
+const runsFromRepo = () => existsSync(join(LIFE_CODE_DIR, ".git"));
+/** Only the running app migrates his own data: a checkout or worktree may migrate a copy, never his live data. */
+const mayMigrate = (data: string) => !(runsFromRepo() && isHis(data));
 
 const TYPES: Record<string, string> = { decision: "choice" };
 const OBS = /\bobs_[0-9a-f]{12}\b/g;
@@ -265,6 +268,7 @@ function renameIn(dir: string) {
     }
     renameSync(at(STAGED), at("memory"));
   }
+  rmSync(at(GONE), { force: true, recursive: true });
   if (existsSync(at(OLD_MEMORY)) || existsSync(at(STRAY))) {
     return settle(dir);
   }
@@ -328,9 +332,16 @@ function settle(dir: string) {
       writeWhole(at(p), next);
     }
   }
-  for (const source of [OLD_MEMORY, STRAY].filter((d) => existsSync(at(d)))) {
+  // Every copy carried over while the old one still holds the names; only then each goes, the stray first and the old
+  // copy last (it holds the names), each by one rename first, so a crash never leaves half a copy to settle from.
+  const sources = [OLD_MEMORY, STRAY].filter((d) => existsSync(at(d)));
+  for (const source of sources) {
     carryOver(dir, source, sourceOf(source), rename);
-    rmSync(at(source), { force: true, recursive: true });
+  }
+  for (const source of sources.toReversed()) {
+    rmSync(at(GONE), { force: true, recursive: true });
+    renameSync(at(source), at(GONE));
+    rmSync(at(GONE), { force: true, recursive: true });
   }
   if (dir === OWNER_DATA_DIR && existsSync(at(".git"))) {
     commitMemory(PATHS, "Memory: the observation type decision is choice");

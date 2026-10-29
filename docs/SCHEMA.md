@@ -414,7 +414,8 @@ the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledg
 `waiting-eric`, and the agent's word was `atlas`. `observation-choice-2026-10-29` (`apps/server/src/host/migrate.ts`): the
 observation type `decision` is `choice` (his OK, 29 Oct 2026: "decision" is his loops' questions now), each such
 observation's id minted again and every citation of it rewritten. The data repo's commits
-"Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides. The renamed memory is built
+"Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides of the first, "Memory:
+before the observation type's rename" and "Memory: the observation type decision is choice" of the second. The renamed memory is built
 beside it (`memory.renamed/`) and swapped in; `memory.old/` (and `memory.stray/`) exist only until it is settled.
 
 ## The search index (not in memory/)

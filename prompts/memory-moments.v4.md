@@ -107,7 +107,7 @@ small-talk. Also 1 at most:
   something of the owner that is still open or he commits to something. Family, a partner and close friends weigh more;
 - something already done or settled.
 
-Give 2 or 3 only when the unit carries one of: something the owner must do or promised, something he waits for, a decision,
+Give 2 or 3 only when the unit carries one of: something the owner must do or promised, something he waits for, a choice,
 money that moved or is owed, health, legal or official matters, a booking, ticket or reservation (a repeat
 confirmation too: it holds the dates), news about a person or project he cares about, or the owner himself saying what he
 believes, values, aims for or how he wants to live. Two or more people weighing
