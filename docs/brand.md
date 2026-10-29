@@ -27,8 +27,9 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   beside a word, never as text: green `#15803D` only for done (a check), red `#B42318` only for a problem (a dot).
   The other status tokens mark only the parked Mac app's dots.
 - **Dark.** Derived, the calm inverse: ground `#1F1F1F`, ink `#F2F2F2`, text `#C9C9C9`, muted `#A3A3A3`, surface
-  `#2A2A2A`, rule `#3A3A3A`; green `#4ADE80` and red `#F97066`, lightened to read on the dark ground. Pages follow the
-  system; the email stays light.
+  `#2A2A2A`, rule `#3A3A3A`; green `#4ADE80` and red `#F97066`, lightened to read on the dark ground. Each colour's pair
+  is one `light-dark()` in tokens.css. Pages follow the system unless one sets `data-theme` (the decisions page's
+  Theme switch, kept in his browser); the email stays light.
 - **Type.** Literata (500, 600) for titles and the questions he answers; Atkinson Hyperlegible Next (400, 500, 700),
   drawn so no two letters are mistaken, for everything he reads and taps; Atkinson Hyperlegible Mono for times, money
   and ids. Mail loads no web font: titles show in Georgia, text in the system sans.

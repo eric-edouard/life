@@ -7,20 +7,17 @@ import { C, MONO, RADIUS, SANS, SERIF } from "@life/server/src/memory/email";
 // Life's brand has one source, assets/brand/tokens.css; the email and the app, which can't read it, copy its values.
 // This fails when a copy drifts from it.
 const asset = (path: string) => Bun.file(join(LIFE_CODE_DIR, path)).text();
-const colours = (block: string) =>
-  Object.fromEntries(
-    [...block.matchAll(/--([a-z]+):\s*(#[0-9a-f]{6})/g)].map((m) => [
-      m[1],
-      m[2],
-    ])
-  );
-
 const tokens = await asset("assets/brand/tokens.css");
-const [lightCss = "", darkCss = ""] = tokens.split(
-  "@media (prefers-color-scheme: dark)"
+// Each colour is `#light` or `light-dark(#light, #dark)`.
+const tokenColours = [
+  ...tokens.matchAll(
+    /--([a-z]+):\s*(?:light-dark\()?(#[0-9a-f]{6})(?:,\s*(#[0-9a-f]{6}))?/g
+  ),
+];
+const light = Object.fromEntries(tokenColours.map((m) => [m[1], m[2]]));
+const dark = Object.fromEntries(
+  tokenColours.filter((m) => m[3]).map((m) => [m[1], m[3]])
 );
-const light = colours(lightCss);
-const dark = colours(darkCss);
 const hex = (n: string) => `#${n.slice(2)}`;
 const HEX_COLOUR = /#[0-9a-f]{6}\b|0x[0-9a-f]{6}\b/i;
 const L_OUTLINE = /d="(M14 0[^"]+)"/;

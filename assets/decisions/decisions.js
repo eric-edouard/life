@@ -94,6 +94,32 @@ const setHash = (id) =>
   globalThis.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
 let showHistory = false;
 
+// His theme: the system's (auto) unless he picked light or dark, kept in this browser only.
+const THEMES = [
+  ["auto", "Auto", "Auto"],
+  ["light", "Clair", "Light"],
+  ["dark", "Sombre", "Dark"],
+];
+function readTheme() {
+  try {
+    return localStorage.getItem("theme") ?? "auto";
+  } catch {
+    return "auto";
+  }
+}
+function setTheme(theme) {
+  try {
+    localStorage.setItem("theme", theme);
+  } catch {
+    // Private browsing: the pick lasts this visit.
+  }
+  if (theme === "auto") {
+    delete document.documentElement.dataset.theme;
+  } else {
+    document.documentElement.dataset.theme = theme;
+  }
+}
+
 function flash(msg) {
   const f = document.getElementById("flash");
   f.textContent = msg;
@@ -398,7 +424,27 @@ function renderList() {
               : T(first, "Historique", "History")
           )
         )
-      : null
+      : null,
+    $(
+      "p",
+      { class: "theme" },
+      T(first, "Thème", "Theme"),
+      THEMES.map(([id, fr, en]) =>
+        $(
+          "button",
+          {
+            "aria-pressed": String(readTheme() === id),
+            class: "link",
+            onclick: () => {
+              setTheme(id);
+              renderList();
+            },
+            type: "button",
+          },
+          T(first, fr, en)
+        )
+      )
+    )
   );
   const bar = document.getElementById("bar");
   bar.replaceChildren(
@@ -474,6 +520,7 @@ async function load() {
 }
 
 if (globalThis.document) {
+  setTheme(readTheme());
   const bar = document.getElementById("bar");
   const sheet = (open) => {
     document.body.classList.toggle("sheet", open);
