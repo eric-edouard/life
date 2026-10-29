@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { MIN, unfrozen } from "../core/clock";
+import { clock, MIN, unfrozen } from "../core/clock";
 import { digest } from "../core/hash";
 import { log, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
@@ -231,7 +231,10 @@ export function failureReport(
   return compose(`${date} · failed at ${step}`, {
     date,
     failure: { error, step },
-    notes: ["Nothing was committed.", `Details: derived/log/${day}.jsonl`],
+    notes: [
+      "Nothing was committed.",
+      `Details: derived/log/${clock().toISOString().slice(0, 10)}.jsonl`,
+    ],
     preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`,
     stats: [
       { label: "stopped at", value: step },

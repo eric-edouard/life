@@ -21,7 +21,7 @@ import {
   afterWeek,
   backfillWeek,
   backupDue,
-  MAX_ATTEMPTS,
+  isOutOfTries,
   middayDue,
   quotaLine,
   readBackfill,
@@ -153,7 +153,7 @@ export async function archiveLine(since: string) {
  * Repo map, moments (who the unknown people are too), extract, pages, index, then one commit "Memory: <date>" and one report email. A failed
  * step stops the run with nothing committed; the next run resumes (every step caches). launchd starts it every 30
  * minutes; unless `force`, a start does nothing before 02:00, once the day is ok, or after 3 failures (schedule.ts), and
- * only the 3rd failure of a day sends the failure email. What a tick runs is `turnOf`'s: the night, else the midday
+ * only the 3rd failure of a day sends the failure email (a midday's or a backfill's last one too: `sweep`). What a tick runs is `turnOf`'s: the night, else the midday
  * pass (moments, extract, pages) when its slot is open, else a backfill week; neither over the Codex quota's reserve
  * (`reserved`), read each tick. Then the daily backup, when it is due
  * (`backupDue`: the night is done, on this tick or before).
@@ -230,9 +230,9 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
 
 /**
  * A midday run (about 13:00 and 19:00, same 30-minute tick): moments and extract of today, so the day's speech is read
- * while it is fresh, then the index, then the pages that have new observations. No commit, no email: the nightly
+ * while it is fresh, then the index, then the pages that have new observations. No commit or report: the nightly
  * commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
- * never the lock. A failure is only logged, and the slot is spent.
+ * never the lock. A failure spends the slot, so it is its last try and emails him.
  */
 export async function midday(now = clock(), force = false) {
   if (!(force || middayDue(now, readMidday()))) {
@@ -263,7 +263,7 @@ async function backfilled(day: string) {
       return 0;
     }
     const done = await sweep("memory.backfill", week, {
-      isLast: b.failures + 1 >= MAX_ATTEMPTS,
+      isLast: isOutOfTries(b.failures + 1),
     });
     recordBackfill(afterWeek(b, week, done === 0, day));
     return done;
@@ -462,7 +462,7 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
   }
   const { attempts } = recordState(day, !failure);
   await rec.end({ attempts, listed, ...(failure ?? { outcome: "ok" }) });
-  if (!failure || force || attempts >= MAX_ATTEMPTS) {
+  if (!failure || force || isOutOfTries(attempts)) {
     const id = await sendReport(reportKey(rec.run), mail);
     console.log(id ? `report delivered: ${id}` : "report not delivered");
   }

@@ -6,6 +6,7 @@ import {
   backfillWeek,
   backupDue,
   decide,
+  isOutOfTries,
   middayDue,
   type NightState,
   nextMidday,
@@ -123,6 +124,10 @@ test("a backfill reads a week at a time up to its last day, four a day; three fa
     next: "2025-07-01",
   });
   expect(backfillWeek({ ...b, failures: 3 }, today, night)).toBeNull();
+  // The week read after two failures is the last try (its failure emails him: `sweep`); one before it is not.
+  expect(backfillWeek({ ...b, failures: 2 }, today, night)).not.toBeNull();
+  expect(isOutOfTries(2 + 1)).toBe(true);
+  expect(isOutOfTries(1 + 1)).toBe(false);
   // Four weeks a day, then the next day.
   const full = { ...after, weeks: 4 };
   expect(backfillWeek(full, today, night)).toBeNull();
