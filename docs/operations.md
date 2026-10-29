@@ -81,7 +81,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
 - **The night:** once a day after 02:00, up to 3 tries (`LIFE_STATE_DIR/memory/nightly.json`); `--force` for a hand run. It maps
   the repos, then moments, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
 - **Midday:** the first tick after 13:00 and after 19:00 (`bun life memory midday`): today's moments, extract of its
-  closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs.
+  closed lifelog conversations, the index, the pages with new observations. No commit or email; a failure only logs (the next slot and the night read the day again).
   The nightly commits and its report counts what the midday runs found.
 - **Backup:** once the night is done, or from 06:00 (`backupDue`, its tries in `LIFE_STATE_DIR/memory/backup.json`).
 - Everything looks back 7 days.
@@ -89,7 +89,7 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   `LIFE_STATE_DIR/memory/backfill.json`. A tick with no midday due, once the day's night went through, reads the next week,
   oldest first, as a midday-like sweep (`backfilled`, `nightly.ts`), at the daily rate `backfillWeek` caps (its pace for
   the owner: [Older months](use/settings.md#older-months)), so it never takes the night's turn nor the whole
-  subscription. Three failures of a week stop it. Record the owner's zones
+  subscription. Three failures of a week stop it, and the third emails him. Record the owner's zones
   for the range first (`memory/zones.jsonl`): a past zone may be added only before the first day memory has units of,
   and a backfill moves that day back. Pages follow at the next night. Only the last 7 days' messages get their files
   described; older ones stay tags.
@@ -98,8 +98,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   night always runs. The quota is read from `codex app-server` (no model call) each tick and at the start and end of
   each sweep, eval and bench (`metered`, `run.ts`), logged as `quota.read`, and shown in the report. What a run spent
   is derived when read: `useOf` in `run-log.ts`.
-- **Failures:** a failed model call or a source that throws fails the whole night: non-zero exit, nothing committed, a
-  failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
+- **Failures:** a failed model call (one waits up to an hour, `MODEL_TIMEOUT_MS`) or a source that throws fails the
+  whole night: non-zero exit, nothing committed, a failure email after the 3rd try. A source not turned on, or one that can't be read now (`missing`), is skipped and
   logged, never a failure (`readySources`); one turned on keeps its units in the days rewritten and those days' moments
   wait for it, shown as "can't read". The report's Actions section and the files step (`describeFiles`: a failed call
   leaves its files as tags until the next run) never fail the night.

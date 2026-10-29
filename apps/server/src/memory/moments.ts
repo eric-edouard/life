@@ -123,7 +123,8 @@ const Judged = z.object({
   kind: RecordingKind.nullish().transform((k) => k ?? undefined),
   reason: z.string().min(1).max(300),
   topics: z.array(z.string()).nullish(),
-  type: MemoryType,
+  // A label only (importance decides what is read): a type the model made up, like a recording kind, reads as nothing.
+  type: MemoryType.catch("nothing"),
   when: z.iso.date().nullable().default(null),
 });
 const Said = Moment.pick({

@@ -268,7 +268,7 @@ test("the HTML email escapes everything that comes from data", () => {
 
 test("the failure email names the step, plainly, and shows the error", () => {
   const { subject, text, html } = failureReport(
-    "2026-10-15",
+    "2026-10-15T10:00:00.000Z",
     1000,
     "extract",
     "2 <failed>"
