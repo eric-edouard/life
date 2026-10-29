@@ -244,7 +244,7 @@ export async function readStanding(
  * When the owner last said each unit was read wrong: a `reread` of it, or a `wrong` on a moment of `moments` it stands
  * on (its day is read again, with his note, `earlierFor`). Moments and extraction read it again if they read it before.
  */
-export const rereadAt = (corrections: Correction[], moments: Moment[] = []) => {
+export const rereadAt = (corrections: Correction[], moments: Moment[]) => {
   const unitsOf = Map.groupBy(moments, (m) => m.id);
   return new Map(
     [

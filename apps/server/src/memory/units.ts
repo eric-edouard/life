@@ -10,6 +10,7 @@ import { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import { repoMap } from "../sources/git";
 import {
+  authorOf,
   type LifelogConversation,
   liveConversations,
   readConversations,
@@ -284,7 +285,7 @@ export function lifelogUnits(
                 [
                   ...turns.map(
                     (t, i) =>
-                      `${refs[i]} ${t.owner ? OWNER : (t.personId ?? t.name ?? "")}`
+                      `${refs[i]} ${t.owner ? OWNER : (authorOf(t) ?? "")}`
                   ),
                   ...marked,
                 ].join("\n")

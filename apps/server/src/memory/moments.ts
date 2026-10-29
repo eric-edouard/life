@@ -239,6 +239,8 @@ export function parseDay(
     areas: Map<string, string>;
     day: string;
     earlier: Set<string>;
+    /** The ids of this day's moments he hid (`earlierFor`). */
+    hidden: Set<string>;
     madeBy: MadeBy;
     /** The person refs the model was given. */
     people: Set<string>;
@@ -261,7 +263,12 @@ export function parseDay(
       return p ? [{ ref: p, role }] : [];
     });
     const key = [ctx.day, m.start ?? "", ...units.toSorted()];
-    let id = ctx.earlier.has(m.id) ? m.id : momentId(key);
+    const isReused = ctx.earlier.has(m.id);
+    let id = isReused ? m.id : momentId(key);
+    // A moment read again after he hid it stands on the same units: it must not take the hidden one's id.
+    if (!isReused && ctx.hidden.has(id)) {
+      id = momentId([...key, m.title, "again"]);
+    }
     if (found.has(id)) {
       id = momentId([...key, m.title]);
     }
@@ -463,6 +470,7 @@ export async function moments(evidence: Evidence) {
         areas,
         day,
         earlier: new Set(earlier.map((m) => m.id)),
+        hidden: new Set(earlier.flatMap((m) => (m.hidden ? [m.id] : []))),
         madeBy,
         people: new Set(context.people.map((p) => p.ref)),
         resolve,

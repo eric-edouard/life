@@ -49,7 +49,8 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
   const ctx = {
     areas: areaLookup([{ id: "shop", name: "Shop" }]),
     day: "2026-10-15",
-    earlier: new Set(["mom_00000000000e"]),
+    earlier: new Set(["mom_00000000000e", "mom_00000000000f"]),
+    hidden: new Set(["mom_00000000000f"]),
     madeBy,
     people: new Set(["person:bastien"]),
     resolve: (s: string) => (s === "Bast" ? "person:bastien" : null),
@@ -132,6 +133,19 @@ test("a day's reply is checked: verdicts and moments for its own units only, peo
       .moments[0]?.id
   ).toBe(first?.id);
   expect(() => parseDay({ moments: 3 }, ctx)).toThrow();
+  // A moment read again after he hid it stands on the same day, start and units: it never takes the hidden one's id,
+  // unless the model reuses that id on purpose (a not-important one stays hidden).
+  const readAgain = { ...said, id: "new", units: [U1] };
+  const minted = parseDay({ moments: [readAgain] }, ctx).moments[0]
+    ?.id as string;
+  const hidden = { ...ctx, hidden: new Set([minted]) };
+  expect(parseDay({ moments: [readAgain] }, hidden).moments[0]?.id).not.toBe(
+    minted
+  );
+  expect(
+    parseDay({ moments: [{ ...readAgain, id: "mom_00000000000f" }] }, ctx)
+      .moments[0]?.id
+  ).toBe("mom_00000000000f");
   // 29 Oct: the model put the recording kind in `type` for 198 of a day's 370 units; each is kept, read as nothing.
   const kindAsType = parseDay(
     {
