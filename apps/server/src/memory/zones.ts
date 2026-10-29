@@ -43,7 +43,7 @@ export function zoneAt(iso: string) {
 
 /**
  * The zone he is in now: the latest move noticed, even one whose `from` is still ahead. `cutAt` keeps the days of what
- * was recorded whole; the present (a daily ask, "in 3 days") follows him at once.
+ * was recorded whole; the present ("today", "in 3 days") follows him at once.
  */
 export const zoneNow = () => zones().at(-1)?.tz;
 

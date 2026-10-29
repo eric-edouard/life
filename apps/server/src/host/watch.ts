@@ -14,7 +14,7 @@ import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
 import { marks, push } from "../todo-list/board";
-import { chase, closings, dailyAsk, receipts } from "./agent";
+import { chase, closings, receipts } from "./agent";
 import { deliver, startAgent } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
@@ -48,7 +48,6 @@ async function pass(now: number) {
     at: new Date(now).toISOString(),
     kind: "tick",
   });
-  dailyAsk(now);
   await chase(tasksOf(), now);
   if (!isOn("todo_list")) {
     return;

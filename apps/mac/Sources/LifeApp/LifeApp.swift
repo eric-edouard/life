@@ -95,9 +95,6 @@ struct SettingsView: View {
   @State private var lifelogURL = ""
   @State private var lifelogToken = ""
   @State private var origin = ""
-  @State private var dailyOn = false
-  @State private var dailyTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now)!
-  @State private var dailyText = ""
   @State private var status = ""
   @State private var loginItem = SMAppService.mainApp.status == .enabled
 
@@ -185,12 +182,6 @@ struct SettingsView: View {
             Text("When it checks in (Claude)").tag("pull")
           }
         }
-        Section("Daily ask") {
-          Toggle("Send your agent this every day", isOn: $dailyOn)
-          DatePicker("At", selection: $dailyTime, displayedComponents: .hourAndMinute)
-          TextEditor(text: $dailyText).frame(minHeight: 80)
-          Text("What it should keep doing, in your words: it comes back to it each day, wherever you are.").caption()
-        }
         Section("Reaching Life") {
           Text(origin.isEmpty ? "Not on your tailnet yet" : "\(origin)/mcp").textSelection(.enabled)
           HStack {
@@ -234,14 +225,6 @@ struct SettingsView: View {
       })
   }
 
-  /// The daily ask's `time`, "HH:MM", whatever the Mac's locale.
-  private static let hourMinute: DateFormatter = {
-    let f = DateFormatter()
-    f.locale = Locale(identifier: "en_US_POSIX")
-    f.dateFormat = "HH:mm"
-    return f
-  }()
-
   private func load() async {
     guard started else { return }
     let out = await Helper.run(["settings"]).out
@@ -254,14 +237,6 @@ struct SettingsView: View {
     transport = agent?["transport"] as? String ?? "mcp-event"
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
-    let daily = settings["daily_ask"] as? [String: Any]
-    dailyOn = daily.map { $0["on"] as? Bool ?? true } ?? false
-    dailyText = daily?["text"] as? String ?? ""
-    if let t = daily?["time"] as? String, let d = Self.hourMinute.date(from: t) {
-      dailyTime = Calendar.current.date(
-        bySettingHour: Calendar.current.component(.hour, from: d),
-        minute: Calendar.current.component(.minute, from: d), second: 0, of: .now)!
-    }
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
     key = keyName.flatMap(Keychain.read) ?? ""
   }
@@ -290,11 +265,6 @@ struct SettingsView: View {
       parts["agent"] = agentSaved.merging(["name": agentName, "wake": [words], "transport": transport]) { _, new in new }
     }
     if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
-    // No text, no daily ask (null removes it); off keeps the text.
-    let text = dailyText.trimmingCharacters(in: .whitespacesAndNewlines)
-    parts["daily_ask"] = text.isEmpty
-      ? NSNull()
-      : ["on": dailyOn, "text": text, "time": Self.hourMinute.string(from: dailyTime)]
     await set(parts)
     await supervisor.restart()
   }
