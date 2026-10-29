@@ -24,7 +24,8 @@ export interface Newest {
  * table each copy is a row of, `media` the column of its `deleted` view that names a copied file.
  */
 export interface AppStore {
-  app: string;
+  /** The app that writes it, kept open; none for a bridge (its LaunchAgent keeps it running). */
+  app?: string;
   copies: string;
   copy: () => number;
   media: string;
@@ -59,6 +60,11 @@ export type Descriptor = {
     blocked: () => Promise<string | undefined>;
     deliver: (chat: string, text: string, txn: string) => Promise<void>;
   };
+  /**
+   * For a chat source with no archive copy (iMessage): the chats someone else wrote in after its cursor, and the new
+   * cursor (none at first: only the cursor). The archive's message event reads it each pass.
+   */
+  incoming?: (after: number | undefined) => { chats: string[]; last: number };
   /** Its newest item (the status snapshot's card); a voice source's is lifelog's to tell. */
   newest?: () => Newest | Promise<Newest>;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */

@@ -5,27 +5,35 @@ import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
 
 // The bridges' local Matrix homeserver (docs/use/bridges.md): a send goes from the owner's Matrix account into the
-// bridge's room for the chat, and the bridge passes it to the network as him. Nothing here reads messages.
+// bridge's room for the chat, and the bridge passes it to the network as him. Reading the bridges' messages is
+// `sources/bridged.ts`.
 
-/** Each bridge's folder: its config (the provisioning secret), its database (its rooms). */
-const BRIDGES = join(MACHINE_DIR, "bridges");
+/** Each bridge's folder: its config (the provisioning secret), its database (its rooms); and the homeserver's. */
+export const BRIDGES = join(MACHINE_DIR, "bridges");
+/** His account on the homeserver. */
+export const OWNER = "@owner:life.local";
+
+/** A bridge's own config (`config.yaml`), the one place its settings are read from: never copied. */
+export const configOf = (bridge: string) =>
+  Bun.YAML.parse(
+    readFileSync(join(BRIDGES, bridge, "config.yaml"), "utf8")
+  ) as {
+    appservice?: {
+      bot?: { username?: string };
+      port?: number;
+      username_template?: string;
+    };
+    provisioning?: { shared_secret?: string };
+  };
 const HOMESERVER = "http://127.0.0.1:8008/_matrix/client/v3";
 
 /** His account on the homeserver, written when the bridges were set up (docs/use/bridges.md). */
 const owner = () =>
-  JSON.parse(readFileSync(SECRETS.matrix, "utf8")) as {
-    token: string;
-    user: string;
-  };
+  JSON.parse(readFileSync(SECRETS.matrix, "utf8")) as { token: string };
 
 /** The bridge's own provisioning secret and address, read from its config: never copied. */
 function provisioning(bridge: string) {
-  const { appservice, provisioning: p } = Bun.YAML.parse(
-    readFileSync(join(BRIDGES, bridge, "config.yaml"), "utf8")
-  ) as {
-    appservice?: { port?: number };
-    provisioning?: { shared_secret?: string };
-  };
+  const { appservice, provisioning: p } = configOf(bridge);
   if (!(p?.shared_secret && appservice?.port)) {
     throw new Error(`${bridge}: no provisioning secret or port in its config`);
   }
@@ -74,7 +82,7 @@ function knownRoom(bridge: string, chat: string) {
 function provision(bridge: string, path: string, init: RequestInit = {}) {
   const { port, secret } = provisioning(bridge);
   return call(
-    `http://127.0.0.1:${port}/_matrix/provision/v3/${path}?user_id=${encodeURIComponent(owner().user)}`,
+    `http://127.0.0.1:${port}/_matrix/provision/v3/${path}?user_id=${encodeURIComponent(OWNER)}`,
     secret,
     init
   );
@@ -122,6 +130,10 @@ async function readBlock(bridge: string) {
 
 /** The bridge's room for a chat: the one it has, else a direct chat it opens with that person (idempotent). */
 async function roomOf(bridge: string, chat: string) {
+  // A bridged source's chat is its Matrix room already (`sources/bridged.ts`).
+  if (chat.startsWith("!")) {
+    return chat;
+  }
   const known = knownRoom(bridge, chat);
   if (known) {
     return known;

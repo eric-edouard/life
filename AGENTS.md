@@ -88,7 +88,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
-  read-only; only the apps of enabled sources are kept open (`keptStores`).
+  read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
+  before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
+  never made again (the copy counts its event numbers) (his OK of the
+  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026).
 - **Content never runs Life's code; it may wake his agents.** Recorded text never makes Life's own code act; model calls
   see no tools and no instruction files (`apps/server/src/models/llm.ts`). Life may start one of his agents because of
   what it recorded (an ask, a message from someone a loop waits on), and that agent reads it as data, under his grants
@@ -100,7 +103,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words or a request.
 - **Life decides when his loops run, life-loops decides what.** Life's only start of anything outside it is
   `startAgent` (`events.ts`): `agent.start` with an event appended (a new ask, a tick each minute, the chats a pass
-  of the archive heard someone in), his zone in it (what it says as it exits non-zero is mailed to him, each line once);
+  of the archive, or a source's `incoming` since its cursor, heard someone in), his zone in it (what it says as it exits non-zero is mailed to him, each line once);
   no loop's name or schedule lives in Life.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
   setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
@@ -185,6 +188,7 @@ Before adding a helper, use the one that exists:
 | Running another program | `apps/server/src/core/proc.ts` |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
+| A Matrix-shaped chat archive (Beeper's, a bridge's) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
 | Sending into a chat | `send` (`host/send.ts`), through the source's `send.deliver`; a bridge's from `bridgeSend` (`sources/matrix.ts`) |
 | Whether a source is healthy, whether it can send | its `missing()` then its `newest()` (the snapshot's source card); its `send.blocked()` (the Sends card), never a second check |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |

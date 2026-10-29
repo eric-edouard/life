@@ -7,11 +7,13 @@ import { HOUR, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { WINDOWS } from "../core/platform";
 import { ARCHIVED, keptStores } from "../memory/sources";
+import type { Descriptor } from "../sources/contract";
 import { toAppleS } from "../sources/imessage";
 import { copyWhatsapp } from "../sources/whatsapp";
 import {
   appsToOpen,
   archiveFailing,
+  heardIncoming,
   messagesIn,
   openIncidents,
   toStart,
@@ -147,4 +149,28 @@ test("a chat starts the agent once a minute at most", () => {
   expect(toStart(ana, starts, HOUR + 5000)).toEqual([]);
   expect(toStart([], starts, HOUR + MIN)).toEqual(ana);
   expect(toStart([], starts, HOUR + 2 * MIN)).toEqual([]);
+});
+
+test("a source with no archive tells of someone else's messages after its cursor, and keeps the cursor when it fails", () => {
+  const cursors = new Map<string, number>();
+  const imessage = {
+    incoming: (after: number | undefined) =>
+      after === undefined
+        ? { chats: [], last: 7 }
+        : { chats: ["+15550100"], last: 9 },
+    name: "imessage",
+  } as unknown as Descriptor;
+  expect(heardIncoming(cursors, new Set(), [imessage])).toEqual([]);
+  expect(heardIncoming(cursors, new Set(), [imessage])).toEqual([
+    { chat: "+15550100", source: "imessage" },
+  ]);
+  expect(cursors.get("imessage")).toBe(9);
+  const broken = {
+    incoming: () => {
+      throw new Error("chat.db locked");
+    },
+    name: "imessage",
+  } as unknown as Descriptor;
+  expect(heardIncoming(cursors, new Set(), [broken])).toEqual([]);
+  expect(cursors.get("imessage")).toBe(9);
 });

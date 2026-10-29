@@ -1,7 +1,8 @@
 # Send replies from Life
 
 Life can send the reply you chose on a decision card, as you, into the chat it answers. It sends only the text you
-tapped, once, and never if they wrote again after the card was made. WhatsApp goes through a bridge: a small program
+tapped, once, and never if they wrote again after the card was made. iMessage goes through `imsg` (installed, nothing
+to link; the first send may ask to let it control Messages). WhatsApp goes through a bridge: a small program
 linked to your WhatsApp as one more device, like WhatsApp Web.
 
 The bridge and its local Matrix server run on your Mac and talk to nothing else. Linking a bridge is against
@@ -40,13 +41,23 @@ Everything lives in `~/Library/Application Support/Life/bridges/`.
    .venv/bin/register_new_matrix_user -c homeserver.yaml -u owner -a http://127.0.0.1:8008
    ```
 
-   Log in once (`POST /_matrix/client/v3/login`) and save `{"user":"@owner:life.local","token":"<access token>"}`.
+   Log in once (`POST /_matrix/client/v3/login`) and save `{"token":"<access token>"}`.
 
 4. Link WhatsApp: start the bridge, then the provisioning API's QR login (`/_matrix/provision/v3/login/start/qr` on
    port 29318, with the bridge's `provisioning.shared_secret` and `?user_id=@owner:life.local`), and scan the code from
    WhatsApp → Settings → Linked devices → Link a device.
 
 5. Keep both running (a LaunchAgent each), and turn sends on: `bun life settings set '{"sends":true}'`.
+
+## LINE and Instagram
+
+The same way, each in its own folder: LINE's bridge (`beeper/line`, built with `go build -tags goolm ./cmd/matrix-line`,
+port 29322) and Instagram's (`mautrix/meta`, its `cmd/mautrix-instagram`, port 29330), each registered in Synapse's
+`app_service_config_files`, each a LaunchAgent. Link them through their provisioning API: LINE with your email and
+password (it logs out LINE's Chrome extension), Instagram with your username and password or instagram.com's cookies.
+
+Then turn on their sources (`line`, `instagram` in `sources`): Life copies their messages into its archive
+(`line.sqlite`, `instagram.sqlite`) every 5 s, and they send like WhatsApp.
 
 ## Check it
 

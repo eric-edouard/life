@@ -4,6 +4,7 @@ import { HOUR } from "../core/clock";
 import { handleKey } from "./contacts";
 import {
   fromAppleNs,
+  incomingImessage,
   readImessage,
   textFromAttributedBody,
   toAppleNs,
@@ -42,4 +43,20 @@ test("his Contacts name a 1:1 chat Messages knows only by its number (an empty n
   group.run("update chat set chat_identifier = 'chat611111111'");
   group.close();
   expect(readImessage(since, db, names)[0]?.chatName).toBeUndefined();
+});
+
+test("incoming tells of someone else's messages by row, after a first call that only takes the cursor", () => {
+  const path = imessageFixture();
+  expect(incomingImessage(undefined, path)).toEqual({ chats: [], last: 1 });
+  const db = new Database(path);
+  // Stored late, with an old date: still heard, since rows are counted, not dates.
+  db.run("insert into message values (2, 'g2', 0, 0, 'late', null, 1, 0)");
+  db.run("insert into message values (3, 'g3', 0, 1, 'mine', null, 1, 0)");
+  db.run("insert into chat_message_join values (1, 2), (1, 3)");
+  db.close();
+  expect(incomingImessage(1, path)).toEqual({
+    chats: ["+33611111111"],
+    last: 3,
+  });
+  expect(incomingImessage(3, path)).toEqual({ chats: [], last: 3 });
 });
