@@ -241,9 +241,10 @@ export async function midday(now = clock(), force = false) {
   // Pages follow the day: only a page with new observations is rewritten (a quiet one keeps its file).
   const code = await locked(() => {
     recordMidday();
-    return sweep("memory.midday", lastDays(now, 1), () =>
-      pages({ rebuild: false })
-    );
+    return sweep("memory.midday", lastDays(now, 1), {
+      isLast: true,
+      pages: () => pages({ rebuild: false }),
+    });
   });
   return code ?? Number(force);
 }
@@ -261,7 +262,9 @@ async function backfilled(day: string) {
     if (!(b && week)) {
       return 0;
     }
-    const done = await sweep("memory.backfill", week);
+    const done = await sweep("memory.backfill", week, {
+      isLast: b.failures + 1 >= MAX_ATTEMPTS,
+    });
     recordBackfill(afterWeek(b, week, done === 0, day));
     return done;
   });
@@ -269,14 +272,14 @@ async function backfilled(day: string) {
 }
 
 /**
- * One sweep without commit or email: the evidence of `window`, read once for moments and extract, then `then` (the
- * midday's pages), then the index; recorded as `name`, every step's failure caught and logged. The caller holds the
- * lock.
+ * One sweep without commit: the evidence of `window`, read once for moments and extract, then `pages` (the midday's
+ * pages), then the index; recorded as `name`, every step's failure caught and logged, and emailed when `isLast` (no try
+ * comes after it), as a night's last failure is. The caller holds the lock.
  */
 async function sweep(
   name: string,
   window: Window,
-  then?: () => Promise<{ failed: number }>
+  o: { isLast: boolean; pages?: () => Promise<{ failed: number }> }
 ) {
   const rec = await metered(name, { ...window });
   const phase = phases(rec);
@@ -287,15 +290,27 @@ async function sweep(
     console.log(JSON.stringify(found));
     const extracted = await phase.step("extract", () => extract(evidence));
     console.log(JSON.stringify(extracted));
-    if (then) {
-      await phase.step("pages", then);
+    if (o.pages) {
+      await phase.step("pages", o.pages);
     }
     phase.at = "index";
     await reindex();
     await rec.end({ outcome: "ok" });
     return 0;
   } catch (e) {
-    await rec.end(phase.failed(e));
+    const failure = phase.failed(e);
+    await rec.end(failure);
+    if (o.isLast) {
+      await sendReport(
+        reportKey(rec.run),
+        failureReport(
+          localDate(clock().toISOString()),
+          rec.ms(),
+          `${name} ${failure.failedAt}`,
+          failure.error
+        )
+      );
+    }
     return 1;
   }
 }

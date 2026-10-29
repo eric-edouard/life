@@ -220,7 +220,7 @@ export function successReport(day: string, ms: number, n: Night) {
   };
 }
 
-/** The email of a night that stopped at `step`. */
+/** The email of a run (a night, a midday, a backfill) that stopped at `step` and will not try again. */
 export function failureReport(
   day: string,
   ms: number,
@@ -231,10 +231,7 @@ export function failureReport(
   return compose(`${date} · failed at ${step}`, {
     date,
     failure: { error, step },
-    notes: [
-      "Nothing was committed; the next run resumes where this one stopped.",
-      `Details: derived/log/${day}.jsonl`,
-    ],
+    notes: ["Nothing was committed.", `Details: derived/log/${day}.jsonl`],
     preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`,
     stats: [
       { label: "stopped at", value: step },
