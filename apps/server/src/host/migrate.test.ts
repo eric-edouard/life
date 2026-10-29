@@ -204,11 +204,11 @@ test("a network's reader hides what its bridge backfilled from before its cutove
   const archive = mkdtempSync(join(tmpdir(), "archive-"));
   const db = openBridged("line", archive);
   db.run("insert into cutover values ('2026-10-29T17:00:00.000Z')");
-  const row = (id: number, at: string, seenAt: string, text: string) =>
+  const row = (id: number, at: string, seenAt: string, words: string) =>
     db.run(
       `insert into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
        values (?, ?, '!r', 'Ana', 'u1', 'Ana', 0, ?, 'm.text', ?, 0, ?)`,
-      [id, `$e${id}`, at, text, seenAt]
+      [id, `$e${id}`, at, words, seenAt]
     );
   row(1, "2026-10-20T08:00:00.000Z", "2026-10-20T08:00:05.000Z", "imported");
   row(2, "2026-10-20T08:00:00.000Z", "2026-10-29T17:01:00.000Z", "backfilled");
