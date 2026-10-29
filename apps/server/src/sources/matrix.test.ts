@@ -1,7 +1,14 @@
 import { expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BRIDGES, blockOf, bridgeSend, linkBridge } from "./matrix";
+import {
+  BRIDGES,
+  blockOf,
+  bridgeSend,
+  cookieValues,
+  linkBridge,
+  pastedValues,
+} from "./matrix";
 
 test("a bridge that isn't set up or running is a reason the send is blocked, never a throw", async () => {
   expect(await bridgeSend("nowhere").blocked()).toContain(
@@ -72,6 +79,8 @@ test("a login goes step by step: his answers to each field, a code shown, until 
   const shown: string[] = [];
   try {
     const id = await linkBridge("testnet", "password", {
+      cookies: () =>
+        Promise.resolve({ cookies: new Map(), headers: new Map() }),
       show: (s) => shown.push(s.display_and_wait?.data ?? s.type),
       value: (f) => (f.hidden ? `secret-${f.id}` : `given-${f.id}`),
     });
@@ -89,4 +98,35 @@ test("a login goes step by step: his answers to each field, a code shown, until 
     password: "secret-password",
   });
   expect(shown).toEqual(["user_input", "123-456"]);
+});
+
+test("one pasted request fills every cookie: from its Cookie header, -b, or a header source; JSON works too", () => {
+  const fields = [
+    {
+      id: "li_at",
+      required: true,
+      sources: [{ name: "li_at", type: "cookie" }],
+    },
+    {
+      id: "JSESSIONID",
+      required: true,
+      sources: [{ name: "JSESSIONID", type: "cookie" }],
+    },
+    { id: "csrf", sources: [{ name: "csrf-token", type: "request_header" }] },
+    { id: "shbid" },
+  ];
+  const curl = `curl 'https://www.linkedin.com/feed/' -H 'Cookie: li_at=AQE=x; JSESSIONID="ajax:1"' -H 'csrf-token: ajax:1'`;
+  expect(Object.fromEntries(cookieValues(fields, pastedValues(curl)))).toEqual({
+    csrf: "ajax:1",
+    JSESSIONID: '"ajax:1"',
+    li_at: "AQE=x",
+  });
+  expect(
+    Object.fromEntries(
+      cookieValues(fields, pastedValues(`curl x -b 'li_at=a; JSESSIONID=b'`))
+    )
+  ).toEqual({ JSESSIONID: "b", li_at: "a" });
+  expect(
+    Object.fromEntries(cookieValues(fields, pastedValues('{"li_at":"a"}')))
+  ).toEqual({ li_at: "a" });
 });

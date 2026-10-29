@@ -25,9 +25,11 @@ import {
   linkBridge,
   loginFlows,
   OWNER,
+  pastedValues,
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
+import { cookiesFromChrome, hasChrome } from "./browser-cookies";
 
 // `bun life bridge list|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
 // bridge. A network is added when its folder holds its config (`MACHINE_DIR/bridges/<network>`). The homeserver and each
@@ -360,11 +362,26 @@ function show(step: LoginStep) {
   } else if (shown?.data) {
     console.log(shown.data);
   }
-  if (step.cookies?.url) {
+}
+
+/**
+ * A site's cookies for a bridge: a Chrome window he signs in to (read by `cookiesFromChrome`), else one request he
+ * pastes ("Copy as cURL" from the browser's developer tools).
+ */
+async function signIn(url: string, needed: string[]) {
+  if (hasChrome()) {
     console.log(
-      `From ${step.cookies.url} (signed in), paste each cookie's value:`
+      `Sign in to ${url} in the Chrome window that opens; it closes by itself once you're in.`
     );
+    return {
+      cookies: await cookiesFromChrome(url, needed),
+      headers: new Map<string, string>(),
+    };
   }
+  console.log(
+    `Signed in at ${url}: open the browser's developer tools → Network, reload, right-click a request to it → Copy as cURL, and paste it here.`
+  );
+  return pastedValues(ask("Request (cURL)", true));
 }
 
 /** Links a network: its first way to log in unless `flow` names another; then its source on when Life reads it. */
@@ -378,6 +395,7 @@ async function link(n: Network, flow?: string) {
     `Linking ${n.label}: ${chosen.description} (others: ${flows.map((f) => f.id).join(", ")})`
   );
   await linkBridge(n.name, chosen.id, {
+    cookies: signIn,
     show,
     value: (f) => ask(f.name, f.hidden),
   });
