@@ -363,7 +363,16 @@ export function startAgent(
  * cap; or the starter itself broke): one mail with the lines not mailed before (`sendReport` keeps the keys), none when
  * every line was. Its words are its own report about itself, never recorded content.
  */
-async function agentSaid(said: string) {
+let saying = Promise.resolve();
+// One at a time, so two starters exiting together can't both find a line unsent and mail it twice.
+function agentSaid(said: string) {
+  saying = saying
+    .then(() => mailNew(said))
+    .catch((e) =>
+      log("run.error", { error: (e as Error).message, step: "events.start" })
+    );
+}
+async function mailNew(said: string) {
   const lines = [...new Set(said.split("\n").map((l) => l.trim()))].filter(
     Boolean
   );

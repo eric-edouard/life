@@ -61,10 +61,9 @@ export function start(
       if (code !== 0) {
         // The end of what it said, from a line's start (a cut line would read as a new one each time).
         const text = (await said).trim();
+        const cut = text.indexOf("\n", text.length - 2000);
         const end =
-          text.length > 2000
-            ? text.slice(text.indexOf("\n", text.length - 2000) + 1)
-            : text;
+          text.length > 2000 ? text.slice(cut < 0 ? -2000 : cut + 1) : text;
         onFail(end || `exited ${code}`);
       }
     });
