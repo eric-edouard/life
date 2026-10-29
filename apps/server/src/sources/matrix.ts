@@ -29,7 +29,9 @@ export const configOf = (bridge: string) =>
     };
     provisioning?: { shared_secret?: string };
   };
-const HOMESERVER = "http://127.0.0.1:8008/_matrix/client/v3";
+/** The homeserver's address on this Mac, and its client API. */
+export const HOMESERVER_URL = "http://127.0.0.1:8008";
+const HOMESERVER = `${HOMESERVER_URL}/_matrix/client/v3`;
 
 /** His account on the homeserver, written when the bridges were set up (docs/use/bridges.md). */
 const owner = () =>
@@ -106,7 +108,7 @@ export function blockOf(
   logins: { state?: { message?: string; state_event?: string } }[]
 ) {
   if (logins.length === 0) {
-    return `${bridge} bridge not linked: link it once (docs/use/bridges.md)`;
+    return `${bridge} bridge not linked: bun life bridge link ${bridge}`;
   }
   const down = logins.find(
     (l) => !PASSING.includes(l.state?.state_event ?? "")
