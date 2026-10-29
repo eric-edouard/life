@@ -53,6 +53,7 @@ class Transcribe(unittest.TestCase):
     def test_two_voices_are_two_speakers_in_their_languages_with_their_words(self):
         heard = app.transcribe(models, app.read_audio(TWO_VOICES))
         self.assertEqual([(t["speaker"], t["language"]) for t in heard["turns"]], [("0", "en"), ("1", "fr")])
+        self.assertEqual([max(t["scores"], key=t["scores"].get) for t in heard["turns"]], ["en", "fr"])
         switch = heard["turns"][1]["start"]
         english = " ".join(w["text"] for w in heard["words"] if w["start"] < switch).lower()
         french = " ".join(w["text"] for w in heard["words"] if w["start"] >= switch).lower()

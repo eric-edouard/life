@@ -7,8 +7,8 @@ plus an always-on archive of deleted messages and old note versions. Shipped as 
 lifelog (the pendant pipeline: the iPhone app, its server, the Mac helper and Lifelog Host) lives in `apps/lifelog`,
 folded in from its own repo on 24 Oct 2026, with its own `AGENTS.md`. It still runs as its own service on the Mac, and
 Life reads it only through its REST contract (`apps/lifelog/apps/server/openapi.json`), never its code or its database;
-lifelog may use Life's `core/`. Only instants cross that contract: a local day is Life's to bound (`zoneAt`), since
-lifelog knows only where the phone is now. One gate, `bun run check` at the root, covers both.
+lifelog may use Life's `core/`. Only instants cross that contract: a local day is Life's to bound (`zoneAt`); lifelog
+reads where the phone was only to route speech (`ownerZoneAt`, its heartbeats of 90 days). One gate, `bun run check` at the root, covers both.
 
 Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),

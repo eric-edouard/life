@@ -7,6 +7,7 @@ import {
   appBinaryUUIDs,
   DiagnosticUpload,
   latestHeartbeat,
+  ownerZoneAt,
   problemLines,
   serverErrorMessage,
   signatureOf,
@@ -140,6 +141,12 @@ test("the owner's zone is the newest heartbeat's that names a valid one", async 
     expect(await send("04:00", "Asia/Tokyo")).toBe(200);
     expect(await send("07:00")).toBe(200);
     expect(ownerTimeZone()).toBe("Europe/Berlin");
+    // Where he was at an instant: a block recorded then, routed later, uses that zone.
+    const at = (time: string) =>
+      ownerZoneAt(env.db, new Date(`2026-10-08T${time}:00.000Z`));
+    expect(at("04:30")).toBe("Asia/Tokyo");
+    expect(at("06:30")).toBe("Europe/Berlin");
+    expect(at("03:00")).toBe("Asia/Tokyo");
   } finally {
     setOwnerTimeZone(null);
   }

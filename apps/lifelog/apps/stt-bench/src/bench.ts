@@ -5,24 +5,14 @@
 //   bun run bench clips           each drawn job's audio window (.wav) and Scribe's words in it
 //   bun run bench run [model…]    the open models over every clip (out/<model>/), all by default
 //   bun run bench score           text, language and speakers of each model against Scribe (report.md)
-//   bun run bench route [diarizer] how well each detector finds the Thai on that diarizer's turns
-//                                 (routing/<diarizer>/routing.md; pyannote by default)
-//   bun run bench pipeline [thai] the proposed pipeline (Ultra, a Thai model on routed turns) as a model
+//   bun run bench context [fit]   the server's router on real blocks the speech service hears again
+//                                 (context/report.md); `fit` fits its weights (context.ts)
 import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Word } from "@lifelog/db/schema";
+import { context, fit } from "./context";
 import { jobRows, storedWords } from "./export";
-import {
-  compose,
-  heardIn,
-  type Judged,
-  routed,
-  routingErrors,
-  segments,
-  silent,
-  THAI_SHARE,
-} from "./routing";
 import {
   GROUPS,
   type Group,
@@ -31,15 +21,7 @@ import {
   sample,
   window,
 } from "./sample";
-import {
-  type Clip,
-  ONLY_EN,
-  ONLY_FR,
-  type Output,
-  pct,
-  tally,
-  turnsOf,
-} from "./score";
+import { type Clip, ONLY_EN, ONLY_FR, type Output, tally } from "./score";
 
 const DIR =
   process.env.STT_BENCH_DIR ?? join(homedir(), "Life/docs/lifelog/stt-bench");
@@ -345,218 +327,11 @@ async function score() {
   console.log(report);
 }
 
-// Routing: each clip cut into speaker turns (a diarizer's), each turn labelled by Scribe's Thai, then
-// judged by what Parakeet Ultra heard and by an audio language detector (local/lid.py). Each
-// diarizer's turns and guesses are kept apart, in routing/<diarizer>.
-const routingDir = (diarizer: string) => join(DIR, "routing", diarizer);
-// The diarizer `route` judges by default and the pipeline was scored on.
-const DIARIZER = "pyannote";
-// Every speaker turn of every clip, labelled by Scribe's Thai, with what Parakeet Ultra heard and
-// VoxLingua107's guess (on the audio, cached in the diarizer's routing folder).
-async function judge(diarizer: string) {
-  const { clipList, outputs } = await loadOutputs();
-  if (!outputs.some((o) => o.name === diarizer)) {
-    throw new Error(`no run of ${diarizer}: bench run ${diarizer} first`);
-  }
-  const ROUTING = routingDir(diarizer);
-  await mkdir(ROUTING, { recursive: true });
-  const outOf = (name: string, id: string) =>
-    outputs.find((o) => o.name === name)?.ran.find((r) => r.clip.id === id)
-      ?.out;
-  const tokensOf = (out: Output | undefined) =>
-    (out?.segments ?? []).flatMap(
-      (s) => (s.tokens ?? []) as { end: number; start: number; text: string }[]
-    );
-  const all: Judged[] = clipList.flatMap((clip) =>
-    segments(
-      turnsOf(outOf(diarizer, clip.id) ?? { wallSeconds: 0 }) ?? [],
-      clip.words
-    ).map((s) => ({
-      ...s,
-      clip: clip.id,
-      heard: heardIn(tokensOf(outOf("parakeet-ultra", clip.id)), s),
-    }))
-  );
-  await guessLanguages(ROUTING, all);
-  return { all, clipList, outputs, ROUTING, tokensOf };
-}
-
-// VoxLingua107's guess for each turn (local/lid.py), run once and cached in the routing folder.
-async function guessLanguages(ROUTING: string, all: Judged[]) {
-  const audioFile = join(ROUTING, "audio.json");
-  if (!(await Bun.file(audioFile).exists())) {
-    const input = join(ROUTING, "segments.json");
-    await Bun.write(
-      input,
-      JSON.stringify(all.map(({ clip, end, start }) => ({ clip, end, start })))
-    );
-    const local = join(HERE, "../local");
-    await run([
-      "uv",
-      "run",
-      "--project",
-      local,
-      "python",
-      join(local, "lid.py"),
-      CLIPS,
-      input,
-      audioFile,
-    ]);
-  }
-  // Matched by clip and start: after a changed diarization, delete audio.json to guess again.
-  const guess = new Map(
-    (await readJson<Judged[]>(audioFile)).map((a) => [
-      `${a.clip} ${a.start}`,
-      a.voxlingua,
-    ])
-  );
-  for (const s of all) {
-    const voxlingua = guess.get(`${s.clip} ${s.start}`);
-    if (!voxlingua) {
-      throw new Error(
-        `${audioFile} has no guess for a turn: delete it to guess again`
-      );
-    }
-    s.voxlingua = voxlingua;
-  }
-}
-
-async function route(diarizer = DIARIZER) {
-  const { all, ROUTING } = await judge(diarizer);
-  const thaiProb = (s: Judged) => s.voxlingua?.thai ?? 0;
-  // The rule before 24 Oct, measured beside the one routed now (VoxLingua107 hears Thai).
-  const neither = (s: Judged) =>
-    !["en", "fr"].includes(s.voxlingua?.lang ?? "en");
-  const rules: [string, (s: Judged) => boolean][] = [
-    ["VoxLingua107: Thai likelier than not", (s) => thaiProb(s) >= 0.5],
-    ["VoxLingua107: Thai (routed)", routed],
-    ["VoxLingua107: neither English nor French", neither],
-    ["Parakeet Ultra wrote nothing", silent],
-    [
-      "VoxLingua107 neither English nor French, or Ultra wrote nothing (before 24 Oct)",
-      (s) => neither(s) || silent(s),
-    ],
-  ];
-
-  const labelled = all.filter((s) => s.thai !== null);
-  const rows = rules.map(([name, flag]) => {
-    const e = routingErrors(
-      labelled.map((segment) => ({ flagged: flag(segment), segment }))
-    );
-    return [name, pct(e.missed, 1), pct(e.falseAlarms, 1)];
-  });
-  const thaiSegments = labelled.filter((s) => s.thai).length;
-  const report = [
-    "# Language routing: finding the Thai",
-    "",
-    `${labelled.length} speaker turns of a second or more, ${thaiSegments} of them Thai by Scribe's words (at least ${THAI_SHARE * 100}% in Thai script). Missed: seconds of Thai left with the English and French model. False alarms: seconds of English or French sent to the Thai one.`,
-    "",
-    table(["detector", "missed Thai", "false alarms"], rows),
-  ].join("\n");
-  await Bun.write(join(ROUTING, "routing.md"), `${report}\n`);
-  console.log(report);
-}
-
-// The proposed pipeline, scored like any model (out/pipeline). A block whose speech is 10% Thai or
-// more (route-turns.ts) goes whole to the Thai model, which needs the context (Qwen3: Thai 26% from
-// Scribe, against 40% turn by turn); any other block is Parakeet Ultra's words, except in the turns
-// the router sends away, where the Thai model run on those turns alone takes over (Qwen3: Thai with
-// English 29%). The Thai model is
-// Qwen3 unless named (`bench pipeline typhoon`: out/pipeline-typhoon); it gets every routed turn,
-// English and French ones sent by mistake included, whatever groups it is otherwise run on. Its
-// turns are DIARIZER's, as scored.
-async function pipeline(thai = "qwen3") {
-  const [script, id, options] = MODELS[thai] ?? [];
-  if (!(script && id)) {
-    throw new Error(`${thai} is not in MODELS`);
-  }
-  const { all, clipList, outputs, ROUTING, tokensOf } = await judge(DIARIZER);
-  const outOf = (model: string, clip: string) =>
-    outputs.find((o) => o.name === model)?.ran.find((r) => r.clip.id === clip)
-      ?.out;
-  // An mlx-audio model is run again on the routed turns alone; any other (Scribe, paid) gives timed
-  // words over the clips it ran on, of which the pipeline takes those inside the routed turns.
-  const heardOf =
-    script === "run.py"
-      ? await rerun(thai, id, options, all, ROUTING)
-      : async (clip: string) => outOf(thai, clip);
-  const name = thai === "qwen3" ? "pipeline" : `pipeline-${thai}`;
-  await mkdir(join(OUT, name), { recursive: true });
-  for (const clip of clipList) {
-    // biome-ignore lint/performance/noAwaitInLoops: one small file per clip
-    const heard = await heardOf(clip.id);
-    const whole = outOf(thai, clip.id);
-    if (heard === undefined) {
-      continue; // a paid model ran on some clips only: its pipeline is scored on those
-    }
-    const ultra = outOf("parakeet-ultra", clip.id);
-    const text = compose({
-      heard,
-      mine: all.filter((t) => t.clip === clip.id),
-      timed: heard === whole,
-      ultra: tokensOf(ultra),
-      whole,
-    });
-    const used = text === whole?.text ? whole : heard;
-    await Bun.write(
-      join(OUT, name, `${clip.id}.json`),
-      JSON.stringify({
-        text,
-        wallSeconds: (ultra?.wallSeconds ?? 0) + (used?.wallSeconds ?? 0),
-      })
-    );
-  }
-  console.log(
-    `${all.filter(routed).length} turns sent to ${thai} of ${all.length}`
-  );
-}
-
-// Runs an mlx-audio model on the routed turns alone; what it heard in a clip, null for a clip with
-// none.
-async function rerun(
-  thai: string,
-  id: string,
-  options: string | undefined,
-  all: Judged[],
-  ROUTING: string
-) {
-  const away = Map.groupBy(all.filter(routed), (s) => s.clip);
-  const turnsFile = join(ROUTING, "turns.json");
-  await Bun.write(
-    turnsFile,
-    JSON.stringify(
-      Object.fromEntries(
-        [...away].map(([clip, ts]) => [clip, ts.map((t) => [t.start, t.end])])
-      )
-    )
-  );
-  const { groups: _, ...args } = JSON.parse(options ?? "{}");
-  const turnsDir = join(ROUTING, `${thai}-turns`);
-  const local = join(HERE, "../local");
-  await run([
-    "uv",
-    "run",
-    "--project",
-    local,
-    "python",
-    join(local, "run.py"),
-    id,
-    CLIPS,
-    turnsDir,
-    JSON.stringify({ ...args, turns: turnsFile }),
-  ]);
-  return async (clip: string): Promise<Output | null> => {
-    const file = Bun.file(join(turnsDir, `${clip}.json`));
-    return (await file.exists()) ? ((await file.json()) as Output) : null;
-  };
-}
-
 const [command, ...params] = process.argv.slice(2);
 const commands: Record<string, () => Promise<void>> = {
   clips,
+  context: () => (params[0] === "fit" ? fit(DIR) : context(DIR)),
   jobs,
-  pipeline: () => pipeline(params[0]),
-  route: () => route(params[0]),
   run: () => models(params),
   sample: () => draw(params[0]),
   score,

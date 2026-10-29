@@ -29,14 +29,18 @@ type Embedding = NonNullable<z.infer<typeof Ranges>["embeddings"][number]> &
   Omit<z.infer<typeof Ranges>, "embeddings">;
 
 // A block as the speech service heard it, in seconds of its audio: Nemotron's speaker turns (in
-// order, apart), VoxLingua107's language of each turn of a second or more, Parakeet Ultra's words.
-const Heard = z.object({
+// order, apart), VoxLingua107's top language and its probabilities of English, French and Thai for
+// each turn of a second or more, Parakeet Ultra's words.
+export const Heard = z.object({
   durationSeconds: z.number().nonnegative(),
   models: z.record(z.string(), z.string()),
   turns: z.array(
     z.object({
       end: z.number(),
       language: z.string().nullable(),
+      scores: z
+        .object({ en: z.number(), fr: z.number(), th: z.number() })
+        .nullable(),
       speaker: z.string(),
       start: z.number(),
     })

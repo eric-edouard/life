@@ -1,7 +1,7 @@
 # apps/identity
 
 The speech service (Python): audio in, numbers out, nothing stored. Speaker embeddings (SpeechBrain ECAPA) for the
-voice server's recognition, and a block's speaker turns (Nemotron 3), language per turn (VoxLingua107) and words
+voice server's recognition, and a block's speaker turns (Nemotron 3), language scores per turn (VoxLingua107) and words
 (Parakeet Ultra) for its transcription (`docs/processing.md`, "Who transcribes"). Its endpoints are listed at
 the top of `app.py`. Audio stays in memory for one request and is never written or logged. Lifelog Host ships these
 files and installs and runs them on the owner's Mac (`apps/mac-quiet/README.md`); a change to `uv.lock` reaches it
