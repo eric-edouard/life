@@ -79,8 +79,8 @@ export function readBeeper(
 }
 
 /**
- * Beeper's chats of each network Life now bridges itself (`sources/bridged.ts`), by chat: from that archive's first
- * message on, its own source reads them, so Beeper's copy stops counting there. Beeper keeps copying everything, so a
+ * Beeper's chats of each network Life now bridges itself (`sources/bridged.ts`), by chat: from its cutover (when
+ * Life started copying it) on, its own source reads them, so Beeper's copy stops counting there. Beeper keeps copying everything, so a
  * bridge that is down loses nothing. Milestone 5 of the no-Beeper plan deletes this with Beeper's copy.
  */
 function bridgedFrom(archive: string) {

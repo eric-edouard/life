@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { clock, HOUR } from "../core/clock";
 import { log } from "../core/log";
 import { openReadOnly } from "../core/sqlite";
@@ -330,8 +330,7 @@ const mediaOf = (url: string) => {
   const m = url.match(MXC);
   return m?.[3]
     ? join(
-        BRIDGES,
-        "synapse",
+        dirname(SYNAPSE),
         "media_store",
         "local_content",
         `${m[1]}`,
@@ -341,7 +340,6 @@ const mediaOf = (url: string) => {
     : undefined;
 };
 
-/** The bridge's messages since `since`, from the archive, oldest first. */
 /** Every network Life bridges itself, and what he calls it: one source each (`memory/sources.ts`). */
 export const BRIDGED = [
   { label: "LINE", name: "line" },
@@ -373,6 +371,7 @@ export function cutoverOf(network: string, archive = ARCHIVE) {
   }
 }
 
+/** The bridge's messages since `since` and since its cutover (`cutoverOf`), from the archive, oldest first. */
 export const readBridged = (
   bridge: Bridged,
   since: Date,

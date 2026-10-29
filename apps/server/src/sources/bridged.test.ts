@@ -3,7 +3,8 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { copyBridged, localpartOf, readBridged } from "./bridged";
+import { SourceName } from "../core/names";
+import { BRIDGED, copyBridged, localpartOf, readBridged } from "./bridged";
 import { BRIDGES } from "./matrix";
 
 const BOT = "@linebot:life.local";
@@ -126,4 +127,10 @@ test("a bridged chat keeps every version: the message, its edit, its deletion wi
 test("a login id becomes the localpart the bridge writes for it", () => {
   expect(localpartOf("uMe")).toBe("u_me");
   expect(localpartOf("a_b c")).toBe("a__b=20c");
+});
+
+test("every bridged network is a stored source name", () => {
+  for (const { name } of BRIDGED) {
+    expect(SourceName.options).toContain(name);
+  }
 });
