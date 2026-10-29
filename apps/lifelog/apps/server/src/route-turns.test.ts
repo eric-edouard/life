@@ -37,10 +37,10 @@ test("only a turn of a second or more VoxLingua hears as Thai is routed: other l
       silent,
       turn(24, 24.6, "1", null),
       turn(25, 25.8, "1", "th"),
-      turn(30, 40, "0", "fr"),
+      turn(30, 130, "0", "fr"),
       // Noisy French a café blurs, heard as Breton and Portuguese (24 Oct): it stays local.
-      turn(40, 42, "0", "br"),
-      turn(42, 45, "0", "pt"),
+      turn(130, 132, "0", "br"),
+      turn(132, 135, "0", "pt"),
     ],
     // "ok" starts in the silent turn but its middle is past it.
     [
@@ -53,12 +53,24 @@ test("only a turn of a second or more VoxLingua hears as Thai is routed: other l
   expect(routeTurns(block)).toEqual({ kind: "turns", routed: [thai] });
 });
 
-test("a block 70% Thai goes to Scribe whole; silent turns don't count toward it", () => {
+test("a block 10% Thai goes to Scribe whole; silent turns don't count toward it", () => {
   const thai = heard(
     [turn(0, 3, "0", "en"), turn(3, 10, "1", "th")],
     [word(1, "hi")]
   );
   expect(routeTurns(thai)).toEqual({ kind: "whole" });
+  // A Bangkok block (29 Oct): one Thai turn, and the rest of the Thai heard as Lao, Javanese or
+  // English, with Parakeet's made-up words in it. It goes whole.
+  const mixed = heard(
+    [
+      turn(0, 2, "1", "th"),
+      turn(2, 6, "1", "lo"),
+      turn(6, 10, "1", "jw"),
+      turn(10, 18, "1", "en"),
+    ],
+    [word(3, "baman"), word(11, "elik"), word(12, "chandai")]
+  );
+  expect(routeTurns(mixed)).toEqual({ kind: "whole" });
   const quiet = heard(
     [turn(0, 3, "0", "en"), turn(3, 10, "1", "en")],
     [word(1, "hi")]

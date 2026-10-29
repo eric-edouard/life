@@ -1203,18 +1203,19 @@ const thaiAnswer = () =>
 test("the speech service: English and French stay with it, other turns go to Scribe cut from the block, once", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
+  // Thai under a tenth of the speech: its turn goes alone, not the block.
   speech.heard = {
-    durationSeconds: 30,
+    durationSeconds: 60,
     models: {},
     turns: [
       turn(0, 10, "0", "en"),
       turn(10, 14, "1", "th"),
-      turn(14, 30, "0", "fr"),
+      turn(14, 60, "0", "fr"),
     ],
     words: [said(1, "Hello"), said(11, "noise"), said(15, "Salut")],
   };
   fake.respond = thaiAnswer;
-  const jobId = await admitFragment(app, speechAudio(30), 1);
+  const jobId = await admitFragment(app, speechAudio(60), 1);
   await app.s.worker.work();
 
   expect(speech.blocks).toBe(1);
@@ -1350,7 +1351,7 @@ test("credits used up, the 24 Oct migration makes the blocks waiting for them du
   });
 });
 
-test("the speech service: a block 70% routed goes to Scribe whole, as a Scribe job; busy, it waits", async () => {
+test("the speech service: a block 10% routed goes to Scribe whole, as a Scribe job; busy, it waits", async () => {
   const app = appWith(withSpeech);
   setSwitches(env.db, { transcriber: "speech" });
   speech.busy = true;
