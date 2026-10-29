@@ -7,6 +7,7 @@ import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
 import { decisionsNow, writeDecision } from "../../memory/decisions";
 import { OWNER_STEPS } from "../../records/decision";
+import { startAgent, wakeOf } from "../events";
 import { recipientOf } from "../send";
 import { cookie, cookieOf, HEADERS, redirect, TOKENS, text } from "./http";
 
@@ -184,7 +185,7 @@ export function createPortrait(
           now()
         );
       } else {
-        writeDecision(
+        const [d] = writeDecision(
           [
             {
               data: b.data,
@@ -194,6 +195,10 @@ export function createPortrait(
           ],
           now()
         );
+        const wake = wakeOf(`${b.step}`, d?.loop);
+        if (wake) {
+          startAgent(wake);
+        }
       }
       return text("ok", 200);
     } catch (e) {

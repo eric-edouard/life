@@ -192,11 +192,13 @@ function card(d) {
 }
 
 function render() {
-  // The loops with the most open decisions first, then by name.
-  const open = (l) =>
-    all.filter((d) => d.loop === l && d.status === "open").length;
+  // His goals' order (the lowest rank among a loop's open decisions; a goal reorder reaches the next ones asked), then
+  // the loops with the most open decisions, then by name.
+  const openOf = (l) => all.filter((d) => d.loop === l && d.status === "open");
+  const open = (l) => openOf(l).length;
+  const rank = (l) => Math.min(99, ...openOf(l).map((d) => d.rank ?? 99));
   const loops = [...new Set(all.map((d) => d.loop))].sort(
-    (a, b) => open(b) - open(a) || a.localeCompare(b)
+    (a, b) => rank(a) - rank(b) || open(b) - open(a) || a.localeCompare(b)
   );
   tab = loops.includes(tab) ? tab : loops[0];
   const tabs = document.getElementById("tabs");
