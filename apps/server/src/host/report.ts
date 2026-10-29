@@ -23,7 +23,7 @@ import { count, localTime, time } from "../memory/units";
 import { localDate, when } from "../memory/zones";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { entryLine } from "../todo-list/items";
-import { type Health, polling } from "./health";
+import { polling, readHealth } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
 // (no model). `sendReport` also carries the alerts (a failed action or delivery, an agent task that needs him, the lock, the archive).
@@ -69,8 +69,6 @@ export interface Night {
   retired: number;
   /** What the model calls of the last 24 h spent, a line per run and per sweep's step (`spent`, nightly.ts). */
   spent: string[];
-  /** The watcher's health (`readHealth`) when the night read its store, as it stood. */
-  watcher: Health | null;
 }
 
 export const duration = (ms: number) =>
@@ -118,11 +116,15 @@ const compose = (subject: string, d: Digest) => ({
   text: text(d),
 });
 
-/** What the night says of the watcher: off with no voice source, else polling or not. */
-function watcherLine(h: Night["watcher"]) {
+/**
+ * What the night says of the watcher: off with no voice source, else polling or not, read as the report is written
+ * (29 Oct: read when the night began, it was judged 20 minutes later, past `polling`'s 15).
+ */
+function watcherLine() {
   if (!listening()) {
     return "no voice source";
   }
+  const h = readHealth();
   if (h && polling(h)) {
     return "the watcher is polling";
   }
@@ -157,7 +159,7 @@ export function successReport(day: string, ms: number, n: Night) {
             .map((s) => s.label)
             .join(", ") || "none (turn one on to start)"
         }`,
-        `Lifelog: ${watcherLine(n.watcher)}`,
+        `Lifelog: ${watcherLine()}`,
         `Read ${when(n.from).date}–${date}: ${n.moments.units} units, ${count(n.moments.moments, "moment")} on ${count(n.moments.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.moments.people.length} people inferred`,
         `Files: ${n.files.described} described, ${n.files.read} read by code, ${n.files.copied} copied${n.files.failed > 0 ? `; ${count(n.files.failed, "call")} failed (a file still not described stays a tag until the next night)` : ""}${n.files.missing.length > 0 ? `; not on PATH: ${n.files.missing.join(", ")}` : ""}`,
         n.archive,
