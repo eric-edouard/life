@@ -244,10 +244,18 @@ test("a new heard ask starts a pulling agent's command once, never one made from
     "-e",
     `require("fs").appendFileSync(${JSON.stringify(marker)}, "x")`,
   ];
-  // The command runs on its own: half a second is long enough for it to write.
-  const started = async () => {
-    await Bun.sleep(500);
-    return existsSync(marker) ? readFileSync(marker, "utf8").length : 0;
+  const count = () =>
+    existsSync(marker) ? readFileSync(marker, "utf8").length : 0;
+  // The command runs on its own: no start is checked after half a second; a start is waited for, up to 5 s under load.
+  const started = async (expected: number) => {
+    if (expected === 0) {
+      await Bun.sleep(500);
+    }
+    for (let ms = 0; ms < 5000 && count() < expected; ms += 50) {
+      // biome-ignore lint/performance/noAwaitInLoops: a poll, one wait at a time
+      await Bun.sleep(50);
+    }
+    return count();
   };
   rmSync(SECRETS.events, { force: true });
   rmSync(marker, { force: true });
@@ -259,13 +267,13 @@ test("a new heard ask starts a pulling agent's command once, never one made from
       action({ kind: "ask", target: AGENT_WORD, via: "connector" }),
     ]);
     await deliver();
-    expect(await started()).toBe(0);
+    expect(await started(0)).toBe(0);
     appendJsonl(LEDGER, LedgerEntry, [
       action({ kind: "ask", target: AGENT_WORD }),
     ]);
     await deliver();
     await deliver();
-    expect(await started()).toBe(1);
+    expect(await started(1)).toBe(1);
     expect(deliveryState().delivered).toBe(linesOf(LEDGER).length);
   } finally {
     setSettings({ agent: before });
