@@ -57,7 +57,7 @@ test("LIFE_LLM: engine/model[/effort] on a copy of the data, refused on his own"
   ).toThrow("never ~/Life");
 });
 
-test("allmodels: only his hosts, one at a time in his order, streamed; tokens logged; a host cut mid-reply gives way to the next; another host, an unnamed one, a cut reply or an error is refused", async () => {
+test("allmodels: only his hosts, one at a time in his order, streamed; a host cut mid-reply, a 429 or a 5xx gives way to the next, every host's tokens logged; another host, an unnamed one, a cut reply or an error is refused", async () => {
   const asked: { body: Record<string, unknown>; url: string }[] = [];
   let reply: {
     finish?: string;
@@ -66,8 +66,24 @@ test("allmodels: only his hosts, one at a time in his order, streamed; tokens lo
     /** The hosts whose stream ends before it finishes (29 Oct 2026: refuseless on 16 Oct). */
     cut?: string[];
   } = { finish: "stop", provider: "Refuseless", status: 200 };
-  const sse = (chunks: unknown[]) =>
-    `: keepalive\n${chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("")}data: [DONE]\n\n`;
+  // Sent in small pieces with CRLF line ends, so an event is split across pieces.
+  const sse = (chunks: unknown[]) => {
+    const text = `: keepalive\r\n${chunks.map((c) => `data: ${JSON.stringify(c)}\r\n\r\n`).join("")}data: [DONE]\r\n\r\n`;
+    const bytes = new TextEncoder().encode(text);
+    return new ReadableStream({
+      start(c) {
+        for (let i = 0; i < bytes.length; i += 7) {
+          c.enqueue(bytes.slice(i, i + 7));
+        }
+        c.close();
+      },
+    });
+  };
+  const usage = (output: number) => ({
+    completion_tokens: output,
+    prompt_tokens: 30,
+    prompt_tokens_details: { cached_tokens: 20 },
+  });
   const fetched = spyOn(globalThis, "fetch").mockImplementation(((
     url: string,
     init: RequestInit
@@ -80,7 +96,7 @@ test("allmodels: only his hosts, one at a time in his order, streamed; tokens lo
       provider: reply.provider,
     };
     const chunks = reply.cut?.includes(host)
-      ? [opened, { provider: reply.provider }]
+      ? [opened, { provider: reply.provider, usage: usage(3) }]
       : [
           opened,
           {
@@ -93,15 +109,7 @@ test("allmodels: only his hosts, one at a time in his order, streamed; tokens lo
             ],
             provider: reply.provider,
           },
-          {
-            choices: [],
-            provider: reply.provider,
-            usage: {
-              completion_tokens: 7,
-              prompt_tokens: 30,
-              prompt_tokens_details: { cached_tokens: 20 },
-            },
-          },
+          { choices: [], provider: reply.provider, usage: usage(7) },
         ];
     return Promise.resolve(
       new Response(reply.status === 200 ? sse(chunks) : "slow down", {
@@ -145,25 +153,42 @@ test("allmodels: only his hosts, one at a time in his order, streamed; tokens lo
     expect(lastLine()).toContain(
       '"tokens":{"cached":20,"input":30,"output":7}'
     );
-    // The first host opens its reply, then its stream ends: the next host is asked.
-    asked.length = 0;
+    const hostsAsked = () => {
+      const list = asked.map(
+        (a) => (a.body.provider as { only: string[] }).only[0]
+      );
+      asked.length = 0;
+      return list;
+    };
+    hostsAsked();
+    // The first host opens its reply, then its stream ends: the next host is asked, and both cost.
     reply = { ...reply, cut: ["refuseless"], provider: "Hopper" };
     expect(await ask()).toEqual({ ok: true });
-    expect(
-      asked.map((a) => (a.body.provider as { only: string[] }).only)
-    ).toEqual([["refuseless"], ["hopper"]]);
+    expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
+    expect(lastLine()).toContain(
+      '"tokens":{"cached":40,"input":60,"output":10}'
+    );
     reply = { ...reply, cut: ["refuseless", "hopper"] };
-    await expect(ask()).rejects.toThrow("stopped (cut before it finished)");
-    reply = { ...reply, cut: [] };
-    reply = { ...reply, provider: "Experiential Labs" };
+    await expect(ask()).rejects.toThrow(
+      "refuseless: allmodels: stopped (cut before it finished); hopper: allmodels: stopped (cut before it finished)"
+    );
+    hostsAsked();
+    reply = { ...reply, cut: [], provider: "Experiential Labs" };
     await expect(ask()).rejects.toThrow("served by Experiential Labs");
     // Refused, yet spent: its tokens are in the log.
     expect(lastLine()).toContain("served by Experiential Labs");
     expect(lastLine()).toContain('"input":30');
+    // What another host would answer the same way is final.
+    expect(hostsAsked()).toEqual(["refuseless"]);
     reply = { ...reply, finish: "length", provider: "Hopper" };
     await expect(ask()).rejects.toThrow("stopped (length)");
+    expect(hostsAsked()).toEqual(["refuseless"]);
+    reply = { ...reply, status: 401 };
+    await expect(ask()).rejects.toThrow("allmodels 401");
+    expect(hostsAsked()).toEqual(["refuseless"]);
     reply = { ...reply, status: 429 };
-    await expect(ask()).rejects.toThrow("allmodels 429");
+    await expect(ask()).rejects.toThrow("hopper: allmodels 429");
+    expect(hostsAsked()).toEqual(["refuseless", "hopper"]);
     reply = { finish: "stop", status: 200 };
     await expect(ask()).rejects.toThrow("served by an unnamed host");
     await expect(

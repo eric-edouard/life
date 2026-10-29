@@ -501,10 +501,11 @@ const STALL_MS = 5 * MIN;
 
 /**
  * One call through allmodels' OpenAI-shaped API with his key, at the tier's reasoning effort: the model goes only to
- * the hosts after `@`, one at a time in that order, each streamed. A host that errs, stalls or ends without finishing
- * gives way to the next: allmodels' own fallback acts only before output begins, and a host can die after (29 Oct
- * 2026: refuseless opened 16 Oct's reply, then sent nothing for the hour). A reply from any other host is refused.
- * The last host's reply is kept in the call's folder.
+ * the hosts after `@`, one at a time in that order, each streamed, all within MODEL_TIMEOUT_MS. A host that fails in a
+ * way another host may not (it stalls, cuts its stream, or answers 429, 5xx or not at all) gives way to the next:
+ * allmodels' own fallback acts only before output begins, and a host can die after (29 Oct 2026: refuseless opened 16
+ * Oct's reply, then sent nothing for the hour). Any other failure, like a reply from another host, is final. The
+ * tokens and refusals of every host tried are kept; the last reply is kept in the call's folder.
  */
 async function askAllModels(call: Call): Promise<Answer> {
   const key = process.env[ALLMODELS_KEY];
@@ -541,24 +542,46 @@ async function askAllModels(call: Call): Promise<Answer> {
     stream: true,
     stream_options: { include_usage: true },
   };
+  const deadline = AbortSignal.timeout(MODEL_TIMEOUT_MS);
+  const refusals: string[] = [];
+  let tokens: Tokens | undefined;
   let answer: Answer = { text: "" };
   for (const host of hosts) {
+    let isForAnother: boolean;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: a host is asked only when the one before it failed
-      const reply = await askHost(host, body, key);
+      const reply = await askHost(host, body, key, deadline);
       await Bun.write(join(call.dir, "allmodels.json"), JSON.stringify(reply));
       answer = answerOf(hosts, reply);
+      isForAnother = reply.finish === undefined;
     } catch (e) {
       answer = { refusal: (e as Error).message, text: "" };
+      isForAnother = !(e as { isFinal?: boolean }).isFinal;
     }
+    tokens = sumTokens(tokens, answer.fields?.tokens as Tokens | undefined);
+    answer = { ...answer, fields: { ...answer.fields, tokens } };
     if (!answer.refusal) {
+      return answer;
+    }
+    refusals.push(`${host}: ${answer.refusal}`);
+    if (!isForAnother) {
       break;
     }
   }
-  return answer;
+  return { ...answer, refusal: refusals.join("; ") };
 }
 
-/** The data of a server-sent event stream, one event at a time (comments, like keepalives, and the end marker skipped). */
+type Tokens = { cached: number; input: number; output: number };
+const sumTokens = (a: Tokens | undefined, b: Tokens | undefined) =>
+  a && b
+    ? {
+        cached: a.cached + b.cached,
+        input: a.input + b.input,
+        output: a.output + b.output,
+      }
+    : (a ?? b);
+
+/** The data of a server-sent event stream, one event at a time, to its end marker (comments, like keepalives, skipped). */
 async function* sseData(body: ReadableStream<Uint8Array>) {
   const decoder = new TextDecoder();
   let rest = "";
@@ -567,15 +590,23 @@ async function* sseData(body: ReadableStream<Uint8Array>) {
     rest = lines.pop() ?? "";
     for (const line of lines) {
       const data = line.startsWith("data:") ? line.slice(5).trim() : "";
-      if (data && data !== "[DONE]") {
+      if (data === "[DONE]") {
+        return;
+      }
+      if (data) {
         yield data;
       }
     }
   }
 }
 
-/** One host's streamed reply, put together; throws on an error status, a stall or a stream cut before it finished. */
-async function askHost(host: string, body: object, key: string) {
+/** One host's streamed reply, put together; throws on an error status (`isFinal` unless 429 or 5xx) or a stall. */
+async function askHost(
+  host: string,
+  body: object,
+  key: string,
+  deadline: AbortSignal
+) {
   const stalled = new AbortController();
   const timer = setTimeout(() => stalled.abort(), STALL_MS);
   try {
@@ -589,16 +620,14 @@ async function askHost(host: string, body: object, key: string) {
         "content-type": "application/json",
       },
       method: "POST",
-      signal: AbortSignal.any([
-        stalled.signal,
-        AbortSignal.timeout(MODEL_TIMEOUT_MS),
-      ]),
+      signal: AbortSignal.any([stalled.signal, deadline]),
       // Bun's 5-minute idle timer is the stall's to decide, chunk by chunk.
       timeout: false,
     });
     if (!(res.ok && res.body)) {
-      throw new Error(
-        `allmodels ${res.status}: ${(await res.text()).slice(-300)}`
+      throw Object.assign(
+        new Error(`allmodels ${res.status}: ${(await res.text()).slice(-300)}`),
+        { isFinal: res.status < 500 && res.status !== 429 }
       );
     }
     const reply: ChatReply = { text: "" };
@@ -704,7 +733,7 @@ export const hasQuota = (engine?: Engine) =>
  * One shot with no tools (but the bench's `tools`), no other MCP servers and no CLAUDE.md: `prompts/<prompt>.md` is the whole system prompt and
  * `input` (as JSON) the whole user message. Code assembles everything the model sees, so the call stays small.
  * `context` (as JSON) is appended to the system prompt: the same for every call of a run, so it is cached.
- * The input and the raw reply are kept in `dir`, so anything made from a call can be checked against exactly what the
+ * The input and the reply are kept in `dir`, so anything made from a call can be checked against exactly what the
  * model read. `images` (JPEG or PNG paths) follow the input, in order. Returns the reply's JSON; every call, failed or
  * not, is one `model.run` line.
  */
