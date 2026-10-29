@@ -9,7 +9,8 @@ clip is already stored and is the reference. What it found: `docs/research/trans
 `bun run --cwd apps/lifelog/apps/stt-bench bench <step>`, in order: `jobs`, `sample`, `clips`, `run [model…]`,
 `score`. Apart from those, `context` measures the server's router (`route-turns.ts`) on real blocks Scribe heard
 whole, heard again by a speech service (`IDENTITY_URL`, `IDENTITY_SECRET`; run one of your own, not the owner's
-production one), and `context fit` fits its weights. Each step skips what it already wrote, so a step can be
+production one; without `IDENTITY_URL` it reads only the blocks already heard, in seconds), and `context fit` fits
+its weights. Hearing ~350 blocks takes hours and slows the Mac: hear again only after a model changes, at night. Each step skips what it already wrote, so a step can be
 stopped and run again.
 
 - `jobs` and `clips` read the archive read-only through `@lifelog/db` (`src/export.ts`):

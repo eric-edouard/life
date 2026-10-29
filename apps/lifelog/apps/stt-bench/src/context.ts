@@ -2,6 +2,7 @@
 // running speech service, each turn labelled Thai or not by Scribe's words, then routed by
 // `routeTurns` with the zone the owner was in. `bench context fit` fits the router's weights.
 // Everything it writes holds the owner's voice or words: in DIR/context, out of the repo.
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { connect } from "@lifelog/db";
 import { transcriptionJobs, transcripts } from "@lifelog/db/schema";
@@ -60,9 +61,9 @@ export function thaiIn(
   return inside.length > 0 ? thai / inside.length >= THAI_SHARE : null;
 }
 
-// The drawn blocks: completed, transcribed by Scribe whole, with their audio; the same draw each run
-// (ordered by id), each with the zone he was in when it was recorded.
-function draw() {
+// The drawn blocks: completed, transcribed by Scribe whole, with their audio, each with the zone he was
+// in when it was recorded; those already heard first, then by id, so a run reuses what earlier ones heard.
+function draw(dir: string) {
   const db = connect(env("DATABASE_PATH"), { readonly: true });
   try {
     const all = db
@@ -85,8 +86,12 @@ function draw() {
       .orderBy(transcriptionJobs.id)
       .all()
       .map((j) => ({ ...j, zone: ownerZoneAt(db, j.at ?? undefined) }));
+    const heard = (id: string) => (existsSync(join(dir, `${id}.json`)) ? 0 : 1);
     const kind = (home: boolean) =>
-      all.filter((j) => (j.zone === HOME) === home).slice(0, PER_KIND);
+      all
+        .filter((j) => (j.zone === HOME) === home)
+        .sort((a, b) => heard(a.id) - heard(b.id))
+        .slice(0, PER_KIND);
     return [...kind(true), ...kind(false)];
   } finally {
     db.$client.close(true);
@@ -94,11 +99,14 @@ function draw() {
 }
 
 // What the speech service heard in a block, cached by job (after a change to its models, delete
-// context/heard to hear again).
+// context/heard to hear again). Without IDENTITY_URL, only the blocks already heard.
 async function hear(dir: string, id: string, audio: string) {
   const file = Bun.file(join(dir, `${id}.json`));
   if (await file.exists()) {
     return Heard.parse(await file.json());
+  }
+  if (!process.env.IDENTITY_URL) {
+    return null;
   }
   for (;;) {
     // biome-ignore lint/performance/noAwaitInLoops: the service hears one block at a time
@@ -124,12 +132,12 @@ async function hear(dir: string, id: string, audio: string) {
 async function blocks(DIR: string): Promise<Block[]> {
   const dir = join(DIR, "context", "heard");
   const out: Block[] = [];
-  const drawn = draw();
+  const drawn = draw(dir);
   for (const [i, j] of drawn.entries()) {
     // biome-ignore lint/performance/noAwaitInLoops: one block after the other
     const heard = await hear(dir, j.id, join(env("AUDIO_DIR"), j.key ?? ""));
     if (!heard) {
-      continue; // the service failed on it: counted by the blocks left out of the report
+      continue; // not heard (no service, or it failed): counted by the blocks left out of the report
     }
     const day = j.at?.toISOString().slice(0, 10) ?? "";
     const judged = judgedOf(heard.turns);
