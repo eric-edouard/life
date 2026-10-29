@@ -3,6 +3,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MIN } from "./clock";
+import { cliEnv } from "./platform";
 
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
@@ -38,17 +39,21 @@ export async function exec(
   return { code, killed: proc.signalCode, stderr, stdout };
 }
 
-/** Starts `cmd` and leaves it running on its own, its output discarded: false when it cannot start. */
-export function start(cmd: string[]) {
+/**
+ * Starts `cmd` in `cwd` with only `cliEnv` (none of Life's secrets) and leaves it running on its own, its output
+ * discarded: the reason when it cannot start.
+ */
+export function start(cmd: string[], cwd: string) {
   try {
     Bun.spawn(cmd, {
+      cwd,
+      env: cliEnv(),
       stderr: "ignore",
       stdin: "ignore",
       stdout: "ignore",
     }).unref();
-    return true;
-  } catch {
-    return false;
+  } catch (e) {
+    return (e as Error).message;
   }
 }
 

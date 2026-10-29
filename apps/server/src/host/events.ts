@@ -6,6 +6,7 @@ import { clock, DAY, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
 import { type Call, isAgent, log, recentEvents } from "../core/log";
+import { HOME } from "../core/platform";
 import { start } from "../core/proc";
 import { SECRETS, same, writeSecret } from "../core/secret";
 import { agentName, pulls, settings } from "../core/settings";
@@ -330,20 +331,23 @@ export function settleDelivery(
 
 /**
  * For an agent that pulls its asks (it reads them itself, nothing is pushed): a new ask past the cursor starts its
- * `run` command once (whether it did is the answer), so it reads them at once; any old subscription goes and the cursor moves to the end, so
- * switching back to push starts from now instead of replaying asks it already took.
+ * `start` command once, in his home; any old subscription goes and the cursor moves to the end, so switching back to
+ * push starts from now instead of replaying asks it already took. A start that fails is logged; the ask still shows on
+ * `read_open_agent_tasks`, and Life emails him when it isn't taken in 30 min.
  */
-export function wake(lines: string[], run = settings().agent?.run) {
+function startAgent(lines: string[]) {
   const state = deliveryState();
-  const woken = !!run && !!nextEvent(lines, state.delivered);
-  if (woken) {
+  const cmd = settings().agent?.start;
+  if (cmd && nextEvent(lines, state.delivered)) {
     unfrozen("start the agent");
-    log("agent.run", { started: start(run) });
+    const error = start(cmd, HOME);
+    if (error) {
+      log("run.error", { error, step: "events.start" });
+    }
   }
   if (state.subscription || state.delivered < lines.length) {
     writeState({ attempts: 0, delivered: lines.length });
   }
-  return woken;
 }
 
 /**
@@ -355,7 +359,7 @@ export async function deliver() {
   const now = clock().getTime();
   const lines = linesOf(LEDGER);
   if (pulls()) {
-    wake(lines);
+    startAgent(lines);
     return;
   }
   for (;;) {
