@@ -41,17 +41,28 @@ export async function exec(
 
 /**
  * Starts `cmd` in `cwd` with only `cliEnv` (none of Life's secrets) and leaves it running on its own, its output
- * discarded: the reason when it cannot start.
+ * discarded but for what it says on stderr when it exits non-zero, handed to `onFail`: the reason when it cannot start.
  */
-export function start(cmd: string[], cwd: string) {
+export function start(
+  cmd: string[],
+  cwd: string,
+  onFail: (said: string) => void
+) {
   try {
-    Bun.spawn(cmd, {
+    const p = Bun.spawn(cmd, {
       cwd,
       env: cliEnv(),
-      stderr: "ignore",
+      stderr: "pipe",
       stdin: "ignore",
       stdout: "ignore",
-    }).unref();
+    });
+    const said = new Response(p.stderr).text();
+    p.exited.then(async (code) => {
+      if (code !== 0) {
+        onFail((await said).trim().slice(-2000) || `exited ${code}`);
+      }
+    });
+    p.unref();
   } catch (e) {
     return (e as Error).message;
   }

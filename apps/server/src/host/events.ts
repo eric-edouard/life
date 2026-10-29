@@ -12,7 +12,7 @@ import { SECRETS, same, writeSecret } from "../core/secret";
 import { agentName, pulls, settings } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { zoneNow } from "../memory/zones";
-import { actFailedReport, sendReport } from "./report";
+import { actFailedReport, agentStartReport, sendReport } from "./report";
 
 // MCP Events (https://developers.openai.com/plugins/build/mcp-events): one event, `ask`, pushed by webhook to the one
 // subscriber, his agent (a ChatGPT agent by default). The connector answers events/list|subscribe|unsubscribe (apps/server/src/host/http/mcp.ts); the
@@ -345,10 +345,26 @@ export function startAgent(
   unfrozen("start the agent");
   const error = start(
     [...cmd, JSON.stringify({ ...event, zone: zoneNow() })],
-    HOME
+    HOME,
+    agentSaid
   );
   if (error) {
     log("run.error", { error, step: "events.start" });
+  }
+}
+
+/**
+ * What his agent's starter says is wrong, by exiting non-zero (life-loops: a loop missed its run, a run failed, the day's
+ * cap; or the starter itself broke): each line mailed to him once, whatever its age (`sendReport` keeps the keys).
+ * Its words are its own report about itself, never recorded content.
+ */
+function agentSaid(said: string) {
+  log("run.error", { error: said, step: "events.start" });
+  for (const line of said.split("\n").filter((l) => l.trim())) {
+    sendReport(
+      `agent-start/${digest("sha1", line, 12)}`,
+      agentStartReport(line, clock().getTime())
+    );
   }
 }
 

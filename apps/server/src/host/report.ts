@@ -311,6 +311,19 @@ export const lapseReport = (open: number, now: number) =>
     verdict: "NEEDS YOU",
   });
 
+/** The alert for what his agent's starter said when it exited non-zero (`agent.start`, events.ts): one line of its own. */
+export const agentStartReport = (line: string, now: number) =>
+  alert(new Date(now).toISOString(), agentName(), {
+    failure: { error: line, step: "agent.start" },
+    notes: [
+      "Its starter (the agent.start setting) said this as it exited; each new line is mailed once. Details: derived/log",
+    ],
+    preheader: line,
+    stats: [{ label: "at", value: time(new Date(now).toISOString()) }],
+    subject: `${agentName()}: ${line.slice(0, 90)}`,
+    verdict: "FAILING",
+  });
+
 /** The alert for an action that failed: his words are in it, so he can do the thing by hand. */
 export const actFailedReport = (a: LedgerEntry) =>
   alert(a.at, "Life action", {
