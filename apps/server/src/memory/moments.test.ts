@@ -2,10 +2,11 @@ import { expect, test } from "bun:test";
 import type { Moment } from "../records/moment";
 import type { Correction } from "../records/observation";
 import type { MemoryLabel, Unit, Verdict } from "../records/unit";
-import { daysOf, momentsNow } from "./ledger";
+import { daysOf, isRereadSince, momentsNow, rereadAt } from "./ledger";
 import {
   agreement,
   chatAreas,
+  dayFileOf,
   earlierFor,
   fresh,
   parseDay,
@@ -219,6 +220,43 @@ test("the next days see a moment until the day after it ends, or after its date 
     "2026-10-15",
     "2026-10-15",
   ]);
+});
+
+test("a moment he says is wrong rereads its units, and every later reading of its day sees it with his words and keeps it (29 Oct 2026: a trip came back with the same mistake)", () => {
+  const trip = moment({ id: "mom_00000000000a", units: [U1, U2] });
+  const other = moment({ id: "mom_00000000000b", units: [U3] });
+  const wrong: Correction = {
+    at: "2026-10-29T09:00:00.000Z",
+    kind: "wrong",
+    note: "Nadia is not coming; Rose and Lou are",
+    observations: [trip.id],
+    schemaVersion: 1,
+  };
+  const rereads = rereadAt([wrong], [trip, other]);
+  expect(isRereadSince(rereads, U1, "2026-10-29T08:00:00.000Z")).toBe(true);
+  expect(isRereadSince(rereads, U2, "2026-10-29T10:00:00.000Z")).toBe(false);
+  expect(rereads.has(U3)).toBe(false);
+  // Not important hides it, and reads nothing again.
+  expect(rereadAt([{ ...wrong, kind: "not-important" }], [trip]).size).toBe(0);
+  const seen = earlierFor(trip.day, [trip, other], [wrong]);
+  expect(seen.find((m) => m.id === trip.id)?.hidden).toEqual({
+    kind: "wrong",
+    note: "Nadia is not coming; Rose and Lou are",
+  });
+  expect(seen.find((m) => m.id === other.id)?.hidden).toBeUndefined();
+  // The reading gives a new moment; the hidden one stays in the day's file, so the next reading sees his words again.
+  const fixed = moment({
+    id: "mom_00000000000c",
+    title: "Trip with Rose and Lou",
+  });
+  const written = dayFileOf(trip.day, [fixed], [trip, other], [wrong]);
+  expect(written.map((m) => m.id)).toEqual([fixed.id, trip.id]);
+  expect(
+    earlierFor(trip.day, written, [wrong]).find((m) => m.id === trip.id)?.hidden
+      ?.note
+  ).toBe("Nadia is not coming; Rose and Lou are");
+  // Given again under its id, it is the reading's line, once.
+  expect(dayFileOf(trip.day, [trip], [trip], [wrong])).toEqual([trip]);
 });
 
 test("a day is read again when one of its units has no verdict by this prompt on its current content", () => {

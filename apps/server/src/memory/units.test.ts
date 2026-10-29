@@ -226,6 +226,25 @@ test("a conversation's day is one unit, built from its turns alone: first and la
   ).toBe("Plumber");
 });
 
+test("a voice given to someone else changes its unit's hash, so its day is read again (29 Oct 2026: 96 voices named, their days kept the old names)", () => {
+  const hashOf = (turns: LifelogConversation["turns"]) =>
+    lifelogUnits([{ ...conversation, turns }], none)[0]?.unit.hash;
+  const before = hashOf(conversation.turns);
+  const [mine, gaston, jean] = conversation.turns as [
+    LifelogConversation["turns"][number],
+    LifelogConversation["turns"][number],
+    LifelogConversation["turns"][number],
+  ];
+  expect(hashOf([mine, { ...gaston, personId: "p-1" }, jean])).not.toBe(before);
+  expect(hashOf([mine, { ...gaston, name: "Rose" }, jean])).not.toBe(before);
+  expect(hashOf([{ ...mine, owner: false }, gaston, jean])).not.toBe(before);
+  // The same person under a new name (his truth's) is the same voice.
+  const named = [mine, { ...gaston, personId: "p-1" }, jean];
+  expect(
+    hashOf([mine, { ...gaston, name: "Gus", personId: "p-1" }, jean])
+  ).toBe(hashOf(named));
+});
+
 test("a conversation across midnight is two units; a conversation with a stored chapter unit is none", () => {
   // Lagos, UTC+1: 23:50 on the 25th is 22:50Z, 00:10 on the 26th is 23:10Z.
   const late = {

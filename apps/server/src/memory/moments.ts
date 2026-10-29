@@ -13,6 +13,7 @@ import { closeNow } from "./closeness";
 import {
   appendVerdicts,
   daysOf,
+  hiding,
   INFERRED,
   isRereadSince,
   MOMENTS,
@@ -95,20 +96,42 @@ export function chatAreas(truth: Truth) {
 }
 
 /**
- * What a reading of `day` is shown as `earlier`: its own moments from an earlier reading (to keep their ids), and those of
- * the days before that may continue into it, ending (or, for a plan, dated) no earlier than the day before.
+ * What a reading of `day` is shown as `earlier`: its own moments from an earlier reading (to keep their ids), those of
+ * the days before that may continue into it, ending (or, for a plan, dated) no earlier than the day before, and its own
+ * moments the owner hid, each with his correction (`hidden`: what he said, in his words), so it is not made again.
  */
 export function earlierFor(
   day: string,
   lines: Moment[],
   corrections: Correction[]
-) {
+): (Moment & { hidden?: { kind: string; note?: string } })[] {
   const since = daysBefore(day, CARRY_DAYS);
-  return momentsNow(
+  const shown = momentsNow(
     lines.filter((m) => m.day <= day),
     corrections
   ).filter((m) => m.day === day || daysOf(m)[1] >= since);
+  return [...shown, ...hiddenOn(day, lines, corrections)];
 }
+
+/** `day`'s moments the owner hid (`hiding`), each with his latest correction of it. */
+const hiddenOn = (day: string, lines: Moment[], corrections: Correction[]) =>
+  lines.flatMap((m) => {
+    const c = m.day === day ? hiding(corrections, m.id).at(-1) : undefined;
+    return c ? [{ ...m, hidden: { kind: c.kind, note: c.note } }] : [];
+  });
+
+/** What a reading of `day` leaves in its file: the moments it gave, and the hidden ones it did not give again (his corrections keep them). */
+export const dayFileOf = (
+  day: string,
+  given: Moment[],
+  lines: Moment[],
+  corrections: Correction[]
+) => [
+  ...given,
+  ...hiddenOn(day, lines, corrections)
+    .filter((m) => !given.some((g) => g.id === m.id))
+    .map(({ hidden: _, ...m }) => m),
+];
 
 const Reply = z.object({
   moments: z.array(z.unknown()).default([]),
@@ -374,8 +397,8 @@ export async function moments(evidence: Evidence) {
   const named: InferredPerson[] = [];
   const areas = areaLookup(truth.areas);
   const madeBy = stamp(step.llm, MOMENTS_PROMPT, step.run);
-  const rereads = rereadAt(corrections);
   let lines = await readMoments();
+  const rereads = rereadAt(corrections, lines);
   let read = 0;
   let found = 0;
   let invalid = 0;
@@ -409,7 +432,8 @@ export async function moments(evidence: Evidence) {
         input: {
           day,
           earlier: earlier.map(
-            ({ id, people, place, start, status, title }) => ({
+            ({ hidden, id, people, place, start, status, title }) => ({
+              hidden,
               id,
               people,
               place,
@@ -458,17 +482,18 @@ export async function moments(evidence: Evidence) {
     if (got) {
       // The moments first: the verdicts mark the day as read. A unit judged on this content by this prompt keeps its
       // verdict (the cache), whatever the new reading of its day says.
-      await writeDay(day, got.moments);
-      const kept = fresh(got.verdicts, units, verdicts, rereads);
-      await appendVerdicts(kept);
+      const kept = dayFileOf(day, got.moments, lines, corrections);
+      await writeDay(day, kept);
+      const judgedNow = fresh(got.verdicts, units, verdicts, rereads);
+      await appendVerdicts(judgedNow);
       // Who the day's unknown people are, used by the resolver from the next run on.
       await appendJsonl(INFERRED, InferredPerson, got.who);
       named.push(...got.who);
-      for (const v of kept) {
+      for (const v of judgedNow) {
         verdicts.set(verdictKey(v.unit, v.hash), v);
       }
       missing += units.length - got.verdicts.length;
-      lines = [...lines.filter((m) => m.day !== day), ...got.moments].toSorted(
+      lines = [...lines.filter((m) => m.day !== day), ...kept].toSorted(
         (a, b) => a.day.localeCompare(b.day)
       );
       read += 1;
