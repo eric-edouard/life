@@ -94,6 +94,9 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
+- **Life decides when his loops run, life-loops decides what.** Life's only start of anything outside it is
+  `startAgent` (`events.ts`): `agent.start` with an event appended (a new ask, a tick each minute), his zone in it;
+  no loop's name or schedule lives in Life.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
   setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
