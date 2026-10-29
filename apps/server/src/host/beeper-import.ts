@@ -5,7 +5,7 @@ import { APP_DATA } from "../core/platform";
 import { setSettings, settings } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import { ARCHIVE, archiveDb, insertAll, phoneMap } from "../sources/archived";
-import { openBridged } from "../sources/bridged";
+import { BRIDGED, openBridged } from "../sources/bridged";
 
 // The archive's half of `beeper-to-networks-2026-10-30` (host/migrate.ts): Beeper's copied messages become rows of each
 // network's own archive. `beeper.sqlite` is only read, never written or removed (AGENTS.md: the archive). It goes with
@@ -13,7 +13,8 @@ import { openBridged } from "../sources/bridged";
 
 /** Beeper Desktop's folder: its cached media and Telegram's bridge, read once here. */
 const BEEPER = join(APP_DATA, "BeeperTexts");
-const NETWORKS = ["line", "instagram", "telegram"];
+/** The networks Beeper's archive holds. */
+const IMPORTED = ["line", "instagram", "telegram"];
 // Beeper caches mxc://<host>/<id> at media/<host>/<id>, localmxc://<bridge>/<id> at media/localhost<bridge>/<id>.
 const MXC = /^(local)?mxc:\/\/([^?]+)/;
 
@@ -102,7 +103,7 @@ export function beeperNetworks(archive = ARCHIVE, beeper = BEEPER) {
   return { chats, files };
 }
 
-/** An attachment Beeper cached, copied into the archive's media (a clone where the disk can): its new path, if any. */
+/** An attachment Beeper cached, copied into the archive's media (a clone where the disk can): its path for Life's reader. */
 function keepMedia(
   a: Attachment,
   network: string,
@@ -116,8 +117,9 @@ function keepMedia(
   const rel = `${m[1] ? "localhost" : ""}${m[2]}`;
   const from = join(beeper, "media", rel);
   const to = join(archive, "media", network, rel);
+  // One Beeper never fetched keeps the path its reader gave it: the unit's words, and so its hash, stay as they were.
   if (!existsSync(from)) {
-    return;
+    return from;
   }
   if (!existsSync(to)) {
     mkdirSync(dirname(to), { recursive: true });
@@ -136,10 +138,14 @@ export function importBeeper(archive = ARCHIVE, beeper = BEEPER) {
   if (!existsSync(beeperDb(archive))) {
     return 0;
   }
+  // Every bridged network's archive gets its tables (`cutover` among them) whatever Beeper held of it.
+  for (const n of BRIDGED) {
+    openBridged(n.name, archive).close();
+  }
   const src = openReadOnly(beeperDb(archive));
   let added = 0;
   try {
-    for (const network of NETWORKS) {
+    for (const network of IMPORTED) {
       const rows = src
         .query<BeeperRow, [string]>(
           `select id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt

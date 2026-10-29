@@ -6,9 +6,9 @@ import { join } from "node:path";
 import { observationId } from "../memory/observe";
 import { unitId } from "../memory/units";
 import { matrixArchive } from "../sources/archived";
-import { openBridged } from "../sources/bridged";
+import { openBridged, readBridged } from "../sources/bridged";
 import { beeperNetworks, importBeeper } from "./beeper-import";
-import { renameStored } from "./migrate";
+import { migrateStored, renameStored } from "./migrate";
 
 // Made-up memory written while Beeper read LINE: a chat-day unit, an observation from it, cited across the files.
 const chat = "!ana:beeper.local";
@@ -191,4 +191,31 @@ test("Beeper's index names each chat's network by its account, in any of Beeper'
     "!c": "instagram",
     "!d": "whatsapp",
   });
+});
+
+test("a checkout migrates a copy only: never his live archive, even with his memory copied", async () => {
+  const data = mkdtempSync(join(tmpdir(), "data-"));
+  mkdirSync(join(data, "memory"));
+  writeFileSync(join(data, "memory", "units.jsonl"), "");
+  await expect(migrateStored(data)).rejects.toThrow("only the new Life.app");
+});
+
+test("a network's reader hides what its bridge backfilled from before its cutover, never the history imported there", () => {
+  const archive = mkdtempSync(join(tmpdir(), "archive-"));
+  const db = openBridged("line", archive);
+  db.run("insert into cutover values ('2026-10-29T17:00:00.000Z')");
+  const row = (id: number, at: string, seenAt: string, text: string) =>
+    db.run(
+      `insert into messages (id, eventId, chat, chatName, sender, senderName, fromMe, at, type, text, deleted, seenAt)
+       values (?, ?, '!r', 'Ana', 'u1', 'Ana', 0, ?, 'm.text', ?, 0, ?)`,
+      [id, `$e${id}`, at, text, seenAt]
+    );
+  row(1, "2026-10-20T08:00:00.000Z", "2026-10-20T08:00:05.000Z", "imported");
+  row(2, "2026-10-20T08:00:00.000Z", "2026-10-29T17:01:00.000Z", "backfilled");
+  row(3, "2026-10-29T18:00:00.000Z", "2026-10-29T18:00:01.000Z", "new");
+  db.close();
+  expect(readBridged("line", new Date(0), archive).map((e) => e.text)).toEqual([
+    "imported",
+    "new",
+  ]);
 });

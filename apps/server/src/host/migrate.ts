@@ -10,7 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { clock } from "../core/clock";
 import { holder } from "../core/lock";
 import { log } from "../core/log";
@@ -53,8 +53,12 @@ const GONE = "memory.gone";
 
 /** Does this code run from a repo (a checkout or a worktree) rather than from Life.app's resources? */
 const runsFromRepo = () => existsSync(join(LIFE_CODE_DIR, ".git"));
-/** Only the running app migrates his own data: a checkout or worktree may migrate a copy, never his live data. */
-const mayMigrate = (data: string) => !(runsFromRepo() && isHis(data));
+/**
+ * Only the running app migrates his own data: a checkout or worktree may migrate a copy, never his live data, and a
+ * copy means both his memory and the archive (`archive` elsewhere than `ARCHIVE`).
+ */
+const mayMigrate = (data: string, archive: string) =>
+  !(runsFromRepo() && (isHis(data) || resolve(archive) === resolve(ARCHIVE)));
 
 const IDS = /\b(?:unit|obs)_[0-9a-f]{12}\b/g;
 /** A `beeper:` ref: a chat's message (`beeper:!<room>/<message>`) or a file (`beeper:<mxc url>`, `beeper:localmxc://…`). */
@@ -98,12 +102,14 @@ export interface Networks {
   files: Map<string, string>;
 }
 
-/** A `beeper:` ref as its network's: a chat's message (`beeper:<chat>/<msg>`) or a file (`beeper:<mxc>`); a chat
- * Beeper's archive never held (from before it, an `imsg##` one) takes its record's network (`fallback`). */
 /** A chat's network: Beeper knew it, or an `imsg##` one (iMessage, when Beeper bridged it). */
 const chatNet = (nets: Networks, chat: string) =>
   nets.chats.get(chat) ?? (chat.startsWith("imsg##") ? "imessage" : undefined);
 
+/**
+ * A `beeper:` ref as its network's: a chat's message (`beeper:<chat>/<msg>`) or a file (`beeper:<mxc>`); a chat
+ * Beeper never knew takes its record's network (`fallback`).
+ */
 function refOf(
   nets: Networks,
   rest: string,
@@ -504,7 +510,7 @@ export async function migrateStored(dir = OWNER_DATA_DIR, archive = ARCHIVE) {
   const live = !runsFromRepo();
   let said = false;
   while (needsRename(dir)) {
-    if (!mayMigrate(dir)) {
+    if (!mayMigrate(dir, archive)) {
       throw new Error(
         'his memory still names Beeper: only the new Life.app renames it (AGENTS.md, "A rename backfills")'
       );

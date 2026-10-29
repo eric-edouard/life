@@ -30,3 +30,9 @@ Set `LIFELOG_HOST_APP` to also put lifelog's host app in the DMG.
 
 A release whose lifelog contract changed (`apps/lifelog/apps/server/openapi.json`) updates Lifelog Host first, then
 Life: Life reads lifelog only through that contract, and an older Host refuses the new calls.
+
+## A release that migrates stored data
+
+A release that ships a migration (`host/migrate.ts`) runs it from Life.app at its next start: install the app first
+and let it start, then pull the live checkout. Before that, a checkout's `bun life …` refuses to run on his data (only
+the app migrates it), the loops' `bun life send` included.
