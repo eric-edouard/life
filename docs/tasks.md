@@ -223,4 +223,7 @@ reads the rest of its settings. How the report and the alerts go out:
   archive store failing for an hour (`archiveFailing` in `apps/server/src/host/archive.ts`, once per incident and again daily while it
   lasts).
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
+- A send (`apps/server/src/host/send.ts`, the `sends` setting) goes into one of his chats, as him: only the draft of the
+  option he answered in a decision, with no note and nothing new from them since it was asked; an `intent` ledger line
+  (`sent`, its target the decision) comes first, so a try that never ended is never retried; then the decision is done.
 - The ask events (`apps/server/src/host/events.ts`) go to the one subscriber, one per ask the agent did not make itself.

@@ -301,7 +301,9 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   standing grant: the owner's quote and when the owner said it). `at`: when the owner said it.
 - `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a reminder
   Life links with no change: the first sync's baseline, fields it learns, its own add whose answer was lost), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
-  the owner's words in `instruction`; the latest one stands). A task's own lines,
+  the owner's words in `instruction`; the latest one stands), `sent` (the reply he chose in a decision, sent into its chat by
+  `host/send.ts`: `target` the decision, `after` `{chat, source}`, `instruction` his question and answer, `ref`
+  `decision:<id>`; an `intent` line first, never the text). A task's own lines,
   with no `instruction` and the task's (its ask's) id as `target`: `update` (the agent, the connector's `update_agent_task`: `after` is
   the update, `state` working, waiting-owner, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
   `reason`, `steps` [{title, done}], `taken`), `reply` (what the agent told the owner, the connector's `log_reply_to_owner`: `after.text`,

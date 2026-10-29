@@ -5,8 +5,11 @@ import { join } from "node:path";
 /** Life's own files (prompts, docs/agent.md, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). */
 export const LIFE_CODE_DIR =
   process.env.LIFE_CODE_DIR ?? join(import.meta.dir, "..", "..", "..", "..");
-/** `bun test` sets NODE_ENV=test: tests never touch the real log or data. */
+/** `bun test` sets NODE_ENV=test: tests never touch the real log or data, nor mail with his key (a test sets its own). */
 export const TEST = process.env.NODE_ENV === "test";
+if (TEST) {
+  delete process.env.RESEND_PERSONAL_API_KEY;
+}
 /** The made-up data tests read (apps/server/src/test-data). */
 export const FIXTURES = join(import.meta.dir, "..", "test-data");
 /** A path with its links resolved, or as it is when it doesn't exist. */

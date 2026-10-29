@@ -50,6 +50,11 @@ export type Descriptor = {
   /** The app store the archive keeps a copy of; its units are read from that copy. */
   store?: AppStore;
   name: SourceName;
+  /**
+   * Sends his text into one of its chats, as him (`host/send.ts`, the only caller: his answered decision). `txn` makes it
+   * once on the network's side too.
+   */
+  send?: (chat: string, text: string, txn: string) => Promise<void>;
   /** Its newest item (the status snapshot's card); a voice source's is lifelog's to tell. */
   newest?: () => Newest | Promise<Newest>;
   /** How many days back `search` and `chats --who` read its messages; without it, `search` does not read them. */

@@ -9,7 +9,7 @@ import { DECISIONS } from "./ledger";
 
 type Status = (typeof STATUSES)[number];
 
-interface Decision extends DecisionAsk {
+export interface Decision extends DecisionAsk {
   /** A grant that stands: the newest done one of its loop and ref, with a scope, not revoked (`markActive`). */
   active?: boolean;
   answer?: string | null;

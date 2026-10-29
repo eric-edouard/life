@@ -72,6 +72,8 @@ export const Settings = z
     reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */
     repos: z.string().optional(),
+    /** Life sends the replies he chose in his decisions (`host/send.ts`); without it, it sends none. */
+    sends: z.literal(true).optional(),
     /** The sources he turned on, by name: no other is read, searched or shown. */
     sources: z.array(SourceName).default([]),
     /**
