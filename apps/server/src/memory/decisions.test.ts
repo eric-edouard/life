@@ -133,7 +133,7 @@ test("an answer is one of its options, a note or nothing; clearing it reopens; a
   }
 });
 
-test("only a done grant is revoked, and a malformed ask is refused with why", () => {
+test("only a done grant is revoked, a request is taken unanswered, and a malformed ask is refused with why", () => {
   rmSync(DECISIONS, { force: true });
   try {
     const grant = "lynx-store-20261029100000-1";
@@ -164,6 +164,24 @@ test("only a done grant is revoked, and a malformed ask is refused with why", ()
       NOW
     );
     writeDecision([{ decision: grant, step: "revoked" }], NOW);
+    // A request has no options: nothing for him to answer, so its loop takes it open.
+    const request = "audit-20261029100000000-1";
+    writeDecision(
+      [
+        {
+          data: {
+            kind: "audit",
+            loop: "audit",
+            options: [],
+            question: "Why did the reply go twice?",
+          },
+          decision: request,
+          step: "asked",
+        },
+        { decision: request, step: "taken" },
+      ],
+      NOW
+    );
     expect(decisionsNow().get(grant)?.revokedAt).toBeDefined();
     expect(() =>
       writeDecision(

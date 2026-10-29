@@ -164,7 +164,9 @@ export function refusalOf(
   if (!d) {
     return "no such decision";
   }
-  return ALLOWED[step]?.includes(d.status)
+  // A request (no options: an audit he asked for by voice) has nothing to answer, so its loop takes it open.
+  const isRequest = step === "taken" && d.options.length === 0;
+  return ALLOWED[step]?.includes(d.status) || isRequest
     ? stepRefusal(d, step, data, now)
     : `${d.id} is ${d.status}: no ${step} now`;
 }
