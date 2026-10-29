@@ -3710,44 +3710,6 @@
         }
       }
     },
-    "/transcription-jobs/{id}/scribe-words": {
-      "post": {
-        "description": "Scribe hears a completed speech block whole, once, and its words replace the speech service's turn by turn (turns, labels and indexes kept). The owner's one-off for blocks the old routing left garbled; refused for a block already sent, or touching a quiet range.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "required": true,
-            "name": "id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "What happened",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "outcome": {
-                      "type": "string",
-                      "enum": ["done", "failed", "refused"]
-                    },
-                    "reason": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["outcome"]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/usage/summary": {
       "get": {
         "description": "What was spent, from our own ledgers at list prices: today, the last 30 days and this month (days in the owner's time zone), split by service.",

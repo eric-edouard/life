@@ -55,7 +55,7 @@ reverse it, change its entry here in the same commit.
   billed is never sent again; a new prompt version reaches new conversations, failed runs and the owner's Generate,
   never the whole archive. One exception, the owner's (29 Oct 2026): the speech blocks recorded in Thailand before
   the context router, where Thai was spotted but only parts went to Scribe (343, about 13 h), are heard by Scribe
-  whole once more (`POST /transcription-jobs/{id}/scribe-words`, removed after the run). Their words change turn by
+  whole once more (a step since removed; `transcripts.scribe_words_at` marks them). Their words change turn by
   turn, never their turns: the owner's speaker names and the voice samples point at turns by index and label.
 - **Transcription: the speech service, Scribe for the rest (23 Oct 2026).** The `transcriber` switch picks it:
   `speech` sends a block to `apps/identity` (Nemotron 3's speaker turns, VoxLingua107's language per turn, Parakeet
