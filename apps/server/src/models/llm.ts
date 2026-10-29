@@ -558,7 +558,8 @@ async function askAllModels(call: Call): Promise<Answer> {
       answer = { refusal: (e as Error).message, text: "" };
       isForAnother = !(e as { isFinal?: boolean }).isFinal;
     }
-    tokens = sumTokens(tokens, answer.fields?.tokens as Tokens | undefined);
+    const spent = answer.fields?.tokens as Tokens | undefined;
+    tokens = spent ? add(tokens ?? NONE, spent) : tokens;
     answer = { ...answer, fields: { ...answer.fields, tokens } };
     if (!answer.refusal) {
       return answer;
@@ -570,16 +571,6 @@ async function askAllModels(call: Call): Promise<Answer> {
   }
   return { ...answer, refusal: refusals.join("; ") };
 }
-
-type Tokens = { cached: number; input: number; output: number };
-const sumTokens = (a: Tokens | undefined, b: Tokens | undefined) =>
-  a && b
-    ? {
-        cached: a.cached + b.cached,
-        input: a.input + b.input,
-        output: a.output + b.output,
-      }
-    : (a ?? b);
 
 /** The data of a server-sent event stream, one event at a time, to its end marker (comments, like keepalives, skipped). */
 async function* sseData(body: ReadableStream<Uint8Array>) {
