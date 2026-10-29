@@ -487,7 +487,9 @@ let checking = false;
 function latestHealths(): Healths {
   if (!checking && performance.now() - checkedAt > 15_000) {
     checking = true;
-    connectorHealths(["bridge", "send"])
+    // In a promise from the start: a check that throws at once never stops the snapshot or the next check.
+    Promise.resolve()
+      .then(() => connectorHealths(["bridge", "send"]))
       .then((h) => {
         healths = h;
       })
