@@ -86,12 +86,15 @@ export const recentEvents = async <T = LogEvent>(
     .reverse()
     .flatMap((n) => logEvents<T>(n, kind, dir));
 
+/** The log file an instant's lines go to: one per UTC day. */
+export const logFileOf = (at: string) => `${at.slice(0, 10)}.jsonl`;
+
 export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   const at = clock().toISOString();
   const line = JSON.stringify({ at, kind, ...fields });
   try {
     mkdirSync(LOG_DIR, { recursive: true });
-    appendFileSync(join(LOG_DIR, `${at.slice(0, 10)}.jsonl`), `${line}\n`);
+    appendFileSync(join(LOG_DIR, logFileOf(at)), `${line}\n`);
   } catch {
     // Logging must never take the system down; stderr still has it.
     console.error(line);

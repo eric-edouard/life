@@ -14,7 +14,7 @@ import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
 
 const FENCED = /```(?:json)?\s*\n(\{[\s\S]*?\})\s*\n```/g;
-const MODEL_TIMEOUT_MS = 20 * MIN;
+const MODEL_TIMEOUT_MS = 60 * MIN;
 
 /**
  * The model's reply is meant to be bare JSON; tolerate a fence or a stray line around it, and a reply that corrects

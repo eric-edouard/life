@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { MIN, unfrozen } from "../core/clock";
 import { digest } from "../core/hash";
-import { log, recentEvents } from "../core/log";
+import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
@@ -220,21 +220,18 @@ export function successReport(day: string, ms: number, n: Night) {
   };
 }
 
-/** The email of a night that stopped at `step`. */
+/** The email of a run (a night, a backfill) that stopped at `step`, at `at`, and will not try again. */
 export function failureReport(
-  day: string,
+  at: string,
   ms: number,
   step: string,
   error: string
 ) {
-  const { date, weekday } = when(day);
+  const { date, weekday } = when(localDate(at));
   return compose(`${date} · failed at ${step}`, {
     date,
     failure: { error, step },
-    notes: [
-      "Nothing was committed; the next run resumes where this one stopped.",
-      `Details: derived/log/${day}.jsonl`,
-    ],
+    notes: ["Nothing was committed.", `Details: derived/log/${logFileOf(at)}`],
     preheader: `Stopped at ${step} after ${duration(ms)}: ${error}`,
     stats: [
       { label: "stopped at", value: step },

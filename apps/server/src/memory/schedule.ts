@@ -11,6 +11,8 @@ import { daysBefore, localTime, type Window } from "./units";
 
 const FIRST_HOUR = 2;
 export const MAX_ATTEMPTS = 3;
+/** Whether `used` failed tries leave none: the night's and a backfill week's one rule. */
+export const isOutOfTries = (used: number) => used >= MAX_ATTEMPTS;
 export interface NightState {
   attempts: number;
   date: string;
@@ -32,9 +34,7 @@ export function decide(
   if (state?.date !== day) {
     return "run";
   }
-  return state.status === "ok" || state.attempts >= MAX_ATTEMPTS
-    ? "skip"
-    : "run";
+  return state.status === "ok" || isOutOfTries(state.attempts) ? "skip" : "run";
 }
 
 /** The backup's turn on a tick: once the night is done for the day (ok or out of tries) or from 06:00 (a night stuck or
@@ -188,7 +188,7 @@ export function backfillWeek(
     night?.date !== day ||
     night.status !== "ok" ||
     b.next > b.to ||
-    b.failures >= MAX_ATTEMPTS ||
+    isOutOfTries(b.failures) ||
     (b.day === day && (b.weeks ?? 0) >= WEEKS_A_DAY)
   ) {
     return null;
