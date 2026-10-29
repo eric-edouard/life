@@ -3,15 +3,15 @@
    copy its values, and brand.test.ts fails when a copy drifts. */
 @import url("https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Atkinson+Hyperlegible+Next:wght@400;500;700&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap");
 :root {
-  --ink: #1f1f1f;
-  --text: #4a4a4a;
-  --muted: #6b6b6b;
-  --rule: #e3e3e3;
-  --surface: #f6f6f6;
-  --white: #ffffff;
+  --ink: light-dark(#1f1f1f, #f2f2f2);
+  --text: light-dark(#4a4a4a, #c9c9c9);
+  --muted: light-dark(#6b6b6b, #a3a3a3);
+  --rule: light-dark(#e3e3e3, #3a3a3a);
+  --surface: light-dark(#f6f6f6, #2a2a2a);
+  --white: light-dark(#ffffff, #1f1f1f);
   /* Status: done and a problem, always beside a word; the others mark the parked Mac app's dots. */
-  --synced: #15803d;
-  --error: #b42318;
+  --synced: light-dark(#15803d, #4ade80);
+  --error: light-dark(#b42318, #f97066);
   --open: #f59e0b;
   --progress: #3b82f6;
   --confirmation: #14b8a6;
@@ -25,16 +25,11 @@
   --panel-radius: 18px;
   color-scheme: light dark;
 }
-/* Dark, derived: the calm inverse; green and red lightened so they still read on the dark ground. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink: #f2f2f2;
-    --text: #c9c9c9;
-    --muted: #a3a3a3;
-    --rule: #3a3a3a;
-    --surface: #2a2a2a;
-    --white: #1f1f1f;
-    --synced: #4ade80;
-    --error: #f97066;
-  }
+/* Dark is each colour's second value (light-dark): the calm inverse, green and red lightened to read on the dark
+   ground. The system's choice unless a page sets data-theme (the decisions page's switcher). */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }

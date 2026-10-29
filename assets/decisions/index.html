@@ -75,16 +75,20 @@ button {
 }
 .row {
   all: unset;
+  box-sizing: border-box;
   display: flex;
   gap: 10px;
   align-items: center;
   width: 100%;
-  padding: 12px;
+  padding: 13px 12px;
+  font-size: 16px;
+  color: var(--text);
   cursor: pointer;
   border-radius: 10px;
 }
 .row[aria-current="true"] {
   font-weight: 700;
+  color: var(--ink);
   background: var(--white);
 }
 .row.done {
@@ -128,12 +132,11 @@ button {
   text-underline-offset: 3px;
   cursor: pointer;
 }
-/* One decision a screen, snapping; tall ones scroll inside. */
+/* Desktop scrolls freely, the sidebar picks; only the phone snaps to a decision. */
 #main {
   flex: 1;
   height: 100%;
   overflow-y: auto;
-  scroll-snap-type: y proximity;
 }
 #bar {
   position: sticky;
@@ -172,13 +175,12 @@ button {
 section {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 32px;
   justify-content: center;
-  max-width: 720px;
+  max-width: 784px;
   min-height: 100%;
-  padding: 48px 72px;
+  padding: 56px 72px;
   margin: 0 auto;
-  scroll-snap-align: start;
 }
 .where {
   font-size: 15px;
@@ -186,11 +188,12 @@ section {
 }
 .q {
   margin: 0;
-  font: 600 40px / 1.15 var(--serif);
+  font: 600 44px / 1.15 var(--serif);
   letter-spacing: -0.01em;
 }
 .draft {
-  padding: 18px 22px;
+  padding: 22px 26px;
+  font-size: 18px;
   white-space: pre-wrap;
   background: var(--surface);
   border-radius: 14px;
@@ -210,7 +213,7 @@ section {
   all: unset;
   display: grid;
   gap: 4px;
-  padding: 17px 22px;
+  padding: 19px 24px;
   font-size: 19px;
   cursor: pointer;
   border: 1px solid var(--rule);
@@ -262,6 +265,19 @@ label {
   flex-wrap: wrap;
   gap: 20px;
 }
+.theme {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  padding: 24px 12px 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.theme [aria-pressed="true"] {
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+}
 .quiet {
   color: var(--muted);
 }
@@ -299,15 +315,18 @@ label {
     transform: none;
     transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  #main {
+    scroll-snap-type: y proximity;
+  }
   #bar {
     display: block;
   }
   section {
-    /* Below the sticky bar, so a decision's first line is never under it. */
     gap: 22px;
     justify-content: flex-end;
     min-height: calc(100% - 64px);
     padding: 24px;
+    scroll-snap-align: start;
     /* Below the sticky bar, so a decision's first line is never under it. */
     scroll-margin-top: 64px;
   }
