@@ -49,7 +49,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `beeper`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
+| source | Where Life reads from, named after the app or service: `lifelog`, `whatsapp`, `imessage`, `beeper`, `line`, `instagram`, `mail`, `notes`, `git`, `claude`, `chatgpt`, and the agent's. | |
 | kind | What a source is to the memory: `voice`, `chat`, `mail`, `own_writing` (the owner's own words: Apple Notes, his imported assistant chats), `repo`, `agent`. | |
 | Voice | The voice source as the owner sees it: his recordings, through lifelog. | the app's card, Pendant today |
 | conversation | What lifelog groups the owner's speech into, by rules: Life's voice units come from its turns. | |

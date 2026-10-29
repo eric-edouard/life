@@ -133,3 +133,33 @@ export function insertAll(
   })();
   return added;
 }
+
+/**
+ * A Matrix-shaped chat archive (Beeper's, and each bridge's, `sources/bridged.ts`): one row per version a message was
+ * seen in (the original, each edit, the deleted state with its text wiped), the same for its files, which a delete
+ * wipes too, and the `deleted` view. `extra` is the store's own columns, after `chatName`.
+ */
+export const matrixArchive = (
+  extra: string
+) => `create table if not exists messages (
+    id integer not null, eventId text not null, chat text not null, chatName text, ${extra}
+    sender text, senderName text, fromMe integer not null, at text not null, type text not null,
+    text text not null, deleted integer not null, seenAt text not null,
+    unique (chat, eventId, text, deleted));
+  create table if not exists files (chat text not null, eventId text not null, files text not null,
+    unique (chat, eventId, files));
+  drop view if exists deleted;
+  create view deleted as
+    select m.*, d.seenAt as deletedSeenAt from messages m
+      join messages d on d.chat = m.chat and d.eventId = m.eventId and d.deleted = 1
+     where m.deleted = 0
+       and (m.text <> '' or exists (select 1 from files f where f.chat = m.chat and f.eventId = m.eventId))`;
+
+/** From a Matrix-shaped archive: of each message's versions, the latest with a text or not deleted (a photo has no text), with its latest files. */
+export const LATEST_VERSIONS = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.text, f.files,
+    exists (select 1 from deleted d where d.chat = m.chat and d.eventId = m.eventId) as deleted
+  from messages m left join files f on f.rowid = (select max(rowid) from files x
+    where x.chat = m.chat and x.eventId = m.eventId)
+  where m.at >= ?
+    and m.rowid = (select max(x.rowid) from messages x
+      where x.chat = m.chat and x.eventId = m.eventId and (x.text <> '' or not x.deleted))`;

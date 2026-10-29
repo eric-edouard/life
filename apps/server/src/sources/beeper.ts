@@ -6,13 +6,17 @@ import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
+  archiveDb,
   insertAll,
+  LATEST_VERSIONS,
+  matrixArchive,
   newestArchived,
   openArchive,
   phoneMap,
   type Row,
   readArchived,
 } from "./archived";
+import { BRIDGED, cutoverOf } from "./bridged";
 import { sourceFile } from "./contract";
 
 // Beeper Desktop's own store, opened read-only by its copy into the archive.
@@ -20,15 +24,6 @@ export const BEEPER = join(APP_DATA, "BeeperTexts");
 
 // LINE, Telegram and Instagram (the chats Beeper Desktop bridges) from Life's own archive. Beeper's API is not used: it
 // only works while Beeper runs and keeps no deleted text.
-
-// Of a message's versions, the latest with a text or not deleted (a photo has no text), with its latest files.
-const SQL = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.text, f.files,
-    exists (select 1 from deleted d where d.chat = m.chat and d.eventId = m.eventId) as deleted
-  from messages m left join files f on f.rowid = (select max(rowid) from files x
-    where x.chat = m.chat and x.eventId = m.eventId)
-  where m.at >= ?
-    and m.rowid = (select max(x.rowid) from messages x
-      where x.chat = m.chat and x.eventId = m.eventId and (x.text <> '' or not x.deleted))`;
 
 /** Telegram senders are Matrix ids; the bridge knows the phone behind each. */
 const telegramPhones = (beeper: string) =>
@@ -69,14 +64,56 @@ export function readBeeper(
   beeper = BEEPER
 ): SourceEvent[] {
   const phones = telegramPhones(beeper);
+  const bridged = bridgedFrom(archive);
   return readArchived<Row & { files: string | null }>(
     "beeper",
-    SQL,
+    LATEST_VERSIONS,
     since,
     archive,
     (s) => phones.get(s) ?? s,
     (r) => ({ files: filesOf(beeper, r.files) })
-  );
+  ).filter((e) => {
+    const from = bridged.get(e.chat);
+    return !(from && e.at >= from);
+  });
+}
+
+/**
+ * Beeper's chats of each network Life now bridges itself (`sources/bridged.ts`), by chat: from its cutover (when
+ * Life started copying it) on, its own source reads them, so Beeper's copy stops counting there. Beeper keeps copying everything, so a
+ * bridge that is down loses nothing. Milestone 5 of the no-Beeper plan deletes this with Beeper's copy.
+ */
+function bridgedFrom(archive: string) {
+  const from = new Map<string, string>();
+  const beeper = archiveDb("beeper", archive);
+  for (const { name } of BRIDGED) {
+    const cutover = cutoverOf(name, archive);
+    if (!(cutover && existsSync(beeper))) {
+      continue;
+    }
+    for (const { chat } of withDb(beeper, (db) =>
+      db
+        .query<{ chat: string }, [string]>(
+          "select distinct chat from messages where network = ?"
+        )
+        .all(name)
+    )) {
+      from.set(chat, cutover);
+    }
+  }
+  return from;
+}
+
+function withDb<T>(
+  path: string,
+  read: (db: ReturnType<typeof openReadOnly>) => T
+) {
+  const db = openReadOnly(path);
+  try {
+    return read(db);
+  } finally {
+    db.close();
+  }
 }
 
 /** Each network's newest message the archive holds (the status snapshot). */
@@ -130,26 +167,9 @@ const BEEPER_SQL = `select m.id, m.eventID as eventId, m.roomID as chat, t.accou
   left join participants p on p.room_id = m.roomID and p.id = m.senderContactID
  where m.type not in ('HIDDEN', 'REACTION')`;
 
-// One row per version a message was seen in: the original, each edit, and the deleted state (text wiped). The same for
-// its attachments in `files`, which a delete wipes too.
+// Beeper's archive: the Matrix-shaped versions table, each row with its network.
 const openBeeper = (dir: string) =>
-  openArchive(
-    dir,
-    "beeper",
-    `create table if not exists messages (
-    id integer not null, eventId text not null, chat text not null, chatName text, network text not null,
-    sender text, senderName text, fromMe integer not null, at text not null, type text not null,
-    text text not null, deleted integer not null, seenAt text not null,
-    unique (chat, eventId, text, deleted));
-  create table if not exists files (chat text not null, eventId text not null, files text not null,
-    unique (chat, eventId, files));
-  drop view if exists deleted;
-  create view deleted as
-    select m.*, d.seenAt as deletedSeenAt from messages m
-      join messages d on d.chat = m.chat and d.eventId = m.eventId and d.deleted = 1
-     where m.deleted = 0
-       and (m.text <> '' or exists (select 1 from files f where f.chat = m.chat and f.eventId = m.eventId))`
-  );
+  openArchive(dir, "beeper", matrixArchive("network text not null,"));
 
 /** Copies new and changed LINE, Telegram and Instagram messages into the archive. Returns how many versions were new. */
 export function copyBeeper(

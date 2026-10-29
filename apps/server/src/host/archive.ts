@@ -48,7 +48,7 @@ export const appsToOpen = (
   stores = keptStores()
 ) =>
   stores
-    .map((s) => s.store.app)
+    .flatMap((s) => (s.store.app ? [s.store.app] : []))
     .filter(
       (app) =>
         !running.includes(app) && now - (opened.get(app) ?? 0) >= REOPEN_MS
