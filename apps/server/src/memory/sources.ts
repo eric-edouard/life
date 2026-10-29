@@ -10,7 +10,6 @@ import {
   newestAssistant,
   readAssistant,
 } from "../sources/assistants";
-import { copyBeeper, newestBeeper, readBeeper } from "../sources/beeper";
 import { BRIDGED, bridgedSource } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { newestCommit, readGit } from "../sources/git";
@@ -95,22 +94,6 @@ const LISTED: Descriptor[] = [
       copies: "messages",
       copy: copyWhatsapp,
       media: "media",
-    },
-  },
-  {
-    chatDays: 7,
-    kind: "chat",
-    label: "Beeper",
-    name: "beeper",
-    newest: newestBeeper,
-    read: readBeeper,
-    searchDays: 90,
-    silentAfter: 72 * HOUR,
-    store: {
-      app: "Beeper Desktop",
-      copies: "messages",
-      copy: copyBeeper,
-      media: "''",
     },
   },
   ...BRIDGED.map((b) => bridgedSource(b.name, b.label)),

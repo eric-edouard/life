@@ -12,7 +12,7 @@
   "connector": {
     "origin": "https://life.example.test"
   },
-  "lifeChat": "!life:beeper.local",
+  "lifeChat": "!life:matrix.local",
   "lifelog": {
     "url": "https://voice.example.test"
   },
@@ -27,7 +27,7 @@
     "lifelog",
     "imessage",
     "whatsapp",
-    "beeper",
+    "line",
     "mail",
     "notes",
     "claude",

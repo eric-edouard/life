@@ -255,7 +255,7 @@ export const InferredPerson = z
     project: slug.nullable(),
     relation: z.string().min(1),
     schemaVersion: z.literal(1),
-    /** Handles (phone, WhatsApp id, Beeper id) or names this person goes by. */
+    /** Handles (phone, WhatsApp id, a network's id) or names this person goes by. */
     surfaces: z.array(z.string().min(1)).min(1),
   })
   .strict();

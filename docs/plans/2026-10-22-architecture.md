@@ -1,5 +1,7 @@
 # Architecture plan: one codebase, two hosts (22 Oct 2026)
 
+Note: Beeper was removed on 30 Oct 2026 ([no more Beeper](2026-10-29-no-beeper.md)); where this plan reads from Beeper, Life now reads through its own connectors.
+
 Explanation and plan: the code and repo shape Life needs before the [server plan](2026-10-22-server.md) adds a web UI,
 a messaging layer and a second host. Measured on `main` at ebcb851; each step below names its PR. Done: all seven steps merged (#162–#168).
 

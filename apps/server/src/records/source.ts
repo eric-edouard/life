@@ -6,7 +6,7 @@ import { isoDateTime } from "./fields";
 
 /**
  * A file a message carries, as its source resolved it; message-files.ts renders it as a line of the message. `ref` says where
- * it was met, stable without the file: `imessage:<attachment guid>`, `whatsapp:<chat>/<msg>`, `beeper:<mxc url>`,
+ * it was met, stable without the file: `imessage:<attachment guid>`, `whatsapp:<chat>/<msg>`, `line:<mxc url>`,
  * `mail:<Message-ID>#<IMAP part>`, `notes:<attachment id>`.
  */
 export const SourceFile = z
@@ -30,13 +30,13 @@ export const SourceEvent = z
     bulk: z.boolean().optional(),
     chat: z.string(),
     chatName: z.string().optional(),
-    // WhatsApp and Beeper: the sender deleted it for everyone; the text is the archive's copy. Notes: he deleted the note.
+    // WhatsApp and the bridged networks: the sender deleted it for everyone; the text is the archive's copy. Notes: he deleted the note.
     deleted: z.boolean().optional(),
     files: z.array(SourceFile).optional(),
     fromMe: z.boolean(),
     id: z.string(),
     removed: z.int().min(0).optional(),
-    // The sender's handle as the source shows it: phone, email, Beeper participant id; git: the author's name.
+    // The sender's handle as the source shows it: phone, email, a network's participant id; git: the author's name.
     sender: z.string(),
     // lifelog has turns in the watcher's store, not events.
     source: SourceName.exclude(["lifelog"]),

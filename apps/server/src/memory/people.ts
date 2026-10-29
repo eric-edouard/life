@@ -92,7 +92,7 @@ export function checkPeople(
 }
 
 /**
- * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, Beeper) and
+ * The surfaces of a day not on the map, with the units they appear in: chat senders (WhatsApp, iMessage, the bridged networks) and
  * names lifelog gave a voice, as their units keep them (`unknown:`). `known` says which resolve now (truth, his
  * corrections, a confident inferred person).
  */

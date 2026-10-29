@@ -500,7 +500,7 @@ function repoDay(list: SourceEvent[]): Built {
 }
 
 /**
- * The chat with Life's retired Telegram bot (its Beeper chat id, the `lifeChat` setting): its briefs and answers were
+ * The chat with Life's retired Telegram bot (its chat id, the `lifeChat` setting): its briefs and answers were
  * Life's output, so neither memory nor the raw chat reads open it. Unset, no chat is Life's.
  */
 export const LIFE_CHAT = settings().lifeChat;

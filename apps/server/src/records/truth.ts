@@ -40,7 +40,7 @@ export const PeopleFile = z
 
 export const Chat = z
   .object({
-    // Beeper chat id. Which projects a chat belongs to is in `Project.chats`.
+    // network chat id. Which projects a chat belongs to is in `Project.chats`.
     id: z.string().startsWith("!"),
     name: z.string(),
     // WhatsApp chats: the chat id in Life's archive (`<phone>@s.whatsapp.net`, `<id>@g.us` or `<id>@lid`).

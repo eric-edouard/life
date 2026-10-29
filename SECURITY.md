@@ -7,7 +7,7 @@ and wakes the agents that act for him. This page says what it protects and what 
 
 - Everything Life derives lives on the owner's Mac: the data root (`truth/`, `memory/`) is a local git repository with
   no remote. The nightly refuses to commit to a repository that has one.
-- Raw data stays in its own app (Messages, Mail, WhatsApp, Beeper, Notes, lifelog), opened read-only. The one copy Life
+- Raw data stays in its own app (Messages, Mail, WhatsApp, Notes, lifelog), opened read-only. The one copy Life
   keeps is the archive (`~/Library/Application Support/Life/archive/`): messages deleted for everyone and old note
   versions.
 - Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are

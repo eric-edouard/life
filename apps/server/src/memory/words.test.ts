@@ -2,12 +2,10 @@ import { afterAll, expect, test } from "bun:test";
 import { DAY, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
-import { copyBeeper, readBeeper } from "../sources/beeper";
 import { readImessage } from "../sources/imessage";
 import { apply, readConversations } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
-  beeperFixture,
   conversation,
   imessageFixture,
   lifelogServer,
@@ -163,7 +161,20 @@ test("transcripts: a recording lifelog no longer has is silent, a failed fetch t
   }
 });
 
-test("chats: WhatsApp, Beeper and iMessage together, deleted messages shown marked, today included", async () => {
+/** A LINE message from Ana, a minute ago, in the chat `!tg`. */
+const lineChat = (text: string, deleted = false) => ({
+  at: new Date(Date.now() - MIN).toISOString(),
+  chat: "!tg",
+  chatName: "Ana",
+  deleted,
+  fromMe: false,
+  id: "line:!tg/1",
+  sender: "+66600000001",
+  source: "line" as const,
+  text,
+});
+
+test("chats: WhatsApp, LINE and iMessage together, deleted messages shown marked, today included", async () => {
   const wa = whatsappFixture();
   wa.add(1, "S1", 0, "pay the carpenter", 300);
   wa.add(2, "S2", 0, "meet at 9", 200);
@@ -175,17 +186,11 @@ test("chats: WhatsApp, Beeper and iMessage together, deleted messages shown mark
   );
   wa.add(3, "S3", 14, null, 300);
   copyWhatsapp(wa.source, wa.dir, wa.now + 5000);
-  const bp = beeperFixture();
-  bp.add(1, "!tg", "TEXT", "send the invoice");
-  copyBeeper(bp.source, bp.dir, bp.now);
-  bp.index.run(
-    'update mx_room_messages set isDeleted = 1, message = \'{"text":""}\' where id = 1'
-  );
-  copyBeeper(bp.source, bp.dir, bp.now + 5000);
+  const ana = lineChat("send the invoice", true);
   const imessage = imessageFixture();
   const sources = {
-    beeper: (since: Date) => readBeeper(since, bp.dir, bp.source),
     imessage: (since: Date) => readImessage(since, imessage),
+    line: () => [ana],
     whatsapp: (since: Date) => readWhatsapp(since, wa.dir, wa.source),
   };
 
@@ -198,7 +203,7 @@ test("chats: WhatsApp, Beeper and iMessage together, deleted messages shown mark
   // A sender found in two apps: both chats, by handle.
   const sender = (await chatsOf({ who: "+66600000001" }, sources)) ?? "";
   expect(sender).toContain("Team (whatsapp");
-  expect(sender).toContain("Ana (beeper, chat !tg)");
+  expect(sender).toContain("Ana (line, chat !tg)");
   expect(sender).toContain("send the invoice (deleted)");
   expect(sender).not.toContain("salut");
   const text = (await chatsOf({ who: "+33611111111" }, sources)) ?? "";
@@ -230,18 +235,16 @@ test("search's chats: all words, no accents or case, across the three apps, one 
     wa.add(i + 1, `Q${i}`, 0, text, 700 - i * 100);
   }
   copyWhatsapp(wa.source, wa.dir, wa.now);
-  const bp = beeperFixture();
-  bp.add(1, "!tg", "TEXT", "the glazier can fix the vitre on friday");
-  copyBeeper(bp.source, bp.dir, bp.now);
+  const ana = lineChat("the glazier can fix the vitre on friday");
   const imessage = imessageFixture("la vitre sera prête mardi");
   const sources = {
-    beeper: (since: Date) => readBeeper(since, bp.dir, bp.source),
     imessage: (since: Date) => readImessage(since, imessage),
+    line: () => [ana],
     whatsapp: (since: Date) => readWhatsapp(since, wa.dir, wa.source),
   };
   const found = (await chatHits("vitre", {}, sources)).join("\n");
   expect(found).toContain("Team (whatsapp");
-  expect(found).toContain("Ana (beeper");
+  expect(found).toContain("Ana (line");
   expect(found).toContain("(imessage, chat +33611111111)");
   expect(found).toContain("the glazier can fix the vitre");
   expect(found).toContain("la vitre sera prête mardi");
@@ -377,14 +380,14 @@ test("chats never read Life's own chat with the bot", async () => {
     fromMe: false,
     id: `b:${chat}`,
     sender: "bot",
-    source: "beeper" as const,
+    source: "line" as const,
     text,
   });
   const out =
     (await chatsOf(
       { who: "Claude Life Assistant" },
       {
-        beeper: () => [
+        line: () => [
           event(LIFE_CHAT as string, "Life's own answer"),
           event("!other", "a real chat"),
         ],

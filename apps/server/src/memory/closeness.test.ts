@@ -257,15 +257,15 @@ test("judged again only when the rounded counts moved or the prompt changed; eve
   });
 });
 
-test("a WhatsApp or iMessage chat that isn't a group by its id is 1:1, a handle Life can't place included; on Beeper two senders are a group", () => {
+test("a WhatsApp or iMessage chat that isn't a group by its id is 1:1, a handle Life can't place included; on a bridged network two senders are a group", () => {
   const resolve = (s: string) => (s === "+3" ? "person:cat" : null);
   const at = "2026-10-01T10:00:00.000Z";
   const days = chatDays(
     [
       msg("+3", at, false, "+3"),
       msg("+3", at, false, "lid-unplaced"),
-      { ...msg("!room", at, false, "+3"), source: "beeper" as const },
-      { ...msg("!room", at, false, "someone"), source: "beeper" as const },
+      { ...msg("!room", at, false, "+3"), source: "line" as const },
+      { ...msg("!room", at, false, "someone"), source: "line" as const },
     ],
     resolve
   );

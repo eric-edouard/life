@@ -321,7 +321,7 @@ test("a unit he said was read wrong after its verdict reads its day again, and t
 const HASH = "0000000000000000";
 const AREA = "shop";
 const unitOf = (id: string, drop?: string) =>
-  unit({ drop, hash: HASH, id, source: "beeper" });
+  unit({ drop, hash: HASH, id, source: "line" });
 const judged = (
   u: Unit,
   type: Verdict["type"],
@@ -368,23 +368,23 @@ test("agreement: kept means importance 2+, code-rule drops count as skipped, lab
   });
 });
 
-test("a chat's area hint is the area of the projects that list it, by Beeper id and by WhatsApp id", () => {
+test("a chat's area hint is the area of the projects that list it, by network chat id and by WhatsApp id", () => {
   const truth = {
     chats: [
-      { id: "!a:beeper.local", whatsapp: "1@g.us" },
-      { id: "!b:beeper.local" },
+      { id: "!a:matrix.local", whatsapp: "1@g.us" },
+      { id: "!b:matrix.local" },
     ],
     projects: [
-      { area: "construction", chats: ["!a:beeper.local"] },
-      { area: "family-money", chats: ["!a:beeper.local"] },
+      { area: "construction", chats: ["!a:matrix.local"] },
+      { area: "family-money", chats: ["!a:matrix.local"] },
       { area: "shop", chats: [] },
     ],
   } as unknown as Truth;
   const hints = chatAreas(truth);
-  expect(hints.get("!a:beeper.local")).toEqual([
+  expect(hints.get("!a:matrix.local")).toEqual([
     "construction",
     "family-money",
   ]);
   expect(hints.get("1@g.us")).toEqual(["construction", "family-money"]);
-  expect(hints.has("!b:beeper.local")).toBe(false);
+  expect(hints.has("!b:matrix.local")).toBe(false);
 });

@@ -6,7 +6,6 @@ import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import {
   ARCHIVE,
-  archiveDb,
   insertAll,
   LATEST_VERSIONS,
   matrixArchive,
@@ -24,13 +23,18 @@ import { BRIDGES, bridgeSend, configOf, OWNER, userOn } from "./matrix";
 
 const SYNAPSE = join(BRIDGES, "synapse", "homeserver.db");
 
-/** The bridge's archive: the Matrix-shaped versions table, and how far the homeserver's events were copied. */
-const openBridged = (name: string, dir: string) =>
+/**
+ * A network's archive: the Matrix-shaped versions table, how far the homeserver's events were copied (`copied`), and
+ * when Life's own copy of it began (`cutover`, once): what the bridge backfilled from before it is never read, the
+ * history there is the earlier copy's (imported 30 Oct 2026).
+ */
+export const openBridged = (name: string, dir: string) =>
   openArchive(
     dir,
     name,
     `${matrixArchive("")};
-  create table if not exists copied (stream integer not null)`
+  create table if not exists copied (stream integer not null);
+  create table if not exists cutover (at text not null)`
   );
 
 interface Event {
@@ -368,6 +372,13 @@ export const NETWORKS = [
     repo: "mautrix/meta",
   },
   {
+    cmd: "cmd/mautrix-telegram",
+    label: "Telegram",
+    name: "telegram",
+    reads: true,
+    repo: "mautrix/telegram",
+  },
+  {
     cmd: "cmd/mautrix-linkedin",
     label: "LinkedIn",
     name: "linkedin",
@@ -383,39 +394,21 @@ export const BRIDGED = NETWORKS.filter(
 type Bridged = (typeof BRIDGED)[number]["name"];
 
 /**
- * When Life started copying a network itself: its archive's first copy. Before it, Beeper's copy of that network
- * counts; from it on, the bridge's (`readBridged`, `readBeeper`): one moment for both, so a bridge's backfill of older
- * history never hides Beeper's, nothing is read twice, and stored ids stay. None while it has copied nothing.
+ * Of the archive's versions, the latest ones but for what the bridge backfilled from before its cutover (written after
+ * it, about a time before it): that time is the earlier copy's.
  */
-export function cutoverOf(network: string, archive = ARCHIVE) {
-  const path = archiveDb(network, archive);
-  if (!existsSync(path)) {
-    return;
-  }
-  const db = openReadOnly(path);
-  try {
-    return (
-      db
-        .query<{ at: string | null }, []>(
-          "select min(seenAt) as at from messages"
-        )
-        .get()?.at ?? undefined
-    );
-  } finally {
-    db.close();
-  }
-}
+const SINCE_CUTOVER = `${LATEST_VERSIONS}
+    and not (m.at < coalesce((select min(at) from cutover), '') and m.seenAt >= coalesce((select min(at) from cutover), ''))`;
 
-/** The bridge's messages since `since` and since its cutover (`cutoverOf`), from the archive, oldest first. */
+/** The network's messages since `since`, from its archive, oldest first (`SINCE_CUTOVER`). */
 export const readBridged = (
   bridge: Bridged,
   since: Date,
   archive = ARCHIVE
-): SourceEvent[] => {
-  const from = cutoverOf(bridge, archive) ?? "";
-  return readArchived<Row & { files: string | null }>(
+): SourceEvent[] =>
+  readArchived<Row & { files: string | null }>(
     bridge,
-    LATEST_VERSIONS,
+    SINCE_CUTOVER,
     since,
     archive,
     (s) => s,
@@ -425,18 +418,19 @@ export const readBridged = (
           fileName?: string;
           id: string;
           mimeType?: string;
+          path?: string;
         }[]
       ).map((f) =>
         sourceFile({
           mime: f.mimeType,
           name: f.fileName,
-          path: mediaOf(f.id),
+          // An imported file has its copy's path; the bridge's are in the homeserver's media.
+          path: f.path ?? mediaOf(f.id),
           ref: `${bridge}:${f.id}`,
         })
       ),
     })
-  ).filter((e) => e.at >= from);
-};
+  );
 
 /** A bridged network as a source: its archive's copy, its reading and newest, its send (`bridgeSend`). */
 export const bridgedSource = (name: Bridged, label: string): Descriptor => ({

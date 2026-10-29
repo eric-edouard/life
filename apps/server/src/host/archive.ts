@@ -15,8 +15,8 @@ import {
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import { startAgent } from "./events";
 
-// Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message Beeper Desktop
-// holds, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
+// Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message the bridges
+// hold, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
 // The only copy of what an app wiped is one taken while it existed. The apps' stores are opened read-only; only the
 // archive is written (one SQLite file per source). Each source copies its own store (`store` in its descriptor); one
 // app being closed or locked never stops the others. Query the deleted ones with `archive deleted`.
@@ -144,7 +144,7 @@ function printDeleted(days: number) {
 
 // A store failing since its first failed pass until its next good one is an incident, logged at both ends
 // (`archive.<store>`: run.error, run.end). The log is its only record: read back on a restart (each commit), by the
-// night's line, and by the nightly tick that emails him an hour in (18 Oct: Beeper's store would not open for 5 hours,
+// night's line, and by the nightly tick that emails him an hour in (18 Oct: a chat app's store would not open for 5 hours,
 // unseen, and what is deleted meanwhile is lost).
 
 // ponytail: an incident open over 7 days drops out of the window until the archive restarts and logs it again.

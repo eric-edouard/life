@@ -20,7 +20,7 @@ The user message is one JSON object with `moments` and `prior`.
   itself is already remembered: its title, time, place and people. **The moment header is a model's reading and may be
   wrong**; it tells you what the units are about, the units' lines are the evidence. Its units may come from several
   days, but its earliest days may be left out. A moment with id `none` holds units that belong to no moment.
-- Each unit has `id`, `source` (lifelog, whatsapp, beeper, imessage, mail, notes), `title`, `people`, `triage` (why an
+- Each unit has `id`, `source` (lifelog, whatsapp, line, instagram, telegram, imessage, mail, notes), `title`, `people`, `triage` (why an
   earlier step kept it), and `lines`. Each line reads `[n] YYYY-MM-DD HH:MM who: text`: `n` is the line number within its
   unit, the date and time are when it was said or written (local), `who` is `me` (the owner), a person id from the map, a
   name, or a label like `speaker_1` or `+66…` for someone not identified. In a 1:1 chat, the unit's `people` say who

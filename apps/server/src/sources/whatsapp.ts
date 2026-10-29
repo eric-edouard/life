@@ -59,7 +59,7 @@ const phonesOfLids = (dir: string) =>
 export const isWhatsappGroup = (chat: string) => chat.endsWith("@g.us");
 /**
  * The phone a `<number>@s.whatsapp.net` id holds (a 1:1 chat's key too); none in a group's id or a `@lid`.
- * ponytail: a `@lid` 1:1 chat has no handle in its key (nor has Beeper's), so its older facts keep their author.
+ * ponytail: a `@lid` 1:1 chat has no handle in its key (nor has a bridge's), so its older facts keep their author.
  */
 export const phoneOf = (jid: string) =>
   jid.endsWith("@s.whatsapp.net") ? `+${jid.split("@")[0]}` : undefined;

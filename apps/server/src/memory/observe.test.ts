@@ -384,7 +384,7 @@ test("a 1:1 chat's handle by unit: iMessage handles and WhatsApp numbers, never 
       chat("unit_3", "imessage", "chat123456"),
       chat("unit_4", "whatsapp", "33600000000@s.whatsapp.net"),
       chat("unit_5", "whatsapp", "120363000@g.us"),
-      chat("unit_6", "beeper", "!abc:beeper.local"),
+      chat("unit_6", "line", "!abc:matrix.local"),
     ]),
   ]).toEqual([
     ["unit_1", "+33600000000"],

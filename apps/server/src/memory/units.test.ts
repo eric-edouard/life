@@ -97,12 +97,12 @@ const UNIT_ID = /^unit_[0-9a-f]{12}$/;
 
 const msg = (over: Partial<SourceEvent>): SourceEvent => ({
   at: "2026-10-09T10:00:00.000Z",
-  chat: "!chat:beeper",
+  chat: "!chat:matrix",
   chatName: "Dad",
   fromMe: false,
-  id: "beeper:!chat/1",
+  id: "line:!chat/1",
   sender: "+33600000002",
-  source: "beeper",
+  source: "line",
   text: "Can you call the plumber today?",
   ...over,
 });
@@ -151,17 +151,17 @@ test("a chat-day groups one chat's messages of one day, names known senders in i
   const handles = (s: string) => (s === "+33600000002" ? "person:dad" : null);
   const built = messageUnits(
     [
-      msg({ id: "beeper:!chat/1" }),
+      msg({ id: "line:!chat/1" }),
       msg({
         at: "2026-10-09T11:00:00.000Z",
         fromMe: true,
-        id: "beeper:!chat/2",
+        id: "line:!chat/2",
         sender: "me",
         text: "Yes, at 5",
       }),
       msg({
         at: "2026-10-12T11:00:00.000Z",
-        id: "beeper:!chat/3",
+        id: "line:!chat/3",
         text: "Thanks",
       }),
     ],
@@ -169,7 +169,7 @@ test("a chat-day groups one chat's messages of one day, names known senders in i
   );
   expect(built).toHaveLength(2);
   const day = built[0]?.unit;
-  expect(day?.refs).toEqual(["beeper:!chat/1", "beeper:!chat/2"]);
+  expect(day?.refs).toEqual(["line:!chat/1", "line:!chat/2"]);
   expect(day?.people).toEqual(["person:me", "unknown:+33600000002"]);
   expect(day?.stats).toEqual({ chars: 40, fromMe: 1, items: 2 });
   expect(day?.summary).toBeUndefined();
@@ -449,7 +449,7 @@ test("login-code mails and vendor notifications Jean never answered are dropped,
 test("a 1:1 chat's title names its unknown member; a group or a mail thread names nobody", () => {
   const handles = () => null;
   const [one] = messageUnits(
-    [msg({ chatName: "Anne-Sophie", sender: "@line_x:beeper.local" })],
+    [msg({ chatName: "Anne-Sophie", sender: "@line_x:matrix.local" })],
     handles
   );
   expect(one && oneToOne(one)).toBe("Anne-Sophie");
@@ -458,7 +458,7 @@ test("a 1:1 chat's title names its unknown member; a group or a mail thread name
       msg({ chatName: "Builders", sender: "+66000000001" }),
       msg({
         chatName: "Builders",
-        id: "beeper:!chat/2",
+        id: "line:!chat/2",
         sender: "+66000000002",
       }),
     ],
@@ -637,7 +637,7 @@ test("a day read again in another country keeps its local dates, times and unit 
       for (const b of built) {
         expect(b).toEqual({
           date,
-          id: unitId("whatsapp", "!chat:beeper", date ?? ""),
+          id: unitId("whatsapp", "!chat:matrix", date ?? ""),
           line: `Dad\n${clock} +33600000002: Can you call the plumber today?`,
         });
       }
