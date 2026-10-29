@@ -7,7 +7,7 @@ import {
   writeDecision,
 } from "../memory/decisions";
 import { readLedger } from "../memory/ledger";
-import { enabledSources, sourceOf } from "../memory/sources";
+import { sourceOf } from "../memory/sources";
 import { type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
@@ -43,14 +43,6 @@ export function recipientOf(ref: string | undefined) {
       : undefined;
   return `${to.s.label} · ${name ?? to.chat}`;
 }
-
-/** Why each source he turned on that sends can't send now, from the network itself (the Sends card). */
-export const readSendBlocks = () =>
-  Promise.all(
-    enabledSources().flatMap((s) =>
-      s.send ? [sendBlockOf(s).then((why) => ({ label: s.label, why }))] : []
-    )
-  );
 
 /** Why a source can't send now, from the network itself (a status read waits 10 s at most); none when it can. */
 export const sendBlockOf = (s: Descriptor) =>

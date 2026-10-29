@@ -19,15 +19,17 @@ export interface Connector {
   source?: Descriptor;
 }
 
-/** One thing checked, and what it found. */
-interface Part {
+/** One thing checked (its bridge, reading it, sending), and what it found. */
+export interface Part {
+  kind: "bridge" | "read" | "send";
   ok: boolean;
   text: string;
 }
 
-export interface Health {
+export interface ConnectorHealth {
   detail: string;
   ok: boolean;
+  parts: Part[];
 }
 
 /** Every messaging connector he has: each chat source he turned on, and each network with a bridge. */
@@ -66,11 +68,15 @@ async function bridgePart(
   running: (job: string) => Promise<boolean>
 ): Promise<Part> {
   if (!isBridgeAdded(n.name)) {
-    return { ok: false, text: `no bridge: bun life bridge add ${n.name}` };
+    return {
+      kind: "bridge",
+      ok: false,
+      text: `no bridge: bun life bridge add ${n.name}`,
+    };
   }
   return (await withTimeout(running(`bridge-${n.name}`), 10_000, false))
-    ? { ok: true, text: "bridge running" }
-    : { ok: false, text: "bridge stopped" };
+    ? { kind: "bridge", ok: true, text: "bridge running" }
+    : { kind: "bridge", ok: false, text: "bridge stopped" };
 }
 
 /** Can Life read it: on, set up (`missing()`), its newest message read now (10 s at most). */
@@ -81,12 +87,12 @@ async function readPart(c: Connector): Promise<Part | undefined> {
   }
   if (!enabledSources().includes(s)) {
     return c.network?.reads
-      ? { ok: false, text: `not read: turn on ${s.name}` }
+      ? { kind: "read", ok: false, text: `not read: turn on ${s.name}` }
       : undefined;
   }
   const why = s.missing?.();
   if (why) {
-    return { ok: false, text: `can't read: ${why}` };
+    return { kind: "read", ok: false, text: `can't read: ${why}` };
   }
   try {
     const newest = await withTimeout(
@@ -95,14 +101,19 @@ async function readPart(c: Connector): Promise<Part | undefined> {
       "late" as const
     );
     if (newest === "late") {
-      return { ok: false, text: "read not answering in 10 s" };
+      return { kind: "read", ok: false, text: "read not answering in 10 s" };
     }
     return {
+      kind: "read",
       ok: true,
       text: newest?.at ? `read, newest ${ago(newest.at)}` : "read, nothing yet",
     };
   } catch (e) {
-    return { ok: false, text: `read failed: ${(e as Error).message}` };
+    return {
+      kind: "read",
+      ok: false,
+      text: `read failed: ${(e as Error).message}`,
+    };
   }
 }
 
@@ -112,19 +123,36 @@ async function sendPart(c: Connector): Promise<Part | undefined> {
   }
   const blocked = await sendBlockOf(c.source);
   if (blocked) {
-    return { ok: false, text: blocked };
+    return { kind: "send", ok: false, text: blocked };
   }
   return {
+    kind: "send",
     ok: true,
     text: settings().sends ? "sends" : "can send (sends off)",
   };
 }
 
+/** Every connector he has, checked at once (the CLI's lines, the app's connector cards). */
+export const connectorHealths = () =>
+  Promise.all(
+    connectors().map(async (c) => ({
+      health: await healthOf(c).catch(
+        (e: Error): ConnectorHealth => ({
+          detail: e.message,
+          ok: false,
+          parts: [],
+        })
+      ),
+      label: c.label,
+      name: c.source?.name ?? c.network?.name ?? c.label,
+    }))
+  );
+
 /** One connector checked: its parts at once, the failures first. */
 export async function healthOf(
   c: Connector,
   running = isRunning
-): Promise<Health> {
+): Promise<ConnectorHealth> {
   const parts = (
     await Promise.all([
       c.network ? bridgePart(c.network, running) : undefined,
@@ -137,6 +165,7 @@ export async function healthOf(
       .map((p) => p.text)
       .join(", "),
     ok: parts.every((p) => p.ok),
+    parts,
   };
 }
 
@@ -146,10 +175,10 @@ const SPIN_MS = 80;
 /** Checks every connector in parallel, one line each; exits 1 when one is ✗. */
 export async function messagingStatus() {
   const all = connectors();
-  const done: (Health | undefined)[] = all.map(() => undefined);
+  const done: (ConnectorHealth | undefined)[] = all.map(() => undefined);
   const tty = Boolean(process.stdout.isTTY);
   const color = tty && !process.env.NO_COLOR;
-  const mark = (h: Health) => {
+  const mark = (h: ConnectorHealth) => {
     if (!color) {
       return h.ok ? "✓" : "✗";
     }
@@ -187,10 +216,13 @@ export async function messagingStatus() {
   }
   await Promise.all(
     all.map(async (c, i) => {
-      done[i] = await healthOf(c).catch((e: Error) => ({
-        detail: e.message,
-        ok: false,
-      }));
+      done[i] = await healthOf(c).catch(
+        (e: Error): ConnectorHealth => ({
+          detail: e.message,
+          ok: false,
+          parts: [],
+        })
+      );
     })
   );
   if (tty) {

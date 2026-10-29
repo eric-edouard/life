@@ -36,8 +36,8 @@ import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { agentLive, clientName, deliveryState } from "../events";
 import { readHealth } from "../health";
+import { connectorHealths, type Part } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
-import { readSendBlocks } from "../send";
 import { lifeStatus } from "./life";
 import { macState, sleeps } from "./mac";
 
@@ -315,7 +315,7 @@ async function reads(now: Date) {
     actions,
     actionChecks,
     newest,
-    sendBlocks,
+    connectors,
   ] = await Promise.all([
     cached("status", 5000, () => lifeStatus(now)),
     cached("log", 5000, () => recentEvents<LogLine>(8, "")),
@@ -336,10 +336,8 @@ async function reads(now: Date) {
     cached("actions", 15_000, readLedger),
     cached("actionChecks", MIN, checks),
     newestOf(),
-    // Only while sends are on: off, nothing is asked of the bridges.
-    isOn("sends")
-      ? cached("sends", 15_000, () => safe(readSendBlocks))
-      : undefined,
+    // Every messaging connector's live check (`bun life bridge`'s): its bridge, reading it, sending.
+    cached("connectors", 15_000, () => safe(connectorHealths)),
   ]);
   const of = (kind: string, days: number) =>
     since(
@@ -352,6 +350,7 @@ async function reads(now: Date) {
     actionChecks,
     actions,
     agentLive: await agentLive(t, async () => mcp as Call[]),
+    connectors,
     contacts,
     errorsToday: of("run.error", 1),
     failingStores: new Map(failing),
@@ -365,7 +364,6 @@ async function reads(now: Date) {
     now,
     open,
     quotas: of("quota.read", 8),
-    sendBlocks,
     sent: of("email.sent", 2),
     sleepList,
     status,
@@ -472,6 +470,12 @@ function lifelogCard(r: Reads): Card {
 }
 
 /** A source read from its own store (`Descriptor.newest`): its newest item, its last copy, its failure. */
+/** A connector's failing bridge and send checks (`connectorHealths`): its reading is judged by the card itself. */
+const connectorFailures = (r: Reads, name: string): Part[] =>
+  (r.connectors.ok ? r.connectors.value : [])
+    .find((c) => c.name === name)
+    ?.health.parts.filter((p) => !p.ok && p.kind !== "read") ?? [];
+
 function sourceCard(r: Reads, d: Descriptor): Card {
   const read = r.newest.get(d.name) ?? {
     error: "not read",
@@ -481,14 +485,34 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   const broken = r.failingStores.get(d.name);
   // The archive's stores: when it last copied one in (lifeStatus).
   const copiedAt = r.status.capture.archive[d.name];
-  const tone = toneOf(quietestAt(n), d.silentAfter, r.t, read.ok && !broken);
+  const readTone = toneOf(
+    quietestAt(n),
+    d.silentAfter,
+    r.t,
+    read.ok && !broken
+  );
+  const failing = connectorFailures(r, d.name);
+  // Its bridge stopped or a send it can't make is as red as a read that fails.
+  const tone = failing.length
+    ? {
+        tone: "bad" as Tone,
+        word: failing[0]?.kind === "bridge" ? "bridge down" : "can't send",
+      }
+    : readTone;
   const why = broken?.error ?? (read.ok ? undefined : read.error);
   return {
     ...tone,
     ...(tone.tone === "bad"
-      ? { ask: ASK(`that ${d.label} cannot be read`) }
+      ? {
+          ask: ASK(
+            failing.length
+              ? `that ${d.label}: ${failing.map((p) => p.text).join(", ")}`
+              : `that ${d.label} cannot be read`
+          ),
+        }
       : {}),
     content: [
+      ...failing.map((p) => clip(p.text, 300)),
       ...(n.words ?? []).map((w) => clip(w, 140)),
       ...(why ? [`Error: ${clip(String(why), 300)}`] : []),
     ],
@@ -792,15 +816,19 @@ function backupCard(r: Reads): Card {
 
 /** Whether Life can send the replies he chooses: each sending source's own word on its link (`send.blocked`). */
 function sendsCard(r: Reads): Card {
-  const all = r.sendBlocks?.ok ? r.sendBlocks.value : [];
-  const blocks = all.filter((b) => b.why);
-  const error =
-    r.sendBlocks && !r.sendBlocks.ok ? r.sendBlocks.error : undefined;
+  // The send checks of every connector that sends (the same as each connector's card).
+  const all = (r.connectors.ok ? r.connectors.value : []).flatMap((c) =>
+    c.health.parts
+      .filter((p) => p.kind === "send")
+      .map((p) => ({ label: c.label, part: p }))
+  );
+  const blocks = all.filter((b) => !b.part.ok);
+  const error = r.connectors.ok ? undefined : r.connectors.error;
   return {
     headline: "can send",
     // Each rule carries its headline (`firstOf`).
     ...firstOf(
-      [!r.sendBlocks, { headline: "sends off", tone: "idle", word: "off" }],
+      [!isOn("sends"), { headline: "sends off", tone: "idle", word: "off" }],
       [
         Boolean(error) || blocks.length > 0,
         {
@@ -821,7 +849,7 @@ function sendsCard(r: Reads): Card {
       [true, { headline: "can send", tone: "ok", word: "ok" }]
     ),
     content: [
-      ...blocks.map((b) => `${b.label}: ${b.why}`),
+      ...blocks.map((b) => `${b.label}: ${b.part.text}`),
       ...(error ? [`Error: ${error}`] : []),
     ],
     facts: [],

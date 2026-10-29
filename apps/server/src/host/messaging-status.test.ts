@@ -13,7 +13,11 @@ test("a connector is ✗ when a part fails, the failures first; a send that neve
     send: { blocked: () => never, deliver: () => Promise.resolve() },
   } as unknown as Descriptor;
   const h = await healthOf({ label: "Made-up", source });
-  expect(h).toEqual({ detail: "not answering in 10 s", ok: false });
+  expect(h).toEqual({
+    detail: "not answering in 10 s",
+    ok: false,
+    parts: [{ kind: "send", ok: false, text: "not answering in 10 s" }],
+  });
 }, 15_000);
 
 test("a connector whose send answers is ✓", async () => {
