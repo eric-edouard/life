@@ -74,8 +74,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **lifelog's chapter units are the only copy of the voice history before conversation-days.** The store no longer
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
-  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts`: today
-  `observation-choice-2026-10-29`; once it has run on his data it goes, as `stored-names-2026-10-22` did), with the owner's OK on the list of renames: the app runs it at its
+  value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
+  the last one, `observation-choice-2026-10-29`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
@@ -88,7 +88,10 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
-  read-only; only the apps of enabled sources are kept open (`keptStores`).
+  read-only; only the apps of enabled sources are kept open (`keptStores`). The bridges' homeserver is the buffer
+  before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
+  never made again (the copy counts its event numbers) (his OK of the
+  new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026).
 - **Content never runs Life's code; it may wake his agents.** Recorded text never makes Life's own code act; model calls
   see no tools and no instruction files (`apps/server/src/models/llm.ts`). Life may start one of his agents because of
   what it recorded (an ask, a message from someone a loop waits on), and that agent reads it as data, under his grants
@@ -185,6 +188,7 @@ Before adding a helper, use the one that exists:
 | Running another program | `apps/server/src/core/proc.ts` |
 | Opening a SQLite store to read (an app's store, the archive, the index) | `openReadOnly` (`apps/server/src/core/sqlite.ts`), which waits for a writer |
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
+| A Matrix-shaped chat archive (Beeper's, a bridge's) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
 | Sending into a chat | `send` (`host/send.ts`), through the source's `send.deliver`; a bridge's from `bridgeSend` (`sources/matrix.ts`) |
 | Whether a source is healthy, whether it can send | its `missing()` then its `newest()` (the snapshot's source card); its `send.blocked()` (the Sends card), never a second check |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
@@ -229,8 +233,9 @@ removing a regression case; anything that spends the owner's model quota heavily
 `docs/agent.md` (it changes the agent's behaviour and its seal).
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
-data repo; add a send beyond `send`, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge without the
-owner's OK.
+data repo; add a send beyond `send`, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
+`golden-rule-verdict` passes on the PR's current head (once it passes, any agent merges, without asking him: his
+ruling of 29 Oct).
 
 ## Workflow
 

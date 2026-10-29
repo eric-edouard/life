@@ -21,6 +21,8 @@ export const AGENT_WORD = "agent";
 export const SourceName = z.enum([
   "lifelog",
   "beeper",
+  "line",
+  "instagram",
   "whatsapp",
   "imessage",
   "mail",
