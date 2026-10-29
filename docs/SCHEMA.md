@@ -203,11 +203,12 @@ move or the prompt changes. The latest record per person wins (a person folded i
 His decisions: the questions his loops put to him and what he answered (`records/decision.ts`). Append-only, one line
 per step (`{at, decision, step, data, run?, schemaVersion}`); a decision now is the fold of its lines
 (`decisionsNow`, `memory/decisions.ts`), never rewritten. A loop's steps, through the connector's `update_decision`:
-`asked` (the question, 2–4 options, its loop, deadline, what happens with no answer; a grant, a change proposal or an
-audit request by `kind`), `revised`, `taken` (before acting on his answer), `done` (its `result`; a grant's `scope`),
+`asked` (the question, up to 4 options, its loop, deadline, what happens with no answer; a grant, a change proposal or an
+audit request by `kind`), `revised`, `taken` (before acting on his answer, or on a request: no options, nothing to answer), `done` (its `result`; a grant's `scope`),
 `reopened`, `withdrawn`, `expired`. His, on `/me/decisions`: `answered` (an option's id, `note` for his words alone, or
-null to clear), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", an audit
-request (`asked` and `answered` in the `audit` loop). One synchronous read-and-append per write (`writeDecision`), so
+null to clear), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", a request
+(`asked`, `kind` audit, no options, his words as `context`, in that loop's tab). A grant stands (`active`) while it is
+the newest done one of its loop and `ref` (by when it was asked), with a scope, not revoked. One synchronous read-and-append per write (`writeDecision`), so
 his tap and a loop taking the same decision can't both land: once taken, his answer is refused.
 
 ## corrections.jsonl

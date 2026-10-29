@@ -16,14 +16,11 @@ export const LOOP_STEPS = [
   "withdrawn",
   "expired",
 ] as const;
-/** His steps, on the page: an answer, opening the context, revoking a grant, and asking (a request: "Something's wrong"). */
-export const OWNER_STEPS = ["answered", "context", "revoked", "asked"] as const;
-export const DECISION_STEPS = [
-  ...LOOP_STEPS,
-  "answered",
-  "context",
-  "revoked",
-] as const;
+/** The steps only he takes, on the page: an answer, opening the context, revoking a grant. */
+const HIS_STEPS = ["answered", "context", "revoked"] as const;
+/** What the page may write: his steps, and asking a request ("Something's wrong"). */
+export const OWNER_STEPS = ["asked", ...HIS_STEPS] as const;
+const DECISION_STEPS = [...LOOP_STEPS, ...HIS_STEPS] as const;
 /** Where a decision stands; done, withdrawn and expired are closed (`closedAt`). */
 export const STATUSES = [
   "open",
