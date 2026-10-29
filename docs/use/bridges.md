@@ -1,65 +1,32 @@
-# Send replies from Life
+# Messaging bridges: send replies, read LINE, Instagram and LinkedIn
 
 Life can send the reply you chose on a decision card, as you, into the chat it answers. It sends only the text you
 tapped, once, and never if they wrote again after the card was made. iMessage goes through `imsg` (installed, nothing
-to link; the first send may ask to let it control Messages). WhatsApp goes through a bridge: a small program
-linked to your WhatsApp as one more device, like WhatsApp Web.
+to link; the first send may ask to let it control Messages). The other networks go through a bridge: a small program
+linked to your account as one more device, like WhatsApp Web. LINE, Instagram and LinkedIn are also read through
+their bridge into Life's archive; WhatsApp is read from its Mac app.
 
-The bridge and its local Matrix server run on your Mac and talk to nothing else. Linking a bridge is against
-WhatsApp's terms; for one personal account, bans are rare.
+The bridges and their local Matrix server (Synapse) run on your Mac, talk to nothing but their network, and keep
+running when Life is closed: the server holds every message, deleted ones included, until Life copies it. Linking a
+bridge may be against a network's terms (WhatsApp's); for one personal account, bans are rare. LINE allows one
+Chrome-extension session: linking its bridge logs LINE's Chrome extension out.
 
-## Set it up
+## One command
 
-Everything lives in `~/Library/Application Support/Life/bridges/`.
+```sh
+bun life bridge list                    # each network: added, running, linked, its source on
+bun life bridge add <network>           # whatsapp, line, instagram or linkedin: builds it, then links it
+bun life bridge link <network> [flow]   # links it again (another way to log in: its flow id, listed when linking)
+bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays
+```
 
-1. The Matrix server, Synapse, in its own Python, with a local-only config (`server_name: life.local`, listening on
-   `127.0.0.1:8008` only, the client API only, registration off, no federation, `redaction_retention_period: null`):
+`add` sets up the Matrix server the first time (it needs `uv` and `go`), builds the bridge at its newest release, and
+runs it. `add` again rebuilds it at its newest release. `link` shows a QR code in the terminal, or asks for what the
+network needs (your email and password, a code, your browser's cookies), hidden as you type. A network Life reads is
+turned on as a source; Life copies it once it restarts.
 
-   ```sh
-   cd ~/Library/Application\ Support/Life/bridges/synapse
-   uv venv -p 3.12 .venv && uv pip install -p .venv/bin/python matrix-synapse
-   .venv/bin/python -m synapse.app.homeserver --server-name life.local --config-path homeserver.yaml --generate-config --report-stats=no
-   ```
-
-2. The WhatsApp bridge, built with Go's own crypto (no libolm):
-
-   ```sh
-   cd ~/Library/Application\ Support/Life/bridges/whatsapp
-   GOBIN=$PWD go install -tags goolm go.mau.fi/mautrix-whatsapp/cmd/mautrix-whatsapp@latest
-   ./mautrix-whatsapp -c config.yaml -e
-   ```
-
-   In `config.yaml`: `homeserver.address` `http://127.0.0.1:8008`, `homeserver.domain` `life.local`, the database
-   `sqlite3-fk-wal` at `file:whatsapp.db?_txlock=immediate`, `appservice.address` `http://127.0.0.1:29318`,
-   `bridge.permissions` `{"@owner:life.local": admin}`, `network.history_sync.max_initial_conversations` `0` (Life reads
-   WhatsApp from the Mac app; the bridge only sends). Then `./mautrix-whatsapp -g -c config.yaml -r registration.yaml`,
-   and add the registration's path to Synapse's `app_service_config_files`.
-
-3. Your account on the Matrix server, and its token where Life reads it (`matrix.json` in Life's state, mode 600):
-
-   ```sh
-   .venv/bin/register_new_matrix_user -c homeserver.yaml -u owner -a http://127.0.0.1:8008
-   ```
-
-   Log in once (`POST /_matrix/client/v3/login`) and save `{"token":"<access token>"}`.
-
-4. Link WhatsApp: start the bridge, then the provisioning API's QR login (`/_matrix/provision/v3/login/start/qr` on
-   port 29318, with the bridge's `provisioning.shared_secret` and `?user_id=@owner:life.local`), and scan the code from
-   WhatsApp → Settings → Linked devices → Link a device.
-
-5. Keep both running (a LaunchAgent each), and turn sends on: `bun life settings set '{"sends":true}'`.
-
-## LINE and Instagram
-
-The same way, each in its own folder: LINE's bridge (`beeper/line`, built with `go build -tags goolm ./cmd/matrix-line`,
-port 29322) and Instagram's (`mautrix/meta`, its `cmd/mautrix-instagram`, port 29330), each registered in Synapse's
-`app_service_config_files`, each a LaunchAgent. Link them through their provisioning API: LINE with your email and
-password (it logs out LINE's Chrome extension), Instagram with your username and password or instagram.com's cookies.
-
-Then turn on their sources (`line`, `instagram` in `sources`): Life copies their messages into its archive
-(`line.sqlite`, `instagram.sqlite`) every 5 s, and they send like WhatsApp.
-
-## Check it
+Turn sends on once: `bun life settings set '{"sends":true}'`. The status window's Sends card says whether each
+network can send now.
 
 `bun life send <decision>` says why a reply can't go, or sends it and closes the decision. The ledger keeps one `sent`
 line per send.

@@ -10,8 +10,12 @@ import { openReadOnly } from "../core/sqlite";
 
 /** Each bridge's folder: its config (the provisioning secret), its database (its rooms); and the homeserver's. */
 export const BRIDGES = join(MACHINE_DIR, "bridges");
+/** The homeserver's name: every id on it ends `:life.local`. */
+export const SERVER = "life.local";
 /** His account on the homeserver. */
-export const OWNER = "@owner:life.local";
+export const OWNER = `@owner:${SERVER}`;
+/** A Matrix user id on the homeserver. */
+export const userOn = (localpart: string) => `@${localpart}:${SERVER}`;
 
 /** A bridge's own config (`config.yaml`), the one place its settings are read from: never copied. */
 export const configOf = (bridge: string) =>
@@ -25,7 +29,9 @@ export const configOf = (bridge: string) =>
     };
     provisioning?: { shared_secret?: string };
   };
-const HOMESERVER = "http://127.0.0.1:8008/_matrix/client/v3";
+/** The homeserver's address on this Mac, and its client API. */
+export const HOMESERVER_URL = "http://127.0.0.1:8008";
+const HOMESERVER = `${HOMESERVER_URL}/_matrix/client/v3`;
 
 /** His account on the homeserver, written when the bridges were set up (docs/use/bridges.md). */
 const owner = () =>
@@ -102,7 +108,7 @@ export function blockOf(
   logins: { state?: { message?: string; state_event?: string } }[]
 ) {
   if (logins.length === 0) {
-    return `${bridge} bridge not linked: link it once (docs/use/bridges.md)`;
+    return `${bridge} bridge not linked: bun life bridge link ${bridge}`;
   }
   const down = logins.find(
     (l) => !PASSING.includes(l.state?.state_event ?? "")
@@ -177,3 +183,90 @@ export const bridgeSend = (bridge: string) => ({
   deliver: (chat: string, text: string, txn: string) =>
     sendMatrix(bridge, chat, text, txn),
 });
+
+/** One step of a bridge's login, as its provisioning API gives it. */
+export interface LoginStep {
+  complete?: { user_login_id?: string };
+  cookies?: { fields?: { id: string; required?: boolean }[]; url?: string };
+  display_and_wait?: { data?: string; type?: string };
+  instructions?: string;
+  login_id: string;
+  step_id: string;
+  type: "complete" | "cookies" | "display_and_wait" | "user_input";
+  user_input?: {
+    fields?: {
+      description?: string;
+      id: string;
+      name?: string;
+      type?: string;
+    }[];
+  };
+}
+
+/** What a login asks of him: to look at something (a QR code, a code), and to give a value (a field, a cookie). */
+export interface LoginAsk {
+  show: (step: LoginStep) => void;
+  value: (field: { hidden: boolean; id: string; name: string }) => string;
+}
+
+/** The ways a bridge offers to link it (QR, email and password, cookies). */
+export const loginFlows = async (bridge: string) =>
+  ((await provision(bridge, "login/flows")).flows ?? []) as {
+    description: string;
+    id: string;
+    name: string;
+  }[];
+
+/** What a step asks him to give: its fields (a password hidden), or its cookies (each hidden); none for one he looks at. */
+function fieldsOf(step: LoginStep) {
+  if (step.type === "user_input") {
+    return (step.user_input?.fields ?? []).map((f) => ({
+      hidden: f.type === "password",
+      id: f.id,
+      name: f.name ?? f.id,
+    }));
+  }
+  return step.type === "cookies"
+    ? (step.cookies?.fields ?? []).map((f) => ({
+        hidden: true,
+        id: f.id,
+        name: f.id,
+      }))
+    : [];
+}
+
+/**
+ * Links the bridge to his account by `flow`, step by step through `ask`, until it is linked; throws what the bridge
+ * refused. A step that waits on him (a QR scan) may take minutes.
+ */
+export async function linkBridge(bridge: string, flow: string, ask: LoginAsk) {
+  const long = { signal: AbortSignal.timeout(10 * 60_000) };
+  let step = (await provision(bridge, `login/start/${flow}`, {
+    ...long,
+    body: "{}",
+    method: "POST",
+  })) as unknown as LoginStep;
+  while (step.type !== "complete") {
+    ask.show(step);
+    const fields = fieldsOf(step);
+    const body = Object.fromEntries(fields.map((f) => [f.id, ask.value(f)]));
+    // biome-ignore lint/performance/noAwaitInLoops: each step follows the last
+    step = (await provision(
+      bridge,
+      `login/step/${step.login_id}/${step.step_id}/${step.type}`,
+      { ...long, body: JSON.stringify(body), method: "POST" }
+    )) as unknown as LoginStep;
+  }
+  return step.complete?.user_login_id;
+}
+
+/** Logs every login of his on the bridge out. */
+export async function unlinkBridge(bridge: string) {
+  const who = await provision(bridge, "whoami");
+  for (const l of (who.logins ?? []) as { id: string }[]) {
+    // biome-ignore lint/performance/noAwaitInLoops: one logout at a time
+    await provision(bridge, `logout/${encodeURIComponent(l.id)}`, {
+      method: "POST",
+    });
+  }
+}

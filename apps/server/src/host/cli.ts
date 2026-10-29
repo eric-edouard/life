@@ -21,6 +21,7 @@ import { Asked, actAsked, requested, setGrant } from "./act";
 import { ask, timings } from "./agent";
 import { archiveCommand } from "./archive";
 import { backup } from "./backup";
+import { bridgeCommand } from "./bridges";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";
@@ -164,6 +165,8 @@ const commands: Record<string, () => Promise<number>> = {
   },
   /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (apps/server/src/host/backup.ts). */
   backup,
+  /** The messaging bridges: `bridge list | add|link|remove <network> [flow]` (host/bridges.ts, docs/use/bridges.md). */
+  bridge: () => bridgeCommand(process.argv.slice(3)),
   /** Puts Life on this Mac's tailnet name: `connect` for his own devices, `connect --public` for ChatGPT and Claude.ai too. */
   async connect() {
     const origin = await connect(process.argv.includes("--public"));

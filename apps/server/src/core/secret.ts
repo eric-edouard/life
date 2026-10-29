@@ -11,17 +11,21 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { LIFE_STATE_DIR } from "./paths";
+import { MACHINE_DIR } from "./platform";
 
 /**
- * Every secret file Life keeps, in its state: the OAuth issuer's clients and tokens, the agent's events subscription,
+ * Every secret file Life keeps, in its state (and his account on the bridges' homeserver, beside it): the OAuth issuer's clients and tokens, the agent's events subscription,
  * the key of the app's local reads. Only `writeSecret` and `secretIn` write them, and an export leaves exactly these out
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
   events: join(LIFE_STATE_DIR, "events.json"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
-  /** His account on the bridges' homeserver (`sources/matrix.ts`): `{user, token}`, written once when it is set up. */
-  matrix: join(LIFE_STATE_DIR, "matrix.json"),
+  /**
+   * His account on the bridges' homeserver (`sources/matrix.ts`): `{password, token}`, written when `bun life bridge`
+   * sets the homeserver up. Beside the homeserver, which every install on this Mac shares (`MACHINE_DIR`).
+   */
+  matrix: join(MACHINE_DIR, "bridges", "owner.json"),
   /** Life's own sign-in: its key, the apps and their tokens. */
   oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
 };
