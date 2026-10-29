@@ -344,7 +344,7 @@ test("what the agent's starter says as it exits non-zero is mailed, each line on
   }
 });
 
-test("his answer on his page wakes the loop that asked; opening the context or revoking wakes none", async () => {
+test("his answer on his page wakes the loop that asked; his Something's wrong starts the audit; opening the context or revoking wakes none", async () => {
   const { wakeOf } = await import("./events");
   expect(wakeOf("answered", "lynx-store")).toEqual({
     kind: "decision",
@@ -353,4 +353,5 @@ test("his answer on his page wakes the loop that asked; opening the context or r
   expect(wakeOf("context", "lynx-store")).toBeUndefined();
   expect(wakeOf("revoked", "lynx-store")).toBeUndefined();
   expect(wakeOf("answered", undefined)).toBeUndefined();
+  expect(wakeOf("asked", "lynx-store")).toEqual({ kind: "audit" });
 });
