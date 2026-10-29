@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { HOME } from "../core/platform";
+import { exec, firstLine } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
@@ -134,6 +135,86 @@ export function newestImessage(): Newest {
           words: [r.text || textFromAttributedBody(r.attributedBody)],
         }
       : { at: null };
+  } finally {
+    db.close();
+  }
+}
+
+/** The chat's id as Messages knows it (its guid), for `imsg`: the newest chat with that identifier. */
+function guidOf(chat: string, path = DB) {
+  const db = openReadOnly(path);
+  try {
+    const r = db
+      .query<{ guid: string }, [string]>(
+        "select guid from chat where chat_identifier = ? order by ROWID desc limit 1"
+      )
+      .get(chat);
+    if (!r) {
+      throw new Error(`no iMessage chat ${chat}`);
+    }
+    return r.guid;
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * iMessage's `send` (sources/contract.ts), through `imsg`'s JSON-RPC: the chat by its guid, the text as data, never
+ * an argument. Messages has no transaction id: sending once is the ledger's `intent` line's job (`host/send.ts`).
+ */
+export const imessageSend = {
+  async blocked() {
+    const r = await exec(["imsg", "--version"], { timeout: 3000 });
+    return r.code === 0
+      ? undefined
+      : `imsg not answering: ${(r.stderr || r.stdout).trim() || `exit ${r.code}`}`;
+  },
+  async deliver(chat: string, text: string) {
+    const ask = {
+      id: 1,
+      jsonrpc: "2.0",
+      method: "send",
+      params: { chat_guid: guidOf(chat), text },
+    };
+    // ponytail: no answer in 30 s is recorded as failed, though Messages may have sent it; imsg verifies each send.
+    const line = await firstLine(
+      ["imsg", "rpc"],
+      `${JSON.stringify(ask)}\n`,
+      (l) => (JSON.parse(l) as { id?: unknown }).id === 1,
+      { timeout: 30_000 }
+    );
+    const answer = line
+      ? (JSON.parse(line) as { error?: { message?: string } })
+      : { error: { message: "no answer from imsg" } };
+    if (answer.error) {
+      throw new Error(`imsg: ${answer.error.message ?? "refused"}`);
+    }
+  },
+};
+
+/**
+ * The chats someone else wrote in after message row `after` (none on the first call, which only takes the cursor),
+ * and the new cursor: by row, so a message Messages stores late is never skipped.
+ */
+export function incomingImessage(after: number | undefined, path = DB) {
+  const db = openReadOnly(path);
+  try {
+    const last =
+      db
+        .query<{ n: number | null }, []>("select max(ROWID) as n from message")
+        .get()?.n ?? 0;
+    const chats =
+      after === undefined
+        ? []
+        : db
+            .query<{ chat: string }, [number, number]>(
+              `select distinct c.chat_identifier as chat from message m
+                 join chat_message_join j on j.message_id = m.ROWID join chat c on c.ROWID = j.chat_id
+                where m.ROWID > ? and m.ROWID <= ? and not m.is_from_me and m.item_type = 0`
+            )
+            .all(after, last)
+            .map((r) => r.chat);
+    return { chats, last };
   } finally {
     db.close();
   }
