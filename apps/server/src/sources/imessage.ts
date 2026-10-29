@@ -180,7 +180,7 @@ export const imessageSend = {
     const line = await firstLine(
       ["imsg", "rpc"],
       `${JSON.stringify(ask)}\n`,
-      (l) => l.includes('"id":1'),
+      (l) => (JSON.parse(l) as { id?: unknown }).id === 1,
       { timeout: 30_000 }
     );
     const answer = line

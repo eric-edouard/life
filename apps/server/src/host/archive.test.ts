@@ -160,8 +160,8 @@ test("a source with no archive tells of someone else's messages after its cursor
         : { chats: ["+15550100"], last: 9 },
     name: "imessage",
   } as unknown as Descriptor;
-  expect(heardIncoming(cursors, [imessage])).toEqual([]);
-  expect(heardIncoming(cursors, [imessage])).toEqual([
+  expect(heardIncoming(cursors, new Set(), [imessage])).toEqual([]);
+  expect(heardIncoming(cursors, new Set(), [imessage])).toEqual([
     { chat: "+15550100", source: "imessage" },
   ]);
   expect(cursors.get("imessage")).toBe(9);
@@ -171,6 +171,6 @@ test("a source with no archive tells of someone else's messages after its cursor
     },
     name: "imessage",
   } as unknown as Descriptor;
-  expect(heardIncoming(cursors, [broken])).toEqual([]);
+  expect(heardIncoming(cursors, new Set(), [broken])).toEqual([]);
   expect(cursors.get("imessage")).toBe(9);
 });

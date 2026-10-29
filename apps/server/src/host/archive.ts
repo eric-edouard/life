@@ -199,11 +199,12 @@ export function toStart(heard: Heard, starts: Starts, now: number) {
 
 /**
  * The chats someone else wrote in since the last pass, in the chat sources with no archive copy (iMessage), from each
- * one's `incoming` and its cursor (`cursors`, by source). A source that fails keeps its cursor and is logged, so its
- * messages wait for the next pass.
+ * one's `incoming` and its cursor (`cursors`, by source). A source that fails keeps its cursor, so its messages wait
+ * for the next pass, and is an incident like a store's (`failing`: logged when it starts and when it ends).
  */
 export function heardIncoming(
   cursors: Map<string, number>,
+  failing: Set<string>,
   sources = enabledSources()
 ): Heard {
   return sources.flatMap((s) => {
@@ -213,12 +214,18 @@ export function heardIncoming(
     try {
       const { chats, last } = s.incoming(cursors.get(s.name));
       cursors.set(s.name, last);
+      if (failing.delete(s.name)) {
+        log("run.end", { step: `archive.${s.name}` });
+      }
       return chats.map((chat) => ({ chat, source: s.name }));
     } catch (error) {
-      log("run.error", {
-        error: (error as Error).message,
-        step: `heard.${s.name}`,
-      });
+      if (!failing.has(s.name)) {
+        failing.add(s.name);
+        log("run.error", {
+          error: (error as Error).message,
+          step: `archive.${s.name}`,
+        });
+      }
       return [];
     }
   });
@@ -270,7 +277,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
   const starts: Starts = new Map();
   const cursors = new Map<string, number>();
   copyAll(failing);
-  heardIncoming(cursors);
+  heardIncoming(cursors, failing);
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;
@@ -279,7 +286,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
     const chats = toStart(
-      [...copyAll(failing), ...heardIncoming(cursors)],
+      [...copyAll(failing), ...heardIncoming(cursors, failing)],
       starts,
       clock().getTime()
     );
