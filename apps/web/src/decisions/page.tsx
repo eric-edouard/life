@@ -230,7 +230,7 @@ export function DecisionsPage() {
       className="flex h-dvh overflow-hidden"
       style={height ? { height } : undefined}
     >
-      <aside className="hidden w-[360px] shrink-0 overflow-y-auto bg-surface px-5 py-8 min-[900px]:block">
+      <aside className="hidden w-[360px] shrink-0 overflow-y-auto bg-card px-5 py-8 min-[900px]:block">
         {overview}
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">

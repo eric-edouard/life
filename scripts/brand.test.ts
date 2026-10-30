@@ -32,9 +32,9 @@ test("the email's colours are tokens.css's", () => {
 const names: Record<string, string> = {
   ink: "ink",
   muted: "muted",
-  page: "white",
+  page: "ground",
   rule: "rule",
-  surface: "surface",
+  surface: "card",
 };
 const tones: Record<string, string> = {
   bad: "error",

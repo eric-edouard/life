@@ -7,8 +7,8 @@
   --text: light-dark(#4a4a4a, #c9c9c9);
   --muted: light-dark(#6b6b6b, #a3a3a3);
   --rule: light-dark(#e3e3e3, #3a3a3a);
-  --surface: light-dark(#f6f6f6, #2a2a2a);
-  --white: light-dark(#ffffff, #1f1f1f);
+  --ground: light-dark(#f6f6f6, #1f1f1f);
+  --card: light-dark(#ffffff, #2a2a2a);
   /* Status: done and a problem, always beside a word; the others mark the parked Mac app's dots. */
   --synced: light-dark(#15803d, #4ade80);
   --error: light-dark(#b42318, #f97066);

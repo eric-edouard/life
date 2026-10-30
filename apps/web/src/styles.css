@@ -7,8 +7,8 @@
   --color-text: var(--text);
   --color-muted: var(--muted);
   --color-rule: var(--rule);
-  --color-surface: var(--surface);
-  --color-ground: var(--white);
+  --color-ground: var(--ground);
+  --color-card: var(--card);
   --color-synced: var(--synced);
   --color-error: var(--error);
   --font-serif: var(--serif);
@@ -29,7 +29,7 @@
     overscroll-behavior: none;
     font: 17px / 1.55 var(--sans);
     color: var(--ink);
-    background: var(--white);
+    background: var(--ground);
   }
   :focus-visible {
     outline: 3px solid var(--ink);
@@ -58,7 +58,7 @@
     font: 17px / 1.45 var(--sans);
     color: inherit;
     resize: none;
-    background: var(--surface);
+    background: var(--card);
     border: 0;
     border-radius: var(--control-radius);
   }
@@ -91,7 +91,7 @@
     font-size: 18px;
     font-weight: 500;
     cursor: pointer;
-    background: var(--surface);
+    background: var(--card);
     border-radius: var(--control-radius);
     transition:
       background-color 200ms,
@@ -99,12 +99,12 @@
   }
   .opt[data-pick] {
     font-weight: 700;
-    color: var(--white);
+    color: var(--card);
     background: var(--ink);
   }
   .opt[aria-pressed="true"] {
     font-weight: 700;
-    color: var(--white);
+    color: var(--card);
     background: var(--synced);
   }
   .opt:disabled {
@@ -127,7 +127,7 @@
   .row[aria-current="true"] {
     font-weight: 700;
     color: var(--ink);
-    background: var(--white);
+    background: var(--ground);
   }
   .row[data-done] {
     color: var(--muted);
@@ -153,7 +153,7 @@
     width: 4px;
     height: 8px;
     content: "";
-    border: solid var(--white);
+    border: solid var(--card);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
   }

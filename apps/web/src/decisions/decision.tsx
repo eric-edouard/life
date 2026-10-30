@@ -112,7 +112,7 @@ function Details({
                 </p>
               ) : null}
               {d.draft ? (
-                <p className="m-0 whitespace-pre-wrap rounded-panel bg-surface px-5 py-4 text-[17px]">
+                <p className="m-0 whitespace-pre-wrap rounded-panel bg-card px-5 py-4 text-[17px]">
                   {d.draft}
                 </p>
               ) : null}
@@ -127,7 +127,7 @@ function Details({
                       </p>
                     ) : null}
                     {o.draft ? (
-                      <p className="m-0 whitespace-pre-wrap rounded-panel bg-surface px-5 py-4 text-[17px]">
+                      <p className="m-0 whitespace-pre-wrap rounded-panel bg-card px-5 py-4 text-[17px]">
                         {o.draft}
                       </p>
                     ) : null}
@@ -230,7 +230,7 @@ function Preview({
 }) {
   return (
     <button
-      className="grid cursor-pointer gap-1.5 rounded-panel bg-surface px-5 py-4 text-left"
+      className="grid cursor-pointer gap-1.5 rounded-panel bg-card px-5 py-4 text-left"
       onClick={onOpen}
       type="button"
     >
@@ -423,7 +423,7 @@ export function Decision({ busy, d, onStep, onAnswered, onTyping }: Props) {
             />
             {unsent ? (
               <button
-                className="opt shrink-0 bg-ink px-4 py-3 font-semibold text-[16px] text-ground"
+                className="opt shrink-0 bg-ink px-4 py-3 font-semibold text-[16px] text-card"
                 disabled={busy}
                 onClick={async () => {
                   field.current?.blur();
