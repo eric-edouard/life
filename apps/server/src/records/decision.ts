@@ -99,8 +99,8 @@ export interface DecisionRow extends Decision {
 
 /** His answer as the fold reads it, from any page that ever wrote one: an option's id, `note` for his words alone, or null. */
 export const AnsweredLine = z.object({
-  answer: z.string().nullable(),
-  note: z.string(),
+  answer: z.string().nullish(),
+  note: z.string().optional(),
 });
 /** His answer as the web app writes it now, with its limits. */
 const Answered = AnsweredLine.extend({

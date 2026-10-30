@@ -257,4 +257,10 @@ test("an answer an older page wrote still folds, whatever its length (the limits
     answer: "note",
     status: "answered",
   });
+  // An answer line with no note at all, as nothing writes now but a line once might have.
+  const bare = [lines[0], { ...lines[1], data: { answer: "send" } }];
+  expect(decisionsNow(bare as typeof lines).get(id)).toMatchObject({
+    answer: "send",
+    note: "",
+  });
 });

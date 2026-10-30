@@ -39,7 +39,9 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
         status: "open",
       };
     case "answered": {
-      const { answer, note } = AnsweredLine.parse(s);
+      const read = AnsweredLine.parse(s);
+      const answer = read.answer ?? null;
+      const note = read.note ?? "";
       return {
         ...d,
         answer,
