@@ -45,7 +45,7 @@ export function SignInRoute() {
         type="password"
       />
       <button
-        className="opt justify-items-center bg-ink font-semibold text-ground"
+        className="opt justify-items-center bg-ink font-semibold text-card"
         type="submit"
       >
         Open

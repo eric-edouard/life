@@ -26,7 +26,7 @@ struct OpenCard: View {
           }
           .padding(12)
           .frame(maxWidth: .infinity, alignment: .leading)
-          .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
+          .background(Brand.card, in: .rect(cornerRadius: Brand.control))
         }
         if let ask = card.ask, showContent { askBox(ask) }
         section("History") { historyList }
@@ -38,7 +38,7 @@ struct OpenCard: View {
     .scrollIndicators(.never)
     .frame(width: 720)
     .frame(maxHeight: 700)
-    .background(Brand.page, in: .rect(cornerRadius: Brand.panel))
+    .background(Brand.ground, in: .rect(cornerRadius: Brand.panel))
     .overlay { RoundedRectangle(cornerRadius: Brand.panel).strokeBorder(Brand.rule) }
     .task(id: card.id) {
       guard let d = await status.detail(card.id) else { return }
@@ -62,7 +62,7 @@ struct OpenCard: View {
         .labelStyle(.iconOnly)
         .buttonStyle(.plain)
         .frame(width: 28, height: 28)
-        .background(Brand.surface, in: .circle)
+        .background(Brand.card, in: .circle)
         .keyboardShortcut(.cancelAction)
     }
   }
@@ -92,7 +92,7 @@ struct OpenCard: View {
     }
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
+    .background(Brand.card, in: .rect(cornerRadius: Brand.control))
   }
 
   @ViewBuilder private var historyList: some View {
@@ -149,7 +149,7 @@ struct OpenCard: View {
           .textSelection(.enabled)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(12)
-          .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
+          .background(Brand.card, in: .rect(cornerRadius: Brand.control))
         if let before = next.log {
           Button("Older") { Task { await more(before, history: false) } }
         }

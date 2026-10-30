@@ -55,14 +55,14 @@ export const SANS =
 export const MONO = "'Atkinson Hyperlegible Mono',ui-monospace,Menlo,monospace";
 export const RADIUS = { control: 12, panel: 18 };
 export const C = {
+  card: "#ffffff",
   error: "#b42318",
+  ground: "#f6f6f6",
   ink: "#1f1f1f",
   muted: "#6b6b6b",
   rule: "#e3e3e3",
-  surface: "#f6f6f6",
   synced: "#15803d",
   text: "#4a4a4a",
-  white: "#ffffff",
 };
 
 const ESCAPES: Record<string, string> = {
@@ -161,7 +161,7 @@ const stats = (d: Digest) => {
 const failureBox = (f: NonNullable<Digest["failure"]>) =>
   row(
     "padding:22px 24px 0",
-    `<div style="font:600 15px/1.3 ${SERIF};color:${C.ink}"><span style="color:${C.error}">●</span> Stopped at ${esc(f.step)}</div><div style="margin-top:10px;padding:12px 14px;background:${C.surface};border-radius:${RADIUS.control}px;font:13px/1.55 ${MONO};color:${C.ink};word-break:break-word">${esc(f.error)}</div>`
+    `<div style="font:600 15px/1.3 ${SERIF};color:${C.ink}"><span style="color:${C.error}">●</span> Stopped at ${esc(f.step)}</div><div style="margin-top:10px;padding:12px 14px;background:${C.ground};border-radius:${RADIUS.control}px;font:13px/1.55 ${MONO};color:${C.ink};word-break:break-word">${esc(f.error)}</div>`
   );
 
 export function renderHtml(d: Digest) {
@@ -186,16 +186,16 @@ export function renderHtml(d: Digest) {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
 <title>Life ${esc(d.date)}</title></head>
-<body style="margin:0;padding:0;background:${C.white}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${C.white}">${esc(d.preheader.slice(0, 140))}${"&zwnj;&nbsp;".repeat(60)}</div>
-<table ${TABLE} style="background:${C.white}"><tr><td align="center" style="padding:28px 12px 32px">
+<body style="margin:0;padding:0;background:${C.ground}">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:${C.ground}">${esc(d.preheader.slice(0, 140))}${"&zwnj;&nbsp;".repeat(60)}</div>
+<table ${TABLE} style="background:${C.ground}"><tr><td align="center" style="padding:28px 12px 32px">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px">
 <tr><td style="padding:0 4px 20px">
 <div style="font:13px/1.3 ${SANS};color:${C.muted}">${esc(d.weekday)} · ${esc(d.label ?? "Life nightly")}</div>
 <div style="margin-top:6px;font:600 36px/1.1 ${SERIF};letter-spacing:-.01em;color:${C.ink}">${esc(d.date)}</div>
-<div style="margin-top:12px"><span style="display:inline-block;padding:6px 10px;border-radius:${RADIUS.control}px;background:${C.surface};font:500 11.5px/1 ${MONO};color:${C.ink}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
+<div style="margin-top:12px"><span style="display:inline-block;padding:6px 10px;border-radius:${RADIUS.control}px;background:${C.card};font:500 11.5px/1 ${MONO};color:${C.ink}"><span style="color:${status}">●</span> ${esc(d.verdict)}</span></div>
 </td></tr>
-<tr><td style="background:${C.white};border:1px solid ${C.rule};border-radius:${RADIUS.panel}px">
+<tr><td style="background:${C.card};border-radius:${RADIUS.panel}px">
 <table ${TABLE}>
 ${body}
 </table></td></tr></table></td></tr></table></body></html>`;
