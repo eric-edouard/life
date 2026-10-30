@@ -1,25 +1,33 @@
 # Life's pages on Vite, React and Tailwind
 
-Life's app pages move to one front app, `apps/web`: Vite, React, TypeScript, Tailwind v4 (Better-T-Stack's front).
-The back stays Hono on Bun with Life's own sign-in (one issuer), no tRPC/oRPC, no Turborepo. The decisions page is
-rebuilt first, with a layout that fits the screen by construction.
+Life's pages move to one front app, `apps/web`: Vite, React, TypeScript, Tailwind v4, TanStack Router (Better-T-Stack's
+front); many pages are coming. The back stays Hono on Bun with Life's own sign-in (one issuer), no tRPC/oRPC, no
+Turborepo. The app owns `/` (its data under `/api/`); the decisions page is rebuilt first, with a layout that fits the
+screen by construction. The portrait is parked as legacy: its files stay served as they are at `/me/<name>`.
 
 ## Requests (owner, 30 Oct)
 
 - [x] Typing in an answer did nothing (PR #307)
 - [ ] Decisions page: swipe and one-per-screen fail in practice because content overflows; rebuild it window-size aware, keeping its intent
-- [ ] Move every page to Vite + React + Tailwind, portrait included; rebuild from scratch where it is cleaner
+- [ ] Move every page to Vite + React + Tailwind; rebuild from scratch where it is cleaner; many pages are coming
+- [x] The portrait was a one-off: parked as legacy, served as it is
 - [ ] Decisions that send him to the computer ("relancer railway login") add friction: the loops should do it or not ask (life-loops, needs that repo and the 1Password answer)
 
 ## Milestone 1: the decisions page in apps/web
 
-- [ ] Step shapes in `records/decision.ts`: one zod schema per step's `data` (`asked` is `DecisionAsk`, `answered`
-      `{answer, note}`, and the rest), a discriminated `DecisionLine`; `memory/decisions.ts`'s fold and the route both
-      parse with them, so no cast and no second shape.
-- [ ] `/me/decisions.json` POST parses its body with those schemas (no hand check against `OWNER_STEPS`); GET
-      returns the `Decision` type the page imports from `records/` (type only: a fallow zone lets `apps/web` import
-      `records/` and nothing else of the server).
-- [ ] `apps/web` workspace: Vite 8, React 19, TypeScript in the root `tsc`, Tailwind 4 (`@tailwindcss/vite`) with its
+- [ ] His steps' shapes in `records/decision.ts`: one zod schema per owner step's `data` (`answered`, `context`,
+      `revoked`, `asked`), parsed by the route and read by the fold for those steps; loop steps' data stays as it is
+      (a stricter read could make his existing lines unreadable: `rowsOf` throws on the first bad line).
+- [ ] `Decision` (now `memory/decisions.ts:12`) and the page's row (`Decision` plus `to`) move to `records/decision.ts`.
+- [ ] `/api/decisions` (was `/me/decisions.json`) GET and POST, POST parsing his step with those schemas (no hand
+      check against `OWNER_STEPS`); `/me/decisions` redirects to `/decisions` (links in sent emails). The page imports
+      the row type from `records/` (type only: a fallow zone lets `apps/web` import `records/` and nothing else).
+- [ ] Sign-in in the app: `/sign-in` (a route), `POST /api/sign-in` (the same password check, cookie and failure
+      cap); every `/api/` answer is 401 before it, and the app routes there. The legacy portrait sends a signed-out
+      visit to `/sign-in?next=`. Delete the sign-in HTML string in `portrait.ts`. The pairing page (`oauth.ts`) moves
+      when the next pages land.
+- [ ] `apps/web` workspace: Vite 8, React 19, TypeScript (its own tsconfig with DOM and JSX, its own check step),
+      TanStack Router 1 (file routes), Tailwind 4 (`@tailwindcss/vite`) with its
       theme read from `assets/brand/tokens.css` through `@theme` (one source), TanStack Query 5 (poll every 20 s,
       paused while an answer is saving, refetched after it), Base UI 1.9 (the overview's Drawer, swipe to close,
       focus trapped; the options' RadioGroup).
@@ -40,26 +48,22 @@ rebuilt first, with a layout that fits the screen by construction.
   - The current decision is its id in the hash (a link opens on it); which one is on screen is derived from it.
   - His unsaved note is local per decision; a refetch never replaces a field that has focus.
 - [ ] Serving: one constant, `WEB_DIST` (`core/paths.ts`, under `LIFE_CODE_DIR`), read by the portrait's Hono app,
-      `scripts/helper.ts` (which builds then copies it) and `bun run check` (which builds it). Vite's `base` is
-      `/me/decisions/`; `fileOf` serves `index.html` and `/me/decisions/assets/<hashed file>` (a name pattern, no
-      traversal), behind the same sign-in. The page CSP gains `style-src 'self'`.
+      `scripts/helper.ts` (which builds then copies it) and `bun run check` (which builds it). The app's Hono
+      route serves `/assets/<hashed file>` (a name pattern, no traversal) and `index.html` for any other path no API,
+      connector, brand or legacy route answers. The bundle is Life's code only; nothing of his before `/api/` checks
+      the cookie. The app's CSP is `'self'` plus Google Fonts.
 - [ ] Layout test: Playwright (Chromium) at 375×667, 393×852 and 1280×800 with a long question, a long draft and four
       options (no horizontal overflow, the answer row on screen, every part reachable, typing lands), as its own
       script like `check:offline`, not in the default gate.
-- [ ] Delete `assets/decisions/`, `scripts/decisions-page.test.ts`, the decisions branches of `fileOf` and the
-      `/*TOKENS*/` splice in `portrait.ts`, the casts in the fold, the dead fallow entry `assets/**/*.tsx`; update
+- [ ] Delete `assets/decisions/`, `scripts/decisions-page.test.ts`, the decisions branches and `/decisions.json` of
+      `portrait.ts`, its `/*TOKENS*/` splice and sign-in form, the casts in the fold, the dead fallow entry `assets/**/*.tsx`; update
       `portrait.test.ts`, `docs/architecture.md` ("Pages", its CSP sentence), `docs/brand.md`, `docs/glossary.md`
       (overview).
 
-The sign-in form and the pairing page stay server HTML: a few lines each, and React would add lines and serve code
-before the sign-in for nothing.
+## Later
 
-## Milestone 2: the portrait (waits on the owner)
-
-- [ ] Decide what the portrait renders from (memory's people and area pages and their clips, or curated content an
-      agent writes as structured data), which agent writes it, and where the bundle runs (the Mac or Cloudflare).
-- [ ] Then: portrait routes in `apps/web` (TanStack Router once there are several), the clip player as a component;
-      delete `assets/portrait/`.
+- [ ] The pairing page into the app, with the next pages.
+- [ ] The legacy portrait: delete it when it stops being fun (`assets/portrait/`, its routes).
 
 ## Golden rule plan
 Inventory (`rg -n "assets/decisions|decisions\.js|DECISIONS_|assets/portrait|player\.js|TOKENS|OWNER_STEPS"`, `rg -n assets scripts/helper.ts scripts/app.ts .fallowrc.json`, `rg -n "dist" .gitignore`):
@@ -82,4 +86,7 @@ shape); the regression cases ported; CSP, `base` and an assets branch; one `WEB_
 hash holds the id; native snap instead of Embla; Playwright out of the default gate; types from `records/` only, not
 `hc` (it would pull the server's graph into the page); sign-in and pairing stay server HTML. Kept against the review:
 Base UI's Drawer (swipe to close and focus trap, which `<dialog>` lacks) and Query (pausing the poll during a save).
-Second review: pending.
+Second review: Base UI and Query accepted; his own steps only get schemas (loop lines stay readable), `Decision`
+moves to `records/`, apps/web gets its own tsconfig. Then the owner's answer (many pages coming, portrait parked)
+brought the router, the app at `/` and its sign-in.
+Third review: pending.
