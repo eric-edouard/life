@@ -83,7 +83,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
   A new recipe for new units only, every stored id kept, is not a rename.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, a rating), `decisions.jsonl` (his loops' `update_decision` and his answers on `/decisions`, each one
+  correction, a rating), `decisions.jsonl` (his loops' `update_decision`, his answers on `/decisions` and Life's fact checks, each one
   synchronous append: `writeDecision`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its

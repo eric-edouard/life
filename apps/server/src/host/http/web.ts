@@ -2,7 +2,12 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { WEB_DIST } from "../../core/paths";
 import { connector } from "../../core/settings";
-import { decisionsNow, writeDecision } from "../../memory/decisions";
+import {
+  decisionId,
+  decisionsNow,
+  writeDecision,
+} from "../../memory/decisions";
+import { recordIfFactCheck } from "../../memory/fact-checks";
 import { type DecisionRow, OwnerStep } from "../../records/decision";
 import { startAgent, wakeOf } from "../events";
 import { recipientOf } from "../send";
@@ -52,7 +57,6 @@ function decisions(now: () => number) {
         if (b.step === "asked") {
           // His "Something's wrong": a request (no options) about one loop, for the audit; Life makes its id.
           const { loop, note, ref } = b.data;
-          const at = new Date(now()).toISOString().replace(/\D/g, "");
           writeDecision(
             [
               {
@@ -64,7 +68,7 @@ function decisions(now: () => number) {
                   question: note.slice(0, 200),
                   ref,
                 },
-                decision: `${loop}-${at.slice(0, 17)}-1`,
+                decision: decisionId(loop, now()),
                 step: "asked",
               },
             ],
@@ -81,7 +85,8 @@ function decisions(now: () => number) {
             ],
             now()
           );
-          asker = d?.loop;
+          // A fact check is Life's own: his tap is its rating, and no loop is woken.
+          asker = d && recordIfFactCheck(d) ? undefined : d?.loop;
         }
         const wake = wakeOf(b.step, asker);
         if (wake) {

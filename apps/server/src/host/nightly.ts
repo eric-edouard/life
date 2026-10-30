@@ -3,6 +3,7 @@ import { holder, isOtherLife } from "../core/lock";
 import { type Call, isReviewCall, log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
 import { extract } from "../memory/extract";
+import { askFactChecks } from "../memory/fact-checks";
 import { newSince, readLedger } from "../memory/ledger";
 import { locked, lockedSince } from "../memory/memory-lock";
 import { moments } from "../memory/moments";
@@ -229,8 +230,8 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
 
 /**
  * A midday run (about 13:00 and 19:00, same 30-minute tick): moments and extract of today, so the day's speech is read
- * while it is fresh, then the index, then the pages that have new observations. No commit, no email: the nightly
- * commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
+ * while it is fresh, then the index, then the pages that have new observations, then his fact checks topped up. No
+ * commit, no email: the nightly commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
  * never the lock. A failure is only logged, and the slot is spent: the next slot and the night read the day again.
  */
 export async function midday(now = clock(), force = false) {
@@ -242,7 +243,15 @@ export async function midday(now = clock(), force = false) {
     recordMidday();
     return sweep("memory.midday", lastDays(now, 1), {
       pages: () => pages({ rebuild: false }),
-    }).then((failure) => (failure ? 1 : 0));
+    })
+      .then(async (failure) => {
+        await askFactChecks();
+        return failure ? 1 : 0;
+      })
+      .catch((e) => {
+        console.error(`midday fact checks: ${(e as Error).message}`);
+        return 1;
+      });
   });
   return code ?? Number(force);
 }
@@ -424,6 +433,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       evidence.built
     );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
+    phase.at = "fact checks";
+    await askFactChecks();
     phase.at = "index";
     await reindex();
     phase.at = "actions";
