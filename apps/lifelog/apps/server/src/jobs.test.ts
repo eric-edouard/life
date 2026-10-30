@@ -627,6 +627,8 @@ test("a refusal fails the job at once; a 5xx may be billed: it waits for its web
   });
 });
 
+// Bun names it ConnectionRefused on macOS, ECONNREFUSED on Linux (30 Oct: Linux sent it to maybe billed).
+const REFUSED = /ConnectionRefused|ECONNREFUSED/;
 test("a refused connection never left: queued again, not an attempt, not maybe billed", async () => {
   const audioStore = memoryAudioStore();
   const s = services(testConfig("http://127.0.0.1:1"), env.db, {
@@ -641,7 +643,7 @@ test("a refused connection never left: queued again, not an attempt, not maybe b
     maybeBilled: false,
     state: "queued",
   });
-  expect(job.error).toContain("ConnectionRefused");
+  expect(job.error).toMatch(REFUSED);
 });
 
 test("webhooks: a reported failure is an attempt, with null fields too; an unreadable one is kept for reconcile", async () => {
