@@ -100,8 +100,8 @@ test("no colour is written anywhere else: every hex colour is in tokens.css or a
   ]);
   const read = repoFiles(
     LIFE_CODE_DIR,
-    ["apps/server/src", "assets", "apps/mac/Sources"],
-    ".ts .js .css .html .swift .json .jsonl .md".split(" ")
+    ["apps/server/src", "assets", "apps/mac/Sources", "apps/web/src"],
+    ".ts .tsx .js .css .html .swift .json .jsonl .md".split(" ")
   );
   expect(read).toContain("apps/server/src/memory/email.ts");
   const texts = await Promise.all(read.map(asset));

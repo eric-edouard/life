@@ -23,7 +23,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, a Claude session, or the agent's own split. A ledger entry of kind `ask`. | |
 | mark | An ask's span in a recording, recorded by the hearing so its unit is read again at importance 3 (`marked` on the unit). Not a separate wake: "hey Life" is one of the agent's wake words. | |
-| daily | His loops' day, like a team's daily: the daily prep (21:30) asks what tomorrow needs, he answers on `/me/decisions`, and the daily apply (07:00) carries his answers out and sends the daily email, his one notification of the day. Its decisions are the `daily` loop's. Not Life's nightly report. | |
+| daily | His loops' day, like a team's daily: the daily prep (21:30) asks what tomorrow needs, he answers on `/decisions`, and the daily apply (07:00) carries his answers out and sends the daily email, his one notification of the day. Its decisions are the `daily` loop's. Not Life's nightly report. | |
 | task | The agent's work on one ask: the ask and the updates and replies that follow, open until the agent closes it done or dropped. | |
 | update | The agent's report on a task: its state, steps, outcome; `taken: true` when it takes the task. | |
 | reply | What the agent tells the owner, logged before it sends it. | |
@@ -76,7 +76,8 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
-| decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/me/decisions`): Life acts on one only to send the reply he chose (`send`); the loop that asked acts on the rest. | card |
+| decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/decisions`): Life acts on one only to send the reply he chose (`send`); the loop that asked acts on the rest. | card |
+| overview | The list of all his decisions on the decisions page: a sidebar from 900 px, a sheet from the top below. Not the nightly report. | |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
 | fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on his fact-check loop's decisions: `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
 | doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `unsure-moment`, `low-confidence`. | |
@@ -96,6 +97,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
+| web app | Life's pages for him (`apps/web`, served at `/`), each behind his sign-in; not the Mac app (Life.app). | |
 | connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory`, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write; `search` and `fetch` keep ChatGPT's names. | |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `moment.ts`, `ledger-entry.ts`…). | |
 

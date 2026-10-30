@@ -172,13 +172,19 @@ there): `docs/status-reads.md`.
 All are served by the watcher's server, and none serves anything of the owner's before its sign-in check. Every route is a
 Hono app; `server.ts` mounts one app per port and `Bun.serve` only listens.
 
-- **The portrait** (`apps/server/src/host/http/portrait.ts`, `/me`) serves pages about the owner and the owner's people from
-  `OWNER_DATA_DIR/docs/portrait/` (written in a session from the owner's memory, never in this repo): `/me` is `index.html`,
-  `/me/<name>` is `<name>.html`, `/me/<name>/clips/<clip>.m4a|json` a clip of that page, `/me/player.js` the clip player
-  (`assets/portrait/`), `/me/decisions` his decisions (`assets/decisions/`, read and answered through
-  `/me/decisions.json`); nothing else. Its CSP allows inline styles, Google Fonts and those files only. It is behind a
-  password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, `/me` is off), its cookie the expiry signed with
-  the password, failed tries capped.
+- **The web app** (`apps/web`: Vite, React, TypeScript, Tailwind, TanStack Router and Query; served by
+  `apps/server/src/host/http/web.ts`) owns `/`: its bundle (Life's code, nothing of his) answers any GET asking for HTML
+  outside `/api/` and `/.well-known/`, its hashed files are under `/app/` (the brand owns `/assets/`), and the router
+  names the pages (`/decisions`, `/sign-in`). Its data is under `/api/`, each answer 401 before sign-in. It reads types
+  from `records/` only (a fallow zone). The build is `WEB_DIST` (`core/paths.ts`), made by `bun run check` and by
+  `scripts/helper.ts` for the app; `bun run check:web` checks the decisions page's layout in a browser.
+- **His sign-in** (`host/http/sign-in.ts`): one password (`LIFE_PORTRAIT_PASSWORD`; unset, or no `connector` setting, the
+  web app and the portrait are off), `POST /api/sign-in`, its cookie the expiry signed with the password, failed tries
+  capped. `/sign-in?next=` goes back only to a path on this site.
+- **The portrait** (`host/http/portrait.ts`, `/me`), parked as legacy: a one-off set of pages about the owner and his
+  people in `OWNER_DATA_DIR/docs/portrait/`, served as they are: `/me` is `index.html`, `/me/<name>` is `<name>.html`,
+  `/me/<name>/clips/<clip>.m4a|json` a clip, `/me/player.js` the clip player (`assets/portrait/`); nothing else. Its CSP
+  allows inline styles, Google Fonts and those files only. A signed-out visit goes to `/sign-in`.
 
 - **The brand** (`apps/server/src/host/http/server.ts`: `/docs/brand.md`, `/assets/brand/tokens.css` and the files they link), with no sign-in: Life's
   own files, nothing of the owner's, for his agent to style what it makes for him.

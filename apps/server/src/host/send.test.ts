@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { Decision } from "../memory/decisions";
+import type { Decision } from "../records/decision";
 import type { LedgerEntry } from "../records/ledger-entry";
 import { isNewerFrom, sendRefusal } from "./send";
 

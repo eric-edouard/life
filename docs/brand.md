@@ -5,7 +5,7 @@
 The image is a visual reference; the exact values are the brand guide's and `assets/brand/tokens.css`'s.
 
 A private memory. Calm by nature, personal by design. Everything Life shows follows this page: the nightly email,
-`/me`, the pairing page, the app (menu-bar panel, status window, settings, first run) and the icons.
+the web app, the pairing page, the app (menu-bar panel, status window, settings, first run) and the icons.
 
 ## The values
 
@@ -15,12 +15,13 @@ that can't read CSS variables copy its values, and `scripts/brand.test.ts` fails
 
 | Surface | How it takes the tokens |
 | --- | --- |
-| `/me` password page, pairing page, decisions page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in their styles (`portrait.ts`, `oauth.ts`, `assets/decisions/index.html`) |
+| The web app (`apps/web`) | `tokens.css` imported first in `apps/web/src/styles.css`; Tailwind's `@theme` only names its values |
+| The pairing page | `TOKENS` (`apps/server/src/host/http/http.ts`) inlined in its styles (`oauth.ts`) |
 | What the agent makes for the owner | `<origin>/docs/brand.md` and `<origin>/assets/brand/tokens.css`, served open (`apps/server/src/host/http/server.ts`) |
 | Every email (the nightly, the reports, the alerts) | `C`, `RADIUS`, `SERIF`, `SANS` and `MONO` in `apps/server/src/memory/email.ts`, copied (mail takes no variables), light only |
 | The Mac app (parked) | `Brand` and `Tone.color` in `apps/mac/Sources/LifeApp/Brand.swift`: its colours copied; its fonts are still the old ones |
 
-No other file writes a colour: the test also fails on a hex colour anywhere else in `apps/server/src`, `assets` or `apps/mac/Sources`.
+No other file writes a colour: the test also fails on a hex colour anywhere else in `apps/server/src`, `assets`, `apps/web/src` or `apps/mac/Sources`.
 
 - **Colour.** Grey does the work: ink `#1F1F1F` (titles, the one primary button), text `#4A4A4A`, muted `#6B6B6B`
   (labels; passes on white and on surface), rule `#E3E3E3`, surface `#F6F6F6`, white. Two status colours, each always

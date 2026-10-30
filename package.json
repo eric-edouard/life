@@ -22,6 +22,7 @@
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
     "check:offline": "cd apps/lifelog/apps/ios && xcodegen generate --quiet && xcodebuild test -project Lifelog.xcodeproj -scheme Lifelog -only-testing:LifelogUITests -destination \"platform=iOS Simulator,name=${SIMULATOR:-iPhone 17}\" -derivedDataPath ../../.build/DerivedData -quiet",
+    "check:web": "bun scripts/web-layout.ts",
     "events": "bun apps/lifelog/scripts/events.ts",
     "fix": "bun x --bun ultracite fix && swift format --in-place --recursive apps/lifelog/apps/ios apps/lifelog/apps/mac-quiet",
     "host:app": "bun apps/lifelog/scripts/host-app.ts",
@@ -42,6 +43,7 @@
     "@life/config": "workspace:*",
     "@types/bun": "catalog:",
     "fallow": "3.32.0",
+    "playwright": "1.63.0",
     "typescript": "7.0.2",
     "ultracite": "7.12.4"
   },

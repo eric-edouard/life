@@ -31,8 +31,8 @@ is his, accepted.
 
 ## Network
 
-The connector (`/mcp`) and the portrait are served by the Mac, behind Life's own OAuth (pairing codes, PKCE) and the
-portrait's password; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
+The connector (`/mcp`), the web app and the legacy portrait are served by the Mac, behind Life's own OAuth (pairing codes,
+PKCE) and his password; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
 optionally a tunnel he controls.
 
 ## What leaves the Mac

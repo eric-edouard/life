@@ -9,7 +9,9 @@ import { keyRefusal } from "./local-key";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
 import { createPortrait } from "./portrait";
+import { createSignIn } from "./sign-in";
 import { createStatusReads } from "./status-reads";
+import { createWeb } from "./web";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
@@ -71,7 +73,10 @@ for (const file of BRAND) {
   );
 }
 
-/** The connector's parts: its issuer, /mcp (behind Life's own tokens) and /me (behind its password). */
+/**
+ * The connector's parts: its issuer and /mcp (behind Life's own tokens); with his password set, the web app and the
+ * legacy portrait (behind his sign-in), last, so their catch-all never shadows a route.
+ */
 export function signedIn() {
   const { origin, resource } = connector();
   const life = createIssuer(origin, resource);
@@ -81,10 +86,13 @@ export function signedIn() {
     ownerSub: life.owner,
     resource,
   });
-  return new Hono()
+  const app = new Hono()
     .route("/", life.app)
     .route("/", createMcp(verify, life.issuer))
-    .route("/", createPortrait())
-    .route("/", brand)
-    .notFound(notFound);
+    .route("/", brand);
+  const signIn = createSignIn();
+  if (signIn) {
+    app.route("/", createPortrait(signIn)).route("/", createWeb(signIn));
+  }
+  return app.notFound(notFound);
 }

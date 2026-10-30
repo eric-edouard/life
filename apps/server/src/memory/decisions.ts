@@ -1,29 +1,18 @@
 import { clock, iso } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
-import { DecisionAsk, DecisionLine, type STATUSES } from "../records/decision";
+import {
+  Answered,
+  type Decision,
+  DecisionAsk,
+  DecisionLine,
+} from "../records/decision";
 import { DECISIONS } from "./ledger";
 
 // His decisions as they stand: the fold of memory/decisions.jsonl (records/decision.ts), never stored. Every write
 // goes through `writeDecision`, synchronous from reading the file to appending, so his tap and a loop taking the
 // same decision can't both land (one connector and one page, in the same server).
 
-type Status = (typeof STATUSES)[number];
-
-export interface Decision extends DecisionAsk {
-  /** A grant that stands: the newest done one of its loop and ref, with a scope, not revoked (`markActive`). */
-  active?: boolean;
-  answer?: string | null;
-  answeredAt?: string;
-  closedAt?: string;
-  contextOpenedAt?: string;
-  createdAt: string;
-  id: string;
-  note?: string;
-  result?: string;
-  revokedAt?: string;
-  scope?: string;
-  status: Status;
-}
+type Status = Decision["status"];
 
 /** One line's effect on its decision (none before it was asked). */
 function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
@@ -50,12 +39,12 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
         status: "open",
       };
     case "answered": {
-      const answer = (s.answer as string | null) ?? null;
+      const { answer, note } = Answered.parse(s);
       return {
         ...d,
         answer,
         answeredAt: answer ? (d.answeredAt ?? l.at) : undefined,
-        note: `${s.note ?? ""}`,
+        note,
         status: answer ? "answered" : "open",
       };
     }

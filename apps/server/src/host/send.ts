@@ -1,13 +1,10 @@
 import { clock, DAY, unfrozen } from "../core/clock";
 import { SourceName } from "../core/names";
 import { off } from "../core/outputs";
-import {
-  type Decision,
-  decisionsNow,
-  writeDecision,
-} from "../memory/decisions";
+import { decisionsNow, writeDecision } from "../memory/decisions";
 import { readLedger } from "../memory/ledger";
 import { sourceOf } from "../memory/sources";
+import type { Decision } from "../records/decision";
 import { type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";

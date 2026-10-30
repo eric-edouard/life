@@ -1,0 +1,145 @@
+/* Life's brand is tokens.css (its one source); Tailwind's theme only names its values. */
+@import "../../../assets/brand/tokens.css";
+@import "tailwindcss";
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-surface: var(--surface);
+  --color-ground: var(--white);
+  --color-synced: var(--synced);
+  --color-error: var(--error);
+  --font-serif: var(--serif);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+  --radius-control: var(--control-radius);
+  --radius-panel: var(--panel-radius);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    overscroll-behavior: none;
+    font: 17px / 1.55 var(--sans);
+    color: var(--ink);
+    background: var(--white);
+  }
+  :focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+}
+
+/* The few shapes every page reuses. */
+@layer components {
+  .link {
+    all: unset;
+    font-size: 15px;
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .link:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+  .field {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12px 14px;
+    font: 17px / 1.45 var(--sans);
+    color: inherit;
+    resize: none;
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: var(--control-radius);
+  }
+  /* One decision: three rows in exactly the space he sees, the safe areas kept clear. */
+  .slide {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 784px;
+    height: 100%;
+    padding: 12px max(24px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
+    margin: 0 auto;
+  }
+  @media (min-width: 900px) {
+    .slide {
+      padding: 48px 72px;
+    }
+  }
+  .opt {
+    all: unset;
+    box-sizing: border-box;
+    display: grid;
+    gap: 2px;
+    padding: 14px 20px;
+    font-size: 18px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    border-radius: var(--control-radius);
+  }
+  .opt[data-pick] {
+    font-weight: 700;
+    color: var(--white);
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .opt[aria-pressed="true"] {
+    font-weight: 700;
+    color: var(--white);
+    background: var(--synced);
+    border-color: var(--synced);
+  }
+  .opt:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  .row {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 13px 12px;
+    font-size: 16px;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 10px;
+  }
+  .row[aria-current="true"] {
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--white);
+  }
+  .row[data-done] {
+    color: var(--muted);
+  }
+  .mark {
+    flex: 0 0 18px;
+    height: 18px;
+    border: 2px solid var(--muted);
+    border-radius: 9px;
+  }
+  .row[aria-current="true"] .mark {
+    border-color: var(--ink);
+  }
+  .row[data-done] .mark {
+    background: var(--synced);
+    border: 0;
+  }
+}
