@@ -19,8 +19,14 @@ const SEND_TIMEOUT_MS = 10 * 60 * 1000;
 // A press waits for its words: 5 minutes of audio come back in seconds.
 const QUICK_TIMEOUT_MS = 60 * 1000;
 const UNIX_SECONDS = /^\d+$/;
-// Bun fetch error codes raised before any connection exists: the request never left.
-const NEVER_SENT = new Set(["ConnectionRefused", "ENOTFOUND", "EAI_AGAIN"]);
+// Bun fetch error codes raised before any connection exists: the request never left. A refused connection is
+// `ConnectionRefused` on macOS and `ECONNREFUSED` on Linux.
+const NEVER_SENT = new Set([
+  "ConnectionRefused",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+]);
 
 // The key or the plan refused, not the audio: not taken, and fine once the account is.
 const ACCOUNT_REFUSED = new Set([401, 403]);
