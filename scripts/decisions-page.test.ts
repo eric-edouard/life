@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   isOpen,
+  keyDown,
   nextOpen,
   orderOf,
   tapAnswer,
@@ -51,4 +52,13 @@ test("only the phone snaps: desktop scrolls freely (30 Oct: a short scroll on de
   const phone = css.indexOf("@media (max-width: 899px)");
   expect(phone).toBeGreaterThan(0);
   expect(css.slice(0, phone)).not.toContain("scroll-snap");
+});
+
+test("a key other than Escape reaches his answer (30 Oct: every key was cancelled, typing did nothing)", () => {
+  const closed: boolean[] = [];
+  const sheet = (open: boolean) => closed.push(open);
+  expect(keyDown({ key: "a" }, sheet)).toBeUndefined();
+  expect(closed).toEqual([]);
+  keyDown({ key: "Escape" }, sheet);
+  expect(closed).toEqual([false]);
 });
