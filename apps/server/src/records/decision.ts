@@ -3,8 +3,8 @@ import { isoDateTime } from "./fields";
 
 // His decisions (memory/decisions.jsonl, docs/SCHEMA.md): the questions his loops put to him and what he answered,
 // one line per step, appended, never rewritten; a decision now is the fold of its lines (`decisionsNow`,
-// apps/server/src/memory/decisions.ts). Written by his loops (the connector's `update_decision`) and by him (the page,
-// /me/decisions). Life acts on one only to send the reply he chose (`host/send.ts`), when the loop that asked runs it.
+// apps/server/src/memory/decisions.ts). Written by his loops (the connector's `update_decision`), by him (the page,
+// /me/decisions) and, for the fact checks only, by Life (`memory/fact-checks.ts`). Life acts on one only to send the reply he chose (`host/send.ts`), when the loop that asked runs it.
 
 /** The steps a loop takes (the connector's `update_decision`). */
 export const LOOP_STEPS = [

@@ -3,6 +3,7 @@ import { holder, isOtherLife } from "../core/lock";
 import { type Call, isReviewCall, log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
 import { extract } from "../memory/extract";
+import { askFactChecks } from "../memory/fact-checks";
 import { newSince, readLedger } from "../memory/ledger";
 import { locked, lockedSince } from "../memory/memory-lock";
 import { moments } from "../memory/moments";
@@ -242,7 +243,10 @@ export async function midday(now = clock(), force = false) {
     recordMidday();
     return sweep("memory.midday", lastDays(now, 1), {
       pages: () => pages({ rebuild: false }),
-    }).then((failure) => (failure ? 1 : 0));
+    }).then(async (failure) => {
+      await askFactChecks();
+      return failure ? 1 : 0;
+    });
   });
   return code ?? Number(force);
 }
@@ -424,6 +428,8 @@ async function runNight(days: number, now: Date, day: string, force: boolean) {
       evidence.built
     );
     const paged = await phase.step("pages", () => pages({ rebuild: false }));
+    phase.at = "fact checks";
+    await askFactChecks();
     phase.at = "index";
     await reindex();
     phase.at = "actions";

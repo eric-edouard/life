@@ -6,6 +6,7 @@ import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../../core/paths";
 import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
 import { decisionsNow, writeDecision } from "../../memory/decisions";
+import { FACT_CHECKS, recordFactCheck } from "../../memory/fact-checks";
 import { OWNER_STEPS } from "../../records/decision";
 import { startAgent, wakeOf } from "../events";
 import { recipientOf } from "../send";
@@ -195,6 +196,10 @@ export function createPortrait(
           ],
           now()
         );
+        // A fact check is recorded at his tap (a failure here is retried by the next `askFactChecks`).
+        if (d?.status === "answered" && d.loop === FACT_CHECKS) {
+          recordFactCheck(d);
+        }
         asker = d?.loop;
       }
       const wake = wakeOf(`${b.step}`, asker);

@@ -206,10 +206,13 @@ per step (`{at, decision, step, data, run?, schemaVersion}`); a decision now is 
 `asked` (the question, up to 4 options, its loop, its goal `rank` (the page's order), deadline, what happens with no answer; a grant, a change proposal or an
 audit request by `kind`), `revised`, `taken` (before acting on his answer, or on a request: no options, nothing to answer), `done` (its `result`; a grant's `scope`),
 `reopened`, `withdrawn`, `expired`. His, on `/me/decisions`: `answered` (an option's id, `note` for his words alone, or
-null to clear; it wakes the loop that asked, `wakeOf`), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", a request
+null to clear; it wakes the loop that asked, `wakeOf`, except a fact check), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", a request
 (`asked`, `kind` audit, no options, his words as `context`, in that loop's tab). A grant stands (`active`) while it is
 the newest done one of its loop and `ref` (by when it was asked), with a scope, not revoked. One synchronous read-and-append per write (`writeDecision`), so
-his tap and a loop taking the same decision can't both land: once taken, his answer is refused.
+his tap and a loop taking the same decision can't both land: once taken, his answer is refused. Life itself writes one
+kind, the fact checks (loop `fact-checks`, `memory/fact-checks.ts`, since 30 Oct 2026; a loop before): asked at
+each night and midday run up to 5 open, Right, Partly or Wrong, 7 days; his tap is recorded as its rating at once
+(a note alone as Partly), then `taken` and `done`; an expired one is rated `skip`.
 
 ## corrections.jsonl
 
@@ -335,7 +338,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 ## statements.jsonl
 
 The fact checks: the claims the owner is asked about, one per claim, append-only, written by
-`bun life memory doubtful <n>` (his fact-check loop runs it, a few a day):
+`drawDoubtful` (Life's fact checks, `memory/fact-checks.ts`, at the night and midday runs; by hand `bun life memory doubtful <n>`):
 `{schemaVersion: 1, ref, text, group, kind, source, date, units, at}` (`ref`: the observation's or moment's id). Code draws them (`doubtful`, `apps/server/src/memory/statements.ts`),
 no model, from `claimsNow`, the words the eval judges too: an active observation eligible for a line on its home page
 (importance 2 or more, not conditional, not hidden there) in its own `text` (and `(for <when>)`); a moment that happened,
@@ -351,8 +354,8 @@ before 29 Oct 2026 were a random spread.
 
 ## ratings.jsonl
 
-The owner's answers to the fact checks, append-only, written by `bun life memory rate <ref> <answer> [why]` (his
-fact-check loop runs it with his tap and note; before 29 Oct 2026, the check page): `{schemaVersion: 1, ref, answer,
+The owner's answers to the fact checks, append-only, written by `recordRating` (his tap on a fact-check decision, from 30 Oct
+2026; his fact-check loop before, and the check page before 29 Oct; by hand `bun life memory rate <ref> <answer> [why]`): `{schemaVersion: 1, ref, answer,
 at, note?}`, `answer` `true`, `false`, `partly` (from 29 Oct), `outdated` (true when Life recorded it, not anymore),
 `skip` or null (the owner took their last answer back); `note` his why, in his words. Only a statement he was shown can be
 rated. What each answer means is one table (`ANSWERS`, `ledger.ts`). The latest line for a claim is the owner's answer. A `false` hides the claim as a `wrong` correction would

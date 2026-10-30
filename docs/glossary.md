@@ -78,7 +78,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
 | decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/me/decisions`): Life acts on one only to send the reply he chose (`send`); the loop that asked acts on the rest. | card |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
-| fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on his fact-check loop's decisions: `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
+| fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on decisions Life asks itself (`memory/fact-checks.ts`; a loop's until 30 Oct 2026): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
 | doubt | Why a claim may be wrong, by a rule on what is stored (`doubtsOf`): `guessed-person`, `unsure-moment`, `low-confidence`. | |
 | inferred | What Life guessed and uses until corrected: `people-inferred.jsonl` (`InferredPerson`, id `inf_…`), `repos-inferred.jsonl` (`InferredRepo`). | |
 | closeness | How close a person is (`inner`, `regular`, `acquaintance`, `faded`), which decides who gets a page. | |
