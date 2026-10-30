@@ -199,7 +199,6 @@ export function createPortrait(
           ],
           now()
         );
-        // A fact check is Life's own: no loop to wake.
         asker = d && recordIfFactCheck(d) ? undefined : d?.loop;
       }
       const wake = wakeOf(`${b.step}`, asker);

@@ -96,8 +96,8 @@ test("Life asks what was drawn but never asked, records his tap, and closes an e
 test("a card that can't be recorded is left and logged; more than 5 open asks none", async () => {
   fresh();
   try {
-    const refs = [1, 2, 3, 4, 5, 6].map((n) => `obs_00000000001${n}`);
-    // Six open, one answered about a claim never drawn (its rating is refused).
+    const refs = [1, 2, 3, 4, 5, 6, 7].map((n) => `obs_00000000001${n}`);
+    // Seven asked, six left open, one answered about a claim never drawn (its rating is refused).
     writeDecision(
       refs.map((ref, n) => ({
         data: factCheckAsk(statement(ref), [], undefined, NOW),

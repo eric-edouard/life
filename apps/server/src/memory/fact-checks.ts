@@ -76,8 +76,10 @@ export function recordFactCheck(d: Decision) {
   ]);
 }
 
-/** His step on his page, when it is on a fact check: an answer is recorded now (a failure is retried by the next
- * `askFactChecks`). True for a fact check. */
+/**
+ * His step on his page, when it is on a fact check: an answer is recorded now (a failure is retried by the next
+ * `askFactChecks`). True for a fact check: no loop to wake.
+ */
 export function recordIfFactCheck(d: Decision) {
   if (d.loop !== FACT_CHECKS) {
     return false;

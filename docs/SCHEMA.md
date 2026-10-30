@@ -206,7 +206,7 @@ per step (`{at, decision, step, data, run?, schemaVersion}`); a decision now is 
 `asked` (the question, up to 4 options, its loop, its goal `rank` (the page's order), deadline, what happens with no answer; a grant, a change proposal or an
 audit request by `kind`), `revised`, `taken` (before acting on his answer, or on a request: no options, nothing to answer), `done` (its `result`; a grant's `scope`),
 `reopened`, `withdrawn`, `expired`. His, on `/me/decisions`: `answered` (an option's id, `note` for his words alone, or
-null to clear; it wakes the loop that asked, `wakeOf`, except a fact check), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", a request
+null to clear; it wakes the loop that asked, `wakeOf`; a fact check wakes none), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", a request
 (`asked`, `kind` audit, no options, his words as `context`, in that loop's tab). A grant stands (`active`) while it is
 the newest done one of its loop and `ref` (by when it was asked), with a scope, not revoked. One synchronous read-and-append per write (`writeDecision`), so
 his tap and a loop taking the same decision can't both land: once taken, his answer is refused. Life itself writes one
