@@ -107,6 +107,10 @@ function markActive(all: Map<string, Decision>) {
   }
 }
 
+/** A new decision's id: its loop, the instant to the millisecond, its number in the write. */
+export const decisionId = (loop: string, now: number, n = 1) =>
+  `${loop}-${iso(now).replace(/\D/g, "").slice(0, 17)}-${n}`;
+
 /** Every decision as it stands now, by id. */
 export function decisionsNow(
   lines: DecisionLine[] = rowsOf(DECISIONS, DecisionLine)
