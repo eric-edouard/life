@@ -22,8 +22,9 @@ screen by construction. The portrait is parked as legacy: its files stay served 
 - [ ] `/api/decisions` (was `/me/decisions.json`) GET and POST, POST parsing his step with those schemas (no hand
       check against `OWNER_STEPS`); `/me/decisions` redirects to `/decisions` (links in sent emails). The page imports
       the row type from `records/` (type only: a fallow zone lets `apps/web` import `records/` and nothing else).
-- [ ] Sign-in in the app: `/sign-in` (a route), `POST /api/sign-in` (the same password check, cookie and failure
-      cap); every `/api/` answer is 401 before it, and the app routes there. The legacy portrait sends a signed-out
+- [ ] Sign-in in the app: `sign`, `signedIn` and the failure cap leave `createPortrait` for one module
+      (`host/http/sign-in.ts`), used by the legacy portrait and `/api/`; `/sign-in` (a route), `POST /api/sign-in`;
+      `next=` is followed only when it is a same-origin path; every `/api/` answer is 401 before it, and the app routes there. The legacy portrait sends a signed-out
       visit to `/sign-in?next=`. Delete the sign-in HTML string in `portrait.ts`. The pairing page (`oauth.ts`) moves
       when the next pages land.
 - [ ] `apps/web` workspace: Vite 8, React 19, TypeScript (its own tsconfig with DOM and JSX, its own check step),
@@ -49,16 +50,18 @@ screen by construction. The portrait is parked as legacy: its files stay served 
   - His unsaved note is local per decision; a refetch never replaces a field that has focus.
 - [ ] Serving: one constant, `WEB_DIST` (`core/paths.ts`, under `LIFE_CODE_DIR`), read by the portrait's Hono app,
       `scripts/helper.ts` (which builds then copies it) and `bun run check` (which builds it). The app's Hono
-      route serves `/assets/<hashed file>` (a name pattern, no traversal) and `index.html` for any other path no API,
-      connector, brand or legacy route answers. The bundle is Life's code only; nothing of his before `/api/` checks
+      route serves `/app/<hashed file>` (Vite's `assetsDir`, apart from the brand's `/assets/`; a name pattern, no
+      traversal) and `index.html` only for a GET that asks for HTML outside `/api/` and `/.well-known/` (so OAuth
+      probes and unknown API paths still get their 404; the route names stay in the router only). The bundle is Life's code only; nothing of his before `/api/` checks
       the cookie. The app's CSP is `'self'` plus Google Fonts.
 - [ ] Layout test: Playwright (Chromium) at 375×667, 393×852 and 1280×800 with a long question, a long draft and four
       options (no horizontal overflow, the answer row on screen, every part reachable, typing lands), as its own
       script like `check:offline`, not in the default gate.
 - [ ] Delete `assets/decisions/`, `scripts/decisions-page.test.ts`, the decisions branches and `/decisions.json` of
       `portrait.ts`, its `/*TOKENS*/` splice and sign-in form, the casts in the fold, the dead fallow entry `assets/**/*.tsx`; update
-      `portrait.test.ts`, `docs/architecture.md` ("Pages", its CSP sentence), `docs/brand.md`, `docs/glossary.md`
-      (overview).
+      `portrait.test.ts` and every doc naming the old paths (`AGENTS.md`, `docs/architecture.md` "Pages" and its CSP
+      sentence, `docs/brand.md`, `docs/glossary.md` (and overview), `docs/SCHEMA.md`, `records/decision.ts`'s comment).
+      The redirect keeps the hash.
 
 ## Later
 
@@ -89,4 +92,5 @@ Base UI's Drawer (swipe to close and focus trap, which `<dialog>` lacks) and Que
 Second review: Base UI and Query accepted; his own steps only get schemas (loop lines stay readable), `Decision`
 moves to `records/`, apps/web gets its own tsconfig. Then the owner's answer (many pages coming, portrait parked)
 brought the router, the app at `/` and its sign-in.
-Third review: pending.
+Third review: the bundle under `/app/` (the brand owns `/assets/`), the catch-all limited so 404s stay 404s, one
+sign-in module, `next=` checked, every doc naming the old paths updated. No further round.
