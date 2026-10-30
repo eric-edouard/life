@@ -17,7 +17,8 @@ import { createWeb } from "./web";
 
 /**
  * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
- * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer and the portrait (`portrait.ts`, when LIFE_PORTRAIT_PASSWORD is set). The key is never taken on the
+ * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer and, when
+ * LIFE_PORTRAIT_PASSWORD is set, the web app and the legacy portrait (`web.ts`, `portrait.ts`). The key is never taken on the
  * public port. 404 for any other path.
  */
 export function serve() {
@@ -31,13 +32,13 @@ export function serve() {
   }
   const why = off("connector");
   if (why) {
-    console.log(`${why}: /mcp and /me are off`);
+    console.log(`${why}: /mcp, the web app and /me are off`);
     return;
   }
   listen(PUBLIC_PORT, signedIn());
 }
 
-/** Any path a port's app has no route for (a route that serves nothing, `/me`'s, answers the same). */
+/** Any path a port's app has no route for (a route that serves nothing, the web app's or `/me`'s, answers the same). */
 const notFound = () => new Response("not found", { status: 404 });
 
 /** One listener on loopback, for `app`'s routes; a port it can't take throws. */

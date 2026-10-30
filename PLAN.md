@@ -11,6 +11,9 @@ screen by construction. The portrait is parked as legacy: its files stay served 
 - [x] Decisions page: swipe and one-per-screen fail in practice because content overflows; rebuild it window-size aware, keeping its intent
 - [ ] Move every page to Vite + React + Tailwind; rebuild from scratch where it is cleaner; many pages are coming
 - [x] The portrait was a one-off: parked as legacy, served as it is
+- [x] Investigate what Better-T-Stack does better or worse for long-term architecture, bloat and debt (a research subagent)
+- [x] A real strategy for content taller than the screen; the page is his daily: lowest cognitive load, calm, motion that feels good, no bugs, clear text hierarchy
+- [x] The failing lifelog test: not legacy, a Linux-only misclassification, fixed (PR #309), not removed
 - [ ] Decisions that send him to the computer ("relancer railway login") add friction: the loops should do it or not ask (life-loops, needs that repo and the 1Password answer)
 
 ## Milestone 1: the decisions page in apps/web
@@ -45,7 +48,12 @@ screen by construction. The portrait is parked as legacy: its files stay served 
     that scrolls when too tall); the answer, options and "say it your way" (pinned to the bottom, above the keyboard
     and the safe area). The question's size follows the width and its length (container units, `clamp`).
   - While his note has focus the row doesn't swipe; answering moves to the next open one, as today.
-  - From 900 px: the overview is a sidebar, no snap, arrow keys and buttons move. Below: a Drawer from the top.
+  - From 900 px: the overview is a sidebar, the row still snaps sideways (a desktop scroll is inside a decision, never
+    pulled back), arrow keys move. Below: a Drawer from the top.
+  - Taller than the screen (owner, 30 Oct): never covered, never a scroll inside a scroll. Long text is a preview and
+    the whole of it is in a sheet; then density steps (`useDensity`): consequences on one line, then in the sheet, then
+    the question a size smaller and the preview a link; past that the decision scrolls as one. While he types, the
+    preview and the options fold away (Motion); a sent answer draws its check, then the next one comes, then the end.
   - The current decision is its id in the hash (a link opens on it); which one is on screen is derived from it.
   - His unsaved note is local per decision; a refetch never replaces a field that has focus.
 - [x] Serving: one constant, `WEB_DIST` (`core/paths.ts`, under `LIFE_CODE_DIR`), read by the portrait's Hono app,

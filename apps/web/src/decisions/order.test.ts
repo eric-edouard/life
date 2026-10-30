@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DecisionRow } from "@life/server/src/records/decision";
-import { isOpen, keyDown, nextOpen, orderOf, tapAnswer } from "./order";
+import { isOpen, moveOf, nextOpen, orderOf, tapAnswer } from "./order";
 
 const d = (
   id: string,
@@ -38,10 +38,9 @@ test("his decisions page: loops in his goals' order (one with nothing left open 
   ).toBeNull(); // tapping the chosen one takes it back
 });
 
-test("a key other than Escape reaches his answer (30 Oct: every key was cancelled, typing did nothing)", () => {
-  const closed: string[] = [];
-  expect(keyDown({ key: "a" }, () => closed.push("closed"))).toBeUndefined();
-  expect(closed).toEqual([]);
-  keyDown({ key: "Escape" }, () => closed.push("closed"));
-  expect(closed).toEqual(["closed"]);
+test("only the arrows move, never while he types, and no key is taken from him (30 Oct: every key was cancelled, typing did nothing)", () => {
+  expect(moveOf("ArrowRight", null)).toBe(1);
+  expect(moveOf("ArrowLeft", null)).toBe(-1);
+  expect(moveOf("a", null)).toBe(0);
+  expect(moveOf("Escape", null)).toBe(0);
 });

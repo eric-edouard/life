@@ -56,12 +56,6 @@ test("the catch-all never answers what isn't a page: API paths, OAuth probes, fi
   expect((await get("/app/missing-Zz.js")).status).toBe(404);
 });
 
-test("the old address redirects, the link's #decision kept by the browser", async () => {
-  const res = await get("/me/decisions", HTML);
-  expect(res.status).toBe(302);
-  expect(res.headers.get("location")).toBe("/decisions");
-});
-
 test("his decisions: his tap lands; another site's post, a tap on a taken one and a step that isn't his are refused", async () => {
   await rm(DECISIONS, { force: true });
   const id = "asks-20261029100000-1";

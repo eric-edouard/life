@@ -1,4 +1,4 @@
-// The page's words in his decisions' language (a decision's `lang`; English when none says).
+// The app's words in his language (a decision's `lang`; English when none says).
 export type Lang = "en" | "fr" | undefined;
 
 export const say = (lang: Lang, fr: string, en: string) =>

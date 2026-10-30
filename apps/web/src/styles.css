@@ -62,7 +62,7 @@
     border: 1px solid var(--rule);
     border-radius: var(--control-radius);
   }
-  /* One decision: three rows in exactly the space he sees, the safe areas kept clear. */
+  /* One decision in exactly the space he sees, the safe areas kept clear; past its densest it scrolls as one. */
   .slide {
     box-sizing: border-box;
     display: flex;
@@ -74,6 +74,8 @@
       max(16px, env(safe-area-inset-bottom))
       max(24px, env(safe-area-inset-left));
     margin: 0 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   @media (min-width: 900px) {
     .slide {
@@ -139,7 +141,19 @@
     border-color: var(--ink);
   }
   .row[data-done] .mark {
+    position: relative;
     background: var(--synced);
     border: 0;
+  }
+  .row[data-done] .mark::after {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    width: 4px;
+    height: 8px;
+    content: "";
+    border: solid var(--white);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
   }
 }

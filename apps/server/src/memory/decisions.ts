@@ -1,7 +1,7 @@
 import { clock, iso } from "../core/clock";
 import { appendJsonl, rowsOf } from "../core/files";
 import {
-  Answered,
+  AnsweredLine,
   type Decision,
   DecisionAsk,
   DecisionLine,
@@ -39,7 +39,7 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
         status: "open",
       };
     case "answered": {
-      const { answer, note } = Answered.parse(s);
+      const { answer, note } = AnsweredLine.parse(s);
       return {
         ...d,
         answer,

@@ -1,13 +1,16 @@
+import { Drawer } from "@base-ui/react/drawer";
 import type { DecisionRow, OwnerStep } from "@life/server/src/records/decision";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { loopName, say } from "../words";
+import { useDensity } from "./density";
 import { noteAnswer, tapAnswer } from "./order";
-import { loopName, say } from "./words";
 
 interface Props {
   d: DecisionRow;
   /** After a new answer: on to the next one still his. */
   onAnswered: () => void;
-  /** His answer, written; true once Life took it. */
+  /** His step, written; true once Life took it. */
   onStep: (step: OwnerStep) => Promise<boolean>;
   /** His note has focus: the row of decisions doesn't swipe while he types. */
   onTyping: (typing: boolean) => void;
@@ -16,17 +19,14 @@ interface Props {
 const where = (d: DecisionRow) =>
   loopName(d.loop) +
   (d.deadline
-    ? `, ${new Date(d.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+    ? `, ${new Date(d.deadline).toLocaleDateString(d.lang, { day: "numeric", month: "short" })}`
     : "");
 
-/** The question's size from its length: a long one doesn't push the answer off screen. */
-const questionSize = (q: string) => {
-  if (q.length > 140) {
-    return "text-[clamp(20px,6cqi,26px)]";
-  }
-  return q.length > 70
-    ? "text-[clamp(22px,7cqi,32px)]"
-    : "text-[clamp(26px,8.5cqi,44px)]";
+/** The question's size from its length (at most 200 characters), one step down at the densest. */
+const questionSize = (q: string, dense: number) => {
+  const step =
+    (q.length > 120 ? 2 : Number(q.length > 60)) + Number(dense >= 3);
+  return ["text-[34px]", "text-[28px]", "text-[24px]", "text-[22px]"][step];
 };
 
 /** The field grows with his words, up to a few lines. */
@@ -35,58 +35,188 @@ const grow = (f: HTMLTextAreaElement) => {
   f.style.height = `${Math.min(f.scrollHeight, 160)}px`;
 };
 
-/** "Something's wrong": his own request about this loop, for the audit. */
-function Wrong({ d, onStep }: Pick<Props, "d" | "onStep">) {
-  const [open, setOpen] = useState(false);
-  const [note, setNote] = useState("");
-  if (!open) {
-    return (
-      <button className="link" onClick={() => setOpen(true)} type="button">
-        {say(d.lang, "Quelque chose ne va pas", "Something's wrong")}
-      </button>
-    );
-  }
+const EASE = [0.2, 0.8, 0.2, 1] as const;
+
+/** Folds away while he types, and comes back when he leaves the field. */
+function Fold({
+  shown,
+  children,
+}: {
+  shown: boolean;
+  children: React.ReactNode;
+}) {
+  const still = useReducedMotion();
   return (
-    <div className="grid w-full gap-2">
-      <textarea
-        autoFocus
-        className="field"
-        onChange={(e) => setNote(e.target.value)}
-        placeholder={say(d.lang, "Ce qui ne va pas…", "What's wrong…")}
-        rows={2}
-        value={note}
+    <AnimatePresence initial={false}>
+      {shown ? (
+        <motion.div
+          animate={{ height: "auto", opacity: 1 }}
+          className="grid gap-2.5 overflow-hidden"
+          exit={{ height: 0, opacity: 0 }}
+          initial={{ height: 0, opacity: 0 }}
+          transition={{ duration: still ? 0 : 0.22, ease: EASE }}
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+/** Everything long about a decision, in a sheet from the bottom: the one place long text scrolls. */
+function Details({
+  d,
+  onStep,
+  open,
+  setOpen,
+}: Pick<Props, "d" | "onStep"> & {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
+  const [wrong, setWrong] = useState("");
+  const [sent, setSent] = useState(false);
+  return (
+    <Drawer.Root
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o && d.context && !d.contextOpenedAt) {
+          onStep({ decision: d.id, step: "context" });
+        }
+      }}
+      open={open}
+      swipeDirection="down"
+    >
+      <Drawer.Portal>
+        <Drawer.Backdrop className="fixed inset-0 z-10 bg-ink/25 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Drawer.Viewport className="fixed inset-0 z-20">
+          <Drawer.Popup className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[85%] max-w-[784px] translate-y-(--drawer-swipe-movement-y) flex-col rounded-t-[24px] bg-ground shadow-[0_-1px_0_var(--rule)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full data-[swiping]:transition-none">
+            <span
+              aria-hidden="true"
+              className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-rule"
+            />
+            <Drawer.Content className="grid gap-6 overflow-y-auto overscroll-contain px-6 pt-4 pb-[max(24px,env(safe-area-inset-bottom))]">
+              <Drawer.Title className="m-0 font-semibold font-serif text-[22px] leading-tight">
+                {d.question}
+              </Drawer.Title>
+              {d.to ? (
+                <p className="m-0 text-[15px] text-text">
+                  {say(d.lang, `À ${d.to}`, `To ${d.to}`)}
+                </p>
+              ) : null}
+              {d.draft ? (
+                <p className="m-0 whitespace-pre-wrap rounded-panel bg-surface px-5 py-4 text-[17px]">
+                  {d.draft}
+                </p>
+              ) : null}
+              {d.options
+                .filter((o) => o.draft)
+                .map((o) => (
+                  <div className="grid gap-2" key={o.id}>
+                    <h3 className="m-0 font-bold text-[15px] text-muted">
+                      {o.label}
+                    </h3>
+                    <p className="m-0 whitespace-pre-wrap rounded-panel bg-surface px-5 py-4 text-[17px]">
+                      {o.draft}
+                    </p>
+                  </div>
+                ))}
+              {d.context ? (
+                <p className="m-0 whitespace-pre-wrap text-[16px] text-text">
+                  {d.context}
+                </p>
+              ) : null}
+              {sent ? (
+                <p className="m-0 text-[15px] text-muted">
+                  {say(d.lang, "Envoyé à l'audit.", "Sent to the audit.")}
+                </p>
+              ) : (
+                <div className="grid gap-2">
+                  <textarea
+                    aria-label={say(
+                      d.lang,
+                      "Quelque chose ne va pas",
+                      "Something's wrong"
+                    )}
+                    className="field"
+                    onChange={(e) => setWrong(e.target.value)}
+                    placeholder={say(
+                      d.lang,
+                      "Quelque chose ne va pas ? Dites-le ici.",
+                      "Something wrong? Say it here."
+                    )}
+                    rows={2}
+                    value={wrong}
+                  />
+                  {wrong.trim() ? (
+                    <button
+                      className="link justify-self-start"
+                      onClick={async () => {
+                        if (
+                          await onStep({
+                            data: {
+                              loop: d.loop,
+                              note: wrong.trim(),
+                              ref: d.id,
+                            },
+                            step: "asked",
+                          })
+                        ) {
+                          setSent(true);
+                        }
+                      }}
+                      type="button"
+                    >
+                      {say(d.lang, "Envoyer à l'audit", "Send to the audit")}
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </Drawer.Content>
+          </Drawer.Popup>
+        </Drawer.Viewport>
+      </Drawer.Portal>
+    </Drawer.Root>
+  );
+}
+
+/** A check that draws itself when his answer lands. */
+function Check() {
+  const still = useReducedMotion();
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-5 shrink-0"
+      fill="none"
+      viewBox="0 0 20 20"
+    >
+      <motion.path
+        animate={{ pathLength: 1 }}
+        d="M4.5 10.5 8.5 14.5 15.5 6"
+        initial={{ pathLength: still ? 1 : 0 }}
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2.2}
+        transition={{ duration: 0.28, ease: EASE }}
       />
-      <button
-        className="link justify-self-start"
-        disabled={!note.trim()}
-        onClick={async () => {
-          if (
-            await onStep({
-              data: { loop: d.loop, note: note.trim(), ref: d.id },
-              step: "asked",
-            })
-          ) {
-            setOpen(false);
-            setNote("");
-          }
-        }}
-        type="button"
-      >
-        {say(d.lang, "Envoyer à l'audit", "Send to the audit")}
-      </button>
-    </div>
+    </svg>
   );
 }
 
 /**
- * One decision, one screen: where it comes from (fixed); what is asked, resting at the bottom, scrolling when it is
- * too tall; and his answer, pinned to the bottom, above the keyboard.
+ * One decision, one screen, the answer always in reach: where it comes from, the question, a preview of anything long
+ * (the whole of it in the sheet), and his answer pinned to the bottom. If a small screen still can't hold it, the
+ * decision scrolls as one, its answer staying pinned; nothing scrolls inside anything else.
  */
 export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
   const taken = d.status === "taken";
   const [note, setNote] = useState(d.note ?? "");
-  const [showContext, setShowContext] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [details, setDetails] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
+  const article = useRef<HTMLElement>(null);
+  const dense = useDensity(article);
+  const still = useReducedMotion();
   // A refetch brings his saved note; never under his fingers.
   useEffect(() => {
     if (document.activeElement !== field.current) {
@@ -100,12 +230,25 @@ export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
       decision: d.id,
       step: "answered",
     });
+  // His words alone answer only when he sends them; leaving the field keeps them with his answer, if any.
+  const saveNote = () =>
+    note.trim() === (d.note ?? "")
+      ? Promise.resolve(false)
+      : answer(noteAnswer(d, note.trim()));
+  const type = (on: boolean) => {
+    setTyping(on);
+    onTyping(on);
+  };
+  const preview = d.draft ?? d.context;
+  const hasMore = Boolean(
+    d.context || d.options.some((o) => o.draft || (o.consequence && dense >= 2))
+  );
 
   if (d.options.length === 0) {
     return (
       <div className="slide justify-center">
-        <span className="text-[15px] text-muted">{where(d)}</span>
-        <p className="text-muted">
+        <span className="text-[14px] text-muted">{where(d)}</span>
+        <p className="m-0 text-muted">
           {say(d.lang, "Envoyé à l'audit : ", "Sent to the audit: ")}
           {d.question}
         </p>
@@ -113,59 +256,46 @@ export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
     );
   }
   return (
-    <article aria-labelledby={`q-${d.id}`} className="slide">
-      <span className="shrink-0 text-[15px] text-muted">{where(d)}</span>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-        {/* Resting at the bottom when it fits; mt-auto, not justify-end, so a tall one still scrolls to its top. */}
-        <div className="mt-auto grid gap-4 py-2">
-          <h2
-            className={`m-0 font-semibold font-serif leading-[1.15] tracking-[-0.01em] ${questionSize(d.question)}`}
-            id={`q-${d.id}`}
+    <article aria-labelledby={`q-${d.id}`} className="slide" ref={article}>
+      <span className="text-[14px] text-muted">{where(d)}</span>
+      {/* Resting above the answer when it fits; mt-auto, not justify-end, so a tall one still scrolls to its top. */}
+      <div className="mt-auto grid gap-4">
+        <h2
+          className={`m-0 text-balance font-semibold font-serif leading-[1.15] tracking-[-0.01em] ${questionSize(d.question, dense)}`}
+          id={`q-${d.id}`}
+        >
+          {d.question}
+        </h2>
+        {d.to ? (
+          <p className="m-0 text-[15px] text-text">
+            {say(d.lang, `À ${d.to}`, `To ${d.to}`)}
+          </p>
+        ) : null}
+        <Fold shown={!typing && Boolean(preview) && dense < 3}>
+          <button
+            className="grid cursor-pointer gap-1.5 rounded-panel bg-surface px-5 py-4 text-left"
+            onClick={() => setDetails(true)}
+            type="button"
           >
-            {d.question}
-          </h2>
-          {d.to ? (
-            <p className="m-0 text-[15px] text-text">
-              {say(d.lang, `À ${d.to}`, `To ${d.to}`)}
-            </p>
-          ) : null}
-          {d.draft ? (
-            <p className="m-0 whitespace-pre-wrap rounded-panel bg-surface px-5 py-4 text-[17px]">
-              {d.draft}
-            </p>
-          ) : null}
-          {d.status === "open" && d.result ? (
-            <p className="m-0 text-[15px] text-text">{d.result}</p>
-          ) : null}
-          {showContext && d.context ? (
-            <p className="m-0 whitespace-pre-wrap text-[15px] text-text">
-              {d.context}
-            </p>
-          ) : null}
-          <div className="flex flex-wrap gap-5">
-            {d.context && !showContext ? (
-              <button
-                className="link"
-                onClick={() => {
-                  setShowContext(true);
-                  if (!d.contextOpenedAt) {
-                    onStep({ decision: d.id, step: "context" });
-                  }
-                }}
-                type="button"
-              >
-                {say(d.lang, "Plus de contexte", "More context")}
-              </button>
-            ) : null}
-            <Wrong d={d} onStep={onStep} />
-          </div>
-        </div>
+            <span
+              className={`${dense >= 2 ? "line-clamp-2" : "line-clamp-3"} text-[16px] text-ink`}
+            >
+              {/* A preview reads as one paragraph: its blank lines would spend the few it has. */}
+              {preview?.replace(/\s+/g, " ")}
+            </span>
+            <span className="text-[14px] text-muted underline underline-offset-3">
+              {d.draft
+                ? say(d.lang, "Lire le message", "Read the message")
+                : say(d.lang, "Plus de contexte", "More context")}
+            </span>
+          </button>
+        </Fold>
       </div>
-      {/* His answer, pinned: the options scroll among themselves when too tall, his own words always in sight. */}
-      <div className="flex max-h-[62%] shrink-0 flex-col gap-2.5">
-        <div className="grid min-h-0 gap-2.5 overflow-y-auto overscroll-contain">
+      {/* His answer, at the bottom, in reach of his thumb. */}
+      <div className="grid gap-2.5 pt-3">
+        <Fold shown={!typing}>
           {d.options.map((o) => (
-            <button
+            <motion.button
               aria-pressed={d.answer === o.id}
               className="opt"
               data-pick={o.id === d.pick || undefined}
@@ -179,21 +309,22 @@ export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
                 }
               }}
               type="button"
+              whileTap={still ? undefined : { scale: 0.985 }}
             >
-              <span>{o.label}</span>
-              {o.draft ? (
-                <span className="whitespace-pre-wrap font-normal text-[15px] opacity-85">
-                  {o.draft}
-                </span>
-              ) : null}
-              {o.consequence ? (
-                <span className="font-normal text-[15px] opacity-85">
+              <span className="flex items-center justify-between gap-3">
+                <span>{o.label}</span>
+                {d.answer === o.id ? <Check /> : null}
+              </span>
+              {o.consequence && dense < 2 ? (
+                <span
+                  className={`${dense ? "line-clamp-1" : "line-clamp-2"} font-normal text-[15px] opacity-80`}
+                >
                   {o.consequence}
                 </span>
               ) : null}
-            </button>
+            </motion.button>
           ))}
-        </div>
+        </Fold>
         {taken ? (
           <p className="m-0 text-[15px] text-text">
             {say(
@@ -203,39 +334,58 @@ export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
             )}
           </p>
         ) : (
-          <textarea
-            aria-label={say(
-              d.lang,
-              "Ou dites-le à votre façon",
-              "Or say it your way"
-            )}
-            className="field"
-            onBlur={() => {
-              onTyping(false);
-              // Saved when he leaves the field, not on each key: the file is append-only.
-              if (note.trim() !== (d.note ?? "")) {
-                answer(noteAnswer(d, note.trim()));
-              }
-            }}
-            onChange={(e) => {
-              setNote(e.target.value);
-              grow(e.target);
-            }}
-            onFocus={(e) => {
-              onTyping(true);
-              e.target.scrollIntoView({ block: "nearest" });
-            }}
-            placeholder={say(
-              d.lang,
-              "Ou dites-le à votre façon…",
-              "Or say it your way…"
-            )}
-            ref={field}
-            rows={1}
-            value={note}
-          />
+          <div className="flex items-end gap-2">
+            <textarea
+              aria-label={say(
+                d.lang,
+                "Ou dites-le à votre façon",
+                "Or say it your way"
+              )}
+              className="field"
+              onBlur={() => type(false)}
+              onChange={(e) => {
+                setNote(e.target.value);
+                grow(e.target);
+              }}
+              onFocus={() => type(true)}
+              placeholder={say(
+                d.lang,
+                "Ou dites-le à votre façon…",
+                "Or say it your way…"
+              )}
+              ref={field}
+              rows={1}
+              value={note}
+            />
+            {typing && note.trim() ? (
+              <button
+                className="opt shrink-0 bg-ink px-4 py-3 font-semibold text-[16px] text-ground"
+                onClick={async () => {
+                  field.current?.blur();
+                  if ((await saveNote()) && noteAnswer(d, note.trim())) {
+                    onAnswered();
+                  }
+                }}
+                // Keeps the field's focus until the tap lands, so the options don't unfold under his finger.
+                onPointerDown={(e) => e.preventDefault()}
+                type="button"
+              >
+                {say(d.lang, "Envoyer", "Send")}
+              </button>
+            ) : null}
+          </div>
         )}
+        {hasMore && (!preview || dense >= 3) ? (
+          <button
+            className="link justify-self-start text-[14px]"
+            onClick={() => setDetails(true)}
+            type="button"
+          >
+            {say(d.lang, "Détails", "Details")}
+          </button>
+        ) : null}
       </div>
+      <Details d={d} onStep={onStep} open={details} setOpen={setDetails} />
     </article>
   );
 }

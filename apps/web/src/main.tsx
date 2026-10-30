@@ -15,8 +15,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { SignedOut } from "./api";
 import { DecisionsPage } from "./decisions/page";
-import { applyTheme, readTheme } from "./decisions/theme";
 import { nextOf, SignInRoute } from "./sign-in";
+import { applyTheme, readTheme } from "./theme";
 import "./styles.css";
 
 // Life's web app: each page a route. Every route's data comes from /api/, and a signed-out answer goes to /sign-in.

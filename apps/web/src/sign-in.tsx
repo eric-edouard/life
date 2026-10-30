@@ -4,11 +4,15 @@ import { signIn } from "./api";
 
 // His sign-in: one password, then back where he was going (`next`, a path on this site only).
 
-/** Where to go after signing in: a same-origin path, else the decisions. */
-export const nextOf = (next: unknown) =>
-  typeof next === "string" && next.startsWith("/") && !next.startsWith("//")
-    ? next
-    : "/decisions";
+const BASE = "https://life.invalid";
+/** Where to go after signing in: a path on this site (as the browser would read it), else the decisions. */
+export function nextOf(next: unknown) {
+  if (typeof next !== "string" || !next.startsWith("/")) {
+    return "/decisions";
+  }
+  const to = new URL(next, BASE);
+  return to.origin === BASE ? to.pathname + to.search + to.hash : "/decisions";
+}
 
 export function SignInRoute() {
   const { next } = useSearch({ from: "/sign-in" });

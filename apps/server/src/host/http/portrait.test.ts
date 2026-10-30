@@ -60,7 +60,9 @@ test("a page's clips and the player: typed, and the page's CSP allows them only"
   ).toContain("media-src 'self'");
 });
 
-test("/me/decisions and other paths are not its own", async () => {
-  expect((await get("/me/decisions", "in")).status).toBe(404);
+test("the decisions' old address goes to the web app's; other paths are not its own", async () => {
+  const old = await get("/me/decisions");
+  expect(old.status).toBe(302);
+  expect(old.headers.get("location")).toBe("/decisions");
   expect((await get("/elsewhere", "in")).status).toBe(404);
 });

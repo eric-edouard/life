@@ -6,6 +6,4 @@ import { defineConfig } from "vite";
 export default defineConfig({
   build: { assetsDir: "app", emptyOutDir: true, outDir: "dist" },
   plugins: [react(), tailwindcss()],
-  // `vite` in apps/web against a running Life: its API on the public port.
-  server: { proxy: { "/api": "http://127.0.0.1:46200" } },
 });

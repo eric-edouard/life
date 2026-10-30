@@ -12,9 +12,12 @@ export function useVisibleHeight() {
       return;
     }
     const update = () => {
-      setHeight(vv.height);
-      // iOS pans the page up to show a focused field; the shell already fits above the keyboard.
-      globalThis.scrollTo(0, 0);
+      // Pinch-zoom shrinks the visual viewport too: the shell keeps the layout's height then, and his place.
+      setHeight(vv.height * vv.scale);
+      if (vv.scale === 1) {
+        // iOS pans the page up to show a focused field; the shell already fits above the keyboard.
+        globalThis.scrollTo(0, 0);
+      }
     };
     update();
     vv.addEventListener("resize", update);

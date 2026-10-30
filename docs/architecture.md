@@ -154,8 +154,8 @@ The repo around it is a Bun workspace:
 | `derived/` | Generated, gitignored: a checkout's state |
 | root | `bts.jsonc` (so `create-better-t-stack add` works), `bunfig.toml` (a hoisted install, for Codex's binary), the workspace's version catalog |
 
-Turborepo arrives with `apps/web`, the second app that runs a build. There is no CI: the pre-push hook runs
-`bun run check`.
+No Turborepo: `bun run check` runs every step at once, `apps/web`'s build and types among them, and a task cache
+would buy two short steps. There is no CI: the pre-push hook runs `bun run check`.
 
 ## The app
 

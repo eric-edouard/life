@@ -71,9 +71,13 @@ export function nextOpen<T extends D & { id: string }>(live: T[], id: string) {
   return after.find(isOpen);
 }
 
-/** Escape closes the overview; every other key is left alone (30 Oct: a handler cancelling them stopped his typing). */
-export function keyDown(e: Pick<KeyboardEvent, "key">, close: () => void) {
-  if (e.key === "Escape") {
-    close();
+/**
+ * Which way a key moves through his decisions: the arrows, never while he types, never any other key (30 Oct: a key
+ * handler that cancelled every key stopped his typing; this one only reads them).
+ */
+export function moveOf(key: string, target: EventTarget | null) {
+  if ((target as Element | null)?.closest?.("textarea, input")) {
+    return 0;
   }
+  return ({ ArrowLeft: -1, ArrowRight: 1 } as Record<string, number>)[key] ?? 0;
 }

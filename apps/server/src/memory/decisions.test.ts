@@ -234,3 +234,27 @@ test("a decision carries its loop's goal rank, the page's order", () => {
     )
   ).toThrow();
 });
+
+test("an answer an older page wrote still folds, whatever its length (the limits are only on what the web app writes now)", () => {
+  const at = "2026-10-29T10:00:00.000Z";
+  const lines = [
+    {
+      at,
+      data: ask,
+      decision: id,
+      schemaVersion: 1 as const,
+      step: "asked" as const,
+    },
+    {
+      at,
+      data: { answer: "note", note: "x".repeat(5000) },
+      decision: id,
+      schemaVersion: 1 as const,
+      step: "answered" as const,
+    },
+  ];
+  expect(decisionsNow(lines).get(id)).toMatchObject({
+    answer: "note",
+    status: "answered",
+  });
+});

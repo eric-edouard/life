@@ -96,8 +96,13 @@ export interface DecisionRow extends Decision {
   to?: string;
 }
 
-/** His answer: an option's id, `note` for his words alone, or null to take it back. */
-export const Answered = z
+/** His answer as the fold reads it, from any page that ever wrote one: an option's id, `note` for his words alone, or null. */
+export const AnsweredLine = z.object({
+  answer: z.string().nullable(),
+  note: z.string(),
+});
+/** His answer as the web app writes it now, with its limits. */
+const Answered = z
   .object({ answer: z.string().max(40).nullable(), note: z.string().max(4000) })
   .strict();
 

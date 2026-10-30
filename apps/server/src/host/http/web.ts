@@ -6,7 +6,7 @@ import { decisionsNow, writeDecision } from "../../memory/decisions";
 import { type DecisionRow, OwnerStep } from "../../records/decision";
 import { startAgent, wakeOf } from "../events";
 import { recipientOf } from "../send";
-import { HEADERS, redirect, text } from "./http";
+import { HEADERS, text } from "./http";
 import type { SignIn } from "./sign-in";
 
 // The web app (apps/web): its bundle, Life's code and nothing of his, served to anyone; its data under /api/, each
@@ -96,38 +96,35 @@ function decisions(now: () => number) {
 
 /** The app's routes; its data only once he is signed in. */
 export function createWeb(signIn: SignIn, now = Date.now, dist = WEB_DIST) {
-  return (
-    new Hono()
-      .route("/", signIn.app)
-      .use("/api/*", async (c, next) => {
-        if (c.req.path !== "/api/sign-in" && !signIn.signedIn(c.req.raw)) {
-          return text("sign in at /sign-in", 401);
-        }
-        await next();
-      })
-      .route("/", decisions(now))
-      // The old address, in emails already sent; the browser keeps the link's #decision.
-      .get("/me/decisions", () => redirect("/decisions"))
-      .get("/app/*", async (c) => {
-        const file = Bun.file(join(dist, c.req.path));
-        return BUILT.test(c.req.path) && (await file.exists())
-          ? new Response(file, {
-              headers: {
-                ...APP_HEADERS,
-                "cache-control": "public, max-age=31536000, immutable",
-              },
-            })
-          : c.notFound();
-      })
-      .get("*", (c, next) =>
-        OWN.test(c.req.path) || !c.req.header("accept")?.includes("text/html")
-          ? next()
-          : new Response(Bun.file(join(dist, "index.html")), {
-              headers: {
-                ...APP_HEADERS,
-                "content-type": "text/html; charset=utf-8",
-              },
-            })
-      )
-  );
+  return new Hono()
+    .route("/", signIn.app)
+    .use("/api/*", async (c, next) => {
+      // The sign-in itself answers before this (it is routed first).
+      if (!signIn.signedIn(c.req.raw)) {
+        return text("sign in at /sign-in", 401);
+      }
+      await next();
+    })
+    .route("/", decisions(now))
+    .get("/app/*", async (c) => {
+      const file = Bun.file(join(dist, c.req.path));
+      return BUILT.test(c.req.path) && (await file.exists())
+        ? new Response(file, {
+            headers: {
+              ...APP_HEADERS,
+              "cache-control": "public, max-age=31536000, immutable",
+            },
+          })
+        : c.notFound();
+    })
+    .get("*", (c, next) =>
+      OWN.test(c.req.path) || !c.req.header("accept")?.includes("text/html")
+        ? next()
+        : new Response(Bun.file(join(dist, "index.html")), {
+            headers: {
+              ...APP_HEADERS,
+              "content-type": "text/html; charset=utf-8",
+            },
+          })
+    );
 }

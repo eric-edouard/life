@@ -1207,7 +1207,7 @@ function outputCards(r: Reads): Card[] {
       group: "outputs",
       headline: portraitOn ? "behind its password" : "off",
       id: "portrait",
-      name: "/me",
+      name: "Web app and /me",
       tone: portraitOn ? "ok" : "idle",
       word: portraitOn ? "serving" : "off",
     },

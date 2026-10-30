@@ -63,8 +63,9 @@ export function createPortrait(signIn: SignIn, pages = PAGES) {
     });
   }
 
-  // `/me/*` matches `/me` too; `/me/decisions` is the web app's (its old address).
-  return new Hono().get("/me/*", (c, next) =>
-    c.req.path === "/me/decisions" ? next() : serve(c)
-  );
+  // `/me/*` matches `/me` too. The decisions' old address, in emails already sent, goes to the web app's; the
+  // browser keeps the link's #decision.
+  return new Hono()
+    .get("/me/decisions", () => redirect("/decisions"))
+    .get("/me/*", serve);
 }
