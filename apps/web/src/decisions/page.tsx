@@ -6,13 +6,13 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readDecisions, writeStep } from "../api";
 import { Theme } from "../theme";
 import { loopName, say } from "../words";
-import { DONE, useCurrent } from "./current";
+import { useCurrent } from "./current";
 import { Decision } from "./decision";
-import { isOpen, nextOpen, orderOf } from "./order";
+import { DONE, isOpen, nextOpen, orderOf } from "./order";
 import { useVisibleHeight } from "./visible-height";
 
 // His decisions, one per screen side by side: a sideways swipe (or the arrow keys) moves, an up-down drag scrolls the
@@ -168,9 +168,9 @@ function Bar({
         </span>
       </Drawer.Trigger>
       <Drawer.Portal>
-        <Drawer.Backdrop className="fixed inset-0 z-10 bg-ink/20 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Drawer.Backdrop className="fixed inset-0 z-10 bg-ink/20 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
         <Drawer.Viewport className="fixed inset-0 z-20">
-          <Drawer.Popup className="absolute inset-x-0 top-0 max-h-[88%] translate-y-(--drawer-swipe-movement-y) overflow-y-auto rounded-b-[24px] bg-ground px-5 pt-[max(24px,env(safe-area-inset-top))] pb-6 shadow-[0_1px_0_var(--rule)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-[ending-style]:-translate-y-full data-[starting-style]:-translate-y-full data-[swiping]:transition-none">
+          <Drawer.Popup className="absolute inset-x-0 top-0 max-h-[88%] translate-y-(--drawer-swipe-movement-y) overflow-y-auto rounded-b-[24px] bg-ground px-5 pt-[max(24px,env(safe-area-inset-top))] pb-6 shadow-[0_1px_0_var(--rule)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-[ending-style]:-translate-y-full data-[starting-style]:-translate-y-full data-[swiping]:transition-none motion-reduce:transition-none">
             <Drawer.Content>{overview}</Drawer.Content>
           </Drawer.Popup>
         </Drawer.Viewport>
@@ -211,6 +211,9 @@ export function DecisionsPage() {
   const [sheet, setSheet] = useState(false);
   const closeSheet = useCallback(() => setSheet(false), []);
   const { allDone, current, go, watch } = useCurrent(live, closeSheet);
+  // The move after an answer: one at a time, none left behind when the page goes.
+  const moving = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(moving.current), []);
 
   const onStep = async (s: OwnerStep) => {
     try {
@@ -253,11 +256,16 @@ export function DecisionsPage() {
                 ref={watch}
               >
                 <Decision
+                  busy={step.isPending}
                   d={d}
                   onAnswered={() => {
                     // A pause to see his answer land, then on: to the next one still his, or to the end.
                     const next = nextOpen(live, d.id);
-                    setTimeout(() => go(next?.id ?? DONE), 450);
+                    clearTimeout(moving.current);
+                    moving.current = setTimeout(
+                      () => go(next?.id ?? DONE),
+                      450
+                    );
                   }}
                   onStep={onStep}
                   onTyping={setTyping}

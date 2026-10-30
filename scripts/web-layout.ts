@@ -74,14 +74,21 @@ const expect = (ok: boolean, what: string) => {
 };
 
 const SIZES = [
-  ["small phone", { height: 667, width: 375 }, true],
-  ["phone", { height: 852, width: 393 }, true],
-  ["desktop", { height: 800, width: 1280 }, false],
+  ["small phone", { height: 667, width: 375 }, true, "light"],
+  // In dark, so the screenshots show both themes.
+  ["phone", { height: 852, width: 393 }, true, "dark"],
+  ["desktop", { height: 800, width: 1280 }, false, "light"],
 ] as const;
 
 /** One size, in its own page. */
-async function check([name, viewport, isPhone]: (typeof SIZES)[number]) {
+async function check([
+  name,
+  viewport,
+  isPhone,
+  colorScheme,
+]: (typeof SIZES)[number]) {
   const page = await browser.newPage({
+    colorScheme,
     hasTouch: isPhone,
     isMobile: isPhone,
     viewport,

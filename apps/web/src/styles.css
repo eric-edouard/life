@@ -58,8 +58,8 @@
     font: 17px / 1.45 var(--sans);
     color: inherit;
     resize: none;
-    background: transparent;
-    border: 1px solid var(--rule);
+    background: var(--surface);
+    border: 0;
     border-radius: var(--control-radius);
   }
   /* One decision in exactly the space he sees, the safe areas kept clear; past its densest it scrolls as one. */
@@ -91,20 +91,21 @@
     font-size: 18px;
     font-weight: 500;
     cursor: pointer;
-    border: 1px solid var(--rule);
+    background: var(--surface);
     border-radius: var(--control-radius);
+    transition:
+      background-color 200ms,
+      color 200ms;
   }
   .opt[data-pick] {
     font-weight: 700;
     color: var(--white);
     background: var(--ink);
-    border-color: var(--ink);
   }
   .opt[aria-pressed="true"] {
     font-weight: 700;
     color: var(--white);
     background: var(--synced);
-    border-color: var(--synced);
   }
   .opt:disabled {
     cursor: default;

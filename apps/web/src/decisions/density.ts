@@ -1,29 +1,34 @@
-import { type RefObject, useLayoutEffect, useState } from "react";
+import { type RefObject, useCallback, useLayoutEffect, useState } from "react";
 
 // How dense a decision must be to fit the screen, without anything scrolling inside it:
 // 0 as written; 1 consequences on one line; 2 consequences in the sheet, the preview shorter;
 // 3 the question a step smaller, the preview a link. Past 3 the decision scrolls as one.
 const DENSEST = 3;
 
-/** The lightest density at which `el` holds its content, measured again whenever its height changes. */
+/**
+ * The lightest density at which `el` holds its content: measured again when its size changes (the keyboard, a
+ * rotation, a window) and when `remeasure` is called (a fold has finished moving).
+ */
 export function useDensity(el: RefObject<HTMLElement | null>) {
   const [dense, setDense] = useState(0);
-  const [height, setHeight] = useState(0);
+  const [size, setSize] = useState("");
   useLayoutEffect(() => {
     const e = el.current;
     if (!e) {
       return;
     }
-    const seen = new ResizeObserver(() => setHeight(e.clientHeight));
+    const seen = new ResizeObserver(() =>
+      setSize(`${e.clientWidth}x${e.clientHeight}`)
+    );
     seen.observe(e);
     return () => seen.disconnect();
   }, [el]);
-  // A new height (the keyboard, a rotation) starts again from the lightest.
+  // A new size starts again from the lightest.
   useLayoutEffect(() => {
-    if (height) {
+    if (size) {
       setDense(0);
     }
-  }, [height]);
+  }, [size]);
   // One step at a time, before paint, until it fits.
   useLayoutEffect(() => {
     const e = el.current;
@@ -31,5 +36,6 @@ export function useDensity(el: RefObject<HTMLElement | null>) {
       setDense(dense + 1);
     }
   });
-  return dense;
+  const remeasure = useCallback(() => setDense(0), []);
+  return [dense, remeasure] as const;
 }

@@ -102,9 +102,10 @@ export const AnsweredLine = z.object({
   note: z.string(),
 });
 /** His answer as the web app writes it now, with its limits. */
-const Answered = z
-  .object({ answer: z.string().max(40).nullable(), note: z.string().max(4000) })
-  .strict();
+const Answered = AnsweredLine.extend({
+  answer: z.string().max(40).nullable(),
+  note: z.string().max(4000),
+}).strict();
 
 /** What the web app may write: his steps, and asking a request ("Something's wrong", about one loop, for the audit). */
 export const OwnerStep = z.discriminatedUnion("step", [

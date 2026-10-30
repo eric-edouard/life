@@ -76,8 +76,26 @@ export function nextOpen<T extends D & { id: string }>(live: T[], id: string) {
  * handler that cancelled every key stopped his typing; this one only reads them).
  */
 export function moveOf(key: string, target: EventTarget | null) {
-  if ((target as Element | null)?.closest?.("textarea, input")) {
+  // A sheet open on top keeps the row where it is.
+  if (
+    (target as Element | null)?.closest?.("textarea, input") ||
+    globalThis.document?.querySelector('[role="dialog"]')
+  ) {
     return 0;
   }
   return ({ ArrowLeft: -1, ArrowRight: 1 } as Record<string, number>)[key] ?? 0;
+}
+
+/** The screen after the last decision he answered. */
+export const DONE = "done";
+
+/** The decision on screen: the one `wanted`, while it is live (or the end, once nothing is open); else the first open one. */
+export function currentOf(live: DecisionRow[], wanted: string) {
+  const allDone = live.length > 0 && !live.some(isOpen);
+  return (
+    live.find((d) => d.id === wanted)?.id ??
+    (wanted === DONE && allDone ? DONE : undefined) ??
+    (live.find(isOpen) ?? live[0])?.id ??
+    ""
+  );
 }

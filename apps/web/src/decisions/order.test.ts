@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test";
 import type { DecisionRow } from "@life/server/src/records/decision";
-import { isOpen, moveOf, nextOpen, orderOf, tapAnswer } from "./order";
+import {
+  currentOf,
+  DONE,
+  isOpen,
+  moveOf,
+  nextOpen,
+  noteAnswer,
+  orderOf,
+  tapAnswer,
+} from "./order";
 
 const d = (
   id: string,
@@ -43,4 +52,21 @@ test("only the arrows move, never while he types, and no key is taken from him (
   expect(moveOf("ArrowLeft", null)).toBe(-1);
   expect(moveOf("a", null)).toBe(0);
   expect(moveOf("Escape", null)).toBe(0);
+});
+
+test("the decision on screen: the link's while it is live, the end only once nothing is open, else the first open one", () => {
+  const open = d("o1", "lynx");
+  const answered = d("a1", "lynx", { answer: "a", status: "answered" });
+  expect(currentOf([answered, open], "a1")).toBe("a1");
+  expect(currentOf([answered, open], "closed-one")).toBe("o1");
+  expect(currentOf([answered, open], DONE)).toBe("o1"); // a new one came in
+  expect(currentOf([answered], DONE)).toBe(DONE);
+  expect(currentOf([], "x")).toBe("");
+});
+
+test("his words alone answer; clearing them reopens; an option he tapped stays", () => {
+  const open = { answer: null, options: [], status: "open" as const };
+  expect(noteAnswer(open, "tomorrow")).toBe("note");
+  expect(noteAnswer({ ...open, answer: "note" }, "")).toBeNull();
+  expect(noteAnswer({ ...open, answer: "a" }, "")).toBe("a");
 });

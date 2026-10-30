@@ -28,7 +28,7 @@ export const cookie = (name: string, value: string, maxAge: number) =>
     secure: true,
   }).serialize();
 
-/** A 302 redirect with cookies. */
+/** A 302 redirect. */
 export const redirect = (to: string) =>
   new Response(null, { headers: { ...HEADERS, location: to }, status: 302 });
 

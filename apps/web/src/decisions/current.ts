@@ -1,12 +1,9 @@
 import type { DecisionRow } from "@life/server/src/records/decision";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isOpen, moveOf } from "./order";
+import { currentOf, DONE, isOpen, moveOf } from "./order";
 
 // Which decision is on screen. The link holds its id (#id), so a reload or a shared link opens on it; a swipe, a tap in
 // the overview, an answer or an arrow key moves it.
-
-/** The screen after the last decision he answered. */
-export const DONE = "done";
 
 const idOfHash = () => {
   try {
@@ -18,46 +15,45 @@ const idOfHash = () => {
 };
 const remember = (id: string) =>
   globalThis.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
+const sectionOf = (id: string) => document.getElementById(`d-${id}`);
 
 /** The current decision among `live`, how to move to one, and the ref each section registers with. */
 export function useCurrent(live: DecisionRow[], onMove: () => void) {
   const [wanted, setWanted] = useState(idOfHash);
   const allDone = live.length > 0 && !live.some(isOpen);
-  // The link's, while it is still live (or the end, once nothing is open); else the first open one.
-  const current =
-    live.find((d) => d.id === wanted)?.id ??
-    (wanted === DONE && allDone ? DONE : undefined) ??
-    (live.find(isOpen) ?? live[0])?.id ??
-    "";
+  const current = currentOf(live, wanted);
   // The end sits after the last one.
   const at =
     current === DONE ? live.length : live.findIndex((d) => d.id === current);
+  // What is on screen now, and where a smooth move is headed (the sections it passes on the way don't count).
+  const shown = useRef("");
+  const heading = useRef("");
 
   const go = useCallback(
     (id: string) => {
-      setWanted(id);
       onMove();
       remember(id);
-      document
-        .getElementById(`d-${id}`)
-        ?.scrollIntoView({ behavior: "smooth", inline: "start" });
+      shown.current = id;
+      heading.current = id;
+      setWanted(id);
+      sectionOf(id)?.scrollIntoView({ behavior: "smooth", inline: "start" });
     },
     [onMove]
   );
 
-  // On the first load (and when the one he was on closes), the row opens on the current one.
-  const shown = useRef("");
+  // On the first load, and when the one on screen closes, the row jumps to the current one.
   useEffect(() => {
     if (current && current !== shown.current) {
       shown.current = current;
-      document
-        .getElementById(`d-${current}`)
-        ?.scrollIntoView({ behavior: "instant", inline: "start" });
+      sectionOf(current)?.scrollIntoView({
+        behavior: "instant",
+        inline: "start",
+      });
     }
   }, [current]);
 
-  // A swipe that settles on another decision makes it the current one: the one most of the screen shows
-  // (an IntersectionObserver, not `scrollend`, which iOS Safari may not fire). Each section registers itself.
+  // A swipe that settles on another decision makes it the current one: the one that fills most of the screen (an
+  // IntersectionObserver, not `scrollend`, which iOS Safari may not fire). Each section registers itself.
   const seen = useRef<IntersectionObserver>(null);
   const watch = useCallback((section: HTMLElement | null) => {
     if (!section) {
@@ -65,8 +61,14 @@ export function useCurrent(live: DecisionRow[], onMove: () => void) {
     }
     seen.current ??= new IntersectionObserver(
       (entries) => {
-        const id = entries.find((e) => e.isIntersecting)?.target.id.slice(2);
-        if (id && id !== shown.current) {
+        const id = entries
+          .find((e) => e.intersectionRatio >= 0.6)
+          ?.target.id.slice(2);
+        if (!id || (heading.current !== "" && id !== heading.current)) {
+          return;
+        }
+        heading.current = "";
+        if (id !== shown.current) {
           shown.current = id;
           setWanted(id);
           remember(id);
@@ -82,11 +84,10 @@ export function useCurrent(live: DecisionRow[], onMove: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const by = moveOf(e.key, e.target);
-      const to = by
-        ? (live[at + by]?.id ??
-          (at + by === live.length && allDone ? DONE : undefined))
-        : undefined;
-      if (to) {
+      const to =
+        live[at + by]?.id ??
+        (at + by === live.length && allDone ? DONE : undefined);
+      if (by && to) {
         go(to);
       }
     };

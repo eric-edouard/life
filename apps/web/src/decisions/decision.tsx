@@ -7,6 +7,8 @@ import { useDensity } from "./density";
 import { noteAnswer, tapAnswer } from "./order";
 
 interface Props {
+  /** A step of his is being written: a second tap waits for it. */
+  busy: boolean;
   d: DecisionRow;
   /** After a new answer: on to the next one still his. */
   onAnswered: () => void;
@@ -41,9 +43,11 @@ const EASE = [0.2, 0.8, 0.2, 1] as const;
 function Fold({
   shown,
   children,
+  onSettled,
 }: {
   shown: boolean;
   children: React.ReactNode;
+  onSettled: () => void;
 }) {
   const still = useReducedMotion();
   return (
@@ -54,6 +58,10 @@ function Fold({
           className="grid gap-2.5 overflow-hidden"
           exit={{ height: 0, opacity: 0 }}
           initial={{ height: 0, opacity: 0 }}
+          // Only once it has opened: the space it takes is what density must measure.
+          onAnimationComplete={(to) =>
+            (to as { height?: unknown }).height === "auto" && onSettled()
+          }
           transition={{ duration: still ? 0 : 0.22, ease: EASE }}
         >
           {children}
@@ -87,9 +95,9 @@ function Details({
       swipeDirection="down"
     >
       <Drawer.Portal>
-        <Drawer.Backdrop className="fixed inset-0 z-10 bg-ink/25 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Drawer.Backdrop className="fixed inset-0 z-10 bg-ink/25 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
         <Drawer.Viewport className="fixed inset-0 z-20">
-          <Drawer.Popup className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[85%] max-w-[784px] translate-y-(--drawer-swipe-movement-y) flex-col rounded-t-[24px] bg-ground shadow-[0_-1px_0_var(--rule)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full data-[swiping]:transition-none">
+          <Drawer.Popup className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[85%] max-w-[784px] translate-y-(--drawer-swipe-movement-y) flex-col rounded-t-[24px] bg-ground shadow-[0_-1px_0_var(--rule)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full data-[swiping]:transition-none motion-reduce:transition-none">
             <span
               aria-hidden="true"
               className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-rule"
@@ -109,15 +117,20 @@ function Details({
                 </p>
               ) : null}
               {d.options
-                .filter((o) => o.draft)
+                .filter((o) => o.draft || o.consequence)
                 .map((o) => (
-                  <div className="grid gap-2" key={o.id}>
-                    <h3 className="m-0 font-bold text-[15px] text-muted">
-                      {o.label}
-                    </h3>
-                    <p className="m-0 whitespace-pre-wrap rounded-panel bg-surface px-5 py-4 text-[17px]">
-                      {o.draft}
-                    </p>
+                  <div className="grid gap-1.5" key={o.id}>
+                    <h3 className="m-0 font-bold text-[16px]">{o.label}</h3>
+                    {o.consequence ? (
+                      <p className="m-0 text-[15px] text-text">
+                        {o.consequence}
+                      </p>
+                    ) : null}
+                    {o.draft ? (
+                      <p className="m-0 whitespace-pre-wrap rounded-panel bg-surface px-5 py-4 text-[17px]">
+                        {o.draft}
+                      </p>
+                    ) : null}
                   </div>
                 ))}
               {d.context ? (
@@ -203,26 +216,100 @@ function Check() {
   );
 }
 
+/** The first lines of something long, read as one paragraph (its blank lines would spend the few it has); the whole in the sheet. */
+function Preview({
+  d,
+  dense,
+  onOpen,
+  text,
+}: {
+  d: DecisionRow;
+  dense: number;
+  onOpen: () => void;
+  text: string;
+}) {
+  return (
+    <button
+      className="grid cursor-pointer gap-1.5 rounded-panel bg-surface px-5 py-4 text-left"
+      onClick={onOpen}
+      type="button"
+    >
+      <span
+        className={`${dense >= 2 ? "line-clamp-2" : "line-clamp-3"} text-[16px] text-ink`}
+      >
+        {text.replace(/\s+/g, " ")}
+      </span>
+      <span className="text-[14px] text-muted underline underline-offset-3">
+        {d.draft
+          ? say(d.lang, "Lire le message", "Read the message")
+          : say(d.lang, "Plus de contexte", "More context")}
+      </span>
+    </button>
+  );
+}
+
+/** One answer: its label, its consequence while there is room for it, a check once it is his. */
+function Option({
+  chosen,
+  dense,
+  disabled,
+  o,
+  onTap,
+  pick,
+}: {
+  chosen: boolean;
+  dense: number;
+  disabled: boolean;
+  o: DecisionRow["options"][number];
+  onTap: () => void;
+  pick: boolean;
+}) {
+  const still = useReducedMotion();
+  return (
+    <motion.button
+      aria-pressed={chosen}
+      className="opt"
+      data-pick={pick || undefined}
+      disabled={disabled}
+      onClick={onTap}
+      type="button"
+      whileTap={still ? undefined : { scale: 0.985 }}
+    >
+      <span className="flex items-center justify-between gap-3">
+        <span>{o.label}</span>
+        {chosen ? <Check /> : null}
+      </span>
+      {o.consequence && dense < 2 ? (
+        <span
+          className={`${dense ? "line-clamp-1" : "line-clamp-2"} font-normal text-[15px] opacity-80`}
+        >
+          {o.consequence}
+        </span>
+      ) : null}
+    </motion.button>
+  );
+}
+
 /**
  * One decision, one screen, the answer always in reach: where it comes from, the question, a preview of anything long
  * (the whole of it in the sheet), and his answer pinned to the bottom. If a small screen still can't hold it, the
  * decision scrolls as one, its answer staying pinned; nothing scrolls inside anything else.
  */
-export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
+export function Decision({ busy, d, onStep, onAnswered, onTyping }: Props) {
   const taken = d.status === "taken";
   const [note, setNote] = useState(d.note ?? "");
   const [typing, setTyping] = useState(false);
   const [details, setDetails] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const article = useRef<HTMLElement>(null);
-  const dense = useDensity(article);
-  const still = useReducedMotion();
-  // A refetch brings his saved note; never under his fingers.
+  const [dense, remeasure] = useDensity(article);
+  // A refetch brings his saved note, but never over words he hasn't sent.
+  const saved = useRef(d.note ?? "");
   useEffect(() => {
-    if (document.activeElement !== field.current) {
-      setNote(d.note ?? "");
-    }
+    setNote((mine) => (mine.trim() === saved.current ? (d.note ?? "") : mine));
+    saved.current = d.note ?? "";
   }, [d.note]);
+  const unsent = note.trim() !== (d.note ?? "");
 
   const answer = (a: string | null) =>
     onStep({
@@ -232,9 +319,7 @@ export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
     });
   // His words alone answer only when he sends them; leaving the field keeps them with his answer, if any.
   const saveNote = () =>
-    note.trim() === (d.note ?? "")
-      ? Promise.resolve(false)
-      : answer(noteAnswer(d, note.trim()));
+    unsent ? answer(noteAnswer(d, note.trim())) : Promise.resolve(false);
   const type = (on: boolean) => {
     setTyping(on);
     onTyping(on);
@@ -271,58 +356,37 @@ export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
             {say(d.lang, `À ${d.to}`, `To ${d.to}`)}
           </p>
         ) : null}
-        <Fold shown={!typing && Boolean(preview) && dense < 3}>
-          <button
-            className="grid cursor-pointer gap-1.5 rounded-panel bg-surface px-5 py-4 text-left"
-            onClick={() => setDetails(true)}
-            type="button"
-          >
-            <span
-              className={`${dense >= 2 ? "line-clamp-2" : "line-clamp-3"} text-[16px] text-ink`}
-            >
-              {/* A preview reads as one paragraph: its blank lines would spend the few it has. */}
-              {preview?.replace(/\s+/g, " ")}
-            </span>
-            <span className="text-[14px] text-muted underline underline-offset-3">
-              {d.draft
-                ? say(d.lang, "Lire le message", "Read the message")
-                : say(d.lang, "Plus de contexte", "More context")}
-            </span>
-          </button>
+        {/* Folding answers his typing; density only ever removes it at once, unanimated, so measuring never loops. */}
+        <Fold onSettled={remeasure} shown={!typing && Boolean(preview)}>
+          {dense < 3 && preview ? (
+            <Preview
+              d={d}
+              dense={dense}
+              onOpen={() => setDetails(true)}
+              text={preview}
+            />
+          ) : null}
         </Fold>
       </div>
       {/* His answer, at the bottom, in reach of his thumb. */}
       <div className="grid gap-2.5 pt-3">
-        <Fold shown={!typing}>
+        <Fold onSettled={remeasure} shown={!typing}>
           {d.options.map((o) => (
-            <motion.button
-              aria-pressed={d.answer === o.id}
-              className="opt"
-              data-pick={o.id === d.pick || undefined}
-              disabled={taken}
+            <Option
+              chosen={d.answer === o.id}
+              dense={dense}
+              disabled={taken || busy}
               key={o.id}
-              onClick={async () => {
+              o={o}
+              onTap={async () => {
                 const a = tapAnswer(d, o.id, note.trim());
                 // A new answer moves on; taking one back stays.
                 if ((await answer(a)) && a === o.id) {
                   onAnswered();
                 }
               }}
-              type="button"
-              whileTap={still ? undefined : { scale: 0.985 }}
-            >
-              <span className="flex items-center justify-between gap-3">
-                <span>{o.label}</span>
-                {d.answer === o.id ? <Check /> : null}
-              </span>
-              {o.consequence && dense < 2 ? (
-                <span
-                  className={`${dense ? "line-clamp-1" : "line-clamp-2"} font-normal text-[15px] opacity-80`}
-                >
-                  {o.consequence}
-                </span>
-              ) : null}
-            </motion.button>
+              pick={o.id === d.pick}
+            />
           ))}
         </Fold>
         {taken ? (
@@ -357,7 +421,7 @@ export function Decision({ d, onStep, onAnswered, onTyping }: Props) {
               rows={1}
               value={note}
             />
-            {typing && note.trim() ? (
+            {unsent ? (
               <button
                 className="opt shrink-0 bg-ink px-4 py-3 font-semibold text-[16px] text-ground"
                 onClick={async () => {

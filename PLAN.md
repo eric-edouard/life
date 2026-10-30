@@ -9,6 +9,7 @@ screen by construction. The portrait is parked as legacy: its files stay served 
 
 - [x] Typing in an answer did nothing (PR #307)
 - [x] Decisions page: swipe and one-per-screen fail in practice because content overflows; rebuild it window-size aware, keeping its intent
+- [x] Cards have no border, only a subtle background (owner, 30 Oct): `docs/brand.md`, the web app, a brand test
 - [ ] Move every page to Vite + React + Tailwind; rebuild from scratch where it is cleaner; many pages are coming
 - [x] The portrait was a one-off: parked as legacy, served as it is
 - [x] Investigate what Better-T-Stack does better or worse for long-term architecture, bloat and debt (a research subagent)
@@ -88,7 +89,9 @@ Shape: each step's data has one schema in `records/`, parsed by the fold and the
 The brand lives once, in `tokens.css`, read by Tailwind. One path constant for the build. One layout model at every
 width; the desktop switches only the overview and the input.
 State: the decisions are server state (Query cache); the current decision is its id in the hash, the one on screen
-derived; his unsaved note is per decision, local until he leaves the field.
+derived (`currentOf`); his unsent note is per decision, local until he sends it (Send shows while it differs from the
+saved one) or taps an option, never overwritten by a refetch. Options are toggles (`aria-pressed`): tapping the
+chosen one again takes it back.
 Deletes: `assets/decisions/` (920), the page's copy of the decision shape, the hand body check, the fold's casts,
 the decisions branches of `fileOf`, the `TOKENS` splice for this page, a dead fallow entry.
 Net lines: about +600 / −1000.
