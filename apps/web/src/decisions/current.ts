@@ -16,6 +16,12 @@ const idOfHash = () => {
 const remember = (id: string) =>
   globalThis.history.replaceState(null, "", `#${encodeURIComponent(id)}`);
 const sectionOf = (id: string) => document.getElementById(`d-${id}`);
+/** Whether most of the section fills the screen, as a swipe counts it. */
+const isOnScreen = (section: HTMLElement) => {
+  const r = section.getBoundingClientRect();
+  const seen = Math.min(r.right, globalThis.innerWidth) - Math.max(r.left, 0);
+  return seen >= 0.6 * r.width;
+};
 
 /** The current decision among `live`, how to move to one, and the ref each section registers with. */
 export function useCurrent(live: DecisionRow[], onMove: () => void) {
@@ -34,9 +40,13 @@ export function useCurrent(live: DecisionRow[], onMove: () => void) {
       onMove();
       remember(id);
       shown.current = id;
-      heading.current = id;
       setWanted(id);
-      sectionOf(id)?.scrollIntoView({ behavior: "smooth", inline: "start" });
+      const section = sectionOf(id);
+      // Only a real move has sections to pass: one already on screen, or not drawn yet, has none.
+      if (section && !isOnScreen(section)) {
+        heading.current = id;
+        section.scrollIntoView({ behavior: "smooth", inline: "start" });
+      }
     },
     [onMove]
   );
@@ -79,6 +89,22 @@ export function useCurrent(live: DecisionRow[], onMove: () => void) {
     const observer = seen.current;
     observer.observe(section);
     return () => observer.unobserve(section);
+  }, []);
+
+  // His own touch, wheel or key takes over from a move: where he lands is where he is.
+  useEffect(() => {
+    const yours = () => {
+      heading.current = "";
+    };
+    const events = ["pointerdown", "wheel", "keydown"] as const;
+    for (const e of events) {
+      document.addEventListener(e, yours, { capture: true, passive: true });
+    }
+    return () => {
+      for (const e of events) {
+        document.removeEventListener(e, yours, { capture: true });
+      }
+    };
   }, []);
 
   useEffect(() => {

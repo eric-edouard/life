@@ -25,6 +25,8 @@ What Life is building next, in order, and what is parked. Each item gets its own
   of source descriptors, the closure fix, the daily message and an end-to-end agent benchmark.
 - Life's public address reaches the Mac over Tailscale Funnel, so it works behind a VPN.
 - lifelog: sign-in codes go only to known callbacks, and the local server tests no longer hang.
+- The web app (October 2026): `apps/web` (Vite, React, Tailwind, TanStack Router and Query), its sign-in, and the
+  decisions page rebuilt to fit any screen without covering or nesting scrolls ([architecture](architecture.md#pages)).
 
 ## Now
 
@@ -37,6 +39,11 @@ What Life is building next, in order, and what is parked. Each item gets its own
 
 - A server version with a web UI ([server plan](plans/2026-10-22-server.md)). Life runs on a server as well as on a Mac, and has a web interface built with
   Better-T-Stack: Vite and Tailwind, signed in through Life's own issuer. People choose a Mac-only install or a full server.
+  The web app is in (`apps/web`); next in it: the pairing page, then the coming pages. With them: Hono's typed client
+  for `/api/` (end-to-end types, no new layer), file-based routes from about six pages, and whether `bts.jsonc` stays
+  (only Better-T-Stack's `add` reads it). Not taken from Better-T-Stack: oRPC or tRPC (a third way to define an
+  endpoint), Better Auth (a second issuer), Turborepo. Before relying on the keyboard layout: one pass on his iPhone
+  (the layout check runs Chromium only).
 - A rework of the memory layer: how sources become units, moments, observations and pages
   ([architecture](architecture.md)).
 - Two release channels from one codebase: the Mac app and the server.
@@ -60,6 +67,8 @@ What Life is building next, in order, and what is parked. Each item gets its own
   identifiers (chat handles, phones, emails, mail headers). Findings and a fix, measured on real cases.
 
 ## Parked
+
+- The portrait (`/me`): a one-off, served as it is behind his sign-in; deleted when it stops being fun.
 
 - Windows. The platform module and the Windows fixes stay as seams; what a restart would need is at the end of the
   [platforms and modules plan](plans/2026-10-22-platforms.md).

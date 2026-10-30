@@ -208,6 +208,20 @@ async function check([
       page.url().endsWith("#lynx-20261030080000-1"),
       `${name}: a swipe didn't make the decision current`
     );
+    // Tapping the one on screen in the overview moves nothing, and swipes still count after it (a stuck move once
+    // stopped every swipe from registering).
+    await page.getByRole("button", { name: "Toutes les décisions" }).click();
+    await page.getByRole("dialog").locator("button.row").first().click();
+    await page.waitForTimeout(500);
+    await page
+      .locator("main > div")
+      .last()
+      .evaluate((t) => t.scrollTo({ left: t.clientWidth }));
+    await page.waitForTimeout(600);
+    expect(
+      page.url().endsWith("#lynx-20261030080000-2"),
+      `${name}: after tapping the current one, a swipe didn't count`
+    );
   } else {
     expect(await page.locator("aside").isVisible(), `${name}: no sidebar`);
   }

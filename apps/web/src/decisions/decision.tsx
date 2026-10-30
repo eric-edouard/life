@@ -424,6 +424,7 @@ export function Decision({ busy, d, onStep, onAnswered, onTyping }: Props) {
             {unsent ? (
               <button
                 className="opt shrink-0 bg-ink px-4 py-3 font-semibold text-[16px] text-ground"
+                disabled={busy}
                 onClick={async () => {
                   field.current?.blur();
                   if ((await saveNote()) && noteAnswer(d, note.trim())) {

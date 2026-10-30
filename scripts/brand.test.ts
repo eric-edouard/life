@@ -123,8 +123,9 @@ test("the L is one outline: the icon's, the wordmark's and the menu bar's are th
 });
 
 const CARD_RULE = /\n\s*\.(opt|field|row)\b([^{]*)\{([^}]*)\}/g;
-// A border with a width or a colour; `border: 0` removes one.
-const BORDER = /border(?:-color)?:(?!\s*0;)/;
+// Any border, outline or shadow ring on a card's side or all round (its radius aside); `0` or `none` removes one.
+const BORDER =
+  /(?:border(?!-radius)[\w-]*|outline|box-shadow):(?!\s*(?:0|none)\b)/;
 const CLASSES = /className="([^"]*)"/g;
 const ROUNDED = /\brounded/;
 // Tailwind's border utilities, border-0 aside.
