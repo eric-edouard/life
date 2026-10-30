@@ -20,6 +20,16 @@ export function tapAnswer(d, option, note) {
   return note ? "note" : null;
 }
 
+/**
+ * Escape closes the overview; every other key is left alone. As an `on…` handler, returning false would cancel the key
+ * (30 Oct: typing in his answer did nothing).
+ */
+export function keyDown(e, sheet) {
+  if (e.key === "Escape") {
+    sheet(false);
+  }
+}
+
 /** Still his to answer: open, with no answer yet. */
 export const isOpen = (d) =>
   d.status === "open" && !d.answer && Boolean(d.options?.length);
@@ -529,7 +539,7 @@ if (globalThis.document) {
     bar.setAttribute("aria-expanded", String(open));
   };
   bar.onclick = () => sheet(!document.body.classList.contains("sheet"));
-  document.onkeydown = (e) => e.key === "Escape" && sheet(false);
+  document.onkeydown = (e) => keyDown(e, sheet);
   // The decision on screen is the current one: its row in the overview, the bar's dark segment.
   const seen = new IntersectionObserver(
     (entries) => {
