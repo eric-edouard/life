@@ -5,8 +5,12 @@ import { MIN } from "../../core/clock";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../../core/paths";
 import { same } from "../../core/secret";
 import { connector } from "../../core/settings";
-import { decisionsNow, writeDecision } from "../../memory/decisions";
-import { FACT_CHECKS, recordFactCheck } from "../../memory/fact-checks";
+import {
+  decisionId,
+  decisionsNow,
+  writeDecision,
+} from "../../memory/decisions";
+import { recordIfFactCheck } from "../../memory/fact-checks";
 import { OWNER_STEPS } from "../../records/decision";
 import { startAgent, wakeOf } from "../events";
 import { recipientOf } from "../send";
@@ -166,7 +170,6 @@ export function createPortrait(
         const { loop, note, ref } = (b.data ?? {}) as Partial<
           Record<string, string>
         >;
-        const at = new Date(now()).toISOString().replace(/\D/g, "");
         const ask = {
           context: note,
           kind: "audit",
@@ -179,7 +182,7 @@ export function createPortrait(
           [
             {
               data: ask,
-              decision: `${loop}-${at.slice(0, 17)}-1`,
+              decision: decisionId(`${loop}`, now()),
               step: "asked",
             },
           ],
@@ -196,11 +199,8 @@ export function createPortrait(
           ],
           now()
         );
-        // A fact check is recorded at his tap (a failure here is retried by the next `askFactChecks`).
-        if (d?.status === "answered" && d.loop === FACT_CHECKS) {
-          recordFactCheck(d);
-        }
-        asker = d?.loop;
+        // A fact check is Life's own: no loop to wake.
+        asker = d && recordIfFactCheck(d) ? undefined : d?.loop;
       }
       const wake = wakeOf(`${b.step}`, asker);
       if (wake) {

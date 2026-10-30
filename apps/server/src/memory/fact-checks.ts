@@ -1,6 +1,11 @@
 import { clock, DAY, iso } from "../core/clock";
 import type { Statement } from "../records/statement";
-import { type Decision, decisionsNow, writeDecision } from "./decisions";
+import {
+  type Decision,
+  decisionId,
+  decisionsNow,
+  writeDecision,
+} from "./decisions";
 import {
   readObservations,
   readRatings,
@@ -71,8 +76,17 @@ export function recordFactCheck(d: Decision) {
   ]);
 }
 
-const idOf = (now: number, n: number) =>
-  `${FACT_CHECKS}-${iso(now).replace(/\D/g, "").slice(0, 14)}-${n}`;
+/** His step on his page, when it is on a fact check: an answer is recorded now (a failure is retried by the next
+ * `askFactChecks`). True for a fact check. */
+export function recordIfFactCheck(d: Decision) {
+  if (d.loop !== FACT_CHECKS) {
+    return false;
+  }
+  if (d.status === "answered") {
+    recordFactCheck(d);
+  }
+  return true;
+}
 
 /**
  * Keeps his fact checks: records answers not yet recorded, closes the expired ones as skipped, asks what was drawn but
@@ -83,14 +97,19 @@ export async function askFactChecks(now = clock().getTime()) {
     (d) => d.loop === FACT_CHECKS
   );
   for (const d of mine) {
-    if (d.status === "answered") {
-      recordFactCheck(d);
-    } else if (d.status === "open" && Date.parse(d.deadline ?? "") <= now) {
-      recordRating(`${d.ref}`, "skip");
-      writeDecision(
-        [{ data: { result: "Skipped" }, decision: d.id, step: "expired" }],
-        now
-      );
+    // One card that can't be closed is logged and left, never the run's failure.
+    try {
+      if (d.status === "answered") {
+        recordFactCheck(d);
+      } else if (d.status === "open" && Date.parse(d.deadline ?? "") <= now) {
+        recordRating(`${d.ref}`, "skip");
+        writeDecision(
+          [{ data: { result: "Skipped" }, decision: d.id, step: "expired" }],
+          now
+        );
+      }
+    } catch (e) {
+      console.error(`fact check ${d.id}: ${(e as Error).message}`);
     }
   }
   const open = mine.filter(
@@ -104,17 +123,20 @@ export async function askFactChecks(now = clock().getTime()) {
   const room = Math.max(0, OPEN - open - waiting.length);
   const drawn = room > 0 ? await drawDoubtful(room) : [];
   const doubts = new Map(drawn.map((d) => [d.statement.ref, d.doubts]));
-  const quotes = new Map(
-    (await readObservations()).map((o) => [o.id as string, o.quote])
-  );
   const toAsk = [...waiting, ...drawn.map((d) => d.statement)].slice(
     0,
-    OPEN - open
+    Math.max(0, OPEN - open)
+  );
+  if (toAsk.length === 0) {
+    return 0;
+  }
+  const quotes = new Map(
+    (await readObservations()).map((o) => [o.id as string, o.quote])
   );
   writeDecision(
     toAsk.map((s, n) => ({
       data: factCheckAsk(s, doubts.get(s.ref) ?? [], quotes.get(s.ref), now),
-      decision: idOf(now, n + 1),
+      decision: decisionId(FACT_CHECKS, now, n + 1),
       step: "asked" as const,
     })),
     now

@@ -10,7 +10,6 @@ import { HOME } from "../core/platform";
 import { start } from "../core/proc";
 import { SECRETS, same, writeSecret } from "../core/secret";
 import { agentName, pulls, settings } from "../core/settings";
-import { FACT_CHECKS } from "../memory/fact-checks";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { zoneNow } from "../memory/zones";
 import {
@@ -335,14 +334,14 @@ export function settleDelivery(
 }
 
 /**
- * What his own step on his page wakes: his answer wakes the loop that asked (a fact check is Life's own: none); his
- * "Something's wrong" (a request, `asked`) starts the audit; opening the context or revoking wakes none.
+ * What his own step on his page wakes: his answer wakes the loop that asked; his "Something's wrong" (a request,
+ * `asked`) starts the audit; opening the context or revoking wakes none.
  */
 export function wakeOf(step: string, loop: string | undefined) {
   if (step === "asked") {
     return { kind: "audit" as const };
   }
-  return step === "answered" && loop && loop !== FACT_CHECKS
+  return step === "answered" && loop
     ? { kind: "decision" as const, loop }
     : undefined;
 }

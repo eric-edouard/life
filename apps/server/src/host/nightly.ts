@@ -230,7 +230,7 @@ function daytime(turn: "midday" | "backfill" | "none", now: Date, day: string) {
 
 /**
  * A midday run (about 13:00 and 19:00, same 30-minute tick): moments and extract of today, so the day's speech is read
- * while it is fresh, then the index, then the pages that have new observations. No commit, no email: the nightly
+ * while it is fresh, then the index, then the pages that have new observations, then his fact checks topped up. No commit, no email: the nightly
  * commits and reports all of it, from the ledger. Holds the nightly's lock; `force` (a hand run) skips the schedule,
  * never the lock. A failure is only logged, and the slot is spent: the next slot and the night read the day again.
  */
@@ -243,10 +243,15 @@ export async function midday(now = clock(), force = false) {
     recordMidday();
     return sweep("memory.midday", lastDays(now, 1), {
       pages: () => pages({ rebuild: false }),
-    }).then(async (failure) => {
-      await askFactChecks();
-      return failure ? 1 : 0;
-    });
+    })
+      .then(async (failure) => {
+        await askFactChecks();
+        return failure ? 1 : 0;
+      })
+      .catch((e) => {
+        console.error(`midday fact checks: ${(e as Error).message}`);
+        return 1;
+      });
   });
   return code ?? Number(force);
 }
