@@ -25,7 +25,19 @@ await execOk(
   ],
   { timeout: 300_000 }
 );
+// The web app, built to the path the server reads it from (WEB_DIST).
+await execOk(["bun", "x", "vite", "build"], {
+  cwd: join(ROOT, "apps", "web"),
+  timeout: 120_000,
+});
 await Promise.all([
+  cp(
+    join(ROOT, "apps", "web", "dist"),
+    join(resources, "apps", "web", "dist"),
+    {
+      recursive: true,
+    }
+  ),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
   cp(join(ROOT, "docs", "agent.md"), join(resources, "docs", "agent.md")),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),

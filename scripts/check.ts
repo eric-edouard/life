@@ -59,8 +59,18 @@ const steps: Record<string, string[]> = {
   ],
   // Vendored skills are upstream text.
   scrub: ["bun", "scripts/scrub-check.ts", ":!.claude/skills"],
-  test: ["bun", "test", "./apps/server/src/", "./scripts/", "./apps/edge/"],
+  test: [
+    "bun",
+    "test",
+    "./apps/server/src/",
+    "./scripts/",
+    "./apps/edge/",
+    "./apps/web/",
+  ],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
+  // The web app has its own program (DOM and JSX); its build is what Life serves (WEB_DIST).
+  "web build": ["bun", "x", "--bun", "vite", "build", "apps/web"],
+  "web types": ["bun", "x", "--bun", "tsc", "--noEmit", "-p", "apps/web"],
 };
 
 // The phone and the Mac helper (Lifelog Host) build on a Mac only, and only when a branch touches them or what they

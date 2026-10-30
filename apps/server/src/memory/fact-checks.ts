@@ -1,11 +1,7 @@
 import { clock, DAY, iso } from "../core/clock";
+import type { Decision } from "../records/decision";
 import type { Statement } from "../records/statement";
-import {
-  type Decision,
-  decisionId,
-  decisionsNow,
-  writeDecision,
-} from "./decisions";
+import { decisionId, decisionsNow, writeDecision } from "./decisions";
 import {
   readObservations,
   readRatings,

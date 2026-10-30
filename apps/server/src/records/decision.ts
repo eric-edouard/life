@@ -3,8 +3,8 @@ import { isoDateTime } from "./fields";
 
 // His decisions (memory/decisions.jsonl, docs/SCHEMA.md): the questions his loops put to him and what he answered,
 // one line per step, appended, never rewritten; a decision now is the fold of its lines (`decisionsNow`,
-// apps/server/src/memory/decisions.ts). Written by his loops (the connector's `update_decision`), by him (the page,
-// /me/decisions) and, for the fact checks only, by Life (`memory/fact-checks.ts`). Life acts on one only to send the
+// apps/server/src/memory/decisions.ts). Written by his loops (the connector's `update_decision`), by him (the web
+// app's /decisions) and, for the fact checks only, by Life (`memory/fact-checks.ts`). Life acts on one only to send the
 // reply he chose (`host/send.ts`), when the loop that asked runs it.
 
 /** The steps a loop takes (the connector's `update_decision`). */
@@ -19,8 +19,6 @@ export const LOOP_STEPS = [
 ] as const;
 /** The steps only he takes, on the page: an answer, opening the context, revoking a grant. */
 const HIS_STEPS = ["answered", "context", "revoked"] as const;
-/** What the page may write: his steps, and asking a request ("Something's wrong"). */
-export const OWNER_STEPS = ["asked", ...HIS_STEPS] as const;
 const DECISION_STEPS = [...LOOP_STEPS, ...HIS_STEPS] as const;
 /** Where a decision stands; done, withdrawn and expired are closed (`closedAt`). */
 export const STATUSES = [
@@ -74,3 +72,64 @@ export const DecisionLine = z
   })
   .strict();
 export type DecisionLine = z.infer<typeof DecisionLine>;
+
+type Status = (typeof STATUSES)[number];
+
+/** A decision as it stands: the fold of its lines (`decisionsNow`). */
+export interface Decision extends DecisionAsk {
+  /** A grant that stands: the newest done one of its loop and ref, with a scope, not revoked (`markActive`). */
+  active?: boolean;
+  answer?: string | null;
+  answeredAt?: string;
+  closedAt?: string;
+  contextOpenedAt?: string;
+  createdAt: string;
+  id: string;
+  note?: string;
+  result?: string;
+  revokedAt?: string;
+  scope?: string;
+  status: Status;
+}
+
+/** A decision as the web app shows it: who an open one's reply goes to, read as it is served. */
+export interface DecisionRow extends Decision {
+  to?: string;
+}
+
+/** His answer as the fold reads it, from any page that ever wrote one: an option's id, `note` for his words alone, or null. */
+export const AnsweredLine = z.object({
+  answer: z.string().nullish(),
+  note: z.string().optional(),
+});
+/** His answer as the web app writes it now, with its limits. */
+const Answered = AnsweredLine.extend({
+  answer: z.string().max(40).nullable(),
+  note: z.string().max(4000),
+}).strict();
+
+/** What the web app may write: his steps, and asking a request ("Something's wrong", about one loop, for the audit). */
+export const OwnerStep = z.discriminatedUnion("step", [
+  z
+    .object({
+      data: Answered,
+      decision: z.string(),
+      step: z.literal("answered"),
+    })
+    .strict(),
+  z.object({ decision: z.string(), step: z.literal("context") }).strict(),
+  z.object({ decision: z.string(), step: z.literal("revoked") }).strict(),
+  z
+    .object({
+      data: z
+        .object({
+          loop: z.string().regex(/^[a-z0-9-]+$/),
+          note: z.string().min(1).max(4000),
+          ref: z.string().max(500).optional(),
+        })
+        .strict(),
+      step: z.literal("asked"),
+    })
+    .strict(),
+]);
+export type OwnerStep = z.infer<typeof OwnerStep>;

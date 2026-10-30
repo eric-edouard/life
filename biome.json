@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["ultracite/biome/core"],
+  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
   "files": {
     "includes": [
       "!!.claude",
@@ -11,5 +11,27 @@
   },
   "javascript": {
     "globals": ["Bun"]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/web/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noJsxPropsBind": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**", "!apps/web/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    }
+  ]
 }
