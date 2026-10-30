@@ -15,7 +15,7 @@ struct StatusWindow: View {
 
   var body: some View {
     ZStack {
-      Brand.page.ignoresSafeArea()
+      Brand.ground.ignoresSafeArea()
       if let snapshot = supervisor.snapshot {
         overview(snapshot)
           .blur(radius: opened == nil ? 0 : 8)

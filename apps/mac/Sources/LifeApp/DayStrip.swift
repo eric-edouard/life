@@ -35,7 +35,7 @@ struct DayStrip: View {
         .frame(maxHeight: .infinity)
       }
       .frame(height: height)
-      .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
+      .background(Brand.card, in: .rect(cornerRadius: Brand.control))
       .clipShape(.rect(cornerRadius: Brand.control))
       .accessibilityElement()
       .accessibilityLabel("The last 24 hours: \(ticks.filter { $0.sleep != true }.count) runs and emails")

@@ -28,14 +28,8 @@ test("the email's colours are tokens.css's", () => {
   }
 });
 
-// The apps' names for the tokens they copy, then each Tone's status token.
-const names: Record<string, string> = {
-  ink: "ink",
-  muted: "muted",
-  page: "ground",
-  rule: "rule",
-  surface: "card",
-};
+// The tokens the app copies, by their own names, then each Tone's status token.
+const copied = ["card", "ground", "ink", "muted", "rule"];
 const tones: Record<string, string> = {
   bad: "error",
   busy: "progress",
@@ -52,13 +46,12 @@ test("the app's colours are tokens.css's, light and dark", async () => {
       /static let (\w+) = Color\(light: (0x\w+), dark: (0x\w+)\)/g
     ),
   ];
-  expect(pairs.map((m) => m[1]).toSorted()).toEqual(Object.keys(names));
+  expect(pairs.map((m) => m[1]).toSorted()).toEqual(copied);
   for (const [, name = "", l = "", d = ""] of pairs) {
-    const token = names[name] ?? "";
     expect([name, hex(l), hex(d)]).toEqual([
       name,
-      light[token],
-      dark[token] ?? light[token],
+      light[name],
+      dark[name] ?? light[name],
     ]);
   }
   const statuses = [...swift.matchAll(/case \.(\w+): Color\((0x\w+)\)/g)];

@@ -170,7 +170,7 @@ function Bar({
       <Drawer.Portal>
         <Drawer.Backdrop className="fixed inset-0 z-10 bg-ink/20 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
         <Drawer.Viewport className="fixed inset-0 z-20">
-          <Drawer.Popup className="absolute inset-x-0 top-0 max-h-[88%] translate-y-(--drawer-swipe-movement-y) overflow-y-auto rounded-b-[24px] bg-ground px-5 pt-[max(24px,env(safe-area-inset-top))] pb-6 shadow-[0_1px_0_var(--rule)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-[ending-style]:-translate-y-full data-[starting-style]:-translate-y-full data-[swiping]:transition-none motion-reduce:transition-none">
+          <Drawer.Popup className="absolute inset-x-0 top-0 max-h-[88%] translate-y-(--drawer-swipe-movement-y) overflow-y-auto rounded-b-[24px] bg-card px-5 pt-[max(24px,env(safe-area-inset-top))] pb-6 shadow-[0_1px_0_var(--rule)] transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] data-[ending-style]:-translate-y-full data-[starting-style]:-translate-y-full data-[swiping]:transition-none motion-reduce:transition-none">
             <Drawer.Content>{overview}</Drawer.Content>
           </Drawer.Popup>
         </Drawer.Viewport>

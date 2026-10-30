@@ -42,8 +42,8 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
 - **Cards have no border** (owner, 30 Oct 2026): a card, a panel, an option or a field stands out from the ground by
   its white (card) only, and a field inside a card takes the ground (owner, 31 Oct 2026); a chosen one is filled (ink, or green for his answer). A rule line separates rows
   of a list, never draws a box (`scripts/brand.test.ts` checks the web app).
-- **Parked (30 Oct 2026).** The Mac app's UI and lifelog's apps (iOS, Android) keep the old look until they are
-  stripped; Android's `Brand.kt` and lifelog's `docs/design.md` describe that old look.
+- **Parked (30 Oct 2026).** The Mac app's UI keeps its old layout and fonts, with the colours above; lifelog's apps
+  (iOS, Android) keep the old look until they are stripped; Android's `Brand.kt` and lifelog's `docs/design.md` describe that old look.
 
 ## The mark
 

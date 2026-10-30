@@ -38,7 +38,7 @@ struct CardTile: View {
     .padding(.horizontal, 12)
     .padding(.vertical, 11)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Brand.page, in: .rect(cornerRadius: Brand.control))
+    .background(Brand.ground, in: .rect(cornerRadius: Brand.control))
     .overlay {
       RoundedRectangle(cornerRadius: Brand.control)
         .strokeBorder(Brand.rule, lineWidth: 1)

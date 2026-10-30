@@ -35,7 +35,7 @@ struct Panel: View {
       menu
     }
     .frame(width: 360)
-    .background(Brand.page)
+    .background(Brand.ground)
     .foregroundStyle(Brand.ink)
     .onAppear { Task { await supervisor.refreshSnapshot() } }
   }
@@ -78,7 +78,7 @@ struct Panel: View {
         .overlay(alignment: .top) { Rectangle().fill(i == 0 ? .clear : Brand.rule).frame(height: 1) }
       }
     }
-    .background(Brand.page, in: .rect(cornerRadius: Brand.panel))
+    .background(Brand.ground, in: .rect(cornerRadius: Brand.panel))
     .overlay { RoundedRectangle(cornerRadius: Brand.panel).strokeBorder(Brand.rule) }
     .padding(.horizontal, 12)
   }
@@ -88,13 +88,13 @@ struct Panel: View {
       HStack(spacing: 8) {
         Button(action: openStatus) {
           Text("Status").frame(maxWidth: .infinity).padding(.vertical, 9)
-            .background(Brand.ink, in: .rect(cornerRadius: Brand.control)).foregroundStyle(Brand.page)
+            .background(Brand.ink, in: .rect(cornerRadius: Brand.control)).foregroundStyle(Brand.ground)
         }
         Button {
           Task { code = await Helper.run(["pair"]).out.trimmingCharacters(in: .whitespacesAndNewlines) }
         } label: {
           Text("Pair an app").frame(maxWidth: .infinity).padding(.vertical, 9)
-            .background(Brand.surface, in: .rect(cornerRadius: Brand.control))
+            .background(Brand.card, in: .rect(cornerRadius: Brand.control))
         }
       }
       .buttonStyle(.plain)
@@ -147,7 +147,7 @@ private struct MenuRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .foregroundStyle(hover ? Brand.page : Brand.ink)
+        .foregroundStyle(hover ? Brand.ground : Brand.ink)
         .background(hover ? Brand.ink : .clear, in: .rect(cornerRadius: 8))
         .contentShape(.rect)
     }
