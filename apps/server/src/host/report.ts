@@ -5,7 +5,7 @@ import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
-import { agentName, pulls, settings } from "../core/settings";
+import { agentName, settings } from "../core/settings";
 import {
   type Digest,
   LIFE_MAIL,
@@ -295,13 +295,11 @@ export function taskReport(
   });
 }
 
-/** The alert for a lapsed `ask` subscription: about the agent, not one task. */
+/** The alert for an agent that stopped reading its tasks: about the agent, not one task. */
 export const lapseReport = (open: number, now: number) =>
   alert(new Date(now).toISOString(), agentName(), {
     failure: {
-      error: pulls()
-        ? "no tasks call from it in a day"
-        : "no live subscription to `ask`",
+      error: "no tasks call from it in a day",
       step: "delivery",
     },
     notes: [

@@ -87,7 +87,6 @@ struct SettingsView: View {
   @State private var key = ""
   @State private var agentName = ""
   @State private var wake = ""
-  @State private var transport = "mcp-event"
   /// The agent as saved, so a save keeps what this form doesn't show (`misheard`, `client`).
   @State private var agentSaved: [String: Any] = [:]
   /// remctl's download and installer, or an import, are under way: the controls they touch wait.
@@ -177,10 +176,6 @@ struct SettingsView: View {
         Section("Your agent") {
           TextField("Its name (\"hey …\" wakes it)", text: $agentName)
           TextField("Wake word, as heard", text: $wake)
-          Picker("It gets your asks", selection: $transport) {
-            Text("Pushed to it (ChatGPT)").tag("mcp-event")
-            Text("When it checks in (Claude)").tag("pull")
-          }
         }
         Section("Reaching Life") {
           Text(origin.isEmpty ? "Not on your tailnet yet" : "\(origin)/mcp").textSelection(.enabled)
@@ -234,7 +229,6 @@ struct SettingsView: View {
     agentName = agent?["name"] as? String ?? ""
     agentSaved = agent ?? [:]
     wake = (agent?["wake"] as? [String])?.first ?? ""
-    transport = agent?["transport"] as? String ?? "mcp-event"
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
@@ -262,7 +256,7 @@ struct SettingsView: View {
     var parts: [String: Any] = ["engine": engine]
     if !agentName.isEmpty {
       let words = wake.isEmpty ? agentName.lowercased() : wake
-      parts["agent"] = agentSaved.merging(["name": agentName, "wake": [words], "transport": transport]) { _, new in new }
+      parts["agent"] = agentSaved.merging(["name": agentName, "wake": [words]]) { _, new in new }
     }
     if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
     await set(parts)

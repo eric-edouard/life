@@ -1,6 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { DAY, MIN } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
@@ -147,7 +146,7 @@ test("an open task is due 30 min after it was recorded, a taken one at its own d
   expect(standing(later).deadline).toBe(at(60));
 });
 
-test("he is emailed when a task is not taken after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Orbit isn't subscribed; once per cause and update", () => {
+test("he is emailed when a task is not taken after 30 min, silent past its deadline, waits on him over an hour, is a week old, or Orbit isn't checking in; once per cause and update", () => {
   const now = T0 + 20 * MIN;
   expect(escalation(task([]), now)).toBeNull();
   expect(escalation(task([]), T0 + 30 * MIN)).toBe(
@@ -210,7 +209,7 @@ test("he is emailed when a task is not taken after 30 min, silent past its deadl
     own("update", 70, { deadline: at(90), note: "b", state: "working" }),
   ]);
   expect(key(again, 91)).not.toBe(key(working, 61));
-  // A lapsed subscription is one email, whatever the number of open tasks.
+  // An agent not checking in is one email, whatever the number of open tasks.
   expect(alerts(both, T0 + 31 * MIN, false)).toEqual([
     {
       cause: "Orbit isn't receiving asks",
@@ -259,7 +258,7 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
       .map((e) => e.key)
       .filter((k) => k.includes("entry_0000000c4a"));
     expect(keys).toHaveLength(3);
-    // No live subscription: one email for all the open tasks, once a day.
+    // Not checking in: one email for all the open tasks, once a day.
     await chase(tasks, T0 + 52 * MIN, false);
     await chase(tasks, T0 + 53 * MIN, false);
     expect(subjects.slice(2)).toEqual(["Life · Orbit isn't receiving asks"]);
@@ -414,16 +413,7 @@ test("a split inherits its parent's words, one level only, and never takes new o
   expect(() => write(split, [done])).toThrow(`${ASK} is done`);
 });
 
-test("where an ask's time went: spoken, ended, arrived, recorded, delivered, taken, closed; a split's parts are left out", async () => {
-  // Two deliveries of the ask on two days, in their own log: the first is when Orbit got it.
-  const dir = mkdtempSync(join(tmpdir(), "life-sent-"));
-  const sent = (day: string, min: number) =>
-    writeFileSync(
-      join(dir, `${day}.jsonl`),
-      `${JSON.stringify({ at: at(min), event: ASK, kind: "event.sent" })}\n`
-    );
-  sent("2026-10-19", 1);
-  sent("2026-10-20", 30);
+test("where an ask's time went: spoken, ended, arrived, recorded, taken, closed; a split's parts are left out", () => {
   const heard = {
     ...asked,
     timing: { arrived: at(-1), ended: at(-2) },
@@ -441,7 +431,7 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, tak
     own("update", 5, { state: "working", taken: true }),
     own("update", 9, { outcome: "sent", state: "done" }),
   ].map((a) => JSON.stringify(a));
-  const [t, ...rest] = await timings(at(-60), at(60), tasksOf(lines), dir);
+  const [t, ...rest] = timings(at(-60), at(60), tasksOf(lines));
   expect(rest).toEqual([]);
   const moments = Object.fromEntries(t?.moments ?? []);
   expect(moments).toMatchObject({
@@ -451,13 +441,11 @@ test("where an ask's time went: spoken, ended, arrived, recorded, delivered, tak
     recorded: at(0),
     taken: at(5),
   });
-  expect(moments.delivered).toBe(at(1));
   expect(t?.moments.map(([m]) => m)).toEqual([
     "spoke",
     "ended",
     "arrived",
     "recorded",
-    "delivered",
     "taken",
     "closed",
   ]);
@@ -508,23 +496,12 @@ test("the board's receipts leave out a task closed over a day ago: he may have u
   });
 });
 
-test("the playbook's parts: Reminders only while the to-do list is on, push or pull by the agent's transport", () => {
-  const text =
-    "A.<!-- reminders --> B.<!-- /reminders --> C.<!-- push --> D.<!-- /push --><!-- pull --> E.<!-- /pull -->";
-  expect(protocol(text, { pull: false, push: true, reminders: true })).toBe(
-    "A. B. C. D."
-  );
-  expect(protocol(text, { pull: true, push: false, reminders: false })).toBe(
-    "A. C. E."
-  );
+test("the playbook's parts: Reminders only while the to-do list is on", () => {
+  const text = "A.<!-- reminders --> B.<!-- /reminders --> C.";
+  expect(protocol(text, { reminders: true })).toBe("A. B. C.");
+  expect(protocol(text, { reminders: false })).toBe("A. C.");
   const doc = readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8");
-  const off = protocol(doc, { pull: false, push: true, reminders: false });
+  const off = protocol(doc, { reminders: false });
   expect(off).not.toContain("read_open_todo_items");
   expect(off).not.toContain("standing grant");
-  // A pulling agent subscribes to nothing and writes no daily message; a pushed one reads no pull rules.
-  const pull = protocol(doc, { pull: true, push: false, reminders: true });
-  expect(pull).not.toContain("Subscribe to Life's `ask`");
-  expect(pull).not.toContain("His daily message");
-  expect(pull).toContain("You pull your asks");
-  expect(off).not.toContain("You pull your asks");
 });

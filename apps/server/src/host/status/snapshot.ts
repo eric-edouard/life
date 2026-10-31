@@ -8,11 +8,10 @@ import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
-import { agentName, pulls } from "../../core/settings";
+import { agentName } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
 import {
   CORRECTIONS,
-  LEDGER,
   OBSERVATIONS,
   PAGES,
   readLedger,
@@ -34,7 +33,7 @@ import { checks } from "../../todo-list/backend";
 import { escalation, taskList } from "../agent";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
-import { agentLive, clientName, deliveryState } from "../events";
+import { agentLive, clientName } from "../events";
 import { readHealth } from "../health";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
@@ -1027,10 +1026,7 @@ function memoryCards(r: Reads): Card[] {
 }
 
 function agentCards(r: Reads): Card[] {
-  const events = deliveryState();
-  const lines = linesOf(LEDGER).length;
   const live = r.agentLive;
-  const pulling = pulls();
   const calls = since(r.mcp, DAY, r.t).filter((c) => isAgent(c.agent));
   const tasks = taskList(r.t);
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
@@ -1047,7 +1043,7 @@ function agentCards(r: Reads): Card[] {
           {
             headline: "receiving asks",
             tone: "ok",
-            word: pulling ? "checking in" : "subscribed",
+            word: "checking in",
           },
         ],
         [
@@ -1055,20 +1051,11 @@ function agentCards(r: Reads): Card[] {
           {
             ask: ASK(`that ${agentName()} isn't receiving asks`),
             tone: "bad",
-            word: pulling ? "not checking in" : "no subscription",
+            word: "not checking in",
           },
         ]
       ),
-      facts: [
-        { at: events.subscription?.verifiedAt, label: "Subscription verified" },
-        { at: events.subscription?.refreshBefore, label: "Refresh before" },
-        { label: "Ledger lines delivered", value: String(events.delivered) },
-        {
-          label: "Waiting",
-          value: String(Math.max(0, lines - events.delivered)),
-        },
-        { at: calls.at(-1)?.at, label: "Last call" },
-      ],
+      facts: [{ at: calls.at(-1)?.at, label: "Last call" }],
       group: "outputs",
       id: "asks",
       name: agentName(),

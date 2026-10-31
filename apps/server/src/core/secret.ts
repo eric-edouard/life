@@ -14,7 +14,7 @@ import { LIFE_STATE_DIR } from "./paths";
 import { MACHINE_DIR } from "./platform";
 
 /**
- * Every secret file Life keeps, in its state (and his account on the bridges' homeserver, beside it): the OAuth issuer's clients and tokens, the agent's events subscription,
+ * Every secret file Life keeps, in its state (and his account on the bridges' homeserver, beside it): the OAuth issuer's clients and tokens, the ask cursor,
  * the key of the app's local reads. Only `writeSecret` and `secretIn` write them, and an export leaves exactly these out
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
@@ -33,7 +33,7 @@ export const SECRETS = {
 type Secret = keyof typeof SECRETS;
 
 /**
- * Writes a file only its owner reads (the events subscription's secret, the sign-in's key), whole or not at all: to a
+ * Writes a file only its owner reads (the sign-in's key, the bridges' account), whole or not at all: to a
  * temporary file beside it, then renamed over it, so a crash mid-write never leaves a key that no longer parses.
  */
 export function writeSecret(name: Secret, text: string) {

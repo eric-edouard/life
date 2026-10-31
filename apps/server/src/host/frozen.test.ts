@@ -88,7 +88,7 @@ test.if(FROZEN !== undefined)(
 );
 
 test.if(FROZEN !== undefined)(
-  "a frozen connector acts on nothing and subscribes nothing",
+  "a frozen connector acts on nothing",
   async () => {
     const { buildServer } = await import("./http/mcp");
     const handler = createMcpHandler(buildServer);
@@ -126,20 +126,5 @@ test.if(FROZEN !== undefined)(
       })
     ).toStartWith("Not done");
     expect(await call("read_open_todo_items", {})).toStartWith("Not done");
-    const sub = await rpc("events/subscribe", {
-      delivery: {
-        mode: "webhook",
-        secret: `whsec_${Buffer.alloc(32).toString("base64")}`,
-        url: "https://api.openai.com/hook",
-      },
-      name: "ask",
-    });
-    const unsub = await rpc("events/unsubscribe", {
-      delivery: { mode: "webhook", url: "https://api.openai.com/hook" },
-      name: "ask",
-    });
-    for (const r of [sub, unsub]) {
-      expect(r.error?.message ?? "").toContain("frozen run");
-    }
   }
 );

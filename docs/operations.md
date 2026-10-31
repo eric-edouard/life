@@ -118,10 +118,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   becomes an ask only once lifelog names the owner.
 - The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both
   ways (the read takes about 10 s, `sync.pull` in the log).
-- `deliver` (`LIFE_STATE_DIR/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
-  good poll. A failed delivery retries for about 2 hours, then is emailed like a failed action and passed over. With
-  no live subscription, asks wait unsent until the agent subscribes again with its cursor. The report's Actions
-  section lists every ask either way.
+- `startOnAsk` (`LIFE_STATE_DIR/events.json`, mode 600: how far the ledger was read for asks) starts the agent once
+  per pass that brings a new ask. The report's Actions section lists every ask.
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a

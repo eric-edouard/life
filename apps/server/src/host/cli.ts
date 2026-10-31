@@ -47,7 +47,7 @@ const pluginOff = () => {
   return Boolean(why);
 };
 
-const commands: Record<string, () => Promise<number>> = {
+const commands: Record<string, () => number | Promise<number>> = {
   /**
    * Acts on the owner's clear request, for a Claude session: `act '<json>'` (a change with `said`, his words, and
    * `why`); `act --check` (read-only: can the actions backend act now?). Every action is recorded in memory/ledger.jsonl.
@@ -142,13 +142,13 @@ const commands: Record<string, () => Promise<number>> = {
    * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each moment as
    * the time since the one before it (apps/server/src/host/agent.ts `timings`).
    */
-  async asks() {
+  asks() {
     const { values } = parseArgs({
       args: process.argv.slice(3),
       options: { from: { type: "string" }, to: { type: "string" } },
     });
     const { from, to } = dayRange(values.from, values.to);
-    for (const { id, via, moments, quote } of await timings(from, to)) {
+    for (const { id, via, moments, quote } of timings(from, to)) {
       const [[, spoke] = [], ...rest] = moments;
       let prev = spoke ?? "";
       const hops = rest.flatMap(([moment, at]) => {

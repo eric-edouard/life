@@ -15,20 +15,17 @@ export const Settings = z
   .object({
     agent: z
       .object({
-        /** The user agent its calls start with; by default ChatGPT's for a pushed agent, Claude's for one that pulls. */
+        /** The user agent its calls start with; Claude's by default. */
         client: z.string().optional(),
         misheard: z.array(z.string()).default([]),
         name: z.string(),
-        /** For an agent that pulls: the command Life starts (in his home) with an event's JSON appended: a new ask, and a tick each minute (`startAgent`). */
+        /** The command Life starts (in his home) with an event's JSON appended: a new ask, and a tick each minute (`startAgent`). */
         start: z.array(z.string()).min(1).optional(),
-        /** How asks reach it: pushed as the MCP event `ask` (ChatGPT), or pulled by its own `read_open_agent_tasks` calls (Claude). */
-        transport: z.enum(["mcp-event", "pull"]).default("mcp-event"),
+        /** Read by nothing since push went: his file still names it until the agents migration rewrites `agent`. */
+        transport: z.literal("pull").optional(),
         wake: z.array(z.string()).min(1),
       })
       .strict()
-      .refine((a) => !a.start || a.transport === "pull", {
-        message: "`start` is for an agent that pulls its asks",
-      })
       .optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
@@ -147,5 +144,3 @@ export const expand = (path: string) => path.replace(TILDE, HOME);
 
 /** What Life calls his agent in what it writes (reports, the board, the connector's words). */
 export const agentName = () => settings().agent?.name ?? "the agent";
-/** Whether his agent pulls its asks (`read_open_agent_tasks`) rather than having them pushed as the MCP event `ask`. */
-export const pulls = () => settings().agent?.transport === "pull";
