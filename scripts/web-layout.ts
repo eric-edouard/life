@@ -190,6 +190,36 @@ async function check([
     page.url().endsWith("#lynx-20261030080000-2"),
     `${name}: answering didn't move to the next one (${page.url()})`
   );
+  if (!isPhone) {
+    // A wide screen centers the decision (31 Oct: it sat at the bottom), a short one too, its question large.
+    const [above, below, gap, size, weight] = await page
+      .locator("section")
+      .nth(1)
+      .locator("article")
+      .evaluate((a) => {
+        const r = a.getBoundingClientRect();
+        const kids = [...a.children].map((k) => k.getBoundingClientRect());
+        const [head = r] = kids;
+        const [h2 = a] = a.getElementsByTagName("h2");
+        const style = getComputedStyle(h2);
+        return [
+          head.top - r.top,
+          r.bottom - Math.max(...kids.map((k) => k.bottom)),
+          // Nothing pushed apart in between: the question sits under where it comes from.
+          h2.getBoundingClientRect().top - head.bottom,
+          Number.parseFloat(style.fontSize),
+          Number(style.fontWeight),
+        ];
+      });
+    expect(
+      Math.abs(above - below) < 48 && gap < 48,
+      `${name}: the decision isn't centered (${above}px above, ${gap}px gap, ${below}px below)`
+    );
+    expect(
+      size >= 32 && weight >= 700,
+      `${name}: the question is small (${size}px, ${weight})`
+    );
+  }
   await page.locator("section").nth(1).locator("button.opt").first().click();
   await page.waitForTimeout(900);
   expect(
@@ -225,6 +255,17 @@ async function check([
   } else {
     expect(await page.locator("aside").isVisible(), `${name}: no sidebar`);
   }
+  // Tapping his answer again keeps it (29 Oct: a second tap took three answers back, reopening them).
+  await page
+    .locator("section")
+    .first()
+    .evaluate((s) => s.scrollIntoView({ behavior: "instant" }));
+  await page.locator("section").first().locator("button.opt").first().click();
+  await page.waitForTimeout(300);
+  expect(
+    states.get(`size=${name.replace(" ", "-")}`)?.[0]?.status === "answered",
+    `${name}: tapping his answer again took it back`
+  );
   await page.close();
 }
 await Promise.all(SIZES.map(check));

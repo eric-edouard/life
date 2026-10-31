@@ -8,7 +8,6 @@ import {
   nextOpen,
   noteAnswer,
   orderOf,
-  tapAnswer,
 } from "./order";
 
 const d = (
@@ -42,9 +41,6 @@ test("his decisions page: loops in his goals' order (one with nothing left open 
   expect(nextOpen(live, "a1")?.id).toBe("m1"); // wraps round
   expect(nextOpen(live, "x2")?.id).toBe("m1"); // skips what he answered
   expect(nextOpen([d("a1", "daily", { answer: "a" })], "a1")).toBeUndefined();
-  expect(
-    tapAnswer({ answer: "a", options: [], status: "answered" }, "a", "")
-  ).toBeNull(); // tapping the chosen one takes it back
 });
 
 test("only the arrows move, never while he types, and no key is taken from him (30 Oct: every key was cancelled, typing did nothing)", () => {

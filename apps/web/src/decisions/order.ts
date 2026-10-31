@@ -14,14 +14,6 @@ export function noteAnswer(d: D, note: string) {
   return note ? "note" : null;
 }
 
-/** His answer when he taps an option: tapping the one already chosen takes it back (his note, if any, then answers). */
-export function tapAnswer(d: D, option: string, note: string) {
-  if (d.answer !== option) {
-    return option;
-  }
-  return note ? "note" : null;
-}
-
 /** Still his to answer: open, with no answer yet, and something to answer (a request of his has nothing). */
 export const isOpen = (d: D) =>
   d.status === "open" && !d.answer && d.options.length > 0;
