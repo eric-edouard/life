@@ -12,8 +12,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". A task waiting on him is `waiting-owner`. | |
-| agent | The owner's assistant that takes his asks (a ChatGPT or Claude agent). Its display name is the `agent` setting (`agentName`); the word stored for it is `AGENT_WORD`, `agent`. | |
-| agent start | For an agent that pulls its asks: the command Life starts with an event's JSON appended, on a new ask (`{kind:"ask"}`), each minute (`{kind:"tick", at, zone}`), messages heard (`{kind:"message", chats}`), his answer to a decision (`{kind:"decision", loop}`) and his "Something's wrong" (`{kind:"audit"}`) (`agent.start`, `startAgent`); the command decides what each event starts. Never waited on; what it says on stderr as it exits non-zero is mailed to him, each line once (`agentSaid`). | |
+| agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`), its decisions and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
+| agent start | An agent's `start.command`: Life starts it with an event's JSON appended, on a new ask of its own (`{kind:"ask"}`), each minute (`{kind:"tick", at, zone}`), messages heard (`{kind:"message", chats}`), his answer to one of its decisions (`{kind:"decision", loop}`) and his "Something's wrong" (`{kind:"audit"}`, every agent); ticks and messages only for an agent whose `start.on` names them (`agent.start`, `startAgent(name, event)`); the command decides what each event starts. Never waited on; what it says on stderr as it exits non-zero is mailed to him, each line once (`agentSaid`). | |
+| pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but its board and task updates are refused. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
 

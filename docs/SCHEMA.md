@@ -205,7 +205,8 @@ per step (`{at, decision, step, data, run?, schemaVersion}`); a decision now is 
 (`decisionsNow`, `memory/decisions.ts`), never rewritten. A loop's steps, through the connector's `update_decision`:
 `asked` (the question, up to 4 options, its loop, its goal `rank` (the page's order), deadline, what happens with no answer; a grant, a change proposal or an
 audit request by `kind`), `revised`, `taken` (before acting on his answer, or on a request: no options, nothing to answer), `done` (its `result`; a grant's `scope`),
-`reopened`, `withdrawn`, `expired`. His, on `/decisions`: `answered` (an option's id, `note` for his words alone, or
+`reopened`, `withdrawn`, `expired`. A line an agent wrote names it (`agent`, its grant's agent claim): the `asked` line's
+is the decision's agent, the one his answer starts; Life's fact checks have none. His, on `/decisions`: `answered` (an option's id, `note` for his words alone, or
 null to clear; it wakes the loop that asked, `wakeOf`; a fact check wakes none), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", a request
 (`asked`, `kind` audit, no options, his words as `context`, in that loop's tab). A grant stands (`active`) while it is
 the newest done one of its loop and `ref` (by when it was asked), with a scope, not revoked. One synchronous read-and-append per write (`writeDecision`), so
@@ -319,7 +320,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the reminder's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a reminder whose move gave it a new one. An ask's
-  `after`: `confidence` (`high`: lifelog says the owner spoke, or a session or a chat; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (the agent it is for, a key of the `agents` setting; a split's is its parent's), `confidence` (`high`: lifelog says the owner spoke, or a session or a chat; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); for a task the agent made, `title` (one part of
   the owner's message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
@@ -421,6 +422,11 @@ observation type `decision` is `choice` (his OK, 29 Oct 2026: "decision" is his 
 observation's id minted again and every citation of it rewritten. The data repo's commits
 "Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides of the first, "Memory:
 before the observation type's rename" and "Memory: the observation type decision is choice" of the second.
+`agents-2026-10-31` (the same file): the one agent became agents by name (the settings' `agent` became `agents:
+{<name>: {wake, misheard, start: {command, on}}}`, its `client` and `transport` gone); its name was stamped on every
+ask (`after.agent`), every decision it asked (the `asked` line's `agent`, fact checks aside) and every paired app's
+refresh record, each line in its place; "Memory: before the agent's name is stamped" and "Memory: asks and decisions
+name their agent (agents-2026-10-31)" hold both sides.
 
 ## The search index (not in memory/)
 

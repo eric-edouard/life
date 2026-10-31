@@ -75,7 +75,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
-  the last one, `observation-choice-2026-10-29`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
+  the last done one, `beeper-to-networks-2026-10-30`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
@@ -101,10 +101,13 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
-- **Life decides when his loops run, life-loops decides what.** Life's only start of anything outside it is
-  `startAgent` (`events.ts`): `agent.start` with an event appended (a new ask, a tick each minute, the chats a pass
-  of the archive, or a source's `incoming` since its cursor, heard someone in, the loop whose decision he just answered, `{kind:"audit"}` on his "Something's wrong"), his zone in it (what it says as it exits non-zero is mailed to him, each line once);
-  no loop's name or schedule lives in Life.
+- **Life decides when each agent runs, the agent decides what.** Life's only start of anything outside it is
+  `startAgent(name, event)` (`events.ts`): that agent's `start.command` with an event appended (a new ask of its own,
+  a tick each minute and the chats a pass of the archive, or a source's `incoming` since its cursor, heard someone in,
+  when its `start.on` names them, the loop whose decision of its own he just answered, `{kind:"audit"}` to every agent
+  on his "Something's wrong"), his zone in it (what it says as it exits non-zero is mailed to him, each line once);
+  no loop's name or schedule lives in Life. An agent is known by its pairing (its grant's agent claim), never by
+  what it says; nothing in Life branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
   setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
