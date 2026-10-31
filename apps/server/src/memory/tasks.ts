@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DAY, iso, MIN } from "../core/clock";
 import { asHeard, type Settings, settings } from "../core/settings";
+import { askedAgent } from "../records/ledger-entry";
 import { lastUpdate, type Task } from "./ledger";
 import { clip } from "./units";
 
@@ -66,7 +67,7 @@ function wakesOf(agents: NonNullable<Settings["agents"]>) {
 export const titleOf = (t: { quote: string; title?: string }) =>
   clip(t.title ?? (t.quote.replace(wakes().toWake, "") || t.quote), 80);
 /** The agent a task is for (its ask's `after.agent`). */
-export const agentOf = (t: Task) => String(t.ask.after.agent);
+export const agentOf = (t: Task) => askedAgent(t.ask);
 /** An ask is due to be claimed 30 min after it was recorded (since events, a healthy claim takes 3 to 27 min, a median of 7). */
 const CLAIM_MS = 30 * MIN;
 export const closed = (s: TaskState) => s === "done" || s === "dropped";

@@ -9,6 +9,7 @@ import { SECRETS, writeSecret } from "../core/secret";
 import { agentNames, settings } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { zoneNow } from "../memory/zones";
+import { askedAgent } from "../records/ledger-entry";
 import { agentStartReport, sendReport, unsent } from "./report";
 
 // How far the watcher has looked for new asks: a line number of memory/ledger.jsonl, kept in derived/events.json, so a
@@ -39,7 +40,7 @@ export const askedAgents = (lines: string[], from: number) =>
     lines.slice(from).flatMap((line) => {
       const a = parseLedgerEntry(line);
       return a?.kind === "ask" && a.instruction && a.via !== "connector"
-        ? [String(a.after.agent)]
+        ? [askedAgent(a)]
         : [];
     })
   );

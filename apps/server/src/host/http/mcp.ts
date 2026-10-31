@@ -498,7 +498,7 @@ export function buildServer() {
       run: z.string().optional(),
       step: z.enum(LOOP_STEPS),
     }),
-    async (u, agent) => decided({ ...u, agent }),
+    async (u, agent) => decided({ ...u, agent: agentOnly(agent) }),
     REVERSIBLE
   );
   tool(
@@ -506,7 +506,7 @@ export function buildServer() {
     "log_reply_to_owner",
     "Log what you tell the owner, just before you send it: the text as sent, and the task it answers if any. Appends to Life's ledger only; sends nothing.",
     Reply,
-    async (r, agent) => reply(r, agent ?? "an app"),
+    async (r, agent) => reply(r, agentOnly(agent)),
     REVERSIBLE
   );
   return server;

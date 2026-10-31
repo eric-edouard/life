@@ -166,11 +166,10 @@ function stepRefusal(
     : null;
 }
 
-/** Why a step is refused on a decision as it stands, or null: the rules every writer meets. */
+/** Why a step is refused on a decision as it stands, or null: the rules every writer meets; an agent steps only on its own. */
 function refusalOf(
   d: Decision | undefined,
-  step: DecisionLine["step"],
-  data: Record<string, unknown>,
+  { agent, data = {}, step }: Step,
   now: number
 ) {
   if (step === "asked") {
@@ -183,28 +182,31 @@ function refusalOf(
   if (!d) {
     return "no such decision";
   }
+  if (agent && d.agent && agent !== d.agent) {
+    return `${d.id} is ${d.agent}'s, not ${agent}'s`;
+  }
   const isRequest = step === "taken" && d.options.length === 0;
   return ALLOWED[step]?.includes(d.status) || isRequest
     ? stepRefusal(d, step, data, now)
     : `${d.id} is ${d.status}: no ${step} now`;
 }
 
+/** One step a writer asks for: `agent` the loop's agent, none for his answers and Life's fact checks. */
+interface Step {
+  agent?: string;
+  data?: Record<string, unknown>;
+  decision: string;
+  run?: string;
+  step: DecisionLine["step"];
+}
+
 /** Appends the steps when every one is allowed, in order (one read, one append); throws why not. Returns the decisions they leave. */
-export function writeDecision(
-  steps: {
-    agent?: string;
-    data?: Record<string, unknown>;
-    decision: string;
-    run?: string;
-    step: DecisionLine["step"];
-  }[],
-  now = clock().getTime()
-) {
+export function writeDecision(steps: Step[], now = clock().getTime()) {
   const lines = rowsOf(DECISIONS, DecisionLine);
   const made: DecisionLine[] = [];
   for (const s of steps) {
     const all = decisionsNow([...lines, ...made]);
-    const why = refusalOf(all.get(s.decision), s.step, s.data ?? {}, now);
+    const why = refusalOf(all.get(s.decision), s, now);
     if (why) {
       throw new Error(why);
     }

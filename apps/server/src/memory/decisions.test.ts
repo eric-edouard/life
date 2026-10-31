@@ -264,3 +264,34 @@ test("an answer an older page wrote still folds, whatever its length (the limits
     note: "",
   });
 });
+
+test("an agent steps only on its own decisions; his answer has no agent and passes", () => {
+  rmSync(DECISIONS, { force: true });
+  try {
+    writeDecision(
+      [{ agent: "Atlas", data: ask, decision: id, step: "asked" }],
+      NOW
+    );
+    expect(() =>
+      writeDecision(
+        [
+          {
+            agent: "Loops",
+            data: { result: "x" },
+            decision: id,
+            step: "withdrawn",
+          },
+        ],
+        NOW
+      )
+    ).toThrow("is Atlas's, not Loops's");
+    writeDecision(
+      [{ data: { answer: "send" }, decision: id, step: "answered" }],
+      NOW
+    );
+    writeDecision([{ agent: "Atlas", decision: id, step: "taken" }], NOW);
+    expect(decisionsNow().get(id)?.status).toBe("taken");
+  } finally {
+    rmSync(DECISIONS, { force: true });
+  }
+});

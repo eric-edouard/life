@@ -79,6 +79,15 @@ export type LedgerEntry = z.infer<typeof LedgerEntry>;
 
 export type Instruction = NonNullable<LedgerEntry["instruction"]>;
 
+/** The agent an ask is for (`after.agent`, every ask has one since `agents-2026-10-31`); throws on a line without. */
+export function askedAgent(a: LedgerEntry) {
+  const { agent } = a.after;
+  if (typeof agent !== "string") {
+    throw new Error(`${a.id} names no agent`);
+  }
+  return agent;
+}
+
 /** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: LedgerEntry) =>
   (TASK_LINES as readonly string[]).includes(a.kind);
