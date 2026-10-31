@@ -74,6 +74,12 @@ function update(change: (s: Stored) => Stored) {
 }
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const allowed = (uri: string) => REDIRECTS.some((r) => r.test(uri));
+const LOOPBACK_PORT = /^(http:\/\/(?:localhost|127\.0\.0\.1)):\d+\//;
+/** Whether an app may be sent back to `uri`: one of its addresses, a loopback one on any port (RFC 8252 7.3: a desktop app, like Claude Code, picks its port at sign-in). */
+const returnsTo = (redirects: string[], uri: string) => {
+  const portless = (u: string) => u.replace(LOOPBACK_PORT, "$1/");
+  return redirects.map(portless).includes(portless(uri));
+};
 
 /** What a pairing code is made of: no 0/O or 1/I to misread. */
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -290,7 +296,7 @@ export function createIssuer(
       return text("This sign-in request is not one Life can answer.", 400);
     }
     const client = await clientOf(a.data.client_id, { fetchDoc, pending });
-    if (!client?.redirects.includes(a.data.redirect_uri)) {
+    if (!(client && returnsTo(client.redirects, a.data.redirect_uri))) {
       return text("Unknown app or return address.", 400);
     }
     const typed = String(form.get("pairing") ?? "");

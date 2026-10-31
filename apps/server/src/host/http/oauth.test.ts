@@ -7,14 +7,18 @@ const ORIGIN = "https://life.example.test";
 const RESOURCE = `${ORIGIN}/mcp`;
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const DOC = "https://claude.ai/oauth/life-client.json";
+/** A desktop app's document: a loopback return address without a port. */
+const DESKTOP_DOC = "https://claude.ai/oauth/desktop-client.json";
 
 const life = createIssuer(ORIGIN, RESOURCE, {
   fetchDoc: (async (url: URL) =>
-    String(url) === DOC
+    String(url) === DOC || String(url) === DESKTOP_DOC
       ? Response.json({
-          client_id: DOC,
+          client_id: String(url),
           client_name: "Claude",
-          redirect_uris: [CALLBACK],
+          redirect_uris: [
+            String(url) === DOC ? CALLBACK : "http://localhost/callback",
+          ],
         })
       : new Response("no", { status: 404 })) as typeof fetch,
 });
@@ -32,13 +36,13 @@ const verify = ownerTokens({
 });
 
 /** An app's whole sign-in: authorize with the pairing code, then trade the code for tokens. */
-async function signIn(client: string, pairing: string) {
+async function signIn(client: string, pairing: string, redirect = CALLBACK) {
   const verifier = randomBytes(32).toString("base64url");
   const ask = {
     client_id: client,
     code_challenge: createHash("sha256").update(verifier).digest("base64url"),
     code_challenge_method: "S256",
-    redirect_uri: CALLBACK,
+    redirect_uri: redirect,
     resource: RESOURCE,
     response_type: "code",
     state: "s1",
@@ -57,7 +61,7 @@ async function signIn(client: string, pairing: string) {
       code: url.searchParams.get("code") ?? "",
       code_verifier: verifier,
       grant_type: "authorization_code",
-      redirect_uri: CALLBACK,
+      redirect_uri: redirect,
       resource: RESOURCE,
     })
   );
@@ -120,6 +124,15 @@ test("an app names itself by its document on Claude's or ChatGPT's hosts, and no
   expect(
     await signIn("https://evil.example/client.json", pair())
   ).toHaveProperty("page");
+});
+
+test("a desktop app's loopback return address takes any port, and only on the loopback", async () => {
+  const at = (uri: string) => signIn(DESKTOP_DOC, pair(), uri);
+  expect(await at("http://localhost:53124/callback")).toHaveProperty(
+    "access_token"
+  );
+  expect(await at("http://localhost:53124/elsewhere")).toHaveProperty("page");
+  expect(await signIn(DOC, pair(), `${CALLBACK}:8443`)).toHaveProperty("page");
 });
 
 test("a code serves once and only with its verifier; an unpaired registration is not kept", async () => {
