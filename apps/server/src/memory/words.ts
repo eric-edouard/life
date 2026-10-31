@@ -27,7 +27,7 @@ import {
   dayRange,
   dayUnitId,
   isFrozen,
-  LIFE_CHAT,
+  lifeChat,
   lifelogNames,
   lineOf,
   localTime,
@@ -405,7 +405,7 @@ function readChats(
     }
   });
   const events = read
-    .filter((e) => e.at < stop && e.chat !== LIFE_CHAT)
+    .filter((e) => e.at < stop && e.chat !== lifeChat())
     .sort((a, b) => a.at.localeCompare(b.at));
   const starts = Object.keys(sources).map((name) => startOf(name).getTime());
   return { end, events, failed, start: new Date(Math.min(...starts)) };

@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
+import { setSettings, settings } from "../core/settings";
 import { LEDGER, tasksOf } from "../memory/ledger";
-import { WAKE } from "../memory/tasks";
+import { wakes } from "../memory/tasks";
 import { apply, readConversations, whose } from "../sources/lifelog";
 import {
   conversation,
@@ -26,7 +27,7 @@ test("only “hey Orbit” or its misheard word, in order, wake it, whatever the
     "Hé Orbit, rappelle-moi",
     "ey Orbit",
   ]) {
-    expect(WAKE.test(said)).toBe(true);
+    expect(wakes().wake.test(said)).toBe(true);
   }
   for (const said of [
     "ok Orbit, book a table",
@@ -46,7 +47,7 @@ test("only “hey Orbit” or its misheard word, in order, wake it, whatever the
     "hay Orbit",
     "ok, or bit",
   ]) {
-    expect(WAKE.test(said)).toBe(false);
+    expect(wakes().wake.test(said)).toBe(false);
   }
 });
 
@@ -58,7 +59,7 @@ test('"hey Life" wakes the agent as lifelog writes it (audit of 21 Oct), never a
     "Hey, Live. I don't know",
     "hej life",
   ]) {
-    expect(WAKE.test(said)).toBe(true);
+    expect(wakes().wake.test(said)).toBe(true);
   }
   for (const said of [
     "Get a life",
@@ -67,7 +68,7 @@ test('"hey Life" wakes the agent as lifelog writes it (audit of 21 Oct), never a
     "hey lifelong friend",
     "they live here",
   ]) {
-    expect(WAKE.test(said)).toBe(false);
+    expect(wakes().wake.test(said)).toBe(false);
   }
 });
 
@@ -115,6 +116,26 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
     ref: "job:0@x",
     turns: [0],
   });
+});
+
+test("with two agents, the turn's first wake word picks its agent", () => {
+  const before = settings().agents ?? null;
+  try {
+    setSettings({
+      agents: { ...before, Comet: { misheard: [], wake: ["comet"] } },
+    });
+    const asks = asksIn(
+      [
+        turn(0, "me", "hey Comet, plan the trip"),
+        turn(60, "me", "hey Orbit, call the bank"),
+        turn(120, "me", "hey Comet, hey Orbit, both of you"),
+      ],
+      ""
+    );
+    expect(asks.map((a) => a.agent)).toEqual(["Comet", "Orbit", "Comet"]);
+  } finally {
+    setSettings({ agents: before });
+  }
 });
 
 // audit-4-hej-agent: lifelog wrote his "hey Orbit" as "Hej Orbit" (no speaker) and "Hey, or bit": no ask was made.

@@ -5,7 +5,6 @@ import { clock, DAY } from "../core/clock";
 import { type Call, isReviewCall, recentEvents } from "../core/log";
 import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
-import { agentName } from "../core/settings";
 import { openReadOnly } from "../core/sqlite";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Moment } from "../records/moment";
@@ -377,7 +376,7 @@ export async function search(words: string, o: Days = {}) {
       : []),
     ...(tasks.length > 0
       ? [
-          `${agentName()}'s tasks (its own reports, not checked by Life):`,
+          "Agents' tasks (their own reports, not checked by Life):",
           ...cut(tasks, true),
           "",
         ]

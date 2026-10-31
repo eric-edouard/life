@@ -87,8 +87,10 @@ struct SettingsView: View {
   @State private var key = ""
   @State private var agentName = ""
   @State private var wake = ""
-  /// The agent as saved, so a save keeps what this form doesn't show (`misheard`, `client`).
-  @State private var agentSaved: [String: Any] = [:]
+  /// The agents as saved, so a save keeps what this form doesn't show (other agents, `misheard`, `start`).
+  @State private var agentsSaved: [String: [String: Any]] = [:]
+  /// The agent this form shows (the first saved), so renaming it keeps the rest of it.
+  @State private var agentShown = ""
   /// remctl's download and installer, or an import, are under way: the controls they touch wait.
   @State private var installing = false
   @State private var lifelogURL = ""
@@ -225,10 +227,10 @@ struct SettingsView: View {
     let out = await Helper.run(["settings"]).out
     let settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
     engine = settings["engine"] as? String ?? "claude"
-    let agent = settings["agent"] as? [String: Any]
-    agentName = agent?["name"] as? String ?? ""
-    agentSaved = agent ?? [:]
-    wake = (agent?["wake"] as? [String])?.first ?? ""
+    agentsSaved = settings["agents"] as? [String: [String: Any]] ?? [:]
+    agentShown = agentsSaved.keys.sorted().first ?? ""
+    agentName = agentShown
+    wake = (agentsSaved[agentShown]?["wake"] as? [String])?.first ?? ""
     lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
     lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
@@ -256,7 +258,10 @@ struct SettingsView: View {
     var parts: [String: Any] = ["engine": engine]
     if !agentName.isEmpty {
       let words = wake.isEmpty ? agentName.lowercased() : wake
-      parts["agent"] = agentSaved.merging(["name": agentName, "wake": [words]]) { _, new in new }
+      var agents = agentsSaved
+      let agent = agents.removeValue(forKey: agentShown) ?? [:]
+      agents[agentName] = agent.merging(["wake": [words]]) { _, new in new }
+      parts["agents"] = agents
     }
     if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
     await set(parts)

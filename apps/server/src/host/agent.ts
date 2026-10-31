@@ -7,9 +7,10 @@ import { digest } from "../core/hash";
 import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { agentName } from "../core/settings";
+import { agentNames } from "../core/settings";
 import { LEDGER, type Task, tasksOf } from "../memory/ledger";
 import {
+  agentOf,
   closed,
   nameOf,
   settled,
@@ -34,36 +35,43 @@ import { lapseReport, sendReport, taskReport, unsent } from "./report";
  */
 const PART = /<!-- (reminders) -->([\s\S]*?)<!-- \/\1 -->/g;
 const partsOn = () => ({ reminders: isOn("todo_list") });
-export function protocol(text: string, on = partsOn()) {
+export function protocol(text: string, agent: string, on = partsOn()) {
   const cut = (t: string): string =>
     t.replace(PART, (_, name: keyof typeof on, part: string) =>
       on[name] ? cut(part) : ""
     );
-  return cut(text).replaceAll("{agent}", agentName());
+  return cut(text).replaceAll("{agent}", agent);
 }
 
-/** The agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `read_open_agent_tasks` returns it, `update_agent_task` refuses a write without its seal. */
-const playbook = () => {
+/** An agent's playbook (the protocol, `docs/agent.md`, then his own part, `playbook.md` in his data), read on every call: `read_open_agent_tasks` returns it, `update_agent_task` refuses a write without its seal. */
+const playbook = (agent: string) => {
   const own = join(OWNER_DATA_DIR, "playbook.md");
   return [
-    protocol(readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8")),
+    protocol(
+      readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"),
+      agent
+    ),
     ...(existsSync(own) ? [readFileSync(own, "utf8")] : []),
   ].join("\n");
 };
 const WINDOW = 6 * HOUR;
-/** The playbook and its seal: a hash of the text and its 6 h window, so a seal recalled from memory dies within 12 h. */
-export const sealed = (now = clock().getTime(), text = playbook()) => ({
+/** An agent's playbook and its seal: a hash of the text and its 6 h window, so a seal recalled from memory dies within 12 h. */
+export const sealed = (
+  agent: string,
+  now = clock().getTime(),
+  text = playbook(agent)
+) => ({
   playbook: text,
   seal: digest("sha256", `${text}@${Math.floor(now / WINDOW)}`, 16),
 });
 
 /**
  * One ask line: his words, where they are (`ref`: the wake turn, the session, the chat message) and `after`
- * (`confidence`; for speech `conversation` and `turns`; for a part of one message or a split, `title`).
+ * (`agent`, `confidence`; for speech `conversation` and `turns`; for a part of one message or a split, `title`).
  */
 const askLine = (
   instruction: Instruction,
-  after: LedgerEntry["after"],
+  after: LedgerEntry["after"] & { agent: string },
   via: "connector" | "session" | "watch",
   why: string,
   now = clock().getTime(),
@@ -105,12 +113,9 @@ const taskLine = (
   task: string,
   after: LedgerEntry["after"],
   now: number,
-  salt = "",
   // The agent, through the connector; or his own tick or removal of the receipt (`closings`).
-  by: Pick<LedgerEntry, "via" | "why"> = {
-    via: "connector",
-    why: agentName(),
-  }
+  by: Pick<LedgerEntry, "via" | "why">,
+  salt = ""
 ): LedgerEntry => ({
   after,
   at: iso(now),
@@ -158,7 +163,6 @@ export function timings(from = "", to = "9999", tasks = tasksOf()) {
 }
 
 const WEEK = "stuck for 7 days";
-const LAPSE = `${agentName()} isn't receiving asks`;
 
 /**
  * Why he must look at a task now, or null: every task, chat ones too. The agent waits on him over an hour, let it pass
@@ -170,7 +174,7 @@ export function escalation(t: Task, now: number) {
     return null;
   }
   if (state === "waiting-owner" && now - Date.parse(since) > HOUR) {
-    return `${agentName()} needs you: ${end.question}`;
+    return `${agentOf(t)} needs you: ${end.question}`;
   }
   if (Date.parse(deadline ?? "") <= now) {
     return state === "open"
@@ -181,15 +185,21 @@ export function escalation(t: Task, now: number) {
 }
 
 /**
- * What needs him now, each with the key it is emailed once under. With the agent not checking in, one alert a day (his
- * day) for all the open tasks; else each task that needs him, keyed by task, cause and the agent's last update (a
- * week-old task once, however often the agent extends it).
+ * What needs him now about one agent's tasks, each with the key it is emailed once under. With the agent not checking
+ * in, one alert a day (his day) for all its open tasks; else each task that needs him, keyed by task, cause and the
+ * agent's last update (a week-old task once, however often the agent extends it).
  */
-export function alerts(tasks: Task[], now: number, live: boolean) {
+export function alerts(
+  agent: string,
+  tasks: Task[],
+  now: number,
+  live: boolean
+) {
   if (!live) {
     const open = tasks.filter((t) => !closed(standing(t).state)).length;
+    const cause = `${agent} isn't receiving asks`;
     return open
-      ? [{ cause: LAPSE, key: `lapse/${dayNow(new Date(now))}`, open }]
+      ? [{ cause, key: `lapse/${agent}/${dayNow(new Date(now))}`, open }]
       : [];
   }
   return tasks.flatMap((t) => {
@@ -238,8 +248,8 @@ export function refusal(t: Task | undefined, u: Update, now: number) {
     : null;
 }
 
-/** The task `u` makes: from his words in a chat, or a split of an open task (its words, never new ones); throws why not. */
-function made(u: Update, tasks: Task[], now: number) {
+/** The task `u` makes for `agent`: from his words in a chat, or a split of an open task (its words and agent, never new ones); throws why not. */
+function made(u: Update, tasks: Task[], now: number, agent: string) {
   const p = taskOf(tasks, u.parent);
   if (p) {
     const { state } = standing(p);
@@ -251,12 +261,17 @@ function made(u: Update, tasks: Task[], now: number) {
         `only an open task that is no split part splits: ${p.ask.id} is ${p.ask.after.parent ? "a part" : state}`
       );
     }
-    const after = { ...p.ask.after, parent: p.ask.id, title: u.title };
+    const after = {
+      ...p.ask.after,
+      agent: agentOf(p),
+      parent: p.ask.id,
+      title: u.title,
+    };
     return askLine(
       p.ask.instruction,
       after,
       "connector",
-      `split by ${agentName()}`,
+      `split by ${agent}`,
       now
     );
   }
@@ -269,28 +284,26 @@ function made(u: Update, tasks: Task[], now: number) {
   }
   // His message's instant, normalized: the same message makes the same id whatever the offset it was given in.
   const chat = requested("connector", `${u.said}`, iso(sent));
-  const after = { confidence: "high", title: u.title };
-  return askLine(
-    chat,
-    after,
-    "connector",
-    `asked ${agentName()} in a chat`,
-    now
-  );
+  const after = { agent, confidence: "high", title: u.title };
+  return askLine(chat, after, "connector", `asked ${agent} in a chat`, now);
 }
 
 /**
- * The ledger lines the agent's update appends (a task it makes first, claimed by this update, so a retry finds it) and Life's answer;
- * throws why not, with the playbook and its seal when the seal is not current.
+ * The ledger lines `agent`'s update appends (a task it makes first, claimed by this update, so a retry finds it) and
+ * Life's answer; throws why not (another agent's task among them), with the playbook and its seal when the seal is not
+ * current.
  */
 export function written(
   u: Update,
   tasks: Task[],
   now: number,
-  text = playbook()
+  agent: string,
+  text = playbook(agent)
 ) {
-  if (![now, now - WINDOW].some((w) => sealed(w, text).seal === u.seal)) {
-    const { seal } = sealed(now, text);
+  if (
+    ![now, now - WINDOW].some((w) => sealed(agent, w, text).seal === u.seal)
+  ) {
+    const { seal } = sealed(agent, now, text);
     throw new Error(
       `Not the current seal: follow this playbook, then retry with seal "${seal}".\n\n${text}`
     );
@@ -304,26 +317,32 @@ export function written(
       "name one of task (no at, no title), said (a new task) or parent (a split)"
     );
   }
-  const fresh = task ? undefined : made(u, tasks, now);
+  const fresh = task ? undefined : made(u, tasks, now, agent);
   if (fresh && taskOf(tasks, fresh.id)) {
     return { answer: `${fresh.id}: already a task`, lines: [] };
   }
   const id = fresh?.id ?? `${task}`;
   const t = fresh ? { ask: fresh, lines: [] } : taskOf(tasks, id);
-  const why = refusal(t, u, now);
+  const why =
+    t && agentOf(t) !== agent
+      ? `${id} is ${agentOf(t)}'s task, not ${agent}'s`
+      : refusal(t, u, now);
   if (why) {
     throw new Error(why);
   }
   if (u.state === "waiting-owner") {
     after.deadline ??= iso(now + DAY);
   }
-  const line = taskLine("update", id, after, now);
+  const line = taskLine("update", id, after, now, {
+    via: "connector",
+    why: agent,
+  });
   return { answer: `${id}: ${u.state}`, lines: fresh ? [fresh, line] : [line] };
 }
 
-/** Records the agent's update when the rules allow it (synchronous, from reading the ledger to the lines); throws why not. */
-export function update(u: Update, now = clock().getTime()) {
-  const { answer, lines } = written(u, tasksOf(), now);
+/** Records `agent`'s update when the rules allow it (synchronous, from reading the ledger to the lines); throws why not. */
+export function update(u: Update, agent: string, now = clock().getTime()) {
+  const { answer, lines } = written(u, tasksOf(), now, agent);
   appendJsonl(LEDGER, LedgerEntry, lines);
   return answer;
 }
@@ -333,9 +352,10 @@ export const Reply = z.object({
   text: z.string().min(1).describe("What you are telling him, as sent"),
 });
 
-/** Records what the agent tells him (the connector's `log_reply_to_owner`), on a task or none (`chat`); throws when the task is unknown. */
+/** Records what an app tells him (the connector's `log_reply_to_owner`, `by` its agent), on a task or none (`chat`); throws when the task is unknown. */
 export function reply(
   { task, text }: z.infer<typeof Reply>,
+  by: string,
   now = clock().getTime()
 ) {
   if (task && !taskOf(tasksOf(), task)) {
@@ -343,7 +363,14 @@ export function reply(
   }
   const target = task ?? "chat";
   appendJsonl(LEDGER, LedgerEntry, [
-    taskLine("reply", target, { text: clip(text, 4000) }, now, text),
+    taskLine(
+      "reply",
+      target,
+      { text: clip(text, 4000) },
+      now,
+      { via: "connector", why: by },
+      text
+    ),
   ]);
   return `${target}: reply logged`;
 }
@@ -358,14 +385,14 @@ export const unanswered = (since: number, tasks = tasksOf()) =>
   ).length;
 
 /**
- * Every open task, and the ones closed in the last day: the nightly's rows, and the connector's `read_open_agent_tasks` (it cuts the
- * closed rows short).
+ * Every open task, and the ones closed in the last day, of one agent or all: the nightly's rows, and the connector's
+ * `read_open_agent_tasks` (it cuts the closed rows short).
  */
-export function taskList(now = clock().getTime()) {
+export function taskList(now = clock().getTime(), agent?: string) {
   return tasksOf().flatMap((t) => {
     const s = standing(t);
     const h = Math.floor((now - Date.parse(t.ask.at)) / HOUR);
-    if (settled(s, now)) {
+    if (settled(s, now) || (agent && agentOf(t) !== agent)) {
       return [];
     }
     return {
@@ -384,15 +411,28 @@ export function taskList(now = clock().getTime()) {
 }
 
 /**
- * Emails him what newly needs him, one email a pass, each key once (`sendReport`): the agent not checking in alone, else
- * every task with a new cause (one that goes silent again after an update is new).
+ * Emails him what newly needs him, one email a pass per agent, each key once (`sendReport`): an agent not checking in
+ * alone, else every task of its with a new cause (one that goes silent again after an update is new).
  */
 export async function chase(tasks: Task[], now: number, live?: boolean) {
-  // No agent set up: nothing is meant to receive asks, so none has lapsed.
-  if (!isOn("agent")) {
-    return;
+  for (const agent of agentNames()) {
+    // biome-ignore lint/performance/noAwaitInLoops: one email at a time
+    await chaseFor(
+      agent,
+      tasks.filter((t) => agentOf(t) === agent),
+      now,
+      live ?? (await agentLive(now, agent))
+    );
   }
-  const due = alerts(tasks, now, live ?? (await agentLive(now)));
+}
+
+async function chaseFor(
+  agent: string,
+  tasks: Task[],
+  now: number,
+  live: boolean
+) {
+  const due = alerts(agent, tasks, now, live);
   const fresh = new Set(await unsent(due.map((a) => a.key)));
   const news = due.filter((a) => fresh.has(a.key));
   const [first] = news;
@@ -402,8 +442,9 @@ export async function chase(tasks: Task[], now: number, live?: boolean) {
   await sendReport(
     news.map((a) => a.key),
     "open" in first
-      ? lapseReport(first.open, now)
+      ? lapseReport(agent, first.open, now)
       : taskReport(
+          agent,
           news.flatMap((a) =>
             "t" in a
               ? [{ ask: a.t.ask, cause: a.cause, title: nameOf(a.t) }]
@@ -414,7 +455,7 @@ export async function chase(tasks: Task[], now: number, live?: boolean) {
   );
 }
 
-/** What a task's item on the board should say: notes (id, his words, state, latest note). */
+/** What a task's item on its agent's board should say: notes (id, his words, state, latest note). */
 export function wantOf(t: Task): Receipt {
   const { deadline, end, state, word } = standing(t);
   const { quote } = t.ask.instruction;
@@ -428,11 +469,12 @@ export function wantOf(t: Task): Receipt {
   ];
   const low = t.ask.after.confidence === "low" ? " (to confirm)" : "";
   return {
+    board: agentOf(t),
     completed: closed(state),
     id: t.ask.id,
     notes: notes.filter(Boolean).join("\n").trim(),
     section: state === "open" ? "Open" : "Working",
-    title: `${agentName()}${low}: ${nameOf(t)}`,
+    title: `${agentOf(t)}${low}: ${nameOf(t)}`,
   };
 }
 
@@ -454,6 +496,6 @@ export const closings = (
         : { reason: "he removed its receipt in Reminders", state: "dropped" };
     const by = { via: "reminders", why: "his change in Reminders" } as const;
     return mark && !closed(standing(t).state)
-      ? [taskLine("update", t.ask.id, after, Date.parse(at), "reminders", by)]
+      ? [taskLine("update", t.ask.id, after, Date.parse(at), by, "reminders")]
       : [];
   });

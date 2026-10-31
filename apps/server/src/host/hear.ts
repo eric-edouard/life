@@ -1,5 +1,5 @@
 import { clock } from "../core/clock";
-import { isName, WAKE } from "../memory/tasks";
+import { wakes } from "../memory/tasks";
 import {
   endedOnSilence,
   isConversationClosed,
@@ -26,15 +26,17 @@ type Confidence = "high" | "low";
 /** How sure a turn's wake is: his "hey <agent>" high, an unattributed one or his misheard one low; else none. */
 function wakeOf(t: Turn): Confidence | undefined {
   const words = wakeWords(t);
-  if (words.some((w) => w && isName(w)) && t.who !== "other") {
+  if (words.some((w) => wakes().isName(w)) && t.who !== "other") {
     return t.who === "me" ? "high" : "low";
   }
   return words.length > 0 && t.who === "me" ? "low" : undefined;
 }
 
-/** The wake words in a turn: the agent's name, or a misheard one. */
+/** The wake words in a turn: an agent's name, or a misheard one. */
 const wakeWords = (t: Turn) =>
-  [...t.text.matchAll(new RegExp(WAKE, "gi"))].map((m) => m[1]?.toLowerCase());
+  [...t.text.matchAll(new RegExp(wakes().wake, "gi"))].flatMap((m) =>
+    m[1] ? [m[1]] : []
+  );
 
 /** One turn as the hearing sees it: whose it is (his, unattributed, someone else's) and its words. */
 export interface Turn {
@@ -50,12 +52,14 @@ export interface Turn {
 /**
  * The asks in a conversation's turns (all of them, in order, so the indexes are `fetch --from-turn`'s), woken at or
  * after `from`: a wake turn, then the following turns of the same speaker until another speaker, a 15 s pause or a new
- * wake. Its confidence is `wakeOf`'s.
+ * wake. Its confidence is `wakeOf`'s; its agent, the one its first wake word wakes.
  */
 export function asksIn(turns: Turn[], from: string) {
   return turns.flatMap((t, i) => {
     const confidence = wakeOf(t);
-    if (t.at < from || !confidence) {
+    // The turn's first wake word names its agent (every word the wake matches is one of an agent's).
+    const agent = wakes().agentOf(wakeWords(t)[0] ?? "");
+    if (t.at < from || !confidence || !agent) {
       return [];
     }
     const rest = turns.slice(i + 1);
@@ -68,6 +72,7 @@ export function asksIn(turns: Turn[], from: string) {
     const span = turns.slice(i, cut < 0 ? turns.length : i + 1 + cut);
     return [
       {
+        agent,
         at: t.at,
         confidence,
         quote: span.map((s) => s.text.trim()).join(" "),
@@ -137,7 +142,12 @@ export async function hear(
   for (const a of asks.filter((x) => !held(x))) {
     ask(
       { at: a.at, quote: a.quote, ref: a.ref },
-      { confidence: a.confidence, conversation, turns: a.turns },
+      {
+        agent: a.agent,
+        confidence: a.confidence,
+        conversation,
+        turns: a.turns,
+      },
       "watch",
       "heard its wake",
       now,
@@ -155,7 +165,7 @@ export async function hear(
   const misheard = turns.some(
     (t) =>
       t.who === "unknown" &&
-      wakeWords(t).some((w) => w && !isName(w)) &&
+      wakeWords(t).some((w) => !wakes().isName(w)) &&
       now - Date.parse(t.seen) < NAMING_MS
   );
   return { heard: !(asks.some(held) || misheard), marked };

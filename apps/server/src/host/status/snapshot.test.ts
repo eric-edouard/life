@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
-import { clientName } from "../events";
 import {
   quietestAt,
   snapshot,
@@ -61,13 +60,6 @@ test("his waking hours began at 08:00, the day before after midnight: a night is
   expect(wokeAt(lagos(21, 9), "Africa/Lagos")).toEqual(eight);
   expect(wokeAt(lagos(22, 0), "Africa/Lagos")).toEqual(eight);
   expect(wokeAt(lagos(22, 4), "Africa/Lagos")).toBeNull();
-});
-
-test("connector clients go by the names he knows them by", () => {
-  expect(clientName("openai-mcp/1.0.0")).toBe("Orbit");
-  expect(clientName("claude-ai/0.1")).toBe("Claude");
-  expect(clientName("")).toBe("unknown client");
-  expect(clientName("curl/8")).toBe("curl/8");
 });
 
 test("a sweep's stations are the phases it recorded: done, now, the one it failed at still to do, then the night's report", () => {
@@ -155,8 +147,8 @@ test(
   "a fresh install with no agent: its card is off, not broken, so the verdict isn't red for it",
   async () => {
     const { setSettings, settings } = await import("../../core/settings");
-    const { agent } = settings();
-    setSettings({ agent: null });
+    const { agents } = settings();
+    setSettings({ agents: null });
     try {
       const card = (await snapshot()).cards.find((c) => c.id === "asks");
       expect(card).toMatchObject({
@@ -165,7 +157,7 @@ test(
         word: "off",
       });
     } finally {
-      setSettings({ agent });
+      setSettings({ agents });
     }
   },
   MIN

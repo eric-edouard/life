@@ -64,13 +64,13 @@ const gogAs = (account: string) => async (args: string[]) => {
 /** The backend for `account`; `run` answers gog's calls (a test passes recorded answers). */
 export function google(
   account: string,
-  /** The board's list title (`BOARD`): made when missing. */
-  boardTitle: string,
+  /** Whether a list title is an agent's board (`isBoard`): made when missing. */
+  isBoard: (title: string) => boolean,
   run: (args: string[]) => Promise<unknown> = gogAs(account)
 ): TodoListBackend {
   const gog = async <T>(args: string[]) => (await run(args)) as T;
-  /** The board's list once Life made it (Google has none until then): made once, on first need. */
-  let board: Promise<List> | undefined;
+  /** Each board's list once Life made it (Google has none until then): made once, on first need, by title. */
+  const boards = new Map<string, Promise<List>>();
   /** Every page of a list's tasks, top-level ones only (a subtask is part of its parent, as in Reminders). */
   const tasks = async (l: List, flags: string[]) => {
     const all: GoogleTask[] = [];
@@ -100,16 +100,17 @@ export function google(
     if (l) {
       return l;
     }
-    if (title === boardTitle) {
-      board ??= gog<{ tasklist?: List }>(["lists", "create", boardTitle]).then(
-        (r) => {
+    if (title && isBoard(title)) {
+      const made =
+        boards.get(title) ??
+        gog<{ tasklist?: List }>(["lists", "create", title]).then((r) => {
           if (!r.tasklist) {
             throw new Error("gog tasks lists create: no list in its answer");
           }
           return r.tasklist;
-        }
-      );
-      return board;
+        });
+      boards.set(title, made);
+      return made;
     }
     throw new Error(`Google Tasks: no list ${title ?? "at all"}`);
   };

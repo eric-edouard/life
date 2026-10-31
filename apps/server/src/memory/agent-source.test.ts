@@ -18,7 +18,7 @@ afterAll(() => rmSync(LEDGER, { force: true }));
 
 const ask = (id: string, quote: string) =>
   action({
-    after: { confidence: "high" },
+    after: { agent: "Orbit", confidence: "high" },
     id,
     instruction: { at: "2026-10-20T14:50:00.000Z", quote, ref: `job-1:${id}` },
     kind: "ask",

@@ -42,7 +42,14 @@ export function ownerTokens({
         const why = payload.sub === ownerSub ? `no ${SCOPE}` : "not the owner";
         return refused("forbidden", why);
       }
-      return { clientId: String(payload.client_id), scopes };
+      // The agent it was paired as (`bun life pair <agent>`), none for a plain app: tools read it on `extra.agent`.
+      const agent =
+        typeof payload.agent === "string" ? payload.agent : undefined;
+      return {
+        clientId: String(payload.client_id),
+        scopes,
+        ...(agent ? { extra: { agent } } : {}),
+      };
     } catch (e) {
       return refused("invalid", (e as Error).message);
     }

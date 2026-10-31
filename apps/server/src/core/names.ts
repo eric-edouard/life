@@ -13,15 +13,13 @@ export type Engine = z.infer<typeof Engine>;
 
 /**
  * The word stored for his agent, whatever its name: an ask's `target`, its source's name and its units' sender. Never
- * shown (what Life shows is `agentName`).
+ * shown (what Life shows is the agent's name, an ask's `after.agent`).
  */
 export const AGENT_WORD = "agent";
 
 /** Where a unit or an observation comes from. */
 export const SourceName = z.enum([
   "lifelog",
-  // Until the migration beeper-to-networks-2026-10-30 has run on his data (host/migrate.ts): then it goes.
-  "beeper",
   "line",
   "instagram",
   "linkedin",

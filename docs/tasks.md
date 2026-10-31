@@ -8,13 +8,17 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 ## The agent
 
-- The agent is the `agent` setting: name, wake words, misheard forms, client prefix, start command. Wherever Life names
-  the agent, it writes that name; the word stored for it (the ledger's `target`, its source's name, its units' sender)
+- His agents are the `agents` setting, by name: wake words, misheard forms, start command and the events it runs on. No
+  two share a word. "hey <word>" makes an ask for the agent the turn's first wake word names (`after.agent`); `bun life
+  ask <agent>` and a chat with an agent make one for that agent, and a split is its parent's. An agent is known on the
+  connector by its pairing (`bun life pair <agent>`, the grant's agent claim): it reads and writes only its own board
+  and tasks; a grant with no claim (a plain app, `bun life pair` alone) reads only. Wherever Life names an agent, it writes its name; the word stored for its source (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
-- **How asks reach it:** the agent pulls them with `read_open_agent_tasks`. It can be started: with `start` set, the watcher starts that command, in his
-  home and with `cliEnv` only, with an event's JSON appended: `{kind:"ask"}` once when a new ask lands, so the agent
-  reads it within seconds, `{kind:"tick", at, zone}` each minute, `{kind:"message", chats}` when messages are heard and
-  `{kind:"decision", loop}` when he answers one of a loop's decisions, `{kind:"audit"}` when he files a "Something's wrong" (`startAgent`, `wakeOf`, `events.ts`); the command decides
+- **How asks reach it:** each agent pulls its own with `read_open_agent_tasks`. It can be started: with `start` set, the watcher starts its command, in his
+  home and with `cliEnv` only, with an event's JSON appended: `{kind:"ask"}` once when a new ask of its own lands, so
+  it reads it within seconds, `{kind:"tick", at, zone}` each minute and `{kind:"message", chats}` when messages are
+  heard (only if its `start.on` names them), `{kind:"decision", loop}` when he answers one of its decisions, and
+  `{kind:"audit"}` (every agent) when he files a "Something's wrong" (`startAgent`, `wakeOf`, `events.ts`); the command decides
   what each event starts (the owner's is life-loops' runner, which schedules his loops). It is never waited on, and its own runs claim the asks (`taken`), so two runs never do one. A start that
   fails is logged (`run.error`); the ask waits on the board and Life emails him at 30 min.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send

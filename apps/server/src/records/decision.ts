@@ -61,6 +61,8 @@ export type DecisionAsk = z.infer<typeof DecisionAsk>;
 
 export const DecisionLine = z
   .object({
+    /** The agent that wrote it (its grant's agent claim), none for his and Life's. */
+    agent: z.string().min(1).optional(),
     at: isoDateTime,
     /** asked, revised: the ask; answered: answer and note; done: result (and scope, a grant's); reopened, withdrawn, expired: result. */
     data: z.record(z.string(), z.unknown()),
@@ -79,6 +81,8 @@ type Status = (typeof STATUSES)[number];
 export interface Decision extends DecisionAsk {
   /** A grant that stands: the newest done one of its loop and ref, with a scope, not revoked (`markActive`). */
   active?: boolean;
+  /** The agent that asked it, the one his answer starts; none for Life's fact checks. */
+  agent?: string;
   answer?: string | null;
   answeredAt?: string;
   closedAt?: string;

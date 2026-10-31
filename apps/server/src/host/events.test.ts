@@ -16,51 +16,43 @@ import { LedgerEntry } from "../records/ledger-entry";
 import {
   agentLive,
   askCursor,
-  hasNewAsk,
+  askedAgents,
   startAgent,
   startOnAsk,
 } from "./events";
 
-test("a new ask past the cursor is one he made, not one the agent made from a chat; other lines are passed over", () => {
+test("a new ask past the cursor is one he made, not one an agent made from a chat, and names its agent; other lines are passed over", () => {
   const line = (over: Parameters<typeof action>[0]) =>
     JSON.stringify(action({ kind: "ask", target: AGENT_WORD, ...over }));
-  const heard = line({ via: "watch" });
-  const chat = line({ via: "connector" });
-  const other = line({ kind: "update" });
-  expect(hasNewAsk([heard, other], 0)).toBe(true);
-  expect(hasNewAsk([heard, other], 1)).toBe(false);
-  expect(hasNewAsk([chat, other], 0)).toBe(false);
+  const heard = line({ after: { agent: "Orbit" }, via: "watch" });
+  const other = line({ after: { agent: "Comet" }, via: "watch" });
+  const chat = line({ after: { agent: "Comet" }, via: "connector" });
+  const update = line({ kind: "update" });
+  expect([...askedAgents([heard, other, update], 0)]).toEqual([
+    "Orbit",
+    "Comet",
+  ]);
+  expect([...askedAgents([heard, update], 1)]).toEqual([]);
+  expect([...askedAgents([chat, update], 0)]).toEqual([]);
 });
 
-test("an agent is live while it reads tasks: a day without a call is a lapse", async () => {
-  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+test("an agent is live while it reads its tasks: a day without a call of its own is a lapse", async () => {
   const now = Date.parse("2026-10-22T10:00:00Z");
-  const call = (tool: string, hours: number, agent = "openai-mcp/1") => ({
+  const call = (tool: string, hours: number, agent = "Orbit") => ({
     agent,
     at: new Date(now - hours * HOUR).toISOString(),
     tool,
   });
-  try {
-    setSettings({ agent: before });
-    expect(
-      await agentLive(now, async () => [call("read_open_agent_tasks", 2)])
-    ).toBe(true);
-    expect(
-      await agentLive(now, async () => [call("read_open_agent_tasks", 30)])
-    ).toBe(false);
-    expect(await agentLive(now, async () => [call("read_day", 2)])).toBe(false);
-    expect(
-      await agentLive(now, async () => [
-        call("read_open_agent_tasks", 2, "curl/8"),
-      ])
-    ).toBe(false);
-  } finally {
-    setSettings({ agent: before });
-  }
+  const live = (c: ReturnType<typeof call>) =>
+    agentLive(now, "Orbit", async () => [c]);
+  expect(await live(call("read_open_agent_tasks", 2))).toBe(true);
+  expect(await live(call("read_open_agent_tasks", 30))).toBe(false);
+  expect(await live(call("read_day", 2))).toBe(false);
+  expect(await live(call("read_open_agent_tasks", 2, "Comet"))).toBe(false);
 });
 
-test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, never one made from a chat, and a tick passes its own event; the cursor moves to the end', async () => {
-  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+test("a new heard ask starts its agent's command once with {kind:\"ask\"}, never one made from a chat nor another agent's, and a tick passes its own event only to an agent started on ticks; the cursor moves to the end", async () => {
+  const before = readSettings().agents as NonNullable<Settings["agents"]>;
   const marker = join(LIFE_STATE_DIR, "started");
   const cmd = [
     process.execPath,
@@ -87,16 +79,36 @@ test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, 
   mkdirSync(HOME, { recursive: true });
   writeSecret("events", "{");
   try {
-    setSettings({ agent: { ...before, start: cmd } });
+    const orbit = before.Orbit as NonNullable<(typeof before)["Orbit"]>;
+    setSettings({
+      agents: {
+        ...before,
+        Comet: { misheard: [], wake: ["comet"] },
+        Orbit: { ...orbit, start: { command: cmd, on: [] } },
+      },
+    });
     startOnAsk();
     expect(askCursor()).toBe(linesOf(LEDGER).length);
     appendJsonl(LEDGER, LedgerEntry, [
-      action({ kind: "ask", target: AGENT_WORD, via: "connector" }),
+      action({
+        after: { agent: "Orbit" },
+        kind: "ask",
+        target: AGENT_WORD,
+        via: "connector",
+      }),
+      action({ after: { agent: "Comet" }, kind: "ask", target: AGENT_WORD }),
     ]);
     startOnAsk();
+    startAgent("Orbit", { at: "2026-10-29T00:00:00.000Z", kind: "tick" });
     expect(await started(1, 500)).toBe(0);
+    setSettings({
+      agents: {
+        ...before,
+        Orbit: { ...orbit, start: { command: cmd, on: ["tick"] } },
+      },
+    });
     appendJsonl(LEDGER, LedgerEntry, [
-      action({ kind: "ask", target: AGENT_WORD }),
+      action({ after: { agent: "Orbit" }, kind: "ask", target: AGENT_WORD }),
     ]);
     startOnAsk();
     startOnAsk();
@@ -106,7 +118,7 @@ test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, 
       zone: zoneNow(),
     });
     expect(askCursor()).toBe(linesOf(LEDGER).length);
-    startAgent({
+    startAgent("Orbit", {
       at: "2026-10-29T00:00:00.000Z",
       kind: "tick",
     });
@@ -117,7 +129,7 @@ test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, 
       zone: zoneNow(),
     });
   } finally {
-    setSettings({ agent: before });
+    setSettings({ agents: before });
     rmSync(LEDGER, { force: true });
     rmSync(SECRETS.events, { force: true });
     rmSync(marker, { force: true });
@@ -125,7 +137,7 @@ test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, 
 });
 
 test("what the agent's starter says as it exits non-zero is mailed, each line once however often it says it", async () => {
-  const before = readSettings().agent as NonNullable<Settings["agent"]>;
+  const before = readSettings().agents as NonNullable<Settings["agents"]>;
   const said = "2026-10-29: a loop missed its run due at 02:30.";
   const cmd = [
     process.execPath,
@@ -147,9 +159,17 @@ test("what the agent's starter says as it exits non-zero is mailed, each line on
       e.key.startsWith("agent-start/")
     );
   try {
-    setSettings({ agent: { ...before, start: cmd } });
-    startAgent({ at: "2026-10-29T09:00:00.000Z", kind: "tick" });
-    startAgent({ at: "2026-10-29T09:01:00.000Z", kind: "tick" });
+    setSettings({
+      agents: {
+        ...before,
+        Orbit: {
+          ...(before.Orbit as NonNullable<(typeof before)["Orbit"]>),
+          start: { command: cmd, on: ["tick"] },
+        },
+      },
+    });
+    startAgent("Orbit", { at: "2026-10-29T09:00:00.000Z", kind: "tick" });
+    startAgent("Orbit", { at: "2026-10-29T09:01:00.000Z", kind: "tick" });
     // The child runs on its own: wait for its mail (a loaded machine is slow).
     for (let waited = 0; subjects.length === 0 && waited < 5000; waited += 50) {
       // biome-ignore lint/performance/noAwaitInLoops: polling for the child's mail
@@ -162,7 +182,7 @@ test("what the agent's starter says as it exits non-zero is mailed, each line on
   } finally {
     post.mockRestore();
     delete process.env.RESEND_PERSONAL_API_KEY;
-    setSettings({ agent: before });
+    setSettings({ agents: before });
   }
 });
 

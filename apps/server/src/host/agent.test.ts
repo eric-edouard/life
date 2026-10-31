@@ -32,7 +32,7 @@ const at = (min: number) => new Date(T0 + min * MIN).toISOString();
 const ASK = "entry_00000000000a";
 
 const asked = action({
-  after: { confidence: "high" },
+  after: { agent: "Orbit", confidence: "high" },
   at: at(0),
   id: ASK,
   kind: "ask",
@@ -186,9 +186,9 @@ test("he is emailed when a task is not taken after 30 min, silent past its deadl
       state: "working",
     }),
   ]);
-  expect(alerts([extendedAgain], T0 + (week + 31) * MIN, true)[0]?.key).toBe(
-    alerts([extended], T0 + week * MIN, true)[0]?.key
-  );
+  expect(
+    alerts("Orbit", [extendedAgain], T0 + (week + 31) * MIN, true)[0]?.key
+  ).toBe(alerts("Orbit", [extended], T0 + week * MIN, true)[0]?.key);
   const done = task([own("update", 30, { outcome: "sent", state: "done" })]);
   expect(escalation(done, now)).toBeNull();
   // A task Orbit made from his chat is chased too.
@@ -199,10 +199,13 @@ test("he is emailed when a task is not taken after 30 min, silent past its deadl
   });
   const both = tasksOf([asked, chat].map((a) => JSON.stringify(a)));
   expect(
-    alerts(both, T0 + 31 * MIN, true).map((x) => ("t" in x ? x.t.ask.id : ""))
+    alerts("Orbit", both, T0 + 31 * MIN, true).map((x) =>
+      "t" in x ? x.t.ask.id : ""
+    )
   ).toEqual([ASK, "entry_00000000000b"]);
   // The key changes with Orbit's last update: silent again after one is a new email; the same silence is not.
-  const key = (t: Task, m: number) => alerts([t], T0 + m * MIN, true)[0]?.key;
+  const key = (t: Task, m: number) =>
+    alerts("Orbit", [t], T0 + m * MIN, true)[0]?.key;
   expect(key(working, 61)).toBe(key(working, 120));
   const again = task([
     own("update", 5, { deadline: at(60), note: "a", state: "working" }),
@@ -210,10 +213,10 @@ test("he is emailed when a task is not taken after 30 min, silent past its deadl
   ]);
   expect(key(again, 91)).not.toBe(key(working, 61));
   // An agent not checking in is one email, whatever the number of open tasks.
-  expect(alerts(both, T0 + 31 * MIN, false)).toEqual([
+  expect(alerts("Orbit", both, T0 + 31 * MIN, false)).toEqual([
     {
       cause: "Orbit isn't receiving asks",
-      key: "lapse/2026-10-19",
+      key: "lapse/Orbit/2026-10-19",
       open: 2,
     },
   ]);
@@ -264,12 +267,12 @@ test("chase sends one email a pass, listing every task that newly needs him; eac
     expect(subjects.slice(2)).toEqual(["Life · Orbit isn't receiving asks"]);
     // No agent set up: no lapse to report, the next day either.
     const { setSettings, settings } = await import("../core/settings");
-    const { agent } = settings();
-    setSettings({ agent: null });
+    const { agents } = settings();
+    setSettings({ agents: null });
     try {
       await chase(tasks, T0 + DAY + 52 * MIN, false);
     } finally {
-      setSettings({ agent });
+      setSettings({ agents });
     }
     expect(subjects).toHaveLength(3);
   } finally {
@@ -323,7 +326,7 @@ test("the board gets Life's fields: notes and section in line, a tick when done;
 });
 
 const TEXT = "# Orbit: the playbook";
-const { seal } = sealed(T0, TEXT);
+const { seal } = sealed("Orbit", T0, TEXT);
 const claiming = {
   deadline: at(60),
   note: "on it",
@@ -336,6 +339,7 @@ const write = (u: Update, lines: LedgerEntry[] = [], now = T0) =>
     u,
     tasksOf([asked, ...lines].map((a) => JSON.stringify(a))),
     now,
+    "Orbit",
     TEXT
   );
 
@@ -350,12 +354,20 @@ test("a write needs the seal of the current playbook: refused when stale or miss
     [{ ...claiming, task: ASK }, T0 + 13 * 60 * MIN],
     [{ ...claiming, seal: undefined, task: ASK }, T0],
   ] as const) {
-    expect(() => write(u, [], now)).toThrow(sealed(now, TEXT).seal);
+    expect(() => write(u, [], now)).toThrow(sealed("Orbit", now, TEXT).seal);
     expect(() => write(u, [], now)).toThrow(TEXT);
   }
-  expect(() => written({ ...claiming, task: ASK }, [], T0, `${TEXT}!`)).toThrow(
-    "Not the current seal"
-  );
+  expect(() =>
+    written({ ...claiming, task: ASK }, [], T0, "Orbit", `${TEXT}!`)
+  ).toThrow("Not the current seal");
+});
+
+test("an agent writes only its own tasks: another agent's is refused, naming both", () => {
+  const tasks = tasksOf([asked].map((a) => JSON.stringify(a)));
+  const comet = sealed("Comet", T0, TEXT).seal;
+  expect(() =>
+    written({ ...claiming, seal: comet, task: ASK }, tasks, T0, "Comet", TEXT)
+  ).toThrow(`${ASK} is Orbit's task, not Comet's`);
 });
 
 test("his words in a chat make a task, taken at once, once per message and part; never without his words", () => {
@@ -461,13 +473,13 @@ test("a reply is a line of its task's history (or of no task, `chat`); the day's
   expect(unanswered(T0 + MIN, [task([])])).toBe(0);
   try {
     appendJsonl(LEDGER, LedgerEntry, [asked]);
-    expect(reply({ task: ASK, text: "On it." }, T0 + MIN)).toBe(
+    expect(reply({ task: ASK, text: "On it." }, "Orbit", T0 + MIN)).toBe(
       `${ASK}: reply logged`
     );
-    reply({ text: "Hello." }, T0 + 2 * MIN);
-    expect(() => reply({ task: "entry_nope00000000", text: "x" })).toThrow(
-      "no task"
-    );
+    reply({ text: "Hello." }, "Orbit", T0 + 2 * MIN);
+    expect(() =>
+      reply({ task: "entry_nope00000000", text: "x" }, "Orbit")
+    ).toThrow("no task");
     const [t] = tasksOf();
     expect(t?.lines.map((l) => [l.kind, l.after.text])).toEqual([
       ["reply", "On it."],
@@ -498,10 +510,10 @@ test("the board's receipts leave out a task closed over a day ago: he may have u
 
 test("the playbook's parts: Reminders only while the to-do list is on", () => {
   const text = "A.<!-- reminders --> B.<!-- /reminders --> C.";
-  expect(protocol(text, { reminders: true })).toBe("A. B. C.");
-  expect(protocol(text, { reminders: false })).toBe("A. C.");
+  expect(protocol(text, "Orbit", { reminders: true })).toBe("A. B. C.");
+  expect(protocol(text, "Orbit", { reminders: false })).toBe("A. C.");
   const doc = readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8");
-  const off = protocol(doc, { reminders: false });
+  const off = protocol(doc, "Orbit", { reminders: false });
   expect(off).not.toContain("read_open_todo_items");
   expect(off).not.toContain("standing grant");
 });

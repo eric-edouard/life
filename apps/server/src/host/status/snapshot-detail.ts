@@ -5,9 +5,15 @@ import { runs, STEPS, useText } from "../../memory/run-log";
 import { SOURCES } from "../../memory/sources";
 import { clip } from "../../memory/units";
 import { taskList } from "../agent";
-import { clientName } from "../events";
 import { sleeps } from "./mac";
-import { cached, type LogLine, spent, type Tone, toneOfRun } from "./snapshot";
+import {
+  cached,
+  callerOf,
+  type LogLine,
+  spent,
+  type Tone,
+  toneOfRun,
+} from "./snapshot";
 
 // A card's detail for the app's status window (apps/server/src/host/http/status-reads.ts serves it): its history, its raw log lines, and a run's steps
 // and what it wrote. Read-only, like the status snapshot (apps/server/src/host/status/snapshot.ts). His words and errors' text are in `content` only.
@@ -71,7 +77,7 @@ const ENTRIES: Record<
   },
   "mcp.call": {
     content: (e) => clip(JSON.stringify(e.args ?? {}), 400),
-    title: (e) => `${clientName(e.agent)} · ${String(e.tool)}`,
+    title: (e) => `${callerOf(e.agent)} · ${String(e.tool)}`,
   },
   "model.run": {
     title: (e) =>

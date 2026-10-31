@@ -1,6 +1,5 @@
 import { DAY } from "../core/clock";
-import { agentName } from "../core/settings";
-import { type LedgerEntry, stands } from "../records/ledger-entry";
+import { askedAgent, type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 
 // Open items (Stage 4b, his request of 21 Oct): everything someone still has to do is Life's own state, derived on
@@ -320,7 +319,6 @@ export function entryLine(a: LedgerEntry) {
     .join(", ");
   const kinds: Partial<Record<LedgerEntry["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
-    ask: `to ${agentName()}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
     done: `done “${was}”`,
     edit: a.after.title
       ? `“${was}” → “${a.after.title}”`
@@ -333,7 +331,10 @@ export function entryLine(a: LedgerEntry) {
     sent: `a reply to ${a.after.source}:${a.after.chat}`,
     undone: `reopened “${was}”`,
   };
-  const what = kinds[a.kind] ?? a.kind;
+  const what =
+    a.kind === "ask"
+      ? `to ${askedAgent(a)}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`
+      : (kinds[a.kind] ?? a.kind);
   const outcome = {
     duplicate: ` duplicate of #${a.target.split(":")[1]}`,
     failed: ` FAILED: ${a.error}`,

@@ -23,7 +23,7 @@ import { OWNER } from "./read-truth";
 import { unit } from "./record-fixtures";
 import {
   type Built,
-  LIFE_CHAT,
+  lifeChat,
   lifelogUnits,
   localTime,
   MARKED,
@@ -388,7 +388,7 @@ test("chats never read Life's own chat with the bot", async () => {
       { who: "Claude Life Assistant" },
       {
         line: () => [
-          event(LIFE_CHAT as string, "Life's own answer"),
+          event(lifeChat() as string, "Life's own answer"),
           event("!other", "a real chat"),
         ],
       }

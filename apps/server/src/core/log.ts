@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { clock } from "./clock";
 import { filesIn, linesOf } from "./files";
 import { LIFE_STATE_DIR } from "./paths";
-import { settings } from "./settings";
+import { agentNames } from "./settings";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
@@ -98,12 +98,9 @@ export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
     console.error(line);
   }
 }
-/** Whether a connector call came from his agent: its user agent starts with the `agent` setting's `client`. */
-export const isAgent = (agent: unknown) => {
-  const a = settings().agent;
-  const client = a && (a.client ?? "Claude");
-  return !!client && String(agent ?? "").startsWith(client);
-};
+/** Whether a connector call came from one of his agents: its grant's agent claim names one (`mcp.call`'s `agent`). */
+export const isAgent = (agent: unknown) =>
+  typeof agent === "string" && agentNames().includes(agent);
 /** A call of his agent's daily review: `read_day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
 export const isReviewCall = (e: Call) =>
   e.tool === "read_day" && !e.error && isAgent(e.agent);

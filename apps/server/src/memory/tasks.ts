@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DAY, iso, MIN } from "../core/clock";
-import { settings } from "../core/settings";
+import { asHeard, type Settings, settings } from "../core/settings";
+import { askedAgent } from "../records/ledger-entry";
 import { lastUpdate, type Task } from "./ledger";
 import { clip } from "./units";
 
@@ -8,39 +9,65 @@ import { clip } from "./units";
 // its name, the updates the agent may write, and where each task stands. host/agent.ts writes them and chases.
 
 const SPACES = /\s+/;
-const NON_WORD = /\W+/g;
 /** One wake word as lifelog may write it: its words, with any spaces or punctuation between them. */
 const phrase = (w: string) =>
   w.trim().split(SPACES).map(RegExp.escape).join(String.raw`\W+`);
-/** A wake word as heard, compared: lower case, one space between words. */
-const asHeard = (w: string) => w.toLowerCase().replace(NON_WORD, " ").trim();
-const agentSetting = settings().agent;
-const NAMES = new Set((agentSetting?.wake ?? []).map(asHeard));
-/**
- * Whether a wake word is the agent's name, not a mishearing (the `misheard` setting: a mishearing lifelog made on 20 Oct,
- * audit 4, or a real name people he knows go by). A misheard one wakes only on his own turn, as `low` (the agent
- * confirms with him).
- */
-export const isName = (word: string) => NAMES.has(asHeard(word));
 /**
  * "hey" as lifelog writes it, then the spaces and punctuation after it: "Hej" on 21 Oct (audit 4), never the end of a
  * longer word. Shared by both wakes.
  */
 const GREETING = String.raw`\b(?:hey|hej|hei|hé|ey)\W+`;
-const WAKES = [
-  ...(agentSetting?.wake ?? []),
-  ...(agentSetting?.misheard ?? []),
-].map(phrase);
-/** A greeting then the agent's name or a mishearing of it, whatever the case; with no agent, nothing wakes. */
-export const WAKE = new RegExp(
-  WAKES.length > 0 ? String.raw`${GREETING}(${WAKES.join("|")})\b` : "(?!)",
-  "i"
-);
-/** Everything up to "hey <agent>" and the spaces and punctuation after it: the title is his words from there. */
-const TO_WAKE = new RegExp(String.raw`^.*?${WAKE.source}[\s\p{P}]*`, "isu");
+let made: { of: unknown; wakes: ReturnType<typeof wakesOf> } | undefined;
+/** The wakes of this process's agents (made once per settings read). */
+export function wakes() {
+  const { agents } = settings();
+  const m =
+    made && made.of === agents
+      ? made
+      : { of: agents, wakes: wakesOf(agents ?? {}) };
+  made = m;
+  return m.wakes;
+}
+function wakesOf(agents: NonNullable<Settings["agents"]>) {
+  const all = Object.entries(agents);
+  /** Each word as heard, to its agent; and whether it is its name, not a mishearing. */
+  const words = new Map<string, { agent: string; isName: boolean }>(
+    all.flatMap(([agent, a]) => [
+      ...a.misheard.map((w): [string, { agent: string; isName: boolean }] => [
+        asHeard(w),
+        { agent, isName: false },
+      ]),
+      ...a.wake.map((w): [string, { agent: string; isName: boolean }] => [
+        asHeard(w),
+        { agent, isName: true },
+      ]),
+    ])
+  );
+  const any = all.flatMap(([, a]) => [...a.wake, ...a.misheard]).map(phrase);
+  /** A greeting then an agent's name or a mishearing of it, whatever the case; with no agent, nothing wakes. */
+  const wake = new RegExp(
+    any.length > 0 ? String.raw`${GREETING}(${any.join("|")})\b` : "(?!)",
+    "i"
+  );
+  return {
+    /** The agent a wake word wakes. */
+    agentOf: (word: string) => words.get(asHeard(word))?.agent,
+    /**
+     * Whether a wake word is an agent's name, not a mishearing (the `misheard` setting: a mishearing lifelog made on
+     * 20 Oct, audit 4, or a real name people he knows go by). A misheard one wakes only on his own turn, as `low` (the
+     * agent confirms with him).
+     */
+    isName: (word: string) => words.get(asHeard(word))?.isName === true,
+    /** Everything up to "hey <agent>" and the spaces and punctuation after it: the title is his words from there. */
+    toWake: new RegExp(String.raw`^.*?${wake.source}[\s\p{P}]*`, "isu"),
+    wake,
+  };
+}
 /** A task's name: its title, else his words from "hey <agent>" on. */
 export const titleOf = (t: { quote: string; title?: string }) =>
-  clip(t.title ?? (t.quote.replace(TO_WAKE, "") || t.quote), 80);
+  clip(t.title ?? (t.quote.replace(wakes().toWake, "") || t.quote), 80);
+/** The agent a task is for (its ask's `after.agent`). */
+export const agentOf = (t: Task) => askedAgent(t.ask);
 /** An ask is due to be claimed 30 min after it was recorded (since events, a healthy claim takes 3 to 27 min, a median of 7). */
 const CLAIM_MS = 30 * MIN;
 export const closed = (s: TaskState) => s === "done" || s === "dropped";

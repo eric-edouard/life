@@ -19,7 +19,7 @@ export const REMINDER_KINDS = [
 /**
  * One thing Life did outside itself on the owner's clear request (memory/ledger.jsonl): the only history of its
  * writes. `ref` is where his words are; `before` and `after` the reminder's fields; `target` what was touched. An ask
- * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/memory/tasks.ts),
+ * for the agent (`kind` ask, `target` `AGENT_WORD`) has `after` {agent, confidence, conversation?, turns?, title?, parent?}: it is a task (apps/server/src/memory/tasks.ts),
  * whose `TASK_LINES` have no `instruction` and its id as `target`: the agent's updates and replies; Life's nudges and his steers (until 20 Oct) only parse now.
  * A reply (`after` {text}) is what the agent told him; one on no task targets `chat`.
  */
@@ -78,6 +78,15 @@ export const LedgerEntry = z
 export type LedgerEntry = z.infer<typeof LedgerEntry>;
 
 export type Instruction = NonNullable<LedgerEntry["instruction"]>;
+
+/** The agent an ask is for (`after.agent`, every ask has one since `agents-2026-10-31`); throws on a line without. */
+export function askedAgent(a: LedgerEntry) {
+  const { agent } = a.after;
+  if (typeof agent !== "string") {
+    throw new Error(`${a.id} names no agent`);
+  }
+  return agent;
+}
 
 /** A task's own line (the agent's update, an old nudge or steer), not something done on his request: the one test. */
 export const isTaskLine = (a: LedgerEntry) =>

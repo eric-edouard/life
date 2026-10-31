@@ -13,7 +13,7 @@ import {
   keptStores,
 } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { startAgent } from "./events";
+import { startAgents } from "./events";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message the bridges
 // hold, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
@@ -291,7 +291,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
       clock().getTime()
     );
     if (chats.length > 0) {
-      startAgent({ chats, kind: "message" });
+      startAgents({ chats, kind: "message" });
     }
   }
   console.log(`${clock().toISOString()} new code: restarting`);

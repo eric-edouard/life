@@ -8,7 +8,7 @@ import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
-import { agentName } from "../../core/settings";
+import { agentNames } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
 import {
   CORRECTIONS,
@@ -33,7 +33,7 @@ import { checks } from "../../todo-list/backend";
 import { escalation, taskList } from "../agent";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
-import { agentLive, clientName } from "../events";
+import { agentLive } from "../events";
 import { readHealth } from "../health";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
@@ -348,9 +348,16 @@ async function reads(now: Date) {
   return {
     actionChecks,
     actions,
-    agentLive: await agentLive(t, async () => mcp as Call[]),
     connectors,
     contacts,
+    /** The agents his asks don't reach now (`agentLive`). */
+    deaf: (
+      await Promise.all(
+        agentNames().map(async (a) =>
+          (await agentLive(t, a, async () => mcp as Call[])) ? [] : [a]
+        )
+      )
+    ).flat(),
     errorsToday: of("run.error", 1),
     failingStores: new Map(failing),
     health: readHealth(),
@@ -1026,7 +1033,7 @@ function memoryCards(r: Reads): Card[] {
 }
 
 function agentCards(r: Reads): Card[] {
-  const live = r.agentLive;
+  const names = agentNames().join(", ");
   const calls = since(r.mcp, DAY, r.t).filter((c) => isAgent(c.agent));
   const tasks = taskList(r.t);
   const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
@@ -1039,7 +1046,7 @@ function agentCards(r: Reads): Card[] {
           { headline: "no agent set up", tone: "idle", word: "off" },
         ],
         [
-          live,
+          r.deaf.length === 0,
           {
             headline: "receiving asks",
             tone: "ok",
@@ -1049,7 +1056,7 @@ function agentCards(r: Reads): Card[] {
         [
           true,
           {
-            ask: ASK(`that ${agentName()} isn't receiving asks`),
+            ask: ASK(`that ${r.deaf.join(", ")} isn't receiving asks`),
             tone: "bad",
             word: "not checking in",
           },
@@ -1058,7 +1065,7 @@ function agentCards(r: Reads): Card[] {
       facts: [{ at: calls.at(-1)?.at, label: "Last call" }],
       group: "outputs",
       id: "asks",
-      name: agentName(),
+      name: names,
     },
     {
       ...firstOf(
@@ -1079,14 +1086,18 @@ function agentCards(r: Reads): Card[] {
       group: "outputs",
       headline: `${tasks.length} open`,
       id: "tasks",
-      name: `${agentName()} tasks`,
+      name: `${names} tasks`,
     },
   ];
 }
 
+/** Who made a connector call, as the cards name it: its agent (its grant's claim), or a plain app. */
+export const callerOf = (agent: unknown) =>
+  typeof agent === "string" ? agent : "an app";
+
 function outputCards(r: Reads): Card[] {
   const calls = since(r.mcp, DAY, r.t);
-  const byClient = Map.groupBy(calls, (c) => clientName(c.agent));
+  const byClient = Map.groupBy(calls, (c) => callerOf(c.agent));
   const acts = r.actions.filter(
     (a) =>
       (REMINDER_KINDS as readonly string[]).includes(a.kind) &&
@@ -1106,7 +1117,7 @@ function outputCards(r: Reads): Card[] {
         .slice(-5)
         .map(
           (c) =>
-            `${clientName(c.agent)} · ${c.tool}: ${clip(JSON.stringify(c.args ?? {}), 120)}`
+            `${callerOf(c.agent)} · ${c.tool}: ${clip(JSON.stringify(c.args ?? {}), 120)}`
         ),
       facts: [...byClient].map(([name, list]) => ({
         label: name,

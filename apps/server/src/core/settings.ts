@@ -11,21 +11,46 @@ import { HOME } from "./platform";
 
 export const SETTINGS = join(LIFE_STATE_DIR, "settings.json");
 
+const NON_WORD = /\W+/g;
+/** A wake word as heard, compared: lower case, one space between words. */
+export const asHeard = (w: string) =>
+  w.toLowerCase().replace(NON_WORD, " ").trim();
+
 export const Settings = z
   .object({
-    agent: z
-      .object({
-        /** The user agent its calls start with; Claude's by default. */
-        client: z.string().optional(),
-        misheard: z.array(z.string()).default([]),
-        name: z.string(),
-        /** The command Life starts (in his home) with an event's JSON appended: a new ask, and a tick each minute (`startAgent`). */
-        start: z.array(z.string()).min(1).optional(),
-        /** Read by nothing since push went: his file still names it until the agents migration rewrites `agent`. */
-        transport: z.literal("pull").optional(),
-        wake: z.array(z.string()).min(1),
-      })
-      .strict()
+    /**
+     * His agents by name (what Life calls each, and its board, the to-do list named after it): the words that wake it
+     * ("hey <word>", `hear.ts`), how lifelog mishears them (a misheard wake counts only on his own turn, as low
+     * confidence), and the command Life starts (in his home) with an event's JSON appended, on which events
+     * (`startAgent`). An agent is known on the connector by its pairing (`bun life pair <agent>`). Without one nothing
+     * wakes an agent.
+     */
+    agents: z
+      .record(
+        z.string().min(1),
+        z
+          .object({
+            misheard: z.array(z.string()).default([]),
+            start: z
+              .object({
+                command: z.array(z.string()).min(1),
+                on: z.array(z.enum(["tick", "message"])),
+              })
+              .strict()
+              .optional(),
+            wake: z.array(z.string()).min(1),
+          })
+          .strict()
+      )
+      .refine(
+        (agents) => {
+          const words = Object.values(agents).flatMap((a) => [
+            ...new Set([...a.wake, ...a.misheard].map(asHeard)),
+          ]);
+          return new Set(words).size === words.length;
+        },
+        { message: "two agents share a wake or misheard word" }
+      )
       .optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
@@ -61,12 +86,6 @@ export const Settings = z
     sends: z.literal(true).optional(),
     /** The sources he turned on, by name: no other is read, searched or shown. */
     sources: z.array(SourceName).default([]),
-    /**
-     * His agent, the one "hey <name>" hands his words to (`hear.ts`, `host/agent.ts`): its name (what Life calls it, and
-     * its Reminders board), the words that wake it, how lifelog mishears them (a misheard wake counts only on his own
-     * turn, as low confidence), the user agent its connector calls start with, and how asks reach it. Without it
-     * nothing wakes an agent.
-     */
     /**
      * His to-do list, input and output (`apps/server/src/todo-list/`), and its one backend: his Apple Reminders (remctl) or
      * his Google Tasks (`gog` as `account`). On, Life acts there when he asks, keeps the board, and reads his changes back;
@@ -142,5 +161,5 @@ const TILDE = /^~(?=\/|$)/;
 /** A path from settings, `~/` expanded. */
 export const expand = (path: string) => path.replace(TILDE, HOME);
 
-/** What Life calls his agent in what it writes (reports, the board, the connector's words). */
-export const agentName = () => settings().agent?.name ?? "the agent";
+/** His agents' names, in the settings' order. */
+export const agentNames = () => Object.keys(settings().agents ?? {});
