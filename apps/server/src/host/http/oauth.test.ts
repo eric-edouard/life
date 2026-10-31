@@ -148,6 +148,7 @@ test("a desktop app's loopback return address takes any port, and only on the lo
       response_type: "code",
     })
   );
+  expect(back.status).toBe(302);
   const trade = await call(
     "/auth/oauth2/token",
     form({
