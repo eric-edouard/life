@@ -1,5 +1,4 @@
 import { DAY } from "../core/clock";
-import { agentName } from "../core/settings";
 import { type LedgerEntry, stands } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 
@@ -320,7 +319,7 @@ export function entryLine(a: LedgerEntry) {
     .join(", ");
   const kinds: Partial<Record<LedgerEntry["kind"], string>> = {
     add: `“${a.after.title}”${a.after.list ? ` in ${a.after.list}` : ""}`,
-    ask: `to ${agentName()}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
+    ask: `to ${String(a.after.agent)}${a.after.title ? `: “${a.after.title}”` : ""}${a.after.confidence === "low" ? " (low confidence)" : ""}`,
     done: `done “${was}”`,
     edit: a.after.title
       ? `“${was}” → “${a.after.title}”`

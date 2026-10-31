@@ -1,14 +1,18 @@
 import { join } from "node:path";
 import { Hono } from "hono";
 import { WEB_DIST } from "../../core/paths";
-import { connector } from "../../core/settings";
+import { agentNames, connector } from "../../core/settings";
 import {
   decisionId,
   decisionsNow,
   writeDecision,
 } from "../../memory/decisions";
 import { recordIfFactCheck } from "../../memory/fact-checks";
-import { type DecisionRow, OwnerStep } from "../../records/decision";
+import {
+  type Decision,
+  type DecisionRow,
+  OwnerStep,
+} from "../../records/decision";
 import { startAgent, wakeOf } from "../events";
 import { recipientOf } from "../send";
 import { HEADERS, text } from "./http";
@@ -53,7 +57,7 @@ function decisions(now: () => number) {
       }
       const b = step.data;
       try {
-        let asker: string | undefined;
+        let woken: Decision | undefined;
         if (b.step === "asked") {
           // His "Something's wrong": a request (no options) about one loop, for the audit; Life makes its id.
           const { loop, note, ref } = b.data;
@@ -86,11 +90,15 @@ function decisions(now: () => number) {
             now()
           );
           // A fact check is Life's own: his tap is its rating, and no loop is woken.
-          asker = d && recordIfFactCheck(d) ? undefined : d?.loop;
+          woken = d && recordIfFactCheck(d) ? undefined : d;
         }
-        const wake = wakeOf(b.step, asker);
-        if (wake) {
-          startAgent(wake);
+        const wake = wakeOf(b.step, woken?.loop);
+        if (wake?.kind === "audit") {
+          for (const name of agentNames()) {
+            startAgent(name, wake);
+          }
+        } else if (wake && woken?.agent) {
+          startAgent(woken.agent, wake);
         }
         return text("ok", 200);
       } catch (e) {

@@ -57,6 +57,7 @@ const SECONDS = Math.floor(NOW.getTime() / 1000);
 /** A token as the issuer would sign it, unless `over` says otherwise; `lifetime` in seconds from NOW. */
 function token(over: Record<string, unknown> = {}, lifetime = 3600) {
   return new SignJWT({
+    agent: "Orbit",
     aud: RESOURCE,
     client_id: "chatgpt-client",
     iss: ISSUER,
@@ -257,7 +258,7 @@ test("a call logs who asked, the arguments, and what surfaced without its text",
   expect((await logged("x".repeat(300))).args.id).toBe(`${"x".repeat(199)}…`);
   const id = "obs_0123456789ab";
   expect(await logged(id)).toMatchObject({
-    agent: "openai-mcp/1.0.0",
+    agent: "Orbit",
     args: { id },
     chars: `no observation ${id}`.length,
     client: "chatgpt-client",
@@ -279,7 +280,7 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
     return logged().at(-1);
   };
   const bearer = await token();
-  const asker = { agent: "openai-mcp/1.0.0", error: true };
+  const asker = { error: true };
   expect(
     await last(bearer, "tools/call", {
       arguments: { id: 5 },
@@ -287,6 +288,7 @@ test("a refused token, invalid arguments and the SDK's own rejections are logged
     })
   ).toMatchObject({
     ...asker,
+    agent: "Orbit",
     client: "chatgpt-client",
     tool: "read_observation",
   });
@@ -331,23 +333,29 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
 test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal, all of truth/me.md and closed tasks cut short; task refuses another seal with both", async () => {
   const bearer = await token();
   const now = new Date().toISOString();
-  const words = { at: now, seal: sealed().seal, taken: true };
+  const words = { at: now, seal: sealed("Orbit").seal, taken: true };
   let json: Awaited<ReturnType<typeof rpc>>["json"];
   try {
-    update({
-      ...words,
-      deadline: new Date(Date.now() + HOUR).toISOString(),
-      note: "on it",
-      said: "call the bank",
-      state: "working",
-    });
-    update({
-      ...words,
-      at: new Date(Date.now() - MIN).toISOString(),
-      outcome: "booked ".repeat(100),
-      said: "book the dentist",
-      state: "done",
-    });
+    update(
+      {
+        ...words,
+        deadline: new Date(Date.now() + HOUR).toISOString(),
+        note: "on it",
+        said: "call the bank",
+        state: "working",
+      },
+      "Orbit"
+    );
+    update(
+      {
+        ...words,
+        at: new Date(Date.now() - MIN).toISOString(),
+        outcome: "booked ".repeat(100),
+        said: "book the dentist",
+        state: "done",
+      },
+      "Orbit"
+    );
     ({ json } = await rpc(bearer, "tools/call", {
       arguments: {},
       name: "read_open_agent_tasks",
@@ -357,7 +365,10 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   }
   const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
   expect(playbook).toBe(
-    protocol(readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"))
+    protocol(
+      readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"),
+      "Orbit"
+    )
   );
   expect(me).toBe(readFileSync(join(OWNER_DATA_DIR, "truth", "me.md"), "utf8"));
   expect(me).toContain("1. Be well.");
@@ -378,6 +389,29 @@ test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal,
   const [answer] = refused.json.result.content;
   expect(answer.text).toContain(seal);
   expect(answer.text).toContain(playbook);
+});
+
+test("an app paired without an agent reads, but its board and its task updates are refused", async () => {
+  const bearer = await token({ agent: undefined });
+  const texts = await Promise.all(
+    [
+      ["read_open_agent_tasks", {}],
+      [
+        "update_agent_task",
+        { seal: "x", state: "dropped", task: "entry_000000000000" },
+      ],
+      ["read_life_status", {}],
+    ].map(async ([name, args]) => {
+      const { json } = await rpc(bearer, "tools/call", {
+        arguments: args,
+        name,
+      });
+      return json.result.content[0].text as string;
+    })
+  );
+  expect(texts[0]).toContain("paired without an agent");
+  expect(texts[1]).toContain("paired without an agent");
+  expect(texts[2]).not.toContain("paired without an agent");
 });
 
 test("reminders takes no instinct kind and needs his words: refused before anything acts", async () => {
@@ -437,7 +471,7 @@ test("the server is named Life, carries its icons, and its instructions open wit
   expect(json.result.serverInfo).toMatchObject({ name: "Life", title: "Life" });
   const { instructions } = json.result;
   expect(instructions).toStartWith(
-    "Orbit: call `read_open_agent_tasks` first; its `playbook` field is your instructions."
+    "An agent: call `read_open_agent_tasks` first; its `playbook` field is your instructions."
   );
   expect(instructions).not.toContain("# Orbit: the playbook");
   expect(instructions.length).toBeLessThanOrEqual(512);

@@ -1,5 +1,5 @@
 import { isOn, off } from "../core/outputs";
-import { agentName, settings } from "../core/settings";
+import { agentNames, settings } from "../core/settings";
 import type { LedgerEntry } from "../records/ledger-entry";
 import type { Can, Change, TodoItem, TodoListBackend } from "./contract";
 import { google } from "./google";
@@ -23,7 +23,7 @@ export function backend(): TodoListBackend {
   }
   if (built?.of !== a) {
     built = {
-      b: a.backend === "google" ? google(a.account, BOARD) : reminders,
+      b: a.backend === "google" ? google(a.account, isBoard) : reminders,
       of: a,
     };
   }
@@ -34,8 +34,8 @@ export function backend(): TodoListBackend {
 export const idOf = (target: number | string | undefined) =>
   target === undefined ? undefined : String(target);
 
-/** The agent's board: Life's projection of its tasks (apps/server/src/host/agent.ts), a list of his. */
-export const BOARD = agentName();
+/** Whether a list is an agent's board, the list named after it: Life's projection of its tasks (apps/server/src/host/agent.ts), a list of his. */
+export const isBoard = (title: string) => agentNames().includes(title);
 
 /** The Change fields (and kinds) that need a capability. */
 const NEEDS: [Can, (c: Change) => unknown][] = [
@@ -82,7 +82,7 @@ export const openOf = (r: TodoItem) => ({
 
 /** The lists read for his items: one or all, never the board (its tasks are read with `read_open_agent_tasks`). */
 export const readable = (title: string, list?: string) =>
-  title !== BOARD && (list === undefined || title === list);
+  !isBoard(title) && (list === undefined || title === list);
 
 const listsOf = async (b: TodoListBackend, list?: string) =>
   (await b.lists()).filter((l) => readable(l.title, list));
@@ -133,7 +133,7 @@ export async function pull(): Promise<Snapshot> {
   const b = backend();
   const mine = await b.lists();
   const shared = await Promise.all(
-    mine.map((l) => l.title !== BOARD && b.shared(l.title))
+    mine.map((l) => !isBoard(l.title) && b.shared(l.title))
   );
   const rows = await Promise.all(
     mine.map((l, i) => (shared[i] ? [] : b.items(l, true)))
@@ -142,9 +142,9 @@ export async function pull(): Promise<Snapshot> {
   const deleted = await b.deleted();
   const all = rows.flat();
   return {
-    board: all.filter((r) => r.list === BOARD),
+    board: all.filter((r) => isBoard(r.list ?? "")),
     deleted,
-    live: all.filter((r) => r.list !== BOARD),
+    live: all.filter((r) => !isBoard(r.list ?? "")),
     prefix: b.prefix,
     shared: mine.filter((_, i) => shared[i]).map((l) => l.title),
   };

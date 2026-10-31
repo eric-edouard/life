@@ -2,26 +2,17 @@ import { readFileSync } from "node:fs";
 import { clock, DAY, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
-import { type Call, isAgent, log, recentEvents } from "../core/log";
+import { type Call, log, recentEvents } from "../core/log";
 import { HOME } from "../core/platform";
 import { start } from "../core/proc";
 import { SECRETS, writeSecret } from "../core/secret";
-import { agentName, settings } from "../core/settings";
+import { agentNames, settings } from "../core/settings";
 import { LEDGER, parseLedgerEntry } from "../memory/ledger";
 import { zoneNow } from "../memory/zones";
 import { agentStartReport, sendReport, unsent } from "./report";
 
 // How far the watcher has looked for new asks: a line number of memory/ledger.jsonl, kept in derived/events.json, so a
 // restart starts the agent once for an ask recorded while Life was down, and never again for one it already started on.
-
-/** Who a connector call came from, by its user agent: the names he knows them by. */
-export function clientName(agent: unknown) {
-  const a = String(agent ?? "");
-  if (isAgent(a)) {
-    return agentName();
-  }
-  return a.toLowerCase().includes("claude") ? "Claude" : a || "unknown client";
-}
 
 /** Lines of the actions ledger already looked at for new asks; none when the file is missing or unreadable (a fresh install). */
 export function askCursor(): number | undefined {
@@ -42,26 +33,31 @@ export function askCursor(): number | undefined {
   }
 }
 
-/** Whether the ledger holds an ask at or after line `from` that is not one the agent made from a chat (already its own). */
-export const hasNewAsk = (lines: string[], from: number) =>
-  lines.slice(from).some((line) => {
-    const a = parseLedgerEntry(line);
-    return a?.kind === "ask" && !!a.instruction && a.via !== "connector";
-  });
+/** The agents asked at or after line `from` of the ledger, by an ask that is not one an agent made from a chat (already its own). */
+export const askedAgents = (lines: string[], from: number) =>
+  new Set(
+    lines.slice(from).flatMap((line) => {
+      const a = parseLedgerEntry(line);
+      return a?.kind === "ask" && a.instruction && a.via !== "connector"
+        ? [String(a.after.agent)]
+        : [];
+    })
+  );
 
-/** How long the agent may go without reading `read_open_agent_tasks` before Life says it isn't receiving asks. */
+/** How long an agent may go without reading `read_open_agent_tasks` before Life says it isn't receiving asks. */
 const PULL_MS = DAY;
 
-/** Whether his asks reach his agent now: a `read_open_agent_tasks` call of its own in the last day (`calls`: the connector's log). */
+/** Whether his asks reach `agent` now: a `read_open_agent_tasks` call of its own (its grant's agent claim) in the last day (`calls`: the connector's log). */
 export async function agentLive(
   now: number,
+  agent: string,
   calls = () => recentEvents<Call>(2, "mcp.call")
 ) {
   return (await calls()).some(
     (e) =>
       e.tool === "read_open_agent_tasks" &&
       !e.error &&
-      isAgent(e.agent) &&
+      e.agent === agent &&
       now - Date.parse(e.at) < PULL_MS
   );
 }
@@ -80,13 +76,15 @@ export function wakeOf(step: string, loop: string | undefined) {
 }
 
 /**
- * The one way Life starts the agent: its `start` command, once, in his home, with the event's JSON appended,
- * his zone added (`{kind:"ask"}` on a new ask, `{kind:"tick", at}` each minute from the watcher, `{kind:"message", chats}`
- * when the archive copied messages from someone else, `messagesIn`; `{kind:"decision", loop}` when he answers one of a
- * loop's decisions on his page, `{kind:"audit"}` when he files a "Something's wrong" there, `wakeOf`). The command decides
- * what the event starts; Life never waits on it. A start that fails is logged.
+ * The one way Life starts an agent: its `start` command, once, in his home, with the event's JSON appended,
+ * his zone added (`{kind:"ask"}` on a new ask for it, `{kind:"tick", at}` each minute from the watcher, `{kind:"message", chats}`
+ * when the archive copied messages from someone else, `messagesIn`, those two only when its `start.on` names them;
+ * `{kind:"decision", loop}` when he answers one of its decisions on his page, `{kind:"audit"}` when he files a
+ * "Something's wrong" there, `wakeOf`). The command decides what the event starts; Life never waits on it. A start that
+ * fails is logged.
  */
 export function startAgent(
+  name: string,
   event:
     | { kind: "ask" }
     | { kind: "audit" }
@@ -94,15 +92,16 @@ export function startAgent(
     | { chats: { chat: string; source: string }[]; kind: "message" }
     | { kind: "decision"; loop: string }
 ) {
-  const cmd = settings().agent?.start;
-  if (!cmd) {
+  const s = settings().agents?.[name]?.start;
+  const { kind } = event;
+  if (!s || ((kind === "tick" || kind === "message") && !s.on.includes(kind))) {
     return;
   }
   unfrozen("start the agent");
   const error = start(
-    [...cmd, JSON.stringify({ ...event, zone: zoneNow() })],
+    [...s.command, JSON.stringify({ ...event, zone: zoneNow() })],
     HOME,
-    agentSaid
+    (said) => agentSaid(name, said)
   );
   if (error) {
     log("run.error", { error, step: "events.start" });
@@ -116,14 +115,14 @@ export function startAgent(
  */
 let saying = Promise.resolve();
 // One at a time, so two starters exiting together can't both find a line unsent and mail it twice.
-function agentSaid(said: string) {
+function agentSaid(agent: string, said: string) {
   saying = saying
-    .then(() => mailNew(said))
+    .then(() => mailNew(agent, said))
     .catch((e) =>
       log("run.error", { error: (e as Error).message, step: "events.start" })
     );
 }
-async function mailNew(said: string) {
+async function mailNew(agent: string, said: string) {
   const lines = [...new Set(said.split("\n").map((l) => l.trim()))].filter(
     Boolean
   );
@@ -133,21 +132,30 @@ async function mailNew(said: string) {
   if (news.length > 0) {
     await sendReport(
       news.map(keyOf),
-      agentStartReport(news, clock().getTime())
+      agentStartReport(agent, news, clock().getTime())
     );
   }
 }
 
+/** Starts each agent that `event` reaches (a tick, a message): those whose `start.on` names it. */
+export const startAgents = (
+  event: Parameters<typeof startAgent>[1] & { kind: "tick" | "message" }
+) => {
+  for (const name of agentNames()) {
+    startAgent(name, event);
+  }
+};
+
 /**
- * A new ask past the cursor starts the agent with `{kind:"ask"}` (the watcher calls it every loop) and the cursor moves to
- * the end. The ask still shows on `read_open_agent_tasks`, and Life emails him when it isn't taken in 30 min.
+ * A new ask past the cursor starts its agent with `{kind:"ask"}` (the watcher calls it every loop) and the cursor moves
+ * to the end. The ask still shows on `read_open_agent_tasks`, and Life emails him when it isn't taken in 30 min.
  */
 export function startOnAsk() {
   const lines = linesOf(LEDGER);
   const cursor = askCursor();
   // No cursor: start from the end, and write it now, or every pass would start from a new end and miss the ask between.
-  if (cursor !== undefined && hasNewAsk(lines, cursor)) {
-    startAgent({ kind: "ask" });
+  for (const agent of cursor === undefined ? [] : askedAgents(lines, cursor)) {
+    startAgent(agent, { kind: "ask" });
   }
   if (cursor !== lines.length) {
     writeSecret("events", `${JSON.stringify({ delivered: lines.length })}\n`);

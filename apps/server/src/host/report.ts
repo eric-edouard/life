@@ -5,7 +5,7 @@ import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
-import { agentName, settings } from "../core/settings";
+import { agentNames, settings } from "../core/settings";
 import {
   type Digest,
   LIFE_MAIL,
@@ -27,8 +27,6 @@ import { polling, readHealth } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
 // (no model). `sendReport` also carries the alerts (a failed action or delivery, an agent task that needs him, the lock, the archive).
-
-const FROM = `Claude <${LIFE_MAIL.from}>`;
 
 type Result<T extends (...args: never[]) => Promise<unknown>> = Awaited<
   ReturnType<T>
@@ -181,7 +179,11 @@ export function successReport(day: string, ms: number, n: Night) {
           ],
           title: "Actions",
         },
-        { kind: "pairs", list: n.acted.tasks, title: `${agentName()} tasks` },
+        {
+          kind: "pairs",
+          list: n.acted.tasks,
+          title: `${agentNames().join(", ")} tasks`,
+        },
         {
           kind: "pairs",
           list: [
@@ -275,53 +277,54 @@ export const lockReport = (since: string) =>
 
 /** The alert for the agent tasks that newly need him, one per `chase` pass (apps/server/src/host/agent.ts): why, and his words. */
 export function taskReport(
+  agent: string,
   list: { ask: Task["ask"]; cause: string; title: string }[],
   now: number
 ) {
   const why = list.map((x) => `${x.title}: ${x.cause}`).join(" · ");
-  return alert(new Date(now).toISOString(), `${agentName()} tasks`, {
-    failure: { error: why, step: `${agentName()} tasks` },
+  return alert(new Date(now).toISOString(), `${agent} tasks`, {
+    failure: { error: why, step: `${agent} tasks` },
     notes: [
       ...list.map(
         (x) =>
           `${x.title}: you said “${x.ask.instruction.quote}” (asked ${time(x.ask.at)}, ${x.ask.id})`
       ),
-      "Each is a task on the agent's board (memory/ledger.jsonl).",
+      `Each is a task on ${agent}'s board (memory/ledger.jsonl).`,
     ],
     preheader: why,
     stats: [{ label: "need you", value: String(list.length) }],
-    subject: `${agentName()}: ${list.map((x) => `${x.title} (${x.cause.split(":")[0]})`).join(", ")}`,
+    subject: `${agent}: ${list.map((x) => `${x.title} (${x.cause.split(":")[0]})`).join(", ")}`,
     verdict: "NEEDS YOU",
   });
 }
 
 /** The alert for an agent that stopped reading its tasks: about the agent, not one task. */
-export const lapseReport = (open: number, now: number) =>
-  alert(new Date(now).toISOString(), agentName(), {
+export const lapseReport = (agent: string, open: number, now: number) =>
+  alert(new Date(now).toISOString(), agent, {
     failure: {
       error: "no tasks call from it in a day",
       step: "delivery",
     },
     notes: [
-      `${open} open tasks wait, and new asks are recorded but reach ${agentName()} only once it reads them again.`,
+      `${open} open tasks wait, and new asks are recorded but reach ${agent} only once it reads them again.`,
     ],
-    preheader: `${agentName()} isn't receiving asks: ${open} open tasks`,
+    preheader: `${agent} isn't receiving asks: ${open} open tasks`,
     stats: [{ label: "open tasks", value: String(open) }],
-    subject: `${agentName()} isn't receiving asks`,
+    subject: `${agent} isn't receiving asks`,
     verdict: "NEEDS YOU",
   });
 
-/** The alert for what his agent's starter said when it exited non-zero (`agent.start`, events.ts): its new lines. */
-export const agentStartReport = (lines: string[], now: number) =>
-  alert(new Date(now).toISOString(), agentName(), {
+/** The alert for what an agent's starter said when it exited non-zero (`agent.start`, events.ts): its new lines. */
+export const agentStartReport = (agent: string, lines: string[], now: number) =>
+  alert(new Date(now).toISOString(), agent, {
     failure: { error: lines.join(" · "), step: "agent.start" },
     notes: [
       ...lines,
-      "Its starter (the agent.start setting) said this as it exited; each line is mailed once.",
+      `Its starter (the agents.${agent}.start setting) said this as it exited; each line is mailed once.`,
     ],
     preheader: lines[0] ?? "",
     stats: [{ label: "new", value: String(lines.length) }],
-    subject: `${agentName()}: ${lines.length > 1 ? `${lines.length} things wrong, first ` : ""}${(lines[0] ?? "").slice(0, 90)}`,
+    subject: `${agent}: ${lines.length > 1 ? `${lines.length} things wrong, first ` : ""}${(lines[0] ?? "").slice(0, 90)}`,
     verdict: "FAILING",
   });
 
@@ -427,7 +430,11 @@ async function byMail(keys: string[], mail: Mail, to: string) {
     throw new Error("RESEND_PERSONAL_API_KEY is not set");
   }
   const res = await fetch("https://api.resend.com/emails", {
-    body: JSON.stringify({ from: FROM, to: [to], ...mail }),
+    body: JSON.stringify({
+      from: `Claude <${LIFE_MAIL.from}>`,
+      to: [to],
+      ...mail,
+    }),
     headers: {
       authorization: `Bearer ${key}`,
       "content-type": "application/json",

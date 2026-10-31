@@ -15,7 +15,7 @@ import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
 import { marks, push } from "../todo-list/board";
 import { chase, closings, receipts } from "./agent";
-import { startAgent, startOnAsk } from "./events";
+import { startAgents, startOnAsk } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -44,7 +44,7 @@ async function tick(now = clock().getTime()) {
 }
 
 async function pass(now: number) {
-  startAgent({
+  startAgents({
     at: new Date(now).toISOString(),
     kind: "tick",
   });

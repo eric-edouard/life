@@ -46,11 +46,20 @@ const Stored = z.object({
   ),
   key: z.record(z.string(), z.unknown()).optional(),
   pairing: z
-    .object({ expires: z.number(), hash: z.string(), tries: z.number() })
+    .object({
+      agent: z.string().optional(),
+      expires: z.number(),
+      hash: z.string(),
+      tries: z.number(),
+    })
     .optional(),
   refresh: z.record(
     z.string(),
-    z.object({ client: z.string(), expires: z.number() })
+    z.object({
+      agent: z.string().optional(),
+      client: z.string(),
+      expires: z.number(),
+    })
   ),
 });
 type Stored = z.infer<typeof Stored>;
@@ -70,31 +79,34 @@ const allowed = (uri: string) => REDIRECTS.some((r) => r.test(uri));
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const HTML_SPECIAL = /[&<>"]/g;
 
-/** A new pairing code (6 letters and digits, 5 minutes, a few tries), for the owner to type on the approval page. */
-export function pair(now = clock().getTime()) {
+/**
+ * A new pairing code (6 letters and digits, 5 minutes, a few tries), for the owner to type on the approval page. Paired
+ * with an agent's name, the app's tokens carry it (the `agent` claim): that is how Life knows which agent calls.
+ */
+export function pair(agent?: string, now = clock().getTime()) {
   const code = Array.from(
     { length: 6 },
     () => ALPHABET[randomInt(ALPHABET.length)]
   ).join("");
   update((s) => ({
     ...s,
-    pairing: { expires: now + PAIRING_MS, hash: hash(code), tries: 0 },
+    pairing: { agent, expires: now + PAIRING_MS, hash: hash(code), tries: 0 },
   }));
   return code;
 }
 
-/** Whether `code` is the live pairing code; a right one is spent, a wrong one spends a try. */
+/** The pairing `code` is the live one of, or none; a right one is spent, a wrong one spends a try. */
 function paired(code: string, now: number) {
   const p = read().pairing;
   if (!p || p.expires < now || p.tries >= PAIRING_TRIES) {
-    return false;
+    return;
   }
   const ok = same(hash(code.trim().toUpperCase()), p.hash);
   update((s) => ({
     ...s,
     pairing: ok ? undefined : { ...p, tries: p.tries + 1 },
   }));
-  return ok;
+  return ok ? { agent: p.agent } : undefined;
 }
 
 /** The signing key, made once and kept with the rest of Life's sign-in state; loaded once per process. */
@@ -209,13 +221,20 @@ export function createIssuer(
   const pending = new Map<string, Client>();
   const codes = new Map<
     string,
-    { challenge: string; client: string; expires: number; redirect: string }
+    {
+      agent?: string;
+      challenge: string;
+      client: string;
+      expires: number;
+      redirect: string;
+    }
   >();
 
-  async function tokens(client: string) {
+  async function tokens(client: string, agent: string | undefined) {
     const { key, pub } = await signingKey();
     const at = Math.floor(now() / 1000);
     const access = await new SignJWT({
+      ...(agent ? { agent } : {}),
       client_id: client,
       scope: `${SCOPE} offline_access`,
     })
@@ -234,7 +253,7 @@ export function createIssuer(
         ...Object.fromEntries(
           Object.entries(s.refresh).filter(([, r]) => r.expires >= now())
         ),
-        [hash(refresh)]: { client, expires: now() + 90 * DAY },
+        [hash(refresh)]: { agent, client, expires: now() + 90 * DAY },
       },
     }));
     return Response.json(
@@ -274,8 +293,9 @@ export function createIssuer(
     if (!client?.redirects.includes(a.data.redirect_uri)) {
       return text("Unknown app or return address.", 400);
     }
-    const pairing = String(form.get("pairing") ?? "");
-    if (!(req.method === "POST" && paired(pairing, now()))) {
+    const typed = String(form.get("pairing") ?? "");
+    const pairing = req.method === "POST" ? paired(typed, now()) : undefined;
+    if (!pairing) {
       const hidden = Object.entries(a.data)
         .map(
           ([k, v]) =>
@@ -298,6 +318,7 @@ export function createIssuer(
     }
     const code = randomBytes(24).toString("base64url");
     codes.set(code, {
+      agent: pairing.agent,
       challenge: a.data.code_challenge,
       client: a.data.client_id,
       expires: now() + CODE_MS,
@@ -332,7 +353,7 @@ export function createIssuer(
       ) {
         return Response.json({ error: "invalid_grant" }, { status: 400 });
       }
-      return tokens(c.client);
+      return tokens(c.client, c.agent);
     }
     if (f.grant_type === "refresh_token") {
       const key = hash(f.refresh_token ?? "");
@@ -344,7 +365,7 @@ export function createIssuer(
       if (!r || r.expires < now() || r.client !== f.client_id) {
         return Response.json({ error: "invalid_grant" }, { status: 400 });
       }
-      return tokens(r.client);
+      return tokens(r.client, r.agent);
     }
     return Response.json({ error: "unsupported_grant_type" }, { status: 400 });
   }

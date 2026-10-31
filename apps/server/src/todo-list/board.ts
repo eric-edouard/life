@@ -1,14 +1,16 @@
 import { log } from "../core/log";
-import { BOARD, backend, type Snapshot } from "./backend";
+import { backend, type Snapshot } from "./backend";
 import type { TodoItem, TodoListBackend } from "./contract";
 
-// The board, his list `BOARD`: the agent's tasks projected, one item per task, found by the task id on its notes' first line.
+// The boards, each a list of his named after an agent (`isBoard`): that agent's tasks projected, one item per task, found by the task id on its notes' first line.
 // Each pass Life brings its own fields (notes, and the section where the backend has sections; the notes say the
 // task's state either way) to what the ledger says and ticks the item when its task
 // closes: his receipt that he was heard. Only his tick or removal of one is read back (`marks`, below).
 
 /** What a task's item should say (`wantOf`, apps/server/src/host/agent.ts): `id` is the task's, the first line of `notes`. */
 export interface Receipt {
+  /** The board it goes on: its task's agent. */
+  board: string;
   completed: boolean;
   id: string;
   notes: string;
@@ -48,7 +50,7 @@ async function mirror(
   try {
     const it: TodoItem = item ?? {
       completed: false,
-      id: (await b.add({ list: BOARD, notes: w.notes, title: w.title })).id,
+      id: (await b.add({ list: w.board, notes: w.notes, title: w.title })).id,
       notes: w.notes,
       title: w.title,
     };

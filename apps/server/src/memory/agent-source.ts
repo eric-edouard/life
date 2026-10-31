@@ -1,5 +1,4 @@
 import { AGENT_WORD } from "../core/names";
-import { agentName } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import type { Newest } from "../sources/contract";
 import { lastUpdate, tasksOf } from "./ledger";
@@ -41,13 +40,13 @@ export function readAgent(since: Date): SourceEvent[] {
       {
         at: last.at,
         chat: ask.id,
-        chatName: `${agentName()}: ${String(ask.after.title ?? quote).slice(0, 80)}`,
+        chatName: `${String(ask.after.agent)}: ${String(ask.after.title ?? quote).slice(0, 80)}`,
         fromMe: false,
         id: `${AGENT_WORD}:${ask.id}`,
         sender: AGENT_WORD,
         source: AGENT_WORD,
         text: [
-          `${agentName()} reports it did this task (its own report, not checked by Life; not his words).`,
+          `${String(ask.after.agent)} reports it did this task (its own report, not checked by Life; not his words).`,
           `He had asked, ${asked.day} ${asked.hms.slice(0, 5)}: "${quote.length > ASK_MAX ? `${quote.slice(0, ASK_MAX)}…` : quote}"`,
           `Outcome: ${String(last.after.outcome ?? "")}`,
         ].join("\n"),

@@ -48,8 +48,8 @@ import {
   daysBefore,
   gather,
   isFrozen,
-  LIFE_CHAT,
   lastDays,
+  lifeChat,
   lifelogUnits,
   MARKED,
   messageUnits,
@@ -370,7 +370,7 @@ test("the code rules drop login codes, newsletters and near-empty days, and keep
       () => null
     ),
     ...messageUnits([msg({ chat: "real", id: "b:3" })], () => null),
-    ...messageUnits([msg({ chat: LIFE_CHAT, id: "b:4" })], () => null),
+    ...messageUnits([msg({ chat: lifeChat(), id: "b:4" })], () => null),
   ]);
   expect(built.map((b) => b.unit.drop ?? null)).toEqual([
     "one-time-code",

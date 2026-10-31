@@ -210,7 +210,7 @@ export const areaOf = (said: string | null, lookup: Map<string, string>) =>
   (said && lookup.get(normalize(said))) || null;
 
 /** Where his agents mail him their reports from: Life's own sender and the `reports` setting. */
-const AGENT_REPORTS = [
+const agentReports = () => [
   ...(LIFE_MAIL.from ? [LIFE_MAIL.from] : []),
   ...settings().reports,
 ];
@@ -503,7 +503,7 @@ function repoDay(list: SourceEvent[]): Built {
  * The chat with Life's retired Telegram bot (its chat id, the `lifeChat` setting): its briefs and answers were
  * Life's output, so neither memory nor the raw chat reads open it. Unset, no chat is Life's.
  */
-export const LIFE_CHAT = settings().lifeChat;
+export const lifeChat = () => settings().lifeChat;
 
 /** A mail thread-day as the mail rules read it (a `Built` is one): its subject and its messages. */
 interface Thread {
@@ -513,7 +513,7 @@ interface Thread {
 /** Mail the owner never wrote in, other than his agents' reports (the model judges those: he asked for their to-dos). */
 const isMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
-  !t.messages.some((m) => m.fromMe || AGENT_REPORTS.includes(m.sender));
+  !t.messages.some((m) => m.fromMe || agentReports().includes(m.sender));
 /** Life's nightly report and alerts: reading them back would turn its own output into facts. */
 const lifeMail = (t: Thread) =>
   kindOf(t.unit.source) === "mail" &&
@@ -537,8 +537,8 @@ const RULES: [
   string,
   (b: Built, seen: Set<string>, kept: Set<string>) => boolean,
 ][] = [
-  // Life's own chat (see LIFE_CHAT) and mail.
-  ["life-output", (b) => b.unit.key === LIFE_CHAT || lifeMail(b)],
+  // Life's own chat (see lifeChat) and mail.
+  ["life-output", (b) => b.unit.key === lifeChat() || lifeMail(b)],
   // An imported conversation the import step did not keep as about his life (memory/imported.jsonl).
   [
     "not-kept",

@@ -2,7 +2,7 @@ import { closeSync, existsSync, openSync } from "node:fs";
 import { HOUR } from "../core/clock";
 import { AGENT_WORD, type SourceName } from "../core/names";
 import { WINDOWS } from "../core/platform";
-import { agentName, settings } from "../core/settings";
+import { settings } from "../core/settings";
 import { archiveDb } from "../sources/archived";
 import {
   FORMATS,
@@ -151,7 +151,7 @@ const LISTED: Descriptor[] = [
   // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
   {
     kind: "agent",
-    label: agentName(),
+    label: "Agents",
     name: AGENT_WORD,
     newest: newestAgent,
     read: readAgent,

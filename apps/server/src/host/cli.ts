@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { Engine } from "../core/names";
 import { off } from "../core/outputs";
 import {
+  agentNames,
   readSettings,
   type Settings,
   setSettings,
@@ -35,8 +36,14 @@ import { restore } from "./restore";
 import { send } from "./send";
 import { status, watch } from "./watch";
 
-// Beeper's names become their networks' once, before any command reads or writes the memory (AGENTS.md, "A rename backfills").
+// The one agent becomes agents by name once, before any command reads the settings or the memory (AGENTS.md, "A rename backfills").
 await migrateStored();
+
+/** The one agent, when there is exactly one: the default of `ask`. */
+const only = () => {
+  const names = agentNames();
+  return names.length === 1 ? names[0] : undefined;
+};
 
 /** `act` and the grant need the actions output: off, they say so and do nothing. */
 const pluginOff = () => {
@@ -122,16 +129,24 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`. */
   archive: () => archiveCommand(process.argv.slice(3)),
-  /** Hands work to the agent from a Claude session: `ask '<his words>'` records an ask, which the watcher delivers. */
+  /**
+   * Hands work to an agent from a Claude session: `ask [<agent>] '<his words>'` records an ask, which the watcher
+   * delivers; the agent may be left out when there is only one.
+   */
   ask() {
-    const words = process.argv.slice(3).join(" ").trim();
-    if (words.length < 3) {
-      console.error("usage: bun life ask '<words>'");
+    const [first = "", ...rest] = process.argv.slice(3);
+    const named = agentNames().includes(first);
+    const agent = named ? first : only();
+    const words = (named ? rest : [first, ...rest]).join(" ").trim();
+    if (!agent || words.length < 3) {
+      console.error(
+        `usage: bun life ask <${agentNames().join("|") || "agent"}> '<words>'`
+      );
       return Promise.resolve(2);
     }
     const done = ask(
       requested("session", words),
-      { confidence: "high" },
+      { agent, confidence: "high" },
       "session",
       "asked in a Claude session"
     );
@@ -288,9 +303,18 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /** The memory pipeline and its read path: `memory nightly|moments|extract|search…` (apps/server/src/host/command.ts). */
   memory: () => memoryCommand(process.argv.slice(3)),
-  /** A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes. */
+  /**
+   * A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes: `pair <agent>` pairs it
+   * as that agent; `pair` alone, a plain app, which reads but has no board.
+   */
   pair() {
-    console.log(pair());
+    const names = agentNames();
+    const [, , , agent] = process.argv;
+    if (agent && !names.includes(agent)) {
+      console.error(`usage: bun life pair <${names.join("|")}>`);
+      return Promise.resolve(2);
+    }
+    console.log(pair(agent));
     return Promise.resolve(0);
   },
   /** Sends the reply he chose in a decision (`send <decision>`, host/send.ts), or says why not. */

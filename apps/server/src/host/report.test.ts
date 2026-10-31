@@ -77,7 +77,7 @@ test("an ask reads as his words to Orbit, a low-confidence one says so", () => {
   const ask = (confidence: string) =>
     LedgerEntry.parse({
       ...action({}),
-      after: { confidence, conversation: "c1", turns: [4, 5] },
+      after: { agent: "Orbit", confidence, conversation: "c1", turns: [4, 5] },
       kind: "ask",
       target: AGENT_WORD,
       via: "watch",

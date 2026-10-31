@@ -20,6 +20,7 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
   if (l.step === "asked") {
     return {
       ...(s as unknown as DecisionAsk),
+      agent: l.agent,
       createdAt: l.at,
       id: l.decision,
       status: "open",
@@ -33,6 +34,7 @@ function apply(d: Decision | undefined, l: DecisionLine): Decision | undefined {
       // The whole decision again: nothing of the old ask stays.
       return {
         ...(s as unknown as DecisionAsk),
+        agent: d.agent,
         createdAt: d.createdAt,
         id: d.id,
         result: d.result,
@@ -190,6 +192,7 @@ function refusalOf(
 /** Appends the steps when every one is allowed, in order (one read, one append); throws why not. Returns the decisions they leave. */
 export function writeDecision(
   steps: {
+    agent?: string;
     data?: Record<string, unknown>;
     decision: string;
     run?: string;
@@ -206,6 +209,7 @@ export function writeDecision(
       throw new Error(why);
     }
     made.push({
+      ...(s.agent ? { agent: s.agent } : {}),
       at: iso(now),
       data: s.data ?? {},
       decision: s.decision,
