@@ -92,7 +92,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
 | run (a loop's) | One headless run of one of his loops, by life-loops' run id; a decision line's `run` names the one that wrote it. | session |
-| watcher | The always-on service: every minute it folds in lifelog, hears asks, delivers them and syncs the board. | |
+| watcher | The always-on service: every minute it folds in lifelog, hears asks, starts the agent on them and syncs the board. | |
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |

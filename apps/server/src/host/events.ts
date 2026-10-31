@@ -27,9 +27,18 @@ export function clientName(agent: unknown) {
 export function askCursor(): number | undefined {
   try {
     const n = JSON.parse(readFileSync(SECRETS.events, "utf8")).delivered;
-    return typeof n === "number" ? n : undefined;
-  } catch {
-    // Missing or unreadable: no cursor.
+    if (typeof n === "number") {
+      return n;
+    }
+    throw new Error("no line count");
+  } catch (e) {
+    // Missing: a fresh install. Unreadable: said, since asks recorded meanwhile won't start the agent.
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      log("run.error", {
+        error: `ask cursor unreadable, restarting at the ledger's end: ${(e as Error).message}`,
+        step: "events.cursor",
+      });
+    }
   }
 }
 
