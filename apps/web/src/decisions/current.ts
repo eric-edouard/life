@@ -42,10 +42,17 @@ export function useCurrent(live: DecisionRow[], onMove: () => void) {
       shown.current = id;
       setWanted(id);
       const section = sectionOf(id);
-      // Only a real move has sections to pass: one already on screen, or not drawn yet, has none.
+      // Only a real move has sections to pass: one already on screen, or not drawn yet, has none. A slide answers a
+      // swipe; with a mouse it only flashes the decisions in between (31 Oct), so the row jumps.
       if (section && !isOnScreen(section)) {
-        heading.current = id;
-        section.scrollIntoView({ behavior: "smooth", inline: "start" });
+        const isSliding = globalThis.matchMedia(
+          "(pointer: coarse) and (prefers-reduced-motion: no-preference)"
+        ).matches;
+        heading.current = isSliding ? id : "";
+        section.scrollIntoView({
+          behavior: isSliding ? "smooth" : "instant",
+          inline: "start",
+        });
       }
     },
     [onMove]

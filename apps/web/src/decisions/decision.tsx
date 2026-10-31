@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { loopName, say } from "../words";
 import { useDensity } from "./density";
-import { noteAnswer, tapAnswer } from "./order";
+import { noteAnswer } from "./order";
 
 interface Props {
   /** A step of his is being written: a second tap waits for it. */
@@ -28,7 +28,12 @@ const where = (d: DecisionRow) =>
 const questionSize = (q: string, dense: number) => {
   const step =
     (q.length > 120 ? 2 : Number(q.length > 60)) + Number(dense >= 3);
-  return ["text-[34px]", "text-[28px]", "text-[24px]", "text-[22px]"][step];
+  return [
+    "text-[34px] min-[900px]:text-[56px]",
+    "text-[28px] min-[900px]:text-[46px]",
+    "text-[24px] min-[900px]:text-[38px]",
+    "text-[22px] min-[900px]:text-[32px]",
+  ][step];
 };
 
 /** The field grows with his words, up to a few lines. */
@@ -341,12 +346,17 @@ export function Decision({ busy, d, onStep, onAnswered, onTyping }: Props) {
     );
   }
   return (
-    <article aria-labelledby={`q-${d.id}`} className="slide" ref={article}>
+    <article
+      aria-labelledby={`q-${d.id}`}
+      className="slide min-[900px]:justify-center-safe"
+      ref={article}
+    >
       <span className="text-[14px] text-muted">{where(d)}</span>
-      {/* Resting above the answer when it fits; mt-auto, not justify-end, so a tall one still scrolls to its top. */}
-      <div className="mt-auto grid gap-4">
+      {/* Resting above the answer when it fits (mt-auto, not justify-end, so a tall one still scrolls to its top); a
+          wide screen centers the whole decision instead. */}
+      <div className="mt-auto grid gap-4 min-[900px]:mt-0 min-[900px]:gap-6">
         <h2
-          className={`m-0 text-balance font-semibold font-serif leading-[1.15] tracking-[-0.01em] ${questionSize(d.question, dense)}`}
+          className={`m-0 text-balance font-semibold font-serif leading-[1.15] tracking-[-0.01em] min-[900px]:font-bold min-[900px]:leading-[1.08] ${questionSize(d.question, dense)}`}
           id={`q-${d.id}`}
         >
           {d.question}
@@ -379,9 +389,8 @@ export function Decision({ busy, d, onStep, onAnswered, onTyping }: Props) {
               key={o.id}
               o={o}
               onTap={async () => {
-                const a = tapAnswer(d, o.id, note.trim());
-                // A new answer moves on; taking one back stays.
-                if ((await answer(a)) && a === o.id) {
+                // His answer already, no note typed: nothing to write, just on to the next.
+                if ((d.answer === o.id && !unsent) || (await answer(o.id))) {
                   onAnswered();
                 }
               }}
