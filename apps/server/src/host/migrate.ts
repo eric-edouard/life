@@ -34,7 +34,7 @@ import {
 // only read), then memory: every stored `beeper` source, ref and the ids minted from them become the network's (a unit
 // id is minted from its source, an observation's from its unit). Written once into his data by the app at its next
 // start, under the lock, committed in his data repo before and after. Every line keeps its place (the
-// `read_memory_changes` cursor and the events' delivery count lines); quotes and what Life read off files keep their
+// `read_memory_changes` cursor and the ask cursor count lines); quotes and what Life read off files keep their
 // words; truth/ is never read. The rewrite is a pure function of the files and Beeper's maps (`renameStored`), tested
 // on made-up data; `migrateStored` reads, writes and commits. The skeleton of `observation-choice-2026-10-29` (git
 // history). It goes, with `beeper` in `SourceName`, once it ran on his data.

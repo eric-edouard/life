@@ -4,11 +4,10 @@ import { z } from "zod";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
-import { LOG_DIR, logDays, logEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { agentName, pulls } from "../core/settings";
+import { agentName } from "../core/settings";
 import { LEDGER, type Task, tasksOf } from "../memory/ledger";
 import {
   closed,
@@ -30,17 +29,12 @@ import { lapseReport, sendReport, taskReport, unsent } from "./report";
 // done or dropped. Its own lines: the agent's updates (the connector's `update_agent_task`) and replies to him (`log_reply_to_owner`); Life's nudges and
 // his steers (until 20 Oct) are only history. What needs him is `escalation`, emailed once (`chase`).
 /**
- * The protocol's parts (`<!-- <name> -->…<!-- /<name> -->`): `reminders` while the to-do list is on, `push` for an agent
- * its asks are pushed to, `pull` for one that pulls them. The markers always go, a part too when it is off.
+ * The protocol's parts (`<!-- <name> -->…<!-- /<name> -->`): `reminders` while the to-do list is on. The markers always
+ * go, a part too when it is off.
  */
-const PART = /<!-- (reminders|push|pull) -->([\s\S]*?)<!-- \/\1 -->/g;
-const partsOn = () => ({
-  pull: pulls(),
-  push: !pulls(),
-  reminders: isOn("todo_list"),
-});
+const PART = /<!-- (reminders) -->([\s\S]*?)<!-- \/\1 -->/g;
+const partsOn = () => ({ reminders: isOn("todo_list") });
 export function protocol(text: string, on = partsOn()) {
-  // A part may hold another (the standing grant, a Reminders part, is in the push-only daily message).
   const cut = (t: string): string =>
     t.replace(PART, (_, name: keyof typeof on, part: string) =>
       on[name] ? cut(part) : ""
@@ -134,23 +128,10 @@ const taskOf = (tasks: Task[], id?: string) =>
 
 /**
  * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, lifelog's feed had all
- * of them, Life recorded the ask, the agent got it (the `event.sent` log), claimed it and closed it; null where unknown
+ * of them, Life recorded the ask, the agent claimed it and closed it; null where unknown
  * (not speech, not yet, or before 20 Oct). A split's parts are left out: they share their parent's times.
  */
-export async function timings(
-  from = "",
-  to = "9999",
-  tasks = tasksOf(),
-  dir = LOG_DIR
-) {
-  // Oldest first, the first delivery kept: a retry after a lost answer is not when the agent got it.
-  const sent = new Map<string, string>();
-  const days = (await logDays(dir))
-    .filter((n) => n >= from.slice(0, 10))
-    .reverse();
-  for (const e of days.flatMap((n) => logEvents(n, "event.sent", dir))) {
-    sent.set(`${e.event}`, sent.get(`${e.event}`) ?? e.at);
-  }
+export function timings(from = "", to = "9999", tasks = tasksOf()) {
   return tasks
     .filter((t) => !t.ask.after.parent && t.ask.at >= from && t.ask.at < to)
     .map(({ ask: a, lines }) => {
@@ -163,7 +144,6 @@ export async function timings(
           ["ended", a.timing?.ended ?? null],
           ["arrived", a.timing?.arrived ?? null],
           ["recorded", a.at],
-          ["delivered", sent.get(a.id) ?? null],
           // The agent's first update; one Life wrote from his tick in Reminders does not take it.
           ["taken", updates.find((u) => u.via !== "reminders")?.at ?? null],
           [
@@ -201,7 +181,7 @@ export function escalation(t: Task, now: number) {
 }
 
 /**
- * What needs him now, each with the key it is emailed once under. With no live subscription, one alert a day (his
+ * What needs him now, each with the key it is emailed once under. With the agent not checking in, one alert a day (his
  * day) for all the open tasks; else each task that needs him, keyed by task, cause and the agent's last update (a
  * week-old task once, however often the agent extends it).
  */
@@ -404,7 +384,7 @@ export function taskList(now = clock().getTime()) {
 }
 
 /**
- * Emails him what newly needs him, one email a pass, each key once (`sendReport`): a lapsed subscription alone, else
+ * Emails him what newly needs him, one email a pass, each key once (`sendReport`): the agent not checking in alone, else
  * every task with a new cause (one that goes silent again after an update is new).
  */
 export async function chase(tasks: Task[], now: number, live?: boolean) {

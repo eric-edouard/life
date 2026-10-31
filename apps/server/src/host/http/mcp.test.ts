@@ -428,36 +428,6 @@ const modern = async (method: string, params: object = {}) =>
     { "mcp-method": method, "mcp-protocol-version": "2026-07-28" }
   );
 
-test("server/discover offers events and events/list one event, ask; a subscribe to any host but OpenAI's is refused before a request", async () => {
-  const discover = await modern("server/discover");
-  expect(discover.json.result.supportedVersions).toContain("2026-07-28");
-  expect(discover.json.result.capabilities.events).toEqual({});
-  const list = await modern("events/list");
-  expect(list.json.result.events.map((e: { name: string }) => e.name)).toEqual([
-    "ask",
-  ]);
-  expect(list.json.result.events[0].payloadSchema.required).toEqual([
-    "at",
-    "confidence",
-    "id",
-    "quote",
-    "ref",
-  ]);
-  const refused = await modern("events/subscribe", {
-    arguments: {},
-    cursor: null,
-    delivery: {
-      mode: "webhook",
-      secret: `whsec_${Buffer.alloc(32).toString("base64")}`,
-      url: "https://receiver.example.com/cb",
-    },
-    name: "ask",
-  });
-  expect(refused.json.error.code).toBe(-32_602);
-  const { res } = await rpc(null, "events/list");
-  expect(res.status).toBe(401);
-});
-
 test("the server is named Life, carries its icons, and its instructions open with the pointer to Orbit's playbook, not a copy, in 512 characters at most", async () => {
   const { json } = await rpc(await token(), "initialize", {
     capabilities: {},

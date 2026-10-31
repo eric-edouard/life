@@ -15,7 +15,7 @@ import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
 import { marks, push } from "../todo-list/board";
 import { chase, closings, receipts } from "./agent";
-import { deliver, startAgent } from "./events";
+import { startAgent, startOnAsk } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -27,7 +27,7 @@ import { inbound } from "./inbound";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
-// mirrors them on his board (apps/server/src/todo-list); `deliver` pushes the asks not yet delivered to the agent (apps/server/src/host/events.ts).
+// mirrors them on his board (apps/server/src/todo-list); `startOnAsk` starts the agent on a new ask (apps/server/src/host/events.ts).
 
 let last = 0;
 let ticking = false;
@@ -311,11 +311,13 @@ async function quiet(running: string) {
   return 0;
 }
 
-/** What runs on every pass, heard or not: delivery first (a slow Reminders host holds up the board, never an ask), then the tasks' minute. */
-async function minute() {
-  await deliver().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "events.deliver" })
-  );
+/** What runs on every pass, heard or not: a new ask's start first (a slow Reminders host holds up the board, never an ask), then the tasks' minute. */
+function minute() {
+  try {
+    startOnAsk();
+  } catch (e) {
+    log("run.error", { error: (e as Error).message, step: "events.start" });
+  }
   tick().catch((e: Error) =>
     log("run.error", { error: e.message, step: "tasks.tick" })
   );

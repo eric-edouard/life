@@ -53,12 +53,12 @@ every Keychain secret in its environment:
 | Service | What it does |
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. See `docs/sources.md`. |
-| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and delivers asks, serves the connector and the pages. |
+| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units and the index, hears `hey <agent>`, runs the minute pass and starts the agent on new asks, serves the connector and the pages. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
 **One Life per Mac.** The archive and the watcher each hold a lock in `MACHINE_DIR` (`hold`, `apps/server/src/core/lock.ts`), so a second
 install's copy waits instead of running beside it: two archivers would write the one live copy twice, two watchers
-would deliver every ask twice. On the owner's data a nightly tick runs only for the install whose watcher holds the
+would start the agent twice on every ask. On the owner's data a nightly tick runs only for the install whose watcher holds the
 lock, or when none does (`isOtherLife`, `core/lock.ts`); a copy or a hand `--force` always runs. The status snapshot reads
 those locks (`holder`, `core/lock.ts`). `bun run check` holds a `check` lock there too: one gate per Mac, since its timed tests fail when two run at once.
 
@@ -118,10 +118,8 @@ No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the
   becomes an ask only once lifelog names the owner.
 - The minute pass (`tick`, `watch.ts`) runs beside the hearing loop, never awaited by it: `chase`, then Reminders both
   ways (the read takes about 10 s, `sync.pull` in the log).
-- `deliver` (`LIFE_STATE_DIR/events.json`, mode 600: the subscription, its secret, how far it was delivered) runs only after a
-  good poll. A failed delivery retries for about 2 hours, then is emailed like a failed action and passed over. With
-  no live subscription, asks wait unsent until the agent subscribes again with its cursor. The report's Actions
-  section lists every ask either way.
+- `startOnAsk` (`LIFE_STATE_DIR/events.json`, mode 600: how far the ledger was read for asks) starts the agent once
+  per pass that brings a new ask. The report's Actions section lists every ask.
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
 **Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a

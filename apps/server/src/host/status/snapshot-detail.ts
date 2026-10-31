@@ -30,8 +30,7 @@ const read = (name: string) => (e: LogLine) =>
 const LOGS: Record<string, (e: LogLine) => boolean> = {
   ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
   archive: (e) => e.step?.startsWith("archive.") ?? false,
-  asks: (e) =>
-    e.kind === "event.sent" || (e.kind === "mcp.call" && isAgent(e.agent)),
+  asks: (e) => e.kind === "mcp.call" && isAgent(e.agent),
   backup: (e) => e.step === "backup",
   clients: (e) => e.kind === "mcp.call",
   connector: (e) => e.kind === "mcp.call",
@@ -42,7 +41,7 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   past: (e) => e.kind === "calendar.write",
   pendant: read("lifelog"),
   reminders: (e) => e.kind === "board.write" || e.kind === "sync.pull",
-  tasks: (e) => e.kind === "board.write" || e.kind === "event.sent",
+  tasks: (e) => e.kind === "board.write",
   watcher: (e) => e.step === "watch",
 };
 

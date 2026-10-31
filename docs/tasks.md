@@ -8,11 +8,10 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 
 ## The agent
 
-- The agent is the `agent` setting: name, wake words, misheard forms, client prefix, transport. Wherever Life names
+- The agent is the `agent` setting: name, wake words, misheard forms, client prefix, start command. Wherever Life names
   the agent, it writes that name; the word stored for it (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
-- **How asks reach it** (`transport`): pushed as the MCP event `ask` to a ChatGPT agent, or pulled by a Claude agent with
-  `read_open_agent_tasks`. A pulling agent can be started: with `start` set, the watcher starts that command, in his
+- **How asks reach it:** the agent pulls them with `read_open_agent_tasks`. It can be started: with `start` set, the watcher starts that command, in his
   home and with `cliEnv` only, with an event's JSON appended: `{kind:"ask"}` once when a new ask lands, so the agent
   reads it within seconds, `{kind:"tick", at, zone}` each minute, `{kind:"message", chats}` when messages are heard and
   `{kind:"decision", loop}` when he answers one of a loop's decisions, `{kind:"audit"}` when he files a "Something's wrong" (`startAgent`, `wakeOf`, `events.ts`); the command decides
@@ -27,9 +26,8 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
   `playbook.md` in the owner data dir. `read_open_agent_tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
   hash of the text and a 6-hour window); `update_agent_task` refuses a write without the current seal and answers with the text.
-  Its parts are cut by `protocol` (`agent.ts`): the text between `<!-- reminders -->` markers while the to-do list is off,
-  `<!-- push -->` (subscribing, events, the daily message) for an agent that pulls, `<!-- pull -->` for one asks are
-  pushed to. Keep the markers.
+  Its parts are cut by `protocol` (`agent.ts`): the text between `<!-- reminders -->` markers while the to-do list is off.
+  Keep the markers.
 - What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
   The connector's instructions (512 characters at most) open with that line. Events carry data only.
 - The playbook makes the agent confirm a low-confidence ask with the owner first, send as the owner only under its
@@ -43,15 +41,15 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
-- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
-  it (`apps/server/src/host/events.ts`).
+- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher starts
+  the agent on it (`apps/server/src/host/events.ts`), which reads it with `read_open_agent_tasks`.
 - The agent also records one through `update_agent_task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
   (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is taken in the same call, so it
-  sends no `ask` event.
+  starts no agent.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
-- `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded, delivered,
+- `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded,
   taken, closed.
 
 ## Tasks
@@ -63,7 +61,7 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   lines are what the agent told the owner (one on no task targets `chat`).
 - `read_memory_changes` with `about` `task:<id>` is a task's whole history. `nudge` and `steer` lines are old kinds that only parse.
 - **What needs the owner is one rule, `escalation`**, for every task: not taken 30 min after the ask, taken and past
-  its deadline, waiting on the owner over 1 h, a week old, or no live subscription (one email a day). `chase` (each minute in
+  its deadline, waiting on the owner over 1 h, a week old, or the agent not checking in for a day (one email a day). `chase` (each minute in
   the watcher) emails the owner once per task with the cause and the agent's last update; a pass's new causes go in one email.
 - Task lines stay out of the report's Actions section and out of `read_day`. The nightly lists every open task and those
   closed in the last day, counts the last day's asks with no reply logged (`unanswered`), and says "no daily review
@@ -192,8 +190,6 @@ grant, and logs the agent's replies.
   Recently Deleted, nothing is lost), so the agent uses them unattended.
 - Replies are the agent's output, never the owner's words: they enter memory only through the agent's source (`AGENT_WORD`), as
   evidence of what was done.
-- One MCP event, `ask` (`events/list|subscribe|unsubscribe`, `apps/server/src/host/events.ts`), behind the same auth. Callbacks go to
-  OpenAI's hosts only, verified before anything is sent.
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
   (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code
   from Life's panel, "Pair an app"; PKCE, one-use codes, refresh tokens replaced on use and kept 90 days, its key in
@@ -214,12 +210,11 @@ reads the rest of its settings. How the report and the alerts go out:
 - To the owner only (`apps/server/src/host/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `LIFE_STATE_DIR/reports`. Either way the log's `email.sent`
   means delivered.
-- The alerts: a failed action or an ask whose delivery failed; a task that needs the owner, once per cause; the agent
-  not subscribed to `ask` (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an
+- The alerts: a failed action; a task that needs the owner, once per cause; the agent
+  not checking in for a day (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an
   archive store failing for an hour (`archiveFailing` in `apps/server/src/host/archive.ts`, once per incident and again daily while it
   lasts).
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
 - A send (`apps/server/src/host/send.ts`, the `sends` setting) goes into one of his chats, as him: only the draft of the
   option he answered in a decision, with no note and nothing new from them since it was asked; an `intent` ledger line
   (`sent`, its target the decision) comes first, so a try that never ended is never retried; then the decision is done.
-- The ask events (`apps/server/src/host/events.ts`) go to the one subscriber, one per ask the agent did not make itself.

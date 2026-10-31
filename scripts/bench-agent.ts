@@ -24,7 +24,6 @@ import {
 } from "@life/server/src/core/paths";
 import { exec, git, gitOut } from "@life/server/src/core/proc";
 import { openReadOnly } from "@life/server/src/core/sqlite";
-import { nextEvent } from "@life/server/src/host/events";
 import { buildServer } from "@life/server/src/host/http/mcp";
 import { LEDGER, OUT, parseLedgerEntry } from "@life/server/src/memory/ledger";
 import { ended, metered } from "@life/server/src/memory/run";
@@ -124,7 +123,7 @@ const stated = (iso: string) => {
 
 /**
  * The ask `id` in the ledger's `lines`: when it was recorded, the ledger as the agent found it, and how it reached the agent.
- * An ask Life delivered is the event `deliver` sent, its line kept; his chat's asks are the agent's own line, written after
+ * An ask Life heard starts the agent with the event `{kind:"ask"}`, its line kept; his chat's asks are the agent's own line, written after
  * his message: the ledger before it, and his words.
  */
 export function askAt(lines: string[], id: string) {
@@ -137,7 +136,7 @@ export function askAt(lines: string[], id: string) {
   return {
     at: ask.at,
     input: delivered
-      ? `An ask event from Life: ${JSON.stringify(nextEvent(lines, k)?.event)}`
+      ? `An ask event from Life: ${JSON.stringify({ kind: "ask" })}`
       : `His message in your chat: ${ask.instruction.quote}`,
     kept: lines.slice(0, delivered ? k + 1 : k),
   };

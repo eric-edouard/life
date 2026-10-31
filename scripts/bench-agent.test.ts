@@ -76,7 +76,7 @@ test("the table: one row per case, what failed named, an error kept", () => {
   expect(out).toContain("| b | error |||| index: boom |");
 });
 
-test("an ask as it reached Orbit: a delivered one is its event, its line kept; a chat one is his words, the ledger before it", () => {
+test("an ask as it reached Orbit: a heard one is the ask event, its line kept; a chat one is his words, the ledger before it", () => {
   const ask = (id: string, via: string, quote: string, at: string) =>
     JSON.stringify({
       after: { confidence: "high" },
@@ -107,11 +107,7 @@ test("an ask as it reached Orbit: a delivered one is its event, its line kept; a
   const heard = askAt(lines, "entry_aaaaaaaaaaaa");
   expect(heard.at).toBe("2026-10-20T08:00:00.000Z");
   expect(heard.kept).toEqual(lines.slice(0, 1));
-  const event = JSON.parse(heard.input.replace("An ask event from Life: ", ""));
-  expect([event.eventId, event.data.quote]).toEqual([
-    "entry_aaaaaaaaaaaa",
-    "remind me to call the bank",
-  ]);
+  expect(heard.input).toBe('An ask event from Life: {"kind":"ask"}');
   const chat = askAt(lines, "entry_bbbbbbbbbbbb");
   expect(chat.kept).toEqual(lines.slice(0, 1));
   expect(chat.input).toBe("His message in your chat: what is due today?");

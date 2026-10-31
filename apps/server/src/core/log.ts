@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { clock } from "./clock";
 import { filesIn, linesOf } from "./files";
 import { LIFE_STATE_DIR } from "./paths";
-import { pulls, settings } from "./settings";
+import { settings } from "./settings";
 
 // One structured event log for everything Life does, so any failure can be traced afterwards:
 // derived/log/YYYY-MM-DD.jsonl, one JSON object per line. Metadata only: counts, ids, durations, statuses,
@@ -18,7 +18,6 @@ type LogKind =
   | "board.write"
   | "calendar.write"
   | "email.sent"
-  | "event.sent"
   | "file.read"
   | "lifelog.write"
   | "mcp.call"
@@ -56,7 +55,7 @@ export const logDays = async (dir = LOG_DIR) =>
   (await filesIn(dir)).filter((n) => LOG_FILE.test(n)).reverse();
 
 /**
- * One day's events whose kind starts with `kind` (`run.`, `event.sent`). A line that does not parse is skipped: a bad
+ * One day's events whose kind starts with `kind` (`run.`, `email.sent`). A line that does not parse is skipped: a bad
  * line must never stop a reader (the archive reads its incidents here on start).
  */
 export const logEvents = <T = Record<string, unknown> & { at: string }>(
@@ -102,7 +101,7 @@ export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
 /** Whether a connector call came from his agent: its user agent starts with the `agent` setting's `client`. */
 export const isAgent = (agent: unknown) => {
   const a = settings().agent;
-  const client = a && (a.client ?? (pulls() ? "Claude" : "openai-mcp"));
+  const client = a && (a.client ?? "Claude");
   return !!client && String(agent ?? "").startsWith(client);
 };
 /** A call of his agent's daily review: `read_day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */

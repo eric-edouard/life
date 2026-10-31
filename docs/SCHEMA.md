@@ -324,7 +324,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   event carries only that); for a task the agent made, `title` (one part of
   the owner's message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
-  `instruction.at`, `at` and the `event.sent` log line it is what `bun life asks` lists.
+  `instruction.at` and `at` it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
   `duplicate` (an open reminder had the title; nothing written) or `intent` (written by `act` just before a Reminders
   write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `via`: `session`

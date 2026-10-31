@@ -31,13 +31,6 @@ import { Change } from "../../todo-list/contract";
 import { entryLine } from "../../todo-list/items";
 import { Asked, actAsked, actGranted, Granted } from "../act";
 import { Reply, reply, sealed, taskList, update } from "../agent";
-import {
-  ASK_EVENT,
-  Subscribe,
-  subscribe,
-  Unsubscribe,
-  unsubscribe,
-} from "../events";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
@@ -45,7 +38,7 @@ import { text } from "./http";
 // Life's connector: one MCP server, served by the watcher on loopback (`serve`, server.ts; a tunnel forwards
 // the `connector` setting's origin to it) at /mcp, for Claude and ChatGPT. Every tool calls the same read function as the memory CLI (`bun life memory ...`), so there is
 // no second implementation. Life reads; it forwards the owner's explicit corrections (`correct_memory`), on his explicit request in a
-// chat changes his Reminders (`change_todo_item`, through `act`) and records the agent's updates to its tasks (`update_agent_task`) and its replies to him (`log_reply_to_owner`); nothing else. It also offers one MCP event, `ask` (apps/server/src/host/events.ts).
+// chat changes his Reminders (`change_todo_item`, through `act`) and records the agent's updates to its tasks (`update_agent_task`) and its replies to him (`log_reply_to_owner`); nothing else.
 // Auth: a Bearer JWT that the connector's OAuth server issued for this resource (EdDSA, `life:read`), to the owner only.
 
 const SCOPES = [SCOPE, "offline_access"];
@@ -102,13 +95,6 @@ const dry = <S extends z.ZodObject>(run: Tool<S>): Tool<S> =>
     ? run
     : (args) =>
         Promise.resolve(`${NOT_DONE} Recorded: ${JSON.stringify(args)}`);
-const sends = <P, R>(handle: (p: P) => R) =>
-  FROZEN === undefined
-    ? handle
-    : (): R => {
-        log("mcp.call", { error: true, refused: "events: a frozen run" });
-        throw new Error(NOT_DONE);
-      };
 
 /** Does what the owner asked for in a chat, through `act`: the one line saying what changed. A failed action is an error to the client (it was also emailed to him). */
 async function request({ obs, said, ...change }: z.infer<typeof Reminders>) {
@@ -249,7 +235,7 @@ function tool<S extends z.ZodObject>(
   );
 }
 
-/** The connector's tools and event, without its transport or auth: `createMcp` serves it over HTTP, the bench over stdio. */
+/** The connector's tools, without its transport or auth: `createMcp` serves it over HTTP, the bench over stdio. */
 export function buildServer() {
   // Over stdio (the bench) there may be no public origin, and no icons.
   const origin = settings().connector?.origin;
@@ -506,23 +492,6 @@ export function buildServer() {
     Reply,
     async (r) => reply(r),
     REVERSIBLE
-  );
-  // The SDK's types predate events; it advertises the capability as given on server/discover.
-  server.server.registerCapabilities({ events: {} } as never);
-  server.server.setRequestHandler(
-    "events/list",
-    { params: z.object({ cursor: z.string().optional() }) },
-    () => ({ events: [ASK_EVENT] })
-  );
-  server.server.setRequestHandler(
-    "events/subscribe",
-    { params: Subscribe },
-    sends(subscribe)
-  );
-  server.server.setRequestHandler(
-    "events/unsubscribe",
-    { params: Unsubscribe },
-    sends(unsubscribe)
   );
   return server;
 }
