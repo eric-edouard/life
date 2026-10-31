@@ -27,7 +27,7 @@ import { inbound } from "./inbound";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
-// mirrors them on his board (apps/server/src/todo-list); `deliver` pushes the asks not yet delivered to the agent (apps/server/src/host/events.ts).
+// mirrors them on his board (apps/server/src/todo-list); `startOnAsk` starts the agent on a new ask (apps/server/src/host/events.ts).
 
 let last = 0;
 let ticking = false;

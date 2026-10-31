@@ -85,9 +85,11 @@ test('a new heard ask starts a pulling agent\'s command once with {kind:"ask"}, 
   rmSync(SECRETS.events, { force: true });
   rmSync(marker, { force: true });
   mkdirSync(HOME, { recursive: true });
-  writeSecret("events", JSON.stringify({ delivered: 0 }));
+  writeSecret("events", "{");
   try {
     setSettings({ agent: { ...before, start: cmd } });
+    startOnAsk();
+    expect(askCursor()).toBe(linesOf(LEDGER).length);
     appendJsonl(LEDGER, LedgerEntry, [
       action({ kind: "ask", target: AGENT_WORD, via: "connector" }),
     ]);

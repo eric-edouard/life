@@ -12,8 +12,8 @@ import {
 } from "../sources/lifelog";
 import { ask } from "./agent";
 
-// Hears "hey <agent>" in his recorded speech and records each ask for the agent (`ask`, delivered by the watcher as an MCP
-// event). No model call: the two words wake it, his turns that follow are the ask, and the agent judges the rest. Each
+// Hears "hey <agent>" in his recorded speech and records each ask for the agent (`ask`, which starts the agent at the watcher's
+// next minute). No model call: the two words wake it, his turns that follow are the ask, and the agent judges the rest. Each
 // ask's span is also recorded in the store as a mark (`writeMarks`): what he asks is worth remembering.
 
 /** A pause longer than this between two of his turns (one's end to the next's start) closes the ask. */

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { clock, DAY, unfrozen } from "../core/clock";
 import { linesOf } from "../core/files";
 import { digest } from "../core/hash";
@@ -23,11 +23,15 @@ export function clientName(agent: unknown) {
   return a.toLowerCase().includes("claude") ? "Claude" : a || "unknown client";
 }
 
-/** Lines of the actions ledger already looked at for new asks. */
-export const askCursor = (): number =>
-  existsSync(SECRETS.events)
-    ? JSON.parse(readFileSync(SECRETS.events, "utf8")).delivered
-    : linesOf(LEDGER).length;
+/** Lines of the actions ledger already looked at for new asks; none when the file is missing or unreadable (a fresh install). */
+export function askCursor(): number | undefined {
+  try {
+    const n = JSON.parse(readFileSync(SECRETS.events, "utf8")).delivered;
+    return typeof n === "number" ? n : undefined;
+  } catch {
+    // Missing or unreadable: no cursor.
+  }
+}
 
 /** Whether the ledger holds an ask at or after line `from` that is not one the agent made from a chat (already its own). */
 export const hasNewAsk = (lines: string[], from: number) =>
@@ -131,11 +135,12 @@ async function mailNew(said: string) {
  */
 export function startOnAsk() {
   const lines = linesOf(LEDGER);
-  const from = askCursor();
-  if (hasNewAsk(lines, from)) {
+  const cursor = askCursor();
+  // No cursor: start from the end, and write it now, or every pass would start from a new end and miss the ask between.
+  if (cursor !== undefined && hasNewAsk(lines, cursor)) {
     startAgent({ kind: "ask" });
   }
-  if (from < lines.length) {
+  if (cursor !== lines.length) {
     writeSecret("events", `${JSON.stringify({ delivered: lines.length })}\n`);
   }
 }

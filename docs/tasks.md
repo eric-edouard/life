@@ -41,15 +41,15 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
-- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher delivers
-  it (`apps/server/src/host/events.ts`).
+- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`); the watcher starts
+  the agent on it (`apps/server/src/host/events.ts`), which reads it with `read_open_agent_tasks`.
 - The agent also records one through `update_agent_task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
   the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
   (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is taken in the same call, so it
-  sends no `ask` event.
+  starts no agent.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
-- `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded, delivered,
+- `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded,
   taken, closed.
 
 ## Tasks
@@ -210,7 +210,7 @@ reads the rest of its settings. How the report and the alerts go out:
 - To the owner only (`apps/server/src/host/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `LIFE_STATE_DIR/reports`. Either way the log's `email.sent`
   means delivered.
-- The alerts: a failed action or an ask whose delivery failed; a task that needs the owner, once per cause; the agent
+- The alerts: a failed action; a task that needs the owner, once per cause; the agent
   not checking in for a day (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an
   archive store failing for an hour (`archiveFailing` in `apps/server/src/host/archive.ts`, once per incident and again daily while it
   lasts).
