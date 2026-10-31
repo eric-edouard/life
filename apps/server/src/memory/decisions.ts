@@ -182,8 +182,8 @@ function refusalOf(
   if (!d) {
     return "no such decision";
   }
-  if (agent && d.agent && agent !== d.agent) {
-    return `${d.id} is ${d.agent}'s, not ${agent}'s`;
+  if (agent && agent !== d.agent) {
+    return `${d.id} is ${d.agent ?? "Life"}'s, not ${agent}'s`;
   }
   const isRequest = step === "taken" && d.options.length === 0;
   return ALLOWED[step]?.includes(d.status) || isRequest

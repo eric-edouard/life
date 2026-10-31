@@ -291,6 +291,24 @@ test("an agent steps only on its own decisions; his answer has no agent and pass
     );
     writeDecision([{ agent: "Atlas", decision: id, step: "taken" }], NOW);
     expect(decisionsNow().get(id)?.status).toBe("taken");
+    // Life's own (a fact check, asked with no agent) is no agent's.
+    writeDecision(
+      [{ data: ask, decision: "fact-checks-20261029100000-1", step: "asked" }],
+      NOW
+    );
+    expect(() =>
+      writeDecision(
+        [
+          {
+            agent: "Atlas",
+            data: { result: "x" },
+            decision: "fact-checks-20261029100000-1",
+            step: "withdrawn",
+          },
+        ],
+        NOW
+      )
+    ).toThrow("is Life's, not Atlas's");
   } finally {
     rmSync(DECISIONS, { force: true });
   }
