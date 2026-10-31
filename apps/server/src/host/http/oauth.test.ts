@@ -133,6 +133,34 @@ test("a desktop app's loopback return address takes any port, and only on the lo
   );
   expect(await at("http://localhost:53124/elsewhere")).toHaveProperty("page");
   expect(await signIn(DOC, pair(), `${CALLBACK}:8443`)).toHaveProperty("page");
+
+  // The code is for the port it was asked on: the trade on another port is refused.
+  const verifier = randomBytes(32).toString("base64url");
+  const back = await call(
+    "/auth/oauth2/authorize",
+    form({
+      client_id: DESKTOP_DOC,
+      code_challenge: createHash("sha256").update(verifier).digest("base64url"),
+      code_challenge_method: "S256",
+      pairing: pair(),
+      redirect_uri: "http://localhost:53124/callback",
+      resource: RESOURCE,
+      response_type: "code",
+    })
+  );
+  const trade = await call(
+    "/auth/oauth2/token",
+    form({
+      client_id: DESKTOP_DOC,
+      code:
+        new URL(back.headers.get("location") ?? "").searchParams.get("code") ??
+        "",
+      code_verifier: verifier,
+      grant_type: "authorization_code",
+      redirect_uri: "http://localhost:53125/callback",
+    })
+  );
+  expect(trade.status).toBe(400);
 });
 
 test("a code serves once and only with its verifier; an unpaired registration is not kept", async () => {
