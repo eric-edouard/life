@@ -346,7 +346,11 @@ export function Decision({ busy, d, onStep, onAnswered, onTyping }: Props) {
     );
   }
   return (
-    <article aria-labelledby={`q-${d.id}`} className="slide" ref={article}>
+    <article
+      aria-labelledby={`q-${d.id}`}
+      className="slide min-[900px]:justify-center-safe"
+      ref={article}
+    >
       <span className="text-[14px] text-muted">{where(d)}</span>
       {/* Resting above the answer when it fits (mt-auto, not justify-end, so a tall one still scrolls to its top); a
           wide screen centers the whole decision instead. */}
@@ -385,8 +389,8 @@ export function Decision({ busy, d, onStep, onAnswered, onTyping }: Props) {
               key={o.id}
               o={o}
               onTap={async () => {
-                // His answer already: nothing to write, just on to the next.
-                if (d.answer === o.id || (await answer(o.id))) {
+                // His answer already, no note typed: nothing to write, just on to the next.
+                if ((d.answer === o.id && !unsent) || (await answer(o.id))) {
                   onAnswered();
                 }
               }}

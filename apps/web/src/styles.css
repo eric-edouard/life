@@ -77,10 +77,8 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  /* A wide screen has room: the decision rests in its middle, not at the thumb's reach. */
   @media (min-width: 900px) {
     .slide {
-      justify-content: safe center;
       padding: 48px 72px;
     }
   }
