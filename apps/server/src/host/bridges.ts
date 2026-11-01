@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
 import { SECRETS, writeSecret } from "../core/secret";
-import { keepRunning, restartRunning, stopRunning } from "../core/service";
+import { keepRunning } from "../core/service";
 import { setSettings, settings } from "../core/settings";
 import { NETWORKS, type Network } from "../sources/bridged";
 import {
@@ -24,6 +24,7 @@ import {
   loginFlows,
   OWNER,
   pastedValues,
+  readWhoami,
   SERVER,
   unlinkBridge,
 } from "../sources/matrix";
@@ -32,8 +33,8 @@ import { hasChrome, signInWithChrome } from "./sign-in-browser";
 
 // `bun life bridge [status]|add|link|remove [network]` (docs/use/bridges.md): the one way to set up, link and remove a
 // bridge. A network is added when its folder holds its config (`MACHINE_DIR/bridges/<network>`). The homeserver and each
-// bridge are kept running by the Mac (`core/service.ts`), outside Life.app: the homeserver holds deleted messages until
-// the archive copies them, so it keeps running when Life is closed.
+// bridge run in one job the Mac keeps running (`core/service.ts`, `RUN_BRIDGES`), outside Life.app: the homeserver holds
+// deleted messages until the archive copies them, so it keeps running when Life is closed.
 
 const SYNAPSE_DIR = join(BRIDGES, "synapse");
 const VENV = join(SYNAPSE_DIR, ".venv", "bin");
@@ -49,14 +50,28 @@ const writeYaml = (path: string, value: unknown) =>
 const configPath = (n: Network) => join(BRIDGES, n.name, "config.yaml");
 const isAdded = (n: Network) => isBridgeAdded(n.name);
 
-/** Waits for `url` to answer at all (any status: a bridge asks for its secret), up to 30 s. */
-const answering = (url: string, what: string) =>
-  untilAnswers(() => fetch(url).then(() => true), what);
+/**
+ * The one job's program: the homeserver and every added bridge (a folder holding its config, run as `./bridge`), each
+ * started again 10 s after it stops; on TERM each is stopped and waited for, so the homeserver shuts down cleanly.
+ */
+export const RUN_BRIDGES = `
+trap 'kill $(jobs -p) 2>/dev/null; wait; exit 0' TERM
+keep() { (
+  cd "$1" || exit 1
+  shift
+  trap 'kill $p 2>/dev/null; wait $p; exit 0' TERM
+  while :; do "$@" & p=$!; wait $p; sleep 10; done
+) & }
+keep synapse .venv/bin/python -m synapse.app.homeserver -c homeserver.yaml
+for c in */config.yaml; do [ -e "$c" ] && keep "\${c%/config.yaml}" ./bridge -c config.yaml; done
+wait
+`;
 
-async function restartHomeserver() {
-  await restartRunning("synapse");
-  await answering(
-    `${HOMESERVER_URL}/_matrix/client/versions`,
+/** (Re)starts the one job, so it runs what is added now, and waits for the homeserver. */
+async function restartBridges() {
+  await keepRunning("bridges", BRIDGES, ["/bin/sh", "-c", RUN_BRIDGES]);
+  await untilAnswers(
+    () => fetch(`${HOMESERVER_URL}/_matrix/client/versions`).then(() => true),
     "the homeserver"
   );
 }
@@ -119,14 +134,7 @@ async function addHomeserver() {
       trusted_key_servers: [],
     });
   }
-  await keepRunning("synapse", SYNAPSE_DIR, [
-    PYTHON,
-    "-m",
-    "synapse.app.homeserver",
-    "-c",
-    HOMESERVER_YAML,
-  ]);
-  await restartHomeserver();
+  await restartBridges();
   // The password is kept before his account is made, so a try that stops halfway logs in next time.
   const saved = (
     existsSync(SECRETS.matrix)
@@ -186,8 +194,6 @@ function setRegistration(network: string, on: boolean) {
     app_service_config_files: on ? [...files, path] : files,
   });
 }
-
-const binaryOf = (n: Network) => n.cmd.split("/").at(-1) as string;
 
 /** Its newest release tag, from git itself (no API, no rate limit). */
 async function newestTag(n: Network) {
@@ -249,7 +255,6 @@ async function writeConfig(n: Network, bin: string, dir: string) {
     { cwd: dir }
   );
   setRegistration(n.name, true);
-  await restartHomeserver();
 }
 
 /** Adds a network's bridge, or rebuilds it at its newest release when it is there; links it unless it is linked. */
@@ -257,7 +262,7 @@ async function add(n: Network) {
   await addHomeserver();
   const dir = join(BRIDGES, n.name);
   const src = join(dir, "src");
-  const bin = join(dir, binaryOf(n));
+  const bin = join(dir, "bridge");
   const tag = await newestTag(n);
   console.log(`Building the ${n.label} bridge (${n.repo} ${tag})…`);
   rmSync(src, { force: true, recursive: true });
@@ -285,14 +290,8 @@ async function add(n: Network) {
   if (!isAdded(n)) {
     await writeConfig(n, bin, dir);
   }
-  await keepRunning(`bridge-${n.name}`, dir, [bin, "-c", "config.yaml"]);
-  const { port } = (readYaml(configPath(n)).appservice ?? {}) as {
-    port?: number;
-  };
-  await answering(
-    `http://127.0.0.1:${port}/_matrix/provision/v3/whoami`,
-    `the ${n.label} bridge`
-  );
+  await restartBridges();
+  await untilAnswers(() => readWhoami(n.name), `the ${n.label} bridge`);
   console.log(`${n.label} bridge running.`);
   if (!(await bridgeSend(n.name).blocked())) {
     console.log(`${n.label} is linked already.`);
@@ -410,12 +409,11 @@ async function remove(n: Network) {
   await unlinkBridge(n.name).catch((e: Error) =>
     console.error(`logout: ${e.message}`)
   );
-  await stopRunning(`bridge-${n.name}`);
+  rmSync(join(BRIDGES, n.name), { force: true, recursive: true });
   if (existsSync(HOMESERVER_YAML)) {
     setRegistration(n.name, false);
-    await restartHomeserver();
+    await restartBridges();
   }
-  rmSync(join(BRIDGES, n.name), { force: true, recursive: true });
   if (n.reads) {
     setSettings({ sources: settings().sources.filter((s) => s !== n.name) });
   }
