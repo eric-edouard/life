@@ -24,7 +24,7 @@ export interface Newest {
  * table each copy is a row of, `media` the column of its `deleted` view that names a copied file.
  */
 export interface AppStore {
-  /** The app that writes it, kept open; none for a bridge (its LaunchAgent keeps it running). */
+  /** The app that writes it, kept open; none for a bridge (the bridges' one job keeps it running). */
   app?: string;
   copies: string;
   copy: () => number;

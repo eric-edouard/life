@@ -1,10 +1,9 @@
 import { clock, DAY, HOUR, MIN } from "../core/clock";
-import { isRunning } from "../core/service";
 import { settings } from "../core/settings";
 import { enabledSources, SOURCES } from "../memory/sources";
 import { NETWORKS, type Network } from "../sources/bridged";
 import type { Descriptor } from "../sources/contract";
-import { isBridgeAdded } from "../sources/matrix";
+import { isBridgeAdded, readWhoami } from "../sources/matrix";
 import { sendBlockOf, withTimeout } from "./send";
 
 // `bun life bridge` (docs/use/bridges.md): every messaging connector he has, checked live and in parallel, one line
@@ -66,10 +65,7 @@ const ago = (at: string) => {
     : `${Math.round(ms / DAY)} d ago`;
 };
 
-async function bridgePart(
-  n: Network,
-  running: (job: string) => Promise<boolean>
-): Promise<Part> {
+async function bridgePart(n: Network): Promise<Part> {
   if (!isBridgeAdded(n.name)) {
     return {
       kind: "bridge",
@@ -77,7 +73,10 @@ async function bridgePart(
       text: `no bridge: bun life bridge add ${n.name}`,
     };
   }
-  return (await withTimeout(running(`bridge-${n.name}`), 10_000, false))
+  return (await readWhoami(n.name).then(
+    () => true,
+    () => false
+  ))
     ? { kind: "bridge", ok: true, text: "bridge running" }
     : { kind: "bridge", ok: false, text: "bridge stopped" };
 }
@@ -147,7 +146,7 @@ export const connectorHealths = (kinds: readonly Kind[] = KINDS) =>
 
 /** A check that threw is a ✗ with its error. */
 const healthOrFailed = (c: Connector, kinds: readonly Kind[] = KINDS) =>
-  healthOf(c, isRunning, kinds).catch(
+  healthOf(c, kinds).catch(
     (e: Error): ConnectorHealth => ({ detail: e.message, ok: false, parts: [] })
   );
 
@@ -164,14 +163,11 @@ export const failingParts = (
 /** One connector checked: its parts at once, the failures first. */
 export async function healthOf(
   c: Connector,
-  running = isRunning,
   kinds: readonly Kind[] = KINDS
 ): Promise<ConnectorHealth> {
   const parts = (
     await Promise.all([
-      c.network && kinds.includes("bridge")
-        ? bridgePart(c.network, running)
-        : undefined,
+      c.network && kinds.includes("bridge") ? bridgePart(c.network) : undefined,
       kinds.includes("read") ? readPart(c) : undefined,
       kinds.includes("send") ? sendPart(c) : undefined,
     ])

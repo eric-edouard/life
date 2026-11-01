@@ -122,16 +122,17 @@ export function blockOf(
     : undefined;
 }
 
+/** The bridge's own answer about him (its logins); throws when it isn't answering. 3 s: the status snapshot waits for it. */
+export const readWhoami = (bridge: string) =>
+  provision(bridge, "whoami", { signal: AbortSignal.timeout(3000) });
+
 /**
  * Why the bridge can't send now, as the bridge itself says (its logins and their state): not running, never linked,
  * or a login that isn't connected. None when it can.
  */
 async function readBlock(bridge: string) {
   try {
-    // 3 s: the status snapshot waits for it.
-    const who = await provision(bridge, "whoami", {
-      signal: AbortSignal.timeout(3000),
-    });
+    const who = await readWhoami(bridge);
     return blockOf(bridge, (who.logins ?? []) as Parameters<typeof blockOf>[1]);
   } catch (e) {
     return `${bridge} bridge not answering: ${(e as Error).message}`;

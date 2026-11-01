@@ -6,8 +6,8 @@ to link; the first send may ask to let it control Messages). The other networks 
 linked to your account as one more device, like WhatsApp Web. LINE, Instagram and LinkedIn are also read through
 their bridge into Life's archive; WhatsApp is read from its Mac app.
 
-The bridges and their local Matrix server (Synapse) run on your Mac, talk to nothing but their network, and keep
-running when Life is closed: the server holds every message, deleted ones included, until Life copies it. Linking a
+The bridges and their local Matrix server (Synapse) run on your Mac as one background job, talk to nothing but
+their network, and keep running when Life is closed: the server holds every message, deleted ones included, until Life copies it. Linking a
 bridge may be against a network's terms (WhatsApp's); for one personal account, bans are rare. LINE allows one
 Chrome-extension session: linking its bridge logs LINE's Chrome extension out.
 

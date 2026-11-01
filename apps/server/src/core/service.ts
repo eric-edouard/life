@@ -1,11 +1,11 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { HOME } from "./platform";
 import { exec, execOk } from "./proc";
 
-// A program the Mac keeps running on its own, outside Life.app: one launchd job each (the bridges and their homeserver,
-// `host/bridges.ts`), started at login, started again 10 s after it stops, its output in ~/Library/Logs/<label>.log.
-// macOS only.
+// A program the Mac keeps running on its own, outside Life.app, as one launchd job (the bridges and their homeserver
+// together, `host/bridges.ts`): started at login, started again 10 s after it stops, its output in
+// ~/Library/Logs/<label>.log. macOS only.
 
 const AGENTS = join(HOME, "Library", "LaunchAgents");
 const labelOf = (job: string) => `com.ericedouard.life.${job}`;
@@ -13,7 +13,7 @@ const domain = () => `gui/${process.getuid?.()}`;
 const xml = (s: string) =>
   s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-/** Keeps `args` running in `dir` as job `job`, replacing the job of that name if there is one. */
+/** Keeps `args` running in `dir` as job `job`, replacing (so restarting) the job of that name if there is one. */
 export async function keepRunning(job: string, dir: string, args: string[]) {
   const label = labelOf(job);
   const log = join(HOME, "Library", "Logs", `${label}.log`);
@@ -35,18 +35,3 @@ export async function keepRunning(job: string, dir: string, args: string[]) {
   await exec(["launchctl", "bootout", `${domain()}/${label}`]);
   await execOk(["launchctl", "bootstrap", domain(), plist]);
 }
-
-/** Stops job `job` and forgets it. */
-export async function stopRunning(job: string) {
-  const label = labelOf(job);
-  await exec(["launchctl", "bootout", `${domain()}/${label}`]);
-  rmSync(join(AGENTS, `${label}.plist`), { force: true });
-}
-
-/** Starts job `job` again now. */
-export const restartRunning = (job: string) =>
-  exec(["launchctl", "kickstart", "-k", `${domain()}/${labelOf(job)}`]);
-
-export const isRunning = async (job: string) =>
-  (await exec(["launchctl", "print", `${domain()}/${labelOf(job)}`])).code ===
-  0;
