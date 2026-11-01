@@ -59,8 +59,8 @@ trap 'kill $(jobs -p) 2>/dev/null; wait; exit 0' TERM
 keep() { (
   cd "$1" || exit 1
   shift
-  trap 'kill $p 2>/dev/null; wait $p; exit 0' TERM
-  while :; do "$@" & p=$!; wait $p; sleep 10; done
+  trap 'kill $! 2>/dev/null; wait $!; exit 0' TERM
+  while :; do "$@" & wait $!; sleep 10; done
 ) & }
 keep synapse .venv/bin/python -m synapse.app.homeserver -c homeserver.yaml
 for c in */config.yaml; do [ -e "$c" ] && keep "\${c%/config.yaml}" ./bridge -c config.yaml; done
@@ -134,7 +134,6 @@ async function addHomeserver() {
       trusted_key_servers: [],
     });
   }
-  await restartBridges();
   // The password is kept before his account is made, so a try that stops halfway logs in next time.
   const saved = (
     existsSync(SECRETS.matrix)
@@ -142,8 +141,9 @@ async function addHomeserver() {
       : {}
   ) as { password?: string; token?: string };
   if (saved.token) {
-    return;
+    return; // set up already: the caller restarts the job once its own change is made
   }
+  await restartBridges();
   const password = saved.password ?? crypto.randomUUID();
   if (!saved.password) {
     writeSecret("matrix", JSON.stringify({ password }));
