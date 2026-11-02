@@ -21,7 +21,9 @@ says how each `Child` runs; `Supervisor` keeps the children alive; the views onl
 started by `restart`, before the child runs. The app delegate owns the
 only model. Its secrets share the helper's `secrets.json`, never the Keychain (`docs/decisions.md`); whoever writes
 the file reads it first, so neither drops the other's fields. Its other settings are the app's defaults
-(`HostSettings`).
+(`HostSettings`), except open at login (`openAtLoginKey`, on unless turned off), which its toggle sets at once and
+every start registers again: an ad hoc reinstall has a new signature and loses its login item (1 Nov: a reboot left
+lifelog down 20 h). An "off" in System Settings stands.
 
 Invariants: a child is stopped on purpose only through `Supervisor.halt`, which lets go of it before stopping it, so
 its restart never fires; a Save or an import restarts every child, and every restart (the launch one too), Save,

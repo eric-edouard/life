@@ -1,6 +1,8 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { MIN } from "../core/clock";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as proc from "../core/proc";
 import { LEDGER, tasksOf } from "../memory/ledger";
 import { apply } from "../sources/lifelog";
 import {
@@ -9,9 +11,20 @@ import {
   lifelogStore,
   pageFixture,
 } from "../sources/store-fixtures";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as events from "./events";
 import type { Health } from "./health";
 import { hear } from "./hear";
-import { afterPoll, hearings, holdFor, type Pending, resumed } from "./watch";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as http from "./http/server";
+import {
+  afterPoll,
+  hearings,
+  holdFor,
+  type Pending,
+  resumed,
+  watch,
+} from "./watch";
 
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
@@ -148,5 +161,31 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
   } finally {
     server.close();
     rmSync(LEDGER, { force: true });
+  }
+});
+
+test("lifelog down, the watcher still ticks the agents each minute (1 Nov: 20 h of failed polls started no loop)", async () => {
+  const server = lifelogServer({});
+  const spies = [
+    // The code it runs at start, then twice unchanged (two failed polls), then new: it exits.
+    spyOn(proc, "codeAt")
+      .mockReturnValue("new")
+      .mockReturnValueOnce("same")
+      .mockReturnValueOnce("same")
+      .mockReturnValueOnce("same"),
+    spyOn(Bun, "sleep").mockResolvedValue(undefined),
+    spyOn(http, "serve").mockImplementation(() => undefined),
+    spyOn(events, "startAgents").mockImplementation(() => undefined),
+  ];
+  try {
+    expect(await watch()).toBe(0);
+    expect(events.startAgents).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "tick" })
+    );
+  } finally {
+    for (const s of spies) {
+      s.mockRestore();
+    }
+    server.close();
   }
 });
