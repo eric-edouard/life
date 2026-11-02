@@ -127,6 +127,8 @@ export interface LoginStep {
       }[];
     }[];
     url?: string;
+    /** The browser the bridge's own requests claim to be: cookies signed in as another one are revoked as stolen. */
+    user_agent?: string;
     /** The page to have reached before the window closes (past 2FA). */
     wait_for_url_pattern?: string;
   };

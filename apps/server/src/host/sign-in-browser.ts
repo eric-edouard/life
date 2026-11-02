@@ -132,21 +132,30 @@ function bodyOf(r: Request): Record<string, string> {
   }
 }
 
+/** Chrome's arguments for a step: as the browser the bridge claims to be, its client hints off so they don't contradict it. */
+export const chromeArgs = (step: CookieStep, profile: string) => [
+  CHROME as string,
+  `--user-data-dir=${profile}`,
+  "--remote-debugging-port=0",
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--new-window",
+  ...(step.user_agent
+    ? [
+        `--user-agent=${step.user_agent}`,
+        "--disable-features=UserAgentClientHint",
+      ]
+    : []),
+  step.url ?? "about:blank",
+];
+
 /** Opens `step.url` for him to sign in; resolves to each field's value once the required ones are there. */
 export async function signInWithChrome(
   step: CookieStep
 ): Promise<Map<string, string>> {
   const profile = mkdtempSync(join(tmpdir(), "life-signin-"));
   const chrome = Bun.spawn(
-    [
-      CHROME as string,
-      `--user-data-dir=${profile}`,
-      "--remote-debugging-port=0",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--new-window",
-      step.url ?? "about:blank",
-    ],
+    chromeArgs(step, profile),
     // None of Life's secrets: only what Chrome needs to start.
     {
       env: { HOME: process.env.HOME, TMPDIR: process.env.TMPDIR },

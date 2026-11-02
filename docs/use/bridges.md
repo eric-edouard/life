@@ -21,5 +21,6 @@ bun life bridge remove <network>        # logs out and removes the bridge; what 
 runs it. `add` again rebuilds it at its newest release. `link` shows a QR code in the terminal, or asks for what the
 network needs (your email and password, a code), hidden as you type. When a network needs your browser's cookies
 (Instagram, LinkedIn), it opens a Chrome window on the site: sign in as usual and it closes by itself once you're in
-(a fresh profile of its own, deleted after). Without Chrome, it asks you to paste one request ("Copy as cURL" from
+(a fresh profile of its own, deleted after, presenting itself as the browser the bridge claims to be: LinkedIn revokes
+cookies another browser signed in for). Without Chrome, it asks you to paste one request ("Copy as cURL" from
 the developer tools' Network tab). A linked network is turned on as a source; Life copies it once it restarts.
