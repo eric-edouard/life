@@ -269,7 +269,7 @@ for (const d of DEMO) {
         end: null,
         id: `mom_${hex(day + title, 12)}`,
         importance: 1,
-        madeBy: { ...madeBy, prompt: "memory-moments.v4" },
+        madeBy: { ...madeBy, prompt: "memory-moments.v5" },
         people: [{ ref: `person:${d.moment.with}`, role: "with" }],
         place,
         schemaVersion: 1,
