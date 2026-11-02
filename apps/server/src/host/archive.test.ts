@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HOUR, MIN } from "../core/clock";
+import { MIN } from "../core/clock";
 import { log } from "../core/log";
 import { WINDOWS } from "../core/platform";
 import { ARCHIVED, keptStores } from "../memory/sources";
