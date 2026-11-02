@@ -1,5 +1,5 @@
 {
-  "_": "gog's answers to the `gog tasks \u2026 --json` commands Life uses, written by hand from the Google Tasks API's TaskList and Task resources (gog prints them wrapped, as its calendar commands do: `tasklists`, `tasks` with `nextPageToken`, `task`), never run against an account. Made-up tasks.",
+  "_": "gog's answers to the `gog tasks … --json` commands Life uses, written by hand from the Google Tasks API's TaskList and Task resources (gog prints them wrapped, as its calendar commands do: `tasklists`, `tasks` with `nextPageToken`, `task`), never run against an account. Made-up tasks.",
   "add": {
     "task": {
       "id": "dGFza0EwMQ",

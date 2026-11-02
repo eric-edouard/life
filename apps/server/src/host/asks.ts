@@ -1,8 +1,7 @@
-import { z } from "zod";
 import { clock, iso } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { AGENT_WORD } from "../core/names";
-import { decode, feedPage, PAGE } from "../memory/changes";
+import { feedPage, PAGE, parseCursor } from "../memory/changes";
 import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/ledger";
 import { clip } from "../memory/units";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
@@ -53,7 +52,7 @@ export function ask(
 export function asksFor(agent: string, cursor?: string, limit = PAGE) {
   const page = feedPage(
     [{ lines: linesOf(LEDGER), name: "ledger" }],
-    decode(cursor, z.record(z.string(), z.int().min(0)), {}),
+    parseCursor(cursor),
     limit,
     (_, line) => {
       const a = parseLedgerEntry(line);

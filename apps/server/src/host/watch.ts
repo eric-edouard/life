@@ -287,7 +287,7 @@ async function listen(running: string, started: Date): Promise<number> {
   return 0;
 }
 
-/** No voice source: nothing to hear or fold; the tasks' minute runs on its timer until new code. */
+/** No voice source: nothing to hear or fold; the to-do minute runs on its timer until new code. */
 async function quiet(running: string) {
   console.log(
     `${clock().toISOString()} watcher: no voice source, not listening`
@@ -301,7 +301,7 @@ async function quiet(running: string) {
 
 function minute() {
   tick().catch((e: Error) =>
-    log("run.error", { error: e.message, step: "tasks.tick" })
+    log("run.error", { error: e.message, step: "todo.tick" })
   );
 }
 

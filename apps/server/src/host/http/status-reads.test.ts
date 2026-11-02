@@ -15,7 +15,7 @@ test("the app's reads open with the local key only", async () => {
   expect((await as(`${key.slice(1)}x`))?.status).toBe(401);
   // As many characters as the key, more bytes: refused, not a crash.
   expect((await as("é".repeat(key.length)))?.status).toBe(401);
-  expect((await get("/status/card/tasks"))?.status).toBe(401);
+  expect((await get("/status/card/mac"))?.status).toBe(401);
   // No page any more: nothing else is answered here.
   expect((await get("/")).status).toBe(404);
   // A card with no id is no card.
@@ -23,7 +23,7 @@ test("the app's reads open with the local key only", async () => {
   expect(none.status).toBe(404);
 });
 
-test("a history that doesn't page back offers no older page: the tasks and the Mac's day are whole", async () => {
+test("a history that doesn't page back offers no older page: the Mac's day is whole", async () => {
   const { detail } = await import("../status/snapshot-detail");
-  expect((await detail("tasks")).next.history).toBeNull();
+  expect((await detail("mac")).next.history).toBeNull();
 });

@@ -419,7 +419,7 @@ export interface Task {
   lines: LedgerEntry[];
 }
 
-/** The actions ledger as the agent's tasks (memory/tasks.ts): each ask with its own lines. */
+/** The actions ledger as asks, each with its own lines (an agent's updates and replies before 2 Nov 2026). */
 export function tasksOf(lines = linesOf(LEDGER)) {
   const tasks = new Map<string, Task>();
   for (const a of lines.map(parseLedgerEntry)) {
@@ -432,7 +432,7 @@ export function tasksOf(lines = linesOf(LEDGER)) {
   return [...tasks.values()];
 }
 
-/** The agent's last update of a task: where it stands (`standing`, tasks.ts), and its outcome once done. */
+/** The agent's last update of an ask (before 2 Nov 2026), and its outcome once done. */
 export const lastUpdate = (t: Task) =>
   t.lines.findLast((l) => l.kind === "update");
 

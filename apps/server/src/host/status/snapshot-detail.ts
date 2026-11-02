@@ -195,7 +195,7 @@ async function ownHistory(
 
 /**
  * A card's detail: its history (newest first, `PAGE` at a time before `before`), and its raw log lines. A sweep's
- * history is its runs; the tasks' their list; the memory's its latest changes; any other card its log lines.
+ * history is its runs; the memory's its latest changes; any other card its log lines.
  */
 export async function detail(id: string, before?: string) {
   // The last 8 days, or as far back as `before` and 8 days more: paging goes back through the whole log.

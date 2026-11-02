@@ -74,6 +74,9 @@ export function decode<T>(
 
 /** Lines read per source. Each source is append-only, so a line's position never changes. */
 type Cursor = Record<string, number>;
+/** A feed's cursor as a client sends it back (`encode`d); none starts at the beginning. */
+export const parseCursor = (s: string | undefined): Cursor =>
+  decode(s, z.record(z.string(), z.int().min(0)), {});
 
 interface Source {
   lines: string[];
@@ -463,11 +466,15 @@ export async function changeFeed(f: ChangeFilter = {}) {
     { lines: pageCommits(), name: "pages" },
   ];
   const ctx = await readContext();
-  const cursor = decode(f.cursor, z.record(z.string(), z.int().min(0)), {});
-  const page = feedPage(sources, cursor, f.limit ?? PAGE, (s, line, n) => {
-    const it = itemOf(s, line, n, ctx);
-    return it && matchesFilter(it, f) ? it : null;
-  });
+  const page = feedPage(
+    sources,
+    parseCursor(f.cursor),
+    f.limit ?? PAGE,
+    (s, line, n) => {
+      const it = itemOf(s, line, n, ctx);
+      return it && matchesFilter(it, f) ? it : null;
+    }
+  );
   const commits = page.items.flatMap((it) =>
     it.type === "page.changed"
       ? [it.record as { path: string; sha: string }]
