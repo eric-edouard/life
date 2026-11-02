@@ -57,22 +57,22 @@ import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import { checks } from "../todo-list/backend";
 import { taskList, unanswered } from "./agent";
-import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
+import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { syncPast } from "./past-calendar";
 import {
-  archiveFailedReport,
   failureReport,
   lockReport,
   type Mail,
   reportKey,
   sendReport,
+  sourcesReport,
   successReport,
 } from "./report";
+import { redSources, snapshot } from "./status/snapshot";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * HOUR;
-const ALERT_MS = HOUR;
 
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecord, "error">) {
@@ -165,14 +165,6 @@ export async function nightly(days: number, force = false) {
       lockReport(held.toISOString())
     );
   }
-  // Each store failing for an hour: one email per incident and day while it lasts (the key).
-  for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
-    // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
-    await sendReport(
-      `archive/${name}/${e.at}/${dayNow(now)}`,
-      archiveFailedReport(name, e.at, String(e.error))
-    );
-  }
   // Each tick is a fresh process: the place to notice he moved (`readZoneHere`, never a TZ variable). The phone's
   // zone is read before the lock: a network read never holds memory.
   const here = await readZoneHere();
@@ -197,6 +189,19 @@ export async function nightly(days: number, force = false) {
     (r) => r && console.log(JSON.stringify({ past: r })),
     (e) => log("run.error", { error: String(e), step: "past" })
   );
+  // Every source in red on the status snapshot, the one judge of a source's health: an email when a source's problem
+  // is new that day. After the turn, so no run waits on it; a failure only logs.
+  try {
+    const red = redSources((await snapshot()).cards);
+    if (red.length > 0) {
+      await sendReport(
+        red.map((c) => `source/${c.id}/${c.word}/${dayNow(clock())}`),
+        sourcesReport(clock().toISOString(), red)
+      );
+    }
+  } catch (e) {
+    log("run.error", { error: String(e), step: "sources" });
+  }
   const { backup: was, night: state } = states();
   if (force || !backupDue(now.getHours(), day, state, was)) {
     return code;

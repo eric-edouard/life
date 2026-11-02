@@ -352,10 +352,10 @@ export function speakerRoutes({
                       unknown: z.boolean().default(false),
                     }),
                   ]),
+                  // Every voice of the item, however many: GET /naming-queue caps none.
                   voices: z
                     .array(Voice.pick({ jobId: true, speakerLabel: true }))
-                    .min(1)
-                    .max(100),
+                    .min(1),
                 }),
               },
             },

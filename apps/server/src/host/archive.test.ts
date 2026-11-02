@@ -27,7 +27,7 @@ test("the archive opens each closed app, but not again within 10 minutes", () =>
 
 const LINE = /^Archive: FAILED: line from [\d-]+ [\d:]+, still failing: no db$/;
 
-test("an archive incident lives in the log: open until its run.end, listed by the night and due for an email an hour in", async () => {
+test("an archive incident lives in the log: open until its run.end, listed by the night and failing until then", async () => {
   const step = "archive.line";
   log("run.error", { error: "no db", step });
   log("run.error", { error: "other", step: "memory.nightly" });
@@ -36,8 +36,6 @@ test("an archive incident lives in the log: open until its run.end, listed by th
   const since = new Date().toISOString();
   expect(await archiveLine(since)).toMatch(LINE);
   expect((await archiveFailing()).map(([name]) => name)).toEqual(["line"]);
-  expect(await archiveFailing(HOUR)).toEqual([]);
-  expect((await archiveFailing(HOUR, Date.now() + HOUR)).length).toBe(1);
   log("run.end", { step });
   expect(await archiveLine(since)).toBe("Archive: no failure");
   expect(await archiveFailing()).toEqual([]);

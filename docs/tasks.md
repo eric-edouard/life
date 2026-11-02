@@ -204,8 +204,10 @@ reads the rest of its settings. How the report and the alerts go out:
   setting as a macOS notification with the report kept as a page in `LIFE_STATE_DIR/reports`. Either way the log's `email.sent`
   means delivered.
 - The alerts: a failed action; a task that needs the owner, once per cause; the agent
-  not checking in for a day (one a day for all open tasks); a run holding the lock over 3 h (once per incident); an
-  archive store failing for an hour (`archiveFailing` in `apps/server/src/host/archive.ts`, once per incident and again daily while it
-  lasts).
+  not checking in for a day (one a day for all open tasks); a run holding the lock over 3 h (once per incident); every
+  source in red on the status snapshot (`sourcesReport`: unreadable, its access gone, its archive store or bridge
+  failing, a send it can't make, lifelog not polled), checked on each nightly tick: an email when a source's problem is new
+  that day, listing every source in red, from the first tick that sees it (no grace: a source that can't be read holds its days back). A
+  quiet source (amber) and an import never run (idle) don't mail.
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
 - Life sends nothing into a chat.

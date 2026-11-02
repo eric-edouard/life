@@ -26,7 +26,7 @@ import { entryLine } from "../todo-list/items";
 import { polling, readHealth } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
-// (no model). `sendReport` also carries the alerts (a failed action or delivery, an agent task that needs him, the lock, the archive).
+// (no model). `sendReport` also carries the alerts (a failed action or delivery, an agent task that needs him, the lock, a source it can't read).
 
 type Result<T extends (...args: never[]) => Promise<unknown>> = Awaited<
   ReturnType<T>
@@ -328,20 +328,27 @@ export const actFailedReport = (a: LedgerEntry) =>
     verdict: "FAILED",
   });
 
-/** The alert for a store the archive has failed to copy for an hour: what is deleted meanwhile is not kept. */
-export const archiveFailedReport = (
-  name: string,
-  since: string,
-  error: string
+/**
+ * The alert for the sources Life can't read now: each source card the status snapshot shows red (unreadable, its
+ * access gone, its store or bridge failing, a send it can't make, lifelog not polled), whatever the cause.
+ */
+export const sourcesReport = (
+  at: string,
+  red: { headline: string; name: string; word: string }[]
 ) =>
-  alert(since, "Life archive", {
-    failure: { error, step: `archive ${name}` },
+  alert(at, "Life sources", {
+    failure: {
+      error: red.map((c) => `${c.name}: ${c.headline}`).join("; "),
+      step: "reading its sources",
+    },
     notes: [
-      "Messages deleted and note versions replaced meanwhile are lost until it copies again. Details: ~/Library/Logs/life-archive.log, derived/log",
+      "Days holding a source Life can't read wait for it: no moments or facts for them until it reads again.",
+      "While the archive can't copy a store, messages deleted and note versions replaced meanwhile are lost.",
+      "Details: the app's Sources cards, derived/log",
     ],
-    preheader: `The archive has not copied ${name} since ${time(since)}: ${error}`,
-    stats: [{ label: "failing since", value: time(since) }],
-    subject: `the archive cannot copy ${name}`,
+    preheader: `Life can't read ${red.map((c) => c.name).join(", ")}.`,
+    stats: red.map((c) => ({ label: c.name, value: c.word })),
+    subject: `can't read ${red.map((c) => c.name).join(", ")}`,
     verdict: "FAILING",
   });
 export type Mail = ReturnType<typeof compose> & {

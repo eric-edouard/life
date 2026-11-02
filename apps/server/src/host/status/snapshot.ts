@@ -429,11 +429,22 @@ function pendantCard(r: Reads, d: Descriptor): Card {
     ),
     facts: pendantFacts(pendant, spokeAt),
     group: "sources",
-    headline: pendant?.recording ?? "unknown",
+    // Red when the newest speech can't be read: why, not the phone's state.
+    headline: r.turn.ok
+      ? (pendant?.recording ?? "unknown")
+      : clip(String(r.turn.error), 200),
     id: "pendant",
     name: d.label,
   };
 }
+
+/** What the lifelog card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
+const polledHeadline = (r: Reads) => {
+  if (!polling(r)) {
+    return r.health?.lastError ?? "no poll for 15 minutes";
+  }
+  return r.health?.lastOkAt ? "polling" : "never polled";
+};
 
 function lifelogCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
@@ -468,7 +479,7 @@ function lifelogCard(r: Reads): Card {
       },
     ],
     group: "sources",
-    headline: r.health?.lastOkAt ? "polling" : "never polled",
+    headline: polledHeadline(r),
     id: "lifelog",
     name: "lifelog server",
   };
@@ -481,28 +492,44 @@ const connectorFailures = (r: Reads, name: string) =>
 type Healths = Awaited<ReturnType<typeof connectorHealths>>;
 let healths: Healths = [];
 let checkedAt = Number.NEGATIVE_INFINITY;
-let checking = false;
+let check: Promise<void> | undefined;
 /**
- * Every connector's bridge check as last found, never awaited: the status window reads every 3 s and a
- * check may take 10 s, so a stale one starts a fresh one in the background (every 15 s at most).
+ * Every connector's bridge check as last found: the status window reads every 3 s and a check may take
+ * 10 s, so a stale one starts a fresh one in the background (every 15 s at most). Only a process's first read waits
+ * for one (10 s at most, once), so a fresh process, like the tick's source alert, sees its bridges.
  */
-function latestHealths(): Healths {
-  if (!checking && performance.now() - checkedAt > 15_000) {
-    checking = true;
+async function latestHealths(): Promise<Healths> {
+  if (!check && performance.now() - checkedAt > 15_000) {
     // In a promise from the start: a check that throws at once never stops the snapshot or the next check.
-    Promise.resolve()
+    check = Promise.resolve()
       .then(() => connectorHealths(["bridge"]))
       .then((h) => {
         healths = h;
       })
       .catch(() => undefined)
       .finally(() => {
-        checking = false;
+        check = undefined;
         checkedAt = performance.now();
       });
   }
+  if (checkedAt === Number.NEGATIVE_INFINITY) {
+    await check;
+  }
   return healths;
 }
+
+/** A source card's facts: its newest item (each part's), its last copy, how long its store has been failing. */
+const sourceFacts = (
+  n: Newest,
+  copiedAt: string | null | undefined,
+  failingSince: string | undefined
+): Fact[] => [
+  { at: n.at, label: n.parts?.length ? "Newest" : "Last item" },
+  ...(n.parts ?? []).map((p) => ({ at: p.at, label: p.label })),
+  ...(copiedAt === undefined ? [] : [{ at: copiedAt, label: "Last copied" }]),
+  ...(n.facts ?? []),
+  ...(failingSince ? [{ at: failingSince, label: "Failing since" }] : []),
+];
 
 /** A source read from its own store (`Descriptor.newest`): its newest item, its last copy, its failure. */
 function sourceCard(r: Reads, d: Descriptor): Card {
@@ -526,47 +553,40 @@ function sourceCard(r: Reads, d: Descriptor): Card {
     ? { tone: "bad" as Tone, word: "bridge down" }
     : readTone;
   const why = broken?.error ?? (read.ok ? undefined : read.error);
+  // Why it is red, in the app, its ask and the source alert.
+  const cause = failing.length
+    ? failing.map((p) => p.text).join(", ")
+    : String(why ?? "cannot be read");
+  const red = tone.tone === "bad";
   return {
     ...tone,
-    ...(tone.tone === "bad"
-      ? {
-          ask: ASK(
-            failing.length
-              ? `that ${d.label}: ${failing.map((p) => p.text).join(", ")}`
-              : `that ${d.label} cannot be read`
-          ),
-        }
-      : {}),
+    ...(red ? { ask: ASK(`that ${d.label}: ${cause}`) } : {}),
     content: [
       ...failing.map((p) => clip(p.text, 300)),
       ...(n.words ?? []).map((w) => clip(w, 140)),
       ...(why ? [`Error: ${clip(String(why), 300)}`] : []),
     ],
-    facts: [
-      { at: n.at, label: n.parts?.length ? "Newest" : "Last item" },
-      ...(n.parts ?? []).map((p) => ({ at: p.at, label: p.label })),
-      ...(copiedAt === undefined
-        ? []
-        : [{ at: copiedAt, label: "Last copied" }]),
-      ...(n.facts ?? []),
-      ...(broken ? [{ at: broken.at, label: "Failing since" }] : []),
-    ],
+    facts: sourceFacts(n, copiedAt, broken?.at),
     group: "sources",
-    headline: tone.word,
+    headline: red ? clip(cause, 200) : tone.word,
     id: d.name,
     name: d.label,
   };
 }
 
-/** A source he turned on that can't be read now (not set up, or its access gone): what it needs. Its units are kept. */
+/**
+ * A source he turned on that can't be read now (not set up, or its access gone): what it needs. Its units are kept. An
+ * imported one with nothing imported is idle: nothing fails, there is nothing to read yet.
+ */
 const unreadableCard = (d: Descriptor, why: string): Card => ({
   facts: [],
   group: "sources",
   headline: why,
   id: d.name,
   name: d.label,
-  tone: "bad",
-  word: "can't read",
+  ...(d.imported
+    ? { tone: "idle", word: "not imported" }
+    : { tone: "bad", word: "can't read" }),
 });
 
 function sourceCards(r: Reads): Card[] {
@@ -592,7 +612,9 @@ function sourceCards(r: Reads): Card[] {
         },
       ],
       group: "sources",
-      headline: r.contacts.ok ? "readable" : "unreadable",
+      headline: r.contacts.ok
+        ? "readable"
+        : clip(String(r.contacts.error), 200),
       id: "contacts",
       name: "Contacts",
     },
@@ -1230,6 +1252,10 @@ const RANK: Record<Tone, number> = {
   teal: 1,
   warn: 2,
 };
+
+/** The sources in red, Life can't read them now: the source alert mails them (`sourcesReport`), a quiet one (amber) not. */
+export const redSources = (cards: Card[]) =>
+  cards.filter((c) => c.group === "sources" && c.tone === "bad");
 
 /** Everything in the status snapshot now. */
 export async function snapshot(now = clock()) {
