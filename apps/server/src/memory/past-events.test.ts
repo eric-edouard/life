@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Moment } from "../records/moment";
-import { type Draft, drafts, plan, tiled } from "./past-events";
+import { type Draft, drafts, plan } from "./past-events";
 import { madeBy, unit } from "./record-fixtures";
 
 const moment = (over: Partial<Moment> = {}): Moment => ({
@@ -103,23 +103,20 @@ test("a sync keeps what shows as it is, rewrites what changed or doubled, delete
   expect(stale.map((e) => e.id)).toEqual(["e2", "e2b", "e3", "e9"]);
 });
 
-test("moments never overlap: what covers another is left off, what runs into the next ends where it starts, a single whole day stays", () => {
-  const at = (from: string, to: string, allDay = false) => ({
-    allDay,
-    from,
-    to,
+test("a big moment keeps its event beside the smaller ones inside it (the night out dropped for a chat, 1 Nov)", () => {
+  const night = moment({
+    end: "2026-10-20 23:30",
+    start: "2026-10-20 20:00",
+    title: "Night out",
   });
-  const stay = at("2026-10-19T14:00:00.000Z", "2026-10-21T10:00:00.000Z");
-  const dinner = at("2026-10-19T19:00:00.000Z", "2026-10-19T21:00:00.000Z");
-  const talk = at("2026-10-19T20:30:00.000Z", "2026-10-19T22:00:00.000Z");
-  const twin = at("2026-10-19T20:30:00.000Z", "2026-10-19T22:00:00.000Z");
-  const busyDay = at("2026-10-19", "2026-10-20", true);
-  const quietDay = at("2026-10-23", "2026-10-24", true);
-  const trip = at("2026-10-18", "2026-10-21", true);
-  expect(tiled([stay, trip, busyDay, dinner, talk, twin, quietDay])).toEqual([
-    busyDay,
-    quietDay,
-    { ...dinner, to: "2026-10-19T20:30:00.000Z" },
-    twin,
+  const chat = moment({
+    end: "2026-10-20 21:07",
+    id: "mom_000000000002",
+    start: "2026-10-20 21:00",
+    title: "Chat",
+  });
+  expect(drafts([night, chat], known, now).map((d) => d.summary)).toEqual([
+    "Night out",
+    "Chat",
   ]);
 });
