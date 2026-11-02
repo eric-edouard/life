@@ -25,7 +25,8 @@ The user message is one JSON object:
   are often unnamed; the owner wears the recorder, so a speaker talking about his shop, house, family, apps or plans is
   usually the owner; the recorder also picks up TV, videos, customers and strangers); for chats and mail, its messages as
   `HH:MM who: text` (`who` is `me` for the owner, a person ref, or a label such as a phone number for someone not
-  identified; a message its sender deleted afterwards is still shown), clipped when long; for git, his commits.
+  identified; a message its sender deleted afterwards is still shown), clipped when long; for git, its commits as
+  `HH:MM who: message` (mostly his agents', see below).
 - `unknown`: the handles (a phone number, a WhatsApp, LINE, Instagram or Telegram id) and names in today's units that are not on his map,
   each with the ids of the units it appears in. In the units' lines such a sender shows as its handle.
 - `earlier`: moments Life found on the days before, that still matter today (planned ones, ones that may continue),
