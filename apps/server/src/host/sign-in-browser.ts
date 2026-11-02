@@ -5,8 +5,9 @@ import { CHROME } from "../core/platform";
 import { untilAnswers } from "../core/proc";
 import type { CookieStep } from "../sources/matrix";
 
-// A sign-in browser for a bridge's cookie step (`bun life bridge link`): Chrome opened on the step's page in a fresh
-// profile of its own, its DevTools port picked by Chrome (`DevToolsActivePort`, so never another browser's). He signs in
+// A sign-in browser for a bridge's cookie step (`bun life bridge link`): Chrome in a fresh
+// profile of its own, its DevTools port picked by Chrome (`DevToolsActivePort`, so never another browser's), sent to the step's page as
+// the browser the bridge claims to be (`openingCalls`). He signs in
 // as usual; Life reads what each field names (a cookie, a header or body of the page's own requests, local storage, the
 // step's `extract_js`) and, once every required field has a value and the page reached `wait_for_url_pattern`, closes
 // the window. Chrome is stopped and its profile deleted on every path, Ctrl-C and his quitting Chrome included.

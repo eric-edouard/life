@@ -23,4 +23,5 @@ network needs (your email and password, a code), hidden as you type. When a netw
 (Instagram, LinkedIn), it opens a Chrome window on the site: sign in as usual and it closes by itself once you're in
 (a fresh profile of its own, deleted after, presenting itself as the browser the bridge claims to be: LinkedIn revokes
 cookies another browser signed in for). Without Chrome, it asks you to paste one request ("Copy as cURL" from
-the developer tools' Network tab); LinkedIn revokes those within minutes. A linked network is turned on as a source; Life copies it once it restarts.
+the developer tools' Network tab); LinkedIn revokes those within minutes. A linked network is turned on as a
+source; Life copies it once it restarts.
