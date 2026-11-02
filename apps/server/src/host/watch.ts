@@ -274,6 +274,8 @@ export async function watch(): Promise<number> {
           );
         }
       }
+      // Before the units' sync: a new ask's agent starts without waiting for the reindex.
+      minute();
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
       // each poll), `dirty` keeps the sync due.
       if (dirty && !more && !isLocked()) {
@@ -283,9 +285,9 @@ export async function watch(): Promise<number> {
     } catch (e) {
       result = { error: (e as Error).message };
       console.error(clock().toISOString(), result.error);
+      // A failed poll too: lifelog down never stops the agents' minute (1 Nov: 20 h without one).
+      minute();
     }
-    // After every poll, failed ones too: lifelog down never stops the agents' minute (1 Nov: 20 h without one).
-    minute();
     health = afterPoll(health, clock(), result, started);
     if ("error" in result && health.consecutiveErrors === 1) {
       log("run.error", { error: result.error, step: "watch" });

@@ -111,7 +111,7 @@ final class HostModel {
             }
         }
         if setUp {
-            openAtLogin(UserDefaults.standard.object(forKey: "openAtLogin") as? Bool ?? true)
+            openAtLogin(UserDefaults.standard.object(forKey: Self.openAtLoginKey) as? Bool ?? true)
             await exclusive { await restart() }
         } else {
             tailnet = await Tailscale.serve(serving: false)
@@ -231,12 +231,17 @@ final class HostModel {
         return outcome.ok
     }
 
+    /// Kept apart from `HostSettings`: the toggle acts at once, a form's Save would write back a stale copy.
+    static let openAtLoginKey = "openAtLogin"
+
     /// Open at login on or off; a refusal shows. The choice is kept (on unless turned off) and made true again at each
     /// start: a reinstalled ad hoc build has a new signature and loses its login item (1 Nov: a reboot left lifelog
     /// down 20 h).
+    /// He turned it off in System Settings (`.requiresApproval`): his choice there stands.
     func openAtLogin(_ on: Bool) {
-        UserDefaults.standard.set(on, forKey: "openAtLogin")
-        guard on != (SMAppService.mainApp.status == .enabled) else { return }
+        UserDefaults.standard.set(on, forKey: Self.openAtLoginKey)
+        let status = SMAppService.mainApp.status
+        guard on != (status == .enabled), !(on && status == .requiresApproval) else { return }
         do {
             try on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
         } catch {
