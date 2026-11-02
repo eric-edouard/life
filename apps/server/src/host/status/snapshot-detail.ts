@@ -1,10 +1,9 @@
 import { clock, DAY, MIN } from "../../core/clock";
-import { isAgent, recentEvents } from "../../core/log";
+import { recentEvents } from "../../core/log";
 import { changeFeed, encode } from "../../memory/changes";
 import { runs, STEPS, useText } from "../../memory/run-log";
 import { SOURCES } from "../../memory/sources";
 import { clip } from "../../memory/units";
-import { taskList } from "../agent";
 import { sleeps } from "./mac";
 import {
   cached,
@@ -36,7 +35,6 @@ const read = (name: string) => (e: LogLine) =>
 const LOGS: Record<string, (e: LogLine) => boolean> = {
   ...Object.fromEntries(SOURCES.map((d) => [d.name, read(d.name)])),
   archive: (e) => e.step?.startsWith("archive.") ?? false,
-  asks: (e) => e.kind === "mcp.call" && isAgent(e.agent),
   backup: (e) => e.step === "backup",
   clients: (e) => e.kind === "mcp.call",
   connector: (e) => e.kind === "mcp.call",
@@ -46,8 +44,7 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   lifelog: (e) => e.step === "watch" || read("lifelog")(e),
   past: (e) => e.kind === "calendar.write",
   pendant: read("lifelog"),
-  reminders: (e) => e.kind === "board.write" || e.kind === "sync.pull",
-  tasks: (e) => e.kind === "board.write",
+  reminders: (e) => e.kind === "sync.pull",
   watcher: (e) => e.step === "watch",
 };
 
@@ -186,18 +183,6 @@ async function ownHistory(
   if (id === "memory") {
     return { entries: await changeHistory(older, before), pages: true };
   }
-  if (id === "tasks") {
-    const entries = taskList(clock().getTime()).map(
-      (x): Entry => ({
-        at: x.deadline ?? "",
-        content: x.quote,
-        sub: `${x.age} old${x.note ? ` · ${x.note}` : ""}`,
-        title: `${x.state} · ${x.id}`,
-        tone: x.state === "waiting-owner" ? "warn" : "busy",
-      })
-    );
-    return { entries, pages: false };
-  }
   if (id === "mac") {
     const s = await cached("sleeps", 5 * MIN, () => sleeps(clock().getTime()));
     const entries = s
@@ -210,7 +195,7 @@ async function ownHistory(
 
 /**
  * A card's detail: its history (newest first, `PAGE` at a time before `before`), and its raw log lines. A sweep's
- * history is its runs; the tasks' their list; the memory's its latest changes; any other card its log lines.
+ * history is its runs; the memory's its latest changes; any other card its log lines.
  */
 export async function detail(id: string, before?: string) {
   // The last 8 days, or as far back as `before` and 8 days more: paging goes back through the whole log.

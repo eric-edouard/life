@@ -23,7 +23,7 @@ export function held(path: string) {
     const since = statSync(path).mtime;
     const [pid = "", note = ""] = readFileSync(path, "utf8").split("\n");
     process.kill(Number(pid), 0);
-    // ponytail: the lock's real mtime and boot time against the clock; a frozen run (the bench) never takes a lock.
+    // ponytail: the lock's real mtime and boot time against the clock.
     return since.getTime() >= clock().getTime() - uptime() * 1000
       ? { note, pid, since }
       : null;

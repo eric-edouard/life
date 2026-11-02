@@ -1,12 +1,11 @@
 import { join } from "node:path";
-import { unfrozen } from "../core/clock";
 import { HOME } from "../core/platform";
 import { exec } from "../core/proc";
 import type { Change, TodoItem, TodoListBackend } from "./contract";
 
 // The Reminders backend: his Apple Reminders through remctl (its signed host, `--json`). Only `backend.ts` uses it.
 // Its check (`checks`) is one `lists` read, not `remctl doctor` (its Tailscale probe times out while Reminders are
-// fine); a broken private helper (sections, subtasks) shows as a partial on an act, on the board only in the log.
+// fine); a broken private helper (sections, subtasks) shows as a partial on an act.
 
 /** remctl (github.com/viticci/remctl), where its installer puts it, for every install. */
 const REMCTL = join(HOME, "bin", "remctl");
@@ -40,7 +39,6 @@ const parse = <T>(s: string) => {
  * Killed after a minute (exec's default), so a stuck Reminders host cannot hold the queue.
  */
 export async function remctl<T = Record<string, unknown>>(args: string[]) {
-  unfrozen("touch his Reminders");
   const [command, ...rest] = args;
   const r = await exec([REMCTL, command ?? "", "--json", ...rest], {
     env: { ...process.env, NO_COLOR: "1", REMCTL_SKIP_ONBOARD: "1" },

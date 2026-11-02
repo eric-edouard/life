@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { clock, unfrozen } from "../core/clock";
+import { clock } from "../core/clock";
 import { readJson } from "../core/files";
 import { digest } from "../core/hash";
 import { log } from "../core/log";
@@ -825,7 +825,6 @@ export const FORWARD_KINDS = Object.keys(FORWARDS);
 
 /** Sends one correction the owner approved, logging the request before it and the answer after it. */
 export async function forward(kind: string, a: Fix) {
-  unfrozen("write to lifelog");
   const f = FORWARDS[kind];
   if (!f) {
     throw new Error(`not a forwardable correction: ${kind}`);

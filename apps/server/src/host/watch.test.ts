@@ -12,7 +12,6 @@ import {
   pageFixture,
 } from "../sources/store-fixtures";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as agent from "./agent";
 import type { Health } from "./health";
 import { hear } from "./hear";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -164,7 +163,7 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
   }
 });
 
-test("lifelog down, the tasks' minute still runs (1 Nov: 20 h of failed polls ran none)", async () => {
+test("lifelog down, the to-do minute still runs (1 Nov: 20 h of failed polls ran none)", async () => {
   const server = lifelogServer({});
   const spies = [
     // The code it runs at start, then twice unchanged (two failed polls), then new: it exits.
@@ -175,14 +174,12 @@ test("lifelog down, the tasks' minute still runs (1 Nov: 20 h of failed polls ra
       .mockReturnValueOnce("same"),
     spyOn(Bun, "sleep").mockResolvedValue(undefined),
     spyOn(http, "serve").mockImplementation(() => undefined),
-    spyOn(agent, "chase").mockResolvedValue(undefined),
   ];
   const timer = spyOn(globalThis, "setInterval");
   const cleared = spyOn(globalThis, "clearInterval");
   try {
     expect(await watch()).toBe(0);
-    expect(agent.chase).toHaveBeenCalled();
-    // Then every minute on its own, until new code stops the watcher.
+    // Every minute on its own, until new code stops the watcher.
     expect(timer).toHaveBeenCalledWith(expect.any(Function), MIN);
     expect(cleared).toHaveBeenCalledWith(timer.mock.results[0]?.value);
   } finally {

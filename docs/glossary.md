@@ -11,9 +11,9 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". A task waiting on him is `waiting-owner`. | |
+| owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". | |
 | agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`) and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
-| pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but its board and task updates are refused. | |
+| pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but pulls no asks. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
 
@@ -21,20 +21,16 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 
 | Word | Means | Planned |
 |---|---|---|
-| ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, a Claude session, or the agent's own split. A ledger entry of kind `ask`. | |
+| ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, or a Claude session. A ledger entry of kind `ask`; the agent pulls its own with `read_agent_asks`. | |
 | mark | An ask's span in a recording, recorded by the hearing so its unit is read again at importance 3 (`marked` on the unit). Not a separate wake: "hey Life" is one of the agent's wake words. | |
-| task | The agent's work on one ask: the ask and the updates and replies that follow, open until the agent closes it done or dropped. | |
-| update | The agent's report on a task: its state, steps, outcome; `taken: true` when it takes the task. | |
-| reply | What the agent tells the owner, logged before it sends it. | |
 | bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can read LINE, Instagram and LinkedIn (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). Not the connector (the MCP server). | |
-| board | The agent's own list in the owner's to-do list, one item per open task. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
 
 ## The ledger and the to-do list
 
 | Word | Means | Planned |
 |---|---|---|
-| ledger | `memory/ledger.jsonl`: every line where something crossed Life's boundary: the owner's asks and grants, the agent's updates and replies, Life's changes to his to-do list. Append-only. | |
+| ledger | `memory/ledger.jsonl`: every line where something crossed Life's boundary: the owner's asks and grants, Life's changes to his to-do list. Append-only. | |
 | ledger entry | One line of the ledger (`LedgerEntry`, id `entry_…`). Its `via` says through what it came: a session, the connector, the watcher, the to-do list. | |
 | to-do list | Where Life acts: the owner's Apple Reminders or Google Tasks, one per install (the `todo_list` setting, `TodoListBackend`, `todo-list/`). | |
 | to-do item | One entry in the to-do list (`TodoItem`). | |
@@ -87,13 +83,13 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Past calendar | The calendar Life writes every moment that happened to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
-| watcher | The always-on service: every minute it folds in lifelog, hears asks, chases tasks and syncs the board. | |
+| watcher | The always-on service: every minute it folds in lifelog, hears asks and syncs the to-do list. | |
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |
 | status reads | Life's read-only JSON about itself: the connector's `read_life_status`, `read_processing_runs`, `read_memory_changes` and `read_observation` (`docs/status-reads.md`), and the app's local `/status/*` (`host/http/status-reads.ts`). | |
 | web app | Life's pages for him (`apps/web`, served at `/`), each behind his sign-in; not the Mac app (Life.app). | |
-| connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory`, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write; `search` and `fetch` keep ChatGPT's names. | |
+| connector | Life's MCP server (`/mcp`), which ChatGPT and Claude call. Its tools say what they do: `read_…` reads, `correct_memory` and `change_todo_item` write; `read_agent_asks` is an agent's own feed of asks; `search` and `fetch` keep ChatGPT's names. | |
 | record | One of the zod schemas of what Life writes, in `apps/server/src/records/`, one file per record (`unit.ts`, `moment.ts`, `ledger-entry.ts`…). | |
 
 ## Folders

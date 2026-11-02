@@ -155,7 +155,7 @@ struct SettingsView: View {
           // Google Tasks is the backend (set in his settings): shown on, never switched from here.
           Section("Actions") {
             Toggle("Use your Google Tasks", isOn: .constant(true)).disabled(true)
-            Text("Life adds tasks when you ask, keeps your agent's list and reads your changes back.").caption()
+            Text("Life adds tasks when you ask and reads your changes back.").caption()
           }
         } else if let r = supervisor.info?.reminders {
           Section("Reminders") {
@@ -170,7 +170,7 @@ struct SettingsView: View {
                 .disabled(installing)
             }
             Text(r.ready
-              ? "Life adds reminders when you ask, keeps your agent's list and reads your changes back."
+              ? "Life adds reminders when you ask and reads your changes back."
               : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
               .caption()
           }

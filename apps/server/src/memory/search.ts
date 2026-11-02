@@ -45,7 +45,6 @@ import {
   readVerdicts,
   type Standing,
   stateOf,
-  tasksOf,
   verdictOf,
   writtenPeople,
 } from "./ledger";
@@ -53,7 +52,6 @@ import { SURE_AT } from "./observe";
 import { bodyOf, generated, parsePage, renderLine } from "./page-format";
 import { goalProjects, loadTruth, OWNER, type Truth } from "./read-truth";
 import { kindOf, listening } from "./sources";
-import { closed, nameOf, standing as taskStanding } from "./tasks";
 import {
   clip,
   dayRange,
@@ -322,38 +320,6 @@ async function voiceHits(words: string, range: { from?: string; to?: string }) {
   }
 }
 
-/** What the agent wrote on a task's lines: its words, not its fields (a state or a deadline matches nothing). */
-const REPORTS = ["note", "outcome", "reason", "question", "text"];
-
-/**
- * The tasks whose words (his ask, its title) or the agent's own lines (notes, outcomes, replies) hold every word, asked
- * between `from` and `to`, oldest first; matched when read, never checked against his memory.
- */
-export function taskHits(
-  holds: (text: string) => boolean,
-  o: Days,
-  tasks = tasksOf()
-) {
-  return tasks
-    .filter(
-      (t) =>
-        daysMeet(o, localDate(t.ask.at)) &&
-        holds(
-          [
-            t.ask.instruction.quote,
-            t.ask.after.title,
-            ...t.lines.flatMap((l) => REPORTS.map((k) => l.after[k])),
-          ]
-            .filter((x) => typeof x === "string")
-            .join(" ")
-        )
-    )
-    .map((t) => {
-      const { state, word } = taskStanding(t);
-      return `- ${t.ask.id} ${localDate(t.ask.at)} ${state}: ${nameOf(t)}${word ? ` → ${clip(`${word}`, 200)}` : ""}`;
-    });
-}
-
 /** `from`/`to` (local days, both included) bound every section. */
 export async function search(words: string, o: Days = {}) {
   const range = dayRange(o.from, o.to);
@@ -365,7 +331,6 @@ export async function search(words: string, o: Days = {}) {
     mailHits(words, range),
     momentsWhere((m) => inDays(o)(m) && holds(`${m.title} ${m.place ?? ""}`)),
   ]);
-  const tasks = taskHits(holds, o);
   return withIndex((db) => [
     ...(found.length > 0
       ? [
@@ -374,14 +339,7 @@ export async function search(words: string, o: Days = {}) {
           "",
         ]
       : []),
-    ...(tasks.length > 0
-      ? [
-          "Agents' tasks (their own reports, not checked by Life):",
-          ...cut(tasks, true),
-          "",
-        ]
-      : []),
-    ...(found.length + tasks.length > 0 ? ["Observations and units:"] : []),
+    ...(found.length > 0 ? ["Observations and units:"] : []),
     ...matches(db, words, o),
     "",
     `Voice (exact spoken words, the best ${VOICE_LIMIT}: narrow with \`from\`/\`to\` for others; conversation id, time, turn: \`fetch <id> --from-turn <turn>\`):`,
@@ -771,7 +729,7 @@ export const birthdaysNear = (
 /**
  * What `read_day` lists as due on `date` (`openItems`, apps/server/src/todo-list/items.ts, which merges, times and ranks): the importance-3 promises
  * and waiting items, and the to-dos he said (not a mail's), dated up to `OVERDUE_DAYS` before; his reminders in the
- * ledger; the replies he owes. Who said each, when not him, is labelled. The agent's daily review lists them (docs/agent.md).
+ * ledger; the replies he owes. Who said each, when not him, is labelled.
  */
 export function dueOf(
   db: Database,
@@ -783,12 +741,11 @@ export function dueOf(
       Row & {
         at: string;
         projects: string | null;
-        ref: string;
         whom: string | null;
       },
       [string, string, string, string, string, string]
     >(
-      `select ${COLUMNS}, o.at, o.ref,
+      `select ${COLUMNS}, o.at,
          (select group_concat(substr(entity, 9)) from links where observation = o.id and entity like 'project:%') as projects,
          (select entity from links where observation = o.id and entity like 'person:%' and entity != ? order by entity limit 1) as whom
        from observations o where o.importance = 3 and ${CURRENT}
@@ -812,7 +769,6 @@ export function dueOf(
     person:
       r.speaker && r.speaker !== OWNER ? r.speaker : (r.whom ?? undefined),
     projects: r.projects?.split(",") ?? [],
-    ref: r.ref,
     said: r.when ? undefined : r.date,
     when: r.when ?? undefined,
   }));
@@ -850,13 +806,11 @@ async function dueContext(date: string, truth: Truth) {
       ),
     ])
   );
-  const open = tasksOf().filter((t) => !closed(taskStanding(t).state));
   return {
     goals: goalProjects(truth.me.goals),
     levels,
     more: [...reminders, ...(await repliesOwed(new Date(end)))],
     shown: await shownDays(date),
-    tasks: new Set(open.map((t) => t.ask.instruction.ref)),
     today,
   };
 }

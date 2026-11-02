@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { readFileSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   createLocalJWKSet,
@@ -8,10 +8,8 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
-import { HOUR, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { LOG_DIR } from "../../core/log";
-import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../../core/paths";
 import {
   setSettings,
   settings,
@@ -27,7 +25,7 @@ import {
   pageFixture,
   turnFixture,
 } from "../../sources/store-fixtures";
-import { protocol, sealed, update } from "../agent";
+import { ask } from "../asks";
 import { ownerTokens } from "./auth";
 import { correct, createMcp } from "./mcp";
 
@@ -161,7 +159,7 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write but are not destructive, so Orbit runs unattended", async () => {
+test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, `change_todo_item` writes but is not destructive", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -171,20 +169,18 @@ test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, 
     "change_todo_item",
     "correct_memory",
     "fetch",
-    "log_reply_to_owner",
+    "read_agent_asks",
     "read_area_page",
     "read_chats",
     "read_day",
     "read_life_status",
     "read_memory_changes",
     "read_observation",
-    "read_open_agent_tasks",
     "read_open_todo_items",
     "read_person_page",
     "read_places_visited",
     "read_processing_runs",
     "search",
-    "update_agent_task",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
   const claim = json.result.tools.find(
@@ -201,12 +197,7 @@ test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, 
   expect(reminders.inputSchema.properties.target).toMatchObject({
     anyOf: [{ type: "string" }, { type: "integer" }],
   });
-  const writes = [
-    "correct_memory",
-    "change_todo_item",
-    "log_reply_to_owner",
-    "update_agent_task",
-  ];
+  const writes = ["correct_memory", "change_todo_item"];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
       openWorldHint: false,
@@ -327,88 +318,55 @@ test("a streamed request (subscriptions/listen) answers at once: nothing waits o
   await res?.body?.cancel();
 });
 
-test("tasks hands out the playbook, docs/agent.md as his agent's, with its seal, all of truth/me.md and closed tasks cut short; task refuses another seal with both", async () => {
+test("read_agent_asks: the paired agent's asks only, in the order recorded, each once past its cursor", async () => {
+  const said = (quote: string, agent: string, at: string) =>
+    ask(
+      { at, quote, ref: `test:${quote}` },
+      { agent, confidence: "high" },
+      "session",
+      "test"
+    );
+  const call = async (as: string, cursor?: string) =>
+    JSON.parse(
+      (
+        await rpc(as, "tools/call", {
+          arguments: cursor ? { cursor } : {},
+          name: "read_agent_asks",
+        })
+      ).json.result.content[0].text
+    );
   const bearer = await token();
-  const now = new Date().toISOString();
-  const words = { at: now, seal: sealed("Orbit").seal, taken: true };
-  let json: Awaited<ReturnType<typeof rpc>>["json"];
   try {
-    update(
-      {
-        ...words,
-        deadline: new Date(Date.now() + HOUR).toISOString(),
-        note: "on it",
-        said: "call the bank",
-        state: "working",
-      },
-      "Orbit"
-    );
-    update(
-      {
-        ...words,
-        at: new Date(Date.now() - MIN).toISOString(),
-        outcome: "booked ".repeat(100),
-        said: "book the dentist",
-        state: "done",
-      },
-      "Orbit"
-    );
-    ({ json } = await rpc(bearer, "tools/call", {
-      arguments: {},
-      name: "read_open_agent_tasks",
-    }));
+    said("call the bank", "Orbit", "2026-10-15T09:00:00.000Z");
+    said("water the plants", "Comet", "2026-10-15T09:01:00.000Z");
+    said("call the bank", "Orbit", "2026-10-15T09:00:00.000Z");
+    const first = await call(bearer);
+    expect(first.asks.map((a: { quote: string }) => a.quote)).toEqual([
+      "call the bank",
+    ]);
+    expect(first.asks[0]).toMatchObject({
+      confidence: "high",
+      spoke: "2026-10-15T09:00:00.000Z",
+    });
+    expect((await call(bearer, first.cursor)).asks).toEqual([]);
+    said("book the dentist", "Orbit", "2026-10-15T09:02:00.000Z");
+    const next = await call(bearer, first.cursor);
+    expect(next.asks.map((a: { quote: string }) => a.quote)).toEqual([
+      "book the dentist",
+    ]);
+    // An app paired without an agent reads the rest, but has no asks.
+    const bare = await token({ agent: undefined });
+    expect(
+      (
+        await rpc(bare, "tools/call", {
+          arguments: {},
+          name: "read_agent_asks",
+        })
+      ).json.result.content[0].text
+    ).toContain("paired without an agent");
   } finally {
     rmSync(LEDGER, { force: true });
   }
-  const { me, playbook, seal, tasks } = JSON.parse(json.result.content[0].text);
-  expect(playbook).toBe(
-    protocol(
-      readFileSync(join(LIFE_CODE_DIR, "docs", "agent.md"), "utf8"),
-      "Orbit"
-    )
-  );
-  expect(me).toBe(readFileSync(join(OWNER_DATA_DIR, "truth", "me.md"), "utf8"));
-  expect(me).toContain("1. Be well.");
-  // An open row stays whole; a closed one is cut to four fields.
-  expect([tasks[0].quote, tasks[0].steps]).toEqual(["call the bank", []]);
-  expect(Object.keys(tasks[1]).sort()).toEqual([
-    "id",
-    "note",
-    "state",
-    "title",
-  ]);
-  expect(tasks[1].note.length).toBeLessThanOrEqual(200);
-  expect(tasks[1].title).toBe("book the dentist");
-  const refused = await rpc(bearer, "tools/call", {
-    arguments: { seal: "stale", state: "dropped", task: "entry_000000000000" },
-    name: "update_agent_task",
-  });
-  const [answer] = refused.json.result.content;
-  expect(answer.text).toContain(seal);
-  expect(answer.text).toContain(playbook);
-});
-
-test("an app paired without an agent reads, but its board and its task updates are refused", async () => {
-  const bearer = await token({ agent: undefined });
-  const texts = await Promise.all(
-    [
-      ["read_open_agent_tasks", {}],
-      [
-        "update_agent_task",
-        { seal: "x", state: "dropped", task: "entry_000000000000" },
-      ],
-      ["read_life_status", {}],
-    ].map(async ([name, args]) => {
-      const { json } = await rpc(bearer, "tools/call", {
-        arguments: args,
-        name,
-      });
-      return json.result.content[0].text as string;
-    })
-  );
-  expect(texts[0]).toContain("paired without an agent");
-  expect(texts[1]).toContain("paired without an agent");
-  expect(texts[2]).not.toContain("paired without an agent");
 });
 
 test("reminders takes no instinct kind and needs his words: refused before anything acts", async () => {
@@ -459,7 +417,7 @@ const modern = async (method: string, params: object = {}) =>
     { "mcp-method": method, "mcp-protocol-version": "2026-07-28" }
   );
 
-test("the server is named Life, carries its icons, and its instructions open with the pointer to Orbit's playbook, not a copy, in 512 characters at most", async () => {
+test("the server is named Life, carries its icons, and its instructions fit in 512 characters", async () => {
   const { json } = await rpc(await token(), "initialize", {
     capabilities: {},
     clientInfo: { name: "test", version: "1" },
@@ -467,10 +425,7 @@ test("the server is named Life, carries its icons, and its instructions open wit
   });
   expect(json.result.serverInfo).toMatchObject({ name: "Life", title: "Life" });
   const { instructions } = json.result;
-  expect(instructions).toStartWith(
-    "An agent: call `read_open_agent_tasks` first; its `playbook` field is your instructions."
-  );
-  expect(instructions).not.toContain("# Orbit: the playbook");
+  expect(instructions).toStartWith("Life is the owner's memory");
   expect(instructions.length).toBeLessThanOrEqual(512);
   expect(
     json.result.serverInfo.icons.map((i: { src: string }) => i.src)
@@ -597,7 +552,7 @@ test("with the actions output off, the connector offers no Reminders tool", asyn
     const names = json.result.tools.map((t: { name: string }) => t.name);
     expect(names).not.toContain("change_todo_item");
     expect(names).not.toContain("read_open_todo_items");
-    expect(names).toContain("read_open_agent_tasks");
+    expect(names).toContain("read_agent_asks");
   } finally {
     setSettings({ todo_list: on });
   }

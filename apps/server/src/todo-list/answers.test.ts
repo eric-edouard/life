@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { isBoard, openOf } from "../todo-list/backend";
+import { openOf } from "../todo-list/backend";
 import {
   type GoogleTask,
   google,
@@ -48,32 +48,16 @@ test("a Google task reads as an item: its list's id in its id, its day only, tic
   });
 });
 
-test("on Google the board's list is made on first need, once; another missing list is an error", async () => {
+test("on Google a missing list is an error, never made", async () => {
   const calls: string[][] = [];
-  const b = google("owner@example.test", isBoard, (args) => {
+  const b = google("owner@example.test", (args) => {
     calls.push(args);
-    if (args[0] === "lists") {
-      return Promise.resolve(
-        args[1] === "create"
-          ? { tasklist: { ...gog.create.tasklist, title: args[2] } }
-          : gog.lists
-      );
-    }
-    return Promise.resolve(args[0] === "add" ? gog.add : {});
+    return Promise.resolve(args[0] === "lists" ? gog.lists : gog.add);
   });
-  const first = await b.add({
-    list: "Orbit",
-    notes: "entry_1",
-    title: "A task",
-  });
-  await b.add({ list: "Orbit", notes: "entry_2", title: "Another" });
-  expect(first.id).toBe(`${gog.create.tasklist.id}/${gog.add.task.id}`);
-  expect(calls.filter((c) => c[1] === "create")).toEqual([
-    ["lists", "create", "Orbit"],
-  ]);
   await expect(b.add({ list: "Nowhere", title: "x" })).rejects.toThrow(
     "no list Nowhere"
   );
+  expect(calls.filter((c) => c[1] === "create")).toEqual([]);
 });
 
 test("a change's fields go to gog as one value each, a dash kept as a value, null clearing", () => {

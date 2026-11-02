@@ -4,7 +4,7 @@ import { CODEX } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
 
 // The app's helper: Life compiled to one binary (`bun build --compile`), and the files it reads at run time (prompts,
-// the agent's protocol, every page's assets, the pinned codex) beside it, at the paths the code reads them from, for the app to pass as `LIFE_CODE_DIR`. Usage:
+// every page's assets, the pinned codex) beside it, at the paths the code reads them from, for the app to pass as `LIFE_CODE_DIR`. Usage:
 // `bun scripts/helper.ts [out]` (default dist/helper).
 
 const ROOT = join(import.meta.dir, "..");
@@ -39,7 +39,6 @@ await Promise.all([
     }
   ),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
-  cp(join(ROOT, "docs", "agent.md"), join(resources, "docs", "agent.md")),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
   cp(join(ROOT, CODEX), join(resources, CODEX)),
 ]);

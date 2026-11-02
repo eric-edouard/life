@@ -290,41 +290,38 @@ line the owner deletes is recorded as `not-important` for its observations on th
 ## ledger.jsonl
 
 What Life did outside itself on the owner's clear request (appended by `act`, `apps/server/src/host/act.ts`), what the owner changed in
-Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the agent's tasks (`apps/server/src/host/agent.ts`: the owner's asks and their lines):
+Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`), and the owner's asks of his agents (`apps/server/src/host/asks.ts`):
 `{schemaVersion: 1, id, at, kind, instruction?: {ref, quote, at}, why, target, before?, after, result, error?, via, timing?}`.
 
-- `id`: `entry_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, often none; a split hashes its
+- `id`: `entry_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, which is none now; a split hashed its
   parent's id instead of `ref`): the same words act or ask once; a failed try may rerun.
 - `instruction`: the owner's words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
-  act` or `ask`) or `connector:<at>` (a chat; for a task the agent made, the instant the owner sent the message) or an observation's id (an add of the
+  act` or `ask`) or `connector:<at>` (an ask the agent recorded from a chat, before 2 Nov 2026) or an observation's id (an add of the
   standing grant: the owner's quote and when the owner said it). `at`: when the owner said it.
 - `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a reminder
   Life links with no change: the first sync's baseline, fields it learns, its own add whose answer was lost), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
-  the owner's words in `instruction`; the latest one stands). A task's own lines,
-  with no `instruction` and the task's (its ask's) id as `target`: `update` (the agent, the connector's `update_agent_task`: `after` is
-  the update, `state` working, waiting-owner, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
-  `reason`, `steps` [{title, done}], `taken`), `reply` (what the agent told the owner, the connector's `log_reply_to_owner`: `after.text`,
-  clipped at 4,000 characters; one on no task has `target` `chat`) and, until 20 Oct, `nudge` (Life: `after.why`, the task was past
-  its deadline) and `steer` (the owner's change to its board item, `after.changes` and `note`); those only parse now. Id: `entry_` + 12 hex over
+  the owner's words in `instruction`; the latest one stands). An ask's old lines (`TASK_LINES`), written until 2 Nov 2026 and only parsed now,
+  have no `instruction` and the ask's id as `target`: `update` (the agent: `after` is the update, `state` working, waiting-owner, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
+  `reason`, `steps` [{title, done}], `taken`), `reply` (what the agent told the owner: `after.text`,
+  clipped at 4,000 characters; one on no ask has `target` `chat`) and, until 20 Oct, `nudge` (Life: `after.why`) and `steer` (the owner's change to the agent's list item, `after.changes` and `note`). Id: `entry_` + 12 hex over
   `<task>@<at> | kind` (a reply's also over its text).
-- `target`: `reminder:<numericId>` or `gtask:<list>/<task>` (the actions backend's item), `reminder:new` or `gtask:new` (a failed add), `AGENT_WORD` (an ask), a task's id (its lines) or `chat`
-  (a reply on no task).
+- `target`: `reminder:<numericId>` or `gtask:<list>/<task>` (the actions backend's item), `reminder:new` or `gtask:new` (a failed add), `AGENT_WORD` (an ask), an ask's id (its old lines) or `chat`
+  (a reply on no ask).
   `before` / `after`: the reminder's fields before, and what was written; never a transcript. An add's `after.link` is
   the reminder's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a reminder whose move gave it a new one. An ask's
-  `after`: `agent` (the agent it is for, a key of the `agents` setting; a split's is its parent's), `confidence` (`high`: lifelog says the owner spoke, or a session or a chat; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (the agent it is for, a key of the `agents` setting), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
-  event carries only that); for a task the agent made, `title` (one part of
-  the owner's message, or a split) and, for a split, `parent` (the task it came from, whose `instruction` it repeats). A heard
+  event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
   ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
   `instruction.at` and `at` it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
   `duplicate` (an open reminder had the title; nothing written) or `intent` (written by `act` just before a Reminders
   write, with the same `id` as the outcome line after it: a value it tried is Life's, never the owner's). `via`: `session`
-  (a Claude session), `connector` (a chat, the agent's updates and replies), `watch` (the watcher: a `hey <agent>` heard; a
+  (a Claude session), `connector` (the agent's chats, updates and replies, until 2 Nov 2026), `watch` (the watcher: a `hey <agent>` heard; a
   nudge or a steer until 20 Oct) or `reminders` (the owner's own change in Reminders, with no `instruction`: state, never the owner's
-  words; on a task, an `update` closing it because the owner ticked or removed its receipt). Intents and imports are left out
+  words). Intents and imports are left out
   of `read_day`'s and the nightly's Actions and of the change feed.
 - Lines from before 19 Oct also have `kind` `instinct` (an email, `target` `mailto:<address>`), `timing` with `heard`,
   `modelMs` and `actMs`, and a model as `via`; they still parse.

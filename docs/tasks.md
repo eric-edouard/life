@@ -3,32 +3,26 @@
 Developer reference: how Life acts, hands work to the agent and serves the connector.
 
 Life is a memory: it reads. It acts in a few narrow ways, each logged in `memory/ledger.jsonl`, and hands deep work
-to the owner's agent. This page holds the developer-facing rules. The agent's own instructions are
-the playbook, `docs/agent.md`: it is read at run time, so it is not repeated here.
+to the owner's agent by recording his asks for it to pull. Life has no instructions for the agent and keeps no state of
+its work: the agent keeps its own list.
 
 ## The agent
 
 - His agents are the `agents` setting, by name: wake words and misheard forms. No two share a word. "hey <word>"
-  makes an ask for the agent the turn's first wake word names (`after.agent`); `bun life ask <agent>` and a chat with an agent make one for that agent, and a split is its parent's. An agent is known on the
-  connector by its pairing (`bun life pair <agent>`, the grant's agent claim): it reads and writes only its own board
-  and tasks; a grant with no claim (a plain app, `bun life pair` alone) reads only. Wherever Life names an agent, it writes its name; the word stored for its source (the ledger's `target`, its source's name, its units' sender)
+  makes an ask for the agent the turn's first wake word names (`after.agent`); `bun life ask <agent>` makes one for that agent. An agent is known on the
+  connector by its pairing (`bun life pair <agent>`, the grant's agent claim): it pulls only its own asks; a grant with
+  no claim (a plain app, `bun life pair` alone) reads only. Wherever Life names an agent, it writes its name; the word stored for its source (the ledger's `target`, its source's name, its units' sender)
   is one constant, `AGENT_WORD` (`core/names.ts`), kept as first written because stored data is append-only.
-- **How asks reach it:** each agent pulls its own with `read_open_agent_tasks`; Life starts no agent. Its runs claim
-  the asks (`taken`), so two runs never do one. An ask nobody takes waits on the board and Life emails him at 30 min.
+- **How asks reach it:** the agent pulls its own with `read_agent_asks` (`cursor`, `limit`; it returns `asks`, `cursor`,
+  `remaining`), and keeps its own list; Life starts no agent and tracks no state of an ask past its line. Each ask has
+  its `id`, `at` (recorded), `spoke`, `quote` and `confidence`. The cursor counts ledger lines, so an ask recorded late
+  is never skipped and none comes twice.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send
   from every account. This is a known, accepted risk (`SECURITY.md`, "Agents"): an unattended run reads others' text with full
-  access, within his grants.
-- Only these become asks: a `hey <agent>` turn that isn't someone else's, the owner's own chats with the agent,
-  and `bun life ask`. Nothing else Life reads ever does.
-- **The playbook** is `docs/agent.md` (the protocol, `{agent}` replaced by its name), then the owner's own part,
-  `playbook.md` in the owner data dir. `read_open_agent_tasks` reads both fresh on every call and returns them as `playbook` with a `seal` (a
-  hash of the text and a 6-hour window); `update_agent_task` refuses a write without the current seal and answers with the text.
-  Its parts are cut by `protocol` (`agent.ts`): the text between `<!-- reminders -->` markers while the to-do list is off.
-  Keep the markers.
-- What the owner pastes in ChatGPT is one fixed sentence pointing at the playbook ([Set up your agent](use/agent.md)).
-  The connector's instructions (512 characters at most) open with that line.
-- The playbook makes the agent confirm a low-confidence ask with the owner first, send as the owner only under its
-  `## Sends`, and change reminders only through the connector's `change_todo_item`.
+  access, within his grants. Its rules (when it asks him first, what it may send) are its own, not Life's.
+- Only these become asks: a `hey <agent>` turn that isn't someone else's, and `bun life ask`. Nothing else Life reads ever does.
+- What the owner pastes into the agent is up to him ([Set up your agent](use/agent.md)); the connector's instructions
+  (512 characters at most) are about the memory, not the agent.
 
 ## Asks
 
@@ -38,29 +32,13 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
     hears for the agent's name (the `misheard` setting: a real name, or "at last") is `"low"`. A turn lifelog gives to
     someone else is dropped before the ledger.
   - The ask and the turns after it, until another speaker or a 15 s pause, are one ask.
-- `ask` (`apps/server/src/host/agent.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`);
-  the agent reads it with `read_open_agent_tasks`.
-- The agent also records one through `update_agent_task` from the owner's chat (`via: "connector"`): the owner's verbatim words and when
-  the owner sent them (`said`, `at`; `ref` `connector:<at>`, one id per message and `title`), or a split of an open task
-  (`parent`, `title`) that inherits its words. Never a task without the owner's words. It is taken in the same call.
+- `ask` (`apps/server/src/host/asks.ts`) records it in `memory/ledger.jsonl` (`kind: "ask"`, `target` `AGENT_WORD`), once
+  per `ref`; `asksFor` is what `read_agent_asks` returns.
 - An ask line's `instruction.quote` keeps the owner's words whole (clipped at 50,000 characters). This is the one place memory
   stores more than a short quote of speech.
-- `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded,
-  taken, closed.
-
-## Tasks
-
-- **Every ask is a task until the agent closes it done (an outcome) or dropped (a reason)** (where each stands: `apps/server/src/memory/tasks.ts`; its writes and chases: `apps/server/src/host/agent.ts`). A task is
-  its ask line plus its own lines in the same ledger (`TASK_LINES`: no `instruction`, `target` = the task).
-- The agent writes `update`s through the connector's `update_agent_task` (the rules are `refusal`, behind the seal in `written`; one
-  `taken`). `update` appends synchronously, so nothing runs between reading the ledger and the lines it allows. `reply`
-  lines are what the agent told the owner (one on no task targets `chat`).
-- `read_memory_changes` with `about` `task:<id>` is a task's whole history. `nudge` and `steer` lines are old kinds that only parse.
-- **What needs the owner is one rule, `escalation`**, for every task: not taken 30 min after the ask, taken and past
-  its deadline, waiting on the owner over 1 h, a week old, or the agent not checking in for a day (one email a day). `chase` (each minute in
-  the watcher) emails the owner once per task with the cause and the agent's last update; a pass's new causes go in one email.
-- Task lines stay out of the report's Actions section and out of `read_day`. The nightly lists every open task and those
-  closed in the last day, and counts the last day's asks with no reply logged (`unanswered`).
+- `bun life asks [--from d --to d]` lists where each ask's time went: spoken, ended, arrived, recorded.
+- Old ledger lines of an agent's updates and replies (`TASK_LINES`) are history, parsed and never written; `read_memory_changes`
+  with `about` `task:<id>` is an ask's whole history, and for one before 2 Nov 2026 its agent's lines.
 
 ## Actions: one backend
 
@@ -71,11 +49,11 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
 - When the owner asks for a reminder change, use `bun life act '<json>'` (kinds, fields and `said`: `Change` in
   `apps/server/src/todo-list/contract.ts`), never `remctl` or `gog` directly: it logs what changed, from what, and why.
 - `act` refuses an add whose title an open item has (`duplicateOf`), for every caller. A timed `due` always alerts
-  at that time. `act` refuses the agent's list (`BOARD`): that list is the board, below.
+  at that time.
 - **One contract, `TodoListBackend`** (`apps/server/src/todo-list/contract.ts`): his lists (not groups) and whether one is shared, a
   list's items (open, or ticked too), the deleted ones, one item, add, edit, done, undone, remove, restore, sections,
   `checks`. Items are one shape (`Item`), their ids strings; a ledger target is `<prefix>:<id>` (`reminder:412`;
-  Google's `gtask:<list>/<task>`, not `task:`, which names the agent's tasks in `read_memory_changes`). `idOf` is the one place
+  Google's `gtask:<list>/<task>`, not `task:`, which names an ask in `read_memory_changes`). `idOf` is the one place
   the connector's numeric `target` becomes an id (and `read_open_todo_items` gives a numeric id back as a number). The
   ledger's items are keyed by their whole target, and the read-back and `duplicateOf` see only the current backend's:
   after a switch, the other backend's items are never read, marked lost or matched.
@@ -86,13 +64,13 @@ the playbook, `docs/agent.md`: it is read at run time, so it is not repeated her
   (`lacks`), saying so. Reminders can do everything (sections, urgent, priority, alarms, moves, restore, subtasks,
   recurrence, the Claude link, sharing). Google Tasks has a title, notes, a day (no time, so no alarms) and subtasks,
   and none of the rest; its lists are never shared. Restore is an optional method: a backend without it cannot
-  restore. Its board list is made on first need (`gog tasks lists create`), once per process (`backend()` is made once per settings read; the watcher is the one process that writes the board).
+  restore.
 - Only `todo-list/` touches either backend (`docs/architecture.md`, "The code"); `act` (`host/act.ts`) decides and
   `inbound` (`host/inbound.ts`) reads the owner's changes back.
 - **The to-do list output** is on only with the `todo_list` setting, which names the backend: `{"backend": "reminders"}` or
   `{"backend": "google", "account": "<his Google account>"}` (`isOn("todo_list")`). Off: `backend()`, the one gate, refuses every
   call, the minute pass skips it, the connector offers no `change_todo_item` or `read_open_todo_items` tool, `act` refuses, and the
-  rest of Life runs the same. The board, the read-back, the grant and the playbook's Reminders parts exist only while
+  rest of Life runs the same. The read-back and the grant exist only while
   it is on. Settings are read once per process: turning it on or off takes a restart of the watcher. The connector's
   tools keep their names and arguments whatever the backend (a change forces a costly reconnect).
 - Reminders goes through `remctl` (github.com/viticci/remctl, MIT), pinned in `REMCTL_RELEASE` and installed by
@@ -124,20 +102,6 @@ with). `read_day`'s Due and `act`'s duplicate check read it, never Reminders; a 
 it, within a minute. `read_open_todo_items` alone reads Reminders, for the sections the ledger does not hold. A 1:1 chat is
 `isDirect` (`apps/server/src/memory/sources.ts`), for replies owed and closeness alike.
 
-### The board
-
-The agent's Reminders list (`BOARD`, named after the agent) is a projection of the ledger, the owner's receipt
-(`wantOf` in `apps/server/src/host/agent.ts`, written by `push` in `apps/server/src/todo-list/board.ts` each minute). It writes no ledger line and
-never goes through `act`.
-
-- The only thing read back is the owner's tick or removal of an open task's receipt, which closes that task, done or
-  dropped (`closings`), so it is not added again. The agent sees why in `read_open_agent_tasks`. Nothing else on the board is read as
-  coming from the owner: steers read from it once put words in the owner's mouth.
-- An item is found by the task id on its notes' first line. Each pass brings its notes and, where the backend has sections, its section (Open, Working:
-  made by hand; the code only assigns them) in line, and ticks the item when its task closes, and only then, so a
-  ticked receipt of an open task is always the owner's.
-- It never alerts: what needs the owner is emailed (`chase`).
-
 ### The standing grant
 
 The only other authority, off until the owner's words in a Claude session turn it on (`bun life grant on|off '<their
@@ -148,7 +112,7 @@ takes authority away.
   importance-3 to-do or promise in a lifelog turn the store credits to the owner at that moment.
 - At most 3 a day, one at a time, never on a shared list, and not again once one it made was removed (through Life or
   by hand) until the owner's next yes (`grantRefusal`, all derived from the ledger).
-- Its authority is the observation alone: never the board, a fact-check answer or a chat `said`. It binds the connector, not
+- Its authority is the observation alone: never a fact-check answer or a chat `said`. It binds the connector, not
   the agent's terminal.
 
 ## The Past calendar
@@ -166,23 +130,21 @@ hearing in the watcher's store as a mark (`writeMarks`, refs only). There is no 
 agent's wake words in his settings, like its name. The unit carries its marks (`marked`, `readConversations`) and says
 so in its text (`MARKED`), so only its hash moves and only it is read again, with no prompt change. Code makes its
 importance 3 (`moments.ts`) and extraction shows its lines `(marked)`. The nightly lists each once read, with the
-observations citing it ("Asks remembered"). A mark never acts, asks or sends: the ask does, through the agent.
+observations citing it ("Asks remembered"). A mark never acts, asks or sends: the ask is what the agent pulls.
 
 ## The connector
 
-`apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections, acts only
-on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item` and `update_agent_task`) or on the standing
-grant, and logs the agent's replies.
+`apps/server/src/host/http/mcp.ts`, served at `/mcp` for Claude and ChatGPT. It reads, forwards the owner's explicit corrections and acts
+only on the owner's explicit request (in the chat, or in an ask through the agent's `change_todo_item`) or on the standing
+grant.
 
-- **Tools:** thirteen read-only ones (`read_open_agent_tasks`; `read_open_todo_items`, read from Reminders, never the board; the status reads
-  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads); `correct_memory` (lifelog
-  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`); `change_todo_item` (through `act`, with the owner's words
-  in `said`, or an `obs` for the grant); `update_agent_task` (the agent's updates, through `update`); `log_reply_to_owner` (one `ledger.jsonl`
-  line, appended only: it sends nothing).
-- `correct_memory` is annotated destructive so clients ask first. `change_todo_item`, `update_agent_task` and `log_reply_to_owner` are not (a remove goes to
-  Recently Deleted, nothing is lost), so the agent uses them unattended.
-- Replies are the agent's output, never the owner's words: they enter memory only through the agent's source (`AGENT_WORD`), as
-  evidence of what was done.
+- **Tools:** fifteen. Thirteen read-only: `read_agent_asks` (the paired agent's own asks, above); `read_open_todo_items`, read from Reminders; the status reads
+  `read_life_status`, `read_processing_runs`, `read_memory_changes`, `read_observation`, see `docs/status-reads.md`; and the memory reads. And two
+  writes: `correct_memory` (lifelog
+  writes all go through the table in `forward`, `apps/server/src/sources/lifelog.ts`) and `change_todo_item` (through `act`, with the owner's words
+  in `said`, or an `obs` for the grant). The two to-do tools exist only while the to-do list is on.
+- `correct_memory` is annotated destructive so clients ask first. `change_todo_item` is not (a remove goes to
+  Recently Deleted, nothing is lost), so the agent uses it unattended.
 - **Auth:** every request needs a JWT for this resource with `life:read`, from Life's own issuer, the only one
   (`apps/server/src/host/http/oauth.ts`, at `<origin>/auth`: an app is approved with a pairing code
   from Life's panel, "Pair an app"; PKCE, one-use codes, refresh tokens replaced on use and kept 90 days, its key in
@@ -196,15 +158,14 @@ grant, and logs the agent's replies.
 ## The only sends
 
 What leaves the Mac, sends included, is listed once, in [SECURITY.md](../SECURITY.md#what-leaves-the-mac). Each output
-Life can turn on or off (Reminders, the Past calendar, the connector, the backup, the agent) is an entry in `OUTPUTS`
+Life can turn on or off (Reminders, the Past calendar, the connector, the backup) is an entry in `OUTPUTS`
 (`apps/server/src/core/outputs.ts`): its name and its switch, asked with `isOn`, and `off` says why one does nothing. Its own module
 reads the rest of its settings. How the report and the alerts go out:
 
 - To the owner only (`apps/server/src/host/report.ts`: sender and address in the `mail` setting), by email, or with no `mail`
   setting as a macOS notification with the report kept as a page in `LIFE_STATE_DIR/reports`. Either way the log's `email.sent`
   means delivered.
-- The alerts: a failed action; a task that needs the owner, once per cause; the agent
-  not checking in for a day (one a day for all open tasks); a run holding the lock over 3 h (once per incident); every
+- The alerts: a failed action; a run holding the lock over 3 h (once per incident); every
   source in red on the status snapshot (`sourcesReport`: unreadable, its access gone, its archive store or bridge
   failing, a send it can't make, lifelog not polled), checked on each nightly tick: an email when a source's problem is new
   that day, listing every source in red, from the first tick that sees it (no grace: a source that can't be read holds its days back). A

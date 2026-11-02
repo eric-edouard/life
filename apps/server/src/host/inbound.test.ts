@@ -1,13 +1,10 @@
 import { expect, test } from "bun:test";
-import { AGENT_WORD } from "../core/names";
 import { tasksOf } from "../memory/ledger";
 import { action } from "../memory/record-fixtures";
 import { LedgerEntry } from "../records/ledger-entry";
 import type { Snapshot } from "../todo-list/backend";
-import { marks } from "../todo-list/board";
 import type { TodoItem } from "../todo-list/contract";
 import { grantRefusal } from "./act";
-import { closings } from "./agent";
 import { inbound } from "./inbound";
 
 const AT = "2026-10-21T12:00:00.000Z";
@@ -28,7 +25,6 @@ const rem = (over: Partial<TodoItem> = {}): TodoItem => ({
   ...over,
 });
 const snap = (live: TodoItem[], over: Partial<Snapshot> = {}): Snapshot => ({
-  board: [],
   deleted: [],
   live,
   prefix: "reminder",
@@ -81,14 +77,6 @@ test("#69 forged steer: Life's own due time and subtasks read back the next pass
   ];
   const now = rem({ dueDate: "2026-10-22T09:00:00", section: "Later" });
   expect(inbound(snap([now]), ledger, AT)).toEqual([]);
-  // On a task's receipt Life's fields are never read: only his tick or removal.
-  const receipt = rem({
-    dueDate: "2026-10-22T09:00:00",
-    id: "40",
-    list: "Orbit",
-    notes: "entry_00000000000a\nhis words",
-  });
-  expect(marks(snap([], { board: [receipt] })).size).toBe(0);
 });
 
 test("an echo of Life's own write whose answer was lost (offline, a timeout) is still Life's: learned, never his", () => {
@@ -251,45 +239,6 @@ test("the standing grant switches off when he deletes one of its reminders by ha
   expect(grantRefusal({ ...g, actions: [...ledger, ...removed] })).toBe(
     "the grant is off: he undid one of its reminders"
   );
-});
-
-test("his tick or removal of an open task's receipt closes the task; a closed task's is Life's own tick", () => {
-  const ask = action({
-    after: { confidence: "high" },
-    id: "entry_00000000000a",
-    kind: "ask",
-    target: AGENT_WORD,
-  });
-  const tasks = tasksOf([JSON.stringify(ask)]);
-  const receipt = rem({
-    completed: true,
-    id: "40",
-    list: "Orbit",
-    notes: "entry_00000000000a\nhis words",
-  });
-  const ticked = closings(tasks, marks(snap([], { board: [receipt] })), AT);
-  expect(ticked).toMatchObject([
-    { after: { state: "done" }, target: ask.id, via: "reminders" },
-  ]);
-  const closedTasks = tasksOf([ask, ...ticked].map((l) => JSON.stringify(l)));
-  expect(
-    closings(closedTasks, marks(snap([], { board: [receipt] })), AT)
-  ).toEqual([]);
-  const removed = closings(
-    tasks,
-    marks(snap([], { deleted: [{ ...receipt, completed: false }] })),
-    AT
-  );
-  expect(removed).toMatchObject([{ after: { state: "dropped" } }]);
-  // A deleted copy while one is live (the board re-added it before 21 Oct) is no removal.
-  expect(
-    marks(
-      snap([], {
-        board: [{ ...receipt, completed: false }],
-        deleted: [receipt],
-      })
-    ).size
-  ).toBe(0);
 });
 
 test("the first pass also baselines what is already gone, so the second reports nothing he did before", () => {

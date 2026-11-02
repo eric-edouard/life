@@ -15,7 +15,6 @@ import { agentNames } from "./settings";
 export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 
 type LogKind =
-  | "board.write"
   | "calendar.write"
   | "email.sent"
   | "file.read"
@@ -99,7 +98,7 @@ export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
   }
 }
 /** Whether a connector call came from one of his agents: its grant's agent claim names one (`mcp.call`'s `agent`). */
-export const isAgent = (agent: unknown) =>
+const isAgent = (agent: unknown) =>
   typeof agent === "string" && agentNames().includes(agent);
 /** A call of his agent's daily review: `read_day` read by the agent, with no error (`shownDays`, search.ts). */
 export const isReviewCall = (e: Call) =>

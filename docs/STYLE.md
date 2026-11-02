@@ -5,7 +5,7 @@ Reference: the rules every page in this repository follows. Read them before you
 1. Each page has one job, and its first line names it: tutorial, how-to, reference or explanation. User how-tos live
    in `docs/use/`; everything else in `docs/` is reference or explanation for developers.
 2. In the README and `docs/`, user docs speak to the reader as "you" and reference docs say "the owner"; no page says
-   "he". AGENTS.md and `docs/agent.md` (the agent's runtime playbook) are exempt.
+   "he". AGENTS.md is exempt.
 3. Show before telling. A command, a screenshot or a short transcript comes first; the sentence about it after.
 4. Say what is optional, and what it costs in money, time or access, where you first mention it.
 5. Internal terms (unit, moment, status snapshot, observation) belong in reference docs. A user page says what the reader sees.

@@ -12,9 +12,7 @@ import { ownerSpoke, withStore } from "../sources/lifelog";
 import {
   backend,
   type Done,
-  info,
   intended,
-  isBoard,
   lacks,
   write,
 } from "../todo-list/backend";
@@ -25,8 +23,7 @@ import { actFailedReport, sendReport } from "./report";
 // What Life does outside itself on the owner's clear request: each change to his items in the actions backend (Apple
 // Reminders or Google Tasks, `backend.ts`) is one `act`, which decides it, has `write` make it, records it as a ledger entry
 // (memory/ledger.jsonl) and tells him by email when it failed. Nothing here reads his words: the callers (the CLI, the
-// connector) decide that he asked. The ledger also holds the agent's tasks (apps/server/src/host/agent.ts), whose boards, the lists named after them (`isBoard`),
-// no `act` may touch.
+// connector) decide that he asked.
 
 export const entryId = (ref: string, kind: string, title: string) =>
   `entry_${digest("sha1", `${ref}|${kind}|${normalize(title)}`, 12)}`;
@@ -76,13 +73,6 @@ export async function act(a: Act): Promise<LedgerEntry> {
     throw new Error(
       "a restore needs the reminder id and the list to put it in"
     );
-  }
-  const on = c.target
-    ? (await info(c.target).catch(() => undefined))?.list
-    : undefined;
-  const board = [c.list, on].find((l) => typeof l === "string" && isBoard(l));
-  if (board) {
-    throw new Error(`the list ${board} is an agent's board: use \`task\``);
   }
   const id = entryId(instruction.ref, c.kind, c.title);
   const old = await recorded(id);

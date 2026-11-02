@@ -59,7 +59,7 @@ export async function placesOf(
           to: range.to,
         })
   )
-    // Nothing after now (a frozen clock included): a stay not left by then is open.
+    // Nothing after now: a stay not left by then is open.
     .filter((s) => s.arrivedAt <= now)
     .map((s) => (s.leftAt && s.leftAt > now ? { ...s, leftAt: null } : s))
     .slice(0, MAX);
