@@ -69,7 +69,7 @@ import {
   sourcesReport,
   successReport,
 } from "./report";
-import { snapshot } from "./status/snapshot";
+import { redSources, snapshot } from "./status/snapshot";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * HOUR;
@@ -174,17 +174,6 @@ export async function nightly(days: number, force = false) {
       lockReport(held.toISOString())
     );
   }
-  // Every source in red on the status snapshot, the one judge of a source's health: one email per source, problem and
-  // day while it lasts.
-  const red = (await snapshot(now)).cards.filter(
-    (c) => c.group === "sources" && c.tone === "bad"
-  );
-  if (red.length > 0) {
-    await sendReport(
-      red.map((c) => `source/${c.id}/${c.word}/${dayNow(now)}`),
-      sourcesReport(now.toISOString(), red)
-    );
-  }
   // Each tick is a fresh process: the place to notice he moved (`readZoneHere`, never a TZ variable). The phone's
   // zone is read before the lock: a network read never holds memory.
   const here = await readZoneHere();
@@ -209,6 +198,19 @@ export async function nightly(days: number, force = false) {
     (r) => r && console.log(JSON.stringify({ past: r })),
     (e) => log("run.error", { error: String(e), step: "past" })
   );
+  // Every source in red on the status snapshot, the one judge of a source's health: an email when a source's problem
+  // is new that day. After the turn, so no run waits on it; a failure only logs.
+  try {
+    const red = redSources((await snapshot()).cards);
+    if (red.length > 0) {
+      await sendReport(
+        red.map((c) => `source/${c.id}/${c.word}/${dayNow(clock())}`),
+        sourcesReport(clock().toISOString(), red)
+      );
+    }
+  } catch (e) {
+    log("run.error", { error: String(e), step: "sources" });
+  }
   const { backup: was, night: state } = states();
   if (force || !backupDue(now.getHours(), day, state, was)) {
     return code;

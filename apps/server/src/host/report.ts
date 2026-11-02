@@ -342,7 +342,6 @@ export const actFailedReport = (a: LedgerEntry) =>
     verdict: "FAILED",
   });
 
-/** The alert for a store the archive has failed to copy for an hour: what is deleted meanwhile is not kept. */
 /**
  * The alert for the sources Life can't read now: each source card the status snapshot shows red (unreadable, its
  * access gone, its store or bridge failing, a send it can't make, lifelog not polled), whatever the cause.
@@ -353,7 +352,7 @@ export const sourcesReport = (
 ) =>
   alert(at, "Life sources", {
     failure: {
-      error: red.map((c) => `${c.name}: ${c.word}, ${c.headline}`).join("; "),
+      error: red.map((c) => `${c.name}: ${c.headline}`).join("; "),
       step: "reading its sources",
     },
     notes: [
