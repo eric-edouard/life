@@ -132,21 +132,22 @@ function bodyOf(r: Request): Record<string, string> {
   }
 }
 
-/** Chrome's arguments for a step: as the browser the bridge claims to be, its client hints off so they don't contradict it. */
-export const chromeArgs = (step: CookieStep, profile: string) => [
-  CHROME as string,
-  `--user-data-dir=${profile}`,
-  "--remote-debugging-port=0",
-  "--no-first-run",
-  "--no-default-browser-check",
-  "--new-window",
+/**
+ * The page's first calls: as the browser the bridge claims to be (its user agent, and so no client hints to contradict
+ * it: the site revokes cookies signed in by another browser), then to the step's page.
+ */
+export const openingCalls = (
+  step: CookieStep
+): [string, Record<string, unknown>][] => [
   ...(step.user_agent
     ? [
-        `--user-agent=${step.user_agent}`,
-        "--disable-features=UserAgentClientHint",
+        ["Network.setUserAgentOverride", { userAgent: step.user_agent }] as [
+          string,
+          object,
+        ],
       ]
     : []),
-  step.url ?? "about:blank",
+  ["Page.navigate", { url: step.url ?? "about:blank" }],
 ];
 
 /** Opens `step.url` for him to sign in; resolves to each field's value once the required ones are there. */
@@ -155,7 +156,15 @@ export async function signInWithChrome(
 ): Promise<Map<string, string>> {
   const profile = mkdtempSync(join(tmpdir(), "life-signin-"));
   const chrome = Bun.spawn(
-    chromeArgs(step, profile),
+    [
+      CHROME as string,
+      `--user-data-dir=${profile}`,
+      "--remote-debugging-port=0",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--new-window",
+      "about:blank",
+    ],
     // None of Life's secrets: only what Chrome needs to start.
     {
       env: { HOME: process.env.HOME, TMPDIR: process.env.TMPDIR },
@@ -237,6 +246,10 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
   });
   await send("Network.enable");
   await send("Page.enable");
+  for (const [method, params] of openingCalls(step)) {
+    // biome-ignore lint/performance/noAwaitInLoops: the override must hold before the page loads
+    await send(method, params);
+  }
   if (step.extract_js) {
     // It resolves once it finds its fields: in the background, while he signs in.
     send("Runtime.evaluate", {
