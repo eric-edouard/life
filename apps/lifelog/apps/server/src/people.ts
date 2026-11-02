@@ -68,19 +68,23 @@ export const voiceId = (jobId: string, label: string | null) =>
 const modelKey = (s: Pick<Sample, "modelId" | "modelRevision">) =>
   `${s.modelId}@${s.modelRevision}`;
 
-// With a live conversation that holds the job (`conversation_jobs`), null while none does.
-export function loadTranscript(db: Db, jobId: string) {
-  const row = db
-    .select({
-      conversationId: conversationJobs.conversationId,
-      parsed: transcripts.parsed,
-    })
+// A job's transcript, null before it has one.
+export const loadTranscript = (db: Db, jobId: string) =>
+  db
+    .select({ parsed: transcripts.parsed })
     .from(transcripts)
-    .leftJoin(conversationJobs, eq(conversationJobs.jobId, transcripts.jobId))
     .where(eq(transcripts.jobId, jobId))
-    .get();
-  return row ?? null;
-}
+    .get() ?? null;
+
+// The live conversation that holds the job (`conversation_jobs`), null while none does. Read by
+// the view's own `where`, so SQLite seeks the job's turns; a join on the view builds all of it
+// (70 ms a call on a month's archive). Still a few ms: the sweep never reads it.
+export const holdingConversation = (db: Db, jobId: string) =>
+  db
+    .select({ id: conversationJobs.conversationId })
+    .from(conversationJobs)
+    .where(eq(conversationJobs.jobId, jobId))
+    .get()?.id ?? null;
 
 // ---- Samples ----------------------------------------------------------------
 

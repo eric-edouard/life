@@ -22,6 +22,7 @@ import { type Config, EXCERPTS, RECOGNITION } from "./config";
 import { touchesQuiet } from "./cutter";
 import { record } from "./events";
 import {
+  holdingConversation,
   keepServerSamples,
   loadTranscript,
   recognize,
@@ -160,7 +161,8 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
       return done(jobId);
     }
     const transcript = loadTranscript(db, jobId);
-    if (!transcript?.conversationId) {
+    const conversationId = holdingConversation(db, jobId);
+    if (!(transcript && conversationId)) {
       return null;
     }
     const wanted = wantedTurns(db, jobId, transcript.parsed);
@@ -175,7 +177,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
       record(db, "excerpts.skipped", { job: jobId, reason: "no_audio" });
       return done(jobId);
     }
-    return embedAndKeep(jobId, transcript.conversationId, wanted, ogg);
+    return embedAndKeep(jobId, conversationId, wanted, ogg);
   }
 
   const job = async (jobId: string) => {
