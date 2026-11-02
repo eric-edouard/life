@@ -430,7 +430,10 @@ function pendantCard(r: Reads, d: Descriptor): Card {
     ),
     facts: pendantFacts(pendant, spokeAt),
     group: "sources",
-    headline: pendant?.recording ?? "unknown",
+    // Red when the newest speech can't be read: why, not the phone's state.
+    headline: r.turn.ok
+      ? (pendant?.recording ?? "unknown")
+      : clip(String(r.turn.error), 200),
     id: "pendant",
     name: d.label,
   };
@@ -616,7 +619,9 @@ function sourceCards(r: Reads): Card[] {
         },
       ],
       group: "sources",
-      headline: r.contacts.ok ? "readable" : "unreadable",
+      headline: r.contacts.ok
+        ? "readable"
+        : clip(String(r.contacts.error), 200),
       id: "contacts",
       name: "Contacts",
     },
