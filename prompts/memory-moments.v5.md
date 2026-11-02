@@ -19,7 +19,7 @@ The user message is one JSON object:
 
 - `day`: the local day (`YYYY-MM-DD`, the owner's time zone) the units belong to.
 - `units`: every unit of that day, in time order. Each has `id`, `source` (lifelog, whatsapp, line, instagram, telegram, imessage, mail,
-  git), `start` and `end` (local `YYYY-MM-DD HH:MM`), `title`, `people` (who is in it, when known), sometimes
+  git), `start` and `end` (local `YYYY-MM-DD HH:MM`; null for git), `title`, `people` (who is in it, when known), sometimes
   `areaHint`, and `text`: for a recording, its title and then its turns as `HH:MM who: words`, its start and end when long, or
   on older days a chapter's title and summary (speakers
   are often unnamed; the owner wears the recorder, so a speaker talking about his shop, house, family, apps or plans is

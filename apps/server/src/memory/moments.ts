@@ -448,13 +448,15 @@ export async function moments(evidence: Evidence) {
               title,
             })
           ),
+          // A repo's commits are timed by his agents, not by when he was at it: no span to copy into a moment.
           units: spoken.map(({ text, unit }) => ({
             areaHint: hints.get(unit.key),
-            end: localTime(unit.end),
+            end: kindOf(unit.source) === "repo" ? null : localTime(unit.end),
             id: unit.id,
             people: unitNow(unit, refOf).people,
             source: unit.source,
-            start: localTime(unit.start),
+            start:
+              kindOf(unit.source) === "repo" ? null : localTime(unit.start),
             text: head(text),
             title: unit.title,
           })),
