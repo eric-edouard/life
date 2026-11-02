@@ -87,7 +87,7 @@ struct SettingsView: View {
   @State private var key = ""
   @State private var agentName = ""
   @State private var wake = ""
-  /// The agents as saved, so a save keeps what this form doesn't show (other agents, `misheard`, `start`).
+  /// The agents as saved, so a save keeps what this form doesn't show (other agents, `misheard`).
   @State private var agentsSaved: [String: [String: Any]] = [:]
   /// The agent this form shows (the first saved), so renaming it keeps the rest of it.
   @State private var agentShown = ""

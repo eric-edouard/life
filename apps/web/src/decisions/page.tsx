@@ -1,5 +1,5 @@
 import { Drawer } from "@base-ui/react/drawer";
-import type { DecisionRow, OwnerStep } from "@life/server/src/records/decision";
+import type { Decision, OwnerStep } from "@life/server/src/records/decision";
 import {
   useIsMutating,
   useMutation,
@@ -9,115 +9,77 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readDecisions, writeStep } from "../api";
 import { Theme } from "../theme";
-import { loopName, say } from "../words";
 import { useCurrent } from "./current";
-import { Decision } from "./decision";
+import { DecisionCard } from "./decision";
 import { DONE, isOpen, nextOpen, orderOf } from "./order";
 import { useVisibleHeight } from "./visible-height";
 
-// His decisions, one per screen side by side: a sideways swipe (or the arrow keys) moves, an up-down drag scrolls the
-// one on screen. The current one is its id in the link (#id), so a reload or a shared link opens on it. From 900 px
-// the overview is a sidebar; below, a sheet from the top, opened by the bar.
+// His decisions (Life's fact checks), one per screen side by side: a sideways swipe (or the arrow keys) moves, an
+// up-down drag scrolls the one on screen. The current one is its id in the link (#id), so a reload or a shared link
+// opens on it. From 900 px the overview is a sidebar; below, a sheet from the top, opened by the bar.
 
 function Overview({
   all,
   current,
   go,
 }: {
-  all: DecisionRow[];
+  all: Decision[];
   current: string;
   go: (id: string) => void;
 }) {
   const [history, setHistory] = useState(false);
-  const step = useStep();
-  const groups = orderOf(all);
-  const live = groups.flatMap((g) => g.live);
-  const [first] = all;
+  const { live, past } = orderOf(all);
   return (
-    <nav
-      aria-label={say(first?.lang, "Toutes les décisions", "All decisions")}
-      className="grid gap-4"
-    >
+    <nav aria-label="All decisions" className="grid gap-4">
       <header className="flex items-baseline justify-between px-3">
-        <h1 className="m-0 font-semibold font-serif text-[22px]">
-          {say(first?.lang, "Décisions", "Decisions")}
-        </h1>
+        <h1 className="m-0 font-semibold font-serif text-[22px]">Decisions</h1>
         <span className="text-[15px] text-muted">
-          {say(
-            first?.lang,
-            `${live.filter((d) => !isOpen(d)).length} sur ${live.length} faites`,
-            `${live.filter((d) => !isOpen(d)).length} of ${live.length} done`
-          )}
+          {live.filter((d) => !isOpen(d)).length} of {live.length} done
         </span>
       </header>
-      {groups.map((g) => (
-        <div className="grid" key={g.loop}>
-          <h2 className="m-0 px-3 pt-1 pb-1.5 font-bold text-[14px] text-muted">
-            {loopName(g.loop)}
-          </h2>
-          {g.live.map((d) => (
-            <button
-              aria-current={d.id === current}
-              className="row"
-              data-done={!isOpen(d) || undefined}
-              key={d.id}
-              onClick={() => go(d.id)}
-              type="button"
-            >
-              <span aria-hidden="true" className="mark" />
-              <span className="line-clamp-2 min-w-0">{d.question}</span>
-              {isOpen(d) ? null : (
-                <span className="sr-only">
-                  {say(d.lang, " (fait)", " (done)")}
-                </span>
-              )}
-            </button>
-          ))}
-          {g.grants.map((gr) => (
-            <p className="m-0 px-3 py-1 text-[14px] text-muted" key={gr.id}>
-              {gr.scope}{" "}
-              <button
-                className="link"
-                onClick={() =>
-                  step.mutate({ decision: gr.id, step: "revoked" })
-                }
-                type="button"
-              >
-                {say(gr.lang, "Retirer", "Revoke")}
-              </button>
-            </p>
-          ))}
-          {history
-            ? g.past.map((d) => (
-                <p className="m-0 px-3 py-1 text-[14px] text-muted" key={d.id}>
-                  {d.question}:{" "}
-                  <b>
-                    {d.status === "done"
-                      ? (d.options.find((o) => o.id === d.answer)?.label ??
-                        d.note ??
-                        "")
-                      : d.status}
-                  </b>
-                  {d.result ? `, ${d.result}` : ""}
-                </p>
-              ))
-            : null}
-        </div>
-      ))}
-      {all.some((d) => d.closedAt) ? (
+      <div className="grid">
+        {live.map((d) => (
+          <button
+            aria-current={d.id === current}
+            className="row"
+            data-done={!isOpen(d) || undefined}
+            key={d.id}
+            onClick={() => go(d.id)}
+            type="button"
+          >
+            <span aria-hidden="true" className="mark" />
+            <span className="line-clamp-2 min-w-0">{d.question}</span>
+            {isOpen(d) ? null : <span className="sr-only"> (done)</span>}
+          </button>
+        ))}
+        {history
+          ? past.map((d) => (
+              <p className="m-0 px-3 py-1 text-[14px] text-muted" key={d.id}>
+                {d.question}:{" "}
+                <b>
+                  {d.status === "done"
+                    ? (d.options.find((o) => o.id === d.answer)?.label ??
+                      d.note ??
+                      "")
+                    : d.status}
+                </b>
+                {d.result ? `, ${d.result}` : ""}
+              </p>
+            ))
+          : null}
+      </div>
+      {past.length > 0 ? (
         <p className="m-0 px-3 text-[14px]">
           <button
             className="link"
             onClick={() => setHistory(!history)}
             type="button"
           >
-            {history
-              ? say(first?.lang, "Masquer l'historique", "Hide history")
-              : say(first?.lang, "Historique", "History")}
+            {history ? "Hide history" : "History"}
           </button>
         </p>
       ) : null}
-      <Theme lang={first?.lang} />
+      <Theme />
     </nav>
   );
 }
@@ -141,16 +103,15 @@ function Bar({
   setOpen,
 }: {
   current: string;
-  live: DecisionRow[];
+  live: Decision[];
   open: boolean;
   overview: React.ReactNode;
   setOpen: (open: boolean) => void;
 }) {
-  const lang = live[0]?.lang;
   return (
     <Drawer.Root onOpenChange={setOpen} open={open} swipeDirection="up">
       <Drawer.Trigger
-        aria-label={say(lang, "Toutes les décisions", "All decisions")}
+        aria-label="All decisions"
         className="block w-full shrink-0 cursor-pointer border-0 bg-ground px-6 pt-[max(14px,env(safe-area-inset-top))] pb-2.5 min-[900px]:hidden"
       >
         <span className="flex gap-1">
@@ -164,7 +125,7 @@ function Bar({
           ))}
         </span>
         <span className="mt-2 block text-center text-[14px] text-muted">
-          {say(lang, `Toutes les ${live.length}`, `All ${live.length}`)}
+          All {live.length}
         </span>
       </Drawer.Trigger>
       <Drawer.Portal>
@@ -180,19 +141,13 @@ function Bar({
 }
 
 /** After the last one: nothing left to do today. */
-function Done({ count, lang }: { count: number; lang: DecisionRow["lang"] }) {
+function Done({ count }: { count: number }) {
   return (
     <>
       <h2 className="m-0 font-semibold font-serif text-[32px]">
-        {say(lang, "C'est tout pour aujourd'hui.", "That's all for today.")}
+        That's all for today.
       </h2>
-      <p className="m-0 text-[15px] text-muted">
-        {say(
-          lang,
-          `${count} décisions prises. Les boucles s'en occupent.`,
-          `${count} decisions made. The loops take it from here.`
-        )}
-      </p>
+      <p className="m-0 text-[15px] text-muted">{count} decisions made.</p>
     </>
   );
 }
@@ -206,7 +161,7 @@ export function DecisionsPage() {
   });
   const step = useStep();
   const height = useVisibleHeight();
-  const live = useMemo(() => orderOf(all).flatMap((g) => g.live), [all]);
+  const live = useMemo(() => orderOf(all).live, [all]);
   const [typing, setTyping] = useState(false);
   const [sheet, setSheet] = useState(false);
   const closeSheet = useCallback(() => setSheet(false), []);
@@ -255,7 +210,7 @@ export function DecisionsPage() {
                 key={d.id}
                 ref={watch}
               >
-                <Decision
+                <DecisionCard
                   busy={step.isPending}
                   d={d}
                   onAnswered={() => {
@@ -278,7 +233,7 @@ export function DecisionsPage() {
                 id={`d-${DONE}`}
                 ref={watch}
               >
-                <Done count={live.length} lang={live[0]?.lang} />
+                <Done count={live.length} />
               </section>
             ) : null}
           </div>

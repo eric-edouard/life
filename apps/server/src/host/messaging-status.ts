@@ -1,15 +1,13 @@
 import { clock, DAY, HOUR, MIN } from "../core/clock";
-import { settings } from "../core/settings";
 import { enabledSources, SOURCES } from "../memory/sources";
 import { NETWORKS, type Network } from "../sources/bridged";
 import type { Descriptor } from "../sources/contract";
-import { isBridgeAdded, readWhoami } from "../sources/matrix";
-import { sendBlockOf, withTimeout } from "./send";
+import { isBridgeAdded, readBlock } from "../sources/matrix";
 
 // `bun life bridge` (docs/use/bridges.md): every messaging connector he has, checked live and in parallel, one line
 // each: a spinner while it is checked, then ✓ or ✗ with what was found. A live probe of what each capability says now
-// (its `missing()`, its newest message read, its bridge, its `send.blocked()`); the app's status cards judge quiet and
-// failing stores over time, this doesn't.
+// (its `missing()`, its newest message read, its bridge's link); the app's status cards judge quiet and failing stores
+// over time, this doesn't.
 
 /** One connector: its source and its bridge, either may be absent. */
 export interface Connector {
@@ -18,8 +16,8 @@ export interface Connector {
   source?: Descriptor;
 }
 
-/** One thing checked (its bridge, reading it, sending), and what it found. */
-const KINDS = ["bridge", "read", "send"] as const;
+/** One thing checked (its bridge, reading it), and what it found. */
+const KINDS = ["bridge", "read"] as const;
 type Kind = (typeof KINDS)[number];
 
 export interface Part {
@@ -55,6 +53,10 @@ export function connectors(): Connector[] {
   });
 }
 
+/** `p`, or `why` once `ms` pass. */
+const withTimeout = <T, W>(p: Promise<T>, ms: number, why: W) =>
+  Promise.race<T | W>([p, Bun.sleep(ms).then(() => why)]);
+
 const ago = (at: string) => {
   const ms = Math.max(0, clock().getTime() - Date.parse(at));
   if (ms < HOUR) {
@@ -73,12 +75,10 @@ async function bridgePart(n: Network): Promise<Part> {
       text: `no bridge: bun life bridge add ${n.name}`,
     };
   }
-  return (await readWhoami(n.name).then(
-    () => true,
-    () => false
-  ))
-    ? { kind: "bridge", ok: true, text: "bridge running" }
-    : { kind: "bridge", ok: false, text: "bridge stopped" };
+  const why = await readBlock(n.name);
+  return why
+    ? { kind: "bridge", ok: false, text: why }
+    : { kind: "bridge", ok: true, text: "bridge running" };
 }
 
 /** Can Life read it: on, set up (`missing()`), its newest message read now (10 s at most). */
@@ -88,7 +88,7 @@ async function readPart(c: Connector): Promise<Part | undefined> {
     return;
   }
   if (!enabledSources().includes(s)) {
-    return c.network?.reads
+    return c.network
       ? { kind: "read", ok: false, text: `not read: turn on ${s.name}` }
       : undefined;
   }
@@ -119,21 +119,6 @@ async function readPart(c: Connector): Promise<Part | undefined> {
   }
 }
 
-async function sendPart(c: Connector): Promise<Part | undefined> {
-  if (!c.source?.send || (c.network && !isBridgeAdded(c.network.name))) {
-    return;
-  }
-  const blocked = await sendBlockOf(c.source);
-  if (blocked) {
-    return { kind: "send", ok: false, text: blocked };
-  }
-  return {
-    kind: "send",
-    ok: true,
-    text: settings().sends ? "sends" : "can send (sends off)",
-  };
-}
-
 /** Every connector he has, checked at once (the CLI's lines, the app's connector cards). */
 export const connectorHealths = (kinds: readonly Kind[] = KINDS) =>
   Promise.all(
@@ -150,15 +135,9 @@ const healthOrFailed = (c: Connector, kinds: readonly Kind[] = KINDS) =>
     (e: Error): ConnectorHealth => ({ detail: e.message, ok: false, parts: [] })
   );
 
-/** What a connector's failing parts say, but its reading (the app's card judges that over time), and a send only
- * while sends are on. */
-export const failingParts = (
-  health: ConnectorHealth | undefined,
-  sendsOn: boolean
-) =>
-  health?.parts.filter(
-    (p) => !p.ok && p.kind !== "read" && (sendsOn || p.kind !== "send")
-  ) ?? [];
+/** What a connector's failing parts say, but its reading (the app's card judges that over time). */
+export const failingParts = (health: ConnectorHealth | undefined) =>
+  health?.parts.filter((p) => !p.ok && p.kind !== "read") ?? [];
 
 /** One connector checked: its parts at once, the failures first. */
 export async function healthOf(
@@ -169,7 +148,6 @@ export async function healthOf(
     await Promise.all([
       c.network && kinds.includes("bridge") ? bridgePart(c.network) : undefined,
       kinds.includes("read") ? readPart(c) : undefined,
-      kinds.includes("send") ? sendPart(c) : undefined,
     ])
   ).filter((p): p is Part => Boolean(p));
   return {

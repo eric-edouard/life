@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SourceName } from "../core/names";
-import { BRIDGED, copyBridged, localpartOf, readBridged } from "./bridged";
+import { copyBridged, localpartOf, NETWORKS, readBridged } from "./bridged";
 import { BRIDGES } from "./matrix";
 
 const BOT = "@linebot:life.local";
@@ -130,7 +130,7 @@ test("a login id becomes the localpart the bridge writes for it", () => {
 });
 
 test("every bridged network is a stored source name", () => {
-  for (const { name } of BRIDGED) {
+  for (const { name } of NETWORKS) {
     expect(SourceName.options).toContain(name);
   }
 });

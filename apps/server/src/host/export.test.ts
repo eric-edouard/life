@@ -15,7 +15,7 @@ import { SECRETS, writeSecret } from "../core/secret";
 import { LOCK } from "../memory/memory-lock";
 import { stage } from "./export";
 
-const SECRET = /oauth|events\.json|local\.key|\.bak$/;
+const SECRET = /oauth|local\.key|\.bak$/;
 
 test("an export holds everything with its checksum and counts, and never a secret", async () => {
   // A secret and a key in Life's state, as a real install has them: never exported. The test run's own are put back
@@ -24,7 +24,6 @@ test("an export holds everything with its checksum and counts, and never a secre
     existsSync(p) ? readFileSync(p, "utf8") : undefined
   );
   writeSecret("oauth", "{}");
-  writeSecret("events", "{}");
   writeSecret("localKey", "k");
   try {
     const archive = mkdtempSync(join(tmpdir(), "life-archive-"));

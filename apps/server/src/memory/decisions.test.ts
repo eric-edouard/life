@@ -5,86 +5,31 @@ import { DECISIONS } from "./ledger";
 
 const NOW = Date.parse("2026-10-29T10:00:00.000Z");
 const ask = {
-  loop: "asks",
+  deadline: "2026-11-05T10:00:00.000Z",
+  loop: "fact-checks",
   options: [
-    { id: "send", label: "Send it" },
-    { id: "later", label: "Not now" },
+    { id: "true", label: "Right" },
+    { id: "false", label: "Wrong" },
   ],
-  question: "Send the reply to the plumber?",
+  question: "Zoé runs the bakery.",
+  ref: "obs_000000000001",
 };
-const id = "asks-20261029100000-1";
+const id = "fact-checks-20261029100000-1";
+const fresh = () => rmSync(DECISIONS, { force: true });
 
-test("a decision goes open, answered, taken, done; each step only from the state before it", () => {
-  rmSync(DECISIONS, { force: true });
+test("a decision goes open, answered, done; each step only from the state before it", () => {
+  fresh();
   try {
-    writeDecision([{ data: ask, decision: id, run: "r1", step: "asked" }], NOW);
-    expect(() => writeDecision([{ decision: id, step: "taken" }], NOW)).toThrow(
-      "is open"
-    );
-    writeDecision(
-      [
-        {
-          data: { answer: "send", note: "after 6 pm" },
-          decision: id,
-          step: "answered",
-        },
-      ],
-      NOW
-    );
-    expect(decisionsNow().get(id)).toMatchObject({
-      answer: "send",
-      note: "after 6 pm",
-      status: "answered",
-    });
-    writeDecision([{ decision: id, run: "r2", step: "taken" }], NOW);
-    // His tap after a loop took it is refused: the loop is already acting on his first answer.
-    expect(() =>
-      writeDecision(
-        [
-          {
-            data: { answer: "later", note: "" },
-            decision: id,
-            step: "answered",
-          },
-        ],
-        NOW
-      )
-    ).toThrow("is taken");
-    expect(() => writeDecision([{ decision: id, step: "done" }], NOW)).toThrow(
-      "needs result"
-    );
-    writeDecision(
-      [{ data: { result: "sent at 18:05" }, decision: id, step: "done" }],
-      NOW
-    );
-    expect(decisionsNow().get(id)).toMatchObject({
-      result: "sent at 18:05",
-      status: "done",
-    });
+    writeDecision([{ data: ask, decision: id, step: "asked" }], NOW);
     expect(() =>
       writeDecision([{ data: ask, decision: id, step: "asked" }], NOW)
     ).toThrow("exists");
-  } finally {
-    rmSync(DECISIONS, { force: true });
-  }
-});
-
-test("an answer is one of its options, a note or nothing; clearing it reopens; a loop may reopen or withdraw", () => {
-  rmSync(DECISIONS, { force: true });
-  try {
-    writeDecision(
-      [
-        {
-          data: { ...ask, deadline: "2026-10-30T10:00:00.000Z" },
-          decision: id,
-          step: "asked",
-        },
-        { data: ask, decision: id, step: "revised" },
-      ],
-      NOW
-    );
-    // A revision is the whole decision again: the deadline it dropped is gone.
-    expect(decisionsNow().get(id)?.deadline).toBeUndefined();
+    expect(() =>
+      writeDecision(
+        [{ data: { result: "x" }, decision: id, step: "done" }],
+        NOW
+      )
+    ).toThrow("is open");
     expect(() =>
       writeDecision(
         [{ data: { answer: "maybe" }, decision: id, step: "answered" }],
@@ -92,224 +37,82 @@ test("an answer is one of its options, a note or nothing; clearing it reopens; a
       )
     ).toThrow("one of its options");
     writeDecision(
-      [{ data: { answer: null, note: "" }, decision: id, step: "answered" }],
-      NOW
-    );
-    expect(decisionsNow().get(id)?.status).toBe("open");
-    writeDecision(
       [
         {
-          data: { answer: "note", note: "ask him first" },
+          data: { answer: "false", note: "she sold it" },
           decision: id,
           step: "answered",
         },
       ],
       NOW
     );
+    expect(() => writeDecision([{ decision: id, step: "done" }], NOW)).toThrow(
+      "needs result"
+    );
     writeDecision(
-      [
-        {
-          data: { result: "he changed his mind: ask again" },
-          decision: id,
-          step: "reopened",
-        },
-      ],
+      [{ data: { result: "Recorded in Life" }, decision: id, step: "done" }],
       NOW
     );
     expect(decisionsNow().get(id)).toMatchObject({
-      answer: null,
-      note: "",
-      status: "open",
+      answer: "false",
+      note: "she sold it",
+      result: "Recorded in Life",
+      status: "done",
     });
-    expect(() =>
-      writeDecision(
-        [{ data: { result: "late" }, decision: id, step: "expired" }],
-        NOW
-      )
-    ).toThrow("not past its deadline");
-    writeDecision(
-      [
-        {
-          data: { result: "the reply came first" },
-          decision: id,
-          step: "withdrawn",
-        },
-      ],
-      NOW
-    );
-    expect(() =>
-      writeDecision([{ decision: id, step: "context" }], NOW)
-    ).toThrow("withdrawn");
   } finally {
-    rmSync(DECISIONS, { force: true });
+    fresh();
   }
 });
 
-test("only a done grant is revoked, a request is taken unanswered, and a malformed ask is refused with why", () => {
-  rmSync(DECISIONS, { force: true });
+test("an open one expires only past its deadline", () => {
+  fresh();
   try {
-    const grant = "lynx-store-20261029100000-1";
-    writeDecision(
-      [
-        {
-          data: { ...ask, kind: "grant", loop: "lynx-store" },
-          decision: grant,
-          step: "asked",
-        },
-      ],
-      NOW
-    );
-    writeDecision(
-      [
-        {
-          data: { answer: "send", note: "" },
-          decision: grant,
-          step: "answered",
-        },
-        { decision: grant, step: "taken" },
-        {
-          data: { result: "on", scope: "ads within €150" },
-          decision: grant,
-          step: "done",
-        },
-      ],
-      NOW
-    );
-    expect(decisionsNow().get(grant)?.active).toBe(true);
-    writeDecision([{ decision: grant, step: "revoked" }], NOW);
-    expect(decisionsNow().get(grant)?.active).toBe(false);
-    // A request has no options: nothing for him to answer, so its loop takes it open.
-    const request = "audit-20261029100000000-1";
-    writeDecision(
-      [
-        {
-          data: {
-            kind: "audit",
-            loop: "audit",
-            options: [],
-            question: "Why did the reply go twice?",
-          },
-          decision: request,
-          step: "asked",
-        },
-        { decision: request, step: "taken" },
-      ],
-      NOW
-    );
-    expect(decisionsNow().get(grant)?.revokedAt).toBeDefined();
-    expect(() =>
+    writeDecision([{ data: ask, decision: id, step: "asked" }], NOW);
+    const expire = (at: number) =>
       writeDecision(
-        [
-          {
-            data: { loop: "x", options: [] },
-            decision: "x-20261029100000-1",
-            step: "asked",
-          },
-        ],
-        NOW
-      )
-    ).toThrow("question");
+        [{ data: { result: "Skipped" }, decision: id, step: "expired" }],
+        at
+      );
+    expect(() => expire(NOW)).toThrow("not past its deadline");
+    expire(Date.parse(ask.deadline));
+    expect(decisionsNow().get(id)?.status).toBe("expired");
   } finally {
-    rmSync(DECISIONS, { force: true });
+    fresh();
   }
 });
 
-test("a decision carries its loop's goal rank, the page's order", () => {
-  rmSync(DECISIONS, { force: true });
-  const [d] = writeDecision(
-    [{ data: { ...ask, rank: 2 }, decision: id, step: "asked" }],
-    NOW
-  );
-  expect(d?.rank).toBe(2);
-  expect(() =>
-    writeDecision(
-      [
-        {
-          data: { ...ask, rank: -1 },
-          decision: "asks-20261029100000-2",
-          step: "asked",
-        },
-      ],
-      NOW
-    )
-  ).toThrow();
-});
-
-test("an answer an older page wrote still folds, whatever its length (the limits are only on what the web app writes now)", () => {
+test("an old line still folds: a loop's decision to nothing, a fact check's taken step to no change, an answer whatever its length", () => {
   const at = "2026-10-29T10:00:00.000Z";
-  const lines = [
-    {
-      at,
-      data: ask,
-      decision: id,
-      schemaVersion: 1 as const,
-      step: "asked" as const,
-    },
-    {
-      at,
-      data: { answer: "note", note: "x".repeat(5000) },
-      decision: id,
-      schemaVersion: 1 as const,
-      step: "answered" as const,
-    },
-  ];
-  expect(decisionsNow(lines).get(id)).toMatchObject({
-    answer: "note",
-    status: "answered",
+  const line = (
+    decision: string,
+    step: "asked" | "answered" | "taken" | "done",
+    data: Record<string, unknown>
+  ) => ({
+    at,
+    data,
+    decision,
+    schemaVersion: 1 as const,
+    step,
   });
+  const loop = "asks-20261029100000-1";
+  const all = decisionsNow([
+    line(loop, "asked", { ...ask, loop: "asks" }),
+    line(loop, "answered", { answer: "true" }),
+    line(id, "asked", ask),
+    line(id, "answered", { answer: "note", note: "x".repeat(5000) }),
+    line(id, "taken", {}),
+  ]);
+  expect(all.has(loop)).toBe(false);
+  expect(all.get(id)).toMatchObject({ answer: "note", status: "answered" });
   // An answer line with no note at all, as nothing writes now but a line once might have.
-  const bare = [lines[0], { ...lines[1], data: { answer: "send" } }];
-  expect(decisionsNow(bare as typeof lines).get(id)).toMatchObject({
-    answer: "send",
+  const bare = decisionsNow([
+    line(id, "asked", ask),
+    line(id, "answered", { answer: "true" }),
+    line(id, "done", { result: "Recorded in Life" }),
+  ]);
+  expect(bare.get(id)).toMatchObject({
+    answer: "true",
     note: "",
+    status: "done",
   });
-});
-
-test("an agent steps only on its own decisions; his answer has no agent and passes", () => {
-  rmSync(DECISIONS, { force: true });
-  try {
-    writeDecision(
-      [{ agent: "Atlas", data: ask, decision: id, step: "asked" }],
-      NOW
-    );
-    expect(() =>
-      writeDecision(
-        [
-          {
-            agent: "Loops",
-            data: { result: "x" },
-            decision: id,
-            step: "withdrawn",
-          },
-        ],
-        NOW
-      )
-    ).toThrow("is Atlas's, not Loops's");
-    writeDecision(
-      [{ data: { answer: "send" }, decision: id, step: "answered" }],
-      NOW
-    );
-    writeDecision([{ agent: "Atlas", decision: id, step: "taken" }], NOW);
-    expect(decisionsNow().get(id)?.status).toBe("taken");
-    // Life's own (a fact check, asked with no agent) is no agent's.
-    writeDecision(
-      [{ data: ask, decision: "fact-checks-20261029100000-1", step: "asked" }],
-      NOW
-    );
-    expect(() =>
-      writeDecision(
-        [
-          {
-            agent: "Atlas",
-            data: { result: "x" },
-            decision: "fact-checks-20261029100000-1",
-            step: "withdrawn",
-          },
-        ],
-        NOW
-      )
-    ).toThrow("is Life's, not Atlas's");
-  } finally {
-    rmSync(DECISIONS, { force: true });
-  }
 });

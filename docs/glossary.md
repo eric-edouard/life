@@ -12,8 +12,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | owner | The one person whose life Life holds. Stored as `person:me`. In the app and user docs, "you". A task waiting on him is `waiting-owner`. | |
-| agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`), its decisions and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
-| agent start | An agent's `start.command`: Life starts it with an event's JSON appended, on a new ask of its own (`{kind:"ask"}`), each minute (`{kind:"tick", at, zone}`), messages heard (`{kind:"message", chats}`), his answer to one of its decisions (`{kind:"decision", loop}`) and his "Something's wrong" (`{kind:"audit"}`, every agent); ticks and messages only for an agent whose `start.on` names them (`agent.start`, `startAgent(name, event)`); the command decides what each event starts. Never waited on; what it says on stderr as it exits non-zero is mailed to him, each line once (`agentSaid`). | |
+| agent | One of the owner's assistants that take his asks (a ChatGPT or Claude agent), known by its name: a key of the `agents` setting (`agentNames`), on its asks (`after.agent`) and its pairing. Nothing branches on a name. The word stored for an agent's source is `AGENT_WORD`, `agent`. | |
 | pairing | How an app is approved on the connector: `bun life pair <agent>` prints a code; the app's grant (its tokens and refresh record) carries that agent's name as its agent claim, which is how the connector knows the agent (`authInfo.extra.agent`). A grant with no claim (a plain app, `bun life pair` alone) reads, but its board and task updates are refused. | |
 | speaker | Who said a turn in a recording. | |
 | sender | Who wrote a message in a chat or mail. | |
@@ -24,16 +23,12 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, a Claude session, or the agent's own split. A ledger entry of kind `ask`. | |
 | mark | An ask's span in a recording, recorded by the hearing so its unit is read again at importance 3 (`marked` on the unit). Not a separate wake: "hey Life" is one of the agent's wake words. | |
-| daily | His loops' day, like a team's daily: the daily prep (21:30) asks what tomorrow needs, he answers on `/decisions`, and the daily apply (07:00) carries his answers out and sends the daily email, his one notification of the day. Its decisions are the `daily` loop's. Not Life's nightly report. | |
 | task | The agent's work on one ask: the ask and the updates and replies that follow, open until the agent closes it done or dropped. | |
 | update | The agent's report on a task: its state, steps, outcome; `taken: true` when it takes the task. | |
 | reply | What the agent tells the owner, logged before it sends it. | |
-| send | Life's one send into a chat: the draft of the option he answered in a decision, into the chat its `ref` names (`<source>:<chat>`), once (`host/send.ts`, the ledger's `sent`). Not a reply (the agent to him). | |
-| Sends | The output (`sends` setting) and its status card: whether Life can send the replies he chooses; a source whose `send.blocked()` says why not is shown there, never on its reading card. | |
-| bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can send through it and, for LINE, Instagram and LinkedIn, read it (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). Not the connector (the MCP server). | |
+| bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can read LINE, Instagram and LinkedIn (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). Not the connector (the MCP server). | |
 | board | The agent's own list in the owner's to-do list, one item per open task. | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |
-| grant (a loop's) | A decision of `kind: "grant"`: a standing yes he gives one loop (its `ref`: autonomy, budget, publish, ads, mail); it stands while it is the newest done one of its loop and ref, with a scope, not revoked (`active`). | |
 
 ## The ledger and the to-do list
 
@@ -77,7 +72,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | area, project | A part of the owner's life or work, and a project inside one, from `truth/`. | |
 | truth | `truth/`: the owner's own files (people, areas, projects, goals). Only he writes them. | |
 | correction | The owner's fix to the memory (`corrections.jsonl`). | |
-| decision (his) | A question one of his loops puts to him, and his answer (`decisions.jsonl`, `/decisions`): Life acts on one only to send the reply he chose (`send`); the loop that asked acts on the rest. | card |
+| decision (his) | A fact check Life puts to him, and his answer (`decisions.jsonl`, `/decisions`). Older lines of his loops' decisions stay on disk and fold to nothing. | card |
 | overview | The list of all his decisions on the decisions page: a sidebar from 900 px, a sheet from the top below. Not the nightly report. | |
 | label | The owner saying something matters or doesn't (`labels.jsonl`). | |
 | fact check | A doubtful claim Life asks the owner about (`doubtful`), answered right, partly or wrong with his why, on decisions Life asks itself (`memory/fact-checks.ts`; a loop's until 30 Oct 2026): `statements.jsonl`, `ratings.jsonl`, and the eval's `scores.jsonl` (`EvalScore`). Replaced the check page (`/check`) on 29 Oct 2026. | |
@@ -92,8 +87,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Past calendar | The calendar Life writes every moment that happened to, one event each (the `past` setting). Life's output, never a source. | |
 | sweep | A scheduled batch of steps: `nightly`, `midday`, `backfill`. | |
 | run | One step's run inside a sweep, logged with its counts. | |
-| run (a loop's) | One headless run of one of his loops, by life-loops' run id; a decision line's `run` names the one that wrote it. | session |
-| watcher | The always-on service: every minute it folds in lifelog, hears asks, starts the agent on them and syncs the board. | |
+| watcher | The always-on service: every minute it folds in lifelog, hears asks, chases tasks and syncs the board. | |
 | tick | The watcher's minute. Only that. | |
 | status | Whether Life works and how fresh it is. | |
 | status snapshot | Every part of Life as a card, what the app's status window and menu-bar panel show (`host/status/snapshot.ts`, the local `/status/snapshot`). | |

@@ -10,21 +10,18 @@ import {
   newestAssistant,
   readAssistant,
 } from "../sources/assistants";
-import { BRIDGED, bridgedSource } from "../sources/bridged";
+import { bridgedSource, NETWORKS } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
 import { newestCommit, readGit } from "../sources/git";
 import {
   DB,
   handleOf,
-  imessageSend,
-  incomingImessage,
   isImessageGroup,
   newestImessage,
   readImessage,
 } from "../sources/imessage";
 import { lifelogMissing } from "../sources/lifelog";
 import { mailRoot, newestMail, readMail } from "../sources/mail";
-import { bridgeSend } from "../sources/matrix";
 import { copyNotes, newestNote, readNotes } from "../sources/notes";
 import {
   copyWhatsapp,
@@ -64,7 +61,6 @@ const LISTED: Descriptor[] = [
     chatDays: 7,
     group: isImessageGroup,
     handleOf,
-    incoming: incomingImessage,
     kind: "chat",
     label: "iMessage",
     macOnly: true,
@@ -73,7 +69,6 @@ const LISTED: Descriptor[] = [
     newest: newestImessage,
     read: readImessage,
     searchDays: 90,
-    send: imessageSend,
     silentAfter: 24 * HOUR,
   },
   {
@@ -87,7 +82,6 @@ const LISTED: Descriptor[] = [
     newest: newestWhatsapp,
     read: readWhatsapp,
     searchDays: 90,
-    send: bridgeSend("whatsapp"),
     silentAfter: 24 * HOUR,
     store: {
       app: "WhatsApp",
@@ -96,7 +90,7 @@ const LISTED: Descriptor[] = [
       media: "media",
     },
   },
-  ...BRIDGED.map((b) => bridgedSource(b.name, b.label)),
+  ...NETWORKS.map((b) => bridgedSource(b.name, b.label)),
   {
     kind: "mail",
     label: "Mail",

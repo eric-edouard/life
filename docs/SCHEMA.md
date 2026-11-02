@@ -200,20 +200,15 @@ move or the prompt changes. The latest record per person wins (a person folded i
 
 ## decisions.jsonl
 
-His decisions: the questions his loops put to him and what he answered (`records/decision.ts`). Append-only, one line
-per step (`{at, decision, step, data, run?, schemaVersion}`); a decision now is the fold of its lines
-(`decisionsNow`, `memory/decisions.ts`), never rewritten. A loop's steps, through the connector's `update_decision`:
-`asked` (the question, up to 4 options, its loop, its goal `rank` (the page's order), deadline, what happens with no answer; a grant, a change proposal or an
-audit request by `kind`), `revised`, `taken` (before acting on his answer, or on a request: no options, nothing to answer), `done` (its `result`; a grant's `scope`),
-`reopened`, `withdrawn`, `expired`. A line an agent wrote names it (`agent`, its grant's agent claim): the `asked` line's
-is the decision's agent, the one his answer starts; Life's fact checks have none. His, on `/decisions`: `answered` (an option's id, `note` for his words alone, or
-null to clear; it wakes the loop that asked, `wakeOf`; a fact check wakes none), `context` (he opened its context), `revoked` (a grant he takes back), and "Something's wrong", a request
-(`asked`, `kind` audit, no options, his words as `context`, in that loop's tab). A grant stands (`active`) while it is
-the newest done one of its loop and `ref` (by when it was asked), with a scope, not revoked. One synchronous read-and-append per write (`writeDecision`), so
-his tap and a loop taking the same decision can't both land: once taken, his answer is refused. Life itself writes one
-kind, the fact checks (loop `fact-checks`, `memory/fact-checks.ts`, since 30 Oct 2026; a loop before): asked at
-each night and midday run up to 5 open, Right, Partly or Wrong, 7 days; his tap is recorded as its rating at once
-(a note alone as Partly), then `taken` and `done`; an expired one is rated `skip`.
+His decisions: Life's fact checks and what he answered (`records/decision.ts`). Append-only, one line per step
+(`{at, decision, step, data, agent?, run?, schemaVersion}`); a decision now is the fold of its lines (`decisionsNow`,
+`memory/decisions.ts`), never rewritten. Life writes `asked` (loop `fact-checks`, `memory/fact-checks.ts`, since 30
+Oct 2026): at each night and midday run up to 5 open, Right, Partly or Wrong, 7 days; then `done` or `expired`. His, on `/decisions`: `answered` (an option's id, `note` for his words alone, or null to clear), recorded as
+its rating at once (a note alone as Partly); an expired one is rated `skip`. One synchronous read-and-append per write
+(`writeDecision`), so his tap and Life closing the same decision can't both land: once closed, his answer is refused.
+Older lines still parse: the fact checks' `taken` (until 2 Nov 2026), which changes nothing, and his loops' (any other
+`loop`, the steps `revised`, `reopened`, `withdrawn`, `context`, `revoked`, and `agent`, `run`); the fold ignores a
+decision whose `asked` line is not a fact check.
 
 ## corrections.jsonl
 
@@ -305,9 +300,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   standing grant: the owner's quote and when the owner said it). `at`: when the owner said it.
 - `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a reminder
   Life links with no change: the first sync's baseline, fields it learns, its own add whose answer was lost), `ask`, `grant` (the standing grant on or off, `after.on`, `target` `grant`,
-  the owner's words in `instruction`; the latest one stands), `sent` (the reply he chose in a decision, sent into its chat by
-  `host/send.ts`: `target` the decision, `after` `{chat, source}`, `instruction` his question and answer, `ref`
-  `decision:<id>`; an `intent` line first, never the text). A task's own lines,
+  the owner's words in `instruction`; the latest one stands). A task's own lines,
   with no `instruction` and the task's (its ask's) id as `target`: `update` (the agent, the connector's `update_agent_task`: `after` is
   the update, `state` working, waiting-owner, done or dropped, with `deadline`, `note`, `on`, `question`, `outcome`,
   `reason`, `steps` [{title, done}], `taken`), `reply` (what the agent told the owner, the connector's `log_reply_to_owner`: `after.text`,
@@ -422,7 +415,7 @@ observation type `decision` is `choice` (his OK, 29 Oct 2026: "decision" is his 
 observation's id minted again and every citation of it rewritten. The data repo's commits
 "Memory: before the stored names' rename" and "Memory: stored names renamed" hold both sides of the first, "Memory:
 before the observation type's rename" and "Memory: the observation type decision is choice" of the second.
-`agents-2026-10-31` (the same file): the one agent became agents by name (the settings' `agent` became `agents:
+`agents-2026-10-31` (the same file, since removed): the one agent became agents by name (the settings' `agent` became `agents:
 {<name>: {wake, misheard, start: {command, on}}}`, its `client` and `transport` gone); its name was stamped on every
 ask (`after.agent`), every decision it asked (the `asked` line's `agent`, fact checks aside) and every paired app's
 refresh record, each line in its place; "Memory: before the agent's name is stamped" and "Memory: asks and decisions

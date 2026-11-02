@@ -112,7 +112,7 @@ with a pairing code from Life's menu: [connect your assistant](docs/use/connect.
 ## Where your data goes
 
 Your memory is plain text in a git repository of its own, on your Mac, with no remote, and Life never pushes it. What
-does leave the Mac (the text sent to your model, what your assistant reads, the backup and Life's few sends) is listed
+does leave the Mac (the text sent to your model, what your assistant reads, the backup and Life's mail to you) is listed
 in [SECURITY.md](SECURITY.md#what-leaves-the-mac).
 
 ## Status and limitations

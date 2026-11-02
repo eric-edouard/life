@@ -161,7 +161,7 @@ test("a token signed with a key the issuer lacks is the token's fault", async ()
   );
 });
 
-test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, `change_todo_item`, `update_agent_task`, `update_decision` and `log_reply_to_owner` write but are not destructive, so Orbit runs unattended", async () => {
+test("tools/list: thirteen read-only tools; `correct_memory` asks for approval, `change_todo_item`, `update_agent_task` and `log_reply_to_owner` write but are not destructive, so Orbit runs unattended", async () => {
   const { json } = await rpc(await token(), "tools/list");
   const tools: {
     annotations: Record<string, boolean>;
@@ -175,7 +175,6 @@ test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, 
     "read_area_page",
     "read_chats",
     "read_day",
-    "read_decisions",
     "read_life_status",
     "read_memory_changes",
     "read_observation",
@@ -186,7 +185,6 @@ test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, 
     "read_processing_runs",
     "search",
     "update_agent_task",
-    "update_decision",
   ]);
   // Clients see each tool's real schema, though `tool()` validates the arguments itself.
   const claim = json.result.tools.find(
@@ -208,7 +206,6 @@ test("tools/list: fourteen read-only tools; `correct_memory` asks for approval, 
     "change_todo_item",
     "log_reply_to_owner",
     "update_agent_task",
-    "update_decision",
   ];
   for (const reads of tools.filter((x) => !writes.includes(x.name))) {
     expect(reads.annotations).toMatchObject({
