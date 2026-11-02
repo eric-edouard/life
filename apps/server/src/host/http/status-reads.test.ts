@@ -10,7 +10,7 @@ const get = (path: string, headers: Record<string, string> = {}) =>
 test("the app's reads open with the local key only", async () => {
   const key = localKey();
   const as = (token: string) =>
-    get("/status/card/tasks", { authorization: `Bearer ${token}` });
+    get("/status/card/mac", { authorization: `Bearer ${token}` });
   expect((await as(key))?.status).toBe(200);
   expect((await as(`${key.slice(1)}x`))?.status).toBe(401);
   // As many characters as the key, more bytes: refused, not a crash.
