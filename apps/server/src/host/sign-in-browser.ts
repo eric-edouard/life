@@ -138,17 +138,18 @@ function bodyOf(r: Request): Record<string, string> {
  */
 export const openingCalls = (
   step: CookieStep
-): [string, Record<string, unknown>][] => [
-  ...(step.user_agent
+): [string, Record<string, unknown>][] => {
+  const navigate: [string, Record<string, unknown>] = [
+    "Page.navigate",
+    { url: step.url ?? "about:blank" },
+  ];
+  return step.user_agent
     ? [
-        ["Network.setUserAgentOverride", { userAgent: step.user_agent }] as [
-          string,
-          object,
-        ],
+        ["Network.setUserAgentOverride", { userAgent: step.user_agent }],
+        navigate,
       ]
-    : []),
-  ["Page.navigate", { url: step.url ?? "about:blank" }],
-];
+    : [navigate];
+};
 
 /** Opens `step.url` for him to sign in; resolves to each field's value once the required ones are there. */
 export async function signInWithChrome(
