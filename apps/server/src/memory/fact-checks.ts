@@ -1,7 +1,12 @@
 import { clock, DAY, iso } from "../core/clock";
 import type { Decision } from "../records/decision";
 import type { Statement } from "../records/statement";
-import { decisionId, decisionsNow, writeDecision } from "./decisions";
+import {
+  decisionId,
+  decisionsNow,
+  FACT_CHECKS,
+  writeDecision,
+} from "./decisions";
 import {
   readObservations,
   readRatings,
@@ -14,7 +19,6 @@ import { type Doubt, drawDoubtful, plain } from "./statements";
 // of on his decisions page and records his answer as a rating (memory/ratings.jsonl). What is asked comes from
 // `doubtful` only, never from recorded text.
 
-export const FACT_CHECKS = "fact-checks";
 /** How many stay open at once. */
 const OPEN = 5;
 const WHY: Record<Doubt, string> = {
@@ -53,7 +57,6 @@ export function factCheckAsk(
     onNoAnswer: "nothing changes",
     options: OPTIONS,
     question: cut ? `${s.text.slice(0, 199)}…` : s.text,
-    rank: 0,
     ref: s.ref,
   };
 }
@@ -67,23 +70,8 @@ export function recordFactCheck(d: Decision) {
     d.note || undefined
   );
   writeDecision([
-    { decision: d.id, step: "taken" },
     { data: { result: "Recorded in Life" }, decision: d.id, step: "done" },
   ]);
-}
-
-/**
- * His step on his page, when it is on a fact check: an answer is recorded now (a failure is retried by the next
- * `askFactChecks`). True for a fact check: no loop to wake.
- */
-export function recordIfFactCheck(d: Decision) {
-  if (d.loop !== FACT_CHECKS) {
-    return false;
-  }
-  if (d.status === "answered") {
-    recordFactCheck(d);
-  }
-  return true;
 }
 
 /**
@@ -91,9 +79,7 @@ export function recordIfFactCheck(d: Decision) {
  * never asked, then draws up to 5 open. The caller holds the lock (`drawDoubtful`).
  */
 export async function askFactChecks(now = clock().getTime()) {
-  const mine = [...decisionsNow().values()].filter(
-    (d) => d.loop === FACT_CHECKS
-  );
+  const mine = [...decisionsNow().values()];
   for (const d of mine) {
     // One card that can't be closed is logged and left, never the run's failure.
     try {

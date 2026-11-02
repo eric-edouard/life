@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { type Lang, say } from "./words";
 
 // His theme: the system's (auto) unless he picked light or dark, kept in this browser only.
 
 const THEMES = [
-  ["auto", "Auto", "Auto"],
-  ["light", "Clair", "Light"],
-  ["dark", "Sombre", "Dark"],
+  ["auto", "Auto"],
+  ["light", "Light"],
+  ["dark", "Dark"],
 ] as const;
 type Choice = (typeof THEMES)[number][0];
 
@@ -27,14 +26,12 @@ export function applyTheme(theme: Choice) {
   }
 }
 
-export function Theme({ lang }: { lang: Lang }) {
+export function Theme() {
   const [theme, setTheme] = useState(readTheme);
   return (
     <fieldset className="m-0 flex items-baseline gap-3.5 border-0 px-3 pt-4 text-[14px] text-muted">
-      <legend className="float-left pr-0.5">
-        {say(lang, "Thème", "Theme")}
-      </legend>
-      {THEMES.map(([id, fr, en]) => (
+      <legend className="float-left pr-0.5">Theme</legend>
+      {THEMES.map(([id, label]) => (
         <button
           aria-pressed={theme === id}
           className="link aria-pressed:font-bold aria-pressed:text-ink aria-pressed:no-underline"
@@ -50,7 +47,7 @@ export function Theme({ lang }: { lang: Lang }) {
           }}
           type="button"
         >
-          {say(lang, fr, en)}
+          {label}
         </button>
       ))}
     </fieldset>

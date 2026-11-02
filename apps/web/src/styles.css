@@ -97,11 +97,6 @@
       background-color 200ms,
       color 200ms;
   }
-  .opt[data-pick] {
-    font-weight: 700;
-    color: var(--card);
-    background: var(--ink);
-  }
   .opt[aria-pressed="true"] {
     font-weight: 700;
     color: var(--card);

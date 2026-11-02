@@ -1,12 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
-import { SECRETS } from "../core/secret";
-import { openReadOnly } from "../core/sqlite";
 
-// The bridges' local Matrix homeserver (docs/use/bridges.md): a send goes from the owner's Matrix account into the
-// bridge's room for the chat, and the bridge passes it to the network as him. Reading the bridges' messages is
-// `sources/bridged.ts`.
+// The bridges' local Matrix homeserver (docs/use/bridges.md): each bridge's config and its provisioning API, which
+// says whether it is linked and connected. Reading the bridges' messages is `sources/bridged.ts`.
 
 /** Each bridge's folder: its config (the provisioning secret), its database (its rooms); and the homeserver's. */
 export const BRIDGES = join(MACHINE_DIR, "bridges");
@@ -29,17 +26,12 @@ export const configOf = (bridge: string) =>
     };
     provisioning?: { shared_secret?: string };
   };
-/** The homeserver's address on this Mac, and its client API. */
+/** The homeserver's address on this Mac. */
 export const HOMESERVER_URL = "http://127.0.0.1:8008";
-const HOMESERVER = `${HOMESERVER_URL}/_matrix/client/v3`;
 
 /** Whether a network's bridge is added: its folder holds its config (`bun life bridge add`). */
 export const isBridgeAdded = (network: string) =>
   existsSync(join(BRIDGES, network, "config.yaml"));
-
-/** His account on the homeserver, written when the bridges were set up (docs/use/bridges.md). */
-const owner = () =>
-  JSON.parse(readFileSync(SECRETS.matrix, "utf8")) as { token: string };
 
 /** The bridge's own provisioning secret and address, read from its config: never copied. */
 function provisioning(bridge: string) {
@@ -52,8 +44,7 @@ function provisioning(bridge: string) {
 
 async function call(url: string, auth: string, init: RequestInit = {}) {
   const res = await fetch(url, {
-    // A hung bridge fails the call after 10 s. A send that timed out after the homeserver took it is safe to try again:
-    // its `txn` makes the second one a no-op.
+    // A hung bridge fails the call after 10 s.
     signal: AbortSignal.timeout(10_000),
     ...init,
     headers: {
@@ -66,26 +57,6 @@ async function call(url: string, auth: string, init: RequestInit = {}) {
     throw new Error(`${res.status} ${body.error ?? body.errcode ?? url}`);
   }
   return body;
-}
-
-/** A room the bridge already made for the chat (a group: it makes one when a message comes in). */
-function knownRoom(bridge: string, chat: string) {
-  const path = join(BRIDGES, bridge, `${bridge}.db`);
-  if (!existsSync(path)) {
-    return;
-  }
-  const db = openReadOnly(path);
-  try {
-    return (
-      db
-        .query<{ mxid: string }, [string]>(
-          "select mxid from portal where id = ? and mxid is not null"
-        )
-        .get(chat)?.mxid ?? undefined
-    );
-  } finally {
-    db.close();
-  }
 }
 
 /** A call to the bridge's provisioning API, as him. */
@@ -106,7 +77,7 @@ const PASSING = [
   "TRANSIENT_DISCONNECT",
 ];
 
-/** Why a bridge with these logins can't send: never linked, or a login in a state it won't leave by itself. */
+/** Why a bridge with these logins isn't working: never linked, or a login in a state it won't leave by itself. */
 export function blockOf(
   bridge: string,
   logins: { state?: { message?: string; state_event?: string } }[]
@@ -127,10 +98,10 @@ export const readWhoami = (bridge: string) =>
   provision(bridge, "whoami", { signal: AbortSignal.timeout(3000) });
 
 /**
- * Why the bridge can't send now, as the bridge itself says (its logins and their state): not running, never linked,
- * or a login that isn't connected. None when it can.
+ * Why the bridge isn't working now, as the bridge itself says (its logins and their state): not running, never linked,
+ * or a login that isn't connected. None when it is.
  */
-async function readBlock(bridge: string) {
+export async function readBlock(bridge: string) {
   try {
     const who = await readWhoami(bridge);
     return blockOf(bridge, (who.logins ?? []) as Parameters<typeof blockOf>[1]);
@@ -138,56 +109,6 @@ async function readBlock(bridge: string) {
     return `${bridge} bridge not answering: ${(e as Error).message}`;
   }
 }
-
-/** The bridge's room for a chat: the one it has, else a direct chat it opens with that person (idempotent). */
-async function roomOf(bridge: string, chat: string) {
-  // A bridged source's chat is its Matrix room already (`sources/bridged.ts`).
-  if (chat.startsWith("!")) {
-    return chat;
-  }
-  const known = knownRoom(bridge, chat);
-  if (known) {
-    return known;
-  }
-  const made = await provision(
-    bridge,
-    `create_dm/${encodeURIComponent(chat)}`,
-    {
-      method: "POST",
-    }
-  );
-  if (typeof made.dm_room_mxid !== "string") {
-    throw new Error(`${bridge}: no room for ${chat}`);
-  }
-  return made.dm_room_mxid;
-}
-
-/**
- * Sends `text` as him into the bridge's room for `chat`. `txn` makes it once: the homeserver drops a second send with
- * the same transaction id from the same account.
- */
-async function sendMatrix(
-  bridge: string,
-  chat: string,
-  text: string,
-  txn: string
-) {
-  const room = encodeURIComponent(await roomOf(bridge, chat));
-  const auth = owner().token;
-  await call(`${HOMESERVER}/rooms/${room}/join`, auth, { method: "POST" });
-  await call(
-    `${HOMESERVER}/rooms/${room}/send/m.room.message/${encodeURIComponent(txn)}`,
-    auth,
-    { body: JSON.stringify({ body: text, msgtype: "m.text" }), method: "PUT" }
-  );
-}
-
-/** A bridged network's `send` (sources/contract.ts): its messages and its block, both through the one bridge. */
-export const bridgeSend = (bridge: string) => ({
-  blocked: () => readBlock(bridge),
-  deliver: (chat: string, text: string, txn: string) =>
-    sendMatrix(bridge, chat, text, txn),
-});
 
 /** One step of a bridge's login, as its provisioning API gives it (mautrix's bridgev2 `LoginStep`). */
 export interface LoginStep {

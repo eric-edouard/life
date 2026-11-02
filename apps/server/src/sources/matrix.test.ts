@@ -4,19 +4,17 @@ import { join } from "node:path";
 import {
   BRIDGES,
   blockOf,
-  bridgeSend,
   cookieValues,
   linkBridge,
   pastedValues,
+  readBlock,
 } from "./matrix";
 
-test("a bridge that isn't set up or running is a reason the send is blocked, never a throw", async () => {
-  expect(await bridgeSend("nowhere").blocked()).toContain(
-    "nowhere bridge not answering"
-  );
+test("a bridge that isn't set up or running is a reason it is blocked, never a throw", async () => {
+  expect(await readBlock("nowhere")).toContain("nowhere bridge not answering");
 });
 
-test("a bridge blocks sends only when never linked or in a state it won't leave by itself", () => {
+test("a bridge is blocked only when never linked or in a state it won't leave by itself", () => {
   expect(blockOf("whatsapp", [])).toContain("not linked");
   expect(
     blockOf("whatsapp", [{ state: { state_event: "CONNECTED" } }])

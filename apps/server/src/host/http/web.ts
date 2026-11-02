@@ -1,20 +1,10 @@
 import { join } from "node:path";
 import { Hono } from "hono";
 import { WEB_DIST } from "../../core/paths";
-import { agentNames, connector } from "../../core/settings";
-import {
-  decisionId,
-  decisionsNow,
-  writeDecision,
-} from "../../memory/decisions";
-import { recordIfFactCheck } from "../../memory/fact-checks";
-import {
-  type Decision,
-  type DecisionRow,
-  OwnerStep,
-} from "../../records/decision";
-import { startAgent, wakeOf } from "../events";
-import { recipientOf } from "../send";
+import { connector } from "../../core/settings";
+import { decisionsNow, writeDecision } from "../../memory/decisions";
+import { recordFactCheck } from "../../memory/fact-checks";
+import { OwnerStep } from "../../records/decision";
 import { HEADERS, text } from "./http";
 import type { SignIn } from "./sign-in";
 
@@ -32,20 +22,11 @@ const APP_HEADERS = {
 };
 const OWN = /^\/(?:api|\.well-known)(?:\/|$)/;
 
-/** His decisions as they stand (GET), or his step on one (POST: answered, context, revoked, or asked, his request). */
+/** His decisions as they stand (GET), or his answer to one (POST), recorded at once as its rating. */
 function decisions(now: () => number) {
   return new Hono()
     .get("/api/decisions", () =>
-      Response.json(
-        [...decisionsNow().values()].map(
-          (d): DecisionRow => ({
-            ...d,
-            // Only an open card asks his tap: the others need no recipient read.
-            to: d.status === "open" ? recipientOf(d.ref) : undefined,
-          })
-        ),
-        { headers: HEADERS }
-      )
+      Response.json([...decisionsNow().values()], { headers: HEADERS })
     )
     .post("/api/decisions", async (c) => {
       if (c.req.header("origin") !== connector().origin) {
@@ -55,50 +36,10 @@ function decisions(now: () => number) {
       if (!step.success) {
         return text("not one of his steps", 400);
       }
-      const b = step.data;
       try {
-        let woken: Decision | undefined;
-        if (b.step === "asked") {
-          // His "Something's wrong": a request (no options) about one loop, for the audit; Life makes its id.
-          const { loop, note, ref } = b.data;
-          writeDecision(
-            [
-              {
-                data: {
-                  context: note,
-                  kind: "audit",
-                  loop,
-                  options: [],
-                  question: note.slice(0, 200),
-                  ref,
-                },
-                decision: decisionId(loop, now()),
-                step: "asked",
-              },
-            ],
-            now()
-          );
-        } else {
-          const [d] = writeDecision(
-            [
-              {
-                data: "data" in b ? b.data : undefined,
-                decision: b.decision,
-                step: b.step,
-              },
-            ],
-            now()
-          );
-          // A fact check is Life's own: his tap is its rating, and no loop is woken.
-          woken = d && recordIfFactCheck(d) ? undefined : d;
-        }
-        const wake = wakeOf(b.step, woken?.loop);
-        if (wake?.kind === "audit") {
-          for (const name of agentNames()) {
-            startAgent(name, wake);
-          }
-        } else if (wake && woken?.agent) {
-          startAgent(woken.agent, wake);
+        const [d] = writeDecision([step.data], now());
+        if (d?.status === "answered") {
+          recordFactCheck(d);
         }
         return text("ok", 200);
       } catch (e) {

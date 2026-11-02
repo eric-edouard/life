@@ -20,9 +20,8 @@ export const Settings = z
   .object({
     /**
      * His agents by name (what Life calls each, and its board, the to-do list named after it): the words that wake it
-     * ("hey <word>", `hear.ts`), how lifelog mishears them (a misheard wake counts only on his own turn, as low
-     * confidence), and the command Life starts (in his home) with an event's JSON appended, on which events
-     * (`startAgent`). An agent is known on the connector by its pairing (`bun life pair <agent>`). Without one nothing
+     * ("hey <word>", `hear.ts`) and how lifelog mishears them (a misheard wake counts only on his own turn, as low
+     * confidence). An agent is known on the connector by its pairing (`bun life pair <agent>`). Without one nothing
      * wakes an agent.
      */
     agents: z
@@ -31,13 +30,6 @@ export const Settings = z
         z
           .object({
             misheard: z.array(z.string()).default([]),
-            start: z
-              .object({
-                command: z.array(z.string()).min(1),
-                on: z.array(z.enum(["tick", "message"])),
-              })
-              .strict()
-              .optional(),
             wake: z.array(z.string()).min(1),
           })
           .strict()
@@ -82,8 +74,6 @@ export const Settings = z
     reports: z.array(z.email()).default([]),
     /** The folder holding his code repos, `~/` allowed: the git source reads nothing without it. */
     repos: z.string().optional(),
-    /** Life sends the replies he chose in his decisions (`host/send.ts`); without it, it sends none. */
-    sends: z.literal(true).optional(),
     /** The sources he turned on, by name: no other is read, searched or shown. */
     sources: z.array(SourceName).default([]),
     /**

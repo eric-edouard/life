@@ -3,7 +3,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MIN } from "./clock";
-import { cliEnv } from "./platform";
 
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
@@ -37,40 +36,6 @@ export async function exec(
     proc.exited,
   ]);
   return { code, killed: proc.signalCode, stderr, stdout };
-}
-
-/**
- * Starts `cmd` in `cwd` with only `cliEnv` (none of Life's secrets) and leaves it running on its own, its output
- * discarded but for what it says on stderr when it exits non-zero, handed to `onFail`: the reason when it cannot start.
- */
-export function start(
-  cmd: string[],
-  cwd: string,
-  onFail: (said: string) => void
-) {
-  try {
-    const p = Bun.spawn(cmd, {
-      cwd,
-      env: cliEnv(),
-      stderr: "pipe",
-      stdin: "ignore",
-      stdout: "ignore",
-    });
-    const said = new Response(p.stderr).text();
-    p.exited.then(async (code) => {
-      if (code !== 0) {
-        // The end of what it said, from a line's start (a cut line would read as a new one each time).
-        const text = (await said).trim();
-        const cut = text.indexOf("\n", text.length - 2000);
-        const end =
-          text.length > 2000 ? text.slice(cut < 0 ? -2000 : cut + 1) : text;
-        onFail(end || `exited ${code}`);
-      }
-    });
-    p.unref();
-  } catch (e) {
-    return (e as Error).message;
-  }
 }
 
 /** `exec` for a step that must work: its output, or an error with what it said, named by its first two words. */

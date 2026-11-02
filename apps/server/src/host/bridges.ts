@@ -14,7 +14,6 @@ import { setSettings, settings } from "../core/settings";
 import { NETWORKS, type Network } from "../sources/bridged";
 import {
   BRIDGES,
-  bridgeSend,
   type CookieStep,
   cookieValues,
   HOMESERVER_URL,
@@ -24,6 +23,7 @@ import {
   loginFlows,
   OWNER,
   pastedValues,
+  readBlock,
   readWhoami,
   SERVER,
   unlinkBridge,
@@ -215,7 +215,7 @@ async function newestTag(n: Network) {
   return tag;
 }
 
-/** Its config, the first time: this homeserver, SQLite, him as its admin, no history rooms for a send-only one. */
+/** Its config, the first time: this homeserver, SQLite, him as its admin. */
 async function writeConfig(n: Network, bin: string, dir: string) {
   const config = configPath(n);
   await execOk([bin, "-c", config, "-e"], { cwd: dir });
@@ -223,7 +223,6 @@ async function writeConfig(n: Network, bin: string, dir: string) {
     Record<string, Record<string, unknown>>
   >;
   const appservice = c.appservice ?? {};
-  const network = (c.network ?? {}) as Record<string, Record<string, unknown>>;
   writeYaml(config, {
     ...c,
     appservice: {
@@ -238,17 +237,6 @@ async function writeConfig(n: Network, bin: string, dir: string) {
       uri: `file:${n.name}.db?_txlock=immediate`,
     },
     homeserver: { ...c.homeserver, address: HOMESERVER_URL, domain: SERVER },
-    ...(n.reads || !network.history_sync
-      ? {}
-      : {
-          network: {
-            ...network,
-            history_sync: {
-              ...network.history_sync,
-              max_initial_conversations: 0,
-            },
-          },
-        }),
   });
   await execOk(
     [bin, "-g", "-c", config, "-r", join(dir, "registration.yaml")],
@@ -293,7 +281,7 @@ async function add(n: Network) {
   await restartBridges();
   await untilAnswers(() => readWhoami(n.name), `the ${n.label} bridge`);
   console.log(`${n.label} bridge running.`);
-  if (!(await bridgeSend(n.name).blocked())) {
+  if (!(await readBlock(n.name))) {
     console.log(`${n.label} is linked already.`);
   } else if (process.stdin.isTTY) {
     await link(n);
@@ -376,7 +364,7 @@ async function signIn(step: CookieStep) {
   );
 }
 
-/** Links a network: its first way to log in unless `flow` names another; then its source on when Life reads it. */
+/** Links a network: its first way to log in unless `flow` names another; then its source on. */
 async function link(n: Network, flow?: string) {
   const flows = await loginFlows(n.name);
   const chosen = flows.find((f) => f.id === flow) ?? flows[0];
@@ -391,7 +379,7 @@ async function link(n: Network, flow?: string) {
     show,
     value: (f) => ask(f.name, f.hidden),
   });
-  if (n.reads && !settings().sources.includes(n.name)) {
+  if (!settings().sources.includes(n.name)) {
     setSettings({ sources: [...settings().sources, n.name] });
     console.log(
       `${n.label} is on: Life copies it once it restarts (menu bar → Restart).`
@@ -401,8 +389,7 @@ async function link(n: Network, flow?: string) {
 }
 
 /**
- * Removes a network's bridge: logged out, unregistered, stopped, its folder gone, its source off when it was the
- * bridge's (never WhatsApp's, read from the Mac app). The archive stays, and the homeserver keeps its rooms; what the
+ * Removes a network's bridge: logged out, unregistered, stopped, its folder gone, its source off. The archive stays, and the homeserver keeps its rooms; what the
  * archive hadn't copied yet is not copied.
  */
 async function remove(n: Network) {
@@ -414,9 +401,7 @@ async function remove(n: Network) {
     setRegistration(n.name, false);
     await restartBridges();
   }
-  if (n.reads) {
-    setSettings({ sources: settings().sources.filter((s) => s !== n.name) });
-  }
+  setSettings({ sources: settings().sources.filter((s) => s !== n.name) });
   console.log(`${n.label} removed; what Life archived of it stays.`);
 }
 

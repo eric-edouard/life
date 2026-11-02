@@ -101,6 +101,6 @@ export function log(kind: LogKind, fields: Record<string, unknown> = {}) {
 /** Whether a connector call came from one of his agents: its grant's agent claim names one (`mcp.call`'s `agent`). */
 export const isAgent = (agent: unknown) =>
   typeof agent === "string" && agentNames().includes(agent);
-/** A call of his agent's daily review: `read_day` read by the agent, with no error (the nightly's `reviewed`, `shownDays`). */
+/** A call of his agent's daily review: `read_day` read by the agent, with no error (`shownDays`, search.ts). */
 export const isReviewCall = (e: Call) =>
   e.tool === "read_day" && !e.error && isAgent(e.agent);

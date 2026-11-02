@@ -15,7 +15,6 @@ import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
 import { marks, push } from "../todo-list/board";
 import { chase, closings, receipts } from "./agent";
-import { startAgents, startOnAsk } from "./events";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -27,16 +26,14 @@ import { inbound } from "./inbound";
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
 // (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
-// mirrors them on his board (apps/server/src/todo-list); `startOnAsk` starts the agent on a new ask (apps/server/src/host/events.ts).
+// mirrors them on his board (apps/server/src/todo-list), on its own timer: lifelog down never stops it (1 Nov: 20 h without one).
 
-let last = 0;
 let ticking = false;
-/** At most each minute, one at a time, beside the loop (reading his lists takes about 10 s): the chase, then Reminders both ways. */
+/** Each minute, one at a time, beside the loop (reading his lists takes about 10 s): the chase, then Reminders both ways. */
 async function tick(now = clock().getTime()) {
-  if (ticking || now - last < MIN) {
+  if (ticking) {
     return;
   }
-  last = now;
   ticking = true;
   await pass(now).finally(() => {
     ticking = false;
@@ -44,10 +41,6 @@ async function tick(now = clock().getTime()) {
 }
 
 async function pass(now: number) {
-  startAgents({
-    at: new Date(now).toISOString(),
-    kind: "tick",
-  });
   await chase(tasksOf(), now);
   if (!isOn("todo_list")) {
     return;
@@ -221,9 +214,16 @@ export async function watch(): Promise<number> {
     console.error("Life's server is off:", (e as Error).message);
   }
   sayActions();
-  if (!listening()) {
-    return quiet(running);
+  minute();
+  const timer = setInterval(minute, MIN);
+  try {
+    return await (listening() ? listen(running, started) : quiet(running));
+  } finally {
+    clearInterval(timer);
   }
+}
+
+async function listen(running: string, started: Date): Promise<number> {
   const store = openStore();
   const pending = resumed(store, clock().getTime());
   const speech: Speech = (conversation, from) =>
@@ -274,8 +274,6 @@ export async function watch(): Promise<number> {
           );
         }
       }
-      // Before the units' sync: a new ask's agent starts without waiting for the reindex.
-      minute();
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
       // each poll), `dirty` keeps the sync due.
       if (dirty && !more && !isLocked()) {
@@ -285,8 +283,6 @@ export async function watch(): Promise<number> {
     } catch (e) {
       result = { error: (e as Error).message };
       console.error(clock().toISOString(), result.error);
-      // A failed poll too: lifelog down never stops the agents' minute (1 Nov: 20 h without one).
-      minute();
     }
     health = afterPoll(health, clock(), result, started);
     if ("error" in result && health.consecutiveErrors === 1) {
@@ -301,26 +297,19 @@ export async function watch(): Promise<number> {
   return 0;
 }
 
-/** No voice source: nothing to hear or fold, but asks still go out and the tasks' minute still runs. */
+/** No voice source: nothing to hear or fold; the tasks' minute runs on its timer until new code. */
 async function quiet(running: string) {
   console.log(
     `${clock().toISOString()} watcher: no voice source, not listening`
   );
   while (codeAt(LIFE_CODE_DIR) === running) {
-    minute();
-    // biome-ignore lint/performance/noAwaitInLoops: one pass a minute
+    // biome-ignore lint/performance/noAwaitInLoops: waits for new code
     await Bun.sleep(RETRY_MS);
   }
   return 0;
 }
 
-/** What runs on every pass, heard or not: a new ask's start first (a slow Reminders host holds up the board, never an ask), then the tasks' minute. */
 function minute() {
-  try {
-    startOnAsk();
-  } catch (e) {
-    log("run.error", { error: (e as Error).message, step: "events.start" });
-  }
   tick().catch((e: Error) =>
     log("run.error", { error: e.message, step: "tasks.tick" })
   );

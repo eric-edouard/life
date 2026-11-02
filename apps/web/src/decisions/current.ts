@@ -1,4 +1,4 @@
-import type { DecisionRow } from "@life/server/src/records/decision";
+import type { Decision } from "@life/server/src/records/decision";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentOf, DONE, isOpen, moveOf } from "./order";
 
@@ -24,7 +24,7 @@ const isOnScreen = (section: HTMLElement) => {
 };
 
 /** The current decision among `live`, how to move to one, and the ref each section registers with. */
-export function useCurrent(live: DecisionRow[], onMove: () => void) {
+export function useCurrent(live: Decision[], onMove: () => void) {
   const [wanted, setWanted] = useState(idOfHash);
   const allDone = live.length > 0 && !live.some(isOpen);
   const current = currentOf(live, wanted);
