@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import {
   quietestAt,
+  redSources,
   snapshot,
   stationsOf,
   toneOf,
@@ -127,6 +128,20 @@ test(
       label: "Model (fast)",
       value: "claude/haiku",
     });
+  },
+  MIN
+);
+
+test(
+  "a source Life can't read is red and says why, so the tick mails it; an import never run is idle, so it doesn't",
+  async () => {
+    const red = new Map(
+      redSources((await snapshot()).cards).map((c) => [c.id, c])
+    );
+    // The made-up data has no WhatsApp archive and no repos folder; claude.ai is imported or not, by the tests before.
+    expect(red.get("whatsapp")?.headline).toBe("WhatsApp not archived yet");
+    expect(red.get("git")?.headline).not.toBe("unreadable");
+    expect(red.has("claude")).toBe(false);
   },
   MIN
 );
