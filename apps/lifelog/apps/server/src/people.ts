@@ -76,15 +76,16 @@ export const loadTranscript = (db: Db, jobId: string) =>
     .where(eq(transcripts.jobId, jobId))
     .get() ?? null;
 
-// The live conversation that holds the job (`conversation_jobs`), null while none does. Read by
-// the view's own `where`, so SQLite seeks the job's turns; a join on the view builds all of it
-// (70 ms a call on a month's archive). Still a few ms: the sweep never reads it.
-export const holdingConversation = (db: Db, jobId: string) =>
+// The live conversations that hold the job (`conversation_jobs`; a job over a boundary is in two),
+// none while it waits for grouping. Read by the view's own `where`, so SQLite seeks the job's
+// turns; a join on the view builds all of it (70 ms a call on a month's archive).
+export const holdingConversations = (db: Db, jobId: string) =>
   db
     .select({ id: conversationJobs.conversationId })
     .from(conversationJobs)
     .where(eq(conversationJobs.jobId, jobId))
-    .get()?.id ?? null;
+    .all()
+    .map((c) => c.id);
 
 // ---- Samples ----------------------------------------------------------------
 

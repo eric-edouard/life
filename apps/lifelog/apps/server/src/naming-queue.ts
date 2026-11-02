@@ -12,7 +12,6 @@
 import { randomUUID } from "node:crypto";
 import type { Db } from "@lifelog/db";
 import {
-  conversationJobs,
   conversations,
   intelligenceRuns,
   type JobMap,
@@ -31,6 +30,7 @@ import { textOf } from "./elevenlabs";
 import { record, recordedOn } from "./events";
 import {
   assign,
+  holdingConversations,
   isCalled,
   sampleRanker,
   type Target,
@@ -563,12 +563,7 @@ export function cardClips(db: Db) {
   };
   // The turn in the live conversations that hold its job now (a regroup can split a job).
   const turnOf = (jobId: string, turnIndex: number) => {
-    const holders = db
-      .select({ id: conversationJobs.conversationId })
-      .from(conversationJobs)
-      .where(eq(conversationJobs.jobId, jobId))
-      .all();
-    for (const { id } of holders) {
+    for (const id of holdingConversations(db, jobId)) {
       const turn = turnsOf(id).find(
         (t) => t.ref.jobId === jobId && t.ref.turnIndex === turnIndex
       );

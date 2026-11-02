@@ -17,7 +17,7 @@ import {
   assign as answerSpeaker,
   averageLinkage,
   expire,
-  holdingConversation,
+  holdingConversations,
   keepServerSamples,
   loadTranscript,
   merge,
@@ -118,7 +118,7 @@ function upload(jobId: string, turnIndex: number, vector: number[]) {
     return { status: 422 };
   }
   // No conversation holds the job yet: the server cuts it later.
-  const conversationId = holdingConversation(env.db, jobId);
+  const [conversationId] = holdingConversations(env.db, jobId);
   if (!conversationId) {
     return { status: 404 };
   }
@@ -292,7 +292,7 @@ test("a voice that misses its profile takes the name of the same voice minutes a
   // Registers the recording as captured `minutes` into the evening.
   const recording = (voice: number[], minutes: number) => {
     const jobId = conversation(voice, stranger());
-    const holder = holdingConversation(env.db, jobId) ?? "";
+    const holder = holdingConversations(env.db, jobId)[0] ?? "";
     const start = evening + minutes * 60_000;
     // Placed in capture time this time.
     env.db
@@ -674,7 +674,7 @@ test("the owner's own turns inside another speaker become his, with a turn sampl
     turn("speaker_1", 25, 30),
     turn("speaker_1", 30, 35),
   ]);
-  const holder = holdingConversation(env.db, jobId) ?? "";
+  const holder = holdingConversations(env.db, jobId)[0] ?? "";
   const anHourAgo = Date.now() - 3_600_000;
   env.db
     .update(conversations)

@@ -22,7 +22,7 @@ import { type Config, EXCERPTS, RECOGNITION } from "./config";
 import { touchesQuiet } from "./cutter";
 import { record } from "./events";
 import {
-  holdingConversation,
+  holdingConversations,
   keepServerSamples,
   loadTranscript,
   recognize,
@@ -161,7 +161,7 @@ export function excerptSampler(db: Db, config: Config, audio: AudioStore) {
       return done(jobId);
     }
     const transcript = loadTranscript(db, jobId);
-    const conversationId = holdingConversation(db, jobId);
+    const [conversationId] = holdingConversations(db, jobId);
     if (!(transcript && conversationId)) {
       return null;
     }
