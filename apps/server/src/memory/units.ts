@@ -102,7 +102,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export const isDay = (s: string) => DAY.test(s);
 /**
  * `from`..`to` as ISO instants. A date is a local day: `from` starts it, `to` is inclusive (it ends after that day).
- * `from` may be missing; `to` never passes now, so a frozen clock (`LIFE_NOW`) bounds every live source read through it.
+ * `from` may be missing; `to` never passes now.
  */
 export function dayRange(from?: string, to?: string) {
   const edge = (d: string | undefined, plus: number) => {

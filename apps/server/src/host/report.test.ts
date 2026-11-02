@@ -90,7 +90,7 @@ test("an ask reads as his words to Orbit, a low-confidence one says so", () => {
 
 const night = (facts: number) =>
   ({
-    acted: { actions: [], problems: [], tasks: [] },
+    acted: { actions: [], problems: [] },
     archive: "Archive: no failure",
     backup: "Last backup: 2026-10-15 05:00, 5.5 GB",
     code: [],
@@ -179,7 +179,6 @@ test("every report section includes all rows beyond the former 15-row cap", () =
     n.acted.problems.push(`problem ${i}`);
     n.acted.actions.push(action({ after: { title: `action ${i}` } }));
     n.code.push({ name: `repo ${i}`, relation: `commit ${i}` });
-    n.acted.tasks.push({ name: "open · 1 h", relation: `task ${i}` });
     n.repos.suggestions.push({
       area: null,
       newProject: `project ${i}`,
@@ -197,7 +196,6 @@ test("every report section includes all rows beyond the former 15-row cap", () =
         "commit",
         "project",
         "relation",
-        "task",
         "page",
       ]) {
         expect(body).toContain(`${label} ${i}`);
@@ -207,7 +205,6 @@ test("every report section includes all rows beyond the former 15-row cap", () =
   }
   expect(text).toContain("Actions (40)");
   expect(text).toContain("Code yesterday (40)");
-  expect(text).toContain("Orbit tasks (20)");
   expect(text).toContain("New people (20)");
   expect(text).toContain("What changed (20)");
 });
@@ -218,7 +215,6 @@ test("the Actions section lists problems first, then each action with his words;
   n.acted = {
     actions: [action({}), action({ error: "boom", result: "failed" })],
     problems: ["Reminders: remctl is not on the PATH"],
-    tasks: [],
   };
   const { subject, text, html } = successReport("2026-10-15", 1000, n);
   expect(subject).toEndWith(", 2 actions");

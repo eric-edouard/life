@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { changedFields, lacks, openOf, readable } from "./backend";
+import { changedFields, lacks, openOf } from "./backend";
 import { Change } from "./contract";
 import { reminders } from "./remctl";
 
@@ -53,14 +53,6 @@ test("an open reminder keeps the six fields `read_open_todo_items` promises, its
   for (const target of [openOf(r).id, 1, "list/task"]) {
     expect(Change.shape.target.safeParse(target).success).toBe(true);
   }
-});
-
-test("his reminders are read from one list or all, never the board", () => {
-  expect(readable("Home")).toBe(true);
-  expect(readable("Home", "Home")).toBe(true);
-  expect(readable("Home", "Work")).toBe(false);
-  expect(readable("Orbit")).toBe(false);
-  expect(readable("Orbit", "Orbit")).toBe(false);
 });
 
 test("an edit changes the title and list only when they differ, and every other field that is set", () => {

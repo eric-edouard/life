@@ -14,8 +14,7 @@ Read before changing an area: `docs/glossary.md` (every word, one meaning each),
 reasons), `docs/SCHEMA.md` (every record),
 `docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions), `docs/operations.md` (schedule, locks,
 backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/releasing.md`,
-`SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
-documentation: it is the agent's playbook, read at run time.
+`SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`.
 
 ## Commands
 
@@ -67,8 +66,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
 - **Only the owner writes `truth/`.** Models return JSON that zod validates; every quote is checked against its source
   (`apps/server/src/memory/observe.ts`).
 - **Memory is append-only and expensive.** Never hand-edit or wipe `memory/` (except appending his corrections or
-  labels). `ledger.jsonl` is appended only by `act`, `setGrant`, the tasks (`ask`, `update`, `reply`) and the sync
-  pass (`inbound`, `closings`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
+  labels). `ledger.jsonl` is appended only by `act`, `setGrant`, `ask` and the sync
+  pass (`inbound`). The status reads' `read_memory_changes` cursor counts ledger lines, so a line must never move. Code
   rewrites only `units/` and `moments/<day>.jsonl`, and a rename's backfill (next).
 - **lifelog's chapter units are the only copy of the voice history before conversation-days.** The store no longer
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
@@ -99,7 +98,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
-- **Life starts no agent.** Each agent pulls its own asks (`read_open_agent_tasks`); no agent's name or schedule
+- **Life starts no agent.** Each agent pulls its own asks (`read_agent_asks`) and keeps its own list; Life keeps no task state; no agent's name or schedule
   lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
   branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
@@ -108,8 +107,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
 - **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task` and
-  `log_reply_to_owner`.** Never add a
+- **The connector reads, forwards his corrections, and acts only through `change_todo_item`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Pages serve nothing of his before their sign-in check** (the web app's `/api/` and the legacy `/me`, behind his
@@ -151,8 +149,8 @@ A name is a decision about what a thing is. Before naming or renaming anything, 
 what it is not, then find its word in `docs/glossary.md` (its Word column is what the code uses today): one word per
 concept, the same in docs, app, email, connector and code. A new concept gets its glossary line in the same PR.
 
-- Clarity beats brevity: a name the reader doesn't have to look up (the connector's `read_open_agent_tasks`, not
-  `tasks`).
+- Clarity beats brevity: a name the reader doesn't have to look up (the connector's `read_agent_asks`, not
+  `asks`).
 - One meaning per word. When a word already means something else (state, item, run, zone), pick another.
 - New and renamed functions: `readX` reads disk or the network, `parseX` turns text into a value, `xOf` is pure, `latest` is the most
   recent of a set, booleans start with `is` or `has`.
@@ -190,7 +188,7 @@ Before adding a helper, use the one that exists:
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
 | Writing a secret file | `writeSecret` or `secretIn`, by its name in `SECRETS` (`secret.ts`), which also keeps it out of exports |
 | Whether an output is on, and why not | `isOn`, `off` (`apps/server/src/core/outputs.ts`), never a setting read for the switch |
-| A model provider's models, effort, tools, quota | its entry in `PROVIDERS` (`llm.ts`) |
+| A model provider's models, effort, quota | its entry in `PROVIDERS` (`llm.ts`) |
 | Anything that differs between macOS and Windows | `apps/server/src/core/platform.ts` (paths, binaries, environment, time zone, notifications); a Mac-only source is `macOnly` |
 
 Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`, given `systemZone()`) follow the Mac's clock.
@@ -198,8 +196,6 @@ Where he is (`zones.jsonl`) is the phone's latest zone, whatever its age (`readZ
 phone is the source of truth and the Life server may run anywhere. The Mac's zone only when no phone ever named one;
 lifelog unreadable changes nothing. Life reads the newest heartbeat's zone (the phone app always sends one); lifelog's
 own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
-`LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
-on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport` and the Past calendar).
 
 ## Gotchas
 
@@ -223,8 +219,7 @@ Life); measure a change to moments or extraction (`docs/operations.md`, "Measuri
 or invariant you make into this file or the doc it belongs to.
 
 **Ask first:** a new table in the archive; a migration of stored data (the list of renames); re-running the whole archive through a model; bumping a prompt version;
-removing a regression case; anything that spends the owner's model quota heavily (the bench, a backfill); changing
-`docs/agent.md` (it changes the agent's behaviour and its seal).
+removing a regression case; anything that spends the owner's model quota heavily (a backfill).
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
 data repo; add a send into a chat, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
@@ -239,5 +234,4 @@ ruling of 29 Oct).
   `golden-rule-verdict` before merge: did it add or reduce debt?
 - A bug fix merges with its regression case (a failing-then-passing `bun test` with made-up data, or graded facts for
   a model stage): `docs/operations.md`, "Regression cases".
-- A PR that changes `prompts/`, `docs/agent.md` or the owner's `playbook.md` says which cases of those stages it
-  re-checked and how they came out. The agent end to end is `bun scripts/bench-agent.ts`.
+- A PR that changes `prompts/` says which cases of those stages it re-checked and how they came out.

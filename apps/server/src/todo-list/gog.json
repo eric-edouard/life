@@ -8,13 +8,6 @@
       "updated": "2026-10-22T08:00:00.000Z"
     }
   },
-  "create": {
-    "tasklist": {
-      "id": "bGlzdEJvYXJk",
-      "title": "Board",
-      "updated": "2026-10-22T08:00:00.000Z"
-    }
-  },
   "get": {
     "task": {
       "due": "2026-10-22T00:00:00.000Z",

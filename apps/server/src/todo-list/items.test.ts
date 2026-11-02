@@ -110,8 +110,8 @@ test("a dated item shows on its day, then late only while a daily review has not
   ).toEqual([]);
 });
 
-test("copies merge: a reminder into its observation, an item said in an open task's turn is that task's", () => {
-  const said = item({ ref: "job:8@x" });
+test("copies merge: a reminder into its observation", () => {
+  const said = item({});
   const reminder = item({
     id: "entry_0000000000r1",
     kind: "reminder",
@@ -126,7 +126,6 @@ test("copies merge: a reminder into its observation, an item said in an open tas
     merged: ["entry_0000000000r1"],
     urgent: true,
   });
-  expect(ids([said], { tasks: new Set(["job:8@x"]) })).toEqual([]);
   // A reminder with a due date gives an undated observation its day: shown on it, not lost.
   const undated = item({ said: "2026-10-15", when: undefined });
   expect(ids([undated, { ...reminder, when: DATE }])).toEqual([

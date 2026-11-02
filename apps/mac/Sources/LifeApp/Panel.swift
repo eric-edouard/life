@@ -10,7 +10,7 @@ struct Panel: View {
   @State private var code: String?
 
   /// The parts the panel shows at a glance, when the status snapshot has them.
-  private static let glance = ["nightly", "memory", "tasks", "engine"]
+  private static let glance = ["nightly", "memory", "engine"]
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {

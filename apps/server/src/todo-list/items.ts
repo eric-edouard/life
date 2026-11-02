@@ -154,8 +154,6 @@ export interface Candidate {
   person?: string;
   priority?: string;
   projects?: string[];
-  /** The turn it was said in: an open task from the same turn holds it (it is on the board). */
-  ref?: string;
   /** The day it was said, for one with no day of its own (an undated to-do, promise or wait; a reply he owes: their last word). */
   said?: string;
   urgent?: boolean;
@@ -212,8 +210,7 @@ const KIND = {
 /**
  * The open items due on `date`, ranked: his urgent flag, then his priority; who owes whom; the first of his goals it
  * serves (`goals`: each goal's project ids, his order); closeness to whoever it is with (`levels`: 0 inner); older
- * first. Copies merge: a reminder into the observation it came from, and an item said in the turn of an open task
- * (`read_open_agent_tasks`: their refs) is left to that task. `shown`: the days a daily review was already given each id (`read_day`'s answers).
+ * first. Copies merge: a reminder into the observation it came from. `shown`: the days a daily review was already given each id (`read_day`'s answers).
  */
 export function openItems(
   candidates: Candidate[],
@@ -222,14 +219,12 @@ export function openItems(
     goals = [],
     levels = new Map(),
     shown = new Map(),
-    tasks = new Set(),
     today = date,
   }: {
     date: string;
     goals?: string[][];
     levels?: Map<string, number>;
     shown?: Map<string, string[]>;
-    tasks?: Set<string>;
     /** His day now: what the review reads ahead of it shows no undated item. */
     today?: string;
   }
@@ -273,11 +268,7 @@ export function openItems(
     return i < 0 ? a.at.localeCompare(b.at) : (x[i] ?? 0) - (y[i] ?? 0);
   };
   return [...items.values()]
-    .filter(
-      (c) =>
-        !(c.ref && tasks.has(c.ref)) &&
-        timely(c, date, today, shown.get(c.id) ?? [])
-    )
+    .filter((c) => timely(c, date, today, shown.get(c.id) ?? []))
     .map((c) => ({ ...c, overdue: (c.when ?? date) < date }))
     .toSorted(rank);
 }

@@ -3,13 +3,10 @@ import { expect, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AGENT_WORD } from "../core/names";
 import type { Moment } from "../records/moment";
 import type { Observation } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { tasksOf } from "./ledger";
 import { layoutOf, perSection, renderPage } from "./page-format";
-import { action } from "./record-fixtures";
 import {
   areaFor,
   birthdaysNear,
@@ -23,7 +20,6 @@ import {
   nextBirthday,
   readIndex,
   matches as searchMatches,
-  taskHits,
   withSpans,
 } from "./search";
 import { newestDays } from "./units";
@@ -372,7 +368,6 @@ test("audit-1-apple-open-loop: day lists the open to-dos and promises of the day
     levels: new Map(),
     more: [],
     shown: new Map(),
-    tasks: new Set(),
     today: "2026-10-19",
   });
   // Ranked: his promises first, then his to-dos, then what he waits on.
@@ -498,30 +493,4 @@ test("area: an area's or a project's id or name, never a part of one", () => {
   expect(areaFor("house", truth).project?.id).toBe("house");
   expect(areaFor("the house", truth).id).toBe("construction");
   expect(areaFor("constr", truth).id).toBeUndefined();
-});
-
-test("Orbit's tasks in search: his words or Orbit's reports hold the words, inside from/to; a state alone matches nothing", () => {
-  const ask = action({
-    after: { confidence: "high" },
-    id: "entry_00000000000a",
-    kind: "ask",
-    target: AGENT_WORD,
-  });
-  const done = action({
-    after: { outcome: "Booked the dentist for Friday.", state: "done" },
-    at: "2026-10-15T11:00:00.000Z",
-    id: "entry_00000000000b",
-    instruction: undefined,
-    kind: "update",
-    target: ask.id,
-    via: "connector",
-  });
-  const tasks = tasksOf([ask, done].map((l) => JSON.stringify(l)));
-  const hits = (q: string, o = {}) => taskHits(holdsAll(q), o, tasks);
-  expect(hits("dentist")).toEqual([
-    "- entry_00000000000a 2026-10-15 done: write that down in the to-dos → Booked the dentist for Friday.",
-  ]);
-  expect(hits("to-dos")).toHaveLength(1);
-  expect(hits("done")).toEqual([]);
-  expect(hits("dentist", { from: "2026-10-16" })).toEqual([]);
 });

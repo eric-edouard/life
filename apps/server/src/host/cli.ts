@@ -19,8 +19,8 @@ import { checks } from "../todo-list/backend";
 import { entryLine } from "../todo-list/items";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { Asked, actAsked, requested, setGrant } from "./act";
-import { ask, timings } from "./agent";
 import { archiveCommand } from "./archive";
+import { ask, timings } from "./asks";
 import { backup } from "./backup";
 import { bridgeCommand } from "./bridges";
 import { memoryCommand, step } from "./command";
@@ -125,8 +125,8 @@ const commands: Record<string, () => number | Promise<number>> = {
   /** Keeps every WhatsApp message before a delete wipes it: `archive [--once]`, `archive deleted [days]`. */
   archive: () => archiveCommand(process.argv.slice(3)),
   /**
-   * Hands work to an agent from a Claude session: `ask [<agent>] '<his words>'` records an ask, which the watcher
-   * delivers; the agent may be left out when there is only one.
+   * Hands work to an agent from a Claude session: `ask [<agent>] '<his words>'` records an ask, which the agent
+   * pulls; the agent may be left out when there is only one.
    */
   ask() {
     const [first = "", ...rest] = process.argv.slice(3);
@@ -150,7 +150,7 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /**
    * Where each ask's time went: `asks [--from d] [--to d]` (local days, `--to` inclusive), one line per ask, in the order recorded, each moment as
-   * the time since the one before it (apps/server/src/host/agent.ts `timings`).
+   * the time since the one before it (apps/server/src/host/asks.ts `timings`).
    */
   asks() {
     const { values } = parseArgs({
@@ -300,7 +300,7 @@ const commands: Record<string, () => number | Promise<number>> = {
   memory: () => memoryCommand(process.argv.slice(3)),
   /**
    * A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes: `pair <agent>` pairs it
-   * as that agent; `pair` alone, a plain app, which reads but has no board.
+   * as that agent; `pair` alone, a plain app, which reads but pulls no asks.
    */
   pair() {
     const names = agentNames();

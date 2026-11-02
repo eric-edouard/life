@@ -28,14 +28,8 @@ export const STEPS = [
   "memory.closeness",
   "memory.pages",
 ];
-/** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval, the agent bench. */
-export const SPENDING = [
-  ...SWEEPS,
-  ...STEPS,
-  "memory.import",
-  "eval",
-  "bench.agent",
-];
+/** Every run that can call a model: the sweeps, their steps (also run by hand), an import, the eval. */
+export const SPENDING = [...SWEEPS, ...STEPS, "memory.import", "eval"];
 /** The pipeline's runs; others (the watcher's hearings until 19 Oct: memory.intent, memory.intent-screen) only when asked for. */
 const PIPELINE = [
   ...SWEEPS,

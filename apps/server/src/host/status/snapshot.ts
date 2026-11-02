@@ -2,13 +2,11 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY, HOUR, MIN } from "../../core/clock";
 import { filesIn, linesOf } from "../../core/files";
-import type { Call } from "../../core/log";
-import { isAgent, type LogEvent, recentEvents } from "../../core/log";
+import { type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
 import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
-import { agentNames } from "../../core/settings";
 import { changeFeed } from "../../memory/changes";
 import {
   CORRECTIONS,
@@ -17,7 +15,6 @@ import {
   readLedger,
   readRatings,
   readStatements,
-  tasksOf,
 } from "../../memory/ledger";
 import { loadTruth } from "../../memory/read-truth";
 import { runs, SPENDING, type Use, useText } from "../../memory/run-log";
@@ -30,7 +27,6 @@ import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
 import { lifelogStatus, newestTurn } from "../../sources/lifelog";
 import { checks } from "../../todo-list/backend";
-import { agentLive, escalation, taskList } from "../agent";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { readHealth } from "../health";
@@ -349,14 +345,6 @@ async function reads(now: Date) {
     actions,
     connectors,
     contacts,
-    /** The agents his asks don't reach now (`agentLive`). */
-    deaf: (
-      await Promise.all(
-        agentNames().map(async (a) =>
-          (await agentLive(t, a, async () => mcp as Call[])) ? [] : [a]
-        )
-      )
-    ).flat(),
     errorsToday: of("run.error", 1),
     failingStores: new Map(failing),
     health: readHealth(),
@@ -1005,65 +993,6 @@ function memoryCards(r: Reads): Card[] {
   ];
 }
 
-function agentCards(r: Reads): Card[] {
-  const names = agentNames().join(", ");
-  const calls = since(r.mcp, DAY, r.t).filter((c) => isAgent(c.agent));
-  const tasks = taskList(r.t);
-  const needing = tasksOf().filter((x) => escalation(x, r.t)).length;
-  return [
-    {
-      headline: "not receiving asks",
-      ...firstOf(
-        [
-          !isOn("agent"),
-          { headline: "no agent set up", tone: "idle", word: "off" },
-        ],
-        [
-          r.deaf.length === 0,
-          {
-            headline: "receiving asks",
-            tone: "ok",
-            word: "checking in",
-          },
-        ],
-        [
-          true,
-          {
-            ask: ASK(`that ${r.deaf.join(", ")} isn't receiving asks`),
-            tone: "bad",
-            word: "not checking in",
-          },
-        ]
-      ),
-      facts: [{ at: calls.at(-1)?.at, label: "Last call" }],
-      group: "outputs",
-      id: "asks",
-      name: names,
-    },
-    {
-      ...firstOf(
-        [needing > 0, { tone: "warn", word: `${needing} need you` }],
-        [tasks.length > 0, { tone: "busy", word: "working" }],
-        [true, { tone: "ok", word: "clear" }]
-      ),
-      content: tasks
-        .slice(0, 8)
-        .map((x) => `${x.state} · ${x.title ?? x.quote}`),
-      facts: [
-        { label: "Open", value: String(tasks.length) },
-        { label: "Need you", value: String(needing) },
-        ...tasks
-          .slice(0, 5)
-          .map((x) => ({ label: x.id, value: `${x.state}, ${x.age}` })),
-      ],
-      group: "outputs",
-      headline: `${tasks.length} open`,
-      id: "tasks",
-      name: `${names} tasks`,
-    },
-  ];
-}
-
 /** Who made a connector call, as the cards name it: its agent (its grant's claim), or a plain app. */
 export const callerOf = (agent: unknown) =>
   typeof agent === "string" ? agent : "an app";
@@ -1084,7 +1013,6 @@ function outputCards(r: Reads): Card[] {
   const mails = since(r.sent, DAY, r.t);
   const portraitOn = !!process.env.LIFE_PORTRAIT_PASSWORD;
   return [
-    ...agentCards(r),
     {
       content: calls
         .slice(-5)

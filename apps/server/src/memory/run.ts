@@ -55,7 +55,7 @@ export function record(step: string, fields: Record<string, unknown>) {
 export type RunRecord = ReturnType<typeof record>;
 
 /**
- * A run whose share of his engine's quota is measured (the sweeps, the eval, the agent bench), when the engine has one
+ * A run whose share of his engine's quota is measured (the sweeps, the eval), when the engine has one
  * (`hasQuota`): the quota read as it starts and as it ends, logged on its `run.start` and `run.end` (what it spent is
  * derived from them: `useOf`, run-log.ts). Its tokens are counted either way, from its calls.
  */

@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { setSettings, settings } from "../core/settings";
 import { LEDGER, tasksOf } from "../memory/ledger";
-import { wakes } from "../memory/tasks";
 import { apply, readConversations, whose } from "../sources/lifelog";
 import {
   conversation,
@@ -11,7 +10,7 @@ import {
   lifelogStore,
   pageFixture,
 } from "../sources/store-fixtures";
-import { asksIn, hear, speechIn, type Turn } from "./hear";
+import { asksIn, hear, speechIn, type Turn, wakes } from "./hear";
 
 test("only “hey Orbit” or its misheard word, in order, wake it, whatever the case and punctuation", () => {
   for (const said of [

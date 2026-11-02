@@ -74,7 +74,7 @@ test("the public port refuses the owner's pages without a session, serves Life's
     true,
   ]);
   expect((await get("/docs/brand.md")).status).toBe(200);
-  expect((await get("/docs/agent.md")).status).toBe(404);
+  expect((await get("/docs/glossary.md")).status).toBe(404);
   const none = await get("/nope");
   expect([none.status, await none.text()]).toEqual([404, "not found"]);
 });
