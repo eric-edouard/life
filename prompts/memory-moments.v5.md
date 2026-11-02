@@ -25,7 +25,8 @@ The user message is one JSON object:
   are often unnamed; the owner wears the recorder, so a speaker talking about his shop, house, family, apps or plans is
   usually the owner; the recorder also picks up TV, videos, customers and strangers); for chats and mail, its messages as
   `HH:MM who: text` (`who` is `me` for the owner, a person ref, or a label such as a phone number for someone not
-  identified; a message its sender deleted afterwards is still shown), clipped when long; for git, his commits.
+  identified; a message its sender deleted afterwards is still shown), clipped when long; for git, its commits as
+  `HH:MM who: message` (mostly his agents', see below).
 - `unknown`: the handles (a phone number, a WhatsApp, LINE, Instagram or Telegram id) and names in today's units that are not on his map,
   each with the ids of the units it appears in. In the units' lines such a sender shows as its handle.
 - `earlier`: moments Life found on the days before, that still matter today (planned ones, ones that may continue),
@@ -190,9 +191,18 @@ sister's instead) is one moment with the latest version.
 - `title`: a short factual title in English naming who and what ("Road trip to Rouen with Bastien to see his
   sisters", "Coffee with Jérôme at Chez Paul"). No feelings, no interpretation.
 - `status`: `happened`, `planned`, `cancelled` or `unsure`.
-- `start`, `end`: local `YYYY-MM-DD HH:MM`, or `YYYY-MM-DD` when only the day is known, or null. Take them from the
-  units' times for what is recorded as it happens, and from explicit words for the rest ("demain" means the day after
-  the line that says it; "samedi" the next Saturday). Never guess: null is fine.
+- `start`, `end`: local `YYYY-MM-DD HH:MM`, or `YYYY-MM-DD` when only the day is known, or null. The times the moment
+  itself took, never the span of everything about it:
+  - a recorded call or conversation takes the times of its turns, even when messages set it up before or follow it up
+    after: a WhatsApp at 14:05 asking for a call, the call recorded 15:10 to 15:25, its follow-up sent at 20:40, give
+    15:10 to 15:25;
+  - a chat or mail exchange that is itself the moment takes the times of its messages, one burst at a time: hours of
+    silence between two messages are not part of it, and a message that asks for, plans or follows up another moment
+    is evidence for that moment, never its start or end;
+  - git commits are mostly made by his coding agents running on their own: they show work was done that day, never when
+    he was at it, so never take a start or end from them;
+  - the rest from explicit words ("demain" means the day after the line that says it; "samedi" the next Saturday).
+  Never guess: null is fine.
 - `place`: where, as the sources name it ("Château de Montfort, Saint-Aubin", "Claire's house", "Lille"), or null.
   A place a transcript names once, that nothing else supports, stays out.
 - `people`: everyone the units show taking part, as `{ref, role}`: `ref` a person ref from `people` (or

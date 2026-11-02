@@ -64,7 +64,7 @@ tags for what the unit is about, such as `philosophy`, `ai`, `construction` (cod
 them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
-the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` since 20 Oct, which weighs what goes on between the owner and the people close to them) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict. The chat's own project decides an `areaHint`
+the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-moments.v2` on 18 Oct, `memory-moments.v3` from 18 Oct, which also says who the day's unknown people are, `memory-moments.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-moments.v5` since 2 Nov, which times a moment by when it happened, not by everything about it) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict. The chat's own project decides an `areaHint`
 the model is shown (`Chat` -> the projects whose `chats` list it -> their `area`); it is a hint, never an override. A unit with no line for its current content is
 not judged yet; a dropped unit's lines are ignored.
 
@@ -84,7 +84,7 @@ ID cards, invoices, plans.
 ## moments/YYYY-MM-DD.jsonl
 
 What happened, or is planned, in the owner's life: one line per moment (a trip, a dinner, a flight, a coffee), written by
-`bun life memory moments` (prompt `memory-moments.v4`) from one day of units read together across every channel, in
+`bun life memory moments` (prompt `memory-moments.v5`) from one day of units read together across every channel, in
 time order, with the moments of the days before that may continue into it (the same call writes the day's verdicts).
 A day's file is rewritten when the day is read again; git keeps the old ones. A moment the owner hid (`wrong`, `not-important`) stays in it, and each reading of its day is shown it with his note, so it is not made again; a `wrong` one has its day read again. A moment a later day sees again keeps its id there, and the latest
 day's line is its current state (a plan that happened, or was cancelled), and its units are those of all its days'
