@@ -1,25 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { HOUR } from "../core/clock";
-import { log } from "../core/log";
 import { MACHINE_DIR } from "../core/platform";
 import { latestExtractions } from "../memory/ledger";
 import { unit } from "../memory/record-fixtures";
 import type { Extracted, Observation } from "../records/observation";
-import { markedSince, nightly, reviewed } from "./nightly";
-
-test("a daily review reached Life only when an agent read `read_day` without error in the last 24 h", async () => {
-  const now = new Date();
-  log("mcp.call", { client: "plain-app", tool: "read_day" });
-  log("mcp.call", { agent: "Comet", tool: "read_day" });
-  log("mcp.call", { agent: "Orbit", tool: "read_person_page" });
-  log("mcp.call", { agent: "Orbit", error: true, tool: "read_day" });
-  expect(await reviewed(now)).toBe(false);
-  log("mcp.call", { agent: "Orbit", tool: "read_day" });
-  expect(await reviewed(now)).toBe(true);
-  expect(await reviewed(new Date(now.getTime() + 25 * HOUR))).toBe(false);
-});
+import { markedSince, nightly } from "./nightly";
 
 test("each marked unit is listed once read since the last night, with the observations citing its marked lines", () => {
   const u = unit({ marked: ["j:1@a", "j:2@a"] });

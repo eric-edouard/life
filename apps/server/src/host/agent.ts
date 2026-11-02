@@ -4,6 +4,7 @@ import { z } from "zod";
 import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { digest } from "../core/hash";
+import { type Call, recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
@@ -23,7 +24,6 @@ import { dayNow } from "../memory/zones";
 import { type Instruction, LedgerEntry } from "../records/ledger-entry";
 import type { Receipt } from "../todo-list/board";
 import { entryId, requested } from "./act";
-import { agentLive } from "./events";
 import { lapseReport, sendReport, taskReport, unsent } from "./report";
 
 // The agent's tasks: each ask (his "hey <agent>", `bun life ask`, or the agent's `update_agent_task` from his chat words or a split) is a task in memory/ledger.jsonl until the agent closes it
@@ -499,3 +499,21 @@ export const closings = (
       ? [taskLine("update", t.ask.id, after, Date.parse(at), by, "reminders")]
       : [];
   });
+
+/** How long an agent may go without reading `read_open_agent_tasks` before Life says it isn't receiving asks. */
+const PULL_MS = DAY;
+
+/** Whether his asks reach `agent` now: a `read_open_agent_tasks` call of its own (its grant's agent claim) in the last day (`calls`: the connector's log). */
+export async function agentLive(
+  now: number,
+  agent: string,
+  calls = () => recentEvents<Call>(2, "mcp.call")
+) {
+  return (await calls()).some(
+    (e) =>
+      e.tool === "read_open_agent_tasks" &&
+      !e.error &&
+      e.agent === agent &&
+      now - Date.parse(e.at) < PULL_MS
+  );
+}

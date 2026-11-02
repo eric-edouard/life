@@ -12,7 +12,7 @@ import {
 // The agent bench (scripts/bench-agent.ts). Frozen, the live sources (lifelog, chats, notes, places) are read up to that
 // instant (`dayRange`, `placesOf`); memory, the ledger and the lifelog store are what the bench copied as of then. A
 // frozen world is a dry run (`dry`, mcp.ts). Only a copy is ever frozen: never his ~/Life (like `LIFE_LLM`), and never
-// in the live checkout, whose derived/ (log, events.json) is production's.
+// in the live checkout, whose derived/ (its log) is production's.
 
 /** Is `root` a checkout of its own (its .git a folder), not a throwaway worktree (a .git file)? */
 const isMainCheckout = (root: string) =>

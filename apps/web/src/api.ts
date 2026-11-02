@@ -1,4 +1,4 @@
-import type { DecisionRow, OwnerStep } from "@life/server/src/records/decision";
+import type { Decision, OwnerStep } from "@life/server/src/records/decision";
 
 // The app's one way to Life's /api/: a signed-out answer (401) sends him to the sign-in, back here after.
 
@@ -22,7 +22,7 @@ const post = (path: string, body: unknown) =>
     method: "POST",
   });
 
-export const readDecisions = async (): Promise<DecisionRow[]> =>
+export const readDecisions = async (): Promise<Decision[]> =>
   (await call("/api/decisions")).json();
 
 export const writeStep = (step: OwnerStep) => post("/api/decisions", step);

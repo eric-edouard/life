@@ -30,10 +30,9 @@ import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
 import { lifelogStatus, newestTurn } from "../../sources/lifelog";
 import { checks } from "../../todo-list/backend";
-import { escalation, taskList } from "../agent";
+import { agentLive, escalation, taskList } from "../agent";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
-import { agentLive } from "../events";
 import { readHealth } from "../health";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
@@ -335,7 +334,7 @@ async function reads(now: Date) {
     cached("actions", 15_000, readLedger),
     cached("actionChecks", MIN, checks),
     newestOf(),
-    // Every messaging connector's live check (`bun life bridge`'s): its bridge and its sends, as last found.
+    // Every messaging connector's live check (`bun life bridge`'s): its bridge, as last found.
     latestHealths(),
   ]);
   const of = (kind: string, days: number) =>
@@ -475,19 +474,16 @@ function lifelogCard(r: Reads): Card {
   };
 }
 
-/** A connector's failing bridge and send checks (`failingParts`): its reading the card judges itself. */
+/** A connector's failing bridge check (`failingParts`): its reading the card judges itself. */
 const connectorFailures = (r: Reads, name: string) =>
-  failingParts(
-    r.connectors.find((c) => c.name === name)?.health,
-    isOn("sends")
-  );
+  failingParts(r.connectors.find((c) => c.name === name)?.health);
 
 type Healths = Awaited<ReturnType<typeof connectorHealths>>;
 let healths: Healths = [];
 let checkedAt = Number.NEGATIVE_INFINITY;
 let checking = false;
 /**
- * Every connector's bridge and send checks as last found, never awaited: the status window reads every 3 s and a
+ * Every connector's bridge check as last found, never awaited: the status window reads every 3 s and a
  * check may take 10 s, so a stale one starts a fresh one in the background (every 15 s at most).
  */
 function latestHealths(): Healths {
@@ -495,7 +491,7 @@ function latestHealths(): Healths {
     checking = true;
     // In a promise from the start: a check that throws at once never stops the snapshot or the next check.
     Promise.resolve()
-      .then(() => connectorHealths(["bridge", "send"]))
+      .then(() => connectorHealths(["bridge"]))
       .then((h) => {
         healths = h;
       })
@@ -525,12 +521,9 @@ function sourceCard(r: Reads, d: Descriptor): Card {
     read.ok && !broken
   );
   const failing = connectorFailures(r, d.name);
-  // Its bridge stopped or a send it can't make is as red as a read that fails.
+  // Its bridge stopped is as red as a read that fails.
   const tone = failing.length
-    ? {
-        tone: "bad" as Tone,
-        word: failing[0]?.kind === "bridge" ? "bridge down" : "can't send",
-      }
+    ? { tone: "bad" as Tone, word: "bridge down" }
     : readTone;
   const why = broken?.error ?? (read.ok ? undefined : read.error);
   return {
@@ -847,47 +840,6 @@ function backupCard(r: Reads): Card {
   };
 }
 
-/** Whether Life can send the replies he chooses: each sending source's own word on its link (`send.blocked`). */
-function sendsCard(r: Reads): Card {
-  // The send checks of every connector that sends (the same as each connector's card).
-  const all = r.connectors.flatMap((c) =>
-    c.health.parts
-      .filter((p) => p.kind === "send")
-      .map((p) => ({ label: c.label, part: p }))
-  );
-  const blocks = all.filter((b) => !b.part.ok);
-  return {
-    headline: "can send",
-    // Each rule carries its headline (`firstOf`).
-    ...firstOf(
-      [!isOn("sends"), { headline: "sends off", tone: "idle", word: "off" }],
-      [
-        blocks.length > 0,
-        {
-          ask: ASK("that Life cannot send"),
-          headline: "can't send",
-          tone: "bad",
-          word: "blocked",
-        },
-      ],
-      [
-        all.length === 0,
-        {
-          headline: "no source he turned on sends",
-          tone: "idle",
-          word: "none",
-        },
-      ],
-      [true, { headline: "can send", tone: "ok", word: "ok" }]
-    ),
-    content: [...blocks.map((b) => `${b.label}: ${b.part.text}`)],
-    facts: [],
-    group: "pipeline",
-    id: "sends",
-    name: OUTPUTS.sends.label,
-  };
-}
-
 function engineCard(r: Reads): Card {
   const metered = hasQuota();
   // An older engine's reading never shows on one with no quota.
@@ -953,7 +905,6 @@ function pipelineCards(r: Reads): Card[] {
     sweepCard(r, "midday", "Midday", r.status.midday, r.status.midday.next),
     sweepCard(r, "backfill", "Backfill", r.status.backfill),
     backupCard(r),
-    sendsCard(r),
     engineCard(r),
     {
       facts: [

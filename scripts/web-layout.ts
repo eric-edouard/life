@@ -9,25 +9,23 @@ const WEB = join(import.meta.dir, "..", "apps", "web");
 await execOk(["bun", "x", "vite", "build"], { cwd: WEB, timeout: 120_000 });
 
 const long =
-  "Le récap Lynx est coupé depuis deux jours parce que Railway a déconnecté la session : relancer la connexion maintenant, ou attendre la fin de la semaine et le faire avec le reste ?";
-const decision = (id: string, question: string, options = 2) => ({
+  "The Lynx recap has been cut for two days because Railway dropped the session, and the shop's sales stopped reaching the report the same evening.";
+const decision = (id: string, question: string) => ({
+  context: `${"Life is unsure: it was heard once, from a moment far from any chat about it.\n\n".repeat(6)}From a voice note, 30 Oct.`,
   createdAt: "2026-10-30T08:00:00.000Z",
-  draft: `${"Bonjour,\n\nMerci pour votre message. Je reviens vers vous demain avec les chiffres.\n\n".repeat(4)}Bien à vous`,
+  deadline: "2026-11-06T08:00:00.000Z",
   id,
-  lang: "fr",
-  loop: "lynx-store",
-  options: Array.from({ length: options }, (_, i) => ({
-    consequence:
-      "Le récap reprend demain avec les ventes de la boutique et celles du site",
-    id: `o${i}`,
-    label: `Option ${i + 1}`,
-  })),
+  loop: "fact-checks",
+  options: [
+    { id: "true", label: "Right" },
+    { id: "false", label: "Wrong" },
+  ],
   question,
   status: "open",
 });
 const DECISIONS = [
-  decision("lynx-20261030080000-1", long, 4),
-  decision("lynx-20261030080000-2", "Court ?"),
+  decision("fact-checks-20261030080000-1", long),
+  decision("fact-checks-20261030080000-2", "Short?"),
 ];
 
 // Each size answers its own copy (its cookie names it), so they run side by side.
@@ -62,7 +60,7 @@ const server = Bun.serve({
 });
 
 // The link to the sheet: the preview's, or at the densest, Details.
-const MORE = /^(Lire le message|Détails)$/;
+const MORE = /^(More context|Details)$/;
 
 const { chromium } = await import("playwright");
 const browser = await chromium.launch();
@@ -155,22 +153,22 @@ async function check([
     })) <= 1,
     `${name}: something scrolls inside the decision`
   );
-  // The long draft is a preview; the whole of it is in the sheet.
+  // The long context is a preview; the whole of it is in the sheet.
   await first.getByText(MORE).click();
   const sheet = page.getByRole("dialog");
   await sheet.waitFor();
   expect(
-    (await sheet.innerText()).includes("Bien à vous"),
-    `${name}: the sheet doesn't hold the whole message`
+    (await sheet.innerText()).includes("From a voice note, 30 Oct."),
+    `${name}: the sheet doesn't hold the whole context`
   );
   await shot("sheet");
   await page.keyboard.press("Escape");
   await sheet.waitFor({ state: "hidden" });
   // Typing lands (30 Oct: every key was cancelled), and the options fold away while he types.
   await field.click();
-  await page.keyboard.type("bonjour");
+  await page.keyboard.type("hello");
   expect(
-    (await field.inputValue()) === "bonjour",
+    (await field.inputValue()) === "hello",
     `${name}: typing doesn't land`
   );
   await page.waitForTimeout(300);
@@ -187,7 +185,7 @@ async function check([
   await first.locator("button.opt").first().click();
   await page.waitForTimeout(900);
   expect(
-    page.url().endsWith("#lynx-20261030080000-2"),
+    page.url().endsWith("#fact-checks-20261030080000-2"),
     `${name}: answering didn't move to the next one (${page.url()})`
   );
   if (!isPhone) {
@@ -205,7 +203,7 @@ async function check([
         return [
           head.top - r.top,
           r.bottom - Math.max(...kids.map((k) => k.bottom)),
-          // Nothing pushed apart in between: the question sits under where it comes from.
+          // Nothing pushed apart in between: the question sits under its deadline.
           h2.getBoundingClientRect().top - head.bottom,
           Number.parseFloat(style.fontSize),
           Number(style.fontWeight),
@@ -223,7 +221,7 @@ async function check([
   await page.locator("section").nth(1).locator("button.opt").first().click();
   await page.waitForTimeout(900);
   expect(
-    await page.getByText("C'est tout pour aujourd'hui.").isVisible(),
+    await page.getByText("That's all for today.").isVisible(),
     `${name}: no end after the last one`
   );
   await shot("done");
@@ -235,12 +233,12 @@ async function check([
       .evaluate((t) => t.scrollTo({ left: 0 }));
     await page.waitForTimeout(600);
     expect(
-      page.url().endsWith("#lynx-20261030080000-1"),
+      page.url().endsWith("#fact-checks-20261030080000-1"),
       `${name}: a swipe didn't make the decision current`
     );
     // Tapping the one on screen in the overview moves nothing, and swipes still count after it (a stuck move once
     // stopped every swipe from registering).
-    await page.getByRole("button", { name: "Toutes les décisions" }).click();
+    await page.getByRole("button", { name: "All decisions" }).click();
     await page.getByRole("dialog").locator("button.row").first().click();
     await page.waitForTimeout(500);
     await page
@@ -249,7 +247,7 @@ async function check([
       .evaluate((t) => t.scrollTo({ left: t.clientWidth }));
     await page.waitForTimeout(600);
     expect(
-      page.url().endsWith("#lynx-20261030080000-2"),
+      page.url().endsWith("#fact-checks-20261030080000-2"),
       `${name}: after tapping the current one, a swipe didn't count`
     );
   } else {

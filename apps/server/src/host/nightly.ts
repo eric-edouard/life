@@ -1,6 +1,6 @@
 import { clock, DAY, HOUR } from "../core/clock";
 import { holder, isOtherLife } from "../core/lock";
-import { type Call, isReviewCall, log, recentEvents } from "../core/log";
+import { log, recentEvents } from "../core/log";
 import { closeness, pagedNow } from "../memory/closeness";
 import { extract } from "../memory/extract";
 import { askFactChecks } from "../memory/fact-checks";
@@ -74,18 +74,9 @@ import {
 const STUCK_MS = 3 * HOUR;
 const ALERT_MS = HOUR;
 
-/** Whether an agent (a call with its grant's agent claim) read `read_day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
-export const reviewed = async (now: Date) =>
-  (await recentEvents<Call>(2, "mcp.call")).some(
-    (e) => isReviewCall(e) && Date.parse(e.at) >= now.getTime() - DAY
-  );
-
 /** The report's Actions: what Life did in the last 24 h and what stops it from acting. Never fails the night: a failure is one more problem. */
 async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   const problems = await checks();
-  if (!(await reviewed(now))) {
-    problems.push("no daily review reached Life in the last 24 h");
-  }
   let actions: LedgerEntry[] = [];
   let tasks: ReturnType<typeof taskList> = [];
   let gaps = 0;

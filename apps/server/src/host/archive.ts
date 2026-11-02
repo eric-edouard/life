@@ -1,19 +1,13 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { clock, DAY, MIN } from "../core/clock";
+import { clock, DAY } from "../core/clock";
 import { hold } from "../core/lock";
 import { type LogEvent, log, recentEvents } from "../core/log";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt, exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
-import {
-  ARCHIVED,
-  type Archived,
-  enabledSources,
-  keptStores,
-} from "../memory/sources";
+import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { startAgents } from "./events";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram and Instagram message the bridges
 // hold, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
@@ -77,29 +71,6 @@ async function keepAppsOpen() {
       );
     })
   );
-}
-
-/** The chats a chat source's archive took a message from someone else into since `since` (a copy's `seenAt`). */
-export function messagesIn(
-  { kind, name, store }: Archived,
-  since: string,
-  dir = ARCHIVE
-) {
-  const path = archiveDb(name, dir);
-  if (kind !== "chat" || !existsSync(path)) {
-    return [];
-  }
-  const db = openReadOnly(path);
-  try {
-    return db
-      .query<{ chat: string }, [string]>(
-        `select distinct chat from ${store.copies} where seenAt >= ? and not fromMe and chat is not null`
-      )
-      .all(since)
-      .map(({ chat }) => ({ chat, source: name }));
-  } finally {
-    db.close();
-  }
 }
 
 /** The deleted messages one store kept since `since`, opened read-only: the archive is their only copy. */
@@ -173,70 +144,9 @@ export async function archiveFailing(ms = 0, now = clock().getTime()) {
   );
 }
 
-type Heard = ReturnType<typeof messagesIn>;
-
-/** Each chat heard, by `<source>:<chat>`: when the agent was last started for it, and whether a message waits. */
-type Starts = Map<string, { at: number; waiting?: Heard[number] }>;
-
-/**
- * The chats to start the agent for now: those heard, and those waiting, that weren't started for in the last minute. A
- * chat heard sooner waits for its minute (never dropped), so a busy group starts the agent once a minute at most.
- */
-export function toStart(heard: Heard, starts: Starts, now: number) {
-  for (const h of heard) {
-    const key = `${h.source}:${h.chat}`;
-    starts.set(key, { at: starts.get(key)?.at ?? 0, waiting: h });
-  }
-  const due: Heard = [];
-  for (const [key, s] of starts) {
-    if (s.waiting && now - s.at >= MIN) {
-      due.push(s.waiting);
-      starts.set(key, { at: now });
-    }
-  }
-  return due;
-}
-
-/**
- * The chats someone else wrote in since the last pass, in the chat sources with no archive copy (iMessage), from each
- * one's `incoming` and its cursor (`cursors`, by source). A source that fails keeps its cursor, so its messages wait
- * for the next pass, and is an incident like a store's (`failing`: logged when it starts and when it ends).
- */
-export function heardIncoming(
-  cursors: Map<string, number>,
-  failing: Set<string>,
-  sources = enabledSources()
-): Heard {
-  return sources.flatMap((s) => {
-    if (!s.incoming || s.missing?.()) {
-      return [];
-    }
-    try {
-      const { chats, last } = s.incoming(cursors.get(s.name));
-      cursors.set(s.name, last);
-      if (failing.delete(s.name)) {
-        log("run.end", { step: `archive.${s.name}` });
-      }
-      return chats.map((chat) => ({ chat, source: s.name }));
-    } catch (error) {
-      if (!failing.has(s.name)) {
-        failing.add(s.name);
-        log("run.error", {
-          error: (error as Error).message,
-          step: `archive.${s.name}`,
-        });
-      }
-      return [];
-    }
-  });
-}
-
-/** One pass: each kept store copied, its failures opened and closed as incidents; the chats someone else wrote in. */
+/** One pass: each kept store copied, its failures opened and closed as incidents. */
 function copyAll(failing: Set<string>) {
-  const pass = clock().toISOString();
-  const heard: Heard = [];
-  for (const s of keptStores()) {
-    const { name, store } = s;
+  for (const { name, store } of keptStores()) {
     try {
       const added = store.copy();
       if (failing.delete(name)) {
@@ -244,7 +154,6 @@ function copyAll(failing: Set<string>) {
       }
       if (added > 0) {
         console.log(`${clock().toISOString()} archived ${added} ${name}`);
-        heard.push(...messagesIn(s, pass));
       }
     } catch (error) {
       console.error(clock().toISOString(), name, error);
@@ -257,7 +166,6 @@ function copyAll(failing: Set<string>) {
       }
     }
   }
-  return heard;
 }
 
 /**
@@ -273,11 +181,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
   // A hand `--once` too: while the service runs, it would be a second archiver.
   await hold("archive");
   const failing = new Set((await archiveFailing()).map(([name]) => name));
-  // The first pass starts nothing: a fresh archive copies every chat at once, and the minute's tick follows anyway.
-  const starts: Starts = new Map();
-  const cursors = new Map<string, number>();
   copyAll(failing);
-  heardIncoming(cursors, failing);
   while (codeAt(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;
@@ -285,14 +189,7 @@ export async function archiveCommand(args: string[]): Promise<number> {
     // ponytail: 5 s poll; a message sent and deleted within one tick is missed. Watch the WAL file if that matters.
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
-    const chats = toStart(
-      [...copyAll(failing), ...heardIncoming(cursors, failing)],
-      starts,
-      clock().getTime()
-    );
-    if (chats.length > 0) {
-      startAgents({ chats, kind: "message" });
-    }
+    copyAll(failing);
   }
   console.log(`${clock().toISOString()} new code: restarting`);
   return 0;

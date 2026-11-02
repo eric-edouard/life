@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { DAY, MIN } from "../core/clock";
+import { DAY, HOUR, MIN } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { recentEvents } from "../core/log";
 import { AGENT_WORD } from "../core/names";
@@ -13,6 +13,7 @@ import { LedgerEntry } from "../records/ledger-entry";
 import { planOf } from "../todo-list/board";
 import type { TodoItem } from "../todo-list/contract";
 import {
+  agentLive,
   alerts,
   chase,
   escalation,
@@ -516,4 +517,19 @@ test("the playbook's parts: Reminders only while the to-do list is on", () => {
   const off = protocol(doc, "Orbit", { reminders: false });
   expect(off).not.toContain("read_open_todo_items");
   expect(off).not.toContain("standing grant");
+});
+
+test("an agent is live while it reads its tasks: a day without a call of its own is a lapse", async () => {
+  const now = Date.parse("2026-10-22T10:00:00Z");
+  const call = (tool: string, hours: number, agent = "Orbit") => ({
+    agent,
+    at: new Date(now - hours * HOUR).toISOString(),
+    tool,
+  });
+  const live = (c: ReturnType<typeof call>) =>
+    agentLive(now, "Orbit", async () => [c]);
+  expect(await live(call("read_open_agent_tasks", 2))).toBe(true);
+  expect(await live(call("read_open_agent_tasks", 30))).toBe(false);
+  expect(await live(call("read_day", 2))).toBe(false);
+  expect(await live(call("read_open_agent_tasks", 2, "Comet"))).toBe(false);
 });

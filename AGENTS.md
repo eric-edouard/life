@@ -12,7 +12,7 @@ reads where the phone was only to route speech (`ownerZoneAt`, its heartbeats of
 
 Read before changing an area: `docs/glossary.md` (every word, one meaning each), `docs/architecture.md` (shape and
 reasons), `docs/SCHEMA.md` (every record),
-`docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions, sends), `docs/operations.md` (schedule, locks,
+`docs/sources.md`, `docs/tasks.md` (the agent, the connector, actions), `docs/operations.md` (schedule, locks,
 backups, evals, the read CLI), `docs/status-reads.md` (the connector's status reads), `docs/releasing.md`,
 `SECURITY.md`. User how-tos are in `docs/use/`; any docs work follows `docs/STYLE.md`. `docs/agent.md` is not
 documentation: it is the agent's playbook, read at run time.
@@ -34,7 +34,7 @@ bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, e
 Life runs itself: the owner never runs `bun life …` and never reviews a queue. The commands are for you and for the
 app's supervisor. Don't design a step that waits on him: an uncertain inference goes into a model-owned layer (like
 `memory/people-inferred.jsonl`), used at once and corrected later. His input arrives in conversation only (the one
-exception: his decisions, which his loops ask and he answers on `/decisions` when he likes, never waited on).
+exception: Life's fact checks, which he answers on `/decisions` when he likes, never waited on).
 
 - When he states or corrects a fact, record it before moving on: `bun life memory correct '<json>'` (kinds in
   `docs/SCHEMA.md`). When it's about who someone is, offer to add it to `truth/` and do it on his yes.
@@ -48,8 +48,7 @@ exception: his decisions, which his loops ask and he answers on `/decisions` whe
   `bun life ask '<his words>'`, verbatim, never your summary.
 - Answer questions about his life with `bun life memory …` (`docs/operations.md`, "Reading the memory"). Run
   `bun life memory unresolved` before asking him anything. His word beats the memory.
-- A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, LinkedIn, mail) needs the owner's OK on the exact text. Life's
-  own send is `bun life send <decision>`: the option he answered, its draft, into the chat its `ref` names.
+- A send through any messaging app (WhatsApp, iMessage, LINE, Instagram, LinkedIn, mail) needs the owner's OK on the exact text.
 - When the owner says something didn't work, it is audited (docs/operations.md#audits), and its fix carries a
   regression case.
 - Rules for editing `truth/` are in the data repo's own `AGENTS.md`.
@@ -75,7 +74,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   holds what built them: never wipe or rebuild them; one goes only with its conversation (`frozenUnits`, `units.ts`).
 - **A rename backfills.** Names follow the best model, never old data. Renaming something stored (a field, an enum
   value, an id, a file, a unit id's recipe) ships one migration in Life's code (`host/migrate.ts` and its call in `cli.ts`, written fresh:
-  the last done one, `beeper-to-networks-2026-10-30`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
+  the last done one, `agents-2026-10-31`, is in git history; once it has run on his data it goes), with the owner's OK on the list of renames: the app runs it at its
   next start, under the lock (a checkout only on a copy); it rewrites the stored lines in place (same count, same
   order, so the `read_memory_changes` cursor holds) and commits in the data repo. Never run one by hand or from a worktree: the
   running Life reads the same data. After it the code reads only the new name, with no alias. `truth/` (only he
@@ -83,8 +82,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   meaning: the prompt keeps its version and its cached outputs are backfilled. Connector renames ship in one batch.
   A new recipe for new units only, every stored id kept, is not a rename.
 - **One lock.** Everything that writes `memory/` holds it (`locked`, `memory-lock.ts`), except his single lines (a
-  correction, a rating), `decisions.jsonl` (his loops' `update_decision`, his answers on `/decisions` and Life's fact checks, each one
-  synchronous append: `writeDecision`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
+  correction, a rating), `decisions.jsonl` (his answers on `/decisions` and Life's fact checks, each one synchronous
+  append: `writeDecision`) and `ledger.jsonl`'s writers above. One Life per Mac: the archive and the watcher each hold a
   lock in `MACHINE_DIR` (`docs/operations.md`).
 - **The archive is the only live copy of deleted messages and old note versions.** Never move, wipe or migrate its
   files; a new table only with the owner's OK, never a rewrite of rows. Keep it running. App stores are opened
@@ -92,33 +91,25 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   before the archive's copy: its `redaction_retention_period` stays null, its rooms are never purged and its database is
   never made again (the copy counts its event numbers) (his OK of the
   new archive files `line.sqlite`, `instagram.sqlite`, 29 Oct 2026).
-- **Content never runs Life's code; it may wake his agents.** Recorded text never makes Life's own code act; model calls
-  see no tools and no instruction files (`apps/server/src/models/llm.ts`). Life may start one of his agents because of
-  what it recorded (an ask, a message from someone a loop waits on), and that agent reads it as data, under his grants
+- **Content never runs Life's code.** Recorded text never makes Life's own code act; model calls see no tools and no
+  instruction files (`apps/server/src/models/llm.ts`). An agent reads what it pulls through the connector as data
   (`SECURITY.md`, "Agents"). A mark (an ask's span) only keeps a unit read. His Apple Notes and imported
   assistant chats are memory only, never his words for actions.
 - **Life's own output never re-enters memory:** its chat and mail are dropped as `life-output` (`units.ts`). What Life
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
-- **Life decides when each agent runs, the agent decides what.** Life's only start of anything outside it is
-  `startAgent(name, event)` (`events.ts`): that agent's `start.command` with an event appended (a new ask of its own,
-  a tick each minute and the chats a pass of the archive, or a source's `incoming` since its cursor, heard someone in,
-  when its `start.on` names them, the loop whose decision of its own he just answered, `{kind:"audit"}` to every agent
-  on his "Something's wrong"), his zone in it (what it says as it exits non-zero is mailed to him, each line once);
-  no loop's name or schedule lives in Life. An agent is known by its pairing (its grant's agent claim), never by
-  what it says; nothing in Life branches on an agent's name.
+- **Life starts no agent.** Each agent pulls its own asks (`read_open_agent_tasks`); no agent's name or schedule
+  lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
+  branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
   setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
-- **Life sends in one place: `send`** (`host/send.ts`, the `sends` setting): only the draft of the option he answered
-  in a decision, with no note, nothing new from them since it was asked, once (an `intent` ledger line first), into
-  the chat its `ref` names (`<source>:<chat>`), through that source's `send` capability. Nothing else in Life sends
-  into a chat; recorded content never chooses what is sent.
+- **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
 - **Nothing leaves the Mac but what SECURITY.md lists** ("What leaves the Mac"). Add nothing to that list without him.
-- **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task`,
-  `update_decision` and `log_reply_to_owner`.** Never add a
+- **The connector reads, forwards his corrections, and acts only through `change_todo_item`, `update_agent_task` and
+  `log_reply_to_owner`.** Never add a
   tool that sends or edits anything else. Tool changes force a costly reconnect in ChatGPT: batch them, keep names and
   arguments stable.
 - **Pages serve nothing of his before their sign-in check** (the web app's `/api/` and the legacy `/me`, behind his
@@ -193,8 +184,7 @@ Before adding a helper, use the one that exists:
 | A path written with `/` (an export's manifest, git, tests) | `slashed` (`apps/server/src/core/platform.ts`); the checkout's files: `repoFiles` (`apps/server/src/core/proc.ts`) |
 | A messaging network on a bridge | its entry in `NETWORKS` (`sources/bridged.ts`); set up, linked and removed only by `bun life bridge` (`host/bridges.ts`): a bridge is added when its folder holds its config; the homeserver and every bridge run in one launchd job, `bridges` (`RUN_BRIDGES`, restarted on every change), outside Life.app (the homeserver holds deleted messages until the archive copies them) |
 | A Matrix-shaped chat archive (a bridged network's: `line.sqlite`, `instagram.sqlite`, `linkedin.sqlite`, `telegram.sqlite`) | `matrixArchive` and `LATEST_VERSIONS` (`sources/archived.ts`); a bridged network is `bridgedSource` (`sources/bridged.ts`) |
-| Sending into a chat | `send` (`host/send.ts`), through the source's `send.deliver`; a bridge's from `bridgeSend` (`sources/matrix.ts`) |
-| Whether a source is healthy, whether it can send | its `missing()` then its `newest()` (the snapshot's source card); its `send.blocked()` (the Sends card), never a second check |
+| Whether a source is healthy | its `missing()` then its `newest()` (the snapshot's source card), never a second check |
 | His Reminders or Google Tasks | the backend (`backend()`, `apps/server/src/todo-list/backend.ts`): nothing else calls remctl or `gog tasks` |
 | The lifelog store / the search index | `withStore` / `readIndex` (synchronous) and `buildIndex` (one WAL transaction) |
 | A run's start and end | `record` (`apps/server/src/memory/run.ts`) |
@@ -209,7 +199,7 @@ phone is the source of truth and the Life server may run anywhere. The Mac's zon
 lifelog unreadable changes nothing. Life reads the newest heartbeat's zone (the phone app always sends one); lifelog's
 own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
 `LIFE_NOW` stops the clock for the agent bench only, on a copy of the data in a worktree of its own; a frozen run acts
-on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport`, the events' `post` and the Past calendar).
+on and sends nothing (`unfrozen` in remctl, `forward`, `sendReport` and the Past calendar).
 
 ## Gotchas
 
@@ -237,7 +227,7 @@ removing a regression case; anything that spends the owner's model quota heavily
 `docs/agent.md` (it changes the agent's behaviour and its seal).
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
-data repo; add a send beyond `send`, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
+data repo; add a send into a chat, a connector tool or an action; let Life's own code act or send on recorded content; print secrets; merge before
 `golden-rule-verdict` passes on the PR's current head (once it passes, any agent merges, without asking him: his
 ruling of 29 Oct).
 

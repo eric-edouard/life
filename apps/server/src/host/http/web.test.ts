@@ -2,9 +2,18 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { appendJsonl } from "../../core/files";
 import { connector } from "../../core/settings";
 import { decisionsNow, writeDecision } from "../../memory/decisions";
-import { DECISIONS } from "../../memory/ledger";
+import { factCheckAsk } from "../../memory/fact-checks";
+import {
+  DECISIONS,
+  RATINGS,
+  readRatings,
+  readStatements,
+  STATEMENTS,
+} from "../../memory/ledger";
+import { Statement } from "../../records/statement";
 import { createWeb } from "./web";
 
 const ORIGIN = connector().origin;
@@ -56,16 +65,33 @@ test("the catch-all never answers what isn't a page: API paths, OAuth probes, fi
   expect((await get("/app/missing-Zz.js")).status).toBe(404);
 });
 
-test("his decisions: his tap lands; another site's post, a tap on a taken one and a step that isn't his are refused", async () => {
-  await rm(DECISIONS, { force: true });
-  const id = "asks-20261029100000-1";
+test("his decisions: his tap lands and is recorded as the rating; another site's post, a tap on a done one and a step that isn't his are refused", async () => {
+  const fresh = () =>
+    Promise.all(
+      [DECISIONS, RATINGS, STATEMENTS].map((f) => rm(f, { force: true }))
+    );
+  await fresh();
+  const ref = "obs_000000000001";
+  appendJsonl(STATEMENTS, Statement, [
+    {
+      at: "2026-10-29T10:00:00.000Z",
+      date: "2026-10-28",
+      group: "events",
+      kind: "fact",
+      ref,
+      schemaVersion: 1,
+      source: "whatsapp",
+      text: "Zoé runs the bakery.",
+      units: ["unit_000000000000"],
+    },
+  ]);
+  const id = "fact-checks-20261029100000-1";
   writeDecision([
     {
-      data: {
-        loop: "asks",
-        options: [{ id: "send", label: "Send it" }],
-        question: "Send the reply?",
-      },
+      data: factCheckAsk(
+        { ...readStatements()[0], ref } as Parameters<typeof factCheckAsk>[0],
+        []
+      ),
       decision: id,
       step: "asked",
     },
@@ -74,38 +100,15 @@ test("his decisions: his tap lands; another site's post, a tap on a taken one an
     (await (await get("/api/decisions", { cookie: "in" })).json())[0]
   ).toMatchObject({ id, status: "open" });
   const tap = {
-    data: { answer: "send", note: "" },
+    data: { answer: "false", note: "she sold it" },
     decision: id,
     step: "answered",
   };
   expect((await post(tap, "https://elsewhere.example")).status).toBe(403);
   expect((await post(tap)).status).toBe(200);
-  writeDecision([{ decision: id, step: "taken" }]);
-  expect(
-    (
-      await post({
-        data: { answer: null, note: "" },
-        decision: id,
-        step: "answered",
-      })
-    ).status
-  ).toBe(409);
-  expect(
-    (
-      await post({
-        data: { loop: "asks", note: "the plumber reply was wrong", ref: id },
-        step: "asked",
-      })
-    ).status
-  ).toBe(200);
-  expect(
-    [...decisionsNow().values()].find((d) => d.kind === "audit")
-  ).toMatchObject({
-    context: "the plumber reply was wrong",
-    options: [],
-    ref: id,
-    status: "open",
-  });
+  expect(decisionsNow().get(id)?.status).toBe("done");
+  expect(readRatings().get(ref)?.answer).toBe("false");
+  expect((await post(tap)).status).toBe(409);
   expect((await post({ decision: id, step: "done" })).status).toBe(400);
-  await rm(DECISIONS, { force: true });
+  await fresh();
 });
