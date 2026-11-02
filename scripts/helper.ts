@@ -39,7 +39,6 @@ await Promise.all([
     }
   ),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
-  cp(join(ROOT, "docs", "agent.md"), join(resources, "docs", "agent.md")),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
   cp(join(ROOT, CODEX), join(resources, CODEX)),
 ]);

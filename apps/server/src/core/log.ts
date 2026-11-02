@@ -15,7 +15,6 @@ import { agentNames } from "./settings";
 export const LOG_DIR = join(LIFE_STATE_DIR, "log");
 
 type LogKind =
-  | "board.write"
   | "calendar.write"
   | "email.sent"
   | "file.read"

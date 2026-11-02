@@ -18,7 +18,7 @@ import { dayStart, localDate } from "./zones";
 
 // The Past calendar (his request, 21 Oct): what it should hold. Every moment that happened, as an event with who,
 // where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
-// one-way projection of the moments, like the board: each event carries its moment's id and a hash of what it shows,
+// one-way projection of the moments: each event carries its moment's id and a hash of what it shows,
 // a moment that changed is written again, one gone (hidden, cancelled, never happened) is deleted.
 // `host/past-calendar.ts` writes it.
 

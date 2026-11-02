@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-/** Life's own files (prompts, docs/agent.md, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). */
+/** Life's own files (prompts, assets): the checkout, or the app's resources (`LIFE_CODE_DIR`). */
 export const LIFE_CODE_DIR =
   process.env.LIFE_CODE_DIR ?? join(import.meta.dir, "..", "..", "..", "..");
 /** The web app's build (`apps/web`, `vite build`): built by the check and by the helper, served by `host/http/web.ts`. */
@@ -38,7 +38,7 @@ export const LIFE_STATE_DIR = real(
     ? join(OWNER_DATA_DIR, "state")
     : (process.env.LIFE_STATE_DIR ?? join(LIFE_CODE_DIR, "derived"))
 );
-/** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`, `LIFE_NOW`) asks this. */
+/** Is `data` his own ~/Life (not a copy)? What only a copy may take (`LIFE_LLM`) asks this. */
 export function isHis(data = OWNER_DATA_DIR) {
   return real(data) === real(join(homedir(), "Life"));
 }

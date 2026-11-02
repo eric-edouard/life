@@ -19,9 +19,9 @@ export const asHeard = (w: string) =>
 export const Settings = z
   .object({
     /**
-     * His agents by name (what Life calls each, and its board, the to-do list named after it): the words that wake it
-     * ("hey <word>", `hear.ts`) and how lifelog mishears them (a misheard wake counts only on his own turn, as low
-     * confidence). An agent is known on the connector by its pairing (`bun life pair <agent>`). Without one nothing
+     * His agents by name (what Life calls each): the words that wake it ("hey <word>", `hear.ts`) and how lifelog
+     * mishears them (a misheard wake counts only on his own turn, as low confidence). An agent is known on the
+     * connector by its pairing (`bun life pair <agent>`) and pulls its asks (`read_agent_asks`). Without one nothing
      * wakes an agent.
      */
     agents: z
@@ -78,7 +78,7 @@ export const Settings = z
     sources: z.array(SourceName).default([]),
     /**
      * His to-do list, input and output (`apps/server/src/todo-list/`), and its one backend: his Apple Reminders (remctl) or
-     * his Google Tasks (`gog` as `account`). On, Life acts there when he asks, keeps the board, and reads his changes back;
+     * his Google Tasks (`gog` as `account`). On, Life acts there when he asks and reads his changes back;
      * without it (the default), nothing in Life touches either.
      */
     todo_list: z

@@ -1,4 +1,3 @@
-import { unfrozen } from "../core/clock";
 import { execOk } from "../core/proc";
 import type { List, TodoItem, TodoListBackend } from "./contract";
 
@@ -49,7 +48,6 @@ const split = (id: string) => {
 
 /** One `gog tasks` call as `account`, its JSON. */
 const gogAs = (account: string) => async (args: string[]) => {
-  unfrozen("touch his Google Tasks");
   const out = await execOk([
     "gog",
     "tasks",
@@ -64,13 +62,9 @@ const gogAs = (account: string) => async (args: string[]) => {
 /** The backend for `account`; `run` answers gog's calls (a test passes recorded answers). */
 export function google(
   account: string,
-  /** Whether a list title is an agent's board (`isBoard`): made when missing. */
-  isBoard: (title: string) => boolean,
   run: (args: string[]) => Promise<unknown> = gogAs(account)
 ): TodoListBackend {
   const gog = async <T>(args: string[]) => (await run(args)) as T;
-  /** Each board's list once Life made it (Google has none until then): made once, on first need, by title. */
-  const boards = new Map<string, Promise<List>>();
   /** Every page of a list's tasks, top-level ones only (a subtask is part of its parent, as in Reminders). */
   const tasks = async (l: List, flags: string[]) => {
     const all: GoogleTask[] = [];
@@ -93,24 +87,12 @@ export function google(
     (await gog<{ tasklists?: List[] }>(["lists", "list"])).tasklists?.map(
       ({ id, title }) => ({ id, title })
     ) ?? [];
-  /** A list by its title; without one, his first (Google's default). The board's is made when missing. */
+  /** A list by its title; without one, his first (Google's default). */
   const listNamed = async (title?: string) => {
     const all = await lists();
     const l = title ? all.find((x) => x.title === title) : all[0];
     if (l) {
       return l;
-    }
-    if (title && isBoard(title)) {
-      const made =
-        boards.get(title) ??
-        gog<{ tasklist?: List }>(["lists", "create", title]).then((r) => {
-          if (!r.tasklist) {
-            throw new Error("gog tasks lists create: no list in its answer");
-          }
-          return r.tasklist;
-        });
-      boards.set(title, made);
-      return made;
     }
     throw new Error(`Google Tasks: no list ${title ?? "at all"}`);
   };

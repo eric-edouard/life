@@ -35,7 +35,6 @@ import {
 } from "../memory/schedule";
 import { reindex } from "../memory/search";
 import { keptStores } from "../memory/sources";
-import { titleOf } from "../memory/tasks";
 import {
   type Built,
   daysBefore,
@@ -56,7 +55,6 @@ import { hasQuota, type Quota, quota } from "../models/llm";
 import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import { checks } from "../todo-list/backend";
-import { taskList, unanswered } from "./agent";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { syncPast } from "./past-calendar";
@@ -78,38 +76,18 @@ const STUCK_MS = 3 * HOUR;
 async function acted(now: Date, rec: Pick<RunRecord, "error">) {
   const problems = await checks();
   let actions: LedgerEntry[] = [];
-  let tasks: ReturnType<typeof taskList> = [];
-  let gaps = 0;
   try {
     actions = readLedger();
-    tasks = taskList(now.getTime());
-    gaps = unanswered(now.getTime() - DAY);
   } catch (e) {
     const { message } = e as Error;
     problems.push(`ledger.jsonl: ${message}`);
     rec.error(message, { step: "memory.nightly.actions" });
   }
-  // A task's own lines (the agent's updates) are its rows, not actions.
   return {
     actions: actions.filter(
       (a) => isListed(a) && Date.parse(a.at) >= now.getTime() - DAY
     ),
     problems,
-    tasks: [
-      ...tasks.map((t) => ({
-        name: `${t.state} · ${t.age}`,
-        relation: `${titleOf(t)} → ${t.note ?? "…"} · deadline ${t.deadline ? localTime(t.deadline) : "none"}`,
-      })),
-      // The agent logs its replies by the playbook, not by code: the asks it never logged one for show here.
-      ...(gaps > 0
-        ? [
-            {
-              name: "No reply logged",
-              relation: `${gaps} of the last day's asks`,
-            },
-          ]
-        : []),
-    ],
   };
 }
 

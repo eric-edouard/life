@@ -1,5 +1,5 @@
 import { isOn, off } from "../core/outputs";
-import { agentNames, settings } from "../core/settings";
+import { settings } from "../core/settings";
 import type { LedgerEntry } from "../records/ledger-entry";
 import type { Can, Change, TodoItem, TodoListBackend } from "./contract";
 import { google } from "./google";
@@ -7,15 +7,12 @@ import { reminders } from "./remctl";
 
 // The actions output: one contract, two backends, one per install (the `actions` setting): Apple Reminders through
 // remctl (`remctl.ts`), Google Tasks through gog (`google.ts`). Nothing else touches either. A backend is how a change
-// is written and read back, never the truth: `act` decides each change and `write` (here) makes it, `board.ts`
-// projects the agent's tasks, `inbound.ts` reads his changes back as state. Without a backend Life still knows every
+// is written and read back, never the truth: `act` decides each change and `write` (here) makes it,
+// `inbound.ts` reads his changes back as state. Without a backend Life still knows every
 // task and action from the ledger (memory/ledger.jsonl). What one backend lacks is a capability (`can`), never a
 // branch on its name.
 let built: { b: TodoListBackend; of: unknown } | undefined;
-/**
- * This install's backend, made once per settings read (once per process: the watcher's is the one that writes the
- * board), so its own memory (Google's board list) holds. The one gate: it throws while the actions output is off.
- */
+/** This install's backend, made once per settings read. The one gate: it throws while the actions output is off. */
 export function backend(): TodoListBackend {
   const a = settings().todo_list;
   if (!a) {
@@ -23,7 +20,7 @@ export function backend(): TodoListBackend {
   }
   if (built?.of !== a) {
     built = {
-      b: a.backend === "google" ? google(a.account, isBoard) : reminders,
+      b: a.backend === "google" ? google(a.account) : reminders,
       of: a,
     };
   }
@@ -33,9 +30,6 @@ export function backend(): TodoListBackend {
 /** A change's `target` as the contract's id (a string; Reminders' numbers come as numbers too). */
 export const idOf = (target: number | string | undefined) =>
   target === undefined ? undefined : String(target);
-
-/** Whether a list is an agent's board, the list named after it: Life's projection of its tasks (apps/server/src/host/agent.ts), a list of his. */
-export const isBoard = (title: string) => agentNames().includes(title);
 
 /** The Change fields (and kinds) that need a capability. */
 const NEEDS: [Can, (c: Change) => unknown][] = [
@@ -80,14 +74,11 @@ export const openOf = (r: TodoItem) => ({
   title: r.title,
 });
 
-/** The lists read for his items: one or all, never the board (its tasks are read with `read_open_agent_tasks`). */
-export const readable = (title: string, list?: string) =>
-  !isBoard(title) && (list === undefined || title === list);
-
+/** The lists read for his items: one or all. */
 const listsOf = async (b: TodoListBackend, list?: string) =>
-  (await b.lists()).filter((l) => readable(l.title, list));
+  (await b.lists()).filter((l) => list === undefined || l.title === list);
 
-/** Every open top-level item, of one list or all, never the board: the connector's `read_open_todo_items`. */
+/** Every open top-level item, of one list or all: the connector's `read_open_todo_items`. */
 export async function openItemsNow(list?: string) {
   const b = backend();
   const open = await Promise.all(
@@ -117,9 +108,8 @@ export async function checks(): Promise<string[]> {
   }
 }
 
-/** What one pass reads: his unshared lists' items (ticked too), the board's, and the deleted ones. */
+/** What one pass reads: his unshared lists' items (ticked too) and the deleted ones. */
 export interface Snapshot {
-  board: TodoItem[];
   deleted: TodoItem[];
   live: TodoItem[];
   /** The backend's target prefix: the lines read back name its items. */
@@ -128,23 +118,19 @@ export interface Snapshot {
   shared: string[];
 }
 
-/** One read for the minute pass (board.ts, inbound.ts): every list but a shared one, ticked items too, then the deleted ones. */
+/** One read for the minute pass (`inbound.ts`): every list but a shared one, ticked items too, then the deleted ones. */
 export async function pull(): Promise<Snapshot> {
   const b = backend();
   const mine = await b.lists();
-  const shared = await Promise.all(
-    mine.map((l) => !isBoard(l.title) && b.shared(l.title))
-  );
+  const shared = await Promise.all(mine.map((l) => b.shared(l.title)));
   const rows = await Promise.all(
     mine.map((l, i) => (shared[i] ? [] : b.items(l, true)))
   );
   // After the lists: an item he removes meanwhile is live or deleted, never neither.
   const deleted = await b.deleted();
-  const all = rows.flat();
   return {
-    board: all.filter((r) => isBoard(r.list ?? "")),
     deleted,
-    live: all.filter((r) => !isBoard(r.list ?? "")),
+    live: rows.flat(),
     prefix: b.prefix,
     shared: mine.filter((_, i) => shared[i]).map((l) => l.title),
   };

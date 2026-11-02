@@ -1,11 +1,11 @@
 import { join } from "node:path";
-import { MIN, unfrozen } from "../core/clock";
+import { MIN } from "../core/clock";
 import { digest } from "../core/hash";
 import { log, logFileOf, recentEvents } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
-import { agentNames, settings } from "../core/settings";
+import { settings } from "../core/settings";
 import {
   type Digest,
   LIFE_MAIL,
@@ -13,7 +13,6 @@ import {
   type Section,
 } from "../memory/email";
 import type { extract } from "../memory/extract";
-import type { Task } from "../memory/ledger";
 import type { describeFiles } from "../memory/message-files";
 import type { moments } from "../memory/moments";
 import type { pages } from "../memory/pages";
@@ -38,7 +37,6 @@ export interface Night {
   acted: {
     actions: LedgerEntry[];
     problems: string[];
-    tasks: { name: string; relation: string }[];
   };
   /** The archive's failures since the last night (`archiveLine`). */
   archive: string;
@@ -181,11 +179,6 @@ export function successReport(day: string, ms: number, n: Night) {
         },
         {
           kind: "pairs",
-          list: n.acted.tasks,
-          title: `${agentNames().join(", ")} tasks`,
-        },
-        {
-          kind: "pairs",
           list: [
             ...n.code,
             ...n.repos.suggestions.map((s) => ({
@@ -275,45 +268,6 @@ export const lockReport = (since: string) =>
     verdict: "STUCK",
   });
 
-/** The alert for the agent tasks that newly need him, one per `chase` pass (apps/server/src/host/agent.ts): why, and his words. */
-export function taskReport(
-  agent: string,
-  list: { ask: Task["ask"]; cause: string; title: string }[],
-  now: number
-) {
-  const why = list.map((x) => `${x.title}: ${x.cause}`).join(" · ");
-  return alert(new Date(now).toISOString(), `${agent} tasks`, {
-    failure: { error: why, step: `${agent} tasks` },
-    notes: [
-      ...list.map(
-        (x) =>
-          `${x.title}: you said “${x.ask.instruction.quote}” (asked ${time(x.ask.at)}, ${x.ask.id})`
-      ),
-      `Each is a task on ${agent}'s board (memory/ledger.jsonl).`,
-    ],
-    preheader: why,
-    stats: [{ label: "need you", value: String(list.length) }],
-    subject: `${agent}: ${list.map((x) => `${x.title} (${x.cause.split(":")[0]})`).join(", ")}`,
-    verdict: "NEEDS YOU",
-  });
-}
-
-/** The alert for an agent that stopped reading its tasks: about the agent, not one task. */
-export const lapseReport = (agent: string, open: number, now: number) =>
-  alert(new Date(now).toISOString(), agent, {
-    failure: {
-      error: "no tasks call from it in a day",
-      step: "delivery",
-    },
-    notes: [
-      `${open} open tasks wait, and new asks are recorded but reach ${agent} only once it reads them again.`,
-    ],
-    preheader: `${agent} isn't receiving asks: ${open} open tasks`,
-    stats: [{ label: "open tasks", value: String(open) }],
-    subject: `${agent} isn't receiving asks`,
-    verdict: "NEEDS YOU",
-  });
-
 /** The alert for an action that failed: his words are in it, so he can do the thing by hand. */
 export const actFailedReport = (a: LedgerEntry) =>
   alert(a.at, "Life action", {
@@ -380,7 +334,6 @@ export const reportKey = (run: string) => `nightly/${run}`;
  * how the night ended, and the caller may try again.
  */
 export async function sendReport(id: string | string[], mail: Mail) {
-  unfrozen("send email");
   const keys = await unsent([id].flat());
   if (keys.length === 0) {
     return null;

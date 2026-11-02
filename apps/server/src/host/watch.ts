@@ -5,7 +5,7 @@ import { log } from "../core/log";
 import { isOn } from "../core/outputs";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { codeAt } from "../core/proc";
-import { LEDGER, readLedger, tasksOf } from "../memory/ledger";
+import { LEDGER, readLedger } from "../memory/ledger";
 import { isLocked, locked } from "../memory/memory-lock";
 import { reindex } from "../memory/search";
 import { listening } from "../memory/sources";
@@ -13,8 +13,6 @@ import { syncLifelogUnits } from "../memory/units";
 import { LedgerEntry } from "../records/ledger-entry";
 import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
 import { checks, pull } from "../todo-list/backend";
-import { marks, push } from "../todo-list/board";
-import { chase, closings, receipts } from "./agent";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -25,40 +23,32 @@ import { inbound } from "./inbound";
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey <agent>": once a conversation's speech is complete (`speechIn`, `WAIT_MS`), `hear` records its asks
-// (a wake with no speaker waits for one, up to `NAMING_MS`); each minute `chase` emails him the tasks that need him and `push`
-// mirrors them on his board (apps/server/src/todo-list), on its own timer: lifelog down never stops it (1 Nov: 20 h without one).
+// (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
+// down never stops it (1 Nov: 20 h without one).
 
 let ticking = false;
-/** Each minute, one at a time, beside the loop (reading his lists takes about 10 s): the chase, then Reminders both ways. */
-async function tick(now = clock().getTime()) {
-  if (ticking) {
+/**
+ * Each minute, one at a time, beside the loop (reading his lists takes about 10 s): his changes in his to-do list
+ * (apps/server/src/todo-list) recorded as state. `at` is taken before the read: what Life writes during it falls in the
+ * lag window.
+ */
+async function tick() {
+  if (ticking || !isOn("todo_list")) {
     return;
   }
   ticking = true;
-  await pass(now).finally(() => {
+  try {
+    const at = clock().toISOString();
+    const read = performance.now();
+    const s = await pull();
+    log("sync.pull", { ms: Math.round(performance.now() - read) });
+    const lines = inbound(s, readLedger(), at);
+    if (lines.length > 0) {
+      appendJsonl(LEDGER, LedgerEntry, lines);
+    }
+  } finally {
     ticking = false;
-  });
-}
-
-async function pass(now: number) {
-  await chase(tasksOf(), now);
-  if (!isOn("todo_list")) {
-    return;
   }
-  // The actions backend both ways (apps/server/src/todo-list): one read, his changes recorded as state, then the board brought in line. `at`
-  // is taken before the read: what Life writes during it falls in the lag window.
-  const at = clock().toISOString();
-  const read = performance.now();
-  const s = await pull();
-  log("sync.pull", { ms: Math.round(performance.now() - read) });
-  const lines = [
-    ...inbound(s, readLedger(), at),
-    ...closings(tasksOf(), marks(s), at),
-  ];
-  if (lines.length > 0) {
-    appendJsonl(LEDGER, LedgerEntry, lines);
-  }
-  await push(receipts(tasksOf(), now), s.board);
 }
 
 const WAIT_S = 60;
