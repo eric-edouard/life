@@ -4741,8 +4741,7 @@
                       },
                       "required": ["jobId", "speakerLabel"]
                     },
-                    "minItems": 1,
-                    "maxItems": 100
+                    "minItems": 1
                   }
                 },
                 "required": ["answer", "voices"]
