@@ -25,7 +25,7 @@ import { entryLine } from "../todo-list/items";
 import { polling, readHealth } from "./health";
 
 // The nightly report: one HTML email (with a plain-text alternative) to the owner's own address, composed by code from the steps' summaries
-// (no model). `sendReport` also carries the alerts (a failed action or delivery, an agent task that needs him, the lock, a source it can't read).
+// (no model). `sendReport` also carries the alerts (a failed action or delivery, the lock, a source it can't read).
 
 type Result<T extends (...args: never[]) => Promise<unknown>> = Awaited<
   ReturnType<T>

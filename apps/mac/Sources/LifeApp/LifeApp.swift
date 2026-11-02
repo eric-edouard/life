@@ -170,7 +170,7 @@ struct SettingsView: View {
                 .disabled(installing)
             }
             Text(r.ready
-              ? "Life adds reminders when you ask, keeps your agent's list and reads your changes back."
+              ? "Life adds reminders when you ask and reads your changes back."
               : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
               .caption()
           }

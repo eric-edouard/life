@@ -61,7 +61,7 @@ the observation ids its report held, sent or not), `errors`, and for a sweep `ph
 A sweep lists its steps in `children`; a step names its `sweep`. Since 21 Oct a run that made model calls has `use`,
 what it spent of the owner's Codex plan, derived from the log (`useOf`): the `tokens` (`input`, cached included,
 `cached`, `output`) of its model calls (each `model.run` line's) and its steps'; a metered run (a sweep, the eval
-`eval`, the agent bench `bench.agent`: `metered`, run.ts) also has the `quota` it read as it started and ended
+`eval`: `metered`, run.ts) also has the `quota` it read as it started and ended
 (`before`, `after`: whole percents of the fuller window; null when unread, e.g. on the claude engine, and `after` while
 it runs). The nightly email has a line per sweep of the last 24 h.
 
@@ -98,12 +98,12 @@ the owner's request; null for Life's own acts), `run` and `about`. By type:
 | `identity.inferred` | `people-inferred.jsonl` line | `used` (confidence ≥ 0.5), `current` (latest for one of its surfaces) |
 | `ledger.ok` / `ledger.failed` / `ledger.duplicate` | `ledger.jsonl` line: Life's act, or the owner's own change in Reminders (`record.via` `reminders`); intents and imports are not in the feed | (`record.error` starting `partial:` on an ok add or edit that lost a field) |
 | `ledger.ask` | an ask for the agent in `ledger.jsonl` | `record.after.confidence` (`high`, `low`), `record.after.conversation` and `turns` for speech; `about` `task:<its id>` |
-| `ledger.update` / `ledger.reply` (and until 20 Oct `ledger.nudge` / `ledger.steer`) | a task's line in `ledger.jsonl` (`record.target`: the task, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
+| `ledger.update` / `ledger.reply` (and until 20 Oct `ledger.nudge` / `ledger.steer`) | an old agent line in `ledger.jsonl`, none written since 2 Nov 2026 (`record.target`: the ask, or `chat` for a reply on none) | `record.after` (`docs/SCHEMA.md`); `about` `task:<the task>` |
 | `rating.true` / `rating.false` / `rating.partly` / `rating.outdated` / `rating.skip` / `rating.undone` | `ratings.jsonl` line (the owner's answer to a fact check; a false or partly hides its claim, an outdated retires it) | |
 | `page.changed` | committed change of one page file | `added`, `removed`: the page's text lines, the owner's plain lines included (frontmatter left out; a commit that changed only frontmatter has both empty) |
 
 Filters: `types` (types or prefixes: `observation`, `correction`, `ledger.failed`…), `about` (`person:<id>`,
-`area:<id>`, `project:<id>`, `task:<id>`: one task's ask, updates and replies), `run`, `since` (recorded at or after). A
+`area:<id>`, `project:<id>`, `task:<id>`: one ask and, before 2 Nov 2026, its agent's updates and replies), `run`, `since` (recorded at or after). A
 filter narrows the items, never the cursor's reach: every match is still returned, page by page.
 
 - **Status** of an observation: `hidden` (the owner said wrong or not important: `correction`, `note`), `gone` (its unit
@@ -145,7 +145,7 @@ what), `pages` (the page lines citing it now) and `index` (`holds`, `supersededB
 - No record of each index rebuild (only the file's time). The archive's failures are in derived/log (`archive.<store>`:
   `run.error` when one starts, `run.end` when it ends), not in `read_life_status`.
 - `about` matches the refs an item carries: an observation's filed entities, speaker and area; a supersession's page
-  (none when extraction retired it); a correction's page or people; an ask's and its task lines' `task:<id>`. Not the
+  (none when extraction retired it); a correction's page or people; an ask's and its old agent lines' `task:<id>`. Not the
   entities of the observations a correction or supersession names.
 - Page changes appear once committed (the nightly commits them); an uncommitted hand run of `pages` does not show.
 - Units are not in the feed (they are rewritten, not appended): read them with `read_day`, `search`, `fetch`.
@@ -182,6 +182,6 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
 - **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `apps/mac/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
   left to right as data does, a card opening in place over the status snapshot.
-- **Details.** A card opens to its history (a sweep's runs, the tasks, the memory's changes, the Mac's sleeps, else
+- **Details.** A card opens to its history (a sweep's runs, the memory's changes, the Mac's sleeps, else
   its log lines) and its raw log lines, each paging back through the whole log (`before`, `next`); a run opens to its
   steps, their counts and what it wrote.
