@@ -344,6 +344,29 @@ test("an answer teaches no name, and a typed nickname is the person", async () =
   expect(typed).toEqual({ personId: marie?.id ?? "" });
 });
 
+test("an answer takes every voice of its card, past 100", async () => {
+  const me = owner();
+  conversation(me, talk(8), [identity({ name: "Nina" })]);
+  const card = queued().find((c) => c.name === "Nina");
+  const strangers = Array.from({ length: 100 }, () => ({
+    jobId: randomUUID(),
+    speakerLabel: "speaker_1",
+  }));
+  const app = createApp(services(testConfig("http://localhost:1"), env.db));
+  const res = await app.request("/naming-queue/answer", {
+    body: JSON.stringify({
+      answer: { kind: "confirm", name: "Nina" },
+      voices: [...(card?.voices ?? []), ...strangers],
+    }),
+    headers: {
+      Authorization: `Bearer ${OWNER_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  expect(res.status).toBe(200);
+});
+
 test("a card about a known person carries no name that is already theirs", () => {
   const me = owner();
   const [marie] = env.db
