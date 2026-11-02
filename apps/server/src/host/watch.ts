@@ -274,7 +274,6 @@ export async function watch(): Promise<number> {
           );
         }
       }
-      await minute();
       // The nightly rewrites the same unit files and index: while it holds the lock (`isLocked` spares the log a line
       // each poll), `dirty` keeps the sync due.
       if (dirty && !more && !isLocked()) {
@@ -285,6 +284,8 @@ export async function watch(): Promise<number> {
       result = { error: (e as Error).message };
       console.error(clock().toISOString(), result.error);
     }
+    // After every poll, failed ones too: lifelog down never stops the agents' minute (1 Nov: 20 h without one).
+    minute();
     health = afterPoll(health, clock(), result, started);
     if ("error" in result && health.consecutiveErrors === 1) {
       log("run.error", { error: result.error, step: "watch" });
@@ -304,8 +305,8 @@ async function quiet(running: string) {
     `${clock().toISOString()} watcher: no voice source, not listening`
   );
   while (codeAt(LIFE_CODE_DIR) === running) {
+    minute();
     // biome-ignore lint/performance/noAwaitInLoops: one pass a minute
-    await minute();
     await Bun.sleep(RETRY_MS);
   }
   return 0;

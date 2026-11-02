@@ -110,7 +110,12 @@ final class HostModel {
                 try? await Task.sleep(for: .seconds(30))
             }
         }
-        if setUp { await exclusive { await restart() } } else { tailnet = await Tailscale.serve(serving: false) }
+        if setUp {
+            openAtLogin(UserDefaults.standard.object(forKey: "openAtLogin") as? Bool ?? true)
+            await exclusive { await restart() }
+        } else {
+            tailnet = await Tailscale.serve(serving: false)
+        }
     }
 
     /// Every child started again on the current settings. Only ever inside `exclusive`: no restart overlaps another,
@@ -226,8 +231,12 @@ final class HostModel {
         return outcome.ok
     }
 
-    /// Open at login on or off; a refusal shows.
+    /// Open at login on or off; a refusal shows. The choice is kept (on unless turned off) and made true again at each
+    /// start: a reinstalled ad hoc build has a new signature and loses its login item (1 Nov: a reboot left lifelog
+    /// down 20 h).
     func openAtLogin(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "openAtLogin")
+        guard on != (SMAppService.mainApp.status == .enabled) else { return }
         do {
             try on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
         } catch {
