@@ -27,6 +27,7 @@ export const DecisionAsk = z
   .object({
     context: z.string().max(4000).optional(),
     deadline: isoDateTime.optional(),
+    // Always `fact-checks` now; an old line names a loop (life-loops, until 2 Nov 2026).
     loop: z.string().regex(/^[a-z0-9-]+$/),
     onNoAnswer: z.string().max(200).optional(),
     options: z

@@ -177,11 +177,16 @@ test("lifelog down, the tasks' minute still runs (1 Nov: 20 h of failed polls ra
     spyOn(http, "serve").mockImplementation(() => undefined),
     spyOn(agent, "chase").mockResolvedValue(undefined),
   ];
+  const timer = spyOn(globalThis, "setInterval");
+  const cleared = spyOn(globalThis, "clearInterval");
   try {
     expect(await watch()).toBe(0);
     expect(agent.chase).toHaveBeenCalled();
+    // Then every minute on its own, until new code stops the watcher.
+    expect(timer).toHaveBeenCalledWith(expect.any(Function), MIN);
+    expect(cleared).toHaveBeenCalledWith(timer.mock.results[0]?.value);
   } finally {
-    for (const s of spies) {
+    for (const s of [...spies, timer, cleared]) {
       s.mockRestore();
     }
     server.close();
