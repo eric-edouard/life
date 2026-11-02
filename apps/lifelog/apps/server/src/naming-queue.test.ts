@@ -365,6 +365,7 @@ test("an answer takes every voice of its card, past 100", async () => {
     method: "POST",
   });
   expect(res.status).toBe(200);
+  expect((await res.json()).personId).toBeString();
 });
 
 test("a card about a known person carries no name that is already theirs", () => {
