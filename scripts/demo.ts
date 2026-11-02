@@ -5,6 +5,7 @@ import { join, relative, resolve } from "node:path";
 import { LIFE_STATE_DIR, OWNER_DATA_DIR } from "@life/server/src/core/paths";
 import { MACHINE_DIR } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
+import { MOMENTS_PROMPT } from "@life/server/src/memory/moments";
 import { madeBy, unit } from "@life/server/src/memory/record-fixtures";
 
 // A made-up Life for the README: `bun scripts/demo.ts <new folder>` writes `data/` and `state/` there (the tests'
@@ -269,7 +270,7 @@ for (const d of DEMO) {
         end: null,
         id: `mom_${hex(day + title, 12)}`,
         importance: 1,
-        madeBy: { ...madeBy, prompt: "memory-moments.v5" },
+        madeBy: { ...madeBy, prompt: MOMENTS_PROMPT },
         people: [{ ref: `person:${d.moment.with}`, role: "with" }],
         place,
         schemaVersion: 1,

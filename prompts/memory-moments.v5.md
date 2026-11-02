@@ -191,8 +191,8 @@ sister's instead) is one moment with the latest version.
 - `title`: a short factual title in English naming who and what ("Road trip to Rouen with Bastien to see his
   sisters", "Coffee with Jérôme at Chez Paul"). No feelings, no interpretation.
 - `status`: `happened`, `planned`, `cancelled` or `unsure`.
-- `start`, `end`: local `YYYY-MM-DD HH:MM`, or `YYYY-MM-DD` when only the day is known, or null. When the moment itself
-  happened, never the span of everything about it:
+- `start`, `end`: local `YYYY-MM-DD HH:MM`, or `YYYY-MM-DD` when only the day is known, or null. The times the moment
+  itself took, never the span of everything about it:
   - a recorded call or conversation takes the times of its turns, even when messages set it up before or follow it up
     after: a WhatsApp at 14:05 asking for a call, the call recorded 15:10 to 15:25, its follow-up sent at 20:40, give
     15:10 to 15:25;

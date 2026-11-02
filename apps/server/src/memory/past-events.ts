@@ -70,7 +70,7 @@ function span(m: Moment) {
   }
   const from = instant(start);
   const end = m.end?.includes(" ") ? instant(m.end) : "";
-  // ponytail: an hour when no end is known; the units' last instant would be closer.
+  // ponytail: an hour when no end is known.
   const to = end > from ? end : new Date(Date.parse(from) + HOUR).toISOString();
   return { allDay: false, from, to };
 }

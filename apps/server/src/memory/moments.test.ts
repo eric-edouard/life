@@ -9,6 +9,7 @@ import {
   dayFileOf,
   earlierFor,
   fresh,
+  MOMENTS_PROMPT,
   parseDay,
   unread,
 } from "./moments";
@@ -285,14 +286,14 @@ test("a day is read again when one of its units has no verdict by this prompt on
     unread(
       [b],
       ledger([
-        verdict(b.unit, { madeBy: { ...madeBy, prompt: "memory-moments.v5" } }),
+        verdict(b.unit, { madeBy: { ...madeBy, prompt: MOMENTS_PROMPT } }),
       ])
     )
   ).toBe(false);
   expect(unread([b], ledger([verdict(b.unit)]))).toBe(true);
   // Read again, the day keeps the verdict of a unit already judged on this content, and takes the others.
   const c = built(U2);
-  const v2 = { ...madeBy, prompt: "memory-moments.v5" };
+  const v2 = { ...madeBy, prompt: MOMENTS_PROMPT };
   const known = ledger([verdict(b.unit, { madeBy: v2 })]);
   const said = [
     verdict(b.unit, { importance: 0, madeBy: v2 }),
@@ -305,7 +306,7 @@ test("a unit he said was read wrong after its verdict reads its day again, and t
   const b = built(U1);
   const v2 = {
     ...madeBy,
-    prompt: "memory-moments.v5",
+    prompt: MOMENTS_PROMPT,
     run: "2026-10-16T10-00-00.000Z",
   };
   const known = ledger([verdict(b.unit, { madeBy: v2 })]);
