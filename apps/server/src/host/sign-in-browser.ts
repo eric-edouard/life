@@ -5,11 +5,12 @@ import { CHROME } from "../core/platform";
 import { untilAnswers } from "../core/proc";
 import type { CookieStep } from "../sources/matrix";
 
-// A sign-in browser for a bridge's cookie step (`bun life bridge link`): Chrome opened on the step's page in a fresh
-// profile of its own, its DevTools port picked by Chrome (`DevToolsActivePort`, so never another browser's). He signs in
-// as usual; Life reads what each field names (a cookie, a header or body of the page's own requests, local storage, the
-// step's `extract_js`) and, once every required field has a value and the page reached `wait_for_url_pattern`, closes
-// the window. Chrome is stopped and its profile deleted on every path, Ctrl-C and his quitting Chrome included.
+// A sign-in browser for a bridge's cookie step (`bun life bridge link`): Chrome in a fresh profile of its own, its
+// DevTools port picked by Chrome (`DevToolsActivePort`, so never another browser's), sent to the step's page as the
+// browser the bridge claims to be (`openingCalls`). He signs in as usual; Life reads what each field names (a cookie, a
+// header or body of the page's own requests, local storage, the step's `extract_js`) and, once every required field has
+// a value and the page reached `wait_for_url_pattern`, closes the window. Chrome is stopped and its profile deleted on
+// every path, Ctrl-C and his quitting Chrome included.
 
 export const hasChrome = () => Boolean(CHROME && existsSync(CHROME));
 
@@ -132,6 +133,25 @@ function bodyOf(r: Request): Record<string, string> {
   }
 }
 
+/**
+ * The page's first calls: as the browser the bridge claims to be (its user agent, and so no client hints to contradict
+ * it: the site revokes cookies signed in by another browser), then to the step's page.
+ */
+export const openingCalls = (
+  step: CookieStep
+): [string, Record<string, unknown>][] => {
+  const navigate: [string, Record<string, unknown>] = [
+    "Page.navigate",
+    { url: step.url ?? "about:blank" },
+  ];
+  return step.user_agent
+    ? [
+        ["Network.setUserAgentOverride", { userAgent: step.user_agent }],
+        navigate,
+      ]
+    : [navigate];
+};
+
 /** Opens `step.url` for him to sign in; resolves to each field's value once the required ones are there. */
 export async function signInWithChrome(
   step: CookieStep
@@ -145,7 +165,7 @@ export async function signInWithChrome(
       "--no-first-run",
       "--no-default-browser-check",
       "--new-window",
-      step.url ?? "about:blank",
+      "about:blank",
     ],
     // None of Life's secrets: only what Chrome needs to start.
     {
@@ -228,6 +248,10 @@ async function collect(step: CookieStep, profile: string, quit: () => boolean) {
   });
   await send("Network.enable");
   await send("Page.enable");
+  for (const [method, params] of openingCalls(step)) {
+    // biome-ignore lint/performance/noAwaitInLoops: the override must hold before the page loads
+    await send(method, params);
+  }
   if (step.extract_js) {
     // It resolves once it finds its fields: in the background, while he signs in.
     send("Runtime.evaluate", {
