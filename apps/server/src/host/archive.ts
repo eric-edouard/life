@@ -164,12 +164,12 @@ export function openIncidents(lines: LogEvent[]) {
   return started;
 }
 
-/** The stores failing for at least `ms` at `now`, by store, from the last 7 days of derived/log. */
-export async function archiveFailing(ms = 0, now = clock().getTime()) {
+/** The stores failing now, by store, from the last 7 days of derived/log. */
+export async function archiveFailing() {
   const kept = new Set(keptStores().map((s) => s.name as string));
   // A store he turned off since has no incident: it is no longer copied, so nothing would ever close it.
   return [...openIncidents(await recentEvents(ARCHIVE_LOOKBACK))].filter(
-    ([name, e]) => kept.has(name) && now - Date.parse(e.at) >= ms
+    ([name]) => kept.has(name)
   );
 }
 

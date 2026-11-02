@@ -57,22 +57,22 @@ import { isListed, type LedgerEntry } from "../records/ledger-entry";
 import type { Extracted, Observation } from "../records/observation";
 import { checks } from "../todo-list/backend";
 import { taskList, unanswered } from "./agent";
-import { ARCHIVE_LOOKBACK, archiveFailing, openIncidents } from "./archive";
+import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
 import { backup, backupLine } from "./backup";
 import { syncPast } from "./past-calendar";
 import {
-  archiveFailedReport,
   failureReport,
   lockReport,
   type Mail,
   reportKey,
   sendReport,
+  sourcesReport,
   successReport,
 } from "./report";
+import { snapshot } from "./status/snapshot";
 
 /** A run holding the lock longer than this is stuck: the nightly emails once (per lock). */
 const STUCK_MS = 3 * HOUR;
-const ALERT_MS = HOUR;
 
 /** Whether an agent (a call with its grant's agent claim) read `read_day` in the last 24 h, as its daily review does (docs/agent.md): a review that found Life unreachable leaves no other trace. */
 export const reviewed = async (now: Date) =>
@@ -174,12 +174,15 @@ export async function nightly(days: number, force = false) {
       lockReport(held.toISOString())
     );
   }
-  // Each store failing for an hour: one email per incident and day while it lasts (the key).
-  for (const [name, e] of await archiveFailing(ALERT_MS, now.getTime())) {
-    // biome-ignore lint/performance/noAwaitInLoops: rare, one store at a time
+  // Every source in red on the status snapshot, the one judge of a source's health: one email per source, problem and
+  // day while it lasts.
+  const red = (await snapshot(now)).cards.filter(
+    (c) => c.group === "sources" && c.tone === "bad"
+  );
+  if (red.length > 0) {
     await sendReport(
-      `archive/${name}/${e.at}/${dayNow(now)}`,
-      archiveFailedReport(name, e.at, String(e.error))
+      red.map((c) => `source/${c.id}/${c.word}/${dayNow(now)}`),
+      sourcesReport(now.toISOString(), red)
     );
   }
   // Each tick is a fresh process: the place to notice he moved (`readZoneHere`, never a TZ variable). The phone's

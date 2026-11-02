@@ -485,25 +485,28 @@ const connectorFailures = (r: Reads, name: string) =>
 type Healths = Awaited<ReturnType<typeof connectorHealths>>;
 let healths: Healths = [];
 let checkedAt = Number.NEGATIVE_INFINITY;
-let checking = false;
+let check: Promise<void> | undefined;
 /**
- * Every connector's bridge and send checks as last found, never awaited: the status window reads every 3 s and a
- * check may take 10 s, so a stale one starts a fresh one in the background (every 15 s at most).
+ * Every connector's bridge and send checks as last found: the status window reads every 3 s and a check may take
+ * 10 s, so a stale one starts a fresh one in the background (every 15 s at most). Only a process's first read waits
+ * for one (10 s at most, once), so a fresh process, like the tick's source alert, sees its bridges and sends.
  */
-function latestHealths(): Healths {
-  if (!checking && performance.now() - checkedAt > 15_000) {
-    checking = true;
+async function latestHealths(): Promise<Healths> {
+  if (!check && performance.now() - checkedAt > 15_000) {
     // In a promise from the start: a check that throws at once never stops the snapshot or the next check.
-    Promise.resolve()
+    check = Promise.resolve()
       .then(() => connectorHealths(["bridge", "send"]))
       .then((h) => {
         healths = h;
       })
       .catch(() => undefined)
       .finally(() => {
-        checking = false;
+        check = undefined;
         checkedAt = performance.now();
       });
+  }
+  if (checkedAt === Number.NEGATIVE_INFINITY) {
+    await check;
   }
   return healths;
 }
@@ -565,15 +568,19 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   };
 }
 
-/** A source he turned on that can't be read now (not set up, or its access gone): what it needs. Its units are kept. */
+/**
+ * A source he turned on that can't be read now (not set up, or its access gone): what it needs. Its units are kept. An
+ * imported one with nothing imported is idle: nothing fails, there is nothing to read yet.
+ */
 const unreadableCard = (d: Descriptor, why: string): Card => ({
   facts: [],
   group: "sources",
   headline: why,
   id: d.name,
   name: d.label,
-  tone: "bad",
-  word: "can't read",
+  ...(d.imported
+    ? { tone: "idle", word: "not imported" }
+    : { tone: "bad", word: "can't read" }),
 });
 
 function sourceCards(r: Reads): Card[] {

@@ -132,6 +132,21 @@ test(
 );
 
 test(
+  "a source Life can't read is red, so the tick mails it; an import never run is idle, so it doesn't",
+  async () => {
+    const cards = new Map((await snapshot()).cards.map((c) => [c.id, c]));
+    // The made-up data has no WhatsApp archive; claude.ai is imported or not, depending on the tests run before.
+    expect(cards.get("whatsapp")).toMatchObject({
+      headline: "WhatsApp not archived yet",
+      tone: "bad",
+      word: "can't read",
+    });
+    expect(cards.get("claude")?.tone).toBe("idle");
+  },
+  MIN
+);
+
+test(
   "an output's card says off when its switch is off, on when it is on",
   async () => {
     const cards = new Map((await snapshot()).cards.map((c) => [c.id, c]));
