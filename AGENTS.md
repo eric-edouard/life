@@ -102,7 +102,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
   branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
-  setting), through `act`, on his clear request or the standing grant. What a backend lacks is a capability (`can`),
+  setting), through `act` alone (`backend.test.ts` checks), on his clear request or the standing grant. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
 - **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
