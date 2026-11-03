@@ -47,11 +47,6 @@ export const RECOGNITION = {
   // 0.6 kept one person's 15 voices together and nobody else on Oct 10–11.
   candidateThreshold: 0.6,
   closedSetTurn: 0.4, // several people, none but the owner's picks
-  // A name or a turn is refused when the voice is this much more like his "don't know" voices than
-  // like the person (speakers.ts `decide`). Nov 3 replay of his answers: 16 fewer turns credited to
-  // him and 2 fewer to someone else they weren't, no right name lost; 0.03 and under lose some, 0.07
-  // catches fewer.
-  dontKnowLead: 0.05,
   // Unnamed voice data (embeddings that are nobody's evidence) is deleted after this.
   keepDays: 30,
   // Lead over the runner-up person; anything closer is ambiguous, so unknown.
@@ -98,6 +93,11 @@ export const RECOGNITION = {
   ownerShortTurn: 0.5,
   ownerTurn: 0.6,
   shortTurnSeconds: 6,
+  // A voice this much more like the strangers (his "Not anyone I know" answers) than like the person
+  // is a stranger too (speakers.ts `decide`). Nov 3 replay of his answers: 16 fewer turns credited to
+  // him and 2 fewer to someone else they weren't, no right name lost; 0.03 and under lose some, 0.07
+  // catches fewer.
+  strangerLead: 0.05,
 } as const;
 
 // Voice excerpts the server cuts from a job's bucket audio (excerpts.ts, docs/processing.md).

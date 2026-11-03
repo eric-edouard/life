@@ -5,8 +5,9 @@
 //   speaker is. The provider often puts him and someone else under one speaker. A turn under
 //   `shortTurnSeconds` needs only `ownerShortTurn` when it is also `margin` ahead of the next person.
 // A voice the owner said is several people is no one: each turn is decided among his candidates.
-// A name, or a turn moved to someone, is refused when the voice sounds more like the voices he
-// answered "don't know" for than like that person (`dontKnowLead`).
+// A voice that sounds more like the strangers (voices he answered "Not anyone I know" for, people he
+// doesn't care about) than like its nearest person is a stranger too: no name, no turn moved
+// (`strangerLead`).
 // Measured on the owner's corrections, this is as good as the label rules it replaced on other
 // people and better on the owner. The caller leaves out what the owner answered: his answers win.
 
@@ -23,12 +24,12 @@ export interface Profile {
 }
 
 // One embedding model's voices: each person's profile, and one centroid per conversation of the
-// voices the owner answered "don't know" for (people.ts `weighProfiles`).
-export interface Voices {
-  dontKnow: Vector[];
+// strangers' (people.ts `weighProfiles`).
+export interface Profiles {
   people: Profile[];
+  strangers: Vector[];
 }
-export const NO_VOICES: Voices = { dontKnow: [], people: [] };
+export const NO_PROFILES: Profiles = { people: [], strangers: [] };
 
 // Embeddings are L2-normalized, so the dot product is the cosine.
 export const cosine = (a: Vector, b: Vector) =>
@@ -83,15 +84,14 @@ export function nearbyMatch(
     : null;
 }
 
-// Whether a voice is `dontKnowLead` more like the voices he answered "don't know" for than the
-// `score` of its match.
-const soundsUnknownTo = (dontKnow: Vector[], v: Vector, score: number) =>
-  dontKnow.length > 0 &&
-  likeness(v, dontKnow) > score + RECOGNITION.dontKnowLead;
+// Whether a voice is `strangerLead` more like the strangers than the `score` of its match.
+const isMoreLikeStrangers = (strangers: Vector[], v: Vector, score: number) =>
+  strangers.length > 0 &&
+  likeness(v, strangers) > score + RECOGNITION.strangerLead;
 
 // Who a speaker's voice is: its nearest person, at `matchThreshold` and `margin` ahead of the
-// next, unless it sounds more like a voice he doesn't know (`soundsUnknown`).
-function nameOf(vector: Vector, { dontKnow, people }: Voices) {
+// next, unless it sounds more like the strangers (`isStranger`).
+function nameOf(vector: Vector, { strangers, people }: Profiles) {
   const best = nearest(vector, people);
   const matched =
     best &&
@@ -99,12 +99,13 @@ function nameOf(vector: Vector, { dontKnow, people }: Voices) {
     best.margin >= RECOGNITION.margin
       ? best
       : null;
-  const soundsUnknown =
-    !!matched && soundsUnknownTo(dontKnow, vector, matched.score);
+  // Weighed for a voice that missed too, so the nearby step leaves it alone.
+  const isStranger =
+    !!best && isMoreLikeStrangers(strangers, vector, best.score);
   return {
     best,
-    personId: matched && !soundsUnknown ? matched.personId : null,
-    soundsUnknown,
+    isStranger,
+    personId: matched && !isStranger ? matched.personId : null,
   };
 }
 
@@ -112,7 +113,7 @@ function nameOf(vector: Vector, { dontKnow, people }: Voices) {
 // enough), and the turns that are someone else's: the owner's, or each one's among `candidates`.
 // `samples` are its clean turns of one embedding model, `vector` their voice (null with too little
 // speech; people.ts `speakerVoice`), `voices` that model's. Among his candidates, nothing is
-// refused for sounding unknown: he said who is there.
+// refused for sounding like a stranger: he said who is there.
 export function decide(
   {
     samples,
@@ -125,7 +126,7 @@ export function decide(
     }[];
     vector: Vector | null;
   },
-  voices: Voices,
+  voices: Profiles,
   candidates?: Candidates | null
 ) {
   const profiles = voices.people;
@@ -162,19 +163,17 @@ export function decide(
           const t = nearest(s.embedding, among);
           return t &&
             takes(t, s.durationSeconds) &&
-            !(
-              !candidates &&
-              soundsUnknownTo(voices.dontKnow, s.embedding, t.score)
-            )
+            (candidates ||
+              !isMoreLikeStrangers(voices.strangers, s.embedding, t.score))
             ? [{ personId: t.personId, score: t.score, turnIndex: s.turnIndex }]
             : [];
         })
       : [];
   return {
+    isStranger: named?.isStranger ?? false,
     margin: named?.best?.margin ?? null,
     personId,
     score: named?.best?.score ?? null,
-    soundsUnknown: named?.soundsUnknown ?? false,
     turns,
     vector,
   };

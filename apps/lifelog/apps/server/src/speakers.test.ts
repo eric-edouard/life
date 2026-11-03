@@ -15,7 +15,7 @@ const turnAt = (owner: number, other: number, durationSeconds: number) => ({
 const owned = (sample: ReturnType<typeof turnAt>) =>
   decide(
     { samples: [sample], vector: null },
-    { dontKnow: [], people: profiles }
+    { people: profiles, strangers: [] }
   ).turns.map((t) => t.personId);
 
 test("a short turn is the owner's at 0.5 only with a 0.1 lead; a long one still needs 0.6", () => {
@@ -33,4 +33,16 @@ test("a voice is as like a person as its two closest conversations of theirs", (
   ];
   expect(likeness([0.8, 0.6, 0], exemplars)).toBeCloseTo(0.7);
   expect(likeness([0.8, 0.6, 0], [[1, 0, 0]])).toBeCloseTo(0.8);
+});
+
+test("a turn that sounds more like a stranger than the owner stays put, unless he named who is there", () => {
+  const sample = turnAt(0.62, 0, 10); // 0.79 to the stranger below
+  const voices = { people: profiles, strangers: [[0, 0, 1]] };
+  const moved = (candidates: { people: string[]; unknown: boolean } | null) =>
+    decide({ samples: [sample], vector: null }, voices, candidates).turns.map(
+      (t) => t.personId
+    );
+  expect(owned(sample)).toEqual(["owner"]);
+  expect(moved(null)).toEqual([]);
+  expect(moved({ people: ["owner"], unknown: false })).toEqual(["owner"]);
 });

@@ -23,6 +23,7 @@ import {
   merge,
   recognize as recognizeJob,
   regroup,
+  strangerRows,
   sweep,
   uncleanTurn,
   voiceUpkeep,
@@ -362,19 +363,82 @@ test("a voice that misses its profile takes the name of the same voice minutes a
   expect(speaker(recognize(guest), "speaker_0")?.personId).toBeNull();
 });
 
-test('a voice like one he answered "don\'t know" for stays unknown, nearby too', async () => {
+test('a voice like one he answered "Not anyone I know" for is a stranger, nearby too', async () => {
   const clara = await enroll("Clara", v([50, 1]));
-  const named = (jobId: string) =>
-    speaker(recognize(jobId), "speaker_0")?.personId;
-  // 0.71 to Clara: recognized as her, until he says he doesn't know that voice.
+  const named = (jobId: string) => speaker(recognize(jobId), "speaker_0");
+  // 0.71 to Clara: recognized as her, until he says it isn't anyone he knows.
   const unknown = recording(v([50, 1], [51, 1]), 0);
-  expect(named(unknown)).toBe(clara.personId);
+  expect(named(unknown)?.personId).toBe(clara.personId);
   await assign(unknown, "speaker_0", { target: { kind: "unknown" } });
-  expect(named(recording(v([50, 1]), 10))).toBe(clara.personId);
-  // 0.67 to Clara but 1.00 to that voice: unknown, though Clara is named minutes away.
-  expect(named(recording(v([50, 1], [51, 1.1]), 20))).toBeNull();
+  expect(named(recording(v([50, 1]), 10))?.personId).toBe(clara.personId);
+  // 0.67 to Clara but 1.00 to that voice: a stranger, though Clara is named minutes away.
+  expect(named(recording(v([50, 1], [51, 1.1]), 20))).toMatchObject({
+    candidateId: null,
+    personId: null,
+    status: "stranger",
+  });
   // As like Clara, and unlike that voice (0.48): hers.
-  expect(named(recording(v([50, 1], [52, 1.1]), 30))).toBe(clara.personId);
+  expect(named(recording(v([50, 1], [52, 1.1]), 30))?.personId).toBe(
+    clara.personId
+  );
+});
+
+test("a voice that missed its match and sounds like a stranger isn't named from nearby", async () => {
+  await enroll("Carol", v([60, 1]));
+  await enroll("Dana", v([60, 1], [61, 0.5])); // too close to Carol for a margin
+  const unknown = recording(v([60, 1], [61, 0.25], [62, 1]), 0);
+  await assign(unknown, "speaker_0", { target: { kind: "unknown" } });
+  // Carol named minutes away; this voice is between Carol and Dana, and like the stranger.
+  recording(v([60, 1]), 5);
+  const voice = recording(v([60, 1], [61, 0.25], [62, 1.1]), 10);
+  expect(speaker(recognize(voice), "speaker_0")).toMatchObject({
+    personId: null,
+    status: "stranger",
+  });
+});
+
+test("a stranger's clips: the turns he said aren't anyone he knows, never several people or media", async () => {
+  const ana = await enroll("Ana", v([70, 1]));
+  const clip = (at: number) => v([at, 1]);
+  // speaker_0 is Ana but turn 2 isn't anyone he knows; speaker_1 isn't, but turn 3 is Ana.
+  const jobId = transcript([
+    turn("speaker_0", 0, 5),
+    turn("speaker_1", 5, 10),
+    turn("speaker_0", 10, 15),
+    turn("speaker_1", 15, 20),
+  ]);
+  [71, 72, 73, 74].map((at, i) => upload(jobId, i, clip(at)));
+  await assign(jobId, "speaker_0", {
+    target: { kind: "person", personId: ana.personId },
+  });
+  await assign(jobId, "speaker_0", {
+    target: { kind: "unknown" },
+    turnIndex: 2,
+  });
+  await assign(jobId, "speaker_1", { target: { kind: "unknown" } });
+  await assign(jobId, "speaker_1", {
+    target: { kind: "person", personId: ana.personId },
+    turnIndex: 3,
+  });
+  // Media and several people say nobody he doesn't know.
+  const other = conversation(clip(75), clip(76));
+  await assign(other, "speaker_0", { target: { kind: "media" } });
+  answerSpeaker(env.db, {
+    jobId: other,
+    speakerLabel: "speaker_1",
+    target: {
+      candidates: { people: [ana.personId], unknown: true },
+      kind: "several",
+      personId: null,
+    },
+    turnIndex: null,
+  });
+  // Each clip's voice is its own axis: turns 1 and 2.
+  expect(
+    strangerRows(env.db)
+      .map((r) => r.embedding.indexOf(1))
+      .sort()
+  ).toEqual([72, 73]);
 });
 
 test("owner assignments survive re-recognition", async () => {

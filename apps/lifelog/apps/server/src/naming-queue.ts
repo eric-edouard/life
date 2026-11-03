@@ -262,10 +262,13 @@ function voicesIn(db: Db, ids: { id: string }[], ownerId: string) {
         : []
     )
   );
-  // The owner already answered for it: never asked again. One called several people (`mixed`) is.
+  // The owner already answered for it, or it sounds like someone he said isn't anyone he knows:
+  // never asked. One called several people (`mixed`) is asked again.
   const skipped = new Set(
     rows.flatMap((r) =>
-      r.source === "owner" ? [voiceId(r.jobId, r.speakerLabel)] : []
+      r.source === "owner" || r.status === "stranger"
+        ? [voiceId(r.jobId, r.speakerLabel)]
+        : []
     )
   );
   const mixed = new Set(

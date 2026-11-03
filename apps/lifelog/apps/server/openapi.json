@@ -1458,7 +1458,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["person", "unknown", "candidate", "media"]
+            "enum": ["person", "unknown", "candidate", "media", "stranger"]
           },
           "turnIndex": {
             "type": ["integer", "null"]
