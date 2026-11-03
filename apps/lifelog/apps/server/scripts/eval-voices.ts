@@ -18,6 +18,7 @@ import { connect, type Db } from "@lifelog/db";
 import { people, speakerAssignments, voiceSamples } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import {
+  dontKnowRows,
   evidenceRows,
   match,
   speakerOf,
@@ -82,7 +83,9 @@ function scoreVoice(
   profiles: Profiles
 ) {
   const r = match(voice, profiles);
-  const ownerProfile = profiles.get(r.model ?? "")?.find((p) => p.isOwner);
+  const ownerProfile = profiles
+    .get(r.model ?? "")
+    ?.people.find((p) => p.isOwner);
   const credited = r.personId === owner;
   const holdsHim = judged.some((j) => j.truth === owner);
   return {
@@ -106,14 +109,15 @@ function scoreVoice(
 // Every answered voice, each conversation's against profiles rebuilt without it.
 function replay(data: Export) {
   const truthOf = answers(data);
-  const { evidence } = data;
+  const { dontKnow, evidence } = data;
   // A job is judged without the evidence of any conversation its samples were cut in: a sample
   // keeps the conversation it was cut for, and a job's can differ.
   return [...Map.groupBy(data.samples, (s) => s.jobId).values()].flatMap(
     (inJob) => {
       const own = new Set(inJob.map((s) => s.conversationId));
       const profiles = weighProfiles(
-        evidence.filter((e) => !own.has(e.conversationId))
+        evidence.filter((e) => !own.has(e.conversationId)),
+        dontKnow.filter((e) => !own.has(e.conversationId))
       );
       return [...Map.groupBy(inJob, voiceOf).values()].flatMap((voice) => {
         const judged = voice.flatMap((s) => {
@@ -178,6 +182,7 @@ export function exportVoices(db: Db) {
         .from(speakerAssignments)
         .where(eq(speakerAssignments.source, "owner"))
         .all(),
+      dontKnow: dontKnowRows(tx),
       evidence: evidenceRows(tx),
       owner: owner.id,
       samples: tx

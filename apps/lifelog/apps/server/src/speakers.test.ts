@@ -13,9 +13,10 @@ const turnAt = (owner: number, other: number, durationSeconds: number) => ({
   turnIndex: 0,
 });
 const owned = (sample: ReturnType<typeof turnAt>) =>
-  decide({ samples: [sample], vector: null }, profiles).turns.map(
-    (t) => t.personId
-  );
+  decide(
+    { samples: [sample], vector: null },
+    { dontKnow: [], people: profiles }
+  ).turns.map((t) => t.personId);
 
 test("a short turn is the owner's at 0.5 only with a 0.1 lead; a long one still needs 0.6", () => {
   expect(owned(turnAt(0.55, 0.35, 3))).toEqual(["owner"]);

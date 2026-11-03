@@ -362,6 +362,21 @@ test("a voice that misses its profile takes the name of the same voice minutes a
   expect(speaker(recognize(guest), "speaker_0")?.personId).toBeNull();
 });
 
+test('a voice like one he answered "don\'t know" for stays unknown, nearby too', async () => {
+  const clara = await enroll("Clara", v([50, 1]));
+  const named = (jobId: string) =>
+    speaker(recognize(jobId), "speaker_0")?.personId;
+  // 0.71 to Clara: recognized as her, until he says he doesn't know that voice.
+  const unknown = recording(v([50, 1], [51, 1]), 0);
+  expect(named(unknown)).toBe(clara.personId);
+  await assign(unknown, "speaker_0", { target: { kind: "unknown" } });
+  expect(named(recording(v([50, 1]), 10))).toBe(clara.personId);
+  // 0.67 to Clara but 1.00 to that voice: unknown, though Clara is named minutes away.
+  expect(named(recording(v([50, 1], [51, 1.1]), 20))).toBeNull();
+  // As like Clara, and unlike that voice (0.48): hers.
+  expect(named(recording(v([50, 1], [52, 1.1]), 30))).toBe(clara.personId);
+});
+
 test("owner assignments survive re-recognition", async () => {
   await enroll("Clara", v([0, 1]));
   const jobId = conversation(v([0, 1]), stranger());
@@ -615,12 +630,15 @@ test("a profile is one exemplar per conversation, of its clips of 3 s or more", 
     sampleId: randomUUID(),
   });
   const [profile] =
-    weighProfiles([
-      row("dinner", v([30, 1])),
-      row("dinner", v([31, 1])),
-      row("call", v([32, 1])),
-      row("call", v([33, 1]), 2),
-    ]).get("test/ecapa@r1") ?? [];
+    weighProfiles(
+      [
+        row("dinner", v([30, 1])),
+        row("dinner", v([31, 1])),
+        row("call", v([32, 1])),
+        row("call", v([33, 1]), 2),
+      ],
+      []
+    ).get("test/ecapa@r1")?.people ?? [];
   expect(profile?.exemplars).toEqual([
     centroid([v([30, 1]), v([31, 1])]),
     v([32, 1]),

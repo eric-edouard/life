@@ -60,6 +60,7 @@ test("a stranger's turn inside a voice recognized as him is a false owner, and t
       answer("b", "s0", null, "me"),
       answer("b", "s0", 3, null), // "don't know": nobody he knows
     ],
+    dontKnow: [],
     evidence: [...hisEvidence, ...patsEvidence],
     owner: "me",
     samples: [
@@ -84,6 +85,7 @@ test("a stranger's turn inside a voice recognized as him is a false owner, and t
 test("his turn answered inside a stranger's voice is judged by its own answer", () => {
   const data: Export = {
     assignments: [answer("b", "s0", null, null), answer("b", "s0", 3, "me")],
+    dontKnow: [],
     evidence: hisEvidence,
     owner: "me",
     samples: [
@@ -113,6 +115,7 @@ test("a conversation is judged without its own evidence, and a several-people an
       answer("b", "s2", null, "pat", true),
     ],
     // Pat's only evidence is in b, the conversation judged.
+    dontKnow: [],
     evidence: [...hisEvidence, evidence(b[0] as Sample, "pat")],
     owner: "me",
     samples: [...a.slice(0, 2), ...b],
@@ -127,6 +130,7 @@ test("a job whose samples were cut in two conversations is judged without the ev
   const x0 = sample("x0", "c", "s0", 0, PAT, "x");
   const data: Export = {
     assignments: [answer("b", "s1", null, "pat")],
+    dontKnow: [],
     evidence: [...hisEvidence, evidence(x0, "pat")],
     owner: "me",
     samples: [
