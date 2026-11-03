@@ -13,7 +13,6 @@ import { randomUUID } from "node:crypto";
 import type { Db } from "@lifelog/db";
 import {
   conversations,
-  intelligenceRuns,
   type JobMap,
   live,
   people,
@@ -37,7 +36,8 @@ import {
   voiceId,
   voiceMatcher,
 } from "./people";
-import { Result } from "./summary-calls";
+import { latestValid } from "./summaries";
+import type { Result } from "./summary-calls";
 import { keptAt, type LoadedTurn, loadTurns, timedWords } from "./transcript";
 
 interface Voice {
@@ -269,21 +269,7 @@ function voicesIn(db: Db, id: string, ownerId: string) {
   const mixed = new Set(
     rows.flatMap((r) => (r.mixed ? [voiceId(r.jobId, r.speakerLabel)] : []))
   );
-  const run = db
-    .select({
-      result: intelligenceRuns.result,
-      turns: intelligenceRuns.turns,
-    })
-    .from(intelligenceRuns)
-    .where(
-      and(
-        eq(intelligenceRuns.conversationId, id),
-        sql`${intelligenceRuns.result} is not null`
-      )
-    )
-    .orderBy(desc(intelligenceRuns.createdAt))
-    .limit(1)
-    .get();
+  const run = latestValid(db, id);
   // A mixed voice is asked about named or not.
   const turns = loaded.map((t) =>
     mixed.has(voiceId(t.ref.jobId, t.speakerLabel ?? ""))
@@ -291,12 +277,7 @@ function voicesIn(db: Db, id: string, ownerId: string) {
       : t
   );
   const mine = voicesOf(id, turns, ownerId, groups, skipped, mixed);
-  heardIn(
-    Result.safeParse(run?.result).data ?? null,
-    run?.turns ?? [],
-    loaded,
-    mine
-  );
+  heardIn(run?.result ?? null, run?.turns ?? [], loaded, mine);
   return [...mine.values()];
 }
 
@@ -373,27 +354,16 @@ function cardsOf(db: Db, voices: Voice[]) {
 // owner, one card per voice group across conversations and days. Its id is the group: the
 // unnamed group recognition keeps, or the voice's own id. An answer leaves no state here: the
 // owner's rows keep its voices out of the next build. Empty without an owner person.
-export function namingQueue(db: Db, at = new Date()) {
-  const owner = ownerOf(db);
-  return owner
-    ? cardsOf(
-        db,
-        windowOf(db, at).flatMap((id) => voicesIn(db, id, owner.id))
-      )
-    : [];
-}
-type QueueItem = Awaited<ReturnType<typeof namingQueue>>[number];
-
-// The queue as `namingQueue` builds it, kept between reads: built again when the change log moved
-// or the window did, reading again only the voices of the conversations the changes touched
-// (`touchedSince`; an answer logs its speaker rows, so its voices never come back). The cards are
-// made again from every voice, since a change may be about a person or a profile.
+// Kept between reads: built again when the change log moved or the window did, reading again
+// only the voices of the conversations the changes touched (`touchedSince`; an answer logs its
+// speaker rows, so its voices never come back). The cards are made again from every voice, since
+// a change may be about a person or a profile. A fresh cache's first read is the full build.
 // ponytail: in-process, like the other loops; one replica.
 export type QueueCache = ReturnType<typeof queueCache>;
 
 export function queueCache(db: Db, now = () => new Date()) {
   let kept: {
-    items: QueueItem[];
+    items: ReturnType<typeof cardsOf>;
     ownerId: string;
     seen: number;
     voices: Map<string, Voice[]>;

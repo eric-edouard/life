@@ -20,7 +20,6 @@ import {
   answerVoices,
   cardClips,
   morningPush,
-  namingQueue,
   queueCache,
 } from "./naming-queue";
 import { assign, sweep } from "./people";
@@ -53,7 +52,7 @@ beforeEach(() => {
 const NOON = Date.parse("2026-10-10T05:00:00Z");
 const NEXT_MORNING = new Date("2026-10-11T02:00:00Z");
 // The queue as of the next morning.
-const queued = () => namingQueue(env.db, NEXT_MORNING);
+const queued = () => queueCache(env.db, () => NEXT_MORNING).items();
 
 // Conversations seeded in this test: each one starts an hour after the one before, so their
 // words never overlap.
@@ -421,7 +420,7 @@ test("the queue holds a voice once across days, and loses it once answered", () 
     .run();
   const at = new Date(NOON + 2 * day);
   // Neither day alone has enough back-and-forth for a card; together they do.
-  const [item, ...rest] = namingQueue(env.db, at);
+  const [item, ...rest] = queueCache(env.db, () => at).items();
   expect(rest).toEqual([]);
   expect(item).toMatchObject({
     conversations: 2,
@@ -437,7 +436,7 @@ test("the queue holds a voice once across days, and loses it once answered", () 
     kind: "confirm",
     name: "Hervé",
   });
-  expect(namingQueue(env.db, at)).toEqual([]);
+  expect(queueCache(env.db, () => at).items()).toEqual([]);
 });
 
 test("a voice that sounds like a stranger is never asked about", () => {

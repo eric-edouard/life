@@ -239,28 +239,21 @@ async function execute(
   }
   const inputTokens = raw.reduce((sum, r) => sum + r.inputTokens, 0);
   const outputTokens = raw.reduce((sum, r) => sum + r.outputTokens, 0);
-  // A valid run is what the conversation's readers read now (the names heard in "Who's this?").
-  const run = db.transaction((tx) => {
-    const done = tx
-      .update(runs)
-      .set({
-        ...outcome,
-        // The Mac runs on the owner's subscription.
-        costUsd: 0,
-        coverage,
-        inputTokens,
-        latencyMs: Math.round(performance.now() - started),
-        outputTokens,
-        raw,
-      })
-      .where(eq(runs.id, runId))
-      .returning()
-      .get();
-    if (done?.state === "valid") {
-      logChange(tx, "conversation", done.conversationId);
-    }
-    return done;
-  });
+  const run = db
+    .update(runs)
+    .set({
+      ...outcome,
+      // The Mac runs on the owner's subscription.
+      costUsd: 0,
+      coverage,
+      inputTokens,
+      latencyMs: Math.round(performance.now() - started),
+      outputTokens,
+      raw,
+    })
+    .where(eq(runs.id, runId))
+    .returning()
+    .get();
   if (!run) {
     throw new Error(`intelligence run ${runId} vanished`);
   }
