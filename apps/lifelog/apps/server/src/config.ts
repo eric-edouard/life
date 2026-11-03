@@ -93,6 +93,11 @@ export const RECOGNITION = {
   ownerShortTurn: 0.5,
   ownerTurn: 0.6,
   shortTurnSeconds: 6,
+  // A voice this much more like the strangers (his "Not anyone I know" answers) than like the person
+  // is a stranger too (speakers.ts `decide`). Nov 3 replay of his answers: 16 fewer turns credited to
+  // him and 2 fewer to someone else they weren't, no right name lost; 0.03 and under lose some, 0.07
+  // catches fewer.
+  strangerLead: 0.05,
 } as const;
 
 // Voice excerpts the server cuts from a job's bucket audio (excerpts.ts, docs/processing.md).

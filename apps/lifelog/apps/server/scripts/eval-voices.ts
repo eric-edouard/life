@@ -20,7 +20,9 @@ import { eq } from "drizzle-orm";
 import {
   evidenceRows,
   match,
+  type ProfilesByModel,
   speakerOf,
+  strangerRows,
   voiceId,
   weighProfiles,
 } from "../src/people";
@@ -44,7 +46,7 @@ const voiceOf = (s: Sample) => voiceId(s.jobId, s.speakerLabel);
 
 // Who he said spoke a sampled turn, by the one read rule (`speakerOf`): his answer for the turn,
 // else for its voice. A row of several people names a fallback, not who spoke. A null answer is
-// "don't know" or media: nobody he knows.
+// "Not anyone I know" or media: nobody he knows.
 function answers(data: Export) {
   const byJob = Map.groupBy(
     data.assignments.filter((a) => !a.candidates),
@@ -71,18 +73,18 @@ function outcome(
   return said ? "wrongPerson" : "leftUnnamed";
 }
 
-type Profiles = ReturnType<typeof weighProfiles>;
-
 // One answered voice replayed: each judged turn's outcome, his likeness for each turn inside a voice
 // recognized as him, and whether the voice holds him, him and another, and was credited to him.
 function scoreVoice(
   owner: string,
   judged: { s: Sample; truth: string | null }[],
   voice: Sample[],
-  profiles: Profiles
+  profiles: ProfilesByModel
 ) {
   const r = match(voice, profiles);
-  const ownerProfile = profiles.get(r.model ?? "")?.find((p) => p.isOwner);
+  const ownerProfile = profiles
+    .get(r.model ?? "")
+    ?.people.find((p) => p.isOwner);
   const credited = r.personId === owner;
   const holdsHim = judged.some((j) => j.truth === owner);
   return {
@@ -106,14 +108,15 @@ function scoreVoice(
 // Every answered voice, each conversation's against profiles rebuilt without it.
 function replay(data: Export) {
   const truthOf = answers(data);
-  const { evidence } = data;
+  const { strangers, evidence } = data;
   // A job is judged without the evidence of any conversation its samples were cut in: a sample
   // keeps the conversation it was cut for, and a job's can differ.
   return [...Map.groupBy(data.samples, (s) => s.jobId).values()].flatMap(
     (inJob) => {
       const own = new Set(inJob.map((s) => s.conversationId));
       const profiles = weighProfiles(
-        evidence.filter((e) => !own.has(e.conversationId))
+        evidence.filter((e) => !own.has(e.conversationId)),
+        strangers.filter((e) => !own.has(e.conversationId))
       );
       return [...Map.groupBy(inJob, voiceOf).values()].flatMap((voice) => {
         const judged = voice.flatMap((s) => {
@@ -194,6 +197,7 @@ export function exportVoices(db: Db) {
         })
         .from(voiceSamples)
         .all(),
+      strangers: strangerRows(tx),
     };
   });
 }

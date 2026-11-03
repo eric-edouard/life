@@ -424,6 +424,21 @@ test("the queue holds a voice once across days, and loses it once answered", () 
   expect(namingQueue(env.db, at)).toEqual([]);
 });
 
+test("a voice that sounds like a stranger is never asked about", () => {
+  const me = owner();
+  const { jobId } = conversation(me, talk(8), [identity({ name: "Hervé" })]);
+  env.db
+    .insert(speakerAssignments)
+    .values({
+      jobId,
+      source: "recognized",
+      speakerLabel: "speaker_1",
+      status: "stranger",
+    })
+    .run();
+  expect(queued()).toEqual([]);
+});
+
 test("a card no summary named, that sounds like someone, asks about them", () => {
   const me = owner();
   const voice = Array.from({ length: 192 }, (_, i) => (i === 7 ? 1 : 0));
