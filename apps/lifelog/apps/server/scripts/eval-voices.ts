@@ -7,7 +7,7 @@
 // his voice); the replay's counts are committed in `fixtures/voice-eval-baseline.json`, and the
 // gate (`--check`) fails when a change moves them, on the same file. A change to `match`, `decide`
 // or `weighProfiles` rewrites the baseline, so the PR shows its effect.
-//   DATABASE_PATH=<the archive> bun run --cwd apps/lifelog/apps/server eval:voices export   # freeze his answers again
+//   DATABASE_PATH=<the archive> bun run --cwd apps/lifelog/apps/server eval:voices export   # freeze his answers again, then as below
 //   bun run --cwd apps/lifelog/apps/server eval:voices             # replay, print, rewrite the baseline
 //   bun run --cwd apps/lifelog/apps/server eval:voices --check     # the gate
 
@@ -218,8 +218,6 @@ if (import.meta.main) {
       ANSWERED,
       JSON.stringify(exportVoices(connect(url, { readonly: true })))
     );
-    console.log(`wrote ${ANSWERED}: run eval:voices to rewrite the baseline`);
-    process.exit(0);
   }
   if (!(await Bun.file(ANSWERED).exists())) {
     console.log(`voice eval: skipped, no ${ANSWERED}`);

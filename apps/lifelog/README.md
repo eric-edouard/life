@@ -133,7 +133,7 @@ code in Lifelog Host's Settings to pair it, and pair your recorder from the Pend
 ## Development
 
 ```sh
-bun run check                                # lint, types, every test suite, openapi, scrub, a Debug app build
+bun run check                                # lint, types, every test suite, openapi, scrub, voice eval, a Debug app build
 bun run fix                                  # format
 bun run --cwd apps/lifelog/apps/server test src/feed.test.ts
 swift test --package-path apps/lifelog/apps/ios/Kit --scratch-path .build/kit
