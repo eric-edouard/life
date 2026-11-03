@@ -136,7 +136,7 @@ core  ←  records  ←  models, sources, todo-list  ←  memory  ←  host
 | `test-data/` | The made-up data tests read |
 
 What the check enforces is the order: no file imports a layer to its right, fallow's boundary zones (`.fallowrc.json`)
-fail any that does, and `scripts/cycles.test.ts` fails any import cycle. Within it, a capability's contract has its own
+fail any that does, and `scripts/imports.test.ts` fails any import cycle. Within it, a capability's contract has its own
 `contract.ts`. The layers are folders, not packages: a folder becomes a package only when a second app imports it.
 The reasons are in the [architecture plan](plans/2026-10-22-architecture.md).
 

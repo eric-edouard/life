@@ -102,7 +102,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
   branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
-  setting), through `act` alone (`backend.test.ts` checks), on his clear request or the standing grant. What a backend lacks is a capability (`can`),
+  setting), through `act` alone (`scripts/imports.test.ts` checks), on his clear request or the standing grant. What a backend lacks is a capability (`can`),
   never a branch on its name. Asks are his
   words handed to the agent, never acted on by Life. Details: `docs/tasks.md`.
 - **Life sends nothing into a chat.** Its only mail and notifications are to him (`docs/tasks.md`, "The only sends").
@@ -131,7 +131,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   (`docs/operations.md`, "Model engines").
 - **Dependencies point one way** between `apps/server/src`'s layers (core ← records ← models, sources, todo-list ←
   memory ← host; `docs/architecture.md`, "The code"). Fallow's boundary zones (`.fallowrc.json`) and
-  `scripts/cycles.test.ts` fail the check on any import against them; never suppress one, move the code instead.
+  `scripts/imports.test.ts` fail the check on any import against them; never suppress one, move the code instead.
 - **Settings are one strict file, read once per process** (`apps/server/src/core/settings.ts`). A part left out is off; a new key lands
   in code first; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.

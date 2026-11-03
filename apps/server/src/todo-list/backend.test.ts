@@ -1,8 +1,4 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { LIFE_CODE_DIR } from "../core/paths";
-import { repoFiles } from "../core/proc";
 import { changedFields, lacks, openOf } from "./backend";
 import { Change } from "./contract";
 import { reminders } from "./remctl";
@@ -75,31 +71,4 @@ test("an edit changes the title and list only when they differ, and every other 
     list: "Travel",
     title: "Same",
   });
-});
-
-const IMPORT = /import\s*\{([^}]*)\}\s*from\s*"([^"]+)"/g;
-const BACKEND = /\/backend$/;
-const IMPLEMENTATIONS = /\/(remctl|google)$/;
-
-/** The server's files that import any of `names` from a path matching `from`. */
-const importers = (names: string[], from: RegExp) =>
-  repoFiles(LIFE_CODE_DIR, ["apps/server/src"], [".ts"])
-    .filter((f) => !f.endsWith(".test.ts"))
-    .filter((f) =>
-      [...readFileSync(join(LIFE_CODE_DIR, f), "utf8").matchAll(IMPORT)].some(
-        ([, what = "", path = ""]) =>
-          from.test(path) &&
-          what.split(",").some((w) => names.includes(w.trim()))
-      )
-    );
-
-// 2 Nov 2026: the agent boards wrote his Reminders beside `act`, so the minute pass read each of their items back as
-// his new to-do and the board added it again: 147 copies in 85 minutes. One writer: only `act` reaches a backend.
-test("only act writes his to-do list: the backend and its write are imported by act.ts alone, the implementations by backend.ts", () => {
-  expect(importers(["backend", "write"], BACKEND)).toEqual([
-    "apps/server/src/host/act.ts",
-  ]);
-  expect(importers(["reminders", "google"], IMPLEMENTATIONS)).toEqual([
-    "apps/server/src/todo-list/backend.ts",
-  ]);
 });
