@@ -1,6 +1,8 @@
 import { clock, iso } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { AGENT_WORD } from "../core/names";
+import { startDetached } from "../core/proc";
+import { settings } from "../core/settings";
 import { feedPage, PAGE, parseCursor } from "../memory/changes";
 import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/ledger";
 import { clip } from "../memory/units";
@@ -13,7 +15,7 @@ import { entryId } from "./act";
 
 /**
  * Records one ask: his words, where they are (`ref`: the wake turn, the session) and `after` (`agent`, `confidence`;
- * for speech `conversation` and `turns`). The same ref asks once.
+ * for speech `conversation` and `turns`). The same ref asks once, and only a new ask starts the agent's `onAsk`.
  */
 export function ask(
   instruction: Instruction,
@@ -41,6 +43,10 @@ export function ask(
   const old = tasksOf().find((t) => t.ask.id === line.id)?.ask;
   if (!old) {
     appendJsonl(LEDGER, LedgerEntry, [line]);
+    const onAsk = settings().agents?.[after.agent]?.onAsk;
+    if (onAsk) {
+      startDetached(onAsk);
+    }
   }
   return old ?? line;
 }
