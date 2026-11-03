@@ -199,7 +199,7 @@ How to set it up, once, on the iPhone:
 
 | Gesture | Effect |
 | --- | --- |
-| Quick press | Quick question to AI: the last minute, transcribed by the server (ElevenLabs), to Claude or ChatGPT. While paused, it only resumes (below) |
+| Quick press | Quick question to AI: the last minute, transcribed by the server (ElevenLabs), to Claude or ChatGPT. With the Copilot on, "tell me now" (below). While paused, it only resumes (below) |
 | Hold ~2 s | Recording on/off. The Pendant does this itself; the app only reflects it, never reverses it |
 | Hold until red, release | Recovery mode; hold again until off to leave |
 | Hold until red, release, hold until off, then press | 🟢 Restart: keeps every page; red ×3 until the phone sets the clock. A Pendant that stopped advertising after a link timeout came back at once. The "Pendant not answering" notice gives these steps |
@@ -227,7 +227,12 @@ Each live short press is one quick question (`QuickPress`); the same press repla
 `double` event (raw 3) does nothing; the double press has no action. Every live press is a `press`
 event: `bun run events --since 30m press`.
 
-What a press does (`ButtonActions`, decisions in `docs/decisions.md`):
+While the Copilot is on (Settings), a press goes to it instead (`Copilot`): the line being said is finished
+(Scribe commits it, at most 1.5 s), then the copilot is asked to speak now (`POST /now`), and its answer is spoken
+into the AirPods. A press while it speaks stops it. Each press logs `copilot.press`, each answer `copilot.said` with
+`sincePressMs`.
+
+What a press does otherwise (`ButtonActions`, decisions in `docs/decisions.md`):
 - The press is placed at the Pendant's own time of it (`PressClock.pressedAt`), not when it arrived: a
   press has reached the suspended app 11 s late, in one burst with 11 held-back pages, when a silent push woke it.
 - It waits until the newest stored audio reaches the press, at most 4 s, then renders the window (60 s before the

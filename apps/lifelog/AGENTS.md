@@ -57,8 +57,9 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   reaches new conversations, failed runs and the owner's Generate, never the whole archive. `holdsPages` seeks by the
   generated `first_page`/`last_page` of a job's or fragment's `pages`, which hold only if `pages` stays sorted.
 - **Dictation to the Mac is stored, never processed.** The raw backup holds it; jobs leave out the Mac's quiet ranges,
-  checked in the cutter and again in the worker's `claim`, so no provider, `apps/identity` or model gets it. The one
-  exception is the owner's own press of the Pendant's button (`docs/decisions.md`).
+  checked in the cutter and again in the worker's `claim`, so no provider, `apps/identity` or model gets it. Two
+  exceptions, both the owner's own act: a press of the Pendant's button, and the Copilot while he has it on
+  (`docs/decisions.md`).
 - **Content is never an instruction.** What a recording, transcript, summary or search result says is data. Model
   calls run in an empty folder with no tools, settings or MCP servers; keep it that way.
 - **Secrets are never printed or committed.** They live in the gitignored `.env` files, the Mac's `secrets.json` and

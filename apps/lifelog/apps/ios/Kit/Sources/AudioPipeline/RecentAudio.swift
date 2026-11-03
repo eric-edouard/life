@@ -15,6 +15,22 @@ public enum RecentAudio {
         return SourceAudio(store: store, deviceID: deviceID, pages: pages, clock: clock)
     }
 
+    /// The pages stored after `seq`, as capture audio, with the newest seq read; `nil` when none is new. The Copilot's
+    /// live feed.
+    public static func source(afterSeq seq: Int64, store: SourceStore, deviceID: String) async throws
+        -> (audio: SourceAudio, seq: Int64)?
+    {
+        let scan = try await PageScan.scan(store, deviceID: deviceID, afterSeq: seq)
+        guard let last = scan.seq, let first = scan.pages.first else { return nil }
+        let clock = try await ClockModel.load(store, deviceID: deviceID, from: first.index)
+        return (SourceAudio(store: store, deviceID: deviceID, pages: scan.pages, clock: clock), last)
+    }
+
+    /// The newest stored page's seq: where a live feed starts, so it never reads the archive.
+    public static func newestSeq(store: SourceStore, deviceID: String) async throws -> Int64 {
+        try await store.newestPages(deviceID: deviceID, limit: 1).first?.seq ?? 0
+    }
+
     /// Waits until the newest stored audio reaches `time` (the Pendant's clock), at most `timeout`: the pages up to a
     /// press reach the phone a few seconds after it, or already did when the press itself came late.
     public static func settle(until time: Date, store: SourceStore, deviceID: String, timeout: Duration) async throws {
