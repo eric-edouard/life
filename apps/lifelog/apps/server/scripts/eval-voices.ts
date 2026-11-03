@@ -18,7 +18,7 @@ import {
   voiceId,
   weighProfiles,
 } from "../src/people";
-import { cosine } from "../src/speakers";
+import { likeness } from "../src/speakers";
 
 export type Export = ReturnType<typeof exportVoices>;
 type Sample = Export["samples"][number];
@@ -76,9 +76,7 @@ function scoreVoice(
   profiles: Profiles
 ) {
   const r = match(voice, profiles);
-  const ownerVector = profiles
-    .get(r.model ?? "")
-    ?.find((p) => p.isOwner)?.vector;
+  const ownerProfile = profiles.get(r.model ?? "")?.find((p) => p.isOwner);
   const credited = r.personId === owner;
   const holdsHim = judged.some((j) => j.truth === owner);
   return {
@@ -89,7 +87,7 @@ function scoreVoice(
       const turn = r.turns.find((t) => t.turnIndex === s.turnIndex);
       return {
         cosine:
-          credited && ownerVector ? cosine(s.embedding, ownerVector) : null,
+          credited && ownerProfile ? likeness(s.embedding, ownerProfile) : null,
         his: truth === owner,
         outcome: outcome(owner, truth, turn ? turn.personId : r.personId),
       };

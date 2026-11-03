@@ -41,6 +41,8 @@ export function ownerClock(at: Date) {
 // ponytail: placeholder values; calibrate on real Pendant conversations (mixed languages,
 // overlap, distance to the mic) before trusting a match.
 export const RECOGNITION = {
+  // A voice is scored against a person's closest conversations, this many (speakers.ts `likeness`).
+  bestExemplars: 2,
   // Average cosine to the voices of an unnamed group (or to one unnamed voice) to join it.
   // 0.6 kept one person's 15 voices together and nobody else on Oct 10–11.
   candidateThreshold: 0.6,
@@ -49,7 +51,7 @@ export const RECOGNITION = {
   keepDays: 30,
   // Lead over the runner-up person; anything closer is ambiguous, so unknown.
   margin: 0.1,
-  // Cosine to a person's profile centroid needed for a match.
+  // Likeness to a person (speakers.ts `likeness`) needed for a match.
   matchThreshold: 0.6,
   // A turn holding a word longer than this isn't a clean excerpt: the provider stretched the
   // word over speech it didn't transcribe (someone else, a TV). Under 0.1% of words, but those
@@ -74,25 +76,13 @@ export const RECOGNITION = {
   // A sample scoring at most this against a voice is someone else's: the owner's own samples
   // never scored under 0.27 against his profile. A queue card plays such a clip last.
   notThem: 0.2,
-  // An evidence clip whose cosine to the rest of its profile is below `outlierFit`, and at
-  // least `outlierLead` closer to another person, is left out of the centroid (kept as evidence).
-  outlierFit: 0.35,
-  outlierLead: 0.15,
-  ownerProfileCap: 60,
   // A turn under `shortTurnSeconds` is his at `ownerShortTurn` when also `margin` ahead of the next
-  // person: short clips score lower against his profile. Oct 15 replay on his corrections, turns
-  // under 6 s: his named went from 9 to 16 of 22, others' given him stayed 1 of 203; his lone short
-  // requests that day scored 0.38 to 0.48 with leads of 0.17 or more.
-  ownerShortTurn: 0.4,
-  // A turn whose own voice is nearest the owner's, at this or more, is his (speakers.ts). Oct 14
-  // dry run: 2 of 319 turns of other named people reached 0.5, and the owner confirmed by ear all
-  // 26 turns it moved; on his corrections it named 86% of his sampled turns and gave him 1 of
-  // 342 others' turns.
-  ownerTurn: 0.5,
-  perConversation: 8,
-  // Evidence that counts per profile: the clips closest to it, at most `perConversation` from
-  // one conversation.
-  profileCap: 40,
+  // person: short clips score lower against his profile. A turn whose own voice is nearest the
+  // owner's, at `ownerTurn` or more, is his (speakers.ts). Nov 3 replay on his answers, scored by
+  // likeness to his closest conversations: 330 of his 358 sampled turns named, and 155 turns of
+  // voices he named as someone else given him, as many as the single centroid gave at 0.5 and 0.4.
+  ownerShortTurn: 0.5,
+  ownerTurn: 0.6,
   shortTurnSeconds: 6,
 } as const;
 

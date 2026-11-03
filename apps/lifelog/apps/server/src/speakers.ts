@@ -1,5 +1,5 @@
 // Who spoke each turn (docs/processing.md, "Speakers"), in two steps:
-// - a speaker's clean turns together are the person their voice matches: cosine at least
+// - a speaker's clean turns together are the person their voice matches: `likeness` at least
 //   `matchThreshold` to the profile and `margin` ahead of the next person;
 // - a turn whose own voice is nearest the owner's, at `ownerTurn` or more, is his, whoever the
 //   speaker is. The provider often puts him and someone else under one speaker. A turn under
@@ -13,17 +13,18 @@ import { RECOGNITION } from "./config";
 
 export type Vector = number[];
 
+// A person's voice: one centroid per conversation of their evidence (people.ts `weighProfiles`).
 export interface Profile {
+  exemplars: Vector[];
   isOwner: boolean;
   personId: string;
-  vector: Vector;
 }
 
 // Embeddings are L2-normalized, so the dot product is the cosine.
 export const cosine = (a: Vector, b: Vector) =>
   a.reduce((sum, x, i) => sum + x * (b[i] ?? 0), 0);
 
-export function unit(v: Vector): Vector {
+function unit(v: Vector): Vector {
   const norm = Math.hypot(...v) || 1;
   return v.map((x) => x / norm);
 }
@@ -31,11 +32,22 @@ export function unit(v: Vector): Vector {
 export const centroid = (vectors: Vector[]): Vector =>
   unit(vectors.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0))));
 
+// How much a voice sounds like a person: its mean cosine to their `bestExemplars` closest
+// conversations. One voice sounds different by room, microphone and call; a single centroid
+// blurs a phone voice into the room it was learned in.
+export function likeness(vector: Vector, profile: Profile) {
+  const top = profile.exemplars
+    .map((e) => cosine(vector, e))
+    .sort((a, b) => b - a)
+    .slice(0, RECOGNITION.bestExemplars);
+  return top.reduce((sum, x) => sum + x, 0) / (top.length || 1);
+}
+
 // The person a voice sounds most like, and its lead over the next one. With a single profile the
 // runner-up counts as 0: unrelated voices score near 0 with ECAPA.
 function nearest(vector: Vector, profiles: Profile[]) {
   const [best, next] = profiles
-    .map((p) => ({ ...p, score: cosine(vector, p.vector) }))
+    .map((p) => ({ ...p, score: likeness(vector, p) }))
     .sort((a, b) => b.score - a.score);
   return best ? { ...best, margin: best.score - (next?.score ?? 0) } : null;
 }
