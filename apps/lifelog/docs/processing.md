@@ -208,8 +208,8 @@ sample. A job whose cut failed (identity away, transcription switched off) is tr
 30 days. The phone sends no voice samples.
 Recognition never sends audio for transcription.
 
-Who spoke each turn (`speakers.ts`, measured against the owner's answers; `eval:voices` replays `match` alone on
-them):
+Who spoke each turn (`speakers.ts`, measured against the owner's answers: `eval:voices` replays `match` alone on a
+frozen copy of them, and the gate fails when a change moves its committed counts until `eval:voices` rewrites them):
 
 - A person's profile is one exemplar per conversation of their evidence: the centroid of its clips of 3 s or more. A
   voice's likeness to a person is its mean cosine to their two closest exemplars: one voice sounds different by room,
