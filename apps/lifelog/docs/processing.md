@@ -211,10 +211,13 @@ Recognition never sends audio for transcription.
 Who spoke each turn (`speakers.ts`, measured against the owner's answers; `eval:voices` replays `match` alone on
 them):
 
-- A speaker's clean turns together are the person their voice matches: cosine at least 0.6 to the profile and 0.1
-  ahead of the next person, with at least 8 s of clean speech.
-- A turn whose own voice is nearest the owner's, at 0.5 or more, is his, whoever the speaker is: the provider often
-  puts him and someone else under one speaker. A turn under 6 s needs only 0.4 if it is also 0.1 ahead of the next
+- A person's profile is one exemplar per conversation of their evidence: the centroid of its clips of 3 s or more. A
+  voice's likeness to a person is its mean cosine to their two closest exemplars: one voice sounds different by room,
+  microphone and call, and a single centroid blurred a phone voice into the room it was learned in.
+- A speaker's clean turns together are the person their voice matches: likeness at least 0.6 and 0.1 ahead of the
+  next person, with at least 8 s of clean speech.
+- A turn whose own voice is nearest the owner's, at 0.6 or more, is his, whoever the speaker is: the provider often
+  puts him and someone else under one speaker. A turn under 6 s needs only 0.5 if it is also 0.1 ahead of the next
   person (short clips score lower, and his short requests said alone stayed unnamed). His own correction of a
   turn wins, and recognition never replaces it.
 - An answer (the phone's, "Who's this?", or a reader's correction) writes the owner's row and moves its
@@ -230,8 +233,8 @@ them):
   named, himself, and "unknown too" if a clip was "don't know". His row on the voice holds them (`candidates`) and
   names nobody, unless one person besides him is picked without "unknown too": the turns no voice decides fall back on
   them. Recognition then decides each sampled turn among the candidates only: nearest, 0.1 ahead of the next, and at
-  0.4 when the set is closed (no "unknown too", and each candidate has a profile), else the usual 0.5 for him and 0.6
-  for others, at once on the answer. A turn's row, once written, is kept. The voice is nobody's evidence and never a
+  0.4 when the set is closed (no "unknown too", and each candidate has a profile), else the usual 0.6, at once on the
+  answer. A turn's row, once written, is kept. The voice is nobody's evidence and never a
   nearby reference; the clips he named are his rows, and so evidence. The phone then asks Generate for its
   conversations; nothing else re-runs.
 - Before the multi-select, "several people" named nobody and marked the speaker `mixed`. Those voices come

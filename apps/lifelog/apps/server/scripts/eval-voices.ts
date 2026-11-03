@@ -18,7 +18,7 @@ import {
   voiceId,
   weighProfiles,
 } from "../src/people";
-import { cosine } from "../src/speakers";
+import { likeness } from "../src/speakers";
 
 export type Export = ReturnType<typeof exportVoices>;
 type Sample = Export["samples"][number];
@@ -67,7 +67,7 @@ function outcome(
 
 type Profiles = ReturnType<typeof weighProfiles>;
 
-// One answered voice replayed: each judged turn's outcome, his cosine for each turn inside a voice
+// One answered voice replayed: each judged turn's outcome, his likeness for each turn inside a voice
 // recognized as him, and whether the voice holds him, him and another, and was credited to him.
 function scoreVoice(
   owner: string,
@@ -76,9 +76,7 @@ function scoreVoice(
   profiles: Profiles
 ) {
   const r = match(voice, profiles);
-  const ownerVector = profiles
-    .get(r.model ?? "")
-    ?.find((p) => p.isOwner)?.vector;
+  const ownerProfile = profiles.get(r.model ?? "")?.find((p) => p.isOwner);
   const credited = r.personId === owner;
   const holdsHim = judged.some((j) => j.truth === owner);
   return {
@@ -88,9 +86,11 @@ function scoreVoice(
     turns: judged.map(({ s, truth }) => {
       const turn = r.turns.find((t) => t.turnIndex === s.turnIndex);
       return {
-        cosine:
-          credited && ownerVector ? cosine(s.embedding, ownerVector) : null,
         his: truth === owner,
+        likeness:
+          credited && ownerProfile
+            ? likeness(s.embedding, ownerProfile.exemplars)
+            : null,
         outcome: outcome(owner, truth, turn ? turn.personId : r.personId),
       };
     }),
@@ -130,7 +130,7 @@ export function evaluate(data: Export) {
   ) as Record<Outcome, number>;
   const inside = (his: boolean) =>
     turns.flatMap((t) =>
-      t.cosine !== null && t.his === his ? [t.cosine] : []
+      t.likeness !== null && t.his === his ? [t.likeness] : []
     );
   return {
     // Voices holding his voice, those also holding another voice or nobody he knows, and of those,
@@ -141,7 +141,7 @@ export function evaluate(data: Export) {
       holdingHimAndAnother: voices.filter((v) => v.another).length,
     },
     counts,
-    // His cosine, per turn inside a voice recognized as him: his own turns and the others'.
+    // His likeness, per turn inside a voice recognized as him: his own turns and the others'.
     insideHim: { his: inside(true), others: inside(false) },
     turns: turns.length,
   };
@@ -213,7 +213,7 @@ if (import.meta.main) {
       await Bun.file(command).json()
     );
     console.log(JSON.stringify({ clusters, counts, turns }, null, 2));
-    console.log("his cosine inside his voices, 10/25/50/75/90%:");
+    console.log("his likeness inside his voices, 10/25/50/75/90%:");
     console.log(
       `  his turns (${insideHim.his.length})`,
       quantiles(insideHim.his).join(" ")

@@ -29,6 +29,7 @@ import {
   weighProfiles,
 } from "./people";
 import { services } from "./services";
+import { centroid } from "./speakers";
 import {
   fakeSpeechService,
   mapJob,
@@ -571,34 +572,32 @@ test("the sweep names old conversations once the owner names the voice", async (
   expect(sweep(env.db).changed).toBe(0);
 });
 
-test("a profile counts clips of 3 s or more, without outliers", () => {
+test("a profile is one exemplar per conversation, of its clips of 3 s or more", () => {
   const row = (
-    sampleId: string,
-    personId: string,
+    conversationId: string,
     embedding: number[],
     durationSeconds = 5
   ) => ({
-    conversationId: sampleId,
+    conversationId,
     durationSeconds,
     embedding,
     isOwner: false,
     modelId: "test/ecapa",
     modelRevision: "r1",
-    personId,
-    sampleId,
+    personId: "clara",
+    sampleId: randomUUID(),
   });
-  const clara = v([30, 1]);
-  const bob = v([31, 1]);
-  // One of Clara's clips is really Bob talking; one of Bob's is 2 s of someone else.
-  const profiles = weighProfiles([
-    row("a1", "clara", clara),
-    row("a2", "clara", clara),
-    row("a3", "clara", bob),
-    row("b1", "bob", bob),
-    row("b2", "bob", v([32, 1]), 2),
-  ]).get("test/ecapa@r1");
-  expect(profiles?.find((p) => p.personId === "clara")?.vector).toEqual(clara);
-  expect(profiles?.find((p) => p.personId === "bob")?.vector).toEqual(bob);
+  const [profile] =
+    weighProfiles([
+      row("dinner", v([30, 1])),
+      row("dinner", v([31, 1])),
+      row("call", v([32, 1])),
+      row("call", v([33, 1]), 2),
+    ]).get("test/ecapa@r1") ?? [];
+  expect(profile?.exemplars).toEqual([
+    centroid([v([30, 1]), v([31, 1])]),
+    v([32, 1]),
+  ]);
 });
 
 test("regrouping splits a group that drifted", () => {

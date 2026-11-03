@@ -2,7 +2,7 @@
 //
 // - Only owner actions create people or add voice evidence. Recognition writes
 //   assignments with source "recognized" and nothing else.
-// - A match needs cosine >= matchThreshold to a person's profile AND a lead of at least
+// - A match needs a likeness >= matchThreshold to a person's profile AND a lead of at least
 //   `margin` over the runner-up person. Anything else stays unknown.
 // - A turn whose own voice is nearest the owner's is his, whoever the speaker (speakers.ts).
 // - A speaker matching no profile may take the person of a voice named in another recording
@@ -10,8 +10,8 @@
 //   never from a voice named that way.
 // - Owner rows (source "owner") survive every later recognition run. Several people: his row holds
 //   them (`candidates`), and each sampled turn is decided among them once.
-// - A profile counts only clean evidence: clips of at least 3 s, minus outliers, capped
-//   (`weighProfiles`). Left-out clips stay evidence.
+// - A profile is one exemplar per conversation of clean evidence, clips of at least 3 s
+//   (`weighProfiles`); a voice is scored against the person's closest conversations.
 // - `sweep` matches every live transcript again when profiles change, so old conversations
 //   learn names given later. `regroup` alone groups the unnamed voices, from scratch each night,
 //   and `expire` deletes voice data that is nobody's evidence after 30 days.
@@ -47,8 +47,8 @@ import {
   centroid,
   cosine,
   decide,
+  likeness,
   type Profile,
-  unit,
   type Vector,
 } from "./speakers";
 
@@ -197,87 +197,26 @@ export interface EvidenceRow {
   sampleId: string;
 }
 
-// Each person's voice, per embedding model, from the evidence that counts: clips of at least
-// `minEvidenceSeconds`, minus outliers (fit their own profile poorly and are clearly closer to
-// someone else), capped (the clips closest to the profile win, a few per conversation).
+// Each person's voice, per embedding model: one exemplar per conversation of their evidence, the
+// centroid of its clips of at least `minEvidenceSeconds` (speakers.ts `likeness`).
 export function weighProfiles(rows: EvidenceRow[]): Profiles {
-  const byModel: Profiles = new Map();
-  for (const sameModel of Map.groupBy(rows, modelKey).values()) {
-    const groups = [
-      ...Map.groupBy(
-        sameModel.filter(
-          (r) => r.durationSeconds >= RECOGNITION.minEvidenceSeconds
-        ),
-        (r) => r.personId
-      ).values(),
-    ];
-    const first = groups.map((g) => centroid(g.map((r) => r.embedding)));
-    byModel.set(
-      modelKey(sameModel[0] as EvidenceRow),
-      groups.flatMap((g, i) =>
-        weighPerson(
-          g,
-          first.filter((_, j) => j !== i)
-        )
-      )
-    );
-  }
-  return byModel;
-}
-
-// One person's clips of one model: their profile without the outliers and past the cap.
-// `others`: the other people's centroids.
-function weighPerson(group: EvidenceRow[], others: Vector[]): Profile[] {
-  const [head] = group;
-  if (!head) {
-    return [];
-  }
-  const sum = group.reduce(
-    (acc, r) => acc.map((x, k) => x + (r.embedding[k] ?? 0)),
-    new Array<number>(head.embedding.length).fill(0)
+  const clean = rows.filter(
+    (r) => r.durationSeconds >= RECOGNITION.minEvidenceSeconds
   );
-  const kept = group.filter((r) => {
-    if (group.length < 3) {
-      return true;
-    }
-    const fit = cosine(
-      unit(sum.map((x, k) => x - (r.embedding[k] ?? 0))),
-      r.embedding
-    );
-    const elsewhere = Math.max(
-      -1,
-      ...others.map((c) => cosine(c, r.embedding))
-    );
-    return !(
-      fit < RECOGNITION.outlierFit && elsewhere >= fit + RECOGNITION.outlierLead
-    );
-  });
-  if (kept.length === 0) {
-    return [];
-  }
-  const center = centroid(kept.map((r) => r.embedding));
-  const cap = head.isOwner
-    ? RECOGNITION.ownerProfileCap
-    : RECOGNITION.profileCap;
-  const perConversation = new Map<string, number>();
-  const counted = kept
-    .map((r) => ({ r, score: cosine(center, r.embedding) }))
-    .sort((x, y) => y.score - x.score)
-    .filter(({ r }, rank) => {
-      const n = perConversation.get(r.conversationId) ?? 0;
-      const fits = rank < cap && n < RECOGNITION.perConversation;
-      if (fits) {
-        perConversation.set(r.conversationId, n + 1);
-      }
-      return fits;
-    });
-  return [
-    {
-      isOwner: head.isOwner,
-      personId: head.personId,
-      vector: centroid(counted.map(({ r }) => r.embedding)),
-    },
-  ];
+  return new Map(
+    [...Map.groupBy(clean, modelKey)].map(([model, sameModel]) => [
+      model,
+      [...Map.groupBy(sameModel, (r) => r.personId).values()].map(
+        (clips): Profile => ({
+          exemplars: [
+            ...Map.groupBy(clips, (r) => r.conversationId).values(),
+          ].map((c) => centroid(c.map((r) => r.embedding))),
+          isOwner: clips[0]?.isOwner ?? false,
+          personId: clips[0]?.personId ?? "",
+        })
+      ),
+    ])
+  );
 }
 type Profiles = Map<string, Profile[]>;
 
@@ -299,8 +238,8 @@ export const evidenceRows = (db: Db) =>
     .innerJoin(people, eq(people.id, voiceProfiles.personId))
     .all();
 
-// Each person's profile centroid, per embedding model, from the evidence that counts.
-const profileCentroids = (db: Db): Profiles => weighProfiles(evidenceRows(db));
+// Each person's profile, per embedding model, from the stored evidence.
+const readProfiles = (db: Db): Profiles => weighProfiles(evidenceRows(db));
 
 // The one read rule for who spoke: a turn's own row (the owner's correction, or one of his turns
 // moved to him by speakers.ts `decide`), else its speaker's (`turn` null: the speaker's). `rows`
@@ -354,7 +293,7 @@ const samplesOf = (
 // a group spread over conversations often matches where none of its voices does alone. Only
 // a hint for the naming queue's cards; it never assigns anyone.
 export function voiceMatcher(db: Db) {
-  const profiles = profileCentroids(db);
+  const profiles = readProfiles(db);
   return (voices: { jobId: string; speakerLabel: string }[]) =>
     match(samplesOf(db, voices), profiles).personId;
 }
@@ -364,7 +303,7 @@ export function voiceMatcher(db: Db) {
 // one speaker can hold several people; it sounds unlike the voice and ranks low. Only a ranking
 // for the card's clips; it assigns nothing.
 export function sampleRanker(db: Db) {
-  const profiles = profileCentroids(db);
+  const profiles = readProfiles(db);
   return (
     voices: { jobId: string; speakerLabel: string }[],
     personId: string | null
@@ -377,11 +316,14 @@ export function sampleRanker(db: Db) {
       return [];
     }
     const [key, same] = model;
-    const reference =
-      (profiles.get(key) ?? []).find((p) => p.personId === personId)?.vector ??
-      centroid(same.map((s) => s.embedding));
+    const exemplars = (profiles.get(key) ?? []).find(
+      (p) => p.personId === personId
+    )?.exemplars ?? [centroid(same.map((s) => s.embedding))];
     return same
-      .map((sample) => ({ sample, score: cosine(sample.embedding, reference) }))
+      .map((sample) => ({
+        sample,
+        score: likeness(sample.embedding, exemplars),
+      }))
       .sort((a, b) => b.score - a.score);
   };
 }
@@ -523,7 +465,7 @@ const ownerIn = (profiles: Profiles) =>
 // samples already stored. Safe to run any number of times; never transcribes. Whether anything
 // changed; null without a transcript.
 export function recognize(db: Db, jobId: string) {
-  return db.transaction((tx) => recognizeJob(tx, jobId, profileCentroids(tx)));
+  return db.transaction((tx) => recognizeJob(tx, jobId, readProfiles(tx)));
 }
 
 // A speaker whose voice data expired: what it was last recognized as.
@@ -697,7 +639,7 @@ const statusOf = (r: {
 // Matches every live transcript again against today's profiles, then rebuilds the unnamed
 // groups. Owner rows are never touched; only rows whose result changes are rewritten.
 export function sweep(db: Db) {
-  const profiles = profileCentroids(db);
+  const profiles = readProfiles(db);
   // Only transcripts with voice samples: before that there is nothing to match, and rows written
   // then ("unknown", no score) let summaries start before recognition (Oct 14: 34 jobs). The
   // excerpts' own recognition writes their first rows (excerpts.ts).
@@ -998,7 +940,7 @@ function writeOwnerRow(
   );
   if (candidates) {
     // Its turns decided among them now, before the summaries the phone asks for.
-    recognizeJob(tx, jobId, profileCentroids(tx));
+    recognizeJob(tx, jobId, readProfiles(tx));
   }
 }
 
