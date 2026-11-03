@@ -6,15 +6,16 @@ import {
   type JobMap,
   transcriptionJobs as jobs,
   quietRanges,
+  speakerAssignments,
   type Turn,
   type TurnRef,
   type TurnWord,
   turns as turnRows,
   type Word,
 } from "@lifelog/db/schema";
-import { and, asc, gt, gte, lt, notInArray } from "drizzle-orm";
+import { and, asc, gt, gte, inArray, lt } from "drizzle-orm";
 import { textOf } from "./elevenlabs";
-import { listAssignments, speakerOf, voiceId } from "./people";
+import { assignmentRows, speakerOf, voiceId } from "./people";
 
 // Where each kept interval begins in the prepared audio (ms): the map's `starts` when its audio was
 // joined from fragments (audio.ts `joinOggOpus`), else each one separator after the one before.
@@ -131,16 +132,20 @@ export function loadTurns(db: Db, conversationId: string) {
     .from(jobs)
     .where(
       and(
-        notInArray(jobs.state, ["completed", "failed"]),
+        // By name: `in` seeks the state index, `not in` read every job (3 s over a month's conversations).
+        inArray(jobs.state, ["queued", "submitted"]),
         lt(jobs.captureStart, end),
         gt(jobs.captureEnd, start)
       )
     )
     .all();
   const quiet = quietIn(db, start, end);
-  const jobIds = [...new Set(rows.map((t) => t.jobId))];
-  const assigned = new Map(
-    jobIds.map((id) => [id, listAssignments(db, id)] as const)
+  const assigned = Map.groupBy(
+    assignmentRows(
+      db,
+      inArray(speakerAssignments.jobId, [...new Set(rows.map((t) => t.jobId))])
+    ),
+    (r) => r.jobId
   );
   const shown = rows.flatMap((t) => {
     const assignedTo = speakerOf(
