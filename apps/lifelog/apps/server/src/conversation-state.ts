@@ -19,6 +19,7 @@ import {
   holdsTurn,
   settled,
   touchesJob,
+  unfinishedJobStates,
   type waitingReasons,
   waitsForCredits,
 } from "@lifelog/db/schema";
@@ -148,7 +149,7 @@ export function conversationStates(db: Db, inputs: Inputs) {
         coalesce(s.heard_through < ${now.getTime() - STALLED_MS}
           and s.heard_through < c.capture_ended_at, 1) as stalled,
         coalesce(c.capture_ended_at > ${stuck?.getTime() ?? null}, 0) as mac_held,
-        ${jobIn("queued", "submitted")}
+        ${jobIn(...unfinishedJobStates)}
           or exists (select 1 from speech_fragments f where f.source_id = c.source_id
             and f.object_key is not null and ${touchesJob("c", "f")}) as busy,
         ${jobIn("submitted")} as sent, ${jobIn("failed")} as failed,
