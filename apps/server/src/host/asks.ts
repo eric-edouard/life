@@ -11,8 +11,7 @@ import { entryId } from "./act";
 
 // His asks of his agents: each "hey <agent>" (`hear.ts`) or `bun life ask` is one `ask` line in memory/ledger.jsonl,
 // and the agent pulls its own (`read_agent_asks`) and keeps its own list. Life keeps no state of an ask past that line
-// (his word, 2 Nov 2026); the agents' updates and replies before it stay as history (`TASK_LINES`). A new ask starts
-// the agent's own `onAsk` command, if it has one, so it can pull at once (his OK, 3 Nov 2026).
+// (his word, 2 Nov 2026); the agents' updates and replies before it stay as history (`TASK_LINES`).
 
 /**
  * Records one ask: his words, where they are (`ref`: the wake turn, the session) and `after` (`agent`, `confidence`;

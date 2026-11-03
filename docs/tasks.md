@@ -16,7 +16,7 @@ its work: the agent keeps its own list.
 - **How asks reach it:** the agent pulls its own with `read_agent_asks` (`cursor`, `limit`; it returns `asks`, `cursor`,
   `remaining`), and keeps its own list; Life tracks no state of an ask past its line. Life starts no agent, except the
   agent's own `onAsk` command (`agents.<name>.onAsk` in the settings), once per new ask, detached, with no argument: it
-  only tells the agent to pull. Each ask has
+  only tells the agent to pull. Two asks close together start it twice, so the command takes its own lock. Each ask has
   its `id`, `at` (recorded), `spoke`, `quote` and `confidence`. The cursor counts ledger lines, so an ask recorded late
   is never skipped and none comes twice.
 - **The agent is outside Life's boundary.** With the Mac's terminal it can read `.env`, the archive and `chat.db`, and send

@@ -39,7 +39,7 @@ test("an agent's asks page by its cursor: one at a time, another agent's skipped
   }
 });
 
-test("a new ask starts its agent's onAsk command once, a repeat never, another agent's never", async () => {
+test("a new ask starts its agent's onAsk command once, a repeat never, another agent's never, and one that cannot start keeps the ask", async () => {
   rmSync(LEDGER, { force: true });
   const before = settings().agents;
   const started = join(mkdtempSync(join(tmpdir(), "on-ask-")), "started");
@@ -58,6 +58,10 @@ test("a new ask starts its agent's onAsk command once, a repeat never, another a
     said("call the bank", "Orbit");
     said("water the plants", "Comet");
     said("book the dentist", "Orbit");
+    said("feed the cat", "Pulsar");
+    expect(asksFor("Pulsar").asks.map((a) => a.quote)).toEqual([
+      "feed the cat",
+    ]);
     const lines = () =>
       existsSync(started)
         ? readFileSync(started, "utf8").trim().split("\n").length

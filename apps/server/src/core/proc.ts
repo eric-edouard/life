@@ -4,6 +4,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MIN } from "./clock";
+import { cliEnv } from "./platform";
 
 /**
  * Runs `cmd` to its end: its exit code, output, and the signal that killed it (SIGTERM after `timeout` ms), if any.
@@ -39,16 +40,19 @@ export async function exec(
   return { code, killed: proc.signalCode, stderr, stdout };
 }
 
-/** Starts `cmd` in its own process group and leaves it: Life never waits for it, reads it or stops it. False when it cannot start. */
+/**
+ * Starts `cmd` in its own process group with `cliEnv` (none of Life's secrets) and leaves it: Life never waits for it,
+ * reads it or stops it, so how it ends is its own. A command that cannot start is logged, never thrown.
+ */
 export function startDetached(cmd: string[]) {
   try {
     Bun.spawn(cmd, {
       detached: true,
+      env: cliEnv(),
       stdio: ["ignore", "ignore", "ignore"],
     }).unref();
-    return true;
-  } catch {
-    return false;
+  } catch (e) {
+    console.error(`${cmd[0]} did not start: ${(e as Error).message}`);
   }
 }
 
