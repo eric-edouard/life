@@ -22,7 +22,7 @@ export const Settings = z
      * His agents by name (what Life calls each): the words that wake it ("hey <word>", `hear.ts`) and how lifelog
      * mishears them (a misheard wake counts only on his own turn, as low confidence). An agent is known on the
      * connector by its pairing (`bun life pair <agent>`) and pulls its asks (`read_agent_asks`). Without one nothing
-     * wakes an agent.
+     * wakes an agent. `onAsk`, when set, is the agent's own command, started (detached, no argument) once per new ask.
      */
     agents: z
       .record(
@@ -30,6 +30,7 @@ export const Settings = z
         z
           .object({
             misheard: z.array(z.string()).default([]),
+            onAsk: z.array(z.string()).min(1).optional(),
             wake: z.array(z.string()).min(1),
           })
           .strict()

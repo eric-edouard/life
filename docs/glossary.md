@@ -22,6 +22,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | ask | The owner's words handed to the agent: from "hey &lt;agent&gt;" in a recording, or a Claude session. A ledger entry of kind `ask`; the agent pulls its own with `read_agent_asks`. | |
+| onAsk | An agent's own command, in its settings, that Life starts once per new ask so the agent pulls at once. It carries no words: the agent still reads its asks with `read_agent_asks`. Not a run (a step's run). | |
 | mark | An ask's span in a recording, recorded by the hearing so its unit is read again at importance 3 (`marked` on the unit). Not a separate wake: "hey Life" is one of the agent's wake words. | |
 | bridge | A program that links one of his messaging accounts to his local Matrix homeserver, so Life can read LINE, Instagram and LinkedIn (`bun life bridge`, `NETWORKS`, docs/use/bridges.md). Not the connector (the MCP server). | |
 | grant | The owner's standing permission for Life to add his clear to-dos to his to-do list. | |

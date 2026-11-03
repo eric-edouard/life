@@ -98,7 +98,8 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   read off a file (`memory/files.jsonl`) shows inside the file's brackets and is evidence of what was sent, never
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
-- **Life starts no agent.** Each agent pulls its own asks (`read_agent_asks`) and keeps its own list; Life keeps no task state; no agent's name or schedule
+- **Life starts no agent**, except an agent's own `onAsk` command (its setting), once per new ask, detached and with no
+  words (his OK, 3 Nov 2026). Each agent pulls its own asks (`read_agent_asks`) and keeps its own list; Life keeps no task state; no agent's name or schedule
   lives in Life. An agent is known by its pairing (its grant's agent claim), never by what it says; nothing in Life
   branches on an agent's name.
 - **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todo_list`
