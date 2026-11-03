@@ -328,6 +328,8 @@ test("a voice too close to two people is the one of them named nearby", async ()
   named(recording(danaLike, 310));
   expect(named(later)).toMatchObject({ personId: dana.personId });
   expect(named(later)?.score).toBeGreaterThan(0.97);
+  // A name given this way names nobody else: near only that voice, the same voice stays unknown.
+  expect(named(recording(unsure, 258))?.personId).toBeNull();
 });
 
 test("a voice that misses its profile takes the name of the same voice minutes away, never by a chain", async () => {
