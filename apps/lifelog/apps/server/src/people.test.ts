@@ -21,6 +21,7 @@ import {
   keepServerSamples,
   loadTranscript,
   merge,
+  nearbyVoices,
   recognize as recognizeJob,
   regroup,
   strangerRows,
@@ -305,6 +306,21 @@ function recording(voice: number[], minutes: number) {
   mapJob(env.db, jobId, [[start, start + 20_000]]);
   return jobId;
 }
+
+test("a pass reads nearby voices again once their recording is recognized again", async () => {
+  const carol = await enroll("Carol", v([2, 1]));
+  const here = recording(stranger(), 0);
+  const near = recording(v([2, 1]), 20);
+  // Carol again, hours later: not nearby.
+  recognize(recording(v([2, 1]), 300));
+  const nearby = nearbyVoices();
+  expect(nearby.read(env.db, here)).toEqual([]);
+  // Recognized in the same pass: read again.
+  recognizeJob(env.db, near, nearby);
+  expect(nearby.read(env.db, here).map((n) => n.personId)).toEqual([
+    carol.personId,
+  ]);
+});
 
 test("a voice too close to two people is the one of them named nearby", async () => {
   const carol = await enroll("Carol", v([2, 1]));
@@ -644,10 +660,9 @@ test("average linkage never chains two different voices through a middle one", (
   const a = v([0, 1]);
   const between = v([0, 1], [1, 1]);
   const b = v([1, 1]);
-  // a~between and between~b are 0.71 alike, a~b 0: one pair, never a group of three.
-  const [only, ...rest] = averageLinkage([a, between, b], 0.6);
-  expect(rest).toEqual([]);
-  expect(only).toHaveLength(2);
+  // a~between and between~b are 0.71 alike, a~b 0: one pair, never a group of three. Of equal
+  // pairs, the last merges.
+  expect(averageLinkage([a, between, b], 0.6)).toEqual([[1, 2]]);
   expect(averageLinkage([a, a, b, b], 0.6)).toEqual([
     [0, 1],
     [2, 3],
