@@ -1,6 +1,8 @@
 import { clock, iso } from "../core/clock";
 import { appendJsonl, linesOf } from "../core/files";
 import { AGENT_WORD } from "../core/names";
+import { startDetached } from "../core/proc";
+import { settings } from "../core/settings";
 import { feedPage, PAGE, parseCursor } from "../memory/changes";
 import { LEDGER, parseLedgerEntry, tasksOf } from "../memory/ledger";
 import { clip } from "../memory/units";
@@ -9,11 +11,12 @@ import { entryId } from "./act";
 
 // His asks of his agents: each "hey <agent>" (`hear.ts`) or `bun life ask` is one `ask` line in memory/ledger.jsonl,
 // and the agent pulls its own (`read_agent_asks`) and keeps its own list. Life keeps no state of an ask past that line
-// (his word, 2 Nov 2026); the agents' updates and replies before it stay as history (`TASK_LINES`).
+// (his word, 2 Nov 2026); the agents' updates and replies before it stay as history (`TASK_LINES`). A new ask starts
+// the agent's own `onAsk` command, if it has one, so it can pull at once (his OK, 3 Nov 2026).
 
 /**
  * Records one ask: his words, where they are (`ref`: the wake turn, the session) and `after` (`agent`, `confidence`;
- * for speech `conversation` and `turns`). The same ref asks once.
+ * for speech `conversation` and `turns`). The same ref asks once, and only a new ask starts the agent's `onAsk`.
  */
 export function ask(
   instruction: Instruction,
@@ -41,6 +44,10 @@ export function ask(
   const old = tasksOf().find((t) => t.ask.id === line.id)?.ask;
   if (!old) {
     appendJsonl(LEDGER, LedgerEntry, [line]);
+    const onAsk = settings().agents?.[after.agent]?.onAsk;
+    if (onAsk) {
+      startDetached(onAsk);
+    }
   }
   return old ?? line;
 }

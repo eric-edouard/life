@@ -1,4 +1,5 @@
-// Running other programs: one process to its end, one line from a server, or one git command.
+// Running other programs: one process to its end, one started and left to run, one line from a server, or one git
+// command.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -36,6 +37,19 @@ export async function exec(
     proc.exited,
   ]);
   return { code, killed: proc.signalCode, stderr, stdout };
+}
+
+/** Starts `cmd` in its own process group and leaves it: Life never waits for it, reads it or stops it. False when it cannot start. */
+export function startDetached(cmd: string[]) {
+  try {
+    Bun.spawn(cmd, {
+      detached: true,
+      stdio: ["ignore", "ignore", "ignore"],
+    }).unref();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** `exec` for a step that must work: its output, or an error with what it said, named by its first two words. */
