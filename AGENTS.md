@@ -20,7 +20,7 @@ backups, evals, the read CLI), `docs/status-reads.md` (the connector's status re
 
 ```sh
 bun install                      # also points git hooks at .githooks (pre-push runs the check)
-bun run check                    # the gate: lint, types, fallow, tests, scrub, cases. Must pass before every commit
+bun run check                    # the gate: lint, types, fallow, tests, scrub, cases, voice eval. Must pass before every commit
 bun test apps/server/src/memory/units.test.ts   # one test file
 bun run fix                      # format and lint fixes
 bun life <command>               # the CLI (apps/server/src/host/cli.ts); `bun life memory …` for the pipeline and reads

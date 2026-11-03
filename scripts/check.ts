@@ -68,6 +68,12 @@ const steps: Record<string, string[]> = {
     "./apps/web/",
   ],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
+  // Replays his answered voices (on his Mac only) against the committed counts.
+  "voice eval": [
+    "bun",
+    `${lifelog}/apps/server/scripts/eval-voices.ts`,
+    "--check",
+  ],
   // The web app has its own program (DOM and JSX); its build is what Life serves (WEB_DIST).
   "web build": ["bun", "x", "--bun", "vite", "build", "apps/web"],
   "web types": ["bun", "x", "--bun", "tsc", "--noEmit", "-p", "apps/web"],

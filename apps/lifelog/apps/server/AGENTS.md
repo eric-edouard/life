@@ -47,7 +47,7 @@ against. What the server owns and what the phone copies: `docs/sync.md`.
   `conversation_jobs` view); nothing else says which job belongs to which conversation.
 - `fixtures/wire/` holds real answers, checked by `wire.test.ts` and decoded by Kit's `WireTests`; after a deliberate
   change to a shape run it with `WRITE_WIRE=1`; `fixtures/time-map.json` is read by
-  both sides too, and so is `fixtures/fragments/` (the join's `joined.ogg`, rewritten by `WRITE_WIRE=1`). Cases only the server reads are in `apps/server/fixtures/` (grouping, speaker tokens).
+  both sides too, and so is `fixtures/fragments/` (the join's `joined.ogg`, rewritten by `WRITE_WIRE=1`). Cases only the server reads are in `apps/server/fixtures/` (grouping, speaker tokens), and so is the voice eval's baseline (`eval:voices` rewrites it).
 - Events carry ids, states, counts and status codes, never transcript text. Every job's audio is kept in the audio store, a folder
   under `AUDIO_DIR` or an S3 bucket (`audio-store.ts`; keys are relative paths, never `..`): key
   `blocks/<sourceId>/<firstPage>-<sha>.ogg`, a joined job's too, `jobs/<sha256>.ogg` before blocks; a speech fragment's waits under `fragments/<sourceId>/<firstPage>-<sha>.ogg` until its block closes; a thin
