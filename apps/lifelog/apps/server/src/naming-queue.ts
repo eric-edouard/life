@@ -24,7 +24,7 @@ import {
 } from "@lifelog/db/schema";
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { type Pusher, sendPush } from "./apns";
-import { latestSeq, turnRef } from "./change-log";
+import { touchedSince, turnRef } from "./change-log";
 import { NAMING, ownerClock, RECOGNITION } from "./config";
 import { textOf } from "./elevenlabs";
 import { record, recordedOn } from "./events";
@@ -233,15 +233,10 @@ function cardOf(
   };
 }
 
-// The unnamed voices of conversations `ids`, with what their summaries said about them.
-function voicesIn(db: Db, ids: { id: string }[], ownerId: string) {
-  const loaded = ids.map(({ id }) => ({
-    id,
-    turns: loadTurns(db, id)?.turns ?? [],
-  }));
-  const jobs = [
-    ...new Set(loaded.flatMap((c) => c.turns.map((t) => t.ref.jobId))),
-  ];
+// The unnamed voices of conversation `id`, with what its summary said about them.
+function voicesIn(db: Db, id: string, ownerId: string) {
+  const loaded = loadTurns(db, id)?.turns ?? [];
+  const jobs = [...new Set(loaded.map((t) => t.ref.jobId))];
   const rows =
     jobs.length > 0
       ? db
@@ -271,41 +266,35 @@ function voicesIn(db: Db, ids: { id: string }[], ownerId: string) {
   const mixed = new Set(
     rows.flatMap((r) => (r.mixed ? [voiceId(r.jobId, r.speakerLabel)] : []))
   );
-  const runs = loaded.map((c) => {
-    const run = db
-      .select({
-        result: intelligenceRuns.result,
-        turns: intelligenceRuns.turns,
-      })
-      .from(intelligenceRuns)
-      .where(
-        and(
-          eq(intelligenceRuns.conversationId, c.id),
-          sql`${intelligenceRuns.result} is not null`
-        )
+  const run = db
+    .select({
+      result: intelligenceRuns.result,
+      turns: intelligenceRuns.turns,
+    })
+    .from(intelligenceRuns)
+    .where(
+      and(
+        eq(intelligenceRuns.conversationId, id),
+        sql`${intelligenceRuns.result} is not null`
       )
-      .orderBy(desc(intelligenceRuns.createdAt))
-      .limit(1)
-      .get();
-    return run;
-  });
-  return loaded.flatMap((c, i) => {
-    // A mixed voice is asked about named or not.
-    const turns = c.turns.map((t) =>
-      mixed.has(voiceId(t.ref.jobId, t.speakerLabel ?? ""))
-        ? { ...t, person: null }
-        : t
-    );
-    const mine = voicesOf(c.id, turns, ownerId, groups, skipped, mixed);
-    const run = runs[i];
-    heardIn(
-      Result.safeParse(run?.result).data ?? null,
-      run?.turns ?? [],
-      c.turns,
-      mine
-    );
-    return [...mine.values()];
-  });
+    )
+    .orderBy(desc(intelligenceRuns.createdAt))
+    .limit(1)
+    .get();
+  // A mixed voice is asked about named or not.
+  const turns = loaded.map((t) =>
+    mixed.has(voiceId(t.ref.jobId, t.speakerLabel ?? ""))
+      ? { ...t, person: null }
+      : t
+  );
+  const mine = voicesOf(id, turns, ownerId, groups, skipped, mixed);
+  heardIn(
+    Result.safeParse(run?.result).data ?? null,
+    run?.turns ?? [],
+    loaded,
+    mine
+  );
+  return [...mine.values()];
 }
 
 // The owner person, whose turns "talks with the owner" counts against.
@@ -347,18 +336,9 @@ function suggest(db: Db, voices: Voice[]) {
   return suggestions.sort((a, b) => b.exchanges - a.exchanges);
 }
 
-// The voices to name: the unnamed voices of the last NAMING.queueDays that talked with the
-// owner, one card per voice group across conversations and days, each with its clips. Its id is
-// the group: the unnamed group recognition keeps, or the voice's own id. Cards with a clip to play
-// come first, the most back-and-forth first, so "Who's this?" never opens on one it can't play.
-// An answer leaves no state here: the owner's rows keep its voices out of the
-// next build. Empty without an owner person.
-export function namingQueue(db: Db, at = new Date()) {
-  const owner = ownerOf(db);
-  if (!owner) {
-    return [];
-  }
-  const ids = db
+// The live conversations of the last NAMING.queueDays before `at`.
+const windowOf = (db: Db, at: Date) =>
+  db
     .select({ id: conversations.id })
     .from(conversations)
     .where(
@@ -370,37 +350,85 @@ export function namingQueue(db: Db, at = new Date()) {
         )
       )
     )
-    .all();
-  const suggestions = suggest(db, voicesIn(db, ids, owner.id));
+    .all()
+    .map((c) => c.id);
+
+// Voices as cards, each with its clips. Cards with a clip to play come first, the most
+// back-and-forth first, so "Who's this?" never opens on one it can't play.
+function cardsOf(db: Db, voices: Voice[]) {
   const clipsOf = cardClips(db);
-  const cards = suggestions.map((card) => ({ ...card, clips: clipsOf(card) }));
+  const cards = suggest(db, voices).map((card) => ({
+    ...card,
+    clips: clipsOf(card),
+  }));
   const playable = (card: (typeof cards)[number]) =>
     card.clips.some((c) => c.audio || c.at);
   return [...cards.filter(playable), ...cards.filter((c) => !playable(c))];
 }
+
+// The voices to name: the unnamed voices of the last NAMING.queueDays that talked with the
+// owner, one card per voice group across conversations and days. Its id is the group: the
+// unnamed group recognition keeps, or the voice's own id. An answer leaves no state here: the
+// owner's rows keep its voices out of the next build. Empty without an owner person.
+export function namingQueue(db: Db, at = new Date()) {
+  const owner = ownerOf(db);
+  return owner
+    ? cardsOf(
+        db,
+        windowOf(db, at).flatMap((id) => voicesIn(db, id, owner.id))
+      )
+    : [];
+}
 type QueueItem = Awaited<ReturnType<typeof namingQueue>>[number];
 
-// The queue, rebuilt once anything changed (the change log moved: conversations, speaker rows,
-// summaries' chapters, people) or the day did (its window moves). After `invalidate` (an answer)
-// the next read builds it again, so an answered voice never comes back.
+// The queue as `namingQueue` builds it, kept between reads: built again when the change log moved
+// or the window did, reading again only the voices of the conversations the changes touched
+// (`touchedSince`; an answer logs its speaker rows, so its voices never come back). The cards are
+// made again from every voice, since a change may be about a person or a profile.
 // ponytail: in-process, like the other loops; one replica.
 export type QueueCache = ReturnType<typeof queueCache>;
 
-export function queueCache(db: Db) {
-  let current: { at: string; items: QueueItem[] } | null = null;
-  const fingerprint = () =>
-    `${latestSeq(db)} ${new Date().toISOString().slice(0, 10)}`;
+export function queueCache(db: Db, now = () => new Date()) {
+  let kept: {
+    items: QueueItem[];
+    ownerId: string;
+    seen: number;
+    voices: Map<string, Voice[]>;
+  } | null = null;
   return {
-    invalidate() {
-      current = null;
-    },
-    // A failed build throws and is retried by the next read.
+    // A failed build throws, keeps what was there, and is retried by the next read.
     items() {
-      const at = fingerprint();
-      if (current?.at !== at) {
-        current = { at, items: namingQueue(db) };
+      const owner = ownerOf(db);
+      if (!owner) {
+        kept = null;
+        return [];
       }
-      return current.items;
+      const last = kept?.ownerId === owner.id ? kept : null;
+      const touched = touchedSince(db, last?.seen ?? null);
+      const ids = windowOf(db, now());
+      const before = last?.voices ?? new Map<string, Voice[]>();
+      if (
+        last &&
+        touched.through === last.seen &&
+        ids.length === before.size &&
+        ids.every((id) => before.has(id))
+      ) {
+        return last.items;
+      }
+      const again = new Set(touched.ids ?? ids);
+      const voices = new Map(
+        ids.map((id) => [
+          id,
+          (!again.has(id) && before.get(id)) || voicesIn(db, id, owner.id),
+        ])
+      );
+      kept = {
+        items: cardsOf(db, [...voices.values()].flat()),
+        ownerId: owner.id,
+        seen: touched.through,
+        voices,
+      };
+      return kept.items;
     },
   };
 }

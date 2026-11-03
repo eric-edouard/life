@@ -373,7 +373,6 @@ export function speakerRoutes({
       (c) => {
         const { answer, voices: answered } = c.req.valid("json");
         const result = answerVoices(db, answered, answer);
-        queue.invalidate();
         voices.soon();
         return result
           ? c.json(result, 200)

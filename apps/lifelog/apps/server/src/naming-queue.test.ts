@@ -211,7 +211,7 @@ test("the morning pushes the queue's length once, the number the badge shows", a
   twoCards();
   env.db.insert(alertPushToken).values({ pushToken: "abcdef" }).run();
   const sent: PushRequest[] = [];
-  const queue = queueCache(env.db);
+  const queue = queueCache(env.db, () => NEXT_MORNING);
   const digest = morningPush(
     env.db,
     (request) => {
@@ -249,10 +249,26 @@ test("no voice waiting, no push", async () => {
       return Promise.resolve({ body: "", status: 200 });
     },
     "app",
-    queueCache(env.db)
+    queueCache(env.db, () => NEXT_MORNING)
   );
   expect(await digest.morning(NEXT_MORNING)).toEqual({ count: 0 });
   expect(sent).toBe(0);
+});
+
+test("the kept queue is always the one built afresh", () => {
+  const queue = queueCache(env.db, () => NEXT_MORNING);
+  twoCards();
+  expect(queue.items()).toEqual(queued());
+  const [first] = queue.items();
+  answerVoices(env.db, first?.voices ?? [], { kind: "confirm", name: "Hervé" });
+  expect(queue.items()).toHaveLength(1);
+  expect(queue.items()).toEqual(queued());
+  const me = env.db.select().from(people).where(is(people.isOwner, true)).get();
+  conversation(me?.id ?? "", talk(8), [identity({ name: "Zoé" })]);
+  expect(queue.items()).toHaveLength(2);
+  expect(queue.items()).toEqual(queued());
+  sweep(env.db);
+  expect(queue.items()).toEqual(queued());
 });
 
 test("answers are the owner's corrections, once each", () => {
