@@ -112,7 +112,7 @@ export const latestValidOutput = (db: Db, conversationId: string) =>
 // chapter's start, so a chapter summarized again keeps it. Each ends where the next starts, the
 // last where the turns after it start (still going on), else at the conversation's end. Rows no
 // longer starting a chapter go. Only what changed is written and logged, a new run's chapters
-// always (its title and TLDR come with the conversation); `summarizedAt` is when a chapter was
+// always; the conversation always (its title, TLDR and the names heard come with the run); `summarizedAt` is when a chapter was
 // first summarized. Summaries keep their speaker tokens: the feed renders them.
 export function writeChapters(db: Db, conversationId: string) {
   const valid = latestValid(db, conversationId);
@@ -165,9 +165,6 @@ export function writeChapters(db: Db, conversationId: string) {
   });
   const kept = new Set(rows.map((r) => r.id));
   const gone = existing.filter((r) => !kept.has(r.id)).map((r) => r.id);
-  if (changed.length === 0 && gone.length === 0) {
-    return;
-  }
   db.transaction((tx) => {
     if (gone.length > 0) {
       tx.delete(chapterRows).where(inArray(chapterRows.id, gone)).run();
