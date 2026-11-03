@@ -7,7 +7,7 @@ import UIKit
 
 /// The Copilot (docs/pendant.md): while its switch is on, what the Pendant hears goes from this phone straight to
 /// ElevenLabs Scribe Realtime, each finished line goes to the owner's copilot (a project's server on his Mac, over
-/// Tailscale), and what the copilot says back is spoken into his AirPods. A press asks it to speak now; a press while it
+/// Tailscale), and what the copilot says back plays in his AirPods, in its voice. A press asks it to speak now; a press while it
 /// speaks stops it. The copilot decides what to say and when; this only carries sound and words. Pages are stored and
 /// synced as always.
 @MainActor
@@ -21,7 +21,8 @@ final class Copilot: NSObject {
 
     private let capture: CaptureStore
     private let settings: Settings
-    private let voice = AVSpeechSynthesizer()
+    /// The copilot's voice, playing; `nil` when quiet.
+    private var player: AVAudioPlayer?
     /// The newest page fed; `nil` while off, so the feed starts at the newest page, never in the archive.
     private var seq: Int64?
     private var feeding = false
@@ -36,7 +37,6 @@ final class Copilot: NSObject {
         self.capture = capture
         self.settings = settings
         super.init()
-        voice.delegate = self
     }
 
     /// New audio was saved: feed it, unless a feed is under way (it reads on until no page is new).
@@ -52,8 +52,8 @@ final class Copilot: NSObject {
 
     /// "Tell me now", or, while it speaks, "stop".
     func press() {
-        if voice.isSpeaking {
-            voice.stopSpeaking(at: .immediate)
+        if player?.isPlaying == true {
+            silence()
             appEvent("copilot.stop")
             return
         }
@@ -152,20 +152,24 @@ final class Copilot: NSObject {
         Task {
             while case .string(let text)? = try? await task.receive() {
                 guard let message = try? JSONDecoder().decode(CopilotMessage.self, from: Data(text.utf8)),
-                    message.type == "say", let words = message.text
+                    message.type == "say", let audio = message.audio.flatMap({ Data(base64Encoded: $0) })
                 else { continue }
-                speak(words)
+                play(audio, words: message.text ?? "")
             }
             if copilot === task { copilot = nil }
         }
     }
 
-    private func speak(_ words: String) {
+    /// The copilot's spoken answer (MP3 in its voice), in the AirPods.
+    private func play(_ audio: Data, words: String) {
         let session = AVAudioSession.sharedInstance()
         // Ducking makes it mixable, so it may start while the app is in the background.
         try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try? session.setActive(true)
-        voice.speak(AVSpeechUtterance(string: words))
+        player?.stop()
+        player = try? AVAudioPlayer(data: audio)
+        player?.delegate = self
+        player?.play()
         var fields = ["words": "\(words.split(separator: " ").count)"]
         if let pressedAt { fields["sincePressMs"] = "\(Int(Date.now.timeIntervalSince(pressedAt) * 1000))" }
         pressedAt = nil
@@ -184,7 +188,15 @@ final class Copilot: NSObject {
         copilot?.cancel()
         scribe = nil
         copilot = nil
-        voice.stopSpeaking(at: .immediate)
+        silence()
+    }
+
+    /// Stops the voice; other audio comes back up.
+    // ponytail: deactivates the shared session; a recording playing at the same moment would stop with it.
+    private func silence() {
+        player?.stop()
+        player = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     private func fail(_ error: Error) {
@@ -228,6 +240,7 @@ final class Copilot: NSObject {
     private struct CopilotMessage: Decodable {
         var type: String
         var text: String?
+        var audio: String?
     }
     private struct CopilotError: LocalizedError {
         let errorDescription: String?
@@ -235,18 +248,8 @@ final class Copilot: NSObject {
     }
 }
 
-extension Copilot: AVSpeechSynthesizerDelegate {
-    /// Done speaking: other audio comes back up.
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in Self.quiet() }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in Self.quiet() }
-    }
-
-    // ponytail: deactivates the shared session; a recording playing at the same moment would stop with it.
-    private static func quiet() {
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+extension Copilot: AVAudioPlayerDelegate {
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in silence() }
     }
 }
