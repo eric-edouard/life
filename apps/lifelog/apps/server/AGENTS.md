@@ -41,6 +41,8 @@ against. What the server owns and what the phone copies: `docs/sync.md`.
   `snapshotArchive`. `docs/transcription-server.md` has both.
 - The phone and readers (`docs/voice-source.md`) follow changes through `GET /changes` (`feed.ts`, by seq). A
   writer of anything the feed carries calls `logChange` last in its transaction. A new field goes in the feed, with a row in `docs/sync.md`.
+  A pass that redoes only what changed reads `change-log.ts` `touchedSince` (conversation state, summaries, search, the
+  naming queue): a write it must see logs its conversation or job.
 - A reader's token opens only the routes `app.ts` lists in `READS` (and `CORRECTIONS`); a route for readers goes there
   and in `docs/voice-source.md`. The device token opens everything.
 - A conversation's words are the turns that start inside its range (`transcript.ts` `loadTurns`, the

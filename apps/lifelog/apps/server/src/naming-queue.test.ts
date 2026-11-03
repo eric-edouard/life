@@ -20,7 +20,6 @@ import {
   answerVoices,
   cardClips,
   morningPush,
-  namingQueue,
   queueCache,
 } from "./naming-queue";
 import { assign, sweep } from "./people";
@@ -53,7 +52,7 @@ beforeEach(() => {
 const NOON = Date.parse("2026-10-10T05:00:00Z");
 const NEXT_MORNING = new Date("2026-10-11T02:00:00Z");
 // The queue as of the next morning.
-const queued = () => namingQueue(env.db, NEXT_MORNING);
+const queued = () => queueCache(env.db, () => NEXT_MORNING).items();
 
 // Conversations seeded in this test: each one starts an hour after the one before, so their
 // words never overlap.
@@ -211,7 +210,7 @@ test("the morning pushes the queue's length once, the number the badge shows", a
   twoCards();
   env.db.insert(alertPushToken).values({ pushToken: "abcdef" }).run();
   const sent: PushRequest[] = [];
-  const queue = queueCache(env.db);
+  const queue = queueCache(env.db, () => NEXT_MORNING);
   const digest = morningPush(
     env.db,
     (request) => {
@@ -249,10 +248,26 @@ test("no voice waiting, no push", async () => {
       return Promise.resolve({ body: "", status: 200 });
     },
     "app",
-    queueCache(env.db)
+    queueCache(env.db, () => NEXT_MORNING)
   );
   expect(await digest.morning(NEXT_MORNING)).toEqual({ count: 0 });
   expect(sent).toBe(0);
+});
+
+test("the kept queue is always the one built afresh", () => {
+  const queue = queueCache(env.db, () => NEXT_MORNING);
+  twoCards();
+  expect(queue.items()).toEqual(queued());
+  const [first] = queue.items();
+  answerVoices(env.db, first?.voices ?? [], { kind: "confirm", name: "Hervé" });
+  expect(queue.items()).toHaveLength(1);
+  expect(queue.items()).toEqual(queued());
+  const me = env.db.select().from(people).where(is(people.isOwner, true)).get();
+  conversation(me?.id ?? "", talk(8), [identity({ name: "Zoé" })]);
+  expect(queue.items()).toHaveLength(2);
+  expect(queue.items()).toEqual(queued());
+  sweep(env.db);
+  expect(queue.items()).toEqual(queued());
 });
 
 test("answers are the owner's corrections, once each", () => {
@@ -405,7 +420,7 @@ test("the queue holds a voice once across days, and loses it once answered", () 
     .run();
   const at = new Date(NOON + 2 * day);
   // Neither day alone has enough back-and-forth for a card; together they do.
-  const [item, ...rest] = namingQueue(env.db, at);
+  const [item, ...rest] = queueCache(env.db, () => at).items();
   expect(rest).toEqual([]);
   expect(item).toMatchObject({
     conversations: 2,
@@ -421,7 +436,7 @@ test("the queue holds a voice once across days, and loses it once answered", () 
     kind: "confirm",
     name: "Hervé",
   });
-  expect(namingQueue(env.db, at)).toEqual([]);
+  expect(queueCache(env.db, () => at).items()).toEqual([]);
 });
 
 test("a voice that sounds like a stranger is never asked about", () => {

@@ -10,7 +10,7 @@ import {
 } from "@lifelog/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { createApp } from "./app";
-import { latestSeq } from "./change-log";
+import { latestSeq, touchedSince } from "./change-log";
 import { feed } from "./feed";
 import { requestRoll } from "./intelligence";
 import { MacGone, type ModelCall, type Provider } from "./providers";
@@ -158,9 +158,12 @@ test("the owner's title wins after regeneration and is given to the model", asyn
   // Not run twice by default. A run is three calls: chapters, the one chapter, the title.
   expect((await post(app, id)).status).toBe(200);
   expect(model.calls.map(stageOf)).toEqual(["chapters", "chapter", "overview"]);
+  const seen = latestSeq(env.db);
 
   expect((await post(app, id, true)).status).toBe(202);
   const runs = await settled(id);
+  // A new valid run logs its conversation (its chapters carry the run): "Who's this?" reads its names.
+  expect(touchedSince(env.db, seen).ids).toContain(id);
   // The owner's Generate rolls again from the first turn; the newest valid run is the summary.
   expect(runs.map((r) => r.state)).toEqual(["valid", "valid"]);
   expect(model.calls).toHaveLength(6);
