@@ -52,6 +52,7 @@ test("a new ask starts its agent's onAsk command once, a repeat never, another a
           onAsk: ["sh", "-c", `echo x >> ${started}`],
           wake: ["orbit"],
         },
+        Pulsar: { misheard: [], onAsk: ["/nowhere/pulsar"], wake: ["pulsar"] },
       },
     });
     said("call the bank", "Orbit");
