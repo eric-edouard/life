@@ -21,6 +21,7 @@ import {
   keepServerSamples,
   loadTranscript,
   merge,
+  nearbyVoices,
   recognize as recognizeJob,
   regroup,
   strangerRows,
@@ -305,6 +306,22 @@ function recording(voice: number[], minutes: number) {
   mapJob(env.db, jobId, [[start, start + 20_000]]);
   return jobId;
 }
+
+test("a pass keeps nearby voices, read again once their recording is recognized again", async () => {
+  const carol = await enroll("Carol", v([2, 1]));
+  const here = recording(stranger(), 0);
+  const near = recording(v([2, 1]), 20);
+  // Carol again, hours later: not nearby.
+  recognize(recording(v([2, 1]), 300));
+  const nearby = nearbyVoices();
+  expect(nearby.read(env.db, here)).toEqual([]);
+  recognize(near);
+  expect(nearby.read(env.db, here)).toEqual([]);
+  nearby.forget(near);
+  expect(nearby.read(env.db, here).map((n) => n.personId)).toEqual([
+    carol.personId,
+  ]);
+});
 
 test("a voice too close to two people is the one of them named nearby", async () => {
   const carol = await enroll("Carol", v([2, 1]));

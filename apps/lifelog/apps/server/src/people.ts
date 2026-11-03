@@ -470,13 +470,13 @@ interface NearbyVoice {
 // `nameFromNearby`: its stored score stays under the threshold, so a mistake can't spread
 // through an evening. Each recording's voices are read once and kept for the pass (`sweep`), and
 // read again once it is recognized again (`forget`).
-function nearbyVoices() {
+export function nearbyVoices() {
   const near = RECOGNITION.nearbyMinutes * 60_000;
   const kept = new Map<string, NearbyVoice[]>();
   let ranges: { end: number; id: string; start: number }[] | null = null;
   return {
     forget: (jobId: string) => kept.delete(jobId),
-    of(db: Db, jobId: string) {
+    read(db: Db, jobId: string) {
       ranges ??= db
         .select({
           end: transcriptionJobs.captureEnd,
@@ -547,7 +547,7 @@ function nameFromNearby(
   jobId: string,
   results: Recognition[],
   profiles: ProfilesByModel,
-  nearbyOf: Nearby
+  nearbyVoicesOf: Nearby
 ) {
   const missed = results.filter(
     (r) => !(r.personId || r.isStranger) && r.vector
@@ -555,7 +555,7 @@ function nameFromNearby(
   if (missed.length === 0) {
     return;
   }
-  const nearby = nearbyOf.of(db, jobId);
+  const nearby = nearbyVoicesOf.read(db, jobId);
   const nearbyPeople = new Set(nearby.map((n) => n.personId));
   for (const r of missed) {
     r.personId =
@@ -879,14 +879,16 @@ function afterMerge(
 ) {
   for (let k = 0; k <= b; k += 1) {
     const row = best[k];
-    const score = k < a ? average(k, a) : Number.NEGATIVE_INFINITY;
     if (!(row && groups[k])) {
       continue;
     }
     if (k === a || row.b === a || row.b === b) {
       best[k] = bestOf(groups, average, k);
-    } else if (score > row.score || (score === row.score && a > row.b)) {
-      best[k] = { b: a, score };
+    } else if (k < a) {
+      const score = average(k, a);
+      if (score > row.score || (score === row.score && a > row.b)) {
+        best[k] = { b: a, score };
+      }
     }
   }
 }
