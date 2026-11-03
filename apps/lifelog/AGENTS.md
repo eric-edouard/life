@@ -26,7 +26,7 @@ Each app has its own `AGENTS.md`. Read `docs/architecture.md` before a change th
 
 ```sh
 bun install                                        # once; needs Xcode 27, XcodeGen and Bun 1.4
-bun run check                                      # the gate: lint, types, every test suite, openapi, scrub, a Debug app build
+bun run check                                      # the gate: lint, types, every test suite, openapi, scrub, voice eval, a Debug app build
                                                    # no CI: the pre-push gate is the check (private repo, billed minutes)
 bun run fix                                        # format (Biome and swift format)
 bun run --cwd apps/lifelog/apps/server test src/feed.test.ts   # one server test file
@@ -67,7 +67,7 @@ Break one of these and audio is lost, paid for twice, leaked or acted on.
   miss: read it into a variable (`T=$(tr -d '[:space:]' < .env.device-token)`), never `cat` it. List a file's keys
   with `grep -oE '^[A-Z_]+='`; `sed` still prints the multi-line APNs key. Never put a token on a command line.
 - **Nothing of the owner's is committed**, in code, tests, fixtures or docs: tests use made-up people, places and
-  zones, and studies of real recordings stay in the owner's private notes. The gate's `scrub` step fails on any name,
+  zones, and studies of real recordings stay in the owner's private notes (the one exception: the voice eval's counts, numbers only, `apps/server/fixtures/voice-eval-baseline.json`). The gate's `scrub` step fails on any name,
   alias, phone, email, handle or chat id from the owner's `truth/` (Life's `scripts/scrub-check.ts`; it skips
   without his data); first
   names, places and git history are on you.

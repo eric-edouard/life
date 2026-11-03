@@ -5,6 +5,9 @@
 //   speaker is. The provider often puts him and someone else under one speaker. A turn under
 //   `shortTurnSeconds` needs only `ownerShortTurn` when it is also `margin` ahead of the next person.
 // A voice the owner said is several people is no one: each turn is decided among his candidates.
+// A voice that sounds more like the strangers (voices he answered "Not anyone I know" for, people he
+// doesn't care about) than like its nearest person is a stranger too: no name, no turn moved
+// (`strangerLead`).
 // Measured on the owner's corrections, this is as good as the label rules it replaced on other
 // people and better on the owner. The caller leaves out what the owner answered: his answers win.
 
@@ -19,6 +22,14 @@ export interface Profile {
   isOwner: boolean;
   personId: string;
 }
+
+// One embedding model's voices: each person's profile, and one centroid per conversation of the
+// strangers' (people.ts `weighProfiles`).
+export interface Profiles {
+  people: Profile[];
+  strangers: Vector[];
+}
+export const NO_PROFILES: Profiles = { people: [], strangers: [] };
 
 // Embeddings are L2-normalized, so the dot product is the cosine.
 export const cosine = (a: Vector, b: Vector) =>
@@ -73,10 +84,45 @@ export function nearbyMatch(
     : null;
 }
 
+// Whether a voice is `strangerLead` more like the strangers than the `score` of its match.
+const isMoreLikeStrangers = (strangers: Vector[], v: Vector, score: number) =>
+  strangers.length > 0 &&
+  likeness(v, strangers) > score + RECOGNITION.strangerLead;
+
+// Who a speaker's voice is: its nearest person, at `matchThreshold` and `margin` ahead of the
+// next, unless it sounds more like the strangers (`isStranger`).
+function nameOf(vector: Vector, { strangers, people }: Profiles) {
+  const best = nearest(vector, people);
+  const matched =
+    best &&
+    best.score >= RECOGNITION.matchThreshold &&
+    best.margin >= RECOGNITION.margin
+      ? best
+      : null;
+  // Weighed for a voice that missed too, so the nearby step leaves it alone. A stranger is as like
+  // them as an unnamed group's voices are alike: a new voice unlike everyone still gets asked about.
+  const isStranger =
+    !!best &&
+    isMoreLikeStrangers(
+      strangers,
+      vector,
+      Math.max(
+        best.score,
+        RECOGNITION.candidateThreshold - RECOGNITION.strangerLead
+      )
+    );
+  return {
+    best,
+    isStranger,
+    personId: matched && !isStranger ? matched.personId : null,
+  };
+}
+
 // One speaker of a transcript: who its voice is (null when below the threshold or not ahead
 // enough), and the turns that are someone else's: the owner's, or each one's among `candidates`.
 // `samples` are its clean turns of one embedding model, `vector` their voice (null with too little
-// speech; people.ts `speakerVoice`), `profiles` that model's.
+// speech; people.ts `speakerVoice`), `voices` that model's. Among his candidates, nothing is
+// refused for sounding like a stranger: he said who is there.
 export function decide(
   {
     samples,
@@ -89,17 +135,13 @@ export function decide(
     }[];
     vector: Vector | null;
   },
-  profiles: Profile[],
+  voices: Profiles,
   candidates?: Candidates | null
 ) {
+  const profiles = voices.people;
   const owner = profiles.find((p) => p.isOwner)?.personId;
-  const best = vector && !candidates ? nearest(vector, profiles) : null;
-  const personId =
-    best &&
-    best.score >= RECOGNITION.matchThreshold &&
-    best.margin >= RECOGNITION.margin
-      ? best.personId
-      : null;
+  const named = vector && !candidates ? nameOf(vector, voices) : null;
+  const personId = named?.personId ?? null;
   // Among candidates: the nearest of them, `margin` ahead; a closed set (no "unknown too", each
   // with a profile) takes a weaker match. Else a turn nearest the owner's voice is his.
   const among = profiles.filter(
@@ -128,15 +170,19 @@ export function decide(
     candidates || (owner && personId !== owner)
       ? samples.flatMap((s) => {
           const t = nearest(s.embedding, among);
-          return t && takes(t, s.durationSeconds)
+          return t &&
+            takes(t, s.durationSeconds) &&
+            (candidates ||
+              !isMoreLikeStrangers(voices.strangers, s.embedding, t.score))
             ? [{ personId: t.personId, score: t.score, turnIndex: s.turnIndex }]
             : [];
         })
       : [];
   return {
-    margin: best?.margin ?? null,
+    isStranger: named?.isStranger ?? false,
+    margin: named?.best?.margin ?? null,
     personId,
-    score: best?.score ?? null,
+    score: named?.best?.score ?? null,
     turns,
     vector,
   };

@@ -1,0 +1,18 @@
+{
+  "answered": "f4a5cb9ead77de5881ffecec6710ed0127d752290284451cbc1164f6b5fcb983",
+  "clusters": {
+    "creditedWithAnother": 0,
+    "holdingHim": 96,
+    "holdingHimAndAnother": 1
+  },
+  "counts": {
+    "ownerRight": 330,
+    "ownerMissed": 28,
+    "otherRight": 1453,
+    "nobodyRight": 708,
+    "falseOwner": 138,
+    "wrongPerson": 69,
+    "leftUnnamed": 1420
+  },
+  "turns": 4146
+}

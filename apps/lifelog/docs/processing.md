@@ -208,8 +208,8 @@ sample. A job whose cut failed (identity away, transcription switched off) is tr
 30 days. The phone sends no voice samples.
 Recognition never sends audio for transcription.
 
-Who spoke each turn (`speakers.ts`, measured against the owner's answers; `eval:voices` replays `match` alone on
-them):
+Who spoke each turn (`speakers.ts`, measured against the owner's answers: `eval:voices` replays `match` alone on a
+frozen copy of them, and the gate fails when a change moves its committed counts until `eval:voices` rewrites them):
 
 - A person's profile is one exemplar per conversation of their evidence: the centroid of its clips of 3 s or more. A
   voice's likeness to a person is its mean cosine to their two closest exemplars: one voice sounds different by room,
@@ -220,6 +220,12 @@ them):
   puts him and someone else under one speaker. A turn under 6 s needs only 0.5 if it is also 0.1 ahead of the next
   person (short clips score lower, and his short requests said alone stayed unnamed). His own correction of a
   turn wins, and recognition never replaces it.
+- "Not anyone I know" means someone he doesn't care about: a stranger. A voice 0.05 more like the strangers (one
+  exemplar per conversation of their clips) than like its nearest person is a stranger too, status `stranger`: no
+  name, no turn moved to anyone, not named from nearby, in no unnamed group and never in "Who's this?". Measured on
+  his answers: 16 fewer turns credited to him and 2 to someone else that weren't theirs, no right name lost; this
+  holds for new recognition (turns already moved to him stay). A reader's `to: "unknown"` counts the same. Never
+  among his candidates. The strangers' clips go with the rest of the unnamed voice data, 30 days after they were cut.
 - An answer (the phone's, "Who's this?", or a reader's correction) writes the owner's row and moves its
   evidence, nothing more; a minute later the sweep matches every transcript again, that one included.
 - Who a turn is: its own row (the owner's correction of it, or a turn moved to him), else its speaker's. One rule

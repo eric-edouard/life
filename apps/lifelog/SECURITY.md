@@ -9,6 +9,7 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | --- | --- | --- |
 | Raw recorder pages, playback audio, the library cache | The iPhone app's container | iOS data protection (available after first unlock, so background Bluetooth can write while locked) |
 | The archive: conversations, words, people, voice embeddings, places, summaries | `archive.sqlite` in `~/Library/Application Support/lifelog` on the Mac | The Mac account's file permissions; turn on FileVault |
+| A frozen copy of the voices you named and your answers, for the voice eval | `answered-voices.json` beside the archive | As above; it keeps what it holds after a deletion until frozen again |
 | Speech blocks, raw page backups, daily archive copies | `audio/` beside the archive (or an S3 bucket, if configured) | As above |
 | Backups | A restic repository in iCloud Drive (`lifelog backup/restic`) | Encrypted by restic with a password minted once, kept in `secrets.json` |
 | Transcripts | ElevenLabs keeps a copy under its own retention policy | Their terms ([docs/providers.md](docs/providers.md)) |

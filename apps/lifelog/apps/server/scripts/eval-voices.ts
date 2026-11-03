@@ -2,19 +2,27 @@
 // answer, for the turn itself or for its voice. Each answered voice is replayed through `match` as
 // if unanswered, with profiles rebuilt without its conversation, and scored against his answers.
 // It measures `match` alone, on a first pass: no nearby voices, no several-people candidates, and
-// every sample of a voice (production leaves out turns with their own row). Run it before and
-// after a change to `match`, `decide` or `weighProfiles`, on the same export. The export holds his
-// voice: keep it out of the repo.
-//   DATABASE_PATH=<the archive> bun run --cwd apps/server eval:voices export > <outside the repo>/voices.json
-//   bun run --cwd apps/server eval:voices <outside the repo>/voices.json
+// every sample of a voice (production leaves out turns with their own row).
+// His answered voices are frozen once in one file beside the archive, never in the repo (it holds
+// his voice); the replay's counts are committed in `fixtures/voice-eval-baseline.json`, and the
+// gate (`--check`) fails when a change moves them, on the same file. A change to `match`, `decide`
+// or `weighProfiles` rewrites the baseline, so the PR shows its effect.
+//   DATABASE_PATH=<the archive> bun run --cwd apps/lifelog/apps/server eval:voices export   # freeze his answers again, then as below
+//   bun run --cwd apps/lifelog/apps/server eval:voices             # replay, print, rewrite the baseline
+//   bun run --cwd apps/lifelog/apps/server eval:voices --check     # the gate
 
+import { join } from "node:path";
+import { sha256Of } from "@life/server/src/core/hash";
+import { APP_DATA } from "@life/server/src/core/platform";
 import { connect, type Db } from "@lifelog/db";
 import { people, speakerAssignments, voiceSamples } from "@lifelog/db/schema";
 import { eq } from "drizzle-orm";
 import {
   evidenceRows,
   match,
+  type ProfilesByModel,
   speakerOf,
+  strangerRows,
   voiceId,
   weighProfiles,
 } from "../src/people";
@@ -38,7 +46,7 @@ const voiceOf = (s: Sample) => voiceId(s.jobId, s.speakerLabel);
 
 // Who he said spoke a sampled turn, by the one read rule (`speakerOf`): his answer for the turn,
 // else for its voice. A row of several people names a fallback, not who spoke. A null answer is
-// "don't know" or media: nobody he knows.
+// "Not anyone I know" or media: nobody he knows.
 function answers(data: Export) {
   const byJob = Map.groupBy(
     data.assignments.filter((a) => !a.candidates),
@@ -65,18 +73,18 @@ function outcome(
   return said ? "wrongPerson" : "leftUnnamed";
 }
 
-type Profiles = ReturnType<typeof weighProfiles>;
-
 // One answered voice replayed: each judged turn's outcome, his likeness for each turn inside a voice
 // recognized as him, and whether the voice holds him, him and another, and was credited to him.
 function scoreVoice(
   owner: string,
   judged: { s: Sample; truth: string | null }[],
   voice: Sample[],
-  profiles: Profiles
+  profiles: ProfilesByModel
 ) {
   const r = match(voice, profiles);
-  const ownerProfile = profiles.get(r.model ?? "")?.find((p) => p.isOwner);
+  const ownerProfile = profiles
+    .get(r.model ?? "")
+    ?.people.find((p) => p.isOwner);
   const credited = r.personId === owner;
   const holdsHim = judged.some((j) => j.truth === owner);
   return {
@@ -100,14 +108,15 @@ function scoreVoice(
 // Every answered voice, each conversation's against profiles rebuilt without it.
 function replay(data: Export) {
   const truthOf = answers(data);
-  const { evidence } = data;
+  const { strangers, evidence } = data;
   // A job is judged without the evidence of any conversation its samples were cut in: a sample
   // keeps the conversation it was cut for, and a job's can differ.
   return [...Map.groupBy(data.samples, (s) => s.jobId).values()].flatMap(
     (inJob) => {
       const own = new Set(inJob.map((s) => s.conversationId));
       const profiles = weighProfiles(
-        evidence.filter((e) => !own.has(e.conversationId))
+        evidence.filter((e) => !own.has(e.conversationId)),
+        strangers.filter((e) => !own.has(e.conversationId))
       );
       return [...Map.groupBy(inJob, voiceOf).values()].flatMap((voice) => {
         const judged = voice.flatMap((s) => {
@@ -188,6 +197,7 @@ export function exportVoices(db: Db) {
         })
         .from(voiceSamples)
         .all(),
+      strangers: strangerRows(tx),
     };
   });
 }
@@ -199,28 +209,53 @@ const quantiles = (xs: number[]) => {
   );
 };
 
+const ANSWERED = join(APP_DATA, "lifelog", "answered-voices.json");
+const BASELINE = `${import.meta.dir}/../fixtures/voice-eval-baseline.json`;
+
 if (import.meta.main) {
-  const [command] = Bun.argv.slice(2);
-  if (command === "export") {
+  if (Bun.argv.includes("export")) {
     const url = process.env.DATABASE_PATH;
     if (!url) {
       throw new Error("DATABASE_PATH is not set");
     }
-    console.log(JSON.stringify(exportVoices(connect(url, { readonly: true }))));
-    process.exit(0);
-  } else if (command) {
-    const { clusters, counts, insideHim, turns } = evaluate(
-      await Bun.file(command).json()
-    );
-    console.log(JSON.stringify({ clusters, counts, turns }, null, 2));
-    console.log("his likeness inside his voices, 10/25/50/75/90%:");
-    console.log(
-      `  his turns (${insideHim.his.length})`,
-      quantiles(insideHim.his).join(" ")
-    );
-    console.log(
-      `  others' (${insideHim.others.length})`,
-      quantiles(insideHim.others).join(" ")
+    await Bun.write(
+      ANSWERED,
+      JSON.stringify(exportVoices(connect(url, { readonly: true })))
     );
   }
+  if (!(await Bun.file(ANSWERED).exists())) {
+    console.log(`voice eval: skipped, no ${ANSWERED}`);
+    process.exit(0);
+  }
+  const answered = await sha256Of(ANSWERED);
+  const { clusters, counts, insideHim, turns } = evaluate(
+    await Bun.file(ANSWERED).json()
+  );
+  const result = { answered, clusters, counts, turns };
+  if (Bun.argv.includes("--check")) {
+    const baseline = await Bun.file(BASELINE).json();
+    // His answers frozen again on another branch: that branch's baseline judges them.
+    if (baseline.answered !== answered) {
+      console.log(
+        "voice eval: skipped, the baseline was made from other answers"
+      );
+    } else if (JSON.stringify(baseline) !== JSON.stringify(result)) {
+      console.error(
+        `voice eval: the replay moved; run eval:voices to rewrite the baseline\nbefore ${JSON.stringify(baseline)}\nafter  ${JSON.stringify(result)}`
+      );
+      process.exit(1);
+    }
+    process.exit(0);
+  }
+  await Bun.write(BASELINE, `${JSON.stringify(result, null, 2)}\n`);
+  console.log(JSON.stringify({ clusters, counts, turns }, null, 2));
+  console.log("his likeness inside his voices, 10/25/50/75/90%:");
+  console.log(
+    `  his turns (${insideHim.his.length})`,
+    quantiles(insideHim.his).join(" ")
+  );
+  console.log(
+    `  others' (${insideHim.others.length})`,
+    quantiles(insideHim.others).join(" ")
+  );
 }

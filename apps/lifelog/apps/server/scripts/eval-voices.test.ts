@@ -58,7 +58,7 @@ test("a stranger's turn inside a voice recognized as him is a false owner, and t
   const data: Export = {
     assignments: [
       answer("b", "s0", null, "me"),
-      answer("b", "s0", 3, null), // "don't know": nobody he knows
+      answer("b", "s0", 3, null), // "Not anyone I know"
     ],
     evidence: [...hisEvidence, ...patsEvidence],
     owner: "me",
@@ -69,6 +69,7 @@ test("a stranger's turn inside a voice recognized as him is a false owner, and t
       sample("b2", "b", "s0", 2, HIM),
       sample("b3", "b", "s0", 3, STRANGER),
     ],
+    strangers: [],
   };
   const { clusters, counts, insideHim, turns } = evaluate(data);
   expect(turns).toBe(4);
@@ -93,6 +94,7 @@ test("his turn answered inside a stranger's voice is judged by its own answer", 
       sample("b2", "b", "s0", 2, STRANGER),
       sample("b3", "b", "s0", 3, HIM),
     ],
+    strangers: [],
   };
   const { clusters, counts, insideHim } = evaluate(data);
   expect(counts).toMatchObject({ nobodyRight: 3, ownerRight: 1 });
@@ -112,10 +114,11 @@ test("a conversation is judged without its own evidence, and a several-people an
       answer("b", "s1", null, "pat"),
       answer("b", "s2", null, "pat", true),
     ],
-    // Pat's only evidence is in b, the conversation judged.
     evidence: [...hisEvidence, evidence(b[0] as Sample, "pat")],
     owner: "me",
     samples: [...a.slice(0, 2), ...b],
+    // Pat's only evidence is in b, the conversation judged.
+    strangers: [],
   };
   const { counts, turns } = evaluate(data);
   expect(turns).toBe(2);
@@ -137,6 +140,7 @@ test("a job whose samples were cut in two conversations is judged without the ev
       sample("b2", "c", "s1", 2, PAT, "b"),
       sample("b3", "c", "s1", 3, PAT, "b"),
     ],
+    strangers: [],
   };
   expect(evaluate(data).counts.leftUnnamed).toBe(4);
 });
