@@ -4,7 +4,7 @@
 // (transcript.ts `speakerNames`): a person's name, the owner's too, else "Speaker N". So naming a
 // voice later fixes every summary at no cost. Cases: apps/server/fixtures/speaker-tokens.json.
 import type { Db } from "@lifelog/db";
-import { listAssignments, speakerOf, voiceId } from "./people";
+import { assignmentsByJob, speakerOf, voiceId } from "./people";
 import { loadTurns, personOf } from "./transcript";
 
 export interface SpeakerToken {
@@ -44,8 +44,9 @@ export function tokenNames(
   tokens: SpeakerToken[]
 ): Record<string, string> {
   const loaded = loadTurns(db, conversationId);
-  const rows = [...new Set(tokens.map((t) => t.jobId))].flatMap((job) =>
-    listAssignments(db, job)
+  const byJob = assignmentsByJob(
+    db,
+    tokens.map((t) => t.jobId)
   );
   const shown = new Map<string, string>();
   for (const t of loaded?.turns ?? []) {
@@ -56,7 +57,6 @@ export function tokenNames(
   }
   let next = shown.size;
   const names: Record<string, string> = {};
-  const byJob = Map.groupBy(rows, (r) => r.jobId);
   for (const [token, voices] of Map.groupBy(tokens, (t) => t.token)) {
     const rowsOf = voices.flatMap(
       (v) => speakerOf(byJob.get(v.jobId), v.speakerLabel, null) ?? []

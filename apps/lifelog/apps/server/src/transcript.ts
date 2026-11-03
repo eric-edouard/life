@@ -6,16 +6,16 @@ import {
   type JobMap,
   transcriptionJobs as jobs,
   quietRanges,
-  speakerAssignments,
   type Turn,
   type TurnRef,
   type TurnWord,
   turns as turnRows,
+  unfinishedJobStates,
   type Word,
 } from "@lifelog/db/schema";
-import { and, asc, gt, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, gt, gte, inArray, lt, min } from "drizzle-orm";
 import { textOf } from "./elevenlabs";
-import { assignmentRows, speakerOf, voiceId } from "./people";
+import { assignmentsByJob, speakerOf, voiceId } from "./people";
 
 // Where each kept interval begins in the prepared audio (ms): the map's `starts` when its audio was
 // joined from fragments (audio.ts `joinOggOpus`), else each one separator after the one before.
@@ -109,8 +109,8 @@ function speakerNames(
 // The conversation's turns in order: those that start inside its range, with owner-assigned
 // speaker names. Turns the owner marked as media (a video, TV) and words inside quiet ranges
 // (dictation, playback) are left out of everything built on this: summaries, search, the feed.
-// `pending` counts the jobs over it still to transcribe, `pendingFrom` is where the first starts:
-// the words before it are all there. Null for an unknown conversation.
+// `pendingFrom` is where the first job over it still to transcribe starts: the words before it are
+// all there. Null for an unknown conversation.
 export function loadTurns(db: Db, conversationId: string) {
   const conversation = db.query.conversations
     .findFirst({
@@ -127,25 +127,21 @@ export function loadTurns(db: Db, conversationId: string) {
     .where(and(gte(turnRows.startAt, start), lt(turnRows.startAt, end)))
     .orderBy(asc(turnRows.startAt))
     .all();
-  const waiting = db
-    .select({ at: jobs.captureStart })
+  const [first] = db
+    .select({ at: min(jobs.captureStart) })
     .from(jobs)
     .where(
       and(
-        // By name: `in` seeks the state index, `not in` read every job (3 s over a month's conversations).
-        inArray(jobs.state, ["queued", "submitted"]),
+        inArray(jobs.state, unfinishedJobStates),
         lt(jobs.captureStart, end),
         gt(jobs.captureEnd, start)
       )
     )
     .all();
   const quiet = quietIn(db, start, end);
-  const assigned = Map.groupBy(
-    assignmentRows(
-      db,
-      inArray(speakerAssignments.jobId, [...new Set(rows.map((t) => t.jobId))])
-    ),
-    (r) => r.jobId
+  const assigned = assignmentsByJob(
+    db,
+    rows.map((t) => t.jobId)
   );
   const shown = rows.flatMap((t) => {
     const assignedTo = speakerOf(
@@ -179,12 +175,10 @@ export function loadTurns(db: Db, conversationId: string) {
   });
   const nameOf = speakerNames(shown);
   const loaded: LoadedTurn[] = shown.map((t) => ({ ...t, speaker: nameOf(t) }));
-  const starts = waiting.flatMap(({ at }) => (at ? [at.getTime()] : []));
   return {
     languages: [...new Set(loaded.map((t) => t.languageCode))],
     ownerTitle: conversation.ownerTitle,
-    pending: waiting.length,
-    pendingFrom: starts.length > 0 ? Math.min(...starts) : null,
+    pendingFrom: first?.at?.getTime() ?? null,
     // Its capture range (epoch ms).
     range: [start.getTime(), end.getTime()] as const,
     turns: loaded,

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { conversations } from "@lifelog/db/schema";
+import { conversations, transcriptionJobs } from "@lifelog/db/schema";
+import { eq } from "drizzle-orm";
 import { mapJob, seedTranscript, testDb } from "./testing";
 import { captureMillis, loadTurns } from "./transcript";
 
@@ -67,6 +68,22 @@ test("a conversation shows the turns starting in its range", () => {
   const second = conversation(min(2), min(4));
   expect(textsOf(first)).toEqual(["a", "b"]);
   expect(textsOf(second)).toEqual(["c", "d"]);
+});
+
+test("words are all there up to the first job still to transcribe", () => {
+  const state = (jobId: string, s: "queued" | "submitted" | "failed") =>
+    env.db
+      .update(transcriptionJobs)
+      .set({ state: s })
+      .where(eq(transcriptionJobs.id, jobId))
+      .run();
+  const id = conversation(min(0), min(10));
+  expect(loadTurns(env.db, id)?.pendingFrom).toBeNull();
+  job(["a", "b"], min(0));
+  state(job(["c"], min(1)), "failed");
+  state(job(["d", "e"], min(4)), "submitted");
+  state(job(["f"], min(3)), "queued");
+  expect(loadTurns(env.db, id)?.pendingFrom).toBe(min(3));
 });
 
 // The cases the phone's TimeMap renders blocks by (Kit's TimelineTests read them too).

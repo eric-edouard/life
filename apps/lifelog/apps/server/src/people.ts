@@ -883,7 +883,7 @@ export function assign(
     if (personId && target.kind === "new") {
       logChange(tx, "person", personId);
     }
-    return listAssignments(tx, jobId);
+    return assignmentRows(tx, eq(assignments.jobId, jobId));
   });
 }
 
@@ -1048,8 +1048,12 @@ export function merge(db: Db, intoId: string, fromId: string) {
 
 // ---- Reads ------------------------------------------------------------------
 
-export const listAssignments = (db: Db, jobId: string) =>
-  assignmentRows(db, eq(assignments.jobId, jobId));
+// Each job's rows, by job.
+export const assignmentsByJob = (db: Db, jobIds: Iterable<string>) =>
+  Map.groupBy(
+    assignmentRows(db, inArray(assignments.jobId, [...new Set(jobIds)])),
+    (r) => r.jobId
+  );
 
 // Who each speaker or turn is, as the feed and the routes send it.
 export function assignmentRows(db: Db, where: SQL) {

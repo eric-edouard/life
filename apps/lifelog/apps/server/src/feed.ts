@@ -35,7 +35,7 @@ import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { type ChangeKind, latestSeq, turnRef } from "./change-log";
 import { textOf } from "./elevenlabs";
 import type { MacView } from "./mac-socket";
-import { assignmentRows, personRow, speakerOf, voiceId } from "./people";
+import { assignmentsByJob, personRow, speakerOf, voiceId } from "./people";
 import { placeName } from "./places";
 import { macView } from "./quiet-ranges";
 import { latestValidRun, rendererFor, splitsOf } from "./summaries";
@@ -438,9 +438,9 @@ function loadTurns(
   const starts = rows.map((t) => t.startAt.getTime());
   const from = new Date(Math.min(...starts));
   const to = new Date(Math.max(...rows.map((t) => t.endAt.getTime())));
-  const assigned = assignmentRows(
+  const byJob = assignmentsByJob(
     db,
-    inArray(speakerAssignments.jobId, [...new Set(rows.map((t) => t.jobId))])
+    rows.map((t) => t.jobId)
   );
   const quiet = db
     .select()
@@ -455,7 +455,6 @@ function loadTurns(
   const spans = quiet.map(
     (q) => [q.startedAt.getTime(), q.endedAt.getTime()] as const
   );
-  const byJob = Map.groupBy(assigned, (a) => a.jobId);
   return {
     removed,
     turns: rows.map((t) => {

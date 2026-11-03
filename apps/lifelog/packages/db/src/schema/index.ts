@@ -103,6 +103,8 @@ export const jobStates = [
   "failed",
 ] as const;
 export type JobState = (typeof jobStates)[number];
+// Named, never `not in` the others: `in` seeks the state index, `not in` reads every job.
+export const unfinishedJobStates = ["queued", "submitted"] as const;
 
 // Who transcribes a block: ElevenLabs Scribe whole, or the speech service with Scribe for the turns
 // it routes (route-turns.ts). The owner's switch picks it; a job keeps the one it was sent with.
