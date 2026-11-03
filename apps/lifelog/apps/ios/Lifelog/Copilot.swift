@@ -30,6 +30,8 @@ final class Copilot: NSObject {
     private var copilot: URLSessionWebSocketTask?
     /// A press waiting for Scribe's next finished line.
     private var committed: CheckedContinuation<Void, Never>?
+    /// Ends that wait after `commitWait`; cancelled when the line comes first, so it never ends a later press's wait.
+    private var commitTimer: Task<Void, Never>?
     /// The press being answered, for its timing (`copilot.said`).
     private var pressedAt: Date?
 
@@ -66,9 +68,9 @@ final class Copilot: NSObject {
                 await withCheckedContinuation { continuation in
                     finishCommit()  // an earlier press still waiting asks now
                     committed = continuation
-                    Task {
+                    commitTimer = Task {
                         try? await Task.sleep(for: Self.commitWait)
-                        finishCommit()
+                        if !Task.isCancelled { finishCommit() }
                     }
                 }
             }
@@ -92,9 +94,10 @@ final class Copilot: NSObject {
         try await connect(address)
         while let next = try await RecentAudio.source(afterSeq: after, store: store, deviceID: device) {
             // Switched off meanwhile: `stop()` cleared the cursor, keep it cleared.
-            guard settings.copilot != nil, let audio = next.audio else { break }
+            guard settings.copilot != nil else { break }
             after = next.seq
             seq = after
+            guard let audio = next.audio else { continue }
             let recent = CaptureInstant(Date.now.addingTimeInterval(-Self.staleSeconds))
             for span in audio.spans where recent < span.interval.upperBound {
                 let samples = try await audio.samples(max(recent, span.interval.lowerBound)..<span.interval.upperBound)
@@ -186,6 +189,8 @@ final class Copilot: NSObject {
     }
 
     private func finishCommit() {
+        commitTimer?.cancel()
+        commitTimer = nil
         committed?.resume()
         committed = nil
     }
@@ -211,6 +216,7 @@ final class Copilot: NSObject {
     /// The feed failed: reported, and Scribe's session dropped so the next page opens a fresh one.
     private func fail(_ error: Error) {
         _ = report(error)
+        appEvent("copilot.error")
         scribe?.cancel()
         scribe = nil
     }
