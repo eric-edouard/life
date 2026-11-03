@@ -51,7 +51,9 @@ export const RECOGNITION = {
   keepDays: 30,
   // Lead over the runner-up person; anything closer is ambiguous, so unknown.
   margin: 0.1,
-  // Likeness to a person (speakers.ts `likeness`) needed for a match.
+  // Likeness to a person (speakers.ts `likeness`) needed for a match. Nov 3 replay on his answers:
+  // other people's voices 269 named right and 15 wrong (217 and 9 by centroid), 6 voices he didn't
+  // know named (10); 0.65 named 247 right and 12 wrong.
   matchThreshold: 0.6,
   // A turn holding a word longer than this isn't a clean excerpt: the provider stretched the
   // word over speech it didn't transcribe (someone else, a TV). Under 0.1% of words, but those
@@ -69,12 +71,14 @@ export const RECOGNITION = {
   // different named people that close on Oct 13, none reached 0.70; 330 of 605 same-person
   // pairs did. A reference is a voice the owner named or a profile match of at least
   // `nearbyReference`: a guest at the Oct 11 dinner matched a friend's thin profile at 0.60 and
-  // would have passed her name on.
+  // would have passed her name on. By likeness (Nov 3 replay) 331 voices are references and 19 of them
+  // wrong (by centroid 257 and 21).
   nearbyMinutes: 45,
   nearbyReference: 0.65,
   nearbyVoice: 0.7,
   // A sample scoring at most this against a voice is someone else's: the owner's own samples
-  // never scored under 0.27 against his profile. A queue card plays such a clip last.
+  // never scored under 0.27 against his profile (by centroid; likeness runs higher, so this is
+  // looser). A queue card plays such a clip last.
   notThem: 0.2,
   // A turn under `shortTurnSeconds` is his at `ownerShortTurn` when also `margin` ahead of the next
   // person: short clips score lower against his profile. A turn whose own voice is nearest the

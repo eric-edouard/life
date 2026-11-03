@@ -238,8 +238,8 @@ export const evidenceRows = (db: Db) =>
     .innerJoin(people, eq(people.id, voiceProfiles.personId))
     .all();
 
-// Each person's profile centroid, per embedding model, from the evidence that counts.
-const profileCentroids = (db: Db): Profiles => weighProfiles(evidenceRows(db));
+// Each person's profile, per embedding model, from the stored evidence.
+const readProfiles = (db: Db): Profiles => weighProfiles(evidenceRows(db));
 
 // The one read rule for who spoke: a turn's own row (the owner's correction, or one of his turns
 // moved to him by speakers.ts `decide`), else its speaker's (`turn` null: the speaker's). `rows`
@@ -293,7 +293,7 @@ const samplesOf = (
 // a group spread over conversations often matches where none of its voices does alone. Only
 // a hint for the naming queue's cards; it never assigns anyone.
 export function voiceMatcher(db: Db) {
-  const profiles = profileCentroids(db);
+  const profiles = readProfiles(db);
   return (voices: { jobId: string; speakerLabel: string }[]) =>
     match(samplesOf(db, voices), profiles).personId;
 }
@@ -303,7 +303,7 @@ export function voiceMatcher(db: Db) {
 // one speaker can hold several people; it sounds unlike the voice and ranks low. Only a ranking
 // for the card's clips; it assigns nothing.
 export function sampleRanker(db: Db) {
-  const profiles = profileCentroids(db);
+  const profiles = readProfiles(db);
   return (
     voices: { jobId: string; speakerLabel: string }[],
     personId: string | null
@@ -316,15 +316,14 @@ export function sampleRanker(db: Db) {
       return [];
     }
     const [key, same] = model;
-    const profile = (profiles.get(key) ?? []).find(
+    const exemplars = (profiles.get(key) ?? []).find(
       (p) => p.personId === personId
-    ) ?? {
-      exemplars: [centroid(same.map((s) => s.embedding))],
-      isOwner: false,
-      personId: "",
-    };
+    )?.exemplars ?? [centroid(same.map((s) => s.embedding))];
     return same
-      .map((sample) => ({ sample, score: likeness(sample.embedding, profile) }))
+      .map((sample) => ({
+        sample,
+        score: likeness(sample.embedding, exemplars),
+      }))
       .sort((a, b) => b.score - a.score);
   };
 }
@@ -466,7 +465,7 @@ const ownerIn = (profiles: Profiles) =>
 // samples already stored. Safe to run any number of times; never transcribes. Whether anything
 // changed; null without a transcript.
 export function recognize(db: Db, jobId: string) {
-  return db.transaction((tx) => recognizeJob(tx, jobId, profileCentroids(tx)));
+  return db.transaction((tx) => recognizeJob(tx, jobId, readProfiles(tx)));
 }
 
 // A speaker whose voice data expired: what it was last recognized as.
@@ -640,7 +639,7 @@ const statusOf = (r: {
 // Matches every live transcript again against today's profiles, then rebuilds the unnamed
 // groups. Owner rows are never touched; only rows whose result changes are rewritten.
 export function sweep(db: Db) {
-  const profiles = profileCentroids(db);
+  const profiles = readProfiles(db);
   // Only transcripts with voice samples: before that there is nothing to match, and rows written
   // then ("unknown", no score) let summaries start before recognition (Oct 14: 34 jobs). The
   // excerpts' own recognition writes their first rows (excerpts.ts).
@@ -941,7 +940,7 @@ function writeOwnerRow(
   );
   if (candidates) {
     // Its turns decided among them now, before the summaries the phone asks for.
-    recognizeJob(tx, jobId, profileCentroids(tx));
+    recognizeJob(tx, jobId, readProfiles(tx));
   }
 }
 

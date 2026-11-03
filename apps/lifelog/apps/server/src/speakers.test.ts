@@ -25,17 +25,11 @@ test("a short turn is the owner's at 0.5 only with a 0.1 lead; a long one still 
 });
 
 test("a voice is as like a person as its two closest conversations of theirs", () => {
-  const person = {
-    exemplars: [
-      [1, 0, 0],
-      [0, 1, 0],
-      [0, 0, 1],
-    ],
-    isOwner: false,
-    personId: "clara",
-  };
-  expect(likeness([0.8, 0.6, 0], person)).toBeCloseTo(0.7);
-  expect(
-    likeness([0.8, 0.6, 0], { ...person, exemplars: [[1, 0, 0]] })
-  ).toBeCloseTo(0.8);
+  const exemplars = [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+  ];
+  expect(likeness([0.8, 0.6, 0], exemplars)).toBeCloseTo(0.7);
+  expect(likeness([0.8, 0.6, 0], [[1, 0, 0]])).toBeCloseTo(0.8);
 });

@@ -32,11 +32,11 @@ function unit(v: Vector): Vector {
 export const centroid = (vectors: Vector[]): Vector =>
   unit(vectors.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0))));
 
-// How much a voice sounds like a person: its mean cosine to their `bestExemplars` closest
-// conversations. One voice sounds different by room, microphone and call; a single centroid
+// How much a voice sounds like a person: its mean cosine to the `bestExemplars` closest of their
+// exemplars (`Profile`). One voice sounds different by room, microphone and call; a single centroid
 // blurs a phone voice into the room it was learned in.
-export function likeness(vector: Vector, profile: Profile) {
-  const top = profile.exemplars
+export function likeness(vector: Vector, exemplars: Vector[]) {
+  const top = exemplars
     .map((e) => cosine(vector, e))
     .sort((a, b) => b - a)
     .slice(0, RECOGNITION.bestExemplars);
@@ -47,7 +47,7 @@ export function likeness(vector: Vector, profile: Profile) {
 // runner-up counts as 0: unrelated voices score near 0 with ECAPA.
 function nearest(vector: Vector, profiles: Profile[]) {
   const [best, next] = profiles
-    .map((p) => ({ ...p, score: likeness(vector, p) }))
+    .map((p) => ({ ...p, score: likeness(vector, p.exemplars) }))
     .sort((a, b) => b.score - a.score);
   return best ? { ...best, margin: best.score - (next?.score ?? 0) } : null;
 }
