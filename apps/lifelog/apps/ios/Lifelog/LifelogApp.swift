@@ -56,6 +56,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     lazy var naming = NamingQueue(library: library, sync: sync)
     /// The Pendant's button: built at launch, so a press that wakes the app in the background is answered.
     lazy var buttons = ButtonActions(capture: capture)
+    /// Built at launch too: it hears new audio and presses in the background.
+    lazy var copilot = Copilot(capture: capture, settings: .shared)
     /// Built when the first scene asks, not in a background relaunch: it registers the Lock Screen's commands.
     lazy var playback = PlaybackStore()
 
@@ -105,8 +107,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             "bootedAt": Date(timeIntervalSince1970: TimeInterval(boot.tv_sec)).ISO8601Format(),
             "sinceHeartbeatS": HealthReporter.saved?.lastSent.map { "\(Int(Date.now.timeIntervalSince($0)))" } ?? "",
         ]
-        capture.onAudioSaved = { [sync] in sync.run(audio: true) }
-        capture.onPress = { [buttons] in buttons.handle($0) }
+        capture.onAudioSaved = { [sync, copilot] in
+            sync.run(audio: true)
+            copilot.poke()
+        }
+        // While the Copilot is on, a press asks it instead of the quick question.
+        capture.onPress = { [buttons, copilot] in Settings.shared.copilot != nil ? copilot.press() : buttons.handle($0)
+        }
         // The Watch's scissors: the same split as the Pendant screen's.
         capture.watch.split = { [sync] at in await sync.perform(.split(at: at)) }
         capture.start()

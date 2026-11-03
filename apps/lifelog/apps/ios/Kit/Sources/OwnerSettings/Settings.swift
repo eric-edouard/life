@@ -18,6 +18,16 @@ public final class Settings {
     public var notificationsInviteDismissed: Bool {
         didSet { defaults.set(notificationsInviteDismissed, forKey: Key.notificationsInviteDismissed) }
     }
+    /// The Copilot (docs/pendant.md): while on, what the Pendant hears streams to Scribe and a press asks the copilot.
+    public var copilotOn: Bool {
+        didSet { defaults.set(copilotOn, forKey: Key.copilotOn) }
+    }
+    /// The copilot's address: a project's copilot server on the owner's Mac, over Tailscale. `nil` until he sets one.
+    public var copilotAddress: URL? {
+        didSet { defaults.set(copilotAddress?.absoluteString, forKey: Key.copilotAddress) }
+    }
+    /// The copilot to talk to: its address while the switch is on, else `nil`. The one test of "the Copilot is on".
+    public var copilot: URL? { copilotOn ? copilotAddress : nil }
     /// In the app group for historical reasons; only the app reads it.
     public var alerts: AlertSettings {
         didSet { group.set(try? JSONEncoder().encode(alerts), forKey: Key.alerts) }
@@ -34,6 +44,8 @@ public final class Settings {
         lightBrightnessCheck =
             defaults.string(forKey: Key.lightBrightnessCheck).flatMap(LightBrightnessCheck.init) ?? .unasked
         notificationsInviteDismissed = defaults.bool(forKey: Key.notificationsInviteDismissed)
+        copilotOn = defaults.bool(forKey: Key.copilotOn)
+        copilotAddress = defaults.string(forKey: Key.copilotAddress).flatMap(URL.init(string:))
         alerts =
             group.data(forKey: Key.alerts).flatMap { try? JSONDecoder().decode(AlertSettings.self, from: $0) }
             ?? AlertSettings()
@@ -45,6 +57,8 @@ public final class Settings {
         static let lightBrightnessCheck = "lightBrightnessCheck"
         static let notificationsInviteDismissed = "notificationsInviteDismissed"
         static let alerts = "alertSettings"
+        static let copilotOn = "copilotOn"
+        static let copilotAddress = "copilotAddress"
     }
 }
 
