@@ -6,8 +6,9 @@
 //   `shortTurnSeconds` needs only `ownerShortTurn` when it is also `margin` ahead of the next person.
 // A voice the owner said is several people is no one: each turn is decided among his candidates.
 // A voice that sounds more like the strangers (voices he answered "Not anyone I know" for, people he
-// doesn't care about) than like its nearest person is a stranger too: no name, no turn moved
-// (`strangerLead`).
+// doesn't care about) than like its nearest person, and as like them as an unnamed group's voices
+// are alike, is a stranger too: no name (`strangerLead`, `candidateThreshold`). A turn more like
+// them than like its nearest person is not moved.
 // Measured on the owner's corrections, this is as good as the label rules it replaced on other
 // people and better on the owner. The caller leaves out what the owner answered: his answers win.
 
@@ -32,8 +33,13 @@ export interface Profiles {
 export const NO_PROFILES: Profiles = { people: [], strangers: [] };
 
 // Embeddings are L2-normalized, so the dot product is the cosine.
-export const cosine = (a: Vector, b: Vector) =>
-  a.reduce((sum, x, i) => sum + x * (b[i] ?? 0), 0);
+export function cosine(a: Vector, b: Vector) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    sum += (a[i] ?? 0) * (b[i] ?? 0);
+  }
+  return sum;
+}
 
 function unit(v: Vector): Vector {
   const norm = Math.hypot(...v) || 1;

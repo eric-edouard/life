@@ -644,10 +644,9 @@ test("average linkage never chains two different voices through a middle one", (
   const a = v([0, 1]);
   const between = v([0, 1], [1, 1]);
   const b = v([1, 1]);
-  // a~between and between~b are 0.71 alike, a~b 0: one pair, never a group of three.
-  const [only, ...rest] = averageLinkage([a, between, b], 0.6);
-  expect(rest).toEqual([]);
-  expect(only).toHaveLength(2);
+  // a~between and between~b are 0.71 alike, a~b 0: one pair, never a group of three. Of equal
+  // pairs, the last merges.
+  expect(averageLinkage([a, between, b], 0.6)).toEqual([[1, 2]]);
   expect(averageLinkage([a, a, b, b], 0.6)).toEqual([
     [0, 1],
     [2, 3],
