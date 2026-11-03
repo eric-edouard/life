@@ -225,9 +225,11 @@ them):
 - Who a turn is: its own row (the owner's correction of it, or a turn moved to him), else its speaker's. One rule
   (`people.ts` `speakerOf`) for the feed, summaries, readers and new evidence, and a turn named on its own is never a
   sample of its speaker's voice (`ofItsSpeaker`).
-- A voice that matches no profile can take the name of a voice in another recording within 45 minutes that sounds 0.70
-  alike and leads the next person by 0.1. Only voices the owner named or that matched a profile at 0.65 count as
-  references; a voice named this way never names another.
+- A voice that matches no profile can take a person named in another recording within 45 minutes. When it cleared 0.6
+  but was too close to a runner-up, it takes its nearest person if that person was named there and leads everyone else
+  named there by 0.15: two people who sound alike are rarely both around. Else it takes the name of a voice there that
+  sounds 0.70 alike and leads the next person by 0.1. Only voices the owner named or that matched a profile at 0.65
+  count as references; a voice named this way never names another.
 - A provider speaker can hold several people. Only the owner says so ("Several people" in "Who's this?"): he names
   each clip in place, its turn alone (one of his people, someone new, or "don't know"), then Done says who: those he
   named, himself, and "unknown too" if a clip was "don't know". His row on the voice holds them (`candidates`) and

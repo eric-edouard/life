@@ -52,6 +52,27 @@ function nearest(vector: Vector, profiles: Profile[]) {
   return best ? { ...best, margin: best.score - (next?.score ?? 0) } : null;
 }
 
+// The person a voice refused for its margin is, decided among the people named nearby
+// (people.ts `nameFromNearby`): its nearest person when they are one of them, at `matchThreshold`,
+// and `nearbyMargin` ahead of the next of them. Two people who sound alike are rarely both around.
+export function nearbyMatch(
+  vector: Vector,
+  profiles: Profile[],
+  nearbyPeople: Set<string>
+) {
+  const best = nearest(vector, profiles);
+  const among = nearest(
+    vector,
+    profiles.filter((p) => nearbyPeople.has(p.personId))
+  );
+  return best &&
+    best.personId === among?.personId &&
+    best.score >= RECOGNITION.matchThreshold &&
+    among.margin >= RECOGNITION.nearbyMargin
+    ? best.personId
+    : null;
+}
+
 // One speaker of a transcript: who its voice is (null when below the threshold or not ahead
 // enough), and the turns that are someone else's: the owner's, or each one's among `candidates`.
 // `samples` are its clean turns of one embedding model, `vector` their voice (null with too little

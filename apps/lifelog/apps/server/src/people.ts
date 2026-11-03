@@ -5,8 +5,9 @@
 // - A match needs a likeness >= matchThreshold to a person's profile AND a lead of at least
 //   `margin` over the runner-up person. Anything else stays unknown.
 // - A turn whose own voice is nearest the owner's is his, whoever the speaker (speakers.ts).
-// - A speaker matching no profile may take the person of a voice named in another recording
-//   within `nearbyMinutes` (`nameFromNearby`): only from the owner's names and profile matches,
+// - A speaker matching no profile may take a person named in another recording within
+//   `nearbyMinutes` (`nameFromNearby`): its nearest profile among the people named there, or the
+//   person of a voice that sounds the same. Only from the owner's names and profile matches,
 //   never from a voice named that way.
 // - Owner rows (source "owner") survive every later recognition run. Several people: his row holds
 //   them (`candidates`), and each sampled turn is decided among them once.
@@ -48,6 +49,7 @@ import {
   cosine,
   decide,
   likeness,
+  nearbyMatch,
   type Profile,
   type Vector,
 } from "./speakers";
@@ -421,18 +423,30 @@ function nearbyVoices(db: Db, jobId: string) {
   }));
 }
 
-// A voice that matched no profile takes the person of a voice named minutes before or after,
-// in another recording, when it is `nearbyVoice` alike and leads the next person by `margin`:
-// a profile mixes many rooms, while the same evening sounds the same. Its score stays the
-// profile's, so it never becomes a nearby voice itself.
-function nameFromNearby(db: Db, jobId: string, results: Recognition[]) {
+// A voice that matched no profile takes a person named minutes before or after, in another
+// recording: its nearest profile when only the people named nearby are weighed (`nearbyMatch`),
+// else the person of a voice `nearbyVoice` alike and `margin` ahead of the next person's (a
+// profile mixes many rooms, while the same evening sounds the same). Its score and margin stay
+// the profile's, so it never becomes a nearby voice itself.
+function nameFromNearby(
+  db: Db,
+  jobId: string,
+  results: Recognition[],
+  profiles: Profiles
+) {
   const missed = results.filter((r) => !r.personId && r.vector);
   if (missed.length === 0) {
     return;
   }
   const nearby = nearbyVoices(db, jobId);
+  const nearbyPeople = new Set(nearby.map((n) => n.personId));
   for (const r of missed) {
-    r.personId = nearbyPerson(r, nearby);
+    r.personId =
+      nearbyMatch(
+        r.vector ?? [],
+        profiles.get(r.model ?? "") ?? [],
+        nearbyPeople
+      ) ?? nearbyPerson(r, nearby);
   }
 }
 
@@ -598,7 +612,7 @@ function recognizeJob(tx: Db, jobId: string, profiles: Profiles) {
         ]
       : []
   );
-  nameFromNearby(tx, jobId, results);
+  nameFromNearby(tx, jobId, results, profiles);
   const ownerId = ownerIn(profiles);
   keepOwnerWhole(results, ownerId);
   if (

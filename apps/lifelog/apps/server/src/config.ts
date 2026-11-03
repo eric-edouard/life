@@ -66,6 +66,11 @@ export const RECOGNITION = {
   minSpeakerSeconds: 8,
   // Shortest turn accepted as a clean excerpt.
   minTurnSeconds: 1.5,
+  // A voice refused for its margin takes its nearest person when that person is named nearby
+  // and leads everyone else named nearby by this much (speakers.ts `nearbyMatch`). Nov 3 replay
+  // of his answers: 36 more voices named right, 1 he didn't know and 2 wrong; at 0.1, 46 right
+  // and 6 not; at 0.12, 43 and 4.
+  nearbyMargin: 0.15,
   // A voice that matches no profile takes the person of a voice at least `nearbyVoice` alike in
   // another recording within `nearbyMinutes`: same room, same microphone. Of 414 pairs of
   // different named people that close on Oct 13, none reached 0.70; 330 of 605 same-person

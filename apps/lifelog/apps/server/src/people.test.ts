@@ -287,26 +287,53 @@ test("the owner split in two less alike voices keeps both halves", async () => {
   expect(speaker(rows, "speaker_1")?.personId).toBe(me.personId);
 });
 
+// A conversation of `voice` and a stranger, captured `minutes` into one evening.
+const evening = Date.parse("2026-10-12T19:38:00Z");
+function recording(voice: number[], minutes: number) {
+  const jobId = conversation(voice, stranger());
+  const holder = holdingConversations(env.db, jobId)[0] ?? "";
+  const start = evening + minutes * 60_000;
+  env.db
+    .update(conversations)
+    .set({
+      captureEndedAt: new Date(start + 20_000),
+      captureStartedAt: new Date(start),
+    })
+    .where(eq(conversations.id, holder))
+    .run();
+  mapJob(env.db, jobId, [[start, start + 20_000]]);
+  return jobId;
+}
+
+test("a voice too close to two people is the one of them named nearby", async () => {
+  const carol = await enroll("Carol", v([2, 1]));
+  const dana = await enroll("Dana", v([2, 1], [3, 0.5])); // cosine 0.89 to Carol
+  // 0.98 to Dana and 0.97 to Carol: ambiguous on profiles alone.
+  const unsure = v([2, 1], [3, 0.25]);
+  // Clear matches of Carol (0.70) and Dana (0.80) that sound unlike it (0.61, 0.65): presence only.
+  const carolLike = v([2, 0.7], [3, -0.3], [9, 0.648]);
+  const danaLike = v([2, 0.3], [3, 0.6]);
+  const named = (jobId: string) => speaker(recognize(jobId), "speaker_0");
+
+  const alone = recording(unsure, 0);
+  expect(named(alone)?.personId).toBeNull();
+  // Carol named nearby, but the voice is nearer Dana: still unknown.
+  expect(named(recording(carolLike, 20))?.personId).toBe(carol.personId);
+  expect(named(alone)?.personId).toBeNull();
+  // Both named nearby: still too close to call.
+  expect(named(recording(danaLike, 30))?.personId).toBe(dana.personId);
+  expect(named(alone)?.personId).toBeNull();
+  // Later, only Dana is around: the voice is hers, with its profile score and margin kept.
+  const later = recording(unsure, 300);
+  named(recording(danaLike, 310));
+  expect(named(later)).toMatchObject({ personId: dana.personId });
+  expect(named(later)?.score).toBeGreaterThan(0.97);
+  // A name given this way names nobody else: near only that voice, the same voice stays unknown.
+  expect(named(recording(unsure, 258))?.personId).toBeNull();
+});
+
 test("a voice that misses its profile takes the name of the same voice minutes away, never by a chain", async () => {
   const dave = await enroll("Dave", v([40, 1]));
-  const evening = Date.parse("2026-10-12T19:38:00Z");
-  // Registers the recording as captured `minutes` into the evening.
-  const recording = (voice: number[], minutes: number) => {
-    const jobId = conversation(voice, stranger());
-    const holder = holdingConversations(env.db, jobId)[0] ?? "";
-    const start = evening + minutes * 60_000;
-    // Placed in capture time this time.
-    env.db
-      .update(conversations)
-      .set({
-        captureEndedAt: new Date(start + 20_000),
-        captureStartedAt: new Date(start),
-      })
-      .where(eq(conversations.id, holder))
-      .run();
-    mapJob(env.db, jobId, [[start, start + 20_000]]);
-    return jobId;
-  };
   // 0.86 to the profile: named. Then 0.60 to the profile but 0.88 to that voice: the same
   // evening, the same person. Then 0.25 to the profile and 0.86 to the second voice only.
   const first = recording(v([40, 1], [41, 0.6]), 0);
