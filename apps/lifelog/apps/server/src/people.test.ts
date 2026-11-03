@@ -307,7 +307,7 @@ function recording(voice: number[], minutes: number) {
   return jobId;
 }
 
-test("a pass keeps nearby voices, read again once their recording is recognized again", async () => {
+test("a pass reads nearby voices again once their recording is recognized again", async () => {
   const carol = await enroll("Carol", v([2, 1]));
   const here = recording(stranger(), 0);
   const near = recording(v([2, 1]), 20);
@@ -315,9 +315,8 @@ test("a pass keeps nearby voices, read again once their recording is recognized 
   recognize(recording(v([2, 1]), 300));
   const nearby = nearbyVoices();
   expect(nearby.read(env.db, here)).toEqual([]);
-  recognize(near);
-  expect(nearby.read(env.db, here)).toEqual([]);
-  nearby.forget(near);
+  // Recognized in the same pass: read again.
+  recognizeJob(env.db, near, nearby);
   expect(nearby.read(env.db, here).map((n) => n.personId)).toEqual([
     carol.personId,
   ]);

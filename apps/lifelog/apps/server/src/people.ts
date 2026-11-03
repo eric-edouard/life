@@ -547,7 +547,7 @@ function nameFromNearby(
   jobId: string,
   results: Recognition[],
   profiles: ProfilesByModel,
-  nearbyVoicesOf: Nearby
+  nearby: Nearby
 ) {
   const missed = results.filter(
     (r) => !(r.personId || r.isStranger) && r.vector
@@ -555,15 +555,15 @@ function nameFromNearby(
   if (missed.length === 0) {
     return;
   }
-  const nearby = nearbyVoicesOf.read(db, jobId);
-  const nearbyPeople = new Set(nearby.map((n) => n.personId));
+  const voices = nearby.read(db, jobId);
+  const nearbyPeople = new Set(voices.map((n) => n.personId));
   for (const r of missed) {
     r.personId =
       nearbyMatch(
         r.vector ?? [],
         (profiles.get(r.model ?? "") ?? NO_PROFILES).people,
         nearbyPeople
-      ) ?? nearbyPerson(r, nearby);
+      ) ?? nearbyPerson(r, voices);
   }
 }
 
@@ -595,9 +595,11 @@ const ownerIn = (profiles: ProfilesByModel) =>
 
 // Re-matches every speaker of a transcript that the owner hasn't assigned, from the
 // samples already stored. Safe to run any number of times; never transcribes. Whether anything
-// changed; null without a transcript.
-export function recognize(db: Db, jobId: string) {
-  return db.transaction((tx) => recognizeJob(tx, jobId, readProfiles(tx)));
+// changed; null without a transcript. `nearby` is the pass's, when it is one of many.
+export function recognize(db: Db, jobId: string, nearby = nearbyVoices()) {
+  return db.transaction((tx) =>
+    recognizeJob(tx, jobId, readProfiles(tx), nearby)
+  );
 }
 
 // A speaker whose voice data expired: what it was last recognized as.
