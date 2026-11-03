@@ -232,6 +232,16 @@ While the Copilot is on (Settings), a press goes to it instead (`Copilot`): the 
 into the AirPods. A press while it speaks stops it. Each press logs `copilot.press`, each answer `copilot.said` with
 `sincePressMs`.
 
+What the phone and the copilot say to each other (the copilot's address in Settings, over Tailscale):
+
+| Call | Carries |
+|---|---|
+| `POST /scribe` | → `{url}`: a Scribe Realtime socket with a single-use token and the copilot's options |
+| Scribe socket | 0.5 s chunks of 16 kHz PCM, base64; pages older than 20 s are skipped |
+| `POST /caption` | each finished line: `{speaker: "Room", text, source: "pendant"}` |
+| `POST /now` | a press: "tell me now" |
+| `WS /ws` | `{type: "say", text, audio}`: the answer as MP3, played in the AirPods; other types are ignored |
+
 What a press does otherwise (`ButtonActions`, decisions in `docs/decisions.md`):
 - The press is placed at the Pendant's own time of it (`PressClock.pressedAt`), not when it arrived: a
   press has reached the suspended app 11 s late, in one burst with 11 held-back pages, when a silent push woke it.

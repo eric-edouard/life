@@ -112,7 +112,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             copilot.poke()
         }
         // While the Copilot is on, a press asks it instead of the quick question.
-        capture.onPress = { [buttons, copilot] in Settings.shared.copilotOn ? copilot.press() : buttons.handle($0) }
+        capture.onPress = { [buttons, copilot] in Settings.shared.copilot != nil ? copilot.press() : buttons.handle($0)
+        }
         // The Watch's scissors: the same split as the Pendant screen's.
         capture.watch.split = { [sync] at in await sync.perform(.split(at: at)) }
         capture.start()

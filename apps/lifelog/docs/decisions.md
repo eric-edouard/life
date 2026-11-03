@@ -153,6 +153,8 @@ reverse it, change its entry here in the same commit.
   on the Mac), posts each finished line to his copilot (a project's server on his Mac, over Tailscale only) and speaks
   what it says back. What to transcribe with and when to speak are the copilot's; the phone carries sound and words.
   Dictation ranges are not cut: the switch is his consent, as the press is. Nothing of it is stored by lifelog.
+  It costs: Scribe Realtime is paid by the minute while it is on, on top of the server's own transcription of the
+  same pages later (his choice, for live help in meetings).
 - **The Pendant's button asks an AI.** One press transcribes the last minute at once and offers it to Claude or
   ChatGPT; nothing of it is stored on the server but its cost.
 

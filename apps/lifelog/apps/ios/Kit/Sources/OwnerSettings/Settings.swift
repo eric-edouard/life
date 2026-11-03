@@ -26,6 +26,8 @@ public final class Settings {
     public var copilotAddress: URL? {
         didSet { defaults.set(copilotAddress?.absoluteString, forKey: Key.copilotAddress) }
     }
+    /// The copilot to talk to: its address while the switch is on, else `nil`. The one test of "the Copilot is on".
+    public var copilot: URL? { copilotOn ? copilotAddress : nil }
     /// In the app group for historical reasons; only the app reads it.
     public var alerts: AlertSettings {
         didSet { group.set(try? JSONEncoder().encode(alerts), forKey: Key.alerts) }

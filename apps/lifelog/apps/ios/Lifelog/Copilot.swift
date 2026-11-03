@@ -41,7 +41,7 @@ final class Copilot: NSObject {
 
     /// New audio was saved: feed it, unless a feed is under way (it reads on until no page is new).
     func poke() {
-        guard settings.copilotOn, let address = settings.copilotAddress else { return stop() }
+        guard let address = settings.copilot else { return stop() }
         guard !feeding else { return }
         feeding = true
         Task {
@@ -57,13 +57,14 @@ final class Copilot: NSObject {
             appEvent("copilot.stop")
             return
         }
-        guard let address = settings.copilotAddress else { return }
+        guard let address = settings.copilot else { return }
         pressedAt = .now
         Task {
             let background = UIApplication.shared.beginBackgroundTask(withName: "copilot")
             defer { UIApplication.shared.endBackgroundTask(background) }
             if let scribe, (try? await scribe.send(.string(Self.chunk("", commit: true)))) != nil {
                 await withCheckedContinuation { continuation in
+                    finishCommit()  // an earlier press still waiting asks now
                     committed = continuation
                     Task {
                         try? await Task.sleep(for: Self.commitWait)
@@ -71,8 +72,13 @@ final class Copilot: NSObject {
                     }
                 }
             }
-            do { _ = try await post(address, "now", [:]) } catch { fail(error) }
-            appEvent("copilot.press")
+            do {
+                _ = try await post(address, "now", [:])
+                appEvent("copilot.press")
+            } catch {
+                pressedAt = nil
+                _ = report(error)
+            }
         }
     }
 
@@ -85,11 +91,14 @@ final class Copilot: NSObject {
         }
         try await connect(address)
         while let next = try await RecentAudio.source(afterSeq: after, store: store, deviceID: device) {
+            // Switched off meanwhile: `stop()` cleared the cursor, keep it cleared.
+            guard settings.copilot != nil, let audio = next.audio else { break }
             after = next.seq
             seq = after
-            for span in next.audio.spans
-            where Date.now.timeIntervalSince(span.interval.upperBound.date) < Self.staleSeconds {
-                let samples = try await next.audio.samples(span.interval).samples
+            let recent = CaptureInstant(Date.now.addingTimeInterval(-Self.staleSeconds))
+            for span in audio.spans where recent < span.interval.upperBound {
+                let samples = try await audio.samples(max(recent, span.interval.lowerBound)..<span.interval.upperBound)
+                    .samples
                 for start in stride(from: 0, to: samples.count, by: Self.chunkSamples) {
                     let pcm = samples[start..<min(samples.count, start + Self.chunkSamples)]
                     try await scribe?.send(.string(Self.chunk(Self.base64(pcm), commit: false)))
@@ -136,7 +145,7 @@ final class Copilot: NSObject {
                         do {
                             _ = try await post(
                                 address, "caption", ["speaker": "Room", "text": line, "source": "pendant"])
-                        } catch { fail(error) }
+                        } catch { _ = report(error) }
                     }
                     finishCommit()
                 } else if event.message_type.contains("error") {
@@ -199,8 +208,9 @@ final class Copilot: NSObject {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
+    /// The feed failed: reported, and Scribe's session dropped so the next page opens a fresh one.
     private func fail(_ error: Error) {
-        appEvent("copilot.error", ["reason": (error as? CopilotError)?.errorDescription ?? "\(error)"])
+        _ = report(error)
         scribe?.cancel()
         scribe = nil
     }
@@ -250,6 +260,8 @@ final class Copilot: NSObject {
 
 extension Copilot: AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        Task { @MainActor in silence() }
+        let finished = ObjectIdentifier(player)
+        // Only the answer playing now: a newer one may have replaced it.
+        Task { @MainActor in if self.player.map(ObjectIdentifier.init) == finished { silence() } }
     }
 }

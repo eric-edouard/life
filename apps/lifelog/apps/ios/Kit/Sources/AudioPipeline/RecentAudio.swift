@@ -16,12 +16,13 @@ public enum RecentAudio {
     }
 
     /// The pages stored after `seq`, as capture audio, with the newest seq read; `nil` when none is new. The Copilot's
-    /// live feed.
+    /// live feed. `audio` is `nil` when no page read could be decoded, so the cursor still moves past them.
     public static func source(afterSeq seq: Int64, store: SourceStore, deviceID: String) async throws
-        -> (audio: SourceAudio, seq: Int64)?
+        -> (audio: SourceAudio?, seq: Int64)?
     {
         let scan = try await PageScan.scan(store, deviceID: deviceID, afterSeq: seq)
-        guard let last = scan.seq, let first = scan.pages.first else { return nil }
+        guard let last = scan.seq else { return nil }
+        guard let first = scan.pages.first else { return (nil, last) }
         let clock = try await ClockModel.load(store, deviceID: deviceID, from: first.index)
         return (SourceAudio(store: store, deviceID: deviceID, pages: scan.pages, clock: clock), last)
     }
