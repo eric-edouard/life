@@ -133,8 +133,10 @@ final class Copilot: NSObject {
                 if event.message_type == "committed_transcript" {
                     let line = event.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                     if !line.isEmpty {
-                        do { _ = try await post(address, "caption", ["speaker": "Room", "text": line, "source": "pendant"]) }
-                        catch { fail(error) }
+                        do {
+                            _ = try await post(
+                                address, "caption", ["speaker": "Room", "text": line, "source": "pendant"])
+                        } catch { fail(error) }
                     }
                     finishCommit()
                 } else if event.message_type.contains("error") {
