@@ -83,10 +83,36 @@ export function nearbyMatch(
     : null;
 }
 
+// Whether a voice is `dontKnowLead` more like the voices he answered "don't know" for than the
+// `score` of its match.
+const soundsUnknownTo = (dontKnow: Vector[], v: Vector, score: number) =>
+  dontKnow.length > 0 &&
+  likeness(v, dontKnow) > score + RECOGNITION.dontKnowLead;
+
+// Who a speaker's voice is: its nearest person, at `matchThreshold` and `margin` ahead of the
+// next, unless it sounds more like a voice he doesn't know (`soundsUnknown`).
+function nameOf(vector: Vector, { dontKnow, people }: Voices) {
+  const best = nearest(vector, people);
+  const matched =
+    best &&
+    best.score >= RECOGNITION.matchThreshold &&
+    best.margin >= RECOGNITION.margin
+      ? best
+      : null;
+  const soundsUnknown =
+    !!matched && soundsUnknownTo(dontKnow, vector, matched.score);
+  return {
+    best,
+    personId: matched && !soundsUnknown ? matched.personId : null,
+    soundsUnknown,
+  };
+}
+
 // One speaker of a transcript: who its voice is (null when below the threshold or not ahead
 // enough), and the turns that are someone else's: the owner's, or each one's among `candidates`.
 // `samples` are its clean turns of one embedding model, `vector` their voice (null with too little
-// speech; people.ts `speakerVoice`), `profiles` that model's.
+// speech; people.ts `speakerVoice`), `voices` that model's. Among his candidates, nothing is
+// refused for sounding unknown: he said who is there.
 export function decide(
   {
     samples,
@@ -99,29 +125,13 @@ export function decide(
     }[];
     vector: Vector | null;
   },
-  { dontKnow, people: profiles }: Voices,
+  voices: Voices,
   candidates?: Candidates | null
 ) {
+  const profiles = voices.people;
   const owner = profiles.find((p) => p.isOwner)?.personId;
-  const best = vector && !candidates ? nearest(vector, profiles) : null;
-  // Not among his candidates: he said who is there (and it was never measured).
-  const likeDontKnow = (v: Vector, score: number) =>
-    !candidates &&
-    dontKnow.length > 0 &&
-    likeness(v, dontKnow) > score + RECOGNITION.dontKnowLead;
-  const matched =
-    vector &&
-    best &&
-    best.score >= RECOGNITION.matchThreshold &&
-    best.margin >= RECOGNITION.margin
-      ? best
-      : null;
-  const soundsUnknown = !!(
-    vector &&
-    matched &&
-    likeDontKnow(vector, matched.score)
-  );
-  const personId = matched && !soundsUnknown ? matched.personId : null;
+  const named = vector && !candidates ? nameOf(vector, voices) : null;
+  const personId = named?.personId ?? null;
   // Among candidates: the nearest of them, `margin` ahead; a closed set (no "unknown too", each
   // with a profile) takes a weaker match. Else a turn nearest the owner's voice is his.
   const among = profiles.filter(
@@ -152,16 +162,19 @@ export function decide(
           const t = nearest(s.embedding, among);
           return t &&
             takes(t, s.durationSeconds) &&
-            !likeDontKnow(s.embedding, t.score)
+            !(
+              !candidates &&
+              soundsUnknownTo(voices.dontKnow, s.embedding, t.score)
+            )
             ? [{ personId: t.personId, score: t.score, turnIndex: s.turnIndex }]
             : [];
         })
       : [];
   return {
-    margin: best?.margin ?? null,
+    margin: named?.best?.margin ?? null,
     personId,
-    score: best?.score ?? null,
-    soundsUnknown,
+    score: named?.best?.score ?? null,
+    soundsUnknown: named?.soundsUnknown ?? false,
     turns,
     vector,
   };
